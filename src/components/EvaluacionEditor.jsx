@@ -1523,8 +1523,65 @@ export default function EvaluacionEditor({
                         </form>
                       )}
 
-                      {/* Agregar reactivo: prominente en sección activa, compacto en inactiva */}
-                      {isSeccion && isActiveSection && (
+                      {/* Formulario inline cuando se está agregando a ESTA sección */}
+                      {addingInThisGroup && (
+                        <form onSubmit={handleAddPregunta} className="border-2 rounded-card p-4 space-y-3 bg-surface" style={{ borderColor: '#d97706' }}>
+                          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#d97706' }}>Nuevo reactivo · {grupo.seccion.nombre}</p>
+                          <SelectorSeccion id={`preg-new-seccion-${grupo.seccion.id}`} secciones={seccionesCtl.secciones} valor={seccionDestino} onChange={setSeccionDestino} />
+                          <Select id={`preg-new-tipo-${grupo.seccion.id}`} label="Tipo de pregunta" value={preguntaForm.tipo} onChange={(v) => setPreguntaForm((f) => ({ ...f, tipo: v }))} options={TIPOS_PREGUNTA} />
+                          <div>
+                            <label htmlFor={`preg-new-enunciado-${grupo.seccion.id}`} className="block text-sm font-medium text-muted mb-1">Enunciado</label>
+                            <textarea id={`preg-new-enunciado-${grupo.seccion.id}`} value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
+                              rows={2} required autoFocus className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                          </div>
+                          {preguntaForm.tipo === 'opcion_multiple' && (
+                            <OpcionesEditor opciones={preguntaForm.opciones} respuestaCorrecta={preguntaForm.respuestaCorrecta}
+                              onChange={(next) => setPreguntaForm((f) => ({ ...f, opciones: next }))}
+                              onChangeCorrecta={(id) => setPreguntaForm((f) => ({ ...f, respuestaCorrecta: id }))} radioName={`rc-sec-${grupo.seccion.id}`} />
+                          )}
+                          {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>}
+                          {preguntaForm.tipo === 'verdadero_falso' && (
+                            <div className="flex gap-3">
+                              {[['v', 'Verdadero'], ['f', 'Falso']].map(([val, label]) => (
+                                <label key={val} className="flex items-center gap-2 text-sm">
+                                  <input type="radio" name={`vf-sec-${grupo.seccion.id}`} checked={preguntaForm.vfRespuesta === val}
+                                    onChange={() => setPreguntaForm((f) => ({ ...f, vfRespuesta: val }))} className="accent-[var(--accent)]" />
+                                  {label}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                          {(preguntaForm.tipo === 'respuesta_corta') && <p className="text-xs text-slate-400 italic">Respuesta libre — calificación manual.</p>}
+                          {(preguntaForm.tipo === 'subir_archivo') && <p className="text-xs text-slate-400 italic">El alumno sube un documento — calificación manual.</p>}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-sm font-medium text-muted">Ponderación</label>
+                              <span className={`text-xs font-medium ${ponderacionRestante <= 0 ? 'text-error' : 'text-slate-400'}`}>Disponible: {ponderacionRestante} / 10</span>
+                            </div>
+                            <input type="number" min="0.01" max={ponderacionRestante} step="0.01" value={preguntaForm.ponderacion}
+                              onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
+                              className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                          </div>
+                          <label className="flex items-center gap-2 text-sm text-muted">
+                            <input type="checkbox" checked={preguntaForm.guardarEnBanco} onChange={(e) => setPreguntaForm((f) => ({ ...f, guardarEnBanco: e.target.checked }))} className="accent-[var(--accent)]" />
+                            Guardar también en mi banco
+                          </label>
+                          {preguntaForm.guardarEnBanco && (
+                            <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
+                              required placeholder="Tema (obligatorio, ej. Fracciones)" className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                          )}
+                          <div className="flex gap-2 pt-1">
+                            <button type="button" onClick={() => { setShowPreguntaForm(false); setSeccionDestino(null); setPreguntaForm(emptyPregunta()) }}
+                              className="flex-1 py-2 text-sm text-muted">Cancelar</button>
+                            <button type="submit" disabled={savingPregunta}
+                              className="flex-1 py-2 text-sm font-medium text-white rounded disabled:opacity-60" style={{ background: '#d97706' }}>
+                              {savingPregunta ? 'Guardando…' : 'Guardar reactivo'}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                      {/* Botón agregar — solo cuando el form no está abierto en esta sección */}
+                      {isSeccion && isActiveSection && !addingInThisGroup && (
                         <button
                           type="button"
                           id={`agregar-seccion-${grupo.seccion.id}`}
@@ -1552,7 +1609,7 @@ export default function EvaluacionEditor({
                 })}
                 </div>
 
-                {showPreguntaForm ? (
+                {showPreguntaForm && !seccionDestino ? (
                   <form onSubmit={handleAddPregunta} className="border-2 border-accent rounded-card p-4 space-y-3"
                     style={{ background: 'var(--accent-light)' }}>
                     <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando · Pregunta {preguntas.length + 1}</p>
