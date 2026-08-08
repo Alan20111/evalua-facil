@@ -550,16 +550,15 @@ export default function EvaluacionEditor({
       setGlowId(nuevoId)
       await syncNumPreguntas(updated.length)
       if (preguntaForm.guardarEnBanco) {
-        // already imported at top
-        await addDoc(collection(db, 'bancoReactivos'), {
+        const bancoRef = await addDoc(collection(db, 'bancoReactivos'), {
           docenteId: auth.currentUser.uid, tipo: data.tipo, enunciado: data.enunciado,
           opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta,
           tema: preguntaForm.tema.trim() || null,
-          // Bank is organized by materia (auto, from the subject) + tema —
-          // NOT by parcial: a question is reusable across parciales/ciclos
           materia: subject?.nombre || null, asignaturaId: subjectId || null,
           createdAt: serverTimestamp(),
         })
+        await actualizarPregunta(currentActivityId, nuevoId, { origenBancoId: bancoRef.id })
+        setPreguntas((prev) => prev.map((q) => q.id === nuevoId ? { ...q, origenBancoId: bancoRef.id } : q))
       }
       const savedSection = seccionDestino
       setPreguntaForm(emptyPregunta()); setShowPreguntaForm(false); setSeccionDestino(null)
@@ -619,8 +618,9 @@ export default function EvaluacionEditor({
         data.origenBancoId = bancoRef.id
       }
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
+      const seccionDest = preguntaEditForm.seccionId || 'sueltas'
       setEditingPreguntaId(null); setGlowId(id); toast('Pregunta actualizada')
-      setTimeout(() => document.getElementById(`preg-item-${id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 80)
+      setTimeout(() => document.getElementById(`seccion-grupo-${seccionDest}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 120)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingPregunta(false) }
   }
@@ -776,7 +776,7 @@ export default function EvaluacionEditor({
 
   async function handleGuardarEnBanco(p) {
     try {
-      await addDoc(collection(db, 'bancoReactivos'), {
+      const bancoRef = await addDoc(collection(db, 'bancoReactivos'), {
         docenteId: auth.currentUser.uid,
         tipo: p.tipo,
         enunciado: p.enunciado,
@@ -787,6 +787,8 @@ export default function EvaluacionEditor({
         asignaturaId: subjectId || null,
         createdAt: serverTimestamp(),
       })
+      await actualizarPregunta(currentActivityId, p.id, { origenBancoId: bancoRef.id })
+      setPreguntas((prev) => prev.map((q) => q.id === p.id ? { ...q, origenBancoId: bancoRef.id } : q))
       toast('Pregunta guardada en tu banco')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -1276,6 +1278,7 @@ export default function EvaluacionEditor({
                   const pregEditando = editingInThisGroup ? preguntas.find((p) => p.id === editingPreguntaId) : null
                   return (
                     <div key={grupo.seccion?.id || 'sueltas'}
+                      id={`seccion-grupo-${grupo.seccion?.id || 'sueltas'}`}
                       className={isActiveSection ? 'rounded-card p-3 space-y-2' : isSeccion ? 'rounded-card p-2 space-y-1.5' : 'space-y-1.5'}
                       style={isActiveSection
                         ? { border: '2px solid #d97706', background: 'rgba(251,191,36,0.10)' }
@@ -1492,8 +1495,9 @@ export default function EvaluacionEditor({
                           <div className="flex gap-2 pt-1">
                             <button type="button" onClick={() => {
                               const pid = editingPreguntaId
+                              const seccionDest = preguntaEditForm?.seccionId || 'sueltas'
                               setEditingPreguntaId(null); setGlowId(pid)
-                              setTimeout(() => document.getElementById(`preg-item-${pid}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 80)
+                              setTimeout(() => document.getElementById(`seccion-grupo-${seccionDest}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 120)
                             }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
                             <button type="submit" disabled={savingPregunta || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current}
                               className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
