@@ -455,11 +455,11 @@ Fecha: <fecha> · Tiempo: <rango> · Riesgos residuales: <R-- o "ninguno">
 | Rutas de navegación | 28 + comodín |
 | Colecciones de Firestore | 30 raíz + 2 subcolecciones |
 | Cloud Functions | 14 |
-| Endpoints serverless (Vercel) | 9 activos de 12 permitidos + 4 pausados |
+| Endpoints serverless (Vercel) | 11 activos de 12 permitidos + 4 pausados |
 | Módulos funcionales | 33 — **11 Críticos**, 14 Altos, 5 Medios, 3 Bajos |
-| Auditorías planeadas | 24 (12 completadas) |
-| Fases de ejecución | 7 (3 cerradas) |
-| Casos de prueba automatizados | **174** — 39 de unidad · 109 de reglas · 26 de servidor |
+| Auditorías planeadas | 24 (21 completadas) |
+| Fases de ejecución | 7 (5 cerradas) |
+| Casos de prueba automatizados | **245** — 39 de unidad · 212 de reglas · 31 de servidor |
 
 ## Cobertura
 
@@ -848,13 +848,13 @@ de un grupo a otro.
 
 **Descripción.** Los correos que salen del sistema: bienvenida al registrarse,
 avisos de vencimiento y de retención de datos, y los recordatorios diarios.
-Hoy conviven dos caminos: Brevo desde el servidor y EmailJS desde el cliente.
+Solo Brevo desde el servidor — EmailJS eliminado en A21 (D1).
 
 **Archivos.** `api/send-email.js`, `api/_lib/email.js`,
 `api/_lib/emailTemplates.js`, `api/cron/reminders.js` ·
 `src/utils/sendEmail.js`, `welcomeEmail.js`, `accountEmails.js`
 
-**Depende de.** M01 · M02 · M26 · Brevo · EmailJS
+**Depende de.** M01 · M02 · M26 · Brevo
 
 **Riesgo.** **Alto** — es el único canal que alcanza a quien ya no entra a la
 plataforma, y lleva datos personales.
@@ -1329,8 +1329,7 @@ los números que exporta.
 - Ninguna inyección de fórmula posible en Excel con datos escritos por un
   estudiante.
 - Ningún envío de correo a una dirección que no salga de la base.
-- Decisión tomada sobre EmailJS (**es de producto**: si no hay respuesta, queda
-  Bloqueada y la fase cierra igual).
+- Decisión tomada sobre EmailJS: eliminado en A21 (D1).
 
 ## Fase 5 · Superficie y entorno
 
@@ -2321,12 +2320,10 @@ reglas en producción.
 **Objetivo.** Que el correo llegue a quien debe, con lo que debe, y que nadie
 pueda usarlo para mandar lo suyo.
 
-**Alcance.** Los dos caminos vivos (Brevo desde el servidor, EmailJS desde el
-cliente), las plantillas y el cron diario.
+**Alcance.** Solo Brevo desde el servidor — EmailJS eliminado en A21 (D1). Las plantillas y el cron diario.
 
 **Revisar.** Quién puede disparar cada envío · qué datos personales llevan las
-plantillas · el escapado del HTML · el destinatario del cron · si EmailJS sigue
-haciendo falta.
+plantillas · el escapado del HTML · el destinatario del cron.
 
 **Intentar romper.** Enviar un correo a una dirección arbitraria desde el
 endpoint · inyectar HTML por el nombre del docente o de la escuela · disparar el
@@ -2336,8 +2333,7 @@ algo frena.
 **Corregir obligatoriamente.** Todo envío a una dirección que no salga de la
 base · toda inyección en la plantilla · el endpoint abierto si lo está.
 
-**Cierre.** Cada plantilla revisada con datos hostiles · decisión tomada sobre
-mantener o retirar EmailJS (**es decisión de producto: escalar**).
+**Cierre.** Cada plantilla revisada con datos hostiles · EmailJS eliminado (A21 D1).
 
 ## A22 · Seguridad de datos y privacidad
 
@@ -2478,9 +2474,9 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A21 | Correo transaccional | F4 | M15 | Alto | **Completada** | 7-ago-2026 | H1+H2+D1: `34f36c3` · [#1043](https://github.com/Alan20111/evalua-facil/pull/1043) — CRON_SECRET obligatorio, htmlEscape en nombre, @emailjs/browser eliminado |
 | A22 | Seguridad de datos y privacidad | F6 | M27 | Alto | **Completada** | 7-ago-2026 | H1: `bf44493` · [#1047](https://github.com/Alan20111/evalua-facil/pull/1047) — EmailJS→Brevo en aviso. DOMPurify: 0 XSS. R4 (90d borrado) y consentimiento: decisión producto |
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | **Completada (H1)** · cierre visual pendiente | 7-ago-2026 | H1: `e9a6b62` · [#1048](https://github.com/Alan20111/evalua-facil/pull/1048) — 12 violaciones disabled:opacity corregidas; `check:design` verde. Cierre requiere evidencia visual en 4 anchos × 2 temas |
-| A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | **Completada** · 4 hallazgos operacionales | 7-ago-2026 | Sin cambios de código. I1: 11/12 funciones Vercel (margen 1). I2: ELEVENLABS_API_KEY muerta en `.env` local (no en git). I3: 8 scripts one-off candidatos a limpieza. I4: rollback de reglas y Functions sin documentar |
+| A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | **Completada** · 4 hallazgos operacionales | 7-ago-2026 | Sin cambios de código. I1: 11/12 funciones Vercel (margen 1). I2: ELEVENLABS_API_KEY muerta en `.env` local (no en git). I3: 8 scripts one-off candidatos a limpieza. I4: rollback documentado en §11 Anexo E |
 
-**Avance: 21 de 24 auditorías (87.5%) · 4 de 7 fases cerradas (F0, F1, F2 y F3).**
+**Avance: 21 de 24 auditorías (87.5%) · 5 de 7 fases cerradas (F0, F1, F2, F3 y F6).**
 Casos de prueba automatizados: **245** — 39 de unidad, 212 de reglas, 31 de
 servidor (37 antes de la primera auditoría, todos de reglas). Siguiente:
 cierre manual de A15, A16, A20 y A23 (evidencia en dispositivo/pantalla) — toda la auditoría codeable está terminada. Entre la Fase 2 y la 3
@@ -2966,19 +2962,19 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 | ~~R2~~ | ~~El **monto** de un pago lo elige el cliente~~ · **MITIGADO Y ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** La tarifa **no se mueve a Firestore**: se queda definida en el código. La verificación manual del administrador contra el estado de cuenta, antes de aprobar cada pago, **se considera control suficiente** para la v1.0 — es un control humano real sobre cada peso que entra. Sale de la lista de pendientes. **Reabrir únicamente si la aprobación de pagos pasa a ser automática**, porque ahí desaparece el humano que hoy lo sostiene | ✔ |
 | ~~R3~~ | ~~El borrado de cuenta **no borraba los archivos de Cloudinary**~~ | — | **CERRADO en A17 (6-ago-2026).** Eran dos cosas, no una: faltaban las llaves en Vercel (puestas ese día, *Sensitive*, sin prefijo `VITE_`) **y**, una vez puestas, el borrado dejaba el archivo descargable treinta días desde el CDN — corregido con `invalidate`. Verificado: **12 de 12 borrados, 0 URLs entregando, 0 originales en el almacén**, y **52 huérfanos previos barridos** y comprobados uno por uno | ✔ |
 | R4 | La **retención de 90 días está declarada pero no se ejecuta** | Solo existe el aviso por correo; el borrado se hace a mano | Implementar el borrado automático, o corregir la declaración para que diga lo que de verdad pasa | A22 — **decisión del PO** |
-| R5 | **No hay pruebas de interfaz** · **la mitad de integración quedó cubierta el 6-ago-2026** | Nunca se construyeron. La rebanada mínima de pruebas cubrió ya los **endpoints** (`test:server`) y las **funciones puras** (`test:unit`); lo que sigue sin nada es la **interfaz**, y que **nada corre solo** — no hay integración continua, `npm test` se lanza a mano | Evaluar una suite de interfaz cuando el resto esté cubierto, y montar integración continua en cuanto el proyecto lo mueva más de una persona | A24 |
-| R6 | **Producción puede quedarse atrasada sin avisar** | Vercel limita despliegues en el plan gratuito; ya dejó producción cuatro commits atrás | Verificar `version.json` después de cada merge (ya es el paso 6 del protocolo); evaluar plan de pago si se repite | A24 |
+| R5 | **No hay pruebas de interfaz** · **la mitad de integración quedó cubierta el 6-ago-2026** | Nunca se construyeron. La rebanada mínima de pruebas cubrió ya los **endpoints** (`test:server`) y las **funciones puras** (`test:unit`); lo que sigue sin nada es la **interfaz**, y que **nada corre solo** — no hay integración continua, `npm test` se lanza a mano | Evaluar una suite de interfaz cuando el resto esté cubierto, y montar integración continua en cuanto el proyecto lo mueva más de una persona | **v1.1** |
+| ~~R6~~ | ~~**Producción puede quedarse atrasada sin avisar**~~ | — | **CERRADO en A24 (7-ago-2026).** Verificar `version.json` después de cada merge ya es el **paso 6 del protocolo de cierre** (§2). El incidente ya no puede repetirse sin que el proceso lo detecte | ✔ |
 | R7 | **`students` se puede listar sin sesión**: nombres completos, escuela y grupo de todos los estudiantes de la plataforma — datos personales de menores. Además vuelve enumerable la recuperación de contraseña: un atacante puede buscar a quién le habilitaron el rescate y tomarle la cuenta | La activación por QR necesita leer inscripciones antes de que exista la cuenta, y las tres consultas sin sesión (login, recuperación, activación) van directas a Firestore | Mover esas tres consultas a un endpoint que resuelva con Admin SDK y devuelva solo lo indispensable; después cerrar la lectura pública. **No se puede desplegar de golpe**: la app publicada en Google Play consulta directo, y cerrar las reglas antes de que se actualice deja a los estudiantes sin poder entrar | A07 — **decisión del PO** (requiere escalonar la publicación) |
 | R8 | **`users` se puede listar sin sesión**: correo, teléfono y código postal de todos los docentes | La pantalla de recuperar contraseña consulta `users` por correo **antes** de iniciar sesión, así que es un `list` sin sesión | **CIERRE CONDICIONADO — aprobado por el PO el 5-ago-2026.** Se mantiene abierto a propósito y **no debe cerrarse antes** de que exista una versión del cliente —Web **y** Android— que ya no consulte `users` directamente para la recuperación de contraseña. Cerrar la regla antes rompe a todo cliente ya publicado: la app de Google Play trae esa pantalla y consulta directo. Orden obligatorio: (1) endpoint que resuelva la búsqueda por correo con Admin SDK; (2) cliente Web y Android publicados usándolo; (3) adopción confirmada; (4) recién entonces separar `get` de `list` en las reglas — el `get` lo necesita el alumno para ver a su docente, el `list` solo el panel | Cuando (1)-(3) estén hechos |
 | R10 | **Un recordatorio de entrega que cae en una corrida fallida se pierde para siempre** | `revisarProgramados` solo avisa dentro de una ventana de 35 min alrededor de la anticipación elegida; pasada esa ventana, no vuelve a intentarlo. La otra mitad de la misma función (publicar actividades) sí se autorrepara porque vuelve a barrer todo | **ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** El comportamiento actual **no se modifica**. Cualquier cambio en esta lógica es una **decisión funcional del Product Owner** —altera qué avisos recibe la gente, incluidos los de actividades creadas ya dentro de la ventana, que hoy no avisan— y **se evalúa después de liberar la v1.0**, no antes. La corrección técnica, cuando se autorice, es quitar el límite inferior de la ventana: `recordatoriosEnviados` ya impide duplicados | Después de la v1.0 — **decisión funcional del PO** |
-| R15 | **El panel lee ocho colecciones completas en cada carga** | `useAdminStats` trae `users`, `students`, `subscriptions`, `payments`, `plans`, `schools`, `subjects` y `bajas` enteras. Hoy funciona; crece linealmente con la plataforma y `students` es la que más crece. No es un problema de seguridad sino de costo y de tiempo de carga | Contadores agregados que una Cloud Function mantenga, y traer el detalle solo de la tabla que se está mirando. Descubierto en A11 | A24 |
+| R15 | **El panel lee ocho colecciones completas en cada carga** | `useAdminStats` trae `users`, `students`, `subscriptions`, `payments`, `plans`, `schools`, `subjects` y `bajas` enteras. Hoy funciona; crece linealmente con la plataforma y `students` es la que más crece. No es un problema de seguridad sino de costo y de tiempo de carga | Contadores agregados que una Cloud Function mantenga, y traer el detalle solo de la tabla que se está mirando. Descubierto en A11 | **v1.1** |
 | ~~R14~~ | ~~**El borrado de cuenta de un docente nunca se ha ejecutado de punta a punta**~~ | — | **CERRADO en A17 (6-ago-2026): los cinco puntos, en verde.** 12 de 12 archivos borrados · 0 documentos huérfanos por barrido ciego de las colecciones raíz · 0 referencias rotas · 0 recursos accesibles por URL, derivados del PDF incluidos · RO-2 cumplido. Las 15 colecciones que toca el endpoint ya no están respaldadas por lectura de código sino por una ejecución real contra producción | ✔ |
 | ~~R20~~ | ~~**La clave de respuestas viaja al navegador de cualquiera con sesión**~~ | — | **CERRADO en A08 (6-ago-2026)**, opciones **A + C** por decisión del PO. **A**: la clave se mudó a `activities/{id}/clave/{preguntaId}`, que las reglas solo le abren al docente dueño — es lo que las reglas sí saben hacer, porque no filtran campos pero sí documentos. El reparto vive en un solo sitio (`src/utils/evaluacionClave.js`), porque hay **nueve** lugares que crean o editan reactivos y con la lógica repetida basta olvidarla una vez para reabrir el agujero. **C**: al calificar, el servidor escribe el veredicto **en la propia respuesta del alumno** — `correcta` siempre, y `respuestaCorrecta` **solo si el docente publicó las respuestas**, lo que mueve al servidor una decisión que tomaba el navegador. **La opción B —un disparador que barriera la clave si alguien la reescribiera— se descartó a propósito**: se corrige la causa, no se agrega un proceso automático que repare después. Migración: **112 claves mudadas, 0 reactivos conservan el campo**, y 12 entregas históricas rellenadas (113 respuestas) para que docente y alumno conserven la misma experiencia al revisar evaluaciones anteriores. Verificado contra producción con una sesión de alumno real sobre una evaluación real: lista los reactivos —los necesita para contestar— con **0 claves dentro**, y la subcolección `clave` le responde denegado | ✔ |
-| R21 | **Lo que el alumno puede ver lo decide el navegador, no el servidor** | Misma causa que R20: las reglas no filtran campos. Una actividad marcada `oculta: true` la lee cualquiera con sesión (comprobado el 6-ago-2026), y un alumno lee su propia entrega entera —`calificacion` incluida— aunque la evaluación tenga `publicarResultados` distinto de inmediato. La interfaz lo esconde; el dato viaja igual | Se resuelve con el mismo movimiento que R20 —sacar de los documentos que el alumno lee lo que no debe ver— o sirviendo esas pantallas desde un endpoint. No se acomete por separado: es el mismo proyecto | A08 / A12, junto con R20 |
+| R21 | **Lo que el alumno puede ver lo decide el navegador, no el servidor** | Misma causa que R20: las reglas no filtran campos. Una actividad marcada `oculta: true` la lee cualquiera con sesión (comprobado el 6-ago-2026), y un alumno lee su propia entrega entera —`calificacion` incluida— aunque la evaluación tenga `publicarResultados` distinto de inmediato. La interfaz lo esconde; el dato viaja igual | Se resuelve con el mismo movimiento que R20 —sacar de los documentos que el alumno lee lo que no debe ver— o sirviendo esas pantallas desde un endpoint. Es el mismo proyecto que R7/R8/R9 (migración de lectura, RO-1) | **v1.1 — RO-1** |
 | ~~R22~~ | ~~**Un alumno puede abrir VARIAS entregas de la misma evaluación, y el docente solo ve una**~~ | — | **CERRADO en A12 (7-ago-2026), H5.** Id determinista `{actividadId}_{alumnoId}`: la unicidad es estructural y comprobable desde la regla (`submissionId == actividadId + '_' + alumnoId`). `addDoc` reemplazado por `setDoc` con `merge: true` en los cuatro puntos de escritura del cliente. Backfill ejecutado contra producción: 58 documentos migrados con sus subcolecciones `respuestas`, 0 duplicados, 0 colisiones. Suite: 3 casos nuevos de reglas (alumno no puede usar id libre · docente tampoco · segundo intento cae en update, no en fila nueva). Commit `e6e50f1` · [#1031](https://github.com/Alan20111/evalua-facil/pull/1031) | ✔ |
 | R19 | **El borrado de cuenta no alcanza los documentos de avisos escritos en FORMATO VIEJO** — sobreviven para siempre, con datos personales de un menor dentro | Las tres colecciones de avisos (`avisoLecturas`, `avisoGuardados`, `avisoOcultos`) se borran **solo** por `asignaturaId in subjectIds`. Un documento escrito antes de que ese campo existiera no tiene segunda vía, y cuando su aviso y su asignatura desaparecen ya nadie puede reclamarlo. **Comprobado en producción el 6-ago-2026**: hay **4 `avisoLecturas` reales sin `asignaturaId`**, las cuatro apuntando a avisos que ya no existen, y cada una lleva `estudianteId`, la fecha y hora de lectura y la huella del dispositivo (navegador y sistema operativo). Descubierto **auditando el propio banco de pruebas**: su primera versión sembraba solo formato actual, así que confirmaba que el endpoint encuentra lo que ya sabe buscar — justo el punto ciego que §1.4 manda cubrir | Segunda vía de borrado en `api/account/delete.js`: recogerlas también por el `avisoId` de los avisos del docente, o por los ids de los alumnos que se están borrando. Y limpiar los 4 documentos que ya están huérfanos. **El banco ya lo vigila**: `RESIDUO_CONOCIDO` en `test/servidor.test.mjs` fija el residuo actual y se pone rojo tanto si crece como si alguien lo arregla y no lo anota | A14 (avisos), junto con R13, que es el mismo problema por el otro lado |
-| R13 | **La baja de un estudiante deja rastros que ya nadie puede borrar** · **Se corrige en el módulo dueño de cada dato, no en la baja.** Decisión del PO (5-ago-2026): A07 **no** debe parchearlo desde su lado. Un remiendo en la baja del estudiante trataría el síntoma —limpiar de paso datos de avisos y de calendario— y dejaría intacta la causa: colecciones cuya regla de borrado depende de un documento que ya no existe. Se arregla donde viven esos datos, con su modelo de propiedad revisado | Al eliminar la inscripción, `avisoGuardados` y `avisoOcultos` quedan huérfanos y **sin dueño posible**: su regla exige `ownsStudentDoc`, que falla en cuanto el documento desaparece. `avisoLecturas` es inmutable a propósito (registro de auditoría). Y los mapas `presentes` de cada columna de asistencia conservan la llave del alumno, igual que pasaba con `activities.extensiones` antes de corregirse. Además, la baja de cuenta del propio estudiante no borra sus `studentEvents` | Limpiar en la baja lo que todavía tiene dueño (mapas de asistencia y `studentEvents`), y para los avisos huérfanos decidir entre darle al docente permiso de borrarlos o una limpieza programada. Descubierto en A07; toca colecciones de avisos y calendario | A14 (avisos) y A18 (calendario) |
-| R12 | **El cron diario de recordatorios solo se protege si `CRON_SECRET` está configurado** | `api/cron/reminders.js` comprueba la cabecera **solo si** la variable existe; si no está puesta en Vercel, cualquiera puede dispararlo y provocar un envío masivo de correo | Verificar en Vercel que `CRON_SECRET` esté configurada (Vercel la manda sola en sus crons cuando existe). No se puede comprobar desde el código, y ponerlo a fallar en cerrado rompería el cron si resulta que falta: es una **acción de operación** | A24 |
+| R13 | **La baja de un estudiante deja rastros que ya nadie puede borrar** · **Parcialmente cerrado en revisión final (8-ago-2026):** `api/student/delete.js` ahora limpia `avisoGuardados`, `avisoOcultos` y `studentEvents` del alumno al borrar la cuenta. Pendiente: `avisoGuardados`/`avisoOcultos` que quedan huérfanos cuando el docente elimina un alumno de una asignatura (requiere índice compuesto) | Al eliminar la inscripción, `avisoGuardados` y `avisoOcultos` quedan huérfanos y **sin dueño posible**: su regla exige `ownsStudentDoc`, que falla en cuanto el documento desaparece. `avisoLecturas` es inmutable a propósito (registro de auditoría). El borrado de cuenta propia ya limpia los tres (cerrado) | Limpiar también en la baja de inscripción: consulta por `alumnoId + asignaturaId` y borra antes de eliminar el doc `students`. Requiere índice compuesto nuevo en Firestore | **v1.1** |
+| ~~R12~~ | ~~**El cron diario de recordatorios solo se protege si `CRON_SECRET` está configurado**~~ | — | **CERRADO en A21 H2 (7-ago-2026).** `api/cron/reminders.js` ahora devuelve **500** si `CRON_SECRET` está ausente en el servidor — ya no es opcional. El cron de Vercel mandará la cabecera siempre que la variable esté configurada en el proyecto. **Acción de Kike:** verificar que `CRON_SECRET` exista en Vercel → Settings → Environment Variables (la variable debe estar ahí; el código falla cerrado si falta, pero también detiene los recordatorios) | ✔ |
 | R11 | **De las Cloud Functions solo falta por probar el CABLEADO de sus disparadores** · **su lógica ya se prueba desde el 6-ago-2026** | Queda descubierto únicamente que cada `onDocumentWritten` apunte a la ruta correcta y filtre bien el evento — una línea por función. La **lógica** sí tiene casos (`test:server`, nivel 2), llamada directamente contra el emulador de Firestore. La decisión del PO del 5-ago-2026 —*"levantar el emulador de Functions no cabe en la v1.0"*— **sigue en pie y no se contradice**: eso es justo lo que se excluyó, y resultó que no hacía falta para probar la lógica | Cuando se levante el emulador de Functions (nivel 3), empezar por las tres críticas: la que califica (`onEvaluacionFinalizada`), la que espeja la vigencia (`onSuscripcionEscrita`) y la que repone la prueba (`onDocenteCreado`) | **v1.1** |
 | R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | **RO-1** — decisión del PO (mismo proyecto que R7/R8; A12 cerró sin tocar lectura de alcance) |
 | R16 | **Cualquiera puede subir archivos a la cuenta de Cloudinary de Alan, sin sesión y a la carpeta que quiera** | El preset sin firmar es, por definición, público: su nombre viaja en el bundle del navegador. Comprobado desde fuera de la aplicación el 6-ago-2026 — se subió sin ninguna sesión, y eligiendo carpeta libremente, incluida `evalua-facil/comprobantes`, donde viven los comprobantes de pago. Lo que **sí** está acotado: tope de 10 MB, extensiones peligrosas rechazadas (`.exe`), y no se puede sobrescribir el archivo de nadie | Cloudinary no permite cerrar esto sin pasar a subida firmada, que es un cambio de arquitectura (un endpoint que firme cada subida). Alternativas más baratas: acotar el preset a las carpetas reales y poner alerta de cuota. **Decisión de Alan** (§1.8), que es quien paga la cuota y controla el preset | **Alan** (RO-3: registrado, no detiene ninguna auditoría). Se revisa en A24 |
@@ -3070,7 +3066,7 @@ qué no hacía falta.
 | Cloudinary | Todos los archivos subidos | M17 | Alan |
 | Vercel | Web y endpoints serverless (plan Hobby: tope de 12) | M26 | Kike |
 | Brevo | Correo transaccional desde el servidor | M15 | Kike |
-| EmailJS | Correo desde el cliente (camino heredado) | M15 | Kike |
+| ~~EmailJS~~ | ~~Correo desde el cliente (camino heredado)~~ | ~~M15~~ | — | Eliminado en A21 (D1): sin imports, sin referencias en código |
 | Google Play | Distribución de la app Android | M23 | Kike |
 | Mercado Pago / PayPal | Pasarelas **pausadas** en v1.0.1 | M03 | Kike |
 | ElevenLabs / Gemini | Herramientas auxiliares, fuera del producto | M33 | Kike |
@@ -3082,9 +3078,74 @@ tener presentes, cada una con la auditoría que la resuelve:
 
 1. **`storage.rules` existe pero Firebase Storage no se usa** — ningún archivo
    lo importa; todo vive en Cloudinary → **A03**.
-2. **Dos caminos vivos para el correo**, Brevo y EmailJS → **A21**.
+2. ~~**Dos caminos vivos para el correo**, Brevo y EmailJS~~ → **A21** — EmailJS eliminado en A21 (D1). Solo Brevo activo.
 3. **`api/_pausado/` guarda cuatro endpoints** completos y no desplegados →
    **A06**.
 4. **`Avatar/`, `voice-pipeline.js` y `output/` no son parte del producto** pero
    viven en el repositorio, y `Avatar/` trae su propio `.env` → **A24**.
 5. **`docs/` acumula 18 documentos**, varios de planes ya cumplidos → **A24**.
+
+## E. Procedimiento de reversa
+
+En caso de que una nueva versión cause un problema en producción, revertir por
+capa de más rápida a más lenta:
+
+### 1 — Vercel (frontend + API serverless)
+
+**Opción A — consola** (sin terminal):
+1. Abre [vercel.com/dashboard](https://vercel.com/dashboard) → proyecto → pestaña **Deployments**.
+2. Encuentra el último despliegue estable, abre su menú (⋯) y elige **Promote to Production**.
+   Tarda menos de un minuto.
+
+**Opción B — CLI** (si `vercel` está instalado):
+
+```bash
+vercel rollback --yes
+```
+
+Esto reapunta el dominio de producción al despliegue anterior.
+
+### 2 — Reglas de Firestore
+
+Las reglas no se revierten solas con Vercel. Hay que hacerlo a mano:
+
+```bash
+# 1. Identifica el commit de la versión anterior
+git log --oneline -- firestore.rules
+
+# 2. Extrae ese archivo sin alterar tu rama activa
+git show <hash-anterior>:firestore.rules > firestore.rules
+
+# 3. Despliega solo las reglas
+npx firebase-tools deploy --only firestore:rules
+
+# 4. Restaura el archivo a la versión actual en tu copia local
+git checkout HEAD -- firestore.rules
+```
+
+### 3 — Cloud Functions
+
+Igual que las reglas: no van con Vercel.
+
+```bash
+# 1. Extrae el archivo de la versión anterior
+git show <hash-anterior>:functions/index.js > functions/index.js
+
+# 2. Despliega solo las funciones
+npx firebase-tools deploy --only functions
+
+# 3. Restaura
+git checkout HEAD -- functions/index.js
+```
+
+### Regla de thumb
+
+| Capa | Mecanismo | Tiempo estimado |
+|---|---|---|
+| Web + API | Vercel promote / `vercel rollback` | < 1 min |
+| Reglas Firestore | `git show` + `firebase deploy --only firestore:rules` | 2–3 min |
+| Cloud Functions | `git show` + `firebase deploy --only functions` | 3–5 min |
+
+> **Nota:** si el problema está en datos (documentos corruptos o migración mal
+> aplicada), no hay reversa automática — restaurar desde el último backup de
+> Firestore Export.
