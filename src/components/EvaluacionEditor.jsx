@@ -1703,9 +1703,9 @@ export default function EvaluacionEditor({
                   </form>
                 ) : (
                   <div className="pt-2 mt-2 border-t border-outline-variant space-y-2">
-                    {seccionesCtl.editando ? (
+                    {seccionesCtl.editando === 'nueva' ? (
                       <SeccionForm
-                        inicial={seccionesCtl.editando === 'nueva' ? null : seccionesCtl.editando}
+                        inicial={null}
                         guardando={seccionesCtl.guardando}
                         onGuardar={seccionesCtl.guardar}
                         onCancelar={() => seccionesCtl.setEditando(null)}
