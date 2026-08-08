@@ -1288,7 +1288,7 @@ export default function EvaluacionEditor({
                       style={isActiveSection
                         ? { border: '2px solid #d97706', background: 'rgba(251,191,36,0.10)' }
                         : isSeccion
-                          ? { border: '1px solid var(--outline-variant)' }
+                          ? { border: '1.5px solid var(--accent)' }
                           : {}}>
 
                       {/* Sección activa: SeccionHeader completo o SeccionForm */}
@@ -1314,7 +1314,7 @@ export default function EvaluacionEditor({
                       )}
                       {/* Sección inactiva: encabezado compacto, solo nombre + acciones */}
                       {isSeccion && !isActiveSection && (
-                        <div className="flex items-center gap-1 px-0.5">
+                        <div className="flex items-center gap-1 px-2 py-1.5 rounded" style={{ background: 'var(--accent-light)' }}>
                           <FolderOpen size={13} className="text-accent flex-shrink-0" />
                           <span className="text-xs font-semibold text-on-surface flex-1 min-w-0 truncate">{grupo.seccion.nombre}</span>
                           <span className="text-xs text-muted flex-shrink-0 mr-1">({grupo.preguntas.length})</span>
