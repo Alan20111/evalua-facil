@@ -4,10 +4,9 @@
 No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
-- **Última actualización:** 9 de agosto de 2026 — **Fase 2 aprobada y
-  cerrada** (Q1–Q2 confirmadas). Registradas la herramienta interna de costos
-  (simulador en Google Sheets) y la separación de responsabilidades. Fase 3
-  en espera de autorización de Kike.
+- **Última actualización:** 9 de agosto de 2026 — Fase 3 en curso: inventario
+  de operaciones de IA entregado para revisión de Kike (decisiones O1–O4
+  pendientes).
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -39,7 +38,7 @@ cognitiva para el docente. No se agrega por agregar.
 |------|--------|--------|
 | 1 | Auditoría y contexto | **Aprobada** (dudas D1–D4 resueltas el 9-ago-2026) |
 | 2 | Planeación didáctica | **Aprobada y cerrada** (9-ago-2026) — diseño conceptual en §2.11; Q1–Q2 confirmadas |
-| 3 | Operaciones de IA | No iniciada — **en espera de autorización de Kike** |
+| 3 | Operaciones de IA | **En curso** — inventario entregado (ver Fase 3), **en revisión de Kike**; decisiones O1–O4 pendientes |
 | 4 | Prompts y modelos | No iniciada |
 | 5 | Créditos IA | No iniciada |
 | 6 | Rentabilidad | No iniciada |
@@ -671,6 +670,188 @@ plantilla (SEMS/DGETI) y no se construye ninguna otra.
 
 ---
 
+# FASE 3 — OPERACIONES DE IA · INVENTARIO (entregado para revisión)
+
+Inventario elaborado el 9-ago-2026 a partir de: (1) la lista mínima definida
+por Kike (13 operaciones), (2) el inventario real de datos y funciones de la
+Fase 1, y (3) el diseño de la Planeación Viva de la Fase 2. Cada operación
+está anclada a un módulo que ya existe en el producto.
+
+**Qué NO incluye esta fase** (por instrucción de Kike): prompts definitivos,
+elección de modelos, costos y créditos — eso pertenece a las fases 4, 5 y 6.
+
+**Reglas transversales de todas las operaciones:**
+- La IA **propone**; el docente siempre revisa y decide. Nada se publica, se
+  envía a alumnos ni se califica sin acción explícita del docente.
+- Toda operación usa el contexto en capas de §2.11.6 (perfil IA → asignatura
+  con su Planeación Viva → parcial → petición) y **jamás pregunta lo que
+  Evalúa Fácil ya sabe**.
+- La casa principal es la **pestaña IA de la asignatura** (Q1). Algunas
+  operaciones tienen su punto natural de uso en otra pantalla — ver decisión
+  O4.
+- En trial, las operaciones están disponibles según los créditos del docente
+  (decisión ya registrada).
+
+## 3.1 Las tres familias (naturaleza y frecuencia, no costos)
+
+| Familia | Naturaleza | Frecuencia esperada |
+|---------|-----------|---------------------|
+| **A — Generaciones mayores** | Resultado extenso y fundacional | Pocas veces por semestre |
+| **B — Creaciones puntuales** | Un instrumento o pieza completa | Varias veces por parcial |
+| **C — Asistencia continua** | Ajustes y redacciones pequeñas | El día a día |
+| **Transversal** | Convierte documentos en contexto | Cuando el docente aporta material |
+
+La familia describe la naturaleza de cada operación para las fases
+siguientes; **no asigna costos ni créditos** (fases 5–6).
+
+## 3.2 Tabla maestra
+
+| Id | Operación | Familia | Ancla real en el producto |
+|----|-----------|---------|---------------------------|
+| OP-01 | Analizar documentos | Transversal | Subida de archivos (Cloudinary), recursos y materiales |
+| OP-02 | Generar Planeación Didáctica 1.0 | A | Pestaña IA · diseño §2.11 |
+| OP-03 | Crear examen completo | A | `EvaluacionEditor` + subcolecciones `preguntas`/`clave` |
+| OP-04 | Crear cuestionario completo | A | Ídem, con configuración de cuestionario |
+| OP-05 | Crear actividad | B | Creación de actividad en la asignatura |
+| OP-06 | Crear rúbrica | B | Editor de rúbricas + `bancoRubricas` |
+| OP-07 | Crear lista de cotejo | B | Ídem (rúbrica de un nivel) |
+| OP-08 | Crear guía de observación | B | **No existe como instrumento** — decisión O1 |
+| OP-09 | Generar reactivos | B | `bancoReactivos` + `EvaluacionEditor` |
+| OP-10 | Generar instrucciones | B | Editor de instrucciones de la actividad |
+| OP-11 | Modificar Planeación | C | Pestaña IA · §2.11.5 |
+| OP-12 | Retroalimentación personalizada | C | Flujo de calificación (comentarios por entrega y por pregunta) |
+| OP-13 | Generar planeaciones sencillas | C | Alcance por precisar — decisión O2 |
+
+## 3.3 Fichas del inventario
+
+### Transversal
+
+**OP-01 · Analizar documentos.** El docente aporta un documento (programa de
+estudios oficial, temario, material propio) y la IA extrae y entiende su
+contenido para usarlo como contexto de otras operaciones: la Planeación 1.0
+(OP-02), reactivos desde material (OP-09), actividades alineadas al programa
+(OP-05). Aprovecha la subida de archivos que ya existe. Resultado: el
+documento queda entendido y disponible como contexto de la asignatura.
+*Nota:* analizar entregas de alumnos NO es esta operación — es la candidata
+C-02.
+
+### Familia A — Generaciones mayores
+
+**OP-02 · Generar Planeación Didáctica 1.0.** La operación fundacional:
+genera la Planeación Viva completa (tronco de asignatura + bloques por
+parcial) conforme al diseño aprobado en §2.11, con el flujo de 4 pasos de
+§2.11.4. Aprovecha todo el contexto disponible y, si existe, el programa de
+estudios analizado (OP-01). Decisión ya tomada: Claude se evalúa para esta
+generación (Fase 4 la analiza especialmente).
+
+**OP-03 · Crear examen completo.** Genera una evaluación tipo examen lista
+para revisar: reactivos (los 4 tipos que el producto modela), opciones,
+clave de respuestas, retroalimentación por pregunta, secciones si aplica,
+ponderación de reactivos (suma 10) y configuración sugerida (tiempo límite,
+intentos). Aprovecha: contenidos y aprendizaje esperado del parcial (de la
+Planeación Viva), el banco de reactivos del docente (para reutilizar y no
+repetir), y las evaluaciones previas de la asignatura.
+
+**OP-04 · Crear cuestionario completo.** Igual que OP-03 pero con la
+naturaleza de cuestionario de práctica que el producto ya distingue
+(navegación libre, varios intentos, retroalimentación inmediata).
+
+### Familia B — Creaciones puntuales
+
+**OP-05 · Crear actividad.** Propone una actividad alineada al parcial:
+nombre, instrucciones en HTML, producto esperado, tipos de archivo
+sugeridos y peso sugerido dentro de la ponderación del parcial (respetando
+que los pesos suman 10). Aprovecha: la Planeación Viva del parcial, las
+actividades ya existentes (para no duplicar) y el calendario real.
+
+**OP-06 · Crear rúbrica.** Genera una rúbrica con el modelo exacto del
+producto (niveles 3–5 con el primero al 100%, criterios 2–6 con pesos que
+suman 10, descriptores por celda) a partir de las instrucciones de una
+actividad o de una descripción breve. Se guarda en el banco de rúbricas y/o
+como snapshot en la actividad, igual que hoy.
+
+**OP-07 · Crear lista de cotejo.** Variante de un nivel del mismo modelo
+(como ya lo modela el producto), con pesos que suman exactamente 10.
+
+**OP-08 · Crear guía de observación.** Está en la lista mínima de Kike, pero
+la guía de observación **no existe hoy como instrumento en el producto**
+(solo existe la categoría de actividad "observación", calificable con
+rúbrica o lista de cotejo). Su inventario queda registrado y su forma exacta
+depende de la decisión **O1**.
+
+**OP-09 · Generar reactivos.** Reactivos sueltos (opción múltiple,
+verdadero/falso, respuesta corta, subir archivo) con su clave y
+retroalimentación, hacia el banco de reactivos o hacia una evaluación
+existente. Puede partir de un tema, de los contenidos del parcial o de un
+documento analizado (OP-01). Aprovecha la clasificación por materia y tema
+del banco.
+
+**OP-10 · Generar instrucciones.** Redacta o mejora las instrucciones de una
+actividad: claridad, pasos, criterios de entrega, tono apropiado para el
+grupo. Opera sobre el editor enriquecido que ya existe.
+
+### Familia C — Asistencia continua
+
+**OP-11 · Modificar Planeación.** Ajustes pequeños y frecuentes sobre la
+Planeación Viva: "pon al día las narrativas del parcial 2 con mis
+actividades reales", "cambia el producto esperado", "ajusta los contenidos".
+Es la operación de mantenimiento definida en §2.11.5 — pensada como pequeña
+para que mantener la planeación viva no cueste caro.
+
+**OP-12 · Retroalimentación personalizada.** Redacta la retroalimentación
+para un alumno concreto a partir de lo que la plataforma ya sabe de él: su
+entrega, la rúbrica evaluada, sus respuestas por reactivo, su historial de
+entregas y su asistencia. El resultado llega como borrador al comentario de
+calificación (por entrega o por pregunta); el docente edita y decide.
+
+**OP-13 · Generar planeaciones sencillas.** Está en la lista mínima de Kike;
+su alcance exacto necesita precisión (decisión **O2**). La lectura más
+natural con los datos del producto sería un plan de clase/sesión ligero
+apoyado en el horario real de bloques — pero no se asume: se define con
+Kike.
+
+## 3.4 Candidatas surgidas del análisis real del producto
+
+Estas NO están en la lista mínima; surgen de módulos y datos que ya existen.
+**Entran al alcance solo si Kike las aprueba (decisión O3):**
+
+**C-01 · Analizar resultados de una evaluación.** El producto ya calcula
+estadísticas por reactivo, gráficas de pastel y panel de resumen; la IA las
+interpreta para el docente: qué temas fallaron, qué reactivos parecen mal
+planteados, qué conviene repasar. Explotaría también lo "preparado, no
+construido": las estadísticas por sección.
+
+**C-02 · Sugerir calificación de respuestas abiertas.** Para las respuestas
+cortas y entregas de archivo pendientes de revisión manual: la IA sugiere
+puntos y comentario contra la clave y los criterios; el docente confirma o
+corrige. Se ancla al flujo `pendienteRevision` que ya existe.
+
+**C-03 · Redactar avisos.** Redacta el mensaje de un aviso según su tipo (los
+12 que ya existen) y el contexto del grupo; se integra con las plantillas
+personales de avisos.
+
+**C-04 · Resumen de desempeño (alumno o grupo).** Texto breve de cómo va un
+alumno o el grupo en el parcial (calificaciones + asistencia + entregas ya
+calculadas), útil para juntas, tutores o como base de la retroalimentación.
+
+## 3.5 Decisiones pendientes de Kike (O1–O4)
+
+- **O1 — Guía de observación:** ¿se crea como instrumento nuevo del producto
+  (junto a rúbrica y lista de cotejo, con su editor y banco) o la IA la
+  genera como contenido dentro de la actividad de observación, sin
+  instrumento nuevo? La primera opción es más profunda; la segunda no toca
+  la estructura actual de instrumentos.
+- **O2 — "Planeaciones sencillas":** precisar el alcance de esta operación
+  (¿plan de clase/sesión ligero? ¿otra cosa que tienes en mente?).
+- **O3 — Candidatas C-01 a C-04:** ¿cuáles entran al alcance del proyecto?
+- **O4 — Invocación en el punto de uso:** las operaciones de asistencia
+  tienen su momento natural en otra pantalla (OP-12 al calificar, OP-10 al
+  editar una actividad, C-03 al escribir un aviso). ¿Se pueden invocar desde
+  ahí además de la pestaña IA, o todo se concentra únicamente en la pestaña
+  IA de la asignatura?
+
+---
+
 # DECISIONES YA TOMADAS (registro fiel — no se modifican)
 
 Definidas por Kike el 9-ago-2026 al arrancar este proyecto. Son el marco fijo
@@ -951,6 +1132,12 @@ actividad "observación"). La retroalimentación personalizada puede apoyarse
 en datos que ya existen por alumno (respuestas por reactivo, historial de
 entregas, asistencia).
 
+**Avance:** inventario completo entregado el 9-ago-2026 en la sección
+"FASE 3 — OPERACIONES DE IA · INVENTARIO": las 13 operaciones de la lista
+mínima (OP-01 a OP-13) ancladas a módulos reales del producto, más 4
+candidatas surgidas del análisis (C-01 a C-04). En revisión de Kike;
+decisiones O1–O4 pendientes.
+
 ## Fase 4 — Prompts y modelos
 Para cada operación: contexto que recibirá, información específica que
 necesita, resultado esperado, prompt y modelo recomendado. La Planeación
@@ -1019,3 +1206,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | Kike entrega los tres PDF oficiales (portal SEMS, uno por parcial). Se analizan a fondo y se documenta el inventario completo de campos en la sección Fase 2 (§2.1–§2.9). Quedan abiertas las decisiones P1–P5 (§2.10). El diseño de la solución NO inicia hasta resolverlas. |
 | 9-ago-2026 | Kike resuelve P1–P5 y define la ubicación de la IA en la interfaz (perfil IA global en el Perfil del docente; pestaña IA por asignatura; contexto en capas sin re-preguntar). Se entrega el diseño conceptual de la Planeación Didáctica (§2.11) con puntos abiertos Q1–Q2. En revisión de Kike. |
 | 9-ago-2026 | **Kike aprueba la Fase 2** y confirma Q1–Q2 (Planeación Viva en la pestaña IA de cada asignatura, sin pestaña independiente; los campos del Perfil IA se definen en fases 3–4). Se registran la herramienta interna de costos (`Simulador_Costos_IA_Evalua_Facil.xlsx` en Google Sheets) y la separación de responsabilidades Claude Code / Google Sheets / Evalúa Fácil. **Fase 2 CERRADA.** Fase 3 en espera de autorización. |
+| 9-ago-2026 | Kike autoriza la Fase 3. Se entrega el inventario de operaciones de IA: OP-01 a OP-13 (lista mínima anclada al producto real, en tres familias + una transversal) y candidatas C-01 a C-04. Sin prompts, sin modelos, sin costos ni créditos. Decisiones O1–O4 abiertas. En revisión de Kike. |
