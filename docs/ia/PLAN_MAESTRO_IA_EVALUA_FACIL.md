@@ -4,9 +4,9 @@
 No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
-- **Última actualización:** 9 de agosto de 2026 — Dudas D1–D4 resueltas por
-  Kike. Fase 1 aprobada. Fase 2 autorizada, en espera de los tres PDF
-  oficiales de Planeación Didáctica.
+- **Última actualización:** 9 de agosto de 2026 — Formatos oficiales
+  recibidos y analizados. Fase 2 en curso: análisis entregado para revisión;
+  decisiones P1–P5 pendientes de Kike.
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -37,7 +37,7 @@ cognitiva para el docente. No se agrega por agregar.
 | Fase | Nombre | Estado |
 |------|--------|--------|
 | 1 | Auditoría y contexto | **Aprobada** (dudas D1–D4 resueltas el 9-ago-2026) |
-| 2 | Planeación didáctica | **Autorizada — bloqueada** en espera de los tres PDF oficiales |
+| 2 | Planeación didáctica | **En curso** — formatos recibidos y analizados (ver Fase 2); decisiones P1–P5 pendientes |
 | 3 | Operaciones de IA | No iniciada |
 | 4 | Prompts y modelos | No iniciada |
 | 5 | Créditos IA | No iniciada |
@@ -269,6 +269,228 @@ Verificadas en código; cualquier diseño de las fases 2–11 debe respetarlas:
 
 ---
 
+# FASE 2 — PLANEACIÓN DIDÁCTICA · ANÁLISIS DE LOS FORMATOS OFICIALES
+
+Análisis realizado el 9-ago-2026 sobre los tres PDF oficiales que Kike
+proporcionó. **Esta sección es el inventario de requisitos institucionales;
+el diseño de la solución (Planeación Viva + Planeación Oficial) es el trabajo
+siguiente de esta fase y NO está hecho todavía.**
+
+## 2.1 Los formatos de referencia
+
+Son impresiones del portal oficial **planeaciondidactica.sems.gob.mx**
+(SEMS), tituladas **"Instrumento de registro de la Planeación Didáctica"**,
+con encabezado de la Subsecretaría de Educación Media Superior / DGETI /
+plantel. Cada documento tiene 6 páginas y cubre **UN parcial**; el semestre
+completo son tres documentos de la misma asignatura:
+
+| Documento | Parcial | Periodo de aplicación | Horas |
+|-----------|---------|----------------------|-------|
+| `…2961387.pdf` | 1 | 03/02/2026 – 17/03/2026 | 20 |
+| `…2961388.pdf` | 2 | 18/03/2026 – 11/05/2026 | 30 |
+| `…2961389.pdf` | 3 | 12/05/2026 – 16/06/2026 | 30 |
+
+Los tres son de la misma asignatura de ejemplo: submódulo "M1S1. Construye
+Algoritmos para la solución de problemas", semestre 2, carrera Técnico en
+Programación, CBTIS 255 (DGETI). Archivos de referencia en el Drive de Kike:
+`G:\Mi unidad\Nube mia\CBTis\3 Diseña software de sistemas informaticos\2026 Enero - Junio\Planeacion\`.
+
+**Reglas de uso acordadas:** se conserva su estructura, campos, organización
+y requisitos funcionales como referencia institucional. NO se reproducen
+logotipos, escudos, encabezados gráficos ni identidad visual institucional.
+Su complejidad NO se traslada al docente.
+
+Dato revelador de los propios ejemplos: hay huellas típicas de la captura
+manual repetida (el parcial 1 tiene fecha de elaboración "2025" donde los
+otros dicen "2026", y hay erratas en textos que se repiten entre parciales).
+Es exactamente la carga y el tipo de error que la generación automática debe
+eliminar.
+
+## 2.2 Estructura completa del formato (inventario de campos)
+
+El formato se organiza en **seis secciones**. Para cada campo se indica su
+**alcance** (Asignatura = común a todo el semestre / Parcial = propio de cada
+periodo) y su **fuente**: `EF` = Evalúa Fácil ya lo sabe o lo deriva, `D` =
+lo aporta el docente (captura única), `IA` = la IA puede proponerlo y el
+docente valida, `CAT` = proviene de un catálogo oficial finito (en el portal
+se selecciona, no se redacta).
+
+### A. Identificación
+
+| Campo | Alcance | Fuente |
+|-------|---------|--------|
+| Institución / subsistema (ej. DGETI) | Asignatura | EF (`schools.subsistema`) |
+| Plantel (ej. CBTIS 255) | Asignatura | EF (`schools`, catálogo de planteles) |
+| C.C.T. | Asignatura | EF (`schools.claveSEP`) |
+| Docente(s) que elaboró el instrumento (con título, ej. "M.C.") | Asignatura | EF (`users`: prefijo + nombre completo) |
+| Fecha de elaboración (día/mes/año) | Documento | EF (fecha de generación) |
+| Asignatura o submódulo (nombre oficial largo, ej. "M1S1. …") | Asignatura | EF (`subjects.nombre`) — ver nota 1 |
+| Semestre | Asignatura | D — **no existe hoy en Evalúa Fácil** |
+| Carrera | Asignatura | D — **no existe hoy** |
+| Periodo de la aplicación (fecha inicio–fin) | **Parcial** | EF (`subjects.parcialesFechas`) |
+| Duración en horas | **Parcial** | EF — derivable de `horarioBloques` menos asuetos/vacaciones (hoy no se calcula, pero el dato existe) |
+| Campo disciplinar (ej. "Componente Profesional") | Asignatura | CAT + D/IA |
+| Propósito formativo del campo disciplinar | Asignatura | IA propone / D valida |
+| Transversalidad con otras asignaturas | Asignatura | D (opcional — vacío en los tres ejemplos) |
+| Ámbitos del perfil de egreso a los que contribuye | Asignatura (varió ligeramente entre parciales en el ejemplo) | CAT + IA propone |
+
+Nota 1: el nombre que el docente usa a diario ("Algoritmos") puede diferir
+del nombre oficial del submódulo ("M1S1. Construye Algoritmos para la
+solución de problemas"). Puede requerirse un "nombre oficial" además del
+nombre corto — decisión de diseño de esta fase.
+
+### B. Intenciones formativas
+
+| Campo | Alcance | Fuente |
+|-------|---------|--------|
+| Propósito formativo de la asignatura | Asignatura (idéntico en los 3) | IA propone desde el programa de estudios / D valida |
+| Aprendizajes clave (NME) — Ejes disciplinarios | Asignatura | D/IA ("N/A" en los 3 ejemplos) |
+| Aprendizajes clave — Componente | Asignatura | D/IA ("N/A" en los ejemplos) |
+| Aprendizajes clave — Contenido central | Asignatura | D/IA ("N/A" en los ejemplos) |
+| Aprendizajes clave — **Aprendizaje esperado** (ej. "Competencia: Realiza pseudocódigo") | **Parcial** | D/IA |
+| Aprendizajes clave — Proceso de aprendizaje | Parcial | D/IA ("N/A" en los ejemplos) |
+| Aprendizajes clave — **Productos esperados** | **Parcial** | D/IA (mapea con los productos de las actividades reales) |
+| Aprendizajes clave — **Contenidos específicos** | **Parcial** | D/IA |
+| Habilidades socioemocionales (HSE) (ej. "Elige T – Perseverancia") | **Parcial** | CAT (catálogo Construye T / Elige T) |
+| Competencias genéricas y atributos (ej. G4/4.5, G5/5.6, G6/6.1, G8/8.1) | Asignatura (idénticas en los 3) | CAT + IA propone |
+| Competencias disciplinares (ej. M4, M8, CO12, H4) | Asignatura (idénticas en los 3) | CAT + IA propone |
+| Competencias de productividad y empleabilidad (ej. TE2, CE2, OL2, AD5, PO5, RI5) | **Parcial** (variaron entre parciales) | CAT + IA propone |
+
+### C. Actividades de aprendizaje (el corazón del documento — POR PARCIAL)
+
+Organizadas en **tres momentos: Apertura, Desarrollo y Cierre.** Cada momento
+lleva uno o más bloques con esta estructura:
+
+| Campo del bloque | Fuente |
+|------------------|--------|
+| Actividad del docente (narrativa de lo que el docente hace) | IA puede redactarla a partir de las actividades reales / D ajusta |
+| Recursos utilizados (ej. "Plataforma X, proyector") | D + parcialmente EF (`resources`, adjuntos) |
+| Duración en horas (del docente) | D/IA — **hoy no existe horas-por-actividad en EF** |
+| Actividad del estudiante (narrativa) | IA desde las instrucciones reales de la actividad / D ajusta |
+| Duración en horas (del estudiante) | D/IA — no existe hoy |
+| Producto de aprendizaje esperado | EF (nombre/entregable de la actividad real) |
+| Tipo de evaluación, formato `{Agente}/{Instrumento}` (ej. "Heteroevaluación/Examen", "Heteroevaluación/Rúbrica", "No Evaluada/Sin Instrumento") | Instrumento: EF (categoría de la actividad: examen, cuestionario, rúbrica, lista de cotejo, sin calificación). Agente (hetero/co/auto/no evaluada): no existe hoy — CAT |
+| Ponderación (%) — los bloques del parcial suman 100% | EF (`pesoCalificacion`: los pesos que suman 10 mapean directo a %) |
+
+En los tres ejemplos el patrón real fue: Apertura 0%, un bloque de Desarrollo
+con el 100% y Cierre 0% ("entrega de calificaciones y aclaraciones antes de
+subirlas al SISEEMS").
+
+### D. Recursos por utilizar (Asignatura)
+
+| Campo | Fuente |
+|-------|--------|
+| Materiales (ej. plataforma educativa) | D + parcialmente EF (`resources`/`materials`) |
+| Equipo (ej. computadora con internet) | D |
+
+### E. Referencias (Asignatura)
+
+| Campo | Fuente |
+|-------|--------|
+| Bibliográficas (formato libre tipo APA) | D y/o IA sugiere / D valida |
+| Internet; otras fuentes | D y/o IA |
+
+### F. Validación (Asignatura / plantel)
+
+| Campo | Fuente |
+|-------|--------|
+| Elaborado por (nombre del docente) | EF (`users`) |
+| Recibido por (nombre — en el ejemplo, personal del plantel) | D (captura única) |
+| Avalado por (nombre — en el ejemplo, personal directivo) | D (captura única) |
+| Contribuciones y/o colaboraciones | D (opcional — solo aparece en uno de los tres) |
+
+## 2.3 Qué se repite entre parciales (la carga burocrática a eliminar)
+
+De ~30 campos del formato, **alrededor de 20 fueron idénticos en los tres
+documentos**: toda la identificación (salvo periodo, horas y fecha de
+elaboración), propósito del campo disciplinar, propósito de la asignatura,
+ámbitos del perfil de egreso (con una variación menor), competencias
+genéricas, competencias disciplinares, recursos, referencias y validación.
+El portal oficial obliga hoy a capturar todo eso **tres veces por semestre y
+por asignatura**. En Evalúa Fácil se captura **una sola vez a nivel
+asignatura** y se hereda a los tres parciales.
+
+## 2.4 Qué cambia por parcial
+
+- Periodo de aplicación (EF ya lo sabe) y duración en horas (derivable).
+- Aprendizaje esperado / competencia del parcial.
+- Productos esperados y contenidos específicos.
+- HSE seleccionada y competencias de productividad/empleabilidad.
+- Los bloques de actividades (Apertura/Desarrollo/Cierre) con recursos,
+  duraciones, productos, tipo de evaluación y ponderación.
+
+## 2.5 Qué puede mantenerse vivo durante el semestre
+
+Las **actividades reales** son la parte viva por naturaleza: el docente las
+crea, mueve y repondera durante el semestre dentro de Evalúa Fácil, y la
+plataforma ya las mantiene al día (con fechas, instrumentos y pesos). Los
+contenidos/aprendizajes del parcial y las fechas de parcial también son
+editables hoy. La Planeación Oficial se generará como **foto del estado
+actual** de esa información viva al momento de exportar.
+
+## 2.6 Lo que Evalúa Fácil ya puede llenar solo (sin preguntar al docente)
+
+Plantel, CCT, subsistema, docente con título, fecha de generación, nombre de
+la asignatura, periodo de cada parcial, horas por parcial (derivadas del
+horario real menos asuetos/vacaciones), las actividades de cada parcial con
+su producto, su instrumento de evaluación y su ponderación en %, y parte de
+los recursos.
+
+## 2.7 Lo que el docente tendría que aportar (captura única por asignatura)
+
+Carrera y semestre; nombre oficial del submódulo si difiere del nombre corto;
+los datos curriculares (o validar lo que la IA proponga): propósitos,
+competencias, ámbitos, aprendizajes por parcial, HSE; nombres de "Recibido
+por" / "Avalado por"; referencias; recursos/equipo generales.
+
+## 2.8 Lo que la IA puede generar o proponer (siempre editable por el docente)
+
+- Propósito formativo del campo y de la asignatura, a partir del programa de
+  estudios oficial de la carrera/submódulo.
+- Selección propuesta de competencias (genéricas, disciplinares,
+  productividad) y ámbitos del perfil de egreso — son catálogos finitos.
+- Aprendizajes esperados, contenidos específicos y productos por parcial.
+- La **narrativa de Apertura/Desarrollo/Cierre** (actividad del docente y del
+  estudiante) redactada a partir de las actividades reales que el docente ya
+  creó en Evalúa Fácil — este es el mayor ahorro de trabajo.
+- Referencias bibliográficas sugeridas.
+- El detalle fino (contexto por operación, prompts, modelos) pertenece a las
+  fases 3 y 4.
+
+## 2.9 Lo que Evalúa Fácil debe conservar para generar la Planeación Oficial
+
+El modelo completo de campos de §2.2 con su alcance: un bloque **por
+asignatura** (identificación complementaria: carrera, semestre, nombre
+oficial; datos curriculares comunes; recursos; referencias; validación) y un
+bloque **por parcial** (aprendizaje esperado, contenidos, productos, HSE,
+competencias de productividad, y los bloques de actividades con momentos,
+duraciones, agente de evaluación y narrativas). Todo lo demás ya vive en las
+colecciones existentes y se toma de ahí al momento de generar. El diseño de
+dónde y cómo se guarda (la entidad de Planeación Viva) es el siguiente paso
+de esta fase, tras las decisiones P1–P5.
+
+## 2.10 Decisiones pendientes de Kike (P1–P5)
+
+- **P1 — Granularidad de la Planeación Oficial:** el formato oficial es un
+  documento por parcial (tres por semestre). ¿La Planeación Oficial se genera
+  así (tres documentos), como un solo documento del semestre, o ambas
+  opciones?
+- **P2 — Formato de salida:** ¿PDF, Excel o ambos? (Las decisiones del trial
+  ya mencionan "la Planeación en Excel" como salida, y Excel facilita que el
+  docente copie y pegue hacia el portal SEMS.)
+- **P3 — Destino del documento:** ¿el objetivo es que la escuela acepte
+  directamente el documento generado (estructura equivalente, sin identidad
+  visual institucional), que sirva de guía para vaciar el portal
+  planeaciondidactica.sems.gob.mx, o ambos usos?
+- **P4 — Campos "N/A":** en los ejemplos, ejes disciplinarios, componente,
+  contenido central y proceso de aprendizaje van "N/A". ¿Se dejan en "N/A"
+  por omisión (capturables solo si el docente quiere) o se piden siempre?
+- **P5 — Alcance del formato 1.0:** ¿la Planeación Oficial 1.0 apunta solo a
+  este formato SEMS/DGETI, o el diseño debe prever desde ahora variantes de
+  otros subsistemas?
+
+---
+
 # DECISIONES YA TOMADAS (registro fiel — no se modifican)
 
 Definidas por Kike el 9-ago-2026 al arrancar este proyecto. Son el marco fijo
@@ -383,6 +605,8 @@ posteriormente; su complejidad NO se traslada a la experiencia del docente
 (Planeación Viva = sencilla para el docente; Planeación Oficial = salida
 generada por Evalúa Fácil conservando el formato y la información que las
 escuelas solicitan). **La Fase 2 no avanza hasta tener los tres archivos.**
+*Actualización: los tres archivos fueron entregados y analizados el
+9-ago-2026 — ver la sección Fase 2 (§2.1).*
 
 ### D2 — Modelo comercial de la IA: la decisión previa vs. las instrucciones nuevas
 `docs/VENTAJAS_COMPETITIVAS.md` registra la postura previa: *"[la IA] va como
@@ -469,11 +693,13 @@ Definición de Kike:
 Insumos que la auditoría deja listos: la plataforma ya conoce asignatura,
 grupo, escuela (con CCT), docente (con título), semestre con fechas por
 parcial, días hábiles reales (horario + asuetos + vacaciones), actividades y
-evaluaciones con ponderaciones. La referencia institucional serán los **tres
-PDF oficiales de Planeación Didáctica** que Kike va a proporcionar (D1
-resuelta): se usan solo como referencia de requisitos, sin copiar su
-complejidad a la experiencia del docente. **En espera de esos tres archivos
-para poder iniciar.**
+evaluaciones con ponderaciones.
+
+**Avance:** los tres PDF oficiales fueron entregados y analizados el
+9-ago-2026 — el análisis completo vive en la sección
+"FASE 2 — PLANEACIÓN DIDÁCTICA · ANÁLISIS DE LOS FORMATOS OFICIALES".
+Siguiente paso de la fase: resolver las decisiones P1–P5 (§2.10) y, con la
+autorización de Kike, diseñar la Planeación Viva y la Planeación Oficial.
 
 ## Fase 3 — Operaciones de IA
 Inventario completo de operaciones donde la IA aporta valor, surgido del
@@ -554,3 +780,4 @@ candado de suscripción de dos capas.
 |-------|--------|
 | 9-ago-2026 | Se crea el documento. Fase 1 (auditoría) realizada y entregada para revisión. Dudas D1–D4 abiertas. |
 | 9-ago-2026 | Kike resuelve D1–D4 y aprueba las decisiones. Aclaración fundamental del trial: plataforma completa (incluida IA según créditos), bloqueo solo a la salida de información. Fase 1 aprobada. Fase 2 autorizada, bloqueada en espera de los tres PDF oficiales de Planeación Didáctica. |
+| 9-ago-2026 | Kike entrega los tres PDF oficiales (portal SEMS, uno por parcial). Se analizan a fondo y se documenta el inventario completo de campos en la sección Fase 2 (§2.1–§2.9). Quedan abiertas las decisiones P1–P5 (§2.10). El diseño de la solución NO inicia hasta resolverlas. |
