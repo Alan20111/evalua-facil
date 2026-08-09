@@ -4,9 +4,10 @@
 No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
-- **Última actualización:** 9 de agosto de 2026 — Fase 4 en curso: análisis
-  de prompts y modelos de las 17 operaciones entregado para revisión de Kike
-  (decisiones M1–M4 pendientes).
+- **Última actualización:** 9 de agosto de 2026 — **Fase 4 aprobada y
+  cerrada** (M1, M2 y M4 aprobadas; M3 queda como candidatos de trabajo, sin
+  modelo definitivo hasta el análisis económico con el simulador). Regla
+  nueva: los créditos IA no se diseñan sin ese análisis previo.
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -39,9 +40,9 @@ cognitiva para el docente. No se agrega por agregar.
 | 1 | Auditoría y contexto | **Aprobada** (dudas D1–D4 resueltas el 9-ago-2026) |
 | 2 | Planeación didáctica | **Aprobada y cerrada** (9-ago-2026) — diseño conceptual en §2.11; Q1–Q2 confirmadas |
 | 3 | Operaciones de IA | **Aprobada y cerrada** (9-ago-2026) — 17 operaciones en alcance; O1–O4 resueltas |
-| 4 | Prompts y modelos | **En curso** — análisis entregado (ver Fase 4), **en revisión de Kike**; decisiones M1–M4 pendientes |
-| 5 | Créditos IA | No iniciada |
-| 6 | Rentabilidad | No iniciada |
+| 4 | Prompts y modelos | **Aprobada y cerrada** (9-ago-2026) — M1/M2/M4 aprobadas; M3 = candidatos de trabajo, decisión final tras el análisis económico |
+| 5 | Créditos IA | No iniciada — **bloqueada por regla de Kike**: los créditos no se definen sin el análisis económico previo (simulador, Fase 6) |
+| 6 | Rentabilidad | No iniciada — requiere el simulador externo con precios oficiales vigentes |
 | 7 | Trial y continuidad | Decisiones tomadas y completas (D4 resuelta) — pendiente integrarlas al diseño |
 | 8 | Datos y continuidad | Decisiones tomadas y completas (D3 resuelta) — pendiente integrarlas al diseño |
 | 9 | Respaldo y recuperación | No iniciada |
@@ -874,9 +875,11 @@ calculadas), útil para juntas, tutores o como base de la retroalimentación.
 
 ---
 
-# FASE 4 — PROMPTS Y MODELOS (entregado para revisión)
+# FASE 4 — PROMPTS Y MODELOS (APROBADA Y CERRADA el 9-ago-2026)
 
 Elaborado el 9-ago-2026 para las 17 operaciones aprobadas en la Fase 3.
+**Cerrada por Kike el mismo día con M1, M2 y M4 aprobadas; M3 queda como
+candidatos técnicos de trabajo — ver §4.7.**
 **Qué NO incluye** (por instrucción de Kike): costos de tokens, créditos IA,
 límites de planes, implementación de APIs, programación. Los precios de las
 APIs se cargarán en el simulador (Fase 6) desde las fuentes oficiales
@@ -917,6 +920,15 @@ capacidad y naturaleza de la operación, no por precio.
 Cada operación declara **requisitos** (calidad, estructura, contexto), no un
 proveedor — el modelo concreto se fija por configuración del servidor y puede
 cambiarse sin tocar el producto (regla de no-atadura ya decidida por Kike).
+
+**Resolución M3 (9-ago-2026): los modelos de esta tabla son ÚNICAMENTE
+candidatos técnicos de trabajo — ningún proveedor ni modelo queda fijado como
+definitivo.** La selección final se hará después de: (1) verificar modelos y
+precios oficiales vigentes, (2) comparar calidad, (3) comparar consumo de
+tokens, (4) comparar costo real por operación, (5) usar el simulador
+económico externo, y (6) determinar la mejor relación calidad/costo POR
+OPERACIÓN. OpenAI queda abierto cuando resulte técnica o económicamente
+conveniente.
 
 | Escalón | Para qué | Candidato primario | Alternativas |
 |---------|----------|--------------------|--------------|
@@ -968,13 +980,21 @@ Apertura/Desarrollo/Cierre), selección desde catálogos oficiales
 insumo (OP-01). Además es la base de contexto de todas las demás
 operaciones: si la Planeación sale mal, todo lo demás hereda el error.
 
-**Estrategia recomendada: generación por etapas (decisión M4).**
+**Estrategia de generación por etapas (M4 — APROBADA el 9-ago-2026):**
 
-1. **Etapa 1 — Tronco de la asignatura:** una llamada genera identificación
-   complementaria, currículo común, recursos y referencias.
-2. **Etapa 2 — Un bloque por parcial:** una llamada por parcial genera
+1. **Generación del tronco de la asignatura:** una llamada genera
+   identificación complementaria, currículo común, recursos y referencias.
+2. **Generación de cada bloque de parcial:** una llamada por parcial genera
    aprendizaje esperado, contenidos, productos, HSE, competencias del
    parcial y narrativas, usando el tronco ya validado como contexto.
+3. **Validación de cada bloque:** el producto valida cada bloque contra el
+   esquema y las reglas duras antes de aceptarlo; el docente puede revisarlo.
+4. **Integración de la Planeación Viva:** los bloques validados se integran
+   en la Planeación Viva completa.
+
+Debe soportar **N parciales**, no solamente tres. La misma estructura de
+bloque se reutiliza después para **modificar una parte específica de la
+Planeación sin regenerarla completa** (OP-11).
 
 Ventajas: soporta N parciales variable de forma natural (P1), cada etapa es
 un resultado acotado y verificable, un reintento o corrección solo repite la
@@ -1197,7 +1217,7 @@ datos incluidos: dónde va bien, dónde necesita apoyo y una recomendación
 concreta. Lenguaje claro para compartir con un tutor o padre de familia. No
 calcules nada nuevo ni especules más allá de los datos."*
 
-## 4.6 El Perfil IA del docente (derivado de las operaciones — decisión M1)
+## 4.6 El Perfil IA del docente (M1 — APROBADO el 9-ago-2026)
 
 Recorridas las 17 operaciones, la única información global que las
 operaciones realmente necesitan y que Evalúa Fácil no conoce es **cómo
@@ -1214,22 +1234,38 @@ Nada más. Carrera y semestre son por asignatura (viven en la Planeación,
 §2.11); el resto ya lo sabe la plataforma. Ambos campos con valor por
 omisión: el docente que nunca abra su Perfil IA recibe resultados correctos.
 
-## 4.7 Decisiones pendientes de Kike (M1–M4)
+## 4.7 Decisiones M1–M4 (RESUELTAS por Kike el 9-ago-2026)
 
-- **M1 — Perfil IA mínimo:** ¿apruebas los dos campos propuestos en §4.6
-  (tono + indicaciones libres, ambos opcionales con omisión sensata)?
-- **M2 — Resultados como borradores reales:** lo que la IA genera se crea
-  directamente como **borrador dentro del producto** (actividad oculta,
-  evaluación en borrador, rúbrica en el banco, texto en el editor) para que
-  el docente lo revise y ajuste con los editores que ya conoce — en lugar de
-  mostrar texto para copiar. ¿Lo apruebas?
-- **M3 — Candidatos de modelo:** Claude Sonnet 5 como candidato primario del
-  escalón Mayor (incluida la Planeación 1.0) y Claude Haiku 4.5 del escalón
-  Económico, con alternativa OpenAI del escalón Económico a evaluar en la
-  Fase 6 con precios oficiales, y todo conmutable por configuración (sin
-  atadura). ¿Lo apruebas como hipótesis de trabajo?
-- **M4 — Planeación por etapas:** generación de la Planeación 1.0 en etapas
-  (tronco → bloque por bloque de parcial, §4.4). ¿La apruebas?
+- **M1 — Perfil IA mínimo. APROBADO:** el Perfil IA del docente tendrá
+  inicialmente ÚNICAMENTE los dos campos de §4.6 (tono + indicaciones
+  libres), ambos opcionales y con valores por omisión. **No se agregan más
+  campos al Perfil IA en esta etapa.**
+- **M2 — Borradores reales. APROBADO:** las generaciones de IA que
+  correspondan a entidades del producto se convierten en borradores reales
+  dentro de Evalúa Fácil (actividad → borrador de actividad; evaluación →
+  borrador de evaluación; rúbrica → borrador en el banco; bloques de
+  Planeación → borrador editable de Planeación). El docente revisa y edita
+  con los editores que ya conoce. **La IA nunca publica, activa, califica ni
+  sustituye automáticamente la decisión del docente.**
+- **M3 — Candidatos de modelo. NO aprobado como decisión definitiva:**
+  Sonnet 5 y Haiku 4.5 quedan únicamente como **candidatos técnicos de
+  trabajo**. No se fija ningún proveedor ni modelo definitivo. La selección
+  final se hará tras: verificar modelos y precios oficiales vigentes,
+  comparar calidad, comparar consumo de tokens, comparar costo real por
+  operación, usar el simulador económico externo, y determinar la mejor
+  relación calidad/costo para cada operación. OpenAI queda abierto cuando
+  resulte técnica o económicamente conveniente.
+- **M4 — Planeación por etapas. APROBADO:** generación en 4 etapas (tronco →
+  cada bloque de parcial → validación de cada bloque → integración de la
+  Planeación Viva), con soporte de N parciales y la misma estructura de
+  bloque reutilizable para modificar una parte específica sin regenerar la
+  Planeación completa. Detalle en §4.4.
+
+**Regla registrada al cierre de la fase:** los créditos IA (Fase 5) NO se
+definen sin haber realizado antes el análisis económico de modelos y
+operaciones con el simulador externo (`Simulador_Costos_IA_Evalua_Facil.xlsx`
+en Google Sheets). El costo real de las operaciones se determina primero;
+los créditos se diseñan a partir de ahí.
 
 ---
 
@@ -1526,12 +1562,13 @@ evalúa para la generación inicial de la Planeación**; modificaciones pequeña
 y operaciones frecuentes pueden usar OpenAI u otro modelo si dan mejor
 relación calidad/costo. Sin atadura conceptual a un solo proveedor.
 
-**Avance:** análisis completo entregado el 9-ago-2026 en la sección
-"FASE 4 — PROMPTS Y MODELOS": principios de diseño, bloques de contexto
-estándar, dos escalones de modelo, análisis especial de la Planeación 1.0
-(Claude recomendado, generación por etapas) y fichas de las 17 operaciones
-con contexto, resultado, prompt v1 y escalón. En revisión de Kike;
-decisiones M1–M4 pendientes.
+**Cierre:** análisis completo entregado y aprobado el 9-ago-2026 (sección
+"FASE 4 — PROMPTS Y MODELOS"): principios de diseño, bloques de contexto,
+análisis especial de la Planeación 1.0 con generación por etapas (M4
+aprobada), fichas de las 17 operaciones con prompts v1, Perfil IA mínimo (M1
+aprobada) y borradores reales (M2 aprobada). M3: modelos solo como
+candidatos de trabajo — la selección definitiva se hará con el simulador
+económico. **Fase aprobada y cerrada por Kike el 9-ago-2026.**
 
 ## Fase 5 — Créditos IA
 Sistema de créditos comprensible para el docente. El docente **nunca ve
@@ -1540,6 +1577,11 @@ tokens**; ve algo como "Plan Docente · 500 créditos IA mensuales · Te quedan
 que ser proporcional al costo en tokens: también pondera el valor recibido y
 el ahorro de tiempo. D2 resuelta: los créditos van dentro del Plan Docente de
 $99 MXN mensuales.
+
+**Regla de Kike (9-ago-2026):** esta fase NO inicia sin haber realizado antes
+el análisis económico de modelos y operaciones con el simulador externo en
+Google Sheets. Primero se determina el costo real de las operaciones; a
+partir de ahí se diseñan los créditos.
 
 ## Fase 6 — Rentabilidad
 Modelo para un simulador que muestre: tokens consumidos, costo real en MXN,
@@ -1596,3 +1638,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | Kike autoriza la Fase 3. Se entrega el inventario de operaciones de IA: OP-01 a OP-13 (lista mínima anclada al producto real, en tres familias + una transversal) y candidatas C-01 a C-04. Sin prompts, sin modelos, sin costos ni créditos. Decisiones O1–O4 abiertas. En revisión de Kike. |
 | 9-ago-2026 | **Kike resuelve O1–O4 y aprueba la Fase 3.** Guía de observación como contenido IA sin instrumento nuevo (O1); planeaciones sencillas = plan de clase ligero, no burocrático (O2); entran las 4 candidatas, con regla especial para C-02: la IA solo sugiere calificación, nunca la guarda (O3); pestaña IA como casa central + invocación en el punto de uso (O4). Alcance final: **17 operaciones**. **Fase 3 CERRADA.** Fase 4 en espera de autorización. |
 | 9-ago-2026 | Kike autoriza la Fase 4. Se entrega el análisis de prompts y modelos: principios de diseño, bloques de contexto estándar, dos escalones de modelo (Mayor: Claude Sonnet 5; Económico: Claude Haiku 4.5, con alternativa OpenAI a validar en Fase 6), análisis especial de la Planeación 1.0 con generación por etapas, fichas de las 17 operaciones con prompts v1 y propuesta de Perfil IA mínimo (2 campos). Sin costos ni créditos. Decisiones M1–M4 abiertas. En revisión de Kike. |
+| 9-ago-2026 | **Kike resuelve M1–M4 y cierra la Fase 4.** M1 aprobada (Perfil IA con solo 2 campos opcionales); M2 aprobada (borradores reales — la IA nunca publica, activa ni califica sola); M3 NO definitiva (Sonnet 5 / Haiku 4.5 solo candidatos de trabajo; selección final con precios oficiales, comparación de calidad/tokens/costo y el simulador; OpenAI abierto); M4 aprobada (4 etapas: tronco → bloques → validación → integración; N parciales; bloque reutilizable para modificaciones). Regla nueva: **los créditos IA no se diseñan sin el análisis económico previo con el simulador.** **Fase 4 CERRADA.** |
