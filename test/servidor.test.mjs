@@ -134,6 +134,13 @@ const ENLACE = {
   notificationLog: { datos: { uid: DOCENTE } },
   notificationSettings: { id: DOCENTE, datos: { uid: DOCENTE, push: true } },
   users: { id: DOCENTE, datos: { role: 'docente', nombre: 'Uno', escuelaId: 'E1' } },
+  // Créditos IA (9-ago-2026): todo lo del sistema de créditos es del docente
+  // y se va con su cuenta — saldo, historial, métricas internas y registro de
+  // trial. Mismo principio de borrado sin residuos.
+  iaCreditos: { id: DOCENTE, datos: { plan: 'pro', capacidad: 350, saldo: 120 } },
+  iaConsumos: { datos: { uid: DOCENTE, operacion: 'aviso', estado: 'ejecutado', creditosReales: 1 } },
+  iaConsumosInterno: { datos: { uid: DOCENTE, operacion: 'aviso', tokensEntrada: 700 } },
+  iaTrialRegistro: { id: DOCENTE, datos: { uid: DOCENTE, creditosAsignados: 350 } },
 }
 
 // Segunda siembra: los MISMOS documentos como los escribía una versión vieja

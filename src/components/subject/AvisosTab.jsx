@@ -7,7 +7,9 @@ import Spinner from '../Spinner'
 import InfoDisclosure from '../ui/InfoDisclosure'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark, GripVertical, RotateCcw } from 'lucide-react'
+import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark, GripVertical, RotateCcw, Sparkles } from 'lucide-react'
+import useCreditosIA from '../../hooks/useCreditosIA'
+import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import { PLANTILLAS_SEED, EMOJI_PALETTE, avisoEmoji, formatAvisoFecha, avisosDesde } from '../../utils/avisos'
 import { studentFullName } from '../../utils/studentSearch'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -48,6 +50,38 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
   const [step, setStep] = useState(null) // null | 'picker' | 'form' | 'plantillas' | 'plantilla-form'
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+
+  // Piloto de IA (C-03): redactar el aviso con el asistente. SIEMPRE con
+  // estimación + confirmación previa; el resultado llena el editor y el
+  // docente lo revisa y publica como siempre — la IA nunca publica.
+  const creditosIA = useCreditosIA()
+  const [iaConfirmando, setIaConfirmando] = useState(false)
+  const [iaTrabajando, setIaTrabajando] = useState(false)
+
+  async function redactarConIA() {
+    setIaTrabajando(true)
+    try {
+      const r = await creditosIA.ejecutar('aviso', {
+        tipo: form.titulo || 'OTRO',
+        // Lo que el docente ya escribió sirve de insumo; si no hay nada, el
+        // tipo/título del aviso es el punto de partida.
+        datos: form.mensaje.trim() || form.titulo || 'Aviso general para el grupo',
+        asignaturaId: subjectId,
+      })
+      setForm((f) => ({ ...f, mensaje: r.resultado?.mensaje || f.mensaje, titulo: f.titulo || r.resultado?.titulo || '' }))
+      setIaConfirmando(false)
+      toast(r.repetida ? 'Se recuperó el borrador ya generado (sin costo adicional)' : 'Borrador listo — revísalo y ajústalo antes de publicar')
+    } catch (e) {
+      setIaConfirmando(false)
+      if (e.codigo === 'SALDO_INSUFICIENTE') {
+        toast('No tienes suficientes créditos de IA para esta acción')
+      } else {
+        toast(e.message || 'El asistente de IA no está disponible en este momento')
+      }
+    } finally {
+      setIaTrabajando(false)
+    }
+  }
 
   const [plantillaForm, setPlantillaForm] = useState(EMPTY_PLANTILLA)
   const [savingPlantilla, setSavingPlantilla] = useState(false)
@@ -535,7 +569,14 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   </button>
                 </div>
                 <div>
-                  <label htmlFor="aviso-mensaje" className="block text-sm font-medium text-on-surface mb-1">Mensaje <span className="font-normal text-muted">(opcional)</span></label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label htmlFor="aviso-mensaje" className="block text-sm font-medium text-on-surface">Mensaje <span className="font-normal text-muted">(opcional)</span></label>
+                    <button type="button" onClick={() => setIaConfirmando(true)} disabled={iaTrabajando}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-60">
+                      <Sparkles size={14} />
+                      {iaTrabajando ? 'Redactando…' : 'Redactar con IA'}
+                    </button>
+                  </div>
                   <textarea id="aviso-mensaje" value={form.mensaje} onChange={(e) => setForm((f) => ({ ...f, mensaje: e.target.value }))}
                     rows={5} placeholder="Deja este campo vacío si el título ya lo dice todo"
                     className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
@@ -554,6 +595,18 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Confirmación de créditos IA (estimación previa, nunca descuenta) ── */}
+      {iaConfirmando && (
+        <ConfirmacionCreditosModal
+          titulo="Redactar el aviso con IA"
+          descripcion="El asistente redactará un borrador con lo que ya escribiste; tú lo revisas y publicas."
+          costoMin={creditosIA.estimar('aviso') ?? 1}
+          ejecutando={iaTrabajando}
+          onCancelar={() => { if (!iaTrabajando) setIaConfirmando(false) }}
+          onContinuar={redactarConIA}
+        />
       )}
 
       {/* ── Gestionar plantillas ── */}

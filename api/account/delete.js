@@ -179,6 +179,11 @@ export default async function handler(req, res) {
 
     // ── 4. Lo que se identifica con el uid, no con docenteId ────────────
     const bitacora = await docsPorCampo(db, 'notificationLog', 'uid', uid)
+    // Créditos IA: historial de consumos y métricas internas (por campo uid);
+    // el saldo y el registro del trial son docs con id = uid y van directo en
+    // el lote de abajo. Sin nada de esto, borrar la cuenta dejaría residuo.
+    const consumosIA = await docsPorCampo(db, 'iaConsumos', 'uid', uid)
+    const consumosIAInterno = await docsPorCampo(db, 'iaConsumosInterno', 'uid', uid)
 
     // ── 5. Archivos de todo lo anterior, subcolecciones incluidas ───────
     const todosLosDocs = [
@@ -223,6 +228,10 @@ export default async function handler(req, res) {
     // veces; borrar dos veces el mismo ref en un batch es un error.
     const unicas = [...new Map([
       ...planos.map((r) => [r.path, r]),
+      ...consumosIA.map((d) => [d.ref.path, d.ref]),
+      ...consumosIAInterno.map((d) => [d.ref.path, d.ref]),
+      [`iaCreditos/${uid}`, db.collection('iaCreditos').doc(uid)],
+      [`iaTrialRegistro/${uid}`, db.collection('iaTrialRegistro').doc(uid)],
       [`notificationSettings/${uid}`, db.collection('notificationSettings').doc(uid)],
       [`users/${uid}`, db.collection('users').doc(uid)],
     ]).values()]

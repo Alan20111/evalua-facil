@@ -1147,5 +1147,50 @@ ok('A15 · user CAN delete own notificationLog entry')
 await assertFails(deleteDoc(doc(asT2, 'notificationLog', 'NL_T1_NEW')))
 ok('A15 · foreign user CANNOT delete another user\'s notificationLog entry')
 
+// ── Créditos IA — el cliente JAMÁS escribe su saldo ─────────────────────────
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'iaCreditos', T1), { plan: 'pro', capacidad: 350, saldo: 120, consumidoCiclo: 230 })
+  await setDoc(doc(db, 'iaConsumos', 'CONS_T1'), { uid: T1, operacion: 'aviso', estado: 'ejecutado', creditosReales: 1 })
+  await setDoc(doc(db, 'iaConsumosInterno', 'CONS_T1'), { uid: T1, tokensEntrada: 700, tokensSalida: 150 })
+  await setDoc(doc(db, 'iaTrialRegistro', T1), { uid: T1, creditosAsignados: 350 })
+})
+
+await assertSucceeds(getDoc(doc(asT1, 'iaCreditos', T1)))
+ok('IA · docente CAN read own credit balance (the bar lives on this)')
+
+await assertFails(getDoc(doc(asT2, 'iaCreditos', T1)))
+ok('IA · foreign user CANNOT read another teacher\'s credit balance')
+
+await assertFails(setDoc(doc(asT1, 'iaCreditos', T1), { saldo: 999999 }, { merge: true }))
+ok('IA · owner CANNOT inflate own balance (no client writes, ever)')
+
+await assertFails(updateDoc(doc(asT1, 'iaCreditos', T1), { saldo: 350 }))
+ok('IA · owner CANNOT reset own balance via update')
+
+await assertFails(deleteDoc(doc(asT1, 'iaCreditos', T1)))
+ok('IA · owner CANNOT delete own credit doc (would re-mint a full bag)')
+
+await assertSucceeds(getDoc(doc(asT1, 'iaConsumos', 'CONS_T1')))
+ok('IA · docente CAN read own consumption history (panel detail)')
+
+await assertFails(getDoc(doc(asT2, 'iaConsumos', 'CONS_T1')))
+ok('IA · foreign user CANNOT read another teacher\'s consumption')
+
+await assertFails(setDoc(doc(asT1, 'iaConsumos', 'CONS_FAKE'), { uid: T1, estado: 'ejecutado', creditosReales: 0 }))
+ok('IA · client CANNOT forge consumption records')
+
+await assertFails(getDoc(doc(asT1, 'iaConsumosInterno', 'CONS_T1')))
+ok('IA · NOBODY (client-side) can read internal token metrics')
+
+await assertFails(getDoc(doc(asT1, 'iaTrialRegistro', T1)))
+ok('IA · NOBODY (client-side) can read the trial measurement registry')
+
+await assertSucceeds(getDoc(doc(asT1, 'config', 'iaTarifas')))
+ok('IA · authenticated client CAN read the public tariff config (estimations)')
+
+await assertFails(setDoc(doc(asT1, 'config', 'iaTarifas'), { tarifas: { aviso: 0 } }, { merge: true }))
+ok('IA · docente CANNOT rewrite tariffs (admin/server only)')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
