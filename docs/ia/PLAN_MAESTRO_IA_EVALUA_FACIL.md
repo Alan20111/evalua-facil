@@ -4,7 +4,9 @@
 No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
-- **Última actualización:** 9 de agosto de 2026 — Fase 1 entregada para revisión
+- **Última actualización:** 9 de agosto de 2026 — Dudas D1–D4 resueltas por
+  Kike. Fase 1 aprobada. Fase 2 autorizada, en espera de los tres PDF
+  oficiales de Planeación Didáctica.
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -34,16 +36,16 @@ cognitiva para el docente. No se agrega por agregar.
 
 | Fase | Nombre | Estado |
 |------|--------|--------|
-| 1 | Auditoría y contexto | **Entregada — en revisión de Kike** |
-| 2 | Planeación didáctica | No iniciada |
+| 1 | Auditoría y contexto | **Aprobada** (dudas D1–D4 resueltas el 9-ago-2026) |
+| 2 | Planeación didáctica | **Autorizada — bloqueada** en espera de los tres PDF oficiales |
 | 3 | Operaciones de IA | No iniciada |
 | 4 | Prompts y modelos | No iniciada |
 | 5 | Créditos IA | No iniciada |
 | 6 | Rentabilidad | No iniciada |
-| 7 | Trial y continuidad | Decisiones ya tomadas (registradas abajo) — pendiente integrarlas al diseño |
-| 8 | Datos y continuidad | Decisiones ya tomadas (registradas abajo) — pendiente integrarlas al diseño |
+| 7 | Trial y continuidad | Decisiones tomadas y completas (D4 resuelta) — pendiente integrarlas al diseño |
+| 8 | Datos y continuidad | Decisiones tomadas y completas (D3 resuelta) — pendiente integrarlas al diseño |
 | 9 | Respaldo y recuperación | No iniciada |
-| 10 | Exportaciones | Decisiones ya tomadas (registradas abajo) — pendiente integrarlas al diseño |
+| 10 | Exportaciones | Decisiones tomadas y completas (D4 resuelta) — pendiente integrarlas al diseño |
 | 11 | Arquitectura e implementación | No iniciada — programar solo con autorización expresa |
 
 ---
@@ -261,7 +263,7 @@ Verificadas en código; cualquier diseño de las fases 2–11 debe respetarlas:
 |-----------|-----------|
 | `DOCUMENTACION/INVENTARIO_DEL_SISTEMA.md` (7-ago) | Vigente. La mejor referencia del sistema. |
 | `docs/PROYECTO.md` (5-ago) | Vigente (un dato mal: dice 9 funciones Vercel; son 11). |
-| `docs/VENTAJAS_COMPETITIVAS.md` (29-jul) | Vigente. Contiene la única postura previa sobre IA (ver duda D2). |
+| `docs/VENTAJAS_COMPETITIVAS.md` (29-jul) | Vigente, salvo su "Nota sobre la IA": esa postura quedó sustituida el 9-ago-2026 (ver D2). |
 | `docs/CONTEXTO_PROYECTO.md` (28-jun) | **Obsoleto en bloque** (describe 10 colecciones, trial de 45 días, asistencia "eliminada"). No usar como fuente. |
 | `CLAUDE.md` | Desactualizado en stack ("no Functions, no backend" es falso; EmailJS ya no existe; hoy hay 3 bancos de pruebas). |
 
@@ -274,7 +276,14 @@ de las fases 7, 8, 9 y 10:
 
 ## Trial y continuidad
 - Trial de 30 días.
-- Durante el trial el docente puede trabajar dentro de Evalúa Fácil.
+- **El trial NO es una versión limitada de Evalúa Fácil** (aclaración de Kike,
+  9-ago-2026): durante los 30 días el docente debe poder utilizar
+  prácticamente toda la funcionalidad de la plataforma, **incluyendo las
+  funciones de IA disponibles según sus créditos**. La intención es que
+  compruebe el valor real de Evalúa Fácil trabajando normalmente.
+- La restricción comercial del trial es principalmente la **salida de
+  información fuera de Evalúa Fácil** (detalle en "Alcance del bloqueo en
+  trial", más abajo).
 - La Planeación Didáctica puede generarse internamente durante el trial,
   porque sirve como contexto para las demás funciones de IA.
 - Durante el trial NO se pueden descargar ni exportar archivos Excel o PDF.
@@ -291,6 +300,13 @@ de las fases 7, 8, 9 y 10:
 - La única forma de eliminar definitivamente la información es una solicitud
   explícita del propio usuario.
 - Debe existir un mecanismo seguro para solicitar la eliminación total.
+- (D3, resuelto 9-ago-2026) Esta decisión **sustituye la política anterior de
+  90 días**. La información NO se elimina por: terminar el trial, terminar la
+  suscripción, cancelarla, permanecer inactivo, ni pasar meses o años sin
+  usar Evalúa Fácil.
+- En su momento deberán actualizarse textos, avisos, correos, políticas y
+  cualquier referencia que hoy diga que los datos se conservan 90 días
+  (incluida la declaración de seguridad de datos de Play Store).
 
 ## Respaldo y recuperación
 - Solo durante un periodo pagado el docente puede generar un respaldo.
@@ -307,6 +323,39 @@ de las fases 7, 8, 9 y 10:
 - Durante el trial no pueden descargarse; con suscripción activa sí.
 - El respaldo interno NO sustituye estas exportaciones.
 
+## Alcance del bloqueo en trial (D4, resuelto y aclarado el 9-ago-2026)
+Principio general: **durante el trial el docente trabaja con la plataforma
+completa, pero no puede sacar su trabajo fuera de Evalúa Fácil. Con
+suscripción activa puede exportar Excel y PDF y generar respaldos.**
+
+Bloqueado durante el trial (salida de información / productos de trabajo):
+- Excel.
+- PDF de trabajo.
+- Reportes.
+- Planeación Oficial.
+- ZIP de evidencias (extracción del trabajo realizado dentro de la
+  plataforma).
+- Respaldo.
+
+NO bloqueado durante el trial:
+- **PDF de credenciales de acceso de los estudiantes** — no es una
+  exportación comercial; es necesario para que el docente pueda operar
+  normalmente con su grupo durante el trial.
+- El resto de la funcionalidad de la plataforma, incluidas las funciones de
+  IA disponibles según sus créditos.
+
+## Modelo comercial de la IA (D2, resuelto 9-ago-2026)
+- Las instrucciones nuevas **sustituyen cualquier decisión anterior que las
+  contradiga** (incluida la nota "complemento aparte en 2027, fuera del plan"
+  de `VENTAJAS_COMPETITIVAS.md`).
+- La IA SÍ forma parte del **Plan Docente de $99 MXN mensuales**.
+- El objetivo es determinar cuánta IA se puede ofrecer dentro de esos $99
+  mediante un sistema de créditos IA y comprobar su rentabilidad.
+- El análisis económico se hace sobre el precio actual de lanzamiento:
+  **$99 MXN mensuales. NO usar $116 como precio base del simulador.**
+- Si después se definen planes para usuarios con mayor consumo de IA, se
+  analizarán como planes adicionales.
+
 ## Decisiones previas del proyecto que siguen vigentes (contexto)
 - v1.0.1: solo transferencia; tarjeta/MP/PayPal/anual pausados hasta v1.0.2.
 - Precio de lanzamiento $99 MXN/mes (normal de referencia: $116).
@@ -315,10 +364,10 @@ de las fases 7, 8, 9 y 10:
 
 ---
 
-# DUDAS Y CONTRADICCIONES A CONSULTAR
+# DUDAS Y CONTRADICCIONES (TODAS RESUELTAS EL 9-AGO-2026)
 
-Detectadas durante la auditoría. **Bloquean lo que se indica; ninguna se
-resuelve sin Kike.**
+Detectadas durante la auditoría y resueltas por Kike el 9-ago-2026. Se
+conservan con su respuesta como registro de decisión.
 
 ### D1 — Los formatos oficiales de planeación NO están en el proyecto
 La instrucción de la Fase 2 dice "toma como referencia los formatos oficiales
@@ -326,6 +375,14 @@ que ya existen en el proyecto", pero la búsqueda exhaustiva (código, docs y
 archivos xlsx/docx/pdf del repo) no encontró ningún formato oficial de
 planeación didáctica. **Bloquea la Fase 2.** Se necesita que Kike proporcione
 los formatos institucionales de referencia (archivo, foto o enlace).
+
+**Resuelta:** los formatos sí existen — son **tres PDF oficiales de Planeación
+Didáctica** que Kike va a proporcionar. Se usarán únicamente como referencia
+de los requisitos institucionales que Evalúa Fácil debe poder generar
+posteriormente; su complejidad NO se traslada a la experiencia del docente
+(Planeación Viva = sencilla para el docente; Planeación Oficial = salida
+generada por Evalúa Fácil conservando el formato y la información que las
+escuelas solicitan). **La Fase 2 no avanza hasta tener los tres archivos.**
 
 ### D2 — Modelo comercial de la IA: la decisión previa vs. las instrucciones nuevas
 `docs/VENTAJAS_COMPETITIVAS.md` registra la postura previa: *"[la IA] va como
@@ -340,6 +397,11 @@ puedo asumir. **Bloquea las fases 5 y 6.** Preguntas concretas:
 2. Para el simulador de rentabilidad, ¿el precio base de análisis es el $99 de
    lanzamiento, el $116 normal, o ambos escenarios?
 
+**Resuelta:** las instrucciones nuevas SUSTITUYEN cualquier decisión anterior
+que contradiga este modelo. La IA forma parte del Plan Docente de $99 MXN; el
+análisis se hace sobre $99 (no $116); planes para mayor consumo se analizarán
+después como adicionales. Registrado en "Modelo comercial de la IA".
+
 ### D3 — Conservación indefinida vs. los "90 días" que hoy ve el usuario
 La decisión nueva es conservar la información de forma indefinida. Pero hoy el
 producto **le dice al docente lo contrario**: los avisos de vencimiento dicen
@@ -349,6 +411,13 @@ seguridad de datos de Play Store menciona esa retención. (El borrado nunca se
 ha ejecutado en automático.) Entiendo que la decisión nueva rige y que habrá
 que actualizar textos, correos y declaración de Play Store en su momento.
 **Confirmar antes de la Fase 8.**
+
+**Resuelta:** confirmado. La conservación indefinida sustituye la política de
+90 días; la información no se elimina por fin de trial, fin o cancelación de
+suscripción, ni por inactividad de meses o años. Solo la elimina una acción
+explícita del propio usuario. Los textos, avisos, correos, políticas y la
+declaración de Play Store se actualizarán en su momento. Registrado en
+"Datos y continuidad".
 
 ### D4 — Alcance exacto del bloqueo de descargas en trial
 Hoy el trial SÍ puede exportar (con marca de agua). La decisión nueva lo
@@ -362,6 +431,14 @@ prohíbe — registrado. Falta definir la frontera para dos casos que no son
 solo a los documentos de salida (calificaciones, asistencia, ranking,
 resultados de evaluación, planeación oficial)? **Bloquea el detalle de la
 Fase 10** (no bloquea las fases 2–4).
+
+**Resuelta (y ampliada con la aclaración fundamental del trial):** el trial
+NO es una versión limitada — el docente usa prácticamente toda la plataforma,
+incluidas las funciones de IA según sus créditos. El bloqueo aplica a la
+salida de información fuera de Evalúa Fácil: Excel, PDF de trabajo, reportes,
+Planeación Oficial, ZIP de evidencias y respaldo. El PDF de credenciales de
+acceso de los estudiantes SÍ está disponible en trial (función operativa, no
+exportación comercial). Registrado en "Alcance del bloqueo en trial".
 
 ### Nota (no es duda): simulador externo
 `Simulador_Costos_IA_Evalua_Facil.xlsx` no está en el repositorio; es la
@@ -392,7 +469,11 @@ Definición de Kike:
 Insumos que la auditoría deja listos: la plataforma ya conoce asignatura,
 grupo, escuela (con CCT), docente (con título), semestre con fechas por
 parcial, días hábiles reales (horario + asuetos + vacaciones), actividades y
-evaluaciones con ponderaciones. Requiere resolver **D1** (formatos oficiales).
+evaluaciones con ponderaciones. La referencia institucional serán los **tres
+PDF oficiales de Planeación Didáctica** que Kike va a proporcionar (D1
+resuelta): se usan solo como referencia de requisitos, sin copiar su
+complejidad a la experiencia del docente. **En espera de esos tres archivos
+para poder iniciar.**
 
 ## Fase 3 — Operaciones de IA
 Inventario completo de operaciones donde la IA aporta valor, surgido del
@@ -425,7 +506,8 @@ Sistema de créditos comprensible para el docente. El docente **nunca ve
 tokens**; ve algo como "Plan Docente · 500 créditos IA mensuales · Te quedan
 382". Cada operación tiene costo en créditos. El costo en créditos no tiene
 que ser proporcional al costo en tokens: también pondera el valor recibido y
-el ahorro de tiempo. Requiere resolver **D2**.
+el ahorro de tiempo. D2 resuelta: los créditos van dentro del Plan Docente de
+$99 MXN mensuales.
 
 ## Fase 6 — Rentabilidad
 Modelo para un simulador que muestre: tokens consumidos, costo real en MXN,
@@ -434,17 +516,19 @@ escenarios bajo/medio/alto, margen disponible con el plan de $99, punto en el
 que conviene un segundo plan y punto en el que conviene un tercero. Objetivo:
 determinar si el plan de $99 MXN mensuales es sostenible. El simulador externo
 (`Simulador_Costos_IA_Evalua_Facil.xlsx`, en Google Sheets) es de gestión
-interna de Kike; él dará el enlace o los datos en esta fase. Requiere
-resolver **D2**.
+interna de Kike; él dará el enlace o los datos en esta fase. D2 resuelta: el
+precio base del análisis es $99 MXN mensuales (no usar $116).
 
 ## Fases 7, 8 y 10 — Trial, datos y exportaciones
-Las decisiones ya están tomadas y registradas arriba. El trabajo pendiente de
-estas fases es integrarlas al diseño (y resolver **D3** y **D4**). Cambios
+Las decisiones ya están tomadas y registradas arriba (D3 y D4 resueltas).
+El trabajo pendiente de estas fases es integrarlas al diseño. Cambios
 respecto al comportamiento actual que la auditoría deja identificados:
-- Hoy el trial exporta con marca de agua → pasará a no poder descargar
-  Excel/PDF (alcance exacto: D4).
+- Hoy el trial exporta con marca de agua → pasará al bloqueo definido en
+  "Alcance del bloqueo en trial" (salida de información bloqueada; PDF de
+  credenciales permitido).
 - Hoy el copy y Play Store hablan de 90 días de retención → pasará a
-  conservación indefinida (D3).
+  conservación indefinida; habrá que actualizar textos, avisos, correos,
+  políticas y la declaración de Play Store.
 
 ## Fase 9 — Respaldo y recuperación
 Respaldo restaurable dentro de Evalúa Fácil según las decisiones registradas
@@ -469,3 +553,4 @@ candado de suscripción de dos capas.
 | Fecha | Evento |
 |-------|--------|
 | 9-ago-2026 | Se crea el documento. Fase 1 (auditoría) realizada y entregada para revisión. Dudas D1–D4 abiertas. |
+| 9-ago-2026 | Kike resuelve D1–D4 y aprueba las decisiones. Aclaración fundamental del trial: plataforma completa (incluida IA según créditos), bloqueo solo a la salida de información. Fase 1 aprobada. Fase 2 autorizada, bloqueada en espera de los tres PDF oficiales de Planeación Didáctica. |
