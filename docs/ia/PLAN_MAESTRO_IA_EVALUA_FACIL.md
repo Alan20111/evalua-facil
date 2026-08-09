@@ -5,9 +5,9 @@ No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
 - **Última actualización:** 9 de agosto de 2026 — Fases 1–4 cerradas.
-  Entregada la **estimación de tokens por operación** como insumo para el
-  simulador (ver sección "Insumo para el simulador"). Fase 5 bloqueada hasta
-  el análisis económico.
+  Entregadas la **estimación de tokens** y la **asignación PROVISIONAL de
+  modelos** (6 candidatos; M3 sigue abierta) como insumos para el simulador.
+  Fase 5 bloqueada hasta el análisis económico.
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -1325,6 +1325,53 @@ de la Fase 4.
 | C-04a | Resumen de desempeño — alumno | 1,000 | 250 | Sistema + asignatura + datos precalculados del alumno en el parcial (~450) | Texto breve sobre ese alumno, para junta/tutor | Un alumno = **una llamada**; resumir a cada alumno de un grupo de 35 serían 35 usos de esta fila |
 | C-04b | Resumen de desempeño — grupo | 1,500 | 350 | Sistema + asignatura + estadísticas agregadas del grupo (~300) + una línea condensada por alumno (35 × ~15 ≈ 525) | Texto breve del grupo: fortalezas, focos de atención y alumnos que requieren apoyo | Grupo de 35 = **una sola llamada para todo el grupo** (no 35 llamadas) |
 
+## Asignación PROVISIONAL de modelos (solo para alimentar el simulador)
+
+Elaborada el 9-ago-2026 a petición de Kike. **NO es la decisión definitiva
+de modelos — M3 sigue abierta.** Sirve únicamente para alimentar y probar el
+simulador; la selección final saldrá de: calidad real, consumo de tokens,
+costo por operación, costo mensual por docente, escenarios de uso, pruebas
+reales de calidad y rentabilidad del plan de $99.
+
+**Candidatos (los seis registrados en el simulador, sin agregar otros):**
+OpenAI — GPT-5.6 Sol, GPT-5.6 Terra, GPT-5.6 Luna · Anthropic — Claude Opus
+4.8, Claude Sonnet 5, Claude Haiku 4.5.
+
+**Supuesto declarado sobre la familia OpenAI:** se les trata por su posición
+en la familia (Sol = tope, Terra = medio, Luna = económico). Su calidad real
+en español pedagógico, apego a esquemas JSON y lectura de PDF se comparará
+en las pruebas reales — este documento no la afirma.
+
+**Las etapas 3 y 4 de la Planeación no usan IA.** La validación de cada
+bloque (etapa 3) y la integración final (etapa 4) las hace el código del
+producto contra el esquema y las reglas duras (§4.1): consumo de tokens = 0.
+Solo las etapas 1 y 2 llaman a un modelo — coherente con la tabla de tokens
+(E1 + N×E2).
+
+| Op | Operación | Escalón | Modelo provisional | Proveedor | Sensibilidad a calidad | Razón breve | Alternativas razonables |
+|----|-----------|---------|--------------------|-----------|------------------------|-------------|--------------------------|
+| OP-01 | Analizar documentos | Mayor | Claude Sonnet 5 | Anthropic | **Alta** — todo lo demás hereda de este análisis | Lectura nativa de PDF y extracción fiel a esquema | GPT-5.6 Sol/Terra (verificar manejo de PDF en pruebas) |
+| OP-02·E1 | Planeación — tronco | Mayor | Claude Sonnet 5 | Anthropic | **Alta** — cimiento curricular de toda la asignatura | Apego a catálogos oficiales sin inventar claves; redacción pedagógica | Claude Opus 4.8 (escalón superior si las pruebas lo piden); GPT-5.6 Sol |
+| OP-02·E2 | Planeación — bloque de parcial | Mayor | Claude Sonnet 5 | Anthropic | **Alta** — narrativas y estructura estricta | Misma pieza que E1; coherencia con el tronco | GPT-5.6 Terra |
+| OP-02·E3 | Planeación — validación de bloques | — | **Sin IA** (código del producto) | — | — | Validación determinista contra esquema y reglas duras | — |
+| OP-02·E4 | Planeación — integración final | — | **Sin IA** (código del producto) | — | — | Ensamble de bloques validados en la Planeación Viva | — |
+| OP-03 | Crear examen completo | Mayor | Claude Sonnet 5 | Anthropic | **Alta** — clave correcta y opciones sin ambigüedad | Un reactivo malo daña la evaluación de todo el grupo | GPT-5.6 Terra |
+| OP-04 | Crear cuestionario completo | Mayor | Claude Sonnet 5 | Anthropic | Media-alta — es práctica, tolera algo más | Mismo esquema que OP-03 | GPT-5.6 Terra; probar Claude Haiku 4.5 en cuestionarios cortos de práctica |
+| OP-05 | Crear actividad | Económico | Claude Haiku 4.5 | Anthropic | Media — el docente edita el borrador | Pieza acotada con esquema estricto | GPT-5.6 Luna; escalar a Sonnet 5 si las instrucciones salen pobres |
+| OP-06 | Crear rúbrica | Mayor | Claude Sonnet 5 | Anthropic | **Alta** — los descriptores diferenciados SON el instrumento | Calidad de descriptores por celda | GPT-5.6 Terra |
+| OP-07 | Crear lista de cotejo | Económico | Claude Haiku 4.5 | Anthropic | Media — estructura simple sí/no | Un solo nivel, indicadores verificables | GPT-5.6 Luna |
+| OP-08 | Crear guía de observación | Económico | Claude Haiku 4.5 | Anthropic | Media | Texto guía sin estructura compleja | GPT-5.6 Luna |
+| OP-09 | Generar reactivos | Económico | Claude Haiku 4.5 | Anthropic | Media-alta — la clave debe ser correcta | Lotes chicos con esquema estricto | GPT-5.6 Luna; si parte de documento analizado → Sonnet 5 |
+| OP-10 | Generar instrucciones | Económico | Claude Haiku 4.5 | Anthropic | Baja-media — el docente ajusta en el editor | Redacción corta y frecuente | GPT-5.6 Luna |
+| OP-11 | Modificar Planeación | Económico | Claude Haiku 4.5 | Anthropic | Media — cambios acotados con esquema | Operación de mantenimiento frecuente | GPT-5.6 Luna; regenerar bloque completo → modelo de OP-02·E2 |
+| OP-12 | Retroalimentación personalizada | Económico | Claude Haiku 4.5 | Anthropic | Media — borrador que el docente edita | Texto breve y empático desde evidencia dada | GPT-5.6 Luna |
+| OP-13 | Plan de clase ligero | Económico | Claude Haiku 4.5 | Anthropic | Media | Texto práctico corto | GPT-5.6 Luna |
+| C-01 | Interpretar resultados | Económico | Claude Haiku 4.5 | Anthropic | Media — interpreta datos ya calculados | Sin cálculos propios; texto breve | GPT-5.6 Luna; si el análisis de reactivos dudosos flojea → Sonnet 5 / Terra |
+| C-02 | Sugerir calificación de abierta | Económico | Claude Haiku 4.5 | Anthropic | **Alta por naturaleza** (justicia con el alumno), mitigada porque el docente SIEMPRE confirma (regla O3) | Volumen alto (por respuesta); requiere **prueba de calidad obligatoria** antes de confirmar escalón | GPT-5.6 Luna; escalar a Sonnet 5 / Terra si las pruebas muestran sesgos o injusticia |
+| C-03 | Redactar avisos | Económico | Claude Haiku 4.5 | Anthropic | Baja | Texto corto informativo | GPT-5.6 Luna |
+| C-04a | Resumen de desempeño — alumno | Económico | Claude Haiku 4.5 | Anthropic | Media | Resumen desde datos dados | GPT-5.6 Luna |
+| C-04b | Resumen de desempeño — grupo | Económico | Claude Haiku 4.5 | Anthropic | Media | Una llamada por grupo | GPT-5.6 Luna |
+
 ---
 
 # DECISIONES YA TOMADAS (registro fiel — no se modifican)
@@ -1698,3 +1745,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | Kike autoriza la Fase 4. Se entrega el análisis de prompts y modelos: principios de diseño, bloques de contexto estándar, dos escalones de modelo (Mayor: Claude Sonnet 5; Económico: Claude Haiku 4.5, con alternativa OpenAI a validar en Fase 6), análisis especial de la Planeación 1.0 con generación por etapas, fichas de las 17 operaciones con prompts v1 y propuesta de Perfil IA mínimo (2 campos). Sin costos ni créditos. Decisiones M1–M4 abiertas. En revisión de Kike. |
 | 9-ago-2026 | **Kike resuelve M1–M4 y cierra la Fase 4.** M1 aprobada (Perfil IA con solo 2 campos opcionales); M2 aprobada (borradores reales — la IA nunca publica, activa ni califica sola); M3 NO definitiva (Sonnet 5 / Haiku 4.5 solo candidatos de trabajo; selección final con precios oficiales, comparación de calidad/tokens/costo y el simulador; OpenAI abierto); M4 aprobada (4 etapas: tronco → bloques → validación → integración; N parciales; bloque reutilizable para modificaciones). Regla nueva: **los créditos IA no se diseñan sin el análisis económico previo con el simulador.** **Fase 4 CERRADA.** |
 | 9-ago-2026 | A petición de Kike se entrega la **estimación de tokens por operación** (entrada/salida por uso, con escenarios de referencia explícitos y la Planeación 1.0 desglosada por etapas) como insumo para el simulador en Google Sheets. Estimaciones ±30–50%, a calibrar con mediciones reales en Fase 11. Sin créditos, sin modelos definitivos, sin rentabilidad. |
+| 9-ago-2026 | Se aclara C-04 (dos variantes: C-04a alumno 1,000/250 por llamada; C-04b grupo 1,500/350 en una sola llamada) y se entrega la **asignación PROVISIONAL de modelos** con los 6 candidatos del simulador (GPT-5.6 Sol/Terra/Luna; Claude Opus 4.8/Sonnet 5/Haiku 4.5). Las etapas 3 y 4 de la Planeación quedan explícitas como SIN IA (código del producto, 0 tokens). **M3 sigue abierta** — es insumo para el análisis económico, no decisión. |
