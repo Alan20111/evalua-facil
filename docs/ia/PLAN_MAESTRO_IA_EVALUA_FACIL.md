@@ -1322,7 +1322,8 @@ de la Fase 4.
 | C-01 | Interpretar resultados de evaluación | 2,400 | 500 | Sistema + asignatura + estadísticas precalculadas por reactivo (600) + los 15 reactivos (1,200) | Texto: temas débiles, reactivos dudosos, sugerencias de repaso | Examen de 15 reactivos, grupo de 35 |
 | C-02 | Sugerir calificación de abierta | 900 | 200 | Sistema + pregunta + clave/criterios + respuesta del alumno (~150 palabras) | JSON: puntos sugeridos, justificación, comentario | **Por respuesta** (un examen con 5 abiertas × 35 alumnos = 175 usos) |
 | C-03 | Redactar avisos | 700 | 150 | Sistema + asignatura + tipo y datos del aviso + perfil IA | Título + mensaje | Un aviso |
-| C-04 | Resumen de desempeño | 1,000 | 250 | Sistema + asignatura + datos precalculados del alumno en el parcial | Texto breve para junta/tutor | Alumno individual (grupo de 35: ≈1,500 / 350) |
+| C-04a | Resumen de desempeño — alumno | 1,000 | 250 | Sistema + asignatura + datos precalculados del alumno en el parcial (~450) | Texto breve sobre ese alumno, para junta/tutor | Un alumno = **una llamada**; resumir a cada alumno de un grupo de 35 serían 35 usos de esta fila |
+| C-04b | Resumen de desempeño — grupo | 1,500 | 350 | Sistema + asignatura + estadísticas agregadas del grupo (~300) + una línea condensada por alumno (35 × ~15 ≈ 525) | Texto breve del grupo: fortalezas, focos de atención y alumnos que requieren apoyo | Grupo de 35 = **una sola llamada para todo el grupo** (no 35 llamadas) |
 
 ---
 
