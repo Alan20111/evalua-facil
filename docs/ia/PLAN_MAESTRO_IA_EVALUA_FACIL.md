@@ -4,9 +4,9 @@
 No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
-- **Última actualización:** 9 de agosto de 2026 — **Fase 3 aprobada y
-  cerrada** (O1–O4 resueltas; entran las cuatro candidatas: 17 operaciones en
-  alcance). Fase 4 en espera de autorización de Kike.
+- **Última actualización:** 9 de agosto de 2026 — Fase 4 en curso: análisis
+  de prompts y modelos de las 17 operaciones entregado para revisión de Kike
+  (decisiones M1–M4 pendientes).
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -39,7 +39,7 @@ cognitiva para el docente. No se agrega por agregar.
 | 1 | Auditoría y contexto | **Aprobada** (dudas D1–D4 resueltas el 9-ago-2026) |
 | 2 | Planeación didáctica | **Aprobada y cerrada** (9-ago-2026) — diseño conceptual en §2.11; Q1–Q2 confirmadas |
 | 3 | Operaciones de IA | **Aprobada y cerrada** (9-ago-2026) — 17 operaciones en alcance; O1–O4 resueltas |
-| 4 | Prompts y modelos | No iniciada — **en espera de autorización de Kike** |
+| 4 | Prompts y modelos | **En curso** — análisis entregado (ver Fase 4), **en revisión de Kike**; decisiones M1–M4 pendientes |
 | 5 | Créditos IA | No iniciada |
 | 6 | Rentabilidad | No iniciada |
 | 7 | Trial y continuidad | Decisiones tomadas y completas (D4 resuelta) — pendiente integrarlas al diseño |
@@ -874,6 +874,365 @@ calculadas), útil para juntas, tutores o como base de la retroalimentación.
 
 ---
 
+# FASE 4 — PROMPTS Y MODELOS (entregado para revisión)
+
+Elaborado el 9-ago-2026 para las 17 operaciones aprobadas en la Fase 3.
+**Qué NO incluye** (por instrucción de Kike): costos de tokens, créditos IA,
+límites de planes, implementación de APIs, programación. Los precios de las
+APIs se cargarán en el simulador (Fase 6) desde las fuentes oficiales
+vigentes de OpenAI y Anthropic — aquí los modelos se recomiendan por
+capacidad y naturaleza de la operación, no por precio.
+
+## 4.1 Principios de diseño de los prompts
+
+1. **La IA propone, el docente decide.** Todos los prompts generan
+   propuestas; ninguno publica, envía ni guarda calificaciones definitivas.
+2. **Contexto en capas serializado en bloques estándar** (§4.3): los mismos
+   bloques se reutilizan en todas las operaciones. Nada que Evalúa Fácil ya
+   sabe se le pregunta al docente — se inyecta en el contexto.
+3. **Salida estructurada para todo lo que se convierte en entidad del
+   producto** (bloques de planeación, actividades, reactivos, rúbricas,
+   guías): la IA responde con JSON conforme a un esquema que espeja el
+   modelo real de Firestore, y el producto lo valida (p. ej. que los pesos
+   sumen exactamente 10) antes de crear el borrador. Las operaciones
+   conversacionales (retroalimentación, avisos, interpretaciones) responden
+   en texto. Los esquemas definitivos se afinan contra los modelos reales en
+   la Fase 11.
+4. **Los cálculos los hace Evalúa Fácil, la IA interpreta.** Promedios,
+   porcentajes, estadísticas por reactivo y asistencia ya se calculan en la
+   plataforma; a la IA se le entregan como datos, nunca se le pide
+   calcularlos.
+5. **Contexto estable primero, volátil al final.** Los bloques fijos de la
+   asignatura van al inicio del prompt y la petición del docente al final —
+   este orden permite aprovechar el caché de prompts de los proveedores
+   (misma calidad, menor costo; la cuantificación es de la Fase 6).
+6. **Prompts v1 en español.** Se afinarán con pruebas reales durante la
+   implementación (Fase 11); cualquier cambio de fondo se consulta con Kike.
+7. **La clave de API vive solo en el servidor** (restricción ya registrada
+   en Fase 1): toda llamada a modelos pasa por backend, nunca por el
+   cliente.
+
+## 4.2 Los dos escalones de modelo
+
+Cada operación declara **requisitos** (calidad, estructura, contexto), no un
+proveedor — el modelo concreto se fija por configuración del servidor y puede
+cambiarse sin tocar el producto (regla de no-atadura ya decidida por Kike).
+
+| Escalón | Para qué | Candidato primario | Alternativas |
+|---------|----------|--------------------|--------------|
+| **Mayor** | Generaciones extensas y estructuradas donde la calidad pedagógica y la fidelidad al esquema mandan (Familia A + análisis de documentos) | **Claude Sonnet 5** (`claude-sonnet-5`) | Claude Opus 5 como escalón superior a probar solo si las pruebas reales de la Planeación 1.0 lo exigieran |
+| **Económico** | Operaciones frecuentes y acotadas del día a día (Familias B y C) | **Claude Haiku 4.5** (`claude-haiku-4-5`) | Equivalente económico de OpenAI, a evaluar en la Fase 6 con precios oficiales vigentes y en la Fase 11 con pruebas de calidad |
+
+Por qué Claude Sonnet 5 como candidato del escalón Mayor: seguimiento
+estricto de instrucciones y de esquemas de salida (crítico para estructuras
+exactas como pesos que suman 10), redacción pedagógica de calidad en español,
+lectura nativa de PDF (programas de estudio), salidas estructuradas
+garantizadas por la API y ventana de contexto amplia. La validación
+económica final de ambos escalones es de la Fase 6.
+
+## 4.3 Bloques de contexto estándar
+
+Definidos una sola vez; cada operación declara cuáles usa. Fuente: las
+colecciones ya inventariadas en la Fase 1.
+
+| Bloque | Contenido | Fuente |
+|--------|-----------|--------|
+| `[SISTEMA]` | Prompt base común (abajo) | Fijo |
+| `[PERFIL_IA]` | Perfil IA global del docente (M1) | Perfil del docente |
+| `[ASIGNATURA]` | Nombre, grupo, escuela, nivel, carrera/semestre, parciales con fechas, ponderación | `subjects`, `schools`, planeación |
+| `[PLANEACION]` | Tronco de la Planeación Viva + bloque del parcial en curso (propósitos, aprendizaje esperado, contenidos, productos, competencias) | Planeación Viva |
+| `[PARCIAL]` | Fechas, horas, actividades reales del parcial (nombre, tipo, instrumento, peso, estado) | `activities`, horario |
+| `[ALUMNO]` | Solo cuando aplica: entrega, rúbrica evaluada, respuestas, historial, asistencia — del alumno concreto | `submissions`, `attendanceSummaries` |
+| `[BANCO]` | Resumen del banco del docente (reactivos por tema / rúbricas), para reutilizar y no repetir | `bancoReactivos`, `bancoRubricas` |
+| `[DOCUMENTO]` | Documento aportado por el docente (PDF/imagen) o su análisis previo (OP-01) | Cloudinary / análisis guardado |
+| `[PETICION]` | Lo que el docente pide ahora, con sus opciones | El docente |
+
+**Prompt base `[SISTEMA]` (común a todas las operaciones), v1:**
+
+> Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la
+> asignatura de un docente de bachillerato mexicano. Tu papel es PROPONER:
+> el docente siempre revisa y decide. Usa exclusivamente la información del
+> contexto; no inventes datos de la escuela, del grupo, de los alumnos ni
+> del programa de estudios. Escribe en español, con lenguaje claro y
+> profesional adecuado para bachillerato. Cuando la operación indique un
+> esquema de salida, responde únicamente con el JSON válido de ese esquema,
+> sin texto adicional.
+
+## 4.4 Análisis especial: Planeación Didáctica 1.0 (OP-02)
+
+**Por qué es la operación más exigente.** Es el resultado más extenso
+(tronco + N bloques de parcial), con estructura estricta (el modelo de
+§2.11), redacción pedagógica real (propósitos, narrativas de
+Apertura/Desarrollo/Cierre), selección desde catálogos oficiales
+(competencias, HSE) y, cuando existe, un programa de estudios en PDF como
+insumo (OP-01). Además es la base de contexto de todas las demás
+operaciones: si la Planeación sale mal, todo lo demás hereda el error.
+
+**Estrategia recomendada: generación por etapas (decisión M4).**
+
+1. **Etapa 1 — Tronco de la asignatura:** una llamada genera identificación
+   complementaria, currículo común, recursos y referencias.
+2. **Etapa 2 — Un bloque por parcial:** una llamada por parcial genera
+   aprendizaje esperado, contenidos, productos, HSE, competencias del
+   parcial y narrativas, usando el tronco ya validado como contexto.
+
+Ventajas: soporta N parciales variable de forma natural (P1), cada etapa es
+un resultado acotado y verificable, un reintento o corrección solo repite la
+etapa afectada (no toda la planeación), y la etapa 2 es exactamente la misma
+operación que "modificar Planeación" usará después — una sola pieza, dos
+usos. El docente puede revisar el tronco antes de que se generen los
+parciales.
+
+**Evaluación de Claude para la generación inicial (mandato de Kike):** SÍ se
+recomienda Claude — candidato primario **Claude Sonnet 5**. Razones: es el
+perfil de tarea donde más pesan el apego a estructuras exactas, la calidad
+de redacción pedagógica en español y la lectura de PDF del programa oficial;
+las salidas estructuradas de la API garantizan JSON válido contra el esquema
+de la planeación; y la ventana de contexto amplia permite incluir programa +
+catálogos + contexto completo sin recortes. Claude Opus 5 queda como escalón
+superior a probar únicamente si las pruebas reales mostraran calidad
+insuficiente. La confirmación económica es de la Fase 6.
+
+**Prompt v1 (etapa 1 — tronco):**
+
+> Genera el tronco de la Planeación Didáctica de esta asignatura conforme al
+> esquema TRONCO. Usa `[ASIGNATURA]` y, si existe, `[DOCUMENTO]` (programa
+> de estudios). Propón: propósito formativo del campo y de la asignatura,
+> ámbitos del perfil de egreso y competencias (elige de los catálogos
+> incluidos en el contexto; no inventes claves), recursos generales y
+> referencias. Los campos ejes disciplinarios, componente y contenido
+> central van en "N/A" salvo que el programa indique otra cosa. Todo es una
+> propuesta editable para el docente.
+
+**Prompt v1 (etapa 2 — bloque de parcial):**
+
+> Genera el bloque del parcial {n} conforme al esquema BLOQUE_PARCIAL. Usa
+> el tronco validado, `[PARCIAL]` (fechas, horas reales y actividades que el
+> docente ya creó) y los contenidos del programa que correspondan a este
+> periodo. Propón: aprendizaje esperado, contenidos específicos, productos
+> esperados, HSE y competencias de productividad (de catálogo), y las
+> narrativas de Apertura, Desarrollo y Cierre redactadas a partir de las
+> actividades reales — sin inventar actividades que no existen. Reparte las
+> horas del parcial entre los momentos. La ponderación refleja los pesos
+> reales de las actividades. Proceso de aprendizaje va en "N/A" salvo
+> indicación del programa.
+
+## 4.5 Fichas de las 17 operaciones
+
+Formato: contexto (bloques de §4.3) · lo que aporta el docente · resultado ·
+prompt v1 (instrucción específica; siempre precedida por `[SISTEMA]` y los
+bloques de contexto) · escalón de modelo.
+
+### Transversal
+
+**OP-01 · Analizar documentos — Mayor.**
+Contexto: `[ASIGNATURA]` + `[PLANEACION]` (si existe) + el archivo.
+Aporta el docente: el archivo y un clic sobre su propósito (programa de
+estudios / temario / material de apoyo). No se pregunta: nada más.
+Resultado: JSON `DOCUMENTO_ANALIZADO` (tipo de documento, estructura de
+unidades/temas, aprendizajes y competencias detectadas, contenido
+aprovechable) que queda guardado como contexto de la asignatura.
+Prompt v1: *"Analiza el documento adjunto. Identifica qué es, extrae su
+estructura (unidades, temas, aprendizajes, competencias) y resume el
+contenido aprovechable para planear y crear actividades y evaluaciones.
+Devuelve solo el JSON del esquema DOCUMENTO_ANALIZADO."*
+Modelo: Mayor (lectura de PDF y extracción fiel — es insumo de todo lo
+demás).
+
+### Familia A — Generaciones mayores
+
+**OP-02 · Generar Planeación Didáctica 1.0 — Mayor.** Ver §4.4.
+
+**OP-03 · Crear examen completo — Mayor.**
+Contexto: `[ASIGNATURA]` + `[PLANEACION]` + `[PARCIAL]` + `[BANCO]` +
+`[PETICION]`. Aporta: tema o alcance y, si quiere, número de preguntas y
+tipos (por omisión la IA propone). No se pregunta: contenidos del parcial,
+banco, evaluaciones previas. Resultado: JSON `EXAMEN` — configuración
+sugerida (tiempo, 1 intento, navegación), secciones si aplica, y reactivos
+de los 4 tipos con opciones, clave, retroalimentación y ponderación que suma
+exactamente 10. El producto lo crea como evaluación en borrador (M2).
+Prompt v1: *"Crea un examen del parcial indicado a partir del aprendizaje
+esperado y los contenidos específicos del contexto. No repitas reactivos del
+banco del docente. Genera {n} reactivos variados de los tipos permitidos:
+enunciado claro, opciones plausibles (sin ambigüedad), respuesta correcta,
+retroalimentación breve que enseñe, y ponderación; las ponderaciones suman
+exactamente 10. Propón la configuración según dificultad y duración.
+Devuelve solo el JSON del esquema EXAMEN."*
+
+**OP-04 · Crear cuestionario completo — Mayor.**
+Igual que OP-03 con la naturaleza de práctica: navegación libre, varios
+intentos, retroalimentación inmediata visible. Mismo esquema con
+configuración de cuestionario.
+
+### Familia B — Creaciones puntuales
+
+**OP-05 · Crear actividad — Económico.**
+Contexto: `[ASIGNATURA]` + `[PLANEACION]` + `[PARCIAL]` + `[PETICION]`.
+Aporta: qué quiere trabajar (una frase). Resultado: JSON `ACTIVIDAD` —
+nombre, instrucciones en HTML sencillo, producto esperado, tipos de archivo
+sugeridos y peso sugerido dentro de la ponderación restante del parcial.
+Borrador oculto (M2).
+Prompt v1: *"Propón una actividad alineada al aprendizaje esperado y los
+contenidos del parcial. Instrucciones claras en pasos, producto esperado
+concreto, tipos de archivo adecuados y un peso sugerido que respete que los
+pesos del parcial suman 10 (pesos ya usados en el contexto). No dupliques
+actividades existentes. Devuelve solo el JSON del esquema ACTIVIDAD."*
+
+**OP-06 · Crear rúbrica — Mayor.**
+Contexto: `[ASIGNATURA]` + la actividad (instrucciones) o descripción breve
++ `[PETICION]`. Resultado: JSON `RUBRICA` con el modelo exacto del producto:
+niveles 3–5 (primero al 100%), criterios 2–6 con pesos que suman 10 y
+descriptores por celda, observables y diferenciados. Se guarda en el banco
+y/o en la actividad (M2).
+Prompt v1: *"Crea una rúbrica para evaluar esta actividad. Niveles {3–5} con
+nombres claros, criterios {2–6} relevantes al producto esperado, pesos que
+suman exactamente 10 y un descriptor observable por celda que distinga
+niveles sin ambigüedad. Lenguaje que un alumno de bachillerato entiende.
+Devuelve solo el JSON del esquema RUBRICA."*
+(Escalón Mayor: la calidad de los descriptores es lo que hace útil una
+rúbrica.)
+
+**OP-07 · Crear lista de cotejo — Económico.**
+Igual que OP-06 con un solo nivel: criterios con pesos que suman 10, cada
+uno como indicador verificable sí/no. Esquema `COTEJO`.
+
+**OP-08 · Crear guía de observación — Económico.**
+Contexto: `[ASIGNATURA]` + la actividad de observación + `[PETICION]`.
+Resultado (O1: contenido, sin instrumento nuevo): texto/HTML con la guía —
+qué observar, indicadores concretos, escala sugerida y espacio de notas —
+asociado a la actividad de observación.
+Prompt v1: *"Redacta una guía de observación para esta actividad: aspectos a
+observar alineados al aprendizaje esperado, indicadores concretos y
+observables, y sugerencia de registro. Breve y usable en el aula."*
+
+**OP-09 · Generar reactivos — Económico (Mayor si parte de un documento).**
+Contexto: `[ASIGNATURA]` + `[PLANEACION]` + `[BANCO]` + tema o
+`[DOCUMENTO]`. Resultado: JSON `REACTIVOS` — lista de reactivos con clave,
+retroalimentación y clasificación por materia/tema para el banco, o para una
+evaluación existente.
+Prompt v1: *"Genera {n} reactivos de tipo {tipos} sobre {tema/contenido}.
+Sin repetir los del banco (lista en contexto). Cada uno con enunciado,
+opciones plausibles, respuesta correcta, retroalimentación breve y tema.
+Devuelve solo el JSON del esquema REACTIVOS."*
+
+**OP-10 · Generar instrucciones — Económico.**
+Contexto: `[ASIGNATURA]` + la actividad (nombre, instrucciones actuales si
+hay) + `[PERFIL_IA]` + `[PETICION]`. Resultado: HTML sencillo con las
+instrucciones nuevas o mejoradas. Se inserta en el editor para que el
+docente ajuste.
+Prompt v1: *"Redacta (o mejora) las instrucciones de esta actividad: qué se
+hará, pasos claros, criterios de entrega y formato. Tono {perfil IA}.
+Concreto y sin relleno."*
+
+### Familia C — Asistencia continua
+
+**OP-11 · Modificar Planeación — Económico.**
+Contexto: `[PLANEACION]` (el bloque afectado) + `[PARCIAL]` + `[PETICION]`.
+Resultado: JSON con SOLO los campos modificados del bloque (propuesta de
+cambio que el docente confirma). Si la petición implica regenerar un bloque
+completo, se usa la etapa 2 de OP-02 (escalón Mayor).
+Prompt v1: *"Aplica este ajuste a la planeación: {petición}. Modifica
+únicamente los campos necesarios del bloque indicado y mantén la coherencia
+con las actividades reales del parcial. Devuelve solo el JSON del esquema
+CAMBIO_PLANEACION con los campos modificados."*
+
+**OP-12 · Retroalimentación personalizada — Económico.**
+Contexto: `[ASIGNATURA]` + `[ALUMNO]` (entrega, rúbrica evaluada, respuestas,
+historial, asistencia) + `[PERFIL_IA]` + `[PETICION]`. Resultado: borrador de
+texto para el comentario de calificación (por entrega o por pregunta). El
+docente edita y decide.
+Prompt v1: *"Redacta retroalimentación para este alumno sobre esta entrega:
+reconoce lo logrado con base en la evidencia, señala 1–3 mejoras concretas
+ligadas a los criterios, y cierra con orientación accionable. Tono {perfil
+IA}, dirigido al alumno por su nombre, breve. No inventes nada que no esté
+en la evidencia."*
+
+**OP-13 · Generar plan de clase ligero — Económico.**
+Contexto: `[ASIGNATURA]` + `[PLANEACION]` + `[PARCIAL]` + horario de la
+sesión + `[PETICION]` (tema y, si quiere, duración). Resultado: texto breve
+y práctico — inicio, desarrollo, cierre de LA CLASE, con tiempos según la
+duración real del bloque, materiales y un producto/checkpoint. NO es un
+formato institucional (O2).
+Prompt v1: *"Prepara un plan de clase ligero para la sesión de {fecha,
+duración} sobre {tema}: inicio, desarrollo y cierre con tiempos realistas,
+qué hace el docente y qué hacen los alumnos, materiales y un producto o
+señal de logro. Práctico y directo, sin formato burocrático."*
+
+**C-01 · Interpretar resultados de una evaluación — Económico.**
+Contexto: `[ASIGNATURA]` + estadísticas YA calculadas por EF (promedios, %
+por reactivo, por sección si existe) + los reactivos. Resultado: texto breve
+— temas dominados y débiles, reactivos posiblemente mal planteados (con
+razón), y 2–3 sugerencias de repaso.
+Prompt v1: *"Interpreta estos resultados para el docente: qué dominó el
+grupo, qué falló y por qué podría ser (contenido no logrado vs. reactivo
+confuso), y qué conviene repasar. Basa todo en los datos incluidos; no
+calcules nada nuevo."*
+
+**C-02 · Sugerir calificación de respuestas abiertas — Económico.**
+Contexto: la pregunta + la clave/criterios del docente + la respuesta del
+alumno + puntos posibles. Resultado: JSON `SUGERENCIA_CALIFICACION` —
+puntos sugeridos, justificación breve y comentario propuesto. **Regla O3 en
+el producto y en el prompt: es una sugerencia; jamás se guarda sola.**
+Prompt v1: *"Compara la respuesta del alumno con la clave y los criterios.
+Sugiere puntos (0 a {máx}) y justifícalo citando la evidencia de la
+respuesta. Propón un comentario breve para el alumno. Es una sugerencia para
+el docente: sé justo, y ante la duda favorece la revisión humana señalando
+qué revisar."*
+(El escalón se confirmará con pruebas reales de calidad en Fase 11.)
+
+**C-03 · Redactar avisos — Económico.**
+Contexto: `[ASIGNATURA]` + tipo de aviso (los 12 del producto) + datos del
+caso + `[PERFIL_IA]`. Resultado: título + mensaje listos para el editor de
+avisos.
+Prompt v1: *"Redacta un aviso de tipo {tipo} para el grupo con estos datos:
+{datos}. Claro, completo (qué, cuándo, qué deben hacer), tono {perfil IA},
+breve. Devuelve título y mensaje."*
+
+**C-04 · Resumen de desempeño (alumno o grupo) — Económico.**
+Contexto: `[ASIGNATURA]` + datos YA calculados (calificaciones, entregas,
+asistencia) del alumno o del grupo en el parcial. Resultado: texto breve
+para junta, tutor o preparación de retroalimentación.
+Prompt v1: *"Resume el desempeño de {alumno|el grupo} en el parcial con los
+datos incluidos: dónde va bien, dónde necesita apoyo y una recomendación
+concreta. Lenguaje claro para compartir con un tutor o padre de familia. No
+calcules nada nuevo ni especules más allá de los datos."*
+
+## 4.6 El Perfil IA del docente (derivado de las operaciones — decisión M1)
+
+Recorridas las 17 operaciones, la única información global que las
+operaciones realmente necesitan y que Evalúa Fácil no conoce es **cómo
+quiere sonar el docente** cuando la IA redacta textos dirigidos a sus
+alumnos (OP-10, OP-12, C-03, y los textos de actividades). Propuesta de
+Perfil IA **mínimo** (regla de Kike: solo lo que aporta valor):
+
+1. **Tono con tus alumnos** — selección simple (cercano / neutral / formal),
+   con valor por omisión "cercano y respetuoso".
+2. **Indicaciones personales para la IA** — texto libre OPCIONAL (p. ej.
+   "siempre tutéalos", "evita tecnicismos").
+
+Nada más. Carrera y semestre son por asignatura (viven en la Planeación,
+§2.11); el resto ya lo sabe la plataforma. Ambos campos con valor por
+omisión: el docente que nunca abra su Perfil IA recibe resultados correctos.
+
+## 4.7 Decisiones pendientes de Kike (M1–M4)
+
+- **M1 — Perfil IA mínimo:** ¿apruebas los dos campos propuestos en §4.6
+  (tono + indicaciones libres, ambos opcionales con omisión sensata)?
+- **M2 — Resultados como borradores reales:** lo que la IA genera se crea
+  directamente como **borrador dentro del producto** (actividad oculta,
+  evaluación en borrador, rúbrica en el banco, texto en el editor) para que
+  el docente lo revise y ajuste con los editores que ya conoce — en lugar de
+  mostrar texto para copiar. ¿Lo apruebas?
+- **M3 — Candidatos de modelo:** Claude Sonnet 5 como candidato primario del
+  escalón Mayor (incluida la Planeación 1.0) y Claude Haiku 4.5 del escalón
+  Económico, con alternativa OpenAI del escalón Económico a evaluar en la
+  Fase 6 con precios oficiales, y todo conmutable por configuración (sin
+  atadura). ¿Lo apruebas como hipótesis de trabajo?
+- **M4 — Planeación por etapas:** generación de la Planeación 1.0 en etapas
+  (tronco → bloque por bloque de parcial, §4.4). ¿La apruebas?
+
+---
+
 # DECISIONES YA TOMADAS (registro fiel — no se modifican)
 
 Definidas por Kike el 9-ago-2026 al arrancar este proyecto. Son el marco fijo
@@ -1167,6 +1526,13 @@ evalúa para la generación inicial de la Planeación**; modificaciones pequeña
 y operaciones frecuentes pueden usar OpenAI u otro modelo si dan mejor
 relación calidad/costo. Sin atadura conceptual a un solo proveedor.
 
+**Avance:** análisis completo entregado el 9-ago-2026 en la sección
+"FASE 4 — PROMPTS Y MODELOS": principios de diseño, bloques de contexto
+estándar, dos escalones de modelo, análisis especial de la Planeación 1.0
+(Claude recomendado, generación por etapas) y fichas de las 17 operaciones
+con contexto, resultado, prompt v1 y escalón. En revisión de Kike;
+decisiones M1–M4 pendientes.
+
 ## Fase 5 — Créditos IA
 Sistema de créditos comprensible para el docente. El docente **nunca ve
 tokens**; ve algo como "Plan Docente · 500 créditos IA mensuales · Te quedan
@@ -1229,3 +1595,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | **Kike aprueba la Fase 2** y confirma Q1–Q2 (Planeación Viva en la pestaña IA de cada asignatura, sin pestaña independiente; los campos del Perfil IA se definen en fases 3–4). Se registran la herramienta interna de costos (`Simulador_Costos_IA_Evalua_Facil.xlsx` en Google Sheets) y la separación de responsabilidades Claude Code / Google Sheets / Evalúa Fácil. **Fase 2 CERRADA.** Fase 3 en espera de autorización. |
 | 9-ago-2026 | Kike autoriza la Fase 3. Se entrega el inventario de operaciones de IA: OP-01 a OP-13 (lista mínima anclada al producto real, en tres familias + una transversal) y candidatas C-01 a C-04. Sin prompts, sin modelos, sin costos ni créditos. Decisiones O1–O4 abiertas. En revisión de Kike. |
 | 9-ago-2026 | **Kike resuelve O1–O4 y aprueba la Fase 3.** Guía de observación como contenido IA sin instrumento nuevo (O1); planeaciones sencillas = plan de clase ligero, no burocrático (O2); entran las 4 candidatas, con regla especial para C-02: la IA solo sugiere calificación, nunca la guarda (O3); pestaña IA como casa central + invocación en el punto de uso (O4). Alcance final: **17 operaciones**. **Fase 3 CERRADA.** Fase 4 en espera de autorización. |
+| 9-ago-2026 | Kike autoriza la Fase 4. Se entrega el análisis de prompts y modelos: principios de diseño, bloques de contexto estándar, dos escalones de modelo (Mayor: Claude Sonnet 5; Económico: Claude Haiku 4.5, con alternativa OpenAI a validar en Fase 6), análisis especial de la Planeación 1.0 con generación por etapas, fichas de las 17 operaciones con prompts v1 y propuesta de Perfil IA mínimo (2 campos). Sin costos ni créditos. Decisiones M1–M4 abiertas. En revisión de Kike. |
