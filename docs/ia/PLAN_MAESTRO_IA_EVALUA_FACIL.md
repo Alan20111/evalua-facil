@@ -5,9 +5,10 @@ No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
 - **Última actualización:** 9 de agosto de 2026 — Fases 1–4 cerradas.
-  Insumos del simulador entregados: **tokens por operación**, **asignación
-  PROVISIONAL de modelos** (M3 abierta) y **frecuencias mensuales de uso**
-  (escenario normal). Fase 5 bloqueada hasta el análisis económico.
+  Insumos del simulador: **tokens por operación**, **modelos provisionales**
+  (M3 abierta) y **modelo de consumo ARRANQUE + RECURRENTE** con reglas de
+  fuentes (máx. 10/asignatura). Fase 5 bloqueada hasta el análisis
+  económico.
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -1374,6 +1375,12 @@ Solo las etapas 1 y 2 llaman a un modelo — coherente con la tabla de tokens
 
 ## Frecuencias mensuales de uso — escenario NORMAL (insumo del simulador)
 
+> **SUSTITUIDA el 9-ago-2026** por el "Modelo de consumo: ARRANQUE +
+> RECURRENTE" (sección siguiente), que corrige el error de modelar OP-01 y
+> OP-02 como operaciones mensuales indefinidas. Se conserva como historial;
+> las frecuencias de las operaciones recurrentes siguen vigentes y se
+> retoman en el modelo corregido.
+
 Elaborado el 9-ago-2026 a petición de Kike. Escenario **normal/realista** (ni
 conservador ni extremo) para un docente de EMS que usa Evalúa Fácil con
 regularidad. Sin costos, sin créditos, sin cambios a tokens ni a modelos
@@ -1424,6 +1431,75 @@ aquí; en el simulador basta cambiar estos parámetros para recalcular):
 
 **Total ≈ 307 usos/mes** para el docente de referencia (de los cuales ~200
 son C-02, la micro-operación por respuesta).
+
+## Modelo de consumo: ARRANQUE + RECURRENTE (corrección del 9-ago-2026)
+
+Corrección definida por Kike antes de llevar el modelo al simulador. Perfil
+de referencia sin cambios: **4 asignaturas × 35 alumnos × 3 parciales ×
+4.5 meses efectivos**. Sin costos, sin créditos, sin cambios a tokens ni a
+modelos provisionales.
+
+### Reglas de las fuentes de conocimiento (decisión de Kike, 9-ago-2026)
+
+- **Máximo de fuentes por asignatura: 10.** El límite es **por asignatura**,
+  no por docente.
+- **Fuentes iniciales recomendadas: ≈ 5** por asignatura, consideradas para
+  la Planeación 1.0.
+- **Las fuentes se acumulan** — no sustituyen a las anteriores. El docente
+  puede agregar nuevas cuando las necesite, hasta el tope de 10.
+- **Comportamiento de OP-01:** una fuente se analiza/incorpora **UNA sola
+  vez**; después su conocimiento (el análisis de ~2,000 tokens) se
+  **reutiliza** — no se vuelve a pagar el análisis completo cada vez que
+  otra operación usa esa fuente. OP-01 NO es una operación mensual
+  indefinida: son las fuentes iniciales del arranque + las adiciones
+  ocasionales, con tope duro de 10 por asignatura.
+- **Comportamiento de OP-02:** la Planeación 1.0 de cada asignatura se
+  genera **UNA sola vez al inicio de la asignatura/semestre** (tronco + sus
+  N bloques de parcial). NO se modela como una planeación completa mensual.
+  Después del arranque, la Planeación solo consume por mantenimiento: los
+  ajustes pequeños son OP-11, y la regeneración de un bloque completo por
+  un cambio mayor consume como OP-02·E2 (ocasional).
+
+### Tabla final de consumo (docente de referencia)
+
+**Arranque** = usos una sola vez al inicio del semestre (las 4 asignaturas).
+**Recurrente** = usos por mes una vez construidas las Planeaciones.
+
+| Operación | Arranque | Recurrente mensual | Unidad de uso | Supuesto |
+|-----------|---------:|-------------------:|----------------|----------|
+| OP-01 · Fuentes iniciales | **20** | — | 1 documento analizado | 5 fuentes × 4 asignaturas, una sola vez |
+| OP-01 · Fuentes adicionales | — | 1 | 1 documento analizado | ~1 fuente extra por asignatura durante el semestre; **tope 10/asignatura** (el docente de referencia llega a ~6–7 de 10) |
+| OP-02·E1 · Tronco | **4** | 0 | 1 tronco | Una vez por asignatura por semestre — nunca recurrente |
+| OP-02·E2 · Bloques de parcial | **12** | ~1 | 1 bloque | 4 × 3 parciales al arranque; recurrente solo la regeneración ocasional de un bloque por cambio mayor (vía OP-11 escalado) |
+| OP-03 · Examen | 0 | 3 | 1 examen | 1 por asignatura por parcial |
+| OP-04 · Cuestionario | 0 | 4 | 1 cuestionario | ~1.5 por asignatura por parcial |
+| OP-05 · Actividad | 8 | 6 | 1 actividad | Arranque: ~2 actividades del parcial 1 por asignatura; después ritmo normal |
+| OP-06 · Rúbrica | 4 | 2 | 1 rúbrica | Arranque: 1 rúbrica base por asignatura; después el banco reduce la necesidad |
+| OP-07 · Lista de cotejo | 0 | 2 | 1 lista | — |
+| OP-08 · Guía de observación | 0 | 1 | 1 guía | — |
+| OP-09 · Reactivos | 0 | 4 | 1 lote de ~5 | Alimentar el banco |
+| OP-10 · Instrucciones | 0 | 8 | 1 actividad | Cotidiana ligera |
+| OP-11 · Modificar Planeación | 0 | 8 | 1 ajuste pequeño | Mantener viva la Planeación |
+| OP-12 · Retroalimentación | 0 | 25 | 1 alumno × 1 entrega | Entregas destacadas o problemáticas |
+| OP-13 · Plan de clase | 0 | 6 | 1 sesión | ~1–2 por semana |
+| C-01 · Interpretar resultados | 0 | 4 | 1 evaluación | Tras exámenes y algunas prácticas |
+| C-02 · Calificación de abiertas | 0 | **200** | **1 respuesta individual** | ~2 evaluaciones con abiertas × ~3 abiertas × 35 alumnos |
+| C-03 · Avisos | 4 | 12 | 1 aviso | Arranque: bienvenida/encuadre por asignatura |
+| C-04a · Resumen alumno | 0 | 10 | 1 alumno | Seguimiento y juntas |
+| C-04b · Resumen grupo | 0 | 4 | 1 grupo (una llamada) | ~1 por asignatura por corte |
+| **TOTALES** | **52 usos** | **≈ 301 usos/mes** | | |
+
+### Nota de consistencia con la tabla de tokens (señalada, NO modificada)
+
+La estimación de tokens de OP-02·E1 (6,000 de entrada) asumió **UN** análisis
+de documento (~2,000 tokens) como insumo. Con la regla de ~5 fuentes
+iniciales, si la generación del tronco incluye los análisis de las 5
+fuentes, la entrada de E1 crecería ~+8,000 tokens (5 × 2,000 en lugar de
+2,000). No modifico la tabla de tokens por instrucción de Kike; el simulador
+puede modelarlo como "+2,000 de entrada por fuente adicional incluida en la
+generación", y en la implementación (Fase 11) se decidirá si cada operación
+recibe todas las fuentes o solo las relevantes. Queda como punto abierto
+para cuando Kike lo indique.
 
 ---
 
@@ -1800,3 +1876,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | A petición de Kike se entrega la **estimación de tokens por operación** (entrada/salida por uso, con escenarios de referencia explícitos y la Planeación 1.0 desglosada por etapas) como insumo para el simulador en Google Sheets. Estimaciones ±30–50%, a calibrar con mediciones reales en Fase 11. Sin créditos, sin modelos definitivos, sin rentabilidad. |
 | 9-ago-2026 | Se aclara C-04 (dos variantes: C-04a alumno 1,000/250 por llamada; C-04b grupo 1,500/350 en una sola llamada) y se entrega la **asignación PROVISIONAL de modelos** con los 6 candidatos del simulador (GPT-5.6 Sol/Terra/Luna; Claude Opus 4.8/Sonnet 5/Haiku 4.5). Las etapas 3 y 4 de la Planeación quedan explícitas como SIN IA (código del producto, 0 tokens). **M3 sigue abierta** — es insumo para el análisis económico, no decisión. |
 | 9-ago-2026 | Se entregan las **frecuencias mensuales de uso** (escenario normal) para el simulador: perfil de referencia de 4 asignaturas × 35 alumnos × 3 parciales (semestre ≈ 4.5 meses), ~307 usos/mes totales. Observaciones clave: el mes 1 del semestre concentra el consumo de planeación (nota para el diseño de créditos en Fase 5) y C-02 es el motor de volumen (~200 usos/mes con fórmula explícita). Sin costos ni créditos. |
+| 9-ago-2026 | **Kike corrige el modelo de consumo:** se reestructura en ARRANQUE (52 usos una vez por semestre: 20 fuentes iniciales + 4 troncos + 12 bloques + arranque de actividades/rúbricas/avisos) + RECURRENTE (~301 usos/mes). Reglas de fuentes registradas: ~5 iniciales por asignatura, acumulables, máx. 10 por asignatura (límite por asignatura, no por docente); cada fuente se analiza UNA vez y su conocimiento se reutiliza. OP-01 y OP-02 dejan de modelarse como mensuales. Se señala (sin modificar) la interacción con la tabla de tokens de E1 (5 fuentes vs 1 análisis asumido). |
