@@ -5,10 +5,10 @@ No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
 - **Última actualización:** 9 de agosto de 2026 — Fases 1–4 cerradas.
-  Insumos del simulador: **tokens por operación**, **modelos provisionales**
-  (M3 abierta) y **modelo de consumo ARRANQUE + RECURRENTE** con reglas de
-  fuentes (máx. 10/asignatura). Fase 5 bloqueada hasta el análisis
-  económico.
+  Arquitectura D aprobada y **tokens de OP-01/OP-02 actualizados** en las
+  tablas (escenarios PLAN·5F y PLAN·10F separados). Modelos provisionales
+  (M3 abierta), consumo ARRANQUE + RECURRENTE. Fase 5 bloqueada hasta el
+  análisis económico.
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -1305,10 +1305,13 @@ de la Fase 4.
 
 | Op | Operación | Entrada | Salida | Qué incluye la entrada | Qué incluye la salida | Escenario de referencia |
 |----|-----------|--------:|-------:|------------------------|----------------------|-------------------------|
-| OP-01 | Analizar documentos | 60,000 | 2,000 | Sistema + asignatura + **PDF completo** (~2,000 tokens/pág) | JSON `DOCUMENTO_ANALIZADO`: estructura, temas, competencias, contenido aprovechable | Programa de estudios de 30 páginas; **una vez por documento** |
-| OP-02·E1 | Planeación 1.0 — tronco | 6,000 | 1,500 | Sistema + asignatura + análisis del programa (2,000) + catálogos oficiales completos (3,500) | JSON `TRONCO`: propósitos, competencias, ámbitos, recursos, referencias | Programa ya analizado por OP-01 |
-| OP-02·E2 | Planeación 1.0 — bloque de parcial | 4,200 | 1,200 | Sistema + asignatura + tronco validado (1,500) + parcial real (300) + contenidos del periodo (800) + catálogos parciales (1,000) | JSON `BLOQUE_PARCIAL`: aprendizaje esperado, contenidos, productos, HSE, competencias, narrativas A/D/C con horas | **Por parcial** |
-| OP-02·TOT | Planeación 1.0 completa | **18,600** | **5,100** | E1 + 3 × E2 | Planeación Viva completa | Asignatura de **3 parciales** (con N parciales: 6,000 + N×4,200 / 1,500 + N×1,200) |
+| OP-01a | Analizar documentos — **programa de estudios** (análisis enriquecido) | 60,600 | 3,500 | Sistema/asignatura (~600) + **PDF completo** (~2,000 tokens/pág) | JSON `DOCUMENTO_ANALIZADO` enriquecido: unidades con contenidos, aprendizajes, competencias y mapeo a parciales | Programa de 30 páginas; **una vez por documento** |
+| OP-01b | Analizar documentos — **fuente de apoyo** (análisis ligero) | 24,600 | 1,200 | Sistema/asignatura (~600) + documento de ~12 págs | JSON `DOCUMENTO_ANALIZADO` ligero | Apoyo de ~12 páginas; **una vez por documento** |
+| OP-02·E1 | Planeación 1.0 — tronco | 12,400 | 1,500 | Base (600) + análisis del programa (3,500) + 4 análisis de apoyo (4,800) + catálogos oficiales (3,500) | JSON `TRONCO`: propósitos, competencias, ámbitos, recursos, referencias | Con 5 fuentes analizadas; con 10 fuentes: **18,400** |
+| OP-02·E2 | Planeación 1.0 — bloque de parcial | 5,200 | 1,200 | Base (600) + tronco validado (1,500) + parcial real (300) + unidades del periodo (1,800) + catálogos parciales (1,000) | JSON `BLOQUE_PARCIAL`: aprendizaje esperado, contenidos, productos, HSE, competencias, narrativas A/D/C con horas | **Por parcial**; casi plano aunque haya más fuentes (selección estructural) |
+| OP-02·GEN | Planeación — solo generación (E1 + 3×E2) | 28,000 | 5,100 | E1 + 3 × E2 | Planeación Viva completa | 3 parciales (N parciales: 12,400 + N×5,200 / 1,500 + N×1,200) |
+| PLAN·5F | **Planeación 1.0 completa con 5 FUENTES** (análisis + generación) | **187,000** | **13,400** | 1 programa (OP-01a) + 4 apoyos (OP-01b) + E1 + 3×E2 | Asignatura con Planeación Viva construida | Escenario de arranque estándar |
+| PLAN·10F | **Planeación 1.0 completa con 10 FUENTES** | **316,000** | **19,400** | 1 programa + 9 apoyos + E1 (18,400) + 3×E2 | Ídem | Escenario máximo — **tope de 10 fuentes por asignatura** |
 | OP-03 | Crear examen completo | 3,000 | 2,000 | Sistema + asignatura + planeación + parcial + banco (800) + petición | JSON `EXAMEN`: config + secciones + 15 reactivos con clave, retro y ponderación | 15 reactivos; banco de 50 |
 | OP-04 | Crear cuestionario completo | 3,000 | 2,000 | Igual que OP-03 | JSON con configuración de práctica | 15 reactivos |
 | OP-05 | Crear actividad | 2,100 | 500 | Sistema + asignatura + planeación + parcial + petición | JSON `ACTIVIDAD`: nombre, instrucciones HTML, producto, tipos, peso | Una actividad |
@@ -1325,6 +1328,16 @@ de la Fase 4.
 | C-03 | Redactar avisos | 700 | 150 | Sistema + asignatura + tipo y datos del aviso + perfil IA | Título + mensaje | Un aviso |
 | C-04a | Resumen de desempeño — alumno | 1,000 | 250 | Sistema + asignatura + datos precalculados del alumno en el parcial (~450) | Texto breve sobre ese alumno, para junta/tutor | Un alumno = **una llamada**; resumir a cada alumno de un grupo de 35 serían 35 usos de esta fila |
 | C-04b | Resumen de desempeño — grupo | 1,500 | 350 | Sistema + asignatura + estadísticas agregadas del grupo (~300) + una línea condensada por alumno (35 × ~15 ≈ 525) | Texto breve del grupo: fortalezas, focos de atención y alumnos que requieren apoyo | Grupo de 35 = **una sola llamada para todo el grupo** (no 35 llamadas) |
+
+**Notas de la actualización del 9-ago-2026 (arquitectura D aplicada):**
+OP-01 quedó dividido en OP-01a (programa) y OP-01b (apoyo); OP-02·E1/E2
+actualizados; los escenarios de 5 y 10 fuentes quedan como filas separadas
+(PLAN·5F / PLAN·10F). OP-02·E3 (validación) y OP-02·E4 (integración) siguen
+**sin IA** (0 tokens). Para el arranque del perfil de referencia: **20
+fuentes iniciales = 4 programas (OP-01a) + 16 apoyos (OP-01b)** — costo de
+arranque de la asignatura, nunca consumo mensual recurrente. Las fuentes
+adicionales se analizan **una sola vez** al incorporarse; tope de **10
+fuentes por asignatura**. Ninguna otra operación cambió.
 
 ## Asignación PROVISIONAL de modelos (solo para alimentar el simulador)
 
@@ -1593,7 +1606,7 @@ apoyo ~1,200). Nada de esto se aplica hasta la aprobación.
 > documentos originales), E2 solo con las unidades de su parcial, sin
 > RAG/embeddings, y cada fuente analizada una sola vez.
 
-## Segunda revisión de tokens bajo la arquitectura D (pendiente de aplicar al simulador)
+## Segunda revisión de tokens bajo la arquitectura D (APROBADA — valores aplicados a las tablas el 9-ago-2026)
 
 Elaborada el 9-ago-2026 a petición de Kike tras aprobar la arquitectura D.
 **Los números del simulador y de las tablas anteriores NO se modifican
@@ -2043,3 +2056,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | **Kike corrige el modelo de consumo:** se reestructura en ARRANQUE (52 usos una vez por semestre: 20 fuentes iniciales + 4 troncos + 12 bloques + arranque de actividades/rúbricas/avisos) + RECURRENTE (~301 usos/mes). Reglas de fuentes registradas: ~5 iniciales por asignatura, acumulables, máx. 10 por asignatura (límite por asignatura, no por docente); cada fuente se analiza UNA vez y su conocimiento se reutiliza. OP-01 y OP-02 dejan de modelarse como mensuales. Se señala (sin modificar) la interacción con la tabla de tokens de E1 (5 fuentes vs 1 análisis asumido). |
 | 9-ago-2026 | Kike aprueba conceptualmente el modelo arranque/recurrente y pide el análisis técnico de reutilización del conocimiento de las fuentes. Se entrega el análisis de las 4 arquitecturas (documentos completos / análisis estructurados / RAG / diferenciada): **se recomienda la D — análisis diferenciado por rol de fuente + selección estructural por etapa**, sin infraestructura nueva. Implicación en tokens señalada (E1 ~12,000; E2 ~5,200; análisis del programa ~3,500) pero **NO aplicada** — simulador, tokens y modelos sin cambios hasta aprobación de Kike. |
 | 9-ago-2026 | **Kike aprueba la arquitectura D** como arquitectura de trabajo. Se entrega la **segunda revisión de tokens** bajo D (pendiente de aplicar al simulador): OP-01 programa 60,600/3,500; OP-01 apoyo 24,600/1,200; E1 12,400/1,500 (18,400 con 10 fuentes); E2 5,200/1,200 casi plano ante más fuentes. Costo estimado de UNA Planeación completa (Sonnet 5 provisional, precios de lista, TC ref. 18.50): **~$0.76 USD ≈ $14.10 MXN con 5 fuentes; ~$1.24 USD ≈ $22.90 MXN con 10**. OP-01 domina el costo (~85–90%). Sin créditos, sin modelos definitivos, sin cambios a Google Sheets. |
+| 9-ago-2026 | **Kike aprueba las estimaciones D como valores de trabajo y se APLICAN a las tablas:** OP-01 dividido en OP-01a (60,600/3,500) y OP-01b (24,600/1,200); E1 12,400/1,500; E2 5,200/1,200; nuevas filas OP-02·GEN (28,000/5,100), PLAN·5F (187,000/13,400) y PLAN·10F (316,000/19,400) con los escenarios de fuentes separados. E3/E4 siguen sin IA. Arranque de referencia: 20 fuentes = 4 OP-01a + 16 OP-01b (costo de arranque, no recurrente). Ninguna otra operación, modelo ni frecuencia cambió; la pestaña de Consumo docente no se toca. CSV del simulador regenerado. |
