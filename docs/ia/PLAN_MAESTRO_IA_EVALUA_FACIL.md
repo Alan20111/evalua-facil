@@ -1499,7 +1499,93 @@ fuentes, la entrada de E1 crecería ~+8,000 tokens (5 × 2,000 en lugar de
 puede modelarlo como "+2,000 de entrada por fuente adicional incluida en la
 generación", y en la implementación (Fase 11) se decidirá si cada operación
 recibe todas las fuentes o solo las relevantes. Queda como punto abierto
-para cuando Kike lo indique.
+para cuando Kike lo indique. *(Análisis técnico entregado en la sección
+siguiente — pendiente de aprobación de Kike.)*
+
+## Análisis técnico: reutilización del conocimiento de las fuentes (OP-01 → E1 → E2)
+
+Elaborado el 9-ago-2026 a petición de Kike. Objetivo: minimizar tokens SIN
+sacrificar la calidad de la Planeación 1.0 — mejor equilibrio entre calidad,
+costo y experiencia del docente. **Solo análisis: el simulador, los tokens y
+los modelos no se modifican hasta que Kike apruebe.**
+
+### Las cuatro arquitecturas evaluadas
+
+**A) E1 recibe los 5 documentos completos otra vez. DESCARTADA.**
+Costo explosivo (5 documentos ≈ 100,000–300,000 tokens de entrada por
+tronco) y viola la regla ya decidida: la fuente se analiza UNA vez y no se
+vuelve a pagar. La ganancia de calidad sobre un buen análisis estructurado
+es marginal, porque el análisis de OP-01 se diseña precisamente para
+capturar la estructura curricular. Solo tendría sentido como excepción
+puntual, nunca como arquitectura.
+
+**B) E1 recibe los análisis estructurados de OP-01 (los 5 completos).
+VIABLE, pero mejorable.**
+Simple (sin infraestructura nueva), coherente con "analizar una vez,
+reutilizar siempre". Entrada de E1 ≈ 4,000 base + 5 × 2,000 = ~14,000.
+Debilidad: trata igual a todas las fuentes — el programa de estudios (que
+concentra la señal curricular) quedaría comprimido al mismo tamaño que una
+presentación de apoyo. El riesgo de calidad no está en pasar análisis en
+lugar de documentos: está en un análisis pobre del documento que más
+importa.
+
+**C) E1 recibe solo fragmentos relevantes recuperados (RAG con embeddings).
+DESCARTADA para este problema.**
+La recuperación semántica brilla cuando el corpus no cabe en el contexto.
+Aquí el corpus está acotado por diseño: máximo 10 fuentes por asignatura =
+~20,000 tokens de análisis en el peor caso — cabe entero. Montar chunking +
+embeddings + índice vectorial agrega infraestructura, costos y un modo de
+fallo silencioso (si la recuperación omite una unidad del programa, la
+Planeación sale incompleta sin que nadie lo note). Va contra la regla del
+proyecto de no agregar complejidad innecesaria, y su fallo típico daña
+justamente la calidad que queremos proteger.
+
+**D) RECOMENDADA — "B mejorada": análisis diferenciado por rol de fuente +
+selección estructural por etapa.**
+Dos refinamientos sobre B, ninguno requiere infraestructura nueva:
+
+1. **Análisis diferenciado por rol (en OP-01).** El clic de propósito que el
+   docente ya da al subir la fuente (programa de estudios / temario /
+   material) determina la profundidad del análisis. El **programa de
+   estudios** recibe un análisis enriquecido (~3,000–4,000 tokens: unidades
+   con contenidos mapeados, aprendizajes, competencias, propuesta de mapeo a
+   parciales); las fuentes de apoyo reciben análisis ligeros (~1,000–1,500).
+   Como el análisis se paga UNA sola vez, enriquecer el del documento clave
+   es un seguro de calidad barato.
+2. **Selección estructural por etapa (sin búsqueda semántica).** El análisis
+   es JSON estructurado por unidades/temas; la selección de qué recibe cada
+   etapa la hace el producto **por estructura**, no por similitud:
+   - **E1 (tronco)** recibe el análisis completo del programa + las
+     secciones de identidad curricular de las fuentes de apoyo ≈ ~8,000
+     tokens de conocimiento → entrada total de E1 ≈ **~12,000**.
+   - **E2 (bloque del parcial n)** recibe SOLO las unidades/temas que el
+     tronco mapeó a ese periodo, con sus fragmentos de contenido ≈
+     1,500–2,500 tokens → entrada total de E2 ≈ **~5,000–5,500**.
+
+### Por qué D es el mejor equilibrio
+
+- **Calidad:** el documento que más pesa (programa) recibe el tratamiento
+  más rico, y cada bloque de parcial recibe contexto ENFOCADO en su periodo
+  — menos ruido en el contexto suele producir mejores narrativas, no
+  peores. La selección por estructura no puede "fallar en silencio" como el
+  RAG: las unidades del periodo están mapeadas explícitamente en el tronco.
+- **Costo:** E1 ≈ 12,000 (vs. ~14,000 de B uniforme y ~300,000 de A); E2
+  apenas sube (~5,000 vs. 4,200 registrados). Además los análisis son
+  bloques estables al inicio del prompt: en la generación E1 → E2×N de una
+  misma sesión se benefician del caché del proveedor (cuantificación en
+  Fase 6).
+- **Escala al tope de 10 fuentes:** con selección por etapa, E2 queda
+  acotado sin importar cuántas fuentes tenga la asignatura — el costo por
+  bloque NO crece linealmente con las fuentes. B uniforme sí crecería.
+- **Experiencia del docente:** idéntica — sube sus fuentes y da un clic de
+  propósito; todo lo demás es interno.
+
+### Implicación en tokens (NO aplicada — pendiente de aprobación)
+
+Si Kike aprueba D, los ajustes al simulador serían: OP-02·E1 entrada 6,000 →
+**~12,000**; OP-02·E2 entrada 4,200 → **~5,200**; OP-01 salida 2,000 →
+**~3,500** para el programa de estudios (análisis enriquecido; fuentes de
+apoyo ~1,200). Nada de esto se aplica hasta la aprobación.
 
 ---
 
@@ -1877,3 +1963,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | Se aclara C-04 (dos variantes: C-04a alumno 1,000/250 por llamada; C-04b grupo 1,500/350 en una sola llamada) y se entrega la **asignación PROVISIONAL de modelos** con los 6 candidatos del simulador (GPT-5.6 Sol/Terra/Luna; Claude Opus 4.8/Sonnet 5/Haiku 4.5). Las etapas 3 y 4 de la Planeación quedan explícitas como SIN IA (código del producto, 0 tokens). **M3 sigue abierta** — es insumo para el análisis económico, no decisión. |
 | 9-ago-2026 | Se entregan las **frecuencias mensuales de uso** (escenario normal) para el simulador: perfil de referencia de 4 asignaturas × 35 alumnos × 3 parciales (semestre ≈ 4.5 meses), ~307 usos/mes totales. Observaciones clave: el mes 1 del semestre concentra el consumo de planeación (nota para el diseño de créditos en Fase 5) y C-02 es el motor de volumen (~200 usos/mes con fórmula explícita). Sin costos ni créditos. |
 | 9-ago-2026 | **Kike corrige el modelo de consumo:** se reestructura en ARRANQUE (52 usos una vez por semestre: 20 fuentes iniciales + 4 troncos + 12 bloques + arranque de actividades/rúbricas/avisos) + RECURRENTE (~301 usos/mes). Reglas de fuentes registradas: ~5 iniciales por asignatura, acumulables, máx. 10 por asignatura (límite por asignatura, no por docente); cada fuente se analiza UNA vez y su conocimiento se reutiliza. OP-01 y OP-02 dejan de modelarse como mensuales. Se señala (sin modificar) la interacción con la tabla de tokens de E1 (5 fuentes vs 1 análisis asumido). |
+| 9-ago-2026 | Kike aprueba conceptualmente el modelo arranque/recurrente y pide el análisis técnico de reutilización del conocimiento de las fuentes. Se entrega el análisis de las 4 arquitecturas (documentos completos / análisis estructurados / RAG / diferenciada): **se recomienda la D — análisis diferenciado por rol de fuente + selección estructural por etapa**, sin infraestructura nueva. Implicación en tokens señalada (E1 ~12,000; E2 ~5,200; análisis del programa ~3,500) pero **NO aplicada** — simulador, tokens y modelos sin cambios hasta aprobación de Kike. |
