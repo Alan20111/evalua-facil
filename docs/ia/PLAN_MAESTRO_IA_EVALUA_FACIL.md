@@ -4,9 +4,10 @@
 No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
-- **Última actualización:** 9 de agosto de 2026 — P1–P5 resueltas. Diseño
-  conceptual de la Planeación Didáctica (§2.11) entregado para revisión y
-  aprobación de Kike.
+- **Última actualización:** 9 de agosto de 2026 — **Fase 2 aprobada y
+  cerrada** (Q1–Q2 confirmadas). Registradas la herramienta interna de costos
+  (simulador en Google Sheets) y la separación de responsabilidades. Fase 3
+  en espera de autorización de Kike.
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -37,8 +38,8 @@ cognitiva para el docente. No se agrega por agregar.
 | Fase | Nombre | Estado |
 |------|--------|--------|
 | 1 | Auditoría y contexto | **Aprobada** (dudas D1–D4 resueltas el 9-ago-2026) |
-| 2 | Planeación didáctica | **En curso** — P1–P5 resueltas; diseño conceptual (§2.11) entregado, **en revisión de Kike** |
-| 3 | Operaciones de IA | No iniciada |
+| 2 | Planeación didáctica | **Aprobada y cerrada** (9-ago-2026) — diseño conceptual en §2.11; Q1–Q2 confirmadas |
+| 3 | Operaciones de IA | No iniciada — **en espera de autorización de Kike** |
 | 4 | Prompts y modelos | No iniciada |
 | 5 | Créditos IA | No iniciada |
 | 6 | Rentabilidad | No iniciada |
@@ -272,9 +273,10 @@ Verificadas en código; cualquier diseño de las fases 2–11 debe respetarlas:
 # FASE 2 — PLANEACIÓN DIDÁCTICA · ANÁLISIS DE LOS FORMATOS OFICIALES
 
 Análisis realizado el 9-ago-2026 sobre los tres PDF oficiales que Kike
-proporcionó (§2.1–§2.9), decisiones P1–P5 resueltas (§2.10) y **diseño
-conceptual de la solución en §2.11** — entregado para revisión y aprobación
-de Kike. Nada de esto está programado.
+proporcionó (§2.1–§2.9), decisiones P1–P5 resueltas (§2.10) y diseño
+conceptual de la solución en §2.11. **Fase aprobada y cerrada por Kike el
+9-ago-2026** (Q1–Q2 confirmadas en §2.11.11). Nada de esto está programado —
+la implementación pertenece a la Fase 11.
 
 ## 2.1 Los formatos de referencia
 
@@ -498,11 +500,12 @@ de almacenamiento pertenece a la Fase 11.
   otros subsistemas, pero se evita un diseño innecesariamente cerrado que
   haga imposible incorporar otros formatos en el futuro.
 
-## 2.11 Diseño conceptual de la Planeación Didáctica (entregado para revisión)
+## 2.11 Diseño conceptual de la Planeación Didáctica (APROBADO el 9-ago-2026)
 
-Elaborado el 9-ago-2026 con P1–P5 resueltas. Define el QUÉ y el CÓMO
-conceptual; nada está programado y la arquitectura técnica (colecciones,
-endpoints, dónde se guarda exactamente) pertenece a la Fase 11.
+Elaborado el 9-ago-2026 con P1–P5 resueltas y aprobado por Kike ese mismo
+día. Define el QUÉ y el CÓMO conceptual; nada está programado y la
+arquitectura técnica (colecciones, endpoints, dónde se guarda exactamente)
+pertenece a la Fase 11.
 
 ### 2.11.1 La Planeación Viva: qué es
 
@@ -647,15 +650,24 @@ plantilla (SEMS/DGETI) y no se construye ninguna otra.
 - El contenido exacto del "perfil del docente para IA" se definirá en las
   fases 3–4, cuando cada operación declare qué contexto global necesita.
 
-### 2.11.11 Puntos abiertos de este diseño (para la revisión de Kike)
+### 2.11.11 Puntos Q1–Q2 (CONFIRMADOS por Kike el 9-ago-2026)
 
-- **Q1 — Casa de la Planeación Viva:** propongo que viva en la **pestaña IA
-  de la asignatura** (coherente con "cada asignatura tendrá su propia pestaña
-  de IA" y con la regla de una sola casa por función). Confirmar, o indicar
-  si prefieres una pestaña/sección propia.
-- **Q2 — Perfil IA del docente:** propongo definir sus campos exactos en las
-  fases 3–4 a partir de las operaciones (ver §2.11.10). Confirmar que así lo
-  trabajamos.
+- **Q1 — Casa de la Planeación Viva. Confirmado:** vive dentro de la
+  **pestaña IA de cada asignatura**. Esa pestaña es el espacio donde el
+  docente encuentra y trabaja con la IA relacionada con esa asignatura: ahí
+  está la Planeación Viva y, a partir de ella, las demás operaciones de IA
+  que correspondan. **No se crea una pestaña independiente de Planeación.**
+- **Q2 — Perfil IA del docente. Confirmado:** sus campos exactos se definirán
+  durante las fases de inventario de operaciones y diseño de prompts/contexto
+  (fases 3–4); no se inventa ahora una lista definitiva. La razón: primero
+  hay que identificar qué información necesita realmente cada operación de
+  IA, y a partir de eso determinar qué debe ser global del docente. El Perfil
+  IA es GLOBAL, se captura en la sección correspondiente del perfil del
+  docente (zona azul de la interfaz) y queda disponible para todas sus
+  asignaturas y operaciones de IA.
+  **Regla fundamental:** no pedir al docente lo que Evalúa Fácil ya conoce, y
+  tampoco pedir en el Perfil IA información que después resulte innecesaria —
+  únicamente el contexto que realmente aporte valor a las operaciones de IA.
 
 ---
 
@@ -758,6 +770,46 @@ NO bloqueado durante el trial:
 - Si después se definen planes para usuarios con mayor consumo de IA, se
   analizarán como planes adicionales.
 
+## Herramienta interna de costos y rentabilidad de IA (registrada 9-ago-2026)
+
+**`Simulador_Costos_IA_Evalua_Facil.xlsx`** — se utilizará en **Google
+Sheets**. NO forma parte del producto Evalúa Fácil y NO será visible para los
+docentes: es la herramienta exclusiva de gestión de Kike para tomar las
+decisiones económicas sobre la IA de Evalúa Fácil. Su función es estimar y
+analizar:
+
+- precios vigentes de las APIs;
+- modelos utilizados;
+- tokens de entrada y tokens de salida;
+- costo real por operación y costo en MXN;
+- créditos IA;
+- consumo estimado por docente y consumo mensual;
+- escenarios de uso bajo, medio y alto;
+- costo mensual de IA;
+- ingreso por docente, margen y rentabilidad del plan de $99 MXN;
+- y, posteriormente, la conveniencia de crear planes superiores para
+  docentes que excedan de manera recurrente el límite de créditos del plan
+  base.
+
+La hoja de cálculo es la herramienta para determinar económicamente **cuánto
+podemos ofrecer dentro del plan de $99**. Reglas:
+
+- Los precios de las APIs **no se inventan**: al llegar a esa fase se
+  utilizarán los precios oficiales vigentes de OpenAI y Anthropic para
+  alimentar el simulador.
+- El simulador **no se implementa dentro de Evalúa Fácil**.
+
+## Separación de responsabilidades (definida 9-ago-2026)
+
+| Pieza | Responsabilidad |
+|-------|-----------------|
+| **Claude Code** | Diseño, documentación, arquitectura e implementación de Evalúa Fácil |
+| **Google Sheets** (simulador) | Simulación económica: costos de IA, créditos y rentabilidad, para la gestión interna de Kike |
+| **Evalúa Fácil** | Aplicación de los créditos y límites definidos a los docentes |
+
+El docente **nunca** verá tokens ni el costo real que Evalúa Fácil paga a los
+proveedores. Solamente verá sus créditos IA disponibles y consumidos.
+
 ## Decisiones previas del proyecto que siguen vigentes (contexto)
 - v1.0.1: solo transferencia; tarjeta/MP/PayPal/anual pausados hasta v1.0.2.
 - Precio de lanzamiento $99 MXN/mes (normal de referencia: $116).
@@ -848,7 +900,8 @@ exportación comercial). Registrado en "Alcance del bloqueo en trial".
 `Simulador_Costos_IA_Evalua_Facil.xlsx` no está en el repositorio; es la
 herramienta de gestión interna de Kike para Google Sheets y **no forma parte
 del producto**. Kike proporcionará el enlace o los datos al llegar a la
-Fase 6.
+Fase 6. *(Registrada como decisión completa en "Herramienta interna de
+costos y rentabilidad de IA", sección de decisiones.)*
 
 ---
 
@@ -875,11 +928,10 @@ grupo, escuela (con CCT), docente (con título), semestre con fechas por
 parcial, días hábiles reales (horario + asuetos + vacaciones), actividades y
 evaluaciones con ponderaciones.
 
-**Avance:** los tres PDF oficiales fueron entregados y analizados el
-9-ago-2026 (§2.1–§2.9), las decisiones P1–P5 quedaron resueltas (§2.10) y el
-**diseño conceptual de la Planeación Viva y la Planeación Oficial está
-entregado en §2.11**, en revisión de Kike (puntos abiertos Q1–Q2). La fase se
-cierra con su aprobación.
+**Cierre:** los tres PDF oficiales fueron analizados (§2.1–§2.9), P1–P5
+resueltas (§2.10), el diseño conceptual entregado (§2.11) y Q1–Q2
+confirmadas (§2.11.11). **Fase aprobada y cerrada por Kike el 9-ago-2026.**
+La implementación de todo esto pertenece a la Fase 11.
 
 ## Fase 3 — Operaciones de IA
 Inventario completo de operaciones donde la IA aporta valor, surgido del
@@ -923,7 +975,11 @@ que conviene un segundo plan y punto en el que conviene un tercero. Objetivo:
 determinar si el plan de $99 MXN mensuales es sostenible. El simulador externo
 (`Simulador_Costos_IA_Evalua_Facil.xlsx`, en Google Sheets) es de gestión
 interna de Kike; él dará el enlace o los datos en esta fase. D2 resuelta: el
-precio base del análisis es $99 MXN mensuales (no usar $116).
+precio base del análisis es $99 MXN mensuales (no usar $116). El alcance
+completo del simulador y sus reglas están registrados en la decisión
+"Herramienta interna de costos y rentabilidad de IA" (los precios de las
+APIs no se inventan: se usarán los oficiales vigentes de OpenAI y
+Anthropic).
 
 ## Fases 7, 8 y 10 — Trial, datos y exportaciones
 Las decisiones ya están tomadas y registradas arriba (D3 y D4 resueltas).
@@ -962,3 +1018,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | Kike resuelve D1–D4 y aprueba las decisiones. Aclaración fundamental del trial: plataforma completa (incluida IA según créditos), bloqueo solo a la salida de información. Fase 1 aprobada. Fase 2 autorizada, bloqueada en espera de los tres PDF oficiales de Planeación Didáctica. |
 | 9-ago-2026 | Kike entrega los tres PDF oficiales (portal SEMS, uno por parcial). Se analizan a fondo y se documenta el inventario completo de campos en la sección Fase 2 (§2.1–§2.9). Quedan abiertas las decisiones P1–P5 (§2.10). El diseño de la solución NO inicia hasta resolverlas. |
 | 9-ago-2026 | Kike resuelve P1–P5 y define la ubicación de la IA en la interfaz (perfil IA global en el Perfil del docente; pestaña IA por asignatura; contexto en capas sin re-preguntar). Se entrega el diseño conceptual de la Planeación Didáctica (§2.11) con puntos abiertos Q1–Q2. En revisión de Kike. |
+| 9-ago-2026 | **Kike aprueba la Fase 2** y confirma Q1–Q2 (Planeación Viva en la pestaña IA de cada asignatura, sin pestaña independiente; los campos del Perfil IA se definen en fases 3–4). Se registran la herramienta interna de costos (`Simulador_Costos_IA_Evalua_Facil.xlsx` en Google Sheets) y la separación de responsabilidades Claude Code / Google Sheets / Evalúa Fácil. **Fase 2 CERRADA.** Fase 3 en espera de autorización. |
