@@ -4,9 +4,9 @@
 No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
-- **Última actualización:** 9 de agosto de 2026 — Formatos oficiales
-  recibidos y analizados. Fase 2 en curso: análisis entregado para revisión;
-  decisiones P1–P5 pendientes de Kike.
+- **Última actualización:** 9 de agosto de 2026 — P1–P5 resueltas. Diseño
+  conceptual de la Planeación Didáctica (§2.11) entregado para revisión y
+  aprobación de Kike.
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -37,7 +37,7 @@ cognitiva para el docente. No se agrega por agregar.
 | Fase | Nombre | Estado |
 |------|--------|--------|
 | 1 | Auditoría y contexto | **Aprobada** (dudas D1–D4 resueltas el 9-ago-2026) |
-| 2 | Planeación didáctica | **En curso** — formatos recibidos y analizados (ver Fase 2); decisiones P1–P5 pendientes |
+| 2 | Planeación didáctica | **En curso** — P1–P5 resueltas; diseño conceptual (§2.11) entregado, **en revisión de Kike** |
 | 3 | Operaciones de IA | No iniciada |
 | 4 | Prompts y modelos | No iniciada |
 | 5 | Créditos IA | No iniciada |
@@ -272,9 +272,9 @@ Verificadas en código; cualquier diseño de las fases 2–11 debe respetarlas:
 # FASE 2 — PLANEACIÓN DIDÁCTICA · ANÁLISIS DE LOS FORMATOS OFICIALES
 
 Análisis realizado el 9-ago-2026 sobre los tres PDF oficiales que Kike
-proporcionó. **Esta sección es el inventario de requisitos institucionales;
-el diseño de la solución (Planeación Viva + Planeación Oficial) es el trabajo
-siguiente de esta fase y NO está hecho todavía.**
+proporcionó (§2.1–§2.9), decisiones P1–P5 resueltas (§2.10) y **diseño
+conceptual de la solución en §2.11** — entregado para revisión y aprobación
+de Kike. Nada de esto está programado.
 
 ## 2.1 Los formatos de referencia
 
@@ -465,29 +465,197 @@ oficial; datos curriculares comunes; recursos; referencias; validación) y un
 bloque **por parcial** (aprendizaje esperado, contenidos, productos, HSE,
 competencias de productividad, y los bloques de actividades con momentos,
 duraciones, agente de evaluación y narrativas). Todo lo demás ya vive en las
-colecciones existentes y se toma de ahí al momento de generar. El diseño de
-dónde y cómo se guarda (la entidad de Planeación Viva) es el siguiente paso
-de esta fase, tras las decisiones P1–P5.
+colecciones existentes y se toma de ahí al momento de generar. El diseño
+conceptual de la entidad (Planeación Viva) está en §2.11; el diseño técnico
+de almacenamiento pertenece a la Fase 11.
 
-## 2.10 Decisiones pendientes de Kike (P1–P5)
+## 2.10 Decisiones P1–P5 (RESUELTAS por Kike el 9-ago-2026)
 
-- **P1 — Granularidad de la Planeación Oficial:** el formato oficial es un
-  documento por parcial (tres por semestre). ¿La Planeación Oficial se genera
-  así (tres documentos), como un solo documento del semestre, o ambas
-  opciones?
-- **P2 — Formato de salida:** ¿PDF, Excel o ambos? (Las decisiones del trial
-  ya mencionan "la Planeación en Excel" como salida, y Excel facilita que el
-  docente copie y pegue hacia el portal SEMS.)
-- **P3 — Destino del documento:** ¿el objetivo es que la escuela acepte
-  directamente el documento generado (estructura equivalente, sin identidad
-  visual institucional), que sirva de guía para vaciar el portal
-  planeaciondidactica.sems.gob.mx, o ambos usos?
-- **P4 — Campos "N/A":** en los ejemplos, ejes disciplinarios, componente,
-  contenido central y proceso de aprendizaje van "N/A". ¿Se dejan en "N/A"
-  por omisión (capturables solo si el docente quiere) o se piden siempre?
-- **P5 — Alcance del formato 1.0:** ¿la Planeación Oficial 1.0 apunta solo a
-  este formato SEMS/DGETI, o el diseño debe prever desde ahora variantes de
-  otros subsistemas?
+- **P1 — Granularidad. Resuelta:** la Planeación Viva es UNA sola por
+  asignatura para todo el periodo académico, con estructura interna de
+  **número VARIABLE de parciales** — nunca limitada técnicamente a tres. En
+  la 1.0, el formato SEMS/DGETI de referencia genera un documento oficial por
+  parcial (tres en el ejemplo), pero eso es propiedad del formato, NO una
+  limitación de Evalúa Fácil: con 4, 5 o más parciales la misma estructura
+  debe generar el documento de cada uno sin rediseñar el sistema. No se
+  implementan todavía variantes de otros subsistemas ni otros formatos.
+- **P2 — Formato de salida. Resuelta:** la Planeación Oficial se genera en
+  **Excel y PDF**; ambos necesarios. Excel es especialmente útil para que el
+  docente traslade la información al sistema oficial cuando haga falta; PDF
+  es el documento formal para guardar, imprimir o entregar.
+- **P3 — Destino. Resuelta:** la Planeación Oficial cumple con la información
+  y estructura del formato institucional de referencia, y sirve tanto de
+  documento institucional como de apoyo para capturar en el portal oficial.
+  **Nunca afirmar** que Evalúa Fácil garantiza que el documento será aceptado
+  directamente por cualquier escuela o sistema externo — eso no depende de
+  Evalúa Fácil.
+- **P4 — Campos "N/A". Resuelta:** ejes disciplinarios, componente, contenido
+  central y proceso de aprendizaje se establecen **"N/A" por defecto** cuando
+  corresponda. No se convierten en preguntas obligatorias; el docente puede
+  modificarlos si necesita proporcionar información específica.
+- **P5 — Alcance 1.0. Resuelta:** la versión 1.0 se diseña específicamente
+  para el formato SEMS/DGETI analizado. No se diseñan ahora variantes de
+  otros subsistemas, pero se evita un diseño innecesariamente cerrado que
+  haga imposible incorporar otros formatos en el futuro.
+
+## 2.11 Diseño conceptual de la Planeación Didáctica (entregado para revisión)
+
+Elaborado el 9-ago-2026 con P1–P5 resueltas. Define el QUÉ y el CÓMO
+conceptual; nada está programado y la arquitectura técnica (colecciones,
+endpoints, dónde se guarda exactamente) pertenece a la Fase 11.
+
+### 2.11.1 La Planeación Viva: qué es
+
+**Una sola planeación por asignatura**, que abarca todo el periodo académico
+con todos sus parciales. Es la **fuente de verdad** de la planeación del
+docente y vive dentro de Evalúa Fácil. La Planeación Oficial no es una
+entidad: es una **salida generada** desde la Planeación Viva (un documento
+por parcial, en Excel y PDF).
+
+Tiene dos niveles, espejo directo del análisis de §2.2:
+
+**Nivel 1 — Tronco de la asignatura** (se captura o valida UNA sola vez):
+
+| Grupo de datos | De dónde sale |
+|----------------|---------------|
+| Identidad: plantel, CCT, subsistema, docente con título, nombre de la asignatura, grupo, fechas del curso y de cada parcial, horario | Evalúa Fácil ya lo sabe — el docente no lo toca |
+| Complemento de identificación: **carrera**, **semestre**, nombre oficial del submódulo (solo si difiere del nombre corto) | El docente, una sola vez |
+| Currículo común: campo disciplinar, propósito formativo del campo, propósito formativo de la asignatura, ámbitos del perfil de egreso, competencias genéricas y disciplinares, transversalidad (opcional) | La IA lo propone; el docente valida o ajusta |
+| Recursos generales (materiales y equipo) y referencias | La IA propone un arranque (con lo que hay en la asignatura); el docente ajusta |
+| Validación: "Recibido por", "Avalado por", contribuciones (opcional) | El docente, una sola vez (nombres de su plantel) |
+
+**Nivel 2 — Bloques por parcial** (lista dinámica: un bloque por parcial):
+
+| Grupo de datos | De dónde sale |
+|----------------|---------------|
+| Periodo del parcial y horas totales | Evalúa Fácil (fechas del parcial + horario real menos asuetos/vacaciones) |
+| Actividades reales del parcial (producto, instrumento, ponderación) | Evalúa Fácil — **referencia viva, no copia** |
+| Contenido del parcial: aprendizaje esperado, contenidos específicos, productos esperados, HSE, competencias de productividad | La IA propone; el docente valida |
+| Narrativas de Apertura / Desarrollo / Cierre (actividad del docente y del estudiante, recursos, duraciones) | La IA las redacta a partir de las actividades reales; el docente ajusta |
+| Ejes disciplinarios, componente, contenido central, proceso de aprendizaje | **"N/A" por defecto** (P4) — editables, nunca obligatorios |
+
+### 2.11.2 Estructura variable de parciales (P1)
+
+El número de bloques sigue al número de parciales de la asignatura
+(`subjects.parciales`, que **ya es variable en Evalúa Fácil** — 3 es solo el
+valor por omisión). Nada en la Planeación Viva se define como "primer,
+segundo y tercer parcial": los bloques son una lista. Si la asignatura tiene
+4 o 5 parciales, hay 4 o 5 bloques y el generador de la Planeación Oficial
+produce 4 o 5 documentos, sin cambiar nada del diseño. Si el docente cambia
+el número de parciales a media marcha, la Planeación Viva agrega o retira
+bloques siguiendo a la asignatura.
+
+### 2.11.3 Los dos principios de captura
+
+1. **Lo que Evalúa Fácil sabe, no se pregunta.** Identidad, fechas, horas,
+   actividades, instrumentos y ponderaciones entran solos.
+2. **Lo que la IA puede proponer, llega pre-llenado.** El docente nunca ve un
+   formulario en blanco de 30 campos: ve una propuesta completa y editable, y
+   su trabajo es validar y ajustar, no redactar desde cero.
+
+La única captura genuinamente nueva del docente es mínima: carrera, semestre
+(una pantalla, una vez por asignatura) y los nombres de validación de su
+plantel.
+
+### 2.11.4 Flujo del docente (concepto, 4 pasos)
+
+1. En la **pestaña IA de la asignatura**, el docente pide su Planeación.
+2. Evalúa Fácil arma solo el contexto y pregunta únicamente lo mínimo que no
+   sabe (carrera y semestre, la primera vez).
+3. La IA entrega la **Planeación Viva completa como propuesta editable**
+   (operación "Planeación Didáctica 1.0" de la Fase 3).
+4. El docente revisa, ajusta lo que quiera y listo: la planeación queda viva.
+
+### 2.11.5 Qué la mantiene viva
+
+- Las **actividades reales son referencia, no copia**: si el docente crea,
+  mueve o repondera actividades durante el semestre, la parte de actividades
+  de la planeación siempre está al día por sí sola.
+- Las narrativas y contenidos se ajustan cuando el docente quiera, a mano o
+  pidiéndole a la IA "ponlos al día" (la operación "modificar Planeación" de
+  la Fase 3 — pensada como operación pequeña y frecuente).
+- La Planeación Oficial se genera como **foto del estado vivo actual** en el
+  momento de exportar. Sin banderas de "desactualizado" ni semáforos que
+  presionen al docente: la planeación nunca "se vence".
+
+### 2.11.6 La Planeación Viva como contexto de toda la IA
+
+El contexto de cualquier operación de IA se arma **en capas**, sin preguntar
+nada que ya exista:
+
+1. **Perfil del docente para IA** — global, capturado en su Perfil (zona
+   azul). Aplica a todas sus asignaturas.
+2. **Asignatura** — sus datos + su Planeación Viva (propósitos, competencias,
+   contenidos por parcial).
+3. **Parcial en curso** — fechas, horas, actividades, avance real del grupo.
+4. **La operación específica** — lo que el docente está pidiendo (crear un
+   examen, una rúbrica, retroalimentación…).
+
+Así, "crear examen" ya sabe qué contenidos específicos toca el parcial;
+"crear actividad" ya sabe el aprendizaje esperado; "retroalimentación
+personalizada" ya sabe qué se planeó y qué entregó cada alumno. La Planeación
+Viva es la pieza que le da intención pedagógica a todas las demás operaciones
+de la Fase 3 — por eso puede generarse desde el trial.
+
+### 2.11.7 Generación de la Planeación Oficial (P1–P3)
+
+- **Un documento por parcial**, generado desde el estado vivo actual.
+- **Excel y PDF** (P2), con la estructura de secciones del formato de
+  referencia (§2.2: Identificación, Intenciones formativas, Actividades de
+  aprendizaje por momentos, Recursos, Referencias, Validación), los datos en
+  texto y **sin logotipos ni identidad visual institucional**.
+- Ponderaciones: los pesos reales de Evalúa Fácil (suman 10) se expresan como
+  porcentajes (suman 100%).
+- Sirve como documento institucional y como apoyo para capturar en el portal
+  oficial; **no se promete aceptación garantizada** por ninguna escuela o
+  sistema (P3).
+- Candado comercial: en trial la Planeación Viva se genera y consulta dentro
+  de la plataforma, pero la descarga de la Oficial (Excel/PDF) requiere
+  suscripción activa — decisiones ya registradas.
+
+### 2.11.8 Modelo neutro + plantilla de salida (P5: la puerta abierta)
+
+Separación conceptual en dos piezas:
+
+- **El modelo de planeación** (tronco + bloques por parcial) es neutro: no
+  sabe nada de DGETI ni de ningún formato.
+- **La plantilla de salida** SEMS/DGETI 1.0 es quien sabe cómo acomodar ese
+  modelo en las seis secciones del formato de referencia.
+
+Incorporar otro formato en el futuro significa agregar otra plantilla de
+salida — no tocar el modelo, ni la captura, ni la IA. En 1.0 existe UNA sola
+plantilla (SEMS/DGETI) y no se construye ninguna otra.
+
+### 2.11.9 Lo que el docente NO tendrá que hacer
+
+- Llenar el instrumento de ~30 campos, ni una vez ni tres.
+- Capturar tres veces lo que es idéntico entre parciales.
+- Redactar narrativas de Apertura/Desarrollo/Cierre desde cero.
+- Buscar y transcribir competencias de los catálogos oficiales.
+- Calcular periodos, horas ni ponderaciones.
+- Volver a escribir lo que ya vive en Evalúa Fácil.
+
+### 2.11.10 Notas para fases posteriores (no son decisiones nuevas)
+
+- La Planeación es material del docente: el alumno no la lee. Por el riesgo
+  R21 (las reglas no filtran campos), el diseño técnico de la Fase 11 deberá
+  guardarla fuera del alcance de lectura del alumno.
+- Defaults propuestos al generar: agente de evaluación "Heteroevaluación"
+  (el caso normal, como en los tres ejemplos) y reparto de horas por
+  actividad propuesto por la IA a partir de las horas reales del parcial —
+  siempre editables.
+- El contenido exacto del "perfil del docente para IA" se definirá en las
+  fases 3–4, cuando cada operación declare qué contexto global necesita.
+
+### 2.11.11 Puntos abiertos de este diseño (para la revisión de Kike)
+
+- **Q1 — Casa de la Planeación Viva:** propongo que viva en la **pestaña IA
+  de la asignatura** (coherente con "cada asignatura tendrá su propia pestaña
+  de IA" y con la regla de una sola casa por función). Confirmar, o indicar
+  si prefieres una pestaña/sección propia.
+- **Q2 — Perfil IA del docente:** propongo definir sus campos exactos en las
+  fases 3–4 a partir de las operaciones (ver §2.11.10). Confirmar que así lo
+  trabajamos.
 
 ---
 
@@ -565,6 +733,18 @@ NO bloqueado durante el trial:
   normalmente con su grupo durante el trial.
 - El resto de la funcionalidad de la plataforma, incluidas las funciones de
   IA disponibles según sus créditos.
+
+## Ubicación de la IA en la interfaz (definido por Kike, 9-ago-2026)
+- El **perfil del docente para IA** es información global del docente; se
+  captura en la sección correspondiente del **perfil del docente**, en la
+  zona azul de la interfaz.
+- **Cada asignatura tendrá su propia pestaña de IA.**
+- La IA de una asignatura trabaja con el contexto disponible del docente y el
+  contexto específico de esa asignatura: grupo, periodo, planeación,
+  actividades, evaluaciones y demás información existente en Evalúa Fácil.
+- El docente NO vuelve a proporcionar información que Evalúa Fácil ya conoce.
+- La intención de todo esto es FACILITAR el trabajo docente, no crear otro
+  formulario burocrático.
 
 ## Modelo comercial de la IA (D2, resuelto 9-ago-2026)
 - Las instrucciones nuevas **sustituyen cualquier decisión anterior que las
@@ -696,10 +876,10 @@ parcial, días hábiles reales (horario + asuetos + vacaciones), actividades y
 evaluaciones con ponderaciones.
 
 **Avance:** los tres PDF oficiales fueron entregados y analizados el
-9-ago-2026 — el análisis completo vive en la sección
-"FASE 2 — PLANEACIÓN DIDÁCTICA · ANÁLISIS DE LOS FORMATOS OFICIALES".
-Siguiente paso de la fase: resolver las decisiones P1–P5 (§2.10) y, con la
-autorización de Kike, diseñar la Planeación Viva y la Planeación Oficial.
+9-ago-2026 (§2.1–§2.9), las decisiones P1–P5 quedaron resueltas (§2.10) y el
+**diseño conceptual de la Planeación Viva y la Planeación Oficial está
+entregado en §2.11**, en revisión de Kike (puntos abiertos Q1–Q2). La fase se
+cierra con su aprobación.
 
 ## Fase 3 — Operaciones de IA
 Inventario completo de operaciones donde la IA aporta valor, surgido del
@@ -781,3 +961,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | Se crea el documento. Fase 1 (auditoría) realizada y entregada para revisión. Dudas D1–D4 abiertas. |
 | 9-ago-2026 | Kike resuelve D1–D4 y aprueba las decisiones. Aclaración fundamental del trial: plataforma completa (incluida IA según créditos), bloqueo solo a la salida de información. Fase 1 aprobada. Fase 2 autorizada, bloqueada en espera de los tres PDF oficiales de Planeación Didáctica. |
 | 9-ago-2026 | Kike entrega los tres PDF oficiales (portal SEMS, uno por parcial). Se analizan a fondo y se documenta el inventario completo de campos en la sección Fase 2 (§2.1–§2.9). Quedan abiertas las decisiones P1–P5 (§2.10). El diseño de la solución NO inicia hasta resolverlas. |
+| 9-ago-2026 | Kike resuelve P1–P5 y define la ubicación de la IA en la interfaz (perfil IA global en el Perfil del docente; pestaña IA por asignatura; contexto en capas sin re-preguntar). Se entrega el diseño conceptual de la Planeación Didáctica (§2.11) con puntos abiertos Q1–Q2. En revisión de Kike. |
