@@ -5,9 +5,9 @@ No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
 - **Última actualización:** 9 de agosto de 2026 — Fases 1–4 cerradas.
-  Entregadas la **estimación de tokens** y la **asignación PROVISIONAL de
-  modelos** (6 candidatos; M3 sigue abierta) como insumos para el simulador.
-  Fase 5 bloqueada hasta el análisis económico.
+  Insumos del simulador entregados: **tokens por operación**, **asignación
+  PROVISIONAL de modelos** (M3 abierta) y **frecuencias mensuales de uso**
+  (escenario normal). Fase 5 bloqueada hasta el análisis económico.
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -1372,6 +1372,59 @@ Solo las etapas 1 y 2 llaman a un modelo — coherente con la tabla de tokens
 | C-04a | Resumen de desempeño — alumno | Económico | Claude Haiku 4.5 | Anthropic | Media | Resumen desde datos dados | GPT-5.6 Luna |
 | C-04b | Resumen de desempeño — grupo | Económico | Claude Haiku 4.5 | Anthropic | Media | Una llamada por grupo | GPT-5.6 Luna |
 
+## Frecuencias mensuales de uso — escenario NORMAL (insumo del simulador)
+
+Elaborado el 9-ago-2026 a petición de Kike. Escenario **normal/realista** (ni
+conservador ni extremo) para un docente de EMS que usa Evalúa Fácil con
+regularidad. Sin costos, sin créditos, sin cambios a tokens ni a modelos
+provisionales.
+
+**Perfil de referencia del docente** (todas las frecuencias se derivan de
+aquí; en el simulador basta cambiar estos parámetros para recalcular):
+
+- **4 asignaturas/grupos** · **35 alumnos por grupo** (140 en total) ·
+  **3 parciales por semestre** · semestre ≈ **4.5 meses efectivos**.
+- Las cifras son el **promedio mensual sobre el semestre** (usos del
+  semestre ÷ 4.5). Los eventos por parcial ocurren ~0.67 veces/mes por
+  asignatura (3 parciales ÷ 4.5 meses).
+
+**Dos observaciones importantes para el simulador (y para la futura Fase 5):**
+
+1. **El consumo NO es plano: el mes 1 del semestre concentra la carga.** Las
+   4 planeaciones completas (OP-01 + OP-02) se generan casi todas al inicio
+   del semestre. El promedio mensual sirve para la rentabilidad; el diseño
+   de créditos mensuales deberá considerar ese pico de arranque (nota para
+   la Fase 5, no se diseña aquí).
+2. **C-02 es el motor de volumen.** Su fórmula es: evaluaciones con abiertas
+   al mes × respuestas abiertas por evaluación × alumnos. Pequeños cambios
+   en esos tres factores mueven el consumo total más que cualquier otra
+   operación.
+
+| Op | Operación | Usos/mes | Qué es UN uso | Por qué es razonable | Depende de |
+|----|-----------|---------:|----------------|----------------------|------------|
+| OP-01 | Analizar documentos | 2 | Analizar UN documento nuevo | 1 programa por asignatura al semestre (4) + 2–3 materiales extra = ~7/semestre ÷ 4.5 | Nº de asignaturas y de materiales propios |
+| OP-02·E1 | Planeación — tronco | 1 | Generar el tronco de UNA asignatura | 4 troncos por semestre (uno por asignatura) ÷ 4.5; concentrado al inicio | Nº de asignaturas |
+| OP-02·E2 | Planeación — bloque de parcial | 3 | Generar UN bloque de parcial | 4 asignaturas × 3 parciales = 12 bloques/semestre ÷ 4.5 | Nº de asignaturas × nº de parciales |
+| OP-03 | Crear examen | 3 | UN examen completo | 1 examen por asignatura por parcial: 4 × 3 ÷ 4.5 | Asignaturas × parciales |
+| OP-04 | Crear cuestionario | 4 | UN cuestionario completo | ~1.5 prácticas por asignatura por parcial | Asignaturas × parciales |
+| OP-05 | Crear actividad | 7 | UNA actividad propuesta | ~2.5 de las 4–6 actividades por parcial se crean con IA, por asignatura | Actividades por parcial × asignaturas |
+| OP-06 | Crear rúbrica | 3 | UNA rúbrica | ~1 rúbrica nueva por asignatura por parcial (después se reutiliza el banco) | Asignaturas × parciales; decrece con el banco |
+| OP-07 | Crear lista de cotejo | 2 | UNA lista de cotejo | Menos frecuente que la rúbrica | Ídem |
+| OP-08 | Crear guía de observación | 1 | UNA guía | Uso ocasional en actividades de observación | Nº de actividades de observación |
+| OP-09 | Generar reactivos | 4 | UN lote de ~5 reactivos | ~1 lote por asignatura al mes para alimentar el banco | Nº de asignaturas |
+| OP-10 | Generar instrucciones | 8 | Redactar/mejorar instrucciones de UNA actividad | ~2 por asignatura al mes — operación cotidiana ligera | Nº de asignaturas y actividades |
+| OP-11 | Modificar Planeación | 8 | UN ajuste pequeño a la Planeación Viva | ~2 ajustes por asignatura al mes (mantenerla viva es la intención del diseño) | Nº de asignaturas |
+| OP-12 | Retroalimentación personalizada | 25 | Retroalimentación de UN alumno sobre UNA entrega | ~10 por asignatura por parcial: se usa en entregas destacadas o problemáticas, no en las 140 | Alumnos × actividades calificadas × hábito del docente |
+| OP-13 | Plan de clase ligero | 6 | UN plan de sesión | ~1–2 clases preparadas con IA por semana | Hábito del docente |
+| C-01 | Interpretar resultados | 4 | UNA evaluación interpretada | Tras cada examen (3) + algún cuestionario | Nº de evaluaciones aplicadas |
+| C-02 | Sugerir calificación de abierta | **200** | UNA respuesta abierta individual | ~2 evaluaciones con abiertas al mes × ~3 abiertas × 35 alumnos ≈ 210 | **Evaluaciones con abiertas × abiertas por evaluación × alumnos** |
+| C-03 | Redactar avisos | 12 | UN aviso | ~3 avisos por asignatura al mes | Nº de asignaturas |
+| C-04a | Resumen de desempeño — alumno | 10 | Resumen de UN alumno | Alumnos en riesgo, juntas y tutores del mes | Alumnos que requieren seguimiento |
+| C-04b | Resumen de desempeño — grupo | 4 | Resumen de UN grupo completo (una llamada) | ~1 por asignatura al cierre/avance del parcial | Nº de asignaturas |
+
+**Total ≈ 307 usos/mes** para el docente de referencia (de los cuales ~200
+son C-02, la micro-operación por respuesta).
+
 ---
 
 # DECISIONES YA TOMADAS (registro fiel — no se modifican)
@@ -1746,3 +1799,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | **Kike resuelve M1–M4 y cierra la Fase 4.** M1 aprobada (Perfil IA con solo 2 campos opcionales); M2 aprobada (borradores reales — la IA nunca publica, activa ni califica sola); M3 NO definitiva (Sonnet 5 / Haiku 4.5 solo candidatos de trabajo; selección final con precios oficiales, comparación de calidad/tokens/costo y el simulador; OpenAI abierto); M4 aprobada (4 etapas: tronco → bloques → validación → integración; N parciales; bloque reutilizable para modificaciones). Regla nueva: **los créditos IA no se diseñan sin el análisis económico previo con el simulador.** **Fase 4 CERRADA.** |
 | 9-ago-2026 | A petición de Kike se entrega la **estimación de tokens por operación** (entrada/salida por uso, con escenarios de referencia explícitos y la Planeación 1.0 desglosada por etapas) como insumo para el simulador en Google Sheets. Estimaciones ±30–50%, a calibrar con mediciones reales en Fase 11. Sin créditos, sin modelos definitivos, sin rentabilidad. |
 | 9-ago-2026 | Se aclara C-04 (dos variantes: C-04a alumno 1,000/250 por llamada; C-04b grupo 1,500/350 en una sola llamada) y se entrega la **asignación PROVISIONAL de modelos** con los 6 candidatos del simulador (GPT-5.6 Sol/Terra/Luna; Claude Opus 4.8/Sonnet 5/Haiku 4.5). Las etapas 3 y 4 de la Planeación quedan explícitas como SIN IA (código del producto, 0 tokens). **M3 sigue abierta** — es insumo para el análisis económico, no decisión. |
+| 9-ago-2026 | Se entregan las **frecuencias mensuales de uso** (escenario normal) para el simulador: perfil de referencia de 4 asignaturas × 35 alumnos × 3 parciales (semestre ≈ 4.5 meses), ~307 usos/mes totales. Observaciones clave: el mes 1 del semestre concentra el consumo de planeación (nota para el diseño de créditos en Fase 5) y C-02 es el motor de volumen (~200 usos/mes con fórmula explícita). Sin costos ni créditos. |
