@@ -1587,6 +1587,84 @@ Si Kike aprueba D, los ajustes al simulador serían: OP-02·E1 entrada 6,000 →
 **~3,500** para el programa de estudios (análisis enriquecido; fuentes de
 apoyo ~1,200). Nada de esto se aplica hasta la aprobación.
 
+> **Arquitectura D APROBADA por Kike el 9-ago-2026** como arquitectura de
+> trabajo para OP-01 → OP-02·E1 → OP-02·E2: análisis diferenciado por rol,
+> programa enriquecido, apoyos ligeros, E1 con conocimiento estructurado (no
+> documentos originales), E2 solo con las unidades de su parcial, sin
+> RAG/embeddings, y cada fuente analizada una sola vez.
+
+## Segunda revisión de tokens bajo la arquitectura D (pendiente de aplicar al simulador)
+
+Elaborada el 9-ago-2026 a petición de Kike tras aprobar la arquitectura D.
+**Los números del simulador y de las tablas anteriores NO se modifican
+todavía.** El costo se estima con el modelo provisional de estas cuatro
+operaciones (Claude Sonnet 5) a sus precios oficiales de lista — solo para
+la estimación, sin convertirlo en decisión (M3 sigue abierta).
+
+### 1–2. Tokens de entrada y salida revisados (por uso)
+
+| Operación | Entrada | Salida | Composición de la entrada |
+|-----------|--------:|-------:|---------------------------|
+| OP-01 · Programa de estudios (análisis enriquecido) | 60,600 | 3,500 | PDF de 30 págs (~60,000) + sistema/asignatura (~600) |
+| OP-01 · Fuente de apoyo (análisis ligero) | 24,600 | 1,200 | Documento de ~12 págs (~24,000) + sistema/asignatura (~600) |
+| OP-02·E1 · Tronco | 12,400 | 1,500 | Base (600) + análisis del programa (3,500) + 4 análisis de apoyo (4,800) + catálogos oficiales (3,500) |
+| OP-02·E2 · Bloque de parcial | 5,200 | 1,200 | Base (600) + tronco validado (1,500) + parcial real (300) + unidades del periodo (1,800) + catálogos parciales (1,000) |
+
+### 3. Qué crece al pasar de 5 a 10 fuentes
+
+- **OP-01: lineal** — cada fuente nueva paga su propio análisis, una sola
+  vez (+24,600 entrada / +1,200 salida por fuente de apoyo adicional).
+- **E1: crece solo el bloque de análisis de apoyos** — con 10 fuentes desde
+  el inicio: 12,400 + 5 × 1,200 = **~18,400** de entrada (salida sin
+  cambio). Nota: agregar fuentes DESPUÉS del arranque no regenera el tronco;
+  el conocimiento nuevo lo usan las operaciones siguientes.
+
+### 4. Qué permanece prácticamente constante
+
+- **E2 es casi plano** (~5,200 con 5 o con 10 fuentes): la selección
+  estructural manda a cada bloque solo las unidades de su periodo, sin
+  importar cuántas fuentes tenga la asignatura. **Este es el beneficio
+  central de la arquitectura D.**
+- Las **salidas** de E1 (1,500) y E2 (1,200): el tronco y los bloques tienen
+  el tamaño del formato, no de las fuentes. También constantes: catálogos,
+  sistema y asignatura.
+
+### 5–6. Costo estimado de UNA Planeación 1.0 completa (una asignatura, 3 parciales)
+
+Modelo provisional: Claude Sonnet 5 · precios oficiales de lista $3 entrada /
+$15 salida por millón de tokens (hay precio introductorio $2/$10 vigente
+hasta el 31-ago-2026 — se indica aparte) · tipo de cambio de **referencia**
+18.50 MXN/USD (parámetro ajustable en el simulador).
+
+| Concepto | Con 5 fuentes | Con 10 fuentes |
+|----------|--------------:|---------------:|
+| OP-01 entrada (1 programa + apoyos) | 60,600 + 4×24,600 = 159,000 | 60,600 + 9×24,600 = 282,000 |
+| OP-01 salida | 3,500 + 4×1,200 = 8,300 | 3,500 + 9×1,200 = 14,300 |
+| E1 entrada / salida | 12,400 / 1,500 | 18,400 / 1,500 |
+| E2 × 3 entrada / salida | 15,600 / 3,600 | 15,600 / 3,600 |
+| **Total tokens entrada** | **187,000** | **316,000** |
+| **Total tokens salida** | **13,400** | **19,400** |
+| Costo entrada (× $3/M) | $0.561 | $0.948 |
+| Costo salida (× $15/M) | $0.201 | $0.291 |
+| **Costo total USD** | **≈ $0.76** | **≈ $1.24** |
+| **Costo total MXN (@18.50)** | **≈ $14.10** | **≈ $22.90** |
+| Con precio introductorio ($2/$10, hasta 31-ago-2026) | ≈ $0.51 USD ≈ $9.40 MXN | ≈ $0.83 USD ≈ $15.30 MXN |
+
+**Lecturas clave (sin entrar en rentabilidad, que es de la siguiente fase):**
+
+- Duplicar las fuentes (5 → 10) sube el costo de la Planeación ~63%, y casi
+  todo el aumento es el análisis único de las fuentes extra (OP-01) — la
+  generación en sí (E1+E2) apenas cambia gracias a la selección estructural.
+- **El análisis de fuentes (OP-01) domina el costo**: ~85–90% del total de
+  la Planeación. Cualquier optimización futura rinde más ahí (p. ej. PDFs
+  de texto sin imágenes de página cuestan una fracción de los ~2,000
+  tokens/pág asumidos — dato a verificar con mediciones reales).
+- El costo es **por asignatura y una vez por semestre** (arranque). Estas
+  cifras alimentarán el análisis de rentabilidad del Plan Docente de $99
+  cuando Kike lo indique.
+- El caché de prompts del proveedor puede abaratar la sesión E1 → E2×3
+  (bloques estables repetidos); se cuantificará en la Fase 6.
+
 ---
 
 # DECISIONES YA TOMADAS (registro fiel — no se modifican)
@@ -1964,3 +2042,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | Se entregan las **frecuencias mensuales de uso** (escenario normal) para el simulador: perfil de referencia de 4 asignaturas × 35 alumnos × 3 parciales (semestre ≈ 4.5 meses), ~307 usos/mes totales. Observaciones clave: el mes 1 del semestre concentra el consumo de planeación (nota para el diseño de créditos en Fase 5) y C-02 es el motor de volumen (~200 usos/mes con fórmula explícita). Sin costos ni créditos. |
 | 9-ago-2026 | **Kike corrige el modelo de consumo:** se reestructura en ARRANQUE (52 usos una vez por semestre: 20 fuentes iniciales + 4 troncos + 12 bloques + arranque de actividades/rúbricas/avisos) + RECURRENTE (~301 usos/mes). Reglas de fuentes registradas: ~5 iniciales por asignatura, acumulables, máx. 10 por asignatura (límite por asignatura, no por docente); cada fuente se analiza UNA vez y su conocimiento se reutiliza. OP-01 y OP-02 dejan de modelarse como mensuales. Se señala (sin modificar) la interacción con la tabla de tokens de E1 (5 fuentes vs 1 análisis asumido). |
 | 9-ago-2026 | Kike aprueba conceptualmente el modelo arranque/recurrente y pide el análisis técnico de reutilización del conocimiento de las fuentes. Se entrega el análisis de las 4 arquitecturas (documentos completos / análisis estructurados / RAG / diferenciada): **se recomienda la D — análisis diferenciado por rol de fuente + selección estructural por etapa**, sin infraestructura nueva. Implicación en tokens señalada (E1 ~12,000; E2 ~5,200; análisis del programa ~3,500) pero **NO aplicada** — simulador, tokens y modelos sin cambios hasta aprobación de Kike. |
+| 9-ago-2026 | **Kike aprueba la arquitectura D** como arquitectura de trabajo. Se entrega la **segunda revisión de tokens** bajo D (pendiente de aplicar al simulador): OP-01 programa 60,600/3,500; OP-01 apoyo 24,600/1,200; E1 12,400/1,500 (18,400 con 10 fuentes); E2 5,200/1,200 casi plano ante más fuentes. Costo estimado de UNA Planeación completa (Sonnet 5 provisional, precios de lista, TC ref. 18.50): **~$0.76 USD ≈ $14.10 MXN con 5 fuentes; ~$1.24 USD ≈ $22.90 MXN con 10**. OP-01 domina el costo (~85–90%). Sin créditos, sin modelos definitivos, sin cambios a Google Sheets. |
