@@ -4,10 +4,10 @@
 No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
-- **Última actualización:** 9 de agosto de 2026 — **Fase 4 aprobada y
-  cerrada** (M1, M2 y M4 aprobadas; M3 queda como candidatos de trabajo, sin
-  modelo definitivo hasta el análisis económico con el simulador). Regla
-  nueva: los créditos IA no se diseñan sin ese análisis previo.
+- **Última actualización:** 9 de agosto de 2026 — Fases 1–4 cerradas.
+  Entregada la **estimación de tokens por operación** como insumo para el
+  simulador (ver sección "Insumo para el simulador"). Fase 5 bloqueada hasta
+  el análisis económico.
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -1269,6 +1269,63 @@ los créditos se diseñan a partir de ahí.
 
 ---
 
+# INSUMO PARA EL SIMULADOR — ESTIMACIÓN DE TOKENS POR OPERACIÓN
+
+Elaborado el 9-ago-2026 a petición de Kike como insumo para
+`Simulador_Costos_IA_Evalua_Facil.xlsx` (Google Sheets). **No incluye**
+créditos, selección definitiva de modelos ni rentabilidad. No modifica nada
+de la Fase 4.
+
+## Método y advertencias
+
+- Las cifras se derivan de los **bloques de contexto reales** (§4.3) y los
+  **prompts v1** (§4.5), no de promedios genéricos. Regla usada: español ≈
+  1.4–1.5 tokens por palabra; JSON estructurado ≈ 20–40% más tokens que el
+  texto equivalente; PDF procesado ≈ ~2,000 tokens por página (texto +
+  imagen de página).
+- Son **estimaciones de planeación con incertidumbre de ±30–50%**. Se
+  calibrarán con mediciones reales (`count_tokens` y consumos observados)
+  durante las pruebas de la Fase 11; el simulador debe tratarlas como
+  escenario de referencia sustituible.
+- Costo aproximado de los bloques de contexto usados en las sumas:
+  `[SISTEMA]`+instrucción ≈ 350–400 · `[PERFIL_IA]` ≈ 50 · `[ASIGNATURA]` ≈
+  200 · `[PLANEACION]` (tronco+bloque del parcial) ≈ 1,200 · `[PARCIAL]` ≈
+  300 · `[ALUMNO]` ≈ 700 · `[BANCO]` (50 reactivos) ≈ 800 · análisis de
+  documento (salida de OP-01) ≈ 2,000 · catálogos oficiales completos ≈
+  3,500.
+- **Insight clave para el simulador:** OP-01 es la operación más cara de
+  entrada pero se ejecuta **una sola vez por documento**; su resultado
+  (~2,000 tokens) es lo que reutilizan todas las demás. Además, los bloques
+  estables al inicio del prompt son cacheables por el proveedor — el costo
+  efectivo de entrada de las operaciones repetidas será menor que el
+  nominal (la cuantificación del caché es de la Fase 6).
+
+## Tabla de estimaciones (tokens por uso)
+
+| Op | Operación | Entrada | Salida | Qué incluye la entrada | Qué incluye la salida | Escenario de referencia |
+|----|-----------|--------:|-------:|------------------------|----------------------|-------------------------|
+| OP-01 | Analizar documentos | 60,000 | 2,000 | Sistema + asignatura + **PDF completo** (~2,000 tokens/pág) | JSON `DOCUMENTO_ANALIZADO`: estructura, temas, competencias, contenido aprovechable | Programa de estudios de 30 páginas; **una vez por documento** |
+| OP-02·E1 | Planeación 1.0 — tronco | 6,000 | 1,500 | Sistema + asignatura + análisis del programa (2,000) + catálogos oficiales completos (3,500) | JSON `TRONCO`: propósitos, competencias, ámbitos, recursos, referencias | Programa ya analizado por OP-01 |
+| OP-02·E2 | Planeación 1.0 — bloque de parcial | 4,200 | 1,200 | Sistema + asignatura + tronco validado (1,500) + parcial real (300) + contenidos del periodo (800) + catálogos parciales (1,000) | JSON `BLOQUE_PARCIAL`: aprendizaje esperado, contenidos, productos, HSE, competencias, narrativas A/D/C con horas | **Por parcial** |
+| OP-02·TOT | Planeación 1.0 completa | **18,600** | **5,100** | E1 + 3 × E2 | Planeación Viva completa | Asignatura de **3 parciales** (con N parciales: 6,000 + N×4,200 / 1,500 + N×1,200) |
+| OP-03 | Crear examen completo | 3,000 | 2,000 | Sistema + asignatura + planeación + parcial + banco (800) + petición | JSON `EXAMEN`: config + secciones + 15 reactivos con clave, retro y ponderación | 15 reactivos; banco de 50 |
+| OP-04 | Crear cuestionario completo | 3,000 | 2,000 | Igual que OP-03 | JSON con configuración de práctica | 15 reactivos |
+| OP-05 | Crear actividad | 2,100 | 500 | Sistema + asignatura + planeación + parcial + petición | JSON `ACTIVIDAD`: nombre, instrucciones HTML, producto, tipos, peso | Una actividad |
+| OP-06 | Crear rúbrica | 1,000 | 700 | Sistema + asignatura + instrucciones de la actividad + petición | JSON `RUBRICA`: 4 niveles × 4 criterios con 16 descriptores y pesos | Rúbrica 4×4 |
+| OP-07 | Crear lista de cotejo | 1,000 | 300 | Igual que OP-06 | JSON `COTEJO`: 8 indicadores sí/no con pesos | 8 criterios |
+| OP-08 | Crear guía de observación | 1,000 | 500 | Sistema + asignatura + actividad de observación | Texto/HTML: aspectos, indicadores, registro | Una guía |
+| OP-09 | Generar reactivos | 2,600 | 600 | Sistema + asignatura + planeación + banco (800) + tema | JSON `REACTIVOS`: 5 reactivos con clave y retro | 5 reactivos desde tema (+2,000 de entrada si parte de un documento analizado) |
+| OP-10 | Generar instrucciones | 1,000 | 400 | Sistema + asignatura + actividad actual + perfil IA | HTML de instrucciones | Una actividad |
+| OP-11 | Modificar Planeación | 2,000 | 300 | Sistema + bloque afectado (1,200) + parcial + petición | JSON `CAMBIO_PLANEACION`: solo campos modificados | Ajuste pequeño (regenerar un bloque completo = OP-02·E2) |
+| OP-12 | Retroalimentación personalizada | 1,300 | 200 | Sistema + asignatura + `[ALUMNO]` (entrega, rúbrica evaluada, historial, asistencia ≈ 700) + perfil IA | Borrador de comentario para el alumno | 1 alumno, 1 entrega |
+| OP-13 | Plan de clase ligero | 2,000 | 500 | Sistema + asignatura + planeación + sesión del horario + tema | Texto: inicio/desarrollo/cierre con tiempos, materiales, producto | Una sesión |
+| C-01 | Interpretar resultados de evaluación | 2,400 | 500 | Sistema + asignatura + estadísticas precalculadas por reactivo (600) + los 15 reactivos (1,200) | Texto: temas débiles, reactivos dudosos, sugerencias de repaso | Examen de 15 reactivos, grupo de 35 |
+| C-02 | Sugerir calificación de abierta | 900 | 200 | Sistema + pregunta + clave/criterios + respuesta del alumno (~150 palabras) | JSON: puntos sugeridos, justificación, comentario | **Por respuesta** (un examen con 5 abiertas × 35 alumnos = 175 usos) |
+| C-03 | Redactar avisos | 700 | 150 | Sistema + asignatura + tipo y datos del aviso + perfil IA | Título + mensaje | Un aviso |
+| C-04 | Resumen de desempeño | 1,000 | 250 | Sistema + asignatura + datos precalculados del alumno en el parcial | Texto breve para junta/tutor | Alumno individual (grupo de 35: ≈1,500 / 350) |
+
+---
+
 # DECISIONES YA TOMADAS (registro fiel — no se modifican)
 
 Definidas por Kike el 9-ago-2026 al arrancar este proyecto. Son el marco fijo
@@ -1639,3 +1696,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | **Kike resuelve O1–O4 y aprueba la Fase 3.** Guía de observación como contenido IA sin instrumento nuevo (O1); planeaciones sencillas = plan de clase ligero, no burocrático (O2); entran las 4 candidatas, con regla especial para C-02: la IA solo sugiere calificación, nunca la guarda (O3); pestaña IA como casa central + invocación en el punto de uso (O4). Alcance final: **17 operaciones**. **Fase 3 CERRADA.** Fase 4 en espera de autorización. |
 | 9-ago-2026 | Kike autoriza la Fase 4. Se entrega el análisis de prompts y modelos: principios de diseño, bloques de contexto estándar, dos escalones de modelo (Mayor: Claude Sonnet 5; Económico: Claude Haiku 4.5, con alternativa OpenAI a validar en Fase 6), análisis especial de la Planeación 1.0 con generación por etapas, fichas de las 17 operaciones con prompts v1 y propuesta de Perfil IA mínimo (2 campos). Sin costos ni créditos. Decisiones M1–M4 abiertas. En revisión de Kike. |
 | 9-ago-2026 | **Kike resuelve M1–M4 y cierra la Fase 4.** M1 aprobada (Perfil IA con solo 2 campos opcionales); M2 aprobada (borradores reales — la IA nunca publica, activa ni califica sola); M3 NO definitiva (Sonnet 5 / Haiku 4.5 solo candidatos de trabajo; selección final con precios oficiales, comparación de calidad/tokens/costo y el simulador; OpenAI abierto); M4 aprobada (4 etapas: tronco → bloques → validación → integración; N parciales; bloque reutilizable para modificaciones). Regla nueva: **los créditos IA no se diseñan sin el análisis económico previo con el simulador.** **Fase 4 CERRADA.** |
+| 9-ago-2026 | A petición de Kike se entrega la **estimación de tokens por operación** (entrada/salida por uso, con escenarios de referencia explícitos y la Planeación 1.0 desglosada por etapas) como insumo para el simulador en Google Sheets. Estimaciones ±30–50%, a calibrar con mediciones reales en Fase 11. Sin créditos, sin modelos definitivos, sin rentabilidad. |
