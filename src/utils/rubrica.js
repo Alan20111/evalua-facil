@@ -43,13 +43,19 @@ export const instrumentoColors = (r) => (esCotejo(r)
   ? { badge: 'bg-violet-100 text-violet-700', border: 'border-violet-500', bg: 'bg-violet-50', icon: 'text-violet-600', text: 'text-violet-700' }
   : { badge: 'bg-blue-100 text-blue-700', border: 'border-blue-500', bg: 'bg-blue-50', icon: 'text-blue-600', text: 'text-blue-700' })
 
+// Reparte `total` puntos en partes iguales entre `n` casillas; la última
+// absorbe el residuo de redondeo para que la suma sea exactamente `total`.
+export function repartirPuntos(total, n) {
+  const base = round1(total / n)
+  const partes = Array.from({ length: n }, () => base)
+  partes[n - 1] = round1(total - base * (n - 1))
+  return partes
+}
+
 // Reparte los 10 puntos en partes iguales entre los criterios; el último
 // absorbe el residuo de redondeo para que la suma sea exactamente 10.
 export function pesosEquitativos(numCriterios) {
-  const base = round1(RUBRICA_TOTAL / numCriterios)
-  const pesos = Array.from({ length: numCriterios }, () => base)
-  pesos[numCriterios - 1] = round1(RUBRICA_TOTAL - base * (numCriterios - 1))
-  return pesos
+  return repartirPuntos(RUBRICA_TOTAL, numCriterios)
 }
 
 // Total de una evaluación con rúbrica. Devuelve null mientras falte algún
@@ -167,6 +173,132 @@ export function validarRubrica(r) {
     }
   }
   return null
+}
+
+// ── Propuesta de IA → instrumento válido ────────────────────────────────────
+// La IA propone SOLO contenido pedagógico (títulos, nombres de criterios,
+// nombres de niveles y descriptores). Los NÚMEROS los pone Evalúa Fácil aquí,
+// con el mismo reparto que hace el botón "Repartir en partes iguales" del
+// editor: la IA nunca es fuente de verdad de pesos, totales ni estructura.
+//
+// El resultado entra al editor como cualquier borrador: el docente lo revisa,
+// lo edita y lo guarda. `validarRubrica` se sigue corriendo ahí en cada tecla
+// —nada de esto se salta la validación existente.
+
+// Puntos de cada nivel según cuántos niveles proponga la IA. El primero
+// siempre vale 10 (regla del modelo) y de ahí bajan. La escala de 4 es la
+// misma que trae una rúbrica nueva en el editor (Excelente 10 / Bueno 8 /
+// Suficiente 6 / Insuficiente 5), para que lo generado y lo hecho a mano se
+// vean igual.
+const VALORES_POR_NIVELES = {
+  3: [10, 7, 5],
+  4: [10, 8, 6, 5],
+  5: [10, 8, 6, 4, 2],
+}
+
+const limpiar = (v, max) => String(v ?? '').trim().slice(0, max)
+
+// Acota una lista de textos al rango permitido por el modelo.
+function acotar(lista, min, max) {
+  const items = (Array.isArray(lista) ? lista : []).slice(0, max)
+  while (items.length < min) items.push('')
+  return items
+}
+
+// `propuesta` = { titulo, descripcion, niveles: [nombre], criterios: [{ nombre, descriptores: [texto] }] }
+export function rubricaDesdePropuesta(propuesta) {
+  const nombresNivel = acotar(propuesta?.niveles, MIN_NIVELES, MAX_NIVELES).map((n) => limpiar(n, 40))
+  const valores = VALORES_POR_NIVELES[nombresNivel.length]
+  const criteriosIA = acotar(propuesta?.criterios, MIN_CRITERIOS, MAX_CRITERIOS)
+  const n = criteriosIA.length
+
+  // Una repartición por COLUMNA: cada nivel reparte sus propios puntos entre
+  // los criterios, así cada columna suma exactamente lo que debe (que es lo
+  // que exige validarRubrica) sin depender del redondeo de otra.
+  const columnas = valores.map((valor) => repartirPuntos(valor, n))
+
+  return {
+    tipo: 'rubrica',
+    titulo: limpiar(propuesta?.titulo, 120),
+    descripcion: limpiar(propuesta?.descripcion, 300),
+    niveles: nombresNivel.map((nombre, j) => ({ nombre, porcentaje: round1(valores[j] * 10) })),
+    criterios: criteriosIA.map((c, i) => {
+      const puntos = columnas.map((col) => col[i])
+      return {
+        nombre: limpiar(c?.nombre, 200),
+        peso: puntos[0],
+        puntos,
+        descriptores: acotar(c?.descriptores, nombresNivel.length, nombresNivel.length)
+          .map((d) => limpiar(d, 300)),
+      }
+    }),
+  }
+}
+
+// `propuesta` = { titulo, descripcion, criterios: [{ nombre }] }
+export function cotejoDesdePropuesta(propuesta) {
+  const criteriosIA = acotar(propuesta?.criterios, MIN_CRITERIOS, MAX_CRITERIOS)
+  const pesos = pesosEquitativos(criteriosIA.length)
+  return {
+    tipo: 'cotejo',
+    titulo: limpiar(propuesta?.titulo, 120),
+    descripcion: limpiar(propuesta?.descripcion, 300),
+    niveles: [{ nombre: COTEJO_NIVEL, porcentaje: 100 }],
+    criterios: criteriosIA.map((c, i) => ({
+      nombre: limpiar(c?.nombre, 200),
+      peso: pesos[i],
+      puntos: [pesos[i]],
+      descriptores: [''],
+    })),
+  }
+}
+
+// ── Trazabilidad de lo generado con IA (regla transversal T.8) ──────────────
+// Vive SOLO en la copia que guarda la actividad. `bancoRubricas` no se toca:
+// una rúbrica del banco es reutilizable en otras actividades, y la traza es de
+// ESTA generación concreta — meterla ahí la volvería mentira en cuanto alguien
+// reutilizara la rúbrica.
+//
+// Qué conserva y por qué:
+//   · actividadPadreId — la fuente inmediata. Es lo que permite auditar la
+//     regla de no aislamiento: toda rúbrica generada tuvo un padre real.
+//   · clase — si el padre fue un entregable o una observación.
+//   · procedenciaCriterios — de dónde salieron. Hoy siempre 'actividad_padre':
+//     no existe Universo Curricular, así que ningún criterio puede alegar
+//     origen curricular (decisión de producto del 10-ago-2026).
+//   · marcoCurricular — null mientras no exista el Universo. El campo nace
+//     desde ahora para que el día que exista no haya rúbricas viejas mudas.
+//   · editadaPorDocente — si el docente cambió la propuesta antes de
+//     guardarla. Es la única medida real de si la IA propone bien.
+
+// Compara la propuesta con lo que el docente terminó guardando. Solo mira lo
+// que la IA propuso (textos y estructura); los puntos los pone EF, así que un
+// cambio de puntos también cuenta como edición del docente.
+export function propuestaFueEditada(propuesta, guardada) {
+  if (!propuesta || !guardada) return false
+  const huella = (r) => JSON.stringify({
+    titulo: (r.titulo || '').trim(),
+    descripcion: (r.descripcion || '').trim(),
+    niveles: (r.niveles || []).map((n) => (n.nombre || '').trim()),
+    criterios: (r.criterios || []).map((c) => ({
+      nombre: (c.nombre || '').trim(),
+      puntos: (c.puntos || []).map((p) => round1(parseFloat(p) || 0)),
+      descriptores: (c.descriptores || []).map((d) => (d || '').trim()),
+    })),
+  })
+  return huella(propuesta) !== huella(guardada)
+}
+
+export function trazaIA({ operacion, actividadPadreId, clase, propuesta, guardada, generadoEn }) {
+  return {
+    operacion,                                  // 'rubrica' | 'cotejo'
+    actividadPadreId,                           // la fuente inmediata
+    clase,                                      // 'entregable' | 'observacion'
+    procedenciaCriterios: 'actividad_padre',
+    marcoCurricular: null,                      // no existe Universo Curricular todavía
+    editadaPorDocente: propuestaFueEditada(propuesta, guardada),
+    generadoEn: generadoEn || null,
+  }
 }
 
 // Copia limpia para guardar dentro de la actividad (sin campos del banco).

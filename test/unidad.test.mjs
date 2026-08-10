@@ -16,7 +16,11 @@ import assert from 'node:assert'
 import { createRequire } from 'node:module'
 import { extraerAssets } from '../api/_lib/cloudinary.js'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../src/utils/ponderacion.js'
-import { totalRubrica, validarCotejo, validarRubrica, RUBRICA_TOTAL } from '../src/utils/rubrica.js'
+import {
+  totalRubrica, validarCotejo, validarRubrica, RUBRICA_TOTAL,
+  rubricaDesdePropuesta, cotejoDesdePropuesta, esCotejo,
+  propuestaFueEditada, trazaIA,
+} from '../src/utils/rubrica.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -214,6 +218,125 @@ caso('sin suscripción no hay vigencia (y no revienta)', () => {
 })
 
 // ═══ El export de pruebas no se despliega ════════════════════════════════════
+grupo('Propuesta de IA → instrumento válido (los números los pone EF)')
+
+const propuestaRubrica = (nCrit = 4, nNiv = 4) => ({
+  titulo: 'Ensayo argumentativo',
+  descripcion: 'Evalúa el ensayo sobre la Revolución',
+  niveles: Array.from({ length: nNiv }, (_, j) => ['Excelente', 'Bueno', 'Suficiente', 'Insuficiente', 'Nulo'][j]),
+  criterios: Array.from({ length: nCrit }, (_, i) => ({
+    nombre: `Criterio ${i + 1}`,
+    descriptores: Array.from({ length: nNiv }, (_, j) => `Descriptor ${i}-${j}`),
+  })),
+})
+
+caso('la rúbrica generada pasa la MISMA validación que una hecha a mano', () => {
+  assert.strictEqual(validarRubrica(rubricaDesdePropuesta(propuestaRubrica())), null)
+})
+
+caso('toda combinación de criterios (2–6) y niveles (3–5) produce algo válido', () => {
+  for (let nv = 3; nv <= 5; nv++) {
+    for (let nc = 2; nc <= 6; nc++) {
+      const err = validarRubrica(rubricaDesdePropuesta(propuestaRubrica(nc, nv)))
+      assert.strictEqual(err, null, `criterios=${nc} niveles=${nv}: ${err}`)
+    }
+  }
+})
+
+caso('la columna del nivel máximo suma exactamente 10 aunque no reparta parejo', () => {
+  const r = rubricaDesdePropuesta(propuestaRubrica(3))
+  const suma = r.criterios.reduce((s, c) => s + c.puntos[0], 0)
+  assert.strictEqual(Math.round(suma * 10) / 10, RUBRICA_TOTAL)
+})
+
+caso('la lista de cotejo generada suma exactamente 10 y es del tipo correcto', () => {
+  const c = cotejoDesdePropuesta({ titulo: 'Reporte', criterios: [{ nombre: 'a' }, { nombre: 'b' }, { nombre: 'c' }] })
+  assert.strictEqual(esCotejo(c), true)
+  assert.strictEqual(validarCotejo(c), null)
+  assert.strictEqual(c.criterios.reduce((s, x) => s + x.puntos[0], 0), RUBRICA_TOTAL)
+})
+
+caso('si la IA manda PUNTOS, se ignoran: la aritmética nunca viene del modelo', () => {
+  const p = propuestaRubrica()
+  p.criterios[0].puntos = [99, 99, 99, 99]
+  p.criterios[0].peso = 99
+  p.niveles = p.niveles.map((n) => ({ nombre: n, porcentaje: 999 }))
+  const r = rubricaDesdePropuesta({ ...p, niveles: ['A', 'B', 'C', 'D'] })
+  assert.strictEqual(validarRubrica(r), null)
+  assert.ok(r.criterios[0].puntos[0] <= RUBRICA_TOTAL, 'el 99 de la IA no sobrevive')
+})
+
+caso('si la IA manda de más, se recorta al máximo del modelo (6 criterios)', () => {
+  const r = rubricaDesdePropuesta(propuestaRubrica(9))
+  assert.strictEqual(r.criterios.length, 6)
+  assert.strictEqual(validarRubrica(r), null)
+})
+
+caso('si la IA manda de menos, se completa al mínimo y sigue siendo válido estructuralmente', () => {
+  const r = rubricaDesdePropuesta({ titulo: 'T', niveles: ['A'], criterios: [{ nombre: 'uno', descriptores: [] }] })
+  assert.ok(r.niveles.length >= 3 && r.criterios.length >= 2)
+  // Quedan huecos de TEXTO (nombre vacío) — eso lo llena el docente en el
+  // editor, que es justo lo que la validación le va a exigir antes de guardar.
+  assert.ok(validarRubrica(r)?.includes('nombre'))
+})
+
+caso('una propuesta basura no revienta el constructor', () => {
+  assert.doesNotThrow(() => rubricaDesdePropuesta(null))
+  assert.doesNotThrow(() => cotejoDesdePropuesta({ criterios: 'no soy un arreglo' }))
+})
+
+
+grupo('Trazabilidad de lo generado con IA (T.8)')
+
+const base = () => rubricaDesdePropuesta(propuestaRubrica())
+
+caso('la traza conserva la actividad padre — la regla de no aislamiento es auditable', () => {
+  const t = trazaIA({ operacion: 'rubrica', actividadPadreId: 'act_1', clase: 'entregable', propuesta: base(), guardada: base() })
+  assert.strictEqual(t.actividadPadreId, 'act_1')
+  assert.strictEqual(t.clase, 'entregable')
+  assert.strictEqual(t.operacion, 'rubrica')
+})
+
+caso('sin Universo Curricular, la procedencia es la actividad y el marco queda en null', () => {
+  const t = trazaIA({ operacion: 'cotejo', actividadPadreId: 'a', clase: 'observacion', propuesta: base(), guardada: base() })
+  assert.strictEqual(t.procedenciaCriterios, 'actividad_padre')
+  assert.strictEqual(t.marcoCurricular, null)
+})
+
+caso('guardar la propuesta tal cual NO cuenta como editada', () => {
+  assert.strictEqual(propuestaFueEditada(base(), base()), false)
+})
+
+caso('cambiar el nombre de un criterio SÍ cuenta como editada', () => {
+  const g = base(); g.criterios[0].nombre = 'Otro criterio'
+  assert.strictEqual(propuestaFueEditada(base(), g), true)
+})
+
+caso('cambiar un descriptor SÍ cuenta como editada', () => {
+  const g = base(); g.criterios[1].descriptores[0] = 'Reescrito por el docente'
+  assert.strictEqual(propuestaFueEditada(base(), g), true)
+})
+
+caso('cambiar los puntos SÍ cuenta como editada (los pone EF, pero el docente los ajusta)', () => {
+  const g = base(); g.criterios[0].puntos[0] = g.criterios[0].puntos[0] + 1
+  assert.strictEqual(propuestaFueEditada(base(), g), true)
+})
+
+caso('agregar o quitar un criterio SÍ cuenta como editada', () => {
+  const g = base(); g.criterios = g.criterios.slice(0, 2)
+  assert.strictEqual(propuestaFueEditada(base(), g), true)
+})
+
+caso('espacios de más al teclear no cuentan como edición real', () => {
+  const g = base(); g.criterios[0].nombre = '  ' + g.criterios[0].nombre + '  '
+  assert.strictEqual(propuestaFueEditada(base(), g), false)
+})
+
+caso('sin propuesta previa (rúbrica hecha a mano) no hay edición que medir', () => {
+  assert.strictEqual(propuestaFueEditada(null, base()), false)
+})
+
+
 grupo('Higiene')
 
 caso('`_pruebas` es un objeto plano y no una función desplegable', () => {

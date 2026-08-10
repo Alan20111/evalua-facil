@@ -29,8 +29,21 @@ const ledger = require('./creditosLedger')
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
 // Operaciones conectadas por autorización del PO:
-//   · C-03 'aviso' (9-ago-2026) · C-02 'calificar_abierta' (9-ago-2026).
-const OPERACIONES = { aviso: ejecutarAviso, calificar_abierta: ejecutarCalificarAbierta }
+//   · C-03 'aviso' (9-ago-2026) · C-02 'calificar_abierta' (9-ago-2026)
+//   · OP-06 'rubrica' y OP-07 'cotejo' (10-ago-2026).
+const OPERACIONES = {
+  aviso: ejecutarAviso,
+  calificar_abierta: ejecutarCalificarAbierta,
+  rubrica: ejecutarRubrica,
+  cotejo: ejecutarCotejo,
+}
+
+// Comprobaciones que corren ANTES de reservar créditos. Una operación con
+// precheck no llega al ledger si el contexto no da: el docente recibe un
+// mensaje que le dice qué le falta y su saldo queda intacto (no hay reserva
+// que reembolsar porque nunca existió). Lo que devuelve el precheck viaja al
+// ejecutor, que así no vuelve a leer nada de Firestore.
+const PRECHECKS = { rubrica: precheckInstrumento, cotejo: precheckInstrumento }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
 // Entrada: tipo de aviso (los 12 del producto) + datos del docente + nombre
@@ -347,6 +360,264 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   }
 }
 
+// ── OP-06 / OP-07 · Rúbrica y lista de cotejo ───────────────────────────────
+// REGLA ARQUITECTÓNICA (PO, 10-ago-2026): una rúbrica o lista de cotejo NO es
+// una operación independiente. Siempre se deriva de una ACTIVIDAD PADRE, que
+// solo puede ser de dos clases:
+//
+//   Entregable            → rúbrica/cotejo → evidencia del estudiante → calificación
+//   Actividad de observación → rúbrica/cotejo → observación del docente → calificación
+//
+// De ahí salen las tres reglas que este bloque hace cumplir:
+//
+//  1. CONTEXTO DEL SERVIDOR. La operación recibe `actividadId`, nunca el texto
+//     de la actividad. El servidor lee activities/{id}, comprueba que es del
+//     docente que llama y arma el contexto con lo que hay en Firestore. Lo que
+//     mande el cliente como contenido pedagógico se ignora.
+//  2. NO AISLAMIENTO. Sin actividad padre no hay operación. El banco de
+//     rúbricas no puede generar: ahí no hay de qué derivar los criterios.
+//  3. INFORMACIÓN INSUFICIENTE. Si la actividad no da para fundamentar
+//     criterios, la operación se detiene ANTES de reservar créditos y le dice
+//     al docente qué le falta. No se inventa nada ni se rellena con
+//     conocimiento general.
+//
+// La IA propone SOLO contenido pedagógico: nombres de criterios, nombres de
+// niveles y descriptores. Los números (pesos, puntos, totales) los pone
+// Evalúa Fácil en el cliente con `rubricaDesdePropuesta`/`cotejoDesdePropuesta`
+// y los valida con `validarRubrica` — mismo principio que C-02: la IA nunca es
+// fuente de verdad de la aritmética.
+
+// Categorías que SÍ pueden ser padre. 'actividad' y 'tarea' son los nombres
+// viejos del entregable (ver SubjectPage.jsx, que los normaliza al abrir).
+const PADRES_VALIDOS = { entregable: 'entregable', actividad: 'entregable', tarea: 'entregable', observacion: 'observacion' }
+
+// Mínimo de texto útil en las instrucciones para poder fundamentar criterios.
+// Es un umbral de CÓDIGO a propósito: preguntarle al modelo si el contexto
+// alcanza costaría una llamada y lo empujaría a "esforzarse" e inventar, que
+// es justo lo que la regla prohíbe.
+const MIN_INSTRUCCIONES = 40
+
+// Las instrucciones se guardan como HTML enriquecido; para el prompt sirve el
+// texto pelón. Sin dependencias: quitar etiquetas y devolver las entidades
+// más comunes a su carácter.
+function textoPlano(html) {
+  return String(html || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+// Arma el contexto REAL de la actividad padre a partir del documento de
+// Firestore, y dice qué falta si no alcanza. Función pura sobre `act` para
+// poder probarla sin emulador (ver _pruebas al final del archivo).
+function contextoDeActividad(act) {
+  const clase = PADRES_VALIDOS[act.categoria] || null
+  const nombre = String(act.nombre || act.titulo || '').trim().slice(0, 200)
+  const instrucciones = textoPlano(act.instrucciones).slice(0, 4000)
+  const adjuntos = (Array.isArray(act.archivosAdjuntos) ? act.archivosAdjuntos : [])
+    .map((a) => String(a?.nombre || '').trim()).filter(Boolean).slice(0, 10)
+
+  const faltantes = []
+  if (nombre.length < 3) faltantes.push('el nombre de la actividad')
+  if (instrucciones.length < MIN_INSTRUCCIONES) {
+    faltantes.push(clase === 'observacion'
+      ? 'la descripción de qué vas a observar (en las instrucciones de la actividad)'
+      : 'las instrucciones de la actividad — qué debe hacer y entregar el estudiante')
+  }
+
+  return { clase, nombre, instrucciones, adjuntos, faltantes }
+}
+
+// El "producto o evidencia" solicitada y las condiciones del entregable salen
+// de campos reales de la actividad, no de una suposición. En una observación
+// no existen: no hay archivo que entregar ni fecha de entrega que cumplir, y
+// por eso NO se le pasan al modelo (regla 4 del PO).
+function condicionesEntregable(act) {
+  const partes = []
+  const tipos = Array.isArray(act.tiposArchivo) ? act.tiposArchivo.filter(Boolean) : []
+  if (tipos.length) partes.push(`Tipos de archivo que debe subir: ${tipos.join(', ')}`)
+  const custom = String(act.extensionesCustom || '').trim()
+  if (custom) partes.push(`Extensiones aceptadas: ${custom}`)
+  if (act.fechaLimite) partes.push('La actividad tiene fecha límite de entrega')
+  if (act.recibirTarde === false) partes.push('No se aceptan entregas después de la fecha límite')
+  return partes
+}
+
+// Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
+// Corre en el callable antes de `ledger.reservar` (ver más abajo).
+async function precheckInstrumento({ uid, params }) {
+  const db = getFirestore()
+  const actividadId = String(params?.actividadId || '')
+  if (!actividadId) {
+    throw new HttpsError('invalid-argument',
+      'Guarda primero la actividad: la rúbrica se construye a partir de ella.')
+  }
+
+  const snap = await db.doc(`activities/${actividadId}`).get()
+  if (!snap.exists) throw new HttpsError('not-found', 'La actividad no existe')
+  const act = snap.data()
+  if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+
+  const ctx = contextoDeActividad(act)
+  if (!ctx.clase) {
+    throw new HttpsError('failed-precondition',
+      'Solo un entregable o una actividad de observación pueden tener rúbrica o lista de cotejo.')
+  }
+  if (ctx.faltantes.length) {
+    // Ni reserva ni llamada al modelo: aquí no se descuenta nada.
+    throw new HttpsError('failed-precondition',
+      `No hay información suficiente en la actividad para construir una rúbrica fundamentada. Falta ${ctx.faltantes.join(' y ')}. Complétala y vuelve a intentarlo — no se descontaron créditos.`,
+      { codigo: 'CONTEXTO_INSUFICIENTE', faltantes: ctx.faltantes })
+  }
+
+  return {
+    ...ctx,
+    condiciones: ctx.clase === 'entregable' ? condicionesEntregable(act) : [],
+  }
+}
+
+const INSTRUMENTO_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
+  'docente de bachillerato mexicano. Tu papel es PROPONER: el docente siempre revisa, edita y decide. ' +
+  'Construye los criterios EXCLUSIVAMENTE a partir de la actividad que se te describe. ' +
+  'No agregues criterios que no puedan justificarse con esa actividad, y no completes con ' +
+  'conocimiento general del tema. No incluyas puntos, pesos, porcentajes ni totales: ' +
+  'Evalúa Fácil calcula toda la aritmética. Escribe en español, claro y breve. ' +
+  'Responde únicamente con el JSON válido del esquema indicado, sin texto adicional.'
+
+// Bloque de contexto común a las cuatro combinaciones (rúbrica/cotejo ×
+// entregable/observación). Solo con datos leídos de Firestore.
+function bloqueContexto(ctx, asignatura) {
+  const esObs = ctx.clase === 'observacion'
+  let t = `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n`
+  t += esObs
+    ? `ACTIVIDAD DE OBSERVACIÓN (sin entrega de archivos): "${ctx.nombre}".\n\n`
+    : `ACTIVIDAD ENTREGABLE: "${ctx.nombre}".\n\n`
+  t += esObs
+    ? `LO QUE EL DOCENTE VA A OBSERVAR:\n"""${ctx.instrucciones}"""\n`
+    : `INSTRUCCIONES PARA EL ESTUDIANTE:\n"""${ctx.instrucciones}"""\n`
+  if (ctx.adjuntos.length) t += `\nMateriales que el docente adjuntó: ${ctx.adjuntos.join(', ')}\n`
+  if (ctx.condiciones.length) t += `\nCONDICIONES DE LA ENTREGA:\n- ${ctx.condiciones.join('\n- ')}\n`
+  t += esObs
+    ? '\nLos criterios deben ser conductas o desempeños OBSERVABLES durante la actividad. ' +
+      'No menciones archivos, entregas, formatos de documento ni fechas límite: en una ' +
+      'actividad de observación no existe nada de eso.\n'
+    : '\nLos criterios deben evaluar lo que se le pide entregar al estudiante y las ' +
+      'condiciones establecidas arriba.\n'
+  return t
+}
+
+// Llamada + lectura del JSON, común a las dos operaciones.
+async function pedirJSON({ client, modelo, maxTokens, prompt }) {
+  const inicio = Date.now()
+  const msg = await client.messages.create({
+    model: modelo,
+    max_tokens: maxTokens,
+    system: INSTRUMENTO_SISTEMA,
+    messages: [{ role: 'user', content: prompt }],
+  })
+  let texto = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
+  if (texto.startsWith('```')) texto = texto.replace(/^```(json)?\n?/, '').replace(/```$/, '').trim()
+  return {
+    datos: JSON.parse(texto), // un JSON ilegible cae al catch del callable → reembolso
+    interno: {
+      modelo,
+      tokensEntrada: msg.usage?.input_tokens ?? null,
+      tokensSalida: msg.usage?.output_tokens ?? null,
+      ms: Date.now() - inicio,
+    },
+  }
+}
+
+// La propuesta que sale de aquí trae SOLO texto. Los números los pone el
+// cliente con las funciones del modelo de rúbricas (utils/rubrica.js).
+async function ejecutarRubrica({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+  const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
+
+  const { datos, interno } = await pedirJSON({
+    client, modelo, maxTokens: 1500,
+    prompt: bloqueContexto(ctx, asignatura) +
+      '\nPropón una RÚBRICA de 4 criterios y 4 niveles de desempeño ' +
+      '(del mejor al peor), con un descriptor por cada criterio en cada nivel.\n' +
+      'Los descriptores describen QUÉ se observa en ese nivel, en máximo 20 palabras, ' +
+      'sin mencionar puntos ni calificaciones.\n\n' +
+      'Responde SOLO con este JSON:\n' +
+      '{\n' +
+      '  "titulo": "<nombre de la rúbrica, máx 60 caracteres>",\n' +
+      '  "descripcion": "<una frase sobre qué evalúa>",\n' +
+      '  "niveles": ["<nivel más alto>", "<...>", "<...>", "<nivel más bajo>"],\n' +
+      '  "criterios": [\n' +
+      '    {"nombre": "<criterio, máx 8 palabras>", "descriptores": ["<nivel 1>", "<nivel 2>", "<nivel 3>", "<nivel 4>"]}\n' +
+      '  ]\n' +
+      '}',
+  })
+
+  return {
+    resultado: {
+      propuesta: {
+        titulo: String(datos.titulo || '').slice(0, 120),
+        descripcion: String(datos.descripcion || '').slice(0, 300),
+        niveles: (Array.isArray(datos.niveles) ? datos.niveles : []).map((n) => String(n).slice(0, 40)),
+        criterios: (Array.isArray(datos.criterios) ? datos.criterios : []).map((c) => ({
+          nombre: String(c?.nombre || '').slice(0, 200),
+          descriptores: (Array.isArray(c?.descriptores) ? c.descriptores : []).map((d) => String(d).slice(0, 300)),
+        })),
+      },
+      clase: ctx.clase,
+    },
+    unidadesReales: 1,
+    interno,
+  }
+}
+
+async function ejecutarCotejo({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto
+  const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
+
+  const { datos, interno } = await pedirJSON({
+    client, modelo, maxTokens: 800,
+    prompt: bloqueContexto(ctx, asignatura) +
+      '\nPropón una LISTA DE COTEJO de 5 indicadores. Cada indicador se marca ' +
+      'cumple / no cumple, así que debe ser VERIFICABLE de un vistazo y sin ' +
+      'grados intermedios (nada de "adecuadamente" o "de manera suficiente").\n\n' +
+      'Responde SOLO con este JSON:\n' +
+      '{\n' +
+      '  "titulo": "<nombre de la lista, máx 60 caracteres>",\n' +
+      '  "descripcion": "<una frase sobre qué verifica>",\n' +
+      '  "criterios": [{"nombre": "<indicador verificable, máx 12 palabras>"}]\n' +
+      '}',
+  })
+
+  return {
+    resultado: {
+      propuesta: {
+        titulo: String(datos.titulo || '').slice(0, 120),
+        descripcion: String(datos.descripcion || '').slice(0, 300),
+        criterios: (Array.isArray(datos.criterios) ? datos.criterios : []).map((c) => ({
+          nombre: String(c?.nombre || '').slice(0, 200),
+        })),
+      },
+      clase: ctx.clase,
+    },
+    unidadesReales: 1,
+    interno,
+  }
+}
+
 // ── Traducción de errores del ledger a HttpsError ───────────────────────────
 function comoHttpsError(e) {
   if (e instanceof HttpsError) return e
@@ -387,6 +658,15 @@ exports.ejecutarOperacionIA = onCall(
     }
     const n = Number.isInteger(unidades) && unidades > 0 && unidades <= 500 ? unidades : 1
 
+    // Comprobaciones previas a CUALQUIER cobro: propiedad de la actividad,
+    // categoría válida y suficiencia del contexto. Si algo de esto falla, el
+    // docente se entera sin que se haya reservado ni descontado un crédito
+    // (no hay reserva que reembolsar porque nunca llegó a existir).
+    let precontexto = null
+    if (PRECHECKS[operacion]) {
+      precontexto = await PRECHECKS[operacion]({ uid, params })
+    }
+
     let tarifas
     let reserva
     try {
@@ -414,9 +694,14 @@ exports.ejecutarOperacionIA = onCall(
     try {
       const modelo = tarifas.modeloPorOperacion?.[operacion]
       if (!modelo) throw new HttpsError('failed-precondition', 'La operación no tiene modelo configurado')
-      // __uid y __idempotencyKey los pone el servidor — cualquier valor que
-      // mandara el cliente se sobreescribe aquí.
-      salida = await ejecutor({ params: { ...params, __uid: uid, __idempotencyKey: idempotencyKey }, modelo, apiKey: ANTHROPIC_API_KEY.value(), unidades: n })
+      // __uid, __idempotencyKey y __contexto los pone el servidor — cualquier
+      // valor que mandara el cliente se sobreescribe aquí. En particular
+      // __contexto es el contenido REAL de la actividad, leído de Firestore
+      // por el precheck: el ejecutor nunca usa texto pedagógico del cliente.
+      salida = await ejecutor({
+        params: { ...params, __uid: uid, __idempotencyKey: idempotencyKey, __contexto: precontexto },
+        modelo, apiKey: ANTHROPIC_API_KEY.value(), unidades: n,
+      })
     } catch (e) {
       await ledger.reembolsar({ uid, idempotencyKey, motivo: String(e.message || e).slice(0, 300) })
         .catch((err) => logger.error(`reembolso(${idempotencyKey}) falló:`, err))
@@ -467,3 +752,8 @@ exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
     logger.error('mantenimientoCreditosIA:', e)
   }
 })
+
+// Lógica pura expuesta para las pruebas (test/ia-creditos.test.mjs): el
+// armado del contexto de la actividad padre y su regla de suficiencia, que es
+// donde vive la decisión de "no alcanza, no se cobra".
+exports._pruebas = { contextoDeActividad, condicionesEntregable, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES }

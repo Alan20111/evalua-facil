@@ -7114,6 +7114,11 @@ export default function SubjectPage() {
           onActivityCreated={(act) => {
             setActivities((prev) => [...prev, act])
             setSubmissionCounts((prev) => ({ ...prev, [act.id]: { delivered: 0, graded: 0 } }))
+            // El editor puede crear la actividad SIN cerrarse (guardar borrador
+            // para generar la rúbrica con IA). Si el editor sigue abierto, este
+            // estado tiene que apuntar ya a la actividad creada: de ahí salen
+            // el borrado y la "Nueva fecha de entrega" de esta pantalla.
+            setEntregableEditor((prev) => (prev && !prev.activityId ? { ...prev, activityId: act.id } : prev))
           }}
           onActivityUpdated={(act) => {
             setActivities((prev) => prev.map((a) => a.id === act.id ? { ...a, ...act } : a))
