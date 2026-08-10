@@ -24,8 +24,10 @@ import {
 } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays, Star,
-  Scale, CheckSquare, Square, X, FileSpreadsheet, FileText,
+  Scale, CheckSquare, Square, X, FileSpreadsheet, FileText, Sparkles,
 } from 'lucide-react'
+import useCreditosIA from '../hooks/useCreditosIA'
+import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
 import { estadoEvaluacionLabel } from '../utils/evaluacionGrading'
 import { cargarRespuestasEvaluacion, esGraficable } from '../utils/evaluacionRespuestas'
 import { exportEvaluacionResultadosExcel } from '../utils/excel'
@@ -168,6 +170,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // mismo criterio que las exportaciones de la asignatura.
   const { subscription } = useSubscription()
   const exportsWatermarked = !hasCleanExports(subscription)
+  // Créditos de IA — estimación y ejecución del piloto C-02.
+  const creditosIA = useCreditosIA()
   // Escuela + docente para encabezar los documentos que se descargan de aquí.
   const { userProfile } = useAuth()
   const membrete = membreteDe(userProfile)
@@ -242,6 +246,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // borrador por pregunta { puntos, comentario } mientras el docente edita.
   const [gradeDrafts, setGradeDrafts] = useState({})
   const [savingGradeId, setSavingGradeId] = useState(null)
+  // C-02 · Sugerir calificación con IA (piloto). Las sugerencias viven SOLO
+  // en el estado de esta sesión: la IA jamás escribe calificaciones (O3) —
+  // el docente las aplica una por una con "Usar sugerencia" y guarda él.
+  const [iaSugerencias, setIaSugerencias] = useState({}) // { [subId]: { [pregId]: sugerencia } }
+  const [iaContando, setIaContando] = useState(false)
+  const [iaConteo, setIaConteo] = useState(null)         // { estudiantes, respuestas } → abre el modal
+  const [iaTrabajando, setIaTrabajando] = useState(false)
   const [reviewFilter, setReviewFilter] = useState('todos') // review tab: todos|pendiente|calificado|porCalificar
   const [reviewNav, setReviewNav] = useState([])            // frozen student order for Anterior/Siguiente
   // Per-student deadline extension ("Modificar fecha de entrega") — en
@@ -866,6 +877,78 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       toast('Error al guardar puntos: ' + err.message, 'error')
     } finally {
       setSavingGradeId(null)
+    }
+  }
+
+  // ── C-02 · Sugerir calificación de respuestas abiertas (piloto IA) ─────────
+  // Cuenta EXACTAMENTE las respuestas que el lote va a calificar (regla del
+  // PO: la estimación debe reflejar la cantidad real). Lee las respuestas de
+  // los estudiantes pendientes — las mismas lecturas que abrir su revisión.
+  // Solo texto (respuesta_corta); documentos y respuestas vacías no cuentan.
+  async function contarRespuestasIA() {
+    setIaContando(true)
+    try {
+      const abiertas = preguntas.filter((p) => p.tipo === 'respuesta_corta')
+      const pendientes = students.filter((s) => {
+        const sub = submissions[s.id]
+        return sub?.estadoEvaluacion === 'finalizado' && sub.pendienteRevision
+      })
+      let respuestas = 0
+      let estudiantes = 0
+      for (const s of pendientes) {
+        const snap = await getDocs(collection(db, 'submissions', submissions[s.id].id, 'respuestas'))
+        const porId = {}
+        snap.docs.forEach((d) => { porId[d.id] = d.data() })
+        let deEste = 0
+        for (const p of abiertas) {
+          const r = porId[p.id]
+          if (!r || r.puntosObtenidos != null) continue
+          const texto = (r.textoRespuesta || '').trim()
+          if (!texto || texto.length > 40000) continue
+          deEste++
+        }
+        if (deEste) { estudiantes++; respuestas += deEste }
+      }
+      if (!respuestas) {
+        toast('No hay respuestas de texto pendientes de calificar', 'error')
+        return
+      }
+      setIaConteo({ estudiantes, respuestas })
+    } catch (err) {
+      toast('Error al contar respuestas: ' + err.message, 'error')
+    } finally {
+      setIaContando(false)
+    }
+  }
+
+  // Ejecuta el lote tras la confirmación del docente en el modal de créditos.
+  // El servidor relee todo por ID (no confía en textos del cliente), reserva
+  // el lote, cobra solo lo realmente sugerido y reembolsa el resto. Las
+  // sugerencias NUNCA se guardan como calificación (O3): quedan en el estado
+  // de la sesión y el docente las aplica una por una si le convencen.
+  async function ejecutarSugerenciasIA() {
+    setIaTrabajando(true)
+    try {
+      const data = await creditosIA.ejecutar('calificar_abierta', {
+        actividadId: activityId || activity.id,
+        asignaturaId: activity.asignaturaId,
+        asignaturaNombre: subject?.nombre || '',
+      }, iaConteo.respuestas, { timeoutMs: 300000 })
+      const mapa = {}
+      for (const s of data?.resultado?.sugerencias || []) {
+        if (!mapa[s.sub]) mapa[s.sub] = {}
+        mapa[s.sub][s.preg] = s
+      }
+      setIaSugerencias(mapa)
+      setIaConteo(null)
+      const n = data?.resultado?.sugerencias?.length || 0
+      toast(`${n} sugerencia${n !== 1 ? 's' : ''} de calificación lista${n !== 1 ? 's' : ''} — revísalas al calificar a cada estudiante. Tú decides.`)
+    } catch (err) {
+      toast(err.codigo === 'SALDO_INSUFICIENTE'
+        ? 'No tienes créditos suficientes para este lote'
+        : 'No se pudo completar: ' + err.message, 'error')
+    } finally {
+      setIaTrabajando(false)
     }
   }
 
@@ -1650,10 +1733,24 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               {/* Con reactivos de respuesta escrita / subir documento, el docente
                   debe intervenir: aviso + salto directo a la primera por calificar. */}
               {hasManual && resultCounts.porCalificar > 0 && (
-                <div className="mb-3 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-card flex items-center gap-2 text-sm text-amber-800">
-                  <span className="flex-1">
+                <div className="mb-3 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-card flex items-center gap-2 text-sm text-amber-800 flex-wrap">
+                  <span className="flex-1 min-w-[12rem]">
                     <strong>{resultCounts.porCalificar}</strong> entrega{resultCounts.porCalificar !== 1 ? 's' : ''} con reactivos de respuesta escrita o documentos que debes calificar.
                   </span>
+                  {/* C-02: sugerencias de calificación por IA para TODOS los
+                      pendientes con respuestas de texto. Estimación previa
+                      obligatoria; la IA solo sugiere, el docente decide. */}
+                  {preguntas.some((p) => p.tipo === 'respuesta_corta') && (
+                    <button
+                      type="button"
+                      onClick={contarRespuestasIA}
+                      disabled={iaContando || iaTrabajando}
+                      className="flex-shrink-0 px-3 py-1.5 bg-accent text-white text-xs font-semibold rounded hover:bg-accent-hover transition-colors flex items-center gap-1.5 disabled:opacity-60"
+                    >
+                      <Sparkles size={13} />
+                      {iaContando ? 'Contando…' : iaTrabajando ? 'Trabajando…' : 'Sugerir con IA'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -1665,6 +1762,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     Calificar ahora
                   </button>
                 </div>
+              )}
+              {iaConteo && (
+                <ConfirmacionCreditosModal
+                  titulo="Sugerir calificaciones con IA"
+                  descripcion={`Se sugerirá calificación para ${iaConteo.respuestas} respuesta${iaConteo.respuestas !== 1 ? 's' : ''} de texto de ${iaConteo.estudiantes} estudiante${iaConteo.estudiantes !== 1 ? 's' : ''}. La IA solo sugiere: tú revisas y decides cada calificación.`}
+                  costoMin={creditosIA.estimar('calificar_abierta', iaConteo.respuestas) ?? iaConteo.respuestas}
+                  ejecutando={iaTrabajando}
+                  onCancelar={() => { if (!iaTrabajando) setIaConteo(null) }}
+                  onContinuar={ejecutarSugerenciasIA}
+                />
               )}
             <div className="rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
               <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
@@ -1859,8 +1966,49 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       const savedComent = respuesta.comentarioDocente || ''
                       const dirty = String(draft.puntos) !== String(savedPuntos) || (draft.comentario || '') !== savedComent
                       const saving = savingGradeId === p.id
+                      // C-02: sugerencia de IA para este reactivo (si el docente
+                      // corrió el lote en esta sesión). Solo se muestra — nada
+                      // se guarda hasta que él la aplique y presione Guardar.
+                      const sug = iaSugerencias[reviewing.submission?.id]?.[p.id]
                       return (
                         <div className="mt-1 p-3 rounded border border-accent/40 bg-[var(--accent-tint)] space-y-2">
+                          {sug && (
+                            <div className="p-2.5 rounded border border-accent/40 bg-surface-card space-y-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <Sparkles size={14} className="text-accent flex-shrink-0" />
+                                <p className="text-xs font-semibold text-accent">Sugerencia de IA — tú decides</p>
+                                <span className="ml-auto text-sm font-bold text-on-surface tabular-nums">{sug.puntos} / {p.ponderacion}</span>
+                              </div>
+                              {sug.criterios?.length > 1 ? (
+                                <ul className="text-xs text-muted list-disc pl-4">
+                                  {sug.criterios.map((cr) => <li key={cr.n}>{cr.puntos} pts — {cr.evidencia}</li>)}
+                                </ul>
+                              ) : sug.criterios?.[0]?.evidencia ? (
+                                <p className="text-xs text-muted">Evidencia: {sug.criterios[0].evidencia}</p>
+                              ) : null}
+                              {sug.fortalezas?.length > 0 && (
+                                <p className="text-xs text-emerald-700">✓ {sug.fortalezas.join(' · ')}</p>
+                              )}
+                              {sug.errores?.length > 0 && (
+                                <ul className="text-xs text-red-700/80 list-disc pl-4">
+                                  {sug.errores.map((e, ei) => <li key={ei}>{e.error}{e.evidencia ? ` — “${e.evidencia}”` : ''}</li>)}
+                                </ul>
+                              )}
+                              {sug.retroalimentacion && (
+                                <p className="text-xs text-muted italic">“{sug.retroalimentacion}”</p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setGradeDrafts((d) => ({
+                                  ...d,
+                                  [p.id]: { puntos: String(sug.puntos), comentario: sug.retroalimentacion || '' },
+                                }))}
+                                className="w-full py-1.5 border border-accent text-accent text-xs font-semibold rounded hover:bg-[var(--accent-medium)] transition-colors"
+                              >
+                                Usar sugerencia (puedes editarla antes de guardar)
+                              </button>
+                            </div>
+                          )}
                           <div className="flex items-center gap-2 flex-wrap">
                             <label htmlFor={`grade-${p.id}`} className="text-sm font-medium text-on-surface">Puntos</label>
                             <input

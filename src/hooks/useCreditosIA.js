@@ -95,9 +95,12 @@ export function useCreditosIA() {
       // Ejecuta una operación de IA. Genera la clave de idempotencia AQUÍ,
       // una por confirmación del docente: un doble clic o un reintento de red
       // reutilizan la misma clave y el servidor no cobra dos veces.
-      async ejecutar(operacion, params = {}, unidades = 1) {
+      // `timeoutMs` (opcional): los lotes de C-02 pueden tardar minutos; el
+      // timeout por omisión del SDK (70 s) los cortaría a la mitad. Las
+      // operaciones unitarias no lo necesitan.
+      async ejecutar(operacion, params = {}, unidades = 1, { timeoutMs } = {}) {
         const idempotencyKey = crypto.randomUUID()
-        const llamar = httpsCallable(functions, 'ejecutarOperacionIA')
+        const llamar = httpsCallable(functions, 'ejecutarOperacionIA', timeoutMs ? { timeout: timeoutMs } : undefined)
         try {
           const { data } = await llamar({ operacion, idempotencyKey, params, unidades })
           return data
