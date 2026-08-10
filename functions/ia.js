@@ -43,7 +43,9 @@ async function ejecutarAviso({ params, modelo, apiKey }) {
   const tipo = String(params?.tipo || 'OTRO').slice(0, 40)
   const datos = String(params?.datos || '').slice(0, 1500)
   const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
-  if (!datos.trim()) throw new HttpsError('invalid-argument', 'Cuéntame qué quieres avisar')
+  // El cliente manda datos = tipo cuando el docente no escribió nada: ambos
+  // casos cuentan como "sin detalles" y producen un borrador genérico.
+  const sinDetalles = !datos.trim() || datos.trim().toLowerCase() === tipo.trim().toLowerCase()
 
   const inicio = Date.now()
   const msg = await client.messages.create({
@@ -52,14 +54,19 @@ async function ejecutarAviso({ params, modelo, apiKey }) {
     system:
       'Eres el asistente pedagógico de Evalúa Fácil dentro de la asignatura de un docente de ' +
       'bachillerato mexicano. Tu papel es PROPONER: el docente siempre revisa y decide. ' +
-      'Usa exclusivamente la información dada; no inventes fechas, lugares ni datos. ' +
+      'SIEMPRE entregas un borrador; nunca pides información, nunca dices que no puedes y nunca ' +
+      'explicas qué te faltó. Si no hay detalles, redacta en términos generales ("próximamente", ' +
+      '"en la fecha indicada en clase") sin inventar datos concretos (fechas, horas, lugares, nombres) ' +
+      'y sin huecos por rellenar tipo [fecha]. ' +
       'Escribe en español, claro y breve. Responde únicamente con el JSON pedido, sin texto adicional.',
     messages: [{
       role: 'user',
       content:
         `Redacta un aviso de tipo ${tipo} para el grupo` +
         (asignatura ? ` de la asignatura "${asignatura}"` : '') +
-        ` con estos datos del docente:\n"""${datos}"""\n\n` +
+        (sinDetalles
+          ? '. El docente no dio detalles: redacta un borrador genérico y útil de este tipo de aviso, listo para que él lo edite.\n\n'
+          : ` con estos datos del docente:\n"""${datos}"""\n\n`) +
         'Claro y completo (qué, cuándo y qué deben hacer), tono cercano y respetuoso, breve. ' +
         'Responde SOLO con este JSON: {"titulo": "<máx 60 caracteres>", "mensaje": "<2-5 frases>"}',
     }],
