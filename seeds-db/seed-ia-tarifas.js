@@ -91,7 +91,14 @@ const TARIFAS = {
   capacidadPorPlan: { trial: 350, pro: 350, anual: 350, mayor: 1750 },
   // Modelo PROVISIONAL por operación (M3 sigue abierta: cambiar aquí no toca
   // código). Solo las pilotos conectadas.
-  modeloPorOperacion: { aviso: 'claude-haiku-4-5', calificar_abierta: 'claude-haiku-4-5' },
+  modeloPorOperacion: {
+    aviso: 'claude-haiku-4-5',
+    calificar_abierta: 'claude-haiku-4-5',
+    // OP-06 / OP-07 (10-ago-2026): rúbrica y lista de cotejo derivadas de una
+    // actividad padre. El plan maestro las ubica en el nivel Económico.
+    rubrica: 'claude-haiku-4-5',
+    cotejo: 'claude-haiku-4-5',
+  },
   // Datos de exhibición para el panel de créditos (sin costos internos).
   planes: {
     pro: { nombre: 'Plan Docente', precioMXN: 99, creditos: 350 },

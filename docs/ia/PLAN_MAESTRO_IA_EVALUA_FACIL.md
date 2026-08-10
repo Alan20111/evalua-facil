@@ -39,9 +39,9 @@ cognitiva para el docente. No se agrega por agregar.
 | Fase | Nombre | Estado |
 |------|--------|--------|
 | 1 | Auditoría y contexto | **Aprobada** (dudas D1–D4 resueltas el 9-ago-2026) |
-| 2 | Planeación didáctica | **Aprobada y cerrada** (9-ago-2026) — diseño conceptual en §2.11; Q1–Q2 confirmadas |
-| 3 | Operaciones de IA | **Aprobada y cerrada** (9-ago-2026) — 17 operaciones en alcance; O1–O4 resueltas |
-| 4 | Prompts y modelos | **Aprobada y cerrada** (9-ago-2026) — M1/M2/M4 aprobadas; M3 = candidatos de trabajo, decisión final tras el análisis económico |
+| 2 | Planeación didáctica | **Aprobada y cerrada** (9-ago-2026) — diseño conceptual en §2.11; Q1–Q2 confirmadas. **Precisada el 10-ago-2026**: §2.11.6 aclara que sus capas son contexto, no fuente de origen |
+| 3 | Operaciones de IA | **Aprobada y cerrada** (9-ago-2026) — 17 operaciones en alcance; O1–O4 resueltas. **Precisada el 10-ago-2026**: se agregan dos reglas transversales (fuente inmediata; una propuesta de IA no asciende a fuente curricular). Alcance sin cambios |
+| 4 | Prompts y modelos | **Aprobada y cerrada** (9-ago-2026) — M1/M2/M4 aprobadas; M3 = candidatos de trabajo, decisión final tras el análisis económico. **Precisada el 10-ago-2026** por la regla transversal de fuente inmediata (§4.3, fichas OP-06/07/08/09 y tabla de tokens): no reabre la fase ni cambia valores |
 | 5 | Créditos IA | **En curso** — prerequisito cumplido (análisis económico y pruebas reales hechos); propuesta inicial v1 entregada, **en revisión de Kike** |
 | 6 | Rentabilidad | No iniciada — requiere el simulador externo con precios oficiales vigentes |
 | 7 | Trial y continuidad | Decisiones tomadas y completas (D4 resuelta) — pendiente integrarlas al diseño |
@@ -601,6 +601,20 @@ personalizada" ya sabe qué se planeó y qué entregó cada alumno. La Planeaci�
 Viva es la pieza que le da intención pedagógica a todas las demás operaciones
 de la Fase 3 — por eso puede generarse desde el trial.
 
+**Precisión obligatoria (aprobada el 10-ago-2026 — ver la sección "REGLA
+TRANSVERSAL — FUENTE INMEDIATA VS. CONTEXTO CURRICULAR"):** estas capas son
+**contexto**, no fuente de origen. Que una operación reciba la Planeación
+Viva NO significa que la Planeación pueda originar los elementos que esa
+operación genera. Cada operación declara además su **fuente inmediata** —la
+única que determina qué elementos existen— y el contexto de estas capas solo
+sirve para contextualizar, comprobar alineación, aportar terminología
+curricular válida y detectar inconsistencias.
+
+El caso que hace obvia la diferencia: una rúbrica de un entregable recibe la
+Planeación como contexto, pero sus criterios salen **exclusivamente** de lo
+que el entregable solicita. Un criterio que solo se justifique en la
+planeación o en el programa, y no en la actividad, no entra en la rúbrica.
+
 ### 2.11.7 Generación de la Planeación Oficial (P1–P3)
 
 - **Un documento por parcial**, generado desde el estado vivo actual.
@@ -672,6 +686,200 @@ plantilla (SEMS/DGETI) y no se construye ninguna otra.
 
 ---
 
+# REGLA TRANSVERSAL — FUENTE INMEDIATA VS. CONTEXTO CURRICULAR (APROBADA el 10-ago-2026)
+
+Esta regla gobierna **todas** las operaciones de IA pedagógica del producto.
+Precisa —sin derogar— el contexto en capas de §2.11.6 y las fichas de la
+Fase 4: aquellas dicen QUÉ información acompaña a una operación; esta dice
+CUÁL de esa información puede ORIGINAR contenido.
+
+## T.1 Las dos clases de fuente
+
+Toda operación de IA pedagógica distingue dos cosas que hasta ahora se
+nombraban igual ("contexto"):
+
+1. **FUENTE INMEDIATA** — la fuente que determina **qué elementos pueden
+   generarse**. Es única por operación y es obligatoria.
+2. **CONTEXTO CURRICULAR** — información que sirve para **contextualizar,
+   comprobar alineación, identificar el aprendizaje relacionado, aportar
+   terminología curricular válida y detectar inconsistencias**.
+
+**El contexto curricular NO puede introducir elementos que la fuente
+inmediata no origine.**
+
+Invariante verificable que se desprende de lo anterior:
+
+> Todo elemento generado debe poder rastrearse a la fuente inmediata. El
+> contexto curricular puede cambiar **cómo se dice** un elemento; nunca **si
+> existe**. Si se retirara el contexto curricular de una operación, la LISTA
+> de elementos generados debería ser la misma; solo cambiarían su redacción
+> y su información de alineación.
+
+Corolario importante: cuando el contexto curricular detecta que la fuente
+inmediata no da para cubrir el aprendizaje esperado, lo correcto es
+**informarlo al docente**, no completar el elemento generado con lo que falta.
+Una rúbrica no es el lugar para corregir una actividad desalineada; el lugar
+es la actividad.
+
+## T.2 Universo Curricular y Planeación Didáctica no son lo mismo
+
+| Entidad | Qué representa |
+|---------|----------------|
+| **Fuentes curriculares** | Los documentos aportados y analizados (programa de estudios y apoyos — OP-01) |
+| **Universo Curricular** | El **marco curricular validado** que resulta de esas fuentes |
+| **Planeación Didáctica Inicial** | La **selección, organización y decisión pedagógica** del docente sobre lo que realmente trabajará |
+| **Planeación Didáctica Viva** | Esa planeación mantenida al día contra la realidad del curso (§2.11) |
+
+La cadena conceptual es:
+
+```
+FUENTES CURRICULARES → UNIVERSO CURRICULAR → PLANEACIÓN DIDÁCTICA INICIAL
+                     → PLANEACIÓN DIDÁCTICA VIVA → ACTIVIDAD
+```
+
+El Universo Curricular **no sustituye** a la Planeación ni es una segunda
+Planeación: el Universo es el marco disponible; la Planeación es lo que el
+docente decidió hacer con él.
+
+## T.3 Jerarquía de fuentes (A–E)
+
+| Nivel | Qué es | Quién lo produce | Qué puede originar |
+|-------|--------|------------------|--------------------|
+| **A** | Fuente curricular validada | Documento oficial + validación del docente | Contenido curricular |
+| **B** | Planeación del docente | Decisión del docente sobre A | Intención pedagógica |
+| **C** | Actividad concreta | El docente | Lo que se solicita u observa |
+| **D** | Elemento de evaluación | Derivado de C | Criterios, indicadores, reactivos |
+| **E** | Propuesta de IA | El modelo | **Nada** mientras el docente no la acepte |
+
+Reglas de dirección:
+
+- **E nunca asciende automáticamente a A ni a B.** Un elemento propuesto por
+  IA y aceptado por el docente es B (decisión del docente), **nunca A** — el
+  nivel A solo nace de una fuente documental validada.
+- **Una propuesta de IA no se convierte en fuente curricular por haber sido
+  aceptada o guardada.** Sin esta regla el sistema termina alimentándose de
+  sí mismo y deja de poder distinguir qué venía del programa oficial.
+- **D se deriva de C. C se apoya en B. B selecciona de A.**
+- **Un elemento de D no puede saltarse C para justificarse directamente en
+  A**: si un criterio invoca una competencia, debe existir algo en la
+  actividad que la ponga en juego.
+
+## T.4 Relaciones de actividad
+
+```
+ENTREGABLE               → RÚBRICA / LISTA DE COTEJO → EVIDENCIA    → CALIFICACIÓN
+ACTIVIDAD DE OBSERVACIÓN → RÚBRICA / LISTA DE COTEJO → OBSERVACIÓN  → CALIFICACIÓN
+CUESTIONARIO / EXAMEN    → REACTIVOS                 → RESPUESTAS   → CALIFICACIÓN
+```
+
+## T.5 Regla para rúbricas y listas de cotejo
+
+Una rúbrica o lista de cotejo generada con IA **requiere obligatoriamente**
+una actividad padre, que solo puede ser:
+
+- un **Entregable**, o
+- una **Actividad de Observación**.
+
+**La fuente inmediata es siempre la actividad padre.** No existe la
+generación de una rúbrica como operación aislada: el banco de rúbricas
+permite crear a mano y reutilizar, pero no generar con IA, porque ahí no hay
+actividad de la cual derivar los criterios.
+
+El Universo Curricular y la Planeación pueden aportar contexto y validación
+de alineación, pero **no pueden agregar criterios que la actividad padre no
+solicite**. Si un criterio no se justifica desde la actividad padre, no
+aparece en el instrumento aunque exista en el currículo.
+
+## T.6 Regla para reactivos
+
+Los reactivos generados con IA pertenecen a un cuestionario o examen
+concreto. **La evaluación padre es la fuente inmediata.** El contexto
+curricular puede validar y contextualizar, pero no puede introducir
+contenidos que el cuestionario o examen no pretenda evaluar.
+
+## T.7 Regla de no invención
+
+Cuando falte información:
+
+- no inventar;
+- no completar silenciosamente;
+- no convertir conocimiento general del modelo en contenido curricular;
+- **informar al docente qué falta**, para que él lo complete y reintente.
+
+## T.8 Trazabilidad
+
+Cuando exista generación con IA debe poder reconstruirse, según corresponda:
+
+```
+Fuente curricular → Universo Curricular → Planeación → Actividad
+                  → Elemento generado → Operación de IA
+```
+
+Para **rúbricas y listas de cotejo** debe conservarse, como mínimo:
+
+- la **actividad padre**;
+- la **versión del marco curricular** utilizado, cuando corresponda;
+- la **procedencia de los criterios**;
+- si el **docente modificó la propuesta** antes de guardarla.
+
+Esta trazabilidad vive junto al instrumento de la actividad. **El esquema de
+`bancoRubricas` NO se modifica en esta fase.**
+
+## T.9 Matriz de operaciones bajo esta regla
+
+Registro de referencia; no modifica el alcance aprobado de la Fase 3.
+"Contexto" = puede contextualizar y validar, nunca originar.
+
+| Operación | Fuente inmediata | Universo Curricular | Planeación | Actividad padre |
+|-----------|------------------|---------------------|------------|-----------------|
+| Actividad Entregable (OP-05) | Petición del docente + parcial | Contexto | **Origina intención** | — (es la actividad) |
+| Actividad de Observación (OP-05) | Petición del docente + parcial | Contexto | **Origina intención** | — (es la actividad) |
+| Cuestionario (OP-04) | Petición + alcance a evaluar | Contexto | Contexto | — |
+| Examen (OP-03) | Petición + alcance a evaluar | Contexto | Contexto | — |
+| Reactivos (OP-09) | **Cuestionario / Examen** | Contexto | Contexto | Sí (la evaluación) |
+| **Rúbrica (OP-06)** | **Entregable u Observación** | Contexto | Contexto | **Sí, obligatoria** |
+| **Lista de cotejo (OP-07)** | **Entregable u Observación** | Contexto | Contexto | **Sí, obligatoria** |
+| Guía de observación (OP-08) | Actividad de observación | Contexto | Contexto | Sí |
+| Calificación de respuesta abierta (C-02) | Pregunta + criterios + respuesta del alumno | Opcional | Opcional | Sí (la evaluación) |
+| Calificación de evidencia | Entregable + instrumento + evidencia | Opcional | Opcional | Sí |
+| Planeación Didáctica Inicial (OP-02) | **Fuentes curriculares validadas** | **Es su fuente** | — (es ella) | — |
+| Planeación Didáctica Viva (OP-11) | Planeación Inicial + realidad del curso | Marco | — (es ella) | — |
+
+Qué debe validarse y trazarse en cada caso:
+
+| Operación | Debe validarse | Debe trazarse |
+|-----------|----------------|---------------|
+| Entregable / Observación | Parcial válido; la asignatura es del docente | Planeación usada y su versión; si nació de IA |
+| Cuestionario / Examen | Ídem | Ídem |
+| Reactivos | La evaluación es del docente; tipo soportado; clave coherente | Evaluación padre; identificadores curriculares; si el docente editó |
+| **Rúbrica / Lista de cotejo** | **Actividad padre existe, es del docente y es entregable u observación**; contexto suficiente; **cada criterio anclado a la actividad**; identificadores curriculares existentes; estructura válida del instrumento | **Actividad padre**; versión del marco curricular; procedencia por criterio; si el docente editó antes de guardar |
+| Calificación de respuesta abierta | Actividad del docente; respuesta pendiente; candado por respuesta | Consumo, modelo, estado y sugerencia persistida |
+| Calificación de evidencia | Instrumento presente; evidencia entregada | Instrumento usado y su versión |
+| Planeación Inicial | **Fuentes validadas por el docente**; tope de fuentes por asignatura; ningún elemento de nivel A generado por IA | Fuentes que la originaron; qué validó el docente |
+| Planeación Viva | Los cambios NO alteran calificaciones ya dadas | Historial de cambios; elementos derivados que quedaron desalineados |
+
+### Entidades aún no definidas
+
+**Diagnóstico académico** y **diagnóstico de contexto** no existen hoy ni
+como entidad ni como operación aprobada (§1.2: un diagnóstico solo existe
+como evaluación `sinCalificacion`). No se les asignan fuentes en esta matriz
+porque definirlos es trabajo de producto, no de arquitectura.
+
+**Calificación de evidencia** aparece en la matriz como relación, no como
+operación aprobada: la operación más cercana del inventario es OP-12
+(retroalimentación personalizada). Convertirla en operación propia sería
+alcance nuevo.
+
+## T.10 Efecto sobre lo ya aprobado
+
+Esta regla **no deroga nada** de las fases 2, 3 y 4: precisa cómo leerlas.
+Las secciones ajustadas en consecuencia el 10-ago-2026 son §2.11.6, las
+reglas transversales de la Fase 3, §4.3, las fichas de OP-06/OP-07/OP-08/
+OP-09 en §4.5 y la tabla de estimación de tokens. Ninguna decisión aprobada
+se eliminó.
+
+---
+
 # FASE 3 — OPERACIONES DE IA · INVENTARIO (APROBADO Y CERRADO el 9-ago-2026)
 
 Inventario elaborado el 9-ago-2026 a partir de: (1) la lista mínima definida
@@ -690,6 +898,13 @@ elección de modelos, costos y créditos — eso pertenece a las fases 4, 5 y 6.
 - Toda operación usa el contexto en capas de §2.11.6 (perfil IA → asignatura
   con su Planeación Viva → parcial → petición) y **jamás pregunta lo que
   Evalúa Fácil ya sabe**.
+- **Toda operación declara además su FUENTE INMEDIATA** — la única fuente que
+  puede originar los elementos que genera— y la distingue del contexto
+  curricular, que solo contextualiza y valida (regla transversal aprobada el
+  10-ago-2026). El contexto curricular nunca agrega elementos que la fuente
+  inmediata no origine.
+- **Una propuesta de IA no se convierte en fuente curricular** por haber sido
+  aceptada o guardada por el docente.
 - **La pestaña IA es la casa central; la IA también aparece donde el docente
   la necesita** (O4): las operaciones pueden invocarse desde su punto natural
   de uso (al calificar, al editar una actividad, en resultados, al redactar
@@ -959,6 +1174,16 @@ colecciones ya inventariadas en la Fase 1.
 | `[BANCO]` | Resumen del banco del docente (reactivos por tema / rúbricas), para reutilizar y no repetir | `bancoReactivos`, `bancoRubricas` |
 | `[DOCUMENTO]` | Documento aportado por el docente (PDF/imagen) o su análisis previo (OP-01) | Cloudinary / análisis guardado |
 | `[PETICION]` | Lo que el docente pide ahora, con sus opciones | El docente |
+| `[FUENTE_INMEDIATA]` | **La fuente que ORIGINA lo generado** — declarada por cada operación (actividad padre, evaluación padre, fuentes validadas…). Ver la regla transversal | Según la operación |
+
+**Cómo leer esta tabla (precisión del 10-ago-2026):** todos los bloques de
+arriba, salvo `[FUENTE_INMEDIATA]`, son **contexto**. Sirven para
+contextualizar, comprobar alineación, aportar terminología curricular válida
+y detectar inconsistencias — **nunca para originar** elementos. El bloque
+`[FUENTE_INMEDIATA]` es el único que determina qué elementos existen en la
+salida, y toda operación pedagógica debe declararlo. Cuando `[PLANEACION]`
+aparece en una operación cuya fuente inmediata es otra cosa (rúbricas,
+cotejos, reactivos), entra **solo como contexto**.
 
 **Prompt base `[SISTEMA]` (común a todas las operaciones), v1:**
 
@@ -1100,24 +1325,37 @@ pesos del parcial suman 10 (pesos ya usados en el contexto). No dupliques
 actividades existentes. Devuelve solo el JSON del esquema ACTIVIDAD."*
 
 **OP-06 · Crear rúbrica — Mayor.**
-Contexto: `[ASIGNATURA]` + la actividad (instrucciones) o descripción breve
-+ `[PETICION]`. Resultado: JSON `RUBRICA` con el modelo exacto del producto:
-niveles 3–5 (primero al 100%), criterios 2–6 con pesos que suman 10 y
-descriptores por celda, observables y diferenciados. Se guarda en el banco
-y/o en la actividad (M2).
-Prompt v1: *"Crea una rúbrica para evaluar esta actividad. Niveles {3–5} con
-nombres claros, criterios {2–6} relevantes al producto esperado, pesos que
-suman exactamente 10 y un descriptor observable por celda que distinga
-niveles sin ambigüedad. Lenguaje que un alumno de bachillerato entiende.
-Devuelve solo el JSON del esquema RUBRICA."*
+**Fuente inmediata (obligatoria): la ACTIVIDAD PADRE** — un Entregable o una
+Actividad de Observación. Sin actividad padre la operación no existe (regla
+transversal T.5): no se genera desde el banco de rúbricas.
+Contexto: `[ASIGNATURA]` + `[PETICION]`, y `[PLANEACION]` cuando exista —
+**solo para contextualizar, comprobar alineación y aportar terminología
+curricular válida; nunca para agregar criterios**.
+Resultado: JSON `RUBRICA` con el modelo exacto del producto: niveles 3–5
+(primero al 100%), criterios 2–6 con pesos que suman 10 y descriptores por
+celda, observables y diferenciados. Se guarda en el banco y/o en la
+actividad (M2).
+Prompt v1: *"Crea una rúbrica para evaluar esta actividad. Los criterios
+deben derivarse EXCLUSIVAMENTE de lo que la actividad solicita; no agregues
+criterios que no puedan justificarse desde ella, aunque aparezcan en el
+programa o en la planeación. Niveles {3–5} con nombres claros, criterios
+{2–6} relevantes al producto esperado, pesos que suman exactamente 10 y un
+descriptor observable por celda que distinga niveles sin ambigüedad.
+Lenguaje que un alumno de bachillerato entiende. Devuelve solo el JSON del
+esquema RUBRICA."*
 (Escalón Mayor: la calidad de los descriptores es lo que hace útil una
 rúbrica.)
+Si la actividad padre no da información suficiente para fundamentar
+criterios, la operación **se detiene e informa qué falta** (T.7): no inventa
+ni completa con conocimiento general.
 
 **OP-07 · Crear lista de cotejo — Económico.**
-Igual que OP-06 con un solo nivel: criterios con pesos que suman 10, cada
-uno como indicador verificable sí/no. Esquema `COTEJO`.
+Igual que OP-06 —**misma fuente inmediata obligatoria y la misma prohibición
+de agregar criterios curriculares**— con un solo nivel: criterios con pesos
+que suman 10, cada uno como indicador verificable sí/no. Esquema `COTEJO`.
 
 **OP-08 · Crear guía de observación — Económico.**
+**Fuente inmediata: la actividad de observación.**
 Contexto: `[ASIGNATURA]` + la actividad de observación + `[PETICION]`.
 Resultado (O1: contenido, sin instrumento nuevo): texto/HTML con la guía —
 qué observar, indicadores concretos, escala sugerida y espacio de notas —
@@ -1127,6 +1365,10 @@ observar alineados al aprendizaje esperado, indicadores concretos y
 observables, y sugerencia de registro. Breve y usable en el aula."*
 
 **OP-09 · Generar reactivos — Económico (Mayor si parte de un documento).**
+**Fuente inmediata: el CUESTIONARIO o EXAMEN** al que pertenecerán —o, cuando
+se generan sueltos hacia el banco, el tema o `[DOCUMENTO]` indicado. El
+contexto curricular puede validar y contextualizar, pero **no puede
+introducir contenidos que la evaluación padre no pretenda evaluar** (T.6).
 Contexto: `[ASIGNATURA]` + `[PLANEACION]` + `[BANCO]` + tema o
 `[DOCUMENTO]`. Resultado: JSON `REACTIVOS` — lista de reactivos con clave,
 retroalimentación y clasificación por materia/tema para el banco, o para una
@@ -1303,6 +1545,13 @@ de la Fase 4.
 
 ## Tabla de estimaciones (tokens por uso)
 
+**Nota del 10-ago-2026:** la columna "Contexto" mezcla dos cosas distintas
+que la regla transversal separó — la **fuente inmediata** (la que origina lo
+generado) y el **contexto** (el que solo contextualiza y valida). Las filas
+de las operaciones pedagógicas se anotaron en consecuencia; los **valores de
+tokens no cambiaron** y el simulador no se toca. Cuando una operación reciba
+contexto curricular como bloque nuevo, su estimación deberá recalcularse.
+
 | Op | Operación | Entrada | Salida | Qué incluye la entrada | Qué incluye la salida | Escenario de referencia |
 |----|-----------|--------:|-------:|------------------------|----------------------|-------------------------|
 | OP-01a | Analizar documentos — **programa de estudios** (análisis enriquecido) | 60,600 | 3,500 | Sistema/asignatura (~600) + **PDF completo** (~2,000 tokens/pág) | JSON `DOCUMENTO_ANALIZADO` enriquecido: unidades con contenidos, aprendizajes, competencias y mapeo a parciales | Programa de 30 páginas; **una vez por documento** |
@@ -1315,16 +1564,16 @@ de la Fase 4.
 | OP-03 | Crear examen completo | 3,000 | 2,000 | Sistema + asignatura + planeación + parcial + banco (800) + petición | JSON `EXAMEN`: config + secciones + 15 reactivos con clave, retro y ponderación | 15 reactivos; banco de 50 |
 | OP-04 | Crear cuestionario completo | 3,000 | 2,000 | Igual que OP-03 | JSON con configuración de práctica | 15 reactivos |
 | OP-05 | Crear actividad | 2,100 | 500 | Sistema + asignatura + planeación + parcial + petición | JSON `ACTIVIDAD`: nombre, instrucciones HTML, producto, tipos, peso | Una actividad |
-| OP-06 | Crear rúbrica | 1,000 | 700 | Sistema + asignatura + instrucciones de la actividad + petición | JSON `RUBRICA`: 4 niveles × 4 criterios con 16 descriptores y pesos | Rúbrica 4×4 |
-| OP-07 | Crear lista de cotejo | 1,000 | 300 | Igual que OP-06 | JSON `COTEJO`: 8 indicadores sí/no con pesos | 8 criterios |
-| OP-08 | Crear guía de observación | 1,000 | 500 | Sistema + asignatura + actividad de observación | Texto/HTML: aspectos, indicadores, registro | Una guía |
-| OP-09 | Generar reactivos | 2,600 | 600 | Sistema + asignatura + planeación + banco (800) + tema | JSON `REACTIVOS`: 5 reactivos con clave y retro | 5 reactivos desde tema (+2,000 de entrada si parte de un documento analizado) |
+| OP-06 | Crear rúbrica | 1,000 | 700 | **Fuente inmediata: actividad padre (entregable u observación)** + sistema + asignatura + petición | JSON `RUBRICA`: 4 niveles × 4 criterios con 16 descriptores y pesos | Rúbrica 4×4 |
+| OP-07 | Crear lista de cotejo | 1,000 | 300 | Igual que OP-06 (**fuente inmediata: actividad padre**) | JSON `COTEJO`: 8 indicadores sí/no con pesos | 8 criterios |
+| OP-08 | Crear guía de observación | 1,000 | 500 | **Fuente inmediata: actividad de observación** + sistema + asignatura | Texto/HTML: aspectos, indicadores, registro | Una guía |
+| OP-09 | Generar reactivos | 2,600 | 600 | **Fuente inmediata: evaluación padre (o tema/documento)** + sistema + asignatura + planeación *(contexto)* + banco (800) | JSON `REACTIVOS`: 5 reactivos con clave y retro | 5 reactivos desde tema (+2,000 de entrada si parte de un documento analizado) |
 | OP-10 | Generar instrucciones | 1,000 | 400 | Sistema + asignatura + actividad actual + perfil IA | HTML de instrucciones | Una actividad |
 | OP-11 | Modificar Planeación | 2,000 | 300 | Sistema + bloque afectado (1,200) + parcial + petición | JSON `CAMBIO_PLANEACION`: solo campos modificados | Ajuste pequeño (regenerar un bloque completo = OP-02·E2) |
 | OP-12 | Retroalimentación personalizada | 1,300 | 200 | Sistema + asignatura + `[ALUMNO]` (entrega, rúbrica evaluada, historial, asistencia ≈ 700) + perfil IA | Borrador de comentario para el alumno | 1 alumno, 1 entrega |
 | OP-13 | Plan de clase ligero | 2,000 | 500 | Sistema + asignatura + planeación + sesión del horario + tema | Texto: inicio/desarrollo/cierre con tiempos, materiales, producto | Una sesión |
 | C-01 | Interpretar resultados de evaluación | 2,400 | 500 | Sistema + asignatura + estadísticas precalculadas por reactivo (600) + los 15 reactivos (1,200) | Texto: temas débiles, reactivos dudosos, sugerencias de repaso | Examen de 15 reactivos, grupo de 35 |
-| C-02 | Sugerir calificación de abierta | 900 | 200 | Sistema + pregunta + clave/criterios + respuesta del alumno (~150 palabras) | JSON: puntos sugeridos, justificación, comentario | **Por respuesta** (un examen con 5 abiertas × 35 alumnos = 175 usos) |
+| C-02 | Sugerir calificación de abierta | 900 | 200 | **Fuente inmediata: pregunta + clave/criterios + respuesta del alumno** (~150 palabras) + sistema | JSON: puntos sugeridos, justificación, comentario | **Por respuesta** (un examen con 5 abiertas × 35 alumnos = 175 usos) |
 | C-03 | Redactar avisos | 700 | 150 | Sistema + asignatura + tipo y datos del aviso + perfil IA | Título + mensaje | Un aviso |
 | C-04a | Resumen de desempeño — alumno | 1,000 | 250 | Sistema + asignatura + datos precalculados del alumno en el parcial (~450) | Texto breve sobre ese alumno, para junta/tutor | Un alumno = **una llamada**; resumir a cada alumno de un grupo de 35 serían 35 usos de esta fila |
 | C-04b | Resumen de desempeño — grupo | 1,500 | 350 | Sistema + asignatura + estadísticas agregadas del grupo (~300) + una línea condensada por alumno (35 × ~15 ≈ 525) | Texto breve del grupo: fortalezas, focos de atención y alumnos que requieren apoyo | Grupo de 35 = **una sola llamada para todo el grupo** (no 35 llamadas) |
@@ -1681,6 +1930,24 @@ hasta el 31-ago-2026 — se indica aparte) · tipo de cambio de **referencia**
 ---
 
 # DECISIONES YA TOMADAS (registro fiel — no se modifican)
+
+## Universo Curricular (decisión de producto — Kike, 10-ago-2026)
+
+Diseño conceptual **aprobado**; implementación **no autorizada todavía**. La
+carga de catálogos oficiales queda pendiente de decidir sus fuentes.
+
+- El Universo Curricular será una **capa de referencia curricular**.
+- **No sustituye a la Planeación.**
+- La **Planeación** selecciona qué trabajar.
+- La **actividad** determina qué se solicita.
+- La **Rúbrica / Lista de Cotejo** se deriva del **Entregable u Observación**.
+- Los **Reactivos** se derivan del **Cuestionario / Examen**.
+- **La IA no puede inventar información curricular.**
+- El currículo sirve para **contextualizar y validar**, no para introducir
+  elementos que la actividad no solicita.
+- El Universo Curricular **NO será obligatorio** para utilizar las funciones
+  de IA: sin él, las operaciones funcionan igual y lo hacen saber.
+- Cuando exista, se utilizará como **contexto curricular verificable**.
 
 Definidas por Kike el 9-ago-2026 al arrancar este proyecto. Son el marco fijo
 de las fases 7, 8, 9 y 10:
@@ -2070,3 +2337,5 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | Comparación de escalas visibles para la misma bolsa (~$29): 35, 100, 350 y 1,000 créditos. Hallazgo estructural: la operación cotidiana (1 respuesta C-02) es la unidad atómica y no puede costar menos de 1 crédito, así que las escalas de 35 y 100 obligan a fracciones, paquetes o a borrar la diferencia de precio entre operaciones; 1,000 obliga a tablas de multiplicar (cotidiana=3) o a redondeos que distorsionan hasta 10%. **Recomendación única: escala de 350** — cotidiana=1, enteros simples en todo (1/3/10/20/45/12/8), aritmética mental directa ("me quedan 214 = 214 acciones"). En revisión de Kike. |
 | 9-ago-2026 | Análisis del **Plan Mayor** (Plan Docente de $99 con 350 créditos: cerrado). Los escenarios del simulador traducidos a créditos con la tarifa v1: **intensivo ≈ 1,165 créditos/mes** ($53.28 de costo) y **alto consumo (tope ~$70) ≈ 1,570 créditos/mes** ($69.42). **Recomendación única: Plan Mayor de 1,750 créditos mensuales (5× el Plan Docente)** — cubre al intensivo con 50% de holgura y al de alto consumo con ~11%; techo absoluto de costo $175 (todo C-02), costo esperado consumido completo en mezcla intensiva ~$70–78. Precio del Plan Mayor NO fijado (pendiente). Sin cambios al Excel ni a los 350 del Plan Docente. En revisión de Kike. |
 | 9-ago-2026 | **Propuesta de precio del Plan Mayor: $199 MXN/mes** (1,750 créditos). Costo IA considerado: $70–78 (bolsa prácticamente completa en mezcla intensiva). Margen: **$121–129 (61–65%)**; incluso en el techo teórico absoluto ($175, todo C-02) no hay pérdida. Justificación comercial: el doble del precio por 5× los créditos (por crédito, 2.5× más barato que el plan base); ancla psicológica limpia contra los $99. En revisión de Kike. |
+| 10-ago-2026 | **Kike aprueba la REGLA TRANSVERSAL "Fuente inmediata vs. contexto curricular"** y se registra como sección propia del documento (T.1–T.10), antes de la Fase 3 porque la gobierna. Establece: (1) la fuente inmediata es la única que puede ORIGINAR elementos, el contexto curricular solo contextualiza, comprueba alineación, aporta terminología válida y detecta inconsistencias; (2) **Universo Curricular ≠ Planeación Didáctica** — el Universo es el marco validado que sale de las fuentes, la Planeación es la decisión del docente sobre él (cadena: fuentes → universo → planeación inicial → planeación viva → actividad); (3) jerarquía A–E con la regla de que **una propuesta de IA nunca asciende a fuente curricular** por haber sido aceptada o guardada, y que un elemento de evaluación no puede saltarse la actividad para justificarse en el currículo; (4) **rúbricas y listas de cotejo exigen actividad padre (entregable u observación) como fuente inmediata**, y el currículo NO puede agregar criterios que la actividad no solicite; (5) reactivos pertenecen a su evaluación padre; (6) regla de no invención: si falta información se informa al docente, no se completa; (7) trazabilidad mínima del instrumento (actividad padre, versión del marco, procedencia de criterios, si el docente editó). Se corrigen las contradicciones detectadas: §2.11.6 (sus capas son contexto, no origen), reglas transversales de la Fase 3, §4.3 (nuevo bloque `[FUENTE_INMEDIATA]` y nota de lectura), fichas OP-06/OP-07/OP-08/OP-09 en §4.5 y las filas correspondientes de la tabla de tokens. **Ninguna decisión aprobada se eliminó; ningún valor de tokens, modelo, tarifa ni frecuencia cambió; el simulador no se tocó.** Se registra que `bancoRubricas` NO se modifica en esta fase, y que Universo Curricular y Planeación Viva siguen SIN implementar (Fase 11 no iniciada). Diagnóstico académico y diagnóstico de contexto quedan señalados como entidades aún no definidas. Solo documentación: sin código, sin despliegue. |
+| 10-ago-2026 | **Kike registra la decisión de producto sobre el Universo Curricular** (diseño conceptual aprobado; implementación NO autorizada, sin carga de catálogos): capa de referencia curricular que no sustituye a la Planeación; la Planeación selecciona, la actividad determina lo que se solicita, la rúbrica/cotejo se deriva del entregable u observación y los reactivos del cuestionario/examen; la IA no inventa información curricular; el currículo contextualiza y valida, no introduce elementos que la actividad no pide; **el Universo NO es obligatorio para usar la IA** y, cuando exista, será contexto curricular verificable. Queda anotado que **no hay ninguna fuente curricular en el repositorio** (los PDF oficiales viven en el Drive de Kike) — la auditoría de fuentes queda pendiente. Se autoriza la implementación de OP-06 y OP-07 con las reglas ya aprobadas. |

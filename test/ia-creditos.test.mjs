@@ -17,9 +17,11 @@ const require = createRequire(import.meta.url)
 // La copia de firebase-admin de functions/ ya quedó inicializada al importar
 // el entorno (que carga functions/index.js).
 const L = require('../functions/creditosLedger.js')
+const IA = require('../functions/ia.js')._pruebas
 const { Timestamp } = require('firebase-admin/firestore')
 
 const DOCENTE = 'docente_ia'
+const OTRO_DOCENTE = 'docente_ajeno'
 const clave = () => crypto.randomUUID()
 
 const TARIFAS = {
@@ -417,5 +419,155 @@ await caso('trial vencido por tiempo sin conversión: el cierre lo deja medido (
   const r2 = await L.cerrarTrialsVencidos({})
   assert.strictEqual(r2.cerrados, 0, 'la segunda corrida no lo vuelve a cerrar')
 })
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('Rúbricas y listas de cotejo con IA — la actividad padre manda')
+
+// La regla (PO, 10-ago-2026): una rúbrica o lista de cotejo SIEMPRE se deriva
+// de una actividad padre, que solo puede ser un Entregable o una Actividad de
+// Observación. Lo que se prueba aquí es el precheck: todo lo que decide si la
+// operación puede correr ANTES de que se reserve un solo crédito.
+
+const ENTREGABLE = {
+  docenteId: DOCENTE, categoria: 'entregable', nombre: 'Ensayo sobre la Revolución',
+  instrucciones: '<p>Escribe un ensayo de dos cuartillas sobre las causas de la Revolución Mexicana. Cita al menos tres fuentes.</p>',
+  tiposArchivo: ['documento'], fechaLimite: '2026-09-01T23:59', recibirTarde: false,
+  archivosAdjuntos: [{ nombre: 'guia.pdf' }],
+}
+const OBSERVACION = {
+  docenteId: DOCENTE, categoria: 'observacion', nombre: 'Exposición por equipos',
+  instrucciones: '<p>Observar claridad al hablar, dominio del tema, apoyo visual y participación de todos los integrantes del equipo.</p>',
+  fechaLimite: null, recibirTarde: null,
+}
+
+await caso('entregable con contexto suficiente: pasa y arma el contexto real', () => {
+  const ctx = IA.contextoDeActividad(ENTREGABLE)
+  assert.strictEqual(ctx.clase, 'entregable')
+  assert.deepStrictEqual(ctx.faltantes, [])
+  assert.ok(ctx.instrucciones.includes('Revolución Mexicana'))
+  assert.ok(!ctx.instrucciones.includes('<p>'), 'el HTML se convierte a texto plano')
+  assert.deepStrictEqual(ctx.adjuntos, ['guia.pdf'])
+})
+
+await caso('observación con contexto suficiente: pasa y se clasifica como observación', () => {
+  const ctx = IA.contextoDeActividad(OBSERVACION)
+  assert.strictEqual(ctx.clase, 'observacion')
+  assert.deepStrictEqual(ctx.faltantes, [])
+})
+
+await caso('las categorías viejas del entregable (actividad/tarea) siguen siendo padre válido', () => {
+  assert.strictEqual(IA.contextoDeActividad({ ...ENTREGABLE, categoria: 'actividad' }).clase, 'entregable')
+  assert.strictEqual(IA.contextoDeActividad({ ...ENTREGABLE, categoria: 'tarea' }).clase, 'entregable')
+})
+
+await caso('un examen o cuestionario NO puede ser padre de una rúbrica', () => {
+  assert.strictEqual(IA.contextoDeActividad({ ...ENTREGABLE, categoria: 'examen' }).clase, null)
+  assert.strictEqual(IA.contextoDeActividad({ ...ENTREGABLE, categoria: 'cuestionario' }).clase, null)
+})
+
+await caso('observación con instrucciones VACÍAS: falta lo que hay que observar', () => {
+  const ctx = IA.contextoDeActividad({ ...OBSERVACION, instrucciones: '' })
+  assert.strictEqual(ctx.faltantes.length, 1)
+  assert.ok(ctx.faltantes[0].includes('observar'), 'el mensaje dice qué falta, no "información insuficiente"')
+})
+
+await caso('instrucciones de puro relleno HTML cuentan como vacías', () => {
+  const ctx = IA.contextoDeActividad({ ...OBSERVACION, instrucciones: '<p>&nbsp;</p><p><br></p>' })
+  assert.strictEqual(ctx.faltantes.length, 1)
+})
+
+await caso('entregable con instrucciones demasiado cortas: no alcanza para fundamentar criterios', () => {
+  const ctx = IA.contextoDeActividad({ ...ENTREGABLE, instrucciones: '<p>Tarea 3</p>' })
+  assert.strictEqual(ctx.faltantes.length, 1)
+  assert.ok(ctx.faltantes[0].includes('instrucciones'))
+})
+
+await caso('sin nombre y sin instrucciones: se reportan las DOS cosas que faltan', () => {
+  const ctx = IA.contextoDeActividad({ ...OBSERVACION, nombre: '', instrucciones: '' })
+  assert.strictEqual(ctx.faltantes.length, 2)
+})
+
+await caso('las condiciones del ENTREGABLE salen de campos reales de la actividad', () => {
+  const cond = IA.condicionesEntregable(ENTREGABLE).join(' | ')
+  assert.ok(cond.includes('documento'), 'el tipo de archivo pedido es parte del contexto')
+  assert.ok(cond.includes('fecha límite'))
+  assert.ok(cond.includes('No se aceptan entregas'))
+})
+
+await caso('una OBSERVACIÓN no arrastra condiciones de entrega (no existen ahí)', () => {
+  // condicionesEntregable solo se llama para la clase entregable; con los
+  // campos de una observación (todo en null) no produce nada que contaminar.
+  assert.deepStrictEqual(IA.condicionesEntregable(OBSERVACION), [])
+})
+
+
+// ── El precheck contra Firestore: seguridad y "no se cobra si no alcanza" ────
+
+async function precheckFalla({ actividadId, uid = DOCENTE }) {
+  try {
+    await IA.precheckInstrumento({ uid, params: { actividadId } })
+    return null
+  } catch (e) {
+    return { code: e.code || e.httpErrorCode?.canonicalName, message: e.message, details: e.details }
+  }
+}
+
+await limpiar()
+await sembrarDocente()
+await db.doc('activities/act_entregable').set(ENTREGABLE)
+await db.doc('activities/act_observacion').set(OBSERVACION)
+await db.doc('activities/act_ajena').set({ ...ENTREGABLE, docenteId: OTRO_DOCENTE })
+await db.doc('activities/act_examen').set({ ...ENTREGABLE, categoria: 'examen' })
+await db.doc('activities/act_pelada').set({ ...OBSERVACION, instrucciones: '' })
+
+await caso('actividad propia y suficiente: el precheck deja pasar con el contexto listo', async () => {
+  const ctx = await IA.precheckInstrumento({ uid: DOCENTE, params: { actividadId: 'act_entregable' } })
+  assert.strictEqual(ctx.clase, 'entregable')
+  assert.ok(ctx.condiciones.length > 0)
+})
+
+await caso('una observación no trae condiciones de entrega en su contexto', async () => {
+  const ctx = await IA.precheckInstrumento({ uid: DOCENTE, params: { actividadId: 'act_observacion' } })
+  assert.strictEqual(ctx.clase, 'observacion')
+  assert.deepStrictEqual(ctx.condiciones, [])
+})
+
+await caso('SEGURIDAD · actividad de OTRO docente → permission-denied', async () => {
+  const e = await precheckFalla({ actividadId: 'act_ajena' })
+  assert.ok(e, 'debe fallar')
+  assert.ok(String(e.code).includes('permission-denied'), e.code)
+})
+
+await caso('SEGURIDAD · actividad inexistente → not-found', async () => {
+  const e = await precheckFalla({ actividadId: 'no_existe' })
+  assert.ok(String(e.code).includes('not-found'), e.code)
+})
+
+await caso('SEGURIDAD · sin actividadId → se pide guardar primero, no revienta', async () => {
+  const e = await precheckFalla({ actividadId: '' })
+  assert.ok(String(e.code).includes('invalid-argument'), e.code)
+  assert.ok(e.message.includes('Guarda primero'), e.message)
+})
+
+await caso('SEGURIDAD · categoría no válida (examen) → failed-precondition', async () => {
+  const e = await precheckFalla({ actividadId: 'act_examen' })
+  assert.ok(String(e.code).includes('failed-precondition'), e.code)
+  assert.ok(e.message.includes('observación'))
+})
+
+await caso('información insuficiente → se detiene, dice qué falta y NO cobra', async () => {
+  const antes = await creditosDe()
+  const e = await precheckFalla({ actividadId: 'act_pelada' })
+  assert.ok(String(e.code).includes('failed-precondition'), e.code)
+  assert.strictEqual(e.details.codigo, 'CONTEXTO_INSUFICIENTE')
+  assert.ok(e.message.includes('observar'), 'dice exactamente qué agregar')
+  assert.ok(e.message.includes('no se descontaron créditos'))
+  // Y lo que de verdad importa: ni consumo ni saldo tocado.
+  const consumos = await db.collection('iaConsumos').get()
+  assert.strictEqual(consumos.size, 0, 'no debe existir NINGUNA reserva')
+  const despues = await creditosDe()
+  assert.deepStrictEqual(despues?.saldo ?? null, antes?.saldo ?? null)
+})
+
 
 resumen('pruebas del ledger de créditos IA')
