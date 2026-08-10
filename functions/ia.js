@@ -397,6 +397,20 @@ const PADRES_VALIDOS = { entregable: 'entregable', actividad: 'entregable', tare
 // es justo lo que la regla prohíbe.
 const MIN_INSTRUCCIONES = 40
 
+// Rango de criterios/niveles que el docente puede pedir — mismo rango que
+// utils/rubrica.js en el cliente (MIN_CRITERIOS..MAX_NIVELES). Se repite aquí
+// porque el servidor no puede confiar en lo que mande el cliente: si pide un
+// número fuera de rango, se acota en silencio en vez de rechazar la operación.
+const MIN_CRITERIOS = 2
+const MAX_CRITERIOS = 6
+const MIN_NIVELES = 3
+const MAX_NIVELES = 5
+
+function clampInt(v, def, min, max) {
+  const n = Number.isInteger(v) ? v : parseInt(v, 10)
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def
+}
+
 // Las instrucciones se guardan como HTML enriquecido; para el prompt sirve el
 // texto pelón. Sin dependencias: quitar etiquetas y devolver las entidades
 // más comunes a su carácter.
@@ -545,11 +559,22 @@ async function ejecutarRubrica({ params, modelo, apiKey }) {
   const client = new Anthropic({ apiKey })
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
   const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
+  // El docente elige cuántos criterios y niveles quiere (utils/rubrica.js
+  // clampea igual del lado del cliente); aquí se vuelve a acotar porque el
+  // servidor no puede confiar en el número que mande el cliente.
+  const numCriterios = clampInt(params?.numCriterios, MIN_CRITERIOS, MIN_CRITERIOS, MAX_CRITERIOS)
+  const numNiveles = clampInt(params?.numNiveles, MIN_NIVELES, MIN_NIVELES, MAX_NIVELES)
+  const nivelesEjemplo = Array.from({ length: numNiveles }, (_, i) => {
+    if (i === 0) return '"<nivel más alto>"'
+    if (i === numNiveles - 1) return '"<nivel más bajo>"'
+    return '"<...>"'
+  }).join(', ')
+  const descriptoresEjemplo = Array.from({ length: numNiveles }, (_, i) => `"<nivel ${i + 1}>"`).join(', ')
 
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 1500,
     prompt: bloqueContexto(ctx, asignatura) +
-      '\nPropón una RÚBRICA de 4 criterios y 4 niveles de desempeño ' +
+      `\nPropón una RÚBRICA de ${numCriterios} criterios y ${numNiveles} niveles de desempeño ` +
       '(del mejor al peor), con un descriptor por cada criterio en cada nivel.\n' +
       'Los descriptores describen QUÉ se observa en ese nivel, en máximo 20 palabras, ' +
       'sin mencionar puntos ni calificaciones.\n\n' +
@@ -557,9 +582,9 @@ async function ejecutarRubrica({ params, modelo, apiKey }) {
       '{\n' +
       '  "titulo": "<nombre de la rúbrica, máx 60 caracteres>",\n' +
       '  "descripcion": "<una frase sobre qué evalúa>",\n' +
-      '  "niveles": ["<nivel más alto>", "<...>", "<...>", "<nivel más bajo>"],\n' +
+      `  "niveles": [${nivelesEjemplo}],\n` +
       '  "criterios": [\n' +
-      '    {"nombre": "<criterio, máx 8 palabras>", "descriptores": ["<nivel 1>", "<nivel 2>", "<nivel 3>", "<nivel 4>"]}\n' +
+      `    {"nombre": "<criterio, máx 8 palabras>", "descriptores": [${descriptoresEjemplo}]}\n` +
       '  ]\n' +
       '}',
   })
@@ -587,11 +612,12 @@ async function ejecutarCotejo({ params, modelo, apiKey }) {
   const client = new Anthropic({ apiKey })
   const ctx = params.__contexto
   const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
+  const numCriterios = clampInt(params?.numCriterios, MIN_CRITERIOS, MIN_CRITERIOS, MAX_CRITERIOS)
 
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 800,
     prompt: bloqueContexto(ctx, asignatura) +
-      '\nPropón una LISTA DE COTEJO de 5 indicadores. Cada indicador se marca ' +
+      `\nPropón una LISTA DE COTEJO de ${numCriterios} indicadores. Cada indicador se marca ` +
       'cumple / no cumple, así que debe ser VERIFICABLE de un vistazo y sin ' +
       'grados intermedios (nada de "adecuadamente" o "de manera suficiente").\n\n' +
       'Responde SOLO con este JSON:\n' +

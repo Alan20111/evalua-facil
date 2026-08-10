@@ -3,7 +3,7 @@ import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/fi
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { ArrowLeft, Trash2, Scale, Check } from 'lucide-react'
+import { ArrowLeft, Trash2, Scale, Check, Sparkles } from 'lucide-react'
 import {
   RUBRICA_TOTAL, MIN_CRITERIOS, MAX_CRITERIOS, COTEJO_NIVEL,
   pesosEquitativos, validarRubrica, round1,
@@ -39,7 +39,7 @@ function estadoInicial(initial) {
   }
 }
 
-export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved }) {
+export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved, iaGenerada = false }) {
   const toast = useToast()
   const isNew = !initial?.id
   const [r, setR] = useState(() => estadoInicial(initial))
@@ -161,6 +161,17 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
 
       <div className="px-4 py-6">
         <form onSubmit={handleSave} className="space-y-4 max-w-3xl mx-auto">
+          {/* Mismo aviso obligatorio que RubricaEditor.jsx */}
+          {iaGenerada && (
+            <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-card">
+              <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800">
+                <span className="font-semibold">Asistente IA. </span>
+                Esta propuesta fue generada con inteligencia artificial. Puede contener errores.
+                Revísala cuidadosamente y apruébala antes de utilizarla.
+              </p>
+            </div>
+          )}
           {/* Nombre de la lista de cotejo */}
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-end gap-2">

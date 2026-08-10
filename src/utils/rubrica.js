@@ -206,10 +206,16 @@ function acotar(lista, min, max) {
 }
 
 // `propuesta` = { titulo, descripcion, niveles: [nombre], criterios: [{ nombre, descriptores: [texto] }] }
-export function rubricaDesdePropuesta(propuesta) {
-  const nombresNivel = acotar(propuesta?.niveles, MIN_NIVELES, MAX_NIVELES).map((n) => limpiar(n, 40))
+// `numCriterios`/`numNiveles` = lo que el docente pidió ANTES de generar (ver
+// EntregableEditor.jsx): la IA los recibe en el prompt, pero aquí se vuelve a
+// forzar el número EXACTO (acotar con min=max) — la IA nunca decide la
+// estructura, ni siquiera si su respuesta trae de más o de menos.
+export function rubricaDesdePropuesta(propuesta, numCriterios = MIN_CRITERIOS, numNiveles = MIN_NIVELES) {
+  const nc = Math.min(MAX_CRITERIOS, Math.max(MIN_CRITERIOS, numCriterios))
+  const nn = Math.min(MAX_NIVELES, Math.max(MIN_NIVELES, numNiveles))
+  const nombresNivel = acotar(propuesta?.niveles, nn, nn).map((n) => limpiar(n, 40))
   const valores = VALORES_POR_NIVELES[nombresNivel.length]
-  const criteriosIA = acotar(propuesta?.criterios, MIN_CRITERIOS, MAX_CRITERIOS)
+  const criteriosIA = acotar(propuesta?.criterios, nc, nc)
   const n = criteriosIA.length
 
   // Una repartición por COLUMNA: cada nivel reparte sus propios puntos entre
@@ -236,8 +242,10 @@ export function rubricaDesdePropuesta(propuesta) {
 }
 
 // `propuesta` = { titulo, descripcion, criterios: [{ nombre }] }
-export function cotejoDesdePropuesta(propuesta) {
-  const criteriosIA = acotar(propuesta?.criterios, MIN_CRITERIOS, MAX_CRITERIOS)
+// `numCriterios` = lo que el docente pidió (ver comentario de rubricaDesdePropuesta).
+export function cotejoDesdePropuesta(propuesta, numCriterios = MIN_CRITERIOS) {
+  const nc = Math.min(MAX_CRITERIOS, Math.max(MIN_CRITERIOS, numCriterios))
+  const criteriosIA = acotar(propuesta?.criterios, nc, nc)
   const pesos = pesosEquitativos(criteriosIA.length)
   return {
     tipo: 'cotejo',
