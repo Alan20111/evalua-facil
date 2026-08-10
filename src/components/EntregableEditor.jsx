@@ -21,6 +21,7 @@ import RubricaTable from './rubrica/RubricaTable'
 import {
   snapshotRubrica, esCotejo, instrumentoColors,
   rubricaDesdePropuesta, cotejoDesdePropuesta, validarRubrica, trazaIA,
+  MIN_CRITERIOS, MAX_CRITERIOS, MIN_NIVELES, MAX_NIVELES,
 } from '../utils/rubrica'
 import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
 import useCreditosIA from '../hooks/useCreditosIA'
@@ -108,6 +109,12 @@ export default function EntregableEditor({
   const [iaTrabajando, setIaTrabajando] = useState(false)
   const [iaPropuesta, setIaPropuesta] = useState(null)    // instrumento listo para editar
   const [iaGuardarPrimero, setIaGuardarPrimero] = useState(null)
+  // Cuántos criterios/niveles pide el docente — se elige ANTES de reservar
+  // créditos (dentro del mismo modal de confirmación) y viaja al servidor;
+  // rubricaDesdePropuesta/cotejoDesdePropuesta fuerzan ese número exacto
+  // aunque la IA regrese de más o de menos. Default = el mínimo permitido.
+  const [iaNumCriterios, setIaNumCriterios] = useState(MIN_CRITERIOS)
+  const [iaNumNiveles, setIaNumNiveles] = useState(MIN_NIVELES)
   // Datos de la generación, para dejar la traza (T.8) en la copia que guarda
   // la actividad. No viajan al banco de rúbricas.
   const [iaOrigen, setIaOrigen] = useState(null)          // { clase, generadoEn }
@@ -286,6 +293,8 @@ export default function EntregableEditor({
   // enseñar un botón que reventaría por falta de id.
   function pedirIA(tipo) {
     if (!effectiveActivityId) { setIaGuardarPrimero(tipo); return }
+    setIaNumCriterios(MIN_CRITERIOS)
+    setIaNumNiveles(MIN_NIVELES)
     setIaTipo(tipo)
     setIaConfirmando(true)
   }
@@ -294,6 +303,8 @@ export default function EntregableEditor({
     const id = await handleSave(null, true, { cerrar: false })
     if (!id) return            // el guardado avisó del problema con su propio toast
     setIaGuardarPrimero(null)
+    setIaNumCriterios(MIN_CRITERIOS)
+    setIaNumNiveles(MIN_NIVELES)
     setIaTipo(tipo)
     setIaConfirmando(true)
   }
@@ -302,19 +313,24 @@ export default function EntregableEditor({
     setIaTrabajando(true)
     try {
       const r = await creditosIA.ejecutar(iaTipo, {
-        // Lo ÚNICO que se manda: el id. El servidor lee la actividad, comprueba
-        // que es de este docente y arma el contexto con lo que hay guardado.
+        // El id + cuántos criterios/niveles pidió el docente (elegido ANTES de
+        // esta llamada, que es la que reserva créditos). El servidor lee la
+        // actividad, comprueba que es de este docente y arma el contexto con
+        // lo que hay guardado.
         actividadId: effectiveActivityId,
         asignaturaId: subjectId,
         asignaturaNombre: contextLine || '',
+        numCriterios: iaNumCriterios,
+        ...(iaTipo === 'rubrica' ? { numNiveles: iaNumNiveles } : {}),
       })
       // La IA propuso solo el contenido pedagógico; los números los pone EF
-      // aquí, con el mismo reparto del editor, y se validan con la misma
-      // función de siempre antes de presentárselos al docente.
+      // aquí, con el mismo reparto del editor, forzando el número EXACTO que
+      // pidió el docente, y se validan con la misma función de siempre antes
+      // de presentárselos.
       const propuesta = r?.resultado?.propuesta
       const instrumento = iaTipo === 'cotejo'
-        ? cotejoDesdePropuesta(propuesta)
-        : rubricaDesdePropuesta(propuesta)
+        ? cotejoDesdePropuesta(propuesta, iaNumCriterios)
+        : rubricaDesdePropuesta(propuesta, iaNumCriterios, iaNumNiveles)
       const error = validarRubrica(instrumento)
       if (error) {
         // Se abre igual —es un borrador editable— pero sin fingir que cuadra.
@@ -771,7 +787,43 @@ export default function EntregableEditor({
           ejecutando={iaTrabajando}
           onCancelar={() => { if (!iaTrabajando) { setIaConfirmando(false); setIaTipo(null) } }}
           onContinuar={generarConIA}
-        />
+        >
+          {/* Se elige ANTES de tocar el botón Continuar, que es el que reserva
+              créditos — cancelar aquí no cuesta nada. Controles mínimos: dos
+              selects con el default ya puesto en el mínimo permitido. */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="ia-num-criterios" className="text-sm text-on-surface">¿Cuántos criterios quieres?</label>
+              <select
+                id="ia-num-criterios"
+                value={iaNumCriterios}
+                disabled={iaTrabajando}
+                onChange={(e) => setIaNumCriterios(Number(e.target.value))}
+                className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                {Array.from({ length: MAX_CRITERIOS - MIN_CRITERIOS + 1 }, (_, i) => MIN_CRITERIOS + i).map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+            {iaTipo === 'rubrica' && (
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="ia-num-niveles" className="text-sm text-on-surface">¿Cuántos niveles de desempeño quieres?</label>
+                <select
+                  id="ia-num-niveles"
+                  value={iaNumNiveles}
+                  disabled={iaTrabajando}
+                  onChange={(e) => setIaNumNiveles(Number(e.target.value))}
+                  className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  {Array.from({ length: MAX_NIVELES - MIN_NIVELES + 1 }, (_, i) => MIN_NIVELES + i).map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </ConfirmacionCreditosModal>
       )}
 
       {/* La propuesta entra al editor de siempre como borrador editable: la IA
@@ -798,9 +850,9 @@ export default function EntregableEditor({
         }))
         const cerrar = () => { setIaPropuesta(null); setIaTipo(null); setIaOrigen(null) }
         return iaTipo === 'cotejo' ? (
-          <ListaCotejoEditor initial={iaPropuesta} docenteId={docenteId} onClose={cerrar} onSaved={guardarConTraza} />
+          <ListaCotejoEditor initial={iaPropuesta} docenteId={docenteId} onClose={cerrar} onSaved={guardarConTraza} iaGenerada />
         ) : (
-          <RubricaEditor initial={iaPropuesta} docenteId={docenteId} onClose={cerrar} onSaved={guardarConTraza} />
+          <RubricaEditor initial={iaPropuesta} docenteId={docenteId} onClose={cerrar} onSaved={guardarConTraza} iaGenerada />
         )
       })()}
 

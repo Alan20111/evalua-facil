@@ -18,6 +18,7 @@ import useCreditosIA from '../hooks/useCreditosIA'
 export default function ConfirmacionCreditosModal({
   titulo = 'Usar el asistente de IA',
   descripcion = null,
+  children = null,   // controles extra (p.ej. cuántos criterios/niveles) — se muestran ANTES de reservar créditos
   costoMin,
   costoMax = null,
   ejecutando = false,
@@ -47,6 +48,7 @@ export default function ConfirmacionCreditosModal({
         {alcanza ? (
           <>
             {descripcion && <p className="text-sm text-muted mb-2">{descripcion}</p>}
+            {children && <div className="mb-3">{children}</div>}
             <p className="text-sm text-on-surface mb-1">
               Esta acción utilizará aproximadamente <span className="font-semibold">{rango} {max === 1 ? 'crédito' : 'créditos'}</span> de IA.
             </p>
