@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:emuladores": "set VITE_EMULADORES=1&& vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -12,6 +13,7 @@
     "test:unit": "node test/unidad.test.mjs",
     "test:rules": "firebase emulators:exec --only firestore --project demo-test \"node test/firestore-rules.test.mjs\"",
     "test:server": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/servidor.test.mjs\"",
+    "test:ia": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/ia-creditos.test.mjs\"",
     "deploy:rules": "firebase deploy --only firestore --project evalua-facil-app",
     "check:design": "bash scripts/check-ui-standards.sh"
   },

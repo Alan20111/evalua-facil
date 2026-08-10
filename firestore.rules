@@ -899,5 +899,32 @@ service cloud.firestore {
       // registrando la Cloud Function (Admin SDK, no pasa por esta regla).
       allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
     }
+
+    // ── Créditos IA ─────────────────────────────────────────────────────────
+    // Evalúa Fácil (el servidor) es la ÚNICA fuente de verdad del saldo: todo
+    // se escribe con Admin SDK desde Cloud Functions, que bypasa estas reglas.
+    // El cliente solo LEE lo suyo (la barra y el panel viven de eso). Sin
+    // escrituras de cliente no existe camino para manipular el saldo.
+    match /iaCreditos/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Historial de consumos (alimenta el detalle del panel). Cada quien lee
+    // los suyos. Sin tokens ni costos monetarios: el docente piensa en
+    // créditos — lo interno vive en iaConsumosInterno.
+    match /iaConsumos/{consumoId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.uid;
+      allow write: if false;
+    }
+
+    // Métricas internas (tokens, modelo, tiempos) y registro de medición del
+    // trial: nada de esto es visible para ningún cliente.
+    match /iaConsumosInterno/{consumoId} {
+      allow read, write: if false;
+    }
+    match /iaTrialRegistro/{uid} {
+      allow read, write: if false;
+    }
   }
 }

@@ -35,6 +35,7 @@ import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
 import AppQRButton from './AppQRButton'
 import ConfirmModal from './ConfirmModal'
+import CreditosBar from './CreditosBar'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
@@ -135,6 +136,8 @@ export default function TeacherLayout({ children }) {
           <PortalBadge role="docente" />
         </div>
         <div className="flex items-center gap-1">
+          {/* Créditos IA — visibles sin entrar a ninguna sección (chip compacto) */}
+          <CreditosBar variant="movil" />
           <NavLink
             to="/manual"
             aria-label="Manual"
@@ -371,6 +374,9 @@ export default function TeacherLayout({ children }) {
                 ))}
             </div>
           )}
+
+          {/* Créditos IA — barra permanente del docente (clic → panel) */}
+          <CreditosBar variant="sidebar" />
 
           {/* Logout */}
           <div className="px-2 py-2 border-t border-white/15">

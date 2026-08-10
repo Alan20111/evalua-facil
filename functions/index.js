@@ -38,6 +38,13 @@ const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { logger } = require('firebase-functions')
 
 initializeApp()
+
+// Sistema de créditos IA: el ledger (transacciones de saldo) y las funciones
+// de IA viven en módulos propios; aquí solo se cablean sus exportaciones.
+const creditosLedger = require('./creditosLedger')
+const ia = require('./ia')
+exports.ejecutarOperacionIA = ia.ejecutarOperacionIA
+exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
 const db = getFirestore()
 const messaging = getMessaging()
 
@@ -1056,6 +1063,21 @@ exports.onSuscripcionEscrita = onDocumentWritten('subscriptions/{subId}', async 
   const previa = before?.exists ? before.data() : null
   const docenteId = sub?.docenteId || previa?.docenteId
   if (!docenteId) return
+
+  // Créditos IA: si cambió el NIVEL del plan, se sincroniza la capacidad
+  // (subida inmediata conservando saldo; bajada diferida a la renovación).
+  // Es lo único que este trigger hace de más — el espejo de abajo no cambia.
+  // Si config/iaTarifas aún no existe (antes del seed), se registra y sigue.
+  const nivelAntes = previa ? creditosLedger.nivelDeSuscripcion(previa) : null
+  const nivelAhora = sub ? creditosLedger.nivelDeSuscripcion(sub) : null
+  if (nivelAhora && nivelAhora !== nivelAntes) {
+    try {
+      const r = await creditosLedger.sincronizarPlan({ uid: docenteId, nivelNuevo: nivelAhora })
+      if (r.hecho) logger.info(`créditos IA de ${docenteId}: plan → ${nivelAhora} (${r.modo})`)
+    } catch (e) {
+      logger.error(`sincronizarPlan(${docenteId}):`, e.message)
+    }
+  }
 
   // Se borró la suscripción: se retira el permiso de trabajar dejando una
   // fecha ya pasada, no borrando el campo (ausente = "todavía sin respaldar",

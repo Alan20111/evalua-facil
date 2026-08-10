@@ -31,8 +31,8 @@ dist-ssr
 *.sln
 *.sw?
 
-# Claude Code session/agent files
-.claude/
+# Claude Code session/agent files (excepto launch.json, ver al final)
+.claude/*
 
 # Firebase emulator artifacts
 firebase-debug.log
@@ -53,3 +53,6 @@ public/zz-*.txt
 seeds-db/*.json
 !seeds-db/package.json
 !seeds-db/package-lock.json
+
+# Excepción: launch.json sí se versiona (config de dev-server para revisiones locales)
+!.claude/launch.json
