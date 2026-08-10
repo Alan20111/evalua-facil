@@ -99,10 +99,13 @@ grupo('account/delete — que la lista de colecciones esté COMPLETA')
 const { readFileSync } = await import('node:fs')
 const REGLAS = readFileSync('firestore.rules', 'utf8')
 const DECLARADAS = [...new Set([...REGLAS.matchAll(/match \/([a-zA-Z]+)\/\{/g)].map((m) => m[1]))]
-  // El envoltorio `databases` y las subcolecciones, que no son raíz: las tres
+  // El envoltorio `databases` y las subcolecciones, que no son raíz: todas
   // se las lleva `recursiveDelete` sobre su documento padre. `clave` se sumó
   // en A08 — y esta prueba fue la que avisó de que faltaba decidir sobre ella.
-  .filter((c) => !['databases', 'preguntas', 'clave', 'respuestas'].includes(c))
+  // `iaSugerencias` (candado + sugerencia persistida de C-02) cuelga de
+  // activities igual que `clave`: el borrado de la actividad o de la cuenta
+  // la arrastra — y abajo se comprueba de verdad, no solo se declara.
+  .filter((c) => !['databases', 'preguntas', 'clave', 'respuestas', 'iaSugerencias'].includes(c))
 
 const SUBJ = 'subject_uno'
 const ALUMNO = 'student_uno'
@@ -194,6 +197,7 @@ await caso('un docente con un documento en CADA una de sus colecciones no deja n
   // Subcolecciones: borrar el padre en Firestore no se las lleva.
   const act = (await db.collection('activities').where('docenteId', '==', DOCENTE).get()).docs[0]
   await act.ref.collection('preguntas').doc('p1').set({ texto: 'x' })
+  await act.ref.collection('iaSugerencias').doc('s1_p1').set({ estado: 'pendiente', sub: 's1', preg: 'p1' })
   const sub = (await db.collection('submissions').get()).docs[0]
   await sub.ref.collection('respuestas').doc('r1').set({ valor: 'a' })
   await db.doc(`submissions/${sub.id}`).update({ actividadId: act.id })
@@ -206,6 +210,7 @@ await caso('un docente con un documento en CADA una de sus colecciones no deja n
   const quedan = []
   for (const ref of sembrados) if ((await ref.get()).exists) quedan.push(ref.path)
   if ((await act.ref.collection('preguntas').get()).size) quedan.push('activities/*/preguntas')
+  if ((await act.ref.collection('iaSugerencias').get()).size) quedan.push('activities/*/iaSugerencias')
   if ((await sub.ref.collection('respuestas').get()).size) quedan.push('submissions/*/respuestas')
   assert.deepStrictEqual(quedan, [], `quedó residuo en: ${quedan.join(', ')}`)
 })
