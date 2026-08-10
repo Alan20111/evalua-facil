@@ -414,6 +414,23 @@ service cloud.firestore {
         allow read, write: if docenteActivo() &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
       }
+
+      // Sugerencias de calificación de C-02 (piloto IA). Las CREA únicamente
+      // el servidor (Admin SDK, tras cobrar el crédito): el documento es a la
+      // vez el candado de concurrencia por respuesta y la sugerencia
+      // persistida. El docente dueño las lee para recuperarlas aunque cierre
+      // la pestaña (verlas de nuevo jamás cobra), y las actualiza/borra solo
+      // para marcarlas aplicadas o descartarlas. El alumno NUNCA las ve: una
+      // calificación sugerida no confirmada no debe llegarle.
+      // La lectura NO exige suscripción vigente (ya se pagó con créditos);
+      // la escritura sí, como toda escritura de docente.
+      match /iaSugerencias/{sugerenciaId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow update, delete: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow create: if false;
+      }
     }
 
     // Asistencia — un documento por "hora" de clase (fecha + slot), con un mapa

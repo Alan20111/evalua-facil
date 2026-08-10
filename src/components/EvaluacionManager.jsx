@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  collection, query, where, getDocs, getDoc, doc, serverTimestamp,
+  collection, query, where, getDocs, getDoc, doc, serverTimestamp, onSnapshot,
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
 import { addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from '../utils/firestoreGuard'
@@ -246,10 +246,27 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // borrador por pregunta { puntos, comentario } mientras el docente edita.
   const [gradeDrafts, setGradeDrafts] = useState({})
   const [savingGradeId, setSavingGradeId] = useState(null)
-  // C-02 · Sugerir calificación con IA (piloto). Las sugerencias viven SOLO
-  // en el estado de esta sesión: la IA jamás escribe calificaciones (O3) —
-  // el docente las aplica una por una con "Usar sugerencia" y guarda él.
+  // C-02 · Sugerir calificación con IA (piloto). Las sugerencias PERSISTEN en
+  // activities/{id}/iaSugerencias (las escribe el servidor al cobrarlas): el
+  // snapshot las recupera aunque el docente cierre o recargue la pestaña, y
+  // verlas de nuevo jamás cobra. La IA no escribe calificaciones (O3): el
+  // docente aplica/edita cada sugerencia y su guardado la marca 'aplicada'.
   const [iaSugerencias, setIaSugerencias] = useState({}) // { [subId]: { [pregId]: sugerencia } }
+  useEffect(() => {
+    const actId = activityId || activity?.id
+    if (!actId) return undefined
+    const q = query(collection(db, 'activities', actId, 'iaSugerencias'), where('estado', '==', 'pendiente'))
+    const unsub = onSnapshot(q, (snap) => {
+      const mapa = {}
+      snap.docs.forEach((d) => {
+        const x = d.data()
+        if (!mapa[x.sub]) mapa[x.sub] = {}
+        mapa[x.sub][x.preg] = { ...x.sugerencia, _docId: d.id }
+      })
+      setIaSugerencias(mapa)
+    }, () => { /* sin permiso u offline: sin sugerencias que recuperar */ })
+    return unsub
+  }, [activityId, activity?.id])
   const [iaContando, setIaContando] = useState(false)
   const [iaConteo, setIaConteo] = useState(null)         // { estudiantes, respuestas } → abre el modal
   const [iaTrabajando, setIaTrabajando] = useState(false)
@@ -870,6 +887,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       const updatedSub = { ...sub, ...patch }
       setReviewing((r) => r && ({ ...r, submission: updatedSub, allRespuestas: allResp }))
       onSubmissionUpdated?.(reviewing.student.id, updatedSub)
+      // C-02: el guardado del docente cierra la sugerencia persistida de este
+      // reactivo (queda 'aplicada' y sale del snapshot de pendientes). Mejor
+      // esfuerzo: si falla, la sugerencia solo sigue visible — sin costo.
+      const sugPersistida = iaSugerencias[sub.id]?.[pregunta.id]
+      if (sugPersistida?._docId) {
+        updateDoc(doc(db, 'activities', activityId || activity.id, 'iaSugerencias', sugPersistida._docId),
+          { estado: 'aplicada', actualizadoEn: serverTimestamp() }).catch(() => {})
+      }
       toast(pendiente
         ? 'Puntos guardados — aún hay reactivos por calificar'
         : `Puntos guardados — calificación final: ${calFinal}/${activity.maxCalif || 10}`)
@@ -903,6 +928,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         for (const p of abiertas) {
           const r = porId[p.id]
           if (!r || r.puntosObtenidos != null) continue
+          // Con sugerencia persistida pendiente: recuperable gratis, no se
+          // vuelve a cobrar ni a pedir.
+          if (iaSugerencias[submissions[s.id].id]?.[p.id]) continue
           const texto = (r.textoRespuesta || '').trim()
           if (!texto || texto.length > 40000) continue
           deEste++
@@ -910,7 +938,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         if (deEste) { estudiantes++; respuestas += deEste }
       }
       if (!respuestas) {
-        toast('No hay respuestas de texto pendientes de calificar', 'error')
+        const pendientesIA = Object.values(iaSugerencias).reduce((n, m) => n + Object.keys(m).length, 0)
+        toast(pendientesIA
+          ? 'Todas las respuestas pendientes ya tienen sugerencia de IA — ábrelas al calificar, sin costo adicional'
+          : 'No hay respuestas de texto pendientes de calificar', 'error')
         return
       }
       setIaConteo({ estudiantes, respuestas })
@@ -934,15 +965,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         asignaturaId: activity.asignaturaId,
         asignaturaNombre: subject?.nombre || '',
       }, iaConteo.respuestas, { timeoutMs: 300000 })
-      const mapa = {}
-      for (const s of data?.resultado?.sugerencias || []) {
-        if (!mapa[s.sub]) mapa[s.sub] = {}
-        mapa[s.sub][s.preg] = s
-      }
-      setIaSugerencias(mapa)
+      // El servidor persistió cada sugerencia en iaSugerencias — el snapshot
+      // llena el estado solo; aquí únicamente se informa el resultado.
       setIaConteo(null)
       const n = data?.resultado?.sugerencias?.length || 0
-      toast(`${n} sugerencia${n !== 1 ? 's' : ''} de calificación lista${n !== 1 ? 's' : ''} — revísalas al calificar a cada estudiante. Tú decides.`)
+      const previas = data?.resultado?.yaProcesadas || 0
+      toast(`${n} sugerencia${n !== 1 ? 's' : ''} de calificación lista${n !== 1 ? 's' : ''}${previas ? ` (${previas} ya existían y no se cobraron)` : ''} — revísalas al calificar a cada estudiante. Tú decides.`)
     } catch (err) {
       toast(err.codigo === 'SALDO_INSUFICIENTE'
         ? 'No tienes créditos suficientes para este lote'
@@ -1736,6 +1764,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <div className="mb-3 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-card flex items-center gap-2 text-sm text-amber-800 flex-wrap">
                   <span className="flex-1 min-w-[12rem]">
                     <strong>{resultCounts.porCalificar}</strong> entrega{resultCounts.porCalificar !== 1 ? 's' : ''} con reactivos de respuesta escrita o documentos que debes calificar.
+                    {(() => {
+                      const pendIA = Object.values(iaSugerencias).reduce((n, m) => n + Object.keys(m).length, 0)
+                      return pendIA > 0 ? (
+                        <span className="block text-xs text-accent mt-0.5">
+                          <Sparkles size={11} className="inline mr-1" aria-hidden="true" />
+                          {pendIA} sugerencia{pendIA !== 1 ? 's' : ''} de IA pendiente{pendIA !== 1 ? 's' : ''} de aplicar — ábrelas al calificar, sin costo adicional.
+                        </span>
+                      ) : null
+                    })()}
                   </span>
                   {/* C-02: sugerencias de calificación por IA para TODOS los
                       pendientes con respuestas de texto. Estimación previa

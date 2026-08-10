@@ -110,6 +110,16 @@ async function ejecutarAviso({ params, modelo, apiKey }) {
 // El servidor lee las respuestas de Firestore por ID (el cliente no manda
 // textos): verifica que la actividad sea del docente y solo procesa
 // respuestas de texto pendientes de calificar.
+//
+// CANDADO POR RESPUESTA + PERSISTENCIA (endurecimiento del PO, 9-ago-2026):
+// cada sugerencia vive en activities/{id}/iaSugerencias/{subId_pregId}. El
+// create() atómico de ese documento ('procesando') es el derecho a procesar
+// la respuesta: dos lotes concurrentes se reparten las respuestas sin cobrar
+// ni llamar a Haiku dos veces por la misma. Al terminar, el documento guarda
+// la sugerencia ('pendiente') y el cliente la recupera aunque cierre la
+// pestaña — verla de nuevo JAMÁS cobra. El docente la aplica/edita/guarda y
+// su guardado la marca 'aplicada'. Un candado 'procesando' huérfano (crash)
+// se puede retomar pasados 10 minutos (el doble del timeout de la función).
 
 const C02_SISTEMA =
   'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
@@ -206,6 +216,47 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
       `Hay ${items.length} respuestas pendientes pero la estimación fue de ${unidades}. Vuelve a intentarlo para re-estimar.`)
   }
 
+  // ── Candado por respuesta: adquirir el derecho a procesar cada una ────────
+  // create() atómico: solo UN lote puede crear el documento de una respuesta.
+  // Si ya existe: 'pendiente'/'aplicada' → ya fue procesada y cobrada antes
+  // (no se cobra ni se llama a Haiku de nuevo); 'procesando' → otro lote la
+  // tiene en este momento (se le deja), salvo que sea un huérfano viejo.
+  const adquiridos = []
+  let yaProcesadas = 0
+  for (const item of items) {
+    const ref = db.doc(`activities/${actividadId}/iaSugerencias/${item.sub}_${item.preg}`)
+    try {
+      await ref.create({
+        estado: 'procesando', actividadId, sub: item.sub, preg: item.preg,
+        consumoKey: params.__idempotencyKey || null, creadoEn: FieldValue.serverTimestamp(),
+      })
+      adquiridos.push({ ...item, ref })
+    } catch {
+      // Ya existe: decidir en transacción (evita que dos lotes retomen el
+      // mismo huérfano a la vez).
+      const tomado = await db.runTransaction(async (tx) => {
+        const s = await tx.get(ref)
+        if (!s.exists) return false // borrado en el intervalo: raro; se deja
+        const d = s.data()
+        const edadMs = d.creadoEn?.toDate ? Date.now() - d.creadoEn.toDate().getTime() : 0
+        if (d.estado === 'procesando' && edadMs > 10 * 60 * 1000) {
+          tx.update(ref, { consumoKey: params.__idempotencyKey || null, creadoEn: FieldValue.serverTimestamp() })
+          return true // huérfano retomado
+        }
+        return false
+      })
+      if (tomado) adquiridos.push({ ...item, ref })
+      else yaProcesadas++
+    }
+  }
+
+  if (!adquiridos.length) {
+    // Todo el lote ya tiene sugerencia (o está en manos de otro lote): no se
+    // cobra nada — el callable reembolsa la reserva completa.
+    throw new HttpsError('failed-precondition',
+      'Estas respuestas ya tienen sugerencia de IA o se están procesando en este momento. No se descontaron créditos.')
+  }
+
   const inicio = Date.now()
   let tokensEntrada = 0
   let tokensSalida = 0
@@ -215,8 +266,8 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   // Cola con concurrencia limitada — sin dependencias externas.
   let cursor = 0
   async function trabajador() {
-    while (cursor < items.length) {
-      const item = items[cursor++]
+    while (cursor < adquiridos.length) {
+      const item = adquiridos[cursor++]
       const max = Number(item.pregunta.ponderacion) || 0
       try {
         const msg = await client.messages.create({
@@ -246,7 +297,7 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
         }))
         if (!criterios.length) throw new Error('sin criterios en la salida')
         const total = Math.min(max, Math.round(criterios.reduce((s, c) => s + c.puntos, 0) * 10) / 10)
-        sugerencias.push({
+        const sugerencia = {
           sub: item.sub,
           preg: item.preg,
           puntos: total, // calculado por EF, jamás por la IA
@@ -258,15 +309,22 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
           })),
           retroalimentacion: String(datos.retroalimentacion || '').slice(0, 1000),
           requiere_revision_humana: true, // lo fija EF por código, siempre
-        })
+        }
+        // Persistir ANTES de contar como cobrable: si esta escritura falla,
+        // la respuesta cae al catch (candado liberado, sin cobro).
+        await item.ref.set({
+          estado: 'pendiente', sugerencia, actualizadoEn: FieldValue.serverTimestamp(),
+        }, { merge: true })
+        sugerencias.push(sugerencia)
       } catch (e) {
-        // Esta respuesta no se cobra; el resto del lote continúa.
+        // Esta respuesta no se cobra y su candado se libera para reintentos.
         fallidas++
         logger.warn(`C-02: respuesta ${item.sub}/${item.preg} falló: ${String(e.message || e).slice(0, 200)}`)
+        await item.ref.delete().catch((err) => logger.error('C-02: liberar candado falló:', err))
       }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(C02_CONCURRENCIA, items.length) }, trabajador))
+  await Promise.all(Array.from({ length: Math.min(C02_CONCURRENCIA, adquiridos.length) }, trabajador))
 
   if (!sugerencias.length) {
     // Nada utilizable: el callable reembolsa la reserva completa.
@@ -274,7 +332,7 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   }
 
   return {
-    resultado: { sugerencias, omitidas, fallidas },
+    resultado: { sugerencias, omitidas, fallidas, yaProcesadas },
     unidadesReales: sugerencias.length, // 1 crédito por respuesta realmente sugerida
     interno: {
       modelo,
@@ -284,6 +342,7 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
       respuestas: sugerencias.length,
       fallidas,
       omitidas,
+      yaProcesadas,
     },
   }
 }
@@ -355,9 +414,9 @@ exports.ejecutarOperacionIA = onCall(
     try {
       const modelo = tarifas.modeloPorOperacion?.[operacion]
       if (!modelo) throw new HttpsError('failed-precondition', 'La operación no tiene modelo configurado')
-      // __uid lo pone el servidor desde la sesión autenticada — cualquier
-      // valor que mandara el cliente se sobreescribe aquí.
-      salida = await ejecutor({ params: { ...params, __uid: uid }, modelo, apiKey: ANTHROPIC_API_KEY.value(), unidades: n })
+      // __uid y __idempotencyKey los pone el servidor — cualquier valor que
+      // mandara el cliente se sobreescribe aquí.
+      salida = await ejecutor({ params: { ...params, __uid: uid, __idempotencyKey: idempotencyKey }, modelo, apiKey: ANTHROPIC_API_KEY.value(), unidades: n })
     } catch (e) {
       await ledger.reembolsar({ uid, idempotencyKey, motivo: String(e.message || e).slice(0, 300) })
         .catch((err) => logger.error(`reembolso(${idempotencyKey}) falló:`, err))

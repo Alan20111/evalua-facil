@@ -1192,5 +1192,37 @@ ok('IA · authenticated client CAN read the public tariff config (estimations)')
 await assertFails(setDoc(doc(asT1, 'config', 'iaTarifas'), { tarifas: { aviso: 0 } }, { merge: true }))
 ok('IA · docente CANNOT rewrite tariffs (admin/server only)')
 
+// ── Sugerencias C-02 persistidas (candado + recuperación) ───────────────────
+// Las crea SOLO el servidor tras cobrar; el docente dueño las lee para
+// recuperarlas (gratis) y las marca aplicadas; el alumno jamás las ve.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'activities', 'A1', 'iaSugerencias', 'SUB1_P1'), {
+    estado: 'pendiente', actividadId: 'A1', sub: 'SUB1', preg: 'P1',
+    sugerencia: { puntos: 1.5, retroalimentacion: 'borrador' },
+  })
+})
+
+await assertSucceeds(getDoc(doc(asT1, 'activities', 'A1', 'iaSugerencias', 'SUB1_P1')))
+ok('IA · owner teacher CAN read a persisted C-02 suggestion (recovery is free)')
+
+await assertFails(getDoc(doc(asT2, 'activities', 'A1', 'iaSugerencias', 'SUB1_P1')))
+ok('IA · foreign teacher CANNOT read another teacher\'s suggestions')
+
+await assertFails(getDoc(doc(asJuan, 'activities', 'A1', 'iaSugerencias', 'SUB1_P1')))
+ok('IA · student CANNOT read an unconfirmed suggested grade')
+
+await assertSucceeds(updateDoc(doc(asT1, 'activities', 'A1', 'iaSugerencias', 'SUB1_P1'), { estado: 'aplicada' }))
+ok('IA · owner teacher CAN mark own suggestion as applied')
+
+await assertFails(updateDoc(doc(asT2, 'activities', 'A1', 'iaSugerencias', 'SUB1_P1'), { estado: 'aplicada' }))
+ok('IA · foreign teacher CANNOT touch another teacher\'s suggestion')
+
+await assertFails(setDoc(doc(asT1, 'activities', 'A1', 'iaSugerencias', 'SUB_FAKE'), { estado: 'pendiente' }))
+ok('IA · client CANNOT forge a suggestion/lock doc (server-only create)')
+
+await assertSucceeds(deleteDoc(doc(asT1, 'activities', 'A1', 'iaSugerencias', 'SUB1_P1')))
+ok('IA · owner teacher CAN discard own suggestion')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
