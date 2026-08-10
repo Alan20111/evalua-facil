@@ -90,8 +90,8 @@ const TARIFAS = {
   // Capacidad mensual por nivel de plan. Cortesía: PENDIENTE a propósito.
   capacidadPorPlan: { trial: 350, pro: 350, anual: 350, mayor: 1750 },
   // Modelo PROVISIONAL por operación (M3 sigue abierta: cambiar aquí no toca
-  // código). Solo la piloto por ahora.
-  modeloPorOperacion: { aviso: 'claude-haiku-4-5' },
+  // código). Solo las pilotos conectadas.
+  modeloPorOperacion: { aviso: 'claude-haiku-4-5', calificar_abierta: 'claude-haiku-4-5' },
   // Datos de exhibición para el panel de créditos (sin costos internos).
   planes: {
     pro: { nombre: 'Plan Docente', precioMXN: 99, creditos: 350 },
