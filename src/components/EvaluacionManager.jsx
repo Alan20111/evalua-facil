@@ -2532,9 +2532,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
       {/* Mismo aviso que en el resto de las exportaciones del docente: en
           periodo de prueba los archivos salen con marca de agua, y se le dice
-          antes de generarlos, no después. */}
+          antes de generarlos, no después.
+          `z={90}`: el PDF del análisis de OP-10 se pide desde dentro de
+          AnalisisResultadosIA, que es una pantalla completa a z-[60] — con
+          el z-index por defecto (50) este aviso quedaba TAPADO detrás de esa
+          pantalla, invisible aunque técnicamente estuviera montado. */}
       {pendingExport && (
         <ConfirmModal
+          z={90}
           title="Exportación en periodo de prueba"
           message="Los documentos generados durante el periodo de prueba incluyen una marca de agua de Evalúa Fácil. Al activar tu suscripción, todas las exportaciones se generarán sin marca de agua."
           confirmLabel="Continuar"
