@@ -477,6 +477,15 @@ export async function construirAnalisisResultadosPDF({ activity, subject, result
   parrafo(`${pctTxt}${c.resumenGeneral || 'No hay suficiente información para un resumen general.'}`)
   parrafo(`${c.totalEstudiantes} estudiante${c.totalEstudiantes !== 1 ? 's' : ''} · ${c.totalReactivos} reactivo${c.totalReactivos !== 1 ? 's' : ''}`, { size: 8, color: 130 })
 
+  // Confiabilidad de los datos — mismo texto que en pantalla (ver
+  // src/utils/confiabilidadAnalisis.js), ya calculado por el servidor: aquí
+  // solo se imprime, nunca se recalcula. Ausente en análisis de antes de esta
+  // corrección (no se le inventa una fotografía retroactiva).
+  if (c.textoConfiabilidad) {
+    seccion('Confiabilidad de los datos', [30, 64, 175])
+    parrafo(c.textoConfiabilidad)
+  }
+
   if (c.reactivosDificiles.length) {
     seccion('Dato — reactivos con mayor dificultad', [185, 28, 28])
     autoTable(doc, {

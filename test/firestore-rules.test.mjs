@@ -1287,5 +1287,39 @@ ok('IA · NOBODY, not even the owner, can update a bitácora entry (immutable sn
 await assertFails(deleteDoc(doc(asT1, 'activities', 'A1', 'analisisIA', analisis1Ref.id)))
 ok('IA · NOBODY, not even the owner, can delete a bitácora entry')
 
+// ── Capa 2 de OP-10 — snapshot de respuestas por intento ────────────────────
+// Solo el Admin SDK (Cloud Function onEvaluacionFinalizada) escribe aquí —
+// ni el docente ni el alumno, nunca desde el cliente. `submissions/SUB1` se
+// borró en la prueba de "docente CAN delete own submission" más arriba —
+// se recrea aquí (mismo dueño: actividadId A1, A1.docenteId T1).
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'submissions', 'SUB1'), { alumnoId: 'ST_JUAN', actividadId: 'A1' })
+  await setDoc(doc(db, 'submissions', 'SUB1', 'intentosRespuestas', '1'), {
+    numero: 1, calificacion: 8, respuestas: { P1: { opcionSeleccionada: 'a', correcta: true, puntosObtenidos: 1 } },
+  })
+})
+
+await assertSucceeds(getDoc(doc(asT1, 'submissions', 'SUB1', 'intentosRespuestas', '1')))
+ok('Capa 2 · owner teacher CAN read a snapshot de intento')
+
+await assertFails(getDoc(doc(asT2, 'submissions', 'SUB1', 'intentosRespuestas', '1')))
+ok('Capa 2 · foreign teacher CANNOT read another teacher\'s snapshot de intento')
+
+await assertFails(getDoc(doc(asJuan, 'submissions', 'SUB1', 'intentosRespuestas', '1')))
+ok('Capa 2 · student CANNOT read their own snapshot de intento (no es pantalla de revisión)')
+
+await assertFails(setDoc(doc(asT1, 'submissions', 'SUB1', 'intentosRespuestas', '2'), { numero: 2, calificacion: 5, respuestas: {} }))
+ok('Capa 2 · owner teacher CANNOT create a snapshot (server-only)')
+
+await assertFails(setDoc(doc(asJuan, 'submissions', 'SUB1', 'intentosRespuestas', '2'), { numero: 2, calificacion: 5, respuestas: {} }))
+ok('Capa 2 · student CANNOT create a snapshot')
+
+await assertFails(updateDoc(doc(asT1, 'submissions', 'SUB1', 'intentosRespuestas', '1'), { calificacion: 10 }))
+ok('Capa 2 · owner teacher CANNOT modify an existing snapshot (immutable)')
+
+await assertFails(deleteDoc(doc(asT1, 'submissions', 'SUB1', 'intentosRespuestas', '1')))
+ok('Capa 2 · owner teacher CANNOT delete a snapshot')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

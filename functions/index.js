@@ -574,21 +574,9 @@ function publicacionVisible(modo, fecha, flag) {
   return !!flag
 }
 
-function resolverCalificacionFinal(intentosPrevios, calificacionNueva, conservar) {
-  if (intentosPrevios.length === 0) return calificacionNueva
-  const previas = intentosPrevios.map((i) => i.calificacion)
-  switch (conservar) {
-    case 'primero':
-      return previas[0]
-    case 'promedio':
-      return Math.round((([...previas, calificacionNueva].reduce((a, b) => a + b, 0)) / (previas.length + 1)) * 10) / 10
-    case 'mejor':
-      return Math.max(...previas, calificacionNueva)
-    case 'ultimo':
-    default:
-      return calificacionNueva
-  }
-}
+// Extraída a functions/calificacionIntentos.js — fuente única de verdad,
+// compartida también con OP-10 (functions/ia.js), sobre qué intento gana.
+const { resolverCalificacionFinal } = require('./calificacionIntentos')
 
 // Idempotente por INTENTO: el número de intento en curso (intentoActual) se
 // registra en intentos[] al calificar — cualquier re-disparo (la propia
@@ -690,6 +678,37 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
       marcas.calificacion = resolverCalificacionFinal(previos, calificacionIntento, act.evaluacion?.conservar)
     }
     tx.update(after.ref, marcas)
+
+    // Capa 2 (OP-10) — fotografía inmutable de las respuestas de ESTE
+    // intento, tomada de `respuestasGuardadas`/`respuestasPorPregunta` ya
+    // leídas arriba (antes de esta transacción, con las respuestas vivas de
+    // este intento — todavía no las pudo limpiar un reintento posterior: eso
+    // solo pasa cuando el alumno vuelve a ActivityPage y pide empezar de
+    // nuevo, después de que este intento ya quedó 'finalizado'). Mismo guard
+    // de idempotencia que `intentos[]` arriba: si `num` ya se hubiera
+    // procesado, ya habríamos retornado antes de llegar aquí. `tx.create`
+    // (no `tx.set`) además rechaza de raíz cualquier intento de sobrescribir
+    // un snapshot que ya exista, aunque `intentos[]` estuviera inconsistente.
+    //
+    // Solo lo que OP-10 necesita para el detalle por reactivo — nunca texto
+    // libre ni archivos (no aportan al análisis, que solo mira reactivos
+    // objetivos) ni nombre/identidad del estudiante (ya la da la ruta).
+    const snapshotRespuestas = {}
+    preguntas.forEach((p) => {
+      const guardada = respuestasGuardadas[p.id] || {}
+      const puntos = respuestasPorPregunta[p.id].puntosObtenidos
+      snapshotRespuestas[p.id] = {
+        opcionSeleccionada: guardada.opcionSeleccionada ?? null,
+        correcta: puntos != null ? puntos > 0 : null,
+        puntosObtenidos: puntos,
+      }
+    })
+    tx.create(after.ref.collection('intentosRespuestas').doc(String(num)), {
+      numero: num,
+      calificacion: calificacionIntento,
+      respuestas: snapshotRespuestas,
+      creadoEn: FieldValue.serverTimestamp(),
+    })
   })
 })
 

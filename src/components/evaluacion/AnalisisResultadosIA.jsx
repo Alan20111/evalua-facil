@@ -7,6 +7,7 @@ import Spinner from '../Spinner'
 import { exportAnalisisResultadosPDF } from '../../utils/pdf'
 import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
 import { resolverNombresAnalisis } from '../../utils/resolverNombresAnalisis'
+import { resumenConfiabilidad } from '../../utils/confiabilidadAnalisis'
 
 // Pantalla de resultado de OP-10 (análisis de resultados con IA) — solo
 // lectura, nada que editar ni guardar: es un reporte, no un borrador que se
@@ -33,6 +34,8 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
   useBackHandler(onClose, true)
 
   const { nombrePorAnonId } = resolverNombresAnalisis(resultado, students)
+  const textoConfiabilidad = resumenConfiabilidad(resultado.confiabilidad)
+  const hayExcluidas = (resultado.confiabilidad?.excluidas || 0) > 0
 
   async function ejecutarDescargaPDF() {
     setDescargando(true)
@@ -102,6 +105,18 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
           </div>
           <p className="text-xs text-muted">{resultado.totalEstudiantes} estudiante{resultado.totalEstudiantes !== 1 ? 's' : ''} · {resultado.totalReactivos} reactivo{resultado.totalReactivos !== 1 ? 's' : ''}</p>
         </div>
+
+        {/* Confiabilidad de los datos — solo aparece si `resultado` la trae
+            (análisis generados antes de esta corrección no la tienen, y no
+            se les inventa una retroactivamente). Sin exclusiones es una nota
+            neutra, sin ícono de alerta; con exclusiones, un aviso claro pero
+            no alarmante — es información esperable, no un error. */}
+        {textoConfiabilidad && (
+          <div className={`rounded-card p-4 space-y-1 ${hayExcluidas ? 'bg-blue-50 border border-blue-200' : 'bg-surface-card shadow-card'}`}>
+            <p className={`text-xs font-bold uppercase tracking-wide ${hayExcluidas ? 'text-blue-700' : 'text-muted'}`}>Confiabilidad de los datos</p>
+            <p className={`text-sm ${hayExcluidas ? 'text-blue-900' : 'text-on-surface'}`}>{textoConfiabilidad}</p>
+          </div>
+        )}
 
         {(resultado.reactivosDificiles?.length > 0 || resultado.reactivosFuertes?.length > 0) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
