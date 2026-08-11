@@ -22,6 +22,7 @@ import {
   propuestaFueEditada, trazaIA,
 } from '../src/utils/rubrica.js'
 import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosIA.js'
+import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -409,6 +410,149 @@ caso('verdadero_falso y respuesta_corta solo necesitan enunciado', () => {
   assert.strictEqual(reactivoValido({ tipo: 'respuesta_corta', enunciado: 'X' }), true)
 })
 
+
+grupo('PDF de análisis de resultados (OP-10) — el reporte descargable')
+
+// `contenidoAnalisisResultadosPDF` es el plan que pdf.js recorre para
+// dibujar el PDF con jsPDF — probarlo aquí prueba EXACTAMENTE lo que termina
+// impreso, sin depender de jsPDF (pdf.js no se puede importar bajo Node
+// puro: tiene imports relativos sin extensión que solo resuelve el bundler
+// de Vite — por eso ninguna función de pdf.js tiene pruebas directas hoy;
+// `npm run build` sigue siendo la verificación de que el módulo compila).
+const ACTIVITY_FIXTURE = { nombre: '1.2. Diagnóstico', categoria: 'cuestionario' }
+const SUBJECT_FIXTURE = { nombre: 'Cultura digital I', grupo: '1A' }
+const MEMBRETE_FIXTURE = { escuela: 'CBTIS 255', docente: 'Profe Kike Méndez' }
+const RESULTADO_FIXTURE = {
+  totalEstudiantes: 5,
+  totalReactivos: 3,
+  porcentajeAciertosGeneral: 60,
+  resumenGeneral: 'El grupo acertó 60% en promedio en los reactivos objetivos.',
+  resumenEjecutivo: 'Desempeño general aceptable con dos reactivos débiles.',
+  reactivosDificiles: [{ numero: 1, enunciado: '¿Qué es un algoritmo?', pctAciertos: 60 }],
+  reactivosFuertes: [{ numero: 2, enunciado: 'Un algoritmo siempre termina', pctAciertos: 80 }],
+  patrones: [{ observacion: 'Varios eligieron la opción B en el reactivo 1', interpretacion: 'Podría haber confusión entre algoritmo y programa' }],
+  estudiantesAtencion: [{ anonId: 'Alumno 2', nombre: 'Ana Torres', senal: 'Falló 2 de 2 reactivos objetivos' }],
+  recomendaciones: ['Repasar la definición de algoritmo antes del siguiente examen'],
+}
+
+caso('trae todos los campos mínimos que pidió el PO: institución, evaluación, tipo, grupo, fecha, aviso', () => {
+  const c = contenidoAnalisisResultadosPDF({
+    activity: ACTIVITY_FIXTURE, subject: SUBJECT_FIXTURE, resultado: RESULTADO_FIXTURE,
+    generadoEn: '2026-08-12T10:00:00.000Z', membrete: MEMBRETE_FIXTURE,
+  })
+  assert.strictEqual(c.institucion, 'CBTIS 255')
+  assert.strictEqual(c.docente, 'Profe Kike Méndez')
+  assert.strictEqual(c.evaluacion, '1.2. Diagnóstico')
+  assert.strictEqual(c.tipo, 'Cuestionario')
+  assert.strictEqual(c.grupo, 'Cultura digital I — 1A')
+  assert.strictEqual(c.generadoEn, '2026-08-12T10:00:00.000Z')
+  assert.strictEqual(c.aviso, 'Este análisis fue generado con inteligencia artificial. Puede contener errores. Revísalo cuidadosamente antes de tomar decisiones pedagógicas.')
+  assert.strictEqual(c.aviso, AVISO_IA_ANALISIS)
+})
+
+caso('tipo: examen → "Examen", cualquier otra categoría → "Cuestionario"', () => {
+  assert.strictEqual(contenidoAnalisisResultadosPDF({ activity: { categoria: 'examen' }, resultado: {} }).tipo, 'Examen')
+  assert.strictEqual(contenidoAnalisisResultadosPDF({ activity: { categoria: 'cuestionario' }, resultado: {} }).tipo, 'Cuestionario')
+})
+
+caso('los números del reporte son EXACTAMENTE los de resultado — no se recalculan ni se inventan', () => {
+  const c = contenidoAnalisisResultadosPDF({ activity: ACTIVITY_FIXTURE, subject: SUBJECT_FIXTURE, resultado: RESULTADO_FIXTURE })
+  assert.strictEqual(c.porcentajeAciertosGeneral, 60)
+  assert.strictEqual(c.totalEstudiantes, 5)
+  assert.strictEqual(c.totalReactivos, 3)
+  assert.deepStrictEqual(c.reactivosDificiles, [{ numero: 1, enunciado: '¿Qué es un algoritmo?', pctAciertos: 60 }])
+  assert.deepStrictEqual(c.reactivosFuertes, [{ numero: 2, enunciado: 'Un algoritmo siempre termina', pctAciertos: 80 }])
+})
+
+caso('datos observados vs interpretación quedan separados, tal como los mandó la IA (patrones)', () => {
+  const c = contenidoAnalisisResultadosPDF({ activity: ACTIVITY_FIXTURE, resultado: RESULTADO_FIXTURE })
+  assert.strictEqual(c.patrones[0].observacion, 'Varios eligieron la opción B en el reactivo 1')
+  assert.strictEqual(c.patrones[0].interpretacion, 'Podría haber confusión entre algoritmo y programa')
+})
+
+caso('estudiantes que podrían requerir atención: el PDF usa el NOMBRE REAL ya resuelto, nunca el anonId', () => {
+  const c = contenidoAnalisisResultadosPDF({ activity: ACTIVITY_FIXTURE, resultado: RESULTADO_FIXTURE })
+  assert.strictEqual(c.estudiantesAtencion.length, 1)
+  assert.strictEqual(c.estudiantesAtencion[0].nombre, 'Ana Torres')
+  assert.strictEqual(c.estudiantesAtencion[0].senal, 'Falló 2 de 2 reactivos objetivos')
+})
+
+caso('si el llamador no resolvió nombre, cae al anonId (nunca se queda vacío)', () => {
+  const c = contenidoAnalisisResultadosPDF({
+    activity: ACTIVITY_FIXTURE,
+    resultado: { ...RESULTADO_FIXTURE, estudiantesAtencion: [{ anonId: 'Alumno 7', senal: 'x' }] },
+  })
+  assert.strictEqual(c.estudiantesAtencion[0].nombre, 'Alumno 7')
+})
+
+caso('recomendaciones y resumen ejecutivo pasan intactos', () => {
+  const c = contenidoAnalisisResultadosPDF({ activity: ACTIVITY_FIXTURE, resultado: RESULTADO_FIXTURE })
+  assert.deepStrictEqual(c.recomendaciones, ['Repasar la definición de algoritmo antes del siguiente examen'])
+  assert.strictEqual(c.resumenEjecutivo, 'Desempeño general aceptable con dos reactivos débiles.')
+})
+
+caso('sin institución/membrete/grupo/fecha no revienta — campos quedan vacíos, no inventados', () => {
+  const c = contenidoAnalisisResultadosPDF({ activity: ACTIVITY_FIXTURE, resultado: RESULTADO_FIXTURE })
+  assert.strictEqual(c.institucion, null)
+  assert.strictEqual(c.docente, null)
+  assert.strictEqual(c.grupo, '')
+  assert.strictEqual(c.generadoEn, null)
+})
+
+caso('un resultado vacío/incompleto no revienta y no inventa arreglos', () => {
+  assert.doesNotThrow(() => contenidoAnalisisResultadosPDF({ activity: ACTIVITY_FIXTURE, resultado: {} }))
+  const c = contenidoAnalisisResultadosPDF({ activity: ACTIVITY_FIXTURE, resultado: {} })
+  assert.deepStrictEqual(c.reactivosDificiles, [])
+  assert.deepStrictEqual(c.reactivosFuertes, [])
+  assert.deepStrictEqual(c.patrones, [])
+  assert.deepStrictEqual(c.estudiantesAtencion, [])
+  assert.deepStrictEqual(c.recomendaciones, [])
+  assert.strictEqual(c.totalEstudiantes, null)
+  assert.strictEqual(c.porcentajeAciertosGeneral, null)
+})
+
+caso('grupo se arma con subject.nombre + subject.grupo; sin grupo, solo el nombre', () => {
+  const c1 = contenidoAnalisisResultadosPDF({ activity: ACTIVITY_FIXTURE, subject: { nombre: 'Matemáticas' }, resultado: {} })
+  assert.strictEqual(c1.grupo, 'Matemáticas')
+  const c2 = contenidoAnalisisResultadosPDF({ activity: ACTIVITY_FIXTURE, subject: null, resultado: {} })
+  assert.strictEqual(c2.grupo, '')
+})
+
+
+grupo('Bitácora de OP-10 — entregasConsideradas === entregas finalizadas realmente analizadas')
+
+// `agregarResultados` es la función del servidor (functions/ia.js) que
+// calcula `totalEstudiantes` — el candidato obvio para `entregasConsideradas`
+// en el documento de bitácora. Se prueba aquí, en vez de asumirlo, que
+// `totalEstudiantes` es literalmente `entregas.length`: el mismo arreglo que
+// `ejecutarAnalisisResultados` arma filtrando `estadoEvaluacion === 'finalizado'`
+// antes de llamar a `agregarResultados` (ver functions/ia.js).
+const { _pruebas: FIA } = require('../functions/ia.js')
+
+const PREGUNTAS_FIXTURE_IA = [{ id: 'p1', tipo: 'opcion_multiple', enunciado: '¿2+2?', opciones: ['3', '4'], respuestaCorrecta: 1 }]
+function entregaFixture(alumnoId, correcta) {
+  return {
+    alumnoId,
+    respuestas: { p1: { opcionSeleccionada: correcta ? 1 : 0, correcta, puntosObtenidos: correcta ? 1 : 0 } },
+  }
+}
+
+caso('totalEstudiantes === entregas.length: 8 entregas finalizadas → 8, no un total distinto', () => {
+  const entregas = Array.from({ length: 8 }, (_, i) => entregaFixture(`a${i}`, i % 2 === 0))
+  const r = FIA.agregarResultados({ nombre: 'Diagnóstico', categoria: 'cuestionario', preguntas: PREGUNTAS_FIXTURE_IA, entregas })
+  assert.strictEqual(r.totalEstudiantes, 8)
+  assert.strictEqual(r.totalEstudiantes, entregas.length)
+})
+
+caso('la fotografía histórica: análisis #1 con 8 entregas conserva 8 aunque después lleguen más', () => {
+  const entregas8 = Array.from({ length: 8 }, (_, i) => entregaFixture(`a${i}`, true))
+  const analisis1 = FIA.agregarResultados({ nombre: 'Diagnóstico', categoria: 'cuestionario', preguntas: PREGUNTAS_FIXTURE_IA, entregas: entregas8 })
+  const entregas15 = Array.from({ length: 15 }, (_, i) => entregaFixture(`a${i}`, true))
+  const analisis2 = FIA.agregarResultados({ nombre: 'Diagnóstico', categoria: 'cuestionario', preguntas: PREGUNTAS_FIXTURE_IA, entregas: entregas15 })
+  // Cada llamada es independiente — nada muta analisis1 al calcular analisis2.
+  assert.strictEqual(analisis1.totalEstudiantes, 8)
+  assert.strictEqual(analisis2.totalEstudiantes, 15)
+})
 
 grupo('Higiene')
 
