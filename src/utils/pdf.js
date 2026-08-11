@@ -8,6 +8,7 @@ import { studentFullName as fullName } from './studentSearch'
 import { savePdfDoc } from './nativeSave'
 import { applyPdfWatermarkIfNeeded, addPdfFooter, getLogoDataUrl, drawPdfWatermarkOnPage } from './exportWatermark'
 import { filasDeReactivo, totalRespuestas } from './evaluacionRespuestas'
+import { contenidoAnalisisResultadosPDF } from './analisisResultadosPDF'
 
 // Palomita verde de "respuesta correcta", dibujada con dos trazos y centrada
 // en (cx, cy). Ver el comentario en didDrawCell: las fuentes estándar de jsPDF
@@ -398,6 +399,139 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
 
   if (watermark) addPdfFooter(doc)
   await savePdfDoc(doc, `resultados_${safeFile(subject)}.pdf`)
+}
+
+// OP-10 · Análisis de resultados con IA — reporte descargable del resultado
+// que ya se generó (no vuelve a llamar a la IA, no consume créditos: solo
+// imprime lo que ya está en pantalla). `resultado` es el objeto normalizado
+// que regresa el servidor; `resultado.estudiantesAtencion[].nombre` ya debe
+// venir resuelto por el llamador (el PDF nunca resuelve anonId → nombre por
+// su cuenta, para no duplicar esa lógica). `generadoEn` es un ISO string.
+//
+// El armado del contenido vive separado de `savePdfDoc` (browser/nativo-only,
+// ver nativeSave.js) para poder probarlo con jsPDF real en Node — construye
+// el documento pero NO lo guarda. `exportAnalisisResultadosPDF` es la
+// envoltura pública que arma y además dispara la descarga/compartir.
+export async function construirAnalisisResultadosPDF({ activity, subject, resultado, generadoEn = null, membrete = null, watermark = false }) {
+  const [{ jsPDF }, autoTableMod] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
+  const autoTable = autoTableMod.default
+  // El PLAN del reporte (qué va, en qué orden) se arma aparte y se prueba
+  // solo — aquí solo se recorre y se dibuja. Ver analisisResultadosPDF.js.
+  const c = contenidoAnalisisResultadosPDF({ activity, subject, resultado, generadoEn, membrete })
+
+  const doc = new jsPDF()
+  const logoDataUrl = watermark ? await getLogoDataUrl() : null
+  if (watermark) drawPdfWatermarkOnPage(doc, logoDataUrl)
+  const pageW = doc.internal.pageSize.getWidth()
+  const pageH = doc.internal.pageSize.getHeight()
+
+  let y = drawDocHeader(doc, {
+    membrete, subject,
+    subtitulo: `Análisis de resultados con IA — ${c.tipo}`,
+    destacado: c.evaluacion,
+  })
+  if (c.generadoEn) {
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(140)
+    doc.text(`Generado el ${new Date(c.generadoEn).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`, 14, y)
+    y += 6
+  }
+
+  function ensureSpace(min = 22) {
+    if (y > pageH - min) { doc.addPage(); if (watermark) drawPdfWatermarkOnPage(doc, logoDataUrl); y = 20 }
+  }
+  function seccion(titulo, color = [37, 99, 235]) {
+    ensureSpace(24)
+    doc.setFont(undefined, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...color)
+    doc.text(titulo, 14, y)
+    y += 5.5
+  }
+  function parrafo(texto, { bold = false, size = 9.5, color = 40, gap = 3.5 } = {}) {
+    ensureSpace()
+    doc.setFont(undefined, bold ? 'bold' : 'normal'); doc.setFontSize(size); doc.setTextColor(color)
+    const lines = doc.splitTextToSize(texto, pageW - 28)
+    doc.text(lines, 14, y)
+    y += lines.length * (size / 2) + gap
+  }
+
+  // Aviso de IA — mismo texto que en pantalla, siempre visible en el reporte.
+  ensureSpace(22)
+  doc.setFillColor(255, 247, 224)
+  doc.roundedRect(14, y - 4, pageW - 28, 15, 2, 2, 'F')
+  doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(146, 100, 6)
+  doc.text('Asistente IA', 18, y + 1)
+  doc.setFont(undefined, 'normal'); doc.setFontSize(7.5)
+  const avisoLines = doc.splitTextToSize(c.aviso, pageW - 40)
+  doc.text(avisoLines, 18, y + 5)
+  y += 10 + avisoLines.length * 3.5
+
+  if (c.resumenEjecutivo) {
+    seccion('Resumen ejecutivo')
+    parrafo(c.resumenEjecutivo)
+  }
+
+  seccion('Dato observado — resumen general')
+  const pctTxt = c.porcentajeAciertosGeneral != null ? `${c.porcentajeAciertosGeneral}% de aciertos general. ` : ''
+  parrafo(`${pctTxt}${c.resumenGeneral || 'No hay suficiente información para un resumen general.'}`)
+  parrafo(`${c.totalEstudiantes} estudiante${c.totalEstudiantes !== 1 ? 's' : ''} · ${c.totalReactivos} reactivo${c.totalReactivos !== 1 ? 's' : ''}`, { size: 8, color: 130 })
+
+  if (c.reactivosDificiles.length) {
+    seccion('Dato — reactivos con mayor dificultad', [185, 28, 28])
+    autoTable(doc, {
+      startY: y,
+      head: [['#', 'Reactivo', '% acierto']],
+      body: c.reactivosDificiles.map((r) => [String(r.numero), r.enunciado, `${r.pctAciertos}%`]),
+      styles: { fontSize: 8.5, cellPadding: 2, textColor: 30 },
+      headStyles: { fillColor: [185, 28, 28], textColor: 255, fontStyle: 'bold' },
+      margin: { left: 14, right: 14 },
+    })
+    y = doc.lastAutoTable.finalY + 8
+  }
+
+  if (c.reactivosFuertes.length) {
+    seccion('Dato — reactivos con mejor desempeño', [4, 120, 87])
+    autoTable(doc, {
+      startY: y,
+      head: [['#', 'Reactivo', '% acierto']],
+      body: c.reactivosFuertes.map((r) => [String(r.numero), r.enunciado, `${r.pctAciertos}%`]),
+      styles: { fontSize: 8.5, cellPadding: 2, textColor: 30 },
+      headStyles: { fillColor: [4, 120, 87], textColor: 255, fontStyle: 'bold' },
+      margin: { left: 14, right: 14 },
+    })
+    y = doc.lastAutoTable.finalY + 8
+  }
+
+  if (c.patrones.length) {
+    seccion('Patrones encontrados')
+    c.patrones.forEach((p) => {
+      parrafo(`Observación (dato): ${p.observacion}`, { bold: true, size: 9, gap: 1 })
+      parrafo(`Interpretación: ${p.interpretacion}`, { size: 9, color: 100, gap: 4.5 })
+    })
+  }
+
+  seccion('Estudiantes que podrían requerir atención — señal, no diagnóstico', [180, 120, 4])
+  if (c.estudiantesAtencion.length) {
+    c.estudiantesAtencion.forEach((e) => {
+      parrafo(`${e.nombre}: ${e.senal}`, { size: 9 })
+    })
+  } else {
+    parrafo('No se identificó ningún estudiante con desempeño objetivamente bajo en este análisis.', { size: 9, color: 130 })
+  }
+
+  if (c.recomendaciones.length) {
+    seccion('Recomendaciones')
+    c.recomendaciones.forEach((r) => parrafo(`•  ${r}`, { size: 9 }))
+  }
+
+  if (watermark) addPdfFooter(doc)
+  return doc
+}
+
+export async function exportAnalisisResultadosPDF(args) {
+  const doc = await construirAnalisisResultadosPDF(args)
+  await savePdfDoc(doc, `analisis_resultados_${safeFile(args.subject)}.pdf`)
 }
 
 // El MISMO reporte de arriba pero con las gráficas de pastel que el docente

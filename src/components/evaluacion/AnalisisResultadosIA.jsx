@@ -1,23 +1,56 @@
-import { ArrowLeft, Sparkles, TrendingDown, TrendingUp, AlertTriangle, Lightbulb } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, Sparkles, TrendingDown, TrendingUp, AlertTriangle, Lightbulb, FileText } from 'lucide-react'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { studentFullName } from '../../utils/studentSearch'
+import { useToast } from '../Toast'
+import Spinner from '../Spinner'
+import { exportAnalisisResultadosPDF } from '../../utils/pdf'
+import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
+import { resolverNombresAnalisis } from '../../utils/resolverNombresAnalisis'
 
 // Pantalla de resultado de OP-10 (análisis de resultados con IA) — solo
 // lectura, nada que editar ni guardar: es un reporte, no un borrador que se
 // incorpore a la actividad. El aviso de IA va primero y cada sección deja
 // claro si es dato observado (lo calculó Evalúa Fácil), interpretación de la
 // IA, o recomendación — nunca se mezclan.
-export default function AnalisisResultadosIA({ resultado, students, onClose }) {
+//
+// El PDF se genera aquí (no en EvaluacionManager) porque es el único lugar
+// donde ya existe `nombrePorAnonId`: el reporte descargable nunca debe volver
+// a resolver esa traducción por su cuenta, ni mandarle nada nuevo a la IA
+// (descargar el PDF no cuesta créditos — solo imprime lo que ya está en
+// pantalla). `resolverNombresAnalisis` vive en utils/ (no aquí) para que este
+// archivo exporte solo el componente.
+
+// `onPedirDescarga(ejecutar)` es el mismo gate de "exportación en periodo de
+// prueba" que EvaluacionManager ya usa para el resto de sus descargas
+// (Excel/PDF de resultados): decide si mostrar el aviso o correr `ejecutar`
+// de una vez. Sin el prop (por si esta pantalla se usa en otro lado más
+// adelante), se descarga directo, igual que antes.
+export default function AnalisisResultadosIA({ resultado, students, generadoEn = null, activity, subject, membrete = null, watermark = false, onClose, onPedirDescarga = null }) {
+  const toast = useToast()
+  const [descargando, setDescargando] = useState(false)
   useScrollLock(true)
   useBackHandler(onClose, true)
 
-  const nombrePorAnonId = new Map(
-    (resultado.mapaAlumnos || []).map(({ anonId, alumnoId }) => {
-      const st = students?.find((s) => s.id === alumnoId)
-      return [anonId, st ? studentFullName(st) : anonId]
-    })
-  )
+  const { nombrePorAnonId } = resolverNombresAnalisis(resultado, students)
+
+  async function ejecutarDescargaPDF() {
+    setDescargando(true)
+    try {
+      const { resultado: resultadoConNombres } = resolverNombresAnalisis(resultado, students)
+      await exportAnalisisResultadosPDF({ activity, subject, generadoEn, membrete, watermark, resultado: resultadoConNombres })
+    } catch (err) {
+      toast('Error al generar el PDF: ' + err.message, 'error')
+    } finally {
+      setDescargando(false)
+    }
+  }
+
+  function handleDescargarPDF() {
+    if (descargaSoloWeb(toast)) return
+    if (onPedirDescarga) onPedirDescarga(ejecutarDescargaPDF)
+    else ejecutarDescargaPDF()
+  }
 
   return (
     <div className="fixed inset-0 z-[60] bg-surface overflow-y-auto">
@@ -30,6 +63,12 @@ export default function AnalisisResultadosIA({ resultado, students, onClose }) {
             <p className="text-xs text-white/70 uppercase tracking-wide">Resultados</p>
             <h1 className="text-xl font-extrabold text-white truncate">Análisis con IA</h1>
           </div>
+          <button type="button" onClick={handleDescargarPDF} disabled={descargando}
+            data-tooltip="Descargar este análisis en PDF"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded transition-colors disabled:opacity-60">
+            {descargando ? <Spinner size="sm" /> : <FileText size={14} />}
+            {descargando ? 'Generando…' : 'PDF'}
+          </button>
         </div>
       </header>
 
@@ -40,6 +79,7 @@ export default function AnalisisResultadosIA({ resultado, students, onClose }) {
             <span className="font-semibold">Asistente IA. </span>
             Este análisis fue generado con inteligencia artificial. Puede contener errores.
             Revísalo cuidadosamente antes de tomar decisiones pedagógicas.
+            {generadoEn && <span className="block text-xs text-amber-700 mt-1">Generado el {new Date(generadoEn).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}.</span>}
           </p>
         </div>
 

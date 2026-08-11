@@ -431,6 +431,22 @@ service cloud.firestore {
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
         allow create: if false;
       }
+
+      // Bitácora de OP-10 (análisis de resultados con IA). Un documento NUEVO
+      // por cada generación exitosa — el docente los crea desde el cliente
+      // (ya pagó el crédito antes de llegar aquí; esto solo persiste la
+      // fotografía) vía addDoc, nunca setDoc/update: cada análisis histórico
+      // es inmutable, así que no hay update ni delete. Ver los mismos
+      // requisitos que iaSugerencias: leer no exige suscripción vigente
+      // (consultar la bitácora es gratis), escribir sí.
+      match /analisisIA/{analisisId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow create: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId &&
+          request.resource.data.docenteId == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
 
     // Asistencia — un documento por "hora" de clase (fecha + slot), con un mapa

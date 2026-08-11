@@ -13,7 +13,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { doc, collection, addDoc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')
 
@@ -1223,6 +1223,69 @@ ok('IA · client CANNOT forge a suggestion/lock doc (server-only create)')
 
 await assertSucceeds(deleteDoc(doc(asT1, 'activities', 'A1', 'iaSugerencias', 'SUB1_P1')))
 ok('IA · owner teacher CAN discard own suggestion')
+
+// ── Bitácora de OP-10 (análisis de resultados con IA) ───────────────────────
+// Un documento NUEVO por generación, creado por el CLIENTE (el docente ya
+// pagó el crédito antes de llegar aquí) vía addDoc — nunca se sobrescribe:
+// no hay update ni delete. Mismo patrón de lectura que iaSugerencias: leerla
+// no exige suscripción vigente.
+const analisis1Ref = await assertSucceeds(addDoc(collection(asT1, 'activities', 'A1', 'analisisIA'), {
+  resultado: { totalEstudiantes: 8, totalReactivos: 3, porcentajeAciertosGeneral: 60 },
+  generadoEn: serverTimestamp(),
+  docenteId: T1,
+  entregasConsideradas: 8,
+}))
+ok('IA · owner teacher CAN create a new bitácora entry (1st generation)')
+
+const analisis2Ref = await assertSucceeds(addDoc(collection(asT1, 'activities', 'A1', 'analisisIA'), {
+  resultado: { totalEstudiantes: 15, totalReactivos: 3, porcentajeAciertosGeneral: 70 },
+  generadoEn: serverTimestamp(),
+  docenteId: T1,
+  entregasConsideradas: 15,
+}))
+ok('IA · a second generation CREATES A NEW document, does not touch the first')
+
+assert.notStrictEqual(analisis1Ref.id, analisis2Ref.id)
+ok('IA · the two bitácora entries are distinct documents (never overwritten)')
+
+const analisis1Leido = await assertSucceeds(getDoc(doc(asT1, 'activities', 'A1', 'analisisIA', analisis1Ref.id)))
+assert.strictEqual(analisis1Leido.data().resultado.totalEstudiantes, 8)
+assert.strictEqual(analisis1Leido.data().entregasConsideradas, 8)
+ok('IA · the historical entry keeps its OWN snapshot (8), unaffected by the later 15-entrega run')
+
+const analisis2Leido = await assertSucceeds(getDoc(doc(asT1, 'activities', 'A1', 'analisisIA', analisis2Ref.id)))
+assert.strictEqual(analisis2Leido.data().resultado.totalEstudiantes, 15)
+ok('IA · the most recent entry has its own snapshot (15)')
+
+await assertFails(addDoc(collection(asT2, 'activities', 'A1', 'analisisIA'), {
+  resultado: { totalEstudiantes: 1 }, generadoEn: serverTimestamp(), docenteId: T2, entregasConsideradas: 1,
+}))
+ok('IA · foreign teacher CANNOT create a bitácora entry on another teacher\'s activity')
+
+await assertFails(addDoc(collection(asT1, 'activities', 'A1', 'analisisIA'), {
+  resultado: { totalEstudiantes: 1 }, generadoEn: serverTimestamp(), docenteId: T2, entregasConsideradas: 1,
+}))
+ok('IA · owner teacher CANNOT forge docenteId to someone else on create')
+
+await assertFails(addDoc(collection(asJuan, 'activities', 'A1', 'analisisIA'), {
+  resultado: { totalEstudiantes: 1 }, generadoEn: serverTimestamp(), docenteId: U_JUAN, entregasConsideradas: 1,
+}))
+ok('IA · student CANNOT create a bitácora entry')
+
+await assertSucceeds(getDoc(doc(asT1, 'activities', 'A1', 'analisisIA', analisis1Ref.id)))
+ok('IA · owner teacher CAN read a bitácora entry for FREE (viewing history costs 0 credits)')
+
+await assertFails(getDoc(doc(asT2, 'activities', 'A1', 'analisisIA', analisis1Ref.id)))
+ok('IA · foreign teacher CANNOT read another teacher\'s bitácora')
+
+await assertFails(getDoc(doc(asJuan, 'activities', 'A1', 'analisisIA', analisis1Ref.id)))
+ok('IA · student CANNOT read the bitácora at all')
+
+await assertFails(updateDoc(doc(asT1, 'activities', 'A1', 'analisisIA', analisis1Ref.id), { entregasConsideradas: 999 }))
+ok('IA · NOBODY, not even the owner, can update a bitácora entry (immutable snapshot)')
+
+await assertFails(deleteDoc(doc(asT1, 'activities', 'A1', 'analisisIA', analisis1Ref.id)))
+ok('IA · NOBODY, not even the owner, can delete a bitácora entry')
 
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

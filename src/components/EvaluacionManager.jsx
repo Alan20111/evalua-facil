@@ -31,7 +31,7 @@ import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
 import { estadoEvaluacionLabel } from '../utils/evaluacionGrading'
 import { cargarRespuestasEvaluacion, esGraficable } from '../utils/evaluacionRespuestas'
 import { exportEvaluacionResultadosExcel } from '../utils/excel'
-import { exportEvaluacionResultadosPDF } from '../utils/pdf'
+import { exportEvaluacionResultadosPDF, exportAnalisisResultadosPDF } from '../utils/pdf'
 import { descargaSoloWeb } from '../utils/descargaSoloWeb'
 import { membreteDe } from '../utils/membrete'
 import { useAuth } from '../context/AuthContext'
@@ -52,6 +52,7 @@ import {
 } from '../utils/evaluacionClave'
 import EvaluacionEditor from './EvaluacionEditor'
 import AnalisisResultadosIA from './evaluacion/AnalisisResultadosIA'
+import { resolverNombresAnalisis } from '../utils/resolverNombresAnalisis'
 import { MIN_ENTREGAS_ANALISIS } from '../utils/analisisResultados'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -165,6 +166,16 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
     </div>
   )
 }
+// Bitácora de OP-10: `generadoEn` es un Timestamp de Firestore en los docs
+// recién leídos del servidor, o un Date de JS en la entrada optimista que se
+// agrega localmente justo después de generar un análisis nuevo.
+function millisDeGeneradoEn(x) {
+  if (!x) return 0
+  if (typeof x.toMillis === 'function') return x.toMillis()
+  if (x instanceof Date) return x.getTime()
+  return new Date(x).getTime() || 0
+}
+
 export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, onSubmissionUpdated = null, resultadosOnly = false, backState = null, openStudentId = null, onDeleteActivity = null }) {
   const navigate = useNavigate()
   const toast = useToast()
@@ -205,8 +216,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [showGraficas, setShowGraficas] = useState(false)
   // Exportación de los resultados de ESTA evaluación (Excel / PDF). `null`
   // cuando no se está generando nada; 'excel' | 'pdf' mientras corre, para
-  // desactivar solo el botón que se tocó. `pendingExport` guarda cuál se pidió
-  // mientras el aviso de marca de agua está en pantalla.
+  // desactivar solo el botón que se tocó. `pendingExport` es el aviso ÚNICO
+  // de "exportación en periodo de prueba" para TODAS las descargas de esta
+  // pantalla (resultados, Excel/PDF, y los PDF de OP-10) — guarda `{ run }`,
+  // la descarga concreta a ejecutar si el docente continúa; si cancela, no
+  // se genera nada.
   const [exportingResultados, setExportingResultados] = useState(null)
   const [pendingExport, setPendingExport] = useState(null)
   const [editingPreguntaId, setEditingPreguntaId] = useState(null)
@@ -276,6 +290,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [analisisConfirmando, setAnalisisConfirmando] = useState(false)
   const [analisisTrabajando, setAnalisisTrabajando] = useState(false)
   const [analisisResultado, setAnalisisResultado] = useState(null)
+  const [analisisGeneradoEn, setAnalisisGeneradoEn] = useState(null) // ISO string — solo para mostrar/imprimir
+  const [analisisHistorial, setAnalisisHistorial] = useState([]) // bitácora de OP-10: un doc por generación, ver activities/{id}/analisisIA
+  const [analisisDescargandoId, setAnalisisDescargandoId] = useState(null)
   const [reviewFilter, setReviewFilter] = useState('todos') // review tab: todos|pendiente|calificado|porCalificar
   const [reviewNav, setReviewNav] = useState([])            // frozen student order for Anterior/Siguiente
   // Per-student deadline extension ("Modificar fecha de entrega") — en
@@ -323,6 +340,29 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     setConfigForm(activity.evaluacion)
     configSnap.current = JSON.stringify(activity.evaluacion)
   }, [activity.evaluacion])
+
+  // Bitácora de OP-10 — cargarla es gratis (leerla no cobra créditos), así
+  // que se trae completa una sola vez por actividad. Se ordena en memoria:
+  // no lleva orderBy en la query (ver convención del proyecto en CLAUDE.md).
+  useEffect(() => {
+    const aid = activityId || activity?.id
+    if (!aid) return
+    let cancelado = false
+    ;(async () => {
+      try {
+        const snap = await getDocs(collection(db, 'activities', aid, 'analisisIA'))
+        if (cancelado) return
+        const items = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => millisDeGeneradoEn(b.generadoEn) - millisDeGeneradoEn(a.generadoEn))
+        setAnalisisHistorial(items)
+      } catch {
+        // La bitácora es un complemento de la pantalla de resultados, no un
+        // requisito para verlos: si falla, simplemente no se muestra.
+      }
+    })()
+    return () => { cancelado = true }
+  }, [activityId, activity?.id])
 
   async function loadBanco() {
     if (bancoLoaded) return
@@ -993,6 +1033,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // resultado. Los estudiantes viajan anonimizados al modelo; el mapa
   // anonId→alumnoId que regresa el servidor se usa SOLO para mostrar nombres
   // reales en pantalla, nunca se lo mandamos de vuelta a la IA.
+  //
+  // Bitácora (ver activities/{id}/analisisIA): cada generación exitosa se
+  // persiste con addDoc — nunca se sobrescribe una anterior. `resultado` se
+  // guarda completo, tal cual lo agregó el servidor (agregarResultados en
+  // functions/ia.js), así que un PDF descargado después sigue mostrando la
+  // fotografía exacta de esa generación aunque después lleguen más entregas.
+  // `entregasConsideradas` = resultado.totalEstudiantes: es literalmente
+  // `entregas.length` con estadoEvaluacion==='finalizado' en el servidor
+  // (agregarResultados), no un conteo aparte.
   async function generarAnalisisIA() {
     setAnalisisTrabajando(true)
     try {
@@ -1001,13 +1050,66 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         asignaturaId: activity.asignaturaId,
         asignaturaNombre: subject?.nombre || '',
       })
-      setAnalisisResultado(data?.resultado || null)
+      const resultado = data?.resultado || null
+      setAnalisisResultado(resultado)
+      const generadoEnLocal = new Date()
+      setAnalisisGeneradoEn(generadoEnLocal.toISOString())
       setAnalisisConfirmando(false)
+      if (resultado) {
+        try {
+          const ref = await addDoc(collection(db, 'activities', activityId || activity.id, 'analisisIA'), {
+            resultado,
+            generadoEn: serverTimestamp(),
+            docenteId: auth.currentUser.uid,
+            entregasConsideradas: resultado.totalEstudiantes ?? 0,
+          })
+          setAnalisisHistorial((prev) => [
+            { id: ref.id, resultado, generadoEn: generadoEnLocal, docenteId: auth.currentUser.uid, entregasConsideradas: resultado.totalEstudiantes ?? 0 },
+            ...prev,
+          ])
+        } catch (err) {
+          toast('El análisis se generó, pero no se pudo guardar en la bitácora: ' + err.message, 'error')
+        }
+      }
     } catch (err) {
       toast(err.message, 'error')
     } finally {
       setAnalisisTrabajando(false)
     }
+  }
+
+  // Ver un análisis histórico o descargar su PDF cuestan 0 créditos: son
+  // solo lectura de lo ya persistido en la bitácora, no vuelven a llamar a
+  // la IA ni recalculan nada con las entregas actuales.
+  function verAnalisisHistorico(entrada) {
+    setAnalisisResultado(entrada.resultado)
+    setAnalisisGeneradoEn(new Date(millisDeGeneradoEn(entrada.generadoEn)).toISOString())
+  }
+
+  async function ejecutarDescargaAnalisisHistoricoPDF(entrada) {
+    setAnalisisDescargandoId(entrada.id)
+    try {
+      const { resultado: resultadoConNombres } = resolverNombresAnalisis(entrada.resultado, students)
+      await exportAnalisisResultadosPDF({
+        activity, subject, membrete,
+        watermark: exportsWatermarked,
+        generadoEn: new Date(millisDeGeneradoEn(entrada.generadoEn)).toISOString(),
+        resultado: resultadoConNombres,
+      })
+    } catch (err) {
+      toast('Error al generar el PDF: ' + err.message, 'error')
+    } finally {
+      setAnalisisDescargandoId(null)
+    }
+  }
+
+  // Descargar el PDF sigue siendo gratis (no pasa por creditosIA): el único
+  // gate aquí es el mismo aviso de "exportación en periodo de prueba" que
+  // usan el resto de las descargas de esta pantalla — ver `pendingExport`.
+  function descargarAnalisisHistoricoPDF(entrada) {
+    if (descargaSoloWeb(toast)) return
+    if (exportsWatermarked) { setPendingExport({ run: () => ejecutarDescargaAnalisisHistoricoPDF(entrada) }); return }
+    ejecutarDescargaAnalisisHistoricoPDF(entrada)
   }
 
   // "Modificar fecha de entrega para este estudiante" — per-student deadline
@@ -1106,7 +1208,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   function handleExportResultados(kind) {
     if (descargaSoloWeb(toast)) return
-    if (exportsWatermarked) { setPendingExport(kind); return }
+    if (exportsWatermarked) { setPendingExport({ run: () => runExportResultados(kind) }); return }
     runExportResultados(kind)
   }
 
@@ -1754,6 +1856,40 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <Sparkles size={15} /> Analizar resultados con IA
               </button>
             )}
+            {/* Bitácora de OP-10: ver un análisis anterior o descargar su PDF
+                es gratis; solo generar uno NUEVO cuesta créditos (botón de
+                arriba). Cada renglón es la fotografía exacta de esa
+                generación, no se recalcula con las entregas actuales. */}
+            {analisisHistorial.length > 0 && (
+              <div className="mb-3 bg-surface-card rounded-card shadow-card p-3 space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted px-1">Bitácora de análisis con IA</p>
+                <ul className="divide-y divide-outline-variant">
+                  {analisisHistorial.map((h) => (
+                    <li key={h.id} className="py-2 px-1 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm text-on-surface font-medium truncate">
+                          {new Date(millisDeGeneradoEn(h.generadoEn)).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
+                        </p>
+                        <p className="text-xs text-muted">
+                          {h.entregasConsideradas} entrega{h.entregasConsideradas !== 1 ? 's' : ''} considerada{h.entregasConsideradas !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button type="button" onClick={() => verAnalisisHistorico(h)}
+                          className="px-2.5 py-1 text-xs font-semibold border border-outline-variant rounded hover:bg-surface-container transition-colors">
+                          Ver
+                        </button>
+                        <button type="button" onClick={() => descargarAnalisisHistoricoPDF(h)}
+                          disabled={analisisDescargandoId === h.id}
+                          className="px-2.5 py-1 text-xs font-semibold border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-60">
+                          {analisisDescargandoId === h.id ? '…' : 'PDF'}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {analisisConfirmando && (
               <ConfirmacionCreditosModal
                 titulo="Analizar resultados con IA"
@@ -1768,7 +1904,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <AnalisisResultadosIA
                 resultado={analisisResultado}
                 students={students}
-                onClose={() => setAnalisisResultado(null)}
+                activity={activity}
+                subject={subject}
+                membrete={membrete}
+                watermark={exportsWatermarked}
+                generadoEn={analisisGeneradoEn}
+                onClose={() => { setAnalisisResultado(null); setAnalisisGeneradoEn(null) }}
+                onPedirDescarga={(ejecutar) => {
+                  if (exportsWatermarked) { setPendingExport({ run: ejecutar }); return }
+                  ejecutar()
+                }}
               />
             )}
             {/* Descargar los resultados de este cuestionario/examen. Van aquí,
@@ -2393,7 +2538,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           title="Exportación en periodo de prueba"
           message="Los documentos generados durante el periodo de prueba incluyen una marca de agua de Evalúa Fácil. Al activar tu suscripción, todas las exportaciones se generarán sin marca de agua."
           confirmLabel="Continuar"
-          onConfirm={() => { const kind = pendingExport; setPendingExport(null); runExportResultados(kind) }}
+          onConfirm={() => { const p = pendingExport; setPendingExport(null); p.run() }}
           onCancel={() => setPendingExport(null)}
         />
       )}
