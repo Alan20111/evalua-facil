@@ -30,12 +30,13 @@ const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
 // Operaciones conectadas por autorización del PO:
 //   · C-03 'aviso' (9-ago-2026) · C-02 'calificar_abierta' (9-ago-2026)
-//   · OP-06 'rubrica' y OP-07 'cotejo' (10-ago-2026).
+//   · OP-06 'rubrica' y OP-07 'cotejo' (10-ago-2026) · OP-09 'reactivos' (10-ago-2026).
 const OPERACIONES = {
   aviso: ejecutarAviso,
   calificar_abierta: ejecutarCalificarAbierta,
   rubrica: ejecutarRubrica,
   cotejo: ejecutarCotejo,
+  reactivos: ejecutarReactivos,
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -43,7 +44,7 @@ const OPERACIONES = {
 // mensaje que le dice qué le falta y su saldo queda intacto (no hay reserva
 // que reembolsar porque nunca existió). Lo que devuelve el precheck viaja al
 // ejecutor, que así no vuelve a leer nada de Firestore.
-const PRECHECKS = { rubrica: precheckInstrumento, cotejo: precheckInstrumento }
+const PRECHECKS = { rubrica: precheckInstrumento, cotejo: precheckInstrumento, reactivos: precheckReactivos }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
 // Entrada: tipo de aviso (los 12 del producto) + datos del docente + nombre
@@ -530,13 +531,13 @@ function bloqueContexto(ctx, asignatura) {
   return t
 }
 
-// Llamada + lectura del JSON, común a las dos operaciones.
-async function pedirJSON({ client, modelo, maxTokens, prompt }) {
+// Llamada + lectura del JSON, común a rúbrica/cotejo/reactivos.
+async function pedirJSON({ client, modelo, maxTokens, prompt, system = INSTRUMENTO_SISTEMA }) {
   const inicio = Date.now()
   const msg = await client.messages.create({
     model: modelo,
     max_tokens: maxTokens,
-    system: INSTRUMENTO_SISTEMA,
+    system,
     messages: [{ role: 'user', content: prompt }],
   })
   let texto = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
@@ -639,6 +640,167 @@ async function ejecutarCotejo({ params, modelo, apiKey }) {
       },
       clase: ctx.clase,
     },
+    unidadesReales: 1,
+    interno,
+  }
+}
+
+// ── OP-09 · Reactivos de un cuestionario o examen ───────────────────────────
+// REGLA (PO, 10-ago-2026, ficha aprobada): los reactivos se derivan de lo que
+// el docente escribe en "¿Qué quieres evaluar?" — es la fuente inmediata del
+// contenido. La actividad padre (el cuestionario o examen ya guardado) solo
+// aporta contexto (nombre, si es examen o cuestionario). El Universo
+// Curricular, la Planeación Didáctica, las fuentes del curso, el contexto del
+// docente y el diagnóstico del grupo NO participan todavía — llegan en una
+// fase posterior de los planes de pago.
+//
+// Evalúa Fácil fija la CANTIDAD exacta y el TIPO exacto de cada reactivo (el
+// reparto de "Mixto" lo decide el código, nunca la IA — ver `tiposParaLote`);
+// la IA solo redacta el contenido pedagógico de cada uno, en el orden pedido.
+
+const REACTIVOS_PADRES_VALIDOS = { cuestionario: 'cuestionario', examen: 'examen' }
+const MIN_QUIERE_EVALUAR = 40
+const MAX_QUIERE_EVALUAR = 4000
+const MIN_REACTIVOS = 2
+const MAX_REACTIVOS = 10
+const TIPOS_REACTIVO = ['opcion_multiple', 'verdadero_falso', 'respuesta_corta', 'subir_archivo']
+
+// 'Mixto' reparte los tipos EN CÓDIGO, round-robin sobre los 4 disponibles —
+// la IA nunca decide la estructura, ni siquiera cuando el docente pide mezcla.
+function tiposParaLote(tipoSolicitado, cantidad) {
+  if (TIPOS_REACTIVO.includes(tipoSolicitado)) return Array.from({ length: cantidad }, () => tipoSolicitado)
+  return Array.from({ length: cantidad }, (_, i) => TIPOS_REACTIVO[i % TIPOS_REACTIVO.length])
+}
+
+// Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
+async function precheckReactivos({ uid, params }) {
+  const db = getFirestore()
+  const actividadId = String(params?.actividadId || '')
+  if (!actividadId) {
+    throw new HttpsError('invalid-argument',
+      'Guarda primero el cuestionario o examen: los reactivos se generan a partir de él.')
+  }
+
+  const snap = await db.doc(`activities/${actividadId}`).get()
+  if (!snap.exists) throw new HttpsError('not-found', 'La actividad no existe')
+  const act = snap.data()
+  if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+
+  const clase = REACTIVOS_PADRES_VALIDOS[act.categoria] || null
+  if (!clase) {
+    throw new HttpsError('failed-precondition',
+      'Solo un cuestionario o un examen pueden generar reactivos con IA.')
+  }
+
+  // La fuente del contenido es lo que escribió el docente AQUÍ, no algo que
+  // el precheck tenga que ir a leer — pero si no alcanza, se detiene igual
+  // que la regla de contexto insuficiente de rúbrica/cotejo: ni reserva ni
+  // llamada al modelo.
+  const quiereEvaluar = String(params?.quiereEvaluar || '').trim().slice(0, MAX_QUIERE_EVALUAR)
+  if (quiereEvaluar.length < MIN_QUIERE_EVALUAR) {
+    throw new HttpsError('failed-precondition',
+      `Describe con más detalle qué quieres evaluar (mínimo ${MIN_QUIERE_EVALUAR} caracteres) para que la IA pueda generar reactivos fundamentados. No se descontaron créditos.`,
+      { codigo: 'CONTEXTO_INSUFICIENTE' })
+  }
+
+  const cantidad = clampInt(params?.cantidad, 5, MIN_REACTIVOS, MAX_REACTIVOS)
+  const tipoSolicitado = TIPOS_REACTIVO.includes(params?.tipoSolicitado) ? params.tipoSolicitado : 'mixto'
+
+  return {
+    clase,
+    nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
+    tema: String(params?.tema || '').trim().slice(0, 120),
+    quiereEvaluar,
+    cantidad,
+    tipoSolicitado,
+    tipos: tiposParaLote(tipoSolicitado, cantidad),
+  }
+}
+
+const REACTIVOS_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
+  'docente de bachillerato mexicano. Tu papel es PROPONER: el docente siempre revisa, edita y decide. ' +
+  'Construye los reactivos EXCLUSIVAMENTE a partir de lo que el docente describe en "qué quiere ' +
+  'evaluar" — no agregues conceptos, temas ni aprendizajes que no haya mencionado, y no completes ' +
+  'con conocimiento general más allá de lo que pidió. La cantidad y el tipo de cada reactivo los fija ' +
+  'Evalúa Fácil: genera EXACTAMENTE los reactivos pedidos, uno por cada tipo indicado y en ese orden. ' +
+  'Escribe en español, claro y breve. Responde únicamente con el JSON válido del esquema indicado, ' +
+  'sin texto adicional.'
+
+const ETIQUETA_TIPO_REACTIVO = {
+  opcion_multiple: 'opción múltiple',
+  verdadero_falso: 'verdadero/falso',
+  respuesta_corta: 'respuesta corta',
+  subir_archivo: 'subir archivo (el alumno entrega un documento; sin respuesta correcta)',
+}
+
+function promptReactivos(ctx, asignatura) {
+  const listaTipos = ctx.tipos.map((t, i) => `${i + 1}. ${ETIQUETA_TIPO_REACTIVO[t] || t}`).join('\n')
+  return (
+    `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
+    `${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n` +
+    (ctx.tema ? `Tema: ${ctx.tema}\n` : '') +
+    `\nQUÉ QUIERE EVALUAR EL DOCENTE (única fuente del contenido):\n"""${ctx.quiereEvaluar}"""\n\n` +
+    `Genera EXACTAMENTE ${ctx.cantidad} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
+    'Reglas por tipo:\n' +
+    '- opcion_multiple: enunciado + 4 opciones + el índice (0-3) de la opción correcta.\n' +
+    '- verdadero_falso: un enunciado afirmativo evaluable + "v" o "f".\n' +
+    '- respuesta_corta: enunciado + una respuesta esperada breve o criterio de respuesta correcta ' +
+    '(es una guía para que el docente califique a mano; el alumno nunca la ve).\n' +
+    '- subir_archivo: enunciado con la instrucción de qué debe subir el alumno (sin respuesta).\n\n' +
+    'Responde SOLO con este JSON:\n' +
+    '{\n  "reactivos": [\n' +
+    '    {"tipo": "<tipo exacto de la lista>", "enunciado": "<máx 400 caracteres>", ' +
+    '"opciones": ["<solo si opcion_multiple>", "..."], "correcta": "<índice 0-3 si opcion_multiple, ' +
+    '\'v\'/\'f\' si verdadero_falso>", "respuestaEsperada": "<solo si respuesta_corta, máx 200 caracteres>"}\n' +
+    '  ]\n}'
+  )
+}
+
+// La IA propone SOLO contenido; el tipo y el orden de cada reactivo los fija
+// `ctx.tipos` (calculado en el precheck) — se fuerza aquí índice por índice,
+// sin confiar en lo que el modelo devuelva como campo "tipo".
+function normalizarReactivos(datos, ctx) {
+  const crudos = Array.isArray(datos?.reactivos) ? datos.reactivos : []
+  return ctx.tipos.map((tipo, i) => {
+    const r = crudos[i] || {}
+    const enunciado = String(r.enunciado || '').trim().slice(0, 500)
+    if (tipo === 'opcion_multiple') {
+      const opciones = (Array.isArray(r.opciones) ? r.opciones : []).slice(0, 4).map((o) => String(o || '').trim().slice(0, 300))
+      while (opciones.length < 4) opciones.push('')
+      const idx = Number.isInteger(r.correcta) ? r.correcta : parseInt(r.correcta, 10)
+      return { tipo, enunciado, opciones, correcta: Number.isInteger(idx) ? Math.min(3, Math.max(0, idx)) : 0 }
+    }
+    if (tipo === 'verdadero_falso') {
+      return { tipo, enunciado, correcta: r.correcta === 'f' ? 'f' : 'v' }
+    }
+    if (tipo === 'respuesta_corta') {
+      return { tipo, enunciado, respuestaEsperada: String(r.respuestaEsperada || '').trim().slice(0, 300) }
+    }
+    return { tipo, enunciado } // subir_archivo: sin respuesta
+  })
+}
+
+async function ejecutarReactivos({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+  const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
+
+  const { datos, interno } = await pedirJSON({
+    client, modelo, maxTokens: 2200, system: REACTIVOS_SISTEMA,
+    prompt: promptReactivos(ctx, asignatura),
+  })
+
+  const reactivos = normalizarReactivos(datos, ctx)
+  // Regla de no invención (T.7): si el modelo no devolvió nada aprovechable,
+  // esto NO se cobra — cae al catch del callable, que reembolsa la reserva.
+  if (!reactivos.some((r) => r.enunciado)) {
+    throw new Error('El asistente de IA no generó reactivos utilizables')
+  }
+
+  return {
+    resultado: { reactivos, clase: ctx.clase },
     unidadesReales: 1,
     interno,
   }
@@ -782,4 +944,7 @@ exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
 // Lógica pura expuesta para las pruebas (test/ia-creditos.test.mjs): el
 // armado del contexto de la actividad padre y su regla de suficiencia, que es
 // donde vive la decisión de "no alcanza, no se cobra".
-exports._pruebas = { contextoDeActividad, condicionesEntregable, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES }
+exports._pruebas = {
+  contextoDeActividad, condicionesEntregable, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
+  precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MAX_REACTIVOS,
+}

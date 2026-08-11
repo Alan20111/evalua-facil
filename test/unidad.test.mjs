@@ -21,6 +21,7 @@ import {
   rubricaDesdePropuesta, cotejoDesdePropuesta, esCotejo,
   propuestaFueEditada, trazaIA,
 } from '../src/utils/rubrica.js'
+import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosIA.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -334,6 +335,78 @@ caso('espacios de más al teclear no cuentan como edición real', () => {
 
 caso('sin propuesta previa (rúbrica hecha a mano) no hay edición que medir', () => {
   assert.strictEqual(propuestaFueEditada(null, base()), false)
+})
+
+
+grupo('Reactivos con IA (OP-09) — propuesta del servidor → editor de revisión')
+
+const propuestaReactivos = (n = 3) => ({
+  reactivos: Array.from({ length: n }, (_, i) => (
+    i % 3 === 0
+      ? { tipo: 'opcion_multiple', enunciado: `Pregunta ${i}`, opciones: ['A', 'B', 'C', 'D'], correcta: 1 }
+      : i % 3 === 1
+        ? { tipo: 'verdadero_falso', enunciado: `Afirmación ${i}`, correcta: 'v' }
+        : { tipo: 'respuesta_corta', enunciado: `Abierta ${i}`, respuestaEsperada: 'Criterio' }
+  )),
+})
+
+caso('reactivosDesdePropuesta conserva la cantidad exacta que ya forzó el servidor', () => {
+  const r = reactivosDesdePropuesta(propuestaReactivos(5), 5)
+  assert.strictEqual(r.length, 5)
+})
+
+caso('nunca entrega más reactivos de los pedidos, aunque el servidor mandara de más', () => {
+  const r = reactivosDesdePropuesta(propuestaReactivos(8), 4)
+  assert.strictEqual(r.length, 4)
+})
+
+caso('opcion_multiple siempre trae 4 opciones y la correcta acotada a 0-3', () => {
+  const r = reactivosDesdePropuesta({ reactivos: [{ tipo: 'opcion_multiple', enunciado: 'X', opciones: ['A', 'B'], correcta: 99 }] }, 1)
+  assert.strictEqual(r[0].opciones.length, 4)
+  assert.strictEqual(r[0].correcta, 3)
+})
+
+caso('verdadero_falso normaliza cualquier valor que no sea "f" a "v"', () => {
+  const r = reactivosDesdePropuesta({ reactivos: [{ tipo: 'verdadero_falso', enunciado: 'X', correcta: 'lo-que-sea' }] }, 1)
+  assert.strictEqual(r[0].correcta, 'v')
+})
+
+caso('respuesta_corta conserva la respuestaEsperada como guía de calificación', () => {
+  const r = reactivosDesdePropuesta({ reactivos: [{ tipo: 'respuesta_corta', enunciado: 'X', respuestaEsperada: 'Debe mencionar Y' }] }, 1)
+  assert.strictEqual(r[0].respuestaEsperada, 'Debe mencionar Y')
+})
+
+caso('subir_archivo no carga ni respuesta ni opciones que no le pertenecen', () => {
+  const r = reactivosDesdePropuesta({ reactivos: [{ tipo: 'subir_archivo', enunciado: 'Sube tu evidencia' }] }, 1)
+  assert.strictEqual(r[0].opciones, undefined)
+  assert.strictEqual(r[0].correcta, undefined)
+})
+
+caso('cada reactivo nace incluido — el docente descarta, no al revés', () => {
+  const r = reactivosDesdePropuesta(propuestaReactivos(3), 3)
+  assert.ok(r.every((x) => x.incluir === true))
+})
+
+caso('una propuesta basura no revienta el constructor', () => {
+  assert.doesNotThrow(() => reactivosDesdePropuesta(null, 3))
+  assert.doesNotThrow(() => reactivosDesdePropuesta({ reactivos: 'no soy un arreglo' }, 3))
+  assert.strictEqual(reactivosDesdePropuesta(null, 3).length, 0, 'sin reactivos de la IA, no hay nada que revisar (no se inventa)')
+})
+
+grupo('reactivoValido — qué puede guardarse')
+
+caso('un reactivo sin enunciado no es válido', () => {
+  assert.strictEqual(reactivoValido({ tipo: 'respuesta_corta', enunciado: '  ' }), false)
+})
+
+caso('opción múltiple necesita al menos 2 opciones con texto', () => {
+  assert.strictEqual(reactivoValido({ tipo: 'opcion_multiple', enunciado: 'X', opciones: ['A', '', '', ''] }), false)
+  assert.strictEqual(reactivoValido({ tipo: 'opcion_multiple', enunciado: 'X', opciones: ['A', 'B', '', ''] }), true)
+})
+
+caso('verdadero_falso y respuesta_corta solo necesitan enunciado', () => {
+  assert.strictEqual(reactivoValido({ tipo: 'verdadero_falso', enunciado: 'X', correcta: 'v' }), true)
+  assert.strictEqual(reactivoValido({ tipo: 'respuesta_corta', enunciado: 'X' }), true)
 })
 
 

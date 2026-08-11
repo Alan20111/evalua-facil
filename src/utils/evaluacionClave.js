@@ -31,12 +31,15 @@ const claveRef = (activityId, preguntaId) => doc(db, 'activities', activityId, '
 
 /**
  * Separa un reactivo en lo que el alumno puede ver y lo que no.
- * Devuelve `{ publico, clave }` — `clave` es null cuando la pregunta no tiene
- * respuesta correcta (las abiertas, que revisa el docente a mano).
+ * Devuelve `{ publico, clave }` — `clave` trae `respuestaCorrecta` (null si
+ * la pregunta no tiene una, como las abiertas que revisa el docente a mano) y
+ * `respuestaEsperada` (solo respuesta_corta generada por OP-09: una guía de
+ * calificación para el docente — el alumno nunca la ve, así que vive aquí,
+ * igual que respuestaCorrecta, y no en el documento público).
  */
 export function partirPregunta(data) {
-  const { respuestaCorrecta = null, ...publico } = data
-  return { publico, clave: respuestaCorrecta ?? null }
+  const { respuestaCorrecta = null, respuestaEsperada = null, ...publico } = data
+  return { publico, clave: { respuestaCorrecta: respuestaCorrecta ?? null, respuestaEsperada: respuestaEsperada ?? null } }
 }
 
 /** Crea un reactivo. Devuelve su id. */
@@ -44,9 +47,9 @@ export async function crearPregunta(activityId, data) {
   const { publico, clave } = partirPregunta(data)
   const ref = doc(preguntasRef(activityId))
   await setDoc(ref, publico)
-  // La clave se escribe SIEMPRE, incluso null: así el documento existe y el
-  // docente ve el reactivo completo aunque después le quiten la respuesta.
-  await setDoc(claveRef(activityId, ref.id), { respuestaCorrecta: clave })
+  // La clave se escribe SIEMPRE, incluso en null: así el documento existe y
+  // el docente ve el reactivo completo aunque después le quiten la respuesta.
+  await setDoc(claveRef(activityId, ref.id), clave)
   return ref.id
 }
 
@@ -54,8 +57,8 @@ export async function crearPregunta(activityId, data) {
 export async function actualizarPregunta(activityId, preguntaId, data) {
   const { publico, clave } = partirPregunta(data)
   await setDoc(doc(db, 'activities', activityId, 'preguntas', preguntaId), publico, { merge: true })
-  if ('respuestaCorrecta' in data) {
-    await setDoc(claveRef(activityId, preguntaId), { respuestaCorrecta: clave }, { merge: true })
+  if ('respuestaCorrecta' in data || 'respuestaEsperada' in data) {
+    await setDoc(claveRef(activityId, preguntaId), clave, { merge: true })
   }
 }
 
@@ -65,7 +68,7 @@ export async function borrarPregunta(activityId, preguntaId) {
   await deleteDoc(claveRef(activityId, preguntaId)).catch(() => {})
 }
 
-/** Crea varios reactivos de un golpe (importar del banco). Devuelve sus ids. */
+/** Crea varios reactivos de un golpe (importar del banco / generar con IA). Devuelve sus ids. */
 export async function crearPreguntasEnLote(activityId, lista) {
   const batch = writeBatch(db)
   const ids = []
@@ -73,7 +76,7 @@ export async function crearPreguntasEnLote(activityId, lista) {
     const { publico, clave } = partirPregunta(data)
     const ref = doc(preguntasRef(activityId))
     batch.set(ref, publico)
-    batch.set(claveRef(activityId, ref.id), { respuestaCorrecta: clave })
+    batch.set(claveRef(activityId, ref.id), clave)
     ids.push(ref.id)
   }
   await batch.commit()
@@ -91,10 +94,11 @@ export async function cargarPreguntasConClave(activityId) {
     getDocs(collection(db, 'activities', activityId, 'clave')),
   ])
   const claves = {}
-  claveSnap.docs.forEach((d) => { claves[d.id] = d.data().respuestaCorrecta ?? null })
+  claveSnap.docs.forEach((d) => { claves[d.id] = d.data() || {} })
   return pregSnap.docs.map((d) => ({
     id: d.id,
     ...d.data(),
-    respuestaCorrecta: claves[d.id] ?? null,
+    respuestaCorrecta: claves[d.id]?.respuestaCorrecta ?? null,
+    respuestaEsperada: claves[d.id]?.respuestaEsperada ?? null,
   }))
 }

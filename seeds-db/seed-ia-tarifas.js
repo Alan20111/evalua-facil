@@ -56,6 +56,7 @@ const TARIFAS = {
     resumen_alumno: 1,
     resumen_grupo: 1,
     rubrica: 3,
+    reactivos: 1,
     examen: 10,
     cuestionario: 10,
     analisis_apoyo: 20,
@@ -80,6 +81,7 @@ const TARIFAS = {
     resumen_alumno: 'Seguimiento',
     resumen_grupo: 'Seguimiento',
     rubrica: 'Actividades',
+    reactivos: 'Evaluaciones',
     examen: 'Evaluaciones',
     cuestionario: 'Evaluaciones',
     analisis_apoyo: 'Planeación',
@@ -98,6 +100,8 @@ const TARIFAS = {
     // actividad padre. El plan maestro las ubica en el nivel Económico.
     rubrica: 'claude-haiku-4-5',
     cotejo: 'claude-haiku-4-5',
+    // OP-09 (10-ago-2026): reactivos de un cuestionario o examen.
+    reactivos: 'claude-haiku-4-5',
   },
   // Datos de exhibición para el panel de créditos (sin costos internos).
   planes: {
