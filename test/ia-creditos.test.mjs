@@ -26,8 +26,8 @@ const clave = () => crypto.randomUUID()
 
 const TARIFAS = {
   version: 1,
-  tarifas: { aviso: 1, examen: 10, analisis_programa: 45, reactivos: 1 },
-  categorias: { aviso: 'Avisos', examen: 'Evaluaciones', analisis_programa: 'Planeación', reactivos: 'Evaluaciones' },
+  tarifas: { aviso: 1, examen: 10, analisis_programa: 45, reactivos: 1, analizar_resultados: 5 },
+  categorias: { aviso: 'Avisos', examen: 'Evaluaciones', analisis_programa: 'Planeación', reactivos: 'Evaluaciones', analizar_resultados: 'Evaluaciones' },
   capacidadPorPlan: { trial: 350, pro: 350, anual: 350, mayor: 1750 },
 }
 
@@ -717,6 +717,225 @@ await caso('fallo de la IA generando reactivos: reembolso completo (mismo mecani
   const saldoAntes = (await creditosDe()).saldo
   await L.reservar({ uid: DOCENTE, operacion: 'reactivos', idempotencyKey: k, tarifas: TARIFAS })
   await L.reembolsar({ uid: DOCENTE, idempotencyKey: k, motivo: 'La IA no generó reactivos utilizables' })
+  assert.strictEqual((await creditosDe()).saldo, saldoAntes)
+  assert.strictEqual((await consumoDe(k)).estado, 'fallido')
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('Análisis de resultados con IA (OP-10) — la aritmética siempre la pone EF')
+
+// La regla (ficha aprobada, 11-ago-2026): la IA solo redacta interpretación y
+// recomendaciones sobre una agregación que Evalúa Fácil calculó en código —
+// nunca hace ella la aritmética, nunca inventa estudiantes fuera de los
+// candidatos que el código ya filtró, y los estudiantes viajan anonimizados.
+
+// Fixture: 3 reactivos (2 objetivos + 1 de revisión manual) y 5 entregas.
+// p1 (opcion_multiple, correcta 'a'): aciertos e1,e4,e5 · falla e2('b'),e3('c') → 60%
+// p2 (verdadero_falso, correcta 'v'): aciertos e1,e2,e5 · falla e3('f'),e4('f') → 60%
+// p3 (respuesta_corta): sin calificar en ninguna entrega (revisión manual)
+const PREGUNTAS_FIXTURE = [
+  { id: 'p1', tipo: 'opcion_multiple', enunciado: '¿Qué es un algoritmo?', opciones: [{ id: 'a', texto: 'Correcta' }, { id: 'b', texto: 'Incorrecta B' }, { id: 'c', texto: 'Incorrecta C' }] },
+  { id: 'p2', tipo: 'verdadero_falso', enunciado: 'Un algoritmo siempre termina', opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }] },
+  { id: 'p3', tipo: 'respuesta_corta', enunciado: 'Explica con tus palabras qué es un algoritmo' },
+]
+const ENTREGAS_FIXTURE = [
+  { alumnoId: 'al1', calificacion: 10, respuestas: { p1: { opcionSeleccionada: 'a', correcta: true }, p2: { opcionSeleccionada: 'v', correcta: true }, p3: { correcta: null } } },
+  { alumnoId: 'al2', calificacion: 5, respuestas: { p1: { opcionSeleccionada: 'b', correcta: false }, p2: { opcionSeleccionada: 'v', correcta: true }, p3: { correcta: null } } },
+  { alumnoId: 'al3', calificacion: 0, respuestas: { p1: { opcionSeleccionada: 'c', correcta: false }, p2: { opcionSeleccionada: 'f', correcta: false }, p3: { correcta: null } } },
+  { alumnoId: 'al4', calificacion: 5, respuestas: { p1: { opcionSeleccionada: 'a', correcta: true }, p2: { opcionSeleccionada: 'f', correcta: false }, p3: { correcta: null } } },
+  { alumnoId: 'al5', calificacion: 10, respuestas: { p1: { opcionSeleccionada: 'a', correcta: true }, p2: { opcionSeleccionada: 'v', correcta: true }, p3: { correcta: null } } },
+]
+const agregado = () => IA.agregarResultados({ nombre: 'Quiz 1', categoria: 'cuestionario', preguntas: PREGUNTAS_FIXTURE, entregas: ENTREGAS_FIXTURE })
+
+await caso('agregarResultados: % de aciertos por reactivo — solo tipos objetivos', () => {
+  const r = agregado()
+  const p1 = r.reactivos.find((x) => x.id === 'p1')
+  const p2 = r.reactivos.find((x) => x.id === 'p2')
+  const p3 = r.reactivos.find((x) => x.id === 'p3')
+  assert.strictEqual(p1.pctAciertos, 60)
+  assert.strictEqual(p2.pctAciertos, 60)
+  assert.strictEqual(p3.calificable, false)
+  assert.strictEqual(p3.pctAciertos, null, 'respuesta_corta no tiene % automático confiable')
+  assert.strictEqual(p3.pendientes, 5)
+})
+
+await caso('agregarResultados: porcentaje general es el promedio de los objetivos calificados', () => {
+  assert.strictEqual(agregado().porcentajeAciertosGeneral, 60)
+})
+
+await caso('agregarResultados: distribución de errores por opción, ordenada de mayor a menor', () => {
+  const p1 = agregado().reactivos.find((x) => x.id === 'p1')
+  assert.strictEqual(p1.distribucionErrores.length, 2)
+  assert.ok(p1.distribucionErrores.every((e) => e.pct === 50), 'b y c fallaron una vez cada una, de 2 falladas')
+})
+
+await caso('agregarResultados: candidatos a atención son SOLO quienes bajan de 60% en objetivas', () => {
+  const cand = agregado().candidatosAtencion.map((c) => c.anonId)
+  assert.deepStrictEqual(cand, ['Alumno 2', 'Alumno 3', 'Alumno 4'])
+})
+
+await caso('agregarResultados: el mapa anonId→alumnoId nunca se manda al modelo, solo regresa al final', () => {
+  const r = agregado()
+  assert.strictEqual(r.mapaAlumnos.length, 5)
+  assert.strictEqual(r.mapaAlumnos[1].anonId, 'Alumno 2')
+  assert.strictEqual(r.mapaAlumnos[1].alumnoId, 'al2')
+})
+
+await caso('agregarResultados: sin entregas no revienta (arrays vacíos, porcentajes null)', () => {
+  const r = IA.agregarResultados({ nombre: 'X', categoria: 'examen', preguntas: PREGUNTAS_FIXTURE, entregas: [] })
+  assert.strictEqual(r.totalEstudiantes, 0)
+  assert.strictEqual(r.porcentajeAciertosGeneral, null)
+  assert.deepStrictEqual(r.candidatosAtencion, [])
+})
+
+grupo('normalizarAnalisis — la IA nunca sustituye la aritmética ni inventa estudiantes')
+
+await caso('los números finales SIEMPRE vienen de ctx, nunca de lo que devolvió la IA', () => {
+  const ctx = agregado()
+  const datos = { resumenGeneral: 'x', porcentajeAciertosGeneral: 999, resumenEjecutivo: 'y' } // la IA "intenta" mandar un número
+  const r = IA.normalizarAnalisis(datos, ctx)
+  assert.strictEqual(r.porcentajeAciertosGeneral, ctx.porcentajeAciertosGeneral, 'se ignora el 999 inventado')
+  assert.deepStrictEqual(r.reactivosDificiles, ctx.reactivosDificiles.map((x) => ({ numero: x.numero, enunciado: x.enunciado, pctAciertos: x.pctAciertos })))
+})
+
+await caso('estudiantesAtencion se filtra contra los candidatos reales — un anonId inventado se descarta', () => {
+  const ctx = agregado()
+  const datos = {
+    resumenGeneral: 'x',
+    estudiantesAtencion: [
+      { anonId: 'Alumno 2', senal: 'bajo desempeño real' },
+      { anonId: 'Alumno 99', senal: 'inventado por la IA' },
+    ],
+  }
+  const r = IA.normalizarAnalisis(datos, ctx)
+  assert.strictEqual(r.estudiantesAtencion.length, 1)
+  assert.strictEqual(r.estudiantesAtencion[0].anonId, 'Alumno 2')
+})
+
+await caso('sin candidatos reales, CUALQUIER estudiante que proponga la IA se descarta', () => {
+  const ctxSinCandidatos = { ...agregado(), candidatosAtencion: [] }
+  const r = IA.normalizarAnalisis({ estudiantesAtencion: [{ anonId: 'Alumno 1', senal: 'x' }] }, ctxSinCandidatos)
+  assert.deepStrictEqual(r.estudiantesAtencion, [])
+})
+
+await caso('una respuesta basura de la IA no revienta el normalizador', () => {
+  const ctx = agregado()
+  assert.doesNotThrow(() => IA.normalizarAnalisis(null, ctx))
+  assert.doesNotThrow(() => IA.normalizarAnalisis({ patrones: 'no soy un arreglo', recomendaciones: 42 }, ctx))
+  const r = IA.normalizarAnalisis(null, ctx)
+  assert.deepStrictEqual(r.patrones, [])
+  assert.deepStrictEqual(r.recomendaciones, [])
+  assert.strictEqual(r.resumenGeneral, '')
+})
+
+await caso('textos largos de la IA se acotan (no se mandan sin límite a la pantalla)', () => {
+  const ctx = agregado()
+  const r = IA.normalizarAnalisis({ resumenGeneral: 'x'.repeat(5000), resumenEjecutivo: 'y'.repeat(5000) }, ctx)
+  assert.ok(r.resumenGeneral.length <= 1500)
+  assert.ok(r.resumenEjecutivo.length <= 500)
+})
+
+grupo('El precheck contra Firestore — seguridad, umbral mínimo y "no se cobra si no alcanza"')
+
+const OTRA_CATEGORIA = { docenteId: DOCENTE, categoria: 'entregable', nombre: 'No es evaluación' }
+
+async function sembrarEvaluacionConEntregas({ actId, categoria = 'cuestionario', nEntregasFinalizadas = 3, docenteId = DOCENTE }) {
+  await db.doc(`activities/${actId}`).set({ docenteId, categoria, nombre: 'Quiz de prueba' })
+  await db.doc(`activities/${actId}/preguntas/p1`).set({ tipo: 'opcion_multiple', enunciado: '¿1+1?', opciones: [{ id: 'a', texto: '2' }, { id: 'b', texto: '3' }] })
+  for (let i = 0; i < nEntregasFinalizadas; i++) {
+    const subRef = await db.collection('submissions').add({
+      actividadId: actId, alumnoId: `al${i}`, estadoEvaluacion: 'finalizado', calificacion: 8,
+    })
+    await db.doc(`submissions/${subRef.id}/respuestas/p1`).set({ opcionSeleccionada: 'a', correcta: true })
+  }
+  // Una entrega SIN finalizar — no debe contar para el umbral.
+  await db.collection('submissions').add({ actividadId: actId, alumnoId: 'al_sin_finalizar', estadoEvaluacion: 'en_proceso' })
+}
+
+await limpiar()
+await sembrarDocente()
+await sembrarEvaluacionConEntregas({ actId: 'act_quiz_ok', nEntregasFinalizadas: IA.MIN_ENTREGAS_ANALISIS })
+await sembrarEvaluacionConEntregas({ actId: 'act_quiz_pocas', nEntregasFinalizadas: IA.MIN_ENTREGAS_ANALISIS - 1 })
+await db.doc('activities/act_examen_ok').set({ docenteId: DOCENTE, categoria: 'examen', nombre: 'Examen' })
+await db.doc('activities/act_examen_ok/preguntas/p1').set({ tipo: 'verdadero_falso', enunciado: 'x', opciones: [{ id: 'v', texto: 'V' }, { id: 'f', texto: 'F' }] })
+for (let i = 0; i < IA.MIN_ENTREGAS_ANALISIS; i++) {
+  const subRef = await db.collection('submissions').add({ actividadId: 'act_examen_ok', alumnoId: `ex${i}`, estadoEvaluacion: 'finalizado' })
+  await db.doc(`submissions/${subRef.id}/respuestas/p1`).set({ opcionSeleccionada: 'v', correcta: true })
+}
+await db.doc('activities/act_sin_preguntas').set({ docenteId: DOCENTE, categoria: 'cuestionario', nombre: 'Vacío' })
+await db.doc('activities/act_otra_categoria').set(OTRA_CATEGORIA)
+await db.doc('activities/act_quiz_ajena').set({ docenteId: OTRO_DOCENTE, categoria: 'cuestionario', nombre: 'Ajena' })
+
+await caso('cuestionario con entregas suficientes: el precheck arma la agregación completa', async () => {
+  const ctx = await IA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: 'act_quiz_ok' } })
+  assert.strictEqual(ctx.categoria, 'cuestionario')
+  assert.strictEqual(ctx.totalEstudiantes, IA.MIN_ENTREGAS_ANALISIS, 'la entrega sin finalizar no cuenta')
+  assert.strictEqual(ctx.porcentajeAciertosGeneral, 100)
+})
+
+await caso('examen con entregas suficientes también es válido', async () => {
+  const ctx = await IA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: 'act_examen_ok' } })
+  assert.strictEqual(ctx.categoria, 'examen')
+})
+
+await caso('SEGURIDAD · una actividad que no es examen/cuestionario → failed-precondition', async () => {
+  await assert.rejects(
+    () => IA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: 'act_otra_categoria' } }),
+    (e) => String(e.code).includes('failed-precondition')
+  )
+})
+
+await caso('SEGURIDAD · actividad de otro docente → permission-denied', async () => {
+  await assert.rejects(
+    () => IA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: 'act_quiz_ajena' } }),
+    (e) => String(e.code).includes('permission-denied')
+  )
+})
+
+await caso('SEGURIDAD · sin actividadId → invalid-argument, pide guardar primero', async () => {
+  await assert.rejects(
+    () => IA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: '' } }),
+    (e) => String(e.code).includes('invalid-argument')
+  )
+})
+
+await caso('sin reactivos → failed-precondition, nada que analizar', async () => {
+  await assert.rejects(
+    () => IA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: 'act_sin_preguntas' } }),
+    (e) => String(e.code).includes('failed-precondition')
+  )
+})
+
+await caso('menos entregas que el mínimo → se detiene, dice cuántas hay y NO cobra', async () => {
+  const antes = await creditosDe()
+  let err
+  try {
+    await IA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: 'act_quiz_pocas' } })
+  } catch (e) { err = e }
+  assert.ok(err, 'debe fallar')
+  assert.strictEqual(err.details.codigo, 'CONTEXTO_INSUFICIENTE')
+  assert.ok(err.message.includes(String(IA.MIN_ENTREGAS_ANALISIS - 1)), 'dice cuántas entregas hay de verdad')
+  const consumos = await db.collection('iaConsumos').get()
+  assert.strictEqual(consumos.size, 0, 'no debe existir ninguna reserva')
+  assert.deepStrictEqual((await creditosDe())?.saldo ?? null, antes?.saldo ?? null)
+})
+
+grupo('Tarifa y reembolso de OP-10')
+
+await caso('la tarifa de analizar_resultados reserva y liquida exactamente 5 créditos', async () => {
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'analizar_resultados', idempotencyKey: k, tarifas: TARIFAS })
+  const saldoTrasReserva = (await creditosDe()).saldo
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 5 })
+  assert.strictEqual(saldoTrasReserva, (await creditosDe()).saldo)
+  assert.strictEqual((await consumoDe(k)).creditosReales, 5)
+})
+
+await caso('fallo de la IA analizando resultados: reembolso completo de los 5 créditos', async () => {
+  const k = clave()
+  const saldoAntes = (await creditosDe()).saldo
+  await L.reservar({ uid: DOCENTE, operacion: 'analizar_resultados', idempotencyKey: k, tarifas: TARIFAS })
+  await L.reembolsar({ uid: DOCENTE, idempotencyKey: k, motivo: 'El asistente de IA no generó un análisis utilizable' })
   assert.strictEqual((await creditosDe()).saldo, saldoAntes)
   assert.strictEqual((await consumoDe(k)).estado, 'fallido')
 })
