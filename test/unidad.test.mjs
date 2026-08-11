@@ -23,10 +23,13 @@ import {
 } from '../src/utils/rubrica.js'
 import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosIA.js'
 import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
+import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
 const { _pruebas: F } = require('../functions/index.js')
+const { _pruebas: FIA } = require('../functions/ia.js')
+const { resolverIntentoGanador, respuestasVivasSonDelIntentoGanador } = require('../functions/calificacionIntentos.js')
 
 let pasadas = 0
 const fallos = []
@@ -518,6 +521,183 @@ caso('grupo se arma con subject.nombre + subject.grupo; sin grupo, solo el nombr
   assert.strictEqual(c2.grupo, '')
 })
 
+grupo('Confiabilidad de los datos (OP-10) — mismo texto en pantalla y PDF')
+
+const TERMINOS_PROHIBIDOS = ['snapshot', 'firestore', 'anonid', 'submission', 'resolverintentoganador', 'fallback']
+
+caso('1. sin exclusiones: frase simple, sin números de exclusión', () => {
+  const t = resumenConfiabilidad({ totalEntregas: 8, confiablesParaReactivo: 8, excluidas: 0, motivoExclusion: null })
+  assert.strictEqual(t, 'Los resultados generales y el análisis por reactivo consideran a los 8 estudiantes evaluados.')
+})
+
+caso('2. con exclusiones: menciona los tres números y el motivo, en español llano', () => {
+  const t = resumenConfiabilidad({ totalEntregas: 8, confiablesParaReactivo: 7, excluidas: 1, motivoExclusion: 'intento_no_coincide_con_calificacion_final' })
+  assert.match(t, /De 8 estudiantes evaluados/)
+  assert.match(t, /consideran a los 8/)
+  assert.match(t, /7 cuentan con respuestas confiables/)
+  assert.match(t, /1 fue excluida/)
+  assert.match(t, /no corresponden al intento que determinó su calificación final/)
+})
+
+caso('3. sin `confiabilidad` (análisis histórico de antes de esta corrección): no se inventa nada, null', () => {
+  assert.strictEqual(resumenConfiabilidad(undefined), null)
+  assert.strictEqual(resumenConfiabilidad(null), null)
+  assert.strictEqual(resumenConfiabilidad({ totalEntregas: 0, confiablesParaReactivo: 0, excluidas: 0, motivoExclusion: null }), null)
+})
+
+caso('4. el PDF (contenidoAnalisisResultadosPDF) usa EXACTAMENTE el mismo texto que la pantalla', () => {
+  const confiabilidad = { totalEntregas: 5, confiablesParaReactivo: 4, excluidas: 1, motivoExclusion: 'intento_no_coincide_con_calificacion_final' }
+  const c = contenidoAnalisisResultadosPDF({ activity: ACTIVITY_FIXTURE, resultado: { ...RESULTADO_FIXTURE, confiabilidad } })
+  assert.strictEqual(c.textoConfiabilidad, resumenConfiabilidad(confiabilidad))
+})
+
+caso('5. el PDF también refleja la ausencia de confiabilidad en análisis históricos (sin sección inventada)', () => {
+  const c = contenidoAnalisisResultadosPDF({ activity: ACTIVITY_FIXTURE, resultado: RESULTADO_FIXTURE }) // RESULTADO_FIXTURE no trae confiabilidad
+  assert.strictEqual(c.textoConfiabilidad, null)
+})
+
+caso('12. ningún término técnico de implementación se filtra al texto que ve el docente', () => {
+  const t = resumenConfiabilidad({ totalEntregas: 8, confiablesParaReactivo: 7, excluidas: 1, motivoExclusion: 'intento_no_coincide_con_calificacion_final' })
+  const minusc = t.toLowerCase()
+  TERMINOS_PROHIBIDOS.forEach((term) => assert.strictEqual(minusc.includes(term), false, `"${term}" no debe aparecer en el texto visible`))
+})
+
+caso('un motivo de exclusión desconocido no revienta y da un texto genérico razonable (nunca vacío)', () => {
+  const t = resumenConfiabilidad({ totalEntregas: 4, confiablesParaReactivo: 3, excluidas: 1, motivoExclusion: 'algo_que_no_existe_todavia' })
+  assert.strictEqual(typeof t, 'string')
+  assert.ok(t.length > 20)
+})
+
+
+grupo('resolverIntentoGanador / respuestasVivasSonDelIntentoGanador — fuente única de verdad de intentos')
+
+// Casos 1-6 del PO. `intentos` = historial completo tal como vive en
+// submission.intentos ([{numero, calificacion}]); las respuestas VIVAS en
+// Firestore son siempre las del intento con mayor `numero` (el más reciente).
+
+caso('1. una sola entrega/un intento → confiable, sin ambigüedad', () => {
+  const intentos = [{ numero: 1, calificacion: 8 }]
+  const r = resolverIntentoGanador(intentos, 'mejor')
+  assert.strictEqual(r.numeroIntentoGanador, 1)
+  assert.strictEqual(r.ambiguo, false)
+  assert.strictEqual(r.representable, true)
+  assert.strictEqual(respuestasVivasSonDelIntentoGanador(intentos, 'mejor'), true)
+})
+
+caso('2. conservar = "ultimo" → el último SIEMPRE gana, sin importar cuántos intentos haya', () => {
+  const intentos = [{ numero: 1, calificacion: 6 }, { numero: 2, calificacion: 9 }, { numero: 3, calificacion: 3 }]
+  const r = resolverIntentoGanador(intentos, 'ultimo')
+  assert.strictEqual(r.numeroIntentoGanador, 3)
+  assert.strictEqual(r.calificacionFinal, 3)
+  assert.strictEqual(respuestasVivasSonDelIntentoGanador(intentos, 'ultimo'), true)
+})
+
+caso('3. conservar = "mejor" con ganador = último → confiable', () => {
+  const intentos = [{ numero: 1, calificacion: 6 }, { numero: 2, calificacion: 9 }]
+  const r = resolverIntentoGanador(intentos, 'mejor')
+  assert.strictEqual(r.numeroIntentoGanador, 2)
+  assert.strictEqual(r.ambiguo, false)
+  assert.strictEqual(respuestasVivasSonDelIntentoGanador(intentos, 'mejor'), true)
+})
+
+caso('4. conservar = "mejor" con ganador distinto al último → NO confiable', () => {
+  const intentos = [{ numero: 1, calificacion: 9 }, { numero: 2, calificacion: 6 }]
+  const r = resolverIntentoGanador(intentos, 'mejor')
+  assert.strictEqual(r.numeroIntentoGanador, 1)   // el intento 1 fue el ganador
+  assert.strictEqual(r.calificacionFinal, 9)
+  assert.strictEqual(respuestasVivasSonDelIntentoGanador(intentos, 'mejor'), false)  // pero las respuestas vivas son del intento 2
+})
+
+caso('5. conservar = "primero" con ganador distinto al último → NO confiable, incluso con la MISMA calificación (evita el falso positivo)', () => {
+  // Mismo número, respuestas potencialmente distintas — comparar solo el
+  // valor numérico diría "confiable" por error; por posición, no lo es.
+  const intentos = [{ numero: 1, calificacion: 6 }, { numero: 2, calificacion: 6 }]
+  const r = resolverIntentoGanador(intentos, 'primero')
+  assert.strictEqual(r.numeroIntentoGanador, 1)
+  assert.strictEqual(r.ambiguo, false)   // el GANADOR no es ambiguo (es siempre el primero)...
+  assert.strictEqual(respuestasVivasSonDelIntentoGanador(intentos, 'primero'), false)  // ...pero sus respuestas ya no existen
+})
+
+caso('6. conservar = "promedio" con múltiples intentos → no confiable, ningún intento representa un promedio', () => {
+  const intentos = [{ numero: 1, calificacion: 8 }, { numero: 2, calificacion: 6 }]
+  const r = resolverIntentoGanador(intentos, 'promedio')
+  assert.strictEqual(r.numeroIntentoGanador, null)
+  assert.strictEqual(r.ambiguo, true)
+  assert.strictEqual(r.representable, false)
+  assert.strictEqual(respuestasVivasSonDelIntentoGanador(intentos, 'promedio'), false)
+})
+
+caso('empate real en "mejor" (2+ intentos con la calificación máxima) se declara ambiguo — no se inventa un desempate', () => {
+  const intentos = [{ numero: 1, calificacion: 9 }, { numero: 2, calificacion: 6 }, { numero: 3, calificacion: 9 }]
+  const r = resolverIntentoGanador(intentos, 'mejor')
+  assert.strictEqual(r.numeroIntentoGanador, null)
+  assert.strictEqual(r.ambiguo, true)
+  assert.strictEqual(r.representable, false)
+})
+
+caso('sin intentos registrados → nunca inventar un ganador', () => {
+  const r = resolverIntentoGanador([], 'ultimo')
+  assert.strictEqual(r.numeroIntentoGanador, null)
+  assert.strictEqual(r.ambiguo, true)
+  assert.strictEqual(respuestasVivasSonDelIntentoGanador([], 'ultimo'), false)
+})
+
+caso('resolverIntentoGanador reutiliza resolverCalificacionFinal — nunca puede decir un valor distinto', () => {
+  const intentos = [{ numero: 1, calificacion: 6 }, { numero: 2, calificacion: 9 }]
+  for (const pol of ['primero', 'mejor', 'ultimo', 'promedio']) {
+    const previos = intentos.slice(0, -1)
+    const esperado = F.resolverCalificacionFinal(previos, intentos[intentos.length - 1].calificacion, pol)
+    assert.strictEqual(resolverIntentoGanador(intentos, pol).calificacionFinal, esperado)
+  }
+})
+
+grupo('agregarResultados (OP-10) con entregas no confiables — Capa 1')
+
+const PREGUNTAS_CONF = [
+  { id: 'p1', tipo: 'opcion_multiple', enunciado: '¿2+2?', opciones: [{ id: 'a', texto: '3' }, { id: 'b', texto: '4' }] },
+  { id: 'p2', tipo: 'opcion_multiple', enunciado: '¿3+3?', opciones: [{ id: 'a', texto: '6' }, { id: 'b', texto: '5' }] },
+]
+function entregaConf({ alumnoId, calificacion, todasCorrectas, respuestasConfiables }) {
+  const respuestas = {}
+  PREGUNTAS_CONF.forEach((p) => { respuestas[p.id] = { opcionSeleccionada: todasCorrectas ? 'a' : 'z', correcta: todasCorrectas ? true : false, puntosObtenidos: todasCorrectas ? 1 : 0 } })
+  return { alumnoId, calificacion, respuestas, respuestasConfiables }
+}
+
+caso('7. la calificación de una entrega NO confiable sigue contando en el resumen general (totalEstudiantes)', () => {
+  const entregas = [
+    entregaConf({ alumnoId: 'a1', calificacion: 10, todasCorrectas: true, respuestasConfiables: true }),
+    entregaConf({ alumnoId: 'a2', calificacion: 10, todasCorrectas: false, respuestasConfiables: false }),
+  ]
+  const r = FIA.agregarResultados({ nombre: 'X', categoria: 'cuestionario', preguntas: PREGUNTAS_CONF, entregas })
+  assert.strictEqual(r.totalEstudiantes, 2)
+  assert.strictEqual(r.confiabilidad.totalEntregas, 2)
+  assert.strictEqual(r.confiabilidad.confiablesParaReactivo, 1)
+  assert.strictEqual(r.confiabilidad.excluidas, 1)
+  assert.strictEqual(r.confiabilidad.motivoExclusion, 'intento_no_coincide_con_calificacion_final')
+})
+
+caso('8. las respuestas de una entrega NO confiable no afectan el % por reactivo', () => {
+  const entregas = [
+    entregaConf({ alumnoId: 'a1', calificacion: 10, todasCorrectas: true, respuestasConfiables: true }),
+    entregaConf({ alumnoId: 'a2', calificacion: 10, todasCorrectas: false, respuestasConfiables: false }),
+  ]
+  const r = FIA.agregarResultados({ nombre: 'X', categoria: 'cuestionario', preguntas: PREGUNTAS_CONF, entregas })
+  // Si la entrega no confiable contara, el % bajaría de 100 a 50 — debe seguir en 100.
+  r.reactivos.forEach((rc) => assert.strictEqual(rc.pctAciertos, 100))
+  assert.strictEqual(r.porcentajeAciertosGeneral, 100)
+})
+
+caso('9. una entrega NO confiable nunca genera una señal de "estudiante que requiere atención" por respuestas', () => {
+  const entregas = [
+    entregaConf({ alumnoId: 'a1', calificacion: 10, todasCorrectas: true, respuestasConfiables: true }),
+    entregaConf({ alumnoId: 'a2', calificacion: 0, todasCorrectas: false, respuestasConfiables: false }),
+    entregaConf({ alumnoId: 'a3', calificacion: 0, todasCorrectas: false, respuestasConfiables: true }),
+  ]
+  const r = FIA.agregarResultados({ nombre: 'X', categoria: 'cuestionario', preguntas: PREGUNTAS_CONF, entregas })
+  const anonsAtencion = r.candidatosAtencion.map((c) => c.anonId)
+  assert.strictEqual(anonsAtencion.includes('Alumno 2'), false)  // a2: no confiable, aunque falló todo
+  assert.strictEqual(anonsAtencion.includes('Alumno 3'), true)   // a3: confiable y realmente falló todo
+})
 
 grupo('Bitácora de OP-10 — entregasConsideradas === entregas finalizadas realmente analizadas')
 
@@ -527,8 +707,6 @@ grupo('Bitácora de OP-10 — entregasConsideradas === entregas finalizadas real
 // `totalEstudiantes` es literalmente `entregas.length`: el mismo arreglo que
 // `ejecutarAnalisisResultados` arma filtrando `estadoEvaluacion === 'finalizado'`
 // antes de llamar a `agregarResultados` (ver functions/ia.js).
-const { _pruebas: FIA } = require('../functions/ia.js')
-
 const PREGUNTAS_FIXTURE_IA = [{ id: 'p1', tipo: 'opcion_multiple', enunciado: '¿2+2?', opciones: ['3', '4'], respuestaCorrecta: 1 }]
 function entregaFixture(alumnoId, correcta) {
   return {

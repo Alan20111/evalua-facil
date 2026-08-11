@@ -10,7 +10,7 @@
 
 import crypto from 'node:crypto'
 import {
-  db, auth, funciones, llamar, sesion, pincharCloudinary, urlCloudinary,
+  db, dbFn, auth, funciones, iaFn, llamar, sesion, pincharCloudinary, urlCloudinary,
   limpiar, caso, grupo, resumen, assert,
 } from './helpers/entorno.mjs'
 
@@ -25,6 +25,7 @@ const { default: quitarFoto } = await import('../api/student/remove-photo.js')
 const { default: borrarRecursosAsignatura } = await import('../api/subject/delete-resources.js')
 
 const F = funciones._pruebas
+const FIA = iaFn._pruebas
 const DOCENTE = 'docente_uno'
 const OTRO = 'docente_dos'
 
@@ -105,7 +106,11 @@ const DECLARADAS = [...new Set([...REGLAS.matchAll(/match \/([a-zA-Z]+)\/\{/g)].
   // `iaSugerencias` (candado + sugerencia persistida de C-02) cuelga de
   // activities igual que `clave`: el borrado de la actividad o de la cuenta
   // la arrastra — y abajo se comprueba de verdad, no solo se declara.
-  .filter((c) => !['databases', 'preguntas', 'clave', 'respuestas', 'iaSugerencias'].includes(c))
+  // `analisisIA` (bitácora de OP-10) cuelga de activities, mismo trato.
+  // `intentosRespuestas` (Capa 2 de OP-10) cuelga de submissions: el borrado
+  // de la entrega o de la cuenta del alumno/docente la arrastra igual que
+  // `respuestas`.
+  .filter((c) => !['databases', 'preguntas', 'clave', 'respuestas', 'iaSugerencias', 'analisisIA', 'intentosRespuestas'].includes(c))
 
 const SUBJ = 'subject_uno'
 const ALUMNO = 'student_uno'
@@ -527,6 +532,251 @@ await caso('quien ya tiene suscripción de pago no recibe una prueba encima', as
   await db.collection('subscriptions').add({ docenteId: DOCENTE, status: 'activa', planId: 'mensual' })
   assert.strictEqual(await F.crearPruebaSiFalta(DOCENTE), false)
   assert.strictEqual((await db.collection('subscriptions').where('docenteId', '==', DOCENTE).get()).size, 1)
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+// OP-10 · CAPA 2 — snapshot de respuestas por intento
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// `onEvaluacionFinalizada` es un disparador (onDocumentWritten); no se prueba
+// el CABLEADO (eso es Nivel 3, fuera de alcance por decisión del PO), pero sí
+// se invoca directamente su lógica con `.run(event)` — el mismo patrón de
+// "probar la LÓGICA contra el emulador" que ya usa este archivo, solo que
+// aquí el "endpoint" es la función que exporta `onDocumentWritten` en vez de
+// un handler HTTP.
+
+const ACT1 = 'ACT1'
+const SUB1 = 'SUB1'
+
+async function sembrarEvaluacion({ conservar = 'ultimo' } = {}) {
+  await db.doc(`activities/${ACT1}`).set({
+    docenteId: DOCENTE, asignaturaId: 'S1', tipo: 'evaluacion', categoria: 'cuestionario',
+    maxCalif: 10, evaluacion: { conservar, publicarRespuestas: 'inmediato' },
+  })
+  await db.doc(`activities/${ACT1}/preguntas/p1`).set({ tipo: 'opcion_multiple', ponderacion: 1, enunciado: '¿1?', opciones: [{ id: 'a', texto: 'A' }, { id: 'b', texto: 'B' }] })
+  await db.doc(`activities/${ACT1}/preguntas/p2`).set({ tipo: 'opcion_multiple', ponderacion: 1, enunciado: '¿2?', opciones: [{ id: 'a', texto: 'A' }, { id: 'b', texto: 'B' }] })
+  await db.doc(`activities/${ACT1}/clave/p1`).set({ respuestaCorrecta: 'b' })
+  await db.doc(`activities/${ACT1}/clave/p2`).set({ respuestaCorrecta: 'b' })
+}
+
+// Simula lo que hace el alumno al contestar: dos reactivos, con el patrón de
+// aciertos que se le pida (`['b','b']` = ambos correctos, `['a','a']` = ambos
+// incorrectos, etc). Limpia primero (mismo patrón que ActivityPage al iniciar
+// un intento nuevo) para que nunca queden respuestas del intento anterior.
+async function contestar(opciones) {
+  const respRef = db.collection(`submissions/${SUB1}/respuestas`)
+  await respRef.doc('p1').set({ opcionSeleccionada: opciones[0], textoRespuesta: null, otraTexto: null, archivoURL: null })
+  await respRef.doc('p2').set({ opcionSeleccionada: opciones[1], textoRespuesta: null, otraTexto: null, archivoURL: null })
+}
+
+async function correrOnEvaluacionFinalizada() {
+  const snap = await dbFn.doc(`submissions/${SUB1}`).get()
+  return funciones.onEvaluacionFinalizada.run({ data: { after: snap }, params: { submissionId: SUB1 } })
+}
+
+grupo('OP-10 · Capa 2 — creación del snapshot por intento')
+
+await caso('1-2. al finalizar el intento se crea intentosRespuestas/1 con las respuestas de ESE intento', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'ultimo' })
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [], calificacion: null,
+  })
+  await contestar(['b', 'a']) // p1 correcta, p2 incorrecta → 5/10
+  await correrOnEvaluacionFinalizada()
+
+  const sub = (await db.doc(`submissions/${SUB1}`).get()).data()
+  assert.deepStrictEqual(sub.intentos, [{ numero: 1, calificacion: 5 }])
+  assert.strictEqual(sub.calificacion, 5)
+
+  const snap1 = await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).get()
+  assert.strictEqual(snap1.exists, true)
+  const d = snap1.data()
+  assert.strictEqual(d.numero, 1)
+  assert.strictEqual(d.calificacion, 5)
+  assert.strictEqual(d.respuestas.p1.opcionSeleccionada, 'b')
+  assert.strictEqual(d.respuestas.p1.correcta, true)
+  assert.strictEqual(d.respuestas.p2.opcionSeleccionada, 'a')
+  assert.strictEqual(d.respuestas.p2.correcta, false)
+  // Nada de identidad del alumno ni texto libre — solo lo que OP-10 necesita.
+  assert.strictEqual(d.respuestas.p1.textoRespuesta, undefined)
+  assert.strictEqual(d.alumnoId, undefined)
+})
+
+await caso('idempotencia: reprocesar el MISMO evento (mismo snapshot "after") no duplica ni el intento ni el snapshot', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'ultimo' })
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [], calificacion: null,
+  })
+  await contestar(['b', 'b'])
+  const snapAntes = await dbFn.doc(`submissions/${SUB1}`).get()
+  const event = { data: { after: snapAntes }, params: { submissionId: SUB1 } }
+
+  await funciones.onEvaluacionFinalizada.run(event)
+  await funciones.onEvaluacionFinalizada.run(event) // mismo evento, "reintentado"
+
+  const sub = (await db.doc(`submissions/${SUB1}`).get()).data()
+  assert.strictEqual(sub.intentos.length, 1, 'no debe duplicarse el registro del intento')
+  const todos = await db.collection(`submissions/${SUB1}/intentosRespuestas`).get()
+  assert.strictEqual(todos.size, 1, 'no debe duplicarse el snapshot')
+})
+
+await caso('3-4. dos intentos generan dos snapshots distintos; el del intento 1 no cambia tras el intento 2', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'mejor' })
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [], calificacion: null,
+  })
+  await contestar(['b', 'b']) // intento 1: 10/10
+  await correrOnEvaluacionFinalizada()
+
+  // Reintento: ActivityPage limpia `respuestas` y sube intentoActual — se
+  // simula igual aquí.
+  await contestar([null, null])
+  await db.doc(`submissions/${SUB1}`).update({ estadoEvaluacion: 'en_progreso', intentoActual: 2 })
+  await contestar(['a', 'a']) // intento 2: 0/10 (peor, no debería ganar con "mejor")
+  await db.doc(`submissions/${SUB1}`).update({ estadoEvaluacion: 'finalizado' })
+  await correrOnEvaluacionFinalizada()
+
+  const sub = (await db.doc(`submissions/${SUB1}`).get()).data()
+  assert.deepStrictEqual(sub.intentos, [{ numero: 1, calificacion: 10 }, { numero: 2, calificacion: 0 }])
+  assert.strictEqual(sub.calificacion, 10, '"mejor" conserva el intento 1, no el más reciente')
+
+  const s1 = (await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).get()).data()
+  const s2 = (await db.doc(`submissions/${SUB1}/intentosRespuestas/2`).get()).data()
+  assert.strictEqual(s1.calificacion, 10)
+  assert.strictEqual(s1.respuestas.p1.correcta, true)
+  assert.strictEqual(s2.calificacion, 0)
+  assert.strictEqual(s2.respuestas.p1.correcta, false)
+  // El snapshot del intento 1 sigue intacto — el intento 2 no lo tocó.
+  assert.strictEqual(s1.respuestas.p1.opcionSeleccionada, 'b')
+})
+
+await caso('5-6. un snapshot existente nunca se sobrescribe ni se borra (tx.create rechaza, no tx.set)', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'ultimo' })
+  // Estado deliberadamente inconsistente: el snapshot del intento 1 ya
+  // existe, pero `intentos[]` todavía no lo sabe — no debería pasar nunca en
+  // producción (se escriben juntos, en la misma transacción), pero si pasara,
+  // `tx.create` debe abortar en vez de pisar el snapshot existente.
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [], calificacion: null,
+  })
+  await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).set({ numero: 1, calificacion: 999, respuestas: { yaExistia: true } })
+  await contestar(['b', 'b'])
+
+  await assert.rejects(() => correrOnEvaluacionFinalizada())
+
+  const snap1 = (await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).get()).data()
+  assert.strictEqual(snap1.calificacion, 999, 'el snapshot preexistente no se modificó')
+  assert.deepStrictEqual(snap1.respuestas, { yaExistia: true })
+})
+
+grupo('OP-10 · Capa 2 — selección del intento ganador (precheckAnalisisResultados)')
+
+// `precheckAnalisisResultados` exige MIN_ENTREGAS_ANALISIS (3) entregas
+// finalizadas — se rellenan con entregas simples de un solo intento, todas
+// con el reactivo p1 y p2 correctos, para no distorsionar los % que se
+// verifican en SUB1.
+async function sembrarRelleno(n) {
+  for (let i = 0; i < n; i++) {
+    const id = `RELLENO${i}`
+    await db.doc(`submissions/${id}`).set({
+      actividadId: ACT1, alumnoId: `AL_R${i}`, alumnoUid: `UAL_R${i}`, estadoEvaluacion: 'finalizado',
+      intentoActual: 1, intentos: [], calificacion: null,
+    })
+    await db.doc(`submissions/${id}/respuestas/p1`).set({ opcionSeleccionada: 'b', textoRespuesta: null, otraTexto: null, archivoURL: null })
+    await db.doc(`submissions/${id}/respuestas/p2`).set({ opcionSeleccionada: 'b', textoRespuesta: null, otraTexto: null, archivoURL: null })
+    const snap = await dbFn.doc(`submissions/${id}`).get()
+    await funciones.onEvaluacionFinalizada.run({ data: { after: snap }, params: { submissionId: id } })
+  }
+}
+
+await caso('10. usa el snapshot del intento ganador cuando existe (conservar: "mejor", ganador ≠ último)', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'mejor' })
+  await sembrarRelleno(2)
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [], calificacion: null,
+  })
+  await contestar(['b', 'b']) // intento 1: 10/10 — será el ganador con "mejor"
+  await correrOnEvaluacionFinalizada()
+  await contestar([null, null])
+  await db.doc(`submissions/${SUB1}`).update({ estadoEvaluacion: 'en_progreso', intentoActual: 2 })
+  await contestar(['a', 'a']) // intento 2: 0/10 — queda vivo en `respuestas`
+  await db.doc(`submissions/${SUB1}`).update({ estadoEvaluacion: 'finalizado' })
+  await correrOnEvaluacionFinalizada()
+
+  const r = await FIA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: ACT1 } })
+  assert.strictEqual(r.confiabilidad.totalEntregas, 3)
+  assert.strictEqual(r.confiabilidad.confiablesParaReactivo, 3)
+  assert.strictEqual(r.confiabilidad.excluidas, 0)
+  assert.strictEqual(r.reactivos[0].pctAciertos, 100, 'usa el snapshot del intento 1 (10/10), no las respuestas vivas del intento 2 (0/10)')
+})
+
+await caso('11-12. sin snapshot (evaluación histórica) cae a Capa 1, y no revienta', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'ultimo' })
+  await sembrarRelleno(2)
+  // Se simula una entrega "de antes de Capa 2": intentos[] con datos, pero
+  // SIN documentos en intentosRespuestas (nunca se crearon).
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [{ numero: 1, calificacion: 5 }], calificacion: 5,
+  })
+  await contestar(['b', 'a'])
+  const r = await FIA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: ACT1 } })
+  // "ultimo" + 1 intento → Capa 1 la da por confiable (las vivas SON del ganador).
+  assert.strictEqual(r.confiabilidad.confiablesParaReactivo, 3)
+  assert.strictEqual(r.confiabilidad.excluidas, 0)
+})
+
+await caso('13-14. estadísticas generales y detalle por reactivo siguen funcionando con snapshots', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'ultimo' })
+  await sembrarRelleno(2)
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [], calificacion: null,
+  })
+  await contestar(['b', 'b'])
+  await correrOnEvaluacionFinalizada()
+
+  const r = await FIA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: ACT1 } })
+  assert.strictEqual(r.totalEstudiantes, 3)
+  assert.strictEqual(r.porcentajeAciertosGeneral, 100)
+  assert.strictEqual(r.confiabilidad.totalEntregas, 3)
+  assert.strictEqual(r.confiabilidad.confiablesParaReactivo, 3)
+  assert.strictEqual(r.confiabilidad.excluidas, 0)
+})
+
+await caso('15. un intento posterior con peor calificación (no ganador) no filtra sus respuestas al análisis', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'primero' })
+  await sembrarRelleno(2)
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [], calificacion: null,
+  })
+  await contestar(['b', 'b']) // intento 1 (ganador con "primero"): 10/10
+  await correrOnEvaluacionFinalizada()
+  await contestar([null, null])
+  await db.doc(`submissions/${SUB1}`).update({ estadoEvaluacion: 'en_progreso', intentoActual: 2 })
+  await contestar(['a', 'a']) // intento 2 (no ganador): 0/10, vive en `respuestas`
+  await db.doc(`submissions/${SUB1}`).update({ estadoEvaluacion: 'finalizado' })
+  await correrOnEvaluacionFinalizada()
+
+  const sub = (await db.doc(`submissions/${SUB1}`).get()).data()
+  assert.strictEqual(sub.calificacion, 10, '"primero" conserva el intento 1')
+
+  const r = await FIA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: ACT1 } })
+  assert.strictEqual(r.reactivos[0].pctAciertos, 100, 'el intento 2 (0/10) nunca debió filtrarse al análisis')
 })
 
 await limpiar()

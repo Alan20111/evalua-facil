@@ -25,6 +25,7 @@ const { defineSecret } = require('firebase-functions/params')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { logger } = require('firebase-functions')
 const ledger = require('./creditosLedger')
+const { resolverIntentoGanador, respuestasVivasSonDelIntentoGanador } = require('./calificacionIntentos')
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
@@ -831,17 +832,32 @@ const TIPOS_OBJETIVOS_ANALISIS = ['opcion_multiple', 'verdadero_falso']
 // solo lee documentos y le pasa el resultado a esta función.
 //
 // `preguntas` = [{id, tipo, enunciado, opciones}]
-// `entregas`  = [{ alumnoId, calificacion, respuestas: {preguntaId: {opcionSeleccionada, correcta, puntosObtenidos}} }]
+// `entregas`  = [{ alumnoId, calificacion, respuestas, respuestasConfiables }]
+//   `respuestas` = {preguntaId: {opcionSeleccionada, correcta, puntosObtenidos}}
+//   `respuestasConfiables` (bool) — la decide el llamador (ejecutarAnalisisResultados)
+//   con respuestasVivasSonDelIntentoGanador/intentosRespuestas (calificacionIntentos.js).
+//   Aquí NUNCA se reinterpreta ni se recalcula esa bandera — solo se respeta.
+//
+// Regla central de esta corrección: la calificación de CADA entrega ya es un
+// dato válido (Evalúa Fácil la calculó) y siempre entra al resumen general.
+// Pero el detalle por reactivo (aciertos, distribución de errores,
+// candidatos a atención) solo puede construirse con `respuestas` que
+// demostrablemente correspondan al intento que produjo esa calificación — así
+// que las entregas con `respuestasConfiables: false` quedan FUERA del detalle
+// por reactivo, nunca silenciosamente: se cuentan en `confiabilidad`.
 function agregarResultados({ nombre, categoria, preguntas, entregas }) {
   const totalEstudiantes = entregas.length
+  const entregasConfiables = entregas.filter((e) => e.respuestasConfiables !== false)
+  const entregasExcluidas = totalEstudiantes - entregasConfiables.length
 
   // Por reactivo: % de acierto y los distractores más elegidos — SOLO para
-  // tipos objetivos (calificación automática). Las de revisión manual
-  // (respuesta_corta/subir_archivo) no aportan % confiable ni distribución:
-  // ni su contenido de texto se lee aquí ni se manda nunca al modelo.
+  // tipos objetivos (calificación automática) y SOLO con entregas confiables.
+  // Las de revisión manual (respuesta_corta/subir_archivo) no aportan %
+  // confiable ni distribución: ni su contenido de texto se lee aquí ni se
+  // manda nunca al modelo.
   const reactivos = preguntas.map((p, i) => {
     const esObjetivo = TIPOS_OBJETIVOS_ANALISIS.includes(p.tipo)
-    const respuestas = entregas.map((e) => e.respuestas?.[p.id]).filter(Boolean)
+    const respuestas = entregasConfiables.map((e) => e.respuestas?.[p.id]).filter(Boolean)
     const calificadas = respuestas.filter((r) => r.correcta != null)
     const aciertos = calificadas.filter((r) => r.correcta === true).length
     const pctAciertos = esObjetivo && calificadas.length ? Math.round((aciertos / calificadas.length) * 100) : null
@@ -884,22 +900,25 @@ function agregarResultados({ nombre, categoria, preguntas, entregas }) {
   const reactivosDificiles = ranking.slice(0, 3)
   const reactivosFuertes = ranking.slice(-3).reverse().filter((r) => !reactivosDificiles.includes(r))
 
-  // Estudiantes anonimizados — orden de llegada de las entregas, sin relación
-  // con ninguna lista real. El cliente traduce anonId → nombre con
-  // `mapaAlumnos`, que el modelo NUNCA recibe (se arma después de llamarlo).
+  // Estudiantes anonimizados — orden de llegada de las entregas (TODAS,
+  // confiables o no: la numeración de anonId no depende de esta corrección),
+  // sin relación con ninguna lista real. El cliente traduce anonId → nombre
+  // con `mapaAlumnos`, que el modelo NUNCA recibe (se arma después de llamarlo).
   const objetivas = preguntas.filter((p) => TIPOS_OBJETIVOS_ANALISIS.includes(p.tipo))
   const estudiantes = entregas.map((e, i) => {
     const anonId = `Alumno ${i + 1}`
-    const fallados = objetivas.filter((p) => e.respuestas?.[p.id]?.correcta === false).length
-    return { anonId, alumnoId: e.alumnoId, calificacion: e.calificacion ?? null, fallados, totalObjetivas: objetivas.length }
+    const confiable = e.respuestasConfiables !== false
+    const fallados = confiable ? objetivas.filter((p) => e.respuestas?.[p.id]?.correcta === false).length : null
+    return { anonId, alumnoId: e.alumnoId, calificacion: e.calificacion ?? null, respuestasConfiables: confiable, fallados, totalObjetivas: objetivas.length }
   })
 
   // Candidatos a "requiere atención": desempeño objetivamente bajo (<60% de
   // aciertos en reactivos objetivos) según datos REALES — un umbral de
   // código, nunca una elección de la IA. Es la única lista de estudiantes que
-  // el modelo puede mencionar (ver `normalizarAnalisis`).
+  // el modelo puede mencionar (ver `normalizarAnalisis`). Sin respuestas
+  // confiables no hay señal que evaluar: la IA jamás recibe ni infiere una.
   const candidatosAtencion = estudiantes
-    .filter((e) => e.totalObjetivas > 0 && (e.totalObjetivas - e.fallados) / e.totalObjetivas < 0.6)
+    .filter((e) => e.respuestasConfiables && e.totalObjetivas > 0 && (e.totalObjetivas - e.fallados) / e.totalObjetivas < 0.6)
     .map((e) => ({ anonId: e.anonId, calificacion: e.calificacion, reactivosFallados: e.fallados, totalObjetivas: e.totalObjetivas }))
 
   return {
@@ -907,6 +926,16 @@ function agregarResultados({ nombre, categoria, preguntas, entregas }) {
     porcentajeAciertosGeneral, reactivos, reactivosDificiles, reactivosFuertes,
     candidatosAtencion,
     mapaAlumnos: estudiantes.map((e) => ({ anonId: e.anonId, alumnoId: e.alumnoId })),
+    // Transparencia obligatoria (nunca exclusión silenciosa): cuántas
+    // entregas se usaron para el resumen general vs. cuántas, de esas,
+    // tienen respuestas demostrablemente del intento que ganó la
+    // calificación final — y cuántas quedaron fuera del detalle por reactivo.
+    confiabilidad: {
+      totalEntregas: totalEstudiantes,
+      confiablesParaReactivo: entregasConfiables.length,
+      excluidas: entregasExcluidas,
+      motivoExclusion: entregasExcluidas > 0 ? 'intento_no_coincide_con_calificacion_final' : null,
+    },
   }
 }
 
@@ -945,12 +974,41 @@ async function precheckAnalisisResultados({ uid, params }) {
       { codigo: 'CONTEXTO_INSUFICIENTE' })
   }
 
+  // Capa 2 primero, Capa 1 como respaldo — nunca al revés, y nunca inventar:
+  //
+  //  1. `resolverIntentoGanador` (fuente única de verdad, calificacionIntentos.js)
+  //     dice CUÁL número de intento determina la calificación final. Si no es
+  //     `representable` (p.ej. "promedio" con varios intentos, o empate real
+  //     en "mejor"), no hay ningún intento que represente la calificación —
+  //     la entrega queda fuera del detalle por reactivo, punto.
+  //  2. Si es representable, se busca `intentosRespuestas/{numeroGanador}`
+  //     (Capa 2). Si existe, ES la fotografía exacta de ese intento —
+  //     confiable siempre, sin importar si el ganador es o no el último.
+  //  3. Si no existe snapshot (evaluación de antes de esta corrección), cae a
+  //     Capa 1: las respuestas VIVAS de `respuestas` (siempre del intento más
+  //     reciente) solo sirven si ese intento reciente ES el ganador.
+  //  4. Nunca se usan respuestas de un intento que no sea el ganador solo
+  //     porque son las únicas disponibles.
+  const conservar = act.evaluacion?.conservar
   const entregas = await Promise.all(entregasDocs.map(async (d) => {
     const s = d.data()
-    const respSnap = await db.collection(`submissions/${d.id}/respuestas`).get()
-    const respuestas = {}
-    respSnap.docs.forEach((r) => { respuestas[r.id] = r.data() })
-    return { alumnoId: s.alumnoId, calificacion: s.calificacion ?? null, respuestas }
+    const ganador = resolverIntentoGanador(s.intentos, conservar)
+    let respuestas = {}
+    let respuestasConfiables = false
+
+    if (ganador.representable && ganador.numeroIntentoGanador != null) {
+      const snapDoc = await db.doc(`submissions/${d.id}/intentosRespuestas/${ganador.numeroIntentoGanador}`).get()
+      if (snapDoc.exists) {
+        respuestas = snapDoc.data().respuestas || {}
+        respuestasConfiables = true
+      } else {
+        const respSnap = await db.collection(`submissions/${d.id}/respuestas`).get()
+        respSnap.docs.forEach((r) => { respuestas[r.id] = r.data() })
+        respuestasConfiables = respuestasVivasSonDelIntentoGanador(s.intentos, conservar)
+      }
+    }
+
+    return { alumnoId: s.alumnoId, calificacion: s.calificacion ?? null, respuestas, respuestasConfiables }
   }))
 
   return agregarResultados({
@@ -1033,6 +1091,9 @@ function normalizarAnalisis(datos, ctx) {
     mapaAlumnos: ctx.mapaAlumnos, // el cliente traduce anonId → nombre real; la IA nunca lo vio
     totalEstudiantes: ctx.totalEstudiantes,
     totalReactivos: ctx.totalReactivos,
+    // Transparencia de Capa 1 — la IA nunca vio ni decidió esto, viene tal
+    // cual de agregarResultados. Ver AnalisisResultadosIA.jsx/PDF.
+    confiabilidad: ctx.confiabilidad,
   }
 }
 

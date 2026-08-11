@@ -37,6 +37,25 @@ const require = createRequire(import.meta.url)
 
 // `functions/index.js` inicializa su propia copia de firebase-admin al cargarse.
 export const funciones = require('../../functions/index.js')
+// `functions/ia.js` (OP-10) reutiliza esa MISMA app por defecto — se importa
+// después de `funciones` a propósito, para no inicializarla dos veces.
+export const iaFn = require('../../functions/ia.js')
+// Un `DocumentReference`/`DocumentSnapshot` de la copia RAÍZ de firebase-admin
+// (ver `db` más abajo) no sirve como `event.data.after` al invocar
+// `onEvaluacionFinalizada.run(event)` directamente — por dentro usa
+// `tx.get(after.ref)`, y una transacción solo acepta referencias de SU PROPIA
+// instancia de Firestore. `dbFn` es la instancia de la copia de
+// `functions/node_modules` (la que usan `funciones` e `iaFn`), para construir
+// snapshots sintéticos que esa transacción sí pueda usar.
+//
+// `firebase-admin` declara "exports" en su package.json, así que un require
+// por RUTA (en vez de por nombre) no resuelve sus subpaths (p.ej. "/firestore")
+// — hay que pedirlo como especificador desnudo, pero resuelto COMO SI se
+// pidiera desde dentro de `functions/`, para que encuentre la copia de ahí y
+// no la de la raíz del repo.
+const requireDesdeFunctions = createRequire(new URL('../../functions/index.js', import.meta.url))
+const { getFirestore: getFirestoreFn } = requireDesdeFunctions('firebase-admin/firestore')
+export const dbFn = getFirestoreFn()
 
 // Y aquí, la de la raíz — la misma que usa `api/_lib/firebaseAdmin.js`.
 const admin = require('firebase-admin')

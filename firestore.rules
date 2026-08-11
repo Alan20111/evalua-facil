@@ -696,6 +696,23 @@ service cloud.firestore {
           )
         );
       }
+
+      // Capa 2 de OP-10 — fotografía inmutable de las respuestas de un
+      // intento (ver functions/index.js, onEvaluacionFinalizada). A
+      // diferencia de `respuestas`, aquí NUNCA lee el alumno (no es una
+      // pantalla de revisión, es un insumo interno de análisis) y NADIE
+      // escribe desde el cliente — ni el propio docente: solo el Admin SDK,
+      // que no pasa por estas reglas. `allow write: if false` es la
+      // protección que sí puede hacer cumplir el cliente; que además `tx.create`
+      // (no `tx.set`) en el servidor rechace sobrescribir un snapshot
+      // existente es la protección de inmutabilidad real (ver el comentario
+      // en onEvaluacionFinalizada).
+      match /intentosRespuestas/{numeroIntento} {
+        allow read: if request.auth != null &&
+          exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
+          ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId);
+        allow write: if false;
+      }
     }
 
     match /plans/{planId} {
