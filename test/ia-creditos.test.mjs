@@ -26,8 +26,8 @@ const clave = () => crypto.randomUUID()
 
 const TARIFAS = {
   version: 1,
-  tarifas: { aviso: 1, examen: 10, analisis_programa: 45 },
-  categorias: { aviso: 'Avisos', examen: 'Evaluaciones', analisis_programa: 'Planeación' },
+  tarifas: { aviso: 1, examen: 10, analisis_programa: 45, reactivos: 1 },
+  categorias: { aviso: 'Avisos', examen: 'Evaluaciones', analisis_programa: 'Planeación', reactivos: 'Evaluaciones' },
   capacidadPorPlan: { trial: 350, pro: 350, anual: 350, mayor: 1750 },
 }
 
@@ -569,5 +569,156 @@ await caso('información insuficiente → se detiene, dice qué falta y NO cobra
   assert.deepStrictEqual(despues?.saldo ?? null, antes?.saldo ?? null)
 })
 
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('Reactivos con IA (OP-09) — el cuestionario/examen padre manda')
+
+// La regla (ficha aprobada, 10-ago-2026): el reactivo se deriva de lo que el
+// docente describe en "¿Qué quieres evaluar?"; el cuestionario/examen padre
+// solo aporta contexto. Evalúa Fácil fija cantidad y tipo — nunca la IA.
+
+const QUIERE_EVALUAR_OK =
+  'Quiero evaluar que el estudiante comprenda qué es un algoritmo, identifique la estructura ' +
+  'condicional Si...Entonces y sea capaz de elaborar un algoritmo sencillo.'
+
+const CUESTIONARIO = { docenteId: DOCENTE, categoria: 'cuestionario', nombre: 'Algoritmos — parcial 1' }
+const EXAMEN = { docenteId: DOCENTE, categoria: 'examen', nombre: 'Examen de algoritmos' }
+
+await caso('tipo fijo: reparte exactamente ese tipo en TODAS las posiciones', () => {
+  const tipos = IA.tiposParaLote('verdadero_falso', 6)
+  assert.strictEqual(tipos.length, 6)
+  assert.ok(tipos.every((t) => t === 'verdadero_falso'))
+})
+
+await caso('mixto: reparte round-robin entre los 4 tipos disponibles — nunca lo decide la IA', () => {
+  const tipos = IA.tiposParaLote('mixto', 5)
+  assert.deepStrictEqual(tipos, ['opcion_multiple', 'verdadero_falso', 'respuesta_corta', 'subir_archivo', 'opcion_multiple'])
+})
+
+await caso('normalizarReactivos: fuerza el tipo/orden de ctx.tipos aunque la IA devuelva otra cosa', () => {
+  const ctx = { tipos: ['opcion_multiple', 'verdadero_falso'] }
+  const datos = {
+    reactivos: [
+      { tipo: 'ignorado', enunciado: '¿Qué es un algoritmo?', opciones: ['A', 'B', 'C', 'D'], correcta: 2 },
+      { tipo: 'ignorado', enunciado: 'Un algoritmo siempre termina.', correcta: 'f' },
+    ],
+  }
+  const r = IA.normalizarReactivos(datos, ctx)
+  assert.strictEqual(r.length, 2)
+  assert.strictEqual(r[0].tipo, 'opcion_multiple')
+  assert.strictEqual(r[0].correcta, 2)
+  assert.strictEqual(r[0].opciones.length, 4)
+  assert.strictEqual(r[1].tipo, 'verdadero_falso')
+  assert.strictEqual(r[1].correcta, 'f')
+})
+
+await caso('normalizarReactivos: rellena huecos cuando la IA entrega menos reactivos de los pedidos', () => {
+  const ctx = { tipos: ['opcion_multiple', 'respuesta_corta', 'subir_archivo'] }
+  const r = IA.normalizarReactivos({ reactivos: [{ tipo: 'opcion_multiple', enunciado: 'Único' }] }, ctx)
+  assert.strictEqual(r.length, 3)
+  assert.strictEqual(r[1].enunciado, '')
+  assert.strictEqual(r[2].tipo, 'subir_archivo')
+})
+
+await limpiar()
+await sembrarDocente()
+await db.doc('activities/act_cuestionario').set(CUESTIONARIO)
+await db.doc('activities/act_examen_reactivos').set(EXAMEN)
+await db.doc('activities/act_entregable_reactivos').set({ docenteId: DOCENTE, categoria: 'entregable', nombre: 'No es evaluación' })
+await db.doc('activities/act_cuestionario_ajeno').set({ ...CUESTIONARIO, docenteId: OTRO_DOCENTE })
+
+await caso('cuestionario propio + descripción suficiente: el precheck deja pasar y arma el contexto', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: { actividadId: 'act_cuestionario', quiereEvaluar: QUIERE_EVALUAR_OK, cantidad: 4, tipoSolicitado: 'opcion_multiple' },
+  })
+  assert.strictEqual(ctx.clase, 'cuestionario')
+  assert.strictEqual(ctx.cantidad, 4)
+  assert.strictEqual(ctx.tipos.length, 4)
+  assert.ok(ctx.tipos.every((t) => t === 'opcion_multiple'))
+})
+
+await caso('examen propio también es padre válido', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: { actividadId: 'act_examen_reactivos', quiereEvaluar: QUIERE_EVALUAR_OK },
+  })
+  assert.strictEqual(ctx.clase, 'examen')
+})
+
+await caso('cantidad y tipo fuera de rango: se acotan en silencio, nunca rechazan la operación', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: { actividadId: 'act_cuestionario', quiereEvaluar: QUIERE_EVALUAR_OK, cantidad: 999, tipoSolicitado: 'lo-que-sea' },
+  })
+  assert.strictEqual(ctx.cantidad, IA.MAX_REACTIVOS)
+  assert.strictEqual(ctx.tipoSolicitado, 'mixto') // valor no reconocido → mixto por default
+})
+
+await caso('cantidad por default es 5 cuando el cliente no manda nada', async () => {
+  const ctx = await IA.precheckReactivos({ uid: DOCENTE, params: { actividadId: 'act_cuestionario', quiereEvaluar: QUIERE_EVALUAR_OK } })
+  assert.strictEqual(ctx.cantidad, 5)
+})
+
+await caso('SEGURIDAD · un entregable NO puede ser padre de reactivos', async () => {
+  await assert.rejects(
+    () => IA.precheckReactivos({ uid: DOCENTE, params: { actividadId: 'act_entregable_reactivos', quiereEvaluar: QUIERE_EVALUAR_OK } }),
+    (e) => String(e.code).includes('failed-precondition')
+  )
+})
+
+await caso('SEGURIDAD · actividad de otro docente → permission-denied', async () => {
+  await assert.rejects(
+    () => IA.precheckReactivos({ uid: DOCENTE, params: { actividadId: 'act_cuestionario_ajeno', quiereEvaluar: QUIERE_EVALUAR_OK } }),
+    (e) => String(e.code).includes('permission-denied')
+  )
+})
+
+await caso('SEGURIDAD · sin actividadId → se pide guardar primero', async () => {
+  await assert.rejects(
+    () => IA.precheckReactivos({ uid: DOCENTE, params: { actividadId: '', quiereEvaluar: QUIERE_EVALUAR_OK } }),
+    (e) => String(e.code).includes('invalid-argument') && e.message.includes('Guarda primero')
+  )
+})
+
+await caso('"qué quieres evaluar" insuficiente → se detiene, dice qué falta y NO cobra', async () => {
+  const antes = await creditosDe()
+  let err
+  try {
+    await IA.precheckReactivos({ uid: DOCENTE, params: { actividadId: 'act_cuestionario', quiereEvaluar: 'muy corto' } })
+  } catch (e) { err = e }
+  assert.ok(err, 'debe fallar')
+  assert.strictEqual(err.details.codigo, 'CONTEXTO_INSUFICIENTE')
+  assert.ok(err.message.includes(`${IA.MIN_QUIERE_EVALUAR}`), 'dice el mínimo de caracteres')
+  const consumos = await db.collection('iaConsumos').get()
+  assert.strictEqual(consumos.size, 0, 'no debe existir ninguna reserva')
+  assert.deepStrictEqual((await creditosDe())?.saldo ?? null, antes?.saldo ?? null)
+})
+
+await caso('"qué quieres evaluar" vacío también se detiene (no solo corto)', async () => {
+  await assert.rejects(
+    () => IA.precheckReactivos({ uid: DOCENTE, params: { actividadId: 'act_cuestionario', quiereEvaluar: '' } }),
+    (e) => e.details?.codigo === 'CONTEXTO_INSUFICIENTE'
+  )
+})
+
+await caso('la tarifa de reactivos reserva y liquida exactamente 1 crédito', async () => {
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'reactivos', idempotencyKey: k, tarifas: TARIFAS })
+  const saldoTrasReserva = (await creditosDe()).saldo
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 1 })
+  const saldoFinal = (await creditosDe()).saldo
+  assert.strictEqual(saldoTrasReserva, saldoFinal, 'la reserva de 1 y lo real de 1 no dejan diferencia que devolver')
+  assert.strictEqual((await consumoDe(k)).creditosReales, 1)
+})
+
+await caso('fallo de la IA generando reactivos: reembolso completo (mismo mecanismo que rúbrica/cotejo)', async () => {
+  const k = clave()
+  const saldoAntes = (await creditosDe()).saldo
+  await L.reservar({ uid: DOCENTE, operacion: 'reactivos', idempotencyKey: k, tarifas: TARIFAS })
+  await L.reembolsar({ uid: DOCENTE, idempotencyKey: k, motivo: 'La IA no generó reactivos utilizables' })
+  assert.strictEqual((await creditosDe()).saldo, saldoAntes)
+  assert.strictEqual((await consumoDe(k)).estado, 'fallido')
+})
 
 resumen('pruebas del ledger de créditos IA')

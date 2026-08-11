@@ -15,7 +15,7 @@ import { sanitizeHtml, toRichHtml, htmlToPlainText, richTextContentClass } from 
 import { repartirPonderacionParejo } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy, Scale, CheckSquare, Square,
-  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight, ChevronUp, ChevronDown, FolderOpen,
+  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight, ChevronUp, ChevronDown, FolderOpen, Sparkles,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
@@ -30,6 +30,12 @@ import {
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import ConfirmModal from './ConfirmModal'
 import SearchInput from './SearchInput'
+import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
+import useCreditosIA from '../hooks/useCreditosIA'
+import ReactivosIAReview from './evaluacion/ReactivosIAReview'
+import {
+  MIN_REACTIVOS, MAX_REACTIVOS, DEFAULT_REACTIVOS, TIPOS_REACTIVO_IA, reactivosDesdePropuesta,
+} from '../utils/reactivosIA'
 import { minDeadline, nowIsoLocal, isoLocalFromDate } from '../utils/nowIso'
 import { isActivityPublished, resolveVisibilidad, isDraftActivity, formatDeadline } from '../utils/activityVisibility'
 import { groupExtensions } from '../utils/extensiones'
@@ -252,6 +258,22 @@ export default function EvaluacionEditor({
   const preguntasSnap = useRef(null)
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
+
+  // ── OP-09 · Generar reactivos con IA ──────────────────────────────────
+  // La configuración (tema, qué evaluar, cantidad, tipo) se elige ANTES de
+  // reservar créditos, dentro del mismo modal — cancelar ahí no cuesta nada.
+  // La propuesta entra a una pantalla de revisión aparte: la IA nunca guarda
+  // nada por su cuenta, el docente edita/descarta y decide qué se agrega.
+  const creditosIA = useCreditosIA()
+  const [iaConfirmando, setIaConfirmando] = useState(false)
+  const [iaTrabajando, setIaTrabajando] = useState(false)
+  const [iaPropuesta, setIaPropuesta] = useState(null)
+  const [iaTema, setIaTema] = useState('')
+  const [iaQuiereEvaluar, setIaQuiereEvaluar] = useState('')
+  const [iaCantidad, setIaCantidad] = useState(DEFAULT_REACTIVOS)
+  const [iaTipoSolicitado, setIaTipoSolicitado] = useState('mixto')
+  useBackHandler(() => setIaConfirmando(false), iaConfirmando)
+  useBackHandler(() => setIaPropuesta(null), !!iaPropuesta)
 
   const isNew = !currentActivityId
 
@@ -725,6 +747,74 @@ export default function EvaluacionEditor({
       toast(`${items.length} pregunta${items.length > 1 ? 's' : ''} agregada${items.length > 1 ? 's' : ''} desde tu banco`)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingPregunta(false) }
+  }
+
+  // ── OP-09 · Generar reactivos con IA ──────────────────────────────────────
+  function pedirReactivosIA() {
+    if (!currentActivityId) { toast('Guarda la información antes de generar reactivos', 'error'); return }
+    setIaTema(''); setIaQuiereEvaluar(''); setIaCantidad(DEFAULT_REACTIVOS); setIaTipoSolicitado('mixto')
+    setIaConfirmando(true)
+  }
+
+  async function generarReactivosConIA() {
+    setIaTrabajando(true)
+    try {
+      const r = await creditosIA.ejecutar('reactivos', {
+        actividadId: currentActivityId,
+        asignaturaId: subjectId,
+        asignaturaNombre: contextLine || '',
+        tema: iaTema,
+        quiereEvaluar: iaQuiereEvaluar,
+        cantidad: iaCantidad,
+        tipoSolicitado: iaTipoSolicitado,
+      })
+      // El servidor ya forzó la cantidad y el tipo exacto de cada reactivo
+      // (ver functions/ia.js); aquí solo se le da forma al editor de revisión.
+      const propuesta = reactivosDesdePropuesta(r?.resultado, iaCantidad)
+      setIaPropuesta(propuesta)
+      setIaConfirmando(false)
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setIaTrabajando(false)
+    }
+  }
+
+  // La propuesta entra como cualquier reactivo nuevo: mismo reparto público/
+  // clave (crearPreguntasEnLote) que "Agregar desde el Banco" — la IA nunca
+  // guarda nada por su cuenta, esto solo corre cuando el docente confirma.
+  async function handleGuardarReactivosIA(items) {
+    if (!currentActivityId || !items.length) return
+    try {
+      let orden = siguienteOrden(preguntas, seccionDestino)
+      const lista = items.map((r) => {
+        const base = {
+          tipo: r.tipo, enunciado: r.enunciado.trim(), ponderacion: 1, retroalimentacion: null,
+          imagenUrl: null, orden: orden++, origenBancoId: null,
+          ...seccionesCtl.camposDeSeccion(seccionDestino),
+        }
+        if (r.tipo === 'opcion_multiple') {
+          const opciones = r.opciones.map((texto) => makeOption(texto.trim()))
+          return { ...base, opciones, respuestaCorrecta: opciones[r.correcta]?.id ?? opciones[0]?.id }
+        }
+        if (r.tipo === 'verdadero_falso') {
+          return { ...base, opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }], respuestaCorrecta: r.correcta === 'f' ? 'f' : 'v' }
+        }
+        if (r.tipo === 'respuesta_corta') {
+          return { ...base, opciones: null, respuestaCorrecta: null, respuestaEsperada: r.respuestaEsperada?.trim() || null }
+        }
+        return { ...base, opciones: null, respuestaCorrecta: null } // subir_archivo
+      })
+      const ids = await crearPreguntasEnLote(currentActivityId, lista)
+      const nuevas = lista.map((data, i) => ({ id: ids[i], ...data }))
+      const updated = [...preguntas, ...nuevas]
+      setPreguntas(updated)
+      await syncNumPreguntas(updated.length)
+      setIaPropuesta(null)
+      toast(`${items.length} reactivo${items.length > 1 ? 's' : ''} agregado${items.length > 1 ? 's' : ''} con IA`)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
   }
 
   // "Repartir parejo" — pedido explícito: reparte los 10 puntos entre todas
@@ -1726,6 +1816,13 @@ export default function EvaluacionEditor({
                         <Library size={15} /> Agregar desde el Banco
                       </button>
                     </div>
+                    {/* OP-09: solo en la web, igual que la generación de rúbrica/cotejo. */}
+                    {!IS_NATIVE_APP && (
+                      <button type="button" onClick={pedirReactivosIA}
+                        className="w-full flex items-center justify-center gap-1.5 py-2.5 text-sm border-2 border-accent text-accent font-semibold rounded-card hover:bg-[var(--accent-tint)] transition-colors">
+                        <Sparkles size={15} /> Generar reactivos con IA
+                      </button>
+                    )}
                   </div>
                 )}
               </>
@@ -1972,6 +2069,64 @@ export default function EvaluacionEditor({
           busy={savingInfo}
           onConfirm={() => { setConfirmDraft(false); handleSaveInfo({ preventDefault: () => {} }, true, false) }}
           onCancel={() => setConfirmDraft(false)}
+        />
+      )}
+
+      {/* OP-09: configuración ANTES de reservar créditos — cancelar aquí no
+          cuesta nada (ver ConfirmacionCreditosModal, mismo patrón de OP-06/07). */}
+      {iaConfirmando && (
+        <ConfirmacionCreditosModal
+          titulo="Generar reactivos con IA"
+          descripcion="El asistente redacta los reactivos a partir de lo que describas abajo; tú los revisas, editas y decides cuáles agregar."
+          costoMin={creditosIA.estimar('reactivos') ?? 1}
+          ejecutando={iaTrabajando}
+          onCancelar={() => { if (!iaTrabajando) setIaConfirmando(false) }}
+          onContinuar={generarReactivosConIA}
+        >
+          <div className="space-y-2.5">
+            <div>
+              <label htmlFor="ia-tema" className="block text-sm text-on-surface mb-1">Tema (opcional)</label>
+              <input id="ia-tema" type="text" value={iaTema} disabled={iaTrabajando}
+                onChange={(e) => setIaTema(e.target.value)}
+                placeholder="Ej: Algoritmos y estructuras condicionales"
+                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+            </div>
+            <div>
+              <label htmlFor="ia-quiere-evaluar" className="block text-sm text-on-surface mb-1">¿Qué quieres evaluar?</label>
+              <textarea id="ia-quiere-evaluar" value={iaQuiereEvaluar} disabled={iaTrabajando} rows={4}
+                onChange={(e) => setIaQuiereEvaluar(e.target.value)}
+                placeholder="Describe con el mayor detalle posible el tema, contenidos, conceptos, procedimientos, habilidades, conocimientos o aspectos que quieres evaluar. Entre más información proporciones, mejor podrá el Asistente IA generar los reactivos."
+                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="ia-cantidad" className="text-sm text-on-surface">¿Cuántos reactivos quieres generar?</label>
+              <select id="ia-cantidad" value={iaCantidad} disabled={iaTrabajando}
+                onChange={(e) => setIaCantidad(Number(e.target.value))}
+                className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                {Array.from({ length: MAX_REACTIVOS - MIN_REACTIVOS + 1 }, (_, i) => MIN_REACTIVOS + i).map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="ia-tipo" className="text-sm text-on-surface">¿Qué tipo de reactivos quieres generar?</label>
+              <select id="ia-tipo" value={iaTipoSolicitado} disabled={iaTrabajando}
+                onChange={(e) => setIaTipoSolicitado(e.target.value)}
+                className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                {TIPOS_REACTIVO_IA.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </ConfirmacionCreditosModal>
+      )}
+
+      {iaPropuesta && (
+        <ReactivosIAReview
+          reactivos={iaPropuesta}
+          onClose={() => setIaPropuesta(null)}
+          onGuardar={handleGuardarReactivosIA}
         />
       )}
     </div>
