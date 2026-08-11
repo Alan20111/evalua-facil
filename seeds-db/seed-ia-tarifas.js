@@ -57,6 +57,14 @@ const TARIFAS = {
     resumen_grupo: 1,
     rubrica: 3,
     reactivos: 1,
+    // OP-03/OP-04 (11-ago-2026): crear examen/cuestionario completo con IA —
+    // 1 crédito por REACTIVO realmente generado (unidadesReales), igual que
+    // 'reactivos'; no confundir con 'examen'/'cuestionario' de abajo, que son
+    // tarifas de una fase distinta aún no conectada.
+    crear_evaluacion_ia: 1,
+    // OP-05 (11-ago-2026): crear entregable/observación completo con IA —
+    // mismo valor unitario que crear_evaluacion_ia (1 crédito por operación).
+    crear_actividad_ia: 1,
     analizar_resultados: 5,
     examen: 10,
     cuestionario: 10,
@@ -83,6 +91,8 @@ const TARIFAS = {
     resumen_grupo: 'Seguimiento',
     rubrica: 'Actividades',
     reactivos: 'Evaluaciones',
+    crear_evaluacion_ia: 'Evaluaciones',
+    crear_actividad_ia: 'Actividades',
     analizar_resultados: 'Evaluaciones',
     examen: 'Evaluaciones',
     cuestionario: 'Evaluaciones',
@@ -104,6 +114,10 @@ const TARIFAS = {
     cotejo: 'claude-haiku-4-5',
     // OP-09 (10-ago-2026): reactivos de un cuestionario o examen.
     reactivos: 'claude-haiku-4-5',
+    // OP-03/OP-04 (11-ago-2026): crear examen/cuestionario completo con IA.
+    crear_evaluacion_ia: 'claude-haiku-4-5',
+    // OP-05 (11-ago-2026): crear entregable/observación completo con IA.
+    crear_actividad_ia: 'claude-haiku-4-5',
     // OP-10 (11-ago-2026): análisis de resultados de un cuestionario o examen.
     analizar_resultados: 'claude-haiku-4-5',
   },

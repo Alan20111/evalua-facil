@@ -741,6 +741,95 @@ caso('`_pruebas` es un objeto plano y no una función desplegable', () => {
   assert.strictEqual(typeof F.calcularCalificacion, 'function')
 })
 
+// ═══ OP-05 · sanitarizarInstruccionesHtml — nada fuera de la whitelist ══════
+// Defensa en servidor contra HTML que la IA (o un documento fuente
+// manipulado) intente colar en `instrucciones` — allowlist estricta, sin
+// DOMPurify/jsdom (ver functions/fuentesIA.js y la nota de diseño en ia.js).
+grupo('OP-05 — sanitarizarInstruccionesHtml (allowlist estricta, sin libs externas)')
+
+caso('quita <script> completo, con su contenido', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<p>Hola</p><script>alert(1)</script><p>Adiós</p>')
+  assert.ok(!out.toLowerCase().includes('script'))
+  assert.ok(!out.includes('alert'))
+  assert.strictEqual(out, '<p>Hola</p><p>Adiós</p>')
+})
+
+caso('quita <style> completo, con su contenido', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<style>body{display:none}</style><p>Texto</p>')
+  assert.ok(!out.toLowerCase().includes('style'))
+  assert.strictEqual(out, '<p>Texto</p>')
+})
+
+caso('quita comentarios HTML', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<p>Antes</p><!-- <img src=x onerror=alert(1)> --><p>Después</p>')
+  assert.ok(!out.includes('<!--'))
+  assert.ok(!out.includes('onerror'))
+  assert.strictEqual(out, '<p>Antes</p><p>Después</p>')
+})
+
+caso('quita atributos de una etiqueta permitida (incluyendo manejadores de eventos)', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<p onclick="alert(1)" style="color:red">Hola</p>')
+  assert.ok(!out.includes('onclick'))
+  assert.ok(!out.includes('style'))
+  assert.strictEqual(out, '<p>Hola</p>')
+})
+
+caso('quita una etiqueta fuera de la whitelist pero conserva su texto interior', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<div class="x">Contenido</div>')
+  assert.ok(!out.includes('<div'))
+  assert.strictEqual(out, 'Contenido')
+})
+
+caso('quita <img onerror=...> por completo (no está en la whitelist)', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<img src="x" onerror="alert(1)">')
+  assert.ok(!out.includes('onerror'))
+  assert.ok(!out.includes('<img'))
+})
+
+caso('quita <a href="javascript:..."> (no está en la whitelist)', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<a href="javascript:alert(1)">clic</a>')
+  assert.ok(!out.includes('<a'))
+  assert.ok(!out.includes('javascript:'))
+  assert.strictEqual(out, 'clic')
+})
+
+caso('quita <iframe>/<svg>/<object> por completo', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<iframe src="//evil"></iframe><svg onload=alert(1)></svg><object data="x"></object>')
+  assert.ok(!/<iframe|<svg|<object/i.test(out))
+})
+
+caso('conserva las etiquetas de la whitelist sin atributos y sin escapar su texto', () => {
+  const input = '<p>Uno</p><br><strong>dos</strong><em>tres</em><ul><li>a</li><li>b</li></ul><ol><li>c</li></ol>'
+  assert.strictEqual(FIA.sanitizarInstruccionesHtml(input), input)
+})
+
+caso('entrada vacía o no-string no truena', () => {
+  assert.strictEqual(FIA.sanitizarInstruccionesHtml(''), '')
+  assert.strictEqual(FIA.sanitizarInstruccionesHtml(null), '')
+  assert.strictEqual(FIA.sanitizarInstruccionesHtml(undefined), '')
+})
+
+// ═══ OP-03/OP-04 · repartirPonderacion — siempre suma exactamente 10.0 ══════
+grupo('OP-03/OP-04 — repartirPonderacion (la aritmética la hace el código, nunca la IA)')
+
+caso('reparte y suma exactamente 10.0 para cantidades comunes', () => {
+  for (const n of [1, 2, 3, 4, 5, 7, 10, 15, 30, 100]) {
+    const valores = FIA.repartirPonderacion(n)
+    assert.strictEqual(valores.length, n, `longitud para n=${n}`)
+    const suma = Math.round(valores.reduce((s, v) => s + v, 0) * 10) / 10
+    assert.strictEqual(suma, 10, `suma para n=${n} fue ${suma}`)
+  }
+})
+
+caso('todos los valores son positivos', () => {
+  FIA.repartirPonderacion(7).forEach((v) => assert.ok(v > 0))
+})
+
+caso('cantidad 0 o negativa no truena — se trata como 1', () => {
+  assert.deepStrictEqual(FIA.repartirPonderacion(0), [10])
+  assert.deepStrictEqual(FIA.repartirPonderacion(-3), [10])
+})
+
 // ═══ A09 · Mismo número en las cinco pantallas ══════════════════════════════
 grupo('A09 — pantalla, panel del alumno, PDF (curso y parcial) y Excel: el mismo número')
 
