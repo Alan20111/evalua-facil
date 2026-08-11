@@ -51,6 +51,8 @@ import {
   cargarPreguntasConClave,
 } from '../utils/evaluacionClave'
 import EvaluacionEditor from './EvaluacionEditor'
+import AnalisisResultadosIA from './evaluacion/AnalisisResultadosIA'
+import { MIN_ENTREGAS_ANALISIS } from '../utils/analisisResultados'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { formatHora12FromDate } from '../utils/formatHora'
@@ -270,6 +272,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [iaContando, setIaContando] = useState(false)
   const [iaConteo, setIaConteo] = useState(null)         // { estudiantes, respuestas } → abre el modal
   const [iaTrabajando, setIaTrabajando] = useState(false)
+  // ── OP-10 · Analizar resultados con IA ──────────────────────────────────
+  const [analisisConfirmando, setAnalisisConfirmando] = useState(false)
+  const [analisisTrabajando, setAnalisisTrabajando] = useState(false)
+  const [analisisResultado, setAnalisisResultado] = useState(null)
   const [reviewFilter, setReviewFilter] = useState('todos') // review tab: todos|pendiente|calificado|porCalificar
   const [reviewNav, setReviewNav] = useState([])            // frozen student order for Anterior/Siguiente
   // Per-student deadline extension ("Modificar fecha de entrega") — en
@@ -977,6 +983,30 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         : 'No se pudo completar: ' + err.message, 'error')
     } finally {
       setIaTrabajando(false)
+    }
+  }
+
+  // ── OP-10 · Analizar resultados con IA ──────────────────────────────────
+  // El servidor relee preguntas + entregas por actividadId (el cliente no
+  // manda ningún dato pedagógico) y hace TODA la agregación y la aritmética
+  // ahí — aquí solo se confirma el gasto de créditos y se muestra el
+  // resultado. Los estudiantes viajan anonimizados al modelo; el mapa
+  // anonId→alumnoId que regresa el servidor se usa SOLO para mostrar nombres
+  // reales en pantalla, nunca se lo mandamos de vuelta a la IA.
+  async function generarAnalisisIA() {
+    setAnalisisTrabajando(true)
+    try {
+      const data = await creditosIA.ejecutar('analizar_resultados', {
+        actividadId: activityId || activity.id,
+        asignaturaId: activity.asignaturaId,
+        asignaturaNombre: subject?.nombre || '',
+      })
+      setAnalisisResultado(data?.resultado || null)
+      setAnalisisConfirmando(false)
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setAnalisisTrabajando(false)
     }
   }
 
@@ -1716,6 +1746,31 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               maxCalif={activity.maxCalif || 10}
               onGraficas={() => setShowGraficas(true)}
             />
+            {/* OP-10: solo aparece cuando hay entregas suficientes para un
+                análisis significativo — mismo umbral que valida el servidor. */}
+            {Object.values(submissions).filter((s) => s.estadoEvaluacion === 'finalizado').length >= MIN_ENTREGAS_ANALISIS && (
+              <button type="button" onClick={() => setAnalisisConfirmando(true)}
+                className="w-full mb-3 flex items-center justify-center gap-1.5 py-2.5 text-sm border-2 border-accent text-accent font-semibold rounded-card hover:bg-[var(--accent-tint)] transition-colors">
+                <Sparkles size={15} /> Analizar resultados con IA
+              </button>
+            )}
+            {analisisConfirmando && (
+              <ConfirmacionCreditosModal
+                titulo="Analizar resultados con IA"
+                descripcion="El asistente analiza los resultados reales de esta evaluación (aciertos por reactivo, patrones y estudiantes con desempeño bajo) y propone un resumen con recomendaciones. Es una propuesta: tú decides qué hacer con ella."
+                costoMin={creditosIA.estimar('analizar_resultados') ?? 5}
+                ejecutando={analisisTrabajando}
+                onCancelar={() => { if (!analisisTrabajando) setAnalisisConfirmando(false) }}
+                onContinuar={generarAnalisisIA}
+              />
+            )}
+            {analisisResultado && (
+              <AnalisisResultadosIA
+                resultado={analisisResultado}
+                students={students}
+                onClose={() => setAnalisisResultado(null)}
+              />
+            )}
             {/* Descargar los resultados de este cuestionario/examen. Van aquí,
                 pegados al análisis de resultados, porque es justo lo que el
                 docente acaba de ver en pantalla: el Excel para trabajarlo y el

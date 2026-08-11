@@ -30,13 +30,15 @@ const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
 // Operaciones conectadas por autorización del PO:
 //   · C-03 'aviso' (9-ago-2026) · C-02 'calificar_abierta' (9-ago-2026)
-//   · OP-06 'rubrica' y OP-07 'cotejo' (10-ago-2026) · OP-09 'reactivos' (10-ago-2026).
+//   · OP-06 'rubrica' y OP-07 'cotejo' (10-ago-2026) · OP-09 'reactivos' (10-ago-2026)
+//   · OP-10 'analizar_resultados' (11-ago-2026).
 const OPERACIONES = {
   aviso: ejecutarAviso,
   calificar_abierta: ejecutarCalificarAbierta,
   rubrica: ejecutarRubrica,
   cotejo: ejecutarCotejo,
   reactivos: ejecutarReactivos,
+  analizar_resultados: ejecutarAnalisisResultados,
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -44,7 +46,10 @@ const OPERACIONES = {
 // mensaje que le dice qué le falta y su saldo queda intacto (no hay reserva
 // que reembolsar porque nunca existió). Lo que devuelve el precheck viaja al
 // ejecutor, que así no vuelve a leer nada de Firestore.
-const PRECHECKS = { rubrica: precheckInstrumento, cotejo: precheckInstrumento, reactivos: precheckReactivos }
+const PRECHECKS = {
+  rubrica: precheckInstrumento, cotejo: precheckInstrumento, reactivos: precheckReactivos,
+  analizar_resultados: precheckAnalisisResultados,
+}
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
 // Entrada: tipo de aviso (los 12 del producto) + datos del docente + nombre
@@ -806,6 +811,251 @@ async function ejecutarReactivos({ params, modelo, apiKey }) {
   }
 }
 
+// ── OP-10 · Análisis de resultados de un cuestionario o examen ──────────────
+// REGLA (PO, 11-ago-2026, ficha aprobada): la IA analiza SOLO los resultados
+// reales ya aplicados de un cuestionario/examen — nunca Universo Curricular,
+// Planeación, fuentes del curso, contexto del docente ni diagnóstico del
+// grupo (fase posterior). Evalúa Fácil hace TODA la aritmética (porcentajes,
+// ranking de reactivos, quién entra a "requiere atención") ANTES de llamar al
+// modelo; la IA solo redacta la interpretación y las recomendaciones sobre
+// esos números — nunca los inventa ni los recalcula. Los estudiantes viajan
+// anonimizados ("Alumno N"): el modelo no ve nombres ni ningún otro dato que
+// no sea imprescindible para el análisis.
+
+const ANALISIS_PADRES_VALIDOS = { cuestionario: 'cuestionario', examen: 'examen' }
+const MIN_ENTREGAS_ANALISIS = 3
+const TIPOS_OBJETIVOS_ANALISIS = ['opcion_multiple', 'verdadero_falso']
+
+// Agrega, en código, los resultados reales de una evaluación ya aplicada.
+// Función PURA (sin Firestore) para poder probarla sin emulador — el precheck
+// solo lee documentos y le pasa el resultado a esta función.
+//
+// `preguntas` = [{id, tipo, enunciado, opciones}]
+// `entregas`  = [{ alumnoId, calificacion, respuestas: {preguntaId: {opcionSeleccionada, correcta, puntosObtenidos}} }]
+function agregarResultados({ nombre, categoria, preguntas, entregas }) {
+  const totalEstudiantes = entregas.length
+
+  // Por reactivo: % de acierto y los distractores más elegidos — SOLO para
+  // tipos objetivos (calificación automática). Las de revisión manual
+  // (respuesta_corta/subir_archivo) no aportan % confiable ni distribución:
+  // ni su contenido de texto se lee aquí ni se manda nunca al modelo.
+  const reactivos = preguntas.map((p, i) => {
+    const esObjetivo = TIPOS_OBJETIVOS_ANALISIS.includes(p.tipo)
+    const respuestas = entregas.map((e) => e.respuestas?.[p.id]).filter(Boolean)
+    const calificadas = respuestas.filter((r) => r.correcta != null)
+    const aciertos = calificadas.filter((r) => r.correcta === true).length
+    const pctAciertos = esObjetivo && calificadas.length ? Math.round((aciertos / calificadas.length) * 100) : null
+
+    let distribucionErrores = []
+    if (esObjetivo && p.opciones?.length) {
+      const falladas = calificadas.filter((r) => r.correcta === false)
+      const conteoOpcion = {}
+      falladas.forEach((r) => {
+        if (r.opcionSeleccionada != null) conteoOpcion[r.opcionSeleccionada] = (conteoOpcion[r.opcionSeleccionada] || 0) + 1
+      })
+      distribucionErrores = Object.entries(conteoOpcion)
+        .map(([optId, n]) => ({
+          texto: String(p.opciones.find((o) => o.id === optId)?.texto || 'Otra').slice(0, 200),
+          pct: falladas.length ? Math.round((n / falladas.length) * 100) : 0,
+        }))
+        .sort((a, b) => b.pct - a.pct)
+        .slice(0, 3)
+    }
+
+    return {
+      numero: i + 1,
+      id: p.id,
+      enunciado: String(p.enunciado || '').trim().slice(0, 300),
+      tipo: p.tipo,
+      calificable: esObjetivo,
+      calificadas: calificadas.length,
+      pendientes: respuestas.length - calificadas.length,
+      pctAciertos,
+      distribucionErrores,
+    }
+  })
+
+  const objetivosCalificados = reactivos.filter((r) => r.calificable && r.pctAciertos != null)
+  const porcentajeAciertosGeneral = objetivosCalificados.length
+    ? Math.round(objetivosCalificados.reduce((s, r) => s + r.pctAciertos, 0) / objetivosCalificados.length)
+    : null
+
+  const ranking = [...objetivosCalificados].sort((a, b) => a.pctAciertos - b.pctAciertos)
+  const reactivosDificiles = ranking.slice(0, 3)
+  const reactivosFuertes = ranking.slice(-3).reverse().filter((r) => !reactivosDificiles.includes(r))
+
+  // Estudiantes anonimizados — orden de llegada de las entregas, sin relación
+  // con ninguna lista real. El cliente traduce anonId → nombre con
+  // `mapaAlumnos`, que el modelo NUNCA recibe (se arma después de llamarlo).
+  const objetivas = preguntas.filter((p) => TIPOS_OBJETIVOS_ANALISIS.includes(p.tipo))
+  const estudiantes = entregas.map((e, i) => {
+    const anonId = `Alumno ${i + 1}`
+    const fallados = objetivas.filter((p) => e.respuestas?.[p.id]?.correcta === false).length
+    return { anonId, alumnoId: e.alumnoId, calificacion: e.calificacion ?? null, fallados, totalObjetivas: objetivas.length }
+  })
+
+  // Candidatos a "requiere atención": desempeño objetivamente bajo (<60% de
+  // aciertos en reactivos objetivos) según datos REALES — un umbral de
+  // código, nunca una elección de la IA. Es la única lista de estudiantes que
+  // el modelo puede mencionar (ver `normalizarAnalisis`).
+  const candidatosAtencion = estudiantes
+    .filter((e) => e.totalObjetivas > 0 && (e.totalObjetivas - e.fallados) / e.totalObjetivas < 0.6)
+    .map((e) => ({ anonId: e.anonId, calificacion: e.calificacion, reactivosFallados: e.fallados, totalObjetivas: e.totalObjetivas }))
+
+  return {
+    nombre, categoria, totalEstudiantes, totalReactivos: preguntas.length,
+    porcentajeAciertosGeneral, reactivos, reactivosDificiles, reactivosFuertes,
+    candidatosAtencion,
+    mapaAlumnos: estudiantes.map((e) => ({ anonId: e.anonId, alumnoId: e.alumnoId })),
+  }
+}
+
+// Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
+async function precheckAnalisisResultados({ uid, params }) {
+  const db = getFirestore()
+  const actividadId = String(params?.actividadId || '')
+  if (!actividadId) {
+    throw new HttpsError('invalid-argument',
+      'Guarda primero el cuestionario o examen: el análisis se genera a partir de sus resultados.')
+  }
+
+  const snap = await db.doc(`activities/${actividadId}`).get()
+  if (!snap.exists) throw new HttpsError('not-found', 'La actividad no existe')
+  const act = snap.data()
+  if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+
+  const clase = ANALISIS_PADRES_VALIDOS[act.categoria] || null
+  if (!clase) {
+    throw new HttpsError('failed-precondition', 'Solo un cuestionario o un examen tienen resultados que analizar.')
+  }
+
+  const [pregSnap, subsSnap] = await Promise.all([
+    db.collection(`activities/${actividadId}/preguntas`).get(),
+    db.collection('submissions').where('actividadId', '==', actividadId).get(),
+  ])
+  const preguntas = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  if (!preguntas.length) {
+    throw new HttpsError('failed-precondition', 'Esta evaluación todavía no tiene reactivos.')
+  }
+
+  const entregasDocs = subsSnap.docs.filter((d) => d.data().estadoEvaluacion === 'finalizado')
+  if (entregasDocs.length < MIN_ENTREGAS_ANALISIS) {
+    throw new HttpsError('failed-precondition',
+      `Se necesitan al menos ${MIN_ENTREGAS_ANALISIS} entregas finalizadas para un análisis significativo (hay ${entregasDocs.length}). No se descontaron créditos.`,
+      { codigo: 'CONTEXTO_INSUFICIENTE' })
+  }
+
+  const entregas = await Promise.all(entregasDocs.map(async (d) => {
+    const s = d.data()
+    const respSnap = await db.collection(`submissions/${d.id}/respuestas`).get()
+    const respuestas = {}
+    respSnap.docs.forEach((r) => { respuestas[r.id] = r.data() })
+    return { alumnoId: s.alumnoId, calificacion: s.calificacion ?? null, respuestas }
+  }))
+
+  return agregarResultados({
+    nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
+    categoria: clase,
+    preguntas,
+    entregas,
+  })
+}
+
+const ANALISIS_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un docente de bachillerato ' +
+  'mexicano. Analizas EXCLUSIVAMENTE la agregación de resultados reales que se te entrega — no inventes ' +
+  'porcentajes, estudiantes, errores, dificultades ni causas que no estén en esos datos. Si los datos no alcanzan ' +
+  'para una conclusión, dilo explícitamente en vez de inferir. Distingue siempre tres capas: dato observado (viene ' +
+  'de la agregación, tú no lo calculas), interpretación (tu lectura pedagógica de ese dato) y recomendación (una ' +
+  'acción concreta) — nunca presentes una interpretación como si fuera un dato. Sobre "estudiantes que podrían ' +
+  'requerir atención": SOLO puedes mencionar los anonId de la lista de candidatos que se te da, nunca uno fuera de ' +
+  'esa lista, y siempre como señal a revisar, jamás como diagnóstico. Escribe en español, claro y breve. Responde ' +
+  'únicamente con el JSON del esquema indicado, sin texto adicional.'
+
+function promptAnalisis(ctx) {
+  const reactivosTxt = ctx.reactivos.map((r) =>
+    `${r.numero}. [${r.tipo}] "${r.enunciado}" — ` +
+    (r.calificable
+      ? `${r.pctAciertos}% de acierto (${r.calificadas} calificadas${r.pendientes ? `, ${r.pendientes} pendientes` : ''})` +
+        (r.distribucionErrores.length
+          ? `. Errores más comunes: ${r.distribucionErrores.map((e) => `"${e.texto}" (${e.pct}%)`).join(', ')}`
+          : '')
+      : `de revisión manual (${r.calificadas} calificadas, ${r.pendientes} pendientes) — sin % automático confiable`)
+  ).join('\n')
+
+  const candidatosTxt = ctx.candidatosAtencion.length
+    ? ctx.candidatosAtencion.map((c) => `${c.anonId}: calificación ${c.calificacion ?? 's/d'}, falló ${c.reactivosFallados} de ${c.totalObjetivas} reactivos objetivos`).join('\n')
+    : '(ningún estudiante con desempeño objetivamente bajo en esta agregación — no propongas ninguno)'
+
+  return (
+    `${ctx.categoria === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n` +
+    `${ctx.totalEstudiantes} estudiantes con entrega finalizada. ${ctx.totalReactivos} reactivos.\n` +
+    (ctx.porcentajeAciertosGeneral != null
+      ? `% de aciertos general (reactivos objetivos): ${ctx.porcentajeAciertosGeneral}%.\n`
+      : 'No hay reactivos objetivos calificados para un % general.\n') +
+    `\nREACTIVOS:\n${reactivosTxt}\n\n` +
+    `CANDIDATOS A "requiere atención" (ya filtrados por Evalúa Fácil por bajo desempeño objetivo — SOLO puedes hablar de estos):\n${candidatosTxt}\n\n` +
+    'Responde SOLO con este JSON:\n' +
+    '{\n' +
+    '  "resumenGeneral": "<3-5 frases, apoyado SOLO en los datos de arriba>",\n' +
+    '  "patrones": [{"observacion": "<qué se observa, máx 20 palabras>", "interpretacion": "<posible explicación pedagógica, máx 30 palabras>"}],\n' +
+    '  "estudiantesAtencion": [{"anonId": "<debe ser EXACTAMENTE uno de los candidatos de arriba>", "senal": "<por qué, como señal, no diagnóstico>"}],\n' +
+    '  "recomendaciones": ["<recomendación concreta de intervención o refuerzo>"],\n' +
+    '  "resumenEjecutivo": "<2-3 frases>"\n' +
+    '}'
+  )
+}
+
+// La IA propone SOLO texto (resúmenes, patrones, recomendaciones); TODOS los
+// números (porcentaje general, ranking de reactivos) los pone `ctx`, ya
+// calculado por `agregarResultados` — nunca lo que devuelva el modelo. Y
+// `estudiantesAtencion` se filtra estrictamente contra `candidatosAtencion`:
+// un anonId que la IA se inventara fuera de esa lista se descarta aquí.
+function normalizarAnalisis(datos, ctx) {
+  const anonValidos = new Set(ctx.candidatosAtencion.map((c) => c.anonId))
+  const estudiantesAtencion = (Array.isArray(datos?.estudiantesAtencion) ? datos.estudiantesAtencion : [])
+    .filter((e) => anonValidos.has(e?.anonId))
+    .slice(0, 10)
+    .map((e) => ({ anonId: e.anonId, senal: String(e.senal || '').trim().slice(0, 300) }))
+
+  return {
+    resumenGeneral: String(datos?.resumenGeneral || '').trim().slice(0, 1500),
+    porcentajeAciertosGeneral: ctx.porcentajeAciertosGeneral,
+    reactivosDificiles: ctx.reactivosDificiles.map((r) => ({ numero: r.numero, enunciado: r.enunciado, pctAciertos: r.pctAciertos })),
+    reactivosFuertes: ctx.reactivosFuertes.map((r) => ({ numero: r.numero, enunciado: r.enunciado, pctAciertos: r.pctAciertos })),
+    patrones: (Array.isArray(datos?.patrones) ? datos.patrones : []).slice(0, 6).map((p) => ({
+      observacion: String(p?.observacion || '').trim().slice(0, 200),
+      interpretacion: String(p?.interpretacion || '').trim().slice(0, 300),
+    })),
+    estudiantesAtencion,
+    recomendaciones: (Array.isArray(datos?.recomendaciones) ? datos.recomendaciones : []).slice(0, 8).map((r) => String(r || '').trim().slice(0, 300)),
+    resumenEjecutivo: String(datos?.resumenEjecutivo || '').trim().slice(0, 500),
+    mapaAlumnos: ctx.mapaAlumnos, // el cliente traduce anonId → nombre real; la IA nunca lo vio
+    totalEstudiantes: ctx.totalEstudiantes,
+    totalReactivos: ctx.totalReactivos,
+  }
+}
+
+async function ejecutarAnalisisResultados({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+
+  const { datos, interno } = await pedirJSON({
+    client, modelo, maxTokens: 2500, system: ANALISIS_SISTEMA,
+    prompt: promptAnalisis(ctx),
+  })
+
+  const resultado = normalizarAnalisis(datos, ctx)
+  // Regla de no invención (T.7): sin resumen ni resumen ejecutivo no hay nada
+  // aprovechable — esto NO se cobra, cae al catch del callable y reembolsa.
+  if (!resultado.resumenGeneral && !resultado.resumenEjecutivo) {
+    throw new Error('El asistente de IA no generó un análisis utilizable')
+  }
+
+  return { resultado, unidadesReales: 1, interno }
+}
+
 // ── Traducción de errores del ledger a HttpsError ───────────────────────────
 function comoHttpsError(e) {
   if (e instanceof HttpsError) return e
@@ -947,4 +1197,5 @@ exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
 exports._pruebas = {
   contextoDeActividad, condicionesEntregable, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
   precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MAX_REACTIVOS,
+  agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
 }

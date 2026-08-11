@@ -57,6 +57,7 @@ const TARIFAS = {
     resumen_grupo: 1,
     rubrica: 3,
     reactivos: 1,
+    analizar_resultados: 5,
     examen: 10,
     cuestionario: 10,
     analisis_apoyo: 20,
@@ -82,6 +83,7 @@ const TARIFAS = {
     resumen_grupo: 'Seguimiento',
     rubrica: 'Actividades',
     reactivos: 'Evaluaciones',
+    analizar_resultados: 'Evaluaciones',
     examen: 'Evaluaciones',
     cuestionario: 'Evaluaciones',
     analisis_apoyo: 'Planeación',
@@ -102,6 +104,8 @@ const TARIFAS = {
     cotejo: 'claude-haiku-4-5',
     // OP-09 (10-ago-2026): reactivos de un cuestionario o examen.
     reactivos: 'claude-haiku-4-5',
+    // OP-10 (11-ago-2026): análisis de resultados de un cuestionario o examen.
+    analizar_resultados: 'claude-haiku-4-5',
   },
   // Datos de exhibición para el panel de créditos (sin costos internos).
   planes: {
