@@ -511,6 +511,24 @@ service cloud.firestore {
         request.auth.uid == resource.data.docenteId;
     }
 
+    // Fuentes del Asistente IA (FASE 2-BIS del Plan Maestro de IA) — PDF/Word
+    // que el docente guarda una vez por Asignatura (generales o por parcial)
+    // para reutilizarlos como contexto en operaciones de IA futuras. A
+    // diferencia de `resources`/`materials`, son PRIVADAS del docente dueño:
+    // ni otro docente ni ningún estudiante puede leerlas (piden contexto
+    // pedagógico del docente, no material para el grupo). Inmutables: se
+    // eliminan y se vuelven a subir, no se editan (así no hay que validar
+    // cambios parciales de `ubicacion`/`parcial` en `update`).
+    match /fuentesAsignatura/{fuenteId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.docenteId;
+      allow create: if docenteActivo() &&
+        request.auth.uid == request.resource.data.docenteId &&
+        ownsSubject(request.resource.data.asignaturaId);
+      allow update: if false;
+      allow delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
+    }
+
     // Avisos — comunicados de solo-informar del docente a todo el grupo de
     // una asignatura (no es un chat: sin respuestas ni reacciones, así que
     // no hay una sub-colección de mensajes que proteger). Mismo patrón de

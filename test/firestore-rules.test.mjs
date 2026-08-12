@@ -1347,5 +1347,51 @@ const snapPerfilIA = await getDoc(doc(asT1, 'users', T1))
 assert.strictEqual(snapPerfilIA.data().perfilIA.estiloClase, 'Muy participativo')
 ok('Perfil IA · el valor guardado persiste tal cual se envió')
 
+// ── Fuentes del Asistente IA (apartado "Fuentes", FASE 2-BIS) ──────────────
+// Colección propia `fuentesAsignatura` — a diferencia de `resources`/
+// `materials`, son PRIVADAS del docente dueño: ni otro docente ni un
+// estudiante inscrito puede leerlas.
+const fuenteGeneralRef = await assertSucceeds(addDoc(collection(asT1, 'fuentesAsignatura'), {
+  asignaturaId: 'S1', docenteId: T1, nombre: 'programa.pdf', tipo: 'pdf',
+  ubicacion: 'general', parcial: null, url: 'https://example.com/programa.pdf', tamano: 1024,
+}))
+ok('Fuentes IA · owner teacher CAN create a fuente for their own subject')
+
+await assertFails(addDoc(collection(asT2, 'fuentesAsignatura'), {
+  asignaturaId: 'S1', docenteId: T2, nombre: 'intruso.pdf', tipo: 'pdf',
+  ubicacion: 'general', parcial: null, url: 'https://example.com/intruso.pdf', tamano: 1024,
+}))
+ok('Fuentes IA · foreign teacher CANNOT create a fuente on another teacher\'s subject')
+
+await assertFails(addDoc(collection(asT1, 'fuentesAsignatura'), {
+  asignaturaId: 'S1', docenteId: T2, nombre: 'suplantado.pdf', tipo: 'pdf',
+  ubicacion: 'general', parcial: null, url: 'https://example.com/x.pdf', tamano: 1024,
+}))
+ok('Fuentes IA · teacher CANNOT forge docenteId to someone else on create')
+
+await assertFails(addDoc(collection(asT1, 'fuentesAsignatura'), {
+  asignaturaId: 'S2', docenteId: T1, nombre: 'ajena.pdf', tipo: 'pdf',
+  ubicacion: 'general', parcial: null, url: 'https://example.com/x.pdf', tamano: 1024,
+}))
+ok('Fuentes IA · teacher CANNOT attach a fuente to a subject they don\'t own')
+
+await assertSucceeds(getDoc(doc(asT1, 'fuentesAsignatura', fuenteGeneralRef.id)))
+ok('Fuentes IA · owner teacher CAN read their own fuente')
+
+await assertFails(getDoc(doc(asT2, 'fuentesAsignatura', fuenteGeneralRef.id)))
+ok('Fuentes IA · foreign teacher CANNOT read another teacher\'s fuente')
+
+await assertFails(getDoc(doc(asJuan, 'fuentesAsignatura', fuenteGeneralRef.id)))
+ok('Fuentes IA · enrolled student CANNOT read a fuente (privada del docente)')
+
+await assertFails(updateDoc(doc(asT1, 'fuentesAsignatura', fuenteGeneralRef.id), { nombre: 'renombrado.pdf' }))
+ok('Fuentes IA · fuentes are immutable — even the owner CANNOT update one')
+
+await assertFails(deleteDoc(doc(asT2, 'fuentesAsignatura', fuenteGeneralRef.id)))
+ok('Fuentes IA · foreign teacher CANNOT delete another teacher\'s fuente')
+
+await assertSucceeds(deleteDoc(doc(asT1, 'fuentesAsignatura', fuenteGeneralRef.id)))
+ok('Fuentes IA · owner teacher CAN delete their own fuente')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

@@ -78,6 +78,8 @@ import CrearEvaluacionIAModal from '../../components/CrearEvaluacionIAModal'
 import CrearActividadIAModal from '../../components/CrearActividadIAModal'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
+import AsistenteIATab from '../../components/subject/AsistenteIATab'
+import { isPerfilIACompleto } from '../../utils/perfilIA'
 import { canCreateContent, hasCleanExports } from '../../utils/subscriptionHelpers'
 import ConfirmModal from '../../components/ConfirmModal'
 
@@ -534,6 +536,10 @@ export default function SubjectPage() {
   // Sin suscripción activa (trial, vencida, cancelada, pendiente_pago) todas
   // las exportaciones PDF/Excel llevan marca de agua — pedido explícito.
   const exportsWatermarked = !hasCleanExports(subscription)
+  // Asistente IA (FASE 2-BIS del Plan Maestro de IA) solo aparece si el
+  // docente ya completó su Perfil para IA — mismo contexto para todas sus
+  // asignaturas, capturado una sola vez (ver /perfil-ia).
+  const perfilIACompleto = isPerfilIACompleto(userProfile?.perfilIA)
   // Escuela + docente que encabezan cada PDF/Excel que se descarga de aquí.
   const membrete = membreteDe(userProfile)
   // Resuelve la promesa de confirmExportNotice() — no-null mientras el aviso
@@ -1286,6 +1292,12 @@ export default function SubjectPage() {
     if (tab === 'recursos' && !resourcesLoaded) ensureResources()
     if (tab === 'asistencia' && !attendanceLoaded) loadAttendance()
   }
+
+  // Si el Perfil IA deja de estar completo (o la pestaña llegó por un enlace
+  // viejo) mientras "Asistente IA" está activa, no la dejamos montada.
+  useEffect(() => {
+    if (activeTab === 'asistente-ia' && !perfilIACompleto) setActiveTab('actividades')
+  }, [activeTab, perfilIACompleto])
 
   // En la app nativa, la pestaña Asistencias se ve en HORIZONTAL (para caber más
   // columnas); el resto de la app queda en vertical.
@@ -3984,12 +3996,12 @@ export default function SubjectPage() {
               {(IS_NATIVE_APP
                 ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
                 : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos']
-              ).map((t) => (
+              ).concat(perfilIACompleto ? ['asistente-ia'] : []).map((t) => (
                 <button type="button" key={t} onClick={() => switchTab(t)}
                   className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                     activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                   }`}>
-                  {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : 'Avisos'}
+                  {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Asistente IA'}
                 </button>
               ))}
             </div>
@@ -5413,6 +5425,19 @@ export default function SubjectPage() {
                 : 'Necesitas al menos un estudiante inscrito para publicar un aviso',
               'error'
             )}
+          />
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════
+          TAB: ASISTENTE IA — solo Fuentes en esta etapa (FASE 2-BIS)
+      ══════════════════════════════════════════════════════════ */}
+      {activeTab === 'asistente-ia' && perfilIACompleto && (
+        <div className={TEACHER_CONTAINER_NARROW}>
+          <AsistenteIATab
+            subjectId={subjectId}
+            docenteId={currentUser.uid}
+            parciales={subject?.parciales || 3}
           />
         </div>
       )}

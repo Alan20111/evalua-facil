@@ -25,6 +25,7 @@ import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosI
 import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
+import { tipoFuentePermitido, extensionDeArchivo } from '../src/utils/fuentesAsignatura.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -1066,6 +1067,39 @@ caso('campos requeridos solo con espacios en blanco no cuentan como llenos', () 
   assert.strictEqual(isPerfilIACompleto({
     estiloClase: '   ', habilidades: 'Proyectos', experiencia: '8 años',
   }), false)
+})
+
+grupo('Fuentes del Asistente IA — apartado Fuentes')
+
+caso('PDF y Word (.pdf/.doc/.docx) son formatos permitidos', () => {
+  assert.strictEqual(tipoFuentePermitido('programa.pdf'), true)
+  assert.strictEqual(tipoFuentePermitido('guia.doc'), true)
+  assert.strictEqual(tipoFuentePermitido('guia.docx'), true)
+  assert.strictEqual(tipoFuentePermitido('PROGRAMA.PDF'), true)
+})
+
+caso('otros formatos (imagen, Excel, sin extensión) se rechazan', () => {
+  assert.strictEqual(tipoFuentePermitido('foto.jpg'), false)
+  assert.strictEqual(tipoFuentePermitido('datos.xlsx'), false)
+  assert.strictEqual(tipoFuentePermitido('sinextension'), false)
+  assert.strictEqual(tipoFuentePermitido(''), false)
+})
+
+caso('extensionDeArchivo normaliza a minúsculas', () => {
+  assert.strictEqual(extensionDeArchivo('Programa.PDF'), 'pdf')
+  assert.strictEqual(extensionDeArchivo('guia.docx'), 'docx')
+})
+
+caso('una fuente marcada como general no lleva número de parcial (contrato de datos)', () => {
+  const fuenteGeneral = { ubicacion: 'general', parcial: null }
+  assert.strictEqual(fuenteGeneral.ubicacion, 'general')
+  assert.strictEqual(fuenteGeneral.parcial, null)
+})
+
+caso('una fuente de parcial queda asociada al número de parcial correcto', () => {
+  const fuenteParcial2 = { ubicacion: 'parcial', parcial: 2 }
+  assert.strictEqual(fuenteParcial2.ubicacion, 'parcial')
+  assert.strictEqual(fuenteParcial2.parcial, 2)
 })
 
 // ═══ Resumen ═════════════════════════════════════════════════════════════════
