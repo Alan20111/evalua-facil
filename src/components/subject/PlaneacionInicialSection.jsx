@@ -81,7 +81,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
       setConfirmando(false)
       if (err.codigo === 'SALDO_INSUFICIENTE') toast('No tienes suficientes créditos de IA para esta acción', 'error')
       else if (err.codigo === 'PERFIL_IA_INCOMPLETO') toast('Completa primero tu Perfil para IA del docente', 'error')
-      else if (err.codigo === 'SIN_FUENTES_GENERALES') toast('Agrega primero una fuente inicial general', 'error')
+      else if (err.codigo === 'SIN_FUENTES_GENERALES') toast('Agrega primero un documento en Fuentes para todo el curso', 'error')
       else if (err.codigo === 'SIN_DIAGNOSTICO_CONTEXTO') toast('Genera primero el Diagnóstico de contexto', 'error')
       else if (err.codigo === 'SIN_DIAGNOSTICO_CONOCIMIENTOS') toast('Genera primero el Diagnóstico de conocimientos', 'error')
       else toast(err.message || 'El asistente de IA no está disponible en este momento', 'error')
@@ -124,7 +124,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
 
       {!habilitado && (
         <ul className="space-y-1 mb-1">
-          <RequisitoItem ok={hayFuentesGenerales} texto="Fuentes iniciales generales" />
+          <RequisitoItem ok={hayFuentesGenerales} texto="Fuentes para todo el curso" />
           <RequisitoItem ok={hayContexto} texto="Diagnóstico de contexto generado" />
           <RequisitoItem ok={hayConocimientos} texto="Diagnóstico de conocimientos generado" />
         </ul>

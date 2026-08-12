@@ -25,7 +25,7 @@ import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosI
 import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
-import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales } from '../src/utils/fuentesAsignatura.js'
+import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO } from '../src/utils/fuentesAsignatura.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -1109,6 +1109,20 @@ caso('hayFuentesGenerales: falso sin fuentes o solo con fuentes de parcial', () 
 
 caso('hayFuentesGenerales: verdadero en cuanto hay al menos una fuente general', () => {
   assert.strictEqual(hayFuentesGenerales([{ ubicacion: 'parcial', parcial: 1 }, { ubicacion: 'general' }]), true)
+})
+
+caso('MAX_FUENTES_POR_GRUPO: tope de biblioteca por grupo es 1 a 10 documentos (decisión de Kike, 12-ago-2026)', () => {
+  assert.strictEqual(MAX_FUENTES_POR_GRUPO, 10)
+})
+
+caso('comentariosGrupoATexto: usa el texto del docente tal cual, recortado de espacios', () => {
+  assert.strictEqual(FIA.comentariosGrupoATexto('  Apenas saben sumar.  '), 'Apenas saben sumar.')
+})
+
+caso('comentariosGrupoATexto: sin comentarios, lo dice explícitamente (no inventa)', () => {
+  assert.strictEqual(FIA.comentariosGrupoATexto(''), 'El docente no dejó comentarios generales sobre el grupo.')
+  assert.strictEqual(FIA.comentariosGrupoATexto(null), 'El docente no dejó comentarios generales sobre el grupo.')
+  assert.strictEqual(FIA.comentariosGrupoATexto(undefined), 'El docente no dejó comentarios generales sobre el grupo.')
 })
 
 grupo('Diagnóstico del grupo — apartado 2 de Asistente IA')

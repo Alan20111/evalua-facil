@@ -148,7 +148,7 @@ function DiagnosticoBloque({ tipo, subjectId, docenteId, asignaturaNombre }) {
       } else if (err.codigo === 'PERFIL_IA_INCOMPLETO') {
         toast('Completa primero tu Perfil para IA del docente', 'error')
       } else if (err.codigo === 'SIN_FUENTES_GENERALES') {
-        toast('Agrega primero una fuente inicial general', 'error')
+        toast('Agrega primero un documento en Fuentes para todo el curso', 'error')
       } else {
         toast(err.message || 'El asistente de IA no está disponible en este momento', 'error')
       }
@@ -247,7 +247,7 @@ export default function DiagnosticoGrupoSection({ subjectId, docenteId, asignatu
       <div className="bg-surface-card rounded-card shadow-card p-3">
         <h2 className="font-bold text-on-surface">Diagnóstico del grupo</h2>
         <p className="text-sm text-muted mt-1">
-          Agrega primero al menos una fuente inicial general (arriba, en &ldquo;Fuentes iniciales generales&rdquo;)
+          Agrega primero al menos un documento (arriba, en &ldquo;Fuentes para todo el curso&rdquo;)
           para poder generar los diagnósticos de este grupo.
         </p>
       </div>

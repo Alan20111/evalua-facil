@@ -1599,6 +1599,17 @@ function perfilIATexto(perfilIA) {
   return partes.length ? partes.join('\n') : 'Información no disponible en las fuentes proporcionadas.'
 }
 
+// "Comentarios generales del grupo y su entorno" — texto libre que el
+// docente escribe directamente (no lo genera la IA), p. ej. "apenas saben
+// sumar", "nunca han usado más tecnología que el celular". Es la pieza que
+// más debe pesar en la Planeación, junto con los diagnósticos — más que las
+// fuentes. Opcional: si el docente no lo llenó, se dice explícitamente que
+// no hay observación (nunca se inventa una).
+function comentariosGrupoATexto(comentarios) {
+  const texto = String(comentarios || '').trim()
+  return texto || 'El docente no dejó comentarios generales sobre el grupo.'
+}
+
 // Precheck compartido por los dos diagnósticos — todo lo que puede rechazar
 // la operación SIN gastar un crédito: dueño de la asignatura, Perfil IA
 // completo, al menos una fuente inicial general.
@@ -1626,7 +1637,7 @@ async function precheckDiagnostico({ uid, params }) {
     .get()
   if (fuentesSnap.empty) {
     throw new HttpsError('failed-precondition',
-      'Agrega primero al menos una fuente inicial general en Asistente IA → Fuentes. No se descontaron créditos.',
+      'Agrega primero al menos un documento en Config Asistente IA → Fuentes → Fuentes para todo el curso. No se descontaron créditos.',
       { codigo: 'SIN_FUENTES_GENERALES' })
   }
 
@@ -1636,10 +1647,13 @@ async function precheckDiagnostico({ uid, params }) {
   })
   const seleccionadas = seleccionarFuentesGenerales(fuentes)
   const bloqueFuentes = await fuentesIA.prepararBloqueFuentes(seleccionadas.map((f) => f.url))
+  const comentariosGrupoSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
+  const comentariosGrupoTexto = comentariosGrupoATexto(comentariosGrupoSnap.data()?.comentariosGrupo)
 
   return {
     asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
     perfilIATexto: perfilIATexto(perfilIA),
+    comentariosGrupoTexto,
     bloqueFuentes,
     fuentesUsadas: seleccionadas.map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
   }
@@ -1666,11 +1680,14 @@ function promptDiagnosticoContexto(ctx) {
   return (
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n\n` +
     `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
+    `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (observación directa suya — ` +
+    `si viene con contenido, dale MÁS peso que a las fuentes: es lo que el docente ve con sus ` +
+    `propios ojos):\n${ctx.comentariosGrupoTexto}\n\n` +
     (ctx.bloqueFuentes ? `${ctx.bloqueFuentes}\n\n` : '') +
     'Construye un DIAGNÓSTICO DE CONTEXTO: qué características del grupo son relevantes para el ' +
     'trabajo docente, a partir SOLO de lo anterior. Distingue siempre un DATO (algo que aparece ' +
-    'literalmente en las fuentes o el perfil) de una INTERPRETACIÓN (una lectura tuya) — nunca ' +
-    'los mezcles. Responde SOLO con este JSON (usa arreglos vacíos si una lista no aplica):\n' +
+    'literalmente en las fuentes, el perfil o los comentarios del docente) de una INTERPRETACIÓN ' +
+    '(una lectura tuya) — nunca los mezcles. Responde SOLO con este JSON (usa arreglos vacíos si una lista no aplica):\n' +
     '{\n' +
     '  "datosEncontrados": ["<dato literal, máx 200 caracteres>", "..."],\n' +
     '  "interpretacion": ["<lectura o inferencia tuya a partir de esos datos, máx 200 caracteres>", "..."],\n' +
@@ -1866,7 +1883,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
   const generales = fuentes.filter((f) => f.ubicacion === 'general')
   if (!generales.length) {
     throw new HttpsError('failed-precondition',
-      'Agrega primero al menos una fuente inicial general en Asistente IA → Fuentes. No se descontaron créditos.',
+      'Agrega primero al menos un documento en Config Asistente IA → Fuentes → Fuentes para todo el curso. No se descontaron créditos.',
       { codigo: 'SIN_FUENTES_GENERALES' })
   }
 
@@ -1884,19 +1901,21 @@ async function precheckPlaneacionInicial({ uid, params }) {
   const diagContexto = masReciente('contexto')
   if (!diagContexto) {
     throw new HttpsError('failed-precondition',
-      'Genera primero el Diagnóstico de contexto en Asistente IA → Diagnóstico del grupo. No se descontaron créditos.',
+      'Genera primero el Diagnóstico de contexto en Config Asistente IA → Diagnóstico del grupo. No se descontaron créditos.',
       { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
   }
   const diagConocimientos = masReciente('conocimientos')
   if (!diagConocimientos) {
     throw new HttpsError('failed-precondition',
-      'Genera primero el Diagnóstico de conocimientos en Asistente IA → Diagnóstico del grupo. No se descontaron créditos.',
+      'Genera primero el Diagnóstico de conocimientos en Config Asistente IA → Diagnóstico del grupo. No se descontaron créditos.',
       { codigo: 'SIN_DIAGNOSTICO_CONOCIMIENTOS' })
   }
 
   const bloqueFuentesGenerales = await fuentesIA.prepararBloqueFuentes(
     seleccionarFuentesGenerales(generales).map((f) => f.url)
   )
+  const comentariosGrupoSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
+  const comentariosGrupoTexto = comentariosGrupoATexto(comentariosGrupoSnap.data()?.comentariosGrupo)
 
   const numParciales = Math.max(1, Number(subj.parciales) || 1)
   const parcialesFechas = Array.isArray(subj.parcialesFechas) ? subj.parcialesFechas : []
@@ -1922,6 +1941,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
   return {
     asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
     perfilIATexto: perfilIATexto(perfilIA),
+    comentariosGrupoTexto,
     bloqueFuentesGenerales,
     diagnosticoContextoTexto: diagnosticoContextoATexto(diagContexto.resultado),
     diagnosticoConocimientosTexto: diagnosticoConocimientosATexto(diagConocimientos.resultado),
@@ -1945,7 +1965,12 @@ const PLANEACION_SISTEMA =
   'IA:" para que quede claro que no es contenido oficial. Si algo no está disponible, usa la ' +
   'frase exacta "Información no disponible en las fuentes proporcionadas." en vez de inventarlo. ' +
   'El diagnóstico de conocimientos es solo un INSTRUMENTO aún sin aplicar: nunca afirmes que el ' +
-  'grupo tiene una debilidad real que el diagnóstico no reportó como hallazgo. Escribe en ' +
+  'grupo tiene una debilidad real que el diagnóstico no reportó como hallazgo. Los COMENTARIOS ' +
+  'GENERALES DEL DOCENTE sobre el grupo y su entorno (cuando los haya) son observación directa ' +
+  'suya, no una fuente documental — junto con los diagnósticos, son lo que MÁS debe pesar al ' +
+  'decidir la estrategia, las actividades y el nivel de las propuestas (más que las fuentes): si ' +
+  'el docente dice que el grupo apenas sabe sumar o casi no ha usado tecnología, la propuesta ' +
+  'tiene que reflejarlo, no ignorarlo. Escribe en ' +
   'español, claro y breve. Responde únicamente con el JSON del esquema indicado, sin texto adicional.'
 
 function promptPlaneacionParcial(ctx, parcialCtx) {
@@ -1953,6 +1978,8 @@ function promptPlaneacionParcial(ctx, parcialCtx) {
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n` +
     `PARCIAL ${parcialCtx.numero}${parcialCtx.periodoTexto ? ` (periodo: ${parcialCtx.periodoTexto})` : ''}.\n\n` +
     `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
+    `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (el insumo que más debe pesar, ` +
+    `junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` +
     `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` +
     `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` +
     (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
@@ -2195,5 +2222,5 @@ exports._pruebas = {
   normalizarDiagnosticoContexto, normalizarDiagnosticoConocimientos, normalizarReactivosDiagnostico,
   MAX_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO,
   precheckPlaneacionInicial, formatoPeriodo, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
-  normalizarFilaPlaneacion, normalizarFilasPlaneacion, MAX_FILAS_PLANEACION_PARCIAL,
+  normalizarFilaPlaneacion, normalizarFilasPlaneacion, MAX_FILAS_PLANEACION_PARCIAL, comentariosGrupoATexto,
 }

@@ -14,6 +14,12 @@ export function tipoFuentePermitido(nombre) {
   return ['pdf', 'doc', 'docx'].includes(extensionDeArchivo(nombre))
 }
 
+// Tope de la BIBLIOTECA de cada grupo (Fuentes para todo el curso, o cada
+// parcial) — decisión de Kike, 12-ago-2026: de 1 a 10 documentos por grupo.
+// Distinto del límite por carga (utils/fuentesIA.js MAX_FUENTES = 3, cuántos
+// archivos se pueden elegir en una sola subida).
+export const MAX_FUENTES_POR_GRUPO = 10
+
 // El apartado "Diagnóstico del grupo" se habilita únicamente cuando existen
 // fuentes iniciales GENERALES (nunca por fuentes de un parcial en particular)
 // — regla explícita del Plan Maestro (FASE 2-BIS, apartado 2).

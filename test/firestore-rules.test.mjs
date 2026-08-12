@@ -1500,5 +1500,36 @@ ok('Planeación IA · NOBODY, not even the owner, can update a planeación entry
 await assertFails(deleteDoc(doc(asT1, 'subjects', 'S1', 'planeacionesIA', planRef.id)))
 ok('Planeación IA · NOBODY, not even the owner, can delete a planeación entry')
 
+// ── Config del Asistente IA — "Comentarios generales del grupo" ────────────
+// subjects/{id}/asistenteIA/config — a diferencia de diagnosticosIA/
+// planeacionesIA, este SÍ se puede actualizar (es un campo editable, no una
+// bitácora), pero sigue siendo privado del docente dueño.
+await assertSucceeds(setDoc(doc(asT1, 'subjects', 'S1', 'asistenteIA', 'config'), {
+  docenteId: T1, comentariosGrupo: 'Apenas saben sumar.',
+}))
+ok('Config Asistente IA · owner teacher CAN create/save the comentarios doc')
+
+await assertSucceeds(setDoc(doc(asT1, 'subjects', 'S1', 'asistenteIA', 'config'), {
+  docenteId: T1, comentariosGrupo: 'Editado: el grupo mejoró mucho.',
+}))
+ok('Config Asistente IA · owner teacher CAN edit/overwrite the comentarios doc (not a bitácora)')
+
+await assertFails(setDoc(doc(asT2, 'subjects', 'S1', 'asistenteIA', 'config'), {
+  docenteId: T2, comentariosGrupo: 'Intruso',
+}))
+ok('Config Asistente IA · foreign teacher CANNOT write another teacher\'s comentarios')
+
+await assertSucceeds(getDoc(doc(asT1, 'subjects', 'S1', 'asistenteIA', 'config')))
+ok('Config Asistente IA · owner teacher CAN read their own comentarios')
+
+await assertFails(getDoc(doc(asT2, 'subjects', 'S1', 'asistenteIA', 'config')))
+ok('Config Asistente IA · foreign teacher CANNOT read another teacher\'s comentarios')
+
+await assertFails(getDoc(doc(asJuan, 'subjects', 'S1', 'asistenteIA', 'config')))
+ok('Config Asistente IA · enrolled student CANNOT read the comentarios (privado del docente)')
+
+await assertFails(deleteDoc(doc(asT1, 'subjects', 'S1', 'asistenteIA', 'config')))
+ok('Config Asistente IA · NOBODY, not even the owner, can delete the comentarios doc')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

@@ -9,20 +9,23 @@ import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import { Paperclip, Trash2, FileText } from 'lucide-react'
 import { MAX_FUENTES, MAX_FUENTE_BYTES, FUENTES_ACCEPT, subirFuentes } from '../../utils/fuentesIA'
-import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales } from '../../utils/fuentesAsignatura'
+import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO } from '../../utils/fuentesAsignatura'
 import { apiUrl } from '../../utils/apiBase'
+import ComentariosGrupoSection from './ComentariosGrupoSection'
 import DiagnosticoGrupoSection from './DiagnosticoGrupoSection'
 import PlaneacionInicialSection from './PlaneacionInicialSection'
 
 // Un grupo de fuentes (generales o de un parcial): lista + botón para subir
-// hasta MAX_FUENTES a la vez. La subida es inmediata al elegir el archivo —
-// no hay un paso de "guardar" aparte, igual que "Recursos".
+// hasta MAX_FUENTES a la vez, con un tope de MAX_FUENTES_POR_GRUPO documentos
+// guardados en total en ese grupo (decisión de Kike, 12-ago-2026: 1 a 10). La
+// subida es inmediata al elegir el archivo — no hay un paso de "guardar"
+// aparte, igual que "Recursos".
 function GrupoFuentes({ titulo, fuentes, onAgregar, onEliminar, subiendo, eliminandoId }) {
   return (
     <div className="bg-surface-card rounded-card shadow-card p-3">
       <div className="flex items-center justify-between gap-2 mb-2">
         <h3 className="font-semibold text-on-surface text-sm">{titulo}</h3>
-        {fuentes.length < MAX_FUENTES ? (
+        {fuentes.length < MAX_FUENTES_POR_GRUPO ? (
           <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-dashed border-outline-variant text-xs sm:text-sm text-accent cursor-pointer hover:bg-[var(--accent-tint)] flex-shrink-0">
             {subiendo ? <Spinner size="sm" /> : <Paperclip size={14} />}
             Agregar fuentes
@@ -40,7 +43,7 @@ function GrupoFuentes({ titulo, fuentes, onAgregar, onEliminar, subiendo, elimin
             />
           </label>
         ) : (
-          <span className="text-xs text-muted flex-shrink-0">Máximo {MAX_FUENTES} por carga</span>
+          <span className="text-xs text-muted flex-shrink-0">Máximo {MAX_FUENTES_POR_GRUPO} documentos en este grupo</span>
         )}
       </div>
 
@@ -105,10 +108,18 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
   }, [subjectId, docenteId])
 
   async function agregarFuentes(grupo, ubicacion, parcial, files) {
-    // El límite de MAX_FUENTES es POR CARGA (ver utils/fuentesIA.js), no un
-    // tope total de la asignatura — la biblioteca puede seguir creciendo.
+    // El límite de MAX_FUENTES es POR CARGA (ver utils/fuentesIA.js) — aparte
+    // está el tope de la BIBLIOTECA del grupo, MAX_FUENTES_POR_GRUPO (1 a 10
+    // documentos guardados en total, decisión de Kike 12-ago-2026).
     if (files.length > MAX_FUENTES) {
       toast(`Puedes subir máximo ${MAX_FUENTES} archivos por carga`, 'error')
+      return
+    }
+    const existentesEnGrupo = ubicacion === 'general'
+      ? fuentes.filter((f) => f.ubicacion === 'general').length
+      : fuentes.filter((f) => f.ubicacion === 'parcial' && f.parcial === parcial).length
+    if (existentesEnGrupo + files.length > MAX_FUENTES_POR_GRUPO) {
+      toast(`Este grupo admite máximo ${MAX_FUENTES_POR_GRUPO} documentos en total (ya tiene ${existentesEnGrupo})`, 'error')
       return
     }
     const noPermitido = files.find((f) => !tipoFuentePermitido(f.name))
@@ -189,12 +200,12 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
           guardan una sola vez y podrás reutilizarlos después al crear
           exámenes, cuestionarios, actividades y otras funciones de IA — no
           hace falta volver a subirlos cada vez. Formatos permitidos: PDF y
-          Word, hasta {MAX_FUENTES} archivos por carga.
+          Word, hasta {MAX_FUENTES} archivos por carga y {MAX_FUENTES_POR_GRUPO} documentos en total por grupo.
         </p>
       </div>
 
       <GrupoFuentes
-        titulo="Fuentes iniciales generales"
+        titulo="Fuentes para todo el curso"
         fuentes={generales}
         subiendo={subiendoGrupo === 'general'}
         eliminandoId={eliminandoId}
@@ -215,6 +226,10 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
       ))}
 
       <div className="pt-2 border-t border-outline-variant">
+        <ComentariosGrupoSection subjectId={subjectId} docenteId={docenteId} />
+      </div>
+
+      <div>
         <DiagnosticoGrupoSection
           subjectId={subjectId}
           docenteId={docenteId}

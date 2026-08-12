@@ -404,6 +404,22 @@ service cloud.firestore {
           request.resource.data.docenteId == request.auth.uid;
         allow update, delete: if false;
       }
+
+      // Config del Asistente IA de la asignatura (12-ago-2026) — un solo
+      // documento con "Comentarios generales del grupo y su entorno": texto
+      // libre del docente (p. ej. "apenas saben sumar", "nunca han usado más
+      // tecnología que el celular"). A diferencia de diagnosticosIA/
+      // planeacionesIA, esto NO es una bitácora — es un campo que el docente
+      // edita y vuelve a guardar, como el Perfil IA. Privado del docente
+      // dueño: es una observación suya sobre el grupo, no material del curso.
+      match /asistenteIA/{docId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
+        allow create, update: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
+          request.resource.data.docenteId == request.auth.uid;
+        allow delete: if false;
+      }
     }
 
     match /activities/{activityId} {
