@@ -57,7 +57,27 @@ const TARIFAS = {
     resumen_grupo: 1,
     rubrica: 3,
     reactivos: 1,
+    // OP-03/OP-04 (11-ago-2026): crear examen/cuestionario completo con IA —
+    // 1 crédito por REACTIVO realmente generado (unidadesReales), igual que
+    // 'reactivos'; no confundir con 'examen'/'cuestionario' de abajo, que son
+    // tarifas de una fase distinta aún no conectada.
+    crear_evaluacion_ia: 1,
+    // OP-05 (11-ago-2026): crear entregable/observación completo con IA —
+    // mismo valor unitario que crear_evaluacion_ia (1 crédito por operación).
+    crear_actividad_ia: 1,
     analizar_resultados: 5,
+    // Diagnóstico del grupo (FASE 2-BIS, apartado 2 de Asistente IA) — dos
+    // operaciones independientes, decisión de Kike el 12-ago-2026: tarifa
+    // FIJA por generación (no por reactivo), sin importar cuántos reactivos
+    // salgan en el de conocimientos.
+    diagnostico_contexto: 5,
+    diagnostico_conocimientos: 10,
+    // Planeación Didáctica Inicial (FASE 2-BIS, apartado 3 de Asistente IA) —
+    // decisión de Kike el 12-ago-2026: tarifa FIJA por generación, cubre
+    // TODOS los parciales reales de la asignatura en una sola operación. NO
+    // reutiliza planeacion_tronco/planeacion_bloque (arquitectura descartada
+    // de Planeación Viva, ver más abajo).
+    planeacion_didactica_inicial: 20,
     examen: 10,
     cuestionario: 10,
     analisis_apoyo: 20,
@@ -83,7 +103,12 @@ const TARIFAS = {
     resumen_grupo: 'Seguimiento',
     rubrica: 'Actividades',
     reactivos: 'Evaluaciones',
+    crear_evaluacion_ia: 'Evaluaciones',
+    crear_actividad_ia: 'Actividades',
     analizar_resultados: 'Evaluaciones',
+    diagnostico_contexto: 'Diagnóstico',
+    diagnostico_conocimientos: 'Diagnóstico',
+    planeacion_didactica_inicial: 'Planeación',
     examen: 'Evaluaciones',
     cuestionario: 'Evaluaciones',
     analisis_apoyo: 'Planeación',
@@ -104,8 +129,16 @@ const TARIFAS = {
     cotejo: 'claude-haiku-4-5',
     // OP-09 (10-ago-2026): reactivos de un cuestionario o examen.
     reactivos: 'claude-haiku-4-5',
+    // OP-03/OP-04 (11-ago-2026): crear examen/cuestionario completo con IA.
+    crear_evaluacion_ia: 'claude-haiku-4-5',
+    // OP-05 (11-ago-2026): crear entregable/observación completo con IA.
+    crear_actividad_ia: 'claude-haiku-4-5',
     // OP-10 (11-ago-2026): análisis de resultados de un cuestionario o examen.
     analizar_resultados: 'claude-haiku-4-5',
+    // Diagnóstico del grupo (FASE 2-BIS, 12-ago-2026): contexto y conocimientos.
+    diagnostico_contexto: 'claude-haiku-4-5',
+    diagnostico_conocimientos: 'claude-haiku-4-5',
+    planeacion_didactica_inicial: 'claude-haiku-4-5',
   },
   // Datos de exhibición para el panel de créditos (sin costos internos).
   planes: {

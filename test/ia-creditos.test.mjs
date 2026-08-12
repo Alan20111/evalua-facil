@@ -940,4 +940,220 @@ await caso('fallo de la IA analizando resultados: reembolso completo de los 5 cr
   assert.strictEqual((await consumoDe(k)).estado, 'fallido')
 })
 
+// ── Diagnóstico del grupo (FASE 2-BIS, 12-ago-2026) — precheck compartido ──
+grupo('Diagnóstico del grupo — precheck y tarifas')
+
+const TARIFAS_DIAG = { ...TARIFAS, tarifas: { ...TARIFAS.tarifas, diagnostico_contexto: 5, diagnostico_conocimientos: 10 } }
+
+const PERFIL_IA_COMPLETO = {
+  estiloClase: 'Muy participativo', habilidades: 'Trabajo por proyectos', experiencia: '8 años en bachillerato',
+}
+
+async function precheckDiagnosticoFalla({ subjectId, uid = DOCENTE }) {
+  try {
+    await IA.precheckDiagnostico({ uid, params: { subjectId } })
+    return null
+  } catch (e) {
+    return { code: e.code || e.httpErrorCode?.canonicalName, message: e.message, details: e.details }
+  }
+}
+
+await limpiar()
+await sembrarDocente()
+await db.doc('subjects/sub_diag').set({ docenteId: DOCENTE, nombre: 'Matemáticas I' })
+await db.doc('subjects/sub_diag_ajena').set({ docenteId: OTRO_DOCENTE, nombre: 'Ajena' })
+
+await caso('SEGURIDAD · asignatura de OTRO docente → permission-denied', async () => {
+  const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag_ajena' })
+  assert.ok(e, 'debe fallar')
+  assert.ok(String(e.code).includes('permission-denied'), e.code)
+})
+
+await caso('SEGURIDAD · asignatura inexistente → not-found', async () => {
+  const e = await precheckDiagnosticoFalla({ subjectId: 'no_existe' })
+  assert.ok(String(e.code).includes('not-found'), e.code)
+})
+
+await caso('SEGURIDAD · sin subjectId → invalid-argument, no revienta', async () => {
+  const e = await precheckDiagnosticoFalla({ subjectId: '' })
+  assert.ok(String(e.code).includes('invalid-argument'), e.code)
+})
+
+await caso('sin Perfil IA completo → failed-precondition PERFIL_IA_INCOMPLETO, no cobra', async () => {
+  const antes = await creditosDe()
+  const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag' })
+  assert.ok(String(e.code).includes('failed-precondition'), e.code)
+  assert.strictEqual(e.details.codigo, 'PERFIL_IA_INCOMPLETO')
+  const consumos = await db.collection('iaConsumos').get()
+  assert.strictEqual(consumos.size, 0, 'no debe existir ninguna reserva')
+  assert.deepStrictEqual((await creditosDe())?.saldo ?? null, antes?.saldo ?? null)
+})
+
+await caso('Perfil IA completo pero SIN fuentes generales → failed-precondition SIN_FUENTES_GENERALES, no cobra', async () => {
+  await db.doc(`users/${DOCENTE}`).set({ perfilIA: PERFIL_IA_COMPLETO }, { merge: true })
+  const antes = await creditosDe()
+  const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag' })
+  assert.ok(String(e.code).includes('failed-precondition'), e.code)
+  assert.strictEqual(e.details.codigo, 'SIN_FUENTES_GENERALES')
+  assert.deepStrictEqual((await creditosDe())?.saldo ?? null, antes?.saldo ?? null)
+})
+
+await caso('una fuente de PARCIAL (no general) no cuenta para habilitar el diagnóstico', async () => {
+  await db.collection('fuentesAsignatura').add({
+    asignaturaId: 'sub_diag', docenteId: DOCENTE, nombre: 'parcial1.pdf',
+    ubicacion: 'parcial', parcial: 1, url: 'https://res.cloudinary.com/demo/raw/upload/v1/x.pdf',
+  })
+  const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag' })
+  assert.strictEqual(e.details.codigo, 'SIN_FUENTES_GENERALES')
+})
+
+await caso('con Perfil IA completo y una fuente general: pasa ambas validaciones (llega a intentar leer la fuente)', async () => {
+  await db.collection('fuentesAsignatura').add({
+    asignaturaId: 'sub_diag', docenteId: DOCENTE, nombre: 'programa.pdf',
+    ubicacion: 'general', parcial: null, url: 'https://res.cloudinary.com/demo/raw/upload/v1/programa-de-prueba.pdf',
+  })
+  const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag' })
+  // La URL de prueba no existe de verdad — falla al intentar LEERLA (llamada de
+  // red, fuera del alcance de esta prueba), pero eso demuestra que ya pasó las
+  // dos validaciones anteriores: el código de error YA NO es ninguno de los dos
+  // de arriba.
+  assert.ok(e, 'debe fallar (URL de prueba no descargable)')
+  assert.notStrictEqual(e.details?.codigo, 'PERFIL_IA_INCOMPLETO')
+  assert.notStrictEqual(e.details?.codigo, 'SIN_FUENTES_GENERALES')
+})
+
+await caso('diagnostico_contexto y diagnostico_conocimientos son operaciones independientes en el mapa de tarifas', async () => {
+  assert.notStrictEqual(TARIFAS_DIAG.tarifas.diagnostico_contexto, undefined)
+  assert.notStrictEqual(TARIFAS_DIAG.tarifas.diagnostico_conocimientos, undefined)
+  assert.notStrictEqual(TARIFAS_DIAG.tarifas.diagnostico_contexto, TARIFAS_DIAG.tarifas.diagnostico_conocimientos)
+})
+
+await caso('la tarifa de diagnostico_contexto reserva y liquida exactamente 5 créditos fijos', async () => {
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'diagnostico_contexto', idempotencyKey: k, tarifas: TARIFAS_DIAG })
+  const saldoTrasReserva = (await creditosDe()).saldo
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 5 })
+  assert.strictEqual(saldoTrasReserva, (await creditosDe()).saldo)
+  assert.strictEqual((await consumoDe(k)).creditosReales, 5)
+})
+
+await caso('la tarifa de diagnostico_conocimientos reserva y liquida exactamente 10 créditos fijos', async () => {
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'diagnostico_conocimientos', idempotencyKey: k, tarifas: TARIFAS_DIAG })
+  const saldoTrasReserva = (await creditosDe()).saldo
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 10 })
+  assert.strictEqual(saldoTrasReserva, (await creditosDe()).saldo)
+  assert.strictEqual((await consumoDe(k)).creditosReales, 10)
+})
+
+await caso('fallo del diagnóstico de conocimientos: reembolso completo de los 10 créditos', async () => {
+  const k = clave()
+  const saldoAntes = (await creditosDe()).saldo
+  await L.reservar({ uid: DOCENTE, operacion: 'diagnostico_conocimientos', idempotencyKey: k, tarifas: TARIFAS_DIAG })
+  await L.reembolsar({ uid: DOCENTE, idempotencyKey: k, motivo: 'El asistente de IA no generó un diagnóstico de conocimientos utilizable' })
+  assert.strictEqual((await creditosDe()).saldo, saldoAntes)
+  assert.strictEqual((await consumoDe(k)).estado, 'fallido')
+})
+
+// ── Planeación Didáctica Inicial (FASE 2-BIS, apartado 3, 12-ago-2026) ─────
+grupo('Planeación Didáctica Inicial — precheck, secuencia completa y tarifa')
+
+const TARIFAS_PLAN = { ...TARIFAS_DIAG, tarifas: { ...TARIFAS_DIAG.tarifas, planeacion_didactica_inicial: 20 } }
+
+async function precheckPlaneacionFalla({ subjectId, uid = DOCENTE }) {
+  try {
+    await IA.precheckPlaneacionInicial({ uid, params: { subjectId } })
+    return null
+  } catch (e) {
+    return { code: e.code || e.httpErrorCode?.canonicalName, message: e.message, details: e.details }
+  }
+}
+
+await limpiar()
+await sembrarDocente()
+await db.doc('subjects/sub_plan').set({ docenteId: DOCENTE, nombre: 'Cultura Digital I', parciales: 2 })
+await db.doc('subjects/sub_plan_ajena').set({ docenteId: OTRO_DOCENTE, nombre: 'Ajena' })
+
+await caso('SEGURIDAD · asignatura de OTRO docente → permission-denied', async () => {
+  const e = await precheckPlaneacionFalla({ subjectId: 'sub_plan_ajena' })
+  assert.ok(String(e.code).includes('permission-denied'), e.code)
+})
+
+await caso('sin Perfil IA completo → PERFIL_IA_INCOMPLETO, no cobra', async () => {
+  const e = await precheckPlaneacionFalla({ subjectId: 'sub_plan' })
+  assert.strictEqual(e.details.codigo, 'PERFIL_IA_INCOMPLETO')
+})
+
+await caso('con Perfil IA pero SIN fuentes generales → SIN_FUENTES_GENERALES', async () => {
+  await db.doc(`users/${DOCENTE}`).set({ perfilIA: PERFIL_IA_COMPLETO }, { merge: true })
+  const e = await precheckPlaneacionFalla({ subjectId: 'sub_plan' })
+  assert.strictEqual(e.details.codigo, 'SIN_FUENTES_GENERALES')
+})
+
+await caso('con fuentes generales pero SIN diagnóstico de contexto → SIN_DIAGNOSTICO_CONTEXTO', async () => {
+  await db.collection('fuentesAsignatura').add({
+    asignaturaId: 'sub_plan', docenteId: DOCENTE, nombre: 'programa.pdf',
+    ubicacion: 'general', parcial: null, url: 'https://res.cloudinary.com/demo/raw/upload/v1/programa.pdf',
+  })
+  const e = await precheckPlaneacionFalla({ subjectId: 'sub_plan' })
+  assert.strictEqual(e.details.codigo, 'SIN_DIAGNOSTICO_CONTEXTO')
+})
+
+await caso('con diagnóstico de contexto pero SIN diagnóstico de conocimientos → SIN_DIAGNOSTICO_CONOCIMIENTOS', async () => {
+  await db.collection('subjects/sub_plan/diagnosticosIA').add({
+    tipo: 'contexto', docenteId: DOCENTE,
+    resultado: { datosEncontrados: ['Grupo de 30'], interpretacion: [], aspectosAtencion: [], informacionFaltante: [] },
+  })
+  const e = await precheckPlaneacionFalla({ subjectId: 'sub_plan' })
+  assert.strictEqual(e.details.codigo, 'SIN_DIAGNOSTICO_CONOCIMIENTOS')
+})
+
+await caso('con la secuencia COMPLETA: arma el contexto con los 2 parciales reales de la asignatura', async () => {
+  await db.collection('subjects/sub_plan/diagnosticosIA').add({
+    tipo: 'conocimientos', docenteId: DOCENTE,
+    resultado: { temas: ['Fracciones'], reactivos: [{ tipo: 'verdadero_falso', enunciado: 'x', correcta: 'v' }], comoInterpretar: 'x' },
+  })
+  const e = await precheckPlaneacionFalla({ subjectId: 'sub_plan' })
+  // Mismo criterio que la prueba equivalente de Diagnóstico del grupo: la URL
+  // de prueba no es descargable de verdad, así que falla al LEER la fuente
+  // (llamada de red fuera de esta prueba) — pero eso confirma que ya pasó
+  // las cuatro validaciones anteriores.
+  assert.ok(e, 'debe fallar (URL de prueba no descargable)')
+  assert.notStrictEqual(e.details?.codigo, 'PERFIL_IA_INCOMPLETO')
+  assert.notStrictEqual(e.details?.codigo, 'SIN_FUENTES_GENERALES')
+  assert.notStrictEqual(e.details?.codigo, 'SIN_DIAGNOSTICO_CONTEXTO')
+  assert.notStrictEqual(e.details?.codigo, 'SIN_DIAGNOSTICO_CONOCIMIENTOS')
+})
+
+await caso('planeacion_didactica_inicial NO reutiliza las tarifas descartadas de Planeación Viva', () => {
+  assert.notStrictEqual(TARIFAS_PLAN.tarifas.planeacion_didactica_inicial, 12) // planeacion_tronco
+  assert.notStrictEqual(TARIFAS_PLAN.tarifas.planeacion_didactica_inicial, 8) // planeacion_bloque
+  assert.strictEqual(TARIFAS_PLAN.tarifas.planeacion_didactica_inicial, 20)
+})
+
+await caso('la tarifa de planeacion_didactica_inicial reserva y liquida exactamente 20 créditos fijos', async () => {
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'planeacion_didactica_inicial', idempotencyKey: k, tarifas: TARIFAS_PLAN })
+  const saldoTrasReserva = (await creditosDe()).saldo
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 20 })
+  assert.strictEqual(saldoTrasReserva, (await creditosDe()).saldo)
+  assert.strictEqual((await consumoDe(k)).creditosReales, 20)
+})
+
+await caso('la tarifa NO cambia con el número de parciales — sigue siendo fija (unidadesReales=1 en el ejecutor)', async () => {
+  // La asignatura sembrada tiene 2 parciales; el costo real liquidado en la
+  // prueba anterior fue 20 = tarifas.planeacion_didactica_inicial * 1 unidad,
+  // nunca * parciales. Se deja constancia explícita de la regla.
+  assert.strictEqual(TARIFAS_PLAN.tarifas.planeacion_didactica_inicial * 1, 20)
+})
+
+await caso('fallo de la IA generando la planeación: reembolso completo de los 20 créditos', async () => {
+  const k = clave()
+  const saldoAntes = (await creditosDe()).saldo
+  await L.reservar({ uid: DOCENTE, operacion: 'planeacion_didactica_inicial', idempotencyKey: k, tarifas: TARIFAS_PLAN })
+  await L.reembolsar({ uid: DOCENTE, idempotencyKey: k, motivo: 'El asistente de IA no generó una planeación utilizable' })
+  assert.strictEqual((await creditosDe()).saldo, saldoAntes)
+  assert.strictEqual((await consumoDe(k)).estado, 'fallido')
+})
+
 resumen('pruebas del ledger de créditos IA')

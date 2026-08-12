@@ -26,13 +26,16 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { logger } = require('firebase-functions')
 const ledger = require('./creditosLedger')
 const { resolverIntentoGanador, respuestasVivasSonDelIntentoGanador } = require('./calificacionIntentos')
+const fuentesIA = require('./fuentesIA')
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
 // Operaciones conectadas por autorización del PO:
 //   · C-03 'aviso' (9-ago-2026) · C-02 'calificar_abierta' (9-ago-2026)
 //   · OP-06 'rubrica' y OP-07 'cotejo' (10-ago-2026) · OP-09 'reactivos' (10-ago-2026)
-//   · OP-10 'analizar_resultados' (11-ago-2026).
+//   · OP-10 'analizar_resultados' (11-ago-2026) · OP-03/OP-04 'crear_evaluacion_ia'
+//     (11-ago-2026, autorizado en conversación con el PO) · OP-05
+//     'crear_actividad_ia' (11-ago-2026, misma autorización).
 const OPERACIONES = {
   aviso: ejecutarAviso,
   calificar_abierta: ejecutarCalificarAbierta,
@@ -40,6 +43,15 @@ const OPERACIONES = {
   cotejo: ejecutarCotejo,
   reactivos: ejecutarReactivos,
   analizar_resultados: ejecutarAnalisisResultados,
+  crear_evaluacion_ia: ejecutarCrearEvaluacion,
+  crear_actividad_ia: ejecutarCrearActividad,
+  // Diagnóstico del grupo (FASE 2-BIS, 12-ago-2026, autorizado por Kike en
+  // esta conversación — tarifas fijas: contexto 5, conocimientos 10).
+  diagnostico_contexto: ejecutarDiagnosticoContexto,
+  diagnostico_conocimientos: ejecutarDiagnosticoConocimientos,
+  // Planeación Didáctica Inicial (FASE 2-BIS, 12-ago-2026, autorizado por
+  // Kike en esta conversación — tarifa fija: 20 créditos).
+  planeacion_didactica_inicial: ejecutarPlaneacionDidacticaInicial,
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -49,7 +61,10 @@ const OPERACIONES = {
 // ejecutor, que así no vuelve a leer nada de Firestore.
 const PRECHECKS = {
   rubrica: precheckInstrumento, cotejo: precheckInstrumento, reactivos: precheckReactivos,
-  analizar_resultados: precheckAnalisisResultados,
+  analizar_resultados: precheckAnalisisResultados, crear_evaluacion_ia: precheckCrearEvaluacion,
+  crear_actividad_ia: precheckCrearActividad,
+  diagnostico_contexto: precheckDiagnostico, diagnostico_conocimientos: precheckDiagnostico,
+  planeacion_didactica_inicial: precheckPlaneacionInicial,
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
@@ -712,6 +727,11 @@ async function precheckReactivos({ uid, params }) {
   const cantidad = clampInt(params?.cantidad, 5, MIN_REACTIVOS, MAX_REACTIVOS)
   const tipoSolicitado = TIPOS_REACTIVO.includes(params?.tipoSolicitado) ? params.tipoSolicitado : 'mixto'
 
+  // Fuentes opcionales (hasta 3 PDF/Word) — mismo mecanismo que
+  // crear_evaluacion_ia: fuente ADICIONAL, "qué quiere evaluar" sigue siendo
+  // la fuente principal (ver REACTIVOS_SISTEMA/promptReactivos más abajo).
+  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes(params?.fuentes)
+
   return {
     clase,
     nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
@@ -720,18 +740,34 @@ async function precheckReactivos({ uid, params }) {
     cantidad,
     tipoSolicitado,
     tipos: tiposParaLote(tipoSolicitado, cantidad),
+    bloqueFuentes,
   }
 }
 
-const REACTIVOS_SISTEMA =
+// El texto base NO menciona fuentes (caso normal, sin adjuntos): se mantiene
+// EXACTAMENTE igual que antes de las fuentes opcionales para no cambiar el
+// comportamiento de nadie que no las use. Cuando SÍ hay `ctx.bloqueFuentes`,
+// promptReactivos agrega el bloque de documentos y este sistema se completa
+// con una frase que autoriza usarlos como fuente adicional.
+const REACTIVOS_SISTEMA_BASE =
   'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
   'docente de bachillerato mexicano. Tu papel es PROPONER: el docente siempre revisa, edita y decide. ' +
   'Construye los reactivos EXCLUSIVAMENTE a partir de lo que el docente describe en "qué quiere ' +
-  'evaluar" — no agregues conceptos, temas ni aprendizajes que no haya mencionado, y no completes ' +
+  'evaluar"{fuentesClausula} — no agregues conceptos, temas ni aprendizajes que no haya mencionado{fuentesClausula2}, y no completes ' +
   'con conocimiento general más allá de lo que pidió. La cantidad y el tipo de cada reactivo los fija ' +
   'Evalúa Fácil: genera EXACTAMENTE los reactivos pedidos, uno por cada tipo indicado y en ese orden. ' +
   'Escribe en español, claro y breve. Responde únicamente con el JSON válido del esquema indicado, ' +
   'sin texto adicional.'
+
+const REACTIVOS_SISTEMA = REACTIVOS_SISTEMA_BASE
+  .replace('{fuentesClausula}', '')
+  .replace('{fuentesClausula2}', '')
+
+function reactivosSistemaConFuentes() {
+  return REACTIVOS_SISTEMA_BASE
+    .replace('{fuentesClausula}', ' y, si se te dan, de los documentos de referencia que adjuntó')
+    .replace('{fuentesClausula2}', ' ni estén en esos documentos')
+}
 
 const ETIQUETA_TIPO_REACTIVO = {
   opcion_multiple: 'opción múltiple',
@@ -746,7 +782,8 @@ function promptReactivos(ctx, asignatura) {
     `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
     `${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n` +
     (ctx.tema ? `Tema: ${ctx.tema}\n` : '') +
-    `\nQUÉ QUIERE EVALUAR EL DOCENTE (única fuente del contenido):\n"""${ctx.quiereEvaluar}"""\n\n` +
+    `\nQUÉ QUIERE EVALUAR EL DOCENTE (${ctx.bloqueFuentes ? 'fuente principal' : 'única fuente'} del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
+    (ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : '\n') +
     `Genera EXACTAMENTE ${ctx.cantidad} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
     'Reglas por tipo:\n' +
     '- opcion_multiple: enunciado + 4 opciones + el índice (0-3) de la opción correcta.\n' +
@@ -794,7 +831,7 @@ async function ejecutarReactivos({ params, modelo, apiKey }) {
   const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
 
   const { datos, interno } = await pedirJSON({
-    client, modelo, maxTokens: 2200, system: REACTIVOS_SISTEMA,
+    client, modelo, maxTokens: 2200, system: ctx.bloqueFuentes ? reactivosSistemaConFuentes() : REACTIVOS_SISTEMA,
     prompt: promptReactivos(ctx, asignatura),
   })
 
@@ -1117,6 +1154,899 @@ async function ejecutarAnalisisResultados({ params, modelo, apiKey }) {
   return { resultado, unidadesReales: 1, interno }
 }
 
+// ── OP-03/OP-04 · Crear examen o cuestionario completo con IA ───────────────
+// REGLA (PO, 11-ago-2026, ficha aprobada): en vez de duplicar OP-03 (examen) y
+// OP-04 (cuestionario) — que solo difieren en la categoría de la actividad
+// padre, ya validada por REACTIVOS_PADRES_VALIDOS — es UNA operación
+// parametrizada. Mismo principio de fuente de contenido que OP-09: lo que el
+// docente escribe en "¿Qué quieres evaluar?" es la fuente inmediata; hasta 3
+// documentos (PDF/Word) que el docente adjunte son fuente ADICIONAL opcional.
+// El Universo Curricular, la Planeación Didáctica y el resto de fuentes del
+// curso NO participan todavía (fase posterior de los planes de pago).
+//
+// A diferencia de OP-09 (el docente revisa antes de guardar), aquí la IA
+// escribe DIRECTO en activities/{id}/preguntas + clave — por eso el ejecutor
+// usa el Admin SDK con el mismo reparto público/privado de
+// utils/evaluacionClave.js (el cliente no puede llamar esa función: usa el
+// SDK web con el candado de suscripción, que no aplica al servidor).
+//
+// La cantidad y el tipo de cada reactivo los fija Evalúa Fácil (igual que
+// OP-09); la PONDERACIÓN también: `repartirPonderacion` reparte los 10 puntos
+// en código, nunca la IA.
+
+const MAX_REACTIVOS_EVALUACION_TRIAL = 10
+const MAX_REACTIVOS_EVALUACION_PAGO = 100
+const LOTE_MAX_REACTIVOS = 15 // tamaño de lote por llamada al modelo, para no exceder max_tokens
+
+// Reparte 10 puntos entre `cantidad` reactivos en partes iguales a un
+// decimal; el último absorbe el residuo del redondeo para que la suma dé
+// SIEMPRE exactamente 10.0 (función pura, ver test/ia-creditos.test.mjs).
+function repartirPonderacion(cantidad) {
+  const n = Math.max(1, cantidad)
+  const base = Math.round((10 / n) * 10) / 10
+  const valores = Array.from({ length: n }, () => base)
+  const suma = Math.round(valores.reduce((s, v) => s + v, 0) * 10) / 10
+  const residuo = Math.round((10 - suma) * 10) / 10
+  valores[n - 1] = Math.round((valores[n - 1] + residuo) * 10) / 10
+  return valores
+}
+
+// Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
+async function precheckCrearEvaluacion({ uid, params }) {
+  const db = getFirestore()
+  const actividadId = String(params?.actividadId || '')
+  if (!actividadId) {
+    throw new HttpsError('invalid-argument',
+      'Guarda primero el cuestionario o examen: la evaluación se genera a partir de él.')
+  }
+
+  const snap = await db.doc(`activities/${actividadId}`).get()
+  if (!snap.exists) throw new HttpsError('not-found', 'La actividad no existe')
+  const act = snap.data()
+  if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+
+  const clase = REACTIVOS_PADRES_VALIDOS[act.categoria] || null
+  if (!clase) {
+    throw new HttpsError('failed-precondition',
+      'Solo un cuestionario o un examen pueden generarse completos con IA.')
+  }
+
+  const quiereEvaluar = String(params?.quiereEvaluar || '').trim().slice(0, MAX_QUIERE_EVALUAR)
+  if (quiereEvaluar.length < MIN_QUIERE_EVALUAR) {
+    throw new HttpsError('failed-precondition',
+      `Describe con más detalle qué quieres evaluar (mínimo ${MIN_QUIERE_EVALUAR} caracteres) para que la IA pueda generar la evaluación fundamentada. No se descontaron créditos.`,
+      { codigo: 'CONTEXTO_INSUFICIENTE' })
+  }
+
+  // Tope de reactivos según el plan del docente — mismo criterio que
+  // creditosLedger.reservar para saber su nivel (la suscripción más reciente).
+  const subsSnap = await db.collection('subscriptions').where('docenteId', '==', uid).get()
+  let sub = null
+  const ms = (s) => s.updatedAt?.toMillis?.() || 0
+  subsSnap.docs.forEach((d) => { if (!sub || ms(d.data()) > ms(sub)) sub = d.data() })
+  const nivel = ledger.nivelDeSuscripcion(sub)
+  const tope = nivel === 'trial' ? MAX_REACTIVOS_EVALUACION_TRIAL : MAX_REACTIVOS_EVALUACION_PAGO
+
+  const cantidad = clampInt(params?.cantidad, 10, MIN_REACTIVOS, tope)
+  const tipoSolicitado = TIPOS_REACTIVO.includes(params?.tipoSolicitado) ? params.tipoSolicitado : 'mixto'
+
+  // Documentos de referencia (opcionales, hasta 3) — lógica compartida con
+  // reactivos (OP-09) y crear_actividad_ia (OP-05): ver fuentesIA.js.
+  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes(params?.fuentes)
+
+  return {
+    clase,
+    nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
+    quiereEvaluar,
+    cantidad,
+    tipoSolicitado,
+    tipos: tiposParaLote(tipoSolicitado, cantidad),
+    bloqueFuentes,
+  }
+}
+
+const CREAR_EVAL_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
+  'docente de bachillerato mexicano. Tu papel es PROPONER: el docente siempre revisa el resultado. ' +
+  'Construye los reactivos a partir de lo que el docente describe en "qué quiere evaluar" y, si se ' +
+  'te dan, de los documentos de referencia que adjuntó — no agregues conceptos, temas ni aprendizajes ' +
+  'que no estén ahí, y no completes con conocimiento general más allá de eso. La cantidad y el tipo de ' +
+  'cada reactivo los fija Evalúa Fácil: genera EXACTAMENTE los reactivos pedidos, uno por cada tipo ' +
+  'indicado y en ese orden. No repartas puntos ni calcules ponderaciones: Evalúa Fácil las calcula. ' +
+  'Escribe en español, claro y breve. Responde únicamente con el JSON válido del esquema indicado, ' +
+  'sin texto adicional.'
+
+// `tiposLote`/`offset`: el prompt de cada lote pide solo SU tramo de
+// reactivos, pero la numeración que se le muestra al modelo es la GLOBAL
+// (offset + posición) para que la referencia a "reactivo N" tenga sentido si
+// el docente la lee — el tipo real de cada uno lo sigue forzando `ctx.tipos`
+// en `normalizarReactivos`, nunca lo que el modelo devuelva.
+function promptCrearEvaluacion(ctx, asignatura, tiposLote, offset) {
+  const listaTipos = tiposLote.map((t, i) => `${offset + i + 1}. ${ETIQUETA_TIPO_REACTIVO[t] || t}`).join('\n')
+  const fuentesBloque = ctx.bloqueFuentes ? `\n\n${ctx.bloqueFuentes}\n` : ''
+  return (
+    `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
+    `${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n` +
+    `\nQUÉ QUIERE EVALUAR EL DOCENTE (fuente principal del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
+    fuentesBloque +
+    `\nGenera EXACTAMENTE ${tiposLote.length} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
+    'Reglas por tipo:\n' +
+    '- opcion_multiple: enunciado + 4 opciones + el índice (0-3) de la opción correcta.\n' +
+    '- verdadero_falso: un enunciado afirmativo evaluable + "v" o "f".\n' +
+    '- respuesta_corta: enunciado + una respuesta esperada breve o criterio de respuesta correcta ' +
+    '(es una guía para que el docente califique a mano; el alumno nunca la ve).\n' +
+    '- subir_archivo: enunciado con la instrucción de qué debe subir el alumno (sin respuesta).\n\n' +
+    'Responde SOLO con este JSON:\n' +
+    '{\n  "reactivos": [\n' +
+    '    {"tipo": "<tipo exacto de la lista>", "enunciado": "<máx 400 caracteres>", ' +
+    '"opciones": ["<solo si opcion_multiple>", "..."], "correcta": "<índice 0-3 si opcion_multiple, ' +
+    '\'v\'/\'f\' si verdadero_falso>", "respuestaEsperada": "<solo si respuesta_corta, máx 200 caracteres>"}\n' +
+    '  ]\n}'
+  )
+}
+
+// Ids únicos por opción, mismo criterio que makeOption() del cliente
+// (EvaluacionEditor.jsx) — no letras fijas, así se puede reordenar/editar sin
+// arrastrar el id.
+function idOpcion() {
+  return `o${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
+}
+
+async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+  const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
+  const actividadId = String(params?.actividadId || '')
+
+  // Lotes de máximo LOTE_MAX_REACTIVOS para no exceder max_tokens en
+  // evaluaciones grandes (hasta 100 reactivos en planes de pago); el offset
+  // mantiene el round-robin de tipos global entre lotes.
+  const lotes = []
+  for (let i = 0; i < ctx.tipos.length; i += LOTE_MAX_REACTIVOS) lotes.push(ctx.tipos.slice(i, i + LOTE_MAX_REACTIVOS))
+
+  let reactivos = []
+  let tokensEntrada = 0
+  let tokensSalida = 0
+  let ms = 0
+  let offset = 0
+  for (const tiposLote of lotes) {
+    const { datos, interno } = await pedirJSON({
+      client, modelo, maxTokens: Math.min(8000, 350 * tiposLote.length + 400), system: CREAR_EVAL_SISTEMA,
+      prompt: promptCrearEvaluacion(ctx, asignatura, tiposLote, offset),
+    })
+    reactivos = reactivos.concat(normalizarReactivos(datos, { tipos: tiposLote }))
+    tokensEntrada += interno.tokensEntrada || 0
+    tokensSalida += interno.tokensSalida || 0
+    ms += interno.ms || 0
+    offset += tiposLote.length
+  }
+
+  // Regla de no invención (T.7): lo que no trajo enunciado no es aprovechable
+  // y se descarta — si no queda nada, esto NO se cobra (cae al catch del
+  // callable, que reembolsa la reserva).
+  reactivos = reactivos.filter((r) => r.enunciado)
+  if (!reactivos.length) throw new Error('El asistente de IA no generó reactivos utilizables')
+
+  const ponderaciones = repartirPonderacion(reactivos.length)
+  const db = getFirestore()
+  const batch = db.batch()
+  reactivos.forEach((r, i) => {
+    const pregRef = db.collection(`activities/${actividadId}/preguntas`).doc()
+    const claveRef = db.collection(`activities/${actividadId}/clave`).doc(pregRef.id)
+    const base = {
+      tipo: r.tipo, enunciado: r.enunciado, ponderacion: ponderaciones[i],
+      retroalimentacion: null, imagenUrl: null, orden: i, origenBancoId: null,
+    }
+    if (r.tipo === 'opcion_multiple') {
+      const opciones = r.opciones.map((texto) => ({ id: idOpcion(), texto }))
+      batch.set(pregRef, { ...base, opciones })
+      batch.set(claveRef, { respuestaCorrecta: opciones[r.correcta]?.id ?? opciones[0]?.id ?? null, respuestaEsperada: null })
+    } else if (r.tipo === 'verdadero_falso') {
+      batch.set(pregRef, { ...base, opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }] })
+      batch.set(claveRef, { respuestaCorrecta: r.correcta === 'f' ? 'f' : 'v', respuestaEsperada: null })
+    } else if (r.tipo === 'respuesta_corta') {
+      batch.set(pregRef, { ...base, opciones: null })
+      batch.set(claveRef, { respuestaCorrecta: null, respuestaEsperada: r.respuestaEsperada || null })
+    } else { // subir_archivo: sin clave
+      batch.set(pregRef, { ...base, opciones: null })
+      batch.set(claveRef, { respuestaCorrecta: null, respuestaEsperada: null })
+    }
+  })
+  await batch.commit()
+  // El contador que muestran las pantallas del editor — mismo campo que
+  // syncNumPreguntas actualiza desde el cliente en el flujo manual/OP-09.
+  await db.doc(`activities/${actividadId}`).set({ evaluacion: { numPreguntas: reactivos.length } }, { merge: true })
+
+  return {
+    resultado: { cantidad: reactivos.length, clase: ctx.clase },
+    unidadesReales: reactivos.length, // 1 crédito por reactivo realmente generado
+    interno: { modelo, tokensEntrada, tokensSalida, ms },
+  }
+}
+
+// ── OP-05 · Crear actividad (entregable/observación) completa con IA ───────
+// REGLA (11-ago-2026, misma línea que unificó OP-03/OP-04 en una sola
+// operación): 'crear_actividad_ia' está parametrizada por
+// `params.categoria: 'entregable'|'observacion'` en vez de duplicarse. La IA
+// propone nombre, instrucciones, producto esperado, tipos de archivo
+// sugeridos y un peso — el docente siempre revisa antes de publicar (la
+// actividad nace oculta, igual que OP-03/OP-04).
+//
+// El peso sugerido NUNCA puede rebasar lo que le queda al parcial: el
+// precheck replica en el servidor la MISMA fórmula que ya usa el cliente
+// (SubjectPage.jsx `pesoRestante`, ~línea 3564) sin tocar ese archivo — dos
+// implementaciones de la misma regla, a propósito, porque el cliente no
+// puede confiar en un número que mandara el servidor sin recalcularlo, y
+// viceversa.
+
+const CATEGORIAS_ACTIVIDAD_IA = { entregable: 'entregable', observacion: 'observacion' }
+const MIN_PETICION_ACTIVIDAD = 20
+const MAX_PETICION_ACTIVIDAD = 2000
+const TIPOS_ARCHIVO_VALIDOS = ['imagenes', 'pdf', 'word', 'powerpoint', 'excel', 'zip']
+
+// Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
+async function precheckCrearActividad({ uid, params }) {
+  const db = getFirestore()
+  const categoria = CATEGORIAS_ACTIVIDAD_IA[params?.categoria] || null
+  if (!categoria) {
+    throw new HttpsError('invalid-argument', 'Categoría de actividad no válida para crear con IA')
+  }
+
+  const asignaturaId = String(params?.asignaturaId || '')
+  if (!asignaturaId) throw new HttpsError('invalid-argument', 'Falta la asignatura')
+  const subSnap = await db.doc(`subjects/${asignaturaId}`).get()
+  if (!subSnap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
+  const subj = subSnap.data()
+  if (subj.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta asignatura no es tuya')
+
+  const parcial = clampInt(params?.parcial, 1, 1, Number(subj.parciales) || 1)
+  if (!Number.isInteger(params?.parcial) || params.parcial < 1 || params.parcial > (Number(subj.parciales) || 1)) {
+    throw new HttpsError('invalid-argument', 'El parcial indicado no existe en esta asignatura')
+  }
+
+  const peticion = String(params?.peticion || '').trim().slice(0, MAX_PETICION_ACTIVIDAD)
+  if (peticion.length < MIN_PETICION_ACTIVIDAD) {
+    throw new HttpsError('failed-precondition',
+      `Describe con más detalle qué quieres trabajar (mínimo ${MIN_PETICION_ACTIVIDAD} caracteres) para que la IA pueda proponer una actividad fundamentada. No se descontaron créditos.`,
+      { codigo: 'CONTEXTO_INSUFICIENTE' })
+  }
+
+  // Actividades ya existentes de ese parcial: nombres (para que la IA no
+  // proponga uno duplicado) y peso restante — misma fórmula que
+  // SubjectPage.jsx `pesoRestante`/`pesoTotalVivo` (suma de pesoCalificacion,
+  // acotada a 10), replicada aquí porque el servidor no puede confiar en el
+  // número que mandara el cliente ni viceversa.
+  const actsSnap = await db.collection('activities')
+    .where('asignaturaId', '==', asignaturaId).where('parcial', '==', parcial).get()
+  const existentes = actsSnap.docs.map((d) => d.data())
+  const nombresExistentes = existentes.map((a) => String(a.nombre || a.titulo || '').trim()).filter(Boolean).slice(0, 50)
+  const pesoUsado = existentes.reduce((s, a) => {
+    const v = parseFloat(a.pesoCalificacion)
+    return s + (isNaN(v) || v < 0 ? 0 : v)
+  }, 0)
+  const pesoRestante = Math.max(0, Math.round((10 - pesoUsado) * 10) / 10)
+
+  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes(params?.fuentes)
+
+  return {
+    categoria,
+    asignaturaId,
+    parcial,
+    peticion,
+    nombresExistentes,
+    pesoRestante,
+    bloqueFuentes,
+  }
+}
+
+const CREAR_ACTIVIDAD_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
+  'docente de bachillerato mexicano. Tu papel es PROPONER: el docente siempre revisa, edita y decide ' +
+  'antes de publicar la actividad. Construye la propuesta a partir de lo que el docente describe en ' +
+  '"qué quiere trabajar" y, si se te dan, de los documentos de referencia que adjuntó — no agregues ' +
+  'contenidos que no estén ahí. No propongas un nombre igual o casi igual a uno de los nombres ya ' +
+  'existentes que se te dan, para no duplicar actividades del mismo parcial. El campo ' +
+  '"instruccionesHtml" debe usar ÚNICAMENTE estas etiquetas HTML simples: <p>, <br>, <strong>, <em>, ' +
+  '<ul>, <ol>, <li> — nada de estilos, clases, atributos ni otras etiquetas. Escribe en español, claro ' +
+  'y breve. Responde únicamente con el JSON válido del esquema indicado, sin texto adicional.'
+
+function promptCrearActividad(ctx, asignatura) {
+  const esObs = ctx.categoria === 'observacion'
+  const nombresBloque = ctx.nombresExistentes.length
+    ? `\nActividades que YA existen en este parcial (no propongas un nombre igual o muy parecido):\n- ${ctx.nombresExistentes.join('\n- ')}\n`
+    : ''
+  const fuentesBloque = ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : ''
+  return (
+    `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
+    `Vas a proponer ${esObs ? 'una ACTIVIDAD DE OBSERVACIÓN (sin entrega de archivos: el docente observa y califica en clase, ej. actitud, exposición, participación)' : 'un ENTREGABLE (el estudiante sube uno o varios archivos)'}.\n` +
+    nombresBloque +
+    `\nQUÉ QUIERE TRABAJAR EL DOCENTE:\n"""${ctx.peticion}"""\n` +
+    fuentesBloque +
+    `\nEl peso de calificación que propongas ("pesoSugerido") debe ser un número entre 0 y ${ctx.pesoRestante} ` +
+    `(lo que le queda disponible a este parcial de un total de 10).\n\n` +
+    'Responde SOLO con este JSON:\n' +
+    '{\n' +
+    '  "nombre": "<nombre de la actividad, máx 120 caracteres>",\n' +
+    '  "instruccionesHtml": "<' + (esObs ? 'qué vas a observar y cómo se evaluará' : 'instrucciones para el estudiante: qué debe hacer y entregar') + ', HTML simple>",\n' +
+    '  "productoEsperado": "<en una frase, qué se espera obtener de esta actividad, máx 200 caracteres>",\n' +
+    (esObs ? '' : `  "tiposArchivoSugeridos": ["<subconjunto de: ${TIPOS_ARCHIVO_VALIDOS.join(', ')}>"],\n`) +
+    `  "pesoSugerido": <número entre 0 y ${ctx.pesoRestante}, un decimal>\n` +
+    '}'
+  )
+}
+
+// Sanitizador HTML mínimo para el servidor (Node no tiene DOM — sin
+// DOMPurify/jsdom en functions/, y no vale la pena sumarlos solo para esto).
+// Whitelist estricta por regex: solo las etiquetas de ALLOWED_TAGS_ACTIVIDAD,
+// SIN atributos (ninguno de estos tags los necesita en el modelo de datos de
+// `instrucciones`), y elimina cualquier otra cosa — <script>, <img onerror=…>,
+// comentarios, etc. — por diseño (allowlist, no blocklist): lo que no está en
+// la lista desaparece, no se intenta "limpiar" atributo por atributo.
+const ALLOWED_TAGS_ACTIVIDAD = ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li']
+function sanitizarInstruccionesHtml(html) {
+  let s = String(html || '')
+  // Fuera de inmediato: contenido de <script>/<style> (con su texto interior,
+  // que si no se quitara quedaría como texto plano inyectado).
+  s = s.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '')
+  // Comentarios HTML (pueden usarse para ocultar payloads en navegadores viejos).
+  s = s.replace(/<!--[\s\S]*?-->/g, '')
+  // Cualquier etiqueta: si su nombre está en la whitelist, se deja SIN
+  // atributos (abre o cierra); si no, se elimina por completo (el texto que
+  // rodeaba se conserva, solo desaparece el tag).
+  s = s.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g, (match, tag) => {
+    const t = tag.toLowerCase()
+    if (!ALLOWED_TAGS_ACTIVIDAD.includes(t)) return ''
+    const cierre = match.startsWith('</') ? '/' : ''
+    return `<${cierre}${t}>`
+  })
+  return s.trim()
+}
+
+async function ejecutarCrearActividad({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+  const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
+  const actividadId = String(params?.actividadId || '')
+  if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad ya creada')
+
+  const { datos, interno } = await pedirJSON({
+    client, modelo, maxTokens: 1200, system: CREAR_ACTIVIDAD_SISTEMA,
+    prompt: promptCrearActividad(ctx, asignatura),
+  })
+
+  const nombre = String(datos?.nombre || '').trim().slice(0, 120)
+  const instruccionesHtml = sanitizarInstruccionesHtml(datos?.instruccionesHtml)
+  const productoEsperado = String(datos?.productoEsperado || '').trim().slice(0, 200)
+  if (!nombre && !instruccionesHtml) {
+    throw new Error('El asistente de IA no generó una actividad utilizable')
+  }
+
+  let tiposArchivoSugeridos = (Array.isArray(datos?.tiposArchivoSugeridos) ? datos.tiposArchivoSugeridos : [])
+    .filter((t) => TIPOS_ARCHIVO_VALIDOS.includes(t))
+  if (ctx.categoria === 'entregable' && !tiposArchivoSugeridos.length) tiposArchivoSugeridos = ['imagenes']
+
+  // El número lo acota SIEMPRE el código, nunca lo que devolvió el modelo:
+  // entre 0 y ctx.pesoRestante (calculado por el precheck a partir de datos
+  // reales de Firestore), redondeado a 1 decimal.
+  const pesoSugerido = Math.round(Math.min(ctx.pesoRestante, Math.max(0, Number(datos?.pesoSugerido) || 0)) * 10) / 10
+
+  const db = getFirestore()
+  const update = {
+    nombre: nombre || 'Actividad generada con IA',
+    instrucciones: instruccionesHtml,
+    productoEsperado,
+    pesoCalificacion: pesoSugerido,
+    // NO se toca `oculta` aquí — mismo criterio que ejecutarCrearEvaluacion
+    // (OP-03/04): la actividad nació oculta:true al crearla (ver
+    // CrearActividadIAModal), y sigue así hasta que el docente la revise y
+    // publique manualmente desde el editor, igual que un borrador normal.
+  }
+  if (ctx.categoria === 'entregable') update.tiposArchivo = tiposArchivoSugeridos
+  await db.doc(`activities/${actividadId}`).update(update)
+
+  return {
+    resultado: { actividadId, categoria: ctx.categoria },
+    unidadesReales: 1,
+    interno,
+  }
+}
+
+// ── Diagnóstico del grupo (FASE 2-BIS del Plan Maestro de IA, apartado 2 de
+// Asistente IA, 12-ago-2026) — dos operaciones independientes: diagnóstico
+// de CONTEXTO (interpretativo, sin reactivos) y diagnóstico de CONOCIMIENTOS
+// (instrumento aplicable, con reactivos). Ambas comparten el mismo precheck
+// (mismo contexto de entrada: Perfil IA del docente + Asignatura + hasta 3
+// fuentes iniciales generales, reusando fuentesIA.prepararBloqueFuentes —
+// nunca se vuelve a subir un archivo). Ninguna de las dos ve nombres de
+// estudiantes: el precheck nunca lee `students` ni `submissions`, así que no
+// hay nada de eso que pudiera llegarle al modelo.
+//
+// Tarifas (Kike, 12-ago-2026): diagnostico_contexto = 5 créditos fijos,
+// diagnostico_conocimientos = 10 créditos fijos — ver seeds-db/seed-ia-tarifas.js.
+
+const MAX_REACTIVOS_DIAGNOSTICO = 15
+const MIN_REACTIVOS_DIAGNOSTICO = 5
+
+// Hasta 3 fuentes GENERALES (nunca de parcial), las más recientes primero —
+// mismo tope que fuentesIA.MAX_FUENTES. Función pura: recibe ya leídos los
+// docs de `fuentesAsignatura` (con `creadoEnMillis` calculado por el
+// llamador, porque un Timestamp de Firestore no es comparable en una función
+// pura de pruebas).
+function seleccionarFuentesGenerales(fuentes) {
+  return (Array.isArray(fuentes) ? fuentes : [])
+    .filter((f) => f?.ubicacion === 'general' && f?.url)
+    .sort((a, b) => (b.creadoEnMillis || 0) - (a.creadoEnMillis || 0))
+    .slice(0, fuentesIA.MAX_FUENTES)
+}
+
+// Mismo criterio de "completo" que src/utils/perfilIA.js (isPerfilIACompleto)
+// — se repite aquí porque functions/ no importa código de src/ (entornos
+// distintos, cliente vs. servidor). Si ese criterio cambia, hay que
+// actualizar los dos lados.
+function perfilIACompleto(perfilIA) {
+  return Boolean(perfilIA?.estiloClase?.trim() && perfilIA?.habilidades?.trim() && perfilIA?.experiencia?.trim())
+}
+
+function perfilIATexto(perfilIA) {
+  const partes = []
+  if (perfilIA?.estiloClase?.trim()) partes.push(`Estilo de facilitar clase: ${perfilIA.estiloClase.trim()}`)
+  if (perfilIA?.habilidades?.trim()) partes.push(`Habilidades del docente: ${perfilIA.habilidades.trim()}`)
+  if (perfilIA?.experiencia?.trim()) partes.push(`Experiencia y características relevantes: ${perfilIA.experiencia.trim()}`)
+  if (perfilIA?.contextoEscuela?.trim()) partes.push(`Contexto de la escuela: ${perfilIA.contextoEscuela.trim()}`)
+  if (perfilIA?.contextoGeneral?.trim()) partes.push(`Otro contexto de trabajo: ${perfilIA.contextoGeneral.trim()}`)
+  return partes.length ? partes.join('\n') : 'Información no disponible en las fuentes proporcionadas.'
+}
+
+// Precheck compartido por los dos diagnósticos — todo lo que puede rechazar
+// la operación SIN gastar un crédito: dueño de la asignatura, Perfil IA
+// completo, al menos una fuente inicial general.
+async function precheckDiagnostico({ uid, params }) {
+  const db = getFirestore()
+  const subjectId = String(params?.subjectId || '').trim()
+  if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura.')
+
+  const subjSnap = await db.doc(`subjects/${subjectId}`).get()
+  if (!subjSnap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
+  const subj = subjSnap.data()
+  if (subj.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta asignatura no es tuya')
+
+  const perfilSnap = await db.doc(`users/${uid}`).get()
+  const perfilIA = perfilSnap.data()?.perfilIA || null
+  if (!perfilIACompleto(perfilIA)) {
+    throw new HttpsError('failed-precondition',
+      'Completa primero tu Perfil para IA del docente. No se descontaron créditos.',
+      { codigo: 'PERFIL_IA_INCOMPLETO' })
+  }
+
+  const fuentesSnap = await db.collection('fuentesAsignatura')
+    .where('asignaturaId', '==', subjectId)
+    .where('ubicacion', '==', 'general')
+    .get()
+  if (fuentesSnap.empty) {
+    throw new HttpsError('failed-precondition',
+      'Agrega primero al menos una fuente inicial general en Asistente IA → Fuentes. No se descontaron créditos.',
+      { codigo: 'SIN_FUENTES_GENERALES' })
+  }
+
+  const fuentes = fuentesSnap.docs.map((d) => {
+    const data = d.data()
+    return { id: d.id, ...data, creadoEnMillis: data.creadoEn?.toMillis?.() || 0 }
+  })
+  const seleccionadas = seleccionarFuentesGenerales(fuentes)
+  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes(seleccionadas.map((f) => f.url))
+
+  return {
+    asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
+    perfilIATexto: perfilIATexto(perfilIA),
+    bloqueFuentes,
+    fuentesUsadas: seleccionadas.map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
+  }
+}
+
+const DIAGNOSTICO_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
+  'docente de bachillerato mexicano. Tu papel en ESTE paso es informar, NUNCA planear: no ' +
+  'propongas actividades, evaluaciones, calificaciones ni planeación didáctica — eso ocurre en ' +
+  'un paso posterior distinto. Usa EXCLUSIVAMENTE el perfil del docente y los documentos de ' +
+  'fuente que se te dan; no inventes información del grupo que no esté ahí. Si algo no está ' +
+  'disponible, dilo con la frase exacta "Información no disponible en las fuentes ' +
+  'proporcionadas." en vez de inventarlo. Escribe en español, claro y breve. Responde ' +
+  'únicamente con el JSON del esquema indicado, sin texto adicional.'
+
+function normalizarListaTexto(arr, max = 10, maxLen = 220) {
+  return (Array.isArray(arr) ? arr : [])
+    .map((s) => String(s || '').trim().slice(0, maxLen))
+    .filter(Boolean)
+    .slice(0, max)
+}
+
+function promptDiagnosticoContexto(ctx) {
+  return (
+    `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n\n` +
+    `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
+    (ctx.bloqueFuentes ? `${ctx.bloqueFuentes}\n\n` : '') +
+    'Construye un DIAGNÓSTICO DE CONTEXTO: qué características del grupo son relevantes para el ' +
+    'trabajo docente, a partir SOLO de lo anterior. Distingue siempre un DATO (algo que aparece ' +
+    'literalmente en las fuentes o el perfil) de una INTERPRETACIÓN (una lectura tuya) — nunca ' +
+    'los mezcles. Responde SOLO con este JSON (usa arreglos vacíos si una lista no aplica):\n' +
+    '{\n' +
+    '  "datosEncontrados": ["<dato literal, máx 200 caracteres>", "..."],\n' +
+    '  "interpretacion": ["<lectura o inferencia tuya a partir de esos datos, máx 200 caracteres>", "..."],\n' +
+    '  "aspectosAtencion": ["<algo que el docente debería atender, máx 200 caracteres>", "..."],\n' +
+    '  "informacionFaltante": ["<información relevante que no está disponible, máx 200 caracteres>", "..."]\n' +
+    '}'
+  )
+}
+
+function normalizarDiagnosticoContexto(datos) {
+  return {
+    datosEncontrados: normalizarListaTexto(datos?.datosEncontrados),
+    interpretacion: normalizarListaTexto(datos?.interpretacion),
+    aspectosAtencion: normalizarListaTexto(datos?.aspectosAtencion),
+    informacionFaltante: normalizarListaTexto(datos?.informacionFaltante),
+  }
+}
+
+async function ejecutarDiagnosticoContexto({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+
+  const { datos, interno } = await pedirJSON({
+    client, modelo, maxTokens: 1400, system: DIAGNOSTICO_SISTEMA,
+    prompt: promptDiagnosticoContexto(ctx),
+  })
+
+  const resultado = normalizarDiagnosticoContexto(datos)
+  const vacio = !resultado.datosEncontrados.length && !resultado.interpretacion.length &&
+    !resultado.aspectosAtencion.length && !resultado.informacionFaltante.length
+  // Regla de no invención (T.7): sin nada aprovechable, esto NO se cobra
+  // (cae al catch del callable, que reembolsa la reserva).
+  if (vacio) throw new Error('El asistente de IA no generó un diagnóstico de contexto utilizable')
+
+  return {
+    resultado: { ...resultado, fuentesUsadas: ctx.fuentesUsadas },
+    unidadesReales: 1,
+    interno,
+  }
+}
+
+function promptDiagnosticoConocimientos(ctx) {
+  return (
+    `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n\n` +
+    `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
+    (ctx.bloqueFuentes ? `${ctx.bloqueFuentes}\n\n` : '') +
+    'Con base ÚNICAMENTE en los documentos de fuente (programa/materiales de la asignatura), ' +
+    'construye un DIAGNÓSTICO DE CONOCIMIENTOS: un instrumento breve que el docente aplicará al ' +
+    'grupo antes de empezar, para saber qué conocimientos previos ya tienen. Decide tú la cantidad ' +
+    `de reactivos según la amplitud real de los contenidos encontrados (mínimo ${MIN_REACTIVOS_DIAGNOSTICO}, ` +
+    `máximo ${MAX_REACTIVOS_DIAGNOSTICO}) — NO generes un examen grande, solo una fotografía inicial ` +
+    'útil. Usa solo reactivos de opcion_multiple o verdadero_falso (autocalificables). No inventes ' +
+    'temas que no estén en los documentos de fuente.\n\n' +
+    'Responde SOLO con este JSON:\n' +
+    '{\n' +
+    '  "temas": ["<tema o conocimiento a diagnosticar, tal como aparece en las fuentes>", "..."],\n' +
+    '  "reactivos": [\n' +
+    '    {"tema": "<a cuál tema de arriba pertenece>", "tipo": "opcion_multiple o verdadero_falso", ' +
+    '"enunciado": "<máx 400 caracteres>", "opciones": ["<solo si opcion_multiple>", "..."], ' +
+    '"correcta": "<índice 0-3 si opcion_multiple, \'v\'/\'f\' si verdadero_falso>"}\n' +
+    '  ],\n' +
+    '  "comoInterpretar": "<1-3 frases: qué hacer con los resultados de este diagnóstico>"\n' +
+    '}'
+  )
+}
+
+// Igual que normalizarReactivos, pero sin un `ctx.tipos` fijo: aquí la
+// cantidad y el tipo de cada reactivo los decide el modelo (acotados por el
+// prompt), así que se normaliza tal cual vino y se descarta lo inválido.
+function normalizarReactivosDiagnostico(crudos) {
+  return (Array.isArray(crudos) ? crudos : [])
+    .slice(0, MAX_REACTIVOS_DIAGNOSTICO)
+    .map((r) => {
+      const tipo = r?.tipo === 'verdadero_falso' ? 'verdadero_falso' : 'opcion_multiple'
+      const tema = String(r?.tema || '').trim().slice(0, 120)
+      const enunciado = String(r?.enunciado || '').trim().slice(0, 500)
+      if (tipo === 'opcion_multiple') {
+        const opciones = (Array.isArray(r.opciones) ? r.opciones : []).slice(0, 4).map((o) => String(o || '').trim().slice(0, 300))
+        while (opciones.length < 4) opciones.push('')
+        const idx = Number.isInteger(r.correcta) ? r.correcta : parseInt(r.correcta, 10)
+        return { tema, tipo, enunciado, opciones, correcta: Number.isInteger(idx) ? Math.min(3, Math.max(0, idx)) : 0 }
+      }
+      return { tema, tipo, enunciado, correcta: r?.correcta === 'f' ? 'f' : 'v' }
+    })
+    .filter((r) => r.enunciado)
+}
+
+function normalizarDiagnosticoConocimientos(datos) {
+  return {
+    temas: normalizarListaTexto(datos?.temas, 20, 160),
+    reactivos: normalizarReactivosDiagnostico(datos?.reactivos),
+    comoInterpretar: String(datos?.comoInterpretar || '').trim().slice(0, 600),
+  }
+}
+
+async function ejecutarDiagnosticoConocimientos({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+
+  const { datos, interno } = await pedirJSON({
+    client, modelo, maxTokens: 3000, system: DIAGNOSTICO_SISTEMA,
+    prompt: promptDiagnosticoConocimientos(ctx),
+  })
+
+  const resultado = normalizarDiagnosticoConocimientos(datos)
+  // Regla de no invención (T.7): sin reactivos aprovechables, esto NO se
+  // cobra (cae al catch del callable, que reembolsa la reserva).
+  if (!resultado.reactivos.length) {
+    throw new Error('El asistente de IA no generó un diagnóstico de conocimientos utilizable')
+  }
+
+  return {
+    resultado: { ...resultado, fuentesUsadas: ctx.fuentesUsadas },
+    unidadesReales: 1,
+    interno,
+  }
+}
+
+// ── Planeación Didáctica Inicial (FASE 2-BIS, apartado 3 de Asistente IA,
+// 12-ago-2026) — última pieza de la secuencia: Perfil IA → Fuentes generales
+// → Diagnóstico de contexto → Diagnóstico de conocimientos → Planeación.
+// Genera una PROPUESTA en Excel (el cliente arma el .xlsx a partir de
+// `resultado`, ver src/utils/planeacionExcel.js) — no sustituye el formato
+// oficial de la escuela, no crea actividades/exámenes/cuestionarios, y no se
+// aprueba automáticamente. Tarifa (Kike, 12-ago-2026): 20 créditos fijos,
+// una sola operación cubre TODOS los parciales reales de la asignatura.
+
+const MAX_FILAS_PLANEACION_PARCIAL = 10
+
+function formatoPeriodo(fechas) {
+  if (!fechas?.inicio || !fechas?.fin) return null
+  const fmt = (iso) => {
+    const d = new Date(iso)
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+  const ini = fmt(fechas.inicio)
+  const fin = fmt(fechas.fin)
+  return ini && fin ? `${ini} – ${fin}` : null
+}
+
+// Resume el diagnóstico de contexto YA GENERADO (nunca inventa uno) en un
+// bloque de texto para el prompt.
+function diagnosticoContextoATexto(resultado) {
+  if (!resultado) return 'Información no disponible en las fuentes proporcionadas.'
+  const bloque = (titulo, items) => (items?.length ? `${titulo}:\n- ${items.join('\n- ')}` : null)
+  const partes = [
+    bloque('Datos encontrados sobre el grupo', resultado.datosEncontrados),
+    bloque('Interpretación', resultado.interpretacion),
+    bloque('Aspectos que requieren atención', resultado.aspectosAtencion),
+    bloque('Información faltante (NO la completes, ya se reportó como faltante)', resultado.informacionFaltante),
+  ].filter(Boolean)
+  return partes.length ? partes.join('\n\n') : 'Información no disponible en las fuentes proporcionadas.'
+}
+
+// El diagnóstico de conocimientos es solo el INSTRUMENTO (temas + reactivos)
+// — todavía no se aplicó a ningún estudiante real, así que aquí solo se
+// resumen los TEMAS que se planea diagnosticar, nunca resultados o
+// debilidades reales (no existen todavía).
+function diagnosticoConocimientosATexto(resultado) {
+  if (!resultado?.temas?.length) return 'Información no disponible en las fuentes proporcionadas.'
+  return `Temas que el docente planea diagnosticar al inicio del curso (instrumento aún sin aplicar — no son resultados reales del grupo):\n- ${resultado.temas.join('\n- ')}`
+}
+
+// Precheck: valida la secuencia completa SIN gastar un crédito y arma el
+// contexto por parcial (fuentes generales + fuentes específicas de CADA
+// parcial, según §5 del apartado). Comparte perfilIACompleto/perfilIATexto/
+// seleccionarFuentesGenerales con el precheck de Diagnóstico del grupo.
+async function precheckPlaneacionInicial({ uid, params }) {
+  const db = getFirestore()
+  const subjectId = String(params?.subjectId || '').trim()
+  if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura.')
+
+  const subjSnap = await db.doc(`subjects/${subjectId}`).get()
+  if (!subjSnap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
+  const subj = subjSnap.data()
+  if (subj.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta asignatura no es tuya')
+
+  const perfilSnap = await db.doc(`users/${uid}`).get()
+  const perfilIA = perfilSnap.data()?.perfilIA || null
+  if (!perfilIACompleto(perfilIA)) {
+    throw new HttpsError('failed-precondition',
+      'Completa primero tu Perfil para IA del docente. No se descontaron créditos.',
+      { codigo: 'PERFIL_IA_INCOMPLETO' })
+  }
+
+  const fuentesSnap = await db.collection('fuentesAsignatura').where('asignaturaId', '==', subjectId).get()
+  const fuentes = fuentesSnap.docs.map((d) => {
+    const data = d.data()
+    return { id: d.id, ...data, creadoEnMillis: data.creadoEn?.toMillis?.() || 0 }
+  })
+  const generales = fuentes.filter((f) => f.ubicacion === 'general')
+  if (!generales.length) {
+    throw new HttpsError('failed-precondition',
+      'Agrega primero al menos una fuente inicial general en Asistente IA → Fuentes. No se descontaron créditos.',
+      { codigo: 'SIN_FUENTES_GENERALES' })
+  }
+
+  // Diagnósticos YA GENERADOS — se toma la generación más reciente de cada
+  // tipo. Nunca se genera un diagnóstico aquí: si falta alguno, se detiene.
+  const diagSnap = await db.collection(`subjects/${subjectId}/diagnosticosIA`).get()
+  const diagnosticos = diagSnap.docs.map((d) => {
+    const data = d.data()
+    return { ...data, generadoEnMillis: data.generadoEn?.toMillis?.() || 0 }
+  })
+  const masReciente = (tipo) => diagnosticos
+    .filter((d) => d.tipo === tipo)
+    .sort((a, b) => b.generadoEnMillis - a.generadoEnMillis)[0] || null
+
+  const diagContexto = masReciente('contexto')
+  if (!diagContexto) {
+    throw new HttpsError('failed-precondition',
+      'Genera primero el Diagnóstico de contexto en Asistente IA → Diagnóstico del grupo. No se descontaron créditos.',
+      { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
+  }
+  const diagConocimientos = masReciente('conocimientos')
+  if (!diagConocimientos) {
+    throw new HttpsError('failed-precondition',
+      'Genera primero el Diagnóstico de conocimientos en Asistente IA → Diagnóstico del grupo. No se descontaron créditos.',
+      { codigo: 'SIN_DIAGNOSTICO_CONOCIMIENTOS' })
+  }
+
+  const bloqueFuentesGenerales = await fuentesIA.prepararBloqueFuentes(
+    seleccionarFuentesGenerales(generales).map((f) => f.url)
+  )
+
+  const numParciales = Math.max(1, Number(subj.parciales) || 1)
+  const parcialesFechas = Array.isArray(subj.parcialesFechas) ? subj.parcialesFechas : []
+  const parciales = []
+  for (let p = 1; p <= numParciales; p++) {
+    const fuentesParcial = fuentes
+      .filter((f) => f.ubicacion === 'parcial' && f.parcial === p)
+      .sort((a, b) => b.creadoEnMillis - a.creadoEnMillis)
+      .slice(0, fuentesIA.MAX_FUENTES)
+    // Sin fuentes propias, el parcial se planea igual (con el contexto
+    // general y los diagnósticos) — no es un requisito, solo enriquece.
+    const bloqueFuentesParcial = fuentesParcial.length
+      ? await fuentesIA.prepararBloqueFuentes(fuentesParcial.map((f) => f.url))
+      : null
+    parciales.push({
+      numero: p,
+      periodoTexto: formatoPeriodo(parcialesFechas[p - 1]),
+      bloqueFuentes: bloqueFuentesParcial,
+      fuentesUsadas: fuentesParcial.map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
+    })
+  }
+
+  return {
+    asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
+    perfilIATexto: perfilIATexto(perfilIA),
+    bloqueFuentesGenerales,
+    diagnosticoContextoTexto: diagnosticoContextoATexto(diagContexto.resultado),
+    diagnosticoConocimientosTexto: diagnosticoConocimientosATexto(diagConocimientos.resultado),
+    parciales,
+    fuentesUsadas: {
+      generales: seleccionarFuentesGenerales(generales).map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
+    },
+  }
+}
+
+const PLANEACION_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
+  'docente de bachillerato mexicano. Tu papel es PROPONER una GUÍA DE TRABAJO sencilla y ' +
+  'práctica — el docente siempre la revisa y decide qué usar; esto NO sustituye el formato ' +
+  'oficial de su escuela ni se publica en ningún lado automáticamente. Usa el perfil del ' +
+  'docente (su estilo de facilitar clase y sus habilidades deben notarse en la propuesta — no ' +
+  'generes algo genérico que le serviría igual a cualquier profesor), los documentos de fuente ' +
+  'y los diagnósticos ya generados. Basa el contenido (temas, aprendizajes, actividades reales) ' +
+  'EXCLUSIVAMENTE en lo que aparece en las fuentes; si haces una propuesta pedagógica razonable ' +
+  'que NO está respaldada literalmente por las fuentes, escríbela empezando con "Propuesta de ' +
+  'IA:" para que quede claro que no es contenido oficial. Si algo no está disponible, usa la ' +
+  'frase exacta "Información no disponible en las fuentes proporcionadas." en vez de inventarlo. ' +
+  'El diagnóstico de conocimientos es solo un INSTRUMENTO aún sin aplicar: nunca afirmes que el ' +
+  'grupo tiene una debilidad real que el diagnóstico no reportó como hallazgo. Escribe en ' +
+  'español, claro y breve. Responde únicamente con el JSON del esquema indicado, sin texto adicional.'
+
+function promptPlaneacionParcial(ctx, parcialCtx) {
+  return (
+    `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n` +
+    `PARCIAL ${parcialCtx.numero}${parcialCtx.periodoTexto ? ` (periodo: ${parcialCtx.periodoTexto})` : ''}.\n\n` +
+    `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
+    `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` +
+    `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` +
+    (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
+    (parcialCtx.bloqueFuentes ? `FUENTES ESPECÍFICAS DE ESTE PARCIAL:\n${parcialCtx.bloqueFuentes}\n\n` : '') +
+    'Propón entre 1 y 8 bloques de trabajo para ESTE parcial únicamente. Cada bloque es una fila ' +
+    'con EXACTAMENTE estos campos (ningún campo adicional):\n' +
+    '- contenidosTemas: los contenidos/temas de este bloque.\n' +
+    '- proposito: el propósito o aprendizaje esperado, solo si está respaldado por las fuentes.\n' +
+    '- actividades: actividades de aprendizaje.\n' +
+    '- estrategia: estrategia o metodología sugerida.\n' +
+    '- recursos: recursos a utilizar.\n' +
+    '- evidencias: evidencias de aprendizaje.\n' +
+    '- evaluacion: cómo se evalúa este bloque.\n' +
+    '- observaciones: observaciones o ajustes (p. ej. si algo se pensó a partir del diagnóstico).\n\n' +
+    'Responde SOLO con este JSON:\n' +
+    '{\n  "filas": [\n' +
+    '    {"contenidosTemas": "<máx 400 caracteres>", "proposito": "<máx 400>", "actividades": "<máx 400>", ' +
+    '"estrategia": "<máx 400>", "recursos": "<máx 300>", "evidencias": "<máx 300>", "evaluacion": "<máx 300>", ' +
+    '"observaciones": "<máx 300>"}\n' +
+    '  ]\n}'
+  )
+}
+
+function normalizarFilaPlaneacion(r) {
+  const campo = (v, max) => String(v || '').trim().slice(0, max)
+  const fila = {
+    contenidosTemas: campo(r?.contenidosTemas, 400),
+    proposito: campo(r?.proposito, 400),
+    actividades: campo(r?.actividades, 400),
+    estrategia: campo(r?.estrategia, 400),
+    recursos: campo(r?.recursos, 300),
+    evidencias: campo(r?.evidencias, 300),
+    evaluacion: campo(r?.evaluacion, 300),
+    observaciones: campo(r?.observaciones, 300),
+  }
+  return fila
+}
+
+// Una fila sin contenido ni actividades no aporta nada como guía de
+// trabajo — se descarta en vez de dejar una fila vacía en el Excel.
+function normalizarFilasPlaneacion(crudos) {
+  return (Array.isArray(crudos) ? crudos : [])
+    .slice(0, MAX_FILAS_PLANEACION_PARCIAL)
+    .map(normalizarFilaPlaneacion)
+    .filter((f) => f.contenidosTemas || f.actividades)
+}
+
+async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+
+  const parciales = []
+  let tokensEntrada = 0
+  let tokensSalida = 0
+  let ms = 0
+  // Una llamada POR PARCIAL (no una sola para todos): cada parcial tiene su
+  // propio bloque de fuentes específicas (§5), así que el contexto real que
+  // le corresponde a cada uno es distinto — mismo criterio que los lotes de
+  // ejecutarCrearEvaluacion, pero aquí el contexto varía, no solo el tramo.
+  for (const parcialCtx of ctx.parciales) {
+    const { datos, interno } = await pedirJSON({
+      client, modelo, maxTokens: 2200, system: PLANEACION_SISTEMA,
+      prompt: promptPlaneacionParcial(ctx, parcialCtx),
+    })
+    parciales.push({
+      numero: parcialCtx.numero,
+      periodo: parcialCtx.periodoTexto,
+      filas: normalizarFilasPlaneacion(datos?.filas),
+      fuentesUsadas: parcialCtx.fuentesUsadas,
+    })
+    tokensEntrada += interno.tokensEntrada || 0
+    tokensSalida += interno.tokensSalida || 0
+    ms += interno.ms || 0
+  }
+
+  // Regla de no invención (T.7): si NINGÚN parcial produjo una fila
+  // aprovechable, esto NO se cobra (cae al catch del callable, que
+  // reembolsa la reserva).
+  if (!parciales.some((p) => p.filas.length)) {
+    throw new Error('El asistente de IA no generó una planeación utilizable')
+  }
+
+  return {
+    resultado: {
+      asignaturaNombre: ctx.asignaturaNombre,
+      parciales,
+      fuentesUsadasGenerales: ctx.fuentesUsadas.generales,
+    },
+    unidadesReales: 1, // tarifa fija (20 créditos), sin importar el número de parciales
+    interno: { modelo, tokensEntrada, tokensSalida, ms },
+  }
+}
+
 // ── Traducción de errores del ledger a HttpsError ───────────────────────────
 function comoHttpsError(e) {
   if (e instanceof HttpsError) return e
@@ -1259,4 +2189,11 @@ exports._pruebas = {
   contextoDeActividad, condicionesEntregable, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
   precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MAX_REACTIVOS,
   agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
+  repartirPonderacion, precheckCrearEvaluacion, MAX_REACTIVOS_EVALUACION_TRIAL, MAX_REACTIVOS_EVALUACION_PAGO,
+  precheckCrearActividad, sanitizarInstruccionesHtml, TIPOS_ARCHIVO_VALIDOS, MIN_PETICION_ACTIVIDAD, MAX_PETICION_ACTIVIDAD,
+  precheckDiagnostico, seleccionarFuentesGenerales, perfilIACompleto, perfilIATexto,
+  normalizarDiagnosticoContexto, normalizarDiagnosticoConocimientos, normalizarReactivosDiagnostico,
+  MAX_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO,
+  precheckPlaneacionInicial, formatoPeriodo, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
+  normalizarFilaPlaneacion, normalizarFilasPlaneacion, MAX_FILAS_PLANEACION_PARCIAL,
 }

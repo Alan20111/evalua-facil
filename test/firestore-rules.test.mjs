@@ -1321,5 +1321,164 @@ ok('Capa 2 · owner teacher CANNOT modify an existing snapshot (immutable)')
 await assertFails(deleteDoc(doc(asT1, 'submissions', 'SUB1', 'intentosRespuestas', '1')))
 ok('Capa 2 · owner teacher CANNOT delete a snapshot')
 
+// ── Perfil para IA del docente (FASE 2-BIS del Plan Maestro de IA) ─────────
+// Vive como campo `perfilIA` dentro de users/{uid} — mismo doc, sin colección
+// nueva. Se rige por las reglas de `users` ya existentes: el dueño puede
+// escribir cualquier campo propio salvo `role`/`suscripcionHasta`; nadie más
+// puede leer ni escribir el doc de otro docente para este propósito.
+await assertSucceeds(updateDoc(doc(asT1, 'users', T1), {
+  perfilIA: {
+    estiloClase: 'Muy participativo',
+    habilidades: 'Trabajo por proyectos',
+    experiencia: '8 años en bachillerato',
+    contextoEscuela: '',
+    contextoGeneral: '',
+    actualizadoEn: '2026-08-12T00:00:00.000Z',
+  },
+}))
+ok('Perfil IA · owner teacher CAN save their own perfilIA')
+
+await assertFails(updateDoc(doc(asT2, 'users', T1), {
+  perfilIA: { estiloClase: 'Intruso', habilidades: '', experiencia: '', contextoEscuela: '', contextoGeneral: '' },
+}))
+ok('Perfil IA · foreign teacher CANNOT write another teacher\'s perfilIA')
+
+const snapPerfilIA = await getDoc(doc(asT1, 'users', T1))
+assert.strictEqual(snapPerfilIA.data().perfilIA.estiloClase, 'Muy participativo')
+ok('Perfil IA · el valor guardado persiste tal cual se envió')
+
+// ── Fuentes del Asistente IA (apartado "Fuentes", FASE 2-BIS) ──────────────
+// Colección propia `fuentesAsignatura` — a diferencia de `resources`/
+// `materials`, son PRIVADAS del docente dueño: ni otro docente ni un
+// estudiante inscrito puede leerlas.
+const fuenteGeneralRef = await assertSucceeds(addDoc(collection(asT1, 'fuentesAsignatura'), {
+  asignaturaId: 'S1', docenteId: T1, nombre: 'programa.pdf', tipo: 'pdf',
+  ubicacion: 'general', parcial: null, url: 'https://example.com/programa.pdf', tamano: 1024,
+}))
+ok('Fuentes IA · owner teacher CAN create a fuente for their own subject')
+
+await assertFails(addDoc(collection(asT2, 'fuentesAsignatura'), {
+  asignaturaId: 'S1', docenteId: T2, nombre: 'intruso.pdf', tipo: 'pdf',
+  ubicacion: 'general', parcial: null, url: 'https://example.com/intruso.pdf', tamano: 1024,
+}))
+ok('Fuentes IA · foreign teacher CANNOT create a fuente on another teacher\'s subject')
+
+await assertFails(addDoc(collection(asT1, 'fuentesAsignatura'), {
+  asignaturaId: 'S1', docenteId: T2, nombre: 'suplantado.pdf', tipo: 'pdf',
+  ubicacion: 'general', parcial: null, url: 'https://example.com/x.pdf', tamano: 1024,
+}))
+ok('Fuentes IA · teacher CANNOT forge docenteId to someone else on create')
+
+await assertFails(addDoc(collection(asT1, 'fuentesAsignatura'), {
+  asignaturaId: 'S2', docenteId: T1, nombre: 'ajena.pdf', tipo: 'pdf',
+  ubicacion: 'general', parcial: null, url: 'https://example.com/x.pdf', tamano: 1024,
+}))
+ok('Fuentes IA · teacher CANNOT attach a fuente to a subject they don\'t own')
+
+await assertSucceeds(getDoc(doc(asT1, 'fuentesAsignatura', fuenteGeneralRef.id)))
+ok('Fuentes IA · owner teacher CAN read their own fuente')
+
+await assertFails(getDoc(doc(asT2, 'fuentesAsignatura', fuenteGeneralRef.id)))
+ok('Fuentes IA · foreign teacher CANNOT read another teacher\'s fuente')
+
+await assertFails(getDoc(doc(asJuan, 'fuentesAsignatura', fuenteGeneralRef.id)))
+ok('Fuentes IA · enrolled student CANNOT read a fuente (privada del docente)')
+
+await assertFails(updateDoc(doc(asT1, 'fuentesAsignatura', fuenteGeneralRef.id), { nombre: 'renombrado.pdf' }))
+ok('Fuentes IA · fuentes are immutable — even the owner CANNOT update one')
+
+await assertFails(deleteDoc(doc(asT2, 'fuentesAsignatura', fuenteGeneralRef.id)))
+ok('Fuentes IA · foreign teacher CANNOT delete another teacher\'s fuente')
+
+await assertSucceeds(deleteDoc(doc(asT1, 'fuentesAsignatura', fuenteGeneralRef.id)))
+ok('Fuentes IA · owner teacher CAN delete their own fuente')
+
+// ── Diagnóstico del grupo (apartado 2 de Asistente IA, FASE 2-BIS) ─────────
+// subjects/{id}/diagnosticosIA/{entryId} — mismo patrón de bitácora que
+// activities/analisisIA: append-only e inmutable, pero PRIVADA del docente
+// dueño (ni otro docente ni un estudiante inscrito puede leerla).
+const diagContextoRef = await assertSucceeds(addDoc(collection(asT1, 'subjects', 'S1', 'diagnosticosIA'), {
+  tipo: 'contexto', docenteId: T1,
+  resultado: { datosEncontrados: ['Grupo de 30 alumnos'], interpretacion: [], aspectosAtencion: [], informacionFaltante: [] },
+}))
+ok('Diagnóstico IA · owner teacher CAN create a diagnóstico entry (1st generation)')
+
+const diagContextoRef2 = await assertSucceeds(addDoc(collection(asT1, 'subjects', 'S1', 'diagnosticosIA'), {
+  tipo: 'contexto', docenteId: T1,
+  resultado: { datosEncontrados: ['Segunda generación'], interpretacion: [], aspectosAtencion: [], informacionFaltante: [] },
+}))
+ok('Diagnóstico IA · a second generation CREATES A NEW document, does not touch the first')
+assert.notStrictEqual(diagContextoRef.id, diagContextoRef2.id)
+ok('Diagnóstico IA · the two generations are distinct documents (never overwritten)')
+
+await assertFails(addDoc(collection(asT2, 'subjects', 'S1', 'diagnosticosIA'), {
+  tipo: 'contexto', docenteId: T2, resultado: {},
+}))
+ok('Diagnóstico IA · foreign teacher CANNOT create a diagnóstico entry on another teacher\'s subject')
+
+await assertFails(addDoc(collection(asT1, 'subjects', 'S1', 'diagnosticosIA'), {
+  tipo: 'contexto', docenteId: T2, resultado: {},
+}))
+ok('Diagnóstico IA · owner teacher CANNOT forge docenteId to someone else on create')
+
+await assertSucceeds(getDoc(doc(asT1, 'subjects', 'S1', 'diagnosticosIA', diagContextoRef.id)))
+ok('Diagnóstico IA · owner teacher CAN read their own diagnóstico entry')
+
+await assertFails(getDoc(doc(asT2, 'subjects', 'S1', 'diagnosticosIA', diagContextoRef.id)))
+ok('Diagnóstico IA · foreign teacher CANNOT read another teacher\'s diagnóstico')
+
+await assertFails(getDoc(doc(asJuan, 'subjects', 'S1', 'diagnosticosIA', diagContextoRef.id)))
+ok('Diagnóstico IA · enrolled student CANNOT read a diagnóstico (privado del docente)')
+
+await assertFails(updateDoc(doc(asT1, 'subjects', 'S1', 'diagnosticosIA', diagContextoRef.id), {
+  resultado: { datosEncontrados: ['editado'] },
+}))
+ok('Diagnóstico IA · NOBODY, not even the owner, can update a diagnóstico entry (immutable snapshot)')
+
+await assertFails(deleteDoc(doc(asT1, 'subjects', 'S1', 'diagnosticosIA', diagContextoRef.id)))
+ok('Diagnóstico IA · NOBODY, not even the owner, can delete a diagnóstico entry')
+
+// ── Planeación Didáctica Inicial (apartado 3 de Asistente IA, FASE 2-BIS) ──
+// subjects/{id}/planeacionesIA/{entryId} — misma forma exacta que
+// diagnosticosIA: append-only, inmutable, privada del docente dueño.
+const planRef = await assertSucceeds(addDoc(collection(asT1, 'subjects', 'S1', 'planeacionesIA'), {
+  docenteId: T1, resultado: { asignaturaNombre: 'Cultura Digital I', parciales: [{ numero: 1, filas: [] }] },
+}))
+ok('Planeación IA · owner teacher CAN create a planeación entry (1st generation)')
+
+const planRef2 = await assertSucceeds(addDoc(collection(asT1, 'subjects', 'S1', 'planeacionesIA'), {
+  docenteId: T1, resultado: { asignaturaNombre: 'Cultura Digital I', parciales: [{ numero: 1, filas: [] }] },
+}))
+ok('Planeación IA · a second generation CREATES A NEW document, does not touch the first')
+assert.notStrictEqual(planRef.id, planRef2.id)
+ok('Planeación IA · the two generations are distinct documents (never overwritten)')
+
+await assertFails(addDoc(collection(asT2, 'subjects', 'S1', 'planeacionesIA'), {
+  docenteId: T2, resultado: {},
+}))
+ok('Planeación IA · foreign teacher CANNOT create a planeación entry on another teacher\'s subject')
+
+await assertFails(addDoc(collection(asT1, 'subjects', 'S1', 'planeacionesIA'), {
+  docenteId: T2, resultado: {},
+}))
+ok('Planeación IA · owner teacher CANNOT forge docenteId to someone else on create')
+
+await assertSucceeds(getDoc(doc(asT1, 'subjects', 'S1', 'planeacionesIA', planRef.id)))
+ok('Planeación IA · owner teacher CAN read their own planeación entry')
+
+await assertFails(getDoc(doc(asT2, 'subjects', 'S1', 'planeacionesIA', planRef.id)))
+ok('Planeación IA · foreign teacher CANNOT read another teacher\'s planeación')
+
+await assertFails(getDoc(doc(asJuan, 'subjects', 'S1', 'planeacionesIA', planRef.id)))
+ok('Planeación IA · enrolled student CANNOT read a planeación (privada del docente)')
+
+await assertFails(updateDoc(doc(asT1, 'subjects', 'S1', 'planeacionesIA', planRef.id), {
+  resultado: { parciales: [] },
+}))
+ok('Planeación IA · NOBODY, not even the owner, can update a planeación entry (immutable snapshot)')
+
+await assertFails(deleteDoc(doc(asT1, 'subjects', 'S1', 'planeacionesIA', planRef.id)))
+ok('Planeación IA · NOBODY, not even the owner, can delete a planeación entry')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

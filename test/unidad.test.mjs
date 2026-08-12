@@ -24,6 +24,8 @@ import {
 import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosIA.js'
 import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
+import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
+import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales } from '../src/utils/fuentesAsignatura.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -741,6 +743,95 @@ caso('`_pruebas` es un objeto plano y no una función desplegable', () => {
   assert.strictEqual(typeof F.calcularCalificacion, 'function')
 })
 
+// ═══ OP-05 · sanitarizarInstruccionesHtml — nada fuera de la whitelist ══════
+// Defensa en servidor contra HTML que la IA (o un documento fuente
+// manipulado) intente colar en `instrucciones` — allowlist estricta, sin
+// DOMPurify/jsdom (ver functions/fuentesIA.js y la nota de diseño en ia.js).
+grupo('OP-05 — sanitarizarInstruccionesHtml (allowlist estricta, sin libs externas)')
+
+caso('quita <script> completo, con su contenido', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<p>Hola</p><script>alert(1)</script><p>Adiós</p>')
+  assert.ok(!out.toLowerCase().includes('script'))
+  assert.ok(!out.includes('alert'))
+  assert.strictEqual(out, '<p>Hola</p><p>Adiós</p>')
+})
+
+caso('quita <style> completo, con su contenido', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<style>body{display:none}</style><p>Texto</p>')
+  assert.ok(!out.toLowerCase().includes('style'))
+  assert.strictEqual(out, '<p>Texto</p>')
+})
+
+caso('quita comentarios HTML', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<p>Antes</p><!-- <img src=x onerror=alert(1)> --><p>Después</p>')
+  assert.ok(!out.includes('<!--'))
+  assert.ok(!out.includes('onerror'))
+  assert.strictEqual(out, '<p>Antes</p><p>Después</p>')
+})
+
+caso('quita atributos de una etiqueta permitida (incluyendo manejadores de eventos)', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<p onclick="alert(1)" style="color:red">Hola</p>')
+  assert.ok(!out.includes('onclick'))
+  assert.ok(!out.includes('style'))
+  assert.strictEqual(out, '<p>Hola</p>')
+})
+
+caso('quita una etiqueta fuera de la whitelist pero conserva su texto interior', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<div class="x">Contenido</div>')
+  assert.ok(!out.includes('<div'))
+  assert.strictEqual(out, 'Contenido')
+})
+
+caso('quita <img onerror=...> por completo (no está en la whitelist)', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<img src="x" onerror="alert(1)">')
+  assert.ok(!out.includes('onerror'))
+  assert.ok(!out.includes('<img'))
+})
+
+caso('quita <a href="javascript:..."> (no está en la whitelist)', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<a href="javascript:alert(1)">clic</a>')
+  assert.ok(!out.includes('<a'))
+  assert.ok(!out.includes('javascript:'))
+  assert.strictEqual(out, 'clic')
+})
+
+caso('quita <iframe>/<svg>/<object> por completo', () => {
+  const out = FIA.sanitizarInstruccionesHtml('<iframe src="//evil"></iframe><svg onload=alert(1)></svg><object data="x"></object>')
+  assert.ok(!/<iframe|<svg|<object/i.test(out))
+})
+
+caso('conserva las etiquetas de la whitelist sin atributos y sin escapar su texto', () => {
+  const input = '<p>Uno</p><br><strong>dos</strong><em>tres</em><ul><li>a</li><li>b</li></ul><ol><li>c</li></ol>'
+  assert.strictEqual(FIA.sanitizarInstruccionesHtml(input), input)
+})
+
+caso('entrada vacía o no-string no truena', () => {
+  assert.strictEqual(FIA.sanitizarInstruccionesHtml(''), '')
+  assert.strictEqual(FIA.sanitizarInstruccionesHtml(null), '')
+  assert.strictEqual(FIA.sanitizarInstruccionesHtml(undefined), '')
+})
+
+// ═══ OP-03/OP-04 · repartirPonderacion — siempre suma exactamente 10.0 ══════
+grupo('OP-03/OP-04 — repartirPonderacion (la aritmética la hace el código, nunca la IA)')
+
+caso('reparte y suma exactamente 10.0 para cantidades comunes', () => {
+  for (const n of [1, 2, 3, 4, 5, 7, 10, 15, 30, 100]) {
+    const valores = FIA.repartirPonderacion(n)
+    assert.strictEqual(valores.length, n, `longitud para n=${n}`)
+    const suma = Math.round(valores.reduce((s, v) => s + v, 0) * 10) / 10
+    assert.strictEqual(suma, 10, `suma para n=${n} fue ${suma}`)
+  }
+})
+
+caso('todos los valores son positivos', () => {
+  FIA.repartirPonderacion(7).forEach((v) => assert.ok(v > 0))
+})
+
+caso('cantidad 0 o negativa no truena — se trata como 1', () => {
+  assert.deepStrictEqual(FIA.repartirPonderacion(0), [10])
+  assert.deepStrictEqual(FIA.repartirPonderacion(-3), [10])
+})
+
 // ═══ A09 · Mismo número en las cinco pantallas ══════════════════════════════
 grupo('A09 — pantalla, panel del alumno, PDF (curso y parcial) y Excel: el mismo número')
 
@@ -950,6 +1041,219 @@ caso('control — una rúbrica normal sigue exigiendo exactamente 10 en su nivel
     ],
   }
   assert.notStrictEqual(validarRubrica(rubrica8), null)
+})
+
+grupo('Perfil para IA del docente — completitud')
+
+caso('perfil vacío (nunca abierto) se considera incompleto', () => {
+  assert.strictEqual(isPerfilIACompleto(null), false)
+  assert.strictEqual(isPerfilIACompleto(perfilIAVacio()), false)
+})
+
+caso('faltando un campo requerido sigue incompleto', () => {
+  assert.strictEqual(isPerfilIACompleto({
+    estiloClase: 'Participativo', habilidades: 'Proyectos', experiencia: '',
+  }), false)
+})
+
+caso('con los tres campos requeridos, completo — aunque los opcionales queden vacíos', () => {
+  assert.strictEqual(isPerfilIACompleto({
+    estiloClase: 'Participativo', habilidades: 'Proyectos', experiencia: '8 años',
+    contextoEscuela: '', contextoGeneral: '',
+  }), true)
+})
+
+caso('campos requeridos solo con espacios en blanco no cuentan como llenos', () => {
+  assert.strictEqual(isPerfilIACompleto({
+    estiloClase: '   ', habilidades: 'Proyectos', experiencia: '8 años',
+  }), false)
+})
+
+grupo('Fuentes del Asistente IA — apartado Fuentes')
+
+caso('PDF y Word (.pdf/.doc/.docx) son formatos permitidos', () => {
+  assert.strictEqual(tipoFuentePermitido('programa.pdf'), true)
+  assert.strictEqual(tipoFuentePermitido('guia.doc'), true)
+  assert.strictEqual(tipoFuentePermitido('guia.docx'), true)
+  assert.strictEqual(tipoFuentePermitido('PROGRAMA.PDF'), true)
+})
+
+caso('otros formatos (imagen, Excel, sin extensión) se rechazan', () => {
+  assert.strictEqual(tipoFuentePermitido('foto.jpg'), false)
+  assert.strictEqual(tipoFuentePermitido('datos.xlsx'), false)
+  assert.strictEqual(tipoFuentePermitido('sinextension'), false)
+  assert.strictEqual(tipoFuentePermitido(''), false)
+})
+
+caso('extensionDeArchivo normaliza a minúsculas', () => {
+  assert.strictEqual(extensionDeArchivo('Programa.PDF'), 'pdf')
+  assert.strictEqual(extensionDeArchivo('guia.docx'), 'docx')
+})
+
+caso('una fuente marcada como general no lleva número de parcial (contrato de datos)', () => {
+  const fuenteGeneral = { ubicacion: 'general', parcial: null }
+  assert.strictEqual(fuenteGeneral.ubicacion, 'general')
+  assert.strictEqual(fuenteGeneral.parcial, null)
+})
+
+caso('una fuente de parcial queda asociada al número de parcial correcto', () => {
+  const fuenteParcial2 = { ubicacion: 'parcial', parcial: 2 }
+  assert.strictEqual(fuenteParcial2.ubicacion, 'parcial')
+  assert.strictEqual(fuenteParcial2.parcial, 2)
+})
+
+caso('hayFuentesGenerales: falso sin fuentes o solo con fuentes de parcial', () => {
+  assert.strictEqual(hayFuentesGenerales([]), false)
+  assert.strictEqual(hayFuentesGenerales([{ ubicacion: 'parcial', parcial: 1 }]), false)
+})
+
+caso('hayFuentesGenerales: verdadero en cuanto hay al menos una fuente general', () => {
+  assert.strictEqual(hayFuentesGenerales([{ ubicacion: 'parcial', parcial: 1 }, { ubicacion: 'general' }]), true)
+})
+
+grupo('Diagnóstico del grupo — apartado 2 de Asistente IA')
+
+caso('seleccionarFuentesGenerales: toma hasta 3, las más recientes primero, solo las generales', () => {
+  const fuentes = [
+    { ubicacion: 'general', url: 'u1', creadoEnMillis: 100 },
+    { ubicacion: 'parcial', parcial: 1, url: 'u-parcial', creadoEnMillis: 999 }, // debe excluirse
+    { ubicacion: 'general', url: 'u2', creadoEnMillis: 300 },
+    { ubicacion: 'general', url: 'u3', creadoEnMillis: 200 },
+    { ubicacion: 'general', url: 'u4', creadoEnMillis: 50 }, // se queda fuera (ya hay 3 más recientes)
+  ]
+  const seleccion = FIA.seleccionarFuentesGenerales(fuentes)
+  assert.strictEqual(seleccion.length, 3)
+  assert.deepStrictEqual(seleccion.map((f) => f.url), ['u2', 'u3', 'u1'])
+})
+
+caso('seleccionarFuentesGenerales: sin fuentes generales, arreglo vacío (no truena)', () => {
+  assert.deepStrictEqual(FIA.seleccionarFuentesGenerales([{ ubicacion: 'parcial', parcial: 1, url: 'x' }]), [])
+  assert.deepStrictEqual(FIA.seleccionarFuentesGenerales(null), [])
+})
+
+caso('perfilIACompleto (functions/ia.js) exige los mismos 3 campos que isPerfilIACompleto (cliente)', () => {
+  assert.strictEqual(FIA.perfilIACompleto(null), false)
+  assert.strictEqual(FIA.perfilIACompleto({ estiloClase: 'x', habilidades: 'y', experiencia: '' }), false)
+  assert.strictEqual(FIA.perfilIACompleto({ estiloClase: 'x', habilidades: 'y', experiencia: 'z' }), true)
+})
+
+caso('perfilIATexto: arma un bloque legible solo con los campos que sí tienen contenido', () => {
+  const texto = FIA.perfilIATexto({ estiloClase: 'Participativo', habilidades: '', experiencia: '8 años', contextoEscuela: '', contextoGeneral: '' })
+  assert.ok(texto.includes('Participativo'))
+  assert.ok(texto.includes('8 años'))
+  assert.ok(!texto.includes('Habilidades del docente'), 'no debe mencionar un campo vacío')
+})
+
+caso('perfilIATexto: perfil totalmente vacío no inventa nada — dice que no hay información', () => {
+  assert.strictEqual(FIA.perfilIATexto(null), 'Información no disponible en las fuentes proporcionadas.')
+})
+
+caso('normalizarDiagnosticoContexto: separa datos/interpretación/atención/faltante y recorta longitud', () => {
+  const r = FIA.normalizarDiagnosticoContexto({
+    datosEncontrados: ['a'.repeat(300)],
+    interpretacion: ['algo'],
+    aspectosAtencion: [],
+    informacionFaltante: ['nombres de los estudiantes'],
+  })
+  assert.strictEqual(r.datosEncontrados[0].length, 220)
+  assert.deepStrictEqual(r.aspectosAtencion, [])
+  assert.deepStrictEqual(r.informacionFaltante, ['nombres de los estudiantes'])
+})
+
+caso('normalizarDiagnosticoContexto: entrada basura (no arreglos) no truena — todo queda vacío', () => {
+  const r = FIA.normalizarDiagnosticoContexto({ datosEncontrados: 'no es arreglo' })
+  assert.deepStrictEqual(r.datosEncontrados, [])
+})
+
+caso('normalizarReactivosDiagnostico: acepta opcion_multiple y verdadero_falso, descarta lo demás', () => {
+  const r = FIA.normalizarReactivosDiagnostico([
+    { tema: 'Fracciones', tipo: 'opcion_multiple', enunciado: '¿Cuánto es 1/2 + 1/4?', opciones: ['1/4', '3/4', '1', '2/4'], correcta: 1 },
+    { tema: 'Álgebra', tipo: 'verdadero_falso', enunciado: 'x+1=2 implica x=1', correcta: 'v' },
+    { tema: 'Sin enunciado', tipo: 'opcion_multiple', enunciado: '', opciones: [] }, // se descarta
+  ])
+  assert.strictEqual(r.length, 2)
+  assert.strictEqual(r[0].opciones.length, 4)
+  assert.strictEqual(r[1].correcta, 'v')
+})
+
+caso('normalizarReactivosDiagnostico: nunca deja pasar más del máximo permitido', () => {
+  const muchos = Array.from({ length: 40 }, (_, i) => ({ tipo: 'verdadero_falso', enunciado: `reactivo ${i}`, correcta: 'v' }))
+  const r = FIA.normalizarReactivosDiagnostico(muchos)
+  assert.strictEqual(r.length, FIA.MAX_REACTIVOS_DIAGNOSTICO)
+})
+
+caso('normalizarDiagnosticoConocimientos: sin reactivos aprovechables, la lista queda vacía (no inventa)', () => {
+  const r = FIA.normalizarDiagnosticoConocimientos({ temas: ['Tema 1'], reactivos: [], comoInterpretar: 'x' })
+  assert.deepStrictEqual(r.reactivos, [])
+  assert.deepStrictEqual(r.temas, ['Tema 1'])
+})
+
+grupo('Planeación Didáctica Inicial — apartado 3 de Asistente IA')
+
+caso('formatoPeriodo: arma "inicio – fin" solo con fechas válidas de la Asignatura', () => {
+  const texto = FIA.formatoPeriodo({ inicio: '2026-08-01', fin: '2026-10-15' })
+  assert.ok(texto.includes('–'))
+  assert.ok(/2026/.test(texto))
+})
+
+caso('formatoPeriodo: sin fechas o fechas inválidas, null (no inventa un periodo)', () => {
+  assert.strictEqual(FIA.formatoPeriodo(null), null)
+  assert.strictEqual(FIA.formatoPeriodo({}), null)
+  assert.strictEqual(FIA.formatoPeriodo({ inicio: 'no-es-fecha', fin: '2026-10-15' }), null)
+})
+
+caso('diagnosticoContextoATexto: arma el bloque solo con lo que sí trae el diagnóstico', () => {
+  const texto = FIA.diagnosticoContextoATexto({
+    datosEncontrados: ['Grupo de 30'], interpretacion: [], aspectosAtencion: ['Ritmo variado'], informacionFaltante: [],
+  })
+  assert.ok(texto.includes('Grupo de 30'))
+  assert.ok(texto.includes('Ritmo variado'))
+  assert.ok(!texto.includes('Interpretación:'), 'no debe mencionar una sección vacía')
+})
+
+caso('diagnosticoContextoATexto: sin diagnóstico, dice que no hay información (no inventa)', () => {
+  assert.strictEqual(FIA.diagnosticoContextoATexto(null), 'Información no disponible en las fuentes proporcionadas.')
+})
+
+caso('diagnosticoConocimientosATexto: solo temas, nunca resultados (el instrumento aún no se aplicó)', () => {
+  const texto = FIA.diagnosticoConocimientosATexto({ temas: ['Fracciones', 'Álgebra básica'] })
+  assert.ok(texto.includes('Fracciones'))
+  assert.ok(texto.includes('aún sin aplicar'), 'debe dejar explícito que no son resultados reales')
+})
+
+caso('diagnosticoConocimientosATexto: sin temas, dice que no hay información', () => {
+  assert.strictEqual(FIA.diagnosticoConocimientosATexto({ temas: [] }), 'Información no disponible en las fuentes proporcionadas.')
+})
+
+caso('normalizarFilaPlaneacion: recorta cada campo a su máximo y usa exactamente los 8 campos pedidos', () => {
+  const fila = FIA.normalizarFilaPlaneacion({
+    contenidosTemas: 'a'.repeat(500), proposito: 'p', actividades: 'act', estrategia: 'e',
+    recursos: 'r', evidencias: 'ev', evaluacion: 'eval', observaciones: 'o', campoInventado: 'no debe aparecer',
+  })
+  assert.strictEqual(fila.contenidosTemas.length, 400)
+  assert.deepStrictEqual(Object.keys(fila).sort(), [
+    'actividades', 'contenidosTemas', 'estrategia', 'evaluacion', 'evidencias', 'observaciones', 'proposito', 'recursos',
+  ])
+})
+
+caso('normalizarFilasPlaneacion: descarta filas sin contenidosTemas NI actividades (no aporta como guía)', () => {
+  const filas = FIA.normalizarFilasPlaneacion([
+    { contenidosTemas: 'Fracciones', actividades: '' },
+    { contenidosTemas: '', actividades: '' },
+    { contenidosTemas: '', actividades: 'Trabajo en equipo' },
+  ])
+  assert.strictEqual(filas.length, 2)
+})
+
+caso('normalizarFilasPlaneacion: nunca deja pasar más del máximo de filas por parcial', () => {
+  const muchas = Array.from({ length: 30 }, (_, i) => ({ contenidosTemas: `tema ${i}` }))
+  const filas = FIA.normalizarFilasPlaneacion(muchas)
+  assert.strictEqual(filas.length, FIA.MAX_FILAS_PLANEACION_PARCIAL)
+})
+
+caso('normalizarFilasPlaneacion: entrada basura no truena — arreglo vacío', () => {
+  assert.deepStrictEqual(FIA.normalizarFilasPlaneacion('no es arreglo'), [])
+  assert.deepStrictEqual(FIA.normalizarFilasPlaneacion(null), [])
 })
 
 // ═══ Resumen ═════════════════════════════════════════════════════════════════

@@ -12,6 +12,7 @@ import {
   Bell,
   Lock,
   BookOpen,
+  Sparkles,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -302,6 +303,24 @@ export default function TeacherLayout({ children }) {
           {/* QR de descarga de la app — arriba de Notificaciones. Va aquí y no
               dentro de una asignatura porque es el MISMO para todas: la app es
               una sola y el perfil se elige al abrirla. */}
+          {/* Perfil para IA del docente — arriba del QR, pedido explícito
+              (FASE 2-BIS del Plan Maestro de IA). Contexto general del
+              docente, se captura una sola vez y se reutiliza en todas las
+              funciones de IA de sus asignaturas. */}
+          <div className="px-2 pt-2 border-t border-white/15">
+            <NavLink
+              to="/perfil-ia"
+              className={({ isActive }) =>
+                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
+                  isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
+                }`
+              }
+            >
+              <Sparkles size={17} className="flex-shrink-0" />
+              Perfil para IA del docente
+            </NavLink>
+          </div>
+
           <div className="px-2 pt-2 border-t border-white/15">
             <AppQRButton
               className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white/80 hover:bg-white/10 transition-colors disabled:opacity-60"

@@ -63,7 +63,7 @@ import {
   Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
-  AlertTriangle, ArrowUp, ArrowDown,
+  AlertTriangle, ArrowUp, ArrowDown, Sparkles,
 } from 'lucide-react'
 import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
@@ -74,8 +74,12 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import EvaluacionEditor from '../../components/EvaluacionEditor'
 import EntregableEditor from '../../components/EntregableEditor'
+import CrearEvaluacionIAModal from '../../components/CrearEvaluacionIAModal'
+import CrearActividadIAModal from '../../components/CrearActividadIAModal'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
+import AsistenteIATab from '../../components/subject/AsistenteIATab'
+import { isPerfilIACompleto } from '../../utils/perfilIA'
 import { canCreateContent, hasCleanExports } from '../../utils/subscriptionHelpers'
 import ConfirmModal from '../../components/ConfirmModal'
 
@@ -532,6 +536,10 @@ export default function SubjectPage() {
   // Sin suscripción activa (trial, vencida, cancelada, pendiente_pago) todas
   // las exportaciones PDF/Excel llevan marca de agua — pedido explícito.
   const exportsWatermarked = !hasCleanExports(subscription)
+  // Asistente IA (FASE 2-BIS del Plan Maestro de IA) solo aparece si el
+  // docente ya completó su Perfil para IA — mismo contexto para todas sus
+  // asignaturas, capturado una sola vez (ver /perfil-ia).
+  const perfilIACompleto = isPerfilIACompleto(userProfile?.perfilIA)
   // Escuela + docente que encabezan cada PDF/Excel que se descarga de aquí.
   const membrete = membreteDe(userProfile)
   // Resuelve la promesa de confirmExportNotice() — no-null mientras el aviso
@@ -558,6 +566,10 @@ export default function SubjectPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   // null = showing the tipo picker, 'entregable'|'cuestionario'|'examen' = form visible
   const [tipoActividad, setTipoActividad] = useState(null)
+  // OP-03/OP-04 · Examen/Cuestionario con IA: null | { categoria }
+  const [crearEvalIA, setCrearEvalIA] = useState(null)
+  // OP-05 · Entregable/Observación con IA: null | { categoria }
+  const [crearActividadIA, setCrearActividadIA] = useState(null)
   // Full-screen evaluación editor (cuestionario / examen)
   const [evalEditor, setEvalEditor] = useState(null) // null | { activityId, categoria, parcial }
   // Full-screen entregable editor
@@ -1280,6 +1292,7 @@ export default function SubjectPage() {
     if (tab === 'recursos' && !resourcesLoaded) ensureResources()
     if (tab === 'asistencia' && !attendanceLoaded) loadAttendance()
   }
+
 
   // En la app nativa, la pestaña Asistencias se ve en HORIZONTAL (para caber más
   // columnas); el resto de la app queda en vertical.
@@ -3978,12 +3991,12 @@ export default function SubjectPage() {
               {(IS_NATIVE_APP
                 ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
                 : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos']
-              ).map((t) => (
+              ).concat(perfilIACompleto ? ['asistente-ia'] : []).map((t) => (
                 <button type="button" key={t} onClick={() => switchTab(t)}
                   className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                     activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                   }`}>
-                  {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : 'Avisos'}
+                  {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Asistente IA'}
                 </button>
               ))}
             </div>
@@ -5410,6 +5423,22 @@ export default function SubjectPage() {
           />
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════
+          TAB: ASISTENTE IA — solo Fuentes en esta etapa (FASE 2-BIS)
+      ══════════════════════════════════════════════════════════ */}
+      {activeTab === 'asistente-ia' && perfilIACompleto && (
+        <div className={TEACHER_CONTAINER_NARROW}>
+          <AsistenteIATab
+            subjectId={subjectId}
+            docenteId={currentUser.uid}
+            parciales={subject?.parciales || 3}
+            asignaturaNombre={subject?.nombre || ''}
+            subject={subject}
+            watermark={exportsWatermarked}
+          />
+        </div>
+      )}
       </div>
 
       {/* ── Activity create/edit modal ── */}
@@ -5437,12 +5466,20 @@ export default function SubjectPage() {
                   { key: 'cuestionario', label: 'Cuestionario', desc: 'Preguntas con calificación automática, abiertas o con archivo. Ideal para práctica o aprendizaje.', Icon: ListChecks, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
                   { key: 'examen', label: 'Examen', desc: 'Preguntas con calificación automática, abiertas o con archivo. Para evaluación formal.', Icon: GraduationCap, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
                   { key: 'observacion', label: 'Observación', desc: 'Sin entrega del alumno: tú observas y calificas. Ej.: actitud, exposición de tema, realización de ejercicio.', Icon: ClipboardCheck, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
+                  { key: 'cuestionario_ia', label: 'Cuestionario con IA', desc: 'Describe qué quieres evaluar y el asistente genera el cuestionario completo con sus reactivos.', Icon: Sparkles, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
+                  { key: 'examen_ia', label: 'Examen con IA', desc: 'Describe qué quieres evaluar y el asistente genera el examen completo con sus reactivos.', Icon: Sparkles, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
+                  { key: 'entregable_ia', label: 'Entregable con IA', desc: 'Describe qué quieres que entreguen tus estudiantes y el asistente genera la actividad completa.', Icon: Sparkles, iconColor: 'text-slate-500', iconBg: 'bg-slate-100' },
+                  { key: 'observacion_ia', label: 'Observación con IA', desc: 'Describe qué quieres observar y el asistente genera la actividad completa.', Icon: Sparkles, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
                 ].map((opt) => (
                   <button key={opt.key} type="button"
                     onClick={() => {
                       setShowModal(false)
                       if (opt.key === 'entregable' || opt.key === 'observacion') {
                         setEntregableEditor({ activityId: null, parcial: modalParcial, categoria: opt.key, activityLabel: null, initialForm: null, initialExistingFiles: null })
+                      } else if (opt.key === 'cuestionario_ia' || opt.key === 'examen_ia') {
+                        setCrearEvalIA({ categoria: opt.key === 'cuestionario_ia' ? 'cuestionario' : 'examen' })
+                      } else if (opt.key === 'entregable_ia' || opt.key === 'observacion_ia') {
+                        setCrearActividadIA({ categoria: opt.key === 'entregable_ia' ? 'entregable' : 'observacion' })
                       } else {
                         setEvalEditor({ activityId: null, categoria: opt.key, parcial: modalParcial, activityLabel: `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.` })
                       }
@@ -7140,6 +7177,80 @@ export default function SubjectPage() {
           students={groupStudents}
           onClose={() => setNewDateOpen(false)}
           onSaved={applyNewDateResult}
+        />
+      )}
+
+      {/* ── OP-03/OP-04 · Examen/Cuestionario con IA ── */}
+      {crearEvalIA && (
+        <CrearEvaluacionIAModal
+          open={!!crearEvalIA}
+          categoria={crearEvalIA.categoria}
+          asignaturaId={subjectId}
+          asignaturaNombre={subjectDisplayName(subject)}
+          parcial={modalParcial}
+          docenteId={currentUser?.uid}
+          existingActivitiesCountInParcial={activities.filter((a) => a.parcial === modalParcial).length}
+          onClose={() => setCrearEvalIA(null)}
+          onCreated={(activityId) => {
+            const label = `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.`
+            setCrearEvalIA(null)
+            // Misma ruta que "Editar": abre el editor completo ya con los
+            // reactivos que generó la IA, para que el docente los revise.
+            setEvalEditor({ activityId, categoria: crearEvalIA.categoria, parcial: modalParcial, activityLabel: label })
+          }}
+        />
+      )}
+
+      {/* ── OP-05 · Entregable/Observación con IA ── */}
+      {crearActividadIA && (
+        <CrearActividadIAModal
+          open={!!crearActividadIA}
+          categoria={crearActividadIA.categoria}
+          asignaturaId={subjectId}
+          asignaturaNombre={subjectDisplayName(subject)}
+          parcial={modalParcial}
+          docenteId={currentUser?.uid}
+          existingActivitiesCountInParcial={activities.filter((a) => a.parcial === modalParcial).length}
+          onClose={() => setCrearActividadIA(null)}
+          onCreated={async (activityId) => {
+            const label = `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.`
+            const categoria = crearActividadIA.categoria
+            setCrearActividadIA(null)
+            // A diferencia de CrearEvaluacionIAModal (donde EvaluacionEditor
+            // se auto-carga por activityId), EntregableEditor necesita
+            // `initialForm` ya armado — y lo que generó la IA vive en el
+            // servidor, no en el `activities` local (creado vacío antes de
+            // llamar a la IA). Se relee el documento fresco, mismo shape que
+            // openEdit() de arriba.
+            let activity = null
+            try {
+              const snap = await getDoc(doc(db, 'activities', activityId))
+              if (snap.exists()) activity = { id: snap.id, ...snap.data() }
+            } catch { /* si falla, se abre con el formulario en blanco */ }
+            if (activity) setActivities((prev) => [...prev, activity])
+            setEntregableEditor({
+              activityId,
+              parcial: modalParcial,
+              categoria,
+              activityLabel: label,
+              initialExistingFiles: activity?.archivosAdjuntos || [],
+              initialForm: activity ? {
+                nombre: activity.nombre || '',
+                instrucciones: toRichHtml(activity.instrucciones || ''),
+                fechaLimite: activity.fechaLimite ? withDefaultTime(activity.fechaLimite, '00:00') : '',
+                tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
+                extensionesCustom: activity.extensionesCustom || '',
+                oculta: activity.oculta ?? true,
+                publishAt: activity.publishAt || '',
+                publishedAt: activity.publishedAt || '',
+                visibilidadMode: !activity.oculta ? 'published' : activity.publishAt ? 'schedule' : 'hide',
+                cerrarEntregasEnFecha: !activity.recibirTarde,
+                rubrica: activity.rubrica || null,
+                rubricaId: activity.rubricaId || null,
+                notificarDocente: activity.notificarDocente || false,
+              } : null,
+            })
+          }}
         />
       )}
 

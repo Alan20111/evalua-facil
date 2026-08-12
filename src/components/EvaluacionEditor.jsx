@@ -33,6 +33,8 @@ import SearchInput from './SearchInput'
 import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ReactivosIAReview from './evaluacion/ReactivosIAReview'
+import FuentesIAInput from './ia/FuentesIAInput'
+import { subirFuentes } from '../utils/fuentesIA'
 import {
   MIN_REACTIVOS, MAX_REACTIVOS, DEFAULT_REACTIVOS, TIPOS_REACTIVO_IA, reactivosDesdePropuesta,
 } from '../utils/reactivosIA'
@@ -272,6 +274,9 @@ export default function EvaluacionEditor({
   const [iaQuiereEvaluar, setIaQuiereEvaluar] = useState('')
   const [iaCantidad, setIaCantidad] = useState(DEFAULT_REACTIVOS)
   const [iaTipoSolicitado, setIaTipoSolicitado] = useState('mixto')
+  // Fuentes opcionales (hasta 3 PDF/Word) — mismo mecanismo que OP-03/OP-04:
+  // fuente ADICIONAL a "qué quieres evaluar", nunca la sustituye.
+  const [iaArchivos, setIaArchivos] = useState([])
   useBackHandler(() => setIaConfirmando(false), iaConfirmando)
   useBackHandler(() => setIaPropuesta(null), !!iaPropuesta)
 
@@ -752,13 +757,14 @@ export default function EvaluacionEditor({
   // ── OP-09 · Generar reactivos con IA ──────────────────────────────────────
   function pedirReactivosIA() {
     if (!currentActivityId) { toast('Guarda la información antes de generar reactivos', 'error'); return }
-    setIaTema(''); setIaQuiereEvaluar(''); setIaCantidad(DEFAULT_REACTIVOS); setIaTipoSolicitado('mixto')
+    setIaTema(''); setIaQuiereEvaluar(''); setIaCantidad(DEFAULT_REACTIVOS); setIaTipoSolicitado('mixto'); setIaArchivos([])
     setIaConfirmando(true)
   }
 
   async function generarReactivosConIA() {
     setIaTrabajando(true)
     try {
+      const urls = iaArchivos.length ? (await subirFuentes(iaArchivos)).map((f) => f.url) : []
       const r = await creditosIA.ejecutar('reactivos', {
         actividadId: currentActivityId,
         asignaturaId: subjectId,
@@ -767,6 +773,7 @@ export default function EvaluacionEditor({
         quiereEvaluar: iaQuiereEvaluar,
         cantidad: iaCantidad,
         tipoSolicitado: iaTipoSolicitado,
+        fuentes: urls,
       })
       // El servidor ya forzó la cantidad y el tipo exacto de cada reactivo
       // (ver functions/ia.js); aquí solo se le da forma al editor de revisión.
@@ -2118,6 +2125,7 @@ export default function EvaluacionEditor({
                 ))}
               </select>
             </div>
+            <FuentesIAInput files={iaArchivos} onChange={setIaArchivos} disabled={iaTrabajando} />
           </div>
         </ConfirmacionCreditosModal>
       )}

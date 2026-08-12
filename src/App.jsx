@@ -21,6 +21,7 @@ import TeacherDashboard from './pages/teacher/Dashboard'
 import SubjectPage from './pages/teacher/SubjectPage'
 import ActivityPage from './pages/teacher/ActivityPage'
 import Profile from './pages/teacher/Profile'
+import PerfilIA from './pages/teacher/PerfilIA'
 import CalendarPage from './pages/teacher/CalendarPage'
 import VerifyEmail from './pages/teacher/VerifyEmail'
 import PagoResultado from './pages/teacher/PagoResultado'
@@ -196,6 +197,7 @@ export default function App() {
               <Route path="/subject/:subjectId" element={<SubjectPage />} />
               <Route path="/activity/:activityId" element={<ActivityPage />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/perfil-ia" element={<PerfilIA />} />
               <Route path="/calendario" element={<CalendarPage />} />
               <Route path="/notificaciones" element={<TeacherNotificationSettings />} />
               <Route path="/manual" element={<ManualPage />} />

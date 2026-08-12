@@ -17,7 +17,7 @@ import Spinner from '../../components/Spinner'
 import Select from '../../components/ui/Select'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { uploadToCloudinary } from '../../utils/cloudinary'
-import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe, Smartphone, Download } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe, Smartphone, Download, Sparkles } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
@@ -518,6 +518,20 @@ export default function TeacherDashboard() {
                 className="mb-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-card border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
               >
                 <Plus size={18} /> Nueva asignatura
+              </button>
+            )}
+
+            {/* Perfil para IA del docente — arriba del QR, solo en la App
+                (en la web vive en el menú lateral, arriba del QR también).
+                Ver FASE 2-BIS del Plan Maestro de IA. */}
+            {IS_NATIVE_APP && (
+              <button
+                type="button"
+                onClick={() => navigate('/perfil-ia')}
+                className="w-full mb-3 bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-2 text-left text-accent"
+              >
+                <Sparkles size={21} className="flex-shrink-0 ml-1" />
+                <span className="flex-1 min-w-0 font-semibold text-on-surface">Perfil para IA del docente</span>
               </button>
             )}
 

@@ -372,6 +372,38 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.docenteId;
       allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
+
+      // Diagnóstico del grupo — Asistente IA (FASE 2-BIS del Plan Maestro de
+      // IA). Bitácora de generaciones, mismo patrón que activities/analisisIA:
+      // append-only (cada "Generar diagnóstico" crea un documento nuevo, la
+      // versión anterior nunca se pisa) e inmutable (sin update ni delete).
+      // A diferencia de analisisIA (cualquier autenticado la lee), esta es
+      // PRIVADA del docente dueño: es contexto pedagógico suyo, no material
+      // del grupo.
+      match /diagnosticosIA/{diagnosticoId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
+        allow create: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
+          request.resource.data.docenteId == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      // Planeación Didáctica Inicial — Asistente IA (FASE 2-BIS, apartado 3).
+      // Misma forma exacta que diagnosticosIA: bitácora append-only e
+      // inmutable, privada del docente dueño. El .xlsx nunca se guarda aquí
+      // (ni en ningún storage) — se arma en el cliente a partir de
+      // `resultado` cada vez que el docente descarga (ver
+      // src/utils/planeacionExcel.js), así que descargar no cuesta nada
+      // aparte ni depende de la red.
+      match /planeacionesIA/{planeacionId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
+        allow create: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
+          request.resource.data.docenteId == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
 
     match /activities/{activityId} {
@@ -508,6 +540,24 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
       allow update, delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
+    }
+
+    // Fuentes del Asistente IA (FASE 2-BIS del Plan Maestro de IA) — PDF/Word
+    // que el docente guarda una vez por Asignatura (generales o por parcial)
+    // para reutilizarlos como contexto en operaciones de IA futuras. A
+    // diferencia de `resources`/`materials`, son PRIVADAS del docente dueño:
+    // ni otro docente ni ningún estudiante puede leerlas (piden contexto
+    // pedagógico del docente, no material para el grupo). Inmutables: se
+    // eliminan y se vuelven a subir, no se editan (así no hay que validar
+    // cambios parciales de `ubicacion`/`parcial` en `update`).
+    match /fuentesAsignatura/{fuenteId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.docenteId;
+      allow create: if docenteActivo() &&
+        request.auth.uid == request.resource.data.docenteId &&
+        ownsSubject(request.resource.data.asignaturaId);
+      allow update: if false;
+      allow delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
     }
 

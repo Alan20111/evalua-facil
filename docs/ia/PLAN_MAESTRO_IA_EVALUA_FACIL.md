@@ -4,11 +4,17 @@
 No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 - **Creado:** 9 de agosto de 2026
-- **Última actualización:** 9 de agosto de 2026 — Fases 1–4 cerradas.
-  Arquitectura D aprobada y **tokens de OP-01/OP-02 actualizados** en las
-  tablas (escenarios PLAN·5F y PLAN·10F separados). Modelos provisionales
-  (M3 abierta), consumo ARRANQUE + RECURRENTE. Fase 5 bloqueada hasta el
-  análisis económico.
+- **Última actualización:** 12 de agosto de 2026 — **Kike sustituye la
+  arquitectura de "Planeación Viva" / "Universo Curricular" por una
+  arquitectura simplificada**: Perfil para IA del docente (una sola vez) +
+  pestaña "Asistente IA" por asignatura con tres apartados (Fuentes,
+  Diagnóstico del grupo, Planeación Didáctica Inicial). Ver "FASE 2-BIS —
+  ARQUITECTURA SIMPLIFICADA DE IA (12-ago-2026)" y la bitácora. Esta decisión
+  sustituye cualquier interpretación previa que la contradiga. Lo anterior
+  (Fases 1–4 cerradas, Arquitectura D, tokens de OP-01/OP-02, PLAN·5F/10F,
+  M3 abierta, consumo ARRANQUE + RECURRENTE) sigue registrado como historial
+  del 9-ago-2026, pero queda sujeto a esta simplificación donde haya
+  contradicción.
 - **Dirige:** Kike. Este documento registra sus decisiones; no las sustituye.
 
 ---
@@ -39,8 +45,9 @@ cognitiva para el docente. No se agrega por agregar.
 | Fase | Nombre | Estado |
 |------|--------|--------|
 | 1 | Auditoría y contexto | **Aprobada** (dudas D1–D4 resueltas el 9-ago-2026) |
-| 2 | Planeación didáctica | **Aprobada y cerrada** (9-ago-2026) — diseño conceptual en §2.11; Q1–Q2 confirmadas. **Precisada el 10-ago-2026**: §2.11.6 aclara que sus capas son contexto, no fuente de origen |
-| 3 | Operaciones de IA | **Aprobada y cerrada** (9-ago-2026) — 17 operaciones en alcance; O1–O4 resueltas. **Precisada el 10-ago-2026**: se agregan dos reglas transversales (fuente inmediata; una propuesta de IA no asciende a fuente curricular). Alcance sin cambios |
+| 2 | Planeación didáctica | **Aprobada y cerrada** (9-ago-2026) — diseño conceptual en §2.11; Q1–Q2 confirmadas. **Precisada el 10-ago-2026**: §2.11.6 aclara que sus capas son contexto, no fuente de origen. **SUSTITUIDA el 12-ago-2026**: "Planeación Viva" queda descartada; ver FASE 2-BIS — Planeación Didáctica Inicial, generada solo tras los dos diagnósticos |
+| 2-BIS | Arquitectura simplificada de IA | **Definitiva** (12-ago-2026) — Perfil para IA del docente (arriba del QR, único, obligatorio para ver la pestaña de IA) + pestaña "Asistente IA" por asignatura con 3 apartados: Fuentes, Diagnóstico del grupo, Planeación Didáctica Inicial. Sustituye Planeación Viva y Universo Curricular |
+| 3 | Operaciones de IA | **Aprobada y cerrada** (9-ago-2026) — 17 operaciones en alcance; O1–O4 resueltas. **Precisada el 10-ago-2026**: se agregan dos reglas transversales (fuente inmediata; una propuesta de IA no asciende a fuente curricular). **Precisada el 12-ago-2026**: OP-03/04/05/10 ya existen y no se reimplementan; usan Fuentes de la Asignatura, no "Universo Curricular". Alcance sin cambios |
 | 4 | Prompts y modelos | **Aprobada y cerrada** (9-ago-2026) — M1/M2/M4 aprobadas; M3 = candidatos de trabajo, decisión final tras el análisis económico. **Precisada el 10-ago-2026** por la regla transversal de fuente inmediata (§4.3, fichas OP-06/07/08/09 y tabla de tokens): no reabre la fase ni cambia valores |
 | 5 | Créditos IA | **En curso** — prerequisito cumplido (análisis económico y pruebas reales hechos); propuesta inicial v1 entregada, **en revisión de Kike** |
 | 6 | Rentabilidad | No iniciada — requiere el simulador externo con precios oficiales vigentes |
@@ -501,14 +508,35 @@ de almacenamiento pertenece a la Fase 11.
   otros subsistemas, pero se evita un diseño innecesariamente cerrado que
   haga imposible incorporar otros formatos en el futuro.
 
-## 2.11 Diseño conceptual de la Planeación Didáctica (APROBADO el 9-ago-2026)
+## 2.11 Diseño conceptual de la Planeación Didáctica (APROBADO el 9-ago-2026 — SUSTITUIDO el 12-ago-2026)
+
+> **AVISO — NO VIGENTE (12-ago-2026).** Kike sustituyó el concepto de
+> "Planeación Viva" descrito en toda esta sección §2.11 por la
+> **Planeación Didáctica Inicial**, definida en "FASE 2-BIS — ARQUITECTURA
+> SIMPLIFICADA DE IA" (justo después de §2.11). Diferencias clave: (1) la
+> Planeación Didáctica Inicial se genera **únicamente después de** los dos
+> diagnósticos del grupo (de contexto y de conocimientos), no como primer
+> paso; (2) es **sencilla, por parcial, formato Excel solo texto** (líneas y
+> tabla), pensada para que el docente copie/pegue a su formato
+> institucional — no la reemplaza; (3) **no se mantiene "viva"** contra la
+> realidad del curso como pieza central de la arquitectura — esa idea de
+> mantenimiento automático permanente queda fuera de alcance por ahora; (4)
+> no vive en un concepto de "tronco + bloques" con captura de carrera/
+> semestre como paso obligatorio — se simplifica. Esta sección §2.11 se
+> conserva completa como **registro histórico** del diseño aprobado el
+> 9-ago-2026 (útil como referencia de los campos que sí se consideraron
+> válidos), pero **ya no es el diseño vigente**. Donde el resto del
+> documento (§2.11.6, la REGLA TRANSVERSAL, §3.2/3.3, §4.6, "Universo
+> Curricular", "Ubicación de la IA en la interfaz") dependa de "Planeación
+> Viva" como arquitectura, esa dependencia queda igualmente sustituida — ver
+> los avisos correspondientes en cada sección.
 
 Elaborado el 9-ago-2026 con P1–P5 resueltas y aprobado por Kike ese mismo
 día. Define el QUÉ y el CÓMO conceptual; nada está programado y la
 arquitectura técnica (colecciones, endpoints, dónde se guarda exactamente)
 pertenece a la Fase 11.
 
-### 2.11.1 La Planeación Viva: qué es
+### 2.11.1 La Planeación Viva: qué es (histórico — ver aviso arriba)
 
 **Una sola planeación por asignatura**, que abarca todo el periodo académico
 con todos sus parciales. Es la **fuente de verdad** de la planeación del
@@ -582,7 +610,14 @@ plantel.
   momento de exportar. Sin banderas de "desactualizado" ni semáforos que
   presionen al docente: la planeación nunca "se vence".
 
-### 2.11.6 La Planeación Viva como contexto de toda la IA
+### 2.11.6 La Planeación Viva como contexto de toda la IA (histórico — ver FASE 2-BIS)
+
+> **AVISO — NO VIGENTE (12-ago-2026):** el listado de capas de abajo se
+> sustituye por el "Contexto persistente para toda la IA" de FASE 2-BIS:
+> (1) Perfil IA del docente, (2) Información de la Asignatura, (3) Fuentes
+> iniciales generales, (4) Diagnóstico de contexto, (5) Diagnóstico de
+> conocimientos, (6) Planeación Didáctica Inicial, (7) Fuentes específicas
+> por parcial. Se conserva el texto histórico para referencia.
 
 El contexto de cualquier operación de IA se arma **en capas**, sin preguntar
 nada que ya exista:
@@ -686,7 +721,138 @@ plantilla (SEMS/DGETI) y no se construye ninguna otra.
 
 ---
 
-# REGLA TRANSVERSAL — FUENTE INMEDIATA VS. CONTEXTO CURRICULAR (APROBADA el 10-ago-2026)
+# FASE 2-BIS — ARQUITECTURA SIMPLIFICADA DE IA (DEFINITIVA — Kike, 12-ago-2026)
+
+**Sustituye** el diseño de "Planeación Viva" de §2.11 y la dependencia de
+"Universo Curricular" en la REGLA TRANSVERSAL y en "Universo Curricular
+(decisión de producto)". Es la arquitectura vigente para el contexto de IA
+del docente y de cada asignatura. Copiada tal como Kike la definió, sin
+reinterpretar ni ampliar.
+
+## 2-BIS.1 Perfil para IA del docente
+
+En la pantalla principal, **arriba del QR**, un botón **"Perfil para IA del
+docente"**. Contiene contexto GENERAL reutilizable: estilo de facilitar
+clase, habilidades, experiencia, contexto de escuela, contexto general de
+trabajo. Se captura **una sola vez**.
+
+**Regla obligatoria:** si el docente NO ha completado su Perfil para IA, **no
+se muestra la pestaña de IA** dentro de sus asignaturas. No se crea otra
+forma paralela de capturar este contexto.
+
+## 2-BIS.2 Pestaña "Asistente IA" por asignatura
+
+Dentro de cada Asignatura, visible **solo si el Perfil está completo**.
+Tiene **exactamente tres apartados** (no se agregan más sin autorización de
+Kike):
+
+1. **Fuentes**
+2. **Diagnóstico del grupo**
+3. **Planeación Didáctica Inicial**
+
+### Apartado 1 — Fuentes
+
+Dos tipos de ubicación:
+
+- **A. Fuentes iniciales generales** — programa oficial, documentos de la
+  asignatura, materiales generales, otros que el docente considere
+  relevantes. Contexto base del curso.
+- **B. Fuentes por parcial** — sección independiente por parcial (Parcial 1,
+  Parcial 2, Parcial 3…) para fuentes específicas de ese periodo.
+
+**Regla fundamental de almacenamiento:** los archivos se suben y se
+**guardan en Fuentes de la Asignatura**. No se obliga al docente a volver a
+subir el mismo PDF/Word cada vez que genera una actividad, cuestionario,
+examen, reactivos, rúbrica, lista de cotejo u otra función de IA — la fuente
+se conserva y se selecciona/utiliza desde donde corresponda. **Límite:** una
+operación de IA que necesite fuentes específicas puede usar **hasta 3** de
+las ya almacenadas (selección, no resubida).
+
+### Apartado 2 — Diagnóstico del grupo
+
+Una vez cargadas las fuentes iniciales generales se habilita:
+
+- **Diagnóstico de contexto** — usa Perfil del docente + info de la
+  Asignatura + fuentes iniciales.
+- **Diagnóstico de conocimientos** — usa contexto del docente +
+  programa/material de la Asignatura (fuentes) + info pertinente de la
+  Asignatura.
+
+Ambos forman parte del contexto inicial de trabajo. **NO se genera la
+Planeación Didáctica antes de tener ambos diagnósticos.**
+
+### Apartado 3 — Planeación Didáctica Inicial
+
+Se genera **únicamente después** de los dos diagnósticos. Sencilla, **una
+sección por parcial**. Se usó como referencia un formato oficial SEMS/DGETI
+real, **solo para identificar qué información es útil** — el formato de
+Evalúa Fácil **no copia** el diseño institucional (nada de logos, membretes
+ni imágenes institucionales).
+
+**Formato de salida: Excel, solo texto, líneas y estructura de tabla,
+sencillo y práctico.** Su fin es que el docente copie/pegue lo útil en su
+propio formato institucional, **no sustituirlo**.
+
+Campos a considerar según corresponda (tomados de lo realmente presente en
+el formato de referencia, no se inventan campos adicionales): identificación,
+propósito formativo, aprendizajes, contenidos, aprendizajes esperados,
+competencias, actividades de aprendizaje, actividad del docente, actividad
+del estudiante, recursos, duración, producto de aprendizaje, tipo de
+evaluación, ponderación, referencias.
+
+## 2-BIS.3 Contexto persistente para toda la IA
+
+Las funciones de IA usan, según corresponda:
+
+1. Perfil IA del docente
+2. Información de la Asignatura
+3. Fuentes iniciales generales
+4. Diagnóstico de contexto
+5. Diagnóstico de conocimientos
+6. Planeación Didáctica Inicial
+7. Fuentes específicas por parcial
+
+Las nuevas fuentes agregadas durante el curso se almacenan en el parcial
+correspondiente. Objetivo: que el docente no suba repetidamente los mismos
+archivos.
+
+## 2-BIS.4 Expresamente fuera de alcance
+
+Quedan **descartados** por esta decisión: "Planeación Viva", arquitectura
+curricular compleja, catálogo curricular propio, base curricular
+institucional completa, **RAG/embeddings como requisito de esta
+arquitectura**, relaciones automáticas complejas entre planes y programas,
+capas curriculares no solicitadas, y convertir Evalúa Fácil en un sistema
+especializado de administración curricular.
+
+"Contexto persistente" **no es invitación** a construir arquitectura
+curricular compleja — es simplemente: Perfil del docente + Asignatura +
+Fuentes + Diagnósticos + Planeación = contexto reutilizable.
+
+## 2-BIS.5 Relación con funciones ya existentes
+
+No se reinventa lo ya implementado. **OP-03/OP-04/OP-05 (crear examen/
+cuestionario con IA y generación de reactivos) y OP-10 (análisis de
+resultados) YA EXISTEN y deben seguir funcionando** — la nueva arquitectura
+les da mejor contexto cuando corresponda, pero **no se reimplementan**. La
+generación de actividades con IA se integrará posteriormente al mismo
+contexto (pendiente, no ahora).
+
+---
+
+# REGLA TRANSVERSAL — FUENTE INMEDIATA VS. CONTEXTO CURRICULAR (APROBADA el 10-ago-2026 — PRECISADA el 12-ago-2026)
+
+> **AVISO — PRECISADA el 12-ago-2026.** Las partes de esta sección que
+> dependen del "Universo Curricular" como capa curricular compleja
+> (catálogos oficiales, marco curricular validado independiente de las
+> Fuentes) **quedan NO VIGENTES** — ver FASE 2-BIS y "Universo Curricular
+> (decisión de producto)" más abajo, ahora marcada como descartada. Lo que
+> **sí sigue vigente** por ser una regla simple de trazabilidad, no una
+> arquitectura curricular: la distinción entre lo que una operación puede
+> usar como fuente para ORIGINAR contenido (T.1, T.5, T.6) y la regla de no
+> invención (T.7). Donde el texto original diga "Universo Curricular",
+> entiéndase ahora "Fuentes de la Asignatura (iniciales generales o por
+> parcial, hasta 3 por operación)" según FASE 2-BIS.
 
 Esta regla gobierna **todas** las operaciones de IA pedagógica del producto.
 Precisa —sin derogar— el contexto en capas de §2.11.6 y las fichas de la
@@ -1460,7 +1626,19 @@ datos incluidos: dónde va bien, dónde necesita apoyo y una recomendación
 concreta. Lenguaje claro para compartir con un tutor o padre de familia. No
 calcules nada nuevo ni especules más allá de los datos."*
 
-## 4.6 El Perfil IA del docente (M1 — APROBADO el 9-ago-2026)
+## 4.6 El Perfil IA del docente (M1 — APROBADO el 9-ago-2026 — AMPLIADO el 12-ago-2026)
+
+> **AVISO — AMPLIADO el 12-ago-2026.** Kike definió el **"Perfil para IA del
+> docente"** como botón en la pantalla principal, arriba del QR (ver
+> FASE 2-BIS §2-BIS.1). Contiene contexto GENERAL reutilizable: estilo de
+> facilitar clase, habilidades, experiencia, contexto de escuela, contexto
+> general de trabajo. Se captura UNA SOLA VEZ y es la única forma de
+> capturar este contexto (no se crea otra paralela). **Regla obligatoria:
+> si el docente no lo ha completado, no se muestra la pestaña de IA en sus
+> asignaturas.** Los dos campos descritos abajo (tono, indicaciones
+> personales) siguen siendo válidos y quedan **dentro** de este Perfil
+> ampliado, no como una segunda ubicación — son un subconjunto del Perfil
+> para IA del docente, no un perfil aparte.
 
 Recorridas las 17 operaciones, la única información global que las
 operaciones realmente necesitan y que Evalúa Fácil no conoce es **cómo
@@ -1473,9 +1651,14 @@ Perfil IA **mínimo** (regla de Kike: solo lo que aporta valor):
 2. **Indicaciones personales para la IA** — texto libre OPCIONAL (p. ej.
    "siempre tutéalos", "evita tecnicismos").
 
-Nada más. Carrera y semestre son por asignatura (viven en la Planeación,
-§2.11); el resto ya lo sabe la plataforma. Ambos campos con valor por
-omisión: el docente que nunca abra su Perfil IA recibe resultados correctos.
+Nada más se había definido hasta el 9-ago-2026. Carrera y semestre son por
+asignatura; el resto ya lo sabe la plataforma. Ambos campos con valor por
+omisión: el docente que nunca ajuste estos dos campos dentro de su Perfil
+para IA recibe resultados correctos. **El diseño final y completo de los
+campos del Perfil para IA del docente (estilo de facilitar clase,
+habilidades, experiencia, contexto de escuela, contexto general de trabajo)
+se define en el detalle de implementación de la Fase 11**, dentro del marco
+de FASE 2-BIS §2-BIS.1.
 
 ## 4.7 Decisiones M1–M4 (RESUELTAS por Kike el 9-ago-2026)
 
@@ -1931,10 +2114,21 @@ hasta el 31-ago-2026 — se indica aparte) · tipo de cambio de **referencia**
 
 # DECISIONES YA TOMADAS (registro fiel — no se modifican)
 
-## Universo Curricular (decisión de producto — Kike, 10-ago-2026)
+## Universo Curricular (decisión de producto — Kike, 10-ago-2026 — DESCARTADA el 12-ago-2026)
 
-Diseño conceptual **aprobado**; implementación **no autorizada todavía**. La
-carga de catálogos oficiales queda pendiente de decidir sus fuentes.
+> **DESCARTADA (12-ago-2026).** Kike sustituyó el "Universo Curricular" como
+> capa curricular independiente por la arquitectura simple de **Fuentes de
+> la Asignatura** (iniciales generales + por parcial) descrita en FASE 2-BIS.
+> No se construye un catálogo curricular propio, ni una base curricular
+> institucional completa, ni relaciones automáticas complejas entre planes y
+> programas. Esta sección se conserva como registro histórico de lo que se
+> había aprobado conceptualmente el 10-ago-2026, pero **ya no es el diseño
+> vigente**; no se implementa como capa aparte.
+
+Diseño conceptual **aprobado el 10-ago-2026**; implementación **no
+autorizada todavía** y ahora **descartada como arquitectura** (ver aviso
+arriba). La carga de catálogos oficiales queda pendiente de decidir sus
+fuentes (histórico, sin efecto).
 
 - El Universo Curricular será una **capa de referencia curricular**.
 - **No sustituye a la Planeación.**
@@ -2022,15 +2216,21 @@ NO bloqueado durante el trial:
 - El resto de la funcionalidad de la plataforma, incluidas las funciones de
   IA disponibles según sus créditos.
 
-## Ubicación de la IA en la interfaz (definido por Kike, 9-ago-2026)
-- El **perfil del docente para IA** es información global del docente; se
-  captura en la sección correspondiente del **perfil del docente**, en la
-  zona azul de la interfaz.
-- **Cada asignatura tendrá su propia pestaña de IA.**
+## Ubicación de la IA en la interfaz (definido por Kike, 9-ago-2026 — PRECISADO el 12-ago-2026)
+- **Botón "Perfil para IA del docente"** en la pantalla principal, **arriba
+  del QR** — contexto GENERAL reutilizable del docente, capturado una sola
+  vez (FASE 2-BIS §2-BIS.1). **Si el docente no lo ha completado, la pestaña
+  de IA no se muestra en sus asignaturas.**
+- **Cada asignatura tiene su pestaña "Asistente IA"**, visible solo con el
+  Perfil completo, con exactamente tres apartados: **Fuentes**,
+  **Diagnóstico del grupo** y **Planeación Didáctica Inicial** (FASE 2-BIS
+  §2-BIS.2).
 - La IA de una asignatura trabaja con el contexto disponible del docente y el
-  contexto específico de esa asignatura: grupo, periodo, planeación,
-  actividades, evaluaciones y demás información existente en Evalúa Fácil.
-- El docente NO vuelve a proporcionar información que Evalúa Fácil ya conoce.
+  contexto específico de esa asignatura: grupo, periodo, fuentes,
+  diagnósticos, planeación inicial, actividades, evaluaciones y demás
+  información existente en Evalúa Fácil (FASE 2-BIS §2-BIS.3).
+- El docente NO vuelve a proporcionar información que Evalúa Fácil ya conoce,
+  ni vuelve a subir una fuente ya almacenada en la Asignatura.
 - La intención de todo esto es FACILITAR el trabajo docente, no crear otro
   formulario burocrático.
 
@@ -2339,3 +2539,4 @@ candado de suscripción de dos capas.
 | 9-ago-2026 | **Propuesta de precio del Plan Mayor: $199 MXN/mes** (1,750 créditos). Costo IA considerado: $70–78 (bolsa prácticamente completa en mezcla intensiva). Margen: **$121–129 (61–65%)**; incluso en el techo teórico absoluto ($175, todo C-02) no hay pérdida. Justificación comercial: el doble del precio por 5× los créditos (por crédito, 2.5× más barato que el plan base); ancla psicológica limpia contra los $99. En revisión de Kike. |
 | 10-ago-2026 | **Kike aprueba la REGLA TRANSVERSAL "Fuente inmediata vs. contexto curricular"** y se registra como sección propia del documento (T.1–T.10), antes de la Fase 3 porque la gobierna. Establece: (1) la fuente inmediata es la única que puede ORIGINAR elementos, el contexto curricular solo contextualiza, comprueba alineación, aporta terminología válida y detecta inconsistencias; (2) **Universo Curricular ≠ Planeación Didáctica** — el Universo es el marco validado que sale de las fuentes, la Planeación es la decisión del docente sobre él (cadena: fuentes → universo → planeación inicial → planeación viva → actividad); (3) jerarquía A–E con la regla de que **una propuesta de IA nunca asciende a fuente curricular** por haber sido aceptada o guardada, y que un elemento de evaluación no puede saltarse la actividad para justificarse en el currículo; (4) **rúbricas y listas de cotejo exigen actividad padre (entregable u observación) como fuente inmediata**, y el currículo NO puede agregar criterios que la actividad no solicite; (5) reactivos pertenecen a su evaluación padre; (6) regla de no invención: si falta información se informa al docente, no se completa; (7) trazabilidad mínima del instrumento (actividad padre, versión del marco, procedencia de criterios, si el docente editó). Se corrigen las contradicciones detectadas: §2.11.6 (sus capas son contexto, no origen), reglas transversales de la Fase 3, §4.3 (nuevo bloque `[FUENTE_INMEDIATA]` y nota de lectura), fichas OP-06/OP-07/OP-08/OP-09 en §4.5 y las filas correspondientes de la tabla de tokens. **Ninguna decisión aprobada se eliminó; ningún valor de tokens, modelo, tarifa ni frecuencia cambió; el simulador no se tocó.** Se registra que `bancoRubricas` NO se modifica en esta fase, y que Universo Curricular y Planeación Viva siguen SIN implementar (Fase 11 no iniciada). Diagnóstico académico y diagnóstico de contexto quedan señalados como entidades aún no definidas. Solo documentación: sin código, sin despliegue. |
 | 10-ago-2026 | **Kike registra la decisión de producto sobre el Universo Curricular** (diseño conceptual aprobado; implementación NO autorizada, sin carga de catálogos): capa de referencia curricular que no sustituye a la Planeación; la Planeación selecciona, la actividad determina lo que se solicita, la rúbrica/cotejo se deriva del entregable u observación y los reactivos del cuestionario/examen; la IA no inventa información curricular; el currículo contextualiza y valida, no introduce elementos que la actividad no pide; **el Universo NO es obligatorio para usar la IA** y, cuando exista, será contexto curricular verificable. Queda anotado que **no hay ninguna fuente curricular en el repositorio** (los PDF oficiales viven en el Drive de Kike) — la auditoría de fuentes queda pendiente. Se autoriza la implementación de OP-06 y OP-07 con las reglas ya aprobadas. |
+| 12-ago-2026 | **Kike emite decisiones DEFINITIVAS que SUSTITUYEN la arquitectura de "Planeación Viva" y "Universo Curricular"** (§2.11, §2.11.6, REGLA TRANSVERSAL, "Universo Curricular (decisión de producto)") por una arquitectura simplificada, registrada en la nueva sección **FASE 2-BIS — ARQUITECTURA SIMPLIFICADA DE IA**: (1) **"Perfil para IA del docente"** — botón en la pantalla principal, arriba del QR, contexto GENERAL reutilizable (estilo de facilitar clase, habilidades, experiencia, contexto de escuela, contexto general de trabajo), capturado UNA sola vez; **regla obligatoria: sin Perfil completo, no se muestra la pestaña de IA** en las asignaturas del docente; no se crea otra forma paralela de capturarlo. (2) **Pestaña "Asistente IA" por asignatura**, visible solo con el Perfil completo, con **exactamente tres apartados**: **Fuentes** (iniciales generales de la asignatura + por parcial; los archivos se guardan en Fuentes de la Asignatura y NO se vuelven a subir — una operación puede usar hasta 3 fuentes ya almacenadas), **Diagnóstico del grupo** (diagnóstico de contexto + diagnóstico de conocimientos, habilitados tras cargar las fuentes iniciales; ambos obligatorios antes de generar la Planeación), y **Planeación Didáctica Inicial** (generada SOLO después de los dos diagnósticos; sencilla, por parcial; salida Excel solo texto con líneas/tabla, sin logos ni membretes institucionales, pensada para copiar/pegar al formato propio del docente, no para sustituirlo). (3) **Contexto persistente para toda la IA**: Perfil del docente + Asignatura + Fuentes iniciales + Diagnóstico de contexto + Diagnóstico de conocimientos + Planeación Inicial + Fuentes por parcial — reutilizable, sin subir archivos repetidos. (4) **Quedan expresamente fuera de alcance**: "Planeación Viva", arquitectura curricular compleja, catálogo curricular propio, base curricular institucional completa, **RAG/embeddings como requisito**, relaciones automáticas complejas entre planes y programas, capas curriculares no solicitadas, y convertir Evalúa Fácil en administrador curricular especializado. (5) **OP-03/OP-04/OP-05 (crear examen/cuestionario/reactivos con IA) y OP-10 (análisis de resultados) YA EXISTEN y NO se reimplementan** — la nueva arquitectura solo les da mejor contexto cuando corresponda; la generación de actividades con IA se integrará al mismo contexto más adelante (pendiente). §2.11 y "Universo Curricular (decisión de producto)" se conservan como **registro histórico**, marcados como NO VIGENTES/DESCARTADOS donde corresponde; ninguna tarifa, precio, modelo ni valor de tokens cambió. Solo documentación: sin código, sin despliegue. |
