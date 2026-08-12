@@ -1321,5 +1321,31 @@ ok('Capa 2 · owner teacher CANNOT modify an existing snapshot (immutable)')
 await assertFails(deleteDoc(doc(asT1, 'submissions', 'SUB1', 'intentosRespuestas', '1')))
 ok('Capa 2 · owner teacher CANNOT delete a snapshot')
 
+// ── Perfil para IA del docente (FASE 2-BIS del Plan Maestro de IA) ─────────
+// Vive como campo `perfilIA` dentro de users/{uid} — mismo doc, sin colección
+// nueva. Se rige por las reglas de `users` ya existentes: el dueño puede
+// escribir cualquier campo propio salvo `role`/`suscripcionHasta`; nadie más
+// puede leer ni escribir el doc de otro docente para este propósito.
+await assertSucceeds(updateDoc(doc(asT1, 'users', T1), {
+  perfilIA: {
+    estiloClase: 'Muy participativo',
+    habilidades: 'Trabajo por proyectos',
+    experiencia: '8 años en bachillerato',
+    contextoEscuela: '',
+    contextoGeneral: '',
+    actualizadoEn: '2026-08-12T00:00:00.000Z',
+  },
+}))
+ok('Perfil IA · owner teacher CAN save their own perfilIA')
+
+await assertFails(updateDoc(doc(asT2, 'users', T1), {
+  perfilIA: { estiloClase: 'Intruso', habilidades: '', experiencia: '', contextoEscuela: '', contextoGeneral: '' },
+}))
+ok('Perfil IA · foreign teacher CANNOT write another teacher\'s perfilIA')
+
+const snapPerfilIA = await getDoc(doc(asT1, 'users', T1))
+assert.strictEqual(snapPerfilIA.data().perfilIA.estiloClase, 'Muy participativo')
+ok('Perfil IA · el valor guardado persiste tal cual se envió')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

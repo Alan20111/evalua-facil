@@ -24,6 +24,7 @@ import {
 import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosIA.js'
 import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
+import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -1039,6 +1040,32 @@ caso('control — una rúbrica normal sigue exigiendo exactamente 10 en su nivel
     ],
   }
   assert.notStrictEqual(validarRubrica(rubrica8), null)
+})
+
+grupo('Perfil para IA del docente — completitud')
+
+caso('perfil vacío (nunca abierto) se considera incompleto', () => {
+  assert.strictEqual(isPerfilIACompleto(null), false)
+  assert.strictEqual(isPerfilIACompleto(perfilIAVacio()), false)
+})
+
+caso('faltando un campo requerido sigue incompleto', () => {
+  assert.strictEqual(isPerfilIACompleto({
+    estiloClase: 'Participativo', habilidades: 'Proyectos', experiencia: '',
+  }), false)
+})
+
+caso('con los tres campos requeridos, completo — aunque los opcionales queden vacíos', () => {
+  assert.strictEqual(isPerfilIACompleto({
+    estiloClase: 'Participativo', habilidades: 'Proyectos', experiencia: '8 años',
+    contextoEscuela: '', contextoGeneral: '',
+  }), true)
+})
+
+caso('campos requeridos solo con espacios en blanco no cuentan como llenos', () => {
+  assert.strictEqual(isPerfilIACompleto({
+    estiloClase: '   ', habilidades: 'Proyectos', experiencia: '8 años',
+  }), false)
 })
 
 // ═══ Resumen ═════════════════════════════════════════════════════════════════
