@@ -13,7 +13,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, collection, addDoc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { doc, collection, addDoc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')
 
@@ -1377,6 +1377,26 @@ ok('Fuentes IA · teacher CANNOT attach a fuente to a subject they don\'t own')
 
 await assertSucceeds(getDoc(doc(asT1, 'fuentesAsignatura', fuenteGeneralRef.id)))
 ok('Fuentes IA · owner teacher CAN read their own fuente')
+
+// Bug real de producción (12-ago-2026): la pantalla lista fuentesAsignatura
+// con una CONSULTA (onSnapshot + where), no con getDoc. Firestore valida un
+// `list` distinto a un `get`: si la regla usa un campo (docenteId) que no
+// está en el where() de la consulta, rechaza TODA la lista con
+// "Property docenteId is undefined", aunque el getDoc individual de arriba
+// sí funcione. La fuente se guardaba pero nunca aparecía — este es el caso
+// que hay que probar con getDocs(query(...)), no solo con getDoc().
+await assertSucceeds(getDocs(query(
+  collection(asT1, 'fuentesAsignatura'),
+  where('asignaturaId', '==', 'S1'),
+  where('docenteId', '==', T1)
+)))
+ok('Fuentes IA · owner teacher CAN list their own fuentes with the exact query the app uses (asignaturaId + docenteId)')
+
+await assertFails(getDocs(query(
+  collection(asT1, 'fuentesAsignatura'),
+  where('asignaturaId', '==', 'S1')
+)))
+ok('Fuentes IA · REGRESIÓN: listing by asignaturaId ALONE (without docenteId in the query) fails — this was the actual production bug')
 
 await assertFails(getDoc(doc(asT2, 'fuentesAsignatura', fuenteGeneralRef.id)))
 ok('Fuentes IA · foreign teacher CANNOT read another teacher\'s fuente')

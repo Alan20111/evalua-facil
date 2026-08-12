@@ -80,7 +80,19 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
   const [eliminandoId, setEliminandoId] = useState(null)
 
   useEffect(() => {
-    const q = query(collection(db, 'fuentesAsignatura'), where('asignaturaId', '==', subjectId))
+    // Las reglas de fuentesAsignatura filtran por `docenteId` (privada del
+    // dueño) — para un LIST/onSnapshot, Firestore exige que ese mismo campo
+    // esté en un where() de la consulta para poder validar la regla contra
+    // el resultado; sin él, la lectura entera se rechaza con
+    // "Property docenteId is undefined" (bug real encontrado en producción
+    // el 12-ago-2026: la fuente sí se guardaba, pero nunca aparecía en la
+    // lista). Con `asignaturaId` + `docenteId`, ambos igualdad, no hace
+    // falta un índice compuesto (restricción del proyecto: solo igualdades).
+    const q = query(
+      collection(db, 'fuentesAsignatura'),
+      where('asignaturaId', '==', subjectId),
+      where('docenteId', '==', docenteId)
+    )
     const unsub = onSnapshot(q, (snap) => {
       const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
       // Sin orderBy en la consulta (restricción del proyecto) — se ordena en
@@ -90,7 +102,7 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
       setLoaded(true)
     }, () => setLoaded(true))
     return unsub
-  }, [subjectId])
+  }, [subjectId, docenteId])
 
   async function agregarFuentes(grupo, ubicacion, parcial, files) {
     // El límite de MAX_FUENTES es POR CARGA (ver utils/fuentesIA.js), no un
