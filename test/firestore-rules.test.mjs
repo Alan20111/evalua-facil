@@ -1438,5 +1438,47 @@ ok('Diagnóstico IA · NOBODY, not even the owner, can update a diagnóstico ent
 await assertFails(deleteDoc(doc(asT1, 'subjects', 'S1', 'diagnosticosIA', diagContextoRef.id)))
 ok('Diagnóstico IA · NOBODY, not even the owner, can delete a diagnóstico entry')
 
+// ── Planeación Didáctica Inicial (apartado 3 de Asistente IA, FASE 2-BIS) ──
+// subjects/{id}/planeacionesIA/{entryId} — misma forma exacta que
+// diagnosticosIA: append-only, inmutable, privada del docente dueño.
+const planRef = await assertSucceeds(addDoc(collection(asT1, 'subjects', 'S1', 'planeacionesIA'), {
+  docenteId: T1, resultado: { asignaturaNombre: 'Cultura Digital I', parciales: [{ numero: 1, filas: [] }] },
+}))
+ok('Planeación IA · owner teacher CAN create a planeación entry (1st generation)')
+
+const planRef2 = await assertSucceeds(addDoc(collection(asT1, 'subjects', 'S1', 'planeacionesIA'), {
+  docenteId: T1, resultado: { asignaturaNombre: 'Cultura Digital I', parciales: [{ numero: 1, filas: [] }] },
+}))
+ok('Planeación IA · a second generation CREATES A NEW document, does not touch the first')
+assert.notStrictEqual(planRef.id, planRef2.id)
+ok('Planeación IA · the two generations are distinct documents (never overwritten)')
+
+await assertFails(addDoc(collection(asT2, 'subjects', 'S1', 'planeacionesIA'), {
+  docenteId: T2, resultado: {},
+}))
+ok('Planeación IA · foreign teacher CANNOT create a planeación entry on another teacher\'s subject')
+
+await assertFails(addDoc(collection(asT1, 'subjects', 'S1', 'planeacionesIA'), {
+  docenteId: T2, resultado: {},
+}))
+ok('Planeación IA · owner teacher CANNOT forge docenteId to someone else on create')
+
+await assertSucceeds(getDoc(doc(asT1, 'subjects', 'S1', 'planeacionesIA', planRef.id)))
+ok('Planeación IA · owner teacher CAN read their own planeación entry')
+
+await assertFails(getDoc(doc(asT2, 'subjects', 'S1', 'planeacionesIA', planRef.id)))
+ok('Planeación IA · foreign teacher CANNOT read another teacher\'s planeación')
+
+await assertFails(getDoc(doc(asJuan, 'subjects', 'S1', 'planeacionesIA', planRef.id)))
+ok('Planeación IA · enrolled student CANNOT read a planeación (privada del docente)')
+
+await assertFails(updateDoc(doc(asT1, 'subjects', 'S1', 'planeacionesIA', planRef.id), {
+  resultado: { parciales: [] },
+}))
+ok('Planeación IA · NOBODY, not even the owner, can update a planeación entry (immutable snapshot)')
+
+await assertFails(deleteDoc(doc(asT1, 'subjects', 'S1', 'planeacionesIA', planRef.id)))
+ok('Planeación IA · NOBODY, not even the owner, can delete a planeación entry')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

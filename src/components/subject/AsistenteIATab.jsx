@@ -12,6 +12,7 @@ import { MAX_FUENTES, MAX_FUENTE_BYTES, FUENTES_ACCEPT, subirFuentes } from '../
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales } from '../../utils/fuentesAsignatura'
 import { apiUrl } from '../../utils/apiBase'
 import DiagnosticoGrupoSection from './DiagnosticoGrupoSection'
+import PlaneacionInicialSection from './PlaneacionInicialSection'
 
 // Un grupo de fuentes (generales o de un parcial): lista + botón para subir
 // hasta MAX_FUENTES a la vez. La subida es inmediata al elegir el archivo —
@@ -71,7 +72,7 @@ function GrupoFuentes({ titulo, fuentes, onAgregar, onEliminar, subiendo, elimin
   )
 }
 
-export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, asignaturaNombre = '' }) {
+export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, asignaturaNombre = '', subject = null, watermark = false }) {
   const toast = useToast()
   const [fuentes, setFuentes] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -207,6 +208,17 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
           docenteId={docenteId}
           asignaturaNombre={asignaturaNombre}
           habilitado={hayFuentesGenerales(fuentes)}
+        />
+      </div>
+
+      <div className="pt-2 border-t border-outline-variant">
+        <PlaneacionInicialSection
+          subjectId={subjectId}
+          docenteId={docenteId}
+          subject={subject}
+          asignaturaNombre={asignaturaNombre}
+          hayFuentesGenerales={hayFuentesGenerales(fuentes)}
+          watermark={watermark}
         />
       </div>
     </div>

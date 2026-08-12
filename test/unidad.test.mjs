@@ -1188,6 +1188,74 @@ caso('normalizarDiagnosticoConocimientos: sin reactivos aprovechables, la lista 
   assert.deepStrictEqual(r.temas, ['Tema 1'])
 })
 
+grupo('Planeación Didáctica Inicial — apartado 3 de Asistente IA')
+
+caso('formatoPeriodo: arma "inicio – fin" solo con fechas válidas de la Asignatura', () => {
+  const texto = FIA.formatoPeriodo({ inicio: '2026-08-01', fin: '2026-10-15' })
+  assert.ok(texto.includes('–'))
+  assert.ok(/2026/.test(texto))
+})
+
+caso('formatoPeriodo: sin fechas o fechas inválidas, null (no inventa un periodo)', () => {
+  assert.strictEqual(FIA.formatoPeriodo(null), null)
+  assert.strictEqual(FIA.formatoPeriodo({}), null)
+  assert.strictEqual(FIA.formatoPeriodo({ inicio: 'no-es-fecha', fin: '2026-10-15' }), null)
+})
+
+caso('diagnosticoContextoATexto: arma el bloque solo con lo que sí trae el diagnóstico', () => {
+  const texto = FIA.diagnosticoContextoATexto({
+    datosEncontrados: ['Grupo de 30'], interpretacion: [], aspectosAtencion: ['Ritmo variado'], informacionFaltante: [],
+  })
+  assert.ok(texto.includes('Grupo de 30'))
+  assert.ok(texto.includes('Ritmo variado'))
+  assert.ok(!texto.includes('Interpretación:'), 'no debe mencionar una sección vacía')
+})
+
+caso('diagnosticoContextoATexto: sin diagnóstico, dice que no hay información (no inventa)', () => {
+  assert.strictEqual(FIA.diagnosticoContextoATexto(null), 'Información no disponible en las fuentes proporcionadas.')
+})
+
+caso('diagnosticoConocimientosATexto: solo temas, nunca resultados (el instrumento aún no se aplicó)', () => {
+  const texto = FIA.diagnosticoConocimientosATexto({ temas: ['Fracciones', 'Álgebra básica'] })
+  assert.ok(texto.includes('Fracciones'))
+  assert.ok(texto.includes('aún sin aplicar'), 'debe dejar explícito que no son resultados reales')
+})
+
+caso('diagnosticoConocimientosATexto: sin temas, dice que no hay información', () => {
+  assert.strictEqual(FIA.diagnosticoConocimientosATexto({ temas: [] }), 'Información no disponible en las fuentes proporcionadas.')
+})
+
+caso('normalizarFilaPlaneacion: recorta cada campo a su máximo y usa exactamente los 8 campos pedidos', () => {
+  const fila = FIA.normalizarFilaPlaneacion({
+    contenidosTemas: 'a'.repeat(500), proposito: 'p', actividades: 'act', estrategia: 'e',
+    recursos: 'r', evidencias: 'ev', evaluacion: 'eval', observaciones: 'o', campoInventado: 'no debe aparecer',
+  })
+  assert.strictEqual(fila.contenidosTemas.length, 400)
+  assert.deepStrictEqual(Object.keys(fila).sort(), [
+    'actividades', 'contenidosTemas', 'estrategia', 'evaluacion', 'evidencias', 'observaciones', 'proposito', 'recursos',
+  ])
+})
+
+caso('normalizarFilasPlaneacion: descarta filas sin contenidosTemas NI actividades (no aporta como guía)', () => {
+  const filas = FIA.normalizarFilasPlaneacion([
+    { contenidosTemas: 'Fracciones', actividades: '' },
+    { contenidosTemas: '', actividades: '' },
+    { contenidosTemas: '', actividades: 'Trabajo en equipo' },
+  ])
+  assert.strictEqual(filas.length, 2)
+})
+
+caso('normalizarFilasPlaneacion: nunca deja pasar más del máximo de filas por parcial', () => {
+  const muchas = Array.from({ length: 30 }, (_, i) => ({ contenidosTemas: `tema ${i}` }))
+  const filas = FIA.normalizarFilasPlaneacion(muchas)
+  assert.strictEqual(filas.length, FIA.MAX_FILAS_PLANEACION_PARCIAL)
+})
+
+caso('normalizarFilasPlaneacion: entrada basura no truena — arreglo vacío', () => {
+  assert.deepStrictEqual(FIA.normalizarFilasPlaneacion('no es arreglo'), [])
+  assert.deepStrictEqual(FIA.normalizarFilasPlaneacion(null), [])
+})
+
 // ═══ Resumen ═════════════════════════════════════════════════════════════════
 console.log(`\n${'─'.repeat(60)}`)
 if (fallos.length) {

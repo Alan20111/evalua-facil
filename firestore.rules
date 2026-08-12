@@ -388,6 +388,22 @@ service cloud.firestore {
           request.resource.data.docenteId == request.auth.uid;
         allow update, delete: if false;
       }
+
+      // Planeación Didáctica Inicial — Asistente IA (FASE 2-BIS, apartado 3).
+      // Misma forma exacta que diagnosticosIA: bitácora append-only e
+      // inmutable, privada del docente dueño. El .xlsx nunca se guarda aquí
+      // (ni en ningún storage) — se arma en el cliente a partir de
+      // `resultado` cada vez que el docente descarga (ver
+      // src/utils/planeacionExcel.js), así que descargar no cuesta nada
+      // aparte ni depende de la red.
+      match /planeacionesIA/{planeacionId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
+        allow create: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
+          request.resource.data.docenteId == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
 
     match /activities/{activityId} {

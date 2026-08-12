@@ -49,6 +49,9 @@ const OPERACIONES = {
   // esta conversación — tarifas fijas: contexto 5, conocimientos 10).
   diagnostico_contexto: ejecutarDiagnosticoContexto,
   diagnostico_conocimientos: ejecutarDiagnosticoConocimientos,
+  // Planeación Didáctica Inicial (FASE 2-BIS, 12-ago-2026, autorizado por
+  // Kike en esta conversación — tarifa fija: 20 créditos).
+  planeacion_didactica_inicial: ejecutarPlaneacionDidacticaInicial,
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -61,6 +64,7 @@ const PRECHECKS = {
   analizar_resultados: precheckAnalisisResultados, crear_evaluacion_ia: precheckCrearEvaluacion,
   crear_actividad_ia: precheckCrearActividad,
   diagnostico_contexto: precheckDiagnostico, diagnostico_conocimientos: precheckDiagnostico,
+  planeacion_didactica_inicial: precheckPlaneacionInicial,
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
@@ -1787,6 +1791,262 @@ async function ejecutarDiagnosticoConocimientos({ params, modelo, apiKey }) {
   }
 }
 
+// ── Planeación Didáctica Inicial (FASE 2-BIS, apartado 3 de Asistente IA,
+// 12-ago-2026) — última pieza de la secuencia: Perfil IA → Fuentes generales
+// → Diagnóstico de contexto → Diagnóstico de conocimientos → Planeación.
+// Genera una PROPUESTA en Excel (el cliente arma el .xlsx a partir de
+// `resultado`, ver src/utils/planeacionExcel.js) — no sustituye el formato
+// oficial de la escuela, no crea actividades/exámenes/cuestionarios, y no se
+// aprueba automáticamente. Tarifa (Kike, 12-ago-2026): 20 créditos fijos,
+// una sola operación cubre TODOS los parciales reales de la asignatura.
+
+const MAX_FILAS_PLANEACION_PARCIAL = 10
+
+function formatoPeriodo(fechas) {
+  if (!fechas?.inicio || !fechas?.fin) return null
+  const fmt = (iso) => {
+    const d = new Date(iso)
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+  const ini = fmt(fechas.inicio)
+  const fin = fmt(fechas.fin)
+  return ini && fin ? `${ini} – ${fin}` : null
+}
+
+// Resume el diagnóstico de contexto YA GENERADO (nunca inventa uno) en un
+// bloque de texto para el prompt.
+function diagnosticoContextoATexto(resultado) {
+  if (!resultado) return 'Información no disponible en las fuentes proporcionadas.'
+  const bloque = (titulo, items) => (items?.length ? `${titulo}:\n- ${items.join('\n- ')}` : null)
+  const partes = [
+    bloque('Datos encontrados sobre el grupo', resultado.datosEncontrados),
+    bloque('Interpretación', resultado.interpretacion),
+    bloque('Aspectos que requieren atención', resultado.aspectosAtencion),
+    bloque('Información faltante (NO la completes, ya se reportó como faltante)', resultado.informacionFaltante),
+  ].filter(Boolean)
+  return partes.length ? partes.join('\n\n') : 'Información no disponible en las fuentes proporcionadas.'
+}
+
+// El diagnóstico de conocimientos es solo el INSTRUMENTO (temas + reactivos)
+// — todavía no se aplicó a ningún estudiante real, así que aquí solo se
+// resumen los TEMAS que se planea diagnosticar, nunca resultados o
+// debilidades reales (no existen todavía).
+function diagnosticoConocimientosATexto(resultado) {
+  if (!resultado?.temas?.length) return 'Información no disponible en las fuentes proporcionadas.'
+  return `Temas que el docente planea diagnosticar al inicio del curso (instrumento aún sin aplicar — no son resultados reales del grupo):\n- ${resultado.temas.join('\n- ')}`
+}
+
+// Precheck: valida la secuencia completa SIN gastar un crédito y arma el
+// contexto por parcial (fuentes generales + fuentes específicas de CADA
+// parcial, según §5 del apartado). Comparte perfilIACompleto/perfilIATexto/
+// seleccionarFuentesGenerales con el precheck de Diagnóstico del grupo.
+async function precheckPlaneacionInicial({ uid, params }) {
+  const db = getFirestore()
+  const subjectId = String(params?.subjectId || '').trim()
+  if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura.')
+
+  const subjSnap = await db.doc(`subjects/${subjectId}`).get()
+  if (!subjSnap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
+  const subj = subjSnap.data()
+  if (subj.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta asignatura no es tuya')
+
+  const perfilSnap = await db.doc(`users/${uid}`).get()
+  const perfilIA = perfilSnap.data()?.perfilIA || null
+  if (!perfilIACompleto(perfilIA)) {
+    throw new HttpsError('failed-precondition',
+      'Completa primero tu Perfil para IA del docente. No se descontaron créditos.',
+      { codigo: 'PERFIL_IA_INCOMPLETO' })
+  }
+
+  const fuentesSnap = await db.collection('fuentesAsignatura').where('asignaturaId', '==', subjectId).get()
+  const fuentes = fuentesSnap.docs.map((d) => {
+    const data = d.data()
+    return { id: d.id, ...data, creadoEnMillis: data.creadoEn?.toMillis?.() || 0 }
+  })
+  const generales = fuentes.filter((f) => f.ubicacion === 'general')
+  if (!generales.length) {
+    throw new HttpsError('failed-precondition',
+      'Agrega primero al menos una fuente inicial general en Asistente IA → Fuentes. No se descontaron créditos.',
+      { codigo: 'SIN_FUENTES_GENERALES' })
+  }
+
+  // Diagnósticos YA GENERADOS — se toma la generación más reciente de cada
+  // tipo. Nunca se genera un diagnóstico aquí: si falta alguno, se detiene.
+  const diagSnap = await db.collection(`subjects/${subjectId}/diagnosticosIA`).get()
+  const diagnosticos = diagSnap.docs.map((d) => {
+    const data = d.data()
+    return { ...data, generadoEnMillis: data.generadoEn?.toMillis?.() || 0 }
+  })
+  const masReciente = (tipo) => diagnosticos
+    .filter((d) => d.tipo === tipo)
+    .sort((a, b) => b.generadoEnMillis - a.generadoEnMillis)[0] || null
+
+  const diagContexto = masReciente('contexto')
+  if (!diagContexto) {
+    throw new HttpsError('failed-precondition',
+      'Genera primero el Diagnóstico de contexto en Asistente IA → Diagnóstico del grupo. No se descontaron créditos.',
+      { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
+  }
+  const diagConocimientos = masReciente('conocimientos')
+  if (!diagConocimientos) {
+    throw new HttpsError('failed-precondition',
+      'Genera primero el Diagnóstico de conocimientos en Asistente IA → Diagnóstico del grupo. No se descontaron créditos.',
+      { codigo: 'SIN_DIAGNOSTICO_CONOCIMIENTOS' })
+  }
+
+  const bloqueFuentesGenerales = await fuentesIA.prepararBloqueFuentes(
+    seleccionarFuentesGenerales(generales).map((f) => f.url)
+  )
+
+  const numParciales = Math.max(1, Number(subj.parciales) || 1)
+  const parcialesFechas = Array.isArray(subj.parcialesFechas) ? subj.parcialesFechas : []
+  const parciales = []
+  for (let p = 1; p <= numParciales; p++) {
+    const fuentesParcial = fuentes
+      .filter((f) => f.ubicacion === 'parcial' && f.parcial === p)
+      .sort((a, b) => b.creadoEnMillis - a.creadoEnMillis)
+      .slice(0, fuentesIA.MAX_FUENTES)
+    // Sin fuentes propias, el parcial se planea igual (con el contexto
+    // general y los diagnósticos) — no es un requisito, solo enriquece.
+    const bloqueFuentesParcial = fuentesParcial.length
+      ? await fuentesIA.prepararBloqueFuentes(fuentesParcial.map((f) => f.url))
+      : null
+    parciales.push({
+      numero: p,
+      periodoTexto: formatoPeriodo(parcialesFechas[p - 1]),
+      bloqueFuentes: bloqueFuentesParcial,
+      fuentesUsadas: fuentesParcial.map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
+    })
+  }
+
+  return {
+    asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
+    perfilIATexto: perfilIATexto(perfilIA),
+    bloqueFuentesGenerales,
+    diagnosticoContextoTexto: diagnosticoContextoATexto(diagContexto.resultado),
+    diagnosticoConocimientosTexto: diagnosticoConocimientosATexto(diagConocimientos.resultado),
+    parciales,
+    fuentesUsadas: {
+      generales: seleccionarFuentesGenerales(generales).map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
+    },
+  }
+}
+
+const PLANEACION_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
+  'docente de bachillerato mexicano. Tu papel es PROPONER una GUÍA DE TRABAJO sencilla y ' +
+  'práctica — el docente siempre la revisa y decide qué usar; esto NO sustituye el formato ' +
+  'oficial de su escuela ni se publica en ningún lado automáticamente. Usa el perfil del ' +
+  'docente (su estilo de facilitar clase y sus habilidades deben notarse en la propuesta — no ' +
+  'generes algo genérico que le serviría igual a cualquier profesor), los documentos de fuente ' +
+  'y los diagnósticos ya generados. Basa el contenido (temas, aprendizajes, actividades reales) ' +
+  'EXCLUSIVAMENTE en lo que aparece en las fuentes; si haces una propuesta pedagógica razonable ' +
+  'que NO está respaldada literalmente por las fuentes, escríbela empezando con "Propuesta de ' +
+  'IA:" para que quede claro que no es contenido oficial. Si algo no está disponible, usa la ' +
+  'frase exacta "Información no disponible en las fuentes proporcionadas." en vez de inventarlo. ' +
+  'El diagnóstico de conocimientos es solo un INSTRUMENTO aún sin aplicar: nunca afirmes que el ' +
+  'grupo tiene una debilidad real que el diagnóstico no reportó como hallazgo. Escribe en ' +
+  'español, claro y breve. Responde únicamente con el JSON del esquema indicado, sin texto adicional.'
+
+function promptPlaneacionParcial(ctx, parcialCtx) {
+  return (
+    `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n` +
+    `PARCIAL ${parcialCtx.numero}${parcialCtx.periodoTexto ? ` (periodo: ${parcialCtx.periodoTexto})` : ''}.\n\n` +
+    `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
+    `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` +
+    `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` +
+    (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
+    (parcialCtx.bloqueFuentes ? `FUENTES ESPECÍFICAS DE ESTE PARCIAL:\n${parcialCtx.bloqueFuentes}\n\n` : '') +
+    'Propón entre 1 y 8 bloques de trabajo para ESTE parcial únicamente. Cada bloque es una fila ' +
+    'con EXACTAMENTE estos campos (ningún campo adicional):\n' +
+    '- contenidosTemas: los contenidos/temas de este bloque.\n' +
+    '- proposito: el propósito o aprendizaje esperado, solo si está respaldado por las fuentes.\n' +
+    '- actividades: actividades de aprendizaje.\n' +
+    '- estrategia: estrategia o metodología sugerida.\n' +
+    '- recursos: recursos a utilizar.\n' +
+    '- evidencias: evidencias de aprendizaje.\n' +
+    '- evaluacion: cómo se evalúa este bloque.\n' +
+    '- observaciones: observaciones o ajustes (p. ej. si algo se pensó a partir del diagnóstico).\n\n' +
+    'Responde SOLO con este JSON:\n' +
+    '{\n  "filas": [\n' +
+    '    {"contenidosTemas": "<máx 400 caracteres>", "proposito": "<máx 400>", "actividades": "<máx 400>", ' +
+    '"estrategia": "<máx 400>", "recursos": "<máx 300>", "evidencias": "<máx 300>", "evaluacion": "<máx 300>", ' +
+    '"observaciones": "<máx 300>"}\n' +
+    '  ]\n}'
+  )
+}
+
+function normalizarFilaPlaneacion(r) {
+  const campo = (v, max) => String(v || '').trim().slice(0, max)
+  const fila = {
+    contenidosTemas: campo(r?.contenidosTemas, 400),
+    proposito: campo(r?.proposito, 400),
+    actividades: campo(r?.actividades, 400),
+    estrategia: campo(r?.estrategia, 400),
+    recursos: campo(r?.recursos, 300),
+    evidencias: campo(r?.evidencias, 300),
+    evaluacion: campo(r?.evaluacion, 300),
+    observaciones: campo(r?.observaciones, 300),
+  }
+  return fila
+}
+
+// Una fila sin contenido ni actividades no aporta nada como guía de
+// trabajo — se descarta en vez de dejar una fila vacía en el Excel.
+function normalizarFilasPlaneacion(crudos) {
+  return (Array.isArray(crudos) ? crudos : [])
+    .slice(0, MAX_FILAS_PLANEACION_PARCIAL)
+    .map(normalizarFilaPlaneacion)
+    .filter((f) => f.contenidosTemas || f.actividades)
+}
+
+async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+
+  const parciales = []
+  let tokensEntrada = 0
+  let tokensSalida = 0
+  let ms = 0
+  // Una llamada POR PARCIAL (no una sola para todos): cada parcial tiene su
+  // propio bloque de fuentes específicas (§5), así que el contexto real que
+  // le corresponde a cada uno es distinto — mismo criterio que los lotes de
+  // ejecutarCrearEvaluacion, pero aquí el contexto varía, no solo el tramo.
+  for (const parcialCtx of ctx.parciales) {
+    const { datos, interno } = await pedirJSON({
+      client, modelo, maxTokens: 2200, system: PLANEACION_SISTEMA,
+      prompt: promptPlaneacionParcial(ctx, parcialCtx),
+    })
+    parciales.push({
+      numero: parcialCtx.numero,
+      periodo: parcialCtx.periodoTexto,
+      filas: normalizarFilasPlaneacion(datos?.filas),
+      fuentesUsadas: parcialCtx.fuentesUsadas,
+    })
+    tokensEntrada += interno.tokensEntrada || 0
+    tokensSalida += interno.tokensSalida || 0
+    ms += interno.ms || 0
+  }
+
+  // Regla de no invención (T.7): si NINGÚN parcial produjo una fila
+  // aprovechable, esto NO se cobra (cae al catch del callable, que
+  // reembolsa la reserva).
+  if (!parciales.some((p) => p.filas.length)) {
+    throw new Error('El asistente de IA no generó una planeación utilizable')
+  }
+
+  return {
+    resultado: {
+      asignaturaNombre: ctx.asignaturaNombre,
+      parciales,
+      fuentesUsadasGenerales: ctx.fuentesUsadas.generales,
+    },
+    unidadesReales: 1, // tarifa fija (20 créditos), sin importar el número de parciales
+    interno: { modelo, tokensEntrada, tokensSalida, ms },
+  }
+}
+
 // ── Traducción de errores del ledger a HttpsError ───────────────────────────
 function comoHttpsError(e) {
   if (e instanceof HttpsError) return e
@@ -1934,4 +2194,6 @@ exports._pruebas = {
   precheckDiagnostico, seleccionarFuentesGenerales, perfilIACompleto, perfilIATexto,
   normalizarDiagnosticoContexto, normalizarDiagnosticoConocimientos, normalizarReactivosDiagnostico,
   MAX_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO,
+  precheckPlaneacionInicial, formatoPeriodo, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
+  normalizarFilaPlaneacion, normalizarFilasPlaneacion, MAX_FILAS_PLANEACION_PARCIAL,
 }

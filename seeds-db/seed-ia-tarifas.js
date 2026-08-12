@@ -72,6 +72,12 @@ const TARIFAS = {
     // salgan en el de conocimientos.
     diagnostico_contexto: 5,
     diagnostico_conocimientos: 10,
+    // Planeación Didáctica Inicial (FASE 2-BIS, apartado 3 de Asistente IA) —
+    // decisión de Kike el 12-ago-2026: tarifa FIJA por generación, cubre
+    // TODOS los parciales reales de la asignatura en una sola operación. NO
+    // reutiliza planeacion_tronco/planeacion_bloque (arquitectura descartada
+    // de Planeación Viva, ver más abajo).
+    planeacion_didactica_inicial: 20,
     examen: 10,
     cuestionario: 10,
     analisis_apoyo: 20,
@@ -102,6 +108,7 @@ const TARIFAS = {
     analizar_resultados: 'Evaluaciones',
     diagnostico_contexto: 'Diagnóstico',
     diagnostico_conocimientos: 'Diagnóstico',
+    planeacion_didactica_inicial: 'Planeación',
     examen: 'Evaluaciones',
     cuestionario: 'Evaluaciones',
     analisis_apoyo: 'Planeación',
@@ -131,6 +138,7 @@ const TARIFAS = {
     // Diagnóstico del grupo (FASE 2-BIS, 12-ago-2026): contexto y conocimientos.
     diagnostico_contexto: 'claude-haiku-4-5',
     diagnostico_conocimientos: 'claude-haiku-4-5',
+    planeacion_didactica_inicial: 'claude-haiku-4-5',
   },
   // Datos de exhibición para el panel de créditos (sin costos internos).
   planes: {
