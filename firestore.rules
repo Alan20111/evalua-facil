@@ -372,6 +372,22 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.docenteId;
       allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
+
+      // Diagnóstico del grupo — Asistente IA (FASE 2-BIS del Plan Maestro de
+      // IA). Bitácora de generaciones, mismo patrón que activities/analisisIA:
+      // append-only (cada "Generar diagnóstico" crea un documento nuevo, la
+      // versión anterior nunca se pisa) e inmutable (sin update ni delete).
+      // A diferencia de analisisIA (cualquier autenticado la lee), esta es
+      // PRIVADA del docente dueño: es contexto pedagógico suyo, no material
+      // del grupo.
+      match /diagnosticosIA/{diagnosticoId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
+        allow create: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
+          request.resource.data.docenteId == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
 
     match /activities/{activityId} {

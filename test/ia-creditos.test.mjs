@@ -940,4 +940,119 @@ await caso('fallo de la IA analizando resultados: reembolso completo de los 5 cr
   assert.strictEqual((await consumoDe(k)).estado, 'fallido')
 })
 
+// ── Diagnóstico del grupo (FASE 2-BIS, 12-ago-2026) — precheck compartido ──
+grupo('Diagnóstico del grupo — precheck y tarifas')
+
+const TARIFAS_DIAG = { ...TARIFAS, tarifas: { ...TARIFAS.tarifas, diagnostico_contexto: 5, diagnostico_conocimientos: 10 } }
+
+const PERFIL_IA_COMPLETO = {
+  estiloClase: 'Muy participativo', habilidades: 'Trabajo por proyectos', experiencia: '8 años en bachillerato',
+}
+
+async function precheckDiagnosticoFalla({ subjectId, uid = DOCENTE }) {
+  try {
+    await IA.precheckDiagnostico({ uid, params: { subjectId } })
+    return null
+  } catch (e) {
+    return { code: e.code || e.httpErrorCode?.canonicalName, message: e.message, details: e.details }
+  }
+}
+
+await limpiar()
+await sembrarDocente()
+await db.doc('subjects/sub_diag').set({ docenteId: DOCENTE, nombre: 'Matemáticas I' })
+await db.doc('subjects/sub_diag_ajena').set({ docenteId: OTRO_DOCENTE, nombre: 'Ajena' })
+
+await caso('SEGURIDAD · asignatura de OTRO docente → permission-denied', async () => {
+  const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag_ajena' })
+  assert.ok(e, 'debe fallar')
+  assert.ok(String(e.code).includes('permission-denied'), e.code)
+})
+
+await caso('SEGURIDAD · asignatura inexistente → not-found', async () => {
+  const e = await precheckDiagnosticoFalla({ subjectId: 'no_existe' })
+  assert.ok(String(e.code).includes('not-found'), e.code)
+})
+
+await caso('SEGURIDAD · sin subjectId → invalid-argument, no revienta', async () => {
+  const e = await precheckDiagnosticoFalla({ subjectId: '' })
+  assert.ok(String(e.code).includes('invalid-argument'), e.code)
+})
+
+await caso('sin Perfil IA completo → failed-precondition PERFIL_IA_INCOMPLETO, no cobra', async () => {
+  const antes = await creditosDe()
+  const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag' })
+  assert.ok(String(e.code).includes('failed-precondition'), e.code)
+  assert.strictEqual(e.details.codigo, 'PERFIL_IA_INCOMPLETO')
+  const consumos = await db.collection('iaConsumos').get()
+  assert.strictEqual(consumos.size, 0, 'no debe existir ninguna reserva')
+  assert.deepStrictEqual((await creditosDe())?.saldo ?? null, antes?.saldo ?? null)
+})
+
+await caso('Perfil IA completo pero SIN fuentes generales → failed-precondition SIN_FUENTES_GENERALES, no cobra', async () => {
+  await db.doc(`users/${DOCENTE}`).set({ perfilIA: PERFIL_IA_COMPLETO }, { merge: true })
+  const antes = await creditosDe()
+  const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag' })
+  assert.ok(String(e.code).includes('failed-precondition'), e.code)
+  assert.strictEqual(e.details.codigo, 'SIN_FUENTES_GENERALES')
+  assert.deepStrictEqual((await creditosDe())?.saldo ?? null, antes?.saldo ?? null)
+})
+
+await caso('una fuente de PARCIAL (no general) no cuenta para habilitar el diagnóstico', async () => {
+  await db.collection('fuentesAsignatura').add({
+    asignaturaId: 'sub_diag', docenteId: DOCENTE, nombre: 'parcial1.pdf',
+    ubicacion: 'parcial', parcial: 1, url: 'https://res.cloudinary.com/demo/raw/upload/v1/x.pdf',
+  })
+  const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag' })
+  assert.strictEqual(e.details.codigo, 'SIN_FUENTES_GENERALES')
+})
+
+await caso('con Perfil IA completo y una fuente general: pasa ambas validaciones (llega a intentar leer la fuente)', async () => {
+  await db.collection('fuentesAsignatura').add({
+    asignaturaId: 'sub_diag', docenteId: DOCENTE, nombre: 'programa.pdf',
+    ubicacion: 'general', parcial: null, url: 'https://res.cloudinary.com/demo/raw/upload/v1/programa-de-prueba.pdf',
+  })
+  const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag' })
+  // La URL de prueba no existe de verdad — falla al intentar LEERLA (llamada de
+  // red, fuera del alcance de esta prueba), pero eso demuestra que ya pasó las
+  // dos validaciones anteriores: el código de error YA NO es ninguno de los dos
+  // de arriba.
+  assert.ok(e, 'debe fallar (URL de prueba no descargable)')
+  assert.notStrictEqual(e.details?.codigo, 'PERFIL_IA_INCOMPLETO')
+  assert.notStrictEqual(e.details?.codigo, 'SIN_FUENTES_GENERALES')
+})
+
+await caso('diagnostico_contexto y diagnostico_conocimientos son operaciones independientes en el mapa de tarifas', async () => {
+  assert.notStrictEqual(TARIFAS_DIAG.tarifas.diagnostico_contexto, undefined)
+  assert.notStrictEqual(TARIFAS_DIAG.tarifas.diagnostico_conocimientos, undefined)
+  assert.notStrictEqual(TARIFAS_DIAG.tarifas.diagnostico_contexto, TARIFAS_DIAG.tarifas.diagnostico_conocimientos)
+})
+
+await caso('la tarifa de diagnostico_contexto reserva y liquida exactamente 5 créditos fijos', async () => {
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'diagnostico_contexto', idempotencyKey: k, tarifas: TARIFAS_DIAG })
+  const saldoTrasReserva = (await creditosDe()).saldo
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 5 })
+  assert.strictEqual(saldoTrasReserva, (await creditosDe()).saldo)
+  assert.strictEqual((await consumoDe(k)).creditosReales, 5)
+})
+
+await caso('la tarifa de diagnostico_conocimientos reserva y liquida exactamente 10 créditos fijos', async () => {
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'diagnostico_conocimientos', idempotencyKey: k, tarifas: TARIFAS_DIAG })
+  const saldoTrasReserva = (await creditosDe()).saldo
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 10 })
+  assert.strictEqual(saldoTrasReserva, (await creditosDe()).saldo)
+  assert.strictEqual((await consumoDe(k)).creditosReales, 10)
+})
+
+await caso('fallo del diagnóstico de conocimientos: reembolso completo de los 10 créditos', async () => {
+  const k = clave()
+  const saldoAntes = (await creditosDe()).saldo
+  await L.reservar({ uid: DOCENTE, operacion: 'diagnostico_conocimientos', idempotencyKey: k, tarifas: TARIFAS_DIAG })
+  await L.reembolsar({ uid: DOCENTE, idempotencyKey: k, motivo: 'El asistente de IA no generó un diagnóstico de conocimientos utilizable' })
+  assert.strictEqual((await creditosDe()).saldo, saldoAntes)
+  assert.strictEqual((await consumoDe(k)).estado, 'fallido')
+})
+
 resumen('pruebas del ledger de créditos IA')

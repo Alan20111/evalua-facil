@@ -1293,11 +1293,6 @@ export default function SubjectPage() {
     if (tab === 'asistencia' && !attendanceLoaded) loadAttendance()
   }
 
-  // Si el Perfil IA deja de estar completo (o la pestaña llegó por un enlace
-  // viejo) mientras "Asistente IA" está activa, no la dejamos montada.
-  useEffect(() => {
-    if (activeTab === 'asistente-ia' && !perfilIACompleto) setActiveTab('actividades')
-  }, [activeTab, perfilIACompleto])
 
   // En la app nativa, la pestaña Asistencias se ve en HORIZONTAL (para caber más
   // columnas); el resto de la app queda en vertical.
@@ -5438,6 +5433,7 @@ export default function SubjectPage() {
             subjectId={subjectId}
             docenteId={currentUser.uid}
             parciales={subject?.parciales || 3}
+            asignaturaNombre={subject?.nombre || ''}
           />
         </div>
       )}

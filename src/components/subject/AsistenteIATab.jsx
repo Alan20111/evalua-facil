@@ -1,6 +1,6 @@
 // Pestaña "Asistente IA" de la Asignatura (FASE 2-BIS del Plan Maestro de
-// IA). En esta etapa solo existe el apartado FUENTES — Diagnóstico del
-// grupo y Planeación Didáctica Inicial se agregan después.
+// IA). Apartados implementados: Fuentes y Diagnóstico del grupo —
+// Planeación Didáctica Inicial se agrega después.
 import { useEffect, useState } from 'react'
 import { collection, query, where, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { addDoc } from '../../utils/firestoreGuard'
@@ -9,8 +9,9 @@ import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import { Paperclip, Trash2, FileText } from 'lucide-react'
 import { MAX_FUENTES, MAX_FUENTE_BYTES, FUENTES_ACCEPT, subirFuentes } from '../../utils/fuentesIA'
-import { tipoFuentePermitido, extensionDeArchivo } from '../../utils/fuentesAsignatura'
+import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales } from '../../utils/fuentesAsignatura'
 import { apiUrl } from '../../utils/apiBase'
+import DiagnosticoGrupoSection from './DiagnosticoGrupoSection'
 
 // Un grupo de fuentes (generales o de un parcial): lista + botón para subir
 // hasta MAX_FUENTES a la vez. La subida es inmediata al elegir el archivo —
@@ -70,7 +71,7 @@ function GrupoFuentes({ titulo, fuentes, onAgregar, onEliminar, subiendo, elimin
   )
 }
 
-export default function AsistenteIATab({ subjectId, docenteId, parciales = 3 }) {
+export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, asignaturaNombre = '' }) {
   const toast = useToast()
   const [fuentes, setFuentes] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -199,6 +200,15 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3 }) 
           onEliminar={eliminarFuente}
         />
       ))}
+
+      <div className="pt-2 border-t border-outline-variant">
+        <DiagnosticoGrupoSection
+          subjectId={subjectId}
+          docenteId={docenteId}
+          asignaturaNombre={asignaturaNombre}
+          habilitado={hayFuentesGenerales(fuentes)}
+        />
+      </div>
     </div>
   )
 }

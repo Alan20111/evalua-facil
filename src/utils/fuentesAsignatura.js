@@ -13,3 +13,10 @@ export function extensionDeArchivo(nombre) {
 export function tipoFuentePermitido(nombre) {
   return ['pdf', 'doc', 'docx'].includes(extensionDeArchivo(nombre))
 }
+
+// El apartado "Diagnóstico del grupo" se habilita únicamente cuando existen
+// fuentes iniciales GENERALES (nunca por fuentes de un parcial en particular)
+// — regla explícita del Plan Maestro (FASE 2-BIS, apartado 2).
+export function hayFuentesGenerales(fuentes) {
+  return (Array.isArray(fuentes) ? fuentes : []).some((f) => f?.ubicacion === 'general')
+}

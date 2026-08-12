@@ -25,7 +25,7 @@ import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosI
 import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
-import { tipoFuentePermitido, extensionDeArchivo } from '../src/utils/fuentesAsignatura.js'
+import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales } from '../src/utils/fuentesAsignatura.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -1100,6 +1100,92 @@ caso('una fuente de parcial queda asociada al número de parcial correcto', () =
   const fuenteParcial2 = { ubicacion: 'parcial', parcial: 2 }
   assert.strictEqual(fuenteParcial2.ubicacion, 'parcial')
   assert.strictEqual(fuenteParcial2.parcial, 2)
+})
+
+caso('hayFuentesGenerales: falso sin fuentes o solo con fuentes de parcial', () => {
+  assert.strictEqual(hayFuentesGenerales([]), false)
+  assert.strictEqual(hayFuentesGenerales([{ ubicacion: 'parcial', parcial: 1 }]), false)
+})
+
+caso('hayFuentesGenerales: verdadero en cuanto hay al menos una fuente general', () => {
+  assert.strictEqual(hayFuentesGenerales([{ ubicacion: 'parcial', parcial: 1 }, { ubicacion: 'general' }]), true)
+})
+
+grupo('Diagnóstico del grupo — apartado 2 de Asistente IA')
+
+caso('seleccionarFuentesGenerales: toma hasta 3, las más recientes primero, solo las generales', () => {
+  const fuentes = [
+    { ubicacion: 'general', url: 'u1', creadoEnMillis: 100 },
+    { ubicacion: 'parcial', parcial: 1, url: 'u-parcial', creadoEnMillis: 999 }, // debe excluirse
+    { ubicacion: 'general', url: 'u2', creadoEnMillis: 300 },
+    { ubicacion: 'general', url: 'u3', creadoEnMillis: 200 },
+    { ubicacion: 'general', url: 'u4', creadoEnMillis: 50 }, // se queda fuera (ya hay 3 más recientes)
+  ]
+  const seleccion = FIA.seleccionarFuentesGenerales(fuentes)
+  assert.strictEqual(seleccion.length, 3)
+  assert.deepStrictEqual(seleccion.map((f) => f.url), ['u2', 'u3', 'u1'])
+})
+
+caso('seleccionarFuentesGenerales: sin fuentes generales, arreglo vacío (no truena)', () => {
+  assert.deepStrictEqual(FIA.seleccionarFuentesGenerales([{ ubicacion: 'parcial', parcial: 1, url: 'x' }]), [])
+  assert.deepStrictEqual(FIA.seleccionarFuentesGenerales(null), [])
+})
+
+caso('perfilIACompleto (functions/ia.js) exige los mismos 3 campos que isPerfilIACompleto (cliente)', () => {
+  assert.strictEqual(FIA.perfilIACompleto(null), false)
+  assert.strictEqual(FIA.perfilIACompleto({ estiloClase: 'x', habilidades: 'y', experiencia: '' }), false)
+  assert.strictEqual(FIA.perfilIACompleto({ estiloClase: 'x', habilidades: 'y', experiencia: 'z' }), true)
+})
+
+caso('perfilIATexto: arma un bloque legible solo con los campos que sí tienen contenido', () => {
+  const texto = FIA.perfilIATexto({ estiloClase: 'Participativo', habilidades: '', experiencia: '8 años', contextoEscuela: '', contextoGeneral: '' })
+  assert.ok(texto.includes('Participativo'))
+  assert.ok(texto.includes('8 años'))
+  assert.ok(!texto.includes('Habilidades del docente'), 'no debe mencionar un campo vacío')
+})
+
+caso('perfilIATexto: perfil totalmente vacío no inventa nada — dice que no hay información', () => {
+  assert.strictEqual(FIA.perfilIATexto(null), 'Información no disponible en las fuentes proporcionadas.')
+})
+
+caso('normalizarDiagnosticoContexto: separa datos/interpretación/atención/faltante y recorta longitud', () => {
+  const r = FIA.normalizarDiagnosticoContexto({
+    datosEncontrados: ['a'.repeat(300)],
+    interpretacion: ['algo'],
+    aspectosAtencion: [],
+    informacionFaltante: ['nombres de los estudiantes'],
+  })
+  assert.strictEqual(r.datosEncontrados[0].length, 220)
+  assert.deepStrictEqual(r.aspectosAtencion, [])
+  assert.deepStrictEqual(r.informacionFaltante, ['nombres de los estudiantes'])
+})
+
+caso('normalizarDiagnosticoContexto: entrada basura (no arreglos) no truena — todo queda vacío', () => {
+  const r = FIA.normalizarDiagnosticoContexto({ datosEncontrados: 'no es arreglo' })
+  assert.deepStrictEqual(r.datosEncontrados, [])
+})
+
+caso('normalizarReactivosDiagnostico: acepta opcion_multiple y verdadero_falso, descarta lo demás', () => {
+  const r = FIA.normalizarReactivosDiagnostico([
+    { tema: 'Fracciones', tipo: 'opcion_multiple', enunciado: '¿Cuánto es 1/2 + 1/4?', opciones: ['1/4', '3/4', '1', '2/4'], correcta: 1 },
+    { tema: 'Álgebra', tipo: 'verdadero_falso', enunciado: 'x+1=2 implica x=1', correcta: 'v' },
+    { tema: 'Sin enunciado', tipo: 'opcion_multiple', enunciado: '', opciones: [] }, // se descarta
+  ])
+  assert.strictEqual(r.length, 2)
+  assert.strictEqual(r[0].opciones.length, 4)
+  assert.strictEqual(r[1].correcta, 'v')
+})
+
+caso('normalizarReactivosDiagnostico: nunca deja pasar más del máximo permitido', () => {
+  const muchos = Array.from({ length: 40 }, (_, i) => ({ tipo: 'verdadero_falso', enunciado: `reactivo ${i}`, correcta: 'v' }))
+  const r = FIA.normalizarReactivosDiagnostico(muchos)
+  assert.strictEqual(r.length, FIA.MAX_REACTIVOS_DIAGNOSTICO)
+})
+
+caso('normalizarDiagnosticoConocimientos: sin reactivos aprovechables, la lista queda vacía (no inventa)', () => {
+  const r = FIA.normalizarDiagnosticoConocimientos({ temas: ['Tema 1'], reactivos: [], comoInterpretar: 'x' })
+  assert.deepStrictEqual(r.reactivos, [])
+  assert.deepStrictEqual(r.temas, ['Tema 1'])
 })
 
 // ═══ Resumen ═════════════════════════════════════════════════════════════════

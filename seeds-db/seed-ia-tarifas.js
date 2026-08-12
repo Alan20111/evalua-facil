@@ -66,6 +66,12 @@ const TARIFAS = {
     // mismo valor unitario que crear_evaluacion_ia (1 crédito por operación).
     crear_actividad_ia: 1,
     analizar_resultados: 5,
+    // Diagnóstico del grupo (FASE 2-BIS, apartado 2 de Asistente IA) — dos
+    // operaciones independientes, decisión de Kike el 12-ago-2026: tarifa
+    // FIJA por generación (no por reactivo), sin importar cuántos reactivos
+    // salgan en el de conocimientos.
+    diagnostico_contexto: 5,
+    diagnostico_conocimientos: 10,
     examen: 10,
     cuestionario: 10,
     analisis_apoyo: 20,
@@ -94,6 +100,8 @@ const TARIFAS = {
     crear_evaluacion_ia: 'Evaluaciones',
     crear_actividad_ia: 'Actividades',
     analizar_resultados: 'Evaluaciones',
+    diagnostico_contexto: 'Diagnóstico',
+    diagnostico_conocimientos: 'Diagnóstico',
     examen: 'Evaluaciones',
     cuestionario: 'Evaluaciones',
     analisis_apoyo: 'Planeación',
@@ -120,6 +128,9 @@ const TARIFAS = {
     crear_actividad_ia: 'claude-haiku-4-5',
     // OP-10 (11-ago-2026): análisis de resultados de un cuestionario o examen.
     analizar_resultados: 'claude-haiku-4-5',
+    // Diagnóstico del grupo (FASE 2-BIS, 12-ago-2026): contexto y conocimientos.
+    diagnostico_contexto: 'claude-haiku-4-5',
+    diagnostico_conocimientos: 'claude-haiku-4-5',
   },
   // Datos de exhibición para el panel de créditos (sin costos internos).
   planes: {
