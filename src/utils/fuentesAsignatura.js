@@ -14,6 +14,20 @@ export function tipoFuentePermitido(nombre) {
   return ['pdf', 'doc', 'docx'].includes(extensionDeArchivo(nombre))
 }
 
+// Criterio para saber si un File que el docente va a adjuntar en una
+// operación puntual (OP-03/04/05/09, FuentesIAInput) YA es una fuente
+// guardada en Config Asistente IA — nombre + tamaño en bytes no bastan por
+// separado (dos archivos distintos pueden compartir nombre, o el mismo
+// nombre puede reeditarse con otro contenido), así que exige los tres:
+// nombre + tamaño exacto + tipo. No hay hash de contenido disponible: ni
+// fuentesAsignatura ni uploadToCloudinary (utils/cloudinary.js) guardan uno.
+export function esMismaFuente(file, guardada) {
+  return !!guardada
+    && guardada.nombre?.trim().toLowerCase() === file.name.trim().toLowerCase()
+    && guardada.tamano === file.size
+    && guardada.tipo === extensionDeArchivo(file.name)
+}
+
 // Tope de la BIBLIOTECA de cada grupo (Fuentes para todo el curso, o cada
 // parcial) — decisión de Kike, 12-ago-2026: de 1 a 10 documentos por grupo.
 // Distinto del límite por carga (utils/fuentesIA.js MAX_FUENTES = 3, cuántos

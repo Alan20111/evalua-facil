@@ -16,8 +16,9 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
 import useCreditosIA from '../hooks/useCreditosIA'
-import { subirFuentes } from '../utils/fuentesIA'
+import { resolverFuentes } from '../utils/fuentesIA'
 import FuentesIAInput from './ia/FuentesIAInput'
+import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
 
 const MIN_PETICION = 20
 
@@ -30,6 +31,7 @@ export default function CrearActividadIAModal({
   const [peticion, setPeticion] = useState('')
   const [archivos, setArchivos] = useState([])
   const [trabajando, setTrabajando] = useState(false)
+  const fuentesGuardadas = useFuentesAsignatura(asignaturaId, docenteId)
 
   if (!open) return null
 
@@ -43,7 +45,7 @@ export default function CrearActividadIAModal({
     setTrabajando(true)
     let ref = null
     try {
-      const urls = (await subirFuentes(archivos)).map((f) => f.url)
+      const urls = await resolverFuentes(archivos)
 
       const orden = existingActivitiesCountInParcial + 1
       ref = await addDoc(collection(db, 'activities'), {
@@ -111,7 +113,7 @@ export default function CrearActividadIAModal({
               className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
           </div>
 
-          <FuentesIAInput files={archivos} onChange={setArchivos} disabled={trabajando} />
+          <FuentesIAInput files={archivos} onChange={setArchivos} disabled={trabajando} fuentesGuardadas={fuentesGuardadas} />
         </div>
 
         <p className="text-sm text-on-surface mt-3 mb-1">

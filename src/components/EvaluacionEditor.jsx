@@ -34,7 +34,8 @@ import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ReactivosIAReview from './evaluacion/ReactivosIAReview'
 import FuentesIAInput from './ia/FuentesIAInput'
-import { subirFuentes } from '../utils/fuentesIA'
+import { resolverFuentes } from '../utils/fuentesIA'
+import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
 import {
   MIN_REACTIVOS, MAX_REACTIVOS, DEFAULT_REACTIVOS, TIPOS_REACTIVO_IA, reactivosDesdePropuesta,
 } from '../utils/reactivosIA'
@@ -277,6 +278,7 @@ export default function EvaluacionEditor({
   // Fuentes opcionales (hasta 3 PDF/Word) — mismo mecanismo que OP-03/OP-04:
   // fuente ADICIONAL a "qué quieres evaluar", nunca la sustituye.
   const [iaArchivos, setIaArchivos] = useState([])
+  const fuentesGuardadas = useFuentesAsignatura(subjectId, docenteId)
   useBackHandler(() => setIaConfirmando(false), iaConfirmando)
   useBackHandler(() => setIaPropuesta(null), !!iaPropuesta)
 
@@ -764,7 +766,7 @@ export default function EvaluacionEditor({
   async function generarReactivosConIA() {
     setIaTrabajando(true)
     try {
-      const urls = iaArchivos.length ? (await subirFuentes(iaArchivos)).map((f) => f.url) : []
+      const urls = iaArchivos.length ? await resolverFuentes(iaArchivos) : []
       const r = await creditosIA.ejecutar('reactivos', {
         actividadId: currentActivityId,
         asignaturaId: subjectId,
@@ -2125,7 +2127,7 @@ export default function EvaluacionEditor({
                 ))}
               </select>
             </div>
-            <FuentesIAInput files={iaArchivos} onChange={setIaArchivos} disabled={iaTrabajando} />
+            <FuentesIAInput files={iaArchivos} onChange={setIaArchivos} disabled={iaTrabajando} fuentesGuardadas={fuentesGuardadas} />
           </div>
         </ConfirmacionCreditosModal>
       )}

@@ -17,8 +17,9 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
 import useCreditosIA from '../hooks/useCreditosIA'
-import { subirFuentes } from '../utils/fuentesIA'
+import { resolverFuentes } from '../utils/fuentesIA'
 import FuentesIAInput from './ia/FuentesIAInput'
+import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
 import { MIN_REACTIVOS, MAX_REACTIVOS_EVALUACION_TRIAL, MAX_REACTIVOS_EVALUACION_PAGO } from '../utils/reactivosIA'
 
 const MIN_QUIERE_EVALUAR = 40
@@ -54,6 +55,7 @@ export default function CrearEvaluacionIAModal({
   const [cantidad, setCantidad] = useState(10)
   const [archivos, setArchivos] = useState([])
   const [trabajando, setTrabajando] = useState(false)
+  const fuentesGuardadas = useFuentesAsignatura(asignaturaId, docenteId)
 
   if (!open) return null
 
@@ -67,7 +69,7 @@ export default function CrearEvaluacionIAModal({
     setTrabajando(true)
     let ref = null
     try {
-      const urls = (await subirFuentes(archivos)).map((f) => f.url)
+      const urls = await resolverFuentes(archivos)
 
       const orden = existingActivitiesCountInParcial + 1
       ref = await addDoc(collection(db, 'activities'), {
@@ -152,7 +154,7 @@ export default function CrearEvaluacionIAModal({
             </select>
           </div>
 
-          <FuentesIAInput files={archivos} onChange={setArchivos} disabled={trabajando} />
+          <FuentesIAInput files={archivos} onChange={setArchivos} disabled={trabajando} fuentesGuardadas={fuentesGuardadas} />
         </div>
 
         <p className="text-sm text-on-surface mt-3 mb-1">

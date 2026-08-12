@@ -18,3 +18,17 @@ export async function subirFuentes(files) {
     tamano: f.size,
   })))
 }
+
+/**
+ * Igual que subirFuentes, pero acepta la lista mixta que arma FuentesIAInput:
+ * File (hay que subirlo) u objetos { storedUrl } (ya reutiliza una fuente
+ * guardada en Fuentes de la Asignatura, ver useFuentesAsignatura — no se
+ * vuelve a subir una copia a Cloudinary). Devuelve las URLs en el mismo orden.
+ */
+export async function resolverFuentes(archivos) {
+  const items = archivos || []
+  const paraSubir = items.filter((a) => a instanceof File)
+  const subidas = await subirFuentes(paraSubir)
+  let i = 0
+  return items.map((a) => (a instanceof File ? subidas[i++].url : a.storedUrl))
+}

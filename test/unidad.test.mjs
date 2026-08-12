@@ -25,7 +25,7 @@ import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosI
 import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
-import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO } from '../src/utils/fuentesAsignatura.js'
+import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -1113,6 +1113,44 @@ caso('hayFuentesGenerales: verdadero en cuanto hay al menos una fuente general',
 
 caso('MAX_FUENTES_POR_GRUPO: tope de biblioteca por grupo es 1 a 10 documentos (decisión de Kike, 12-ago-2026)', () => {
   assert.strictEqual(MAX_FUENTES_POR_GRUPO, 10)
+})
+
+// esMismaFuente — criterio de reutilización aprobado por Kike el 12-ago-2026:
+// nombre normalizado + tamaño exacto en bytes + tipo/extensión. Sin hash de
+// contenido (no existe infraestructura para eso en el proyecto).
+function archivo(nombre, bytes) {
+  return new File([new Uint8Array(bytes)], nombre)
+}
+
+caso('esMismaFuente: mismo nombre, tamaño y tipo → true', () => {
+  const guardada = { nombre: 'Programa.pdf', tamano: 1024, tipo: 'pdf' }
+  assert.strictEqual(esMismaFuente(archivo('Programa.pdf', 1024), guardada), true)
+})
+
+caso('esMismaFuente: nombre normalizado (espacios/mayúsculas) → sigue siendo true', () => {
+  const guardada = { nombre: '  Programa.pdf  ', tamano: 1024, tipo: 'pdf' }
+  assert.strictEqual(esMismaFuente(archivo('programa.PDF'.replace('PDF', 'pdf'), 1024), guardada), true)
+  assert.strictEqual(esMismaFuente(archivo('PROGRAMA.pdf', 1024), guardada), true)
+})
+
+caso('esMismaFuente: mismo nombre pero DISTINTO tamaño → false (no es el mismo archivo)', () => {
+  const guardada = { nombre: 'Programa.pdf', tamano: 1024, tipo: 'pdf' }
+  assert.strictEqual(esMismaFuente(archivo('Programa.pdf', 2048), guardada), false)
+})
+
+caso('esMismaFuente: mismo nombre y tamaño pero DISTINTO tipo → false', () => {
+  const guardada = { nombre: 'Programa.pdf', tamano: 1024, tipo: 'pdf' }
+  assert.strictEqual(esMismaFuente(archivo('Programa.docx', 1024), guardada), false)
+})
+
+caso('esMismaFuente: nombre distinto, mismo tamaño y tipo → false', () => {
+  const guardada = { nombre: 'Programa.pdf', tamano: 1024, tipo: 'pdf' }
+  assert.strictEqual(esMismaFuente(archivo('Otro.pdf', 1024), guardada), false)
+})
+
+caso('esMismaFuente: sin fuente guardada → false, no truena', () => {
+  assert.strictEqual(esMismaFuente(archivo('Programa.pdf', 1024), null), false)
+  assert.strictEqual(esMismaFuente(archivo('Programa.pdf', 1024), undefined), false)
 })
 
 caso('comentariosGrupoATexto: usa el texto del docente tal cual, recortado de espacios', () => {
