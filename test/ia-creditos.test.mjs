@@ -722,6 +722,146 @@ await caso('fallo de la IA generando reactivos: reembolso completo (mismo mecani
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
+grupo('Fuentes permanentes de la asignatura — inclusión automática en OP-03/04/05/09 (12-ago-2026)')
+
+// REGLA DEFINITIVA DE FUENTES (Kike, 12-ago-2026): el contexto automático de
+// crear_evaluacion_ia (OP-03/04), crear_actividad_ia (OP-05) y reactivos
+// (OP-09) es SIEMPRE "Fuentes para todo el curso" + "Fuentes del parcial
+// correspondiente" (nunca las de otro parcial) + lo que el docente adjunte a
+// mano (tope de 3, sin cambios). El tope de almacenamiento de 10 por grupo
+// (MAX_FUENTES_POR_GRUPO) NO cambia — esto solo decide qué se manda como
+// contexto, no cuánto se puede guardar.
+
+const FUENTES_IA = require('../functions/fuentesIA.js')
+const URL_FUENTE_NO_LEGIBLE = 'https://res.cloudinary.com/demo/raw/upload/v1/programa-de-prueba.pdf'
+const URL_GENERAL = 'https://res.cloudinary.com/demo/raw/upload/v1/general.pdf'
+const URL_PARCIAL_1 = 'https://res.cloudinary.com/demo/raw/upload/v1/parcial1.pdf'
+const URL_PARCIAL_2 = 'https://res.cloudinary.com/demo/raw/upload/v1/parcial2.pdf'
+const URL_MANUAL = 'https://res.cloudinary.com/demo/raw/upload/v1/manual.pdf'
+
+await caso('combinarBloquesFuentes: null si todos los bloques son null', () => {
+  assert.strictEqual(FUENTES_IA.combinarBloquesFuentes(null, null), null)
+})
+
+await caso('combinarBloquesFuentes: une solo los bloques que sí llegaron', () => {
+  assert.strictEqual(FUENTES_IA.combinarBloquesFuentes('A', null, 'B'), 'A\n\nB')
+})
+
+await caso('prepararBloqueFuentesGenerales: sin URLs, null (no truena)', async () => {
+  assert.strictEqual(await FUENTES_IA.prepararBloqueFuentesGenerales([]), null)
+})
+
+await caso('prepararBloqueFuentesGenerales: URL no legible → null, NUNCA lanza (a diferencia de prepararBloqueFuentes)', async () => {
+  const r = await FUENTES_IA.prepararBloqueFuentesGenerales([URL_FUENTE_NO_LEGIBLE])
+  assert.strictEqual(r, null)
+})
+
+// ── excluirUrlsPermanentes — dedup puro, sin red (req. 6) ──────────────────
+await caso('excluirUrlsPermanentes: quita del manual lo que ya es permanente — no aparece dos veces', () => {
+  const r = IA.excluirUrlsPermanentes([URL_MANUAL, URL_GENERAL], [URL_GENERAL, URL_PARCIAL_1])
+  assert.deepStrictEqual(r, [URL_MANUAL])
+})
+
+await caso('excluirUrlsPermanentes: sin coincidencias, deja el manual intacto', () => {
+  const r = IA.excluirUrlsPermanentes([URL_MANUAL], [URL_GENERAL])
+  assert.deepStrictEqual(r, [URL_MANUAL])
+})
+
+await caso('excluirUrlsPermanentes: entradas vacías no truenan', () => {
+  assert.deepStrictEqual(IA.excluirUrlsPermanentes(null, null), [])
+  assert.deepStrictEqual(IA.excluirUrlsPermanentes([], []), [])
+})
+
+// ── bloqueFuentesPermanentes — generales + SOLO el parcial correcto (req. 1,2,3,7) ──
+await db.doc('subjects/sub_op_ia').set({ docenteId: DOCENTE, nombre: 'Fuentes automáticas', parciales: 3 })
+await db.collection('fuentesAsignatura').add({
+  asignaturaId: 'sub_op_ia', docenteId: DOCENTE, nombre: 'general.pdf',
+  ubicacion: 'general', parcial: null, url: URL_GENERAL,
+})
+await db.collection('fuentesAsignatura').add({
+  asignaturaId: 'sub_op_ia', docenteId: DOCENTE, nombre: 'parcial1.pdf',
+  ubicacion: 'parcial', parcial: 1, url: URL_PARCIAL_1,
+})
+await db.collection('fuentesAsignatura').add({
+  asignaturaId: 'sub_op_ia', docenteId: DOCENTE, nombre: 'parcial2.pdf',
+  ubicacion: 'parcial', parcial: 2, url: URL_PARCIAL_2,
+})
+
+await caso('bloqueFuentesPermanentes(parcial=1): trae la general y la del parcial 1 — NO la del parcial 2', async () => {
+  const { urls } = await IA.bloqueFuentesPermanentes(db, 'sub_op_ia', 1)
+  assert.deepStrictEqual(urls.sort(), [URL_GENERAL, URL_PARCIAL_1].sort())
+  assert.ok(!urls.includes(URL_PARCIAL_2), 'NO debe entrar una fuente de otro parcial')
+})
+
+await caso('bloqueFuentesPermanentes(parcial=2): trae la general y la del parcial 2 — NO la del parcial 1', async () => {
+  const { urls } = await IA.bloqueFuentesPermanentes(db, 'sub_op_ia', 2)
+  assert.deepStrictEqual(urls.sort(), [URL_GENERAL, URL_PARCIAL_2].sort())
+  assert.ok(!urls.includes(URL_PARCIAL_1), 'NO debe entrar una fuente de otro parcial')
+})
+
+await caso('bloqueFuentesPermanentes(parcial=3): sin fuentes propias de ese parcial, solo la general', async () => {
+  const { urls } = await IA.bloqueFuentesPermanentes(db, 'sub_op_ia', 3)
+  assert.deepStrictEqual(urls, [URL_GENERAL])
+})
+
+await caso('MAX_FUENTES sigue en 3 — solo aplica a lo que el docente adjunta a mano (req. 4)', () => {
+  assert.strictEqual(FUENTES_IA.MAX_FUENTES, 3)
+})
+
+await caso('bloqueFuentesPermanentes: sin asignaturaId, no truena (actividad de prueba/legacy)', async () => {
+  const r = await IA.bloqueFuentesPermanentes(db, null, 1)
+  assert.deepStrictEqual(r, { texto: null, urls: [] })
+})
+
+// ── Integración: precheckReactivos (OP-09) respeta el parcial de SU actividad ──
+await db.doc('activities/act_cuestionario_gen_p1').set({ ...CUESTIONARIO, asignaturaId: 'sub_op_ia', parcial: 1 })
+await db.doc('activities/act_cuestionario_gen_p2').set({ ...CUESTIONARIO, asignaturaId: 'sub_op_ia', parcial: 2 })
+
+await caso('precheckReactivos: fuentes generales y del parcial no legibles NO detienen la operación (req. 8)', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: { actividadId: 'act_cuestionario_gen_p1', quiereEvaluar: QUIERE_EVALUAR_OK },
+  })
+  // Las 3 URLs de prueba no resuelven de verdad (dominio "demo") — igual no truena.
+  assert.strictEqual(ctx.bloqueFuentes, null)
+})
+
+await caso('precheckReactivos: si el docente SÍ adjuntó una fuente a mano y esa falla, la operación se detiene igual que antes (req. 9)', async () => {
+  await assert.rejects(
+    () => IA.precheckReactivos({
+      uid: DOCENTE,
+      params: { actividadId: 'act_cuestionario_gen_p1', quiereEvaluar: QUIERE_EVALUAR_OK, fuentes: [URL_FUENTE_NO_LEGIBLE] },
+    }),
+    (e) => String(e.code).includes('failed-precondition')
+  )
+})
+
+await caso('precheckReactivos: adjuntar a mano la MISMA URL de una fuente permanente no la duplica en el manual (req. 6)', async () => {
+  // URL_PARCIAL_1 ya es permanente del parcial 1 de esta actividad: si el
+  // docente la reutiliza a mano (FuentesIAInput.stored), no debe intentarse
+  // extraer dos veces ni contar contra el tope de 3 del manual.
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: { actividadId: 'act_cuestionario_gen_p1', quiereEvaluar: QUIERE_EVALUAR_OK, fuentes: [URL_PARCIAL_1] },
+  })
+  // No truena: al quedar vacío el manual (deduplicado contra lo permanente),
+  // prepararBloqueFuentes ni siquiera intenta leerlo — solo lo permanente
+  // (que aquí no resuelve de verdad) queda en juego, y eso nunca lanza.
+  assert.strictEqual(ctx.bloqueFuentes, null)
+})
+
+await caso('precheckReactivos: la actividad del parcial 2 NO ve la fuente del parcial 1 (req. 3, integración completa)', async () => {
+  // Confirma en el flujo completo (no solo en bloqueFuentesPermanentes) que
+  // el parcial real de la actividad rige el filtro — misma prueba end-to-end
+  // que las anteriores, pero contra la actividad del parcial 2.
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: { actividadId: 'act_cuestionario_gen_p2', quiereEvaluar: QUIERE_EVALUAR_OK },
+  })
+  assert.strictEqual(ctx.bloqueFuentes, null) // ninguna URL de prueba resuelve, pero no truena
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
 grupo('Análisis de resultados con IA (OP-10) — la aritmética siempre la pone EF')
 
 // La regla (ficha aprobada, 11-ago-2026): la IA solo redacta interpretación y

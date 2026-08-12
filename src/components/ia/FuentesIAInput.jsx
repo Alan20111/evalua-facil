@@ -51,9 +51,10 @@ export default function FuentesIAInput({ files, onChange, disabled = false, fuen
 
   return (
     <div>
-      <p className="block text-sm text-on-surface mb-1">Fuentes para la IA (opcional)</p>
+      <p className="block text-sm text-on-surface mb-1">Fuentes adicionales para la IA (opcional)</p>
       <p className="text-xs text-muted mb-1.5">
-        Puedes subir hasta 3 archivos PDF o Word para que la IA utilice su contenido como referencia.
+        Las Fuentes para todo el curso y las de este parcial (Config Asistente IA) ya se usan
+        automáticamente — aquí puedes agregar hasta 3 documentos extra (PDF o Word) solo para esta operación.
       </p>
       <div className="space-y-1.5">
         {files.map((f, i) => (

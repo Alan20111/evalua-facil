@@ -30,6 +30,61 @@ const fuentesIA = require('./fuentesIA')
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
+// Fuentes PERMANENTES guardadas en Config Asistente IA de la asignatura
+// (12-ago-2026, decisión de Kike) — se incluyen SIEMPRE en OP-03/04/05/09,
+// sin el tope de 3 (ese tope solo aplica a lo que el docente adjunta a mano
+// en la operación puntual) y sin que el docente tenga que volver a
+// adjuntarlas aquí. Son dos grupos, cada uno con su propio tope de
+// almacenamiento de 10 (MAX_FUENTES_POR_GRUPO en src/utils/fuentesAsignatura.js
+// — ese límite no cambia, esto solo decide qué se manda como contexto):
+//   · TODAS las de ubicacion 'general'.
+//   · Las de ubicacion 'parcial' cuyo número sea EXACTAMENTE el de esta
+//     operación — nunca las de otro parcial.
+// Devuelve también las URLs incluidas (para que el llamador pueda excluirlas
+// de lo que el docente adjuntó a mano y no aparezca duplicado en el prompt).
+async function bloqueFuentesPermanentes(db, asignaturaId, parcial) {
+  if (!asignaturaId) return { texto: null, urls: [] } // actividad de prueba/legacy — no truena la query
+  const [generalesSnap, parcialSnap] = await Promise.all([
+    db.collection('fuentesAsignatura')
+      .where('asignaturaId', '==', asignaturaId)
+      .where('ubicacion', '==', 'general')
+      .get(),
+    parcial
+      ? db.collection('fuentesAsignatura')
+        .where('asignaturaId', '==', asignaturaId)
+        .where('ubicacion', '==', 'parcial')
+        .where('parcial', '==', parcial)
+        .get()
+      : Promise.resolve({ docs: [] }),
+  ])
+  const urls = [...generalesSnap.docs, ...parcialSnap.docs].map((d) => d.data().url).filter(Boolean)
+  const texto = await fuentesIA.prepararBloqueFuentesGenerales(urls)
+  return { texto, urls }
+}
+
+// Quita de lo que el docente adjuntó a mano cualquier URL que ya entró por
+// la biblioteca permanente — evita que la misma fuente aparezca dos veces en
+// el prompt cuando FuentesIAInput reutilizó una ya guardada (mismo criterio
+// de identidad: la URL, porque reutilizar significa apuntar a la MISMA URL
+// almacenada — ver esMismaFuente en src/utils/fuentesAsignatura.js). Función
+// pura, sin red, para poder probarla directo.
+function excluirUrlsPermanentes(fuentesManual, permanentesUrls) {
+  const yaIncluidas = new Set(permanentesUrls || [])
+  return (Array.isArray(fuentesManual) ? fuentesManual : []).filter((url) => url && !yaIncluidas.has(url))
+}
+
+// Arma el bloque final de fuentes de una operación: permanentes (generales +
+// parcial correspondiente) + lo que el docente adjuntó a mano, SIN duplicar
+// una fuente que ya entró por la biblioteca permanente.
+async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual }) {
+  const permanentes = await bloqueFuentesPermanentes(db, asignaturaId, parcial)
+  const manualSinDuplicar = excluirUrlsPermanentes(fuentesManual, permanentes.urls)
+  return fuentesIA.combinarBloquesFuentes(
+    permanentes.texto,
+    await fuentesIA.prepararBloqueFuentes(manualSinDuplicar)
+  )
+}
+
 // Operaciones conectadas por autorización del PO:
 //   · C-03 'aviso' (9-ago-2026) · C-02 'calificar_abierta' (9-ago-2026)
 //   · OP-06 'rubrica' y OP-07 'cotejo' (10-ago-2026) · OP-09 'reactivos' (10-ago-2026)
@@ -727,10 +782,14 @@ async function precheckReactivos({ uid, params }) {
   const cantidad = clampInt(params?.cantidad, 5, MIN_REACTIVOS, MAX_REACTIVOS)
   const tipoSolicitado = TIPOS_REACTIVO.includes(params?.tipoSolicitado) ? params.tipoSolicitado : 'mixto'
 
-  // Fuentes opcionales (hasta 3 PDF/Word) — mismo mecanismo que
-  // crear_evaluacion_ia: fuente ADICIONAL, "qué quiere evaluar" sigue siendo
-  // la fuente principal (ver REACTIVOS_SISTEMA/promptReactivos más abajo).
-  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes(params?.fuentes)
+  // Fuentes permanentes de la asignatura (generales + las del parcial de esta
+  // actividad, nunca las de otro parcial) + hasta 3 PDF/Word que el docente
+  // adjuntó a mano aquí — mismo mecanismo que crear_evaluacion_ia: fuente
+  // ADICIONAL, "qué quiere evaluar" sigue siendo la fuente principal (ver
+  // REACTIVOS_SISTEMA/promptReactivos más abajo).
+  const bloqueFuentes = await bloqueFuentesOperacion(db, {
+    asignaturaId: act.asignaturaId, parcial: act.parcial, fuentesManual: params?.fuentes,
+  })
 
   return {
     clase,
@@ -1230,9 +1289,13 @@ async function precheckCrearEvaluacion({ uid, params }) {
   const cantidad = clampInt(params?.cantidad, 10, MIN_REACTIVOS, tope)
   const tipoSolicitado = TIPOS_REACTIVO.includes(params?.tipoSolicitado) ? params.tipoSolicitado : 'mixto'
 
-  // Documentos de referencia (opcionales, hasta 3) — lógica compartida con
-  // reactivos (OP-09) y crear_actividad_ia (OP-05): ver fuentesIA.js.
-  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes(params?.fuentes)
+  // Documentos de referencia: fuentes permanentes (generales + las del
+  // parcial de esta actividad, nunca las de otro parcial) + hasta 3 que el
+  // docente adjuntó a mano aquí — lógica compartida con reactivos (OP-09) y
+  // crear_actividad_ia (OP-05): ver fuentesIA.js.
+  const bloqueFuentes = await bloqueFuentesOperacion(db, {
+    asignaturaId: act.asignaturaId, parcial: act.parcial, fuentesManual: params?.fuentes,
+  })
 
   return {
     clase,
@@ -1427,7 +1490,9 @@ async function precheckCrearActividad({ uid, params }) {
   }, 0)
   const pesoRestante = Math.max(0, Math.round((10 - pesoUsado) * 10) / 10)
 
-  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes(params?.fuentes)
+  // Fuentes permanentes (generales + las del parcial de esta actividad,
+  // nunca las de otro parcial) + hasta 3 que el docente adjuntó a mano aquí.
+  const bloqueFuentes = await bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual: params?.fuentes })
 
   return {
     categoria,
@@ -2223,4 +2288,5 @@ exports._pruebas = {
   MAX_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO,
   precheckPlaneacionInicial, formatoPeriodo, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
   normalizarFilaPlaneacion, normalizarFilasPlaneacion, MAX_FILAS_PLANEACION_PARCIAL, comentariosGrupoATexto,
+  bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
 }
