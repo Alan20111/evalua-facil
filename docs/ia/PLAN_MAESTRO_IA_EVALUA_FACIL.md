@@ -21,7 +21,9 @@ No se crean documentos paralelos; cada fase actualiza este mismo archivo.
 
 ## Reglas de trabajo de este proyecto
 
-Definidas por Kike el 9-ago-2026. Rigen todo el trabajo de IA:
+Definidas por Kike el 9-ago-2026. Las reglas 1–7 rigen el trabajo de IA de
+este documento; la regla 8 (agregada el 12-ago-2026) es transversal a **todo**
+el proyecto, no solo a IA:
 
 1. No se agregan requisitos que Kike no haya definido.
 2. No se cambian decisiones ya tomadas.
@@ -32,6 +34,70 @@ Definidas por Kike el 9-ago-2026. Rigen todo el trabajo de IA:
    detenerse y esperar autorización.
 7. No se programa nada hasta que Kike lo autorice (la programación es la
    Fase 11, y solo tras aprobar todo lo anterior).
+8. **Claude hace el diagnóstico y el trabajo técnico — no lo delega en Kike
+   ni en terceros** (regla PERMANENTE de Kike, 12-ago-2026, ampliada el
+   mismo día — a diferencia de las reglas 1–7, esta NO es solo de IA: rige
+   **todo** el desarrollo, mantenimiento, auditoría, pruebas y depuración
+   del proyecto, con o sin IA de por medio). Origen: un bug real de
+   `fuentesAsignatura` (una fuente se guardaba pero no aparecía en la
+   lista) donde Claude le pidió a Kike abrir F12/DevTools/Console en vez de
+   investigarlo él mismo — resultó ser reproducible sin el navegador del
+   docente, con una prueba directa contra el emulador de Firestore.
+   Ampliada el mismo día tras un segundo caso: al diagnosticar por qué
+   fallaba la lectura de fuentes PDF, Claude propuso "pídele a Alan que
+   active tal opción en Cloudinary" en vez de resolverlo él mismo con las
+   herramientas que sí tenía disponibles (Vercel CLI con acceso a las
+   variables de entorno del proyecto).
+
+   **a) Claude investiga directamente.** Antes de pedir cualquier
+   intervención técnica, debe: 1) revisar el código; 2) revisar
+   configuración; 3) intentar reproducir el problema; 4) ejecutar pruebas;
+   5) revisar logs disponibles; 6) usar las herramientas a su alcance; 7)
+   consultar Firebase/Firestore/Vercel u otros servicios cuando tenga
+   acceso; 8) usar navegador automatizado si está disponible; 9) agotar las
+   vías razonables de investigación antes de detenerse.
+
+   **b) No le pide a Kike diagnósticos que Claude puede hacer.** Prohibido
+   decir "abre F12", "abre DevTools", "ve a Console", "recarga y dime qué
+   error sale", "copia el error de la consola", "revisa Network",
+   "inspecciona el elemento", o pedirle que ejecute un diagnóstico que
+   Claude mismo puede correr.
+
+   **c) No le delega el trabajo a Alan ni a ningún tercero.** Prohibido
+   decir "pídele a Alan que...", "pregúntale a Alan...", "dile a Alan que
+   revise...", "que Alan haga...", "necesitas que Alan...", "consulta con
+   Alan..." o cualquier variante equivalente, cuando Claude pueda resolverlo
+   directamente con sus propias herramientas y accesos. Alan es parte del
+   equipo, pero una limitación de las herramientas de Claude no se convierte
+   automáticamente en una instrucción para contactarlo.
+
+   **d) Las decisiones de producto sí son de Kike.** Precio, comportamiento
+   funcional, diseño, alcance, prioridad, elegir entre alternativas,
+   autorizar una acción destructiva, o cualquier cosa que el Plan Maestro no
+   tenga ya definida: Claude se lo pregunta directamente a Kike — nunca la
+   inventa.
+
+   **e) Intervención externa, solo si es técnicamente indispensable.**
+   Claude solo pide algo a Kike (o, en último caso, que gestione una
+   intervención de un tercero) cuando de verdad no tiene forma de hacerlo
+   él mismo: la información es físicamente inaccesible desde su entorno
+   (una sesión de usuario real que no puede iniciar, una credencial que
+   solo existe fuera de su alcance, algo que depende del dispositivo físico
+   de Kike), o la acción requiere una autorización que solo otra persona
+   puede dar. En ese caso explica: qué necesita hacerse, por qué Claude no
+   puede hacerlo directamente, y qué resultado necesita obtener — nunca un
+   simple "pídele a X que lo haga" sin haber agotado antes sus propias
+   herramientas.
+
+   **Principio:** Claude investiga, diagnostica y ejecuta todo lo que
+   pueda. Kike decide sobre el producto y aporta solo lo que Claude
+   genuinamente no puede obtener por sí mismo. La intervención de terceros
+   se pide solo cuando es indispensable, nunca como salida fácil ante una
+   limitación de herramientas. El objetivo es evitar el ciclo "Claude pide
+   diagnóstico → Kike investiga → Kike trae información → Claude vuelve a
+   investigar": Claude debe llegar con diagnóstico, evidencia, causa
+   (probable o confirmada), opciones de solución y, cuando corresponda, la
+   implementación — no con pasos intermedios que él mismo podía dar.
 
 **Regla fundamental del producto:** Evalúa Fácil facilita el trabajo del
 docente, no lo sobrecarga. Entre dos alternativas funcionalmente equivalentes,
@@ -2540,3 +2606,4 @@ candado de suscripción de dos capas.
 | 10-ago-2026 | **Kike aprueba la REGLA TRANSVERSAL "Fuente inmediata vs. contexto curricular"** y se registra como sección propia del documento (T.1–T.10), antes de la Fase 3 porque la gobierna. Establece: (1) la fuente inmediata es la única que puede ORIGINAR elementos, el contexto curricular solo contextualiza, comprueba alineación, aporta terminología válida y detecta inconsistencias; (2) **Universo Curricular ≠ Planeación Didáctica** — el Universo es el marco validado que sale de las fuentes, la Planeación es la decisión del docente sobre él (cadena: fuentes → universo → planeación inicial → planeación viva → actividad); (3) jerarquía A–E con la regla de que **una propuesta de IA nunca asciende a fuente curricular** por haber sido aceptada o guardada, y que un elemento de evaluación no puede saltarse la actividad para justificarse en el currículo; (4) **rúbricas y listas de cotejo exigen actividad padre (entregable u observación) como fuente inmediata**, y el currículo NO puede agregar criterios que la actividad no solicite; (5) reactivos pertenecen a su evaluación padre; (6) regla de no invención: si falta información se informa al docente, no se completa; (7) trazabilidad mínima del instrumento (actividad padre, versión del marco, procedencia de criterios, si el docente editó). Se corrigen las contradicciones detectadas: §2.11.6 (sus capas son contexto, no origen), reglas transversales de la Fase 3, §4.3 (nuevo bloque `[FUENTE_INMEDIATA]` y nota de lectura), fichas OP-06/OP-07/OP-08/OP-09 en §4.5 y las filas correspondientes de la tabla de tokens. **Ninguna decisión aprobada se eliminó; ningún valor de tokens, modelo, tarifa ni frecuencia cambió; el simulador no se tocó.** Se registra que `bancoRubricas` NO se modifica en esta fase, y que Universo Curricular y Planeación Viva siguen SIN implementar (Fase 11 no iniciada). Diagnóstico académico y diagnóstico de contexto quedan señalados como entidades aún no definidas. Solo documentación: sin código, sin despliegue. |
 | 10-ago-2026 | **Kike registra la decisión de producto sobre el Universo Curricular** (diseño conceptual aprobado; implementación NO autorizada, sin carga de catálogos): capa de referencia curricular que no sustituye a la Planeación; la Planeación selecciona, la actividad determina lo que se solicita, la rúbrica/cotejo se deriva del entregable u observación y los reactivos del cuestionario/examen; la IA no inventa información curricular; el currículo contextualiza y valida, no introduce elementos que la actividad no pide; **el Universo NO es obligatorio para usar la IA** y, cuando exista, será contexto curricular verificable. Queda anotado que **no hay ninguna fuente curricular en el repositorio** (los PDF oficiales viven en el Drive de Kike) — la auditoría de fuentes queda pendiente. Se autoriza la implementación de OP-06 y OP-07 con las reglas ya aprobadas. |
 | 12-ago-2026 | **Kike emite decisiones DEFINITIVAS que SUSTITUYEN la arquitectura de "Planeación Viva" y "Universo Curricular"** (§2.11, §2.11.6, REGLA TRANSVERSAL, "Universo Curricular (decisión de producto)") por una arquitectura simplificada, registrada en la nueva sección **FASE 2-BIS — ARQUITECTURA SIMPLIFICADA DE IA**: (1) **"Perfil para IA del docente"** — botón en la pantalla principal, arriba del QR, contexto GENERAL reutilizable (estilo de facilitar clase, habilidades, experiencia, contexto de escuela, contexto general de trabajo), capturado UNA sola vez; **regla obligatoria: sin Perfil completo, no se muestra la pestaña de IA** en las asignaturas del docente; no se crea otra forma paralela de capturarlo. (2) **Pestaña "Asistente IA" por asignatura**, visible solo con el Perfil completo, con **exactamente tres apartados**: **Fuentes** (iniciales generales de la asignatura + por parcial; los archivos se guardan en Fuentes de la Asignatura y NO se vuelven a subir — una operación puede usar hasta 3 fuentes ya almacenadas), **Diagnóstico del grupo** (diagnóstico de contexto + diagnóstico de conocimientos, habilitados tras cargar las fuentes iniciales; ambos obligatorios antes de generar la Planeación), y **Planeación Didáctica Inicial** (generada SOLO después de los dos diagnósticos; sencilla, por parcial; salida Excel solo texto con líneas/tabla, sin logos ni membretes institucionales, pensada para copiar/pegar al formato propio del docente, no para sustituirlo). (3) **Contexto persistente para toda la IA**: Perfil del docente + Asignatura + Fuentes iniciales + Diagnóstico de contexto + Diagnóstico de conocimientos + Planeación Inicial + Fuentes por parcial — reutilizable, sin subir archivos repetidos. (4) **Quedan expresamente fuera de alcance**: "Planeación Viva", arquitectura curricular compleja, catálogo curricular propio, base curricular institucional completa, **RAG/embeddings como requisito**, relaciones automáticas complejas entre planes y programas, capas curriculares no solicitadas, y convertir Evalúa Fácil en administrador curricular especializado. (5) **OP-03/OP-04/OP-05 (crear examen/cuestionario/reactivos con IA) y OP-10 (análisis de resultados) YA EXISTEN y NO se reimplementan** — la nueva arquitectura solo les da mejor contexto cuando corresponda; la generación de actividades con IA se integrará al mismo contexto más adelante (pendiente). §2.11 y "Universo Curricular (decisión de producto)" se conservan como **registro histórico**, marcados como NO VIGENTES/DESCARTADOS donde corresponde; ninguna tarifa, precio, modelo ni valor de tokens cambió. Solo documentación: sin código, sin despliegue. |
+| 12-ago-2026 | **Kike agrega y luego amplía la regla 8 permanente y transversal a "Reglas de trabajo de este proyecto": "Claude hace el diagnóstico y el trabajo técnico — no lo delega en Kike ni en terceros"** — a diferencia de las reglas 1–7 (solo IA), esta rige TODO el desarrollo, mantenimiento, auditoría, pruebas y depuración del proyecto, con o sin IA de por medio. Origen: un bug real de `fuentesAsignatura` donde Claude le pidió a Kike abrir F12/DevTools/Console en vez de investigarlo directamente — resultó reproducible con una prueba contra el emulador de Firestore, sin necesitar el navegador de Kike. **Ampliada el mismo día** tras un segundo caso: al diagnosticar por qué fallaba la lectura de fuentes PDF (bloqueo de entrega de PDF/ZIP en la cuenta de Cloudinary), Claude propuso que Kike le pidiera a Alan activar una opción en el dashboard en vez de resolverlo con las herramientas que sí tenía a la mano. La regla ahora deja explícito, en cinco puntos: (a) Claude investiga directamente (código, configuración, reproducción, pruebas, logs, herramientas, Firebase/Firestore/Vercel, navegador automatizado) antes de pedir cualquier cosa; (b) no le pide a Kike diagnósticos que Claude puede hacer (prohibido "abre F12", "revisa Console", etc.); (c) **no le delega el trabajo a Alan ni a ningún tercero** cuando Claude puede resolverlo directamente; (d) las decisiones de producto (precio, alcance, diseño, prioridad, autorizaciones) sí son de Kike y se le preguntan directamente, nunca se inventan; (e) solo se pide intervención externa cuando es técnicamente indispensable (información físicamente inaccesible o autorización que solo otra persona puede dar), explicando qué falta, por qué y qué resultado se necesita. Se consolidó en una sola regla 8 (sin duplicados) — se sustituyó el texto anterior, no se agregó una regla aparte. Solo documentación: sin código, sin despliegue. |
