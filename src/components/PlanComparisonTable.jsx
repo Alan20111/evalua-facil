@@ -104,13 +104,23 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
             <Celda>Mensual</Celda>
             {mostrarMayor && <Celda>Mensual</Celda>}
           </tr>
+          {/* Diferencia real entre Gratuito y cualquier plan pagado (no entre
+              pro/mayor, esos son iguales entre sí) — ver hasCleanExports en
+              subscriptionHelpers.js: la prueba exporta PDF/Excel con marca de
+              agua, un plan pagado los exporta limpios mientras esté vigente. */}
           <tr className="border-b border-outline-variant bg-accent-light/40">
+            <td className="px-1.5 py-2 font-medium text-muted">Documentos sin marca de agua</td>
+            <CeldaNo />
+            <CeldaSi />
+            {mostrarMayor && <CeldaSi />}
+          </tr>
+          <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Pago de varios meses</td>
             <CeldaNo />
             <Celda destacada>1 a 6 meses</Celda>
             {mostrarMayor && <Celda destacada>Solo 1 mes</Celda>}
           </tr>
-          <tr className="border-b border-outline-variant">
+          <tr className="border-b border-outline-variant bg-accent-light/40">
             <td className="px-1.5 py-2 font-medium text-muted">Descuentos por prepago</td>
             <CeldaNo />
             <CeldaSi />
