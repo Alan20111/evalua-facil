@@ -24,10 +24,28 @@ import Spinner from '../Spinner'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import ConfirmModal from '../ConfirmModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
+import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import { Sparkles, RotateCcw, ClipboardList, ExternalLink, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 
 function millisDe(ts) {
   return ts?.toMillis?.() || 0
+}
+
+// Señal visual del estado real (ver useDiagnosticoEstado) — discreta,
+// integrada en el bloque existente, sin pantalla ni botón nuevo.
+const ESTADO_BADGE = {
+  pendiente: { texto: 'Pendiente de respuestas', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+  analizable: { texto: 'Resultados disponibles — analizar con IA', className: 'bg-orange-50 text-orange-700 border-orange-200' },
+  completado: { texto: 'Completado — análisis disponible', className: 'bg-green-50 text-green-700 border-green-200' },
+}
+
+function EstadoDiagnosticoBadge({ estado }) {
+  const info = ESTADO_BADGE[estado] || ESTADO_BADGE.pendiente
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${info.className}`}>
+      {info.texto}
+    </span>
+  )
 }
 
 // Mismo shape que EVALUACION_DEFAULTS.cuestionario de EvaluacionEditor.jsx/
@@ -73,6 +91,7 @@ function DiagnosticoActividadBloque({
   const [cantidad, setCantidad] = useState(rango.min)
   const [peticion, setPeticion] = useState('')
   const [generando, setGenerando] = useState(false)
+  const { estado: estadoDiagnostico, cargado: estadoCargado } = useDiagnosticoEstado(subjectId, diagnosticoTipo)
 
   useEffect(() => {
     const q = query(
@@ -131,6 +150,9 @@ function DiagnosticoActividadBloque({
           <h3 className="font-semibold text-on-surface text-sm">{titulo}</h3>
           <p className="text-xs text-muted mt-0.5">{descripcion}</p>
         </div>
+        {loaded && actividades.length > 0 && estadoCargado && (
+          <EstadoDiagnosticoBadge estado={estadoDiagnostico} />
+        )}
       </div>
 
       {!loaded ? (

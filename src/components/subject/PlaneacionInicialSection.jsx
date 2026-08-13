@@ -5,13 +5,14 @@
 // el docente la revisa, puede regenerarla y descargarla — nunca se aplica
 // sola a ningún otro módulo de Evalúa Fácil.
 import { useEffect, useState } from 'react'
-import { collection, query, where, onSnapshot, serverTimestamp } from 'firebase/firestore'
+import { collection, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { addDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
+import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import { descargarPlaneacionExcel } from '../../utils/planeacionExcel'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp } from 'lucide-react'
 
@@ -28,12 +29,23 @@ function RequisitoItem({ ok, texto }) {
   )
 }
 
+// Señal visual del estado real de Planeación — discreta, junto al título.
+// "Lista" exige los dos diagnósticos con análisis real (mismo criterio que
+// habilita el botón, sin contar fuentes — ver spec de Kike, 13-ago-2026).
+function EstadoPlaneacionBadge({ lista }) {
+  const className = lista
+    ? 'bg-green-50 text-green-700 border-green-200'
+    : 'bg-amber-50 text-amber-700 border-amber-200'
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${className}`}>
+      {lista ? 'Lista para generar' : 'Pendiente de diagnósticos'}
+    </span>
+  )
+}
+
 export default function PlaneacionInicialSection({ subjectId, docenteId, subject, asignaturaNombre, hayFuentesGenerales, watermark = false }) {
   const toast = useToast()
   const creditosIA = useCreditosIA()
-  const [hayContexto, setHayContexto] = useState(false)
-  const [hayConocimientos, setHayConocimientos] = useState(false)
-  const [diagLoaded, setDiagLoaded] = useState(false)
   const [historial, setHistorial] = useState([])
   const [histLoaded, setHistLoaded] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
@@ -42,67 +54,16 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   const [verHistorial, setVerHistorial] = useState(false)
 
   // El diagnóstico "real" (Tandas 1 y 2) vive en `activities` — no en la
-  // vieja `subjects/{id}/diagnosticosIA` (reporte simulado, descartado). Se
-  // considera cumplido cuando existe al menos una actividad de ese tipo con
-  // un análisis de IA ya generado (activities/{id}/analisisIA), igual que
-  // valida el servidor en analisisDiagnosticoMasReciente.
-  useEffect(() => {
-    let cancelado = false
-    const loadedTipos = new Set()
-    const unsubsPorTipo = { contexto: [], conocimientos: [] }
-
-    function escucharTipo(tipo, setHay) {
-      const q = query(
-        collection(db, 'activities'),
-        where('asignaturaId', '==', subjectId),
-        where('diagnosticoTipo', '==', tipo),
-      )
-      const analisisUnsubs = new Map() // actividadId -> unsub
-      const analisisConDatos = new Set()
-
-      const unsubActividades = onSnapshot(q, (snap) => {
-        if (cancelado) return
-        const idsActuales = new Set(snap.docs.map((d) => d.id))
-
-        for (const [id, unsub] of analisisUnsubs) {
-          if (!idsActuales.has(id)) {
-            unsub()
-            analisisUnsubs.delete(id)
-            analisisConDatos.delete(id)
-          }
-        }
-
-        snap.docs.forEach((d) => {
-          if (analisisUnsubs.has(d.id)) return
-          const unsub = onSnapshot(collection(db, 'activities', d.id, 'analisisIA'), (analisisSnap) => {
-            if (cancelado) return
-            if (analisisSnap.empty) analisisConDatos.delete(d.id)
-            else analisisConDatos.add(d.id)
-            setHay(analisisConDatos.size > 0)
-          })
-          analisisUnsubs.set(d.id, unsub)
-        })
-
-        setHay(analisisConDatos.size > 0)
-        loadedTipos.add(tipo)
-        if (loadedTipos.size === 2) setDiagLoaded(true)
-      }, () => {
-        loadedTipos.add(tipo)
-        if (loadedTipos.size === 2) setDiagLoaded(true)
-      })
-
-      unsubsPorTipo[tipo].push(unsubActividades, () => analisisUnsubs.forEach((unsub) => unsub()))
-    }
-
-    escucharTipo('contexto', setHayContexto)
-    escucharTipo('conocimientos', setHayConocimientos)
-
-    return () => {
-      cancelado = true
-      unsubsPorTipo.contexto.forEach((unsub) => unsub())
-      unsubsPorTipo.conocimientos.forEach((unsub) => unsub())
-    }
-  }, [subjectId])
+  // vieja `subjects/{id}/diagnosticosIA` (reporte simulado, descartado).
+  // Mismo hook que usa DiagnosticoGrupoSection para su propia señal visual —
+  // 'completado' es exactamente lo que ya validaba este componente (existe
+  // un análisis real en activities/{id}/analisisIA), igual que el servidor
+  // en analisisDiagnosticoMasReciente.
+  const { estado: estadoContexto, cargado: contextoCargado } = useDiagnosticoEstado(subjectId, 'contexto')
+  const { estado: estadoConocimientos, cargado: conocimientosCargado } = useDiagnosticoEstado(subjectId, 'conocimientos')
+  const hayContexto = estadoContexto === 'completado'
+  const hayConocimientos = estadoConocimientos === 'completado'
+  const diagLoaded = contextoCargado && conocimientosCargado
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'subjects', subjectId, 'planeacionesIA'), (snap) => {
@@ -170,7 +131,10 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
 
   return (
     <div className="bg-surface-card rounded-card shadow-card p-3">
-      <h2 className="font-bold text-on-surface">Planeación Didáctica Inicial</h2>
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="font-bold text-on-surface">Planeación Didáctica Inicial</h2>
+        <EstadoPlaneacionBadge lista={hayContexto && hayConocimientos} />
+      </div>
       <p className="text-sm text-muted mt-0.5 mb-2">
         Una guía de trabajo sencilla, con una hoja de Excel por parcial, para que copies lo que te
         sirva a tu formato institucional. No sustituye el formato oficial de tu escuela.
