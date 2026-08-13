@@ -1943,7 +1943,14 @@ async function precheckDiagnosticoContexto({ uid, params }) {
   }
 
   const base = await precheckDiagnosticoBase({ uid, subjectId: act.asignaturaId })
-  return { ...base, actividadId }
+  // Corrección de Kike (12-ago-2026): ahora el docente SÍ elige cuántas
+  // preguntas (10-15, antes las decidía la IA sola) y puede orientar el
+  // instrumento con un texto libre opcional — mismo principio que "¿qué
+  // quieres evaluar?" en crear_evaluacion_ia, pero opcional: sin él, la IA
+  // se guía solo por Perfil/fuentes/comentarios como hasta ahora.
+  const cantidad = clampInt(params?.cantidad, MIN_PREGUNTAS_CONTEXTO, MIN_PREGUNTAS_CONTEXTO, MAX_PREGUNTAS_CONTEXTO)
+  const queQuieresIndagar = String(params?.queQuieresIndagar || '').trim().slice(0, 500)
+  return { ...base, actividadId, cantidad, queQuieresIndagar }
 }
 
 // Diagnóstico de CONOCIMIENTOS (corrección de Kike, 12-ago-2026): ya no es
@@ -1988,9 +1995,9 @@ function normalizarListaTexto(arr, max = 10, maxLen = 220) {
     .slice(0, max)
 }
 
-// Rango fijo pedido por Kike (12-ago-2026, Tanda 2): la IA decide cuántas
-// preguntas dentro de 10 a 15 (el docente no elige cantidad aquí — a
-// diferencia de conocimientos, donde sí la elige).
+// Rango dentro del cual el docente elige cantidad (corrección de Kike,
+// 12-ago-2026): antes la decidía la IA sola; ahora es exacta, como en
+// conocimientos — ver precheckDiagnosticoContexto.
 const MIN_PREGUNTAS_CONTEXTO = 10
 const MAX_PREGUNTAS_CONTEXTO = 15
 
@@ -1998,7 +2005,11 @@ const MAX_PREGUNTAS_CONTEXTO = 15
 // respuesta_corta (el estudiante se expresa con sus palabras) — SIN
 // "correcta": es una encuesta, no algo calificable. Mismo campo
 // `textoRespuesta` que ya usa el proyecto para respuesta_corta
-// (EvaluacionRunner.jsx) — no se inventa un tipo de reactivo nuevo.
+// (EvaluacionRunner.jsx) — no se inventa un tipo de reactivo nuevo. También
+// pide nombre + instrucciones de la actividad (corrección de Kike,
+// 13-ago-2026: toda actividad generada con IA debe traer su nombre y sus
+// instrucciones ya escritos — el docente decide después si los deja o los
+// edita, mismo criterio que OP-05/crear_actividad_ia).
 function promptInstrumentoContexto(ctx) {
   return (
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (educación media superior mexicana).\n\n` +
@@ -2006,11 +2017,14 @@ function promptInstrumentoContexto(ctx) {
     `COMENTARIOS DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (para orientar qué preguntar, no para ` +
     `responder por los estudiantes):\n${ctx.comentariosGrupoTexto}\n\n` +
     (ctx.bloqueFuentes ? `${ctx.bloqueFuentes}\n\n` : '') +
+    (ctx.queQuieresIndagar
+      ? `QUÉ QUIERE INDAGAR EL DOCENTE EN PARTICULAR (dale prioridad, pero sin descuidar las 5 áreas ` +
+        `de abajo):\n"""${ctx.queQuieresIndagar}"""\n\n`
+      : '') +
     'Vas a construir un INSTRUMENTO DE DIAGNÓSTICO DE CONTEXTO: un cuestionario que los propios ' +
     'estudiantes van a contestar sobre sí mismos y su entorno. TÚ NO conoces sus respuestas — tu única ' +
     'tarea aquí es diseñar buenas preguntas, no inventar ni asumir lo que van a responder.\n\n' +
-    `Genera entre ${MIN_PREGUNTAS_CONTEXTO} y ${MAX_PREGUNTAS_CONTEXTO} preguntas (tú decides cuántas, ` +
-    'dentro de ese rango) que investiguen:\n' +
+    `Genera EXACTAMENTE ${ctx.cantidad} preguntas que investiguen:\n` +
     '1. Características relevantes del grupo.\n' +
     '2. Condiciones del contexto que puedan afectar su aprendizaje (acceso a recursos, tiempo, etc.).\n' +
     '3. Intereses y motivadores.\n' +
@@ -2023,8 +2037,14 @@ function promptInstrumentoContexto(ctx) {
     '- PROHIBIDO preguntar o inferir diagnósticos médicos, trastornos psicológicos, información sexual, ' +
     'política, religiosa, antecedentes legales, o cualquier dato sensible sin utilidad pedagógica directa.\n' +
     '- No etiquetes al estudiante ni asumas problemas — pregunta siempre de forma neutral y respetuosa.\n\n' +
+    'Además, escribe un NOMBRE breve para esta actividad y unas INSTRUCCIONES GENERALES cortas que verá ' +
+    'el estudiante antes de contestar (qué se le pide, y que no hay respuestas correctas o incorrectas — ' +
+    'que conteste con honestidad).\n\n' +
     'Responde SOLO con este JSON:\n' +
-    '{\n  "preguntas": [\n' +
+    '{\n' +
+    '  "nombre": "<máx 120 caracteres>",\n' +
+    '  "instruccionesHtml": "<instrucciones generales, HTML simple>",\n' +
+    '  "preguntas": [\n' +
     '    {"tipo": "opcion_multiple o respuesta_corta", "enunciado": "<máx 300 caracteres>", ' +
     '"opciones": ["<solo si opcion_multiple, 3 a 4 opciones>", "..."]}\n' +
     '  ]\n}'
@@ -2096,11 +2116,19 @@ async function ejecutarDiagnosticoContexto({ params, modelo, apiKey }) {
     batch.set(claveRef, { respuestaCorrecta: null, respuestaEsperada: null })
   })
   await batch.commit()
-  await db.doc(`activities/${actividadId}`).set({ evaluacion: { numPreguntas: preguntas.length } }, { merge: true })
+  // Nombre + instrucciones también los propone la IA (corrección de Kike,
+  // 13-ago-2026) — solo se sobrescriben si sí vinieron, nunca se pisa con
+  // vacío lo que ya hubiera.
+  const nombre = String(datos?.nombre || '').trim().slice(0, 120)
+  const instruccionesHtml = sanitizarInstruccionesHtml(datos?.instruccionesHtml)
+  const updateActividad = { evaluacion: { numPreguntas: preguntas.length } }
+  if (nombre) updateActividad.nombre = nombre
+  if (instruccionesHtml) updateActividad.instrucciones = instruccionesHtml
+  await db.doc(`activities/${actividadId}`).set(updateActividad, { merge: true })
 
   return {
     resultado: { actividadId, cantidad: preguntas.length },
-    unidadesReales: 1, // tarifa FIJA (5 créditos), sin importar cuántas preguntas decida la IA (10-15)
+    unidadesReales: 1, // tarifa FIJA (5 créditos), sin importar cuántas preguntas elija el docente (10-15)
     interno,
   }
 }
@@ -2122,8 +2150,13 @@ function promptDiagnosticoConocimientos(ctx) {
     'inicial, no un examen grande. No inventes temas que no estén en los documentos de fuente.\n\n' +
     `Genera EXACTAMENTE ${ctx.cantidad} reactivos de opción múltiple (4 opciones cada uno, una sola ` +
     'correcta), cubriendo la mayor variedad posible de los temas encontrados en las fuentes.\n\n' +
+    'Además, escribe un NOMBRE breve para esta actividad y unas INSTRUCCIONES GENERALES cortas que verá ' +
+    'el estudiante antes de contestar (qué se le pide y que es un diagnóstico inicial, no un examen).\n\n' +
     'Responde SOLO con este JSON:\n' +
-    '{\n  "reactivos": [\n' +
+    '{\n' +
+    '  "nombre": "<máx 120 caracteres>",\n' +
+    '  "instruccionesHtml": "<instrucciones generales, HTML simple>",\n' +
+    '  "reactivos": [\n' +
     '    {"tipo": "opcion_multiple", "enunciado": "<máx 400 caracteres>", ' +
     '"opciones": ["<opción>", "..."], "correcta": "<índice 0-3 de la opción correcta>"}\n' +
     '  ]\n}'
@@ -2167,7 +2200,14 @@ async function ejecutarDiagnosticoConocimientos({ params, modelo, apiKey }) {
     batch.set(claveRef, { respuestaCorrecta: opciones[r.correcta]?.id ?? opciones[0]?.id ?? null, respuestaEsperada: null })
   })
   await batch.commit()
-  await db.doc(`activities/${actividadId}`).set({ evaluacion: { numPreguntas: reactivos.length } }, { merge: true })
+  // Nombre + instrucciones también los propone la IA (corrección de Kike,
+  // 13-ago-2026) — solo se sobrescriben si sí vinieron.
+  const nombre = String(datos?.nombre || '').trim().slice(0, 120)
+  const instruccionesHtml = sanitizarInstruccionesHtml(datos?.instruccionesHtml)
+  const updateActividad = { evaluacion: { numPreguntas: reactivos.length } }
+  if (nombre) updateActividad.nombre = nombre
+  if (instruccionesHtml) updateActividad.instrucciones = instruccionesHtml
+  await db.doc(`activities/${actividadId}`).set(updateActividad, { merge: true })
 
   return {
     resultado: { actividadId, cantidad: reactivos.length },
@@ -2242,6 +2282,19 @@ function diagnosticoConocimientosATexto(resultado) {
   return partes.length ? partes.join('\n\n') : 'Información no disponible en las fuentes proporcionadas.'
 }
 
+// Cuenta cuántas actividades de diagnóstico de un tipo tiene la asignatura
+// (revisadas o no, publicadas o no — cualquiera con ese `diagnosticoTipo`).
+// Regla de Kike (13-ago-2026): el docente puede generar y revisar varios
+// diagnósticos, pero para Planeación debe quedar UNO SOLO de cada tipo — si
+// hay más de uno, Planeación se detiene hasta que borre los que sobran.
+async function contarActividadesDiagnostico(db, subjectId, tipo) {
+  const snap = await db.collection('activities')
+    .where('asignaturaId', '==', subjectId)
+    .where('diagnosticoTipo', '==', tipo)
+    .get()
+  return snap.size
+}
+
 // Busca la actividad de diagnóstico (marcada `diagnosticoTipo`) más reciente
 // de la asignatura que YA tenga un análisis de IA (activities/{id}/analisisIA
 // — mismo lugar donde OP-10 guarda su bitácora, ver EvaluacionManager.jsx).
@@ -2306,6 +2359,19 @@ async function precheckPlaneacionInicial({ uid, params }) {
   // es su análisis de IA sobre respuestas reales de los estudiantes
   // (activities/{id}/analisisIA, OP-10), NO el reporte simulado descartado
   // de subjects/{id}/diagnosticosIA.
+  //
+  // Regla de Kike (13-ago-2026): el docente puede generar y revisar varios
+  // diagnósticos de contexto, pero para Planeación debe quedar UNO SOLO —
+  // si hay más de uno (revisado o no), se detiene hasta que borre los que
+  // sobran, para no dejarle a la IA ambigüedad sobre cuál usar.
+  const countContexto = await contarActividadesDiagnostico(db, subjectId, 'contexto')
+  if (countContexto > 1) {
+    throw new HttpsError('failed-precondition',
+      `Tienes ${countContexto} Diagnósticos de contexto generados. Elimina los que no vayas a usar y deja ` +
+      'solo uno antes de generar la Planeación Didáctica Inicial (Config Asistente IA → Diagnóstico del ' +
+      'grupo). No se descontaron créditos.',
+      { codigo: 'MULTIPLES_DIAGNOSTICO_CONTEXTO' })
+  }
   const resultadoContexto = await analisisDiagnosticoMasReciente(db, subjectId, 'contexto')
   if (!resultadoContexto) {
     throw new HttpsError('failed-precondition',
@@ -2317,7 +2383,15 @@ async function precheckPlaneacionInicial({ uid, params }) {
   // Diagnóstico de CONOCIMIENTOS (corrección de Kike, 12-ago-2026): ya es un
   // cuestionario real — el resultado que cuenta es su análisis de IA sobre
   // respuestas reales (activities/{id}/analisisIA, OP-10), no un reporte
-  // simulado a partir de fuentes.
+  // simulado a partir de fuentes. Misma regla de "uno solo" que contexto.
+  const countConocimientos = await contarActividadesDiagnostico(db, subjectId, 'conocimientos')
+  if (countConocimientos > 1) {
+    throw new HttpsError('failed-precondition',
+      `Tienes ${countConocimientos} Diagnósticos de conocimientos generados. Elimina los que no vayas a usar ` +
+      'y deja solo uno antes de generar la Planeación Didáctica Inicial (Config Asistente IA → Diagnóstico ' +
+      'del grupo). No se descontaron créditos.',
+      { codigo: 'MULTIPLES_DIAGNOSTICO_CONOCIMIENTOS' })
+  }
   const resultadoConocimientos = await analisisDiagnosticoMasReciente(db, subjectId, 'conocimientos')
   if (!resultadoConocimientos) {
     throw new HttpsError('failed-precondition',

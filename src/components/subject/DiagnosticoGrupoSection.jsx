@@ -45,16 +45,23 @@ function evaluacionDiagnostico(ponderarReactivos) {
   }
 }
 
-const MIN_PREGUNTAS_CONOCIMIENTOS = 5
-const MAX_PREGUNTAS_CONOCIMIENTOS = 20
+const RANGO_PREGUNTAS = {
+  conocimientos: { min: 5, max: 20 },
+  contexto: { min: 10, max: 15 },
+}
 
 // Componente compartido — crea/lista los cuestionarios de un tipo de
 // diagnóstico y navega al docente a su editor real (misma ruta que OP-03/
 // OP-04, /activity/:id → EvaluacionManager) para que lo revise y publique.
+// Nombre e instrucciones los propone la IA (corrección de Kike, 13-ago-2026
+// — toda actividad generada con IA debe traer ya su nombre y sus
+// instrucciones, el docente decide después si los deja o los edita, mismo
+// criterio que crear_actividad_ia/OP-05): la actividad nace con `nombre: ''`
+// y el ejecutor del servidor la llena.
 function DiagnosticoActividadBloque({
   subjectId, docenteId, asignaturaNombre, existingActivitiesCountP1,
-  diagnosticoTipo, titulo, descripcion, operacion, nombreBase, ponderarReactivos,
-  mostrarCantidad, costoDefault, descripcionModal,
+  diagnosticoTipo, titulo, descripcion, operacion, ponderarReactivos,
+  mostrarCantidad, mostrarPeticion, placeholderPeticion, costoDefault, descripcionModal,
 }) {
   const toast = useToast()
   const navigate = useNavigate()
@@ -62,7 +69,9 @@ function DiagnosticoActividadBloque({
   const [actividades, setActividades] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
-  const [cantidad, setCantidad] = useState(10)
+  const rango = RANGO_PREGUNTAS[diagnosticoTipo] || { min: 5, max: 20 }
+  const [cantidad, setCantidad] = useState(rango.min)
+  const [peticion, setPeticion] = useState('')
   const [generando, setGenerando] = useState(false)
 
   useEffect(() => {
@@ -83,9 +92,8 @@ function DiagnosticoActividadBloque({
   async function generar() {
     setGenerando(true)
     try {
-      const numero = actividades.length + 1
       const ref = await addDoc(collection(db, 'activities'), {
-        nombre: numero > 1 ? `${nombreBase} (${numero})` : nombreBase,
+        nombre: '', // la IA lo llena — ver ejecutarDiagnostico(Contexto|Conocimientos) en functions/ia.js
         categoria: 'cuestionario', tipo: 'evaluacion', diagnosticoTipo,
         instrucciones: '', archivosAdjuntos: [], fechaLimite: null, recibirTarde: false,
         oculta: true, publishAt: null, publishedAt: null, maxCalif: 10, notificarDocente: false,
@@ -95,6 +103,7 @@ function DiagnosticoActividadBloque({
       })
       const params = { actividadId: ref.id, subjectId, asignaturaId: subjectId, asignaturaNombre }
       if (mostrarCantidad) params.cantidad = cantidad
+      if (mostrarPeticion && peticion.trim()) params.queQuieresIndagar = peticion.trim()
       await creditosIA.ejecutar(operacion, params)
       setConfirmando(false)
       toast('Cuestionario de diagnóstico generado — revísalo y publícalo cuando esté listo')
@@ -170,7 +179,7 @@ function DiagnosticoActividadBloque({
           onContinuar={generar}
         >
           {mostrarCantidad && (
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 mb-2">
               <label htmlFor={`diag-cantidad-${diagnosticoTipo}`} className="text-sm text-on-surface">¿Cuántas preguntas quieres?</label>
               <select
                 id={`diag-cantidad-${diagnosticoTipo}`}
@@ -179,10 +188,26 @@ function DiagnosticoActividadBloque({
                 onChange={(e) => setCantidad(Number(e.target.value))}
                 className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
-                {Array.from({ length: MAX_PREGUNTAS_CONOCIMIENTOS - MIN_PREGUNTAS_CONOCIMIENTOS + 1 }, (_, i) => MIN_PREGUNTAS_CONOCIMIENTOS + i).map((n) => (
+                {Array.from({ length: rango.max - rango.min + 1 }, (_, i) => rango.min + i).map((n) => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>
+            </div>
+          )}
+          {mostrarPeticion && (
+            <div>
+              <label htmlFor={`diag-peticion-${diagnosticoTipo}`} className="block text-sm text-on-surface mb-1">
+                ¿Qué quieres indagar en particular? <span className="text-muted font-normal">(opcional)</span>
+              </label>
+              <textarea
+                id={`diag-peticion-${diagnosticoTipo}`}
+                value={peticion}
+                disabled={generando}
+                rows={3}
+                onChange={(e) => setPeticion(e.target.value)}
+                placeholder={placeholderPeticion}
+                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              />
             </div>
           )}
         </ConfirmacionCreditosModal>
@@ -310,11 +335,12 @@ export default function DiagnosticoGrupoSection({ subjectId, docenteId, asignatu
         diagnosticoTipo="contexto"
         titulo="Diagnóstico de contexto"
         descripcion="Un cuestionario real (opción múltiple y respuesta breve) que investiga el contexto, intereses y necesidades de tus estudiantes — sin puntos, es una encuesta."
-        descripcionModal="La IA usa tu Perfil, tus fuentes y tus comentarios del grupo para diseñar entre 10 y 15 preguntas — las respuestas de tus estudiantes son las que después arman el diagnóstico real."
+        descripcionModal="La IA usa tu Perfil, tus fuentes y tus comentarios del grupo para diseñar el instrumento — las respuestas de tus estudiantes son las que después arman el diagnóstico real."
         operacion="diagnostico_contexto"
-        nombreBase="Diagnóstico de contexto"
         ponderarReactivos={false}
-        mostrarCantidad={false}
+        mostrarCantidad
+        mostrarPeticion
+        placeholderPeticion="Ej: Me interesa saber si tienen computadora o internet en casa, y qué tanto usan el celular para estudiar."
         costoDefault={5}
       />
       <DiagnosticoActividadBloque
@@ -325,7 +351,6 @@ export default function DiagnosticoGrupoSection({ subjectId, docenteId, asignatu
         descripcion="Un cuestionario real que tus estudiantes contestan — no cuenta para su calificación, pero te deja ver qué conocimientos previos ya tienen."
         descripcionModal="La IA usa tu Perfil para IA y tus fuentes iniciales generales ya guardadas para armar un cuestionario real. Lo revisas y publicas cuando quieras."
         operacion="diagnostico_conocimientos"
-        nombreBase="Diagnóstico de conocimientos"
         ponderarReactivos
         mostrarCantidad
         costoDefault={10}

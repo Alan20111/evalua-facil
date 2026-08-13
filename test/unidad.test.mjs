@@ -1237,16 +1237,36 @@ caso('normalizarPreguntasContexto: entrada basura (no arreglo) no truena — arr
   assert.deepStrictEqual(FIA.normalizarPreguntasContexto(undefined), [])
 })
 
-caso('promptInstrumentoContexto: pide entre 10 y 15 preguntas, combina opción múltiple y respuesta breve', () => {
-  const ctx = { asignaturaNombre: 'Cultura Digital I', perfilIATexto: 'x', comentariosGrupoTexto: 'y', bloqueFuentes: null }
+// Corrección de Kike (13-ago-2026): el docente ahora elige la cantidad
+// EXACTA (10-15, antes la decidía la IA sola dentro del rango) y puede
+// orientar el instrumento con un texto libre opcional. También pide
+// nombre + instrucciones de la actividad, igual que crear_actividad_ia.
+caso('promptInstrumentoContexto: pide EXACTAMENTE la cantidad elegida por el docente, combina opción múltiple y respuesta breve', () => {
+  const ctx = { asignaturaNombre: 'Cultura Digital I', perfilIATexto: 'x', comentariosGrupoTexto: 'y', bloqueFuentes: null, cantidad: 12 }
   const p = FIA.promptInstrumentoContexto(ctx)
-  assert.ok(p.includes('entre 10 y 15 preguntas'))
+  assert.ok(p.includes('EXACTAMENTE 12 preguntas'))
   assert.ok(p.includes('opcion_multiple'))
   assert.ok(p.includes('respuesta_corta'))
 })
 
+caso('promptInstrumentoContexto: pide nombre e instrucciones de la actividad (req. Kike 13-ago-2026)', () => {
+  const ctx = { asignaturaNombre: 'x', perfilIATexto: 'x', comentariosGrupoTexto: 'x', bloqueFuentes: null, cantidad: 10 }
+  const p = FIA.promptInstrumentoContexto(ctx)
+  assert.ok(p.includes('"nombre"'))
+  assert.ok(p.includes('"instruccionesHtml"'))
+})
+
+caso('promptInstrumentoContexto: sin queQuieresIndagar, no lo menciona; con él, lo incluye y le da prioridad', () => {
+  const base = { asignaturaNombre: 'x', perfilIATexto: 'x', comentariosGrupoTexto: 'x', bloqueFuentes: null, cantidad: 10 }
+  const sinPeticion = FIA.promptInstrumentoContexto(base)
+  assert.ok(!sinPeticion.includes('QUÉ QUIERE INDAGAR'))
+  const conPeticion = FIA.promptInstrumentoContexto({ ...base, queQuieresIndagar: 'Acceso a internet y computadora en casa.' })
+  assert.ok(conPeticion.includes('QUÉ QUIERE INDAGAR'))
+  assert.ok(conPeticion.includes('Acceso a internet y computadora en casa.'))
+})
+
 caso('promptInstrumentoContexto: prohíbe explícitamente contenido clínico/sensible y etiquetar al estudiante', () => {
-  const ctx = { asignaturaNombre: 'x', perfilIATexto: 'x', comentariosGrupoTexto: 'x', bloqueFuentes: null }
+  const ctx = { asignaturaNombre: 'x', perfilIATexto: 'x', comentariosGrupoTexto: 'x', bloqueFuentes: null, cantidad: 10 }
   const p = FIA.promptInstrumentoContexto(ctx)
   assert.ok(p.toLowerCase().includes('diagnósticos médicos'))
   assert.ok(p.toLowerCase().includes('trastornos psicológicos'))
