@@ -15,6 +15,7 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../firebase'
 import { useAuth } from '../context/AuthContext'
+import { useSubscription } from './useSubscription'
 
 // Tarifas cacheadas a nivel módulo: cambian rara vez y las usan la barra, el
 // panel y cada diálogo de confirmación — una sola lectura por sesión.
@@ -41,6 +42,7 @@ const ETIQUETAS_PLAN = {
 export function useCreditosIA() {
   const { currentUser, userProfile } = useAuth()
   const esDocente = userProfile?.role === 'docente'
+  const { subscription } = useSubscription()
   const [creditos, setCreditos] = useState(null)
   const [cargado, setCargado] = useState(false)
   const [tarifas, setTarifas] = useState(null)
@@ -65,8 +67,29 @@ export function useCreditosIA() {
   return useMemo(() => {
     // Antes del primer uso de IA el documento no existe: se muestra la bolsa
     // completa del nivel base (solo visual — el doc real nace en el servidor
-    // con el plan correcto en la primera operación).
-    const capacidadBase = tarifas?.capacidadPorPlan?.pro ?? 350
+    // con el plan correcto en la primera operación). Bug real encontrado en
+    // el Bloque 6 (13-ago-2026): esto asumía SIEMPRE el nivel 'pro' (350),
+    // así que un trial NUEVO veía "350 créditos" en Mi plan antes de su
+    // primer uso, en vez de los 50 reales — mismo criterio que
+    // capacidadTrialPara en functions/creditosLedger.js, portado aquí
+    // porque ese archivo no se puede importar desde el cliente.
+    const capacidadPorPlan = tarifas?.capacidadPorPlan || {}
+    let capacidadBase = capacidadPorPlan.pro ?? 350
+    if (!subscription?.planId) {
+      // Trial (o suscripción todavía sin resolver): respeta el trial legado
+      // — quien empezó ANTES del corte conserva la capacidad de antes.
+      const legado = tarifas?.trialLegado
+      const inicio = subscription?.fechaInicio
+      const inicioMs = inicio?.toMillis ? inicio.toMillis() : null
+      const corteMs = legado?.corte?.toMillis ? legado.corte.toMillis() : null
+      capacidadBase = (legado && inicioMs != null && corteMs != null && inicioMs < corteMs)
+        ? legado.capacidad
+        : (capacidadPorPlan.trial ?? 50)
+    } else if (subscription.planId === 'mayor') {
+      capacidadBase = capacidadPorPlan.mayor ?? capacidadBase
+    } else if (subscription.planId === 'cortesia') {
+      capacidadBase = capacidadPorPlan.cortesia ?? capacidadBase
+    }
     const capacidad = creditos?.capacidad ?? capacidadBase
     const saldo = creditos?.saldo ?? capacidad
     const plan = creditos?.plan ?? null
@@ -119,7 +142,7 @@ export function useCreditosIA() {
         }
       },
     }
-  }, [cargado, tarifas, creditos, esDocente])
+  }, [cargado, tarifas, creditos, esDocente, subscription])
 }
 
 export default useCreditosIA
