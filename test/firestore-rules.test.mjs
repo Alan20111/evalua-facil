@@ -501,23 +501,51 @@ ok('teacher CANNOT declare a payment on a made-up planId')
 await assertFails(setDoc(doc(asT1, 'payments', 'PAY_PLAN_TRIAL'), pagoValido({ planId: 'trial' })))
 ok('teacher CANNOT declare a payment on planId "trial" (not a payable plan)')
 
-// ── Hallazgo de la revisión de seguridad del Bloque 4 (13-ago-2026) ────────
-// El `monto` NUNCA se valida contra la tarifa del plan en esta regla — es
-// una decisión de diseño previa a este bloque (ver el comentario "El MONTO
-// no se valida aquí a propósito" arriba): solo se acota a un rango sano
-// (0, 5000]. Esto significa que un docente SÍ puede declarar `mayor` con
-// $198 (o `pro` con cualquier monto dentro del rango) y la regla lo deja
-// pasar — la única defensa real contra pagar de menos es que
-// `montoCoincideConTarifa` (subscriptionHelpers.js, ya plan-aware desde
-// este bloque) marca la discrepancia en el panel de PaymentsTable.jsx y el
-// administrador la ve ANTES de aprobar. Estas dos pruebas documentan ese
-// comportamiento tal cual es hoy, para que quede explícito y no se asuma
-// que la regla protege algo que en realidad depende de una revisión manual.
-await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_BARATO'), pagoValido({ planId: 'mayor', monto: 198, mesesPagados: 1 })))
-ok('SECURITY NOTE: rule ALLOWS a mayor payment declared at $198 (below the $199 tariff) — only manual admin review via montoCoincideConTarifa catches this before approval')
+// ── Bloque 7 (13-ago-2026): el MONTO ahora SÍ se valida contra la tarifa ──
+// exacta vía montoOficialPago — cierra el hueco que el Bloque 4 solo había
+// documentado (antes cualquier monto en (0, 5000] pasaba). Una tabla
+// completa: cada tarifa oficial de `pro` (1-6 meses) permitida, y cualquier
+// desviación de un peso rechazada — tanto para `pro` como para `mayor`.
+const TARIFAS_PRO = [
+  [1, 99], [2, 190], [3, 273], [4, 348], [5, 415], [6, 474],
+]
+for (const [meses, monto] of TARIFAS_PRO) {
+  await assertSucceeds(setDoc(doc(asT1, 'payments', `PAY_PRO_${meses}M_OK`), pagoValido({ planId: 'pro', mesesPagados: meses, monto })))
+  ok(`teacher CAN declare pro + ${meses} month(s) at the exact tariff ($${monto})`)
+}
 
-await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_PRO_BARATO'), pagoValido({ planId: 'pro', monto: 1, mesesPagados: 1 })))
-ok('SECURITY NOTE: rule ALLOWS a pro payment declared at $1 (same pre-existing behavior, unchanged by Bloque 4) — same manual-review dependency')
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_OK'), pagoValido({ planId: 'mayor', mesesPagados: 1, monto: 199 })))
+ok('teacher CAN declare mayor + 1 month at the exact tariff ($199)')
+
+// Declarar mayor por debajo de la tarifa ($198, un peso menos) — el hallazgo
+// exacto que pidió la revisión: ahora el servidor lo rechaza, ya no depende
+// solo de que el admin lo note a mano.
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_BARATO'), pagoValido({ planId: 'mayor', monto: 198, mesesPagados: 1 })))
+ok('teacher CANNOT declare mayor at $198 (one peso below the $199 tariff) — server now rejects it')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_CARO'), pagoValido({ planId: 'mayor', monto: 200, mesesPagados: 1 })))
+ok('teacher CANNOT declare mayor at $200 (one peso above the $199 tariff either)')
+
+// Bloque 8 (revisión crítica, 13-ago-2026): casos exactos pedidos — intentar
+// pagar 'mayor' con el precio o los precios de descuento de 'pro'.
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_PRECIO_PRO_1M'), pagoValido({ planId: 'mayor', monto: 99, mesesPagados: 1 })))
+ok('teacher CANNOT declare mayor at $99 (the pro 1-month price)')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_PRECIO_PRO_2M'), pagoValido({ planId: 'mayor', monto: 190, mesesPagados: 1 })))
+ok('teacher CANNOT declare mayor at $190 (the pro 2-month discounted price)')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_PRO_BARATO'), pagoValido({ planId: 'pro', monto: 1, mesesPagados: 1 })))
+ok('teacher CANNOT declare pro at $1 — must match the exact tariff for the declared months')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_PRO_1M_MAL'), pagoValido({ planId: 'pro', mesesPagados: 1, monto: 100 })))
+ok('teacher CANNOT declare pro + 1 month at $100 (off by one peso from the $99 tariff)')
+
+// mayor a 2-6 meses sigue sin tarifa oficial — se rechaza igual, ahora
+// también aunque alguien intente adivinar un monto "razonable" para ellos.
+for (const meses of [2, 3, 4, 5, 6]) {
+  await assertFails(setDoc(doc(asT1, 'payments', `PAY_MAYOR_MULTI_${meses}M`), pagoValido({ planId: 'mayor', mesesPagados: meses, monto: 199 * meses })))
+  ok(`teacher CANNOT declare mayor + ${meses} months at any price — no prepay discount policy exists for mayor`)
+}
 
 await assertFails(setDoc(doc(asT1, 'payments', 'PAY_120M'), pagoValido({ mesesPagados: 120 })))
 ok('teacher CANNOT claim 120 months on one transfer')

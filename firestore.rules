@@ -18,6 +18,27 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'docente';
     }
 
+    // ── Tarifa oficial de un pago por transferencia (Bloque 7, 13-ago-2026) ──
+    // Espejo de MESES_DESCUENTO/MAYOR_PRICE_MXN en subscriptionHelpers.js —
+    // ahí vive la fuente comercial editable; aquí solo se repite para que el
+    // servidor deje de confiar en el monto que declara el cliente. `mayor`
+    // solo tiene tarifa a 1 mes (sin política de descuento por varios
+    // meses); cualquier otra combinación de planId/meses no tiene tarifa
+    // oficial y `null` nunca es igual a un monto numérico, así que la
+    // combinación se rechaza sola.
+    function montoOficialPago(planId, meses) {
+      return planId == 'pro' ? (
+        meses == 1 ? 99 :
+        meses == 2 ? 190 :
+        meses == 3 ? 273 :
+        meses == 4 ? 348 :
+        meses == 5 ? 415 :
+        meses == 6 ? 474 : null
+      ) : planId == 'mayor' ? (
+        meses == 1 ? 199 : null
+      ) : null;
+    }
+
     // ── Candado de suscripción ──────────────────────────────────────────────
     // Un docente sin suscripción vigente puede LEER y exportar todo lo suyo,
     // pero no escribir. Hasta ahora ese candado vivía solo en el navegador
@@ -841,18 +862,15 @@ service cloud.firestore {
       // convertía una transferencia de un mes en SEIS AÑOS de suscripción, sin
       // que el diálogo de confirmación dijera nada de años. Por eso el plan y
       // los meses se fijan aquí:
-      //   · planId 'pro' o 'mayor' (Bloque 4, 13-ago-2026) — los únicos dos
-      //     planes mensuales que se venden hoy (MONTHLY_PLAN_ID/MAYOR_PLAN_ID
-      //     en subscriptionHelpers.js). `mayor` sigue con `plans/mayor.activo:
-      //     false` y CheckoutModal no lo ofrece todavía, pero la regla ya lo
-      //     acepta para que activar el checkout más adelante no requiera
-      //     volver a tocar esto. Si algún día vuelve el anual, se agrega aquí
-      //     a propósito.
-      //   · mesesPagados 1..6 para 'pro' — el tope real del selector
-      //     (MESES_DESCUENTO). Para 'mayor' se exige EXACTAMENTE 1: no existe
-      //     todavía una política de descuento por varios meses para ese plan
-      //     (ver montoOficialDe en subscriptionHelpers.js) — inventarla aquí
-      //     sería aceptar un monto que nadie decidió.
+      //   · planId + mesesPagados + monto — desde el Bloque 7 (13-ago-2026)
+      //     los tres se validan juntos vía `montoOficialPago`: solo 'pro'
+      //     (1 a 6 meses, tabla de descuento) y 'mayor' (únicamente 1 mes,
+      //     $199, sin descuento) tienen tarifa oficial. Cualquier otro
+      //     planId, o una combinación de meses que no exista en la tabla
+      //     (p. ej. 'mayor' a 2 meses, o 'pro' a 7), no tiene tarifa y la
+      //     comparación de monto falla sola — no hace falta un chequeo de
+      //     rango de meses aparte. Si algún día vuelve el anual, se agrega
+      //     aquí a propósito.
       //   · subscriptionId tiene que ser SUYA: sin esto, un docente podía pagar
       //     y acreditarle el mes a la cuenta de otro.
       //   · createdAt == request.time — el folio de transacción del panel se
@@ -862,10 +880,15 @@ service cloud.firestore {
       //     lista del admin), `comentarios`, `notasAdmin` (notas del admin que
       //     el docente no escribe) y `notificadoAdmin` (el candado de
       //     idempotencia del aviso — ponerlo en true silenciaba el push).
-      // El MONTO no se valida aquí a propósito: la tarifa cambia (hoy es precio
-      // de lanzamiento) y una regla desfasada dejaría a todos sin poder pagar.
-      // Se acota a un rango sano y el panel avisa cuando no coincide con la
-      // tarifa oficial — el admin ya coteja ese monto contra el banco.
+      // El MONTO SÍ se valida contra la tarifa oficial (Bloque 7,
+      // 13-ago-2026 — antes NO se validaba a propósito porque la tarifa de
+      // lanzamiento cambiaba seguido; ahora el modelo comercial ya es
+      // definitivo, así que dejar de validarlo era el hueco real: un
+      // docente podía declarar 'mayor' a $1 y solo la revisión manual del
+      // admin lo detenía). `montoOficialPago` es la única fuente — si la
+      // combinación planId/meses no tiene tarifa, regresa null y
+      // `monto == null` nunca es cierto para un número, así que la
+      // combinación se rechaza sola sin necesitar un chequeo aparte.
       // `hasAll`/`hasOnly` van PRIMERO: leer un campo que no existe no da
       // falso, revienta la evaluación entera de la regla. Con el juego de
       // llaves ya comprobado, todo lo de abajo se puede leer sin rodeos.
@@ -886,17 +909,8 @@ service cloud.firestore {
         // por un mes en todo el proyecto (`mesesPagados || 1` al aprobar). Sin
         // este default, la app instalada hoy se quedaría sin poder reenviar un
         // pago rechazado en cuanto se publiquen estas reglas.
-        (
-          (request.resource.data.planId == 'pro' &&
-           request.resource.data.get('mesesPagados', 1) is int &&
-           request.resource.data.get('mesesPagados', 1) >= 1 &&
-           request.resource.data.get('mesesPagados', 1) <= 6) ||
-          (request.resource.data.planId == 'mayor' &&
-           request.resource.data.get('mesesPagados', 1) == 1)
-        ) &&
-        request.resource.data.monto is number &&
-        request.resource.data.monto > 0 &&
-        request.resource.data.monto <= 5000 &&
+        request.resource.data.get('mesesPagados', 1) is int &&
+        request.resource.data.monto == montoOficialPago(request.resource.data.planId, request.resource.data.get('mesesPagados', 1)) &&
         request.resource.data.createdAt == request.time &&
         request.resource.data.subscriptionId is string &&
         exists(/databases/$(database)/documents/subscriptions/$(request.resource.data.subscriptionId)) &&

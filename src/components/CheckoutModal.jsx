@@ -6,7 +6,9 @@ import { uploadToCloudinary } from '../utils/cloudinary'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
+import PlanComparisonTable from './PlanComparisonTable'
 import { usePaymentConfig } from '../hooks/usePaymentConfig'
+import useCreditosIA from '../hooks/useCreditosIA'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import {
@@ -39,6 +41,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   const { currentUser, userProfile } = useAuth()
   const toast = useToast()
   const { config, loading: configLoading } = usePaymentConfig()
+  const creditosIA = useCreditosIA()
 
   const [planId, setPlanId] = useState(MONTHLY_PLAN_ID)
   const [meses, setMeses] = useState(1)
@@ -210,6 +213,18 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
           </div>
         ) : (
           <div className="space-y-3">
+            {/* Tabla comercial (Bloque 7, 13-ago-2026): para que el docente
+                entienda en segundos qué obtiene con cada plan, cuánto cuesta
+                y cuál le conviene — visible siempre en el momento de decidir,
+                no escondida detrás de un toggle. Solo nombres comerciales:
+                nada de planId/pro/mayor/trial ni de dónde salen los datos. */}
+            <PlanComparisonTable
+              mostrarMayor={mayorDisponible}
+              creditosGratuito={creditosIA.tarifas?.capacidadPorPlan?.trial}
+              creditosPro={creditosIA.tarifas?.planes?.pro?.creditos}
+              creditosMayor={creditosIA.tarifas?.planes?.mayor?.creditos}
+            />
+
             {/* Selector de plan — solo aparece si `plans/mayor.activo` es
                 true (Bloque 4: técnicamente listo, comercialmente apagado
                 hasta nueva orden). Con un solo plan disponible no se muestra

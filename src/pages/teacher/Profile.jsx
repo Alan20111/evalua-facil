@@ -5,7 +5,7 @@ import {
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth'
-import { collection, doc, getDocs, query, updateDoc, where, writeBatch, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, query, updateDoc, where, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -20,6 +20,7 @@ import SearchInput from '../../components/SearchInput'
 import { useSubscription } from '../../hooks/useSubscription'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import CheckoutModal from '../../components/CheckoutModal'
+import PlanComparisonTable from '../../components/PlanComparisonTable'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -270,6 +271,15 @@ export default function Profile() {
   // si es largo, se desplaza dentro de su propia ventana en vez de estirar
   // la tarjeta.
   const [showPayments, setShowPayments] = useState(false)
+  const [showComparacion, setShowComparacion] = useState(false)
+  // Mismo gate que CheckoutModal — la comparación no anuncia un plan que
+  // `plans/mayor.activo` todavía no ofrece.
+  const [mayorDisponible, setMayorDisponible] = useState(false)
+  useEffect(() => {
+    getDoc(doc(db, 'plans', 'mayor'))
+      .then((snap) => setMayorDisponible(!!snap.data()?.activo))
+      .catch(() => setMayorDisponible(false))
+  }, [])
 
   // Cancelar suscripción / eliminar cuenta
   const [cancelandoSub, setCancelandoSub] = useState(false)
@@ -784,6 +794,27 @@ export default function Profile() {
               {cancelandoSub ? 'Cancelando…' : 'Cancelar suscripción'}
             </button>
           )}
+          {/* Comparar planes (Bloque 7, 13-ago-2026): consulta rápida, no la
+              acción principal — colapsada por omisión, mismo patrón que
+              "Historial de pagos" de abajo. Solo nombres comerciales. */}
+          <div className="mt-2 pt-4 border-t border-outline-variant">
+            <button
+              type="button"
+              onClick={() => setShowComparacion((v) => !v)}
+              className="w-full flex items-center justify-between text-xs font-semibold text-slate-400 uppercase mb-2"
+            >
+              <span>Comparar planes</span>
+              {showComparacion ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            {showComparacion && (
+              <PlanComparisonTable
+                mostrarMayor={mayorDisponible}
+                creditosGratuito={creditosIA.tarifas?.capacidadPorPlan?.trial}
+                creditosPro={creditosIA.tarifas?.planes?.pro?.creditos}
+                creditosMayor={creditosIA.tarifas?.planes?.mayor?.creditos}
+              />
+            )}
+          </div>
           {recentPayments.length > 0 && (
             <div className="mt-2 pt-4 border-t border-outline-variant">
               <button
