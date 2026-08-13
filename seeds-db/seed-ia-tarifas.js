@@ -8,10 +8,10 @@
  *     operación y datos de exhibición de los planes. Es la ÚNICA fuente de
  *     estos valores: servidor y cliente la leen; nada de esto se duplica en
  *     código.
- *   · plans/mayor — Asistente IA Pro (id interno `mayor`, sin cambios) con
- *     `activo: false`: NO debe aparecer en ningún flujo de contratación
- *     todavía (decisión del PO); solo se muestra como referencia informativa
- *     en el panel de créditos.
+ *   · plans/mayor — Asistente IA Pro (id interno `mayor`, sin cambios).
+ *     `activo: true` (Bloque 5, 13-ago-2026): activación comercial
+ *     intencional — el checkout (Bloque 4) ya sabe ofrecerlo y cobrarlo
+ *     correctamente, y las reglas ya lo aceptan.
  *
  * Nombres comerciales (13-ago-2026): "Plan Docente"→"Asistente IA" (`pro`),
  * "Plan Mayor"→"Asistente IA Pro" (`mayor`) — solo el texto que ve el
@@ -172,7 +172,7 @@ const PLAN_MAYOR = {
   periodicidad: 'mensual',
   maxAsignaturas: -1,
   maxAlumnos: -1,
-  activo: false, // NO aparece en ningún flujo de contratación todavía
+  activo: true, // Bloque 5 (13-ago-2026): activación comercial intencional
   orden: 3,
 }
 
@@ -194,7 +194,7 @@ async function main() {
   if (dryRun) return
   await db.doc('config/iaTarifas').set(TARIFAS)
   await db.doc('plans/mayor').set(PLAN_MAYOR, { merge: true })
-  console.log('Listo. config/iaTarifas y plans/mayor (activo:false) sembrados.')
+  console.log(`Listo. config/iaTarifas y plans/mayor (activo:${PLAN_MAYOR.activo}) sembrados.`)
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1) })
