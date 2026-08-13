@@ -27,6 +27,16 @@ export const SUBSCRIPTION_NAME = 'Suscripción mensual'
 // document's `precio` in sync with MONTHLY_PRICE_MXN via seeds-db/seed-plans.js.
 export const MONTHLY_PLAN_ID = 'pro'
 
+// Segunda oferta mensual (13-ago-2026): Asistente IA Pro. Mismo criterio que
+// arriba — el precio de verdad vive en `plans/mayor.precio` (Firestore) y
+// aquí solo se refleja para no tener que leer ese doc en cada pantalla.
+// `plans/mayor.activo` sigue en `false` (ver seeds-db/seed-ia-tarifas.js):
+// CheckoutModal no ofrece este plan hasta que ese doc diga lo contrario.
+export const MAYOR_PLAN_ID = 'mayor'
+export const MAYOR_PRICE_MXN = 199
+export const MAYOR_PRICE_LABEL = '$199 MXN al mes'
+export const MAYOR_SUBSCRIPTION_NAME = 'Asistente IA Pro'
+
 // Plan anual — pago único (no domiciliación: Mercado Pago cobra $990 una vez
 // y ya, el docente decide si renueva el año que sigue). Igual que arriba,
 // `precio` en el doc `plans/anual` de Firestore es lo que de verdad cobran
@@ -70,8 +80,15 @@ export function mesesDescuentoDe(meses) {
 // tabla crece, hay que subirlo también en firestore.rules.
 export const MESES_MAX = MESES_DESCUENTO.length
 
-// La tarifa oficial de N meses, o null si N no está en la tabla.
-export function montoOficialDe(meses) {
+// La tarifa oficial de N meses para el `planId` dado, o null si esa
+// combinación no tiene tarifa definida. `mayor` NO tiene tabla de descuento
+// por varios meses (no existe esa política comercial todavía — decisión
+// pendiente, 13-ago-2026): solo se le reconoce 1 mes a $MAYOR_PRICE_MXN;
+// cualquier otro número de meses para `mayor` no tiene tarifa oficial.
+export function montoOficialDe(meses, planId = MONTHLY_PLAN_ID) {
+  if (planId === MAYOR_PLAN_ID) {
+    return meses === 1 ? MAYOR_PRICE_MXN : null
+  }
   return MESES_DESCUENTO.find((r) => r.meses === meses)?.pagas ?? null
 }
 
@@ -83,7 +100,7 @@ export function montoOficialDe(meses) {
 // verdad se decide: la pantalla desde la que el administrador aprueba.
 export function montoCoincideConTarifa(payment) {
   if (payment?.metodo !== 'transferencia') return null
-  const esperado = montoOficialDe(payment?.mesesPagados)
+  const esperado = montoOficialDe(payment?.mesesPagados, payment?.planId || MONTHLY_PLAN_ID)
   if (esperado === null || typeof payment?.monto !== 'number') return null
   return payment.monto === esperado
 }
@@ -122,25 +139,32 @@ export function datosDePagoTransferencia({
   docenteId,
   subscriptionId,
   escuelaId = '',
+  planId = MONTHLY_PLAN_ID,
   meses,
   referencia,
   comprobanteUrl = null,
   reenvioDePagoId = null,
   monto = null,
 }) {
-  const seguros = Math.min(Math.max(Math.round(meses || 1), 1), MESES_MAX)
+  // `mayor` todavía no tiene política de varios meses (ver montoOficialDe) —
+  // se le fija 1 mes aquí mismo, no solo en la UI, para que un reenvío u otro
+  // llamador no puedan colarle un `meses` distinto.
+  const esMayor = planId === MAYOR_PLAN_ID
+  const seguros = esMayor ? 1 : Math.min(Math.max(Math.round(meses || 1), 1), MESES_MAX)
+  const montoPorOmision = esMayor ? MAYOR_PRICE_MXN : mesesDescuentoDe(seguros).pagas
   return {
     docenteId,
     subscriptionId,
-    // El plan lo fijan también las reglas: es el dato del que cuelga la
-    // periodicidad al aprobar, y por eso no puede venir del cliente a placer.
-    planId: MONTHLY_PLAN_ID,
+    // El plan lo fijan también las reglas (firestore.rules exige planId in
+    // ['pro','mayor']): es el dato del que cuelga la periodicidad al aprobar,
+    // y por eso no puede venir del cliente a placer más allá de esos dos.
+    planId,
     escuelaId,
     // Por omisión, la tarifa de hoy. El reenvío de un pago rechazado pasa el
     // monto ORIGINAL: es el mismo dinero que ya se transfirió, y el admin lo
     // coteja contra el banco. Si la tarifa cambió en medio, el panel lo marca
     // como "no coincide", que es justo lo que conviene que salte a la vista.
-    monto: typeof monto === 'number' ? monto : mesesDescuentoDe(seguros).pagas,
+    monto: typeof monto === 'number' ? monto : montoPorOmision,
     mesesPagados: seguros,
     metodo: 'transferencia',
     referencia: (referencia || '').trim(),

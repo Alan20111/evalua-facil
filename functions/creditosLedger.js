@@ -49,9 +49,10 @@ class ErrorCreditos extends Error {
 // ── Planes ──────────────────────────────────────────────────────────────────
 // La suscripción actual usa: status 'trial' (planId vacío), o planId
 // 'pro' | 'anual' | 'mayor' | 'cortesia'. Para créditos:
-//   trial → capacidad de trial (350, decisión de Kike del 9-ago-2026)
-//   pro y anual → nivel Plan Docente (mismo producto, distinta periodicidad)
-//   mayor → nivel Plan Mayor
+//   trial → capacidad de trial (50, decisión de Kike del 13-ago-2026 — ver
+//           capacidadTrialPara para los trials creados ANTES de este cambio)
+//   pro y anual → nivel Asistente IA (mismo producto, distinta periodicidad)
+//   mayor → nivel Asistente IA Pro
 //   cortesia → PENDIENTE por decisión explícita: se rechaza con mensaje claro.
 function nivelDeSuscripcion(sub) {
   if (!sub) return 'trial' // sin suscripción: mismo criterio que el candado (se repone la prueba)
@@ -59,6 +60,32 @@ function nivelDeSuscripcion(sub) {
   if (sub.planId === 'mayor') return 'mayor'
   if (sub.planId === 'pro' || sub.planId === 'anual') return 'pro'
   return 'trial'
+}
+
+// Capacidad de trial que le toca a ESTA suscripción — nunca la reduce
+// retroactivamente (decisión de Kike, 13-ago-2026: el trial que ya bajó de
+// 350 a 50 en config/iaTarifas.capacidadPorPlan.trial no debe recortarle
+// nada a quien YA estaba en trial cuando se hizo el cambio).
+//
+// `tarifas.trialLegado` (si existe) trae `{ capacidad, corte }`: cualquier
+// suscripción cuyo `fechaInicio` sea ANTERIOR a `corte` conserva `capacidad`
+// (el valor de antes del cambio); las posteriores usan el valor nuevo de
+// `capacidadPorPlan.trial`. Sin `trialLegado` (proyectos que nunca bajaron el
+// valor), el comportamiento es idéntico al de siempre.
+//
+// Solo importa en la creación del doc de iaCreditos (el trial NUNCA renueva,
+// ver camposRenovados) — una vez creado, su `capacidad` ya quedó fija.
+function capacidadTrialPara(sub, tarifas) {
+  const legado = tarifas.trialLegado
+  const inicio = sub?.fechaInicio
+  if (legado && inicio && legado.corte) {
+    const inicioMs = inicio.toMillis ? inicio.toMillis() : null
+    const corteMs = legado.corte.toMillis ? legado.corte.toMillis() : null
+    if (inicioMs != null && corteMs != null && inicioMs < corteMs) {
+      return legado.capacidad
+    }
+  }
+  return (tarifas.capacidadPorPlan || {}).trial
 }
 
 // ── Ciclo mensual desde la fecha de activación ──────────────────────────────
@@ -161,7 +188,7 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
       if (plan === 'cortesia') {
         throw new ErrorCreditos('CORTESIA_PENDIENTE', 'Los créditos del plan cortesía aún no están definidos')
       }
-      const capacidad = capacidadPorPlan[plan]
+      const capacidad = plan === 'trial' ? capacidadTrialPara(sub, tarifas) : capacidadPorPlan[plan]
       if (capacidad == null) throw new ErrorCreditos('PLAN_SIN_CAPACIDAD', `El plan "${plan}" no tiene capacidad definida`)
       creditos = {
         plan,
@@ -438,6 +465,7 @@ async function sincronizarPlan({ uid, nivelNuevo, tarifas }) {
 module.exports = {
   ErrorCreditos,
   nivelDeSuscripcion,
+  capacidadTrialPara,
   camposRenovados,
   cargarTarifas,
   reservar,

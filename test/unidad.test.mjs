@@ -26,12 +26,15 @@ import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
+import * as SH from '../src/utils/subscriptionHelpers.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
 const { _pruebas: F } = require('../functions/index.js')
 const { _pruebas: FIA } = require('../functions/ia.js')
 const { resolverIntentoGanador, respuestasVivasSonDelIntentoGanador } = require('../functions/calificacionIntentos.js')
+const L = require('../functions/creditosLedger.js')
+const { Timestamp } = require('firebase-admin/firestore')
 
 let pasadas = 0
 const fallos = []
@@ -1373,6 +1376,123 @@ caso('normalizarFilasPlaneacion: nunca deja pasar más del máximo de filas por 
 caso('normalizarFilasPlaneacion: entrada basura no truena — arreglo vacío', () => {
   assert.deepStrictEqual(FIA.normalizarFilasPlaneacion('no es arreglo'), [])
   assert.deepStrictEqual(FIA.normalizarFilasPlaneacion(null), [])
+})
+
+grupo('Créditos IA — capacidad de Trial (modelo comercial, 13-ago-2026)')
+
+caso('capacidadTrialPara: sin trialLegado en las tarifas, usa capacidadPorPlan.trial tal cual', () => {
+  const tarifas = { capacidadPorPlan: { trial: 50 } }
+  const sub = { fechaInicio: Timestamp.fromDate(new Date('2026-01-01')) }
+  assert.strictEqual(L.capacidadTrialPara(sub, tarifas), 50)
+})
+
+caso('capacidadTrialPara: fechaInicio ANTES del corte conserva la capacidad legada (no se le recorta a nadie)', () => {
+  const tarifas = {
+    capacidadPorPlan: { trial: 50 },
+    trialLegado: { capacidad: 350, corte: Timestamp.fromDate(new Date('2026-08-13')) },
+  }
+  const subViejo = { fechaInicio: Timestamp.fromDate(new Date('2026-08-01')) }
+  assert.strictEqual(L.capacidadTrialPara(subViejo, tarifas), 350)
+})
+
+caso('capacidadTrialPara: fechaInicio DESPUÉS del corte usa la capacidad nueva', () => {
+  const tarifas = {
+    capacidadPorPlan: { trial: 50 },
+    trialLegado: { capacidad: 350, corte: Timestamp.fromDate(new Date('2026-08-13')) },
+  }
+  const subNuevo = { fechaInicio: Timestamp.fromDate(new Date('2026-08-14')) }
+  assert.strictEqual(L.capacidadTrialPara(subNuevo, tarifas), 50)
+})
+
+caso('capacidadTrialPara: sin fechaInicio en la suscripción, no truena y usa la capacidad nueva (no puede probar que es legado)', () => {
+  const tarifas = {
+    capacidadPorPlan: { trial: 50 },
+    trialLegado: { capacidad: 350, corte: Timestamp.fromDate(new Date('2026-08-13')) },
+  }
+  assert.strictEqual(L.capacidadTrialPara({}, tarifas), 50)
+  assert.strictEqual(L.capacidadTrialPara(null, tarifas), 50)
+})
+
+caso('capacidadTrialPara: fechaInicio EXACTAMENTE en el corte no cuenta como legado (< estricto, no <=)', () => {
+  const corte = Timestamp.fromDate(new Date('2026-08-13T10:00:00Z'))
+  const tarifas = { capacidadPorPlan: { trial: 50 }, trialLegado: { capacidad: 350, corte } }
+  const sub = { fechaInicio: corte }
+  assert.strictEqual(L.capacidadTrialPara(sub, tarifas), 50)
+})
+
+// ═══ Checkout — selección de plan (Bloque 4, 13-ago-2026) ═════════════════════
+
+caso('datosDePagoTransferencia: sin planId explícito, sigue cayendo en pro (compatibilidad con el checkout de siempre)', () => {
+  const pago = SH.datosDePagoTransferencia({
+    docenteId: 'D1', subscriptionId: 'S1', meses: 2, referencia: 'F1',
+  })
+  assert.strictEqual(pago.planId, SH.MONTHLY_PLAN_ID)
+  assert.strictEqual(pago.monto, 190)
+  assert.strictEqual(pago.mesesPagados, 2)
+})
+
+caso('datosDePagoTransferencia: planId mayor cobra $199 fijo, sin importar qué meses se pidan', () => {
+  const pago = SH.datosDePagoTransferencia({
+    docenteId: 'D1', subscriptionId: 'S1', planId: SH.MAYOR_PLAN_ID, meses: 6, referencia: 'F2',
+  })
+  assert.strictEqual(pago.planId, SH.MAYOR_PLAN_ID)
+  assert.strictEqual(pago.monto, SH.MAYOR_PRICE_MXN)
+  assert.strictEqual(pago.mesesPagados, 1, 'mayor no tiene política de varios meses — siempre se recorta a 1')
+})
+
+caso('datosDePagoTransferencia: planId pro sigue respetando la tabla de descuento por meses', () => {
+  const pago = SH.datosDePagoTransferencia({
+    docenteId: 'D1', subscriptionId: 'S1', planId: SH.MONTHLY_PLAN_ID, meses: 6, referencia: 'F3',
+  })
+  assert.strictEqual(pago.monto, 474)
+  assert.strictEqual(pago.mesesPagados, 6)
+})
+
+caso('montoOficialDe: pro sigue leyendo la tabla MESES_DESCUENTO tal cual', () => {
+  assert.strictEqual(SH.montoOficialDe(1, SH.MONTHLY_PLAN_ID), 99)
+  assert.strictEqual(SH.montoOficialDe(3, SH.MONTHLY_PLAN_ID), 273)
+})
+
+caso('montoOficialDe: mayor solo tiene tarifa oficial a 1 mes ($199) — cualquier otro número de meses no tiene tarifa (no inventa un descuento)', () => {
+  assert.strictEqual(SH.montoOficialDe(1, SH.MAYOR_PLAN_ID), SH.MAYOR_PRICE_MXN)
+  assert.strictEqual(SH.montoOficialDe(2, SH.MAYOR_PLAN_ID), null)
+  assert.strictEqual(SH.montoOficialDe(6, SH.MAYOR_PLAN_ID), null)
+})
+
+caso('montoOficialDe: sin planId, se comporta igual que antes (pro por omisión) — no rompe llamadores viejos', () => {
+  assert.strictEqual(SH.montoOficialDe(2), 190)
+})
+
+caso('montoCoincideConTarifa: un pago de mayor a $199/1 mes coincide', () => {
+  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: 199 }
+  assert.strictEqual(SH.montoCoincideConTarifa(pago), true)
+})
+
+caso('montoCoincideConTarifa: un pago de mayor con el monto de pro ($99) NO coincide', () => {
+  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: 99 }
+  assert.strictEqual(SH.montoCoincideConTarifa(pago), false)
+})
+
+caso('montoCoincideConTarifa: pagos viejos sin planId siguen leyéndose como pro (no truena, no cambia su veredicto)', () => {
+  const pago = { metodo: 'transferencia', mesesPagados: 3, monto: 273 }
+  assert.strictEqual(SH.montoCoincideConTarifa(pago), true)
+})
+
+// ── Revisión de seguridad del Bloque 4 (13-ago-2026) — ataque B/E del pedido:
+// firestore.rules NO valida el monto contra la tarifa (a propósito, ver
+// comentario en la regla) — la única defensa contra "declarar mayor y pagar
+// menos de $199" es que esta función lo marque para el admin ANTES de
+// aprobar (ver AvisoMonto/handleApprove en PaymentsTable.jsx). Estas pruebas
+// confirman que la marca sí ocurre, para los montos exactos que se pidieron
+// revisar.
+caso('montoCoincideConTarifa: SEGURIDAD · mayor declarado a $198 (un peso menos de la tarifa) se marca como NO coincide', () => {
+  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: 198 }
+  assert.strictEqual(SH.montoCoincideConTarifa(pago), false)
+})
+
+caso('montoCoincideConTarifa: SEGURIDAD · pro declarado con un monto que no está en la tabla de descuentos se marca como NO coincide', () => {
+  const pago = { metodo: 'transferencia', planId: SH.MONTHLY_PLAN_ID, mesesPagados: 1, monto: 50 }
+  assert.strictEqual(SH.montoCoincideConTarifa(pago), false)
 })
 
 // ═══ Resumen ═════════════════════════════════════════════════════════════════

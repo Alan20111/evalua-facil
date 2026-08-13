@@ -479,6 +479,46 @@ ok('teacher CANNOT mark their own payment as completed')
 await assertFails(setDoc(doc(asT1, 'payments', 'PAY_ANUAL'), pagoValido({ planId: 'anual' })))
 ok('teacher CANNOT declare a payment on the annual plan')
 
+// Bloque 4 (13-ago-2026): 'mayor' (Asistente IA Pro, $199) ya es un plan
+// aceptado por la regla — CheckoutModal todavía no lo ofrece
+// (`plans/mayor.activo` sigue en false), pero el servidor ya sabe cobrarlo
+// correctamente el día que se active.
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_MAYOR'), pagoValido({ planId: 'mayor', monto: 199, mesesPagados: 1 })))
+ok('teacher CAN declare a transfer payment on the mayor plan (1 month, $199)')
+
+// 'mayor' no tiene política de varios meses todavía (decisión comercial
+// pendiente) — la regla lo rechaza en vez de aceptar un monto que nadie
+// definió.
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_6M'), pagoValido({ planId: 'mayor', monto: 1000, mesesPagados: 6 })))
+ok('teacher CANNOT claim multiple months on the mayor plan (no discount policy exists yet)')
+
+// Cualquier `planId` que no sea 'pro' ni 'mayor' se rechaza — el mismo
+// candado que ya protegía contra 'anual' cierra la puerta a cualquier valor
+// inventado (Bloque 4: revisión de seguridad, 13-ago-2026).
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_PLAN_INVENTADO'), pagoValido({ planId: 'super' })))
+ok('teacher CANNOT declare a payment on a made-up planId')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_PLAN_TRIAL'), pagoValido({ planId: 'trial' })))
+ok('teacher CANNOT declare a payment on planId "trial" (not a payable plan)')
+
+// ── Hallazgo de la revisión de seguridad del Bloque 4 (13-ago-2026) ────────
+// El `monto` NUNCA se valida contra la tarifa del plan en esta regla — es
+// una decisión de diseño previa a este bloque (ver el comentario "El MONTO
+// no se valida aquí a propósito" arriba): solo se acota a un rango sano
+// (0, 5000]. Esto significa que un docente SÍ puede declarar `mayor` con
+// $198 (o `pro` con cualquier monto dentro del rango) y la regla lo deja
+// pasar — la única defensa real contra pagar de menos es que
+// `montoCoincideConTarifa` (subscriptionHelpers.js, ya plan-aware desde
+// este bloque) marca la discrepancia en el panel de PaymentsTable.jsx y el
+// administrador la ve ANTES de aprobar. Estas dos pruebas documentan ese
+// comportamiento tal cual es hoy, para que quede explícito y no se asuma
+// que la regla protege algo que en realidad depende de una revisión manual.
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_BARATO'), pagoValido({ planId: 'mayor', monto: 198, mesesPagados: 1 })))
+ok('SECURITY NOTE: rule ALLOWS a mayor payment declared at $198 (below the $199 tariff) — only manual admin review via montoCoincideConTarifa catches this before approval')
+
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_PRO_BARATO'), pagoValido({ planId: 'pro', monto: 1, mesesPagados: 1 })))
+ok('SECURITY NOTE: rule ALLOWS a pro payment declared at $1 (same pre-existing behavior, unchanged by Bloque 4) — same manual-review dependency')
+
 await assertFails(setDoc(doc(asT1, 'payments', 'PAY_120M'), pagoValido({ mesesPagados: 120 })))
 ok('teacher CANNOT claim 120 months on one transfer')
 

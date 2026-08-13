@@ -31,14 +31,13 @@ const TARIFAS = {
   capacidadPorPlan: { trial: 350, pro: 350, anual: 350, mayor: 1750 },
 }
 
-async function sembrarDocente({ uid = DOCENTE, status = 'trial', planId = '', suscripcionHasta = null } = {}) {
+async function sembrarDocente({ uid = DOCENTE, status = 'trial', planId = '', suscripcionHasta = null, fechaInicio = null } = {}) {
   const usuario = { role: 'docente', nombre: 'Prueba', escuelaId: 'E1' }
   if (suscripcionHasta) usuario.suscripcionHasta = Timestamp.fromDate(suscripcionHasta)
   await db.doc(`users/${uid}`).set(usuario)
-  await db.collection('subscriptions').add({
-    docenteId: uid, planId, status,
-    updatedAt: Timestamp.now(),
-  })
+  const sub = { docenteId: uid, planId, status, updatedAt: Timestamp.now() }
+  if (fechaInicio) sub.fechaInicio = Timestamp.fromDate(fechaInicio)
+  await db.collection('subscriptions').add(sub)
   await db.doc('config/iaTarifas').set(TARIFAS)
 }
 
@@ -418,6 +417,61 @@ await caso('trial vencido por tiempo sin conversión: el cierre lo deja medido (
   assert.strictEqual(reg.creditosConsumidos, 75)
   const r2 = await L.cerrarTrialsVencidos({})
   assert.strictEqual(r2.cerrados, 0, 'la segunda corrida no lo vuelve a cerrar')
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('Trial — modelo comercial nuevo (13-ago-2026): 50 créditos, sin recortar a quien ya estaba en trial')
+
+// TARIFAS local con capacidadPorPlan.trial en 50 (el valor nuevo) + un corte
+// de trialLegado a medio camino, para probar el ledger de punta a punta (no
+// solo la función pura — ver test/unidad.test.mjs para esa).
+const CORTE_TRIAL = new Date('2026-08-13T00:00:00Z')
+const TARIFAS_CON_LEGADO = {
+  ...TARIFAS,
+  capacidadPorPlan: { trial: 50, pro: 350, anual: 350, mayor: 1750 },
+  trialLegado: { capacidad: 350, corte: Timestamp.fromDate(CORTE_TRIAL) },
+}
+
+await caso('trial NUEVO (fechaInicio después del corte): nace con 50 créditos', async () => {
+  await limpiar()
+  await sembrarDocente({ fechaInicio: new Date('2026-08-14') })
+  const r = await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS_CON_LEGADO })
+  assert.strictEqual(r.saldoTrasReserva, 49)
+  const c = await creditosDe()
+  assert.strictEqual(c.capacidad, 50)
+})
+
+await caso('trial YA EXISTENTE (fechaInicio antes del corte): conserva 350, no se le recorta nada', async () => {
+  await limpiar()
+  await sembrarDocente({ fechaInicio: new Date('2026-08-01') })
+  const r = await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS_CON_LEGADO })
+  assert.strictEqual(r.saldoTrasReserva, 349)
+  const c = await creditosDe()
+  assert.strictEqual(c.capacidad, 350)
+})
+
+await caso('un trial ya existente que YA tenía su doc de iaCreditos (350) no se toca al bajar capacidadPorPlan.trial', async () => {
+  await limpiar()
+  await sembrarDocente({ fechaInicio: new Date('2026-08-01') })
+  // Ya usó IA antes del cambio: su doc nació con 350.
+  await db.doc(`iaCreditos/${DOCENTE}`).set({
+    plan: 'trial', capacidad: 350, saldo: 300, consumidoCiclo: 50, consumoPorCategoria: {},
+    activadoEn: Timestamp.now(), cicloInicio: Timestamp.now(),
+    cicloFin: Timestamp.fromDate(L._unMesDespues(new Date())),
+  })
+  // Ahora se reserva con las tarifas YA actualizadas (trial:50) — el doc
+  // existente no se recrea, solo se reserva sobre lo que ya tenía.
+  const r = await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS_CON_LEGADO })
+  assert.strictEqual(r.saldoTrasReserva, 299)
+  assert.strictEqual((await creditosDe()).capacidad, 350, 'su capacidad ya fijada no se recorta retroactivamente')
+})
+
+await caso('pro y mayor no se ven afectados por trialLegado (solo aplica a nivel trial)', async () => {
+  await limpiar()
+  await sembrarDocente({ status: 'activa', planId: 'pro', fechaInicio: new Date('2026-08-01') })
+  const r = await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS_CON_LEGADO })
+  assert.strictEqual((await creditosDe()).capacidad, 350)
+  assert.strictEqual(r.plan, 'pro')
 })
 
 // ═════════════════════════════════════════════════════════════════════════════

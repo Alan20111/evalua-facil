@@ -6,7 +6,7 @@
 //   · saldo suficiente  → "usará ~X créditos / tienes Y / te quedarán ~Z"
 //     con [Cancelar] [Continuar];
 //   · saldo insuficiente → la operación NO se ejecuta (jamás saldo negativo)
-//     y se ofrece el camino correcto: Plan Mayor (pago) o Plan Docente (trial).
+//     y se ofrece el camino correcto: Asistente IA Pro (pago) o Asistente IA (trial).
 //
 // Con la tarifa de enteros la estimación casi siempre es EXACTA; costoMax
 // solo difiere en lotes (rango sin falsa precisión).

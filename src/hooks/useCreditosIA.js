@@ -28,11 +28,14 @@ function cargarTarifas() {
   return _tarifasPromise
 }
 
+// Nombres comerciales visibles (13-ago-2026): "Plan Docente"→"Asistente IA",
+// "Plan Mayor"→"Asistente IA Pro" — los identificadores internos `pro`/
+// `anual`/`mayor`/`trial` (claves de este objeto) NO cambian, solo el texto.
 const ETIQUETAS_PLAN = {
   trial: 'Periodo de prueba',
-  pro: 'Plan Docente',
-  anual: 'Plan Docente (anual)',
-  mayor: 'Plan Mayor',
+  pro: 'Asistente IA',
+  anual: 'Asistente IA (anual)',
+  mayor: 'Asistente IA Pro',
 }
 
 export function useCreditosIA() {

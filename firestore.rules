@@ -841,10 +841,18 @@ service cloud.firestore {
       // convertía una transferencia de un mes en SEIS AÑOS de suscripción, sin
       // que el diálogo de confirmación dijera nada de años. Por eso el plan y
       // los meses se fijan aquí:
-      //   · planId 'pro' — el único plan que se vende hoy (MONTHLY_PLAN_ID en
-      //     subscriptionHelpers.js), y el único mensual. Si algún día vuelve el
-      //     anual, se agrega aquí a propósito.
-      //   · mesesPagados 1..6 — el tope real del selector (MESES_DESCUENTO).
+      //   · planId 'pro' o 'mayor' (Bloque 4, 13-ago-2026) — los únicos dos
+      //     planes mensuales que se venden hoy (MONTHLY_PLAN_ID/MAYOR_PLAN_ID
+      //     en subscriptionHelpers.js). `mayor` sigue con `plans/mayor.activo:
+      //     false` y CheckoutModal no lo ofrece todavía, pero la regla ya lo
+      //     acepta para que activar el checkout más adelante no requiera
+      //     volver a tocar esto. Si algún día vuelve el anual, se agrega aquí
+      //     a propósito.
+      //   · mesesPagados 1..6 para 'pro' — el tope real del selector
+      //     (MESES_DESCUENTO). Para 'mayor' se exige EXACTAMENTE 1: no existe
+      //     todavía una política de descuento por varios meses para ese plan
+      //     (ver montoOficialDe en subscriptionHelpers.js) — inventarla aquí
+      //     sería aceptar un monto que nadie decidió.
       //   · subscriptionId tiene que ser SUYA: sin esto, un docente podía pagar
       //     y acreditarle el mes a la cuenta de otro.
       //   · createdAt == request.time — el folio de transacción del panel se
@@ -873,15 +881,19 @@ service cloud.firestore {
         request.resource.data.docenteId == request.auth.uid &&
         request.resource.data.status == 'pendiente' &&
         request.resource.data.metodo == 'transferencia' &&
-        request.resource.data.planId == 'pro' &&
         // `mesesPagados` se valida pero NO se exige: la app de Android lleva su
         // propio paquete y tarda en actualizarse, y un pago sin el campo vale
         // por un mes en todo el proyecto (`mesesPagados || 1` al aprobar). Sin
         // este default, la app instalada hoy se quedaría sin poder reenviar un
         // pago rechazado en cuanto se publiquen estas reglas.
-        request.resource.data.get('mesesPagados', 1) is int &&
-        request.resource.data.get('mesesPagados', 1) >= 1 &&
-        request.resource.data.get('mesesPagados', 1) <= 6 &&
+        (
+          (request.resource.data.planId == 'pro' &&
+           request.resource.data.get('mesesPagados', 1) is int &&
+           request.resource.data.get('mesesPagados', 1) >= 1 &&
+           request.resource.data.get('mesesPagados', 1) <= 6) ||
+          (request.resource.data.planId == 'mayor' &&
+           request.resource.data.get('mesesPagados', 1) == 1)
+        ) &&
         request.resource.data.monto is number &&
         request.resource.data.monto > 0 &&
         request.resource.data.monto <= 5000 &&

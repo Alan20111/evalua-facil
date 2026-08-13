@@ -1,14 +1,20 @@
 // Panel de detalle de créditos IA — se abre al tocar la barra.
 //
 // Muestra: disponibles / utilizados / totales, fecha de renovación, plan
-// actual, resumen del consumo por categorías y la referencia informativa del
-// Plan Mayor. NUNCA muestra tokens ni el costo monetario que Evalúa Fácil
-// paga por la IA: el docente piensa en créditos (regla del PO).
+// actual, resumen del consumo por categorías y la referencia informativa de
+// Asistente IA Pro. NUNCA muestra tokens ni el costo monetario que Evalúa
+// Fácil paga por la IA: el docente piensa en créditos (regla del PO).
 //
 // A 0 créditos SOLO se suspende la IA: el mensaje lo dice explícitamente y
 // el resto del producto sigue funcionando (asignaturas, evidencias,
 // calificaciones, reportes…). En trial, el llamado a la acción es contratar
-// el Plan Docente de $99; en planes de pago, consultar el Plan Mayor.
+// Asistente IA ($99); en planes de pago, consultar Asistente IA Pro.
+//
+// Nombres comerciales (13-ago-2026): "Plan Docente"→"Asistente IA" y
+// "Plan Mayor"→"Asistente IA Pro" — los identificadores internos `pro`/
+// `mayor` NO cambian, solo el texto. Vienen de config/iaTarifas.planes
+// (seed-ia-tarifas.js) y de ETIQUETAS_PLAN (useCreditosIA.js) — este archivo
+// no tiene los nombres hardcodeados salvo el aviso de trial agotado, abajo.
 
 import { X, Sparkles, CalendarClock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -86,7 +92,7 @@ export default function CreditosPanel({ onCerrar }) {
             <p className="text-muted">
               Tus asignaturas, estudiantes, evidencias y calificaciones siguen disponibles.
               {c.esTrial
-                ? ' Para seguir usando la IA, activa el Plan Docente.'
+                ? ' Para seguir usando la IA, activa Asistente IA.'
                 : ` Tus créditos se renovarán el ${fechaCorta(c.cicloFin)}.`}
             </p>
             {c.esTrial && infoDocente && (
@@ -113,7 +119,7 @@ export default function CreditosPanel({ onCerrar }) {
           </ul>
         )}
 
-        {/* Referencia del Plan Mayor (informativa; contratación aún no disponible) */}
+        {/* Referencia de Asistente IA Pro (informativa; contratación aún no disponible) */}
         {infoMayor && c.plan !== 'mayor' && (
           <div className="bg-surface rounded-card p-3 text-sm">
             <p className="font-medium text-on-surface">

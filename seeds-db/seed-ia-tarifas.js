@@ -8,9 +8,15 @@
  *     operación y datos de exhibición de los planes. Es la ÚNICA fuente de
  *     estos valores: servidor y cliente la leen; nada de esto se duplica en
  *     código.
- *   · plans/mayor — el Plan Mayor con `activo: false`: NO debe aparecer en
- *     ningún flujo de contratación todavía (decisión del PO); solo se muestra
- *     como referencia informativa en el panel de créditos.
+ *   · plans/mayor — Asistente IA Pro (id interno `mayor`, sin cambios) con
+ *     `activo: false`: NO debe aparecer en ningún flujo de contratación
+ *     todavía (decisión del PO); solo se muestra como referencia informativa
+ *     en el panel de créditos.
+ *
+ * Nombres comerciales (13-ago-2026): "Plan Docente"→"Asistente IA" (`pro`),
+ * "Plan Mayor"→"Asistente IA Pro" (`mayor`) — solo el texto que ve el
+ * docente cambió; los identificadores internos `pro`/`anual`/`mayor`/`trial`
+ * siguen siendo los mismos en todo el proyecto.
  *
  * NOTA: el plan cortesía queda deliberadamente SIN capacidad — la IA se
  * rechaza para ese plan hasta que el PO decida sus créditos.
@@ -117,7 +123,18 @@ const TARIFAS = {
     planeacion_bloque: 'Planeación',
   },
   // Capacidad mensual por nivel de plan. Cortesía: PENDIENTE a propósito.
-  capacidadPorPlan: { trial: 350, pro: 350, anual: 350, mayor: 1750 },
+  // Trial bajó de 350 a 50 (decisión de Kike, 13-ago-2026) — ver
+  // `trialLegado` abajo para que esto NO le recorte nada a quien ya estaba
+  // en trial antes del cambio (functions/creditosLedger.js: capacidadTrialPara).
+  capacidadPorPlan: { trial: 50, pro: 350, anual: 350, mayor: 1750 },
+  // Trials con `subscriptions.fechaInicio` ANTERIOR a `corte` conservan
+  // `capacidad` (el valor de antes del cambio) en vez del nuevo
+  // `capacidadPorPlan.trial` — decisión de Kike, 13-ago-2026: no se le quita
+  // nada a nadie que ya estuviera en trial. `corte` se fija la PRIMERA vez
+  // que se corre este seed con este bloque y luego se preserva tal cual en
+  // cada re-siembra (ver main() abajo) — si se recalculara "ahora" en cada
+  // corrida, un trial creado ENTRE dos corridas quedaría mal clasificado.
+  trialLegado: { capacidad: 350, corte: null }, // `corte` real lo pone main()
   // Modelo PROVISIONAL por operación (M3 sigue abierta: cambiar aquí no toca
   // código). Solo las pilotos conectadas.
   modeloPorOperacion: {
@@ -141,14 +158,15 @@ const TARIFAS = {
     planeacion_didactica_inicial: 'claude-haiku-4-5',
   },
   // Datos de exhibición para el panel de créditos (sin costos internos).
+  // Nombre comercial, no identificador — `pro`/`mayor` (las claves) no cambian.
   planes: {
-    pro: { nombre: 'Plan Docente', precioMXN: 99, creditos: 350 },
-    mayor: { nombre: 'Plan Mayor', precioMXN: 199, creditos: 1750 },
+    pro: { nombre: 'Asistente IA', precioMXN: 99, creditos: 350 },
+    mayor: { nombre: 'Asistente IA Pro', precioMXN: 199, creditos: 1750 },
   },
 }
 
 const PLAN_MAYOR = {
-  nombre: 'Plan Mayor',
+  nombre: 'Asistente IA Pro',
   descripcion: 'Para el docente que utiliza intensivamente la IA',
   precio: 199,
   periodicidad: 'mensual',
@@ -159,8 +177,19 @@ const PLAN_MAYOR = {
 }
 
 async function main() {
+  // El `corte` de trialLegado se fija UNA sola vez, la primera vez que se
+  // corre este seed con el bloque nuevo — si ya existe en Firestore (de una
+  // corrida anterior), se conserva tal cual en vez de recalcularse a "ahora".
+  // Sin esto, re-correr el script para cambiar cualquier otra tarifa movería
+  // el corte hacia adelante y reclasificaría mal a los trials creados entre
+  // una corrida y otra.
+  const actual = await db.doc('config/iaTarifas').get()
+  const corteExistente = actual.exists ? actual.data()?.trialLegado?.corte : null
+  TARIFAS.trialLegado.corte = corteExistente || admin.firestore.Timestamp.now()
+
   console.log(dryRun ? '— DRY RUN (no escribe nada) —' : '— Escribiendo —')
   console.log('config/iaTarifas →', JSON.stringify(TARIFAS, null, 2).slice(0, 400) + ' …')
+  console.log('trialLegado.corte →', TARIFAS.trialLegado.corte.toDate().toISOString(), corteExistente ? '(preservado)' : '(recién fijado)')
   console.log('plans/mayor →', JSON.stringify(PLAN_MAYOR))
   if (dryRun) return
   await db.doc('config/iaTarifas').set(TARIFAS)

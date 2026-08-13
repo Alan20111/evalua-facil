@@ -212,7 +212,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
     if (montoCoincideConTarifa(payment) !== false) return null
     return (
       <Alerta>
-        No coincide con la tarifa de {payment.mesesPagados} {payment.mesesPagados === 1 ? 'mes' : 'meses'} ({formatCurrency(montoOficialDe(payment.mesesPagados))})
+        No coincide con la tarifa de {payment.mesesPagados} {payment.mesesPagados === 1 ? 'mes' : 'meses'} ({formatCurrency(montoOficialDe(payment.mesesPagados, payment.planId))})
       </Alerta>
     )
   }
@@ -312,7 +312,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
         : ''
     // El monto es el único dato del pago que el servidor no puede validar (la
     // tarifa cambia), así que la advertencia va donde se decide.
-    const esperado = montoOficialDe(meses)
+    const esperado = montoOficialDe(meses, payment.planId)
     const avisoMonto =
       montoCoincideConTarifa(payment) === false
         ? `\n\nATENCIÓN: declaró ${formatCurrency(payment.monto)} pero la tarifa de ${meses} ${meses === 1 ? 'mes' : 'meses'} es ${formatCurrency(esperado)}. Verifica en el estado de cuenta antes de aprobar.`
