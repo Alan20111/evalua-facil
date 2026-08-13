@@ -862,7 +862,25 @@ await caso('precheckReactivos: la actividad del parcial 2 NO ve la fuente del pa
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-grupo('Análisis de resultados con IA (OP-10) — la aritmética siempre la pone EF')
+grupo('Crear examen/cuestionario con IA (OP-03/04) — también debe traer instrucciones')
+
+// Bug real reportado por Kike (12-ago-2026): la IA generaba los reactivos
+// pero NUNCA las instrucciones generales del examen/cuestionario — el prompt
+// nunca se las pedía. Se piden SOLO en el primer lote (evita instrucciones
+// contradictorias si hay varios lotes por el tope de reactivos por llamada).
+
+const CTX_EVAL_BASE = { clase: 'examen', nombre: 'Examen de prueba', quiereEvaluar: 'Álgebra básica.', bloqueFuentes: null }
+
+await caso('promptCrearEvaluacion: el primer lote SÍ pide instruccionesHtml en el JSON', () => {
+  const p = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['opcion_multiple'], 0, true)
+  assert.ok(p.includes('instruccionesHtml'), 'debe pedir el campo instruccionesHtml')
+  assert.ok(p.includes('INSTRUCCIONES GENERALES'), 'debe explicar qué instrucciones quiere')
+})
+
+await caso('promptCrearEvaluacion: un lote posterior NO vuelve a pedir instrucciones (evita versiones contradictorias)', () => {
+  const p = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['verdadero_falso'], 1, false)
+  assert.ok(!p.includes('instruccionesHtml'), 'un lote que no es el primero no debe pedirlas de nuevo')
+})
 
 // La regla (ficha aprobada, 11-ago-2026): la IA solo redacta interpretación y
 // recomendaciones sobre una agregación que Evalúa Fácil calculó en código —

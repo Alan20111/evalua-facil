@@ -1324,7 +1324,12 @@ const CREAR_EVAL_SISTEMA =
 // (offset + posición) para que la referencia a "reactivo N" tenga sentido si
 // el docente la lee — el tipo real de cada uno lo sigue forzando `ctx.tipos`
 // en `normalizarReactivos`, nunca lo que el modelo devuelva.
-function promptCrearEvaluacion(ctx, asignatura, tiposLote, offset) {
+//
+// `pedirInstrucciones`: las instrucciones generales del examen/cuestionario
+// (lo que ve el estudiante antes de responder) se piden UNA sola vez, en el
+// primer lote — pedirlas en cada lote generaría varias versiones distintas
+// que se pisarían entre sí sin ganar nada.
+function promptCrearEvaluacion(ctx, asignatura, tiposLote, offset, pedirInstrucciones) {
   const listaTipos = tiposLote.map((t, i) => `${offset + i + 1}. ${ETIQUETA_TIPO_REACTIVO[t] || t}`).join('\n')
   const fuentesBloque = ctx.bloqueFuentes ? `\n\n${ctx.bloqueFuentes}\n` : ''
   return (
@@ -1339,12 +1344,20 @@ function promptCrearEvaluacion(ctx, asignatura, tiposLote, offset) {
     '- respuesta_corta: enunciado + una respuesta esperada breve o criterio de respuesta correcta ' +
     '(es una guía para que el docente califique a mano; el alumno nunca la ve).\n' +
     '- subir_archivo: enunciado con la instrucción de qué debe subir el alumno (sin respuesta).\n\n' +
+    (pedirInstrucciones
+      ? 'Además, escribe las INSTRUCCIONES GENERALES que verá el estudiante antes de responder ' +
+        `este ${ctx.clase === 'examen' ? 'examen' : 'cuestionario'}: qué se le pide, cómo debe trabajar, ` +
+        'cualquier indicación relevante (2-4 frases, HTML simple con <p>/<strong>/<ul>/<li>, sin inventar ' +
+        'reglas que Evalúa Fácil ya aplica como el tiempo límite o los intentos).\n\n'
+      : '') +
     'Responde SOLO con este JSON:\n' +
     '{\n  "reactivos": [\n' +
     '    {"tipo": "<tipo exacto de la lista>", "enunciado": "<máx 400 caracteres>", ' +
     '"opciones": ["<solo si opcion_multiple>", "..."], "correcta": "<índice 0-3 si opcion_multiple, ' +
     '\'v\'/\'f\' si verdadero_falso>", "respuestaEsperada": "<solo si respuesta_corta, máx 200 caracteres>"}\n' +
-    '  ]\n}'
+    '  ]' +
+    (pedirInstrucciones ? ',\n  "instruccionesHtml": "<instrucciones generales, HTML simple>"\n' : '\n') +
+    '}'
   )
 }
 
@@ -1369,16 +1382,24 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
   for (let i = 0; i < ctx.tipos.length; i += LOTE_MAX_REACTIVOS) lotes.push(ctx.tipos.slice(i, i + LOTE_MAX_REACTIVOS))
 
   let reactivos = []
+  let instruccionesHtml = ''
   let tokensEntrada = 0
   let tokensSalida = 0
   let ms = 0
   let offset = 0
-  for (const tiposLote of lotes) {
+  for (const [i, tiposLote] of lotes.entries()) {
+    const primerLote = i === 0
     const { datos, interno } = await pedirJSON({
-      client, modelo, maxTokens: Math.min(8000, 350 * tiposLote.length + 400), system: CREAR_EVAL_SISTEMA,
-      prompt: promptCrearEvaluacion(ctx, asignatura, tiposLote, offset),
+      client, modelo,
+      maxTokens: Math.min(8000, 350 * tiposLote.length + 400 + (primerLote ? 400 : 0)),
+      system: CREAR_EVAL_SISTEMA,
+      prompt: promptCrearEvaluacion(ctx, asignatura, tiposLote, offset, primerLote),
     })
     reactivos = reactivos.concat(normalizarReactivos(datos, { tipos: tiposLote }))
+    // Instrucciones generales: solo se piden en el primer lote (ver
+    // promptCrearEvaluacion) — si la IA no las trae, la actividad se queda
+    // sin instrucciones en vez de inventarlas (regla de no invención, T.7).
+    if (primerLote) instruccionesHtml = sanitizarInstruccionesHtml(datos?.instruccionesHtml)
     tokensEntrada += interno.tokensEntrada || 0
     tokensSalida += interno.tokensSalida || 0
     ms += interno.ms || 0
@@ -1419,7 +1440,11 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
   await batch.commit()
   // El contador que muestran las pantallas del editor — mismo campo que
   // syncNumPreguntas actualiza desde el cliente en el flujo manual/OP-09.
-  await db.doc(`activities/${actividadId}`).set({ evaluacion: { numPreguntas: reactivos.length } }, { merge: true })
+  const updateActividad = { evaluacion: { numPreguntas: reactivos.length } }
+  // Solo se sobrescribe si la IA sí trajo instrucciones — nunca se pisa con
+  // vacío lo que ya hubiera (aunque al nacer la actividad siempre es '').
+  if (instruccionesHtml) updateActividad.instrucciones = instruccionesHtml
+  await db.doc(`activities/${actividadId}`).set(updateActividad, { merge: true })
 
   return {
     resultado: { cantidad: reactivos.length, clase: ctx.clase },
@@ -2282,6 +2307,7 @@ exports._pruebas = {
   precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MAX_REACTIVOS,
   agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
   repartirPonderacion, precheckCrearEvaluacion, MAX_REACTIVOS_EVALUACION_TRIAL, MAX_REACTIVOS_EVALUACION_PAGO,
+  promptCrearEvaluacion,
   precheckCrearActividad, sanitizarInstruccionesHtml, TIPOS_ARCHIVO_VALIDOS, MIN_PETICION_ACTIVIDAD, MAX_PETICION_ACTIVIDAD,
   precheckDiagnostico, seleccionarFuentesGenerales, perfilIACompleto, perfilIATexto,
   normalizarDiagnosticoContexto, normalizarDiagnosticoConocimientos, normalizarReactivosDiagnostico,
