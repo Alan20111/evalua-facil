@@ -993,6 +993,125 @@ await caso('textos largos de la IA se acotan (no se mandan sin límite a la pant
   assert.ok(r.resumenEjecutivo.length <= 500)
 })
 
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('Diagnóstico de contexto real — agregación de encuesta y análisis (Tanda 2, 12-ago-2026)')
+
+// Corrección de Kike: el diagnóstico de contexto ya no es un reporte a
+// partir de fuentes — es un cuestionario REAL (opción múltiple + respuesta
+// breve, ponderarReactivos:false, SIN "correcta") y se analiza igual que
+// cualquier evaluación, con una rama nueva en OP-10 para modo encuesta.
+const PREGUNTAS_ENCUESTA_FIXTURE = [
+  {
+    id: 'q1', tipo: 'opcion_multiple', enunciado: '¿Tienes acceso a internet en casa?',
+    opciones: [{ id: 'a', texto: 'Sí, siempre' }, { id: 'b', texto: 'A veces' }, { id: 'c', texto: 'No' }],
+  },
+  { id: 'q2', tipo: 'respuesta_corta', enunciado: '¿Qué te gustaría aprender en esta materia?' },
+]
+const ENTREGAS_ENCUESTA_FIXTURE = [
+  { alumnoId: 'al1', respuestas: { q1: { opcionSeleccionada: 'a' }, q2: { textoRespuesta: 'Quiero aprender a programar' } }, respuestasConfiables: true },
+  { alumnoId: 'al2', respuestas: { q1: { opcionSeleccionada: 'a' }, q2: { textoRespuesta: 'Me gustaría ver robótica' } }, respuestasConfiables: true },
+  { alumnoId: 'al3', respuestas: { q1: { opcionSeleccionada: 'b' }, q2: { textoRespuesta: '' } }, respuestasConfiables: true },
+  { alumnoId: 'al4', respuestas: { q1: { opcionSeleccionada: 'a' } }, respuestasConfiables: false }, // excluida
+]
+const agregadoEncuesta = () => IA.agregarResultadosEncuesta({ nombre: 'Diagnóstico de contexto', preguntas: PREGUNTAS_ENCUESTA_FIXTURE, entregas: ENTREGAS_ENCUESTA_FIXTURE })
+
+await caso('agregarResultadosEncuesta: opcion_multiple agrega DISTRIBUCIÓN, nunca "correcta" (es una encuesta)', () => {
+  const r = agregadoEncuesta()
+  const q1 = r.preguntas.find((p) => p.id === 'q1')
+  assert.strictEqual(q1.tipo, 'opcion_multiple')
+  assert.strictEqual(q1.correcta, undefined, 'una encuesta no tiene "correcta"')
+  assert.strictEqual(q1.totalRespuestas, 3, 'la entrega no confiable queda fuera')
+  const opA = q1.distribucion.find((d) => d.texto === 'Sí, siempre')
+  assert.strictEqual(opA.n, 2)
+  assert.strictEqual(opA.pct, 67)
+})
+
+await caso('agregarResultadosEncuesta: respuesta_corta recolecta los TEXTOS reales, sin inventar ni vincular a un alumno', () => {
+  const r = agregadoEncuesta()
+  const q2 = r.preguntas.find((p) => p.id === 'q2')
+  assert.strictEqual(q2.tipo, 'respuesta_corta')
+  // Solo los 2 textos no vacíos — la respuesta vacía de al3 se descarta.
+  assert.deepStrictEqual(q2.textos.sort(), ['Me gustaría ver robótica', 'Quiero aprender a programar'].sort())
+  // Ningún objeto de `textos` lleva alumnoId/anonId — son strings puros.
+  assert.ok(q2.textos.every((t) => typeof t === 'string'))
+})
+
+await caso('agregarResultadosEncuesta: entregas no confiables quedan fuera y se reportan en confiabilidad (mismo criterio que agregarResultados)', () => {
+  const r = agregadoEncuesta()
+  assert.strictEqual(r.totalEstudiantes, 4)
+  assert.strictEqual(r.confiabilidad.confiablesParaDetalle, 3)
+  assert.strictEqual(r.confiabilidad.excluidas, 1)
+})
+
+await caso('agregarResultadosEncuesta: sin entregas no revienta', () => {
+  const r = IA.agregarResultadosEncuesta({ nombre: 'X', preguntas: PREGUNTAS_ENCUESTA_FIXTURE, entregas: [] })
+  assert.strictEqual(r.totalEstudiantes, 0)
+  assert.deepStrictEqual(r.preguntas.find((p) => p.tipo === 'opcion_multiple').distribucion, [])
+  assert.deepStrictEqual(r.preguntas.find((p) => p.tipo === 'respuesta_corta').textos, [])
+})
+
+await caso('normalizarAnalisisEncuestaContexto: totalEstudiantes/totalPreguntas/confiabilidad SIEMPRE vienen de ctx, nunca de la IA', () => {
+  const ctx = agregadoEncuesta()
+  const datos = { resumenGeneral: 'x', totalEstudiantes: 999 } // la IA "intenta" mandar un número — se ignora
+  const r = IA.normalizarAnalisisEncuestaContexto(datos, ctx)
+  assert.strictEqual(r.totalEstudiantes, ctx.totalEstudiantes)
+  assert.notStrictEqual(r.totalEstudiantes, 999)
+  assert.deepStrictEqual(r.confiabilidad, ctx.confiabilidad)
+})
+
+await caso('normalizarAnalisisEncuestaContexto: distingue características/condiciones/intereses/necesidades/patrones/recomendaciones (req. 11)', () => {
+  const ctx = agregadoEncuesta()
+  const r = IA.normalizarAnalisisEncuestaContexto({
+    caracteristicas: ['Mayoría con acceso a internet'],
+    condiciones: ['Algunos sin conexión constante'],
+    intereses: ['Programación', 'Robótica'],
+    necesidades: ['Reforzar el acceso a equipo de cómputo'],
+    patrones: [{ observacion: '2 de 3 mencionan tecnología', interpretacion: 'posible interés en proyectos digitales' }],
+    recomendaciones: ['Incluir un proyecto de programación'],
+    resumenGeneral: 'El grupo muestra interés en tecnología.',
+  }, ctx)
+  assert.deepStrictEqual(r.caracteristicas, ['Mayoría con acceso a internet'])
+  assert.deepStrictEqual(r.condiciones, ['Algunos sin conexión constante'])
+  assert.deepStrictEqual(r.intereses, ['Programación', 'Robótica'])
+  assert.deepStrictEqual(r.necesidades, ['Reforzar el acceso a equipo de cómputo'])
+  assert.strictEqual(r.patrones[0].observacion, '2 de 3 mencionan tecnología')
+  assert.strictEqual(r.patrones[0].interpretacion, 'posible interés en proyectos digitales')
+  assert.deepStrictEqual(r.recomendaciones, ['Incluir un proyecto de programación'])
+})
+
+await caso('normalizarAnalisisEncuestaContexto: entrada basura de la IA no truena — todo queda vacío salvo lo que sí venga', () => {
+  const ctx = agregadoEncuesta()
+  assert.doesNotThrow(() => IA.normalizarAnalisisEncuestaContexto(null, ctx))
+  const r = IA.normalizarAnalisisEncuestaContexto({ patrones: 'no soy un arreglo', caracteristicas: 42 }, ctx)
+  assert.deepStrictEqual(r.patrones, [])
+  assert.deepStrictEqual(r.caracteristicas, [])
+})
+
+await caso('promptAnalisisEncuestaContexto: agrega aviso explícito de generalización cuando hay pocas respuestas (req. 12)', () => {
+  const ctxPocas = { ...agregadoEncuesta(), totalEstudiantes: 4, asignaturaNombre: 'Cultura Digital I' }
+  const p = IA.promptAnalisisEncuestaContexto(ctxPocas)
+  assert.ok(p.includes('AVISO'), 'debe avisar que hay pocas respuestas')
+  assert.ok(p.toLowerCase().includes('evita'))
+})
+
+await caso('promptAnalisisEncuestaContexto: SIN aviso cuando hay 10 o más respuestas', () => {
+  const ctxMuchas = { ...agregadoEncuesta(), totalEstudiantes: 25, asignaturaNombre: 'Cultura Digital I' }
+  const p = IA.promptAnalisisEncuestaContexto(ctxMuchas)
+  assert.ok(!p.includes('AVISO'))
+})
+
+await caso('ENCUESTA_CONTEXTO_SISTEMA: regla de evidencia — dato/patrón/interpretación/recomendación, nunca generaliza de una respuesta, nunca infiere causas ni datos sensibles (req. 9-10)', () => {
+  const s = IA.ENCUESTA_CONTEXTO_SISTEMA.toLowerCase()
+  assert.ok(s.includes('dato observado'))
+  assert.ok(s.includes('patrón encontrado'))
+  assert.ok(s.includes('interpretación razonable'))
+  assert.ok(s.includes('recomendación pedagógica'))
+  assert.ok(s.includes('nunca es una característica de todo el grupo'))
+  assert.ok(s.includes('diagnósticos médicos'))
+  assert.ok(s.includes('trastornos psicológicos'))
+  assert.ok(s.includes('agregado y grupal'))
+})
+
 grupo('El precheck contra Firestore — seguridad, umbral mínimo y "no se cobra si no alcanza"')
 
 const OTRA_CATEGORIA = { docenteId: DOCENTE, categoria: 'entregable', nombre: 'No es evaluación' }
@@ -1107,9 +1226,14 @@ const PERFIL_IA_COMPLETO = {
   estiloClase: 'Muy participativo', habilidades: 'Trabajo por proyectos', experiencia: '8 años en bachillerato',
 }
 
+// precheckDiagnosticoBase (12-ago-2026, Tanda 2) — la base compartida por
+// precheckDiagnosticoContexto y precheckDiagnosticoConocimientos: dueño de
+// la asignatura, Perfil IA completo, al menos una fuente inicial general.
+// Se prueba directo (sin pasar por una actividad) porque las dos
+// operaciones concretas la REUSAN tal cual — probarla una vez cubre a ambas.
 async function precheckDiagnosticoFalla({ subjectId, uid = DOCENTE }) {
   try {
-    await IA.precheckDiagnostico({ uid, params: { subjectId } })
+    await IA.precheckDiagnosticoBase({ uid, subjectId })
     return null
   } catch (e) {
     return { code: e.code || e.httpErrorCode?.canonicalName, message: e.message, details: e.details }
@@ -1178,6 +1302,48 @@ await caso('con Perfil IA completo y una fuente general: pasa ambas validaciones
   assert.ok(e, 'debe fallar (URL de prueba no descargable)')
   assert.notStrictEqual(e.details?.codigo, 'PERFIL_IA_INCOMPLETO')
   assert.notStrictEqual(e.details?.codigo, 'SIN_FUENTES_GENERALES')
+})
+
+// ── precheckDiagnosticoContexto (corrección de Kike, 12-ago-2026, Tanda 2) ─
+// Igual patrón que conocimientos: recibe una actividad YA CREADA
+// (categoria 'cuestionario', diagnosticoTipo 'contexto') y la valida ANTES
+// de reusar precheckDiagnosticoBase.
+await db.doc('activities/act_diag_ctx').set({
+  docenteId: DOCENTE, asignaturaId: 'sub_diag', categoria: 'cuestionario', diagnosticoTipo: 'contexto',
+})
+await db.doc('activities/act_diag_ctx_ajena').set({
+  docenteId: OTRO_DOCENTE, asignaturaId: 'sub_diag_ajena', categoria: 'cuestionario', diagnosticoTipo: 'contexto',
+})
+await db.doc('activities/act_no_es_diagnostico_ctx').set({
+  docenteId: DOCENTE, asignaturaId: 'sub_diag', categoria: 'cuestionario',
+})
+
+await caso('precheckDiagnosticoContexto: SEGURIDAD · sin actividadId → invalid-argument', async () => {
+  await assert.rejects(
+    () => IA.precheckDiagnosticoContexto({ uid: DOCENTE, params: { actividadId: '' } }),
+    (e) => String(e.code).includes('invalid-argument')
+  )
+})
+
+await caso('precheckDiagnosticoContexto: SEGURIDAD · actividad de otro docente → permission-denied', async () => {
+  await assert.rejects(
+    () => IA.precheckDiagnosticoContexto({ uid: DOCENTE, params: { actividadId: 'act_diag_ctx_ajena' } }),
+    (e) => String(e.code).includes('permission-denied')
+  )
+})
+
+await caso('precheckDiagnosticoContexto: una actividad que NO es diagnóstico de contexto se rechaza', async () => {
+  await assert.rejects(
+    () => IA.precheckDiagnosticoContexto({ uid: DOCENTE, params: { actividadId: 'act_no_es_diagnostico_ctx' } }),
+    (e) => String(e.code).includes('failed-precondition')
+  )
+})
+
+await caso('precheckDiagnosticoContexto: actividad válida → pasa su propia validación (llega a intentar leer la fuente)', async () => {
+  await assert.rejects(
+    () => IA.precheckDiagnosticoContexto({ uid: DOCENTE, params: { actividadId: 'act_diag_ctx' } }),
+    (e) => String(e.code).includes('failed-precondition') && !['PERFIL_IA_INCOMPLETO', 'SIN_FUENTES_GENERALES'].includes(e.details?.codigo)
+  )
 })
 
 // ── precheckDiagnosticoConocimientos (corrección de Kike, 12-ago-2026) ────
@@ -1306,12 +1472,39 @@ await caso('con fuentes generales pero SIN diagnóstico de contexto → SIN_DIAG
 })
 
 await caso('con diagnóstico de contexto pero SIN diagnóstico de conocimientos → SIN_DIAGNOSTICO_CONOCIMIENTOS', async () => {
-  await db.collection('subjects/sub_plan/diagnosticosIA').add({
-    tipo: 'contexto', docenteId: DOCENTE,
-    resultado: { datosEncontrados: ['Grupo de 30'], interpretacion: [], aspectosAtencion: [], informacionFaltante: [] },
+  // Corrección de Kike (12-ago-2026, Tanda 2): el diagnóstico de contexto ya
+  // tampoco vive en subjects/{id}/diagnosticosIA — es una actividad real
+  // (diagnosticoTipo:'contexto') con su análisis de IA en
+  // activities/{id}/analisisIA, mismo patrón que conocimientos.
+  await db.doc('activities/act_plan_diag_ctx').set({
+    docenteId: DOCENTE, asignaturaId: 'sub_plan', categoria: 'cuestionario', diagnosticoTipo: 'contexto',
+    createdAt: Timestamp.now(),
+  })
+  await db.collection('activities/act_plan_diag_ctx/analisisIA').add({
+    resultado: { caracteristicas: ['Grupo de 30'], condiciones: [], intereses: [], necesidades: [], patrones: [], recomendaciones: [], resumenGeneral: 'x' },
+    generadoEn: Timestamp.now(),
   })
   const e = await precheckPlaneacionFalla({ subjectId: 'sub_plan' })
   assert.strictEqual(e.details.codigo, 'SIN_DIAGNOSTICO_CONOCIMIENTOS')
+})
+
+await caso('un diagnóstico VIEJO (formato simulado, subjects/{id}/diagnosticosIA) YA NO alimenta la Planeación (req. 14)', async () => {
+  // La asignatura de prueba dedicada evita interferir con el estado
+  // secuencial de sub_plan (usado por el resto de este grupo).
+  await db.doc('subjects/sub_plan_viejo').set({ docenteId: DOCENTE, nombre: 'Con diagnóstico viejo', parciales: 1 })
+  await db.collection('fuentesAsignatura').add({
+    asignaturaId: 'sub_plan_viejo', docenteId: DOCENTE, nombre: 'programa.pdf',
+    ubicacion: 'general', parcial: null, url: 'https://res.cloudinary.com/demo/raw/upload/v1/programa.pdf',
+  })
+  // Diagnósticos del formato simulado descartado — YA NO cuentan.
+  await db.collection('subjects/sub_plan_viejo/diagnosticosIA').add({
+    tipo: 'contexto', docenteId: DOCENTE, resultado: { datosEncontrados: ['viejo'] },
+  })
+  await db.collection('subjects/sub_plan_viejo/diagnosticosIA').add({
+    tipo: 'conocimientos', docenteId: DOCENTE, resultado: { temas: ['viejo'], reactivos: [], comoInterpretar: 'x' },
+  })
+  const e = await precheckPlaneacionFalla({ subjectId: 'sub_plan_viejo' })
+  assert.strictEqual(e.details.codigo, 'SIN_DIAGNOSTICO_CONTEXTO', 'el reporte viejo no cuenta como diagnóstico real')
 })
 
 await caso('con la secuencia COMPLETA: arma el contexto con los 2 parciales reales de la asignatura', async () => {

@@ -1200,21 +1200,57 @@ caso('perfilIATexto: perfil totalmente vacío no inventa nada — dice que no ha
   assert.strictEqual(FIA.perfilIATexto(null), 'Información no disponible en las fuentes proporcionadas.')
 })
 
-caso('normalizarDiagnosticoContexto: separa datos/interpretación/atención/faltante y recorta longitud', () => {
-  const r = FIA.normalizarDiagnosticoContexto({
-    datosEncontrados: ['a'.repeat(300)],
-    interpretacion: ['algo'],
-    aspectosAtencion: [],
-    informacionFaltante: ['nombres de los estudiantes'],
-  })
-  assert.strictEqual(r.datosEncontrados[0].length, 220)
-  assert.deepStrictEqual(r.aspectosAtencion, [])
-  assert.deepStrictEqual(r.informacionFaltante, ['nombres de los estudiantes'])
+// Corrección de Kike (12-ago-2026, Tanda 2): el diagnóstico de contexto ya
+// no es un reporte simulado — es un cuestionario real, 10 a 15 preguntas
+// (la IA decide cuántas dentro de ese rango) mezclando opcion_multiple y
+// respuesta_corta, sin "correcta" (es una encuesta). Se prueba el
+// normalizador nuevo (normalizarPreguntasContexto), no uno de reporte.
+caso('normalizarPreguntasContexto: acepta opcion_multiple y respuesta_corta, descarta lo demás', () => {
+  const r = FIA.normalizarPreguntasContexto([
+    { tipo: 'opcion_multiple', enunciado: '¿Tienes acceso a internet en casa?', opciones: ['Sí, siempre', 'A veces', 'No'] },
+    { tipo: 'respuesta_corta', enunciado: '¿Qué te gustaría aprender en esta materia?' },
+    { tipo: 'opcion_multiple', enunciado: 'Sin opciones suficientes', opciones: ['Solo una'] }, // se descarta
+    { tipo: 'opcion_multiple', enunciado: '', opciones: ['a', 'b'] }, // se descarta, sin enunciado
+  ])
+  assert.strictEqual(r.length, 2)
+  assert.strictEqual(r[0].tipo, 'opcion_multiple')
+  assert.strictEqual(r[0].opciones.length, 3)
+  assert.strictEqual(r[1].tipo, 'respuesta_corta')
+  assert.strictEqual(r[1].opciones, undefined, 'respuesta_corta no lleva opciones')
 })
 
-caso('normalizarDiagnosticoContexto: entrada basura (no arreglos) no truena — todo queda vacío', () => {
-  const r = FIA.normalizarDiagnosticoContexto({ datosEncontrados: 'no es arreglo' })
-  assert.deepStrictEqual(r.datosEncontrados, [])
+caso('normalizarPreguntasContexto: nunca inventa una "correcta" — es una encuesta', () => {
+  const r = FIA.normalizarPreguntasContexto([
+    { tipo: 'opcion_multiple', enunciado: '¿Cuánto tiempo dedicas a tus tareas?', opciones: ['Menos de 1h', '1-2h', 'Más de 2h'] },
+  ])
+  assert.strictEqual(r[0].correcta, undefined)
+})
+
+caso('normalizarPreguntasContexto: nunca deja pasar más del máximo permitido (15)', () => {
+  const muchas = Array.from({ length: 40 }, (_, i) => ({ tipo: 'respuesta_corta', enunciado: `pregunta ${i}` }))
+  const r = FIA.normalizarPreguntasContexto(muchas)
+  assert.strictEqual(r.length, FIA.MAX_PREGUNTAS_CONTEXTO)
+})
+
+caso('normalizarPreguntasContexto: entrada basura (no arreglo) no truena — arreglo vacío', () => {
+  assert.deepStrictEqual(FIA.normalizarPreguntasContexto('no es arreglo'), [])
+  assert.deepStrictEqual(FIA.normalizarPreguntasContexto(undefined), [])
+})
+
+caso('promptInstrumentoContexto: pide entre 10 y 15 preguntas, combina opción múltiple y respuesta breve', () => {
+  const ctx = { asignaturaNombre: 'Cultura Digital I', perfilIATexto: 'x', comentariosGrupoTexto: 'y', bloqueFuentes: null }
+  const p = FIA.promptInstrumentoContexto(ctx)
+  assert.ok(p.includes('entre 10 y 15 preguntas'))
+  assert.ok(p.includes('opcion_multiple'))
+  assert.ok(p.includes('respuesta_corta'))
+})
+
+caso('promptInstrumentoContexto: prohíbe explícitamente contenido clínico/sensible y etiquetar al estudiante', () => {
+  const ctx = { asignaturaNombre: 'x', perfilIATexto: 'x', comentariosGrupoTexto: 'x', bloqueFuentes: null }
+  const p = FIA.promptInstrumentoContexto(ctx)
+  assert.ok(p.toLowerCase().includes('diagnósticos médicos'))
+  assert.ok(p.toLowerCase().includes('trastornos psicológicos'))
+  assert.ok(p.toLowerCase().includes('no etiquetes'))
 })
 
 // Corrección de Kike (12-ago-2026): el diagnóstico de conocimientos ya no es
@@ -1250,13 +1286,16 @@ caso('formatoPeriodo: sin fechas o fechas inválidas, null (no inventa un period
   assert.strictEqual(FIA.formatoPeriodo({ inicio: 'no-es-fecha', fin: '2026-10-15' }), null)
 })
 
+// Corrección de Kike (12-ago-2026, Tanda 2): `resultado` ahora es la salida
+// de normalizarAnalisisEncuestaContexto (OP-10 en modo encuesta), resultados
+// reales de un cuestionario que contestaron los estudiantes.
 caso('diagnosticoContextoATexto: arma el bloque solo con lo que sí trae el diagnóstico', () => {
   const texto = FIA.diagnosticoContextoATexto({
-    datosEncontrados: ['Grupo de 30'], interpretacion: [], aspectosAtencion: ['Ritmo variado'], informacionFaltante: [],
+    caracteristicas: ['Grupo de 30'], condiciones: [], intereses: ['Programación'], necesidades: [], patrones: [], recomendaciones: [],
   })
   assert.ok(texto.includes('Grupo de 30'))
-  assert.ok(texto.includes('Ritmo variado'))
-  assert.ok(!texto.includes('Interpretación:'), 'no debe mencionar una sección vacía')
+  assert.ok(texto.includes('Programación'))
+  assert.ok(!texto.includes('Condiciones de contexto detectadas:'), 'no debe mencionar una sección vacía')
 })
 
 caso('diagnosticoContextoATexto: sin diagnóstico, dice que no hay información (no inventa)', () => {

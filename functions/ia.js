@@ -118,7 +118,7 @@ const PRECHECKS = {
   rubrica: precheckInstrumento, cotejo: precheckInstrumento, reactivos: precheckReactivos,
   analizar_resultados: precheckAnalisisResultados, crear_evaluacion_ia: precheckCrearEvaluacion,
   crear_actividad_ia: precheckCrearActividad,
-  diagnostico_contexto: precheckDiagnostico, diagnostico_conocimientos: precheckDiagnosticoConocimientos,
+  diagnostico_contexto: precheckDiagnosticoContexto, diagnostico_conocimientos: precheckDiagnosticoConocimientos,
   planeacion_didactica_inicial: precheckPlaneacionInicial,
 }
 
@@ -1035,6 +1035,63 @@ function agregarResultados({ nombre, categoria, preguntas, entregas }) {
   }
 }
 
+// Agrega, en código, las respuestas de una ENCUESTA (evaluacion.ponderar
+// Reactivos === false — sin "correcta", ver diagnóstico de contexto, Tanda 2
+// 12-ago-2026) — mismo principio que agregarResultados: la IA nunca ve una
+// respuesta individual sin que ESTA función la haya agregado antes, ya sea
+// como distribución (opcion_multiple) o como lista TRUNCADA de textos
+// (respuesta_corta) sin ningún alumnoId/anonId adjunto — no hay
+// "candidatos a atención" en una encuesta, el resultado es siempre grupal.
+// Función PURA (sin Firestore) para poder probarla sin emulador.
+function agregarResultadosEncuesta({ nombre, preguntas, entregas }) {
+  const totalEstudiantes = entregas.length
+  const entregasConfiables = entregas.filter((e) => e.respuestasConfiables !== false)
+  const entregasExcluidas = totalEstudiantes - entregasConfiables.length
+
+  const preguntasAgregadas = preguntas.map((p, i) => {
+    const respuestas = entregasConfiables.map((e) => e.respuestas?.[p.id]).filter(Boolean)
+    if (p.tipo === 'opcion_multiple') {
+      const conteo = {}
+      respuestas.forEach((r) => {
+        if (r.opcionSeleccionada != null) conteo[r.opcionSeleccionada] = (conteo[r.opcionSeleccionada] || 0) + 1
+      })
+      const distribucion = Object.entries(conteo)
+        .map(([optId, n]) => ({
+          texto: String(p.opciones?.find((o) => o.id === optId)?.texto || 'Otra').slice(0, 200),
+          n, pct: respuestas.length ? Math.round((n / respuestas.length) * 100) : 0,
+        }))
+        .sort((a, b) => b.n - a.n)
+      return {
+        numero: i + 1, id: p.id, tipo: p.tipo,
+        enunciado: String(p.enunciado || '').trim().slice(0, 300),
+        totalRespuestas: respuestas.length, distribucion,
+      }
+    }
+    // respuesta_corta: solo el TEXTO va a la IA, nunca a qué alumno
+    // pertenece — tope razonable para no disparar el prompt con grupos grandes.
+    const textos = respuestas
+      .map((r) => String(r.textoRespuesta || '').trim().slice(0, 300))
+      .filter(Boolean)
+      .slice(0, 60)
+    return {
+      numero: i + 1, id: p.id, tipo: p.tipo,
+      enunciado: String(p.enunciado || '').trim().slice(0, 300),
+      totalRespuestas: respuestas.length, textos,
+    }
+  })
+
+  return {
+    nombre, totalEstudiantes, totalPreguntas: preguntas.length,
+    preguntas: preguntasAgregadas,
+    confiabilidad: {
+      totalEntregas: totalEstudiantes,
+      confiablesParaDetalle: entregasConfiables.length,
+      excluidas: entregasExcluidas,
+      motivoExclusion: entregasExcluidas > 0 ? 'intento_no_coincide_con_calificacion_final' : null,
+    },
+  }
+}
+
 // Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
 async function precheckAnalisisResultados({ uid, params }) {
   const db = getFirestore()
@@ -1107,12 +1164,19 @@ async function precheckAnalisisResultados({ uid, params }) {
     return { alumnoId: s.alumnoId, calificacion: s.calificacion ?? null, respuestas, respuestasConfiables }
   }))
 
-  return agregarResultados({
-    nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
-    categoria: clase,
-    preguntas,
-    entregas,
-  })
+  // Encuesta (diagnóstico de contexto, Tanda 2 12-ago-2026) vs. evaluación
+  // calificable (todo lo demás, incluyendo el diagnóstico de conocimientos):
+  // se decide por `ponderarReactivos`, el MISMO flag que ya usa
+  // SinCalificacionConfig.jsx — no uno nuevo. Sin cambio de comportamiento
+  // para ninguna evaluación existente (ponderarReactivos !== false de
+  // sobra, incluyendo cuando el campo no existe).
+  const modoEncuesta = act.evaluacion?.ponderarReactivos === false
+  const nombre = String(act.nombre || act.titulo || '').trim().slice(0, 200)
+  const agregado = modoEncuesta
+    ? agregarResultadosEncuesta({ nombre, preguntas, entregas })
+    : agregarResultados({ nombre, categoria: clase, preguntas, entregas })
+
+  return { ...agregado, modoEncuesta, asignaturaNombre: String(params?.asignaturaNombre || '').trim().slice(0, 120) }
 }
 
 const ANALISIS_SISTEMA =
@@ -1193,10 +1257,113 @@ function normalizarAnalisis(datos, ctx) {
   }
 }
 
+// Encuesta (diagnóstico de contexto, Tanda 2 12-ago-2026) — regla de
+// evidencia de Kike, explícita y crítica: la IA NUNCA presenta como hecho
+// algo que las respuestas no sustenten; distingue SIEMPRE dato/patrón/
+// interpretación/recomendación; nunca convierte una respuesta individual en
+// característica del grupo; jamás infiere causas ni datos sensibles.
+const ENCUESTA_CONTEXTO_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un docente de ' +
+  'bachillerato mexicano. Vas a construir el DIAGNÓSTICO DE CONTEXTO a partir de las respuestas REALES ' +
+  'que dieron los estudiantes a un cuestionario — nunca a partir del perfil del docente ni de fuentes, ' +
+  'esas ya cumplieron su papel al diseñar las preguntas. No inventes respuestas ni patrones que los ' +
+  'datos no sustenten. Busca SIEMPRE patrones COLECTIVOS: una sola respuesta individual (o unas pocas) ' +
+  'NUNCA es una característica de todo el grupo — dilo explícitamente cuando el número de respuestas ' +
+  'sea pequeño, y evita cualquier generalización que los datos no sostengan. Distingue en TODO momento ' +
+  'cuatro capas y NUNCA las mezcles: (1) dato observado — algo que literalmente aparece en las ' +
+  'respuestas o su conteo; (2) patrón encontrado — una tendencia o coincidencia entre varias respuestas; ' +
+  '(3) interpretación razonable — tu lectura pedagógica de ese patrón, marcada como tal; ' +
+  '(4) recomendación pedagógica — una acción concreta derivada de lo anterior. Nunca presentes una ' +
+  'interpretación como si fuera un dato, y nunca afirmes una causa que los datos no demuestran (por ' +
+  'ejemplo, nunca digas que "los estudiantes tienen problemas familiares" salvo que eso aparezca ' +
+  'explícita y repetidamente en sus respuestas, ni generalices "el grupo es desmotivado" a partir de ' +
+  'solo algunas respuestas). Nunca infieras ni menciones diagnósticos médicos, trastornos psicológicos, ' +
+  'información sexual, política, religiosa, antecedentes legales, ni identifiques a ningún estudiante en ' +
+  'particular — el resultado es SIEMPRE agregado y grupal, jamás individual. Escribe en español, claro y ' +
+  'breve. Responde únicamente con el JSON del esquema indicado, sin texto adicional.'
+
+function promptAnalisisEncuestaContexto(ctx) {
+  const preguntasTxt = ctx.preguntas.map((p) => {
+    if (p.tipo === 'opcion_multiple') {
+      const dist = p.distribucion.map((d) => `"${d.texto}": ${d.n} (${d.pct}%)`).join(', ')
+      return `${p.numero}. [opción múltiple] "${p.enunciado}" — ${p.totalRespuestas} respuestas. Distribución: ${dist || 'sin respuestas'}`
+    }
+    const textos = p.textos.length ? p.textos.map((t) => `  - ${t}`).join('\n') : '  (sin respuestas de texto)'
+    return `${p.numero}. [respuesta breve] "${p.enunciado}" — ${p.totalRespuestas} respuestas:\n${textos}`
+  }).join('\n\n')
+
+  return (
+    `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'}.\n` +
+    `${ctx.totalEstudiantes} estudiantes contestaron el diagnóstico de contexto. ${ctx.totalPreguntas} preguntas.\n\n` +
+    `RESPUESTAS AGREGADAS POR PREGUNTA:\n${preguntasTxt}\n\n` +
+    (ctx.totalEstudiantes < 10
+      ? `AVISO: solo ${ctx.totalEstudiantes} estudiantes contestaron — con tan pocas respuestas, evita ` +
+        'generalizar y dilo explícitamente en tu resumen.\n\n'
+      : '') +
+    'Responde SOLO con este JSON (usa arreglos vacíos si una lista no aplica):\n' +
+    '{\n' +
+    '  "caracteristicas": ["<característica relevante del grupo QUE LAS RESPUESTAS SUSTENTEN, máx 200 caracteres>"],\n' +
+    '  "condiciones": ["<condición o factor de contexto detectado, máx 200 caracteres>"],\n' +
+    '  "intereses": ["<interés o motivador que aparece en las respuestas, máx 200 caracteres>"],\n' +
+    '  "necesidades": ["<necesidad pedagógicamente relevante y sostenible con los datos, máx 200 caracteres>"],\n' +
+    '  "patrones": [{"observacion": "<tendencia o coincidencia encontrada>", "interpretacion": "<tu lectura pedagógica, marcada como interpretación>"}],\n' +
+    '  "recomendaciones": ["<recomendación pedagógica concreta derivada de los datos>"],\n' +
+    '  "resumenGeneral": "<3-5 frases, proporcional a la evidencia disponible>"\n' +
+    '}'
+  )
+}
+
+// La IA propone SOLO texto; los conteos/distribuciones ya vienen calculados
+// por agregarResultadosEncuesta en `ctx` — igual principio que
+// normalizarAnalisis: la IA nunca decide un número, solo lo interpreta.
+function normalizarAnalisisEncuestaContexto(datos, ctx) {
+  return {
+    tipo: 'encuesta_contexto',
+    caracteristicas: normalizarListaTexto(datos?.caracteristicas, 10, 220),
+    condiciones: normalizarListaTexto(datos?.condiciones, 10, 220),
+    intereses: normalizarListaTexto(datos?.intereses, 10, 220),
+    necesidades: normalizarListaTexto(datos?.necesidades, 10, 220),
+    patrones: (Array.isArray(datos?.patrones) ? datos.patrones : []).slice(0, 8).map((p) => ({
+      observacion: String(p?.observacion || '').trim().slice(0, 220),
+      interpretacion: String(p?.interpretacion || '').trim().slice(0, 300),
+    })),
+    recomendaciones: (Array.isArray(datos?.recomendaciones) ? datos.recomendaciones : []).slice(0, 8).map((r) => String(r || '').trim().slice(0, 300)),
+    resumenGeneral: String(datos?.resumenGeneral || '').trim().slice(0, 1500),
+    totalEstudiantes: ctx.totalEstudiantes,
+    totalPreguntas: ctx.totalPreguntas,
+    confiabilidad: ctx.confiabilidad,
+  }
+}
+
+async function ejecutarAnalisisEncuestaContexto({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto
+
+  const { datos, interno } = await pedirJSON({
+    client, modelo, maxTokens: 2500, system: ENCUESTA_CONTEXTO_SISTEMA,
+    prompt: promptAnalisisEncuestaContexto(ctx),
+  })
+
+  const resultado = normalizarAnalisisEncuestaContexto(datos, ctx)
+  // Regla de no invención (T.7): sin resumen no hay nada aprovechable — esto
+  // NO se cobra, cae al catch del callable y reembolsa.
+  if (!resultado.resumenGeneral) {
+    throw new Error('El asistente de IA no generó un diagnóstico de contexto utilizable')
+  }
+
+  return { resultado, unidadesReales: 1, interno }
+}
+
 async function ejecutarAnalisisResultados({ params, modelo, apiKey }) {
   const Anthropic = require('@anthropic-ai/sdk')
   const client = new Anthropic({ apiKey })
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+
+  // Encuesta (ponderarReactivos:false, ver precheckAnalisisResultados) vs.
+  // evaluación calificable — misma bandera, ramas separadas de aquí en
+  // adelante; ninguna evaluación existente cambia de comportamiento.
+  if (ctx.modoEncuesta) return ejecutarAnalisisEncuestaContexto({ params, modelo, apiKey })
 
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 2500, system: ANALISIS_SISTEMA,
@@ -1756,11 +1923,27 @@ async function precheckDiagnosticoBase({ uid, subjectId }) {
   }
 }
 
-// Diagnóstico de CONTEXTO — sin cambios (12-ago-2026): sigue siendo el
-// reporte que redacta la IA a partir de fuentes/Perfil/comentarios, hasta
-// que se convierta también en cuestionario real (siguiente bloque).
-async function precheckDiagnostico({ uid, params }) {
-  return precheckDiagnosticoBase({ uid, subjectId: String(params?.subjectId || '').trim() })
+// Diagnóstico de CONTEXTO (corrección de Kike, 12-ago-2026, Tanda 2): igual
+// que conocimientos — ya no es un reporte simulado. El cliente crea PRIMERO
+// una actividad real (categoria 'cuestionario', sinCalificacion:true,
+// diagnosticoTipo:'contexto', evaluacion.ponderarReactivos:false — es una
+// ENCUESTA, sin "correcta") y esta operación llena su instrumento
+// (10 a 15 preguntas, la IA decide cuántas dentro de ese rango).
+async function precheckDiagnosticoContexto({ uid, params }) {
+  const db = getFirestore()
+  const actividadId = String(params?.actividadId || '')
+  if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad ya creada')
+
+  const snap = await db.doc(`activities/${actividadId}`).get()
+  if (!snap.exists) throw new HttpsError('not-found', 'La actividad no existe')
+  const act = snap.data()
+  if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+  if (act.categoria !== 'cuestionario' || act.diagnosticoTipo !== 'contexto') {
+    throw new HttpsError('failed-precondition', 'Esta actividad no es un diagnóstico de contexto')
+  }
+
+  const base = await precheckDiagnosticoBase({ uid, subjectId: act.asignaturaId })
+  return { ...base, actividadId }
 }
 
 // Diagnóstico de CONOCIMIENTOS (corrección de Kike, 12-ago-2026): ya no es
@@ -1805,56 +1988,119 @@ function normalizarListaTexto(arr, max = 10, maxLen = 220) {
     .slice(0, max)
 }
 
-function promptDiagnosticoContexto(ctx) {
+// Rango fijo pedido por Kike (12-ago-2026, Tanda 2): la IA decide cuántas
+// preguntas dentro de 10 a 15 (el docente no elige cantidad aquí — a
+// diferencia de conocimientos, donde sí la elige).
+const MIN_PREGUNTAS_CONTEXTO = 10
+const MAX_PREGUNTAS_CONTEXTO = 15
+
+// El instrumento combina opcion_multiple (detecta patrones estructurados) y
+// respuesta_corta (el estudiante se expresa con sus palabras) — SIN
+// "correcta": es una encuesta, no algo calificable. Mismo campo
+// `textoRespuesta` que ya usa el proyecto para respuesta_corta
+// (EvaluacionRunner.jsx) — no se inventa un tipo de reactivo nuevo.
+function promptInstrumentoContexto(ctx) {
   return (
-    `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n\n` +
-    `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
-    `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (observación directa suya — ` +
-    `si viene con contenido, dale MÁS peso que a las fuentes: es lo que el docente ve con sus ` +
-    `propios ojos):\n${ctx.comentariosGrupoTexto}\n\n` +
+    `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (educación media superior mexicana).\n\n` +
+    `PERFIL DEL DOCENTE (para dar tono y enfoque a las preguntas — no es fuente de respuestas):\n${ctx.perfilIATexto}\n\n` +
+    `COMENTARIOS DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (para orientar qué preguntar, no para ` +
+    `responder por los estudiantes):\n${ctx.comentariosGrupoTexto}\n\n` +
     (ctx.bloqueFuentes ? `${ctx.bloqueFuentes}\n\n` : '') +
-    'Construye un DIAGNÓSTICO DE CONTEXTO: qué características del grupo son relevantes para el ' +
-    'trabajo docente, a partir SOLO de lo anterior. Distingue siempre un DATO (algo que aparece ' +
-    'literalmente en las fuentes, el perfil o los comentarios del docente) de una INTERPRETACIÓN ' +
-    '(una lectura tuya) — nunca los mezcles. Responde SOLO con este JSON (usa arreglos vacíos si una lista no aplica):\n' +
-    '{\n' +
-    '  "datosEncontrados": ["<dato literal, máx 200 caracteres>", "..."],\n' +
-    '  "interpretacion": ["<lectura o inferencia tuya a partir de esos datos, máx 200 caracteres>", "..."],\n' +
-    '  "aspectosAtencion": ["<algo que el docente debería atender, máx 200 caracteres>", "..."],\n' +
-    '  "informacionFaltante": ["<información relevante que no está disponible, máx 200 caracteres>", "..."]\n' +
-    '}'
+    'Vas a construir un INSTRUMENTO DE DIAGNÓSTICO DE CONTEXTO: un cuestionario que los propios ' +
+    'estudiantes van a contestar sobre sí mismos y su entorno. TÚ NO conoces sus respuestas — tu única ' +
+    'tarea aquí es diseñar buenas preguntas, no inventar ni asumir lo que van a responder.\n\n' +
+    `Genera entre ${MIN_PREGUNTAS_CONTEXTO} y ${MAX_PREGUNTAS_CONTEXTO} preguntas (tú decides cuántas, ` +
+    'dentro de ese rango) que investiguen:\n' +
+    '1. Características relevantes del grupo.\n' +
+    '2. Condiciones del contexto que puedan afectar su aprendizaje (acceso a recursos, tiempo, etc.).\n' +
+    '3. Intereses y motivadores.\n' +
+    '4. Necesidades o situaciones que el docente debería considerar.\n' +
+    '5. Aspectos del entorno que puedan influir en su participación.\n\n' +
+    'Reglas de redacción:\n' +
+    '- Lenguaje apropiado para estudiantes de bachillerato: cercano y claro, NUNCA como encuesta administrativa.\n' +
+    '- Combina opción múltiple (para detectar patrones) con ALGUNAS de respuesta breve (para que el ' +
+    'estudiante se exprese con sus palabras) — no conviertas todas en preguntas abiertas.\n' +
+    '- PROHIBIDO preguntar o inferir diagnósticos médicos, trastornos psicológicos, información sexual, ' +
+    'política, religiosa, antecedentes legales, o cualquier dato sensible sin utilidad pedagógica directa.\n' +
+    '- No etiquetes al estudiante ni asumas problemas — pregunta siempre de forma neutral y respetuosa.\n\n' +
+    'Responde SOLO con este JSON:\n' +
+    '{\n  "preguntas": [\n' +
+    '    {"tipo": "opcion_multiple o respuesta_corta", "enunciado": "<máx 300 caracteres>", ' +
+    '"opciones": ["<solo si opcion_multiple, 3 a 4 opciones>", "..."]}\n' +
+    '  ]\n}'
   )
 }
 
-function normalizarDiagnosticoContexto(datos) {
-  return {
-    datosEncontrados: normalizarListaTexto(datos?.datosEncontrados),
-    interpretacion: normalizarListaTexto(datos?.interpretacion),
-    aspectosAtencion: normalizarListaTexto(datos?.aspectosAtencion),
-    informacionFaltante: normalizarListaTexto(datos?.informacionFaltante),
-  }
+// Sin `ctx.tipos` fijo (a diferencia de normalizarReactivos): aquí la IA
+// decide, por pregunta, opcion_multiple o respuesta_corta, y CUÁNTAS
+// preguntas en total (dentro del rango que ya acota el prompt) — se
+// normaliza tal cual vino y se descarta lo inválido. Nunca hay "correcta":
+// es una encuesta.
+function normalizarPreguntasContexto(crudos) {
+  return (Array.isArray(crudos) ? crudos : [])
+    .slice(0, MAX_PREGUNTAS_CONTEXTO)
+    .map((r) => {
+      const tipo = r?.tipo === 'respuesta_corta' ? 'respuesta_corta' : 'opcion_multiple'
+      const enunciado = String(r?.enunciado || '').trim().slice(0, 300)
+      if (tipo === 'opcion_multiple') {
+        const opciones = (Array.isArray(r.opciones) ? r.opciones : [])
+          .map((o) => String(o || '').trim().slice(0, 200))
+          .filter(Boolean)
+          .slice(0, 4)
+        return { tipo, enunciado, opciones }
+      }
+      return { tipo, enunciado }
+    })
+    .filter((r) => r.enunciado && (r.tipo !== 'opcion_multiple' || r.opciones.length >= 2))
 }
 
+// Escribe DIRECTO en activities/{id}/preguntas + clave (Admin SDK), mismo
+// patrón que ejecutarDiagnosticoConocimientos/ejecutarCrearEvaluacion — la
+// actividad ya existe (la creó el cliente, ver precheckDiagnosticoContexto)
+// y nace oculta: el docente la revisa/edita/publica como cualquier
+// cuestionario. `clave.respuestaCorrecta` SIEMPRE null: es una encuesta.
 async function ejecutarDiagnosticoContexto({ params, modelo, apiKey }) {
   const Anthropic = require('@anthropic-ai/sdk')
   const client = new Anthropic({ apiKey })
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+  const actividadId = ctx.actividadId
 
   const { datos, interno } = await pedirJSON({
-    client, modelo, maxTokens: 1400, system: DIAGNOSTICO_SISTEMA,
-    prompt: promptDiagnosticoContexto(ctx),
+    client, modelo, maxTokens: 6000, system: DIAGNOSTICO_SISTEMA,
+    prompt: promptInstrumentoContexto(ctx),
   })
 
-  const resultado = normalizarDiagnosticoContexto(datos)
-  const vacio = !resultado.datosEncontrados.length && !resultado.interpretacion.length &&
-    !resultado.aspectosAtencion.length && !resultado.informacionFaltante.length
-  // Regla de no invención (T.7): sin nada aprovechable, esto NO se cobra
-  // (cae al catch del callable, que reembolsa la reserva).
-  if (vacio) throw new Error('El asistente de IA no generó un diagnóstico de contexto utilizable')
+  const preguntas = normalizarPreguntasContexto(datos?.preguntas)
+  // Regla de no invención (T.7) + requisito de Kike: menos de 10 preguntas
+  // utilizables no es un instrumento aceptable — esto NO se cobra (cae al
+  // catch del callable, que reembolsa la reserva).
+  if (preguntas.length < MIN_PREGUNTAS_CONTEXTO) {
+    throw new Error('El asistente de IA no generó un instrumento de diagnóstico de contexto utilizable')
+  }
+
+  const ponderaciones = repartirPonderacion(preguntas.length)
+  const db = getFirestore()
+  const batch = db.batch()
+  preguntas.forEach((r, i) => {
+    const pregRef = db.collection(`activities/${actividadId}/preguntas`).doc()
+    const claveRef = db.collection(`activities/${actividadId}/clave`).doc(pregRef.id)
+    const base = {
+      tipo: r.tipo, enunciado: r.enunciado, ponderacion: ponderaciones[i],
+      retroalimentacion: null, imagenUrl: null, orden: i, origenBancoId: null,
+    }
+    if (r.tipo === 'opcion_multiple') {
+      batch.set(pregRef, { ...base, opciones: r.opciones.map((texto) => ({ id: idOpcion(), texto })) })
+    } else {
+      batch.set(pregRef, { ...base, opciones: null })
+    }
+    batch.set(claveRef, { respuestaCorrecta: null, respuestaEsperada: null })
+  })
+  await batch.commit()
+  await db.doc(`activities/${actividadId}`).set({ evaluacion: { numPreguntas: preguntas.length } }, { merge: true })
 
   return {
-    resultado: { ...resultado, fuentesUsadas: ctx.fuentesUsadas },
-    unidadesReales: 1,
+    resultado: { actividadId, cantidad: preguntas.length },
+    unidadesReales: 1, // tarifa FIJA (5 créditos), sin importar cuántas preguntas decida la IA (10-15)
     interno,
   }
 }
@@ -1952,16 +2198,23 @@ function formatoPeriodo(fechas) {
   return ini && fin ? `${ini} – ${fin}` : null
 }
 
-// Resume el diagnóstico de contexto YA GENERADO (nunca inventa uno) en un
-// bloque de texto para el prompt.
+// Corrección de Kike (12-ago-2026, Tanda 2): el diagnóstico de contexto ya
+// es un cuestionario REAL que contestan los estudiantes — `resultado` ahora
+// es la salida de normalizarAnalisisEncuestaContexto (OP-10 en modo
+// encuesta), resultados de verdad sobre el grupo, no un reporte inferido
+// solo de fuentes/Perfil.
 function diagnosticoContextoATexto(resultado) {
   if (!resultado) return 'Información no disponible en las fuentes proporcionadas.'
   const bloque = (titulo, items) => (items?.length ? `${titulo}:\n- ${items.join('\n- ')}` : null)
   const partes = [
-    bloque('Datos encontrados sobre el grupo', resultado.datosEncontrados),
-    bloque('Interpretación', resultado.interpretacion),
-    bloque('Aspectos que requieren atención', resultado.aspectosAtencion),
-    bloque('Información faltante (NO la completes, ya se reportó como faltante)', resultado.informacionFaltante),
+    bloque('Características relevantes del grupo', resultado.caracteristicas),
+    bloque('Condiciones de contexto detectadas', resultado.condiciones),
+    bloque('Intereses y motivadores', resultado.intereses),
+    bloque('Necesidades identificadas', resultado.necesidades),
+    resultado.patrones?.length
+      ? `Patrones relevantes:\n- ${resultado.patrones.map((p) => `${p.observacion}${p.interpretacion ? ` — ${p.interpretacion}` : ''}`).join('\n- ')}`
+      : null,
+    bloque('Recomendaciones pedagógicas', resultado.recomendaciones),
   ].filter(Boolean)
   return partes.length ? partes.join('\n\n') : 'Información no disponible en las fuentes proporcionadas.'
 }
@@ -2048,20 +2301,16 @@ async function precheckPlaneacionInicial({ uid, params }) {
       { codigo: 'SIN_FUENTES_GENERALES' })
   }
 
-  // Diagnóstico de CONTEXTO — sin cambios (12-ago-2026): sigue siendo el
-  // reporte de subjects/{id}/diagnosticosIA, hasta que también se convierta
-  // en cuestionario real (ver bloque de arriba, precheckDiagnostico).
-  const diagSnap = await db.collection(`subjects/${subjectId}/diagnosticosIA`).get()
-  const diagnosticos = diagSnap.docs.map((d) => {
-    const data = d.data()
-    return { ...data, generadoEnMillis: data.generadoEn?.toMillis?.() || 0 }
-  })
-  const diagContexto = diagnosticos
-    .filter((d) => d.tipo === 'contexto')
-    .sort((a, b) => b.generadoEnMillis - a.generadoEnMillis)[0] || null
-  if (!diagContexto) {
+  // Diagnóstico de CONTEXTO (corrección de Kike, 12-ago-2026, Tanda 2): ya es
+  // un cuestionario real — igual que conocimientos, el resultado que cuenta
+  // es su análisis de IA sobre respuestas reales de los estudiantes
+  // (activities/{id}/analisisIA, OP-10), NO el reporte simulado descartado
+  // de subjects/{id}/diagnosticosIA.
+  const resultadoContexto = await analisisDiagnosticoMasReciente(db, subjectId, 'contexto')
+  if (!resultadoContexto) {
     throw new HttpsError('failed-precondition',
-      'Genera primero el Diagnóstico de contexto en Config Asistente IA → Diagnóstico del grupo. No se descontaron créditos.',
+      'Genera el instrumento de Diagnóstico de contexto, publícalo y analiza sus resultados con IA ' +
+      'una vez que tus estudiantes lo contesten (Config Asistente IA → Diagnóstico del grupo). No se descontaron créditos.',
       { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
   }
 
@@ -2109,7 +2358,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
     perfilIATexto: perfilIATexto(perfilIA),
     comentariosGrupoTexto,
     bloqueFuentesGenerales,
-    diagnosticoContextoTexto: diagnosticoContextoATexto(diagContexto.resultado),
+    diagnosticoContextoTexto: diagnosticoContextoATexto(resultadoContexto),
     diagnosticoConocimientosTexto: diagnosticoConocimientosATexto(resultadoConocimientos),
     parciales,
     fuentesUsadas: {
@@ -2382,12 +2631,13 @@ exports._pruebas = {
   contextoDeActividad, condicionesEntregable, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
   precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MAX_REACTIVOS,
   agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
+  agregarResultadosEncuesta, normalizarAnalisisEncuestaContexto, promptAnalisisEncuestaContexto, ENCUESTA_CONTEXTO_SISTEMA,
   repartirPonderacion, precheckCrearEvaluacion, MAX_REACTIVOS_EVALUACION_TRIAL, MAX_REACTIVOS_EVALUACION_PAGO,
   promptCrearEvaluacion,
   precheckCrearActividad, sanitizarInstruccionesHtml, TIPOS_ARCHIVO_VALIDOS, MIN_PETICION_ACTIVIDAD, MAX_PETICION_ACTIVIDAD,
-  precheckDiagnostico, precheckDiagnosticoConocimientos, seleccionarFuentesGenerales, perfilIACompleto, perfilIATexto,
-  normalizarDiagnosticoContexto, promptDiagnosticoConocimientos,
-  MAX_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO,
+  precheckDiagnosticoBase, precheckDiagnosticoContexto, precheckDiagnosticoConocimientos, seleccionarFuentesGenerales, perfilIACompleto, perfilIATexto,
+  promptInstrumentoContexto, normalizarPreguntasContexto, promptDiagnosticoConocimientos,
+  MAX_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO, MIN_PREGUNTAS_CONTEXTO, MAX_PREGUNTAS_CONTEXTO,
   precheckPlaneacionInicial, formatoPeriodo, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
   analisisDiagnosticoMasReciente,
   normalizarFilaPlaneacion, normalizarFilasPlaneacion, MAX_FILAS_PLANEACION_PARCIAL, comentariosGrupoATexto,

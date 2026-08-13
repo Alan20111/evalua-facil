@@ -643,7 +643,6 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   }))
 
   const calificacionIntento = calcularCalificacion(preguntas, respuestasPorPregunta, act.maxCalif || 10)
-  const pendienteRevision = resolverPendienteRevision(preguntas, respuestasPorPregunta)
   // Un instrumento "Sin calificación" (diagnóstico) no produce nota. El
   // servidor no lo sabía y calificaba igual, con dos consecuencias visibles
   // para el estudiante:
@@ -657,6 +656,13 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   // src/utils/activityVisibility.js): el campo puede venir en la actividad o
   // dentro de su configuración de evaluación.
   const noLleveNota = act.sinCalificacion === true || act.evaluacion?.sinCalificacion === true
+  // Corrección de Kike (12-ago-2026, Tanda 2): un instrumento sin
+  // calificación NUNCA tiene nada "pendiente de revisión" — sus
+  // respuesta_corta son respuestas de encuesta, no algo a lo que el docente
+  // deba ponerle puntos. Sin esto, el diagnóstico de contexto se quedaba
+  // para siempre en la lista de "requiere revisión" de EvaluacionManager.jsx,
+  // esperando una calificación que nunca va a existir.
+  const pendienteRevision = noLleveNota ? false : resolverPendienteRevision(preguntas, respuestasPorPregunta)
 
   await db.runTransaction(async (tx) => {
     const freshSnap = await tx.get(after.ref)
