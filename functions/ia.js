@@ -118,7 +118,7 @@ const PRECHECKS = {
   rubrica: precheckInstrumento, cotejo: precheckInstrumento, reactivos: precheckReactivos,
   analizar_resultados: precheckAnalisisResultados, crear_evaluacion_ia: precheckCrearEvaluacion,
   crear_actividad_ia: precheckCrearActividad,
-  diagnostico_contexto: precheckDiagnostico, diagnostico_conocimientos: precheckDiagnostico,
+  diagnostico_contexto: precheckDiagnostico, diagnostico_conocimientos: precheckDiagnosticoConocimientos,
   planeacion_didactica_inicial: precheckPlaneacionInicial,
 }
 
@@ -1656,7 +1656,12 @@ async function ejecutarCrearActividad({ params, modelo, apiKey }) {
 // Tarifas (Kike, 12-ago-2026): diagnostico_contexto = 5 créditos fijos,
 // diagnostico_conocimientos = 10 créditos fijos — ver seeds-db/seed-ia-tarifas.js.
 
-const MAX_REACTIVOS_DIAGNOSTICO = 15
+// 12-ago-2026 (corrección de Kike): el diagnóstico de conocimientos dejó de
+// ser un reporte simulado — ahora es un cuestionario REAL que contestan los
+// estudiantes, y el docente elige cuántas preguntas quiere (antes las
+// decidía la IA sola, entre 5 y 15). Se sube el tope a 20 porque ahora es
+// una elección consciente del docente, no un límite para no pasarse.
+const MAX_REACTIVOS_DIAGNOSTICO = 20
 const MIN_REACTIVOS_DIAGNOSTICO = 5
 
 // Hasta 3 fuentes GENERALES (nunca de parcial), las más recientes primero —
@@ -1702,10 +1707,12 @@ function comentariosGrupoATexto(comentarios) {
 
 // Precheck compartido por los dos diagnósticos — todo lo que puede rechazar
 // la operación SIN gastar un crédito: dueño de la asignatura, Perfil IA
-// completo, al menos una fuente inicial general.
-async function precheckDiagnostico({ uid, params }) {
+// completo, al menos una fuente inicial general. Extraído a función pura
+// (recibe `subjectId` ya resuelto) porque a partir del 12-ago-2026 el de
+// conocimientos también necesita validar una actividad (ver
+// precheckDiagnosticoConocimientos) antes de llegar a este punto común.
+async function precheckDiagnosticoBase({ uid, subjectId }) {
   const db = getFirestore()
-  const subjectId = String(params?.subjectId || '').trim()
   if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura.')
 
   const subjSnap = await db.doc(`subjects/${subjectId}`).get()
@@ -1747,6 +1754,38 @@ async function precheckDiagnostico({ uid, params }) {
     bloqueFuentes,
     fuentesUsadas: seleccionadas.map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
   }
+}
+
+// Diagnóstico de CONTEXTO — sin cambios (12-ago-2026): sigue siendo el
+// reporte que redacta la IA a partir de fuentes/Perfil/comentarios, hasta
+// que se convierta también en cuestionario real (siguiente bloque).
+async function precheckDiagnostico({ uid, params }) {
+  return precheckDiagnosticoBase({ uid, subjectId: String(params?.subjectId || '').trim() })
+}
+
+// Diagnóstico de CONOCIMIENTOS (corrección de Kike, 12-ago-2026): ya no es
+// un reporte — el cliente crea PRIMERO una actividad real (categoria
+// 'cuestionario', sinCalificacion:true, diagnosticoTipo:'conocimientos',
+// borrador) y esta operación llena sus preguntas/clave, igual que
+// crear_evaluacion_ia. `cantidad` la elige el docente (antes la decidía la
+// IA sola).
+async function precheckDiagnosticoConocimientos({ uid, params }) {
+  const db = getFirestore()
+  const actividadId = String(params?.actividadId || '')
+  if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad ya creada')
+
+  const snap = await db.doc(`activities/${actividadId}`).get()
+  if (!snap.exists) throw new HttpsError('not-found', 'La actividad no existe')
+  const act = snap.data()
+  if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+  if (act.categoria !== 'cuestionario' || act.diagnosticoTipo !== 'conocimientos') {
+    throw new HttpsError('failed-precondition', 'Esta actividad no es un diagnóstico de conocimientos')
+  }
+
+  const base = await precheckDiagnosticoBase({ uid, subjectId: act.asignaturaId })
+  const cantidad = clampInt(params?.cantidad, MIN_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO, MAX_REACTIVOS_DIAGNOSTICO)
+
+  return { ...base, actividadId, cantidad }
 }
 
 const DIAGNOSTICO_SISTEMA =
@@ -1820,80 +1859,73 @@ async function ejecutarDiagnosticoContexto({ params, modelo, apiKey }) {
   }
 }
 
+// Corrección de Kike (12-ago-2026): la cantidad la elige el docente
+// (`ctx.cantidad`, validada por precheckDiagnosticoConocimientos), ya no la
+// decide la IA sola — y son SIEMPRE opcion_multiple (antes también podía
+// meter verdadero_falso). Mismo esquema de "reactivos" que
+// promptCrearEvaluacion, a propósito: así se reutiliza normalizarReactivos
+// tal cual, sin duplicar esa lógica.
 function promptDiagnosticoConocimientos(ctx) {
   return (
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n\n` +
     `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
     (ctx.bloqueFuentes ? `${ctx.bloqueFuentes}\n\n` : '') +
     'Con base ÚNICAMENTE en los documentos de fuente (programa/materiales de la asignatura), ' +
-    'construye un DIAGNÓSTICO DE CONOCIMIENTOS: un instrumento breve que el docente aplicará al ' +
-    'grupo antes de empezar, para saber qué conocimientos previos ya tienen. Decide tú la cantidad ' +
-    `de reactivos según la amplitud real de los contenidos encontrados (mínimo ${MIN_REACTIVOS_DIAGNOSTICO}, ` +
-    `máximo ${MAX_REACTIVOS_DIAGNOSTICO}) — NO generes un examen grande, solo una fotografía inicial ` +
-    'útil. Usa solo reactivos de opcion_multiple o verdadero_falso (autocalificables). No inventes ' +
-    'temas que no estén en los documentos de fuente.\n\n' +
+    'construye un DIAGNÓSTICO DE CONOCIMIENTOS: un cuestionario breve que el docente aplicará al ' +
+    'grupo antes de empezar, para saber qué conocimientos previos ya tienen — es una fotografía ' +
+    'inicial, no un examen grande. No inventes temas que no estén en los documentos de fuente.\n\n' +
+    `Genera EXACTAMENTE ${ctx.cantidad} reactivos de opción múltiple (4 opciones cada uno, una sola ` +
+    'correcta), cubriendo la mayor variedad posible de los temas encontrados en las fuentes.\n\n' +
     'Responde SOLO con este JSON:\n' +
-    '{\n' +
-    '  "temas": ["<tema o conocimiento a diagnosticar, tal como aparece en las fuentes>", "..."],\n' +
-    '  "reactivos": [\n' +
-    '    {"tema": "<a cuál tema de arriba pertenece>", "tipo": "opcion_multiple o verdadero_falso", ' +
-    '"enunciado": "<máx 400 caracteres>", "opciones": ["<solo si opcion_multiple>", "..."], ' +
-    '"correcta": "<índice 0-3 si opcion_multiple, \'v\'/\'f\' si verdadero_falso>"}\n' +
-    '  ],\n' +
-    '  "comoInterpretar": "<1-3 frases: qué hacer con los resultados de este diagnóstico>"\n' +
-    '}'
+    '{\n  "reactivos": [\n' +
+    '    {"tipo": "opcion_multiple", "enunciado": "<máx 400 caracteres>", ' +
+    '"opciones": ["<opción>", "..."], "correcta": "<índice 0-3 de la opción correcta>"}\n' +
+    '  ]\n}'
   )
 }
 
-// Igual que normalizarReactivos, pero sin un `ctx.tipos` fijo: aquí la
-// cantidad y el tipo de cada reactivo los decide el modelo (acotados por el
-// prompt), así que se normaliza tal cual vino y se descarta lo inválido.
-function normalizarReactivosDiagnostico(crudos) {
-  return (Array.isArray(crudos) ? crudos : [])
-    .slice(0, MAX_REACTIVOS_DIAGNOSTICO)
-    .map((r) => {
-      const tipo = r?.tipo === 'verdadero_falso' ? 'verdadero_falso' : 'opcion_multiple'
-      const tema = String(r?.tema || '').trim().slice(0, 120)
-      const enunciado = String(r?.enunciado || '').trim().slice(0, 500)
-      if (tipo === 'opcion_multiple') {
-        const opciones = (Array.isArray(r.opciones) ? r.opciones : []).slice(0, 4).map((o) => String(o || '').trim().slice(0, 300))
-        while (opciones.length < 4) opciones.push('')
-        const idx = Number.isInteger(r.correcta) ? r.correcta : parseInt(r.correcta, 10)
-        return { tema, tipo, enunciado, opciones, correcta: Number.isInteger(idx) ? Math.min(3, Math.max(0, idx)) : 0 }
-      }
-      return { tema, tipo, enunciado, correcta: r?.correcta === 'f' ? 'f' : 'v' }
-    })
-    .filter((r) => r.enunciado)
-}
-
-function normalizarDiagnosticoConocimientos(datos) {
-  return {
-    temas: normalizarListaTexto(datos?.temas, 20, 160),
-    reactivos: normalizarReactivosDiagnostico(datos?.reactivos),
-    comoInterpretar: String(datos?.comoInterpretar || '').trim().slice(0, 600),
-  }
-}
-
+// Escribe DIRECTO en activities/{id}/preguntas + clave (Admin SDK), mismo
+// patrón que ejecutarCrearEvaluacion — la actividad ya existe (la creó el
+// cliente antes de llamar, ver precheckDiagnosticoConocimientos) y nace
+// oculta: el docente la revisa/edita/publica como cualquier cuestionario.
 async function ejecutarDiagnosticoConocimientos({ params, modelo, apiKey }) {
   const Anthropic = require('@anthropic-ai/sdk')
   const client = new Anthropic({ apiKey })
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+  const actividadId = ctx.actividadId
 
+  const tipos = Array.from({ length: ctx.cantidad }, () => 'opcion_multiple')
   const { datos, interno } = await pedirJSON({
-    client, modelo, maxTokens: 3000, system: DIAGNOSTICO_SISTEMA,
+    client, modelo, maxTokens: Math.min(8000, 350 * ctx.cantidad + 400), system: DIAGNOSTICO_SISTEMA,
     prompt: promptDiagnosticoConocimientos(ctx),
   })
 
-  const resultado = normalizarDiagnosticoConocimientos(datos)
+  const reactivos = normalizarReactivos(datos, { tipos }).filter((r) => r.enunciado)
   // Regla de no invención (T.7): sin reactivos aprovechables, esto NO se
   // cobra (cae al catch del callable, que reembolsa la reserva).
-  if (!resultado.reactivos.length) {
+  if (!reactivos.length) {
     throw new Error('El asistente de IA no generó un diagnóstico de conocimientos utilizable')
   }
 
+  const ponderaciones = repartirPonderacion(reactivos.length)
+  const db = getFirestore()
+  const batch = db.batch()
+  reactivos.forEach((r, i) => {
+    const pregRef = db.collection(`activities/${actividadId}/preguntas`).doc()
+    const claveRef = db.collection(`activities/${actividadId}/clave`).doc(pregRef.id)
+    const opciones = r.opciones.map((texto) => ({ id: idOpcion(), texto }))
+    batch.set(pregRef, {
+      tipo: 'opcion_multiple', enunciado: r.enunciado, ponderacion: ponderaciones[i],
+      retroalimentacion: null, imagenUrl: null, orden: i, origenBancoId: null, opciones,
+    })
+    batch.set(claveRef, { respuestaCorrecta: opciones[r.correcta]?.id ?? opciones[0]?.id ?? null, respuestaEsperada: null })
+  })
+  await batch.commit()
+  await db.doc(`activities/${actividadId}`).set({ evaluacion: { numPreguntas: reactivos.length } }, { merge: true })
+
   return {
-    resultado: { ...resultado, fuentesUsadas: ctx.fuentesUsadas },
-    unidadesReales: 1,
+    resultado: { actividadId, cantidad: reactivos.length },
+    unidadesReales: 1, // tarifa FIJA (Kike, 12-ago-2026), sin importar la cantidad elegida
     interno,
   }
 }
@@ -1934,13 +1966,52 @@ function diagnosticoContextoATexto(resultado) {
   return partes.length ? partes.join('\n\n') : 'Información no disponible en las fuentes proporcionadas.'
 }
 
-// El diagnóstico de conocimientos es solo el INSTRUMENTO (temas + reactivos)
-// — todavía no se aplicó a ningún estudiante real, así que aquí solo se
-// resumen los TEMAS que se planea diagnosticar, nunca resultados o
-// debilidades reales (no existen todavía).
+// Corrección de Kike (12-ago-2026): el diagnóstico de conocimientos ya es un
+// cuestionario REAL que contestan los estudiantes — `resultado` ahora es la
+// salida de normalizarAnalisis (OP-10, ver ejecutarAnalisisResultados),
+// resultados de verdad del grupo, no un instrumento sin aplicar.
 function diagnosticoConocimientosATexto(resultado) {
-  if (!resultado?.temas?.length) return 'Información no disponible en las fuentes proporcionadas.'
-  return `Temas que el docente planea diagnosticar al inicio del curso (instrumento aún sin aplicar — no son resultados reales del grupo):\n- ${resultado.temas.join('\n- ')}`
+  if (!resultado) return 'Información no disponible en las fuentes proporcionadas.'
+  const partes = []
+  if (resultado.resumenGeneral) partes.push(`Resumen: ${resultado.resumenGeneral}`)
+  if (Number.isFinite(resultado.porcentajeAciertosGeneral)) {
+    partes.push(`Aciertos generales del grupo en el diagnóstico: ${resultado.porcentajeAciertosGeneral}%`)
+  }
+  if (resultado.patrones?.length) {
+    partes.push(`Patrones detectados:\n- ${resultado.patrones.map((p) => `${p.observacion}${p.interpretacion ? ` — ${p.interpretacion}` : ''}`).join('\n- ')}`)
+  }
+  if (resultado.reactivosDificiles?.length) {
+    partes.push(`Temas con más dificultad para el grupo:\n- ${resultado.reactivosDificiles.map((r) => r.enunciado).join('\n- ')}`)
+  }
+  if (resultado.recomendaciones?.length) {
+    partes.push(`Recomendaciones del diagnóstico:\n- ${resultado.recomendaciones.join('\n- ')}`)
+  }
+  return partes.length ? partes.join('\n\n') : 'Información no disponible en las fuentes proporcionadas.'
+}
+
+// Busca la actividad de diagnóstico (marcada `diagnosticoTipo`) más reciente
+// de la asignatura que YA tenga un análisis de IA (activities/{id}/analisisIA
+// — mismo lugar donde OP-10 guarda su bitácora, ver EvaluacionManager.jsx).
+// Sin análisis, no hay nada real que leer todavía: Planeación se detiene
+// hasta que el docente publique el cuestionario, sus estudiantes lo
+// contesten, y lo analice con IA — nunca se inventa un resultado.
+async function analisisDiagnosticoMasReciente(db, subjectId, tipo) {
+  const actsSnap = await db.collection('activities')
+    .where('asignaturaId', '==', subjectId)
+    .where('diagnosticoTipo', '==', tipo)
+    .get()
+  const actividades = actsSnap.docs
+    .map((d) => ({ id: d.id, createdAtMillis: d.data().createdAt?.toMillis?.() || 0 }))
+    .sort((a, b) => b.createdAtMillis - a.createdAtMillis)
+  for (const act of actividades) {
+    const analisisSnap = await db.collection(`activities/${act.id}/analisisIA`).get()
+    if (analisisSnap.empty) continue
+    const masReciente = analisisSnap.docs
+      .map((d) => ({ ...d.data(), generadoEnMillis: d.data().generadoEn?.toMillis?.() || 0 }))
+      .sort((a, b) => b.generadoEnMillis - a.generadoEnMillis)[0]
+    if (masReciente) return masReciente.resultado
+  }
+  return null
 }
 
 // Precheck: valida la secuencia completa SIN gastar un crédito y arma el
@@ -1977,27 +2048,32 @@ async function precheckPlaneacionInicial({ uid, params }) {
       { codigo: 'SIN_FUENTES_GENERALES' })
   }
 
-  // Diagnósticos YA GENERADOS — se toma la generación más reciente de cada
-  // tipo. Nunca se genera un diagnóstico aquí: si falta alguno, se detiene.
+  // Diagnóstico de CONTEXTO — sin cambios (12-ago-2026): sigue siendo el
+  // reporte de subjects/{id}/diagnosticosIA, hasta que también se convierta
+  // en cuestionario real (ver bloque de arriba, precheckDiagnostico).
   const diagSnap = await db.collection(`subjects/${subjectId}/diagnosticosIA`).get()
   const diagnosticos = diagSnap.docs.map((d) => {
     const data = d.data()
     return { ...data, generadoEnMillis: data.generadoEn?.toMillis?.() || 0 }
   })
-  const masReciente = (tipo) => diagnosticos
-    .filter((d) => d.tipo === tipo)
+  const diagContexto = diagnosticos
+    .filter((d) => d.tipo === 'contexto')
     .sort((a, b) => b.generadoEnMillis - a.generadoEnMillis)[0] || null
-
-  const diagContexto = masReciente('contexto')
   if (!diagContexto) {
     throw new HttpsError('failed-precondition',
       'Genera primero el Diagnóstico de contexto en Config Asistente IA → Diagnóstico del grupo. No se descontaron créditos.',
       { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
   }
-  const diagConocimientos = masReciente('conocimientos')
-  if (!diagConocimientos) {
+
+  // Diagnóstico de CONOCIMIENTOS (corrección de Kike, 12-ago-2026): ya es un
+  // cuestionario real — el resultado que cuenta es su análisis de IA sobre
+  // respuestas reales (activities/{id}/analisisIA, OP-10), no un reporte
+  // simulado a partir de fuentes.
+  const resultadoConocimientos = await analisisDiagnosticoMasReciente(db, subjectId, 'conocimientos')
+  if (!resultadoConocimientos) {
     throw new HttpsError('failed-precondition',
-      'Genera primero el Diagnóstico de conocimientos en Config Asistente IA → Diagnóstico del grupo. No se descontaron créditos.',
+      'Genera el cuestionario de Diagnóstico de conocimientos, publícalo y analiza sus resultados con IA ' +
+      'una vez que tus estudiantes lo contesten (Config Asistente IA → Diagnóstico del grupo). No se descontaron créditos.',
       { codigo: 'SIN_DIAGNOSTICO_CONOCIMIENTOS' })
   }
 
@@ -2034,7 +2110,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
     comentariosGrupoTexto,
     bloqueFuentesGenerales,
     diagnosticoContextoTexto: diagnosticoContextoATexto(diagContexto.resultado),
-    diagnosticoConocimientosTexto: diagnosticoConocimientosATexto(diagConocimientos.resultado),
+    diagnosticoConocimientosTexto: diagnosticoConocimientosATexto(resultadoConocimientos),
     parciales,
     fuentesUsadas: {
       generales: seleccionarFuentesGenerales(generales).map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
@@ -2309,10 +2385,11 @@ exports._pruebas = {
   repartirPonderacion, precheckCrearEvaluacion, MAX_REACTIVOS_EVALUACION_TRIAL, MAX_REACTIVOS_EVALUACION_PAGO,
   promptCrearEvaluacion,
   precheckCrearActividad, sanitizarInstruccionesHtml, TIPOS_ARCHIVO_VALIDOS, MIN_PETICION_ACTIVIDAD, MAX_PETICION_ACTIVIDAD,
-  precheckDiagnostico, seleccionarFuentesGenerales, perfilIACompleto, perfilIATexto,
-  normalizarDiagnosticoContexto, normalizarDiagnosticoConocimientos, normalizarReactivosDiagnostico,
+  precheckDiagnostico, precheckDiagnosticoConocimientos, seleccionarFuentesGenerales, perfilIACompleto, perfilIATexto,
+  normalizarDiagnosticoContexto, promptDiagnosticoConocimientos,
   MAX_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO,
   precheckPlaneacionInicial, formatoPeriodo, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
+  analisisDiagnosticoMasReciente,
   normalizarFilaPlaneacion, normalizarFilasPlaneacion, MAX_FILAS_PLANEACION_PARCIAL, comentariosGrupoATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
 }

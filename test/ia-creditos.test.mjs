@@ -1180,6 +1180,54 @@ await caso('con Perfil IA completo y una fuente general: pasa ambas validaciones
   assert.notStrictEqual(e.details?.codigo, 'SIN_FUENTES_GENERALES')
 })
 
+// ── precheckDiagnosticoConocimientos (corrección de Kike, 12-ago-2026) ────
+// Ya no recibe subjectId directo: recibe una actividad YA CREADA por el
+// cliente (categoria 'cuestionario', diagnosticoTipo 'conocimientos') y
+// valida esa actividad ANTES de reusar precheckDiagnosticoBase.
+await db.doc('activities/act_diag_conoc').set({
+  docenteId: DOCENTE, asignaturaId: 'sub_diag', categoria: 'cuestionario', diagnosticoTipo: 'conocimientos',
+})
+await db.doc('activities/act_diag_conoc_ajena').set({
+  docenteId: OTRO_DOCENTE, asignaturaId: 'sub_diag_ajena', categoria: 'cuestionario', diagnosticoTipo: 'conocimientos',
+})
+await db.doc('activities/act_no_es_diagnostico').set({
+  docenteId: DOCENTE, asignaturaId: 'sub_diag', categoria: 'cuestionario',
+})
+
+await caso('precheckDiagnosticoConocimientos: SEGURIDAD · sin actividadId → invalid-argument', async () => {
+  await assert.rejects(
+    () => IA.precheckDiagnosticoConocimientos({ uid: DOCENTE, params: { actividadId: '' } }),
+    (e) => String(e.code).includes('invalid-argument')
+  )
+})
+
+await caso('precheckDiagnosticoConocimientos: SEGURIDAD · actividad de otro docente → permission-denied', async () => {
+  await assert.rejects(
+    () => IA.precheckDiagnosticoConocimientos({ uid: DOCENTE, params: { actividadId: 'act_diag_conoc_ajena' } }),
+    (e) => String(e.code).includes('permission-denied')
+  )
+})
+
+await caso('precheckDiagnosticoConocimientos: una actividad que NO es diagnóstico de conocimientos se rechaza', async () => {
+  await assert.rejects(
+    () => IA.precheckDiagnosticoConocimientos({ uid: DOCENTE, params: { actividadId: 'act_no_es_diagnostico' } }),
+    (e) => String(e.code).includes('failed-precondition')
+  )
+})
+
+// La URL de fuente sembrada no es descargable de verdad (mismo límite que el
+// resto de este archivo, ver "con Perfil IA completo y una fuente general" —
+// no hay red real en esta prueba), así que precheckDiagnosticoBase SIEMPRE
+// truena aquí al intentar leerla. Eso basta para demostrar que la actividad
+// (ownership + categoria + diagnosticoTipo) YA pasó su propia validación —
+// nunca llegaría a intentar leer fuentes si esa hubiera rechazado primero.
+await caso('precheckDiagnosticoConocimientos: actividad válida → pasa su propia validación (llega a intentar leer la fuente)', async () => {
+  await assert.rejects(
+    () => IA.precheckDiagnosticoConocimientos({ uid: DOCENTE, params: { actividadId: 'act_diag_conoc', cantidad: 999 } }),
+    (e) => String(e.code).includes('failed-precondition') && !['PERFIL_IA_INCOMPLETO', 'SIN_FUENTES_GENERALES'].includes(e.details?.codigo)
+  )
+})
+
 await caso('diagnostico_contexto y diagnostico_conocimientos son operaciones independientes en el mapa de tarifas', async () => {
   assert.notStrictEqual(TARIFAS_DIAG.tarifas.diagnostico_contexto, undefined)
   assert.notStrictEqual(TARIFAS_DIAG.tarifas.diagnostico_conocimientos, undefined)
@@ -1267,9 +1315,17 @@ await caso('con diagnóstico de contexto pero SIN diagnóstico de conocimientos 
 })
 
 await caso('con la secuencia COMPLETA: arma el contexto con los 2 parciales reales de la asignatura', async () => {
-  await db.collection('subjects/sub_plan/diagnosticosIA').add({
-    tipo: 'conocimientos', docenteId: DOCENTE,
-    resultado: { temas: ['Fracciones'], reactivos: [{ tipo: 'verdadero_falso', enunciado: 'x', correcta: 'v' }], comoInterpretar: 'x' },
+  // Corrección de Kike (12-ago-2026): el diagnóstico de conocimientos ya no
+  // vive en subjects/{id}/diagnosticosIA — es una actividad real
+  // (diagnosticoTipo:'conocimientos') con un análisis de IA real sobre
+  // respuestas reales, en activities/{id}/analisisIA (mismo lugar que OP-10).
+  await db.doc('activities/act_plan_diag_conoc').set({
+    docenteId: DOCENTE, asignaturaId: 'sub_plan', categoria: 'cuestionario', diagnosticoTipo: 'conocimientos',
+    createdAt: Timestamp.now(),
+  })
+  await db.collection('activities/act_plan_diag_conoc/analisisIA').add({
+    resultado: { resumenGeneral: 'El grupo domina lo básico.', porcentajeAciertosGeneral: 80, patrones: [], recomendaciones: [] },
+    generadoEn: Timestamp.now(),
   })
   const e = await precheckPlaneacionFalla({ subjectId: 'sub_plan' })
   // Mismo criterio que la prueba equivalente de Diagnóstico del grupo: la URL

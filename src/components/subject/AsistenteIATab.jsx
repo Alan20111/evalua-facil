@@ -75,7 +75,7 @@ function GrupoFuentes({ titulo, fuentes, onAgregar, onEliminar, subiendo, elimin
   )
 }
 
-export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, asignaturaNombre = '', subject = null, watermark = false }) {
+export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, asignaturaNombre = '', subject = null, watermark = false, existingActivitiesCountP1 = 0 }) {
   const toast = useToast()
   const [fuentes, setFuentes] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -235,6 +235,7 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
           docenteId={docenteId}
           asignaturaNombre={asignaturaNombre}
           habilitado={hayFuentesGenerales(fuentes)}
+          existingActivitiesCountP1={existingActivitiesCountP1}
         />
       </div>
 

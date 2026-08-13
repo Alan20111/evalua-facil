@@ -5436,6 +5436,7 @@ export default function SubjectPage() {
             asignaturaNombre={subject?.nombre || ''}
             subject={subject}
             watermark={exportsWatermarked}
+            existingActivitiesCountP1={activities.filter((a) => a.parcial === 1).length}
           />
         </div>
       )}

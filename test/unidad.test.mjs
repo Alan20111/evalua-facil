@@ -1217,27 +1217,23 @@ caso('normalizarDiagnosticoContexto: entrada basura (no arreglos) no truena — 
   assert.deepStrictEqual(r.datosEncontrados, [])
 })
 
-caso('normalizarReactivosDiagnostico: acepta opcion_multiple y verdadero_falso, descarta lo demás', () => {
-  const r = FIA.normalizarReactivosDiagnostico([
-    { tema: 'Fracciones', tipo: 'opcion_multiple', enunciado: '¿Cuánto es 1/2 + 1/4?', opciones: ['1/4', '3/4', '1', '2/4'], correcta: 1 },
-    { tema: 'Álgebra', tipo: 'verdadero_falso', enunciado: 'x+1=2 implica x=1', correcta: 'v' },
-    { tema: 'Sin enunciado', tipo: 'opcion_multiple', enunciado: '', opciones: [] }, // se descarta
-  ])
-  assert.strictEqual(r.length, 2)
-  assert.strictEqual(r[0].opciones.length, 4)
-  assert.strictEqual(r[1].correcta, 'v')
+// Corrección de Kike (12-ago-2026): el diagnóstico de conocimientos ya no es
+// un reporte simulado — es un cuestionario real, con cantidad elegida por el
+// docente (ya no la decide la IA) y SOLO opción múltiple (ya no mezcla
+// verdadero/falso). promptDiagnosticoConocimientos reusa el mismo esquema de
+// "reactivos" que promptCrearEvaluacion, así que normalizarReactivos (ya
+// probado en el grupo de Reactivos con IA) es lo que normaliza su salida —
+// no hace falta un normalizador aparte.
+caso('promptDiagnosticoConocimientos: pide EXACTAMENTE la cantidad elegida por el docente, solo opción múltiple', () => {
+  const ctx = { asignaturaNombre: 'Matemáticas I', perfilIATexto: 'x', bloqueFuentes: null, cantidad: 8 }
+  const p = FIA.promptDiagnosticoConocimientos(ctx)
+  assert.ok(p.includes('EXACTAMENTE 8 reactivos de opción múltiple'), 'debe pedir la cantidad exacta')
+  assert.ok(!p.includes('verdadero_falso'), 'ya no debe mezclar verdadero/falso')
 })
 
-caso('normalizarReactivosDiagnostico: nunca deja pasar más del máximo permitido', () => {
-  const muchos = Array.from({ length: 40 }, (_, i) => ({ tipo: 'verdadero_falso', enunciado: `reactivo ${i}`, correcta: 'v' }))
-  const r = FIA.normalizarReactivosDiagnostico(muchos)
-  assert.strictEqual(r.length, FIA.MAX_REACTIVOS_DIAGNOSTICO)
-})
-
-caso('normalizarDiagnosticoConocimientos: sin reactivos aprovechables, la lista queda vacía (no inventa)', () => {
-  const r = FIA.normalizarDiagnosticoConocimientos({ temas: ['Tema 1'], reactivos: [], comoInterpretar: 'x' })
-  assert.deepStrictEqual(r.reactivos, [])
-  assert.deepStrictEqual(r.temas, ['Tema 1'])
+caso('MAX_REACTIVOS_DIAGNOSTICO/MIN_REACTIVOS_DIAGNOSTICO: rango que puede elegir el docente (5 a 20)', () => {
+  assert.strictEqual(FIA.MIN_REACTIVOS_DIAGNOSTICO, 5)
+  assert.strictEqual(FIA.MAX_REACTIVOS_DIAGNOSTICO, 20)
 })
 
 grupo('Planeación Didáctica Inicial — apartado 3 de Asistente IA')
@@ -1267,14 +1263,26 @@ caso('diagnosticoContextoATexto: sin diagnóstico, dice que no hay información 
   assert.strictEqual(FIA.diagnosticoContextoATexto(null), 'Información no disponible en las fuentes proporcionadas.')
 })
 
-caso('diagnosticoConocimientosATexto: solo temas, nunca resultados (el instrumento aún no se aplicó)', () => {
-  const texto = FIA.diagnosticoConocimientosATexto({ temas: ['Fracciones', 'Álgebra básica'] })
-  assert.ok(texto.includes('Fracciones'))
-  assert.ok(texto.includes('aún sin aplicar'), 'debe dejar explícito que no son resultados reales')
+// Corrección de Kike (12-ago-2026): ahora `resultado` es la salida de
+// normalizarAnalisis (OP-10) sobre respuestas REALES del cuestionario de
+// diagnóstico, no un instrumento sin aplicar.
+caso('diagnosticoConocimientosATexto: arma el bloque con resumen, aciertos, patrones y recomendaciones reales', () => {
+  const texto = FIA.diagnosticoConocimientosATexto({
+    resumenGeneral: 'El grupo domina fracciones básicas.',
+    porcentajeAciertosGeneral: 72,
+    patrones: [{ observacion: 'Fallan en operaciones con negativos', interpretacion: 'posible hueco previo' }],
+    reactivosDificiles: [{ enunciado: '¿Cuánto es -3 + 5?' }],
+    recomendaciones: ['Repasar signos antes de continuar'],
+  })
+  assert.ok(texto.includes('El grupo domina fracciones básicas.'))
+  assert.ok(texto.includes('72%'))
+  assert.ok(texto.includes('Fallan en operaciones con negativos'))
+  assert.ok(texto.includes('Repasar signos antes de continuar'))
 })
 
-caso('diagnosticoConocimientosATexto: sin temas, dice que no hay información', () => {
-  assert.strictEqual(FIA.diagnosticoConocimientosATexto({ temas: [] }), 'Información no disponible en las fuentes proporcionadas.')
+caso('diagnosticoConocimientosATexto: sin resultado, dice que no hay información (no inventa)', () => {
+  assert.strictEqual(FIA.diagnosticoConocimientosATexto(null), 'Información no disponible en las fuentes proporcionadas.')
+  assert.strictEqual(FIA.diagnosticoConocimientosATexto({}), 'Información no disponible en las fuentes proporcionadas.')
 })
 
 caso('normalizarFilaPlaneacion: recorta cada campo a su máximo y usa exactamente los 8 campos pedidos', () => {
