@@ -15,14 +15,15 @@
 //     (siguiente bloque de trabajo).
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collection, query, where, onSnapshot, serverTimestamp } from 'firebase/firestore'
-import { addDoc } from '../../utils/firestoreGuard'
+import { collection, query, where, onSnapshot, serverTimestamp, doc } from 'firebase/firestore'
+import { addDoc, deleteDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
+import ConfirmModal from '../ConfirmModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
-import { Sparkles, RotateCcw, ChevronDown, ChevronUp, ClipboardList, ExternalLink } from 'lucide-react'
+import { Sparkles, RotateCcw, ChevronDown, ChevronUp, ClipboardList, ExternalLink, Trash2 } from 'lucide-react'
 
 function ListaTexto({ items, vacioTexto }) {
   if (!items?.length) return <p className="text-xs text-muted italic">{vacioTexto}</p>
@@ -70,6 +71,8 @@ function DiagnosticoContextoBloque({ subjectId, docenteId, asignaturaNombre }) {
   const [confirmando, setConfirmando] = useState(false)
   const [generando, setGenerando] = useState(false)
   const [verHistorial, setVerHistorial] = useState(false)
+  const [borrando, setBorrando] = useState(null) // id de la entrada a confirmar/borrar
+  const [eliminando, setEliminando] = useState(false)
 
   useEffect(() => {
     const q = query(
@@ -118,6 +121,19 @@ function DiagnosticoContextoBloque({ subjectId, docenteId, asignaturaNombre }) {
   const actual = historial[0] || null
   const anteriores = historial.slice(1)
 
+  async function borrarEntrada(id) {
+    setEliminando(true)
+    try {
+      await deleteDoc(doc(db, 'subjects', subjectId, 'diagnosticosIA', id))
+      toast('Diagnóstico eliminado')
+    } catch (err) {
+      toast('No se pudo eliminar: ' + err.message, 'error')
+    } finally {
+      setEliminando(false)
+      setBorrando(null)
+    }
+  }
+
   return (
     <div className="bg-surface-card rounded-card shadow-card p-3">
       <div className="flex items-start justify-between gap-2">
@@ -137,10 +153,21 @@ function DiagnosticoContextoBloque({ subjectId, docenteId, asignaturaNombre }) {
           {!actual ? (
             <p className="text-xs text-muted mb-2">Estado: <span className="font-medium">No generado</span></p>
           ) : (
-            <p className="text-xs text-muted mb-2">
-              Estado: <span className="font-medium text-green-700">Generado</span>
-              {actual.generadoEn?.toDate && ` · ${actual.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
-            </p>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <p className="text-xs text-muted">
+                Estado: <span className="font-medium text-green-700">Generado</span>
+                {actual.generadoEn?.toDate && ` · ${actual.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
+              </p>
+              <button
+                type="button"
+                onClick={() => setBorrando(actual.id)}
+                aria-label="Eliminar este diagnóstico"
+                data-tooltip="Eliminar"
+                className="p-1 text-muted hover:text-red-500 flex-shrink-0"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           )}
 
           <button
@@ -169,9 +196,20 @@ function DiagnosticoContextoBloque({ subjectId, docenteId, asignaturaNombre }) {
                 <div className="mt-2 space-y-3">
                   {anteriores.map((h) => (
                     <div key={h.id} className="opacity-70 border-t border-outline-variant pt-2">
-                      <p className="text-xs text-muted mb-1">
-                        {h.generadoEn?.toDate && h.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
-                      </p>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="text-xs text-muted">
+                          {h.generadoEn?.toDate && h.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setBorrando(h.id)}
+                          aria-label="Eliminar esta generación anterior"
+                          data-tooltip="Eliminar"
+                          className="p-1 text-muted hover:text-red-500 flex-shrink-0"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                       <ResultadoContexto resultado={h.resultado} />
                     </div>
                   ))}
@@ -180,6 +218,19 @@ function DiagnosticoContextoBloque({ subjectId, docenteId, asignaturaNombre }) {
             </div>
           )}
         </div>
+      )}
+
+      {borrando && (
+        <ConfirmModal
+          title="¿Eliminar este diagnóstico?"
+          message="Se borra de inmediato y no se puede deshacer. No afecta tus fuentes ni tu Perfil IA."
+          confirmLabel="Eliminar"
+          confirmingLabel="Eliminando…"
+          danger
+          busy={eliminando}
+          onConfirm={() => borrarEntrada(borrando)}
+          onCancel={() => { if (!eliminando) setBorrando(null) }}
+        />
       )}
 
       {confirmando && (

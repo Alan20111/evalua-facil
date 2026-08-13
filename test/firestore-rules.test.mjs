@@ -1455,8 +1455,13 @@ await assertFails(updateDoc(doc(asT1, 'subjects', 'S1', 'diagnosticosIA', diagCo
 }))
 ok('Diagnóstico IA · NOBODY, not even the owner, can update a diagnóstico entry (immutable snapshot)')
 
-await assertFails(deleteDoc(doc(asT1, 'subjects', 'S1', 'diagnosticosIA', diagContextoRef.id)))
-ok('Diagnóstico IA · NOBODY, not even the owner, can delete a diagnóstico entry')
+// Delete SÍ permitido (12-ago-2026, pedido de Kike): el docente debe poder
+// descartar de inmediato una generación mal hecha de la IA.
+await assertFails(deleteDoc(doc(asT2, 'subjects', 'S1', 'diagnosticosIA', diagContextoRef2.id)))
+ok('Diagnóstico IA · foreign teacher CANNOT delete another teacher\'s diagnóstico entry')
+
+await assertSucceeds(deleteDoc(doc(asT1, 'subjects', 'S1', 'diagnosticosIA', diagContextoRef2.id)))
+ok('Diagnóstico IA · owner teacher CAN delete a diagnóstico entry (discard a bad generation)')
 
 // ── Planeación Didáctica Inicial (apartado 3 de Asistente IA, FASE 2-BIS) ──
 // subjects/{id}/planeacionesIA/{entryId} — misma forma exacta que

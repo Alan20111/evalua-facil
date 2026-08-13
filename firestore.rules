@@ -376,17 +376,25 @@ service cloud.firestore {
       // Diagnóstico del grupo — Asistente IA (FASE 2-BIS del Plan Maestro de
       // IA). Bitácora de generaciones, mismo patrón que activities/analisisIA:
       // append-only (cada "Generar diagnóstico" crea un documento nuevo, la
-      // versión anterior nunca se pisa) e inmutable (sin update ni delete).
-      // A diferencia de analisisIA (cualquier autenticado la lee), esta es
-      // PRIVADA del docente dueño: es contexto pedagógico suyo, no material
-      // del grupo.
+      // versión anterior nunca se pisa) e INMUTABLE en su contenido (sin
+      // update). A diferencia de analisisIA (cualquier autenticado la lee),
+      // esta es PRIVADA del docente dueño: es contexto pedagógico suyo, no
+      // material del grupo.
+      //
+      // SÍ permite delete (12-ago-2026, pedido explícito de Kike): una
+      // generación mal hecha de la IA (p. ej. del reporte simulado que
+      // Tanda 2 reemplaza) el docente debe poder borrarla de inmediato — no
+      // es lo mismo que "editarla" (eso seguiría inventando sobre algo ya
+      // guardado), es simplemente descartarla.
       match /diagnosticosIA/{diagnosticoId} {
         allow read: if request.auth != null &&
           request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
         allow create: if docenteActivo() &&
           request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
           request.resource.data.docenteId == request.auth.uid;
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
       }
 
       // Planeación Didáctica Inicial — Asistente IA (FASE 2-BIS, apartado 3).
