@@ -28,10 +28,12 @@ export function esMismaFuente(file, guardada) {
     && guardada.tipo === extensionDeArchivo(file.name)
 }
 
-// Tope de la BIBLIOTECA de cada grupo (Fuentes para todo el curso, o cada
-// parcial) — decisión de Kike, 12-ago-2026: de 1 a 10 documentos por grupo.
-// Distinto del límite por carga (utils/fuentesIA.js MAX_FUENTES = 3, cuántos
-// archivos se pueden elegir en una sola subida).
+// Tope de la BIBLIOTECA de fuentes generales del curso — decisión de Kike,
+// 12-ago-2026: de 1 a 10 documentos. Distinto del límite por carga
+// (utils/fuentesIA.js MAX_FUENTES = 3, cuántos archivos se pueden elegir en
+// una sola subida). Solo hay un grupo (generales): no hay "fuentes por
+// parcial" aquí — sería redundante con "Material de apoyo" (por parcial,
+// `materials` en Firestore, ver bloqueFuentesPermanentes en functions/ia.js).
 export const MAX_FUENTES_POR_GRUPO = 10
 
 // El apartado "Diagnóstico del grupo" se habilita únicamente cuando existen

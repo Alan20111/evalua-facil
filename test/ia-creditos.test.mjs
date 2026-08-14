@@ -826,19 +826,24 @@ await caso('excluirUrlsPermanentes: entradas vacías no truenan', () => {
   assert.deepStrictEqual(IA.excluirUrlsPermanentes([], []), [])
 })
 
-// ── bloqueFuentesPermanentes — generales + SOLO el parcial correcto (req. 1,2,3,7) ──
+// ── bloqueFuentesPermanentes — generales (fuentesAsignatura) + SOLO el
+// Material de apoyo del parcial correcto (req. 1,2,3,7). Corrección de Kike
+// (13-ago-2026): el bucket "Fuentes del Parcial N" se quitó de Config
+// Asistente IA por ser redundante con "Material de apoyo" (`materials`,
+// por parcial) — bloqueFuentesPermanentes ahora lee de ahí, así que estas
+// pruebas siembran `materials`, no `fuentesAsignatura`, para la parte "parcial".
 await db.doc('subjects/sub_op_ia').set({ docenteId: DOCENTE, nombre: 'Fuentes automáticas', parciales: 3 })
 await db.collection('fuentesAsignatura').add({
   asignaturaId: 'sub_op_ia', docenteId: DOCENTE, nombre: 'general.pdf',
   ubicacion: 'general', parcial: null, url: URL_GENERAL,
 })
-await db.collection('fuentesAsignatura').add({
-  asignaturaId: 'sub_op_ia', docenteId: DOCENTE, nombre: 'parcial1.pdf',
-  ubicacion: 'parcial', parcial: 1, url: URL_PARCIAL_1,
+await db.collection('materials').add({
+  asignaturaId: 'sub_op_ia', docenteId: DOCENTE, nombre: 'Material parcial 1',
+  parcial: 1, archivos: [{ url: URL_PARCIAL_1, nombre: 'parcial1.pdf', tamano: 1024 }],
 })
-await db.collection('fuentesAsignatura').add({
-  asignaturaId: 'sub_op_ia', docenteId: DOCENTE, nombre: 'parcial2.pdf',
-  ubicacion: 'parcial', parcial: 2, url: URL_PARCIAL_2,
+await db.collection('materials').add({
+  asignaturaId: 'sub_op_ia', docenteId: DOCENTE, nombre: 'Material parcial 2',
+  parcial: 2, archivos: [{ url: URL_PARCIAL_2, nombre: 'parcial2.pdf', tamano: 1024 }],
 })
 
 await caso('bloqueFuentesPermanentes(parcial=1): trae la general y la del parcial 1 — NO la del parcial 2', async () => {

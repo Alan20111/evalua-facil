@@ -179,15 +179,26 @@ function DiagnosticoActividadBloque({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setConfirmando(true)}
-            disabled={generando}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
-          >
-            {generando ? <Spinner size="sm" /> : actividades.length ? <RotateCcw size={14} /> : <Sparkles size={14} />}
-            {actividades.length ? 'Generar otro' : 'Generar cuestionario de diagnóstico'}
-          </button>
+          {/* Una vez que el análisis se completa, este diagnóstico queda fijo —
+              decisión de Kike (13-ago-2026): es de una sola vez, al arrancar
+              el curso. No se ofrece "Generar otro" nunca más; si el docente
+              quiere indagar de nuevo más adelante, lo hace con una actividad
+              normal y comparte lo que le sirva en Fuentes, por su cuenta. */}
+          {estadoDiagnostico === 'completado' ? (
+            <p className="text-xs text-green-700">
+              Diagnóstico completado — este es el que usa la Planeación Didáctica Inicial.
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmando(true)}
+              disabled={generando}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
+            >
+              {generando ? <Spinner size="sm" /> : actividades.length ? <RotateCcw size={14} /> : <Sparkles size={14} />}
+              {actividades.length ? 'Generar otro' : 'Generar cuestionario de diagnóstico'}
+            </button>
+          )}
         </div>
       )}
 

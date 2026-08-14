@@ -5,16 +5,17 @@
 // el docente la revisa, puede regenerarla y descargarla — nunca se aplica
 // sola a ningún otro módulo de Evalúa Fácil.
 import { useEffect, useState } from 'react'
-import { collection, onSnapshot, serverTimestamp } from 'firebase/firestore'
-import { addDoc } from '../../utils/firestoreGuard'
+import { collection, doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
+import { addDoc, updateDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
+import ConfirmModal from '../ConfirmModal'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import { descargarPlaneacionExcel } from '../../utils/planeacionExcel'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp } from 'lucide-react'
 
 function millisDe(ts) {
   return ts?.toMillis?.() || 0
@@ -49,9 +50,12 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   const [historial, setHistorial] = useState([])
   const [histLoaded, setHistLoaded] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
+  const [formato, setFormato] = useState('simple')
   const [generando, setGenerando] = useState(false)
   const [descargandoId, setDescargandoId] = useState(null)
   const [verHistorial, setVerHistorial] = useState(false)
+  const [aceptando, setAceptando] = useState(false)
+  const [confirmarAceptar, setConfirmarAceptar] = useState(false)
 
   // El diagnóstico "real" (Tandas 1 y 2) vive en `activities` — no en la
   // vieja `subjects/{id}/diagnosticosIA` (reporte simulado, descartado).
@@ -82,15 +86,16 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   async function generar() {
     setGenerando(true)
     try {
-      const data = await creditosIA.ejecutar('planeacion_didactica_inicial', { subjectId, asignaturaId: subjectId, asignaturaNombre })
+      const data = await creditosIA.ejecutar('planeacion_didactica_inicial', { subjectId, asignaturaId: subjectId, asignaturaNombre, formato })
       setConfirmando(false)
       if (data?.resultado) {
         await addDoc(collection(db, 'subjects', subjectId, 'planeacionesIA'), {
           resultado: data.resultado,
           docenteId,
+          formato,
           generadoEn: serverTimestamp(),
         })
-        toast(data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional)' : 'Planeación generada')
+        toast(data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional)' : 'Planeación generada — revísala y acéptala cuando estés conforme')
       }
     } catch (err) {
       setConfirmando(false)
@@ -102,6 +107,26 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
       else toast(err.message || 'El asistente de IA no está disponible en este momento', 'error')
     } finally {
       setGenerando(false)
+    }
+  }
+
+  // Fija la Planeación PARA SIEMPRE (decisión de Kike, 13-ago-2026): a
+  // partir de aquí ya no se ofrece "Generar de nuevo" — la IA usa esta
+  // versión para todo lo que genere después. Se guarda en `subjects/{id}`
+  // (no en el doc de planeacionesIA, que es una bitácora inmutable/
+  // append-only — ver firestore.rules) para no necesitar tocar esa regla.
+  async function aceptar() {
+    setAceptando(true)
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), {
+        planeacionAceptada: { planeacionId: actual.id, aceptadaEn: serverTimestamp() },
+      })
+      toast('Planeación aceptada — a partir de aquí la usa la IA para todo lo demás')
+    } catch (err) {
+      toast('No se pudo aceptar: ' + err.message, 'error')
+    } finally {
+      setAceptando(false)
+      setConfirmarAceptar(false)
     }
   }
 
@@ -120,6 +145,14 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
 
   const actual = historial[0] || null
   const anteriores = historial.slice(1)
+  // Aceptada = fija para siempre — ya no se ofrece "Generar de nuevo". Se
+  // guarda en subjects/{id}.planeacionAceptada (no en el doc de
+  // planeacionesIA, inmutable/append-only). Si el docente generó otra
+  // versión sin aceptar la anterior, esa aceptación queda "huérfana"
+  // apuntando a un id que ya no es `actual` — se trata como no aceptada,
+  // nunca se hereda a una generación distinta de la que de verdad se aceptó.
+  const aceptada = !!actual && subject?.planeacionAceptada?.planeacionId === actual.id
+  const fechaAceptada = aceptada ? subject.planeacionAceptada.aceptadaEn : null
 
   if (!diagLoaded || !histLoaded) {
     return (
@@ -152,23 +185,32 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
         <>
           {!actual ? (
             <p className="text-xs text-muted mb-2">Estado: <span className="font-medium">No generada</span></p>
+          ) : aceptada ? (
+            <p className="text-xs text-muted mb-2">
+              Estado: <span className="font-medium text-green-700">Aceptada — la usa la IA para todo lo demás</span>
+              {fechaAceptada?.toDate && ` · ${fechaAceptada.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
+            </p>
           ) : (
             <p className="text-xs text-muted mb-2">
-              Estado: <span className="font-medium text-green-700">Generada</span>
+              Estado: <span className="font-medium text-amber-700">Generada, sin aceptar todavía</span>
               {actual.generadoEn?.toDate && ` · ${actual.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
+              . Si no te convence, edita los Comentarios generales del grupo (arriba) y genera de nuevo — solo cuando
+              la aceptes queda fija.
             </p>
           )}
 
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setConfirmando(true)}
-              disabled={generando}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
-            >
-              {generando ? <Spinner size="sm" /> : actual ? <RotateCcw size={14} /> : <Sparkles size={14} />}
-              {actual ? 'Generar de nuevo' : 'Generar planeación'}
-            </button>
+            {!aceptada && (
+              <button
+                type="button"
+                onClick={() => setConfirmando(true)}
+                disabled={generando}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
+              >
+                {generando ? <Spinner size="sm" /> : actual ? <RotateCcw size={14} /> : <Sparkles size={14} />}
+                {actual ? 'Generar de nuevo' : 'Generar planeación'}
+              </button>
+            )}
             {actual && (
               <button
                 type="button"
@@ -178,6 +220,17 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
               >
                 {descargandoId === actual.id ? <Spinner size="sm" /> : <Download size={14} />}
                 Descargar Excel
+              </button>
+            )}
+            {actual && !aceptada && (
+              <button
+                type="button"
+                onClick={() => setConfirmarAceptar(true)}
+                disabled={aceptando}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50 disabled:opacity-60"
+              >
+                {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
+                Aceptar planeación
               </button>
             )}
           </div>
@@ -224,6 +277,52 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
           ejecutando={generando}
           onCancelar={() => { if (!generando) setConfirmando(false) }}
           onContinuar={generar}
+        >
+          <fieldset className="mb-2">
+            <legend className="text-sm text-on-surface mb-1">Formato</legend>
+            <label className="flex items-start gap-2 py-1 cursor-pointer">
+              <input
+                type="radio"
+                name="planeacion-formato"
+                aria-label="Simple"
+                checked={formato === 'simple'}
+                disabled={generando}
+                onChange={() => setFormato('simple')}
+                className="mt-0.5"
+              />
+              <span className="text-sm text-on-surface">
+                <strong>Simple</strong>
+                <span className="block text-xs text-muted">Hasta 8 bloques agrupados por parcial — vista rápida.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 py-1 cursor-pointer">
+              <input
+                type="radio"
+                name="planeacion-formato"
+                aria-label="Completo por tema"
+                checked={formato === 'completo'}
+                disabled={generando}
+                onChange={() => setFormato('completo')}
+                className="mt-0.5"
+              />
+              <span className="text-sm text-on-surface">
+                <strong>Completo por tema</strong>
+                <span className="block text-xs text-muted">Una fila por cada tema real de tus fuentes — más detallado, más filas.</span>
+              </span>
+            </label>
+          </fieldset>
+        </ConfirmacionCreditosModal>
+      )}
+
+      {confirmarAceptar && (
+        <ConfirmModal
+          title="¿Aceptar esta Planeación Didáctica Inicial?"
+          message="A partir de aquí queda fija, con la fecha de hoy, y es la que usará el Asistente IA para todo lo demás. Ya no podrás generar otra versión desde aquí."
+          confirmLabel="Aceptar"
+          confirmingLabel="Aceptando…"
+          busy={aceptando}
+          onConfirm={aceptar}
+          onCancel={() => { if (!aceptando) setConfirmarAceptar(false) }}
         />
       )}
     </div>

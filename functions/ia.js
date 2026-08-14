@@ -30,34 +30,52 @@ const fuentesIA = require('./fuentesIA')
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
-// Fuentes PERMANENTES guardadas en Config Asistente IA de la asignatura
-// (12-ago-2026, decisión de Kike) — se incluyen SIEMPRE en OP-03/04/05/09,
-// sin el tope de 3 (ese tope solo aplica a lo que el docente adjunta a mano
-// en la operación puntual) y sin que el docente tenga que volver a
-// adjuntarlas aquí. Son dos grupos, cada uno con su propio tope de
-// almacenamiento de 10 (MAX_FUENTES_POR_GRUPO en src/utils/fuentesAsignatura.js
-// — ese límite no cambia, esto solo decide qué se manda como contexto):
-//   · TODAS las de ubicacion 'general'.
-//   · Las de ubicacion 'parcial' cuyo número sea EXACTAMENTE el de esta
-//     operación — nunca las de otro parcial.
+// Extensiones que de verdad se pueden leer como texto (mismo criterio que
+// tipoFuentePermitido en src/utils/fuentesAsignatura.js, mas los formatos de
+// Office que también acepta docExtract). "Material de apoyo" no restringe
+// tipo de archivo (puede ser una imagen, un video, un enlace) — filtrar aquí
+// evita gastar una descarga+extracción en algo que nunca iba a servir de
+// contexto de texto; lo que de todos modos no se pueda leer se ignora en
+// silencio más abajo (prepararBloqueFuentesGenerales), así que este filtro
+// es una optimización, no una validación indispensable.
+const EXTENSIONES_LEGIBLES = /\.(pdf|docx?|pptx?|xlsx?)$/i
+
+// Fuentes PERMANENTES que se incluyen SIEMPRE en OP-03/04/05/09, sin el tope
+// de 3 (ese tope solo aplica a lo que el docente adjunta a mano en la
+// operación puntual) y sin que el docente tenga que volver a adjuntarlas
+// aquí. Son dos grupos, con dueños distintos a propósito:
+//   · TODAS las fuentes GENERALES guardadas en Config Asistente IA → Fuentes
+//     (`fuentesAsignatura`, ubicacion:'general' — programa oficial y
+//     documentos del curso completo, PDF/Word únicamente).
+//   · Los archivos de "Material de apoyo" (`materials`, tab Actividades por
+//     parcial) cuyo `parcial` sea EXACTAMENTE el de esta operación — nunca
+//     los de otro parcial. Corrección de Kike (13-ago-2026): antes existía
+//     un segundo bucket "Fuentes del Parcial N" en Config Asistente IA,
+//     duplicado con Material de apoyo (que YA es donde el docente sube
+//     documentos específicos de cada parcial) — se quitó el bucket
+//     duplicado, esta función ahora lee directo de Material de apoyo.
 // Devuelve también las URLs incluidas (para que el llamador pueda excluirlas
 // de lo que el docente adjuntó a mano y no aparezca duplicado en el prompt).
 async function bloqueFuentesPermanentes(db, asignaturaId, parcial) {
   if (!asignaturaId) return { texto: null, urls: [] } // actividad de prueba/legacy — no truena la query
-  const [generalesSnap, parcialSnap] = await Promise.all([
+  const [generalesSnap, materialesSnap] = await Promise.all([
     db.collection('fuentesAsignatura')
       .where('asignaturaId', '==', asignaturaId)
       .where('ubicacion', '==', 'general')
       .get(),
     parcial
-      ? db.collection('fuentesAsignatura')
+      ? db.collection('materials')
         .where('asignaturaId', '==', asignaturaId)
-        .where('ubicacion', '==', 'parcial')
         .where('parcial', '==', parcial)
         .get()
       : Promise.resolve({ docs: [] }),
   ])
-  const urls = [...generalesSnap.docs, ...parcialSnap.docs].map((d) => d.data().url).filter(Boolean)
+  const urlsGenerales = generalesSnap.docs.map((d) => d.data().url).filter(Boolean)
+  const urlsMateriales = materialesSnap.docs
+    .flatMap((d) => Array.isArray(d.data().archivos) ? d.data().archivos : [])
+    .map((a) => a?.url)
+    .filter((url) => url && EXTENSIONES_LEGIBLES.test(url))
+  const urls = [...urlsGenerales, ...urlsMateriales]
   const texto = await fuentesIA.prepararBloqueFuentesGenerales(urls)
   return { texto, urls }
 }
@@ -2226,6 +2244,10 @@ async function ejecutarDiagnosticoConocimientos({ params, modelo, apiKey }) {
 // una sola operación cubre TODOS los parciales reales de la asignatura.
 
 const MAX_FILAS_PLANEACION_PARCIAL = 10
+// Formato 'completo' (13-ago-2026, decisión de Kike): una fila por cada
+// tema real de las fuentes, no agrupado — tope más alto que 'simple' porque
+// un parcial puede traer más temas que bloques agrupados razonables.
+const MAX_FILAS_PLANEACION_PARCIAL_COMPLETO = 25
 
 function formatoPeriodo(fechas) {
   if (!fechas?.inicio || !fechas?.fin) return null
@@ -2406,25 +2428,22 @@ async function precheckPlaneacionInicial({ uid, params }) {
   const comentariosGrupoSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
   const comentariosGrupoTexto = comentariosGrupoATexto(comentariosGrupoSnap.data()?.comentariosGrupo)
 
+  // Formato elegido por el docente (13-ago-2026, decisión de Kike): 'simple'
+  // (bloques agrupados, como antes) o 'completo' (una fila por cada tema real
+  // de las fuentes). Cualquier otro valor cae a 'simple' — no se inventa un
+  // tercer formato ni se truena por un valor inesperado del cliente.
+  const formato = params?.formato === 'completo' ? 'completo' : 'simple'
+
+  // Las fuentes YA NO se agrupan por parcial (se quitó esa sección de la UI
+  // el 13-ago-2026 — Diagnóstico y Planeación son eventos de una sola vez, al
+  // arrancar el curso, antes de que exista ningún parcial cursado; un grupo
+  // de fuentes "por parcial" nunca tuvo sentido ahí). Cada parcial usa el
+  // mismo contexto general (fuentes + diagnósticos) — solo cambia su periodo.
   const numParciales = Math.max(1, Number(subj.parciales) || 1)
   const parcialesFechas = Array.isArray(subj.parcialesFechas) ? subj.parcialesFechas : []
   const parciales = []
   for (let p = 1; p <= numParciales; p++) {
-    const fuentesParcial = fuentes
-      .filter((f) => f.ubicacion === 'parcial' && f.parcial === p)
-      .sort((a, b) => b.creadoEnMillis - a.creadoEnMillis)
-      .slice(0, fuentesIA.MAX_FUENTES)
-    // Sin fuentes propias, el parcial se planea igual (con el contexto
-    // general y los diagnósticos) — no es un requisito, solo enriquece.
-    const bloqueFuentesParcial = fuentesParcial.length
-      ? await fuentesIA.prepararBloqueFuentes(fuentesParcial.map((f) => f.url))
-      : null
-    parciales.push({
-      numero: p,
-      periodoTexto: formatoPeriodo(parcialesFechas[p - 1]),
-      bloqueFuentes: bloqueFuentesParcial,
-      fuentesUsadas: fuentesParcial.map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
-    })
+    parciales.push({ numero: p, periodoTexto: formatoPeriodo(parcialesFechas[p - 1]) })
   }
 
   return {
@@ -2434,6 +2453,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
     bloqueFuentesGenerales,
     diagnosticoContextoTexto: diagnosticoContextoATexto(resultadoContexto),
     diagnosticoConocimientosTexto: diagnosticoConocimientosATexto(resultadoConocimientos),
+    formato,
     parciales,
     fuentesUsadas: {
       generales: seleccionarFuentesGenerales(generales).map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
@@ -2462,6 +2482,19 @@ const PLANEACION_SISTEMA =
   'tiene que reflejarlo, no ignorarlo. Escribe en ' +
   'español, claro y breve. Responde únicamente con el JSON del esquema indicado, sin texto adicional.'
 
+// 'simple' agrupa el trabajo en bloques (como siempre); 'completo' pide una
+// fila POR CADA tema/subtema real que aparezca en las fuentes — mismo
+// esquema de campos en los dos, solo cambia cuántas filas y qué tan
+// desagregado queda cada una (decisión de Kike, 13-ago-2026).
+function instruccionFilasPorFormato(formato) {
+  return formato === 'completo'
+    ? 'Propón UNA FILA POR CADA tema o subtema real que identifiques en las fuentes para ESTE parcial ' +
+      `(hasta ${MAX_FILAS_PLANEACION_PARCIAL_COMPLETO}) — no agrupes varios temas en un solo bloque; si las ` +
+      'fuentes no traen suficiente desglose para un tema, usa la frase exacta "Información no disponible en ' +
+      'las fuentes proporcionadas." en vez de inventar subtemas.'
+    : 'Propón entre 1 y 8 bloques de trabajo para ESTE parcial únicamente (agrupa temas afines en un mismo bloque).'
+}
+
 function promptPlaneacionParcial(ctx, parcialCtx) {
   return (
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n` +
@@ -2472,9 +2505,8 @@ function promptPlaneacionParcial(ctx, parcialCtx) {
     `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` +
     `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` +
     (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
-    (parcialCtx.bloqueFuentes ? `FUENTES ESPECÍFICAS DE ESTE PARCIAL:\n${parcialCtx.bloqueFuentes}\n\n` : '') +
-    'Propón entre 1 y 8 bloques de trabajo para ESTE parcial únicamente. Cada bloque es una fila ' +
-    'con EXACTAMENTE estos campos (ningún campo adicional):\n' +
+    `${instruccionFilasPorFormato(ctx.formato)} Cada fila tiene EXACTAMENTE estos campos (ningún campo ` +
+    'adicional):\n' +
     '- contenidosTemas: los contenidos/temas de este bloque.\n' +
     '- proposito: el propósito o aprendizaje esperado, solo si está respaldado por las fuentes.\n' +
     '- actividades: actividades de aprendizaje.\n' +
@@ -2508,10 +2540,12 @@ function normalizarFilaPlaneacion(r) {
 }
 
 // Una fila sin contenido ni actividades no aporta nada como guía de
-// trabajo — se descarta en vez de dejar una fila vacía en el Excel.
-function normalizarFilasPlaneacion(crudos) {
+// trabajo — se descarta en vez de dejar una fila vacía en el Excel. `max`
+// por omisión es el tope de 'simple' — llamadores de 'completo' pasan
+// MAX_FILAS_PLANEACION_PARCIAL_COMPLETO explícitamente.
+function normalizarFilasPlaneacion(crudos, max = MAX_FILAS_PLANEACION_PARCIAL) {
   return (Array.isArray(crudos) ? crudos : [])
-    .slice(0, MAX_FILAS_PLANEACION_PARCIAL)
+    .slice(0, max)
     .map(normalizarFilaPlaneacion)
     .filter((f) => f.contenidosTemas || f.actividades)
 }
@@ -2529,16 +2563,16 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   // propio bloque de fuentes específicas (§5), así que el contexto real que
   // le corresponde a cada uno es distinto — mismo criterio que los lotes de
   // ejecutarCrearEvaluacion, pero aquí el contexto varía, no solo el tramo.
+  const maxFilas = ctx.formato === 'completo' ? MAX_FILAS_PLANEACION_PARCIAL_COMPLETO : MAX_FILAS_PLANEACION_PARCIAL
   for (const parcialCtx of ctx.parciales) {
     const { datos, interno } = await pedirJSON({
-      client, modelo, maxTokens: 2200, system: PLANEACION_SISTEMA,
+      client, modelo, maxTokens: ctx.formato === 'completo' ? 3600 : 2200, system: PLANEACION_SISTEMA,
       prompt: promptPlaneacionParcial(ctx, parcialCtx),
     })
     parciales.push({
       numero: parcialCtx.numero,
       periodo: parcialCtx.periodoTexto,
-      filas: normalizarFilasPlaneacion(datos?.filas),
-      fuentesUsadas: parcialCtx.fuentesUsadas,
+      filas: normalizarFilasPlaneacion(datos?.filas, maxFilas),
     })
     tokensEntrada += interno.tokensEntrada || 0
     tokensSalida += interno.tokensSalida || 0

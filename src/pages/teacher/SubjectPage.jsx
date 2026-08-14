@@ -5432,7 +5432,6 @@ export default function SubjectPage() {
           <AsistenteIATab
             subjectId={subjectId}
             docenteId={currentUser.uid}
-            parciales={subject?.parciales || 3}
             asignaturaNombre={subject?.nombre || ''}
             subject={subject}
             watermark={exportsWatermarked}

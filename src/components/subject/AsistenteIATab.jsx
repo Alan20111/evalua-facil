@@ -15,11 +15,15 @@ import ComentariosGrupoSection from './ComentariosGrupoSection'
 import DiagnosticoGrupoSection from './DiagnosticoGrupoSection'
 import PlaneacionInicialSection from './PlaneacionInicialSection'
 
-// Un grupo de fuentes (generales o de un parcial): lista + botón para subir
-// hasta MAX_FUENTES a la vez, con un tope de MAX_FUENTES_POR_GRUPO documentos
-// guardados en total en ese grupo (decisión de Kike, 12-ago-2026: 1 a 10). La
-// subida es inmediata al elegir el archivo — no hay un paso de "guardar"
-// aparte, igual que "Recursos".
+// Las fuentes generales del curso: lista + botón para subir hasta
+// MAX_FUENTES a la vez, con un tope de MAX_FUENTES_POR_GRUPO documentos
+// guardados en total (decisión de Kike, 12-ago-2026: 1 a 10). La subida es
+// inmediata al elegir el archivo — no hay un paso de "guardar" aparte,
+// igual que "Recursos". No hay grupo "por parcial" aquí (13-ago-2026,
+// corregido el mismo día): sería redundante con "Material de apoyo" (tab
+// Actividades → por parcial, `materials` en Firestore), que ya es donde el
+// docente sube documentos específicos de cada parcial — la IA lee de ahí
+// (ver bloqueFuentesPermanentes en functions/ia.js), sin duplicar el lugar.
 function GrupoFuentes({ titulo, fuentes, onAgregar, onEliminar, subiendo, eliminandoId }) {
   return (
     <div className="bg-surface-card rounded-card shadow-card p-3">
@@ -75,11 +79,11 @@ function GrupoFuentes({ titulo, fuentes, onAgregar, onEliminar, subiendo, elimin
   )
 }
 
-export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, asignaturaNombre = '', subject = null, watermark = false, existingActivitiesCountP1 = 0 }) {
+export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre = '', subject = null, watermark = false, existingActivitiesCountP1 = 0 }) {
   const toast = useToast()
   const [fuentes, setFuentes] = useState([])
   const [loaded, setLoaded] = useState(false)
-  const [subiendoGrupo, setSubiendoGrupo] = useState(null) // 'general' | numero de parcial | null
+  const [subiendo, setSubiendo] = useState(false)
   const [eliminandoId, setEliminandoId] = useState(null)
 
   useEffect(() => {
@@ -107,7 +111,7 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
     return unsub
   }, [subjectId, docenteId])
 
-  async function agregarFuentes(grupo, ubicacion, parcial, files) {
+  async function agregarFuentes(files) {
     // El límite de MAX_FUENTES es POR CARGA (ver utils/fuentesIA.js) — aparte
     // está el tope de la BIBLIOTECA del grupo, MAX_FUENTES_POR_GRUPO (1 a 10
     // documentos guardados en total, decisión de Kike 12-ago-2026).
@@ -115,9 +119,7 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
       toast(`Puedes subir máximo ${MAX_FUENTES} archivos por carga`, 'error')
       return
     }
-    const existentesEnGrupo = ubicacion === 'general'
-      ? fuentes.filter((f) => f.ubicacion === 'general').length
-      : fuentes.filter((f) => f.ubicacion === 'parcial' && f.parcial === parcial).length
+    const existentesEnGrupo = fuentes.filter((f) => f.ubicacion === 'general').length
     if (existentesEnGrupo + files.length > MAX_FUENTES_POR_GRUPO) {
       toast(`Este grupo admite máximo ${MAX_FUENTES_POR_GRUPO} documentos en total (ya tiene ${existentesEnGrupo})`, 'error')
       return
@@ -133,7 +135,7 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
       return
     }
 
-    setSubiendoGrupo(grupo)
+    setSubiendo(true)
     try {
       const subidas = await subirFuentes(files)
       await Promise.all(subidas.map((s) =>
@@ -142,8 +144,8 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
           docenteId,
           nombre: s.nombre,
           tipo: extensionDeArchivo(s.nombre),
-          ubicacion,
-          parcial: ubicacion === 'parcial' ? parcial : null,
+          ubicacion: 'general',
+          parcial: null,
           url: s.url,
           tamano: s.tamano,
           creadoEn: serverTimestamp(),
@@ -153,7 +155,7 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
     } catch (err) {
       toast('No se pudieron subir las fuentes: ' + err.message, 'error')
     } finally {
-      setSubiendoGrupo(null)
+      setSubiendo(false)
     }
   }
 
@@ -181,7 +183,6 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
   }
 
   const generales = fuentes.filter((f) => f.ubicacion === 'general')
-  const numerosParciales = Array.from({ length: parciales || 3 }, (_, i) => i + 1)
 
   if (!loaded) {
     return (
@@ -207,23 +208,11 @@ export default function AsistenteIATab({ subjectId, docenteId, parciales = 3, as
       <GrupoFuentes
         titulo="Fuentes para todo el curso"
         fuentes={generales}
-        subiendo={subiendoGrupo === 'general'}
+        subiendo={subiendo}
         eliminandoId={eliminandoId}
-        onAgregar={(files) => agregarFuentes('general', 'general', null, files)}
+        onAgregar={agregarFuentes}
         onEliminar={eliminarFuente}
       />
-
-      {numerosParciales.map((p) => (
-        <GrupoFuentes
-          key={p}
-          titulo={`Fuentes del Parcial ${p}`}
-          fuentes={fuentes.filter((f) => f.ubicacion === 'parcial' && f.parcial === p)}
-          subiendo={subiendoGrupo === p}
-          eliminandoId={eliminandoId}
-          onAgregar={(files) => agregarFuentes(p, 'parcial', p, files)}
-          onEliminar={eliminarFuente}
-        />
-      ))}
 
       <div className="pt-2 border-t border-outline-variant">
         <ComentariosGrupoSection subjectId={subjectId} docenteId={docenteId} />
