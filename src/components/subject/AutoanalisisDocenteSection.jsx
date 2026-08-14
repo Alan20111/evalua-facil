@@ -11,6 +11,7 @@ import { setDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 
 const VACIO = {
   temasDomina: '',
@@ -46,6 +47,11 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
   const [guardado, setGuardado] = useState(VACIO)
   const [loaded, setLoaded] = useState(false)
   const [guardando, setGuardando] = useState(false)
+  // Colapsada por omisión (es opcional, no se le pone al frente al docente
+  // sin querer) — pero si ya tenía respuestas guardadas de antes, se abre
+  // sola la primera vez que cargan, para que no piense que se perdieron.
+  const [abierta, setAbierta] = useState(false)
+  const [seAbrioSola, setSeAbrioSola] = useState(false)
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), (snap) => {
@@ -53,8 +59,13 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
       setRespuestas(datos)
       setGuardado(datos)
       setLoaded(true)
+      if (!seAbrioSola && !sonIguales(datos, VACIO)) {
+        setAbierta(true)
+        setSeAbrioSola(true)
+      }
     }, () => setLoaded(true))
     return unsub
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seAbrioSola es un candado de una sola vez, no debe reiniciar la suscripción
   }, [subjectId])
 
   async function guardar() {
@@ -86,36 +97,55 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
 
   return (
     <div className="bg-surface-card rounded-card shadow-card p-3">
-      <h2 className="font-bold text-on-surface">Autoanálisis Docente (opcional)</h2>
-      <p className="text-sm text-muted mt-0.5 mb-2">
-        Contesta lo que quieras — nada aquí es obligatorio. Tus respuestas se toman en cuenta al
-        generar la Planeación Didáctica Inicial.
-      </p>
-      <div className="space-y-3">
-        {PREGUNTAS.map(({ campo, texto, placeholder }) => (
-          <div key={campo}>
-            <label htmlFor={`autoanalisis-${campo}`} className="block text-sm text-on-surface mb-1">{texto}</label>
-            <textarea
-              id={`autoanalisis-${campo}`}
-              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
-              rows={2}
-              placeholder={placeholder}
-              value={respuestas[campo]}
-              onChange={(e) => setRespuestas((prev) => ({ ...prev, [campo]: e.target.value }))}
-              maxLength={MAX_LARGO}
-            />
-          </div>
-        ))}
-      </div>
       <button
         type="button"
-        onClick={guardar}
-        disabled={guardando || sonIguales(respuestas, guardado)}
-        className="mt-3 px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-2"
+        onClick={() => setAbierta((v) => !v)}
+        className="w-full flex items-center justify-between gap-2 text-left"
       >
-        {guardando && <Spinner size="sm" />}
-        {guardando ? 'Guardando…' : 'Guardar'}
+        <div>
+          <h2 className="font-bold text-on-surface">Autoanálisis Docente (opcional)</h2>
+          {!abierta && (
+            <p className="text-sm text-muted mt-0.5">
+              Contesta lo que quieras — se toma en cuenta al generar la Planeación Didáctica Inicial.
+            </p>
+          )}
+        </div>
+        {abierta ? <ChevronUp size={18} className="text-muted flex-shrink-0" /> : <ChevronDown size={18} className="text-muted flex-shrink-0" />}
       </button>
+
+      {abierta && (
+        <>
+          <p className="text-sm text-muted mt-0.5 mb-2">
+            Contesta lo que quieras — nada aquí es obligatorio. Tus respuestas se toman en cuenta al
+            generar la Planeación Didáctica Inicial.
+          </p>
+          <div className="space-y-3">
+            {PREGUNTAS.map(({ campo, texto, placeholder }) => (
+              <div key={campo}>
+                <label htmlFor={`autoanalisis-${campo}`} className="block text-sm text-on-surface mb-1">{texto}</label>
+                <textarea
+                  id={`autoanalisis-${campo}`}
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
+                  rows={2}
+                  placeholder={placeholder}
+                  value={respuestas[campo]}
+                  onChange={(e) => setRespuestas((prev) => ({ ...prev, [campo]: e.target.value }))}
+                  maxLength={MAX_LARGO}
+                />
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={guardar}
+            disabled={guardando || sonIguales(respuestas, guardado)}
+            className="mt-3 px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-2"
+          >
+            {guardando && <Spinner size="sm" />}
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </button>
+        </>
+      )}
     </div>
   )
 }
