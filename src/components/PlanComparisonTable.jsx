@@ -48,6 +48,19 @@ function CeldaNo() {
   return <td className="px-1.5 py-2 text-center text-slate-300">—</td>
 }
 
+// Dos palomitas: acento visual de "más capacidad" para Asistente IA Pro —
+// la función es la MISMA que en Asistente IA (calificar y analizar con IA),
+// no hay una segunda función exclusiva; el "más" real ya está en los
+// créditos (1,750 vs 350). Confirmado con Kike, 13-ago-2026.
+function CeldaSiDoble() {
+  return (
+    <td className="px-1.5 py-2 text-center whitespace-nowrap">
+      <Check size={15} className="inline-block text-accent" aria-label="Sí" />
+      <Check size={15} className="inline-block text-accent -ml-1.5" aria-hidden="true" />
+    </td>
+  )
+}
+
 // Distinto de CeldaNo: aquí la pregunta SÍ aplica al plan (paga, pero no
 // tiene descuento) — "No" es una respuesta, no "no aplica". El guion queda
 // reservado para cuando el plan Gratuito ni siquiera participa de la fila
@@ -113,6 +126,16 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
             <CeldaNo />
             <CeldaSi />
             {mostrarMayor && <CeldaSi />}
+          </tr>
+          {/* Calificar respuestas abiertas y analizar resultados con IA
+              (C-02/OP-10) — no está en Gratuito. Igual en ambos planes
+              pagados; la doble palomita en Pro es solo acento visual (ver
+              CeldaSiDoble), el "más" real ya está en los créditos. */}
+          <tr className="border-b border-outline-variant">
+            <td className="px-1.5 py-2 font-medium text-muted">Evaluación con apoyo de IA</td>
+            <CeldaNo />
+            <CeldaSi />
+            {mostrarMayor && <CeldaSiDoble />}
           </tr>
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Pago de varios meses</td>
