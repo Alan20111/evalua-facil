@@ -39,9 +39,9 @@ const statePaths = statesGeo.features.map((f) => ({
   d: geomToPath(f.geometry),
 }))
 
-// Centroide (en lng/lat) del polígono más grande de cada estado, para poner
-// ahí el nombre — con islas o exclaves (BCS, Q. Roo) el polígono chico no
-// debe jalar la etiqueta fuera del cuerpo principal del estado.
+// Centroide (en lng/lat) del polígono más grande de una geometría, para
+// poner ahí una etiqueta — con islas o exclaves el polígono chico no debe
+// jalar la etiqueta fuera del cuerpo principal.
 function ringCentroid(ring) {
   let a = 0, cx = 0, cy = 0
   for (let i = 0; i < ring.length - 1; i++) {
@@ -75,20 +75,29 @@ const stateLabels = statesGeo.features.map((f) => ({
   pos: proj(geomCentroidLngLat(f.geometry)),
 }))
 
-// `cityShapes`: clave "estado|municipio" (la misma que usan los marcadores)
-// -> mancha urbana real (contorno del municipio, como aproximación de la
-// zona urbana — INEGI vía angelnmara/geojson), solo para las ~70 ciudades
-// más grandes. El resto de los marcadores se dibuja como círculo.
-const cityShapePaths = Object.fromEntries(
-  Object.entries(cityShapes).map(([clave, geom]) => [
-    clave,
-    { d: geomToPath(geom), centro: proj(geomCentroidLngLat(geom)) },
-  ])
-)
+// `cityShapes`: clave "estado|municipio" -> mancha urbana real (contorno del
+// municipio, aproximación de la zona urbana — INEGI vía angelnmara/geojson),
+// con población aproximada (Censo 2020) y rango de código postal (catálogo
+// propio). Es una capa de referencia FIJA: las ~70 ciudades más grandes se
+// ven siempre, tengan o no datos de venta todavía.
+function cpTexto(info) {
+  if (!info.cpMin) return null
+  return info.cpMin === info.cpMax ? info.cpMin : `${info.cpMin}–${info.cpMax}`
+}
+
+const CIUDADES = Object.entries(cityShapes).map(([clave, info]) => ({
+  clave,
+  municipio: clave.split('|')[1],
+  d: geomToPath(info),
+  centro: proj(geomCentroidLngLat(info)),
+  poblacion: info.poblacion,
+  cp: cpTexto(info),
+}))
 
 // Escala de azules por intensidad — mismo azul que el resto de la UI de
 // docente/admin (ver CLAUDE.md: blue only, nunca índigo).
 const ESCALA = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']
+const SIN_DATOS = '#dbeafe'
 
 // Bandas absolutas, no relativas al máximo del set actual — con pocos datos
 // (o uno solo, como en pruebas) "relativo al máximo" hace que ese único
@@ -96,7 +105,7 @@ const ESCALA = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']
 // si es 1 docente o 100. Los cortes son para conteo de docentes por ciudad;
 // generosos a propósito (la mayoría de las ciudades tiene pocos).
 function colorPara(valor) {
-  if (!valor) return ESCALA[0]
+  if (!valor) return SIN_DATOS
   if (valor <= 2) return ESCALA[0]
   if (valor <= 5) return ESCALA[1]
   if (valor <= 15) return ESCALA[2]
@@ -116,41 +125,64 @@ function radioPara(valor) {
 const MIN_ZOOM = 1
 const MAX_ZOOM = 10
 
-// `marcadores`: [{ clave, lat, lng, valor, etiqueta, aprox }]
+function formatoPoblacion(n) {
+  if (!n) return null
+  return n.toLocaleString('es-MX')
+}
+
+// El punto p de la vista mapea a scale*p + (x,y) — no a un rango simétrico
+// alrededor de 0. Para poder ver cualquier borde del contenido (incluido el
+// de abajo) el rango válido es [VIEW - VIEW*scale - margen, margen], no
+// ±algo fijo.
+function clampView(v) {
+  const scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.scale))
+  const margen = 40
+  const minX = VIEW_W - VIEW_W * scale - margen
+  const minY = VIEW_H - VIEW_H * scale - margen
+  return {
+    scale,
+    x: Math.min(margen, Math.max(minX, v.x)),
+    y: Math.min(margen, Math.max(minY, v.y)),
+  }
+}
+
+function transformDe(v) {
+  return `translate(${v.x} ${v.y}) scale(${v.scale}) translate(${VIEW_W / 2} ${VIEW_H / 2}) translate(${-VIEW_W / 2} ${-VIEW_H / 2})`
+}
+
+// `marcadores`: [{ clave, lat, lng, valor, etiqueta, aprox }] — solo ciudades
+// CON datos de venta, para las que no tienen mancha urbana cargada (pueblos
+// chicos): esas se ven como círculo, solo si hay datos.
 export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
   const [hover, setHover] = useState(null)
   const [view, setView] = useState({ scale: 1, x: 0, y: 0 })
   const dragRef = useRef(null)
   const svgRef = useRef(null)
+  const gRef = useRef(null)
+  const viewRef = useRef(view)
+  viewRef.current = view
 
-  const max = useMemo(() => Math.max(0, ...marcadores.map((m) => m.valor)), [marcadores])
+  const marcadorPorClave = useMemo(() => Object.fromEntries(marcadores.map((m) => [m.clave, m])), [marcadores])
+  // Círculos solo para marcadores con datos que NO tienen mancha urbana
+  // cargada (pueblos chicos) — las ciudades grandes ya están en CIUDADES.
+  const circulos = useMemo(() => marcadores.filter((m) => !cityShapes[m.clave]), [marcadores])
 
-  // Nombre visible solo en las ciudades más grandes — con todas encimadas se
-  // vuelve ilegible, así que se etiquetan las que más pesan (top 12) más
-  // cualquier otra que, aun sin ser top, tenga un valor comparable (dentro
-  // del 60% del máximo) para no dejar fuera algo casi tan grande como el 12.
-  const etiquetadas = useMemo(() => {
-    if (marcadores.length <= 12) return new Set(marcadores.map((m) => m.clave))
-    const ordenados = [...marcadores].sort((a, b) => b.valor - a.valor)
-    const umbral = Math.min(ordenados[11].valor, max * 0.6)
-    return new Set(marcadores.filter((m) => m.valor >= umbral).map((m) => m.clave))
-  }, [marcadores, max])
+  // Nombre visible en las ciudades grandes (capa fija) siempre, más los
+  // círculos de pueblos chicos que más pesan (top 12) para no dejar la
+  // pantalla ilegible si hay muchos.
+  const circulosEtiquetados = useMemo(() => {
+    if (circulos.length <= 12) return new Set(circulos.map((m) => m.clave))
+    const ordenados = [...circulos].sort((a, b) => b.valor - a.valor)
+    const umbral = ordenados[11].valor
+    return new Set(circulos.filter((m) => m.valor >= umbral).map((m) => m.clave))
+  }, [circulos])
 
-  // El punto p de la vista mapea a scale*p + (x,y) — no a un rango simétrico
-  // alrededor de 0. Para poder ver cualquier borde del contenido (incluido
-  // el de abajo) el rango válido es [VIEW - VIEW*scale - margen, margen],
-  // no ±algo fijo: ese ± era el bug que impedía ver la parte de abajo del
-  // mapa al hacer zoom desde el centro.
-  const clampView = (v) => {
-    const scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.scale))
-    const margen = 40
-    const minX = VIEW_W - VIEW_W * scale - margen
-    const minY = VIEW_H - VIEW_H * scale - margen
-    return {
-      scale,
-      x: Math.min(margen, Math.max(minX, v.x)),
-      y: Math.min(margen, Math.max(minY, v.y)),
-    }
+  // Durante el arrastre se mueve el <g> directamente en el DOM (sin pasar
+  // por React) para que no dependa de un re-render por cada pixel movido —
+  // con ~140 paths (32 estados + 69 manchas urbanas) hacerlo vía setState
+  // se sentía trabado. El estado de React solo se actualiza al soltar.
+  const aplicarTransformDom = (v) => {
+    if (gRef.current) gRef.current.setAttribute('transform', transformDe(v))
   }
 
   const zoomBy = (factor, center) => {
@@ -175,7 +207,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
 
   const handlePointerDown = (e) => {
     e.preventDefault()
-    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: view.x, origY: view.y }
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: view.x, origY: view.y, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
 
@@ -185,14 +217,21 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
     const rect = svgRef.current.getBoundingClientRect()
     const dx = ((e.clientX - startX) / rect.width) * VIEW_W
     const dy = ((e.clientY - startY) / rect.height) * VIEW_H
-    setView((prev) => clampView({ ...prev, x: origX + dx, y: origY + dy }))
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) dragRef.current.moved = true
+    const next = clampView({ ...viewRef.current, x: origX + dx, y: origY + dy })
+    viewRef.current = next
+    aplicarTransformDom(next)
   }
 
   const handlePointerUp = () => {
+    if (!dragRef.current) return
     dragRef.current = null
+    setView(viewRef.current)
   }
 
   const reset = () => setView({ scale: 1, x: 0, y: 0 })
+
+  const escalaTexto = 1 / view.scale
 
   return (
     <div className="space-y-2">
@@ -210,9 +249,9 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
         >
-          <g transform={`translate(${view.x} ${view.y}) scale(${view.scale}) translate(${VIEW_W / 2} ${VIEW_H / 2}) translate(${-VIEW_W / 2} ${-VIEW_H / 2})`}>
+          <g ref={gRef} transform={transformDe(view)}>
             {statePaths.map((s) => (
-              <path key={s.nombre} d={s.d} fill="#dbeafe" stroke="#fff" strokeWidth={1 / view.scale} />
+              <path key={s.nombre} d={s.d} fill="#eff6ff" stroke="#fff" strokeWidth={1 / view.scale} />
             ))}
             {stateLabels.map((s) => (
               <text
@@ -220,54 +259,73 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
                 x={s.pos[0]}
                 y={s.pos[1]}
                 textAnchor="middle"
-                fontSize={11 / view.scale}
-                fill="#64748b"
+                fontSize={11 * escalaTexto}
+                fill="#94a3b8"
                 className="pointer-events-none select-none"
                 style={{ fontWeight: 500 }}
               >
                 {s.nombre}
               </text>
             ))}
-            {marcadores.map((m) => {
-              const shape = cityShapePaths[m.clave]
-              const [x, y] = shape ? shape.centro : proj([m.lng, m.lat])
-              const r = radioPara(m.valor) / Math.sqrt(view.scale)
+
+            {/* Capa fija: las ciudades grandes se ven siempre, tengan o no venta */}
+            {CIUDADES.map((c) => {
+              const m = marcadorPorClave[c.clave]
+              const valor = m?.valor || 0
+              return (
+                <g key={c.clave}>
+                  <path
+                    d={c.d}
+                    fill={colorPara(valor)}
+                    fillOpacity={m?.aprox ? 0.6 : 0.9}
+                    stroke="#1e3a8a"
+                    strokeWidth={(valor ? 1 : 0.6) / view.scale}
+                    className="cursor-pointer transition-opacity hover:opacity-100"
+                    onMouseEnter={() => setHover({ ...c, valor })}
+                    onMouseLeave={() => setHover(null)}
+                  />
+                  <text
+                    x={c.centro[0]}
+                    y={c.centro[1] - 6 * escalaTexto}
+                    textAnchor="middle"
+                    fontSize={11 * escalaTexto}
+                    fill="#1e3a8a"
+                    className="pointer-events-none select-none"
+                    style={{ fontWeight: 600, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 * escalaTexto }}
+                  >
+                    {c.municipio}
+                  </text>
+                </g>
+              )
+            })}
+
+            {/* Círculos: solo pueblos chicos con datos de venta (sin mancha urbana) */}
+            {circulos.map((m) => {
+              const [x, y] = proj([m.lng, m.lat])
+              const r = radioPara(m.valor) * escalaTexto
               return (
                 <g key={m.clave}>
-                  {shape ? (
-                    <path
-                      d={shape.d}
-                      fill={colorPara(m.valor)}
-                      fillOpacity={m.aprox ? 0.55 : 0.85}
-                      stroke="#1e3a8a"
-                      strokeWidth={1 / view.scale}
-                      className="cursor-pointer transition-opacity hover:opacity-100"
-                      onMouseEnter={() => setHover(m)}
-                      onMouseLeave={() => setHover(null)}
-                    />
-                  ) : (
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r={r}
-                      fill={colorPara(m.valor)}
-                      fillOpacity={m.aprox ? 0.55 : 0.85}
-                      stroke="#1e3a8a"
-                      strokeWidth={1 / view.scale}
-                      className="cursor-pointer transition-opacity hover:opacity-100"
-                      onMouseEnter={() => setHover(m)}
-                      onMouseLeave={() => setHover(null)}
-                    />
-                  )}
-                  {etiquetadas.has(m.clave) && (
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={r}
+                    fill={colorPara(m.valor)}
+                    fillOpacity={m.aprox ? 0.6 : 0.9}
+                    stroke="#1e3a8a"
+                    strokeWidth={1 / view.scale}
+                    className="cursor-pointer transition-opacity hover:opacity-100"
+                    onMouseEnter={() => setHover(m)}
+                    onMouseLeave={() => setHover(null)}
+                  />
+                  {circulosEtiquetados.has(m.clave) && (
                     <text
                       x={x}
-                      y={y - (shape ? 6 : r) - 3 / view.scale}
+                      y={y - r - 3 * escalaTexto}
                       textAnchor="middle"
-                      fontSize={12 / view.scale}
+                      fontSize={11 * escalaTexto}
                       fill="#1e3a8a"
                       className="pointer-events-none select-none"
-                      style={{ fontWeight: 700, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 / view.scale }}
+                      style={{ fontWeight: 700, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 * escalaTexto }}
                     >
                       {m.etiqueta}
                     </text>
@@ -279,9 +337,13 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
         </svg>
 
         {hover && (
-          <div className="absolute top-3 left-3 bg-surface-card shadow-card rounded-card px-3 py-1.5 text-sm pointer-events-none max-w-[220px]">
-            <p className="font-semibold text-on-surface">{hover.etiqueta}</p>
-            <p className="text-muted">{hover.valor} {etiqueta}</p>
+          <div className="absolute top-3 left-3 bg-surface-card shadow-card rounded-card px-3 py-1.5 text-sm pointer-events-none max-w-[240px]">
+            <p className="font-semibold text-on-surface">{hover.municipio || hover.etiqueta}</p>
+            <p className="text-muted">{hover.valor || 0} {etiqueta}</p>
+            {hover.poblacion != null && (
+              <p className="text-muted">{formatoPoblacion(hover.poblacion)} habitantes</p>
+            )}
+            {hover.cp && <p className="text-muted">CP {hover.cp}</p>}
             {hover.aprox && <p className="text-xs text-muted italic">ubicación aproximada (estado)</p>}
           </div>
         )}
@@ -316,6 +378,10 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
 
       <div className="flex items-center gap-3 flex-wrap text-xs text-muted">
         <span>Intensidad ({etiqueta}):</span>
+        <span className="flex items-center gap-1">
+          <span className="w-3 h-3 rounded-sm inline-block" style={{ background: SIN_DATOS }} />
+          Sin datos
+        </span>
         {['1-2', '3-5', '6-15', '16-40', '40+'].map((rango, i) => (
           <span key={rango} className="flex items-center gap-1">
             <span className="w-3 h-3 rounded-full inline-block" style={{ background: ESCALA[i] }} />
