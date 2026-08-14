@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import statesGeo from '../../data/mexicoStatesGeo.json'
+import cityShapes from '../../data/cityShapes.json'
 
 // Proyección equirectangular simple — suficiente para un mapa de referencia
 // (no es para medir distancias, solo para ubicar marcadores). Bounding box
@@ -74,6 +75,17 @@ const stateLabels = statesGeo.features.map((f) => ({
   pos: proj(geomCentroidLngLat(f.geometry)),
 }))
 
+// `cityShapes`: clave "estado|municipio" (la misma que usan los marcadores)
+// -> mancha urbana real (contorno del municipio, como aproximación de la
+// zona urbana — INEGI vía angelnmara/geojson), solo para las ~70 ciudades
+// más grandes. El resto de los marcadores se dibuja como círculo.
+const cityShapePaths = Object.fromEntries(
+  Object.entries(cityShapes).map(([clave, geom]) => [
+    clave,
+    { d: geomToPath(geom), centro: proj(geomCentroidLngLat(geom)) },
+  ])
+)
+
 // Escala de azules por intensidad — mismo azul que el resto de la UI de
 // docente/admin (ver CLAUDE.md: blue only, nunca índigo).
 const ESCALA = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']
@@ -88,10 +100,13 @@ function colorPara(valor, max) {
   return ESCALA[4]
 }
 
+// Proporcional de verdad: el área del círculo (no el radio) es lo que el
+// ojo compara, así que el radio va con la raíz del valor — si fuera lineal
+// en radio, un marcador con el doble de ventas se vería con 4x el área.
 function radioPara(valor, max) {
-  if (!valor || max <= 0) return 4
+  if (!valor || max <= 0) return 3
   const ratio = Math.sqrt(valor / max)
-  return 4 + ratio * 14
+  return 3 + ratio * 9
 }
 
 const MIN_ZOOM = 1
@@ -210,26 +225,40 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
               </text>
             ))}
             {marcadores.map((m) => {
-              const [x, y] = proj([m.lng, m.lat])
+              const shape = cityShapePaths[m.clave]
+              const [x, y] = shape ? shape.centro : proj([m.lng, m.lat])
               const r = radioPara(m.valor, max) / Math.sqrt(view.scale)
               return (
                 <g key={m.clave}>
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={r}
-                    fill={colorPara(m.valor, max)}
-                    fillOpacity={m.aprox ? 0.55 : 0.85}
-                    stroke="#1e3a8a"
-                    strokeWidth={1 / view.scale}
-                    className="cursor-pointer transition-opacity hover:opacity-100"
-                    onMouseEnter={() => setHover(m)}
-                    onMouseLeave={() => setHover(null)}
-                  />
+                  {shape ? (
+                    <path
+                      d={shape.d}
+                      fill={colorPara(m.valor, max)}
+                      fillOpacity={m.aprox ? 0.55 : 0.85}
+                      stroke="#1e3a8a"
+                      strokeWidth={1 / view.scale}
+                      className="cursor-pointer transition-opacity hover:opacity-100"
+                      onMouseEnter={() => setHover(m)}
+                      onMouseLeave={() => setHover(null)}
+                    />
+                  ) : (
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r={r}
+                      fill={colorPara(m.valor, max)}
+                      fillOpacity={m.aprox ? 0.55 : 0.85}
+                      stroke="#1e3a8a"
+                      strokeWidth={1 / view.scale}
+                      className="cursor-pointer transition-opacity hover:opacity-100"
+                      onMouseEnter={() => setHover(m)}
+                      onMouseLeave={() => setHover(null)}
+                    />
+                  )}
                   {etiquetadas.has(m.clave) && (
                     <text
                       x={x}
-                      y={y - r - 3 / view.scale}
+                      y={y - (shape ? 6 : r) - 3 / view.scale}
                       textAnchor="middle"
                       fontSize={12 / view.scale}
                       fill="#1e3a8a"
