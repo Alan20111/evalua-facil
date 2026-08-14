@@ -1903,7 +1903,7 @@ function autoanalisisDocenteATexto(autoanalisis) {
     ['temasFortalecer', '¿Qué temas considera que necesita fortalecer?'],
     ['temasFacilExplicar', '¿Qué temas se le facilitan más para explicar?'],
     ['temasDificilExplicar', '¿Qué temas se le dificultan más para explicar?'],
-    ['aspectoMejorar', '¿Qué aspecto de su forma de enseñar le gustaría mejorar?'],
+    ['aspectoMejorar', '¿Qué quiere agregar el docente que sea relevante para que la planeación pueda ser realmente utilizada durante este curso?'],
   ]
   const partes = preguntas
     .map(([campo, pregunta]) => {
