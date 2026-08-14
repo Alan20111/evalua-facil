@@ -195,7 +195,7 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
 
   return (
     <div className="space-y-4">
-      <div>
+      <div className="bg-surface-card rounded-card shadow-card p-3">
         <h2 className="font-bold text-on-surface">Fuentes</h2>
         <p className="text-sm text-muted mt-0.5">
           Sube el programa y materiales de la asignatura — se reutilizan en todas las funciones de IA.
