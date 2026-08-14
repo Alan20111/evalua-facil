@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import statesGeo from '../../data/mexicoStatesGeo.json'
 import cityShapes from '../../data/cityShapes.json'
@@ -85,11 +85,6 @@ function cpTexto(info) {
   return info.cpMin === info.cpMax ? info.cpMin : `${info.cpMin}–${info.cpMax}`
 }
 
-// El contorno del municipio (mancha urbana) NO es buen indicador de tamaño:
-// un municipio puede tener mucho territorio rural (Saltillo) y verse más
-// grande que uno compacto y denso con más población (Monterrey). Por eso el
-// tamaño en pantalla usa población real — el contorno queda solo como
-// referencia geográfica de fondo, muy tenue.
 const CIUDADES = Object.entries(cityShapes).map(([clave, info]) => ({
   clave,
   municipio: clave.split('|')[1],
@@ -98,11 +93,6 @@ const CIUDADES = Object.entries(cityShapes).map(([clave, info]) => ({
   poblacion: info.poblacion,
   cp: cpTexto(info),
 }))
-
-function radioCiudad(poblacion) {
-  if (!poblacion) return 6
-  return Math.min(24, 4 + Math.sqrt(poblacion) / 100)
-}
 
 // Escala de azules por intensidad — mismo azul que el resto de la UI de
 // docente/admin (ver CLAUDE.md: blue only, nunca índigo).
@@ -207,13 +197,23 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
     })
   }
 
-  const handleWheel = (e) => {
-    e.preventDefault()
-    const rect = svgRef.current.getBoundingClientRect()
-    const cx = ((e.clientX - rect.left) / rect.width) * VIEW_W
-    const cy = ((e.clientY - rect.top) / rect.height) * VIEW_H
-    zoomBy(e.deltaY < 0 ? 1.2 : 1 / 1.2, { x: cx, y: cy })
-  }
+  // React trata onWheel como listener "passive" por default, así que
+  // e.preventDefault() ahí no bloquea el scroll/zoom nativo del navegador
+  // (por eso la rueda del mouse hacía zoom de toda la página en vez de solo
+  // el mapa). Hace falta un listener nativo con passive:false.
+  useEffect(() => {
+    const el = svgRef.current
+    if (!el) return
+    const onWheel = (e) => {
+      e.preventDefault()
+      const rect = el.getBoundingClientRect()
+      const cx = ((e.clientX - rect.left) / rect.width) * VIEW_W
+      const cy = ((e.clientY - rect.top) / rect.height) * VIEW_H
+      zoomBy(e.deltaY < 0 ? 1.2 : 1 / 1.2, { x: cx, y: cy })
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
 
   const handlePointerDown = (e) => {
     e.preventDefault()
@@ -253,7 +253,6 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
           style={{ WebkitUserDrag: 'none', userSelect: 'none' }}
           draggable="false"
           onDragStart={(e) => e.preventDefault()}
-          onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -278,36 +277,25 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
               </text>
             ))}
 
-            {/* Contorno del municipio, solo de referencia geográfica de fondo
-                — el tamaño real de la ciudad lo da el círculo, no esto. */}
-            {CIUDADES.map((c) => (
-              <path key={`contorno-${c.clave}`} d={c.d} fill="#dbeafe" fillOpacity={0.5} stroke="#93c5fd" strokeWidth={0.6 / view.scale} className="pointer-events-none" />
-            ))}
-
-            {/* Capa fija: las ciudades grandes se ven siempre, tengan o no
-                venta — tamaño del círculo según población real (el contorno
-                del municipio no sirve para comparar tamaño, ver radioCiudad). */}
+            {/* Capa fija: las ciudades grandes se ven siempre, tengan o no venta */}
             {CIUDADES.map((c) => {
               const m = marcadorPorClave[c.clave]
               const valor = m?.valor || 0
-              const r = radioCiudad(c.poblacion) * escalaTexto
               return (
                 <g key={c.clave}>
-                  <circle
-                    cx={c.centro[0]}
-                    cy={c.centro[1]}
-                    r={r}
+                  <path
+                    d={c.d}
                     fill={colorPara(valor)}
-                    fillOpacity={m?.aprox ? 0.65 : 0.9}
+                    fillOpacity={m?.aprox ? 0.6 : 0.9}
                     stroke="#1e3a8a"
-                    strokeWidth={(valor ? 1.2 : 0.8) / view.scale}
+                    strokeWidth={(valor ? 1 : 0.6) / view.scale}
                     className="cursor-pointer transition-opacity hover:opacity-100"
                     onMouseEnter={() => setHover({ ...c, valor })}
                     onMouseLeave={() => setHover(null)}
                   />
                   <text
                     x={c.centro[0]}
-                    y={c.centro[1] - r - 3 * escalaTexto}
+                    y={c.centro[1] - 6 * escalaTexto}
                     textAnchor="middle"
                     fontSize={11 * escalaTexto}
                     fill="#1e3a8a"
