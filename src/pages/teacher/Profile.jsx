@@ -571,7 +571,12 @@ export default function Profile() {
   // toca — sigue siendo la fecha real de alta, de ahí se recalcula la
   // prueba sin importar qué le haya pasado después a fechaInicio.
   const finDePrueba = subscription?.createdAt ? calcTrialEnd(subscription.createdAt) : null
-  const siguePrueba = !nuncaAprobado && finDePrueba && (calcDaysRemaining(finDePrueba) ?? -1) >= 0
+  // Una cortesía la pone el admin directo, sin esperar a que se agote la
+  // prueba (a diferencia de un pago real — ver comentario arriba). Por eso
+  // no aplica este aviso: contradice al resto de la tarjeta si ya dice
+  // "Cortesía" y "activa" pero también "sigues en tu período de prueba".
+  const siguePrueba =
+    !nuncaAprobado && subscription?.planId !== 'cortesia' && finDePrueba && (calcDaysRemaining(finDePrueba) ?? -1) >= 0
   // Solo se ofrece cancelar cuando hay algo que cancelar. En período de
   // prueba no aparece: no hay ningún cobro que detener, y un botón
   // "cancelar" ahí solo haría dudar a quien apenas está probando.
