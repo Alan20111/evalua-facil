@@ -96,7 +96,7 @@ export default function PerfilIA() {
           <Sparkles size={20} className="text-accent" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-on-surface">Perfil para IA del docente</h1>
+          <h1 className="text-xl font-bold text-on-surface">Perfil para la IA del Docente (para todas las asignaturas)</h1>
           <p className="text-sm text-muted mt-0.5">
             Cuéntanos cómo trabajas para que las funciones de IA de Evalúa Fácil
             (crear exámenes, cuestionarios, actividades, rúbricas y más) den
