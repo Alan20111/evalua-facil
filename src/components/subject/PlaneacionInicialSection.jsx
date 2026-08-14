@@ -17,7 +17,25 @@ import ParcialesFechas, { addOneDay, normalizeParcialesFechas } from '../Parcial
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import { descargarPlaneacionExcel } from '../../utils/planeacionExcel'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp } from 'lucide-react'
+import { useSubscription } from '../../hooks/useSubscription'
+import CheckoutModal from '../CheckoutModal'
+import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock } from 'lucide-react'
+
+// Nombres de columnas para la vista previa en pantalla — mismo orden y
+// etiquetas que planeacionExcel.js, pero en tarjetas apiladas (no tabla),
+// porque una tabla de 8 columnas no cabe en un celular sin scroll horizontal
+// (ver PlanComparisonTable.jsx, mismo problema encontrado ahí el 13-ago-2026).
+const CAMPOS_VISTA_PREVIA = [
+  ['contenidosTemas', 'Contenidos / temas'],
+  ['proposito', 'Propósito / aprendizaje esperado'],
+  ['actividades', 'Actividades de aprendizaje'],
+  ['estrategia', 'Estrategia / metodología'],
+  ['recursos', 'Recursos'],
+  ['evidencias', 'Evidencias'],
+  ['evaluacion', 'Evaluación'],
+  ['observaciones', 'Observaciones / ajustes'],
+  ['fechaEstimada', 'Fecha estimada'],
+]
 
 function millisDe(ts) {
   return ts?.toMillis?.() || 0
@@ -46,9 +64,54 @@ function EstadoPlaneacionBadge({ lista }) {
   )
 }
 
+// Vista previa en pantalla — apilada por tarjetas, un parcial a la vez.
+// Existe para que un docente en trial (nunca pagó, ver exportGuard.js) SÍ
+// pueda ver el contenido real de su Planeación aunque no pueda descargarla:
+// la publicidad promete "Planeación didáctica" en trial, así que negarle
+// también la vista dejaría esa promesa vacía (pedido explícito de Kike,
+// 13-ago-2026).
+function VistaPreviaPlaneacion({ resultado }) {
+  if (!resultado?.parciales?.length) return null
+  return (
+    <div className="space-y-3">
+      {resultado.parciales.map((parcial) => (
+        <div key={parcial.numero} className="border border-outline-variant rounded p-2">
+          <p className="text-sm font-semibold text-on-surface mb-1.5">
+            Parcial {parcial.numero}{parcial.periodo ? ` — ${parcial.periodo}` : ''}
+          </p>
+          {!parcial.filas?.length ? (
+            <p className="text-xs text-muted">La IA no generó una propuesta para este parcial con las fuentes disponibles.</p>
+          ) : (
+            <div className="space-y-2">
+              {parcial.filas.map((fila, i) => (
+                <div key={i} className="bg-surface rounded border border-outline-variant p-2 space-y-1">
+                  {CAMPOS_VISTA_PREVIA.map(([campo, etiqueta]) => (
+                    fila[campo] ? (
+                      <p key={campo} className="text-xs">
+                        <span className="font-medium text-muted">{etiqueta}: </span>
+                        <span className="text-on-surface">{fila[campo]}</span>
+                      </p>
+                    ) : null
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function PlaneacionInicialSection({ subjectId, docenteId, subject, asignaturaNombre, hayFuentesGenerales, watermark = false }) {
   const toast = useToast()
   const creditosIA = useCreditosIA()
+  const { subscription, refresh: refreshSubscription } = useSubscription()
+  // Mismo criterio que exportGuard.js: bloqueado mientras nunca hubo un pago
+  // aprobado, sin importar si la suscripción sigue vigente o no.
+  const nuncaAprobado = !subscription?.planId
+  const [verPreview, setVerPreview] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [historial, setHistorial] = useState([])
   const [histLoaded, setHistLoaded] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
@@ -173,6 +236,10 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   // La descarga NUNCA pasa por el servidor ni por créditos: el .xlsx se
   // arma en el navegador a partir del `resultado` ya guardado.
   async function descargar(entry) {
+    if (nuncaAprobado) {
+      setShowPaymentModal(true)
+      return
+    }
     setDescargandoId(entry.id)
     try {
       await descargarPlaneacionExcel({ subject, resultado: entry.resultado, watermark, formato: entry.formato || 'simple' })
@@ -254,11 +321,21 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             {actual && (
               <button
                 type="button"
+                onClick={() => setVerPreview((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)]"
+              >
+                <Eye size={14} />
+                {verPreview ? 'Ocultar vista previa' : 'Ver planeación'}
+              </button>
+            )}
+            {actual && (
+              <button
+                type="button"
                 onClick={() => descargar(actual)}
                 disabled={descargandoId === actual.id}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
               >
-                {descargandoId === actual.id ? <Spinner size="sm" /> : <Download size={14} />}
+                {descargandoId === actual.id ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : <Download size={14} />}
                 Descargar Excel
               </button>
             )}
@@ -274,6 +351,12 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
               </button>
             )}
           </div>
+
+          {verPreview && actual && (
+            <div className="mt-3 pt-2 border-t border-outline-variant">
+              <VistaPreviaPlaneacion resultado={actual.resultado} />
+            </div>
+          )}
 
           {anteriores.length > 0 && (
             <div className="mt-3 pt-2 border-t border-outline-variant">
@@ -298,7 +381,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
                         disabled={descargandoId === h.id}
                         className="flex items-center gap-1 text-accent hover:underline disabled:opacity-60"
                       >
-                        {descargandoId === h.id ? <Spinner size="sm" /> : <Download size={12} />} Descargar
+                        {descargandoId === h.id ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={12} /> : <Download size={12} />} Descargar
                       </button>
                     </div>
                   ))}
@@ -409,6 +492,13 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
           onCancel={() => { if (!aceptando) setConfirmarAceptar(false) }}
         />
       )}
+
+      <CheckoutModal
+        open={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        subscription={subscription}
+        onSuccess={refreshSubscription}
+      />
     </div>
   )
 }
