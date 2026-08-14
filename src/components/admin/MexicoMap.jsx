@@ -90,23 +90,27 @@ const cityShapePaths = Object.fromEntries(
 // docente/admin (ver CLAUDE.md: blue only, nunca índigo).
 const ESCALA = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']
 
-function colorPara(valor, max) {
-  if (!valor || max <= 0) return '#93c5fd'
-  const ratio = valor / max
-  if (ratio <= 0.05) return ESCALA[0]
-  if (ratio <= 0.25) return ESCALA[1]
-  if (ratio <= 0.5) return ESCALA[2]
-  if (ratio <= 0.8) return ESCALA[3]
+// Bandas absolutas, no relativas al máximo del set actual — con pocos datos
+// (o uno solo, como en pruebas) "relativo al máximo" hace que ese único
+// punto siempre se pinte como el más grande/intenso posible, sin importar
+// si es 1 docente o 100. Los cortes son para conteo de docentes por ciudad;
+// generosos a propósito (la mayoría de las ciudades tiene pocos).
+function colorPara(valor) {
+  if (!valor) return ESCALA[0]
+  if (valor <= 2) return ESCALA[0]
+  if (valor <= 5) return ESCALA[1]
+  if (valor <= 15) return ESCALA[2]
+  if (valor <= 40) return ESCALA[3]
   return ESCALA[4]
 }
 
-// Proporcional de verdad: el área del círculo (no el radio) es lo que el
-// ojo compara, así que el radio va con la raíz del valor — si fuera lineal
-// en radio, un marcador con el doble de ventas se vería con 4x el área.
-function radioPara(valor, max) {
-  if (!valor || max <= 0) return 3
-  const ratio = Math.sqrt(valor / max)
-  return 3 + ratio * 9
+// Proporcional de verdad y en absoluto (no relativo al máximo del momento):
+// el área del círculo es lo que el ojo compara, así que el radio va con la
+// raíz del valor — si fuera lineal en radio, el doble de docentes se vería
+// con 4x el área.
+function radioPara(valor) {
+  if (!valor) return 3
+  return Math.min(16, 3 + Math.sqrt(valor) * 2.5)
 }
 
 const MIN_ZOOM = 1
@@ -227,13 +231,13 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
             {marcadores.map((m) => {
               const shape = cityShapePaths[m.clave]
               const [x, y] = shape ? shape.centro : proj([m.lng, m.lat])
-              const r = radioPara(m.valor, max) / Math.sqrt(view.scale)
+              const r = radioPara(m.valor) / Math.sqrt(view.scale)
               return (
                 <g key={m.clave}>
                   {shape ? (
                     <path
                       d={shape.d}
-                      fill={colorPara(m.valor, max)}
+                      fill={colorPara(m.valor)}
                       fillOpacity={m.aprox ? 0.55 : 0.85}
                       stroke="#1e3a8a"
                       strokeWidth={1 / view.scale}
@@ -246,7 +250,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
                       cx={x}
                       cy={y}
                       r={r}
-                      fill={colorPara(m.valor, max)}
+                      fill={colorPara(m.valor)}
                       fillOpacity={m.aprox ? 0.55 : 0.85}
                       stroke="#1e3a8a"
                       strokeWidth={1 / view.scale}
@@ -312,10 +316,10 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
 
       <div className="flex items-center gap-3 flex-wrap text-xs text-muted">
         <span>Intensidad ({etiqueta}):</span>
-        {ESCALA.map((c, i) => (
-          <span key={c} className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full inline-block" style={{ background: c }} />
-            {i === 0 ? 'Poco' : i === ESCALA.length - 1 ? 'Mucho' : ''}
+        {['1-2', '3-5', '6-15', '16-40', '40+'].map((rango, i) => (
+          <span key={rango} className="flex items-center gap-1">
+            <span className="w-3 h-3 rounded-full inline-block" style={{ background: ESCALA[i] }} />
+            {rango}
           </span>
         ))}
         <span className="flex items-center gap-1">
