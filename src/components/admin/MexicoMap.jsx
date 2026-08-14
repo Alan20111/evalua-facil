@@ -186,9 +186,22 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
   // DOM (sin pasar por React) para que no dependa de un re-render por cada
   // evento — con ~140 elementos hacerlo vía setState se sentía trabado. El
   // estado de React solo se actualiza al soltar / dejar de girar la rueda.
+  //
+  // Además se agrupa por requestAnimationFrame: un mouse o trackpad puede
+  // disparar pointermove/wheel muchas más veces por segundo de las que la
+  // pantalla puede pintar — escribir el atributo en cada uno sin agrupar es
+  // exactamente lo que se siente como irregular/trabado. Se guarda SIEMPRE
+  // el valor más reciente en viewRef (aunque ya haya un frame pendiente) y
+  // solo se aplica al DOM una vez por frame — si no, un tick que llega
+  // mientras el frame anterior sigue pendiente se perdería en silencio.
+  const rafRef = useRef(null)
   const aplicarTransformDom = (v) => {
     viewRef.current = v
-    if (gRef.current) gRef.current.setAttribute('transform', transformDe(v))
+    if (rafRef.current != null) return
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      if (gRef.current) gRef.current.setAttribute('transform', transformDe(viewRef.current))
+    })
   }
 
   // `inmediato`: true para clics en los botones (una sola acción, se
@@ -233,7 +246,15 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
       const rect = el.getBoundingClientRect()
       const cx = ((e.clientX - rect.left) / rect.width) * VIEW_W
       const cy = ((e.clientY - rect.top) / rect.height) * VIEW_H
-      zoomBy(e.deltaY < 0 ? 1.2 : 1 / 1.2, { x: cx, y: cy }, false)
+      // El factor va con la magnitud real de deltaY, no fijo por evento —
+      // un mouse dispara pocos eventos grandes (deltaY~100) pero un
+      // trackpad dispara decenas de eventos chiquitos (deltaY~4) para el
+      // mismo gesto de dedos. Con un factor fijo por evento, el trackpad
+      // multiplicaba 1.2 muchas más veces para el mismo gesto y el zoom se
+      // sentía totalmente irregular entre dispositivos — así, el zoom total
+      // por gesto queda proporcional a lo que de verdad se giró/deslizó.
+      const factor = Math.pow(1.0015, -e.deltaY)
+      zoomBy(factor, { x: cx, y: cy }, false)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
@@ -241,6 +262,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
 
   useEffect(() => () => {
     if (wheelCommitRef.current) clearTimeout(wheelCommitRef.current)
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
   }, [])
 
   // Cada mancha urbana tiene onMouseEnter/onMouseLeave para el tooltip —
