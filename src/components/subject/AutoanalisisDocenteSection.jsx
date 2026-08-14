@@ -103,7 +103,7 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
         className="w-full flex items-center justify-between gap-2 text-left"
       >
         <div>
-          <h2 className="font-bold text-on-surface">Autoanálisis Docente (opcional)</h2>
+          <h2 className="font-bold text-on-surface">Autoanálisis Docente para esta asignatura (opcional)</h2>
           {!abierta && (
             <p className="text-sm text-muted mt-0.5">
               Contesta lo que quieras — se toma en cuenta al generar la Planeación Didáctica Inicial.
