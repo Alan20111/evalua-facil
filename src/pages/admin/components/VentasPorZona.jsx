@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import MexicoMap from '../../../components/admin/MexicoMap'
 import { planDe } from '../../../utils/situacionSuscripcion'
+import municipioCoords from '../../../data/municipioCoords.json'
 
 // "Docentes" cuenta a todos los registrados en ese estado — de dónde viene
 // la base. "Con pago" cuenta solo a quien tiene un plan de 1-6 meses vigente
@@ -25,10 +26,12 @@ export default function VentasPorZona({ stats }) {
 
   // Docentes registrados antes del 2026-07-25 no traen `estado` — se cuentan
   // aparte, no se les inventa una zona.
-  const { porEstado, sinEstado, totalConEstado } = useMemo(() => {
+  const { porEstado, porMunicipio, sinEstado, sinMunicipio, totalConEstado } = useMemo(() => {
     const teachers = stats?.teachers || []
-    const acc = {}
+    const accEstado = {}
+    const accMunicipio = {} // clave "estado|municipio" -> valor
     let sin = 0
+    let sinMuni = 0
     let total = 0
     const calc = METRICAS[metrica].calcular
     for (const t of teachers) {
@@ -37,15 +40,34 @@ export default function VentasPorZona({ stats }) {
         sin += valor
         continue
       }
-      acc[t.estado] = (acc[t.estado] || 0) + valor
+      accEstado[t.estado] = (accEstado[t.estado] || 0) + valor
       total += valor
+      if (!t.municipio) {
+        sinMuni += valor
+        continue
+      }
+      const clave = `${t.estado}|${t.municipio}`
+      accMunicipio[clave] = (accMunicipio[clave] || 0) + valor
     }
-    return { porEstado: acc, sinEstado: sin, totalConEstado: total }
+    return { porEstado: accEstado, porMunicipio: accMunicipio, sinEstado: sin, sinMunicipio: sinMuni, totalConEstado: total }
   }, [stats?.teachers, subsMap, metrica])
 
   const ranking = useMemo(
     () => Object.entries(porEstado).sort((a, b) => b[1] - a[1]),
     [porEstado]
+  )
+
+  const marcadores = useMemo(
+    () =>
+      Object.entries(porMunicipio)
+        .map(([clave, valor]) => {
+          const coords = municipioCoords[clave]
+          if (!coords) return null
+          const municipio = clave.split('|')[1]
+          return { clave, lat: coords.lat, lng: coords.lng, aprox: !!coords.approx, valor, etiqueta: municipio }
+        })
+        .filter(Boolean),
+    [porMunicipio]
   )
 
   if (!stats) return null
@@ -70,7 +92,12 @@ export default function VentasPorZona({ stats }) {
       </div>
 
       <div className="bg-surface-card rounded-card shadow-card p-4">
-        <MexicoMap valores={porEstado} etiqueta={METRICAS[metrica].etiqueta} />
+        <MexicoMap marcadores={marcadores} etiqueta={METRICAS[metrica].etiqueta} />
+        {sinMunicipio > 0 && (
+          <p className="text-xs text-muted mt-2">
+            + {sinMunicipio} con estado pero sin municipio registrado (no aparecen como marcador).
+          </p>
+        )}
       </div>
 
       <div className="bg-surface-card rounded-card shadow-card p-4">
