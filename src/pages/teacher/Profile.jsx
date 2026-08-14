@@ -637,6 +637,9 @@ export default function Profile() {
                             </>
                           )
                         }
+                        if (subscription.planId === 'cortesia') {
+                          return <p className="font-bold text-on-surface">Cortesía</p>
+                        }
                         const infoPlan = creditosIA.tarifas?.planes?.[subscription.planId] || null
                         if (infoPlan) {
                           return (
@@ -697,8 +700,10 @@ export default function Profile() {
                   cubre del X al Y") para la promesa antes de pagar. */}
               {subscription.status !== 'trial' && !nuncaAprobado && subscription.fechaInicio && (
                 <p className="text-xs text-slate-400">
-                  Tu plan cubre del {formatDate(subscription.fechaInicio)} al{' '}
-                  {formatDate(effectiveVencimiento(subscription))}
+                  {subscription.planId === 'cortesia' && subscription.cortesiaIndefinida
+                    ? <>Tu plan cubre desde el {formatDate(subscription.fechaInicio)}, sin fecha de fin.</>
+                    : <>Tu plan cubre del {formatDate(subscription.fechaInicio)} al{' '}
+                      {formatDate(effectiveVencimiento(subscription))}</>}
                 </p>
               )}
               {/* Sigue disfrutando su prueba aunque ya haya un pago real
