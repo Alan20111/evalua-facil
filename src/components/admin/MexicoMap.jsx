@@ -268,9 +268,13 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
   // Cada mancha urbana tiene onMouseEnter/onMouseLeave para el tooltip —
   // mientras se arrastra, el cursor pasa por encima de varias (se mueven
   // bajo un cursor quieto) y cada cruce disparaba setHover → re-render
-  // completo, JUSTO en medio del arrastre. Se apagan los eventos de puntero
-  // del contenido (no del <svg>, que los necesita para seguir el arrastre)
-  // mientras dragRef esté activo, directo en el DOM para no pasar por React.
+  // completo, JUSTO en medio del arrastre. Antes esto se evitaba apagando
+  // pointer-events en el <g> completo, pero eso obliga al navegador a
+  // recalcular estilos de ~150 elementos descendientes de un jalón — medido
+  // con requestAnimationFrame en el navegador real: un frenón de 250ms justo
+  // al iniciar el arrastre. Ahora los propios handlers de hover revisan
+  // dragRef (un ref, no dispara nada) antes de llamar setHover — mismo
+  // resultado, cero mutaciones de estilo.
   const handlePointerDown = (e) => {
     e.preventDefault()
     // El rect se mide UNA vez al empezar, no en cada pixel movido —
@@ -282,7 +286,6 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
     const rect = svgRef.current.getBoundingClientRect()
     dragRef.current = { startX: e.clientX, startY: e.clientY, origX: viewRef.current.x, origY: viewRef.current.y, rect, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
-    if (gRef.current) gRef.current.style.pointerEvents = 'none'
     e.currentTarget.style.cursor = 'grabbing'
     setHover(null)
   }
@@ -298,7 +301,6 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
   }
 
   const handlePointerUp = () => {
-    if (gRef.current) gRef.current.style.pointerEvents = 'auto'
     if (svgRef.current) svgRef.current.style.cursor = 'grab'
     if (!dragRef.current) return
     dragRef.current = null
@@ -356,7 +358,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
                     stroke={valor ? '#1e3a8a' : SIN_DATOS_BORDE}
                     strokeWidth={(valor ? 1 : 1.2) / view.scale}
                     className="cursor-pointer transition-opacity hover:opacity-100"
-                    onMouseEnter={() => setHover({ ...c, valor })}
+                    onMouseEnter={() => { if (!dragRef.current) setHover({ ...c, valor }) }}
                     onMouseLeave={() => setHover(null)}
                   />
                   <text
@@ -389,7 +391,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
                     stroke="#1e3a8a"
                     strokeWidth={1 / view.scale}
                     className="cursor-pointer transition-opacity hover:opacity-100"
-                    onMouseEnter={() => setHover(m)}
+                    onMouseEnter={() => { if (!dragRef.current) setHover(m) }}
                     onMouseLeave={() => setHover(null)}
                   />
                   {circulosEtiquetados.has(m.clave) && (
