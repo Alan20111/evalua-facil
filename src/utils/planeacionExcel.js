@@ -28,6 +28,11 @@ const COLUMNAS = [
 ]
 const CAMPOS = ['contenidosTemas', 'proposito', 'actividades', 'estrategia', 'recursos', 'evidencias', 'evaluacion', 'observaciones']
 
+// Formato 'extendida' (13-ago-2026): una fila por tema, con fecha estimada
+// dentro del periodo real del parcial — columna extra, solo en ese formato.
+const COLUMNA_FECHA = { header: 'Fecha estimada', width: 16 }
+const CAMPO_FECHA = 'fechaEstimada'
+
 const AVISO_TRIAL = 'Este archivo fue generado con Evalúa Fácil (Versión de evaluación) · evaluafacil.mx'
 
 // Nombre de hoja válido en Excel: máx 31 caracteres, sin : \ / ? * [ ].
@@ -38,30 +43,34 @@ function nombreHoja(numero) {
 // Arma el workbook (sin guardarlo) — separado de descargarPlaneacionExcel
 // para poder probar la estructura del Excel (hojas, columnas, ausencia de
 // imágenes) sin depender de APIs de navegador.
-export async function construirPlaneacionWorkbook({ subject, resultado, watermark = false }) {
+export async function construirPlaneacionWorkbook({ subject, resultado, watermark = false, formato = 'simple' }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
+  const conFecha = formato === 'extendida'
+  const columnas = conFecha ? [...COLUMNAS, COLUMNA_FECHA] : COLUMNAS
+  const campos = conFecha ? [...CAMPOS, CAMPO_FECHA] : CAMPOS
+
   resultado.parciales.forEach((parcial) => {
     const ws = workbook.addWorksheet(nombreHoja(parcial.numero))
-    ws.columns = COLUMNAS.map((c) => ({ width: c.width }))
+    ws.columns = columnas.map((c) => ({ width: c.width }))
 
     const titulo = `${subjectDisplayName(subject)} — Parcial ${parcial.numero}` + (parcial.periodo ? `  (${parcial.periodo})` : '')
     ws.addRow([titulo])
-    ws.mergeCells(1, 1, 1, COLUMNAS.length)
+    ws.mergeCells(1, 1, 1, columnas.length)
     ws.getRow(1).font = { bold: true, size: 12 }
     ws.getRow(1).height = 20
 
-    ws.addRow(COLUMNAS.map((c) => c.header))
+    ws.addRow(columnas.map((c) => c.header))
     ws.getRow(2).font = { bold: true }
     ws.getRow(2).alignment = { wrapText: true, vertical: 'top' }
 
     if (!parcial.filas?.length) {
       ws.addRow(['La IA no generó una propuesta para este parcial con las fuentes disponibles.'])
-      ws.mergeCells(3, 1, 3, COLUMNAS.length)
+      ws.mergeCells(3, 1, 3, columnas.length)
     } else {
       parcial.filas.forEach((fila) => {
-        const row = ws.addRow(CAMPOS.map((k) => fila[k] || ''))
+        const row = ws.addRow(campos.map((k) => fila[k] || ''))
         row.alignment = { wrapText: true, vertical: 'top' }
       })
     }
@@ -69,15 +78,15 @@ export async function construirPlaneacionWorkbook({ subject, resultado, watermar
     if (watermark) {
       const avisoRow = ws.addRow([AVISO_TRIAL])
       avisoRow.font = { italic: true, size: 9, color: { argb: 'FF888888' } }
-      ws.mergeCells(avisoRow.number, 1, avisoRow.number, COLUMNAS.length)
+      ws.mergeCells(avisoRow.number, 1, avisoRow.number, columnas.length)
     }
   })
 
   return workbook
 }
 
-export async function descargarPlaneacionExcel({ subject, resultado, watermark = false }) {
-  const workbook = await construirPlaneacionWorkbook({ subject, resultado, watermark })
+export async function descargarPlaneacionExcel({ subject, resultado, watermark = false, formato = 'simple' }) {
+  const workbook = await construirPlaneacionWorkbook({ subject, resultado, watermark, formato })
   const buffer = await workbook.xlsx.writeBuffer()
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')

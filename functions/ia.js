@@ -2244,10 +2244,10 @@ async function ejecutarDiagnosticoConocimientos({ params, modelo, apiKey }) {
 // una sola operación cubre TODOS los parciales reales de la asignatura.
 
 const MAX_FILAS_PLANEACION_PARCIAL = 10
-// Formato 'completo' (13-ago-2026, decisión de Kike): una fila por cada
+// Formato 'extendida' (13-ago-2026, decisión de Kike): una fila por cada
 // tema real de las fuentes, no agrupado — tope más alto que 'simple' porque
 // un parcial puede traer más temas que bloques agrupados razonables.
-const MAX_FILAS_PLANEACION_PARCIAL_COMPLETO = 25
+const MAX_FILAS_PLANEACION_PARCIAL_EXTENDIDA = 25
 
 function formatoPeriodo(fechas) {
   if (!fechas?.inicio || !fechas?.fin) return null
@@ -2429,10 +2429,11 @@ async function precheckPlaneacionInicial({ uid, params }) {
   const comentariosGrupoTexto = comentariosGrupoATexto(comentariosGrupoSnap.data()?.comentariosGrupo)
 
   // Formato elegido por el docente (13-ago-2026, decisión de Kike): 'simple'
-  // (bloques agrupados, como antes) o 'completo' (una fila por cada tema real
-  // de las fuentes). Cualquier otro valor cae a 'simple' — no se inventa un
-  // tercer formato ni se truena por un valor inesperado del cliente.
-  const formato = params?.formato === 'completo' ? 'completo' : 'simple'
+  // (bloques agrupados, como antes) o 'extendida' (una fila por cada tema
+  // real de las fuentes, con fechas reales por tema). Cualquier otro valor
+  // cae a 'simple' — no se inventa un tercer formato ni se truena por un
+  // valor inesperado del cliente.
+  const formato = params?.formato === 'extendida' ? 'extendida' : 'simple'
 
   // Las fuentes YA NO se agrupan por parcial (se quitó esa sección de la UI
   // el 13-ago-2026 — Diagnóstico y Planeación son eventos de una sola vez, al
@@ -2482,20 +2483,28 @@ const PLANEACION_SISTEMA =
   'tiene que reflejarlo, no ignorarlo. Escribe en ' +
   'español, claro y breve. Responde únicamente con el JSON del esquema indicado, sin texto adicional.'
 
-// 'simple' agrupa el trabajo en bloques (como siempre); 'completo' pide una
-// fila POR CADA tema/subtema real que aparezca en las fuentes — mismo
-// esquema de campos en los dos, solo cambia cuántas filas y qué tan
-// desagregado queda cada una (decisión de Kike, 13-ago-2026).
-function instruccionFilasPorFormato(formato) {
-  return formato === 'completo'
-    ? 'Propón UNA FILA POR CADA tema o subtema real que identifiques en las fuentes para ESTE parcial ' +
-      `(hasta ${MAX_FILAS_PLANEACION_PARCIAL_COMPLETO}) — no agrupes varios temas en un solo bloque; si las ` +
-      'fuentes no traen suficiente desglose para un tema, usa la frase exacta "Información no disponible en ' +
-      'las fuentes proporcionadas." en vez de inventar subtemas.'
-    : 'Propón entre 1 y 8 bloques de trabajo para ESTE parcial únicamente (agrupa temas afines en un mismo bloque).'
+// 'simple' agrupa el trabajo en bloques (como siempre); 'extendida' pide una
+// fila POR CADA tema/subtema real que aparezca en las fuentes, con una
+// fecha estimada por fila cuando el parcial tiene fechas reales (decisión
+// de Kike, 13-ago-2026: la extendida distribuye los temas en el tiempo real
+// del curso — por eso el cliente exige fechas ANTES de generar en este
+// formato; ver PlaneacionInicialSection.jsx).
+function instruccionFilasPorFormato(formato, tienePeriodo) {
+  if (formato !== 'extendida') {
+    return 'Propón entre 1 y 8 bloques de trabajo para ESTE parcial únicamente (agrupa temas afines en un mismo bloque).'
+  }
+  const base = 'Propón UNA FILA POR CADA tema o subtema real que identifiques en las fuentes para ESTE parcial ' +
+    `(hasta ${MAX_FILAS_PLANEACION_PARCIAL_EXTENDIDA}) — no agrupes varios temas en un solo bloque; si las ` +
+    'fuentes no traen suficiente desglose para un tema, usa la frase exacta "Información no disponible en ' +
+    'las fuentes proporcionadas." en vez de inventar subtemas.'
+  return tienePeriodo
+    ? base + ' Además, reparte los temas a lo largo del periodo real de este parcial (indicado arriba) de forma ' +
+      'realista y en orden cronológico — cada fila lleva su propia fecha estimada en el campo fechaEstimada.'
+    : base
 }
 
 function promptPlaneacionParcial(ctx, parcialCtx) {
+  const tienePeriodo = ctx.formato === 'extendida' && !!parcialCtx.periodoTexto
   return (
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n` +
     `PARCIAL ${parcialCtx.numero}${parcialCtx.periodoTexto ? ` (periodo: ${parcialCtx.periodoTexto})` : ''}.\n\n` +
@@ -2505,8 +2514,8 @@ function promptPlaneacionParcial(ctx, parcialCtx) {
     `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` +
     `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` +
     (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
-    `${instruccionFilasPorFormato(ctx.formato)} Cada fila tiene EXACTAMENTE estos campos (ningún campo ` +
-    'adicional):\n' +
+    `${instruccionFilasPorFormato(ctx.formato, tienePeriodo)} Cada fila tiene EXACTAMENTE estos campos (ningún ` +
+    'campo adicional):\n' +
     '- contenidosTemas: los contenidos/temas de este bloque.\n' +
     '- proposito: el propósito o aprendizaje esperado, solo si está respaldado por las fuentes.\n' +
     '- actividades: actividades de aprendizaje.\n' +
@@ -2514,13 +2523,14 @@ function promptPlaneacionParcial(ctx, parcialCtx) {
     '- recursos: recursos a utilizar.\n' +
     '- evidencias: evidencias de aprendizaje.\n' +
     '- evaluacion: cómo se evalúa este bloque.\n' +
-    '- observaciones: observaciones o ajustes (p. ej. si algo se pensó a partir del diagnóstico).\n\n' +
-    'Responde SOLO con este JSON:\n' +
+    '- observaciones: observaciones o ajustes (p. ej. si algo se pensó a partir del diagnóstico).\n' +
+    (tienePeriodo ? '- fechaEstimada: fecha o rango breve dentro del periodo del parcial (ej. "18-22 ago").\n' : '') +
+    '\nResponde SOLO con este JSON:\n' +
     '{\n  "filas": [\n' +
     '    {"contenidosTemas": "<máx 400 caracteres>", "proposito": "<máx 400>", "actividades": "<máx 400>", ' +
-    '"estrategia": "<máx 400>", "recursos": "<máx 300>", "evidencias": "<máx 300>", "evaluacion": "<máx 300>", ' +
-    '"observaciones": "<máx 300>"}\n' +
-    '  ]\n}'
+    '"estrategia": "<máx 400>", "recursos": "<máx 300>", "evidencias": "<máx 300>", "evaluacion": "<máx 300>"' +
+    (tienePeriodo ? ', "observaciones": "<máx 300>", "fechaEstimada": "<máx 40>"' : ', "observaciones": "<máx 300>"') +
+    '}\n  ]\n}'
   )
 }
 
@@ -2535,6 +2545,7 @@ function normalizarFilaPlaneacion(r) {
     evidencias: campo(r?.evidencias, 300),
     evaluacion: campo(r?.evaluacion, 300),
     observaciones: campo(r?.observaciones, 300),
+    fechaEstimada: campo(r?.fechaEstimada, 40),
   }
   return fila
 }
@@ -2542,7 +2553,7 @@ function normalizarFilaPlaneacion(r) {
 // Una fila sin contenido ni actividades no aporta nada como guía de
 // trabajo — se descarta en vez de dejar una fila vacía en el Excel. `max`
 // por omisión es el tope de 'simple' — llamadores de 'completo' pasan
-// MAX_FILAS_PLANEACION_PARCIAL_COMPLETO explícitamente.
+// MAX_FILAS_PLANEACION_PARCIAL_EXTENDIDA explícitamente.
 function normalizarFilasPlaneacion(crudos, max = MAX_FILAS_PLANEACION_PARCIAL) {
   return (Array.isArray(crudos) ? crudos : [])
     .slice(0, max)
@@ -2563,10 +2574,10 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   // propio bloque de fuentes específicas (§5), así que el contexto real que
   // le corresponde a cada uno es distinto — mismo criterio que los lotes de
   // ejecutarCrearEvaluacion, pero aquí el contexto varía, no solo el tramo.
-  const maxFilas = ctx.formato === 'completo' ? MAX_FILAS_PLANEACION_PARCIAL_COMPLETO : MAX_FILAS_PLANEACION_PARCIAL
+  const maxFilas = ctx.formato === 'extendida' ? MAX_FILAS_PLANEACION_PARCIAL_EXTENDIDA : MAX_FILAS_PLANEACION_PARCIAL
   for (const parcialCtx of ctx.parciales) {
     const { datos, interno } = await pedirJSON({
-      client, modelo, maxTokens: ctx.formato === 'completo' ? 3600 : 2200, system: PLANEACION_SISTEMA,
+      client, modelo, maxTokens: ctx.formato === 'extendida' ? 3600 : 2200, system: PLANEACION_SISTEMA,
       prompt: promptPlaneacionParcial(ctx, parcialCtx),
     })
     parciales.push({

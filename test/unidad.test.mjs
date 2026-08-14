@@ -1347,14 +1347,16 @@ caso('diagnosticoConocimientosATexto: sin resultado, dice que no hay informació
   assert.strictEqual(FIA.diagnosticoConocimientosATexto({}), 'Información no disponible en las fuentes proporcionadas.')
 })
 
-caso('normalizarFilaPlaneacion: recorta cada campo a su máximo y usa exactamente los 8 campos pedidos', () => {
+caso('normalizarFilaPlaneacion: recorta cada campo a su máximo y usa exactamente los 9 campos pedidos (8 + fechaEstimada)', () => {
   const fila = FIA.normalizarFilaPlaneacion({
     contenidosTemas: 'a'.repeat(500), proposito: 'p', actividades: 'act', estrategia: 'e',
-    recursos: 'r', evidencias: 'ev', evaluacion: 'eval', observaciones: 'o', campoInventado: 'no debe aparecer',
+    recursos: 'r', evidencias: 'ev', evaluacion: 'eval', observaciones: 'o', fechaEstimada: 'x'.repeat(60),
+    campoInventado: 'no debe aparecer',
   })
   assert.strictEqual(fila.contenidosTemas.length, 400)
+  assert.strictEqual(fila.fechaEstimada.length, 40)
   assert.deepStrictEqual(Object.keys(fila).sort(), [
-    'actividades', 'contenidosTemas', 'estrategia', 'evaluacion', 'evidencias', 'observaciones', 'proposito', 'recursos',
+    'actividades', 'contenidosTemas', 'estrategia', 'evaluacion', 'evidencias', 'fechaEstimada', 'observaciones', 'proposito', 'recursos',
   ])
 })
 

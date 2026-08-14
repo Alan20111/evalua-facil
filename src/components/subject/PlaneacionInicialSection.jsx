@@ -12,6 +12,8 @@ import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import ConfirmModal from '../ConfirmModal'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
+import EFDateTimePicker from '../EFDateTimePicker'
+import ParcialesFechas, { addOneDay, normalizeParcialesFechas } from '../ParcialesFechas'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import { descargarPlaneacionExcel } from '../../utils/planeacionExcel'
@@ -51,6 +53,14 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   const [histLoaded, setHistLoaded] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
   const [formato, setFormato] = useState('simple')
+  // Fechas para la extendida cuando la asignatura todavía no las tiene
+  // (decisión de Kike, 13-ago-2026: la extendida reparte los temas en el
+  // tiempo real del curso, así que si no hay fechas se piden aquí mismo,
+  // antes de generar — se guardan en la asignatura, no solo en esta
+  // generación, para que ya queden puestas de una vez).
+  const [fechaInicioForm, setFechaInicioForm] = useState('')
+  const [fechaFinForm, setFechaFinForm] = useState('')
+  const [parcialesFechasForm, setParcialesFechasForm] = useState([])
   const [generando, setGenerando] = useState(false)
   const [descargandoId, setDescargandoId] = useState(null)
   const [verHistorial, setVerHistorial] = useState(false)
@@ -83,7 +93,37 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
 
   const habilitado = hayFuentesGenerales && hayContexto && hayConocimientos
 
+  // La extendida reparte temas en el tiempo real del curso — exige fechas.
+  const numParciales = Math.max(1, Number(subject?.parciales) || 1)
+  const fechasCompletas = Array.isArray(subject?.parcialesFechas)
+    && subject.parcialesFechas.length >= numParciales
+    && subject.parcialesFechas.slice(0, numParciales).every((f) => f?.inicio && f?.fin)
+  const esExtendida = formato === 'extendida'
+  const faltanFechas = esExtendida && !fechasCompletas
+  const parcialesFechasCompletasForm = fechaInicioForm && fechaFinForm
+    && parcialesFechasForm.length >= numParciales
+    && parcialesFechasForm.slice(0, numParciales).every((f) => f?.inicio && f?.fin)
+
   async function generar() {
+    // La extendida necesita fechas reales del curso — si la asignatura no
+    // las tiene, se piden aquí mismo y se guardan en la asignatura antes de
+    // generar (no solo en esta generación, para que ya queden puestas).
+    if (faltanFechas) {
+      if (!parcialesFechasCompletasForm) {
+        toast('Completa la fecha de inicio, fin y el fin de cada parcial antes de generar', 'error')
+        return
+      }
+      try {
+        await updateDoc(doc(db, 'subjects', subjectId), {
+          fechaInicio: fechaInicioForm,
+          fechaFin: fechaFinForm,
+          parcialesFechas: parcialesFechasForm,
+        })
+      } catch (err) {
+        toast('No se pudieron guardar las fechas: ' + err.message, 'error')
+        return
+      }
+    }
     setGenerando(true)
     try {
       const data = await creditosIA.ejecutar('planeacion_didactica_inicial', { subjectId, asignaturaId: subjectId, asignaturaNombre, formato })
@@ -135,7 +175,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   async function descargar(entry) {
     setDescargandoId(entry.id)
     try {
-      await descargarPlaneacionExcel({ subject, resultado: entry.resultado, watermark })
+      await descargarPlaneacionExcel({ subject, resultado: entry.resultado, watermark, formato: entry.formato || 'simple' })
     } catch (err) {
       toast('No se pudo generar el Excel: ' + err.message, 'error')
     } finally {
@@ -299,18 +339,62 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
               <input
                 type="radio"
                 name="planeacion-formato"
-                aria-label="Completo por tema"
-                checked={formato === 'completo'}
+                aria-label="Extendida"
+                checked={esExtendida}
                 disabled={generando}
-                onChange={() => setFormato('completo')}
+                onChange={() => setFormato('extendida')}
                 className="mt-0.5"
               />
               <span className="text-sm text-on-surface">
-                <strong>Completo por tema</strong>
-                <span className="block text-xs text-muted">Una fila por cada tema real de tus fuentes — más detallado, más filas.</span>
+                <strong>Extendida</strong>
+                <span className="block text-xs text-muted">Una fila por cada tema real de tus fuentes, con fecha estimada dentro del curso — más detallado, más filas.</span>
               </span>
             </label>
           </fieldset>
+
+          {faltanFechas && (
+            <div className="mb-2 p-2.5 rounded border border-amber-200 bg-amber-50 space-y-2">
+              <p className="text-xs text-amber-800">
+                La extendida reparte los temas en fechas reales — esta asignatura todavía no tiene fechas de inicio/fin. Ponlas aquí (se guardan en la asignatura).
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="block text-xs text-muted mb-1">Inicio del curso</span>
+                  <EFDateTimePicker
+                    mode="date"
+                    value={fechaInicioForm}
+                    disabled={generando}
+                    onChange={(v) => {
+                      setFechaInicioForm(v)
+                      setParcialesFechasForm((prev) => normalizeParcialesFechas(v, fechaFinForm, numParciales, prev))
+                    }}
+                  />
+                </div>
+                <div>
+                  <span className="block text-xs text-muted mb-1">Fin del curso</span>
+                  <EFDateTimePicker
+                    mode="date"
+                    value={fechaFinForm}
+                    disabled={generando || !fechaInicioForm}
+                    minDateTime={fechaInicioForm ? addOneDay(fechaInicioForm) : undefined}
+                    onChange={(v) => {
+                      setFechaFinForm(v)
+                      setParcialesFechasForm((prev) => normalizeParcialesFechas(fechaInicioForm, v, numParciales, prev))
+                    }}
+                  />
+                </div>
+              </div>
+              {fechaInicioForm && fechaFinForm && numParciales > 1 && (
+                <ParcialesFechas
+                  fechaInicio={fechaInicioForm}
+                  fechaFin={fechaFinForm}
+                  numParciales={numParciales}
+                  value={parcialesFechasForm}
+                  onChange={setParcialesFechasForm}
+                />
+              )}
+            </div>
+          )}
         </ConfirmacionCreditosModal>
       )}
 
