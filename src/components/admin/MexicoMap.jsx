@@ -251,16 +251,23 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
   // mientras dragRef esté activo, directo en el DOM para no pasar por React.
   const handlePointerDown = (e) => {
     e.preventDefault()
-    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: viewRef.current.x, origY: viewRef.current.y, moved: false }
+    // El rect se mide UNA vez al empezar, no en cada pixel movido —
+    // llamar getBoundingClientRect() en cada pointermove fuerza al
+    // navegador a recalcular layout de forma síncrona en cada evento, y con
+    // un mouse/trackpad que dispara cientos de eventos por segundo eso solo
+    // ya se siente como retraso. El contenedor no cambia de tamaño a medio
+    // arrastre, así que medirlo una vez es seguro.
+    const rect = svgRef.current.getBoundingClientRect()
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: viewRef.current.x, origY: viewRef.current.y, rect, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
     if (gRef.current) gRef.current.style.pointerEvents = 'none'
+    e.currentTarget.style.cursor = 'grabbing'
     setHover(null)
   }
 
   const handlePointerMove = (e) => {
     if (!dragRef.current) return
-    const { startX, startY, origX, origY } = dragRef.current
-    const rect = svgRef.current.getBoundingClientRect()
+    const { startX, startY, origX, origY, rect } = dragRef.current
     const dx = ((e.clientX - startX) / rect.width) * VIEW_W
     const dy = ((e.clientY - startY) / rect.height) * VIEW_H
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1) dragRef.current.moved = true
@@ -270,6 +277,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
 
   const handlePointerUp = () => {
     if (gRef.current) gRef.current.style.pointerEvents = 'auto'
+    if (svgRef.current) svgRef.current.style.cursor = 'grab'
     if (!dragRef.current) return
     dragRef.current = null
     setView(viewRef.current)
@@ -285,8 +293,8 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
         <svg
           ref={svgRef}
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-          className="w-full h-full touch-none cursor-grab active:cursor-grabbing select-none"
-          style={{ WebkitUserDrag: 'none', userSelect: 'none' }}
+          className="w-full h-full touch-none select-none"
+          style={{ WebkitUserDrag: 'none', userSelect: 'none', cursor: 'grab' }}
           draggable="false"
           onDragStart={(e) => e.preventDefault()}
           onPointerDown={handlePointerDown}
