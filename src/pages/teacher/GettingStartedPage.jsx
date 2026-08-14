@@ -39,9 +39,9 @@ const GUIDES = [
     title: '2. Agregar estudiantes',
     icon: Users,
     steps: [
-      // CAPTURA: vista de la asignatura con las pestañas visibles, cursor sobre "Estudiantes".
       {
         text: 'Entra a la asignatura tocándola desde el Dashboard. Cada asignatura tiene sus propias pestañas: Estudiantes, Actividades, Asistencia, etc.',
+        image: '/ayuda-comenzar/03b-tabs-asignatura.png',
       },
       {
         text: 'Abre la pestaña "Estudiantes" y toca el ícono verde de agregar.',
@@ -66,9 +66,9 @@ const GUIDES = [
     icon: ClipboardList,
     description: 'Ejemplo: pedir fotos del cuaderno.',
     steps: [
-      // CAPTURA: pestaña Actividades con el botón "Nueva actividad", cursor sobre ese botón.
       {
         text: 'Dentro de la asignatura, en la pestaña "Actividades", toca "Nueva actividad".',
+        image: '/ayuda-comenzar/05b-boton-nueva-actividad.png',
       },
       {
         text: 'Elige el tipo "Entregable" — es el que le pide algo al estudiante — y ponle nombre, por ejemplo "Fotos del cuaderno — tema 1".',
@@ -96,13 +96,12 @@ const GUIDES = [
       {
         text: 'Entra a Evalúa Fácil desde tu celular y toca la asignatura de la clase que vas a dar — igual que en la computadora, cada asignatura es su propio espacio.',
       },
-      // CAPTURA: vista móvil de la pestaña Asistencia con el selector de día visible.
       {
         text: 'Abre la pestaña "Asistencia" y selecciona el día de hoy.',
+        image: '/ayuda-comenzar/07-asistencia-movil.png',
       },
       {
         text: 'Todos tus estudiantes empiezan marcados como "presente". Toca la celda de quien faltó — va rotando entre presente, falta y justificada.',
-        image: '/ayuda-comenzar/07-asistencia-movil.png',
       },
       {
         text: 'No hay botón de guardar aparte: cada toque se registra solo.',
