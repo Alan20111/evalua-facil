@@ -336,6 +336,10 @@ export function canRenew(subscription, { transferenciaEnRevision = false } = {})
   if (transferenciaEnRevision) return false
   if (!subscription) return true
   if (isSubscriptionExpired(subscription)) return true
+  // Una cortesía vigente ya tiene acceso completo sin costo — no hay nada
+  // que "renovar" ni por qué empujar a pagar. Si la cortesía vence, cae al
+  // return true de abajo como cualquier otra suscripción vencida.
+  if (subscription.planId === 'cortesia') return false
   // Pedido explícito: el docente debe poder pagar en CUALQUIER momento, no
   // solo en los últimos días — a veces tiene el dinero hoy y no lo tendrá
   // más adelante. Pagar antes de tiempo no pierde nada: CheckoutModal ya
