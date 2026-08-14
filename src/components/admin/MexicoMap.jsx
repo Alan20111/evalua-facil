@@ -102,6 +102,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
   }
 
   const handlePointerDown = (e) => {
+    e.preventDefault()
     dragRef.current = { startX: e.clientX, startY: e.clientY, origX: view.x, origY: view.y }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
@@ -126,7 +127,10 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
         <svg
           ref={svgRef}
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-          className="w-full h-full touch-none cursor-grab active:cursor-grabbing"
+          className="w-full h-full touch-none cursor-grab active:cursor-grabbing select-none"
+          style={{ WebkitUserDrag: 'none', userSelect: 'none' }}
+          draggable="false"
+          onDragStart={(e) => e.preventDefault()}
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
