@@ -5,7 +5,10 @@ import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from './p
 import { cuentaParaCalificacion } from './activityVisibility'
 import { subjectPeriodLabel } from './dateRange'
 import { studentFullName as fullName } from './studentSearch'
-import { savePdfDoc } from './nativeSave'
+import { savePdfDoc } from './exportGuard'
+// El PDF del QR para instalar la app no es contenido de valor del docente —
+// exento a propósito del candado de descarga en trial, ver exportGuard.js.
+import { savePdfDoc as savePdfDocSinCandado } from './nativeSave'
 import { applyPdfWatermarkIfNeeded, addPdfFooter, getLogoDataUrl, drawPdfWatermarkOnPage } from './exportWatermark'
 import { filasDeReactivo, totalRespuestas } from './evaluacionRespuestas'
 import { contenidoAnalisisResultadosPDF } from './analisisResultadosPDF'
@@ -167,7 +170,7 @@ export async function exportAppQRPDF({ url }) {
   doc.setTextColor(37, 99, 235)
   doc.text(url, centerX, 199, { align: 'center' })
 
-  await savePdfDoc(doc, 'descarga_app_evalua_facil.pdf')
+  await savePdfDocSinCandado(doc, 'descarga_app_evalua_facil.pdf')
 }
 
 // Ranking report: estudiantes ordenados por promedio (mayor a menor).

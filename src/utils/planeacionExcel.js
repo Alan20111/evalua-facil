@@ -14,7 +14,7 @@
 // descargar (o volver a descargar) nunca cuesta créditos ni depende de red.
 
 import { subjectDisplayName } from './subjectName'
-import { saveBlob } from './nativeSave'
+import { saveBlob } from './exportGuard'
 
 const COLUMNAS = [
   { header: 'Contenidos / temas', width: 30 },

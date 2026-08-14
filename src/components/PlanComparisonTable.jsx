@@ -105,7 +105,17 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
           {/* Filas que SÍ distinguen un plan de otro — resaltadas, van primero
               después del precio (ya en el encabezado) para que salten a la
               vista antes que la lista de funciones (idénticas en los tres). */}
+          {/* Gratuito NO descarga archivos (decisión de Kike, 13-ago-2026):
+              a propósito, para que nadie se registre solo a generar su
+              Planeación Didáctica Inicial y se vaya sin usar la plataforma.
+              Va primero — es el diferenciador más fuerte de todos. */}
           <tr className="border-b border-outline-variant bg-accent-light/40">
+            <td className="px-1.5 py-2 font-medium text-muted">Descarga de archivos</td>
+            <CeldaRespuestaNo />
+            <CeldaSi />
+            {mostrarMayor && <CeldaSi />}
+          </tr>
+          <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Créditos de IA</td>
             <Celda destacada>{creditosGratuito ?? '—'}</Celda>
             <Celda destacada>{creditosPro != null ? creditosPro.toLocaleString('es-MX') : '—'}</Celda>

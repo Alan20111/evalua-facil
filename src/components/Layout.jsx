@@ -27,6 +27,7 @@ import Spinner from './Spinner'
 import { useSubscription } from '../hooks/useSubscription'
 import { getTrialBannerMessage, isSubscriptionExpired } from '../utils/subscriptionHelpers'
 import { configurarBloqueoEscritura } from '../utils/firestoreGuard'
+import { configurarBloqueoExportacion } from '../utils/exportGuard'
 import SuscripcionVencidaModal from './SuscripcionVencidaModal'
 import { subjectDisplayName } from '../utils/subjectName'
 import { teacherDisplayName } from '../utils/studentSearch'
@@ -116,6 +117,18 @@ export default function TeacherLayout({ children }) {
       onIntento: () => setVentanaCerradaPara(null),
     })
     return () => configurarBloqueoEscritura({ vencida: () => false, onIntento: null })
+  }, [])
+
+  // Candado de DESCARGA (utils/exportGuard.js) — distinto del de escritura:
+  // bloquea solo mientras nunca hubo un pago aprobado (planId ausente, el
+  // mismo criterio que nuncaAprobado en Profile.jsx), no por venCIDA. Un
+  // docente que ya pagó sigue descargando aunque se le venza después.
+  const nuncaAprobadoRef = useRef(!subscription?.planId)
+  useEffect(() => { nuncaAprobadoRef.current = !subscription?.planId }, [subscription?.planId])
+
+  useEffect(() => {
+    configurarBloqueoExportacion({ bloqueado: () => nuncaAprobadoRef.current })
+    return () => configurarBloqueoExportacion({ bloqueado: () => false })
   }, [])
 
   // Mismo nombre que ven sus estudiantes — prefijo (Mtro./Profe/…) + el
