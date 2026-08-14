@@ -38,6 +38,42 @@ const statePaths = statesGeo.features.map((f) => ({
   d: geomToPath(f.geometry),
 }))
 
+// Centroide (en lng/lat) del polígono más grande de cada estado, para poner
+// ahí el nombre — con islas o exclaves (BCS, Q. Roo) el polígono chico no
+// debe jalar la etiqueta fuera del cuerpo principal del estado.
+function ringCentroid(ring) {
+  let a = 0, cx = 0, cy = 0
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x0, y0] = ring[i]
+    const [x1, y1] = ring[i + 1]
+    const cross = x0 * y1 - x1 * y0
+    a += cross
+    cx += (x0 + x1) * cross
+    cy += (y0 + y1) * cross
+  }
+  a *= 0.5
+  if (Math.abs(a) < 1e-9) {
+    const n = ring.length
+    return { x: ring.reduce((s, p) => s + p[0], 0) / n, y: ring.reduce((s, p) => s + p[1], 0) / n, area: 0 }
+  }
+  return { x: cx / (6 * a), y: cy / (6 * a), area: Math.abs(a) }
+}
+
+function geomCentroidLngLat(geom) {
+  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates
+  let best = null
+  for (const poly of polys) {
+    const c = ringCentroid(poly[0])
+    if (!best || c.area > best.area) best = c
+  }
+  return [best.x, best.y]
+}
+
+const stateLabels = statesGeo.features.map((f) => ({
+  nombre: f.properties.name,
+  pos: proj(geomCentroidLngLat(f.geometry)),
+}))
+
 // Escala de azules por intensidad — mismo azul que el resto de la UI de
 // docente/admin (ver CLAUDE.md: blue only, nunca índigo).
 const ESCALA = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']
@@ -70,14 +106,31 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
 
   const max = useMemo(() => Math.max(0, ...marcadores.map((m) => m.valor)), [marcadores])
 
+  // Nombre visible solo en las ciudades más grandes — con todas encimadas se
+  // vuelve ilegible, así que se etiquetan las que más pesan (top 12) más
+  // cualquier otra que, aun sin ser top, tenga un valor comparable (dentro
+  // del 60% del máximo) para no dejar fuera algo casi tan grande como el 12.
+  const etiquetadas = useMemo(() => {
+    if (marcadores.length <= 12) return new Set(marcadores.map((m) => m.clave))
+    const ordenados = [...marcadores].sort((a, b) => b.valor - a.valor)
+    const umbral = Math.min(ordenados[11].valor, max * 0.6)
+    return new Set(marcadores.filter((m) => m.valor >= umbral).map((m) => m.clave))
+  }, [marcadores, max])
+
+  // El punto p de la vista mapea a scale*p + (x,y) — no a un rango simétrico
+  // alrededor de 0. Para poder ver cualquier borde del contenido (incluido
+  // el de abajo) el rango válido es [VIEW - VIEW*scale - margen, margen],
+  // no ±algo fijo: ese ± era el bug que impedía ver la parte de abajo del
+  // mapa al hacer zoom desde el centro.
   const clampView = (v) => {
     const scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.scale))
-    const maxPanX = (VIEW_W * (scale - 1)) / 2 + 40
-    const maxPanY = (VIEW_H * (scale - 1)) / 2 + 40
+    const margen = 40
+    const minX = VIEW_W - VIEW_W * scale - margen
+    const minY = VIEW_H - VIEW_H * scale - margen
     return {
       scale,
-      x: Math.min(maxPanX, Math.max(-maxPanX, v.x)),
-      y: Math.min(maxPanY, Math.max(-maxPanY, v.y)),
+      x: Math.min(margen, Math.max(minX, v.x)),
+      y: Math.min(margen, Math.max(minY, v.y)),
     }
   }
 
@@ -142,22 +195,51 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
             {statePaths.map((s) => (
               <path key={s.nombre} d={s.d} fill="#dbeafe" stroke="#fff" strokeWidth={1 / view.scale} />
             ))}
+            {stateLabels.map((s) => (
+              <text
+                key={s.nombre}
+                x={s.pos[0]}
+                y={s.pos[1]}
+                textAnchor="middle"
+                fontSize={11 / view.scale}
+                fill="#64748b"
+                className="pointer-events-none select-none"
+                style={{ fontWeight: 500 }}
+              >
+                {s.nombre}
+              </text>
+            ))}
             {marcadores.map((m) => {
               const [x, y] = proj([m.lng, m.lat])
+              const r = radioPara(m.valor, max) / Math.sqrt(view.scale)
               return (
-                <circle
-                  key={m.clave}
-                  cx={x}
-                  cy={y}
-                  r={radioPara(m.valor, max) / Math.sqrt(view.scale)}
-                  fill={colorPara(m.valor, max)}
-                  fillOpacity={m.aprox ? 0.55 : 0.85}
-                  stroke="#1e3a8a"
-                  strokeWidth={1 / view.scale}
-                  className="cursor-pointer transition-opacity hover:opacity-100"
-                  onMouseEnter={() => setHover(m)}
-                  onMouseLeave={() => setHover(null)}
-                />
+                <g key={m.clave}>
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={r}
+                    fill={colorPara(m.valor, max)}
+                    fillOpacity={m.aprox ? 0.55 : 0.85}
+                    stroke="#1e3a8a"
+                    strokeWidth={1 / view.scale}
+                    className="cursor-pointer transition-opacity hover:opacity-100"
+                    onMouseEnter={() => setHover(m)}
+                    onMouseLeave={() => setHover(null)}
+                  />
+                  {etiquetadas.has(m.clave) && (
+                    <text
+                      x={x}
+                      y={y - r - 3 / view.scale}
+                      textAnchor="middle"
+                      fontSize={12 / view.scale}
+                      fill="#1e3a8a"
+                      className="pointer-events-none select-none"
+                      style={{ fontWeight: 700, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 / view.scale }}
+                    >
+                      {m.etiqueta}
+                    </text>
+                  )}
+                </g>
               )
             })}
           </g>
@@ -174,7 +256,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
         <div className="absolute bottom-3 right-3 flex flex-col gap-1">
           <button
             type="button"
-            onClick={() => zoomBy(1.4)}
+            onClick={() => zoomBy(1.4, { x: VIEW_W / 2, y: VIEW_H / 2 })}
             className="w-8 h-8 flex items-center justify-center bg-surface-card shadow-card rounded text-on-surface hover:bg-[var(--accent-tint)]"
             aria-label="Acercar"
           >
@@ -182,7 +264,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
           </button>
           <button
             type="button"
-            onClick={() => zoomBy(1 / 1.4)}
+            onClick={() => zoomBy(1 / 1.4, { x: VIEW_W / 2, y: VIEW_H / 2 })}
             className="w-8 h-8 flex items-center justify-center bg-surface-card shadow-card rounded text-on-surface hover:bg-[var(--accent-tint)]"
             aria-label="Alejar"
           >
