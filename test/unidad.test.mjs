@@ -1166,6 +1166,31 @@ caso('comentariosGrupoATexto: sin comentarios, lo dice explícitamente (no inven
   assert.strictEqual(FIA.comentariosGrupoATexto(undefined), 'El docente no dejó comentarios generales sobre el grupo.')
 })
 
+caso('autoanalisisDocenteATexto: arma una línea por cada pregunta contestada, en orden', () => {
+  const texto = FIA.autoanalisisDocenteATexto({
+    temasDomina: 'Álgebra y trigonometría',
+    temasFortalecer: 'Estadística y probabilidad',
+    temasFacilExplicar: '',
+    temasDificilExplicar: 'Límites',
+    aspectoMejorar: '',
+  })
+  assert.strictEqual(texto,
+    '¿Qué temas domina mejor? Álgebra y trigonometría\n' +
+    '¿Qué temas considera que necesita fortalecer? Estadística y probabilidad\n' +
+    '¿Qué temas se le dificultan más para explicar? Límites'
+  )
+})
+
+caso('autoanalisisDocenteATexto: opcional — sin nada contestado, lo dice explícitamente (no inventa)', () => {
+  assert.strictEqual(FIA.autoanalisisDocenteATexto(null), 'El docente no contestó el autoanálisis (es opcional).')
+  assert.strictEqual(FIA.autoanalisisDocenteATexto(undefined), 'El docente no contestó el autoanálisis (es opcional).')
+  assert.strictEqual(FIA.autoanalisisDocenteATexto({}), 'El docente no contestó el autoanálisis (es opcional).')
+  assert.strictEqual(
+    FIA.autoanalisisDocenteATexto({ temasDomina: '', temasFortalecer: '   ' }),
+    'El docente no contestó el autoanálisis (es opcional).'
+  )
+})
+
 grupo('Diagnóstico del grupo — apartado 2 de Asistente IA')
 
 caso('seleccionarFuentesGenerales: toma hasta 3, las más recientes primero, solo las generales', () => {

@@ -1890,6 +1890,30 @@ function comentariosGrupoATexto(comentarios) {
   return texto || 'El docente no dejó comentarios generales sobre el grupo.'
 }
 
+// "Autoanálisis Docente (opcional)" — Asistente IA (13-ago-2026, pedido
+// explícito de Kike). A diferencia de "Comentarios generales del grupo",
+// esto es sobre el DOCENTE mismo (qué domina, qué le cuesta explicar, qué
+// quiere mejorar de su forma de enseñar), no sobre el grupo — por eso solo
+// alimenta Planeación (no los Diagnósticos, que son sobre el grupo).
+// Totalmente opcional: si el docente no contestó nada, se dice
+// explícitamente que no hay autoanálisis (nunca se inventa uno).
+function autoanalisisDocenteATexto(autoanalisis) {
+  const preguntas = [
+    ['temasDomina', '¿Qué temas domina mejor?'],
+    ['temasFortalecer', '¿Qué temas considera que necesita fortalecer?'],
+    ['temasFacilExplicar', '¿Qué temas se le facilitan más para explicar?'],
+    ['temasDificilExplicar', '¿Qué temas se le dificultan más para explicar?'],
+    ['aspectoMejorar', '¿Qué aspecto de su forma de enseñar le gustaría mejorar?'],
+  ]
+  const partes = preguntas
+    .map(([campo, pregunta]) => {
+      const respuesta = String(autoanalisis?.[campo] || '').trim()
+      return respuesta ? `${pregunta} ${respuesta}` : null
+    })
+    .filter(Boolean)
+  return partes.length ? partes.join('\n') : 'El docente no contestó el autoanálisis (es opcional).'
+}
+
 // Precheck compartido por los dos diagnósticos — todo lo que puede rechazar
 // la operación SIN gastar un crédito: dueño de la asignatura, Perfil IA
 // completo, al menos una fuente inicial general. Extraído a función pura
@@ -2425,8 +2449,9 @@ async function precheckPlaneacionInicial({ uid, params }) {
   const bloqueFuentesGenerales = await fuentesIA.prepararBloqueFuentes(
     seleccionarFuentesGenerales(generales).map((f) => f.url)
   )
-  const comentariosGrupoSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
-  const comentariosGrupoTexto = comentariosGrupoATexto(comentariosGrupoSnap.data()?.comentariosGrupo)
+  const configSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
+  const comentariosGrupoTexto = comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)
+  const autoanalisisDocenteTexto = autoanalisisDocenteATexto(configSnap.data()?.autoanalisisDocente)
 
   // Formato elegido por el docente (13-ago-2026, decisión de Kike): 'simple'
   // (bloques agrupados, como antes) o 'extendida' (una fila por cada tema
@@ -2451,6 +2476,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
     asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
     perfilIATexto: perfilIATexto(perfilIA),
     comentariosGrupoTexto,
+    autoanalisisDocenteTexto,
     bloqueFuentesGenerales,
     diagnosticoContextoTexto: diagnosticoContextoATexto(resultadoContexto),
     diagnosticoConocimientosTexto: diagnosticoConocimientosATexto(resultadoConocimientos),
@@ -2480,7 +2506,12 @@ const PLANEACION_SISTEMA =
   'suya, no una fuente documental — junto con los diagnósticos, son lo que MÁS debe pesar al ' +
   'decidir la estrategia, las actividades y el nivel de las propuestas (más que las fuentes): si ' +
   'el docente dice que el grupo apenas sabe sumar o casi no ha usado tecnología, la propuesta ' +
-  'tiene que reflejarlo, no ignorarlo. Escribe en ' +
+  'tiene que reflejarlo, no ignorarlo. El AUTOANÁLISIS DOCENTE (opcional, cuando lo haya) es sobre ' +
+  'el docente mismo, no sobre el grupo: en los temas que domina o que se le facilita explicar, ' +
+  'puedes proponer estrategias más ambiciosas o profundas; en los que necesita fortalecer o se le ' +
+  'dificulta explicar, sugiere apoyos concretos (ejemplos más guiados, recursos de repaso para él ' +
+  'mismo, actividades con pasos más explícitos) — nunca lo señales como una debilidad del docente, ' +
+  'trátalo como información útil para ajustar el nivel de detalle de la propuesta. Escribe en ' +
   'español, claro y breve. Responde únicamente con el JSON del esquema indicado, sin texto adicional.'
 
 // 'simple' agrupa el trabajo en bloques (como siempre); 'extendida' pide una
@@ -2511,6 +2542,7 @@ function promptPlaneacionParcial(ctx, parcialCtx) {
     `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
     `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (el insumo que más debe pesar, ` +
     `junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` +
+    `AUTOANÁLISIS DOCENTE (opcional, sobre el docente mismo, no sobre el grupo):\n${ctx.autoanalisisDocenteTexto}\n\n` +
     `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` +
     `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` +
     (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
@@ -2760,5 +2792,6 @@ exports._pruebas = {
   precheckPlaneacionInicial, formatoPeriodo, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
   analisisDiagnosticoMasReciente,
   normalizarFilaPlaneacion, normalizarFilasPlaneacion, MAX_FILAS_PLANEACION_PARCIAL, comentariosGrupoATexto,
+  autoanalisisDocenteATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
 }

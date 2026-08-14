@@ -12,6 +12,7 @@ import { MAX_FUENTES, MAX_FUENTE_BYTES, FUENTES_ACCEPT, subirFuentes } from '../
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO } from '../../utils/fuentesAsignatura'
 import { apiUrl } from '../../utils/apiBase'
 import ComentariosGrupoSection from './ComentariosGrupoSection'
+import AutoanalisisDocenteSection from './AutoanalisisDocenteSection'
 import DiagnosticoGrupoSection from './DiagnosticoGrupoSection'
 import PlaneacionInicialSection from './PlaneacionInicialSection'
 
@@ -216,6 +217,10 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
 
       <div className="pt-2 border-t border-outline-variant">
         <ComentariosGrupoSection subjectId={subjectId} docenteId={docenteId} />
+      </div>
+
+      <div>
+        <AutoanalisisDocenteSection subjectId={subjectId} docenteId={docenteId} />
       </div>
 
       <div>

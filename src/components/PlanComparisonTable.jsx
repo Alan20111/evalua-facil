@@ -25,7 +25,7 @@ const FILAS_FUNCIONES = [
   'Planeación didáctica con IA',
   'Creación de actividades con IA',
   'Creación de cuestionarios y exámenes con IA',
-  'Uso de fuentes/documentos para la IA',
+  'Creación de rúbricas y listas de cotejo con IA',
 ]
 
 function Celda({ children, destacada = false }) {
@@ -127,21 +127,11 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
             <Celda>Mensual</Celda>
             {mostrarMayor && <Celda>Mensual</Celda>}
           </tr>
-          {/* Diferencia real entre Gratuito y cualquier plan pagado (no entre
-              pro/mayor, esos son iguales entre sí) — ver hasCleanExports en
-              subscriptionHelpers.js: la prueba exporta PDF/Excel con marca de
-              agua, un plan pagado los exporta limpios mientras esté vigente. */}
-          <tr className="border-b border-outline-variant bg-accent-light/40">
-            <td className="px-1.5 py-2 font-medium text-muted">Documentos sin marca de agua</td>
-            <CeldaNo />
-            <CeldaSi />
-            {mostrarMayor && <CeldaSi />}
-          </tr>
           {/* Calificar respuestas abiertas y analizar resultados con IA
               (C-02/OP-10) — no está en Gratuito. Igual en ambos planes
               pagados; la doble palomita en Pro es solo acento visual (ver
               CeldaSiDoble), el "más" real ya está en los créditos. */}
-          <tr className="border-b border-outline-variant">
+          <tr className="border-b border-outline-variant bg-accent-light/40">
             <td className="px-1.5 py-2 font-medium text-muted">Evaluación con apoyo de IA</td>
             <CeldaNo />
             <CeldaSi />
