@@ -94,10 +94,15 @@ const CIUDADES = Object.entries(cityShapes).map(([clave, info]) => ({
   cp: cpTexto(info),
 }))
 
-// Escala de azules por intensidad — mismo azul que el resto de la UI de
-// docente/admin (ver CLAUDE.md: blue only, nunca índigo).
+// Escala de azules por intensidad de ventas.
 const ESCALA = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']
-const SIN_DATOS = '#dbeafe'
+// Manchas urbanas sin ventas todavía: naranja notorio, para que la ciudad
+// se distinga de un vistazo del resto del mapa (pedido explícito, aunque el
+// resto de la UI de docente/admin sea azul).
+const SIN_DATOS = '#fb923c'
+const SIN_DATOS_BORDE = '#c2410c'
+// Fronteras de estado en guinda.
+const GUINDA = '#7c2d48'
 
 // Bandas absolutas, no relativas al máximo del set actual — con pocos datos
 // (o uno solo, como en pruebas) "relativo al máximo" hace que ese único
@@ -260,7 +265,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
         >
           <g ref={gRef} transform={transformDe(view)}>
             {statePaths.map((s) => (
-              <path key={s.nombre} d={s.d} fill="#f8fafc" stroke="#60a5fa" strokeWidth={1.4 / view.scale} />
+              <path key={s.nombre} d={s.d} fill="#f8fafc" stroke={GUINDA} strokeWidth={1.4 / view.scale} />
             ))}
             {stateLabels.map((s) => (
               <text
@@ -287,8 +292,8 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
                     d={c.d}
                     fill={colorPara(valor)}
                     fillOpacity={m?.aprox ? 0.6 : 0.9}
-                    stroke="#1e3a8a"
-                    strokeWidth={(valor ? 1 : 0.6) / view.scale}
+                    stroke={valor ? '#1e3a8a' : SIN_DATOS_BORDE}
+                    strokeWidth={(valor ? 1 : 1.2) / view.scale}
                     className="cursor-pointer transition-opacity hover:opacity-100"
                     onMouseEnter={() => setHover({ ...c, valor })}
                     onMouseLeave={() => setHover(null)}
