@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import statesGeo from '../../data/mexicoStatesGeo.json'
 import cityShapes from '../../data/cityShapes.json'
-import riosGeo from '../../data/mexicoRivers.json'
-import lagosGeo from '../../data/mexicoLakes.json'
 
 // Proyección equirectangular simple — suficiente para un mapa de referencia
 // (no es para medir distancias, solo para ubicar marcadores). Bounding box
@@ -35,21 +33,6 @@ function geomToPath(geom) {
   if (geom.type === 'Polygon') return geom.coordinates.map(ringToPath).join(' ')
   return geom.coordinates.map((poly) => poly.map(ringToPath).join(' ')).join(' ')
 }
-
-function lineToPath(line) {
-  return line.map((p, i) => `${i === 0 ? 'M' : 'L'}${proj(p).join(',')}`).join(' ')
-}
-
-function riverToPath(geom) {
-  if (geom.type === 'LineString') return lineToPath(geom.coordinates)
-  return geom.coordinates.map(lineToPath).join(' ')
-}
-
-// Natural Earth 1:50m (dominio público), recortado al bbox de México — capa
-// de referencia, no exhaustiva (a esa escala global solo trae los ríos y
-// lagos más grandes, no cada arroyo).
-const riosPaths = riosGeo.features.map((f) => riverToPath(f.geometry))
-const lagosPaths = lagosGeo.features.map((f) => geomToPath(f.geometry))
 
 const statePaths = statesGeo.features.map((f) => ({
   nombre: f.properties.name,
@@ -319,12 +302,6 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
           <g ref={gRef} transform={transformDe(view)} style={{ willChange: 'transform' }}>
             {statePaths.map((s) => (
               <path key={s.nombre} d={s.d} fill="#f8fafc" stroke={GUINDA} strokeWidth={1.4 / view.scale} />
-            ))}
-            {lagosPaths.map((d, i) => (
-              <path key={`lago-${i}`} d={d} fill="#60a5fa" stroke="#3b82f6" strokeWidth={0.6 / view.scale} className="pointer-events-none" />
-            ))}
-            {riosPaths.map((d, i) => (
-              <path key={`rio-${i}`} d={d} fill="none" stroke="#60a5fa" strokeWidth={1.2 / view.scale} strokeLinecap="round" className="pointer-events-none" />
             ))}
             {stateLabels.map((s) => (
               <text
