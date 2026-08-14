@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { TRIAL_DURATION_DAYS, MONTHLY_PRICE_MXN, MAYOR_PRICE_MXN, formatCurrency } from '../utils/subscriptionHelpers'
+import { TRIAL_DURATION_DAYS, MONTHLY_PRICE_MXN, MAYOR_PRICE_MXN } from '../utils/subscriptionHelpers'
 
 // Tabla comercial — lo único que el docente necesita para decidir en pocos
 // segundos: qué obtiene, cuánto cuesta y qué le conviene. A propósito NO
@@ -91,12 +91,12 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
             </th>
             <th className="px-1 py-2 text-center border-l border-outline-variant">
               <p className="font-bold text-on-surface leading-tight text-[11px]">Asistente IA</p>
-              <p className="text-[10px] text-accent font-semibold">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
+              <p className="text-[10px] text-accent font-semibold leading-tight">${MONTHLY_PRICE_MXN}<br />/mes</p>
             </th>
             {mostrarMayor && (
               <th className="px-1 py-2 text-center border-l border-outline-variant">
                 <p className="font-bold text-on-surface leading-tight text-[11px]">Asistente IA Pro</p>
-                <p className="text-[10px] text-accent font-semibold">{formatCurrency(MAYOR_PRICE_MXN)}/mes</p>
+                <p className="text-[10px] text-accent font-semibold leading-tight">${MAYOR_PRICE_MXN}<br />/mes</p>
               </th>
             )}
           </tr>
