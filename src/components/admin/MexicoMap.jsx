@@ -109,10 +109,11 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
 
   const handlePointerMove = (e) => {
     if (!dragRef.current) return
+    const { startX, startY, origX, origY } = dragRef.current
     const rect = svgRef.current.getBoundingClientRect()
-    const dx = ((e.clientX - dragRef.current.startX) / rect.width) * VIEW_W
-    const dy = ((e.clientY - dragRef.current.startY) / rect.height) * VIEW_H
-    setView((prev) => clampView({ ...prev, x: dragRef.current.origX + dx, y: dragRef.current.origY + dy }))
+    const dx = ((e.clientX - startX) / rect.width) * VIEW_W
+    const dy = ((e.clientY - startY) / rect.height) * VIEW_H
+    setView((prev) => clampView({ ...prev, x: origX + dx, y: origY + dy }))
   }
 
   const handlePointerUp = () => {
