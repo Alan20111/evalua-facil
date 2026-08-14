@@ -210,24 +210,42 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
   // retrasado — con rAF solo se aplica el último valor por frame.
   const rafRef = useRef(null)
   const aplicarTransformDom = (v) => {
+    viewRef.current = v
     if (rafRef.current != null) return
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null
       if (gRef.current) gRef.current.setAttribute('transform', transformDe(viewRef.current))
     })
-    viewRef.current = v
   }
 
-  const zoomBy = (factor, center) => {
-    setView((prev) => {
-      const nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prev.scale * factor))
-      if (!center) return clampView({ ...prev, scale: nextScale })
+  // `inmediato`: true para clics en los botones (una sola acción, se
+  // confirma a React al toque). false para la rueda del mouse — dispara
+  // muchos eventos por segundo, así que igual que el arrastre se mueve el
+  // <g> directo en el DOM y se confirma a React solo cuando el usuario deja
+  // de girar la rueda (evita un setState — y su re-render de ~150
+  // elementos — por cada tick).
+  const wheelCommitRef = useRef(null)
+  const zoomBy = (factor, center, inmediato = true) => {
+    const prev = viewRef.current
+    const nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prev.scale * factor))
+    let next
+    if (!center) {
+      next = clampView({ ...prev, scale: nextScale })
+    } else {
       // mantiene el punto bajo el cursor fijo al hacer zoom
       const ratio = nextScale / prev.scale
       const x = center.x - (center.x - prev.x) * ratio
       const y = center.y - (center.y - prev.y) * ratio
-      return clampView({ scale: nextScale, x, y })
-    })
+      next = clampView({ scale: nextScale, x, y })
+    }
+    if (inmediato) {
+      viewRef.current = next
+      setView(next)
+      return
+    }
+    aplicarTransformDom(next)
+    if (wheelCommitRef.current) clearTimeout(wheelCommitRef.current)
+    wheelCommitRef.current = setTimeout(() => setView(viewRef.current), 150)
   }
 
   // React trata onWheel como listener "passive" por default, así que
@@ -242,10 +260,14 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
       const rect = el.getBoundingClientRect()
       const cx = ((e.clientX - rect.left) / rect.width) * VIEW_W
       const cy = ((e.clientY - rect.top) / rect.height) * VIEW_H
-      zoomBy(e.deltaY < 0 ? 1.2 : 1 / 1.2, { x: cx, y: cy })
+      zoomBy(e.deltaY < 0 ? 1.2 : 1 / 1.2, { x: cx, y: cy }, false)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
+  useEffect(() => () => {
+    if (wheelCommitRef.current) clearTimeout(wheelCommitRef.current)
   }, [])
 
   useEffect(() => () => {
@@ -254,7 +276,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
 
   const handlePointerDown = (e) => {
     e.preventDefault()
-    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: view.x, origY: view.y, moved: false }
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: viewRef.current.x, origY: viewRef.current.y, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
 
