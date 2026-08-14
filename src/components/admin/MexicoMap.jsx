@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import statesGeo from '../../data/mexicoStatesGeo.json'
 import cityShapes from '../../data/cityShapes.json'
+import riosGeo from '../../data/mexicoRivers.json'
+import lagosGeo from '../../data/mexicoLakes.json'
 
 // Proyección equirectangular simple — suficiente para un mapa de referencia
 // (no es para medir distancias, solo para ubicar marcadores). Bounding box
@@ -33,6 +35,21 @@ function geomToPath(geom) {
   if (geom.type === 'Polygon') return geom.coordinates.map(ringToPath).join(' ')
   return geom.coordinates.map((poly) => poly.map(ringToPath).join(' ')).join(' ')
 }
+
+function lineToPath(line) {
+  return line.map((p, i) => `${i === 0 ? 'M' : 'L'}${proj(p).join(',')}`).join(' ')
+}
+
+function riverToPath(geom) {
+  if (geom.type === 'LineString') return lineToPath(geom.coordinates)
+  return geom.coordinates.map(lineToPath).join(' ')
+}
+
+// Natural Earth 1:50m (dominio público), recortado al bbox de México — capa
+// de referencia, no exhaustiva (a esa escala global solo trae los ríos y
+// lagos más grandes, no cada arroyo).
+const riosPaths = riosGeo.features.map((f) => riverToPath(f.geometry))
+const lagosPaths = lagosGeo.features.map((f) => geomToPath(f.geometry))
 
 const statePaths = statesGeo.features.map((f) => ({
   nombre: f.properties.name,
@@ -99,8 +116,8 @@ const ESCALA = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']
 // Manchas urbanas sin ventas todavía: naranja notorio, para que la ciudad
 // se distinga de un vistazo del resto del mapa (pedido explícito, aunque el
 // resto de la UI de docente/admin sea azul).
-const SIN_DATOS = '#fb923c'
-const SIN_DATOS_BORDE = '#c2410c'
+const SIN_DATOS = '#fdba74'
+const SIN_DATOS_BORDE = '#ea580c'
 // Fronteras de estado en guinda.
 const GUINDA = '#7c2d48'
 
@@ -186,8 +203,19 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
   // por React) para que no dependa de un re-render por cada pixel movido —
   // con ~140 paths (32 estados + 69 manchas urbanas) hacerlo vía setState
   // se sentía trabado. El estado de React solo se actualiza al soltar.
+  //
+  // Además se agrupa por requestAnimationFrame: pointermove puede disparar
+  // muchos más eventos por segundo de los que el navegador puede pintar, y
+  // escribir el atributo transform en cada uno hace cola y se siente
+  // retrasado — con rAF solo se aplica el último valor por frame.
+  const rafRef = useRef(null)
   const aplicarTransformDom = (v) => {
-    if (gRef.current) gRef.current.setAttribute('transform', transformDe(v))
+    if (rafRef.current != null) return
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      if (gRef.current) gRef.current.setAttribute('transform', transformDe(viewRef.current))
+    })
+    viewRef.current = v
   }
 
   const zoomBy = (factor, center) => {
@@ -220,6 +248,10 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
 
+  useEffect(() => () => {
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+  }, [])
+
   const handlePointerDown = (e) => {
     e.preventDefault()
     dragRef.current = { startX: e.clientX, startY: e.clientY, origX: view.x, origY: view.y, moved: false }
@@ -234,7 +266,6 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
     const dy = ((e.clientY - startY) / rect.height) * VIEW_H
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1) dragRef.current.moved = true
     const next = clampView({ ...viewRef.current, x: origX + dx, y: origY + dy })
-    viewRef.current = next
     aplicarTransformDom(next)
   }
 
@@ -263,9 +294,15 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
         >
-          <g ref={gRef} transform={transformDe(view)}>
+          <g ref={gRef} transform={transformDe(view)} style={{ willChange: 'transform' }}>
             {statePaths.map((s) => (
               <path key={s.nombre} d={s.d} fill="#f8fafc" stroke={GUINDA} strokeWidth={1.4 / view.scale} />
+            ))}
+            {lagosPaths.map((d, i) => (
+              <path key={`lago-${i}`} d={d} fill="#60a5fa" stroke="#3b82f6" strokeWidth={0.6 / view.scale} className="pointer-events-none" />
+            ))}
+            {riosPaths.map((d, i) => (
+              <path key={`rio-${i}`} d={d} fill="none" stroke="#60a5fa" strokeWidth={1.2 / view.scale} strokeLinecap="round" className="pointer-events-none" />
             ))}
             {stateLabels.map((s) => (
               <text
@@ -291,7 +328,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
                   <path
                     d={c.d}
                     fill={colorPara(valor)}
-                    fillOpacity={m?.aprox ? 0.6 : 0.9}
+                    fillOpacity={valor ? (m?.aprox ? 0.6 : 0.9) : 0.75}
                     stroke={valor ? '#1e3a8a' : SIN_DATOS_BORDE}
                     strokeWidth={(valor ? 1 : 1.2) / view.scale}
                     className="cursor-pointer transition-opacity hover:opacity-100"
