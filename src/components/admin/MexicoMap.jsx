@@ -251,7 +251,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
         >
           <g ref={gRef} transform={transformDe(view)}>
             {statePaths.map((s) => (
-              <path key={s.nombre} d={s.d} fill="#eff6ff" stroke="#fff" strokeWidth={1 / view.scale} />
+              <path key={s.nombre} d={s.d} fill="#eff6ff" stroke="#93c5fd" strokeWidth={1.4 / view.scale} />
             ))}
             {stateLabels.map((s) => (
               <text
