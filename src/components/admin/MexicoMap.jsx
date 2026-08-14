@@ -152,7 +152,7 @@ function clampView(v) {
 }
 
 function transformDe(v) {
-  return `translate(${v.x} ${v.y}) scale(${v.scale}) translate(${VIEW_W / 2} ${VIEW_H / 2}) translate(${-VIEW_W / 2} ${-VIEW_H / 2})`
+  return `translate(${v.x} ${v.y}) scale(${v.scale})`
 }
 
 // `marcadores`: [{ clave, lat, lng, valor, etiqueta, aprox }] — solo ciudades
@@ -182,23 +182,13 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
     return new Set(circulos.filter((m) => m.valor >= umbral).map((m) => m.clave))
   }, [circulos])
 
-  // Durante el arrastre se mueve el <g> directamente en el DOM (sin pasar
-  // por React) para que no dependa de un re-render por cada pixel movido —
-  // con ~140 paths (32 estados + 69 manchas urbanas) hacerlo vía setState
-  // se sentía trabado. El estado de React solo se actualiza al soltar.
-  //
-  // Además se agrupa por requestAnimationFrame: pointermove puede disparar
-  // muchos más eventos por segundo de los que el navegador puede pintar, y
-  // escribir el atributo transform en cada uno hace cola y se siente
-  // retrasado — con rAF solo se aplica el último valor por frame.
-  const rafRef = useRef(null)
+  // Durante el arrastre/zoom con rueda se mueve el <g> directamente en el
+  // DOM (sin pasar por React) para que no dependa de un re-render por cada
+  // evento — con ~140 elementos hacerlo vía setState se sentía trabado. El
+  // estado de React solo se actualiza al soltar / dejar de girar la rueda.
   const aplicarTransformDom = (v) => {
     viewRef.current = v
-    if (rafRef.current != null) return
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null
-      if (gRef.current) gRef.current.setAttribute('transform', transformDe(viewRef.current))
-    })
+    if (gRef.current) gRef.current.setAttribute('transform', transformDe(v))
   }
 
   // `inmediato`: true para clics en los botones (una sola acción, se
@@ -253,14 +243,18 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
     if (wheelCommitRef.current) clearTimeout(wheelCommitRef.current)
   }, [])
 
-  useEffect(() => () => {
-    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
-  }, [])
-
+  // Cada mancha urbana tiene onMouseEnter/onMouseLeave para el tooltip —
+  // mientras se arrastra, el cursor pasa por encima de varias (se mueven
+  // bajo un cursor quieto) y cada cruce disparaba setHover → re-render
+  // completo, JUSTO en medio del arrastre. Se apagan los eventos de puntero
+  // del contenido (no del <svg>, que los necesita para seguir el arrastre)
+  // mientras dragRef esté activo, directo en el DOM para no pasar por React.
   const handlePointerDown = (e) => {
     e.preventDefault()
     dragRef.current = { startX: e.clientX, startY: e.clientY, origX: viewRef.current.x, origY: viewRef.current.y, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
+    if (gRef.current) gRef.current.style.pointerEvents = 'none'
+    setHover(null)
   }
 
   const handlePointerMove = (e) => {
@@ -275,6 +269,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
   }
 
   const handlePointerUp = () => {
+    if (gRef.current) gRef.current.style.pointerEvents = 'auto'
     if (!dragRef.current) return
     dragRef.current = null
     setView(viewRef.current)
@@ -299,7 +294,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
         >
-          <g ref={gRef} transform={transformDe(view)} style={{ willChange: 'transform' }}>
+          <g ref={gRef} transform={transformDe(view)}>
             {statePaths.map((s) => (
               <path key={s.nombre} d={s.d} fill="#f8fafc" stroke={GUINDA} strokeWidth={1.4 / view.scale} />
             ))}
