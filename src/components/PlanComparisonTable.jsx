@@ -30,7 +30,7 @@ const FILAS_FUNCIONES = [
 
 function Celda({ children, destacada = false }) {
   return (
-    <td className={`px-1.5 py-2 text-center ${destacada ? 'font-bold text-on-surface' : 'text-on-surface'}`}>
+    <td className={`px-1 py-2 text-center border-l border-outline-variant text-[11px] ${destacada ? 'font-bold text-on-surface' : 'text-on-surface'}`}>
       {children}
     </td>
   )
@@ -38,14 +38,14 @@ function Celda({ children, destacada = false }) {
 
 function CeldaSi() {
   return (
-    <td className="px-1.5 py-2 text-center">
+    <td className="px-1 py-2 text-center border-l border-outline-variant">
       <Check size={15} className="inline-block text-accent" aria-label="Sí" />
     </td>
   )
 }
 
 function CeldaNo() {
-  return <td className="px-1.5 py-2 text-center text-slate-300">—</td>
+  return <td className="px-1 py-2 text-center border-l border-outline-variant text-slate-300">—</td>
 }
 
 // Dos palomitas: acento visual de "más capacidad" para Asistente IA Pro —
@@ -54,7 +54,7 @@ function CeldaNo() {
 // créditos (1,750 vs 350). Confirmado con Kike, 13-ago-2026.
 function CeldaSiDoble() {
   return (
-    <td className="px-1.5 py-2 text-center whitespace-nowrap">
+    <td className="px-1 py-2 text-center border-l border-outline-variant whitespace-nowrap">
       <Check size={15} className="inline-block text-accent" aria-label="Sí" />
       <Check size={15} className="inline-block text-accent -ml-1.5" aria-hidden="true" />
     </td>
@@ -66,7 +66,7 @@ function CeldaSiDoble() {
 // reservado para cuando el plan Gratuito ni siquiera participa de la fila
 // (no paga, así que "meses"/"descuento" no le corresponden).
 function CeldaRespuestaNo() {
-  return <td className="px-1.5 py-2 text-center text-muted">No</td>
+  return <td className="px-1 py-2 text-center border-l border-outline-variant text-[11px] text-muted">No</td>
 }
 
 export default function PlanComparisonTable({ mostrarMayor = true, creditosGratuito, creditosPro, creditosMayor }) {
@@ -84,19 +84,19 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
         </colgroup>
         <thead>
           <tr className="border-b border-outline-variant">
-            <th className="px-1.5 py-2 text-left font-semibold text-muted">Plan</th>
-            <th className="px-1.5 py-2 text-center">
-              <p className="font-bold text-on-surface leading-tight">Gratuito</p>
-              <p className="text-[11px] text-muted font-normal">$0</p>
+            <th className="px-1 py-2 text-left font-semibold text-muted">Plan</th>
+            <th className="px-1 py-2 text-center border-l border-outline-variant">
+              <p className="font-bold text-on-surface leading-tight text-[11px]">Gratuito</p>
+              <p className="text-[10px] text-muted font-normal">$0</p>
             </th>
-            <th className="px-1.5 py-2 text-center">
-              <p className="font-bold text-on-surface leading-tight">Asistente IA</p>
-              <p className="text-[11px] text-accent font-semibold">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
+            <th className="px-1 py-2 text-center border-l border-outline-variant">
+              <p className="font-bold text-on-surface leading-tight text-[11px]">Asistente IA</p>
+              <p className="text-[10px] text-accent font-semibold">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
             </th>
             {mostrarMayor && (
-              <th className="px-1.5 py-2 text-center">
-                <p className="font-bold text-on-surface leading-tight">Asistente IA Pro</p>
-                <p className="text-[11px] text-accent font-semibold">{formatCurrency(MAYOR_PRICE_MXN)}/mes</p>
+              <th className="px-1 py-2 text-center border-l border-outline-variant">
+                <p className="font-bold text-on-surface leading-tight text-[11px]">Asistente IA Pro</p>
+                <p className="text-[10px] text-accent font-semibold">{formatCurrency(MAYOR_PRICE_MXN)}/mes</p>
               </th>
             )}
           </tr>
@@ -140,8 +140,8 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Pago de varios meses</td>
             <CeldaNo />
-            <Celda destacada>1 a 6 meses</Celda>
-            {mostrarMayor && <Celda destacada>Solo 1 mes</Celda>}
+            <Celda destacada>1-6 meses</Celda>
+            {mostrarMayor && <Celda destacada>Solo 1</Celda>}
           </tr>
           <tr className="border-b border-outline-variant bg-accent-light/40">
             <td className="px-1.5 py-2 font-medium text-muted">Descuentos por prepago</td>

@@ -198,11 +198,8 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
       <div>
         <h2 className="font-bold text-on-surface">Fuentes</h2>
         <p className="text-sm text-muted mt-0.5">
-          Sube aquí el programa, materiales y documentos de la asignatura. Se
-          guardan una sola vez y podrás reutilizarlos después al crear
-          exámenes, cuestionarios, actividades y otras funciones de IA — no
-          hace falta volver a subirlos cada vez. Formatos permitidos: PDF y
-          Word, hasta {MAX_FUENTES} archivos por carga y {MAX_FUENTES_POR_GRUPO} documentos en total por grupo.
+          Sube el programa y materiales de la asignatura — se reutilizan en todas las funciones de IA.
+          PDF o Word, hasta {MAX_FUENTES} por carga y {MAX_FUENTES_POR_GRUPO} en total.
         </p>
       </div>
 
