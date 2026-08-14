@@ -154,7 +154,7 @@ export default function TeacherLayout({ children }) {
           <CreditosBar variant="movil" />
           <NavLink
             to="/manual"
-            aria-label="Manual"
+            aria-label="Ayuda para comenzar"
             className="p-2 text-muted hover:text-accent rounded transition-colors"
           >
             <BookOpen size={20} />
@@ -364,7 +364,7 @@ export default function TeacherLayout({ children }) {
               }
             >
               <BookOpen size={17} className="flex-shrink-0" />
-              Manual
+              Ayuda para comenzar
             </NavLink>
           </div>
 
