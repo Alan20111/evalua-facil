@@ -105,21 +105,20 @@ function EstadoPlaneacionBadge({ lista }) {
 // Celda editable "en su lugar" — sin borde propio hasta que se toca, para
 // que la tabla se vea como el documento real y no como un formulario con
 // cajas (Opción C elegida por Kike, 15-ago-2026: editar directo sobre la
-// tabla, no en una lista aparte). Un textarea de una sola línea que crece
-// solo (auto-resize) para no forzar scroll interno en la celda.
+// tabla, no en una lista aparte). Alta de por sí (aprovecha el espacio
+// vertical de la pantalla completa, pedido de Kike, 15-ago-2026) — con
+// scroll propio si el texto no cabe, en vez de crecer sin límite o quedar
+// apretada en 2 líneas.
 function CeldaEditable({ value, onChange, resaltada, placeholder }) {
   return (
     <textarea
-      className={`w-full min-w-[140px] px-1.5 py-1 text-xs bg-transparent border border-dashed rounded-none resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:bg-surface-card ${
+      className={`w-full min-w-[140px] h-28 px-1.5 py-1 text-xs bg-transparent border border-dashed rounded-none resize-none overflow-y-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:bg-surface-card ${
         resaltada ? 'border-accent/50 bg-[var(--accent-tint)]' : 'border-transparent hover:border-outline-variant'
       }`}
-      rows={2}
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       maxLength={400}
-      onFocus={(e) => { e.target.rows = 3 }}
-      onBlur={(e) => { e.target.rows = 2 }}
     />
   )
 }
