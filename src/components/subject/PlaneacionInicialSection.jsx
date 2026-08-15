@@ -215,6 +215,14 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   const [plantillaOficial, setPlantillaOficial] = useState(null)
   const [generandoOficial, setGenerandoOficial] = useState(false)
   const [confirmandoOficial, setConfirmandoOficial] = useState(false)
+  // Revisión editable ANTES de descargar el formato oficial (pedido de
+  // Kike, 14-ago-2026: igual que la Planeación genérica, no se descarga
+  // nada hasta que el docente revisa y corrige lo que la IA propuso). No se
+  // persiste en Firestore — es una sola sesión de edición en memoria, desde
+  // que se genera hasta que se descarga o se descarta.
+  const [celdasEdicionOficial, setCeldasEdicionOficial] = useState(null)
+  const [descargaPendienteOficial, setDescargaPendienteOficial] = useState(null)
+  const [descargandoOficial, setDescargandoOficial] = useState(false)
   // Único requisito indispensable: fuentes generales (programa de estudios).
   // Todo lo demás lo palomea el docente antes de generar. El Perfil IA no
   // tiene tarjeta propia en esta pestaña (vive en /perfil-ia), así que su
@@ -373,11 +381,28 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
     }
   }
 
+  // Busca una pista legible para una celda propuesta — el encabezado de su
+  // columna (fila 0 de la misma tabla) o, si no hay, la etiqueta de su fila
+  // (columna 0) — para que el docente no tenga que adivinar qué es "fila 5,
+  // columna 3" al revisar. Si no encuentra ninguna, cae al texto de
+  // posición crudo.
+  function pistaDeCelda(celdasOriginales, celda) {
+    const mismaTabla = celdasOriginales.filter((c) => c.tablaIndex === celda.tablaIndex)
+    const encabezadoCol = mismaTabla.find((c) => c.fila === 0 && c.columna === celda.columna && c.texto)
+    if (encabezadoCol) return encabezadoCol.texto
+    const etiquetaFila = mismaTabla.find((c) => c.columna === 0 && c.fila === celda.fila && c.texto)
+    if (etiquetaFila) return etiquetaFila.texto
+    return `Fila ${celda.fila + 1}, columna ${celda.columna + 1}`
+  }
+
   // A diferencia de "Descargar Excel" (gratis, a partir de un resultado ya
   // guardado), generar en el formato oficial SÍ es una operación de IA
   // nueva (tarifa fija): la IA lee la estructura completa de la plantilla
   // (todas las celdas, con sus encabezados) y decide sola qué casillas
-  // están vacías y deben llenarse — el docente no marca nada.
+  // están vacías y deben llenarse — el docente no marca nada para generar,
+  // pero SÍ revisa y corrige cada celda propuesta antes de descargar (ver
+  // `descargarFormatoOficial`) — mismo principio que la Planeación
+  // genérica: no se descarga nada sin que el docente lo haya revisado.
   async function generarFormatoOficial() {
     if (nuncaAprobado) {
       setShowPaymentModal(true)
@@ -407,24 +432,15 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
         return
       }
 
-      const celdasParaEscribir = celdasLlenar.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x }))
-      const blob = plantillaOficial.tipo === 'docx'
-        ? await llenarPlantillaWord(bufferOriginal, celdasParaEscribir)
-        : await llenarPlantillaExcel(bufferOriginal, celdasParaEscribir)
-      const nombreSalida = plantillaOficial.nombre.replace(/\.(docx?|xlsx?)$/i, '') +
-        ' (llenada por IA)' + (plantillaOficial.tipo === 'docx' ? '.docx' : '.xlsx')
-
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = nombreSalida
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      const celdasOriginales = celdas.map((c) => ({ fila: c.fila, columna: c.columna, tablaIndex: c.tablaIndex, texto: c.texto }))
+      setCeldasEdicionOficial(celdasLlenar.map((c) => ({
+        fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x,
+        pista: pistaDeCelda(celdasOriginales, { fila: c.f, columna: c.c, tablaIndex: c.t }),
+      })))
+      setDescargaPendienteOficial({ bufferOriginal, tipo: plantillaOficial.tipo, nombreOriginal: plantillaOficial.nombre })
       toast(
-        (data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional). ' : 'Planeación generada en el formato de tu escuela. ') +
-        'Es una propuesta de IA — revísala antes de usarla, puede contener errores.',
+        data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional) — revísala antes de descargar.'
+          : 'Planeación generada en el formato de tu escuela — revísala y corrígela abajo antes de descargar.',
         'info'
       )
     } catch (err) {
@@ -438,6 +454,38 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
       else toast(err.message || 'No se pudo generar el archivo', 'error')
     } finally {
       setGenerandoOficial(false)
+    }
+  }
+
+  // Escribe en el archivo ORIGINAL las celdas tal como quedaron después de
+  // la revisión del docente (`celdasEdicionOficial`, no lo que devolvió la
+  // IA sin tocar) y dispara la descarga — recién aquí, nunca antes.
+  async function descargarFormatoOficial() {
+    if (!descargaPendienteOficial || !celdasEdicionOficial?.length) return
+    setDescargandoOficial(true)
+    try {
+      const { bufferOriginal, tipo, nombreOriginal } = descargaPendienteOficial
+      const blob = tipo === 'docx'
+        ? await llenarPlantillaWord(bufferOriginal, celdasEdicionOficial)
+        : await llenarPlantillaExcel(bufferOriginal, celdasEdicionOficial)
+      const nombreSalida = nombreOriginal.replace(/\.(docx?|xlsx?)$/i, '') +
+        ' (llenada por IA)' + (tipo === 'docx' ? '.docx' : '.xlsx')
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = nombreSalida
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      toast('Descargado — es una propuesta de IA revisada por ti, pero vuelve a checarla antes de usarla.', 'info')
+      setCeldasEdicionOficial(null)
+      setDescargaPendienteOficial(null)
+    } catch (err) {
+      toast('No se pudo generar el archivo: ' + err.message, 'error')
+    } finally {
+      setDescargandoOficial(false)
     }
   }
 
@@ -578,11 +626,62 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             )}
           </div>
 
-          {plantillaOficial && (
+          {plantillaOficial && !celdasEdicionOficial && (
             <p className="text-xs text-amber-700 mt-1.5">
-              El archivo que se descarga en el formato de tu escuela es una propuesta de IA — revísalo antes de
-              usarlo, puede contener errores.
+              El archivo que se descarga en el formato de tu escuela es una propuesta de IA — la revisas y
+              corriges en pantalla antes de poder descargarlo.
             </p>
+          )}
+
+          {/* Revisión editable del formato oficial ANTES de descargar —
+              mismo principio que la Planeación genérica: nada se descarga
+              sin que el docente lo haya revisado en pantalla primero
+              (pedido de Kike, 14-ago-2026). No hay "aceptar" aparte aquí:
+              descargar YA ES la confirmación, porque esto no queda guardado
+              como fuente de verdad para otras funciones de IA (a diferencia
+              de la Planeación genérica aceptada). */}
+          {celdasEdicionOficial && (
+            <div className="mt-3 pt-2 border-t border-outline-variant">
+              <p className="text-xs font-medium text-on-surface mb-2">
+                Revisa y corrige cada casilla antes de descargar tu {plantillaOficial?.tipo === 'docx' ? 'Word' : 'Excel'}:
+              </p>
+              <div className="space-y-2">
+                {celdasEdicionOficial.map((c, i) => (
+                  <div key={`${c.tablaIndex}-${c.fila}-${c.columna}`}>
+                    <label className="block text-xs font-medium text-muted mb-0.5">{c.pista}</label>
+                    <textarea
+                      className="w-full px-2 py-1 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-xs bg-surface resize-y"
+                      rows={2}
+                      value={c.texto}
+                      onChange={(e) => {
+                        const texto = e.target.value
+                        setCeldasEdicionOficial((prev) => prev.map((x, j) => (j === i ? { ...x, texto } : x)))
+                      }}
+                      maxLength={400}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={descargarFormatoOficial}
+                  disabled={descargandoOficial}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
+                >
+                  {descargandoOficial ? <Spinner size="sm" /> : <Download size={14} />}
+                  Descargar {plantillaOficial?.tipo === 'docx' ? 'Word' : 'Excel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCeldasEdicionOficial(null); setDescargaPendienteOficial(null) }}
+                  disabled={descargandoOficial}
+                  className="px-3 py-1.5 rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] disabled:opacity-60"
+                >
+                  Descartar
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Sin aceptar: la vista editable va SIEMPRE visible, no detrás de
