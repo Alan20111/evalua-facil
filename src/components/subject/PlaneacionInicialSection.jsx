@@ -805,8 +805,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
               Estado: <span className="font-medium text-amber-700">Generada, sin aceptar todavía</span>
               {actual.generadoEn?.toDate && ` · ${actual.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
               . Revísala y corrígela abajo, campo por campo, antes de aceptarla — no se puede descargar hasta que
-              la aceptes. Si prefieres que la IA la vuelva a intentar, edita los Comentarios generales del grupo
-              (arriba) y genera de nuevo.
+              la aceptes. Una vez que la aceptes, queda fija: la IA la usa tal cual para todo lo demás.
             </p>
           )}
 
