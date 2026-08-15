@@ -23,16 +23,39 @@ export default function ComentariosGrupoSection({ subjectId, docenteId }) {
   const [guardado, setGuardado] = useState('')
   const [loaded, setLoaded] = useState(false)
   const [guardando, setGuardando] = useState(false)
+  // Palomeado por el docente (Kike, 14-ago-2026): además de opcional para
+  // generar, cada insumo se marca desde SU PROPIA tarjeta — no en un modal
+  // aparte — para que quede claro ahí mismo que es opcional y si se va a usar.
+  // Por omisión true (si el campo no existe todavía, se incluye).
+  const [incluir, setIncluir] = useState(true)
+  const [guardandoIncluir, setGuardandoIncluir] = useState(false)
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), (snap) => {
       const texto = snap.exists() ? (snap.data().comentariosGrupo || '') : ''
       setComentarios(texto)
       setGuardado(texto)
+      setIncluir(snap.data()?.incluirEnPlaneacion?.comentarios !== false)
       setLoaded(true)
     }, () => setLoaded(true))
     return unsub
   }, [subjectId])
+
+  async function toggleIncluir(checked) {
+    setIncluir(checked)
+    setGuardandoIncluir(true)
+    try {
+      await setDoc(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), {
+        docenteId,
+        incluirEnPlaneacion: { comentarios: checked },
+      }, { merge: true })
+    } catch (err) {
+      setIncluir(!checked)
+      toast('No se pudo guardar: ' + err.message, 'error')
+    } finally {
+      setGuardandoIncluir(false)
+    }
+  }
 
   async function guardar() {
     setGuardando(true)
@@ -73,15 +96,26 @@ export default function ComentariosGrupoSection({ subjectId, docenteId }) {
         onChange={(e) => setComentarios(e.target.value)}
         maxLength={2000}
       />
-      <button
-        type="button"
-        onClick={guardar}
-        disabled={guardando || comentarios.trim() === guardado}
-        className="mt-2 px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-2"
-      >
-        {guardando && <Spinner size="sm" />}
-        {guardando ? 'Guardando…' : 'Guardar'}
-      </button>
+      <div className="flex items-center justify-between gap-2 mt-2">
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={guardando || comentarios.trim() === guardado}
+          className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-2"
+        >
+          {guardando && <Spinner size="sm" />}
+          {guardando ? 'Guardando…' : 'Guardar'}
+        </button>
+        <label className="flex items-center gap-1.5 text-xs text-on-surface cursor-pointer select-none flex-shrink-0">
+          <input
+            type="checkbox"
+            checked={incluir}
+            disabled={guardandoIncluir}
+            onChange={(e) => toggleIncluir(e.target.checked)}
+          />
+          Incluir en la Planeación
+        </label>
+      </div>
     </div>
   )
 }

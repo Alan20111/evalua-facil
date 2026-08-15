@@ -17,7 +17,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, query, where, onSnapshot, serverTimestamp, doc } from 'firebase/firestore'
-import { addDoc, deleteDoc } from '../../utils/firestoreGuard'
+import { addDoc, deleteDoc, setDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
@@ -80,6 +80,7 @@ function DiagnosticoActividadBloque({
   subjectId, docenteId, asignaturaNombre, existingActivitiesCountP1,
   diagnosticoTipo, titulo, descripcion, operacion, ponderarReactivos,
   mostrarCantidad, mostrarPeticion, placeholderPeticion, costoDefault, descripcionModal,
+  configKey,
 }) {
   const toast = useToast()
   const navigate = useNavigate()
@@ -92,6 +93,10 @@ function DiagnosticoActividadBloque({
   const [peticion, setPeticion] = useState('')
   const [generando, setGenerando] = useState(false)
   const { estado: estadoDiagnostico, cargado: estadoCargado } = useDiagnosticoEstado(subjectId, diagnosticoTipo)
+  // Palomeado por el docente (Kike, 14-ago-2026): se marca aquí mismo, en la
+  // tarjeta de cada diagnóstico — por omisión true.
+  const [incluir, setIncluir] = useState(true)
+  const [guardandoIncluir, setGuardandoIncluir] = useState(false)
 
   useEffect(() => {
     const q = query(
@@ -107,6 +112,29 @@ function DiagnosticoActividadBloque({
     }, () => setLoaded(true))
     return unsub
   }, [subjectId, diagnosticoTipo])
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), (snap) => {
+      setIncluir(snap.data()?.incluirEnPlaneacion?.[configKey] !== false)
+    })
+    return unsub
+  }, [subjectId, configKey])
+
+  async function toggleIncluir(checked) {
+    setIncluir(checked)
+    setGuardandoIncluir(true)
+    try {
+      await setDoc(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), {
+        docenteId,
+        incluirEnPlaneacion: { [configKey]: checked },
+      }, { merge: true })
+    } catch (err) {
+      setIncluir(!checked)
+      toast('No se pudo guardar: ' + err.message, 'error')
+    } finally {
+      setGuardandoIncluir(false)
+    }
+  }
 
   async function generar() {
     setGenerando(true)
@@ -150,9 +178,20 @@ function DiagnosticoActividadBloque({
           <h3 className="font-semibold text-on-surface text-sm">{titulo}</h3>
           <p className="text-xs text-muted mt-0.5">{descripcion}</p>
         </div>
-        {loaded && actividades.length > 0 && estadoCargado && (
-          <EstadoDiagnosticoBadge estado={estadoDiagnostico} />
-        )}
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          {loaded && actividades.length > 0 && estadoCargado && (
+            <EstadoDiagnosticoBadge estado={estadoDiagnostico} />
+          )}
+          <label className="flex items-center gap-1.5 text-xs text-on-surface cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={incluir}
+              disabled={guardandoIncluir}
+              onChange={(e) => toggleIncluir(e.target.checked)}
+            />
+            Incluir en la Planeación
+          </label>
+        </div>
       </div>
 
       {!loaded ? (
@@ -366,6 +405,7 @@ export default function DiagnosticoGrupoSection({ subjectId, docenteId, asignatu
         subjectId={subjectId} docenteId={docenteId} asignaturaNombre={asignaturaNombre}
         existingActivitiesCountP1={existingActivitiesCountP1}
         diagnosticoTipo="contexto"
+        configKey="diagContexto"
         titulo="Diagnóstico de contexto"
         descripcion="Un cuestionario real (opción múltiple y respuesta breve) que investiga el contexto, intereses y necesidades de tus estudiantes — sin puntos, es una encuesta."
         descripcionModal="La IA usa tu Perfil, tus fuentes y tus comentarios del grupo para diseñar el instrumento — las respuestas de tus estudiantes son las que después arman el diagnóstico real."
@@ -380,6 +420,7 @@ export default function DiagnosticoGrupoSection({ subjectId, docenteId, asignatu
         subjectId={subjectId} docenteId={docenteId} asignaturaNombre={asignaturaNombre}
         existingActivitiesCountP1={existingActivitiesCountP1}
         diagnosticoTipo="conocimientos"
+        configKey="diagConocimientos"
         titulo="Diagnóstico de conocimientos"
         descripcion="Un cuestionario real que tus estudiantes contestan — no cuenta para su calificación, pero te deja ver qué conocimientos previos ya tienen."
         descripcionModal="La IA usa tu Perfil para IA y tus fuentes iniciales generales ya guardadas para armar un cuestionario real. Lo revisas y publicas cuando quieras."

@@ -52,12 +52,18 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
   // sola la primera vez que cargan, para que no piense que se perdieron.
   const [abierta, setAbierta] = useState(false)
   const [seAbrioSola, setSeAbrioSola] = useState(false)
+  // Palomeado por el docente (Kike, 14-ago-2026): se marca aquí mismo, en la
+  // tarjeta, no en un modal aparte — por omisión true (si el campo no existe
+  // todavía, se incluye).
+  const [incluir, setIncluir] = useState(true)
+  const [guardandoIncluir, setGuardandoIncluir] = useState(false)
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), (snap) => {
       const datos = limpiar(snap.exists() ? snap.data().autoanalisisDocente : null)
       setRespuestas(datos)
       setGuardado(datos)
+      setIncluir(snap.data()?.incluirEnPlaneacion?.autoanalisis !== false)
       setLoaded(true)
       if (!seAbrioSola && !sonIguales(datos, VACIO)) {
         setAbierta(true)
@@ -67,6 +73,22 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
     return unsub
     // eslint-disable-next-line react-hooks/exhaustive-deps -- seAbrioSola es un candado de una sola vez, no debe reiniciar la suscripción
   }, [subjectId])
+
+  async function toggleIncluir(checked) {
+    setIncluir(checked)
+    setGuardandoIncluir(true)
+    try {
+      await setDoc(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), {
+        docenteId,
+        incluirEnPlaneacion: { autoanalisis: checked },
+      }, { merge: true })
+    } catch (err) {
+      setIncluir(!checked)
+      toast('No se pudo guardar: ' + err.message, 'error')
+    } finally {
+      setGuardandoIncluir(false)
+    }
+  }
 
   async function guardar() {
     setGuardando(true)
@@ -97,21 +119,32 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
 
   return (
     <div className="bg-surface-card rounded-card shadow-card p-3">
-      <button
-        type="button"
-        onClick={() => setAbierta((v) => !v)}
-        className="w-full flex items-center justify-between gap-2 text-left"
-      >
-        <div>
-          <h2 className="font-bold text-on-surface">Autoanálisis Docente para esta asignatura (opcional)</h2>
-          {!abierta && (
-            <p className="text-sm text-muted mt-0.5">
-              Contesta lo que quieras — se toma en cuenta al generar la Planeación Didáctica Inicial.
-            </p>
-          )}
-        </div>
-        {abierta ? <ChevronUp size={18} className="text-muted flex-shrink-0" /> : <ChevronDown size={18} className="text-muted flex-shrink-0" />}
-      </button>
+      <div className="flex items-start justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setAbierta((v) => !v)}
+          className="flex-1 min-w-0 flex items-center justify-between gap-2 text-left"
+        >
+          <div>
+            <h2 className="font-bold text-on-surface">Autoanálisis Docente para esta asignatura (opcional)</h2>
+            {!abierta && (
+              <p className="text-sm text-muted mt-0.5">
+                Contesta lo que quieras — se toma en cuenta al generar la Planeación Didáctica Inicial.
+              </p>
+            )}
+          </div>
+          {abierta ? <ChevronUp size={18} className="text-muted flex-shrink-0" /> : <ChevronDown size={18} className="text-muted flex-shrink-0" />}
+        </button>
+        <label className="flex items-center gap-1.5 text-xs text-on-surface cursor-pointer select-none flex-shrink-0 pt-0.5">
+          <input
+            type="checkbox"
+            checked={incluir}
+            disabled={guardandoIncluir}
+            onChange={(e) => toggleIncluir(e.target.checked)}
+          />
+          Incluir en la Planeación
+        </label>
+      </div>
 
       {abierta && (
         <>
