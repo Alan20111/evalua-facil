@@ -35,6 +35,7 @@ const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestor
 const { getMessaging } = require('firebase-admin/messaging')
 const { onDocumentWritten } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
+const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { logger } = require('firebase-functions')
 
 initializeApp()
@@ -45,6 +46,33 @@ const creditosLedger = require('./creditosLedger')
 const ia = require('./ia')
 exports.ejecutarOperacionIA = ia.ejecutarOperacionIA
 exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
+
+// Reseteo manual de créditos IA — solo admin, para las cuentas de prueba del
+// equipo (probar todo el sistema sin esperar al ciclo mensual). El cliente no
+// puede tocar iaCreditos directamente (firestore.rules: allow write: if
+// false), así que esto es la única puerta, y valida el rol server-side igual
+// que cualquier otra ruta de admin.
+exports.resetearCreditosIA = onCall(async (request) => {
+  const uid = request.auth?.uid
+  if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para continuar')
+  const perfil = await db.doc(`users/${uid}`).get()
+  if (!perfil.exists || perfil.data().role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Solo un administrador puede resetear créditos')
+  }
+  const docenteId = request.data?.docenteId
+  if (!docenteId || typeof docenteId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Falta el docente a resetear')
+  }
+  try {
+    const r = await creditosLedger.resetearAhora({ uid: docenteId })
+    logger.info(`resetearCreditosIA: admin ${uid} reseteó a ${docenteId} → saldo=${r.saldo}`)
+    return r
+  } catch (e) {
+    if (e.codigo === 'SIN_CREDITOS_AUN') throw new HttpsError('failed-precondition', e.message)
+    logger.error(`resetearCreditosIA(${docenteId}):`, e.message)
+    throw new HttpsError('internal', 'No se pudo resetear los créditos')
+  }
+})
 const db = getFirestore()
 const messaging = getMessaging()
 

@@ -469,6 +469,30 @@ async function sincronizarPlan({ uid, nivelNuevo, tarifas, capacidadCortesia }) 
   })
 }
 
+// ── RESETEO MANUAL (panel de admin) ─────────────────────────────────────────
+// Llena el saldo a la capacidad actual EN EL ACTO, sin esperar a que venza el
+// ciclo — para las cuentas de prueba del propio equipo. No toca cicloInicio
+// ni cicloFin (el ciclo mensual real de esa cuenta sigue su curso normal;
+// esto solo repone lo consumido) ni la capacidad — si el admin quiere
+// cambiarla, es sincronizarPlan()/editar la suscripción, no esto.
+async function resetearAhora({ uid }) {
+  const ref = db().doc(`iaCreditos/${uid}`)
+  return db().runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists) {
+      throw new ErrorCreditos('SIN_CREDITOS_AUN', 'Este docente todavía no ha usado la IA — no hay nada que resetear')
+    }
+    const c = snap.data()
+    tx.update(ref, {
+      saldo: c.capacidad,
+      consumidoCiclo: 0,
+      consumoPorCategoria: {},
+      actualizadoEn: FieldValue.serverTimestamp(),
+    })
+    return { saldo: c.capacidad, capacidad: c.capacidad }
+  })
+}
+
 module.exports = {
   ErrorCreditos,
   nivelDeSuscripcion,
@@ -482,5 +506,6 @@ module.exports = {
   renovarCiclosVencidos,
   cerrarTrialsVencidos,
   sincronizarPlan,
+  resetearAhora,
   _unMesDespues: unMesDespues,
 }

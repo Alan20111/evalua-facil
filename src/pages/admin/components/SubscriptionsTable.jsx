@@ -11,11 +11,12 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore'
-import { Plus, Pencil, Ban, Trash2, X, RotateCcw } from 'lucide-react'
+import { Plus, Pencil, Ban, Trash2, X, RotateCcw, Zap } from 'lucide-react'
+import { httpsCallable } from 'firebase/functions'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import SearchInput from '../../../components/SearchInput'
 import StatusBadge from './StatusBadge'
-import { db } from '../../../firebase'
+import { db, functions } from '../../../firebase'
 import { useAuth } from '../../../context/AuthContext'
 import { apiUrl } from '../../../utils/apiBase'
 import { useToast } from '../../../components/Toast'
@@ -708,6 +709,24 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     }
   }
 
+  // Llena el saldo de créditos IA a su capacidad ACTUAL, sin esperar al ciclo
+  // mensual — pensado para las cuentas de prueba del equipo. No cambia el
+  // plan ni la capacidad: solo repone lo consumido.
+  const [reseteandoCreditos, setReseteandoCreditos] = useState(null)
+  async function handleResetCreditos(sub) {
+    if (!confirm('¿Resetear ahora los créditos de IA de este docente a su capacidad completa?')) return
+    setReseteandoCreditos(sub.id)
+    try {
+      const resetear = httpsCallable(functions, 'resetearCreditosIA')
+      const { data } = await resetear({ docenteId: sub.docenteId })
+      toast(`Créditos reseteados: ${data.saldo}/${data.capacidad}`)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setReseteandoCreditos(null)
+    }
+  }
+
   if (!stats) return null
 
   return (
@@ -897,6 +916,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                           <Ban size={16} />
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleResetCreditos(r.sub)}
+                        disabled={reseteandoCreditos === r.sub.id}
+                        className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-50"
+                        data-tooltip="Resetear créditos de IA ahora"
+                        aria-label="Resetear créditos de IA"
+                      >
+                        <Zap size={16} />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(r.sub)}
