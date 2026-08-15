@@ -230,7 +230,10 @@ function construirGridOficial(celdasOriginales, celdasPropuestas) {
 // sueltos: se ve la tabla completa (encabezados incluidos, de solo
 // lectura) y solo las celdas que la IA propuso llenar se editan, en su
 // lugar (Opción C, pedido de Kike, 15-ago-2026).
+// Sin `onChangeCelda` (versión ya aceptada, solo para ver) las celdas
+// propuestas se muestran como texto — mismo criterio que VistaPreviaPlaneacion.
 function TablaOficialEditable({ celdasOriginales, celdasPropuestas, onChangeCelda }) {
+  const editable = typeof onChangeCelda === 'function'
   const tablas = construirGridOficial(celdasOriginales, celdasPropuestas)
   return (
     <div className="space-y-4">
@@ -246,14 +249,14 @@ function TablaOficialEditable({ celdasOriginales, celdasPropuestas, onChangeCeld
                     // se renderiza un <td> aparte, lo dejaría desalineado.
                     !c ? null : (
                       <td key={ci} colSpan={c.colSpan} className="border border-outline-variant p-0 align-top">
-                        {c.editable ? (
+                        {c.editable && editable ? (
                           <CeldaEditable
                             value={c.texto}
                             resaltada
                             onChange={(valor) => onChangeCelda(c.idx, valor)}
                           />
                         ) : (
-                          <p className="text-xs font-medium text-on-surface bg-surface-container px-1.5 py-1 min-w-[140px]">{c.texto}</p>
+                          <p className={`text-xs px-1.5 py-1 min-w-[140px] ${c.editable ? 'text-on-surface' : 'font-medium text-on-surface bg-surface-container'}`}>{c.texto}</p>
                         )}
                       </td>
                     )
@@ -344,19 +347,26 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   const [plantillaOficial, setPlantillaOficial] = useState(null)
   const [generandoOficial, setGenerandoOficial] = useState(false)
   const [confirmandoOficial, setConfirmandoOficial] = useState(false)
-  // Revisión editable ANTES de descargar el formato oficial (pedido de
-  // Kike, 14-ago-2026: igual que la Planeación genérica, no se descarga
-  // nada hasta que el docente revisa y corrige lo que la IA propuso). No se
-  // persiste en Firestore — es una sola sesión de edición en memoria, desde
-  // que se genera hasta que se descarga o se descarta.
   // Controla si la revisión a pantalla completa está abierta (Opción C,
   // pedido de Kike, 15-ago-2026) — se abre sola justo después de generar, y
   // el docente la puede volver a abrir/cerrar sin perder el avance (la
   // Planeación sigue "sin aceptar" hasta que de verdad la acepte).
   const [revisandoGenerica, setRevisandoGenerica] = useState(false)
-  const [celdasEdicionOficial, setCeldasEdicionOficial] = useState(null)
-  const [celdasOriginalesOficial, setCeldasOriginalesOficial] = useState(null)
-  const [descargaPendienteOficial, setDescargaPendienteOficial] = useState(null)
+  // Formato oficial: mismo ciclo editar → aceptar → ver/descargar que la
+  // Planeación genérica de arriba (decisión de Kike, 15-ago-2026 — antes
+  // era una edición de una sola sesión en memoria, sin "aceptar", que se
+  // perdía al cerrar la pestaña). `historialOficial` viene de
+  // planeacionesOficialesIA (bitácora append-only, la escribe el propio
+  // servidor — ver ejecutarPlaneacionFormatoOficial en functions/ia.js).
+  const [historialOficial, setHistorialOficial] = useState([])
+  const [histOficialLoaded, setHistOficialLoaded] = useState(false)
+  const [edicionOficial, setEdicionOficial] = useState(null)
+  const [edicionOficialDeId, setEdicionOficialDeId] = useState(null)
+  const [revisandoOficial, setRevisandoOficial] = useState(false)
+  const [verPreviewOficial, setVerPreviewOficial] = useState(false)
+  const [verHistorialOficial, setVerHistorialOficial] = useState(false)
+  const [aceptandoOficial, setAceptandoOficial] = useState(false)
+  const [confirmarAceptarOficial, setConfirmarAceptarOficial] = useState(false)
   const [descargandoOficial, setDescargandoOficial] = useState(false)
   const isDesktop = useIsDesktop()
   // Único requisito indispensable: fuentes generales (programa de estudios) —
@@ -413,6 +423,16 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
     return unsub
   }, [subjectId])
 
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'subjects', subjectId, 'planeacionesOficialesIA'), (snap) => {
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      items.sort((a, b) => millisDe(b.generadoEn) - millisDe(a.generadoEn))
+      setHistorialOficial(items)
+      setHistOficialLoaded(true)
+    }, () => setHistOficialLoaded(true))
+    return unsub
+  }, [subjectId])
+
   // Inicializa/reinicia la copia editable cuando aparece una generación
   // nueva (o al recargar la página) — nunca pisa ediciones en curso del
   // mismo `actual.id` (por eso compara contra `edicionDeId`, no re-copia en
@@ -424,6 +444,11 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   if (actualIdParaEdicion !== edicionDeId) {
     setEdicion(actualIdParaEdicion ? historial[0].resultado : null)
     setEdicionDeId(actualIdParaEdicion)
+  }
+  const actualOficialIdParaEdicion = historialOficial[0]?.id || null
+  if (actualOficialIdParaEdicion !== edicionOficialDeId) {
+    setEdicionOficial(actualOficialIdParaEdicion ? historialOficial[0].celdasPropuestas : null)
+    setEdicionOficialDeId(actualOficialIdParaEdicion)
   }
 
   // Único requisito indispensable: fuentes generales — el resto de insumos
@@ -524,8 +549,8 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   // nueva (tarifa fija): la IA lee la estructura completa de la plantilla
   // (todas las celdas, con sus encabezados) y decide sola qué casillas
   // están vacías y deben llenarse — el docente no marca nada para generar,
-  // pero SÍ revisa y corrige cada celda propuesta antes de descargar (ver
-  // `descargarFormatoOficial`) — mismo principio que la Planeación
+  // pero SÍ revisa y corrige cada celda propuesta antes de aceptarla (ver
+  // `aceptarOficial`) — mismo principio que la Planeación
   // genérica: no se descarga nada sin que el docente lo haya revisado.
   async function generarFormatoOficial() {
     if (nuncaAprobado) {
@@ -545,26 +570,23 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
         return
       }
 
+      // La función misma guarda el resultado en planeacionesOficialesIA (ver
+      // ejecutarPlaneacionFormatoOficial en functions/ia.js) — el listener
+      // onSnapshot de arriba la recibe en cuanto se guarda, así que no hace
+      // falta guardar nada más desde aquí.
       const data = await creditosIA.ejecutar('planeacion_formato_oficial', {
         subjectId, asignaturaId: subjectId, asignaturaNombre, incluir: incluirInsumos,
-        celdas: celdas.map((c) => ({ f: c.fila, c: c.columna, t: c.tablaIndex, x: c.texto })),
-      })
+        celdas: celdas.map((c) => ({ f: c.fila, c: c.columna, t: c.tablaIndex, x: c.texto, s: c.colSpan || 1 })),
+      }, 1, { timeoutMs: 240000 })
       setConfirmandoOficial(false)
-      const celdasLlenar = data?.resultado?.celdas
-      if (!celdasLlenar?.length) {
-        toast('El asistente de IA no encontró casillas que llenar en tu plantilla', 'error')
-        return
+      if (data?.resultado?.celdas?.length) {
+        toast(
+          data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional) — revísala y acéptala cuando estés conforme.'
+            : 'Planeación generada en el formato de tu escuela — revísala y acéptala cuando estés conforme.',
+          'info'
+        )
+        setRevisandoOficial(true)
       }
-
-      const celdasOriginales = celdas.map((c) => ({ fila: c.fila, columna: c.columna, tablaIndex: c.tablaIndex, texto: c.texto, colSpan: c.colSpan || 1 }))
-      setCeldasOriginalesOficial(celdasOriginales)
-      setCeldasEdicionOficial(celdasLlenar.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x })))
-      setDescargaPendienteOficial({ bufferOriginal, tipo: plantillaOficial.tipo, nombreOriginal: plantillaOficial.nombre })
-      toast(
-        data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional) — revísala antes de descargar.'
-          : 'Planeación generada en el formato de tu escuela — revísala y corrígela abajo antes de descargar.',
-        'info'
-      )
     } catch (err) {
       setConfirmandoOficial(false)
       if (err.codigo === 'SALDO_INSUFICIENTE') toast('No tienes suficientes créditos de IA para esta acción', 'error')
@@ -579,17 +601,49 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
     }
   }
 
-  // Escribe en el archivo ORIGINAL las celdas tal como quedaron después de
-  // la revisión del docente (`celdasEdicionOficial`, no lo que devolvió la
-  // IA sin tocar) y dispara la descarga — recién aquí, nunca antes.
-  async function descargarFormatoOficial() {
-    if (!descargaPendienteOficial || !celdasEdicionOficial?.length) return
+  // Fija el formato oficial PARA SIEMPRE, igual que `aceptar()` de la
+  // genérica (decisión de Kike, 15-ago-2026): a partir de aquí ya no se
+  // ofrece "Generar de nuevo" — queda visible y descargable con las
+  // correcciones del docente, sin importar cuántas veces vuelva.
+  async function aceptarOficial() {
+    setAceptandoOficial(true)
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), {
+        planeacionOficialAceptada: {
+          planeacionId: actualOficial.id,
+          aceptadaEn: serverTimestamp(),
+          celdas: edicionOficial || actualOficial.celdasPropuestas,
+        },
+      })
+      toast('Formato oficial aceptado — ya puedes verlo y descargarlo')
+    } catch (err) {
+      toast('No se pudo aceptar: ' + err.message, 'error')
+    } finally {
+      setAceptandoOficial(false)
+      setConfirmarAceptarOficial(false)
+    }
+  }
+
+  // Se descarga cualquier cantidad de veces después de aceptar (no solo la
+  // primera) — vuelve a bajar la plantilla en blanco y la llena con las
+  // celdas que quedaron aceptadas, nunca con lo que la IA propuso sin
+  // revisar.
+  async function descargarOficial() {
+    if (nuncaAprobado) {
+      setShowPaymentModal(true)
+      return
+    }
+    if (!actualOficial || !plantillaOficial?.url) return
     setDescargandoOficial(true)
     try {
-      const { bufferOriginal, tipo, nombreOriginal } = descargaPendienteOficial
+      const resPlantilla = await fetch(plantillaOficial.url)
+      const bufferOriginal = await resPlantilla.arrayBuffer()
+      const tipo = actualOficial.tipo || plantillaOficial.tipo
+      const nombreOriginal = actualOficial.nombreOriginal || plantillaOficial.nombre
+      const celdasFinal = celdasOficialAceptadas || actualOficial.celdasPropuestas
       const blob = tipo === 'docx'
-        ? await llenarPlantillaWord(bufferOriginal, celdasEdicionOficial)
-        : await llenarPlantillaExcel(bufferOriginal, celdasEdicionOficial)
+        ? await llenarPlantillaWord(bufferOriginal, celdasFinal)
+        : await llenarPlantillaExcel(bufferOriginal, celdasFinal)
       const nombreSalida = nombreOriginal.replace(/\.(docx?|xlsx?)$/i, '') +
         ' (llenada por IA)' + (tipo === 'docx' ? '.docx' : '.xlsx')
 
@@ -602,9 +656,6 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
       a.remove()
       URL.revokeObjectURL(url)
       toast('Descargado — es una propuesta de IA revisada por ti, pero vuelve a checarla antes de usarla.', 'info')
-      setCeldasEdicionOficial(null)
-      setCeldasOriginalesOficial(null)
-      setDescargaPendienteOficial(null)
     } catch (err) {
       toast('No se pudo generar el archivo: ' + err.message, 'error')
     } finally {
@@ -647,7 +698,18 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   // aceptó antes de que existiera la edición en pantalla (14-ago-2026).
   const resultadoAceptado = aceptada ? (subject.planeacionAceptada.resultado || actual.resultado) : null
 
-  if (!diagLoaded || !histLoaded) {
+  // Mismo criterio, para la versión en el formato oficial de la escuela —
+  // guardado en subjects/{id}.planeacionOficialAceptada (campo aparte, no
+  // pisa planeacionAceptada de arriba: son dos aceptaciones independientes).
+  const actualOficial = historialOficial[0] || null
+  const anterioresOficial = historialOficial.slice(1)
+  const aceptadaOficial = !!actualOficial && subject?.planeacionOficialAceptada?.planeacionId === actualOficial.id
+  const fechaAceptadaOficial = aceptadaOficial ? subject.planeacionOficialAceptada.aceptadaEn : null
+  const celdasOficialAceptadas = aceptadaOficial
+    ? (subject.planeacionOficialAceptada.celdas || actualOficial.celdasPropuestas)
+    : null
+
+  if (!diagLoaded || !histLoaded || !histOficialLoaded) {
     return (
       <div className="bg-surface-card rounded-card shadow-card p-3 flex justify-center py-6">
         <Spinner size="sm" />
@@ -735,56 +797,131 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
                 Revisar y aceptar
               </button>
             )}
-            {plantillaOficial && (
+            {plantillaOficial && !aceptadaOficial && (
               <button
                 type="button"
                 onClick={() => (nuncaAprobado ? setShowPaymentModal(true) : setConfirmandoOficial(true))}
                 disabled={generandoOficial}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
-                {generandoOficial ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : <FileCheck2 size={14} />}
-                Generar en el formato de mi escuela (con IA)
+                {generandoOficial ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : actualOficial ? <RotateCcw size={14} /> : <FileCheck2 size={14} />}
+                {actualOficial ? 'Generar de nuevo mi formato oficial (con IA)' : 'Generar en el formato de mi escuela (con IA)'}
+              </button>
+            )}
+            {actualOficial && aceptadaOficial && (
+              <button
+                type="button"
+                onClick={() => setVerPreviewOficial((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)]"
+              >
+                <Eye size={14} />
+                {verPreviewOficial ? 'Ocultar mi formato oficial' : 'Ver mi formato oficial'}
+              </button>
+            )}
+            {actualOficial && aceptadaOficial && (
+              <button
+                type="button"
+                onClick={descargarOficial}
+                disabled={descargandoOficial}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
+              >
+                {descargandoOficial ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : <Download size={14} />}
+                Descargar {actualOficial.tipo === 'docx' ? 'Word' : 'Excel'}
+              </button>
+            )}
+            {actualOficial && !aceptadaOficial && isDesktop && (
+              <button
+                type="button"
+                onClick={() => setRevisandoOficial(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50"
+              >
+                <ThumbsUp size={14} />
+                Revisar y aceptar formato oficial
               </button>
             )}
           </div>
 
-          {plantillaOficial && !celdasEdicionOficial && (
-            <p className="text-xs text-amber-700 mt-1.5">
-              El archivo que se descarga en el formato de tu escuela es una propuesta de IA — la revisas y
-              corriges en pantalla antes de poder descargarlo.
-            </p>
+          {plantillaOficial && (
+            !actualOficial ? (
+              <p className="text-xs text-muted mt-1.5">
+                El archivo en el formato de tu escuela es una propuesta de IA — la revisas y corriges en pantalla,
+                y no se puede descargar hasta que la aceptes.
+              </p>
+            ) : aceptadaOficial ? (
+              <p className="text-xs text-muted mt-1.5">
+                Formato oficial: <span className="font-medium text-green-700">Aceptado</span>
+                {fechaAceptadaOficial?.toDate && ` · ${fechaAceptadaOficial.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
+              </p>
+            ) : (
+              <p className="text-xs text-amber-700 mt-1.5">
+                Formato oficial generado, sin aceptar todavía — revísalo y corrígelo antes de aceptarlo; no se
+                puede descargar hasta entonces.
+              </p>
+            )
           )}
 
-          {/* Revisión editable del formato oficial ANTES de descargar — a
-              pantalla completa (Opción C, pedido de Kike, 15-ago-2026): se
-              edita directo sobre la tabla real, no en una lista de campos.
-              Solo en escritorio — en celular se avisa nada más. No hay
-              "aceptar" aparte aquí: descargar YA ES la confirmación, porque
-              esto no queda guardado como fuente de verdad para otras
-              funciones de IA (a diferencia de la Planeación aceptada). */}
-          {celdasEdicionOficial && !isDesktop && <AvisoRevisionDesktop />}
-          {celdasEdicionOficial && isDesktop && (
+          {/* Revisión editable del formato oficial ANTES de aceptarla — mismo
+              ciclo que la Planeación genérica de arriba (decisión de Kike,
+              15-ago-2026): se guarda como bitácora, se puede editar y
+              regenerar mientras no se acepte, y una vez aceptada queda fija
+              (visible y descargable), ya no editable. Solo en escritorio. */}
+          {actualOficial && !aceptadaOficial && !isDesktop && <AvisoRevisionDesktop />}
+          {actualOficial && !aceptadaOficial && isDesktop && revisandoOficial && (
             <RevisionPantallaCompleta
-              titulo={`Revisa tu ${plantillaOficial?.tipo === 'docx' ? 'Word' : 'Excel'} antes de descargarlo`}
-              onCerrar={() => { setCeldasEdicionOficial(null); setCeldasOriginalesOficial(null); setDescargaPendienteOficial(null) }}
+              titulo="Revisa y corrige tu formato oficial antes de aceptarlo"
+              onCerrar={() => setRevisandoOficial(false)}
               acciones={(
                 <button
                   type="button"
-                  onClick={descargarFormatoOficial}
-                  disabled={descargandoOficial}
+                  onClick={() => setConfirmarAceptarOficial(true)}
+                  disabled={aceptandoOficial}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
                 >
-                  {descargandoOficial ? <Spinner size="sm" /> : <Download size={14} />}
-                  Descargar {plantillaOficial?.tipo === 'docx' ? 'Word' : 'Excel'}
+                  {aceptandoOficial ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
+                  Aceptar formato oficial
                 </button>
               )}
             >
               <TablaOficialEditable
-                celdasOriginales={celdasOriginalesOficial || []}
-                celdasPropuestas={celdasEdicionOficial}
-                onChangeCelda={(idx, texto) => setCeldasEdicionOficial((prev) => prev.map((x, j) => (j === idx ? { ...x, texto } : x)))}
+                celdasOriginales={actualOficial.celdasOriginales || []}
+                celdasPropuestas={edicionOficial || actualOficial.celdasPropuestas}
+                onChangeCelda={(idx, texto) => setEdicionOficial((prev) => prev.map((x, j) => (j === idx ? { ...x, texto } : x)))}
               />
             </RevisionPantallaCompleta>
+          )}
+
+          {verPreviewOficial && aceptadaOficial && (
+            <div className="mt-3 pt-2 border-t border-outline-variant">
+              <TablaOficialEditable
+                celdasOriginales={actualOficial.celdasOriginales || []}
+                celdasPropuestas={celdasOficialAceptadas}
+              />
+            </div>
+          )}
+
+          {anterioresOficial.length > 0 && (
+            <div className="mt-3 pt-2 border-t border-outline-variant">
+              <button
+                type="button"
+                onClick={() => setVerHistorialOficial((v) => !v)}
+                className="flex items-center gap-1 text-xs text-muted hover:text-on-surface"
+              >
+                {verHistorialOficial ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {anterioresOficial.length} generación{anterioresOficial.length > 1 ? 'es' : ''} anterior{anterioresOficial.length > 1 ? 'es' : ''} del formato oficial (sin aceptar, no descargable)
+              </button>
+              {verHistorialOficial && (
+                <div className="mt-2 space-y-1.5">
+                  {anterioresOficial.map((h) => (
+                    <div key={h.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-muted">
+                        {h.generadoEn?.toDate && h.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </span>
+                      <span className="text-muted italic">Reemplazada — no se puede descargar</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Sin aceptar: revisión a pantalla completa (Opción C) — es el
@@ -975,6 +1112,18 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
           busy={aceptando}
           onConfirm={aceptar}
           onCancel={() => { if (!aceptando) setConfirmarAceptar(false) }}
+        />
+      )}
+
+      {confirmarAceptarOficial && (
+        <ConfirmModal
+          title="¿Aceptar este formato oficial?"
+          message="Se guarda con las correcciones que hayas hecho arriba. A partir de aquí queda fijo, con la fecha de hoy — ya no podrás editarlo, pero sí verlo y descargarlo (si tu suscripción está pagada) las veces que quieras. Ya no podrás generar otra versión desde aquí."
+          confirmLabel="Aceptar"
+          confirmingLabel="Aceptando…"
+          busy={aceptandoOficial}
+          onConfirm={aceptarOficial}
+          onCancel={() => { if (!aceptandoOficial) setConfirmarAceptarOficial(false) }}
         />
       )}
 
