@@ -18,7 +18,6 @@ const VACIO = {
   temasFortalecer: '',
   temasFacilExplicar: '',
   temasDificilExplicar: '',
-  aspectoMejorar: '',
 }
 
 const PREGUNTAS = [
@@ -26,7 +25,6 @@ const PREGUNTAS = [
   { campo: 'temasFortalecer', texto: '¿Qué temas consideras que necesitas fortalecer?', placeholder: 'Ej. Estadística y probabilidad.' },
   { campo: 'temasFacilExplicar', texto: '¿Qué temas se te facilitan más para explicar?', placeholder: '' },
   { campo: 'temasDificilExplicar', texto: '¿Qué temas se te dificultan más para explicar?', placeholder: '' },
-  { campo: 'aspectoMejorar', texto: '¿Qué quieres agregar que consideres relevante para que la planeación didáctica pueda ser realmente utilizada durante este curso?', placeholder: '' },
 ]
 
 const MAX_LARGO = 500

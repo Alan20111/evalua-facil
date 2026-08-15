@@ -13,6 +13,7 @@ import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENT
 import { apiUrl } from '../../utils/apiBase'
 import ComentariosGrupoSection from './ComentariosGrupoSection'
 import AutoanalisisDocenteSection from './AutoanalisisDocenteSection'
+import ConsideracionesSection from './ConsideracionesSection'
 import DiagnosticoGrupoSection from './DiagnosticoGrupoSection'
 import PlaneacionInicialSection from './PlaneacionInicialSection'
 import PlantillaOficialSection from './PlantillaOficialSection'
@@ -219,6 +220,10 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
 
       <div>
         <AutoanalisisDocenteSection subjectId={subjectId} docenteId={docenteId} />
+      </div>
+
+      <div>
+        <ConsideracionesSection subjectId={subjectId} docenteId={docenteId} />
       </div>
 
       <div>
