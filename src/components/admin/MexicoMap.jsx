@@ -369,10 +369,18 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
 
   // Hit-testing: qué ciudad/círculo hay bajo un punto (en coords lógicas).
   const detectarHover = (lx, ly) => {
+    // El radio de golpe tiene que ir en las mismas unidades "lógicas" que
+    // lx,ly (coordenadas ya des-zoomeadas) — igual que al dibujar, donde el
+    // radio en pantalla se mantiene constante multiplicando por
+    // escalaTexto. Sin este factor, el radio de detección quedaba fijo en
+    // unidades del mapa completo: al hacer zoom, ese círculo "invisible"
+    // crecía relativo a lo que se ve en pantalla y tapaba ciudades vecinas
+    // (Tarímaro tapando a Celaya, aunque en pantalla se vieran lejos).
+    const escala = 1 / (fit.s * viewRef.current.scale)
     for (const m of circulos) {
       const [x, y] = proj([m.lng, m.lat])
-      const r = radioPara(m.valor)
-      if (Math.hypot(lx - x, ly - y) <= r + 2) return m
+      const r = radioPara(m.valor) * escala
+      if (Math.hypot(lx - x, ly - y) <= r + 2 * escala) return m
     }
     for (const c of CIUDADES) {
       if (puntoEnAnillo(lx, ly, c.mayor)) {
