@@ -125,6 +125,9 @@ const OPERACIONES = {
   // Planeación Didáctica Inicial (FASE 2-BIS, 12-ago-2026, autorizado por
   // Kike en esta conversación — tarifa fija: 20 créditos).
   planeacion_didactica_inicial: ejecutarPlaneacionDidacticaInicial,
+  // Planeación en el formato oficial de la escuela (14-ago-2026, autorizado
+  // por Kike en esta conversación — misma tarifa fija que la genérica).
+  planeacion_formato_oficial: ejecutarPlaneacionFormatoOficial,
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -138,6 +141,7 @@ const PRECHECKS = {
   crear_actividad_ia: precheckCrearActividad,
   diagnostico_contexto: precheckDiagnosticoContexto, diagnostico_conocimientos: precheckDiagnosticoConocimientos,
   planeacion_didactica_inicial: precheckPlaneacionInicial,
+  planeacion_formato_oficial: precheckPlaneacionFormatoOficial,
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
@@ -2640,6 +2644,143 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   }
 }
 
+// ── Planeación en el formato oficial de la escuela ──────────────────────────
+// El docente sube la plantilla REAL de su plantel (Word o Excel, vacía, con
+// su logo) y marca en pantalla qué casilla es qué dato — ver
+// PlantillaOficialSection.jsx / src/utils/plantillaOficial.js. Esta
+// operación NO reparte contenido por parcial: cada casilla marcada tiene su
+// propia etiqueta libre (ej. "Tema semana 1", "Actividad parcial 2") y la
+// IA responde un JSON plano {"<etiqueta>": "<texto>"} — una llamada, tantas
+// respuestas como casillas haya. El cliente ya trae el archivo (original o
+// etiquetado con docxtemplater) y solo necesita el texto de cada casilla
+// para llenarlo — el servidor nunca toca el archivo en sí.
+async function precheckPlaneacionFormatoOficial({ uid, params }) {
+  const db = getFirestore()
+  const subjectId = String(params?.subjectId || '').trim()
+  if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura.')
+
+  const subjSnap = await db.doc(`subjects/${subjectId}`).get()
+  if (!subjSnap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
+  const subj = subjSnap.data()
+  if (subj.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta asignatura no es tuya')
+
+  const configSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
+  const plantillaOficial = configSnap.data()?.plantillaOficial
+  const mapeo = Array.isArray(plantillaOficial?.mapeo) ? plantillaOficial.mapeo : []
+  if (!mapeo.length) {
+    throw new HttpsError('failed-precondition',
+      'Sube y marca primero la plantilla oficial de tu escuela (arriba, en Formato oficial de mi escuela). ' +
+      'No se descontaron créditos.',
+      { codigo: 'SIN_PLANTILLA_OFICIAL' })
+  }
+
+  const perfilSnap = await db.doc(`users/${uid}`).get()
+  const perfilIA = perfilSnap.data()?.perfilIA || null
+  if (!perfilIACompleto(perfilIA)) {
+    throw new HttpsError('failed-precondition',
+      'Completa primero tu Perfil para IA del docente. No se descontaron créditos.',
+      { codigo: 'PERFIL_IA_INCOMPLETO' })
+  }
+
+  const fuentesSnap = await db.collection('fuentesAsignatura').where('asignaturaId', '==', subjectId).get()
+  const fuentes = fuentesSnap.docs.map((d) => {
+    const data = d.data()
+    return { id: d.id, ...data, creadoEnMillis: data.creadoEn?.toMillis?.() || 0 }
+  })
+  const generales = fuentes.filter((f) => f.ubicacion === 'general')
+  if (!generales.length) {
+    throw new HttpsError('failed-precondition',
+      'Agrega primero al menos un documento en Config Asistente IA → Fuentes → Fuentes para todo el curso. No se descontaron créditos.',
+      { codigo: 'SIN_FUENTES_GENERALES' })
+  }
+
+  const resultadoContexto = await analisisDiagnosticoMasReciente(db, subjectId, 'contexto')
+  if (!resultadoContexto) {
+    throw new HttpsError('failed-precondition',
+      'Genera el instrumento de Diagnóstico de contexto, publícalo y analiza sus resultados con IA ' +
+      'una vez que tus estudiantes lo contesten (Config Asistente IA → Diagnóstico del grupo). No se descontaron créditos.',
+      { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
+  }
+  const resultadoConocimientos = await analisisDiagnosticoMasReciente(db, subjectId, 'conocimientos')
+  if (!resultadoConocimientos) {
+    throw new HttpsError('failed-precondition',
+      'Genera el cuestionario de Diagnóstico de conocimientos, publícalo y analiza sus resultados con IA ' +
+      'una vez que tus estudiantes lo contesten (Config Asistente IA → Diagnóstico del grupo). No se descontaron créditos.',
+      { codigo: 'SIN_DIAGNOSTICO_CONOCIMIENTOS' })
+  }
+
+  const bloqueFuentesGenerales = await fuentesIA.prepararBloqueFuentes(
+    seleccionarFuentesGenerales(generales).map((f) => f.url)
+  )
+  const comentariosGrupoTexto = comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)
+  const autoanalisisDocenteTexto = autoanalisisDocenteATexto(configSnap.data()?.autoanalisisDocente)
+
+  return {
+    asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
+    perfilIATexto: perfilIATexto(perfilIA),
+    comentariosGrupoTexto,
+    autoanalisisDocenteTexto,
+    bloqueFuentesGenerales,
+    diagnosticoContextoTexto: diagnosticoContextoATexto(resultadoContexto),
+    diagnosticoConocimientosTexto: diagnosticoConocimientosATexto(resultadoConocimientos),
+    // Solo la etiqueta que el docente escribió — el servidor nunca ve
+    // referencias de celda/tabla (irrelevantes para la IA, y así el
+    // resultado no puede filtrar esa información al prompt).
+    campos: mapeo.map((m) => String(m.campo || '').trim().slice(0, 120)).filter(Boolean),
+  }
+}
+
+const PLANEACION_OFICIAL_MAX_CAMPOS = 60
+
+function promptPlaneacionFormatoOficial(ctx) {
+  return (
+    `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n\n` +
+    `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
+    `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (el insumo que más debe pesar, ` +
+    `junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` +
+    `AUTOANÁLISIS DOCENTE (opcional, sobre el docente mismo, no sobre el grupo):\n${ctx.autoanalisisDocenteTexto}\n\n` +
+    `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` +
+    `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` +
+    (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
+    'El docente subió el formato oficial de planeación de su escuela y marcó, casilla por casilla, qué dato va ' +
+    'en cada una — la etiqueta de cada casilla es justo lo que describe su contenido (puede ser un tema, una ' +
+    'fecha, una actividad, un propósito, etc., según cómo esté armado ese formato). Para CADA una de estas ' +
+    `etiquetas, escribe el texto que debe ir en esa casilla, basado en las fuentes y el contexto de arriba:\n` +
+    ctx.campos.map((c) => `- "${c}"`).join('\n') +
+    '\n\nSi una etiqueta no tiene información suficiente en las fuentes para responderla con algo real, usa la ' +
+    'frase exacta "Información no disponible en las fuentes proporcionadas." en vez de inventar contenido. ' +
+    'Responde SOLO con este JSON, con EXACTAMENTE estas llaves (una por cada etiqueta de la lista, en el mismo ' +
+    'texto):\n{\n' + ctx.campos.map((c) => `  "${c}": "<máx 400 caracteres>"`).join(',\n') + '\n}'
+  )
+}
+
+async function ejecutarPlaneacionFormatoOficial({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+
+  const campos = ctx.campos.slice(0, PLANEACION_OFICIAL_MAX_CAMPOS)
+  const { datos, interno } = await pedirJSON({
+    client, modelo, maxTokens: Math.min(4000, 200 + campos.length * 120), system: PLANEACION_SISTEMA,
+    prompt: promptPlaneacionFormatoOficial({ ...ctx, campos }),
+  })
+
+  const datosPorCampo = {}
+  for (const c of campos) {
+    const v = datos?.[c]
+    if (typeof v === 'string' && v.trim()) datosPorCampo[c] = v.trim().slice(0, 400)
+  }
+  if (!Object.keys(datosPorCampo).length) {
+    throw new Error('El asistente de IA no generó contenido utilizable para tu plantilla')
+  }
+
+  return {
+    resultado: { datosPorCampo },
+    unidadesReales: 1, // tarifa fija, sin importar cuántas casillas tenga la plantilla
+    interno: { modelo, tokensEntrada: interno.tokensEntrada, tokensSalida: interno.tokensSalida, ms: interno.ms },
+  }
+}
+
 // ── Traducción de errores del ledger a HttpsError ───────────────────────────
 function comoHttpsError(e) {
   if (e instanceof HttpsError) return e
@@ -2794,4 +2935,5 @@ exports._pruebas = {
   normalizarFilaPlaneacion, normalizarFilasPlaneacion, MAX_FILAS_PLANEACION_PARCIAL, comentariosGrupoATexto,
   autoanalisisDocenteATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
+  precheckPlaneacionFormatoOficial, promptPlaneacionFormatoOficial, PLANEACION_OFICIAL_MAX_CAMPOS,
 }

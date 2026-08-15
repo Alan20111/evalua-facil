@@ -15,6 +15,7 @@ import ComentariosGrupoSection from './ComentariosGrupoSection'
 import AutoanalisisDocenteSection from './AutoanalisisDocenteSection'
 import DiagnosticoGrupoSection from './DiagnosticoGrupoSection'
 import PlaneacionInicialSection from './PlaneacionInicialSection'
+import PlantillaOficialSection from './PlantillaOficialSection'
 
 // Las fuentes generales del curso: lista + botón para subir hasta
 // MAX_FUENTES a la vez, con un tope de MAX_FUENTES_POR_GRUPO documentos
@@ -231,6 +232,10 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
       </div>
 
       <div className="pt-2 border-t border-outline-variant">
+        <PlantillaOficialSection subjectId={subjectId} docenteId={docenteId} />
+      </div>
+
+      <div>
         <PlaneacionInicialSection
           subjectId={subjectId}
           docenteId={docenteId}

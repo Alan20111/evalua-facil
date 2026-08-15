@@ -17,9 +17,10 @@ import ParcialesFechas, { addOneDay, normalizeParcialesFechas } from '../Parcial
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import { descargarPlaneacionExcel } from '../../utils/planeacionExcel'
+import { llenarPlantillaExcel, llenarPlantillaWordEtiquetada } from '../../utils/plantillaOficial'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../CheckoutModal'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2 } from 'lucide-react'
 
 // Nombres de columnas para la vista previa en pantalla — mismo orden y
 // etiquetas que planeacionExcel.js, pero en tarjetas apiladas (no tabla),
@@ -129,6 +130,16 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   const [verHistorial, setVerHistorial] = useState(false)
   const [aceptando, setAceptando] = useState(false)
   const [confirmarAceptar, setConfirmarAceptar] = useState(false)
+  const [plantillaOficial, setPlantillaOficial] = useState(null)
+  const [generandoOficial, setGenerandoOficial] = useState(false)
+  const [confirmandoOficial, setConfirmandoOficial] = useState(false)
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), (snap) => {
+      setPlantillaOficial(snap.exists() ? (snap.data().plantillaOficial || null) : null)
+    }, () => setPlantillaOficial(null))
+    return unsub
+  }, [subjectId])
 
   // El diagnóstico "real" (Tandas 1 y 2) vive en `activities` — no en la
   // vieja `subjects/{id}/diagnosticosIA` (reporte simulado, descartado).
@@ -230,6 +241,59 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
     } finally {
       setAceptando(false)
       setConfirmarAceptar(false)
+    }
+  }
+
+  // A diferencia de "Descargar Excel" (gratis, a partir de un resultado ya
+  // guardado), generar en el formato oficial SÍ es una operación de IA
+  // nueva (tarifa fija) — la IA redacta texto específico para cada casilla
+  // que el docente marcó en su plantilla, no reusa la propuesta genérica.
+  async function generarFormatoOficial() {
+    if (nuncaAprobado) {
+      setShowPaymentModal(true)
+      return
+    }
+    setGenerandoOficial(true)
+    try {
+      const data = await creditosIA.ejecutar('planeacion_formato_oficial', { subjectId, asignaturaId: subjectId, asignaturaNombre })
+      setConfirmandoOficial(false)
+      const datos = data?.resultado?.datosPorCampo
+      if (!datos) {
+        toast('El asistente de IA no generó contenido para tu plantilla', 'error')
+        return
+      }
+      const resArchivo = await fetch(plantillaOficial.tipo === 'docx' ? plantillaOficial.urlEtiquetada : plantillaOficial.url)
+      const buffer = await resArchivo.arrayBuffer()
+      let blob
+      let nombreSalida
+      if (plantillaOficial.tipo === 'docx') {
+        const datosPorCampoKey = {}
+        for (const m of plantillaOficial.mapeo) datosPorCampoKey[m.campoKey] = datos[m.campo] || ''
+        blob = await llenarPlantillaWordEtiquetada(buffer, datosPorCampoKey)
+        nombreSalida = plantillaOficial.nombre.replace(/\.docx$/i, '') + ' (llenada).docx'
+      } else {
+        blob = await llenarPlantillaExcel(buffer, plantillaOficial.mapeo, datos)
+        nombreSalida = plantillaOficial.nombre.replace(/\.xlsx?$/i, '') + ' (llenada).xlsx'
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = nombreSalida
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      toast(data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional)' : 'Planeación generada en el formato de tu escuela')
+    } catch (err) {
+      setConfirmandoOficial(false)
+      if (err.codigo === 'SALDO_INSUFICIENTE') toast('No tienes suficientes créditos de IA para esta acción', 'error')
+      else if (err.codigo === 'PERFIL_IA_INCOMPLETO') toast('Completa primero tu Perfil para IA del docente', 'error')
+      else if (err.codigo === 'SIN_FUENTES_GENERALES') toast('Agrega primero un documento en Fuentes para todo el curso', 'error')
+      else if (err.codigo === 'SIN_DIAGNOSTICO_CONTEXTO') toast('Genera primero el Diagnóstico de contexto', 'error')
+      else if (err.codigo === 'SIN_DIAGNOSTICO_CONOCIMIENTOS') toast('Genera primero el Diagnóstico de conocimientos', 'error')
+      else toast(err.message || 'No se pudo generar el archivo', 'error')
+    } finally {
+      setGenerandoOficial(false)
     }
   }
 
@@ -348,6 +412,17 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
               >
                 {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
                 Aceptar planeación
+              </button>
+            )}
+            {plantillaOficial?.mapeo?.length > 0 && (
+              <button
+                type="button"
+                onClick={() => (nuncaAprobado ? setShowPaymentModal(true) : setConfirmandoOficial(true))}
+                disabled={generandoOficial}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
+              >
+                {generandoOficial ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : <FileCheck2 size={14} />}
+                Generar en el formato de mi escuela
               </button>
             )}
           </div>
@@ -479,6 +554,17 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             </div>
           )}
         </ConfirmacionCreditosModal>
+      )}
+
+      {confirmandoOficial && (
+        <ConfirmacionCreditosModal
+          titulo="Generar en el formato de mi escuela"
+          descripcion={`La IA redacta el texto para las ${plantillaOficial?.mapeo?.length || 0} casillas que marcaste en tu plantilla, usando tu Perfil IA, tus fuentes y los diagnósticos del grupo.`}
+          costoMin={creditosIA.estimar('planeacion_formato_oficial') ?? 20}
+          ejecutando={generandoOficial}
+          onCancelar={() => { if (!generandoOficial) setConfirmandoOficial(false) }}
+          onContinuar={generarFormatoOficial}
+        />
       )}
 
       {confirmarAceptar && (
