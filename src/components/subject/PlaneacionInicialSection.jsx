@@ -19,8 +19,9 @@ import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import { descargarPlaneacionExcel } from '../../utils/planeacionExcel'
 import { leerCuadriculaExcel, leerTablasWord, llenarPlantillaExcel, llenarPlantillaWord, aplanarCuadricula } from '../../utils/plantillaOficial'
 import { useSubscription } from '../../hooks/useSubscription'
+import useIsDesktop from '../../hooks/useIsDesktop'
 import CheckoutModal from '../CheckoutModal'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2 } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2, X, Monitor } from 'lucide-react'
 
 // Nombres de columnas para la vista previa en pantalla — mismo orden y
 // etiquetas que planeacionExcel.js, pero en tarjetas apiladas (no tabla),
@@ -101,20 +102,36 @@ function EstadoPlaneacionBadge({ lista }) {
   )
 }
 
-// Vista previa en pantalla — apilada por tarjetas, un parcial a la vez.
-// Existe para que un docente en trial (nunca pagó, ver exportGuard.js) SÍ
-// pueda ver el contenido real de su Planeación aunque no pueda descargarla:
-// la publicidad promete "Planeación didáctica" en trial, así que negarle
-// también la vista dejaría esa promesa vacía (pedido explícito de Kike,
-// 13-ago-2026).
-//
-// EDITABLE mientras no esté aceptada (pedido de Kike, 14-ago-2026): la
-// Planeación es la columna vertebral de las actividades que la IA propone
-// después, así que lo que quede como "aceptada" debe ser exactamente lo que
-// el docente revisó y corrigió aquí mismo — no un Excel editado por fuera
-// que Evalúa Fácil nunca ve. Con `onChange` se edita en el propio navegador
-// (sin re-parsear ningún archivo); sin él, se muestra de solo lectura (caso
-// de la versión ya aceptada, o del historial de generaciones anteriores).
+// Celda editable "en su lugar" — sin borde propio hasta que se toca, para
+// que la tabla se vea como el documento real y no como un formulario con
+// cajas (Opción C elegida por Kike, 15-ago-2026: editar directo sobre la
+// tabla, no en una lista aparte). Un textarea de una sola línea que crece
+// solo (auto-resize) para no forzar scroll interno en la celda.
+function CeldaEditable({ value, onChange, resaltada, placeholder }) {
+  return (
+    <textarea
+      className={`w-full min-w-[140px] px-1.5 py-1 text-xs bg-transparent border border-dashed rounded-none resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:bg-surface-card ${
+        resaltada ? 'border-accent/50 bg-[var(--accent-tint)]' : 'border-transparent hover:border-outline-variant'
+      }`}
+      rows={2}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      maxLength={400}
+      onFocus={(e) => { e.target.rows = 3 }}
+      onBlur={(e) => { e.target.rows = 2 }}
+    />
+  )
+}
+
+// Vista de la Planeación genérica como tabla real (una por parcial), no
+// como tarjetas apiladas — se ve más parecida a cómo va a quedar. Editable
+// mientras no esté aceptada (pedido de Kike, 14-ago-2026): la Planeación es
+// la columna vertebral de las actividades que la IA propone después, así
+// que lo que quede como "aceptada" debe ser exactamente lo que el docente
+// revisó y corrigió aquí — no un Excel editado por fuera que Evalúa Fácil
+// nunca ve. Con `onChange` se edita en el navegador; sin él, solo lectura
+// (versión ya aceptada).
 function VistaPreviaPlaneacion({ resultado, onChange }) {
   if (!resultado?.parciales?.length) return null
   const editable = typeof onChange === 'function'
@@ -129,45 +146,156 @@ function VistaPreviaPlaneacion({ resultado, onChange }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {resultado.parciales.map((parcial) => (
-        <div key={parcial.numero} className="border border-outline-variant rounded p-2">
+        <div key={parcial.numero}>
           <p className="text-sm font-semibold text-on-surface mb-1.5">
             Parcial {parcial.numero}{parcial.periodo ? ` — ${parcial.periodo}` : ''}
           </p>
           {!parcial.filas?.length ? (
             <p className="text-xs text-muted">La IA no generó una propuesta para este parcial con las fuentes disponibles.</p>
           ) : (
-            <div className="space-y-2">
-              {parcial.filas.map((fila, i) => (
-                <div key={i} className="bg-surface rounded border border-outline-variant p-2 space-y-1.5">
-                  {CAMPOS_VISTA_PREVIA.map(([campo, etiqueta]) => (
-                    editable ? (
-                      <div key={campo}>
-                        <label className="block text-xs font-medium text-muted mb-0.5">{etiqueta}</label>
-                        <textarea
-                          className="w-full px-2 py-1 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-xs bg-surface-card resize-y"
-                          rows={campo === 'fechaEstimada' ? 1 : 2}
-                          value={fila[campo] || ''}
-                          onChange={(e) => actualizarCampo(parcial.numero, i, campo, e.target.value)}
-                          maxLength={400}
-                        />
-                      </div>
-                    ) : (
-                      fila[campo] ? (
-                        <p key={campo} className="text-xs">
-                          <span className="font-medium text-muted">{etiqueta}: </span>
-                          <span className="text-on-surface">{fila[campo]}</span>
-                        </p>
-                      ) : null
-                    )
+            <div className="overflow-x-auto border border-outline-variant">
+              <table className="border-collapse w-full">
+                <thead>
+                  <tr className="bg-surface-container">
+                    {CAMPOS_VISTA_PREVIA.map(([campo, etiqueta]) => (
+                      <th key={campo} className="border border-outline-variant px-2 py-1.5 text-xs font-semibold text-on-surface text-left whitespace-nowrap">
+                        {etiqueta}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {parcial.filas.map((fila, i) => (
+                    <tr key={i}>
+                      {CAMPOS_VISTA_PREVIA.map(([campo]) => (
+                        <td key={campo} className="border border-outline-variant p-0 align-top">
+                          {editable ? (
+                            <CeldaEditable
+                              value={fila[campo] || ''}
+                              onChange={(valor) => actualizarCampo(parcial.numero, i, campo, valor)}
+                            />
+                          ) : (
+                            <p className="text-xs text-on-surface px-1.5 py-1 min-w-[140px]">{fila[campo] || ''}</p>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                </div>
-              ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+// Reconstruye la cuadrícula real del formato oficial (una por tabla, para
+// Word con varias tablas) combinando las celdas originales (encabezados,
+// solo lectura) con las que la IA propuso llenar (editables) — para
+// mostrar y editar la tabla tal cual es, no una lista de campos sueltos.
+function construirGridOficial(celdasOriginales, celdasPropuestas) {
+  const porTabla = new Map()
+  const clave = (t) => (t ?? null)
+  const celda = (t, f, c) => `${clave(t)}_${f}_${c}`
+
+  for (const c of celdasOriginales) {
+    const t = clave(c.tablaIndex)
+    if (!porTabla.has(t)) porTabla.set(t, new Map())
+    porTabla.get(t).set(celda(t, c.fila, c.columna), { fila: c.fila, columna: c.columna, texto: c.texto, editable: false })
+  }
+  celdasPropuestas.forEach((c, idx) => {
+    const t = clave(c.tablaIndex)
+    if (!porTabla.has(t)) porTabla.set(t, new Map())
+    porTabla.get(t).set(celda(t, c.fila, c.columna), { fila: c.fila, columna: c.columna, texto: c.texto, editable: true, idx })
+  })
+
+  return Array.from(porTabla.entries()).map(([t, cellsMap]) => {
+    const cells = Array.from(cellsMap.values())
+    const filas = [...new Set(cells.map((c) => c.fila))].sort((a, b) => a - b)
+    const columnas = [...new Set(cells.map((c) => c.columna))].sort((a, b) => a - b)
+    const grid = filas.map((f) => columnas.map((c) => cellsMap.get(celda(t, f, c)) || null))
+    return { tablaIndex: t, grid }
+  })
+}
+
+// Tabla real y editable del formato oficial — reemplaza la lista de campos
+// sueltos: se ve la tabla completa (encabezados incluidos, de solo
+// lectura) y solo las celdas que la IA propuso llenar se editan, en su
+// lugar (Opción C, pedido de Kike, 15-ago-2026).
+function TablaOficialEditable({ celdasOriginales, celdasPropuestas, onChangeCelda }) {
+  const tablas = construirGridOficial(celdasOriginales, celdasPropuestas)
+  return (
+    <div className="space-y-4">
+      {tablas.map(({ tablaIndex, grid }) => (
+        <div key={String(tablaIndex)} className="overflow-x-auto border border-outline-variant">
+          <table className="border-collapse w-full">
+            <tbody>
+              {grid.map((fila, fi) => (
+                <tr key={fi}>
+                  {fila.map((c, ci) => (
+                    <td key={ci} className="border border-outline-variant p-0 align-top">
+                      {!c ? null : c.editable ? (
+                        <CeldaEditable
+                          value={c.texto}
+                          resaltada
+                          onChange={(valor) => onChangeCelda(c.idx, valor)}
+                        />
+                      ) : (
+                        <p className="text-xs font-medium text-on-surface bg-surface-container px-1.5 py-1 min-w-[140px]">{c.texto}</p>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// A pantalla completa salvo el sidebar azul (pedido de Kike, 15-ago-2026) —
+// la revisión de la Planeación necesita todo el ancho posible para verse
+// como el documento real, no como una lista angosta. Solo en escritorio: en
+// celular no hay espacio para una tabla así, así que ni se intenta mostrar
+// (ver useIsDesktop) — el docente revisa desde una computadora.
+function RevisionPantallaCompleta({ titulo, onCerrar, acciones, children }) {
+  return (
+    <div className="fixed inset-0 md:left-[300px] z-40 bg-surface-card flex flex-col">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-outline-variant flex-shrink-0">
+        <h2 className="font-bold text-on-surface">{titulo}</h2>
+        <div className="flex items-center gap-2">
+          {acciones}
+          <button
+            type="button"
+            onClick={onCerrar}
+            aria-label="Cerrar"
+            className="p-1.5 rounded text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// Aviso cuando la pantalla es angosta (celular/tablet chica) — la revisión
+// no se intenta mostrar ahí, ni la genérica ni la del formato oficial
+// (pedido explícito de Kike, 15-ago-2026).
+function AvisoRevisionDesktop() {
+  return (
+    <div className="mt-3 pt-2 border-t border-outline-variant flex items-start gap-2 text-xs text-amber-700">
+      <Monitor size={16} className="flex-shrink-0 mt-0.5" />
+      <p>Ya se generó — para revisarla, corregirla y aceptarla/descargarla, abre Evalúa Fácil desde una computadora.</p>
     </div>
   )
 }
@@ -212,9 +340,16 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   // nada hasta que el docente revisa y corrige lo que la IA propuso). No se
   // persiste en Firestore — es una sola sesión de edición en memoria, desde
   // que se genera hasta que se descarga o se descarta.
+  // Controla si la revisión a pantalla completa está abierta (Opción C,
+  // pedido de Kike, 15-ago-2026) — se abre sola justo después de generar, y
+  // el docente la puede volver a abrir/cerrar sin perder el avance (la
+  // Planeación sigue "sin aceptar" hasta que de verdad la acepte).
+  const [revisandoGenerica, setRevisandoGenerica] = useState(false)
   const [celdasEdicionOficial, setCeldasEdicionOficial] = useState(null)
+  const [celdasOriginalesOficial, setCeldasOriginalesOficial] = useState(null)
   const [descargaPendienteOficial, setDescargaPendienteOficial] = useState(null)
   const [descargandoOficial, setDescargandoOficial] = useState(false)
+  const isDesktop = useIsDesktop()
   // Único requisito indispensable: fuentes generales (programa de estudios) —
   // el Perfil IA ya es obligatorio para llegar a esta pestaña (se oculta
   // entera sin él, ver SubjectPage.jsx), así que siempre se incluye, sin
@@ -332,6 +467,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
           generadoEn: serverTimestamp(),
         })
         toast(data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional)' : 'Planeación generada — revísala y acéptala cuando estés conforme')
+        setRevisandoGenerica(true)
       }
     } catch (err) {
       setConfirmando(false)
@@ -372,33 +508,6 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
     }
   }
 
-  // Busca una pista legible para una celda propuesta — el encabezado de su
-  // columna (primera fila de la misma tabla) o, si no hay, la etiqueta de
-  // su fila (primera columna) — para que el docente no tenga que adivinar
-  // qué es "fila 5, columna 3" al revisar. NO se puede asumir que "primera
-  // fila/columna" es 0: Word empieza en 0 (leerTablasWord) pero Excel
-  // empieza en 1 (leerCuadriculaExcel) — se calcula el mínimo real de cada
-  // tabla en vez de suponerlo. Si no encuentra ninguna, cae al texto de
-  // posición crudo.
-  function pistaDeCelda(celdasOriginales, celda) {
-    // Excel (leerCuadriculaExcel) nunca trae tablaIndex — queda `undefined`
-    // en la cuadrícula original, pero el servidor lo normaliza a `null` al
-    // devolver la celda propuesta (ver ejecutarPlaneacionFormatoOficial) —
-    // sin este `?? null` la comparación estricta undefined !== null hacía
-    // que NINGUNA celda de Excel encontrara su tabla y siempre cayera al
-    // texto de posición crudo.
-    const tablaCelda = celda.tablaIndex ?? null
-    const mismaTabla = celdasOriginales.filter((c) => (c.tablaIndex ?? null) === tablaCelda)
-    if (!mismaTabla.length) return `Fila ${celda.fila}, columna ${celda.columna}`
-    const filaMin = Math.min(...mismaTabla.map((c) => c.fila))
-    const columnaMin = Math.min(...mismaTabla.map((c) => c.columna))
-    const encabezadoCol = mismaTabla.find((c) => c.fila === filaMin && c.columna === celda.columna && c.texto)
-    if (encabezadoCol) return encabezadoCol.texto
-    const etiquetaFila = mismaTabla.find((c) => c.columna === columnaMin && c.fila === celda.fila && c.texto)
-    if (etiquetaFila) return etiquetaFila.texto
-    return `Fila ${celda.fila}, columna ${celda.columna}`
-  }
-
   // A diferencia de "Descargar Excel" (gratis, a partir de un resultado ya
   // guardado), generar en el formato oficial SÍ es una operación de IA
   // nueva (tarifa fija): la IA lee la estructura completa de la plantilla
@@ -437,10 +546,8 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
       }
 
       const celdasOriginales = celdas.map((c) => ({ fila: c.fila, columna: c.columna, tablaIndex: c.tablaIndex, texto: c.texto }))
-      setCeldasEdicionOficial(celdasLlenar.map((c) => ({
-        fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x,
-        pista: pistaDeCelda(celdasOriginales, { fila: c.f, columna: c.c, tablaIndex: c.t }),
-      })))
+      setCeldasOriginalesOficial(celdasOriginales)
+      setCeldasEdicionOficial(celdasLlenar.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x })))
       setDescargaPendienteOficial({ bufferOriginal, tipo: plantillaOficial.tipo, nombreOriginal: plantillaOficial.nombre })
       toast(
         data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional) — revísala antes de descargar.'
@@ -485,6 +592,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
       URL.revokeObjectURL(url)
       toast('Descargado — es una propuesta de IA revisada por ti, pero vuelve a checarla antes de usarla.', 'info')
       setCeldasEdicionOficial(null)
+      setCeldasOriginalesOficial(null)
       setDescargaPendienteOficial(null)
     } catch (err) {
       toast('No se pudo generar el archivo: ' + err.message, 'error')
@@ -606,15 +714,14 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
                 Descargar Excel
               </button>
             )}
-            {actual && !aceptada && (
+            {actual && !aceptada && isDesktop && (
               <button
                 type="button"
-                onClick={() => setConfirmarAceptar(true)}
-                disabled={aceptando}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50 disabled:opacity-60"
+                onClick={() => setRevisandoGenerica(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50"
               >
-                {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
-                Aceptar planeación
+                <ThumbsUp size={14} />
+                Revisar y aceptar
               </button>
             )}
             {plantillaOficial && (
@@ -637,36 +744,19 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             </p>
           )}
 
-          {/* Revisión editable del formato oficial ANTES de descargar —
-              mismo principio que la Planeación genérica: nada se descarga
-              sin que el docente lo haya revisado en pantalla primero
-              (pedido de Kike, 14-ago-2026). No hay "aceptar" aparte aquí:
-              descargar YA ES la confirmación, porque esto no queda guardado
-              como fuente de verdad para otras funciones de IA (a diferencia
-              de la Planeación genérica aceptada). */}
-          {celdasEdicionOficial && (
-            <div className="mt-3 pt-2 border-t border-outline-variant">
-              <p className="text-xs font-medium text-on-surface mb-2">
-                Revisa y corrige cada casilla antes de descargar tu {plantillaOficial?.tipo === 'docx' ? 'Word' : 'Excel'}:
-              </p>
-              <div className="space-y-2">
-                {celdasEdicionOficial.map((c, i) => (
-                  <div key={`${c.tablaIndex}-${c.fila}-${c.columna}`}>
-                    <label className="block text-xs font-medium text-muted mb-0.5">{c.pista}</label>
-                    <textarea
-                      className="w-full px-2 py-1 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-xs bg-surface resize-y"
-                      rows={2}
-                      value={c.texto}
-                      onChange={(e) => {
-                        const texto = e.target.value
-                        setCeldasEdicionOficial((prev) => prev.map((x, j) => (j === i ? { ...x, texto } : x)))
-                      }}
-                      maxLength={400}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2 mt-2">
+          {/* Revisión editable del formato oficial ANTES de descargar — a
+              pantalla completa (Opción C, pedido de Kike, 15-ago-2026): se
+              edita directo sobre la tabla real, no en una lista de campos.
+              Solo en escritorio — en celular se avisa nada más. No hay
+              "aceptar" aparte aquí: descargar YA ES la confirmación, porque
+              esto no queda guardado como fuente de verdad para otras
+              funciones de IA (a diferencia de la Planeación aceptada). */}
+          {celdasEdicionOficial && !isDesktop && <AvisoRevisionDesktop />}
+          {celdasEdicionOficial && isDesktop && (
+            <RevisionPantallaCompleta
+              titulo={`Revisa tu ${plantillaOficial?.tipo === 'docx' ? 'Word' : 'Excel'} antes de descargarlo`}
+              onCerrar={() => { setCeldasEdicionOficial(null); setCeldasOriginalesOficial(null); setDescargaPendienteOficial(null) }}
+              acciones={(
                 <button
                   type="button"
                   onClick={descargarFormatoOficial}
@@ -676,28 +766,38 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
                   {descargandoOficial ? <Spinner size="sm" /> : <Download size={14} />}
                   Descargar {plantillaOficial?.tipo === 'docx' ? 'Word' : 'Excel'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => { setCeldasEdicionOficial(null); setDescargaPendienteOficial(null) }}
-                  disabled={descargandoOficial}
-                  className="px-3 py-1.5 rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] disabled:opacity-60"
-                >
-                  Descartar
-                </button>
-              </div>
-            </div>
+              )}
+            >
+              <TablaOficialEditable
+                celdasOriginales={celdasOriginalesOficial || []}
+                celdasPropuestas={celdasEdicionOficial}
+                onChangeCelda={(idx, texto) => setCeldasEdicionOficial((prev) => prev.map((x, j) => (j === idx ? { ...x, texto } : x)))}
+              />
+            </RevisionPantallaCompleta>
           )}
 
-          {/* Sin aceptar: la vista editable va SIEMPRE visible, no detrás de
-              un "Ver planeación" — es el paso obligatorio de revisión antes
-              de poder aceptar y descargar (pedido de Kike, 14-ago-2026). */}
-          {actual && !aceptada && (
-            <div className="mt-3 pt-2 border-t border-outline-variant">
-              <p className="text-xs font-medium text-on-surface mb-2">
-                Revisa y corrige lo que necesites en cada campo antes de aceptar:
-              </p>
+          {/* Sin aceptar: revisión a pantalla completa (Opción C) — es el
+              paso obligatorio antes de poder aceptar y descargar (pedido de
+              Kike, 14/15-ago-2026). Solo en escritorio. */}
+          {actual && !aceptada && !isDesktop && <AvisoRevisionDesktop />}
+          {actual && !aceptada && isDesktop && revisandoGenerica && (
+            <RevisionPantallaCompleta
+              titulo="Revisa y corrige tu Planeación antes de aceptarla"
+              onCerrar={() => setRevisandoGenerica(false)}
+              acciones={(
+                <button
+                  type="button"
+                  onClick={() => setConfirmarAceptar(true)}
+                  disabled={aceptando}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
+                >
+                  {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
+                  Aceptar planeación
+                </button>
+              )}
+            >
               <VistaPreviaPlaneacion resultado={edicion || actual.resultado} onChange={setEdicion} />
-            </div>
+            </RevisionPantallaCompleta>
           )}
 
           {verPreview && aceptada && (
