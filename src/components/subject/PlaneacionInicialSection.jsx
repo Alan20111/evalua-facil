@@ -38,39 +38,44 @@ const CAMPOS_VISTA_PREVIA = [
   ['fechaEstimada', 'Fecha estimada'],
 ]
 
-// Casillas de insumos opcionales — comparten forma entre el flujo genérico y
-// el de formato oficial (mismo conjunto de insumos en los dos).
+// Resumen de insumos a incluir — de solo lectura salvo el Perfil IA (que no
+// tiene tarjeta propia en esta pestaña, vive en /perfil-ia). Los otros
+// cuatro se marcan cada uno en SU PROPIA tarjeta arriba (Comentarios,
+// Autoanálisis, Diagnóstico de contexto, Diagnóstico de conocimientos) —
+// decisión de Kike, 14-ago-2026: no duplicar el control aquí, solo mostrar
+// lo que ya se marcó ahí para que el docente confirme antes de generar.
 function InsumosOpcionales({
   disabled, hayContexto, hayConocimientos,
-  incluirPerfil, setIncluirPerfil, incluirComentarios, setIncluirComentarios,
-  incluirAutoanalisis, setIncluirAutoanalisis, incluirDiagContexto, setIncluirDiagContexto,
-  incluirDiagConocimientos, setIncluirDiagConocimientos,
+  incluirPerfil, setIncluirPerfil,
+  incluirComentarios, incluirAutoanalisis, incluirDiagContexto, incluirDiagConocimientos,
 }) {
-  const items = [
-    ['Perfil IA del docente', incluirPerfil, setIncluirPerfil],
-    ['Comentarios generales del grupo', incluirComentarios, setIncluirComentarios],
-    ['Autoanálisis docente', incluirAutoanalisis, setIncluirAutoanalisis],
-    [`Diagnóstico de contexto${hayContexto ? '' : ' (sin resultados todavía)'}`, incluirDiagContexto, setIncluirDiagContexto],
-    [`Diagnóstico de conocimientos${hayConocimientos ? '' : ' (sin resultados todavía)'}`, incluirDiagConocimientos, setIncluirDiagConocimientos],
+  const resumen = [
+    ['Comentarios generales del grupo', incluirComentarios],
+    ['Autoanálisis docente', incluirAutoanalisis],
+    [`Diagnóstico de contexto${hayContexto ? '' : ' (sin resultados todavía)'}`, incluirDiagContexto],
+    [`Diagnóstico de conocimientos${hayConocimientos ? '' : ' (sin resultados todavía)'}`, incluirDiagConocimientos],
   ]
   return (
     <fieldset className="mb-2 p-2.5 rounded border border-outline-variant">
       <legend className="text-sm text-on-surface px-1">Insumos a incluir</legend>
       <p className="text-xs text-muted mb-1.5">
-        Solo el programa de estudios (Fuentes) es obligatorio. Marca lo que quieras que la IA use — entre más
-        insumos marques y tengas listos, mejor planeación obtendrás. Si marcas uno que aún no está listo, tendrás
-        que completarlo primero.
+        Solo el programa de estudios (Fuentes) es obligatorio. Los demás se marcan arriba, en la tarjeta de
+        cada uno — entre más insumos incluyas y tengas listos, mejor planeación obtendrás.
       </p>
-      {items.map(([texto, checked, setChecked]) => (
-        <label key={texto} className="flex items-center gap-2 py-0.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={checked}
-            disabled={disabled}
-            onChange={(e) => setChecked(e.target.checked)}
-          />
-          <span className="text-sm text-on-surface">{texto}</span>
-        </label>
+      <label className="flex items-center gap-2 py-0.5 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={incluirPerfil}
+          disabled={disabled}
+          onChange={(e) => setIncluirPerfil(e.target.checked)}
+        />
+        <span className="text-sm text-on-surface">Perfil IA del docente</span>
+      </label>
+      {resumen.map(([texto, checked]) => (
+        <div key={texto} className="flex items-center gap-2 py-0.5 text-sm text-on-surface">
+          {checked ? <CheckCircle2 size={14} className="text-green-600 flex-shrink-0" /> : <Circle size={14} className="text-muted flex-shrink-0" />}
+          <span className={checked ? '' : 'text-muted'}>{texto}</span>
+        </div>
       ))}
     </fieldset>
   )
@@ -172,16 +177,18 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   const [generandoOficial, setGenerandoOficial] = useState(false)
   const [confirmandoOficial, setConfirmandoOficial] = useState(false)
   // Único requisito indispensable: fuentes generales (programa de estudios).
-  // Todo lo demás lo palomea el docente antes de generar — si lo marca, ese
-  // insumo debe estar completo (si no, el servidor bloquea con el error
-  // correspondiente); si no lo marca, simplemente no se manda a la IA.
-  // Compartidas entre el flujo genérico y el de formato oficial: son el
-  // mismo conjunto de insumos en ambos casos (decisión de Kike, 14-ago-2026).
+  // Todo lo demás lo palomea el docente antes de generar. El Perfil IA no
+  // tiene tarjeta propia en esta pestaña (vive en /perfil-ia), así que su
+  // casilla se queda aquí; los otros cuatro se marcan cada uno en SU PROPIA
+  // tarjeta (Comentarios, Autoanálisis, Diagnóstico de contexto/
+  // conocimientos) y se leen de config.incluirEnPlaneacion — decisión de
+  // Kike, 14-ago-2026: no duplicar el control en un modal aparte.
   const [incluirPerfil, setIncluirPerfil] = useState(true)
-  const [incluirComentarios, setIncluirComentarios] = useState(true)
-  const [incluirAutoanalisis, setIncluirAutoanalisis] = useState(true)
-  const [incluirDiagContexto, setIncluirDiagContexto] = useState(true)
-  const [incluirDiagConocimientos, setIncluirDiagConocimientos] = useState(true)
+  const [incluirEnPlaneacion, setIncluirEnPlaneacion] = useState({})
+  const incluirComentarios = incluirEnPlaneacion.comentarios !== false
+  const incluirAutoanalisis = incluirEnPlaneacion.autoanalisis !== false
+  const incluirDiagContexto = incluirEnPlaneacion.diagContexto !== false
+  const incluirDiagConocimientos = incluirEnPlaneacion.diagConocimientos !== false
   const incluirInsumos = {
     perfil: incluirPerfil,
     comentarios: incluirComentarios,
@@ -192,8 +199,9 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), (snap) => {
+      setIncluirEnPlaneacion(snap.exists() ? (snap.data().incluirEnPlaneacion || {}) : {})
       setPlantillaOficial(snap.exists() ? (snap.data().plantillaOficial || null) : null)
-    }, () => setPlantillaOficial(null))
+    }, () => { setIncluirEnPlaneacion({}); setPlantillaOficial(null) })
     return unsub
   }, [subjectId])
 
@@ -562,10 +570,10 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             hayContexto={hayContexto}
             hayConocimientos={hayConocimientos}
             incluirPerfil={incluirPerfil} setIncluirPerfil={setIncluirPerfil}
-            incluirComentarios={incluirComentarios} setIncluirComentarios={setIncluirComentarios}
-            incluirAutoanalisis={incluirAutoanalisis} setIncluirAutoanalisis={setIncluirAutoanalisis}
-            incluirDiagContexto={incluirDiagContexto} setIncluirDiagContexto={setIncluirDiagContexto}
-            incluirDiagConocimientos={incluirDiagConocimientos} setIncluirDiagConocimientos={setIncluirDiagConocimientos}
+            incluirComentarios={incluirComentarios}
+            incluirAutoanalisis={incluirAutoanalisis}
+            incluirDiagContexto={incluirDiagContexto}
+            incluirDiagConocimientos={incluirDiagConocimientos}
           />
 
           <fieldset className="mb-2">
@@ -662,10 +670,10 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             hayContexto={hayContexto}
             hayConocimientos={hayConocimientos}
             incluirPerfil={incluirPerfil} setIncluirPerfil={setIncluirPerfil}
-            incluirComentarios={incluirComentarios} setIncluirComentarios={setIncluirComentarios}
-            incluirAutoanalisis={incluirAutoanalisis} setIncluirAutoanalisis={setIncluirAutoanalisis}
-            incluirDiagContexto={incluirDiagContexto} setIncluirDiagContexto={setIncluirDiagContexto}
-            incluirDiagConocimientos={incluirDiagConocimientos} setIncluirDiagConocimientos={setIncluirDiagConocimientos}
+            incluirComentarios={incluirComentarios}
+            incluirAutoanalisis={incluirAutoanalisis}
+            incluirDiagContexto={incluirDiagContexto}
+            incluirDiagConocimientos={incluirDiagConocimientos}
           />
         </ConfirmacionCreditosModal>
       )}
