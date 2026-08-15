@@ -21,7 +21,7 @@ import { leerCuadriculaExcel, leerTablasWord, llenarPlantillaExcel, llenarPlanti
 import { useSubscription } from '../../hooks/useSubscription'
 import useIsDesktop from '../../hooks/useIsDesktop'
 import CheckoutModal from '../CheckoutModal'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2, X, Monitor } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2, X, Monitor, Save } from 'lucide-react'
 
 // Nombres de columnas para la vista previa en pantalla — mismo orden y
 // etiquetas que planeacionExcel.js, pero en tarjetas apiladas (no tabla),
@@ -338,10 +338,15 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   const [verHistorial, setVerHistorial] = useState(false)
   const [aceptando, setAceptando] = useState(false)
   const [confirmarAceptar, setConfirmarAceptar] = useState(false)
+  const [guardando, setGuardando] = useState(false)
   // Copia editable del resultado mientras no está aceptada — lo que el
   // docente corrija aquí es lo que se guarda al aceptar (ver `aceptar()`),
   // no el `resultado` original de la IA. Se reinicia cada vez que cambia
-  // `actual.id` (nueva generación o recarga de la página).
+  // `actual.id` (nueva generación o recarga de la página) — a partir de lo
+  // último guardado como borrador si existe (subjects/{id}.planeacionBorrador,
+  // pedido de Kike, 15-ago-2026: un docente entra varias veces a corregir
+  // antes de aceptar, así que el avance debe sobrevivir a cerrar la pestaña,
+  // no solo a cerrar y reabrir el modal en la misma sesión).
   const [edicion, setEdicion] = useState(null)
   const [edicionDeId, setEdicionDeId] = useState(null)
   const [plantillaOficial, setPlantillaOficial] = useState(null)
@@ -367,6 +372,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   const [verHistorialOficial, setVerHistorialOficial] = useState(false)
   const [aceptandoOficial, setAceptandoOficial] = useState(false)
   const [confirmarAceptarOficial, setConfirmarAceptarOficial] = useState(false)
+  const [guardandoOficial, setGuardandoOficial] = useState(false)
   const [descargandoOficial, setDescargandoOficial] = useState(false)
   const isDesktop = useIsDesktop()
   // Único requisito indispensable: fuentes generales (programa de estudios) —
@@ -442,12 +448,16 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   // useEffect).
   const actualIdParaEdicion = historial[0]?.id || null
   if (actualIdParaEdicion !== edicionDeId) {
-    setEdicion(actualIdParaEdicion ? historial[0].resultado : null)
+    const borrador = subject?.planeacionBorrador?.planeacionId === actualIdParaEdicion
+      ? subject.planeacionBorrador.resultado : null
+    setEdicion(actualIdParaEdicion ? (borrador || historial[0].resultado) : null)
     setEdicionDeId(actualIdParaEdicion)
   }
   const actualOficialIdParaEdicion = historialOficial[0]?.id || null
   if (actualOficialIdParaEdicion !== edicionOficialDeId) {
-    setEdicionOficial(actualOficialIdParaEdicion ? historialOficial[0].celdasPropuestas : null)
+    const borradorOficial = subject?.planeacionOficialBorrador?.planeacionId === actualOficialIdParaEdicion
+      ? subject.planeacionOficialBorrador.celdas : null
+    setEdicionOficial(actualOficialIdParaEdicion ? (borradorOficial || historialOficial[0].celdasPropuestas) : null)
     setEdicionOficialDeId(actualOficialIdParaEdicion)
   }
 
@@ -529,11 +539,32 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   // actividades del curso, así que debe ser exactamente lo que el docente
   // revisó y aprobó, campo por campo, no un archivo editado por fuera que
   // Evalúa Fácil nunca llega a ver.
+  // Guarda el avance de la corrección SIN aceptar — pedido de Kike,
+  // 15-ago-2026: un docente entra varias veces a corregir antes de aceptar
+  // (calculó ~10), así que debe poder guardar y seguir después sin perder lo
+  // ya hecho. Se guarda en `subjects/{id}.planeacionBorrador` (mutable, a
+  // diferencia de la bitácora planeacionesIA) — solo mientras no está
+  // aceptada; una vez aceptada, `aceptar()` la limpia.
+  async function guardar() {
+    setGuardando(true)
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), {
+        planeacionBorrador: { planeacionId: actual.id, resultado: edicion, actualizadoEn: serverTimestamp() },
+      })
+      toast('Cambios guardados')
+    } catch (err) {
+      toast('No se pudo guardar: ' + err.message, 'error')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   async function aceptar() {
     setAceptando(true)
     try {
       await updateDoc(doc(db, 'subjects', subjectId), {
         planeacionAceptada: { planeacionId: actual.id, aceptadaEn: serverTimestamp(), resultado: edicion || actual.resultado },
+        planeacionBorrador: null,
       })
       toast('Planeación aceptada — a partir de aquí la usa la IA para todo lo demás')
     } catch (err) {
@@ -614,13 +645,30 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
           aceptadaEn: serverTimestamp(),
           celdas: edicionOficial || actualOficial.celdasPropuestas,
         },
+        planeacionOficialBorrador: null,
       })
-      toast('Formato oficial aceptado — ya puedes verlo y descargarlo')
+      toast('Planeación Inicial aceptada — ya puedes verla y descargarla')
     } catch (err) {
       toast('No se pudo aceptar: ' + err.message, 'error')
     } finally {
       setAceptandoOficial(false)
       setConfirmarAceptarOficial(false)
+    }
+  }
+
+  // Mismo "Guardar" que la genérica (ver `guardar()` de arriba) — guarda el
+  // avance sin aceptar, para que sobreviva a cerrar la pestaña.
+  async function guardarOficial() {
+    setGuardandoOficial(true)
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), {
+        planeacionOficialBorrador: { planeacionId: actualOficial.id, celdas: edicionOficial, actualizadoEn: serverTimestamp() },
+      })
+      toast('Cambios guardados')
+    } catch (err) {
+      toast('No se pudo guardar: ' + err.message, 'error')
+    } finally {
+      setGuardandoOficial(false)
     }
   }
 
@@ -697,6 +745,12 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   // hizo (planeacionAceptada.resultado) o el resultado original si se
   // aceptó antes de que existiera la edición en pantalla (14-ago-2026).
   const resultadoAceptado = aceptada ? (subject.planeacionAceptada.resultado || actual.resultado) : null
+  // Lo ya guardado (borrador si hay uno para esta generación, si no el
+  // resultado original) — compara contra `edicion` para saber si hay algo
+  // sin guardar y así habilitar el botón "Guardar".
+  const guardadoResultado = subject?.planeacionBorrador?.planeacionId === actual?.id
+    ? subject.planeacionBorrador.resultado : actual?.resultado
+  const sinGuardar = !!actual && JSON.stringify(edicion) !== JSON.stringify(guardadoResultado)
 
   // Mismo criterio, para la versión en el formato oficial de la escuela —
   // guardado en subjects/{id}.planeacionOficialAceptada (campo aparte, no
@@ -708,6 +762,9 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   const celdasOficialAceptadas = aceptadaOficial
     ? (subject.planeacionOficialAceptada.celdas || actualOficial.celdasPropuestas)
     : null
+  const guardadoOficialCeldas = subject?.planeacionOficialBorrador?.planeacionId === actualOficial?.id
+    ? subject.planeacionOficialBorrador.celdas : actualOficial?.celdasPropuestas
+  const sinGuardarOficial = !!actualOficial && JSON.stringify(edicionOficial) !== JSON.stringify(guardadoOficialCeldas)
 
   if (!diagLoaded || !histLoaded || !histOficialLoaded) {
     return (
@@ -794,7 +851,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50"
               >
                 <ThumbsUp size={14} />
-                Revisar y aceptar
+                Revisar la planeación inicial y aceptarla
               </button>
             )}
             {plantillaOficial && !aceptadaOficial && (
@@ -836,7 +893,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50"
               >
                 <ThumbsUp size={14} />
-                Revisar y aceptar formato oficial
+                Revisar la planeación inicial y aceptarla
               </button>
             )}
           </div>
@@ -849,13 +906,13 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
               </p>
             ) : aceptadaOficial ? (
               <p className="text-xs text-muted mt-1.5">
-                Formato oficial: <span className="font-medium text-green-700">Aceptado</span>
+                Planeación Inicial (formato oficial): <span className="font-medium text-green-700">Aceptada</span>
                 {fechaAceptadaOficial?.toDate && ` · ${fechaAceptadaOficial.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
               </p>
             ) : (
               <p className="text-xs text-amber-700 mt-1.5">
-                Formato oficial generado, sin aceptar todavía — revísalo y corrígelo antes de aceptarlo; no se
-                puede descargar hasta entonces.
+                Planeación Inicial en el formato oficial generada, sin aceptar todavía — revísala y corrígela
+                antes de aceptarla; no se puede descargar hasta entonces.
               </p>
             )
           )}
@@ -868,18 +925,29 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
           {actualOficial && !aceptadaOficial && !isDesktop && <AvisoRevisionDesktop />}
           {actualOficial && !aceptadaOficial && isDesktop && revisandoOficial && (
             <RevisionPantallaCompleta
-              titulo="Revisa y corrige tu formato oficial antes de aceptarlo"
+              titulo="Revisa la Planeación Inicial (formato oficial de tu escuela) y corrígela antes de aceptarla"
               onCerrar={() => setRevisandoOficial(false)}
               acciones={(
-                <button
-                  type="button"
-                  onClick={() => setConfirmarAceptarOficial(true)}
-                  disabled={aceptandoOficial}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
-                >
-                  {aceptandoOficial ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
-                  Aceptar formato oficial
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={guardarOficial}
+                    disabled={!sinGuardarOficial || guardandoOficial}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)] disabled:opacity-50"
+                  >
+                    {guardandoOficial ? <Spinner size="sm" /> : <Save size={14} />}
+                    {sinGuardarOficial ? 'Guardar cambios' : 'Guardado'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmarAceptarOficial(true)}
+                    disabled={aceptandoOficial}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
+                  >
+                    {aceptandoOficial ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
+                    Aceptar esta planeación como mi Planeación Inicial
+                  </button>
+                </>
               )}
             >
               <TablaOficialEditable
@@ -930,18 +998,29 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
           {actual && !aceptada && !isDesktop && <AvisoRevisionDesktop />}
           {actual && !aceptada && isDesktop && revisandoGenerica && (
             <RevisionPantallaCompleta
-              titulo="Revisa y corrige tu Planeación antes de aceptarla"
+              titulo="Revisa la Planeación Inicial y corrígela antes de aceptarla"
               onCerrar={() => setRevisandoGenerica(false)}
               acciones={(
-                <button
-                  type="button"
-                  onClick={() => setConfirmarAceptar(true)}
-                  disabled={aceptando}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
-                >
-                  {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
-                  Aceptar planeación
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={guardar}
+                    disabled={!sinGuardar || guardando}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)] disabled:opacity-50"
+                  >
+                    {guardando ? <Spinner size="sm" /> : <Save size={14} />}
+                    {sinGuardar ? 'Guardar cambios' : 'Guardado'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmarAceptar(true)}
+                    disabled={aceptando}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
+                  >
+                    {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
+                    Aceptar esta planeación como mi Planeación Inicial
+                  </button>
+                </>
               )}
             >
               <VistaPreviaPlaneacion resultado={edicion || actual.resultado} onChange={setEdicion} />
@@ -1117,8 +1196,8 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
 
       {confirmarAceptarOficial && (
         <ConfirmModal
-          title="¿Aceptar este formato oficial?"
-          message="Se guarda con las correcciones que hayas hecho arriba. A partir de aquí queda fijo, con la fecha de hoy — ya no podrás editarlo, pero sí verlo y descargarlo (si tu suscripción está pagada) las veces que quieras. Ya no podrás generar otra versión desde aquí."
+          title="¿Aceptar esta Planeación Didáctica Inicial (formato oficial de tu escuela)?"
+          message="Se guarda con las correcciones que hayas hecho arriba. A partir de aquí queda fija, con la fecha de hoy — ya no podrás editarla, pero sí verla y descargarla (si tu suscripción está pagada) las veces que quieras. Ya no podrás generar otra versión desde aquí."
           confirmLabel="Aceptar"
           confirmingLabel="Aceptando…"
           busy={aceptandoOficial}
