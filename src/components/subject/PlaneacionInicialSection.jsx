@@ -748,7 +748,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   // Lo ya guardado (borrador si hay uno para esta generación, si no el
   // resultado original) — compara contra `edicion` para saber si hay algo
   // sin guardar y así habilitar el botón "Guardar".
-  const guardadoResultado = subject?.planeacionBorrador?.planeacionId === actual?.id
+  const guardadoResultado = actual && subject?.planeacionBorrador?.planeacionId === actual.id
     ? subject.planeacionBorrador.resultado : actual?.resultado
   const sinGuardar = !!actual && JSON.stringify(edicion) !== JSON.stringify(guardadoResultado)
 
@@ -762,7 +762,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   const celdasOficialAceptadas = aceptadaOficial
     ? (subject.planeacionOficialAceptada.celdas || actualOficial.celdasPropuestas)
     : null
-  const guardadoOficialCeldas = subject?.planeacionOficialBorrador?.planeacionId === actualOficial?.id
+  const guardadoOficialCeldas = actualOficial && subject?.planeacionOficialBorrador?.planeacionId === actualOficial.id
     ? subject.planeacionOficialBorrador.celdas : actualOficial?.celdasPropuestas
   const sinGuardarOficial = !!actualOficial && JSON.stringify(edicionOficial) !== JSON.stringify(guardadoOficialCeldas)
 
