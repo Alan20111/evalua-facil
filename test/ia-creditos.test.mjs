@@ -331,6 +331,31 @@ await caso('plan cortesía: con créditos asignados por el admin, la IA funciona
   assert.strictEqual(c.saldo, 1750)
 })
 
+await caso('resetearAhora: repone el saldo a la capacidad en el acto, sin esperar al ciclo', async () => {
+  await limpiar()
+  await sembrarDocente({ status: 'activa', planId: 'pro' })
+  await db.doc('config/iaTarifas').set(TARIFAS)
+  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: clave(), tarifas: TARIFAS })
+  let c = (await db.doc(`iaCreditos/${DOCENTE}`).get()).data()
+  assert.strictEqual(c.saldo, 340) // 350 - 10
+  assert.strictEqual(c.consumidoCiclo, 0) // reserva sin liquidar, no cuenta como consumido aún
+
+  const r = await L.resetearAhora({ uid: DOCENTE })
+  assert.strictEqual(r.saldo, 350)
+  c = (await db.doc(`iaCreditos/${DOCENTE}`).get()).data()
+  assert.strictEqual(c.saldo, 350)
+  assert.strictEqual(c.capacidad, 350) // la capacidad/plan no cambia, solo el saldo
+})
+
+await caso('resetearAhora: sin doc de créditos (nunca usó la IA) → error claro, no crea nada', async () => {
+  await limpiar()
+  await sembrarDocente({ status: 'activa', planId: 'pro' })
+  await assert.rejects(
+    () => L.resetearAhora({ uid: DOCENTE }),
+    (e) => e.codigo === 'SIN_CREDITOS_AUN'
+  )
+})
+
 await caso('suscripción vencida: la IA se rechaza (mismo criterio que el candado de escrituras)', async () => {
   await limpiar()
   const ayer = new Date(Date.now() - 24 * 60 * 60 * 1000)
