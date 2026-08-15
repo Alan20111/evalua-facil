@@ -6,7 +6,7 @@
 // sola a ningún otro módulo de Evalúa Fácil.
 import { useEffect, useState } from 'react'
 import { collection, doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
-import { addDoc, updateDoc } from '../../utils/firestoreGuard'
+import { updateDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
@@ -309,7 +309,7 @@ function AvisoRevisionDesktop() {
   )
 }
 
-export default function PlaneacionInicialSection({ subjectId, docenteId, subject, asignaturaNombre, hayFuentesGenerales, watermark = false }) {
+export default function PlaneacionInicialSection({ subjectId, subject, asignaturaNombre, hayFuentesGenerales, watermark = false }) {
   const toast = useToast()
   const creditosIA = useCreditosIA()
   const { subscription, refresh: refreshSubscription } = useSubscription()
@@ -464,17 +464,19 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
     }
     setGenerando(true)
     try {
+      // La función misma guarda el resultado en planeacionesIA (ver
+      // ejecutarPlaneacionDidacticaInicial en functions/ia.js) — una llamada
+      // por parcial puede tardar más que el timeout por omisión del SDK
+      // (70 s), y sin timeoutMs aquí el cliente se rendía antes de que el
+      // servidor terminara, aunque el trabajo YA se hubiera cobrado y
+      // guardado. El listener onSnapshot de abajo la recibe en cuanto se
+      // guarda, así que no hace falta escribirla otra vez desde aquí —
+      // hacerlo duplicaría la entrada en la bitácora.
       const data = await creditosIA.ejecutar('planeacion_didactica_inicial', {
         subjectId, asignaturaId: subjectId, asignaturaNombre, formato, incluir: incluirInsumos,
-      })
+      }, 1, { timeoutMs: 240000 })
       setConfirmando(false)
       if (data?.resultado) {
-        await addDoc(collection(db, 'subjects', subjectId, 'planeacionesIA'), {
-          resultado: data.resultado,
-          docenteId,
-          formato,
-          generadoEn: serverTimestamp(),
-        })
         toast(data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional)' : 'Planeación generada — revísala y acéptala cuando estés conforme')
         setRevisandoGenerica(true)
       }

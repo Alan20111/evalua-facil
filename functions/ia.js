@@ -2712,12 +2712,30 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
     throw new Error('El asistente de IA no generó una planeación utilizable')
   }
 
+  const resultado = {
+    asignaturaNombre: ctx.asignaturaNombre,
+    parciales,
+    fuentesUsadasGenerales: ctx.fuentesUsadas.generales,
+  }
+
+  // El servidor guarda la bitácora ÉL MISMO, no el cliente (a diferencia del
+  // resto de operaciones, que devuelven el resultado y dejan el addDoc del
+  // lado del cliente): una llamada por parcial puede tardar más que el
+  // timeout del cliente, y sin esto la Planeación se generaba, se cobraba y
+  // se perdía — el docente tenía que gastar créditos otra vez para
+  // recuperarla (incidente de Kike, 15-ago-2026). Al escribir aquí, el
+  // listener onSnapshot de PlaneacionInicialSection.jsx la recibe en cuanto
+  // se guarda, sin depender de que la llamada del cliente siga viva.
+  await getFirestore().collection('subjects').doc(String(params.subjectId || '').trim())
+    .collection('planeacionesIA').add({
+      resultado,
+      docenteId: params.__uid,
+      formato: ctx.formato,
+      generadoEn: FieldValue.serverTimestamp(),
+    })
+
   return {
-    resultado: {
-      asignaturaNombre: ctx.asignaturaNombre,
-      parciales,
-      fuentesUsadasGenerales: ctx.fuentesUsadas.generales,
-    },
+    resultado,
     unidadesReales: 1, // tarifa fija (20 créditos), sin importar el número de parciales
     interno: { modelo, tokensEntrada, tokensSalida, ms },
   }
