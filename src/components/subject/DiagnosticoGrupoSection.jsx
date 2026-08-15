@@ -25,7 +25,7 @@ import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import ConfirmModal from '../ConfirmModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
-import { Sparkles, RotateCcw, ClipboardList, ExternalLink, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { Sparkles, ClipboardList, ExternalLink, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 
 function millisDe(ts) {
   return ts?.toMillis?.() || 0
@@ -218,25 +218,32 @@ function DiagnosticoActividadBloque({
             </div>
           )}
 
-          {/* Una vez que el análisis se completa, este diagnóstico queda fijo —
-              decisión de Kike (13-ago-2026): es de una sola vez, al arrancar
-              el curso. No se ofrece "Generar otro" nunca más; si el docente
-              quiere indagar de nuevo más adelante, lo hace con una actividad
-              normal y comparte lo que le sirva en Fuentes, por su cuenta. */}
-          {estadoDiagnostico === 'completado' ? (
-            <p className="text-xs text-green-700">
-              Diagnóstico completado — este es el que usa la Planeación Didáctica Inicial.
-            </p>
-          ) : (
+          {/* Es de una sola vez, al arrancar el curso — nunca "Generar otro"
+              (decisión de Kike, 13-ago-2026 y reforzada 15-ago-2026: un
+              segundo instrumento solo crea el estado ambiguo que el propio
+              precheck de Planeación bloquea con "elimina los que no vayas a
+              usar"). Con uno ya generado, aquí solo se ve su estado; si el
+              docente quiere uno distinto, lo elimina desde Actividades y
+              este botón reaparece solo. */}
+          {actividades.length === 0 ? (
             <button
               type="button"
               onClick={() => setConfirmando(true)}
               disabled={generando}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
             >
-              {generando ? <Spinner size="sm" /> : actividades.length ? <RotateCcw size={14} /> : <Sparkles size={14} />}
-              {actividades.length ? 'Generar otro' : 'Generar cuestionario de diagnóstico'}
+              {generando ? <Spinner size="sm" /> : <Sparkles size={14} />}
+              Generar cuestionario de diagnóstico
             </button>
+          ) : estadoDiagnostico === 'completado' ? (
+            <p className="text-xs text-green-700">
+              Diagnóstico completado — este es el que usa la Planeación Didáctica Inicial.
+            </p>
+          ) : (
+            <p className="text-xs text-muted">
+              Ya lo generaste — publícalo y espera respuestas de tus estudiantes para poder usarlo en la
+              Planeación. Si quieres uno distinto, elimínalo desde Actividades.
+            </p>
           )}
         </div>
       )}

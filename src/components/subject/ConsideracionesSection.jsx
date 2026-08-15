@@ -80,7 +80,7 @@ export default function ConsideracionesSection({ subjectId, docenteId }) {
   return (
     <div className="bg-surface-card rounded-card shadow-card p-3">
       <div className="flex items-start justify-between gap-2">
-        <h2 className="font-bold text-on-surface">Consideraciones (opcional)</h2>
+        <h2 className="font-bold text-on-surface">Consideraciones</h2>
         <label className="flex items-center gap-1.5 text-xs text-on-surface cursor-pointer select-none flex-shrink-0 pt-0.5">
           <input
             type="checkbox"

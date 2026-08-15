@@ -2422,7 +2422,6 @@ async function precheckPlaneacionInicial({ uid, params }) {
   // listo (si no, se detiene con el mismo error de siempre). Lo que NO marca
   // simplemente no se manda a la IA — decisión de Kike, 14-ago-2026.
   const incluir = {
-    perfil: params?.incluir?.perfil === true,
     comentarios: params?.incluir?.comentarios === true,
     autoanalisis: params?.incluir?.autoanalisis === true,
     consideraciones: params?.incluir?.consideraciones === true,
@@ -2430,18 +2429,23 @@ async function precheckPlaneacionInicial({ uid, params }) {
     diagConocimientos: params?.incluir?.diagConocimientos === true,
   }
 
-  let perfilIATextoVal = ''
-  if (incluir.perfil) {
-    const perfilSnap = await db.doc(`users/${uid}`).get()
-    const perfilIA = perfilSnap.data()?.perfilIA || null
-    if (!perfilIACompleto(perfilIA)) {
-      throw new HttpsError('failed-precondition',
-        'Marcaste incluir tu Perfil IA, pero todavía no lo completas — complétalo o desmarca esa casilla. ' +
-        'No se descontaron créditos.',
-        { codigo: 'PERFIL_IA_INCOMPLETO' })
-    }
-    perfilIATextoVal = perfilIATexto(perfilIA)
+  // El Perfil IA del docente SIEMPRE se incluye (ya no es opcional vía
+  // casilla, decisión de Kike, 15-ago-2026): acceder a "Config Asistente
+  // IA" de cualquier asignatura ya exige tenerlo completo (ver
+  // perfilIACompleto en SubjectPage.jsx, que oculta la pestaña entera si
+  // falta), así que no tiene sentido dejarlo desmarcar aquí — es
+  // imprescindible para una buena planeación. Esta revalidación server-side
+  // es la que de verdad protege contra que se haya vuelto incompleto entre
+  // que se abrió la pestaña y se generó.
+  const perfilSnap = await db.doc(`users/${uid}`).get()
+  const perfilIA = perfilSnap.data()?.perfilIA || null
+  if (!perfilIACompleto(perfilIA)) {
+    throw new HttpsError('failed-precondition',
+      'Completa primero tu Perfil para IA del docente — es indispensable para generar la Planeación. ' +
+      'No se descontaron créditos.',
+      { codigo: 'PERFIL_IA_INCOMPLETO' })
   }
+  const perfilIATextoVal = perfilIATexto(perfilIA)
 
   const fuentesSnap = await db.collection('fuentesAsignatura').where('asignaturaId', '==', subjectId).get()
   const fuentes = fuentesSnap.docs.map((d) => {
