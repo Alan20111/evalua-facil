@@ -237,7 +237,18 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
     const canvas = canvasRef.current
     if (!canvas) return
     const dpr = window.devicePixelRatio || 1
-    const cssW = size.w, cssH = size.h
+    // El tamaño real se mide del propio canvas en cada dibujo, no del
+    // estado `size` (que depende de que ResizeObserver ya haya disparado) —
+    // si el buffer interno (canvas.width/height) no coincide EXACTO con el
+    // tamaño real en pantalla, el navegador estira el bitmap de forma no
+    // uniforme para llenar la caja, deformando todo el mapa (se veía
+    // alargado a lo ancho). Medir aquí garantiza que buffer y pantalla
+    // siempre coincidan, sin depender del timing del ResizeObserver.
+    const rect = canvas.getBoundingClientRect()
+    const cssW = rect.width || size.w, cssH = rect.height || size.h
+    if (Math.abs(cssW - size.w) > 0.5 || Math.abs(cssH - size.h) > 0.5) {
+      setSize({ w: cssW, h: cssH })
+    }
     if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
       canvas.width = Math.round(cssW * dpr)
       canvas.height = Math.round(cssH * dpr)
@@ -248,17 +259,25 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
     // congelado hasta mover el mouse encima). Se quita.
     const ctx = canvas.getContext('2d', { alpha: false })
     const v = viewRef.current
+    // El ajuste "meet" se calcula aquí, del mismo cssW/cssH recién medido —
+    // no del `fit` de React (que puede ir un render atrás del tamaño real
+    // recién detectado arriba), para que nunca haya un frame donde el
+    // buffer ya cambió de tamaño pero el contenido se dibuje con la escala
+    // vieja.
+    const fitS = Math.min(cssW / VIEW_W, cssH / VIEW_H) || 1
+    const fitOx = (cssW - VIEW_W * fitS) / 2
+    const fitOy = (cssH - VIEW_H * fitS) / 2
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.fillStyle = MAR
     ctx.fillRect(0, 0, cssW, cssH)
     ctx.save()
-    ctx.translate(fit.ox, fit.oy)
-    ctx.scale(fit.s, fit.s)
+    ctx.translate(fitOx, fitOy)
+    ctx.scale(fitS, fitS)
     ctx.translate(v.x, v.y)
     ctx.scale(v.scale, v.scale)
 
-    const escalaTrazo = 1 / (fit.s * v.scale)
-    const escalaTexto = 1 / (fit.s * v.scale)
+    const escalaTrazo = 1 / (fitS * v.scale)
+    const escalaTexto = 1 / (fitS * v.scale)
 
     // Estados
     ctx.lineJoin = 'round'
