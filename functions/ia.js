@@ -2384,12 +2384,31 @@ async function precheckPlaneacionInicial({ uid, params }) {
   const subj = subjSnap.data()
   if (subj.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta asignatura no es tuya')
 
-  const perfilSnap = await db.doc(`users/${uid}`).get()
-  const perfilIA = perfilSnap.data()?.perfilIA || null
-  if (!perfilIACompleto(perfilIA)) {
-    throw new HttpsError('failed-precondition',
-      'Completa primero tu Perfil para IA del docente. No se descontaron créditos.',
-      { codigo: 'PERFIL_IA_INCOMPLETO' })
+  // El ÚNICO insumo obligatorio es el programa de estudios (fuentes
+  // generales) — todo lo demás (Perfil IA, comentarios del grupo,
+  // autoanálisis, ambos diagnósticos) es opcional: el docente marca en
+  // pantalla cuáles quiere incluir, y si marca uno, ese sí tiene que estar
+  // listo (si no, se detiene con el mismo error de siempre). Lo que NO marca
+  // simplemente no se manda a la IA — decisión de Kike, 14-ago-2026.
+  const incluir = {
+    perfil: params?.incluir?.perfil === true,
+    comentarios: params?.incluir?.comentarios === true,
+    autoanalisis: params?.incluir?.autoanalisis === true,
+    diagContexto: params?.incluir?.diagContexto === true,
+    diagConocimientos: params?.incluir?.diagConocimientos === true,
+  }
+
+  let perfilIATextoVal = ''
+  if (incluir.perfil) {
+    const perfilSnap = await db.doc(`users/${uid}`).get()
+    const perfilIA = perfilSnap.data()?.perfilIA || null
+    if (!perfilIACompleto(perfilIA)) {
+      throw new HttpsError('failed-precondition',
+        'Marcaste incluir tu Perfil IA, pero todavía no lo completas — complétalo o desmarca esa casilla. ' +
+        'No se descontaron créditos.',
+        { codigo: 'PERFIL_IA_INCOMPLETO' })
+    }
+    perfilIATextoVal = perfilIATexto(perfilIA)
   }
 
   const fuentesSnap = await db.collection('fuentesAsignatura').where('asignaturaId', '==', subjectId).get()
@@ -2413,7 +2432,10 @@ async function precheckPlaneacionInicial({ uid, params }) {
   // Regla de Kike (13-ago-2026): el docente puede generar y revisar varios
   // diagnósticos de contexto, pero para Planeación debe quedar UNO SOLO —
   // si hay más de uno (revisado o no), se detiene hasta que borre los que
-  // sobran, para no dejarle a la IA ambigüedad sobre cuál usar.
+  // sobran, para no dejarle a la IA ambigüedad sobre cuál usar. Esta
+  // validación de "uno solo" aplica siempre que exista algún diagnóstico,
+  // aunque el docente no lo haya marcado para incluir (evita que se le
+  // acumulen diagnósticos ambiguos sin darse cuenta).
   const countContexto = await contarActividadesDiagnostico(db, subjectId, 'contexto')
   if (countContexto > 1) {
     throw new HttpsError('failed-precondition',
@@ -2422,12 +2444,16 @@ async function precheckPlaneacionInicial({ uid, params }) {
       'grupo). No se descontaron créditos.',
       { codigo: 'MULTIPLES_DIAGNOSTICO_CONTEXTO' })
   }
-  const resultadoContexto = await analisisDiagnosticoMasReciente(db, subjectId, 'contexto')
-  if (!resultadoContexto) {
-    throw new HttpsError('failed-precondition',
-      'Genera el instrumento de Diagnóstico de contexto, publícalo y analiza sus resultados con IA ' +
-      'una vez que tus estudiantes lo contesten (Config Asistente IA → Diagnóstico del grupo). No se descontaron créditos.',
-      { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
+  let resultadoContexto = null
+  if (incluir.diagContexto) {
+    resultadoContexto = await analisisDiagnosticoMasReciente(db, subjectId, 'contexto')
+    if (!resultadoContexto) {
+      throw new HttpsError('failed-precondition',
+        'Marcaste incluir el Diagnóstico de contexto, pero todavía no tiene resultados analizados — genera ' +
+        'el instrumento, publícalo y analízalo con IA (Config Asistente IA → Diagnóstico del grupo), o ' +
+        'desmarca esa casilla. No se descontaron créditos.',
+        { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
+    }
   }
 
   // Diagnóstico de CONOCIMIENTOS (corrección de Kike, 12-ago-2026): ya es un
@@ -2442,20 +2468,28 @@ async function precheckPlaneacionInicial({ uid, params }) {
       'del grupo). No se descontaron créditos.',
       { codigo: 'MULTIPLES_DIAGNOSTICO_CONOCIMIENTOS' })
   }
-  const resultadoConocimientos = await analisisDiagnosticoMasReciente(db, subjectId, 'conocimientos')
-  if (!resultadoConocimientos) {
-    throw new HttpsError('failed-precondition',
-      'Genera el cuestionario de Diagnóstico de conocimientos, publícalo y analiza sus resultados con IA ' +
-      'una vez que tus estudiantes lo contesten (Config Asistente IA → Diagnóstico del grupo). No se descontaron créditos.',
-      { codigo: 'SIN_DIAGNOSTICO_CONOCIMIENTOS' })
+  let resultadoConocimientos = null
+  if (incluir.diagConocimientos) {
+    resultadoConocimientos = await analisisDiagnosticoMasReciente(db, subjectId, 'conocimientos')
+    if (!resultadoConocimientos) {
+      throw new HttpsError('failed-precondition',
+        'Marcaste incluir el Diagnóstico de conocimientos, pero todavía no tiene resultados analizados — ' +
+        'genera el cuestionario, publícalo y analízalo con IA (Config Asistente IA → Diagnóstico del grupo), ' +
+        'o desmarca esa casilla. No se descontaron créditos.',
+        { codigo: 'SIN_DIAGNOSTICO_CONOCIMIENTOS' })
+    }
   }
 
   const bloqueFuentesGenerales = await fuentesIA.prepararBloqueFuentes(
     seleccionarFuentesGenerales(generales).map((f) => f.url)
   )
   const configSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
-  const comentariosGrupoTexto = comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)
-  const autoanalisisDocenteTexto = autoanalisisDocenteATexto(configSnap.data()?.autoanalisisDocente)
+  const comentariosGrupoTexto = incluir.comentarios
+    ? comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)
+    : ''
+  const autoanalisisDocenteTexto = incluir.autoanalisis
+    ? autoanalisisDocenteATexto(configSnap.data()?.autoanalisisDocente)
+    : ''
 
   // Formato elegido por el docente (13-ago-2026, decisión de Kike): 'simple'
   // (bloques agrupados, como antes) o 'extendida' (una fila por cada tema
@@ -2478,12 +2512,12 @@ async function precheckPlaneacionInicial({ uid, params }) {
 
   return {
     asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
-    perfilIATexto: perfilIATexto(perfilIA),
+    perfilIATexto: perfilIATextoVal,
     comentariosGrupoTexto,
     autoanalisisDocenteTexto,
     bloqueFuentesGenerales,
-    diagnosticoContextoTexto: diagnosticoContextoATexto(resultadoContexto),
-    diagnosticoConocimientosTexto: diagnosticoConocimientosATexto(resultadoConocimientos),
+    diagnosticoContextoTexto: incluir.diagContexto ? diagnosticoContextoATexto(resultadoContexto) : '',
+    diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
     formato,
     parciales,
     fuentesUsadas: {
@@ -2543,12 +2577,14 @@ function promptPlaneacionParcial(ctx, parcialCtx) {
   return (
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n` +
     `PARCIAL ${parcialCtx.numero}${parcialCtx.periodoTexto ? ` (periodo: ${parcialCtx.periodoTexto})` : ''}.\n\n` +
-    `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
-    `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (el insumo que más debe pesar, ` +
-    `junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` +
-    `AUTOANÁLISIS DOCENTE (opcional, sobre el docente mismo, no sobre el grupo):\n${ctx.autoanalisisDocenteTexto}\n\n` +
-    `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` +
-    `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` +
+    (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
+    (ctx.comentariosGrupoTexto ? `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (el insumo que ` +
+      `más debe pesar, junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` : '') +
+    (ctx.autoanalisisDocenteTexto ? `AUTOANÁLISIS DOCENTE (opcional, sobre el docente mismo, no sobre el ` +
+      `grupo):\n${ctx.autoanalisisDocenteTexto}\n\n` : '') +
+    (ctx.diagnosticoContextoTexto ? `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` : '') +
+    (ctx.diagnosticoConocimientosTexto ? `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados ` +
+      `todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` : '') +
     (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
     `${instruccionFilasPorFormato(ctx.formato, tienePeriodo)} Cada fila tiene EXACTAMENTE estos campos (ningún ` +
     'campo adicional):\n' +
@@ -2654,6 +2690,13 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
 // respuestas como casillas haya. El cliente ya trae el archivo (original o
 // etiquetado con docxtemplater) y solo necesita el texto de cada casilla
 // para llenarlo — el servidor nunca toca el archivo en sí.
+// Tope de celdas que se mandan a la IA por generación — una plantilla
+// institucional razonable (una tabla de planeación semanal, por ejemplo)
+// cabe sobrada; algo mucho más grande probablemente ya no es un formato de
+// planeación sino otra cosa (o trae demasiado ruido para que la IA decida
+// bien qué llenar).
+const PLANEACION_OFICIAL_MAX_CELDAS = 400
+
 async function precheckPlaneacionFormatoOficial({ uid, params }) {
   const db = getFirestore()
   const subjectId = String(params?.subjectId || '').trim()
@@ -2666,20 +2709,39 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
 
   const configSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
   const plantillaOficial = configSnap.data()?.plantillaOficial
-  const mapeo = Array.isArray(plantillaOficial?.mapeo) ? plantillaOficial.mapeo : []
-  if (!mapeo.length) {
+  if (!plantillaOficial?.url) {
     throw new HttpsError('failed-precondition',
-      'Sube y marca primero la plantilla oficial de tu escuela (arriba, en Formato oficial de mi escuela). ' +
+      'Sube primero la plantilla oficial de tu escuela (arriba, en Formato oficial de mi escuela). ' +
       'No se descontaron créditos.',
       { codigo: 'SIN_PLANTILLA_OFICIAL' })
   }
 
-  const perfilSnap = await db.doc(`users/${uid}`).get()
-  const perfilIA = perfilSnap.data()?.perfilIA || null
-  if (!perfilIACompleto(perfilIA)) {
-    throw new HttpsError('failed-precondition',
-      'Completa primero tu Perfil para IA del docente. No se descontaron créditos.',
-      { codigo: 'PERFIL_IA_INCOMPLETO' })
+  // La estructura de la plantilla la lee y manda el CLIENTE (el servidor no
+  // trae ExcelJS/parseo de .docx) — no es información sensible (es la
+  // plantilla que el propio docente subió), así que se acepta con un tope
+  // de tamaño en vez de volver a leer el archivo aquí.
+  const celdasCrudas = Array.isArray(params?.celdas) ? params.celdas : []
+  if (!celdasCrudas.length) {
+    throw new HttpsError('invalid-argument', 'No se pudo leer la estructura de la plantilla.')
+  }
+  const celdas = celdasCrudas.slice(0, PLANEACION_OFICIAL_MAX_CELDAS).map((c) => ({
+    f: Number(c.f) || 0, c: Number(c.c) || 0,
+    t: c.t == null ? null : Number(c.t),
+    x: String(c.x || '').slice(0, 200),
+  }))
+
+  // El ÚNICO insumo obligatorio es el programa de estudios (fuentes
+  // generales) — todo lo demás (Perfil IA, comentarios del grupo,
+  // autoanálisis, ambos diagnósticos) es opcional: el docente marca en
+  // pantalla cuáles quiere incluir, y si marca uno, ese sí tiene que
+  // estar listo (si no, se detiene con el mismo error de siempre). Lo que
+  // NO marca simplemente no se manda a la IA — decisión de Kike, 14-ago-2026.
+  const incluir = {
+    perfil: params?.incluir?.perfil === true,
+    comentarios: params?.incluir?.comentarios === true,
+    autoanalisis: params?.incluir?.autoanalisis === true,
+    diagContexto: params?.incluir?.diagContexto === true,
+    diagConocimientos: params?.incluir?.diagConocimientos === true,
   }
 
   const fuentesSnap = await db.collection('fuentesAsignatura').where('asignaturaId', '==', subjectId).get()
@@ -2690,67 +2752,106 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
   const generales = fuentes.filter((f) => f.ubicacion === 'general')
   if (!generales.length) {
     throw new HttpsError('failed-precondition',
-      'Agrega primero al menos un documento en Config Asistente IA → Fuentes → Fuentes para todo el curso. No se descontaron créditos.',
+      'Agrega primero al menos un documento en Config Asistente IA → Fuentes → Fuentes para todo el curso ' +
+      '(el programa de estudios es el único requisito indispensable). No se descontaron créditos.',
       { codigo: 'SIN_FUENTES_GENERALES' })
   }
 
-  const resultadoContexto = await analisisDiagnosticoMasReciente(db, subjectId, 'contexto')
-  if (!resultadoContexto) {
-    throw new HttpsError('failed-precondition',
-      'Genera el instrumento de Diagnóstico de contexto, publícalo y analiza sus resultados con IA ' +
-      'una vez que tus estudiantes lo contesten (Config Asistente IA → Diagnóstico del grupo). No se descontaron créditos.',
-      { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
+  let perfilIATextoVal = ''
+  if (incluir.perfil) {
+    const perfilSnap = await db.doc(`users/${uid}`).get()
+    const perfilIA = perfilSnap.data()?.perfilIA || null
+    if (!perfilIACompleto(perfilIA)) {
+      throw new HttpsError('failed-precondition',
+        'Marcaste incluir tu Perfil IA, pero todavía no lo completas — complétalo o desmarca esa casilla. ' +
+        'No se descontaron créditos.',
+        { codigo: 'PERFIL_IA_INCOMPLETO' })
+    }
+    perfilIATextoVal = perfilIATexto(perfilIA)
   }
-  const resultadoConocimientos = await analisisDiagnosticoMasReciente(db, subjectId, 'conocimientos')
-  if (!resultadoConocimientos) {
-    throw new HttpsError('failed-precondition',
-      'Genera el cuestionario de Diagnóstico de conocimientos, publícalo y analiza sus resultados con IA ' +
-      'una vez que tus estudiantes lo contesten (Config Asistente IA → Diagnóstico del grupo). No se descontaron créditos.',
-      { codigo: 'SIN_DIAGNOSTICO_CONOCIMIENTOS' })
+
+  let resultadoContexto = null
+  if (incluir.diagContexto) {
+    resultadoContexto = await analisisDiagnosticoMasReciente(db, subjectId, 'contexto')
+    if (!resultadoContexto) {
+      throw new HttpsError('failed-precondition',
+        'Marcaste incluir el Diagnóstico de contexto, pero todavía no tiene resultados analizados — ' +
+        'genera el instrumento, publícalo y analízalo con IA (Config Asistente IA → Diagnóstico del grupo), ' +
+        'o desmarca esa casilla. No se descontaron créditos.',
+        { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
+    }
+  }
+  let resultadoConocimientos = null
+  if (incluir.diagConocimientos) {
+    resultadoConocimientos = await analisisDiagnosticoMasReciente(db, subjectId, 'conocimientos')
+    if (!resultadoConocimientos) {
+      throw new HttpsError('failed-precondition',
+        'Marcaste incluir el Diagnóstico de conocimientos, pero todavía no tiene resultados analizados — ' +
+        'genera el cuestionario, publícalo y analízalo con IA (Config Asistente IA → Diagnóstico del grupo), ' +
+        'o desmarca esa casilla. No se descontaron créditos.',
+        { codigo: 'SIN_DIAGNOSTICO_CONOCIMIENTOS' })
+    }
   }
 
   const bloqueFuentesGenerales = await fuentesIA.prepararBloqueFuentes(
     seleccionarFuentesGenerales(generales).map((f) => f.url)
   )
-  const comentariosGrupoTexto = comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)
-  const autoanalisisDocenteTexto = autoanalisisDocenteATexto(configSnap.data()?.autoanalisisDocente)
+  const comentariosGrupoTexto = incluir.comentarios
+    ? comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)
+    : ''
+  const autoanalisisDocenteTexto = incluir.autoanalisis
+    ? autoanalisisDocenteATexto(configSnap.data()?.autoanalisisDocente)
+    : ''
 
   return {
     asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
-    perfilIATexto: perfilIATexto(perfilIA),
+    perfilIATexto: perfilIATextoVal,
     comentariosGrupoTexto,
     autoanalisisDocenteTexto,
     bloqueFuentesGenerales,
-    diagnosticoContextoTexto: diagnosticoContextoATexto(resultadoContexto),
-    diagnosticoConocimientosTexto: diagnosticoConocimientosATexto(resultadoConocimientos),
-    // Solo la etiqueta que el docente escribió — el servidor nunca ve
-    // referencias de celda/tabla (irrelevantes para la IA, y así el
-    // resultado no puede filtrar esa información al prompt).
-    campos: mapeo.map((m) => String(m.campo || '').trim().slice(0, 120)).filter(Boolean),
+    diagnosticoContextoTexto: incluir.diagContexto ? diagnosticoContextoATexto(resultadoContexto) : '',
+    diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
+    celdas,
   }
 }
 
-const PLANEACION_OFICIAL_MAX_CAMPOS = 60
+// Representación compacta de la cuadrícula para el prompt: una línea por
+// celda con TEXTO (encabezados, valores ya puestos — la IA los usa de
+// contexto pero NUNCA los reescribe) o VACÍA (candidatas a llenar).
+function celdasATexto(celdas) {
+  return celdas.map((c) => {
+    const pos = c.t != null ? `tabla ${c.t}, fila ${c.f}, columna ${c.c}` : `fila ${c.f}, columna ${c.c}`
+    return c.x ? `- [${pos}] TEXTO: "${c.x}"` : `- [${pos}] VACÍA`
+  }).join('\n')
+}
 
 function promptPlaneacionFormatoOficial(ctx) {
   return (
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n\n` +
-    `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` +
-    `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (el insumo que más debe pesar, ` +
-    `junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` +
-    `AUTOANÁLISIS DOCENTE (opcional, sobre el docente mismo, no sobre el grupo):\n${ctx.autoanalisisDocenteTexto}\n\n` +
-    `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` +
-    `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` +
+    (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
+    (ctx.comentariosGrupoTexto ? `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (el insumo que ` +
+      `más debe pesar, junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` : '') +
+    (ctx.autoanalisisDocenteTexto ? `AUTOANÁLISIS DOCENTE (opcional, sobre el docente mismo, no sobre el ` +
+      `grupo):\n${ctx.autoanalisisDocenteTexto}\n\n` : '') +
+    (ctx.diagnosticoContextoTexto ? `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` : '') +
+    (ctx.diagnosticoConocimientosTexto ? `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados ` +
+      `todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` : '') +
     (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
-    'El docente subió el formato oficial de planeación de su escuela y marcó, casilla por casilla, qué dato va ' +
-    'en cada una — la etiqueta de cada casilla es justo lo que describe su contenido (puede ser un tema, una ' +
-    'fecha, una actividad, un propósito, etc., según cómo esté armado ese formato). Para CADA una de estas ' +
-    `etiquetas, escribe el texto que debe ir en esa casilla, basado en las fuentes y el contexto de arriba:\n` +
-    ctx.campos.map((c) => `- "${c}"`).join('\n') +
-    '\n\nSi una etiqueta no tiene información suficiente en las fuentes para responderla con algo real, usa la ' +
-    'frase exacta "Información no disponible en las fuentes proporcionadas." en vez de inventar contenido. ' +
-    'Responde SOLO con este JSON, con EXACTAMENTE estas llaves (una por cada etiqueta de la lista, en el mismo ' +
-    'texto):\n{\n' + ctx.campos.map((c) => `  "${c}": "<máx 400 caracteres>"`).join(',\n') + '\n}'
+    'El docente subió el formato oficial de planeación de su escuela, vacío. Esta es la cuadrícula completa de ' +
+    'la plantilla (una tabla de Excel, o una o varias tablas de Word) — cada celda con su posición, y si ya ' +
+    'tiene texto (encabezado o dato fijo, NO se toca) o está VACÍA (candidata a llenar):\n\n' +
+    celdasATexto(ctx.celdas) + '\n\n' +
+    'Con el texto de las celdas que YA tienen contenido entiendes la estructura del formato (encabezados de ' +
+    'columna/fila, títulos de sección, etc.) — úsalo para decidir qué información pedagógica corresponde a ' +
+    'cada celda VACÍA (nunca a una que ya tiene texto). No todas las celdas vacías son para llenar con ' +
+    'contenido pedagógico: ignora las que sean claramente decorativas o de diseño (separadores, celdas de ' +
+    'firma, celdas en blanco sin relación con ningún encabezado cercano) — solo responde las que de verdad ' +
+    'correspondan a un dato de planeación (tema, actividad, propósito, fecha, recurso, evaluación, etc.). Si ' +
+    'una celda que sí corresponde llenar no tiene información suficiente en las fuentes, usa la frase exacta ' +
+    '"Información no disponible en las fuentes proporcionadas." en vez de inventar contenido.\n\n' +
+    'Responde SOLO con este JSON — una entrada por cada celda que decidas llenar, usando EXACTAMENTE su ' +
+    'posición (f=fila, c=columna, t=tabla si aplica) y el texto que le corresponde:\n' +
+    '{"celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 400 caracteres>"}]}'
   )
 }
 
@@ -2759,24 +2860,34 @@ async function ejecutarPlaneacionFormatoOficial({ params, modelo, apiKey }) {
   const client = new Anthropic({ apiKey })
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
 
-  const campos = ctx.campos.slice(0, PLANEACION_OFICIAL_MAX_CAMPOS)
   const { datos, interno } = await pedirJSON({
-    client, modelo, maxTokens: Math.min(4000, 200 + campos.length * 120), system: PLANEACION_SISTEMA,
-    prompt: promptPlaneacionFormatoOficial({ ...ctx, campos }),
+    client, modelo, maxTokens: Math.min(8000, 500 + ctx.celdas.length * 60), system: PLANEACION_SISTEMA,
+    prompt: promptPlaneacionFormatoOficial(ctx),
   })
 
-  const datosPorCampo = {}
-  for (const c of campos) {
-    const v = datos?.[c]
-    if (typeof v === 'string' && v.trim()) datosPorCampo[c] = v.trim().slice(0, 400)
+  // Blindaje: solo se aceptan celdas que de verdad estaban VACÍAS en la
+  // plantilla original — si la IA "corrige" o repite una celda con
+  // encabezado (con texto), se descarta aquí, sin importar qué haya
+  // contestado. Así el logo/encabezados de la escuela nunca se tocan
+  // aunque el modelo se equivoque.
+  const vacias = new Set(ctx.celdas.filter((c) => !c.x).map((c) => `${c.t ?? ''}_${c.f}_${c.c}`))
+  const celdasCrudas = Array.isArray(datos?.celdas) ? datos.celdas : []
+  const celdas = []
+  for (const c of celdasCrudas) {
+    const f = Number(c?.f), col = Number(c?.c)
+    const t = c?.t == null ? null : Number(c.t)
+    const x = typeof c?.x === 'string' ? c.x.trim().slice(0, 400) : ''
+    if (!x || !Number.isFinite(f) || !Number.isFinite(col)) continue
+    if (!vacias.has(`${t ?? ''}_${f}_${col}`)) continue
+    celdas.push({ f, c: col, t, x })
   }
-  if (!Object.keys(datosPorCampo).length) {
+  if (!celdas.length) {
     throw new Error('El asistente de IA no generó contenido utilizable para tu plantilla')
   }
 
   return {
-    resultado: { datosPorCampo },
-    unidadesReales: 1, // tarifa fija, sin importar cuántas casillas tenga la plantilla
+    resultado: { celdas },
+    unidadesReales: 1, // tarifa fija, sin importar cuántas celdas tenga la plantilla
     interno: { modelo, tokensEntrada: interno.tokensEntrada, tokensSalida: interno.tokensSalida, ms: interno.ms },
   }
 }
@@ -2935,5 +3046,5 @@ exports._pruebas = {
   normalizarFilaPlaneacion, normalizarFilasPlaneacion, MAX_FILAS_PLANEACION_PARCIAL, comentariosGrupoATexto,
   autoanalisisDocenteATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
-  precheckPlaneacionFormatoOficial, promptPlaneacionFormatoOficial, PLANEACION_OFICIAL_MAX_CAMPOS,
+  precheckPlaneacionFormatoOficial, promptPlaneacionFormatoOficial, PLANEACION_OFICIAL_MAX_CELDAS,
 }

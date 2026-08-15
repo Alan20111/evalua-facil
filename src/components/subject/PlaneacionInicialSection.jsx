@@ -17,7 +17,7 @@ import ParcialesFechas, { addOneDay, normalizeParcialesFechas } from '../Parcial
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import { descargarPlaneacionExcel } from '../../utils/planeacionExcel'
-import { llenarPlantillaExcel, llenarPlantillaWordEtiquetada } from '../../utils/plantillaOficial'
+import { leerCuadriculaExcel, leerTablasWord, llenarPlantillaExcel, llenarPlantillaWord, aplanarCuadricula } from '../../utils/plantillaOficial'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../CheckoutModal'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2 } from 'lucide-react'
@@ -37,6 +37,44 @@ const CAMPOS_VISTA_PREVIA = [
   ['observaciones', 'Observaciones / ajustes'],
   ['fechaEstimada', 'Fecha estimada'],
 ]
+
+// Casillas de insumos opcionales — comparten forma entre el flujo genérico y
+// el de formato oficial (mismo conjunto de insumos en los dos).
+function InsumosOpcionales({
+  disabled, hayContexto, hayConocimientos,
+  incluirPerfil, setIncluirPerfil, incluirComentarios, setIncluirComentarios,
+  incluirAutoanalisis, setIncluirAutoanalisis, incluirDiagContexto, setIncluirDiagContexto,
+  incluirDiagConocimientos, setIncluirDiagConocimientos,
+}) {
+  const items = [
+    ['Perfil IA del docente', incluirPerfil, setIncluirPerfil],
+    ['Comentarios generales del grupo', incluirComentarios, setIncluirComentarios],
+    ['Autoanálisis docente', incluirAutoanalisis, setIncluirAutoanalisis],
+    [`Diagnóstico de contexto${hayContexto ? '' : ' (sin resultados todavía)'}`, incluirDiagContexto, setIncluirDiagContexto],
+    [`Diagnóstico de conocimientos${hayConocimientos ? '' : ' (sin resultados todavía)'}`, incluirDiagConocimientos, setIncluirDiagConocimientos],
+  ]
+  return (
+    <fieldset className="mb-2 p-2.5 rounded border border-outline-variant">
+      <legend className="text-sm text-on-surface px-1">Insumos a incluir</legend>
+      <p className="text-xs text-muted mb-1.5">
+        Solo el programa de estudios (Fuentes) es obligatorio. Marca lo que quieras que la IA use — entre más
+        insumos marques y tengas listos, mejor planeación obtendrás. Si marcas uno que aún no está listo, tendrás
+        que completarlo primero.
+      </p>
+      {items.map(([texto, checked, setChecked]) => (
+        <label key={texto} className="flex items-center gap-2 py-0.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={checked}
+            disabled={disabled}
+            onChange={(e) => setChecked(e.target.checked)}
+          />
+          <span className="text-sm text-on-surface">{texto}</span>
+        </label>
+      ))}
+    </fieldset>
+  )
+}
 
 function millisDe(ts) {
   return ts?.toMillis?.() || 0
@@ -60,7 +98,7 @@ function EstadoPlaneacionBadge({ lista }) {
     : 'bg-amber-50 text-amber-700 border-amber-200'
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${className}`}>
-      {lista ? 'Lista para generar' : 'Pendiente de diagnósticos'}
+      {lista ? 'Lista para generar' : 'Falta el programa de estudios'}
     </span>
   )
 }
@@ -133,6 +171,24 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   const [plantillaOficial, setPlantillaOficial] = useState(null)
   const [generandoOficial, setGenerandoOficial] = useState(false)
   const [confirmandoOficial, setConfirmandoOficial] = useState(false)
+  // Único requisito indispensable: fuentes generales (programa de estudios).
+  // Todo lo demás lo palomea el docente antes de generar — si lo marca, ese
+  // insumo debe estar completo (si no, el servidor bloquea con el error
+  // correspondiente); si no lo marca, simplemente no se manda a la IA.
+  // Compartidas entre el flujo genérico y el de formato oficial: son el
+  // mismo conjunto de insumos en ambos casos (decisión de Kike, 14-ago-2026).
+  const [incluirPerfil, setIncluirPerfil] = useState(true)
+  const [incluirComentarios, setIncluirComentarios] = useState(true)
+  const [incluirAutoanalisis, setIncluirAutoanalisis] = useState(true)
+  const [incluirDiagContexto, setIncluirDiagContexto] = useState(true)
+  const [incluirDiagConocimientos, setIncluirDiagConocimientos] = useState(true)
+  const incluirInsumos = {
+    perfil: incluirPerfil,
+    comentarios: incluirComentarios,
+    autoanalisis: incluirAutoanalisis,
+    diagContexto: incluirDiagContexto,
+    diagConocimientos: incluirDiagConocimientos,
+  }
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), (snap) => {
@@ -165,7 +221,10 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
     return unsub
   }, [subjectId])
 
-  const habilitado = hayFuentesGenerales && hayContexto && hayConocimientos
+  // Único requisito indispensable: fuentes generales — el resto de insumos
+  // (perfil, comentarios, autoanálisis, diagnósticos) son opcionales, el
+  // docente los palomea antes de generar (decisión de Kike, 14-ago-2026).
+  const habilitado = hayFuentesGenerales
 
   // La extendida reparte temas en el tiempo real del curso — exige fechas.
   const numParciales = Math.max(1, Number(subject?.parciales) || 1)
@@ -200,7 +259,9 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
     }
     setGenerando(true)
     try {
-      const data = await creditosIA.ejecutar('planeacion_didactica_inicial', { subjectId, asignaturaId: subjectId, asignaturaNombre, formato })
+      const data = await creditosIA.ejecutar('planeacion_didactica_inicial', {
+        subjectId, asignaturaId: subjectId, asignaturaNombre, formato, incluir: incluirInsumos,
+      })
       setConfirmando(false)
       if (data?.resultado) {
         await addDoc(collection(db, 'subjects', subjectId, 'planeacionesIA'), {
@@ -214,10 +275,10 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
     } catch (err) {
       setConfirmando(false)
       if (err.codigo === 'SALDO_INSUFICIENTE') toast('No tienes suficientes créditos de IA para esta acción', 'error')
-      else if (err.codigo === 'PERFIL_IA_INCOMPLETO') toast('Completa primero tu Perfil para IA del docente', 'error')
+      else if (err.codigo === 'PERFIL_IA_INCOMPLETO') toast('Marcaste incluir tu Perfil IA, pero todavía no lo completas — complétalo o desmarca esa casilla', 'error')
       else if (err.codigo === 'SIN_FUENTES_GENERALES') toast('Agrega primero un documento en Fuentes para todo el curso', 'error')
-      else if (err.codigo === 'SIN_DIAGNOSTICO_CONTEXTO') toast('Genera primero el Diagnóstico de contexto', 'error')
-      else if (err.codigo === 'SIN_DIAGNOSTICO_CONOCIMIENTOS') toast('Genera primero el Diagnóstico de conocimientos', 'error')
+      else if (err.codigo === 'SIN_DIAGNOSTICO_CONTEXTO') toast('Marcaste incluir el Diagnóstico de contexto, pero todavía no tiene resultados analizados — genera y analiza el instrumento, o desmarca esa casilla', 'error')
+      else if (err.codigo === 'SIN_DIAGNOSTICO_CONOCIMIENTOS') toast('Marcaste incluir el Diagnóstico de conocimientos, pero todavía no tiene resultados analizados — genera y analiza el cuestionario, o desmarca esa casilla', 'error')
       else toast(err.message || 'El asistente de IA no está disponible en este momento', 'error')
     } finally {
       setGenerando(false)
@@ -246,8 +307,9 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
 
   // A diferencia de "Descargar Excel" (gratis, a partir de un resultado ya
   // guardado), generar en el formato oficial SÍ es una operación de IA
-  // nueva (tarifa fija) — la IA redacta texto específico para cada casilla
-  // que el docente marcó en su plantilla, no reusa la propuesta genérica.
+  // nueva (tarifa fija): la IA lee la estructura completa de la plantilla
+  // (todas las celdas, con sus encabezados) y decide sola qué casillas
+  // están vacías y deben llenarse — el docente no marca nada.
   async function generarFormatoOficial() {
     if (nuncaAprobado) {
       setShowPaymentModal(true)
@@ -255,26 +317,35 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
     }
     setGenerandoOficial(true)
     try {
-      const data = await creditosIA.ejecutar('planeacion_formato_oficial', { subjectId, asignaturaId: subjectId, asignaturaNombre })
-      setConfirmandoOficial(false)
-      const datos = data?.resultado?.datosPorCampo
-      if (!datos) {
-        toast('El asistente de IA no generó contenido para tu plantilla', 'error')
+      const resPlantilla = await fetch(plantillaOficial.url)
+      const bufferOriginal = await resPlantilla.arrayBuffer()
+      const tablas = plantillaOficial.tipo === 'docx'
+        ? await leerTablasWord(bufferOriginal)
+        : [(await leerCuadriculaExcel(bufferOriginal))].map((c) => ({ filas: c.filas }))
+      const celdas = aplanarCuadricula(tablas)
+      if (!celdas.length) {
+        toast('No se pudo leer la estructura de tu plantilla', 'error')
         return
       }
-      const resArchivo = await fetch(plantillaOficial.tipo === 'docx' ? plantillaOficial.urlEtiquetada : plantillaOficial.url)
-      const buffer = await resArchivo.arrayBuffer()
-      let blob
-      let nombreSalida
-      if (plantillaOficial.tipo === 'docx') {
-        const datosPorCampoKey = {}
-        for (const m of plantillaOficial.mapeo) datosPorCampoKey[m.campoKey] = datos[m.campo] || ''
-        blob = await llenarPlantillaWordEtiquetada(buffer, datosPorCampoKey)
-        nombreSalida = plantillaOficial.nombre.replace(/\.docx$/i, '') + ' (llenada).docx'
-      } else {
-        blob = await llenarPlantillaExcel(buffer, plantillaOficial.mapeo, datos)
-        nombreSalida = plantillaOficial.nombre.replace(/\.xlsx?$/i, '') + ' (llenada).xlsx'
+
+      const data = await creditosIA.ejecutar('planeacion_formato_oficial', {
+        subjectId, asignaturaId: subjectId, asignaturaNombre, incluir: incluirInsumos,
+        celdas: celdas.map((c) => ({ f: c.fila, c: c.columna, t: c.tablaIndex, x: c.texto })),
+      })
+      setConfirmandoOficial(false)
+      const celdasLlenar = data?.resultado?.celdas
+      if (!celdasLlenar?.length) {
+        toast('El asistente de IA no encontró casillas que llenar en tu plantilla', 'error')
+        return
       }
+
+      const celdasParaEscribir = celdasLlenar.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x }))
+      const blob = plantillaOficial.tipo === 'docx'
+        ? await llenarPlantillaWord(bufferOriginal, celdasParaEscribir)
+        : await llenarPlantillaExcel(bufferOriginal, celdasParaEscribir)
+      const nombreSalida = plantillaOficial.nombre.replace(/\.(docx?|xlsx?)$/i, '') +
+        ' (llenada por IA)' + (plantillaOficial.tipo === 'docx' ? '.docx' : '.xlsx')
+
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -283,14 +354,19 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-      toast(data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional)' : 'Planeación generada en el formato de tu escuela')
+      toast(
+        (data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional). ' : 'Planeación generada en el formato de tu escuela. ') +
+        'Es una propuesta de IA — revísala antes de usarla, puede contener errores.',
+        'info'
+      )
     } catch (err) {
       setConfirmandoOficial(false)
       if (err.codigo === 'SALDO_INSUFICIENTE') toast('No tienes suficientes créditos de IA para esta acción', 'error')
-      else if (err.codigo === 'PERFIL_IA_INCOMPLETO') toast('Completa primero tu Perfil para IA del docente', 'error')
+      else if (err.codigo === 'PERFIL_IA_INCOMPLETO') toast('Marcaste incluir tu Perfil IA, pero todavía no lo completas — complétalo o desmarca esa casilla', 'error')
       else if (err.codigo === 'SIN_FUENTES_GENERALES') toast('Agrega primero un documento en Fuentes para todo el curso', 'error')
-      else if (err.codigo === 'SIN_DIAGNOSTICO_CONTEXTO') toast('Genera primero el Diagnóstico de contexto', 'error')
-      else if (err.codigo === 'SIN_DIAGNOSTICO_CONOCIMIENTOS') toast('Genera primero el Diagnóstico de conocimientos', 'error')
+      else if (err.codigo === 'SIN_DIAGNOSTICO_CONTEXTO') toast('Marcaste incluir el Diagnóstico de contexto, pero todavía no tiene resultados analizados — genera y analiza el instrumento, o desmarca esa casilla', 'error')
+      else if (err.codigo === 'SIN_DIAGNOSTICO_CONOCIMIENTOS') toast('Marcaste incluir el Diagnóstico de conocimientos, pero todavía no tiene resultados analizados — genera y analiza el cuestionario, o desmarca esa casilla', 'error')
+      else if (err.codigo === 'SIN_PLANTILLA_OFICIAL') toast('Sube primero la plantilla oficial de tu escuela', 'error')
       else toast(err.message || 'No se pudo generar el archivo', 'error')
     } finally {
       setGenerandoOficial(false)
@@ -337,7 +413,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
     <div className="bg-surface-card rounded-card shadow-card p-3">
       <div className="flex items-start justify-between gap-2">
         <h2 className="font-bold text-on-surface">Planeación Didáctica Inicial</h2>
-        <EstadoPlaneacionBadge lista={hayContexto && hayConocimientos} />
+        <EstadoPlaneacionBadge lista={hayFuentesGenerales} />
       </div>
       <p className="text-sm text-muted mt-0.5 mb-2">
         Una guía de trabajo sencilla, con una hoja de Excel por parcial, para que copies lo que te
@@ -346,9 +422,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
 
       {!habilitado && (
         <ul className="space-y-1 mb-1">
-          <RequisitoItem ok={hayFuentesGenerales} texto="Fuentes para todo el curso" />
-          <RequisitoItem ok={hayContexto} texto="Diagnóstico de contexto generado" />
-          <RequisitoItem ok={hayConocimientos} texto="Diagnóstico de conocimientos generado" />
+          <RequisitoItem ok={hayFuentesGenerales} texto="Fuentes para todo el curso (programa de estudios)" />
         </ul>
       )}
 
@@ -414,7 +488,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
                 Aceptar planeación
               </button>
             )}
-            {plantillaOficial?.mapeo?.length > 0 && (
+            {plantillaOficial && (
               <button
                 type="button"
                 onClick={() => (nuncaAprobado ? setShowPaymentModal(true) : setConfirmandoOficial(true))}
@@ -426,6 +500,13 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
               </button>
             )}
           </div>
+
+          {plantillaOficial && (
+            <p className="text-xs text-amber-700 mt-1.5">
+              El archivo que se descarga en el formato de tu escuela es una propuesta de IA — revísalo antes de
+              usarlo, puede contener errores.
+            </p>
+          )}
 
           {verPreview && actual && (
             <div className="mt-3 pt-2 border-t border-outline-variant">
@@ -476,6 +557,17 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
           onCancelar={() => { if (!generando) setConfirmando(false) }}
           onContinuar={generar}
         >
+          <InsumosOpcionales
+            disabled={generando}
+            hayContexto={hayContexto}
+            hayConocimientos={hayConocimientos}
+            incluirPerfil={incluirPerfil} setIncluirPerfil={setIncluirPerfil}
+            incluirComentarios={incluirComentarios} setIncluirComentarios={setIncluirComentarios}
+            incluirAutoanalisis={incluirAutoanalisis} setIncluirAutoanalisis={setIncluirAutoanalisis}
+            incluirDiagContexto={incluirDiagContexto} setIncluirDiagContexto={setIncluirDiagContexto}
+            incluirDiagConocimientos={incluirDiagConocimientos} setIncluirDiagConocimientos={setIncluirDiagConocimientos}
+          />
+
           <fieldset className="mb-2">
             <legend className="text-sm text-on-surface mb-1">Formato</legend>
             <label className="flex items-start gap-2 py-1 cursor-pointer">
@@ -559,12 +651,23 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
       {confirmandoOficial && (
         <ConfirmacionCreditosModal
           titulo="Generar en el formato de mi escuela"
-          descripcion={`La IA redacta el texto para las ${plantillaOficial?.mapeo?.length || 0} casillas que marcaste en tu plantilla, usando tu Perfil IA, tus fuentes y los diagnósticos del grupo.`}
+          descripcion="La IA analiza tu plantilla, decide qué casillas llenar y redacta el texto de cada una, usando tu Perfil IA, tus fuentes y los diagnósticos del grupo. Revisa el archivo antes de usarlo — puede contener errores."
           costoMin={creditosIA.estimar('planeacion_formato_oficial') ?? 20}
           ejecutando={generandoOficial}
           onCancelar={() => { if (!generandoOficial) setConfirmandoOficial(false) }}
           onContinuar={generarFormatoOficial}
-        />
+        >
+          <InsumosOpcionales
+            disabled={generandoOficial}
+            hayContexto={hayContexto}
+            hayConocimientos={hayConocimientos}
+            incluirPerfil={incluirPerfil} setIncluirPerfil={setIncluirPerfil}
+            incluirComentarios={incluirComentarios} setIncluirComentarios={setIncluirComentarios}
+            incluirAutoanalisis={incluirAutoanalisis} setIncluirAutoanalisis={setIncluirAutoanalisis}
+            incluirDiagContexto={incluirDiagContexto} setIncluirDiagContexto={setIncluirDiagContexto}
+            incluirDiagConocimientos={incluirDiagConocimientos} setIncluirDiagConocimientos={setIncluirDiagConocimientos}
+          />
+        </ConfirmacionCreditosModal>
       )}
 
       {confirmarAceptar && (
