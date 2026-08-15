@@ -253,7 +253,14 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
       // multiplicaba 1.2 muchas más veces para el mismo gesto y el zoom se
       // sentía totalmente irregular entre dispositivos — así, el zoom total
       // por gesto queda proporcional a lo que de verdad se giró/deslizó.
-      const factor = Math.pow(1.0015, -e.deltaY)
+      // Además, el propio deltaY se limita a ±100 por evento — probado en
+      // el navegador real de Kike: un solo gesto de scroll puede reportar
+      // un deltaY acumulado enorme (sumó ~2200 en una prueba), y eso
+      // dispara el zoom de golpe sin importar qué tan "proporcional" sea la
+      // fórmula. Con el tope, ningún evento individual salta más que lo
+      // que salta una rueda de mouse normal (un "click").
+      const deltaClamp = Math.max(-100, Math.min(100, e.deltaY))
+      const factor = Math.pow(1.0015, -deltaClamp)
       zoomBy(factor, { x: cx, y: cy }, false)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
