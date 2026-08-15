@@ -75,6 +75,7 @@ function puntoEnAnillo(px, py, ring) {
   return dentro
 }
 
+console.time('zzGeoInit')
 const statePaths = statesGeo.features.map((f) => {
   const rings = geomToRings(f.geometry)
   const mayor = rings.reduce((a, b) => (ringArea(b) > ringArea(a) ? b : a))
@@ -104,6 +105,7 @@ const CIUDADES = Object.entries(cityShapes).map(([clave, info]) => {
     cp: cpTexto(info),
   }
 })
+console.timeEnd('zzGeoInit')
 
 // Escala de azules por intensidad de ventas.
 const ESCALA = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']
@@ -242,7 +244,11 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
       canvas.width = Math.round(cssW * dpr)
       canvas.height = Math.round(cssH * dpr)
     }
-    const ctx = canvas.getContext('2d')
+    // desynchronized:true evita un paso de sincronización con el
+    // compositor en navegadores que lo soportan — pensado justo para
+    // canvas interactivos (paneo/zoom), reduce el retraso entre mover el
+    // mouse y ver el cambio en pantalla.
+    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })
     const v = viewRef.current
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.fillStyle = MAR
@@ -323,6 +329,26 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
   }
 
   useEffect(dibujar)
+
+  // Calienta el canvas al montar: la primera vez que el navegador tiene que
+  // repintarlo seguido (el primer arrastre/zoom del usuario) suele pagar un
+  // costo único — promoverlo a su propia capa de composición en GPU, y en
+  // V8 optimizar la función de dibujo tras las primeras llamadas — que se
+  // siente como lag justo al empezar y desaparece después. Se paga ese
+  // costo aquí, con dibujos de sobra apenas se monta, antes de que el
+  // usuario toque nada.
+  useEffect(() => {
+    let n = 0
+    let id
+    const paso = () => {
+      dibujar()
+      n++
+      if (n < 20) id = requestAnimationFrame(paso)
+    }
+    id = requestAnimationFrame(paso)
+    return () => cancelAnimationFrame(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Hit-testing: qué ciudad/círculo hay bajo un punto (en coords lógicas).
   const detectarHover = (lx, ly) => {
@@ -464,7 +490,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
         <canvas
           ref={canvasRef}
           className="w-full h-full touch-none select-none"
-          style={{ WebkitUserDrag: 'none', userSelect: 'none', cursor: 'grab', display: 'block' }}
+          style={{ WebkitUserDrag: 'none', userSelect: 'none', cursor: 'grab', display: 'block', willChange: 'transform' }}
           onPointerDown={handlePointerDown}
           onPointerEnter={actualizarRect}
           onPointerMove={handlePointerMove}
