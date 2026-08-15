@@ -37,23 +37,60 @@ export function tipoDePlantilla(nombreArchivo) {
   return null
 }
 
+// Celdas combinadas (Kike, 15-ago-2026: "es el problema más común" en
+// formatos reales de escuela) — ExcelJS expone los rangos fusionados como
+// strings tipo "B2:D2" en `hoja.model.merges`, sin relación directa con
+// cada celda. Se traduce una sola vez por hoja a dos estructuras:
+// `master` (celda ancla → cuántas columnas/filas ocupa, para el colSpan
+// visual) y `slave` (el resto de celdas del rango, que se omiten de la
+// cuadrícula — ya están cubiertas por el colSpan de su ancla).
+function colLetraANumero(letras) {
+  return letras.split('').reduce((acc, ch) => acc * 26 + (ch.charCodeAt(0) - 64), 0)
+}
+
+function excelMergesInfo(hoja) {
+  const master = new Map()
+  const slave = new Set()
+  for (const rango of hoja.model?.merges || []) {
+    const [ini, fin] = rango.split(':')
+    const pIni = ini.match(/^([A-Z]+)(\d+)$/)
+    const pFin = fin.match(/^([A-Z]+)(\d+)$/)
+    if (!pIni || !pFin) continue
+    const c1 = colLetraANumero(pIni[1]), f1 = parseInt(pIni[2], 10)
+    const c2 = colLetraANumero(pFin[1]), f2 = parseInt(pFin[2], 10)
+    master.set(`${f1}_${c1}`, { colSpan: c2 - c1 + 1 })
+    for (let f = f1; f <= f2; f++) {
+      for (let c = c1; c <= c2; c++) {
+        if (f === f1 && c === c1) continue
+        slave.add(`${f}_${c}`)
+      }
+    }
+  }
+  return { master, slave }
+}
+
 // ── Excel ────────────────────────────────────────────────────────────────
 // Lee la primera hoja como cuadrícula de texto — esto es lo que la IA ve
-// para entender la estructura de la plantilla y decidir qué llenar.
+// para entender la estructura de la plantilla y decidir qué llenar. Las
+// celdas cubiertas por una combinada se omiten (la ancla ya trae su
+// colSpan) para no repetir la misma celda varias veces en la cuadrícula.
 export async function leerCuadriculaExcel(arrayBuffer) {
   const ExcelJS = await cargarExcelJS()
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.load(arrayBuffer)
   const hoja = wb.worksheets[0]
   if (!hoja) throw new Error('El archivo no tiene ninguna hoja')
+  const { master, slave } = excelMergesInfo(hoja)
   const filas = []
   const maxFila = Math.min(hoja.rowCount, 200)
   const maxCol = Math.min(hoja.columnCount, 60)
   for (let f = 1; f <= maxFila; f++) {
     const fila = []
     for (let c = 1; c <= maxCol; c++) {
+      const clave = `${f}_${c}`
+      if (slave.has(clave)) continue
       const celda = hoja.getRow(f).getCell(c)
-      fila.push({ texto: celda.text || '', fila: f, columna: c })
+      fila.push({ texto: celda.text || '', fila: f, columna: c, colSpan: master.get(clave)?.colSpan || 1 })
     }
     filas.push(fila)
   }
@@ -62,7 +99,10 @@ export async function leerCuadriculaExcel(arrayBuffer) {
 
 // Abre el archivo ORIGINAL (sin modificar) y escribe cada celda que la IA
 // decidió llenar — conserva formato, logo y todo lo demás intacto, porque
-// solo se tocan esas celdas.
+// solo se tocan esas celdas. Si la celda de destino es parte de un rango
+// combinado, ExcelJS solo acepta el valor en la celda ancla (`.master`) —
+// escribir en cualquier otra del rango se pierde o revienta, así que
+// siempre se apunta a la ancla.
 export async function llenarPlantillaExcel(arrayBuffer, celdas) {
   const ExcelJS = await cargarExcelJS()
   const wb = new ExcelJS.Workbook()
@@ -70,7 +110,9 @@ export async function llenarPlantillaExcel(arrayBuffer, celdas) {
   const hoja = wb.worksheets[0]
   for (const c of celdas) {
     if (!c.texto) continue
-    hoja.getRow(c.fila).getCell(c.columna).value = c.texto
+    const celda = hoja.getRow(c.fila).getCell(c.columna)
+    const destino = celda.master || celda
+    destino.value = c.texto
   }
   const buffer = await wb.xlsx.writeBuffer()
   return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -94,6 +136,24 @@ function celdasDeFila(tr) {
   )
 }
 
+// Celdas combinadas horizontalmente en Word (Kike, 15-ago-2026: "es el
+// problema más común"): una celda con <w:gridSpan w:val="N"/> ocupa N
+// columnas de la cuadrícula, pero en el XML sigue siendo UN SOLO <w:tc> —
+// si se numeran las columnas por posición en el array (como antes), una
+// fila con una celda combinada tiene menos <w:tc> que una fila sin
+// combinar, y la columna 3 de una fila deja de ser la columna 3 de otra.
+// Se lee/escribe por COLUMNA LÓGICA (arrastrando el span acumulado) en vez
+// de por índice crudo, para que la misma columna lógica siempre sea la
+// misma columna real sin importar qué filas tengan celdas combinadas.
+function gridSpanDe(tc) {
+  const tcPr = tc.getElementsByTagNameNS(W_NS, 'tcPr')[0]
+  if (!tcPr) return 1
+  const el = tcPr.getElementsByTagNameNS(W_NS, 'gridSpan')[0]
+  if (!el) return 1
+  const val = parseInt(el.getAttribute('w:val'), 10)
+  return val > 0 ? val : 1
+}
+
 // Recorre document.xml y devuelve cada <w:tbl> como cuadrícula de texto —
 // mismo propósito que leerCuadriculaExcel pero para tablas de Word.
 export async function leerTablasWord(arrayBuffer) {
@@ -102,22 +162,42 @@ export async function leerTablasWord(arrayBuffer) {
   const xml = zip.file('word/document.xml').asText()
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
   const tablas = Array.from(doc.getElementsByTagNameNS(W_NS, 'tbl')).map((tbl, tablaIndex) => {
-    const filas = Array.from(tbl.getElementsByTagNameNS(W_NS, 'tr')).map((tr, fila) =>
-      celdasDeFila(tr).map((tc, columna) => ({ texto: textoDeCelda(tc), fila, columna, tablaIndex }))
-    )
+    const filas = Array.from(tbl.getElementsByTagNameNS(W_NS, 'tr')).map((tr, fila) => {
+      let columnaLogica = 0
+      return celdasDeFila(tr).map((tc) => {
+        const span = gridSpanDe(tc)
+        const entrada = { texto: textoDeCelda(tc), fila, columna: columnaLogica, colSpan: span, tablaIndex }
+        columnaLogica += span
+        return entrada
+      })
+    })
     return { filas }
   })
   return tablas
 }
 
+// Busca, dentro de una fila, el <w:tc> cuyo rango de columnas lógicas
+// (arrastrando gridSpan) cubre la columna pedida — reemplaza el acceso
+// directo por índice, que se desalineaba en cuanto una fila tenía una
+// celda combinada.
+function celdaEnColumnaLogica(tr, columnaObjetivo) {
+  let columnaLogica = 0
+  for (const tc of celdasDeFila(tr)) {
+    const span = gridSpanDe(tc)
+    if (columnaObjetivo >= columnaLogica && columnaObjetivo < columnaLogica + span) return tc
+    columnaLogica += span
+  }
+  return null
+}
+
 // Escribe texto en una celda de tabla de Word — reemplaza su contenido de
 // texto sin tocar el resto del documento (logo, formato, otras celdas).
-function escribirEnCelda(doc, tablaIndex, filaIdx, columnaIdx, texto) {
+function escribirEnCelda(doc, tablaIndex, filaIdx, columnaLogica, texto) {
   const tbl = doc.getElementsByTagNameNS(W_NS, 'tbl')[tablaIndex]
   if (!tbl) return false
   const tr = tbl.getElementsByTagNameNS(W_NS, 'tr')[filaIdx]
   if (!tr) return false
-  const tc = celdasDeFila(tr)[columnaIdx]
+  const tc = celdaEnColumnaLogica(tr, columnaLogica)
   if (!tc) return false
 
   const runs = tc.getElementsByTagNameNS(W_NS, 't')

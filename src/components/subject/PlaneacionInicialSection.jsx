@@ -205,12 +205,16 @@ function construirGridOficial(celdasOriginales, celdasPropuestas) {
   for (const c of celdasOriginales) {
     const t = clave(c.tablaIndex)
     if (!porTabla.has(t)) porTabla.set(t, new Map())
-    porTabla.get(t).set(celda(t, c.fila, c.columna), { fila: c.fila, columna: c.columna, texto: c.texto, editable: false })
+    porTabla.get(t).set(celda(t, c.fila, c.columna), { fila: c.fila, columna: c.columna, texto: c.texto, editable: false, colSpan: c.colSpan || 1 })
   }
   celdasPropuestas.forEach((c, idx) => {
     const t = clave(c.tablaIndex)
     if (!porTabla.has(t)) porTabla.set(t, new Map())
-    porTabla.get(t).set(celda(t, c.fila, c.columna), { fila: c.fila, columna: c.columna, texto: c.texto, editable: true, idx })
+    // Si esta celda ya existía en la cuadrícula original (celda combinada
+    // vacía, con colSpan > 1), se conserva su colSpan — si no, se
+    // sobreescribiría con 1 y la celda dejaría de verse combinada.
+    const previa = porTabla.get(t).get(celda(t, c.fila, c.columna))
+    porTabla.get(t).set(celda(t, c.fila, c.columna), { fila: c.fila, columna: c.columna, texto: c.texto, editable: true, idx, colSpan: previa?.colSpan || 1 })
   })
 
   return Array.from(porTabla.entries()).map(([t, cellsMap]) => {
@@ -237,17 +241,22 @@ function TablaOficialEditable({ celdasOriginales, celdasPropuestas, onChangeCeld
               {grid.map((fila, fi) => (
                 <tr key={fi}>
                   {fila.map((c, ci) => (
-                    <td key={ci} className="border border-outline-variant p-0 align-top">
-                      {!c ? null : c.editable ? (
-                        <CeldaEditable
-                          value={c.texto}
-                          resaltada
-                          onChange={(valor) => onChangeCelda(c.idx, valor)}
-                        />
-                      ) : (
-                        <p className="text-xs font-medium text-on-surface bg-surface-container px-1.5 py-1 min-w-[140px]">{c.texto}</p>
-                      )}
-                    </td>
+                    // Sin celda en esta posición = la cubre el colSpan de la
+                    // celda anterior en la misma fila (celda combinada) — no
+                    // se renderiza un <td> aparte, lo dejaría desalineado.
+                    !c ? null : (
+                      <td key={ci} colSpan={c.colSpan} className="border border-outline-variant p-0 align-top">
+                        {c.editable ? (
+                          <CeldaEditable
+                            value={c.texto}
+                            resaltada
+                            onChange={(valor) => onChangeCelda(c.idx, valor)}
+                          />
+                        ) : (
+                          <p className="text-xs font-medium text-on-surface bg-surface-container px-1.5 py-1 min-w-[140px]">{c.texto}</p>
+                        )}
+                      </td>
+                    )
                   ))}
                 </tr>
               ))}
@@ -545,7 +554,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
         return
       }
 
-      const celdasOriginales = celdas.map((c) => ({ fila: c.fila, columna: c.columna, tablaIndex: c.tablaIndex, texto: c.texto }))
+      const celdasOriginales = celdas.map((c) => ({ fila: c.fila, columna: c.columna, tablaIndex: c.tablaIndex, texto: c.texto, colSpan: c.colSpan || 1 }))
       setCeldasOriginalesOficial(celdasOriginales)
       setCeldasEdicionOficial(celdasLlenar.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x })))
       setDescargaPendienteOficial({ bufferOriginal, tipo: plantillaOficial.tipo, nombreOriginal: plantillaOficial.nombre })
