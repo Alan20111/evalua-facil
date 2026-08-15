@@ -3,6 +3,13 @@ import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import statesGeo from '../../data/mexicoStatesGeo.json'
 import cityShapes from '../../data/cityShapes.json'
 
+// Mapa dibujado en <canvas>, no SVG — con ~300 nodos DOM (32 estados + 69
+// manchas urbanas + sus etiquetas) el navegador tenía que llevar la cuenta
+// de cada uno como elemento individual (estilos, hit-testing, layout) en
+// cada paneo/zoom. Canvas pinta píxeles directo a un bitmap: repintar 300
+// formas o 30 cuesta básicamente lo mismo, porque no hay nodos que
+// mantener. Es el mismo enfoque que usan Google Maps/Mapbox/Leaflet.
+
 // Proyección equirectangular simple — suficiente para un mapa de referencia
 // (no es para medir distancias, solo para ubicar marcadores). Bounding box
 // tomado del propio geojson de estados, con margen para que nada quede
@@ -11,8 +18,6 @@ const BBOX = { minLng: -118.4, maxLng: -86.7, minLat: 14.5, maxLat: 32.8 }
 const VIEW_W = 900
 const VIEW_H = 700
 
-// Escala única (mismo factor en x/y) centrada en el bbox, para no deformar
-// la silueta del país al proyectar.
 const scaleX = (VIEW_W * 0.94) / (BBOX.maxLng - BBOX.minLng)
 const scaleY = (VIEW_H * 0.94) / (BBOX.maxLat - BBOX.minLat)
 const SCALE = Math.min(scaleX, scaleY)
@@ -25,23 +30,21 @@ function proj([lng, lat]) {
   return [x, y]
 }
 
-function ringToPath(ring) {
-  return ring.map((p, i) => `${i === 0 ? 'M' : 'L'}${proj(p).join(',')}`).join(' ') + 'Z'
+// Convierte una geometría (Polygon/MultiPolygon en lng/lat) a un array de
+// anillos ya proyectados — cada anillo es un array de [x,y].
+function geomToRings(geom) {
+  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates
+  return polys.flatMap((poly) => poly.map((ring) => ring.map(proj)))
 }
 
-function geomToPath(geom) {
-  if (geom.type === 'Polygon') return geom.coordinates.map(ringToPath).join(' ')
-  return geom.coordinates.map((poly) => poly.map(ringToPath).join(' ')).join(' ')
+function ringArea(ring) {
+  let a = 0
+  for (let i = 0; i < ring.length - 1; i++) {
+    a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+  }
+  return Math.abs(a) / 2
 }
 
-const statePaths = statesGeo.features.map((f) => ({
-  nombre: f.properties.name,
-  d: geomToPath(f.geometry),
-}))
-
-// Centroide (en lng/lat) del polígono más grande de una geometría, para
-// poner ahí una etiqueta — con islas o exclaves el polígono chico no debe
-// jalar la etiqueta fuera del cuerpo principal.
 function ringCentroid(ring) {
   let a = 0, cx = 0, cy = 0
   for (let i = 0; i < ring.length - 1; i++) {
@@ -55,44 +58,52 @@ function ringCentroid(ring) {
   a *= 0.5
   if (Math.abs(a) < 1e-9) {
     const n = ring.length
-    return { x: ring.reduce((s, p) => s + p[0], 0) / n, y: ring.reduce((s, p) => s + p[1], 0) / n, area: 0 }
+    return [ring.reduce((s, p) => s + p[0], 0) / n, ring.reduce((s, p) => s + p[1], 0) / n]
   }
-  return { x: cx / (6 * a), y: cy / (6 * a), area: Math.abs(a) }
+  return [cx / (6 * a), cy / (6 * a)]
 }
 
-function geomCentroidLngLat(geom) {
-  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates
-  let best = null
-  for (const poly of polys) {
-    const c = ringCentroid(poly[0])
-    if (!best || c.area > best.area) best = c
+// Punto dentro de un anillo (ray casting) — ya en coordenadas proyectadas.
+function puntoEnAnillo(px, py, ring) {
+  let dentro = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]
+    const [xj, yj] = ring[j]
+    const cruza = yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi
+    if (cruza) dentro = !dentro
   }
-  return [best.x, best.y]
+  return dentro
 }
 
-const stateLabels = statesGeo.features.map((f) => ({
-  nombre: f.properties.name,
-  pos: proj(geomCentroidLngLat(f.geometry)),
-}))
+const statePaths = statesGeo.features.map((f) => {
+  const rings = geomToRings(f.geometry)
+  const mayor = rings.reduce((a, b) => (ringArea(b) > ringArea(a) ? b : a))
+  return { nombre: f.properties.name, rings, labelPos: ringCentroid(mayor) }
+})
+
+function cpTexto(info) {
+  if (!info.cpMin) return null
+  return info.cpMin === info.cpMax ? info.cpMin : `${info.cpMin}–${info.cpMax}`
+}
 
 // `cityShapes`: clave "estado|municipio" -> mancha urbana real (contorno del
 // municipio, aproximación de la zona urbana — INEGI vía angelnmara/geojson),
 // con población aproximada (Censo 2020) y rango de código postal (catálogo
 // propio). Es una capa de referencia FIJA: las ~70 ciudades más grandes se
 // ven siempre, tengan o no datos de venta todavía.
-function cpTexto(info) {
-  if (!info.cpMin) return null
-  return info.cpMin === info.cpMax ? info.cpMin : `${info.cpMin}–${info.cpMax}`
-}
-
-const CIUDADES = Object.entries(cityShapes).map(([clave, info]) => ({
-  clave,
-  municipio: clave.split('|')[1],
-  d: geomToPath(info),
-  centro: proj(geomCentroidLngLat(info)),
-  poblacion: info.poblacion,
-  cp: cpTexto(info),
-}))
+const CIUDADES = Object.entries(cityShapes).map(([clave, info]) => {
+  const rings = geomToRings(info)
+  const mayor = rings.reduce((a, b) => (ringArea(b) > ringArea(a) ? b : a))
+  return {
+    clave,
+    municipio: clave.split('|')[1],
+    rings,
+    mayor,
+    centro: ringCentroid(mayor),
+    poblacion: info.poblacion,
+    cp: cpTexto(info),
+  }
+})
 
 // Escala de azules por intensidad de ventas.
 const ESCALA = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']
@@ -103,6 +114,8 @@ const SIN_DATOS = '#fdba74'
 const SIN_DATOS_BORDE = '#ea580c'
 // Fronteras de estado en guinda.
 const GUINDA = '#7c2d48'
+const MAR = '#7dd3fc'
+const TIERRA = '#f8fafc'
 
 // Bandas absolutas, no relativas al máximo del set actual — con pocos datos
 // (o uno solo, como en pruebas) "relativo al máximo" hace que ese único
@@ -151,8 +164,12 @@ function clampView(v) {
   }
 }
 
-function transformDe(v) {
-  return `translate(${v.x} ${v.y}) scale(${v.scale})`
+function dibujarAnillos(ctx, rings) {
+  ctx.beginPath()
+  for (const ring of rings) {
+    ring.forEach((p, i) => (i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1])))
+    ctx.closePath()
+  }
 }
 
 // `marcadores`: [{ clave, lat, lng, valor, etiqueta, aprox }] — solo ciudades
@@ -161,11 +178,13 @@ function transformDe(v) {
 export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
   const [hover, setHover] = useState(null)
   const [view, setView] = useState({ scale: 1, x: 0, y: 0 })
+  const [size, setSize] = useState({ w: 900, h: 560 })
   const dragRef = useRef(null)
-  const svgRef = useRef(null)
-  const gRef = useRef(null)
+  const containerRef = useRef(null)
+  const canvasRef = useRef(null)
   const viewRef = useRef(view)
   viewRef.current = view
+  const hoverRef = useRef(null)
 
   const marcadorPorClave = useMemo(() => Object.fromEntries(marcadores.map((m) => [m.clave, m])), [marcadores])
   // Círculos solo para marcadores con datos que NO tienen mancha urbana
@@ -182,34 +201,166 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
     return new Set(circulos.filter((m) => m.valor >= umbral).map((m) => m.clave))
   }, [circulos])
 
-  // Durante el arrastre/zoom con rueda se mueve el <g> directamente en el
-  // DOM (sin pasar por React) para que no dependa de un re-render por cada
-  // evento — con ~140 elementos hacerlo vía setState se sentía trabado. El
-  // estado de React solo se actualiza al soltar / dejar de girar la rueda.
-  //
-  // Además se agrupa por requestAnimationFrame: un mouse o trackpad puede
-  // disparar pointermove/wheel muchas más veces por segundo de las que la
-  // pantalla puede pintar — escribir el atributo en cada uno sin agrupar es
-  // exactamente lo que se siente como irregular/trabado. Se guarda SIEMPRE
-  // el valor más reciente en viewRef (aunque ya haya un frame pendiente) y
-  // solo se aplica al DOM una vez por frame — si no, un tick que llega
-  // mientras el frame anterior sigue pendiente se perdería en silencio.
+  // Ajusta el <canvas> al tamaño real del contenedor (con devicePixelRatio
+  // para que no se vea borroso en pantallas de alta densidad).
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect
+      setSize({ w: width, h: height })
+      rectRef.current = canvasRef.current?.getBoundingClientRect() || null
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Ajuste "meet" (como preserveAspectRatio de SVG): el VIEW_W x VIEW_H
+  // lógico se escala uniformemente para caber en el contenedor real, sin
+  // deformar, con barras vacías si la proporción no coincide exacto.
+  const fit = useMemo(() => {
+    const s = Math.min(size.w / VIEW_W, size.h / VIEW_H) || 1
+    return { s, ox: (size.w - VIEW_W * s) / 2, oy: (size.h - VIEW_H * s) / 2 }
+  }, [size])
+
+  // Convierte un punto en píxeles CSS del contenedor a coordenadas lógicas
+  // (las mismas que usan statePaths/CIUDADES/proj) deshaciendo fit + view.
+  const aCoordLogica = (px, py) => {
+    const x1 = (px - fit.ox) / fit.s
+    const y1 = (py - fit.oy) / fit.s
+    const x2 = (x1 - viewRef.current.x) / viewRef.current.scale
+    const y2 = (y1 - viewRef.current.y) / viewRef.current.scale
+    return [x2, y2]
+  }
+
+  const dibujar = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const dpr = window.devicePixelRatio || 1
+    const cssW = size.w, cssH = size.h
+    if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
+      canvas.width = Math.round(cssW * dpr)
+      canvas.height = Math.round(cssH * dpr)
+    }
+    const ctx = canvas.getContext('2d')
+    const v = viewRef.current
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.fillStyle = MAR
+    ctx.fillRect(0, 0, cssW, cssH)
+    ctx.save()
+    ctx.translate(fit.ox, fit.oy)
+    ctx.scale(fit.s, fit.s)
+    ctx.translate(v.x, v.y)
+    ctx.scale(v.scale, v.scale)
+
+    const escalaTrazo = 1 / (fit.s * v.scale)
+    const escalaTexto = 1 / (fit.s * v.scale)
+
+    // Estados
+    ctx.lineJoin = 'round'
+    for (const s of statePaths) {
+      dibujarAnillos(ctx, s.rings)
+      ctx.fillStyle = TIERRA
+      ctx.fill('evenodd')
+      ctx.strokeStyle = GUINDA
+      ctx.lineWidth = 1.4 * escalaTrazo
+      ctx.stroke()
+    }
+
+    // Nombres de estado
+    ctx.fillStyle = '#94a3b8'
+    ctx.font = `500 ${11 * escalaTexto}px sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    for (const s of statePaths) ctx.fillText(s.nombre, s.labelPos[0], s.labelPos[1])
+
+    // Ciudades — capa fija, se ven siempre
+    for (const c of CIUDADES) {
+      const m = marcadorPorClave[c.clave]
+      const valor = m?.valor || 0
+      dibujarAnillos(ctx, c.rings)
+      ctx.fillStyle = colorPara(valor)
+      ctx.globalAlpha = valor ? (m?.aprox ? 0.6 : 0.9) : 0.75
+      ctx.fill('evenodd')
+      ctx.globalAlpha = 1
+      ctx.strokeStyle = valor ? '#1e3a8a' : SIN_DATOS_BORDE
+      ctx.lineWidth = (valor ? 1 : 1.2) * escalaTrazo
+      ctx.stroke()
+    }
+    ctx.fillStyle = '#1e3a8a'
+    ctx.font = `600 ${11 * escalaTexto}px sans-serif`
+    ctx.lineWidth = 3 * escalaTexto
+    ctx.strokeStyle = '#fff'
+    ctx.textBaseline = 'alphabetic'
+    for (const c of CIUDADES) {
+      const y = c.centro[1] - 6 * escalaTexto
+      ctx.strokeText(c.municipio, c.centro[0], y)
+      ctx.fillText(c.municipio, c.centro[0], y)
+    }
+
+    // Círculos: solo pueblos chicos con datos de venta (sin mancha urbana)
+    for (const m of circulos) {
+      const [x, y] = proj([m.lng, m.lat])
+      const r = radioPara(m.valor) * escalaTexto
+      ctx.beginPath()
+      ctx.arc(x, y, r, 0, Math.PI * 2)
+      ctx.fillStyle = colorPara(m.valor)
+      ctx.globalAlpha = m.aprox ? 0.6 : 0.9
+      ctx.fill()
+      ctx.globalAlpha = 1
+      ctx.strokeStyle = '#1e3a8a'
+      ctx.lineWidth = escalaTrazo
+      ctx.stroke()
+      if (circulosEtiquetados.has(m.clave)) {
+        const ty = y - r - 3 * escalaTexto
+        ctx.font = `700 ${11 * escalaTexto}px sans-serif`
+        ctx.strokeText(m.etiqueta, x, ty)
+        ctx.fillText(m.etiqueta, x, ty)
+      }
+    }
+
+    ctx.restore()
+  }
+
+  useEffect(dibujar)
+
+  // Hit-testing: qué ciudad/círculo hay bajo un punto (en coords lógicas).
+  const detectarHover = (lx, ly) => {
+    for (const m of circulos) {
+      const [x, y] = proj([m.lng, m.lat])
+      const r = radioPara(m.valor)
+      if (Math.hypot(lx - x, ly - y) <= r + 2) return m
+    }
+    for (const c of CIUDADES) {
+      if (puntoEnAnillo(lx, ly, c.mayor)) {
+        const m = marcadorPorClave[c.clave]
+        return { ...c, valor: m?.valor || 0, aprox: m?.aprox }
+      }
+    }
+    return null
+  }
+
+  const aplicarHover = (next) => {
+    const prev = hoverRef.current
+    const cambio = (prev?.clave || prev?.etiqueta) !== (next?.clave || next?.etiqueta)
+    hoverRef.current = next
+    if (cambio) setHover(next)
+  }
+
+  // Durante el arrastre/zoom con rueda NO se pasa por setState — solo se
+  // actualiza viewRef y se agenda un redibujo por requestAnimationFrame.
+  // Con canvas esto es barato de por sí (no hay ~300 nodos DOM que
+  // recalcular), pero se sigue agrupando por frame para no pintar más
+  // veces de las que la pantalla puede mostrar.
   const rafRef = useRef(null)
-  const aplicarTransformDom = (v) => {
-    viewRef.current = v
+  const agendarRedibujo = () => {
     if (rafRef.current != null) return
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null
-      if (gRef.current) gRef.current.setAttribute('transform', transformDe(viewRef.current))
+      dibujar()
     })
   }
 
-  // `inmediato`: true para clics en los botones (una sola acción, se
-  // confirma a React al toque). false para la rueda del mouse — dispara
-  // muchos eventos por segundo, así que igual que el arrastre se mueve el
-  // <g> directo en el DOM y se confirma a React solo cuando el usuario deja
-  // de girar la rueda (evita un setState — y su re-render de ~150
-  // elementos — por cada tick).
   const wheelCommitRef = useRef(null)
   const zoomBy = (factor, center, inmediato = true) => {
     const prev = viewRef.current
@@ -218,97 +369,88 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
     if (!center) {
       next = clampView({ ...prev, scale: nextScale })
     } else {
-      // mantiene el punto bajo el cursor fijo al hacer zoom
       const ratio = nextScale / prev.scale
       const x = center.x - (center.x - prev.x) * ratio
       const y = center.y - (center.y - prev.y) * ratio
       next = clampView({ scale: nextScale, x, y })
     }
+    viewRef.current = next
     if (inmediato) {
-      viewRef.current = next
       setView(next)
       return
     }
-    aplicarTransformDom(next)
+    agendarRedibujo()
     if (wheelCommitRef.current) clearTimeout(wheelCommitRef.current)
     wheelCommitRef.current = setTimeout(() => setView(viewRef.current), 150)
   }
 
   // React trata onWheel como listener "passive" por default, así que
-  // e.preventDefault() ahí no bloquea el scroll/zoom nativo del navegador
-  // (por eso la rueda del mouse hacía zoom de toda la página en vez de solo
-  // el mapa). Hace falta un listener nativo con passive:false.
+  // e.preventDefault() ahí no bloquea el scroll/zoom nativo del navegador.
+  // Hace falta un listener nativo con passive:false.
   useEffect(() => {
-    const el = svgRef.current
+    const el = canvasRef.current
     if (!el) return
     const onWheel = (e) => {
       e.preventDefault()
       const rect = el.getBoundingClientRect()
-      const cx = ((e.clientX - rect.left) / rect.width) * VIEW_W
-      const cy = ((e.clientY - rect.top) / rect.height) * VIEW_H
-      // El factor va con la magnitud real de deltaY, no fijo por evento —
-      // un mouse dispara pocos eventos grandes (deltaY~100) pero un
-      // trackpad dispara decenas de eventos chiquitos (deltaY~4) para el
-      // mismo gesto de dedos. Con un factor fijo por evento, el trackpad
-      // multiplicaba 1.2 muchas más veces para el mismo gesto y el zoom se
-      // sentía totalmente irregular entre dispositivos — así, el zoom total
-      // por gesto queda proporcional a lo que de verdad se giró/deslizó.
-      // Además, el propio deltaY se limita a ±100 por evento — probado en
-      // el navegador real de Kike: un solo gesto de scroll puede reportar
-      // un deltaY acumulado enorme (sumó ~2200 en una prueba), y eso
-      // dispara el zoom de golpe sin importar qué tan "proporcional" sea la
-      // fórmula. Con el tope, ningún evento individual salta más que lo
-      // que salta una rueda de mouse normal (un "click").
+      const [lx, ly] = [(e.clientX - rect.left - fit.ox) / fit.s, (e.clientY - rect.top - fit.oy) / fit.s]
+      // El factor va con la magnitud real de deltaY (un mouse dispara pocos
+      // eventos grandes, un trackpad muchos chicos) Y se topa a ±100 por
+      // evento — medido en el navegador real: un solo gesto de scroll puede
+      // reportar un deltaY de varios cientos, disparando el zoom de golpe
+      // si no se topa.
       const deltaClamp = Math.max(-100, Math.min(100, e.deltaY))
       const factor = Math.pow(1.0015, -deltaClamp)
-      zoomBy(factor, { x: cx, y: cy }, false)
+      zoomBy(factor, { x: lx, y: ly }, false)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [])
+  }, [fit])
 
   useEffect(() => () => {
     if (wheelCommitRef.current) clearTimeout(wheelCommitRef.current)
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
   }, [])
 
-  // Cada mancha urbana tiene onMouseEnter/onMouseLeave para el tooltip —
-  // mientras se arrastra, el cursor pasa por encima de varias (se mueven
-  // bajo un cursor quieto) y cada cruce disparaba setHover → re-render
-  // completo, JUSTO en medio del arrastre. Antes esto se evitaba apagando
-  // pointer-events en el <g> completo, pero eso obliga al navegador a
-  // recalcular estilos de ~150 elementos descendientes de un jalón — medido
-  // con requestAnimationFrame en el navegador real: un frenón de 250ms justo
-  // al iniciar el arrastre. Ahora los propios handlers de hover revisan
-  // dragRef (un ref, no dispara nada) antes de llamar setHover — mismo
-  // resultado, cero mutaciones de estilo.
+  // El rect del canvas se cachea (al entrar el puntero y al medir el
+  // contenedor) en vez de pedirlo en cada pointermove — igual que en el
+  // arrastre, hacerlo por evento fuerza un recálculo de layout síncrono.
+  const rectRef = useRef(null)
+  const actualizarRect = () => {
+    if (canvasRef.current) rectRef.current = canvasRef.current.getBoundingClientRect()
+  }
+
   const handlePointerDown = (e) => {
     e.preventDefault()
-    // El rect se mide UNA vez al empezar, no en cada pixel movido —
-    // llamar getBoundingClientRect() en cada pointermove fuerza al
-    // navegador a recalcular layout de forma síncrona en cada evento, y con
-    // un mouse/trackpad que dispara cientos de eventos por segundo eso solo
-    // ya se siente como retraso. El contenedor no cambia de tamaño a medio
-    // arrastre, así que medirlo una vez es seguro.
-    const rect = svgRef.current.getBoundingClientRect()
+    actualizarRect()
+    const rect = rectRef.current
     dragRef.current = { startX: e.clientX, startY: e.clientY, origX: viewRef.current.x, origY: viewRef.current.y, rect, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
     e.currentTarget.style.cursor = 'grabbing'
-    setHover(null)
+    aplicarHover(null)
   }
 
   const handlePointerMove = (e) => {
-    if (!dragRef.current) return
-    const { startX, startY, origX, origY, rect } = dragRef.current
-    const dx = ((e.clientX - startX) / rect.width) * VIEW_W
-    const dy = ((e.clientY - startY) / rect.height) * VIEW_H
+    const rect = dragRef.current?.rect || rectRef.current
+    if (!dragRef.current) {
+      if (!rect) actualizarRect()
+      const r = rectRef.current
+      if (!r) return
+      const [lx, ly] = aCoordLogica(e.clientX - r.left, e.clientY - r.top)
+      aplicarHover(detectarHover(lx, ly))
+      return
+    }
+    const { startX, startY, origX, origY } = dragRef.current
+    const dx = ((e.clientX - startX) / fit.s)
+    const dy = ((e.clientY - startY) / fit.s)
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1) dragRef.current.moved = true
     const next = clampView({ ...viewRef.current, x: origX + dx, y: origY + dy })
-    aplicarTransformDom(next)
+    viewRef.current = next
+    agendarRedibujo()
   }
 
   const handlePointerUp = () => {
-    if (svgRef.current) svgRef.current.style.cursor = 'grab'
+    if (canvasRef.current) canvasRef.current.style.cursor = 'grab'
     if (!dragRef.current) return
     dragRef.current = null
     setView(viewRef.current)
@@ -316,109 +458,19 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
 
   const reset = () => setView({ scale: 1, x: 0, y: 0 })
 
-  const escalaTexto = 1 / view.scale
-
   return (
     <div className="space-y-2">
-      <div className="relative w-full h-[560px] bg-[#7dd3fc] rounded-card overflow-hidden border border-outline-variant">
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+      <div ref={containerRef} className="relative w-full h-[560px] rounded-card overflow-hidden border border-outline-variant">
+        <canvas
+          ref={canvasRef}
           className="w-full h-full touch-none select-none"
-          style={{ WebkitUserDrag: 'none', userSelect: 'none', cursor: 'grab' }}
-          draggable="false"
-          onDragStart={(e) => e.preventDefault()}
+          style={{ WebkitUserDrag: 'none', userSelect: 'none', cursor: 'grab', display: 'block' }}
           onPointerDown={handlePointerDown}
+          onPointerEnter={actualizarRect}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-        >
-          <g ref={gRef} transform={transformDe(view)}>
-            {statePaths.map((s) => (
-              <path key={s.nombre} d={s.d} fill="#f8fafc" stroke={GUINDA} strokeWidth={1.4 / view.scale} />
-            ))}
-            {stateLabels.map((s) => (
-              <text
-                key={s.nombre}
-                x={s.pos[0]}
-                y={s.pos[1]}
-                textAnchor="middle"
-                fontSize={11 * escalaTexto}
-                fill="#94a3b8"
-                className="pointer-events-none select-none"
-                style={{ fontWeight: 500 }}
-              >
-                {s.nombre}
-              </text>
-            ))}
-
-            {/* Capa fija: las ciudades grandes se ven siempre, tengan o no venta */}
-            {CIUDADES.map((c) => {
-              const m = marcadorPorClave[c.clave]
-              const valor = m?.valor || 0
-              return (
-                <g key={c.clave}>
-                  <path
-                    d={c.d}
-                    fill={colorPara(valor)}
-                    fillOpacity={valor ? (m?.aprox ? 0.6 : 0.9) : 0.75}
-                    stroke={valor ? '#1e3a8a' : SIN_DATOS_BORDE}
-                    strokeWidth={(valor ? 1 : 1.2) / view.scale}
-                    className="cursor-pointer transition-opacity hover:opacity-100"
-                    onMouseEnter={() => { if (!dragRef.current) setHover({ ...c, valor }) }}
-                    onMouseLeave={() => setHover(null)}
-                  />
-                  <text
-                    x={c.centro[0]}
-                    y={c.centro[1] - 6 * escalaTexto}
-                    textAnchor="middle"
-                    fontSize={11 * escalaTexto}
-                    fill="#1e3a8a"
-                    className="pointer-events-none select-none"
-                    style={{ fontWeight: 600, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 * escalaTexto }}
-                  >
-                    {c.municipio}
-                  </text>
-                </g>
-              )
-            })}
-
-            {/* Círculos: solo pueblos chicos con datos de venta (sin mancha urbana) */}
-            {circulos.map((m) => {
-              const [x, y] = proj([m.lng, m.lat])
-              const r = radioPara(m.valor) * escalaTexto
-              return (
-                <g key={m.clave}>
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={r}
-                    fill={colorPara(m.valor)}
-                    fillOpacity={m.aprox ? 0.6 : 0.9}
-                    stroke="#1e3a8a"
-                    strokeWidth={1 / view.scale}
-                    className="cursor-pointer transition-opacity hover:opacity-100"
-                    onMouseEnter={() => { if (!dragRef.current) setHover(m) }}
-                    onMouseLeave={() => setHover(null)}
-                  />
-                  {circulosEtiquetados.has(m.clave) && (
-                    <text
-                      x={x}
-                      y={y - r - 3 * escalaTexto}
-                      textAnchor="middle"
-                      fontSize={11 * escalaTexto}
-                      fill="#1e3a8a"
-                      className="pointer-events-none select-none"
-                      style={{ fontWeight: 700, paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 * escalaTexto }}
-                    >
-                      {m.etiqueta}
-                    </text>
-                  )}
-                </g>
-              )
-            })}
-          </g>
-        </svg>
+          onPointerLeave={() => { handlePointerUp(); aplicarHover(null) }}
+        />
 
         {hover && (
           <div className="absolute top-3 left-3 bg-surface-card shadow-card rounded-card px-3 py-1.5 text-sm pointer-events-none max-w-[240px]">
