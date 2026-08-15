@@ -1719,7 +1719,26 @@ async function precheckCrearActividad({ uid, params }) {
   }
 }
 
+// REGLA ESTRICTA (pedido explícito de Kike, 14-ago-2026, tras ver una
+// Planeación real que proponía "diálogo sobre experiencias propias de
+// dinero en casa" como actividad de grupo): ninguna actividad generada por
+// IA debe exponer a un estudiante frente a sus compañeros, ni pedirle que
+// hable en público de su situación económica o familiar — o cualquier otro
+// dato privado que pueda avergonzarlo o denigrarlo. Se antepone a TODO
+// prompt que pueda proponer actividades de clase (Planeación y Crear
+// actividad) — no es negociable ni depende del tema de la asignatura.
+const REGLA_ACTIVIDADES_NO_DENIGRANTES =
+  'REGLA ESTRICTA E INQUEBRANTABLE, sin excepción posible: nunca propongas una actividad que exponga en ' +
+  'público (frente al grupo, en un diálogo abierto, una presentación personal, una dinámica donde cada ' +
+  'quien comparte lo suyo, etc.) información privada o sensible de los estudiantes o sus familias — su ' +
+  'situación económica o financiera, ingresos, carencias, situación migratoria, salud, conflictos ' +
+  'familiares, religión u orientación. Puede avergonzarlos o denigrarlos frente a sus compañeros. Si el ' +
+  'tema de la asignatura toca dinero, finanzas o economía familiar, usa SIEMPRE un ejemplo hipotético o de ' +
+  'un tercero (una familia inventada, un caso de estudio, una empresa ficticia) — jamás pidas que el ' +
+  'estudiante comparta, exponga o hable en clase de su propia situación económica o la de su familia. '
+
 const CREAR_ACTIVIDAD_SISTEMA =
+  REGLA_ACTIVIDADES_NO_DENIGRANTES +
   'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
   'docente de bachillerato mexicano. Tu papel es PROPONER: el docente siempre revisa, edita y decide ' +
   'antes de publicar la actividad. Construye la propuesta a partir de lo que el docente describe en ' +
@@ -2081,7 +2100,10 @@ function promptInstrumentoContexto(ctx) {
     '- Combina opción múltiple (para detectar patrones) con ALGUNAS de respuesta breve (para que el ' +
     'estudiante se exprese con sus palabras) — no conviertas todas en preguntas abiertas.\n' +
     '- PROHIBIDO preguntar o inferir diagnósticos médicos, trastornos psicológicos, información sexual, ' +
-    'política, religiosa, antecedentes legales, o cualquier dato sensible sin utilidad pedagógica directa.\n' +
+    'política, religiosa, antecedentes legales, el monto exacto de ingresos o carencias económicas de la ' +
+    'familia, o cualquier dato sensible sin utilidad pedagógica directa. Si necesitas saber sobre acceso a ' +
+    'recursos (internet, computadora, tiempo), pregúntalo en términos de disponibilidad ("¿tienes acceso ' +
+    'a...?"), nunca pidiendo cifras de ingresos o gastos familiares.\n' +
     '- No etiquetes al estudiante ni asumas problemas — pregunta siempre de forma neutral y respetuosa.\n\n' +
     'Además, escribe un NOMBRE breve para esta actividad y unas INSTRUCCIONES GENERALES cortas que verá ' +
     'el estudiante antes de contestar (qué se le pide, y que no hay respuestas correctas o incorrectas — ' +
@@ -2527,6 +2549,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
 }
 
 const PLANEACION_SISTEMA =
+  REGLA_ACTIVIDADES_NO_DENIGRANTES +
   'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
   'docente de bachillerato mexicano. Tu papel es PROPONER una GUÍA DE TRABAJO sencilla y ' +
   'práctica — el docente siempre la revisa y decide qué usar; esto NO sustituye el formato ' +
