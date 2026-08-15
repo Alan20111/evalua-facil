@@ -75,7 +75,6 @@ function puntoEnAnillo(px, py, ring) {
   return dentro
 }
 
-console.time('zzGeoInit')
 const statePaths = statesGeo.features.map((f) => {
   const rings = geomToRings(f.geometry)
   const mayor = rings.reduce((a, b) => (ringArea(b) > ringArea(a) ? b : a))
@@ -105,7 +104,6 @@ const CIUDADES = Object.entries(cityShapes).map(([clave, info]) => {
     cp: cpTexto(info),
   }
 })
-console.timeEnd('zzGeoInit')
 
 // Escala de azules por intensidad de ventas.
 const ESCALA = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']
@@ -244,11 +242,11 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
       canvas.width = Math.round(cssW * dpr)
       canvas.height = Math.round(cssH * dpr)
     }
-    // desynchronized:true evita un paso de sincronización con el
-    // compositor en navegadores que lo soportan — pensado justo para
-    // canvas interactivos (paneo/zoom), reduce el retraso entre mover el
-    // mouse y ver el cambio en pantalla.
-    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })
+    // desynchronized:true se probó para bajar latencia, pero causaba justo
+    // lo contrario: con la página quieta, el navegador no "presentaba" el
+    // canvas en pantalla hasta el primer evento de entrada (se veía
+    // congelado hasta mover el mouse encima). Se quita.
+    const ctx = canvas.getContext('2d', { alpha: false })
     const v = viewRef.current
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.fillStyle = MAR
