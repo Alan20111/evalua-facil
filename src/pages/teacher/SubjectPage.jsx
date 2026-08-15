@@ -3991,7 +3991,10 @@ export default function SubjectPage() {
               {(IS_NATIVE_APP
                 ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
                 : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos']
-              ).concat(perfilIACompleto ? ['asistente-ia'] : []).map((t) => (
+              // Config Asistente IA nunca en la app nativa (pedido de Kike,
+              // 15-ago-2026, mismo criterio que Calificaciones): la revisión
+              // de la Planeación necesita pantalla ancha para ser usable.
+              ).concat(!IS_NATIVE_APP && perfilIACompleto ? ['asistente-ia'] : []).map((t) => (
                 <button type="button" key={t} onClick={() => switchTab(t)}
                   className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                     activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
@@ -5427,7 +5430,7 @@ export default function SubjectPage() {
       {/* ══════════════════════════════════════════════════════════
           TAB: ASISTENTE IA — solo Fuentes en esta etapa (FASE 2-BIS)
       ══════════════════════════════════════════════════════════ */}
-      {activeTab === 'asistente-ia' && perfilIACompleto && (
+      {activeTab === 'asistente-ia' && perfilIACompleto && !IS_NATIVE_APP && (
         <div className={TEACHER_CONTAINER_NARROW}>
           <AsistenteIATab
             subjectId={subjectId}
