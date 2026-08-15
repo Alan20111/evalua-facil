@@ -47,11 +47,12 @@ const CAMPOS_VISTA_PREVIA = [
 function InsumosOpcionales({
   disabled, hayContexto, hayConocimientos,
   incluirPerfil, setIncluirPerfil,
-  incluirComentarios, incluirAutoanalisis, incluirDiagContexto, incluirDiagConocimientos,
+  incluirComentarios, incluirAutoanalisis, incluirConsideraciones, incluirDiagContexto, incluirDiagConocimientos,
 }) {
   const resumen = [
     ['Comentarios generales del grupo', incluirComentarios],
     ['Autoanálisis docente', incluirAutoanalisis],
+    ['Consideraciones', incluirConsideraciones],
     [`Diagnóstico de contexto${hayContexto ? '' : ' (sin resultados todavía)'}`, incluirDiagContexto],
     [`Diagnóstico de conocimientos${hayConocimientos ? '' : ' (sin resultados todavía)'}`, incluirDiagConocimientos],
   ]
@@ -114,8 +115,27 @@ function EstadoPlaneacionBadge({ lista }) {
 // la publicidad promete "Planeación didáctica" en trial, así que negarle
 // también la vista dejaría esa promesa vacía (pedido explícito de Kike,
 // 13-ago-2026).
-function VistaPreviaPlaneacion({ resultado }) {
+//
+// EDITABLE mientras no esté aceptada (pedido de Kike, 14-ago-2026): la
+// Planeación es la columna vertebral de las actividades que la IA propone
+// después, así que lo que quede como "aceptada" debe ser exactamente lo que
+// el docente revisó y corrigió aquí mismo — no un Excel editado por fuera
+// que Evalúa Fácil nunca ve. Con `onChange` se edita en el propio navegador
+// (sin re-parsear ningún archivo); sin él, se muestra de solo lectura (caso
+// de la versión ya aceptada, o del historial de generaciones anteriores).
+function VistaPreviaPlaneacion({ resultado, onChange }) {
   if (!resultado?.parciales?.length) return null
+  const editable = typeof onChange === 'function'
+
+  function actualizarCampo(numeroParcial, filaIdx, campo, valor) {
+    const parciales = resultado.parciales.map((p) => {
+      if (p.numero !== numeroParcial) return p
+      const filas = p.filas.map((f, i) => (i === filaIdx ? { ...f, [campo]: valor } : f))
+      return { ...p, filas }
+    })
+    onChange({ ...resultado, parciales })
+  }
+
   return (
     <div className="space-y-3">
       {resultado.parciales.map((parcial) => (
@@ -128,14 +148,27 @@ function VistaPreviaPlaneacion({ resultado }) {
           ) : (
             <div className="space-y-2">
               {parcial.filas.map((fila, i) => (
-                <div key={i} className="bg-surface rounded border border-outline-variant p-2 space-y-1">
+                <div key={i} className="bg-surface rounded border border-outline-variant p-2 space-y-1.5">
                   {CAMPOS_VISTA_PREVIA.map(([campo, etiqueta]) => (
-                    fila[campo] ? (
-                      <p key={campo} className="text-xs">
-                        <span className="font-medium text-muted">{etiqueta}: </span>
-                        <span className="text-on-surface">{fila[campo]}</span>
-                      </p>
-                    ) : null
+                    editable ? (
+                      <div key={campo}>
+                        <label className="block text-xs font-medium text-muted mb-0.5">{etiqueta}</label>
+                        <textarea
+                          className="w-full px-2 py-1 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-xs bg-surface-card resize-y"
+                          rows={campo === 'fechaEstimada' ? 1 : 2}
+                          value={fila[campo] || ''}
+                          onChange={(e) => actualizarCampo(parcial.numero, i, campo, e.target.value)}
+                          maxLength={400}
+                        />
+                      </div>
+                    ) : (
+                      fila[campo] ? (
+                        <p key={campo} className="text-xs">
+                          <span className="font-medium text-muted">{etiqueta}: </span>
+                          <span className="text-on-surface">{fila[campo]}</span>
+                        </p>
+                      ) : null
+                    )
                   ))}
                 </div>
               ))}
@@ -173,6 +206,12 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   const [verHistorial, setVerHistorial] = useState(false)
   const [aceptando, setAceptando] = useState(false)
   const [confirmarAceptar, setConfirmarAceptar] = useState(false)
+  // Copia editable del resultado mientras no está aceptada — lo que el
+  // docente corrija aquí es lo que se guarda al aceptar (ver `aceptar()`),
+  // no el `resultado` original de la IA. Se reinicia cada vez que cambia
+  // `actual.id` (nueva generación o recarga de la página).
+  const [edicion, setEdicion] = useState(null)
+  const [edicionDeId, setEdicionDeId] = useState(null)
   const [plantillaOficial, setPlantillaOficial] = useState(null)
   const [generandoOficial, setGenerandoOficial] = useState(false)
   const [confirmandoOficial, setConfirmandoOficial] = useState(false)
@@ -187,12 +226,14 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   const [incluirEnPlaneacion, setIncluirEnPlaneacion] = useState({})
   const incluirComentarios = incluirEnPlaneacion.comentarios !== false
   const incluirAutoanalisis = incluirEnPlaneacion.autoanalisis !== false
+  const incluirConsideraciones = incluirEnPlaneacion.consideraciones !== false
   const incluirDiagContexto = incluirEnPlaneacion.diagContexto !== false
   const incluirDiagConocimientos = incluirEnPlaneacion.diagConocimientos !== false
   const incluirInsumos = {
     perfil: incluirPerfil,
     comentarios: incluirComentarios,
     autoanalisis: incluirAutoanalisis,
+    consideraciones: incluirConsideraciones,
     diagContexto: incluirDiagContexto,
     diagConocimientos: incluirDiagConocimientos,
   }
@@ -228,6 +269,19 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
     }, () => setHistLoaded(true))
     return unsub
   }, [subjectId])
+
+  // Inicializa/reinicia la copia editable cuando aparece una generación
+  // nueva (o al recargar la página) — nunca pisa ediciones en curso del
+  // mismo `actual.id` (por eso compara contra `edicionDeId`, no re-copia en
+  // cada render). Ajuste de estado durante el render, NO en un efecto —
+  // patrón oficial de React para "resetear estado cuando cambia una prop"
+  // (evita el aviso de cascading renders de un setState dentro de un
+  // useEffect).
+  const actualIdParaEdicion = historial[0]?.id || null
+  if (actualIdParaEdicion !== edicionDeId) {
+    setEdicion(actualIdParaEdicion ? historial[0].resultado : null)
+    setEdicionDeId(actualIdParaEdicion)
+  }
 
   // Único requisito indispensable: fuentes generales — el resto de insumos
   // (perfil, comentarios, autoanálisis, diagnósticos) son opcionales, el
@@ -298,11 +352,17 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   // versión para todo lo que genere después. Se guarda en `subjects/{id}`
   // (no en el doc de planeacionesIA, que es una bitácora inmutable/
   // append-only — ver firestore.rules) para no necesitar tocar esa regla.
+  // Guarda `edicion` (lo que el docente corrigió en pantalla), NO
+  // `actual.resultado` (lo que la IA propuso sin tocar) — decisión de Kike,
+  // 14-ago-2026: la Planeación aceptada es la columna vertebral de las
+  // actividades del curso, así que debe ser exactamente lo que el docente
+  // revisó y aprobó, campo por campo, no un archivo editado por fuera que
+  // Evalúa Fácil nunca llega a ver.
   async function aceptar() {
     setAceptando(true)
     try {
       await updateDoc(doc(db, 'subjects', subjectId), {
-        planeacionAceptada: { planeacionId: actual.id, aceptadaEn: serverTimestamp() },
+        planeacionAceptada: { planeacionId: actual.id, aceptadaEn: serverTimestamp(), resultado: edicion || actual.resultado },
       })
       toast('Planeación aceptada — a partir de aquí la usa la IA para todo lo demás')
     } catch (err) {
@@ -382,15 +442,18 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   }
 
   // La descarga NUNCA pasa por el servidor ni por créditos: el .xlsx se
-  // arma en el navegador a partir del `resultado` ya guardado.
-  async function descargar(entry) {
+  // arma en el navegador a partir del `resultado` ya guardado. `resultado`
+  // se pasa explícito (en vez de usar siempre `entry.resultado`) porque la
+  // versión aceptada puede traer ediciones del docente que ya no coinciden
+  // con lo que la IA generó originalmente — ver `aceptar()`.
+  async function descargar(entry, resultado) {
     if (nuncaAprobado) {
       setShowPaymentModal(true)
       return
     }
     setDescargandoId(entry.id)
     try {
-      await descargarPlaneacionExcel({ subject, resultado: entry.resultado, watermark, formato: entry.formato || 'simple' })
+      await descargarPlaneacionExcel({ subject, resultado: resultado || entry.resultado, watermark, formato: entry.formato || 'simple' })
     } catch (err) {
       toast('No se pudo generar el Excel: ' + err.message, 'error')
     } finally {
@@ -408,6 +471,10 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   // nunca se hereda a una generación distinta de la que de verdad se aceptó.
   const aceptada = !!actual && subject?.planeacionAceptada?.planeacionId === actual.id
   const fechaAceptada = aceptada ? subject.planeacionAceptada.aceptadaEn : null
+  // Lo que de verdad quedó aceptado — con las ediciones del docente si las
+  // hizo (planeacionAceptada.resultado) o el resultado original si se
+  // aceptó antes de que existiera la edición en pantalla (14-ago-2026).
+  const resultadoAceptado = aceptada ? (subject.planeacionAceptada.resultado || actual.resultado) : null
 
   if (!diagLoaded || !histLoaded) {
     return (
@@ -448,8 +515,9 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             <p className="text-xs text-muted mb-2">
               Estado: <span className="font-medium text-amber-700">Generada, sin aceptar todavía</span>
               {actual.generadoEn?.toDate && ` · ${actual.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
-              . Si no te convence, edita los Comentarios generales del grupo (arriba) y genera de nuevo — solo cuando
-              la aceptes queda fija.
+              . Revísala y corrígela abajo, campo por campo, antes de aceptarla — no se puede descargar hasta que
+              la aceptes. Si prefieres que la IA la vuelva a intentar, edita los Comentarios generales del grupo
+              (arriba) y genera de nuevo.
             </p>
           )}
 
@@ -465,7 +533,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
                 {actual ? 'Generar de nuevo (Excel genérico, con IA)' : 'Generar planeación (Excel genérico, con IA)'}
               </button>
             )}
-            {actual && (
+            {actual && aceptada && (
               <button
                 type="button"
                 onClick={() => setVerPreview((v) => !v)}
@@ -475,10 +543,10 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
                 {verPreview ? 'Ocultar vista previa' : 'Ver planeación'}
               </button>
             )}
-            {actual && (
+            {actual && aceptada && (
               <button
                 type="button"
-                onClick={() => descargar(actual)}
+                onClick={() => descargar(actual, resultadoAceptado)}
                 disabled={descargandoId === actual.id}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
               >
@@ -517,9 +585,21 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             </p>
           )}
 
-          {verPreview && actual && (
+          {/* Sin aceptar: la vista editable va SIEMPRE visible, no detrás de
+              un "Ver planeación" — es el paso obligatorio de revisión antes
+              de poder aceptar y descargar (pedido de Kike, 14-ago-2026). */}
+          {actual && !aceptada && (
             <div className="mt-3 pt-2 border-t border-outline-variant">
-              <VistaPreviaPlaneacion resultado={actual.resultado} />
+              <p className="text-xs font-medium text-on-surface mb-2">
+                Revisa y corrige lo que necesites en cada campo antes de aceptar:
+              </p>
+              <VistaPreviaPlaneacion resultado={edicion || actual.resultado} onChange={setEdicion} />
+            </div>
+          )}
+
+          {verPreview && aceptada && (
+            <div className="mt-3 pt-2 border-t border-outline-variant">
+              <VistaPreviaPlaneacion resultado={resultadoAceptado} />
             </div>
           )}
 
@@ -531,7 +611,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
                 className="flex items-center gap-1 text-xs text-muted hover:text-on-surface"
               >
                 {verHistorial ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                {anteriores.length} generación{anteriores.length > 1 ? 'es' : ''} anterior{anteriores.length > 1 ? 'es' : ''}
+                {anteriores.length} generación{anteriores.length > 1 ? 'es' : ''} anterior{anteriores.length > 1 ? 'es' : ''} (sin aceptar, no descargable)
               </button>
               {verHistorial && (
                 <div className="mt-2 space-y-1.5">
@@ -540,14 +620,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
                       <span className="text-muted">
                         {h.generadoEn?.toDate && h.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => descargar(h)}
-                        disabled={descargandoId === h.id}
-                        className="flex items-center gap-1 text-accent hover:underline disabled:opacity-60"
-                      >
-                        {descargandoId === h.id ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={12} /> : <Download size={12} />} Descargar
-                      </button>
+                      <span className="text-muted italic">Reemplazada — no se puede descargar</span>
                     </div>
                   ))}
                 </div>
@@ -573,6 +646,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             incluirPerfil={incluirPerfil} setIncluirPerfil={setIncluirPerfil}
             incluirComentarios={incluirComentarios}
             incluirAutoanalisis={incluirAutoanalisis}
+            incluirConsideraciones={incluirConsideraciones}
             incluirDiagContexto={incluirDiagContexto}
             incluirDiagConocimientos={incluirDiagConocimientos}
           />
@@ -673,6 +747,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             incluirPerfil={incluirPerfil} setIncluirPerfil={setIncluirPerfil}
             incluirComentarios={incluirComentarios}
             incluirAutoanalisis={incluirAutoanalisis}
+            incluirConsideraciones={incluirConsideraciones}
             incluirDiagContexto={incluirDiagContexto}
             incluirDiagConocimientos={incluirDiagConocimientos}
           />
@@ -682,7 +757,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
       {confirmarAceptar && (
         <ConfirmModal
           title="¿Aceptar esta Planeación Didáctica Inicial?"
-          message="A partir de aquí queda fija, con la fecha de hoy, y es la que usará el Asistente IA para todo lo demás. Ya no podrás generar otra versión desde aquí."
+          message="Se guarda con las correcciones que hayas hecho arriba. A partir de aquí queda fija, con la fecha de hoy, y es la que usará el Asistente IA para todo lo demás. Ya no podrás generar otra versión desde aquí."
           confirmLabel="Aceptar"
           confirmingLabel="Aceptando…"
           busy={aceptando}

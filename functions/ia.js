@@ -1926,7 +1926,6 @@ function autoanalisisDocenteATexto(autoanalisis) {
     ['temasFortalecer', '¿Qué temas considera que necesita fortalecer?'],
     ['temasFacilExplicar', '¿Qué temas se le facilitan más para explicar?'],
     ['temasDificilExplicar', '¿Qué temas se le dificultan más para explicar?'],
-    ['aspectoMejorar', '¿Qué quiere agregar el docente que sea relevante para que la planeación pueda ser realmente utilizada durante este curso?'],
   ]
   const partes = preguntas
     .map(([campo, pregunta]) => {
@@ -1935,6 +1934,16 @@ function autoanalisisDocenteATexto(autoanalisis) {
     })
     .filter(Boolean)
   return partes.length ? partes.join('\n') : 'El docente no contestó el autoanálisis (es opcional).'
+}
+
+// "Consideraciones (opcional)" — Asistente IA (14-ago-2026, pedido de Kike:
+// se separó de Autoanálisis Docente porque no es sobre el docente ni sobre
+// el grupo, sino sobre cómo quiere que la Planeación sea realmente
+// utilizable durante el curso). Tiene su propia tarjeta y su propio
+// checkbox de inclusión — ver ConsideracionesSection.jsx.
+function consideracionesATexto(consideraciones) {
+  const texto = String(consideraciones || '').trim()
+  return texto || 'El docente no dejó consideraciones (es opcional).'
 }
 
 // Precheck compartido por los dos diagnósticos — todo lo que puede rechazar
@@ -2416,6 +2425,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
     perfil: params?.incluir?.perfil === true,
     comentarios: params?.incluir?.comentarios === true,
     autoanalisis: params?.incluir?.autoanalisis === true,
+    consideraciones: params?.incluir?.consideraciones === true,
     diagContexto: params?.incluir?.diagContexto === true,
     diagConocimientos: params?.incluir?.diagConocimientos === true,
   }
@@ -2512,6 +2522,9 @@ async function precheckPlaneacionInicial({ uid, params }) {
   const autoanalisisDocenteTexto = incluir.autoanalisis
     ? autoanalisisDocenteATexto(configSnap.data()?.autoanalisisDocente)
     : ''
+  const consideracionesTexto = incluir.consideraciones
+    ? consideracionesATexto(configSnap.data()?.consideraciones)
+    : ''
 
   // Formato elegido por el docente (13-ago-2026, decisión de Kike): 'simple'
   // (bloques agrupados, como antes) o 'extendida' (una fila por cada tema
@@ -2537,6 +2550,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
     perfilIATexto: perfilIATextoVal,
     comentariosGrupoTexto,
     autoanalisisDocenteTexto,
+    consideracionesTexto,
     bloqueFuentesGenerales,
     diagnosticoContextoTexto: incluir.diagContexto ? diagnosticoContextoATexto(resultadoContexto) : '',
     diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
@@ -2605,6 +2619,8 @@ function promptPlaneacionParcial(ctx, parcialCtx) {
       `más debe pesar, junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` : '') +
     (ctx.autoanalisisDocenteTexto ? `AUTOANÁLISIS DOCENTE (opcional, sobre el docente mismo, no sobre el ` +
       `grupo):\n${ctx.autoanalisisDocenteTexto}\n\n` : '') +
+    (ctx.consideracionesTexto ? `CONSIDERACIONES DEL DOCENTE PARA QUE LA PLANEACIÓN SEA REALMENTE ` +
+      `UTILIZABLE DURANTE EL CURSO:\n${ctx.consideracionesTexto}\n\n` : '') +
     (ctx.diagnosticoContextoTexto ? `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` : '') +
     (ctx.diagnosticoConocimientosTexto ? `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados ` +
       `todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` : '') +
@@ -2763,6 +2779,7 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
     perfil: params?.incluir?.perfil === true,
     comentarios: params?.incluir?.comentarios === true,
     autoanalisis: params?.incluir?.autoanalisis === true,
+    consideraciones: params?.incluir?.consideraciones === true,
     diagContexto: params?.incluir?.diagContexto === true,
     diagConocimientos: params?.incluir?.diagConocimientos === true,
   }
@@ -2825,12 +2842,16 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
   const autoanalisisDocenteTexto = incluir.autoanalisis
     ? autoanalisisDocenteATexto(configSnap.data()?.autoanalisisDocente)
     : ''
+  const consideracionesTexto = incluir.consideraciones
+    ? consideracionesATexto(configSnap.data()?.consideraciones)
+    : ''
 
   return {
     asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
     perfilIATexto: perfilIATextoVal,
     comentariosGrupoTexto,
     autoanalisisDocenteTexto,
+    consideracionesTexto,
     bloqueFuentesGenerales,
     diagnosticoContextoTexto: incluir.diagContexto ? diagnosticoContextoATexto(resultadoContexto) : '',
     diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
@@ -2856,6 +2877,8 @@ function promptPlaneacionFormatoOficial(ctx) {
       `más debe pesar, junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` : '') +
     (ctx.autoanalisisDocenteTexto ? `AUTOANÁLISIS DOCENTE (opcional, sobre el docente mismo, no sobre el ` +
       `grupo):\n${ctx.autoanalisisDocenteTexto}\n\n` : '') +
+    (ctx.consideracionesTexto ? `CONSIDERACIONES DEL DOCENTE PARA QUE LA PLANEACIÓN SEA REALMENTE ` +
+      `UTILIZABLE DURANTE EL CURSO:\n${ctx.consideracionesTexto}\n\n` : '') +
     (ctx.diagnosticoContextoTexto ? `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` : '') +
     (ctx.diagnosticoConocimientosTexto ? `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados ` +
       `todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` : '') +
