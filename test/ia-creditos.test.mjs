@@ -308,6 +308,29 @@ await caso('plan cortesía: la IA se rechaza con mensaje claro (pendiente por de
   )
 })
 
+await caso('plan cortesía: con créditos asignados por el admin, la IA funciona y renueva cada mes', async () => {
+  await limpiar()
+  await db.doc(`users/cortesia_2`).set({ role: 'docente', escuelaId: 'E1' })
+  await db.collection('subscriptions').add({
+    docenteId: 'cortesia_2', planId: 'cortesia', status: 'activa',
+    cortesiaIndefinida: true, cortesiaCreditos: 1750, updatedAt: Timestamp.now(),
+  })
+  await db.doc('config/iaTarifas').set(TARIFAS)
+  await L.reservar({ uid: 'cortesia_2', operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS })
+  let c = (await db.doc('iaCreditos/cortesia_2').get()).data()
+  assert.strictEqual(c.plan, 'cortesia')
+  assert.strictEqual(c.capacidad, 1750)
+  assert.ok(c.saldo < 1750)
+  // Ciclo vencido: renueva a la MISMA capacidad (no depende de config/iaTarifas,
+  // que no tiene un nivel "cortesia" — cada docente conserva la suya).
+  const hace1Mes = new Date(); hace1Mes.setMonth(hace1Mes.getMonth() - 1)
+  await db.doc('iaCreditos/cortesia_2').update({ cicloFin: Timestamp.fromDate(hace1Mes) })
+  await L.renovarCiclosVencidos({ tarifas: TARIFAS })
+  c = (await db.doc('iaCreditos/cortesia_2').get()).data()
+  assert.strictEqual(c.capacidad, 1750)
+  assert.strictEqual(c.saldo, 1750)
+})
+
 await caso('suscripción vencida: la IA se rechaza (mismo criterio que el candado de escrituras)', async () => {
   await limpiar()
   const ayer = new Date(Date.now() - 24 * 60 * 60 * 1000)
