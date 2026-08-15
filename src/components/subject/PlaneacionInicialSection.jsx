@@ -765,6 +765,13 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
     ? subject.planeacionOficialBorrador.celdas : actualOficial?.celdasPropuestas
   const sinGuardarOficial = !!actualOficial && JSON.stringify(edicionOficial) !== JSON.stringify(guardadoOficialCeldas)
 
+  // La Planeación Inicial es UNA sola (decisión de Kike, 15-ago-2026,
+  // corrigiendo el diseño anterior que trataba genérica y formato oficial
+  // como dos aceptaciones independientes): aceptar cualquiera de los dos
+  // formatos bloquea el otro — ya no se puede generar ni aceptar, solo se
+  // ve/descarga el que sí se aceptó.
+  const aceptadaInicial = aceptada || aceptadaOficial
+
   if (!diagLoaded || !histLoaded || !histOficialLoaded) {
     return (
       <div className="bg-surface-card rounded-card shadow-card p-3 flex justify-center py-6">
@@ -780,9 +787,10 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
         <EstadoPlaneacionBadge lista={hayFuentesGenerales} />
       </div>
       <p className="text-sm text-muted mt-0.5 mb-2">
-        La IA genera tu Planeación Didáctica Inicial en dos formatos, cada uno por separado: un Excel
-        genérico (una hoja por parcial, para que copies lo que te sirva) y, si subiste arriba el formato
-        oficial de tu escuela, ese mismo llenado por la IA. Ambos son generados por IA — revísalos siempre.
+        La IA puede generar tu Planeación Didáctica Inicial en dos formatos: un Excel genérico (una hoja
+        por parcial) y, si subiste arriba el formato oficial de tu escuela, ese mismo llenado por la IA.
+        Puedes probar y corregir los dos antes de decidir, pero solo aceptas UNO — ese es tu Planeación
+        Inicial, y al aceptarlo el otro formato deja de estar disponible.
       </p>
 
       {!habilitado && (
@@ -793,13 +801,18 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
 
       {habilitado && (
         <>
-          {!actual ? (
-            <p className="text-xs text-muted mb-2">Estado: <span className="font-medium">No generada</span></p>
-          ) : aceptada ? (
+          {aceptada ? (
             <p className="text-xs text-muted mb-2">
-              Estado: <span className="font-medium text-green-700">Aceptada — la usa la IA para todo lo demás</span>
+              Estado: <span className="font-medium text-green-700">Aceptada — es tu Planeación Inicial, la usa la IA para todo lo demás</span>
               {fechaAceptada?.toDate && ` · ${fechaAceptada.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
             </p>
+          ) : aceptadaOficial ? (
+            <p className="text-xs text-muted mb-2">
+              Tu Planeación Inicial ya quedó aceptada en el formato oficial de tu escuela (abajo) — no hace
+              falta, ni se puede, aceptar también esta versión en Excel genérico.
+            </p>
+          ) : !actual ? (
+            <p className="text-xs text-muted mb-2">Estado: <span className="font-medium">No generada</span></p>
           ) : (
             <p className="text-xs text-muted mb-2">
               Estado: <span className="font-medium text-amber-700">Generada, sin aceptar todavía</span>
@@ -810,7 +823,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
           )}
 
           <div className="flex flex-wrap gap-2">
-            {!aceptada && (
+            {!aceptadaInicial && (
               <button
                 type="button"
                 onClick={() => setConfirmando(true)}
@@ -842,7 +855,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
                 Descargar Excel
               </button>
             )}
-            {actual && !aceptada && isDesktop && (
+            {actual && !aceptadaInicial && isDesktop && (
               <button
                 type="button"
                 onClick={() => setRevisandoGenerica(true)}
@@ -852,7 +865,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
                 Revisar la planeación inicial y aceptarla
               </button>
             )}
-            {plantillaOficial && !aceptadaOficial && (
+            {plantillaOficial && !aceptadaInicial && (
               <button
                 type="button"
                 onClick={() => (nuncaAprobado ? setShowPaymentModal(true) : setConfirmandoOficial(true))}
@@ -884,7 +897,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
                 Descargar {actualOficial.tipo === 'docx' ? 'Word' : 'Excel'}
               </button>
             )}
-            {actualOficial && !aceptadaOficial && isDesktop && (
+            {actualOficial && !aceptadaInicial && isDesktop && (
               <button
                 type="button"
                 onClick={() => setRevisandoOficial(true)}
@@ -897,15 +910,20 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
           </div>
 
           {plantillaOficial && (
-            !actualOficial ? (
-              <p className="text-xs text-muted mt-1.5">
-                El archivo en el formato de tu escuela es una propuesta de IA — la revisas y corriges en pantalla,
-                y no se puede descargar hasta que la aceptes.
-              </p>
-            ) : aceptadaOficial ? (
+            aceptadaOficial ? (
               <p className="text-xs text-muted mt-1.5">
                 Planeación Inicial (formato oficial): <span className="font-medium text-green-700">Aceptada</span>
                 {fechaAceptadaOficial?.toDate && ` · ${fechaAceptadaOficial.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
+              </p>
+            ) : aceptada ? (
+              <p className="text-xs text-muted mt-1.5">
+                Tu Planeación Inicial ya quedó aceptada en el Excel genérico (arriba) — no hace falta, ni se
+                puede, aceptar también esta versión en el formato oficial.
+              </p>
+            ) : !actualOficial ? (
+              <p className="text-xs text-muted mt-1.5">
+                El archivo en el formato de tu escuela es una propuesta de IA — la revisas y corriges en pantalla,
+                y no se puede descargar hasta que la aceptes.
               </p>
             ) : (
               <p className="text-xs text-amber-700 mt-1.5">
@@ -919,9 +937,13 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
               ciclo que la Planeación genérica de arriba (decisión de Kike,
               15-ago-2026): se guarda como bitácora, se puede editar y
               regenerar mientras no se acepte, y una vez aceptada queda fija
-              (visible y descargable), ya no editable. Solo en escritorio. */}
-          {actualOficial && !aceptadaOficial && !isDesktop && <AvisoRevisionDesktop />}
-          {actualOficial && !aceptadaOficial && isDesktop && revisandoOficial && (
+              (visible y descargable), ya no editable. Solo en escritorio.
+              Aceptar CUALQUIERA de los dos formatos bloquea el otro por
+              completo (15-ago-2026, corrección de Kike: la Planeación
+              Inicial es UNA sola) — por eso todo aquí compara contra
+              `aceptadaInicial`, no solo `aceptadaOficial`. */}
+          {actualOficial && !aceptadaInicial && !isDesktop && <AvisoRevisionDesktop />}
+          {actualOficial && !aceptadaInicial && isDesktop && revisandoOficial && (
             <RevisionPantallaCompleta
               titulo="Revisa la Planeación Inicial (formato oficial de tu escuela) y corrígela antes de aceptarla"
               onCerrar={() => setRevisandoOficial(false)}
@@ -992,9 +1014,12 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
 
           {/* Sin aceptar: revisión a pantalla completa (Opción C) — es el
               paso obligatorio antes de poder aceptar y descargar (pedido de
-              Kike, 14/15-ago-2026). Solo en escritorio. */}
-          {actual && !aceptada && !isDesktop && <AvisoRevisionDesktop />}
-          {actual && !aceptada && isDesktop && revisandoGenerica && (
+              Kike, 14/15-ago-2026). Solo en escritorio. Contra
+              `aceptadaInicial` (no solo `aceptada`): aceptar el formato
+              oficial bloquea esta también — la Planeación Inicial es UNA
+              sola. */}
+          {actual && !aceptadaInicial && !isDesktop && <AvisoRevisionDesktop />}
+          {actual && !aceptadaInicial && isDesktop && revisandoGenerica && (
             <RevisionPantallaCompleta
               titulo="Revisa la Planeación Inicial y corrígela antes de aceptarla"
               onCerrar={() => setRevisandoGenerica(false)}
