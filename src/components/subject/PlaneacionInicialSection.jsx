@@ -424,8 +424,9 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
         <EstadoPlaneacionBadge lista={hayFuentesGenerales} />
       </div>
       <p className="text-sm text-muted mt-0.5 mb-2">
-        Una guía de trabajo sencilla, con una hoja de Excel por parcial, para que copies lo que te
-        sirva a tu formato institucional. No sustituye el formato oficial de tu escuela.
+        La IA genera tu Planeación Didáctica Inicial en dos formatos, cada uno por separado: un Excel
+        genérico (una hoja por parcial, para que copies lo que te sirva) y, si subiste arriba el formato
+        oficial de tu escuela, ese mismo llenado por la IA. Ambos son generados por IA — revísalos siempre.
       </p>
 
       {!habilitado && (
@@ -461,7 +462,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
                 {generando ? <Spinner size="sm" /> : actual ? <RotateCcw size={14} /> : <Sparkles size={14} />}
-                {actual ? 'Generar de nuevo' : 'Generar planeación'}
+                {actual ? 'Generar de nuevo (Excel genérico, con IA)' : 'Generar planeación (Excel genérico, con IA)'}
               </button>
             )}
             {actual && (
@@ -504,7 +505,7 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
                 {generandoOficial ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : <FileCheck2 size={14} />}
-                Generar en el formato de mi escuela
+                Generar en el formato de mi escuela (con IA)
               </button>
             )}
           </div>
