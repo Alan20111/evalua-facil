@@ -38,15 +38,16 @@ const CAMPOS_VISTA_PREVIA = [
   ['fechaEstimada', 'Fecha estimada'],
 ]
 
-// Resumen de insumos a incluir — de solo lectura salvo el Perfil IA (que no
-// tiene tarjeta propia en esta pestaña, vive en /perfil-ia). Los otros
-// cuatro se marcan cada uno en SU PROPIA tarjeta arriba (Comentarios,
-// Autoanálisis, Diagnóstico de contexto, Diagnóstico de conocimientos) —
-// decisión de Kike, 14-ago-2026: no duplicar el control aquí, solo mostrar
-// lo que ya se marcó ahí para que el docente confirme antes de generar.
+// Resumen de insumos a incluir, de solo lectura — cada uno se marca en SU
+// PROPIA tarjeta arriba (Comentarios, Autoanálisis, Consideraciones,
+// Diagnóstico de contexto, Diagnóstico de conocimientos), decisión de
+// Kike, 14-ago-2026: no duplicar el control aquí, solo mostrar lo que ya
+// se marcó ahí para que el docente confirme antes de generar. El Perfil IA
+// NO aparece aquí (decisión de Kike, 15-ago-2026): ya es obligatorio para
+// poder ver esta pestaña siquiera, así que siempre se incluye, sin
+// casilla.
 function InsumosOpcionales({
-  disabled, hayContexto, hayConocimientos,
-  incluirPerfil, setIncluirPerfil,
+  hayContexto, hayConocimientos,
   incluirComentarios, incluirAutoanalisis, incluirConsideraciones, incluirDiagContexto, incluirDiagConocimientos,
 }) {
   const resumen = [
@@ -60,18 +61,9 @@ function InsumosOpcionales({
     <fieldset className="mb-2 p-2.5 rounded border border-outline-variant">
       <legend className="text-sm text-on-surface px-1">Insumos a incluir</legend>
       <p className="text-xs text-muted mb-1.5">
-        Solo el programa de estudios (Fuentes) es obligatorio. Los demás se marcan arriba, en la tarjeta de
-        cada uno — entre más insumos incluyas y tengas listos, mejor planeación obtendrás.
+        Tu Perfil IA y el programa de estudios (Fuentes) siempre se usan. Los demás se marcan arriba, en la
+        tarjeta de cada uno — entre más insumos incluyas y tengas listos, mejor planeación obtendrás.
       </p>
-      <label className="flex items-center gap-2 py-0.5 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={incluirPerfil}
-          disabled={disabled}
-          onChange={(e) => setIncluirPerfil(e.target.checked)}
-        />
-        <span className="text-sm text-on-surface">Perfil IA del docente</span>
-      </label>
       {resumen.map(([texto, checked]) => (
         <div key={texto} className="flex items-center gap-2 py-0.5 text-sm text-on-surface">
           {checked ? <CheckCircle2 size={14} className="text-green-600 flex-shrink-0" /> : <Circle size={14} className="text-muted flex-shrink-0" />}
@@ -223,14 +215,14 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   const [celdasEdicionOficial, setCeldasEdicionOficial] = useState(null)
   const [descargaPendienteOficial, setDescargaPendienteOficial] = useState(null)
   const [descargandoOficial, setDescargandoOficial] = useState(false)
-  // Único requisito indispensable: fuentes generales (programa de estudios).
-  // Todo lo demás lo palomea el docente antes de generar. El Perfil IA no
-  // tiene tarjeta propia en esta pestaña (vive en /perfil-ia), así que su
-  // casilla se queda aquí; los otros cuatro se marcan cada uno en SU PROPIA
-  // tarjeta (Comentarios, Autoanálisis, Diagnóstico de contexto/
-  // conocimientos) y se leen de config.incluirEnPlaneacion — decisión de
-  // Kike, 14-ago-2026: no duplicar el control en un modal aparte.
-  const [incluirPerfil, setIncluirPerfil] = useState(true)
+  // Único requisito indispensable: fuentes generales (programa de estudios) —
+  // el Perfil IA ya es obligatorio para llegar a esta pestaña (se oculta
+  // entera sin él, ver SubjectPage.jsx), así que siempre se incluye, sin
+  // casilla (decisión de Kike, 15-ago-2026). Los otros cuatro se marcan cada
+  // uno en SU PROPIA tarjeta (Comentarios, Autoanálisis, Consideraciones,
+  // Diagnóstico de contexto/conocimientos) y se leen de
+  // config.incluirEnPlaneacion — decisión de Kike, 14-ago-2026: no duplicar
+  // el control en un modal aparte.
   const [incluirEnPlaneacion, setIncluirEnPlaneacion] = useState({})
   const incluirComentarios = incluirEnPlaneacion.comentarios !== false
   const incluirAutoanalisis = incluirEnPlaneacion.autoanalisis !== false
@@ -238,7 +230,6 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   const incluirDiagContexto = incluirEnPlaneacion.diagContexto !== false
   const incluirDiagConocimientos = incluirEnPlaneacion.diagConocimientos !== false
   const incluirInsumos = {
-    perfil: incluirPerfil,
     comentarios: incluirComentarios,
     autoanalisis: incluirAutoanalisis,
     consideraciones: incluirConsideraciones,
@@ -382,17 +373,30 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
   }
 
   // Busca una pista legible para una celda propuesta — el encabezado de su
-  // columna (fila 0 de la misma tabla) o, si no hay, la etiqueta de su fila
-  // (columna 0) — para que el docente no tenga que adivinar qué es "fila 5,
-  // columna 3" al revisar. Si no encuentra ninguna, cae al texto de
+  // columna (primera fila de la misma tabla) o, si no hay, la etiqueta de
+  // su fila (primera columna) — para que el docente no tenga que adivinar
+  // qué es "fila 5, columna 3" al revisar. NO se puede asumir que "primera
+  // fila/columna" es 0: Word empieza en 0 (leerTablasWord) pero Excel
+  // empieza en 1 (leerCuadriculaExcel) — se calcula el mínimo real de cada
+  // tabla en vez de suponerlo. Si no encuentra ninguna, cae al texto de
   // posición crudo.
   function pistaDeCelda(celdasOriginales, celda) {
-    const mismaTabla = celdasOriginales.filter((c) => c.tablaIndex === celda.tablaIndex)
-    const encabezadoCol = mismaTabla.find((c) => c.fila === 0 && c.columna === celda.columna && c.texto)
+    // Excel (leerCuadriculaExcel) nunca trae tablaIndex — queda `undefined`
+    // en la cuadrícula original, pero el servidor lo normaliza a `null` al
+    // devolver la celda propuesta (ver ejecutarPlaneacionFormatoOficial) —
+    // sin este `?? null` la comparación estricta undefined !== null hacía
+    // que NINGUNA celda de Excel encontrara su tabla y siempre cayera al
+    // texto de posición crudo.
+    const tablaCelda = celda.tablaIndex ?? null
+    const mismaTabla = celdasOriginales.filter((c) => (c.tablaIndex ?? null) === tablaCelda)
+    if (!mismaTabla.length) return `Fila ${celda.fila}, columna ${celda.columna}`
+    const filaMin = Math.min(...mismaTabla.map((c) => c.fila))
+    const columnaMin = Math.min(...mismaTabla.map((c) => c.columna))
+    const encabezadoCol = mismaTabla.find((c) => c.fila === filaMin && c.columna === celda.columna && c.texto)
     if (encabezadoCol) return encabezadoCol.texto
-    const etiquetaFila = mismaTabla.find((c) => c.columna === 0 && c.fila === celda.fila && c.texto)
+    const etiquetaFila = mismaTabla.find((c) => c.columna === columnaMin && c.fila === celda.fila && c.texto)
     if (etiquetaFila) return etiquetaFila.texto
-    return `Fila ${celda.fila + 1}, columna ${celda.columna + 1}`
+    return `Fila ${celda.fila}, columna ${celda.columna}`
   }
 
   // A diferencia de "Descargar Excel" (gratis, a partir de un resultado ya
@@ -742,7 +746,6 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             disabled={generando}
             hayContexto={hayContexto}
             hayConocimientos={hayConocimientos}
-            incluirPerfil={incluirPerfil} setIncluirPerfil={setIncluirPerfil}
             incluirComentarios={incluirComentarios}
             incluirAutoanalisis={incluirAutoanalisis}
             incluirConsideraciones={incluirConsideraciones}
@@ -843,7 +846,6 @@ export default function PlaneacionInicialSection({ subjectId, docenteId, subject
             disabled={generandoOficial}
             hayContexto={hayContexto}
             hayConocimientos={hayConocimientos}
-            incluirPerfil={incluirPerfil} setIncluirPerfil={setIncluirPerfil}
             incluirComentarios={incluirComentarios}
             incluirAutoanalisis={incluirAutoanalisis}
             incluirConsideraciones={incluirConsideraciones}
