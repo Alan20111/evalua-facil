@@ -53,7 +53,11 @@ class ErrorCreditos extends Error {
 //           capacidadTrialPara para los trials creados ANTES de este cambio)
 //   pro y anual → nivel Asistente IA (mismo producto, distinta periodicidad)
 //   mayor → nivel Asistente IA Pro
-//   cortesia → PENDIENTE por decisión explícita: se rechaza con mensaje claro.
+//   cortesia → el administrador elige el monto por docente al otorgarla
+//              (subscriptions/{id}.cortesiaCreditos, tope 1750 = el máximo del
+//              plan mayor); sin ese campo, la IA se rechaza con mensaje claro
+//              (decisión de Kike, 15-ago-2026 — reemplaza el "pendiente" del
+//              9-ago-2026, que dejaba cortesía sin créditos siempre).
 function nivelDeSuscripcion(sub) {
   if (!sub) return 'trial' // sin suscripción: mismo criterio que el candado (se repone la prueba)
   if (sub.planId === 'cortesia') return 'cortesia'
@@ -113,7 +117,9 @@ function camposRenovados(creditos, ahora, capacidadPorPlan) {
     fin = unMesDespues(fin)
   }
   const plan = creditos.planSiguiente || creditos.plan
-  const capacidad = capacidadPorPlan[plan]
+  // Cortesía no tiene un nivel global en config/iaTarifas: conserva la
+  // capacidad que el administrador le eligió a ESTE docente al otorgarla.
+  const capacidad = plan === 'cortesia' ? creditos.capacidad : capacidadPorPlan[plan]
   if (capacidad == null) throw new ErrorCreditos('PLAN_SIN_CAPACIDAD', `El plan "${plan}" no tiene capacidad definida`)
   return {
     plan,
@@ -185,11 +191,16 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
       const ms = (s) => s.updatedAt?.toMillis?.() || 0
       subsSnap.docs.forEach((d) => { if (!sub || ms(d.data()) > ms(sub)) sub = d.data() })
       const plan = nivelDeSuscripcion(sub)
-      if (plan === 'cortesia') {
-        throw new ErrorCreditos('CORTESIA_PENDIENTE', 'Los créditos del plan cortesía aún no están definidos')
+      const capacidad = plan === 'trial'
+        ? capacidadTrialPara(sub, tarifas)
+        : plan === 'cortesia'
+          ? (sub?.cortesiaCreditos ?? null)
+          : capacidadPorPlan[plan]
+      if (capacidad == null) {
+        throw plan === 'cortesia'
+          ? new ErrorCreditos('CORTESIA_PENDIENTE', 'El administrador aún no asignó créditos de IA a esta cortesía')
+          : new ErrorCreditos('PLAN_SIN_CAPACIDAD', `El plan "${plan}" no tiene capacidad definida`)
       }
-      const capacidad = plan === 'trial' ? capacidadTrialPara(sub, tarifas) : capacidadPorPlan[plan]
-      if (capacidad == null) throw new ErrorCreditos('PLAN_SIN_CAPACIDAD', `El plan "${plan}" no tiene capacidad definida`)
       creditos = {
         plan,
         capacidad,
@@ -203,9 +214,6 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
       camposNuevos = { ...creditos, creadoEn: FieldValue.serverTimestamp() }
     } else {
       creditos = creditosSnap.data()
-      if (creditos.plan === 'cortesia') {
-        throw new ErrorCreditos('CORTESIA_PENDIENTE', 'Los créditos del plan cortesía aún no están definidos')
-      }
       // Renovación perezosa: correcta aunque el cron no haya corrido.
       const renovados = camposRenovados(creditos, ahora, capacidadPorPlan)
       if (renovados) {
@@ -422,12 +430,11 @@ async function cerrarTrialsVencidos({ ahora = new Date() } = {}) {
 //   · Bajada: diferida — se anota planSiguiente y la renovación la aplica.
 // Si el doc de créditos no existe todavía, no se crea aquí: nacerá con el
 // plan correcto en el primer uso (reservar lee la suscripción más reciente).
-async function sincronizarPlan({ uid, nivelNuevo, tarifas }) {
-  if (nivelNuevo === 'cortesia') return { hecho: false, motivo: 'cortesia pendiente' }
+async function sincronizarPlan({ uid, nivelNuevo, tarifas, capacidadCortesia }) {
   tarifas = tarifas || await cargarTarifas()
   const capacidadPorPlan = tarifas.capacidadPorPlan || {}
-  const capacidadNueva = capacidadPorPlan[nivelNuevo]
-  if (capacidadNueva == null) return { hecho: false, motivo: 'plan sin capacidad' }
+  const capacidadNueva = nivelNuevo === 'cortesia' ? (capacidadCortesia ?? null) : capacidadPorPlan[nivelNuevo]
+  if (capacidadNueva == null) return { hecho: false, motivo: nivelNuevo === 'cortesia' ? 'cortesia sin créditos elegidos' : 'plan sin capacidad' }
 
   const ref = db().doc(`iaCreditos/${uid}`)
   return db().runTransaction(async (tx) => {

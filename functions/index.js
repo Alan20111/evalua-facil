@@ -1095,9 +1095,18 @@ exports.onSuscripcionEscrita = onDocumentWritten('subscriptions/{subId}', async 
   // Si config/iaTarifas aún no existe (antes del seed), se registra y sigue.
   const nivelAntes = previa ? creditosLedger.nivelDeSuscripcion(previa) : null
   const nivelAhora = sub ? creditosLedger.nivelDeSuscripcion(sub) : null
-  if (nivelAhora && nivelAhora !== nivelAntes) {
+  // Cortesía no tiene un nivel fijo en config/iaTarifas: si el administrador
+  // solo cambió el monto de créditos elegido (sin cambiar de plan), también
+  // hay que sincronizar — el nivel por sí solo no lo detecta.
+  const cortesiaCreditosCambio = nivelAhora === 'cortesia' && nivelAhora === nivelAntes &&
+    (sub?.cortesiaCreditos ?? null) !== (previa?.cortesiaCreditos ?? null)
+  if (nivelAhora && (nivelAhora !== nivelAntes || cortesiaCreditosCambio)) {
     try {
-      const r = await creditosLedger.sincronizarPlan({ uid: docenteId, nivelNuevo: nivelAhora })
+      const r = await creditosLedger.sincronizarPlan({
+        uid: docenteId,
+        nivelNuevo: nivelAhora,
+        capacidadCortesia: sub?.cortesiaCreditos ?? null,
+      })
       if (r.hecho) logger.info(`créditos IA de ${docenteId}: plan → ${nivelAhora} (${r.modo})`)
     } catch (e) {
       logger.error(`sincronizarPlan(${docenteId}):`, e.message)
