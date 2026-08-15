@@ -2789,6 +2789,10 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
     f: Number(c.f) || 0, c: Number(c.c) || 0,
     t: c.t == null ? null : Number(c.t),
     x: String(c.x || '').slice(0, 200),
+    // Celdas combinadas (Word/Excel, ver PR "soporta celdas combinadas"): se
+    // reenvía tal cual para poder reconstruir la cuadrícula real al guardar
+    // esta generación — sin esto, la bitácora perdía el combinado.
+    s: Math.max(1, Number(c.s) || 1),
   }))
 
   // El ÚNICO insumo obligatorio es el programa de estudios (fuentes
@@ -2878,6 +2882,7 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
     diagnosticoContextoTexto: incluir.diagContexto ? diagnosticoContextoATexto(resultadoContexto) : '',
     diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
     celdas,
+    plantillaOficial: { tipo: plantillaOficial.tipo, nombre: String(plantillaOficial.nombre || '').slice(0, 200) },
   }
 }
 
@@ -2952,6 +2957,23 @@ async function ejecutarPlaneacionFormatoOficial({ params, modelo, apiKey }) {
   if (!celdas.length) {
     throw new Error('El asistente de IA no generó contenido utilizable para tu plantilla')
   }
+
+  // El servidor guarda la bitácora ÉL MISMO, igual que
+  // ejecutarPlaneacionDidacticaInicial (mismo incidente, 15-ago-2026): así
+  // queda a salvo aunque el cliente se rinda esperando, y de paso ahora esta
+  // generación entra al mismo ciclo editar → aceptar → ver/descargar que la
+  // Planeación genérica, en vez de vivir solo en memoria del navegador.
+  const celdasOriginales = ctx.celdas.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x, colSpan: c.s || 1 }))
+  const celdasPropuestas = celdas.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x }))
+  await getFirestore().collection('subjects').doc(String(params.subjectId || '').trim())
+    .collection('planeacionesOficialesIA').add({
+      celdasOriginales,
+      celdasPropuestas,
+      tipo: ctx.plantillaOficial?.tipo || null,
+      nombreOriginal: ctx.plantillaOficial?.nombre || null,
+      docenteId: params.__uid,
+      generadoEn: FieldValue.serverTimestamp(),
+    })
 
   return {
     resultado: { celdas },
