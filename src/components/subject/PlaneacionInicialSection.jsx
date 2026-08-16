@@ -4,7 +4,7 @@
 // Genera una PROPUESTA en Excel para los parciales reales de la asignatura;
 // el docente la revisa, puede regenerarla y descargarla — nunca se aplica
 // sola a ningún otro módulo de Evalúa Fácil.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { collection, doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { updateDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
@@ -18,6 +18,7 @@ import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import { descargarPlaneacionExcel } from '../../utils/planeacionExcel'
 import { leerCuadriculaExcel, leerTablasWord, llenarPlantillaExcel, llenarPlantillaWord, aplanarCuadricula } from '../../utils/plantillaOficial'
+import { renderAsync as renderDocxAsync } from 'docx-preview'
 import { useSubscription } from '../../hooks/useSubscription'
 import useIsDesktop from '../../hooks/useIsDesktop'
 import CheckoutModal from '../CheckoutModal'
@@ -105,14 +106,21 @@ function EstadoPlaneacionBadge({ lista }) {
 // Celda editable "en su lugar" — sin borde propio hasta que se toca, para
 // que la tabla se vea como el documento real y no como un formulario con
 // cajas (Opción C elegida por Kike, 15-ago-2026: editar directo sobre la
-// tabla, no en una lista aparte). Alta de por sí (aprovecha el espacio
-// vertical de la pantalla completa, pedido de Kike, 15-ago-2026) — con
-// scroll propio si el texto no cabe, en vez de crecer sin límite o quedar
-// apretada en 2 líneas.
+// tabla, no en una lista aparte). Crece con el contenido (auto-resize en
+// cada cambio, incluso el primer render) para que SIEMPRE se vea el texto
+// completo, sin scroll interno ni recorte (pedido de Kike, 15-ago-2026).
 function CeldaEditable({ value, onChange, resaltada, placeholder }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
   return (
     <textarea
-      className={`w-full min-w-[140px] h-28 px-1.5 py-1 text-xs bg-transparent border border-dashed rounded-none resize-none overflow-y-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:bg-surface-card ${
+      ref={ref}
+      className={`w-full min-w-[140px] min-h-[3.5rem] px-1.5 py-1 text-xs bg-transparent border border-dashed rounded-none resize-none overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:bg-surface-card ${
         resaltada ? 'border-accent/50 bg-[var(--accent-tint)]' : 'border-transparent hover:border-outline-variant'
       }`}
       value={value}
@@ -145,7 +153,7 @@ function VistaPreviaPlaneacion({ resultado, onChange }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {resultado.parciales.map((parcial) => (
         <div key={parcial.numero}>
           <p className="text-sm font-semibold text-on-surface mb-1.5">
@@ -154,36 +162,35 @@ function VistaPreviaPlaneacion({ resultado, onChange }) {
           {!parcial.filas?.length ? (
             <p className="text-xs text-muted">La IA no generó una propuesta para este parcial con las fuentes disponibles.</p>
           ) : (
-            <div className="overflow-x-auto border border-outline-variant">
-              <table className="border-collapse w-full">
-                <thead>
-                  <tr className="bg-surface-container">
-                    {CAMPOS_VISTA_PREVIA.map(([campo, etiqueta]) => (
-                      <th key={campo} className="border border-outline-variant px-2 py-1.5 text-xs font-semibold text-on-surface text-left whitespace-nowrap">
-                        {etiqueta}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {parcial.filas.map((fila, i) => (
-                    <tr key={i}>
-                      {CAMPOS_VISTA_PREVIA.map(([campo]) => (
-                        <td key={campo} className="border border-outline-variant p-0 align-top">
-                          {editable ? (
-                            <CeldaEditable
-                              value={fila[campo] || ''}
-                              onChange={(valor) => actualizarCampo(parcial.numero, i, campo, valor)}
-                            />
-                          ) : (
-                            <p className="text-xs text-on-surface px-1.5 py-1 min-w-[140px]">{fila[campo] || ''}</p>
-                          )}
-                        </td>
+            <div className="space-y-3">
+              {parcial.filas.map((fila, i) => (
+                <div key={i} className="border border-outline-variant overflow-hidden">
+                  <p className="text-xs font-semibold text-on-surface bg-surface-container px-2 py-1 border-b border-outline-variant">
+                    Tema {i + 1}
+                  </p>
+                  <table className="border-collapse w-full table-fixed">
+                    <tbody>
+                      {CAMPOS_VISTA_PREVIA.map(([campo, etiqueta]) => (
+                        <tr key={campo}>
+                          <th className="border border-outline-variant bg-[var(--accent-tint)] px-2 py-1.5 text-xs font-semibold text-on-surface text-left align-top w-40 sm:w-52 whitespace-normal">
+                            {etiqueta}
+                          </th>
+                          <td className="border border-outline-variant p-0 align-top w-auto">
+                            {editable ? (
+                              <CeldaEditable
+                                value={fila[campo] || ''}
+                                onChange={(valor) => actualizarCampo(parcial.numero, i, campo, valor)}
+                              />
+                            ) : (
+                              <p className="text-xs text-on-surface px-2 py-1.5">{fila[campo] || ''}</p>
+                            )}
+                          </td>
+                        </tr>
                       ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </tbody>
+                  </table>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -367,7 +374,16 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   const [edicionOficial, setEdicionOficial] = useState(null)
   const [edicionOficialDeId, setEdicionOficialDeId] = useState(null)
   const [revisandoOficial, setRevisandoOficial] = useState(false)
-  const [verPreviewOficial, setVerPreviewOficial] = useState(false)
+  // Vista previa en imagen de cómo se imprimiría el formato oficial YA
+  // ACEPTADO — con sus logos y todo lo que traiga la plantilla real (pedido
+  // de Kike, 15-ago-2026). Solo para Word: docx-preview renderiza el .docx
+  // real (relleno con las celdas aceptadas) tal cual, imágenes incluidas.
+  // Excel no tiene un renderizador confiable en el navegador — para ese caso
+  // se avisa que hay que descargar para verlo con su formato real.
+  const [verVistaPreviaOficial, setVerVistaPreviaOficial] = useState(false)
+  const [cargandoVistaPrevia, setCargandoVistaPrevia] = useState(false)
+  const [blobVistaPrevia, setBlobVistaPrevia] = useState(null)
+  const vistaPreviaRef = useRef(null)
   const [verHistorialOficial, setVerHistorialOficial] = useState(false)
   const [aceptandoOficial, setAceptandoOficial] = useState(false)
   const [confirmarAceptarOficial, setConfirmarAceptarOficial] = useState(false)
@@ -710,6 +726,49 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
     }
   }
 
+  // Rellena la plantilla real con las celdas aceptadas (mismo insumo que
+  // descargarOficial) y la renderiza con docx-preview — se ve el documento
+  // TAL CUAL, con sus logos e imágenes reales, no una tabla nuestra. Solo
+  // Word: no hay forma confiable de reproducir un .xlsx (con sus imágenes y
+  // formato) fiel en el navegador — ahí solo se avisa que hay que descargar.
+  async function abrirVistaPreviaOficial() {
+    if (!actualOficial || !plantillaOficial?.url) return
+    const tipo = actualOficial.tipo || plantillaOficial.tipo
+    if (tipo !== 'docx') {
+      toast('La vista previa en imagen solo está disponible para Word por ahora — descarga el archivo para verlo con tu formato de Excel', 'info')
+      return
+    }
+    setCargandoVistaPrevia(true)
+    setVerVistaPreviaOficial(true)
+    try {
+      const resPlantilla = await fetch(plantillaOficial.url)
+      const bufferOriginal = await resPlantilla.arrayBuffer()
+      const celdasFinal = celdasOficialAceptadas || actualOficial.celdasPropuestas
+      const blob = await llenarPlantillaWord(bufferOriginal, celdasFinal)
+      setBlobVistaPrevia(blob)
+    } catch (err) {
+      toast('No se pudo generar la vista previa: ' + err.message, 'error')
+      setVerVistaPreviaOficial(false)
+    } finally {
+      setCargandoVistaPrevia(false)
+    }
+  }
+
+  function cerrarVistaPreviaOficial() {
+    setVerVistaPreviaOficial(false)
+    setBlobVistaPrevia(null)
+  }
+
+  // El contenedor de docx-preview solo existe una vez el modal ya está
+  // montado — por eso renderiza en un efecto (que se dispara cuando ya hay
+  // blob Y el ref existe), no directo dentro de abrirVistaPreviaOficial.
+  useEffect(() => {
+    if (!verVistaPreviaOficial || !blobVistaPrevia || !vistaPreviaRef.current) return
+    vistaPreviaRef.current.innerHTML = ''
+    renderDocxAsync(blobVistaPrevia, vistaPreviaRef.current, undefined, { inWrapper: true })
+      .catch((err) => toast('No se pudo mostrar la vista previa: ' + err.message, 'error'))
+  }, [verVistaPreviaOficial, blobVistaPrevia])
+
   // La descarga NUNCA pasa por el servidor ni por créditos: el .xlsx se
   // arma en el navegador a partir del `resultado` ya guardado. `resultado`
   // se pasa explícito (en vez de usar siempre `entry.resultado`) porque la
@@ -879,11 +938,12 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
             {actualOficial && aceptadaOficial && (
               <button
                 type="button"
-                onClick={() => setVerPreviewOficial((v) => !v)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)]"
+                onClick={abrirVistaPreviaOficial}
+                disabled={cargandoVistaPrevia}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
-                <Eye size={14} />
-                {verPreviewOficial ? 'Ocultar mi formato oficial' : 'Ver mi formato oficial'}
+                {cargandoVistaPrevia ? <Spinner size="sm" /> : <Eye size={14} />}
+                Vista previa
               </button>
             )}
             {actualOficial && aceptadaOficial && (
@@ -978,13 +1038,19 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
             </RevisionPantallaCompleta>
           )}
 
-          {verPreviewOficial && aceptadaOficial && (
-            <div className="mt-3 pt-2 border-t border-outline-variant">
-              <TablaOficialEditable
-                celdasOriginales={actualOficial.celdasOriginales || []}
-                celdasPropuestas={celdasOficialAceptadas}
-              />
-            </div>
+          {verVistaPreviaOficial && (
+            <RevisionPantallaCompleta
+              titulo="Vista previa — así se imprimiría"
+              onCerrar={cerrarVistaPreviaOficial}
+            >
+              {cargandoVistaPrevia && !blobVistaPrevia ? (
+                <div className="flex justify-center py-10"><Spinner /></div>
+              ) : (
+                <div className="flex justify-center overflow-x-auto">
+                  <div ref={vistaPreviaRef} />
+                </div>
+              )}
+            </RevisionPantallaCompleta>
           )}
 
           {anterioresOficial.length > 0 && (
