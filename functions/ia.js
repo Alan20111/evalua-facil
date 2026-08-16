@@ -2734,9 +2734,12 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     'genérico que serviría igual para cualquier tema.\n' +
     '- FORMATO de una celda con varias Sesiones (p. ej. "Actividades de enseñanza-aprendizaje"): UNA VIÑETA ' +
     'POR SESIÓN, cada una en su propio renglón separado por un salto de línea "\\n" dentro del texto — nunca ' +
-    'las juntes en un solo párrafo corrido. Ejemplo de formato exacto (usa "\\n" real entre viñetas):\n' +
+    'las juntes en un solo párrafo corrido. Una sesión NO tiene que ser siempre de 1-2 bloques: puede ser de ' +
+    '3 bloques o más si el tiempo real disponible en el periodo (arriba, si el docente lo indicó) y el ' +
+    'contenido a cubrir lo piden — dimensiona cada sesión según ese tiempo real, no por costumbre. Ejemplo de ' +
+    'formato exacto (usa "\\n" real entre viñetas):\n' +
     '"• Sesión 1-2 (3 horas): descripción de la actividad...\\n• Sesión 3 (2 horas): descripción...\\n• Sesión ' +
-    '4-5 (3 horas): descripción..."\n\n' +
+    '4-6 (4 horas): descripción..."\n\n' +
     'Responde SOLO con este JSON — una entrada por cada celda que decidas llenar, usando EXACTAMENTE su ' +
     'posición (f=fila, c=columna, t=tabla si aplica) y el texto que le corresponde:\n' +
     '{"celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 4000 caracteres — nunca ' +
