@@ -2412,35 +2412,15 @@ async function analisisDiagnosticoMasReciente(db, subjectId, tipo) {
   return null
 }
 
-// Tope de celdas que se mandan a la IA por generación — una plantilla
-// institucional razonable (una tabla de planeación semanal, por ejemplo)
-// cabe sobrada; algo mucho más grande probablemente ya no es un formato de
-// planeación sino otra cosa (o trae demasiado ruido para que la IA decida
-// bien qué llenar). Compartido por la Planeación genérica (plantilla
-// bundleada) y la del formato oficial (plantilla subida por el docente).
-const PLANEACION_OFICIAL_MAX_CELDAS = 400
+// Cuántas Secuencias Didácticas puede pedir el docente explícitamente antes
+// de generar (ver PlaneacionInicialSection.jsx) — un tope razonable para no
+// disparar el gasto de tokens ni pedirle a la IA algo absurdo.
+const MAX_SECUENCIAS_SOLICITADAS = 12
 
-// La estructura de la plantilla la lee y manda el CLIENTE (el servidor no
-// trae ExcelJS/parseo de .docx) — no es información sensible (en un caso es
-// la plantilla que el propio docente subió, en el otro la genérica que
-// reparte la propia app), así que se acepta con un tope de tamaño en vez de
-// volver a leer el archivo aquí. Mismo validador para ambas operaciones
-// (15-ago-2026, unificación genérica/oficial: las dos llenan una plantilla
-// real, una vez por parcial).
-function validarCeldasPlantilla(params) {
-  const celdasCrudas = Array.isArray(params?.celdas) ? params.celdas : []
-  if (!celdasCrudas.length) {
-    throw new HttpsError('invalid-argument', 'No se pudo leer la estructura de la plantilla.')
-  }
-  return celdasCrudas.slice(0, PLANEACION_OFICIAL_MAX_CELDAS).map((c) => ({
-    f: Number(c.f) || 0, c: Number(c.c) || 0,
-    t: c.t == null ? null : Number(c.t),
-    x: String(c.x || '').slice(0, 200),
-    // Celdas combinadas (Word/Excel, ver PR "soporta celdas combinadas"): se
-    // reenvía tal cual para poder reconstruir la cuadrícula real al guardar
-    // esta generación — sin esto, la bitácora perdía el combinado.
-    s: Math.max(1, Number(c.s) || 1),
-  }))
+function validarCantidadSolicitada(params) {
+  const n = Number(params?.cantidadSecuencias)
+  if (!Number.isFinite(n) || n < 1) return null
+  return Math.min(Math.round(n), MAX_SECUENCIAS_SOLICITADAS)
 }
 
 // Lista de parciales reales de la asignatura con su periodo en texto —
@@ -2582,11 +2562,11 @@ async function precheckPlaneacionInicial({ uid, params }) {
     ? consideracionesATexto(configSnap.data()?.consideraciones)
     : ''
 
-  // La Planeación Inicial llena una plantilla Word real (decisión de Kike,
-  // 15-ago-2026: mejor vista previa, un documento POR PARCIAL) — el cliente
-  // lee la plantilla BUNDLEADA propia de Evalúa Fácil
-  // (public/plantillas/planeacion-generica.docx) y manda su cuadrícula.
-  const celdas = validarCeldasPlantilla(params)
+  // La Planeación Inicial vive como estructura propia de Evalúa Fácil —
+  // decisión de Kike, 16-ago-2026: ya no depende de ninguna plantilla que
+  // haya que leer ni llenar, "secuenciasDidacticas[]" por cada parcial es
+  // la fuente de la verdad; el Word solo se genera al descargar, aparte.
+  const cantidadSolicitada = validarCantidadSolicitada(params)
 
   // Las fuentes YA NO se agrupan por parcial (se quitó esa sección de la UI
   // el 13-ago-2026 — Diagnóstico y Planeación son eventos de una sola vez, al
@@ -2605,8 +2585,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
     diagnosticoContextoTexto: incluir.diagContexto ? diagnosticoContextoATexto(resultadoContexto) : '',
     diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
     parciales,
-    celdas,
-    plantilla: { tipo: 'docx', nombre: 'Planeación didáctica.docx' },
+    cantidadSolicitada,
     fuentesUsadas: {
       generales: seleccionarFuentesGenerales(generales).map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
     },
@@ -2640,29 +2619,40 @@ const PLANEACION_SISTEMA =
   'trátalo como información útil para ajustar el nivel de detalle de la propuesta. Escribe en ' +
   'español, claro y breve. Responde únicamente con el JSON del esquema indicado, sin texto adicional.'
 
-// Representación compacta de la cuadrícula para el prompt: una línea por
-// celda con TEXTO (encabezados, valores ya puestos — la IA los usa de
-// contexto pero NUNCA los reescribe) o VACÍA (candidatas a llenar).
-function celdasATexto(celdas) {
-  return celdas.map((c) => {
-    const pos = c.t != null ? `tabla ${c.t}, fila ${c.f}, columna ${c.c}` : `fila ${c.f}, columna ${c.c}`
-    return c.x ? `- [${pos}] TEXTO: "${c.x}"` : `- [${pos}] VACÍA`
-  }).join('\n')
-}
+// Campos que tiene CADA Secuencia Didáctica — estructura propia de Evalúa
+// Fácil (decisión de Kike, 16-ago-2026: ya no depende de ninguna plantilla
+// externa). Un solo lugar para la lista de campos: el prompt, la limpieza
+// de la respuesta de la IA y el generador del Word (ver
+// src/utils/planeacionDocx.js) recorren esta MISMA lista — agregar un campo
+// nuevo el día de mañana es un solo cambio, no tres.
+const CAMPOS_SECUENCIA = [
+  { clave: 'nombre', etiqueta: 'Nombre o tema' },
+  { clave: 'aprendizajesEsperados', etiqueta: 'Aprendizajes esperados' },
+  { clave: 'proposito', etiqueta: 'Propósito' },
+  { clave: 'sesiones', etiqueta: 'Sesiones que abarca' },
+  { clave: 'apertura', etiqueta: 'Apertura' },
+  { clave: 'desarrollo', etiqueta: 'Desarrollo' },
+  { clave: 'cierre', etiqueta: 'Cierre' },
+  { clave: 'evidencia', etiqueta: 'Evidencia de aprendizaje' },
+  { clave: 'estrategiaEvaluacion', etiqueta: 'Estrategia de evaluación' },
+  { clave: 'instrumento', etiqueta: 'Instrumento de evaluación' },
+  { clave: 'recursos', etiqueta: 'Recursos y materiales' },
+]
 
-// Llena UNA plantilla (genérica bundleada o la oficial de la escuela — el
-// mecanismo es idéntico, ver celdasATexto) con el contenido de UN parcial
-// específico — se llama una vez por parcial real de la asignatura, así que
-// el resultado es un documento distinto por parcial, no uno solo con todo
-// mezclado (decisión de Kike, 15-ago-2026: mismo criterio que ya usaba la
-// Planeación genérica de 9 campos, ahora aplicado también al formato
-// oficial y a la plantilla propia de la app).
-function promptPlantillaParcial(ctx, parcialCtx) {
+// Genera el contenido de UN parcial específico — se llama una vez por
+// parcial real de la asignatura, así que el resultado es una Planeación
+// distinta por parcial, no una sola con todo mezclado (decisión de Kike,
+// 15-ago-2026). `cantidadSolicitada` (1–12) es una orden dura del docente;
+// si es null, la IA decide y reporta su propio conteo en "bloquesTematicos"
+// para que el llamador pueda exigirle consistencia (ver
+// generarSecuenciasPorParciales).
+function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada) {
   const totalParciales = ctx.parciales?.length || 1
+  const camposJSON = CAMPOS_SECUENCIA.map((c) => `"${c.clave}": "<${c.etiqueta}>"`).join(', ')
   return (
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n` +
     `PARCIAL ${parcialCtx.numero} de ${totalParciales}${parcialCtx.periodoTexto ? ` (periodo: ${parcialCtx.periodoTexto})` : ''} — ` +
-    'esta plantilla se llena UNA VEZ POR CADA PARCIAL: todo el contenido que propongas debe corresponder ' +
+    'esta Planeación se genera UNA VEZ POR CADA PARCIAL: todo el contenido que propongas debe corresponder ' +
     'específicamente a este parcial, no al curso completo.\n\n' +
     (totalParciales > 1
       ? 'COBERTURA DEL PROGRAMA DE ESTUDIOS (obligatorio, pedido explícito de Kike, 15-ago-2026): si el docente ' +
@@ -2673,46 +2663,38 @@ function promptPlantillaParcial(ctx, parcialCtx) {
         `programa en ${totalParciales} partes proporcionales y consecutivas por orden de aparición en el ` +
         `programa, y cubre en ESTE parcial exactamente la parte que le corresponde a la posición ` +
         `${parcialCtx.numero} de ${totalParciales} — ni repitas temas de partes anteriores ni te adelantes a ` +
-        'temas de partes posteriores. Esto SÍ puede significar generar más de una sección de Apertura/' +
-        'Desarrollo/Cierre en el documento final si hay varias Secuencias Didácticas — ver la ESTRUCTURA ' +
-        'OBLIGATORIA justo abajo, es el mecanismo pensado exactamente para esto.\n\n'
+        'temas de partes posteriores.\n\n'
       : '') +
-    'CUÁNTAS SECUENCIAS DIDÁCTICAS HACEN FALTA (Kike, 16-ago-2026 — la IA seguía entregando una sola Secuencia ' +
-    'Didáctica para parciales que en realidad cubren varias semanas y varios temas, y eso está mal): un parcial ' +
-    'normal dura semanas y cubre varios bloques temáticos del programa de estudios — casi NUNCA se resuelve ' +
-    'con una sola Secuencia Didáctica. Antes de escribir Apertura/Desarrollo/Cierre, cuenta cuántos bloques ' +
-    'temáticos distintos te toca cubrir en este parcial (ver COBERTURA DEL PROGRAMA DE ESTUDIOS arriba, si ' +
-    'aplica) y crea AL MENOS una Secuencia Didáctica por cada bloque temático coherente — nunca comprimas ' +
-    'varias semanas de contenido distinto en una sola Secuencia Didáctica.\n' +
-    'EJEMPLO: un parcial de 5 semanas que cubre 3 temas distintos del programa necesita normalmente 3 ' +
-    'Secuencias Didácticas (una por tema), no 1 — cada una con su propia Apertura/Desarrollo/Cierre.\n' +
-    'AUTO-VERIFICACIÓN antes de responder: cuenta cuántas Secuencias Didácticas vas a entregar en ' +
-    '"secuenciasDidacticas". Si es una sola, confirma primero que el parcial de verdad cubre un único bloque ' +
-    'temático breve — si cubre más de uno (lo más común), agrega más Secuencias Didácticas antes de responder, ' +
-    'no te quedes en 1 por costumbre.\n' +
-    'REGLA OBLIGATORIA PARA APERTURA, DESARROLLO Y CIERRE (Kike, 16-ago-2026 — antes salía mal repetidas ' +
-    'veces, hasta que quedó así de explícito):\n' +
-    'NO utilices las secciones de APERTURA, DESARROLLO y CIERRE del formato como secciones únicas para toda ' +
-    'la planeación. La planeación debe dividirse primero en SECUENCIAS DIDÁCTICAS (una secuencia didáctica es ' +
-    'una unidad temática completa — puede durar varias sesiones/horas de clase, no la confundas con "sesión"). ' +
-    'Cada Secuencia Didáctica debe tener su propia Apertura, su propio Desarrollo y su propio Cierre:\n' +
-    'Secuencia Didáctica 1 → Apertura / Desarrollo / Cierre\n' +
-    'Secuencia Didáctica 2 → Apertura / Desarrollo / Cierre\n' +
-    'Secuencia Didáctica 3 → Apertura / Desarrollo / Cierre\n' +
-    'Y así sucesivamente, según el número de secuencias didácticas que definas para este parcial.\n' +
-    'REGLA FUNDAMENTAL: NUNCA agrupes todas las secuencias dentro de una sola Apertura, un solo Desarrollo y ' +
-    'un solo Cierre. NUNCA generes una única Apertura para toda la planeación. NUNCA generes un único ' +
-    'Desarrollo para toda la planeación. NUNCA generes un único Cierre para toda la planeación. Cada secuencia ' +
-    'es una unidad independiente que debe leerse de principio a fin (Apertura → Desarrollo → Cierre) antes de ' +
-    'pasar a la siguiente.\n' +
-    'IMPORTANTE: la cantidad de sesiones NO determina automáticamente la cantidad de Secuencias Didácticas — ' +
-    'primero define las Secuencias Didácticas y después genera para cada una su Apertura, Desarrollo y Cierre.\n' +
+    (cantidadSolicitada
+      ? `CANTIDAD DE SECUENCIAS DIDÁCTICAS: el docente pidió EXACTAMENTE ${cantidadSolicitada} Secuencia(s) ` +
+        `Didáctica(s) para este parcial — genera exactamente ${cantidadSolicitada}, ni más ni menos, ` +
+        'distribuyendo el contenido real del parcial entre ellas de forma coherente.\n\n'
+      : 'CUÁNTAS SECUENCIAS DIDÁCTICAS HACEN FALTA (Kike, 16-ago-2026 — la IA seguía entregando una sola ' +
+        'Secuencia Didáctica para parciales que en realidad cubren varias semanas y varios temas, y eso está ' +
+        'mal): un parcial normal dura semanas y cubre varios bloques temáticos del programa de estudios — casi ' +
+        'NUNCA se resuelve con una sola Secuencia Didáctica. Cuenta cuántos bloques temáticos distintos te toca ' +
+        'cubrir en este parcial (ver COBERTURA DEL PROGRAMA DE ESTUDIOS arriba, si aplica) y crea AL MENOS una ' +
+        'Secuencia Didáctica por cada bloque temático coherente — nunca comprimas varias semanas de contenido ' +
+        'distinto en una sola Secuencia Didáctica. La cantidad de Secuencias NO la determina el número de ' +
+        'sesiones disponibles — agrupa por coherencia temática, no dividiendo sesiones de forma arbitraria.\n' +
+        'EJEMPLO: un parcial de 5 semanas que cubre 3 temas distintos del programa necesita normalmente 3 ' +
+        'Secuencias Didácticas (una por tema), no 1.\n' +
+        'AUTO-VERIFICACIÓN antes de responder: cuenta cuántas Secuencias Didácticas vas a entregar en ' +
+        '"secuenciasDidacticas" y repórtalo también en "bloquesTematicos". Si es una sola, confirma primero que ' +
+        'el parcial de verdad cubre un único bloque temático breve — si cubre más de uno (lo más común), ' +
+        'agrega más Secuencias Didácticas antes de responder, no te quedes en 1 por costumbre.\n\n') +
+    'CADA SECUENCIA DIDÁCTICA ES UNA UNIDAD COMPLETA E INDEPENDIENTE (Kike, 16-ago-2026): con su propio nombre/' +
+    'tema, aprendizajes esperados, propósito, sesiones que abarca, Apertura, Desarrollo, Cierre, evidencia de ' +
+    'aprendizaje, estrategia e instrumento de evaluación, y recursos/materiales — nunca compartas estos campos ' +
+    'entre varias Secuencias ni los agrupes en uno solo para toda la Planeación.\n' +
     'EXTENSIÓN DEL TEXTO — breve, claro y conciso, sin párrafos largos, explicaciones pedagógicas extensas, ' +
     'justificaciones ni descripciones innecesarias. Estos son máximos orientativos, no metas a alcanzar (si se ' +
     'puede decir con menos palabras, usa menos):\n' +
     '- Apertura: máximo 2 acciones concretas, ~30 a 50 palabras.\n' +
     '- Desarrollo: máximo 3 acciones concretas, ~50 a 80 palabras.\n' +
     '- Cierre: máximo 1 o 2 acciones concretas, ~20 a 40 palabras.\n' +
+    '- El resto de los campos: directos, sin relleno — una o dos oraciones bastan para propósito, evidencia, ' +
+    'estrategia/instrumento de evaluación y recursos.\n' +
     'La redacción describe QUÉ HARÁ EL DOCENTE Y/O QUÉ HARÁ EL ESTUDIANTE, de forma directa y ejecutable.\n' +
     'REGLA FUNDAMENTAL: UNA VIÑETA = UNA SESIÓN (Kike, 16-ago-2026). Dentro de Apertura, Desarrollo y Cierre, ' +
     'cada viñeta representa EXACTAMENTE una sesión (una hora de clase) — nunca agrupes dos o más sesiones ' +
@@ -2721,10 +2703,10 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     'específicamente qué se hace en ESA sesión (puede ser continuación de la misma actividad — no hace falta ' +
     'que cada sesión sea un tema distinto, pero cada una es su propia viñeta):\n' +
     '"• Sesión 1: ...\\n• Sesión 2: ...\\n• Sesión 3: ..."\n' +
-    'La cantidad de viñetas de Apertura + Desarrollo + Cierre debe coincidir EXACTAMENTE con el número total ' +
-    'de sesiones de esa Secuencia Didáctica — no asignes sesiones por costumbre, cuenta cuántas hay realmente ' +
-    'disponibles y numera las viñetas en consecuencia (p. ej. si Apertura usa la Sesión 1 y Cierre usa la ' +
-    'Sesión 4, el Desarrollo cubre las Sesiones 2 y 3, con una viñeta "Sesión 2: ..." y otra "Sesión 3: ...").\n' +
+    'El campo "sesiones" de cada Secuencia debe indicar en texto breve cuáles sesiones abarca (p. ej. ' +
+    '"Sesiones 1 a 3" o "Sesión 4"), y la cantidad de viñetas de Apertura+Desarrollo+Cierre debe coincidir ' +
+    'EXACTAMENTE con esas sesiones — no asignes sesiones por costumbre, cuenta cuántas hay realmente ' +
+    'disponibles y numera las viñetas en consecuencia.\n' +
     'Formato: viñetas separadas por un salto de línea real "\\n" dentro del texto — nunca un párrafo corrido.\n' +
     'EJEMPLO CORRECTO (Desarrollo, secuencia con Sesiones 2 y 3):\n' +
     '"• Sesión 2: Guiar el cálculo del presupuesto mensual de la familia, identificando ingresos, gastos y ' +
@@ -2732,14 +2714,6 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     'números enteros y verificar los resultados."\n' +
     'EJEMPLO INCORRECTO (nunca hagas esto): "• Guiar el cálculo del presupuesto mensual de la familia y ' +
     'resolver ejercicios de operaciones con números enteros. Sesiones: 2."\n' +
-    'MECANISMO: la aplicación crea automáticamente una sección física de Apertura/Desarrollo/Cierre POR CADA ' +
-    'Secuencia Didáctica — para eso, entrégalas en el campo "secuenciasDidacticas" del JSON de respuesta (ver ' +
-    'formato exacto más abajo), una entrada por Secuencia Didáctica con sus tres partes juntas ("apertura", ' +
-    '"desarrollo", "cierre"), en el MISMO orden en que ocurren en el curso. Indica además UNA SOLA VEZ, en ' +
-    '"aperturaCelda"/"desarrolloCelda"/"cierreCelda", la posición (f, c, t) de la celda de la plantilla donde ' +
-    'va cada tipo de contenido — sin encabezados tipo "Secuencia 1:" dentro del texto (esos los pone la ' +
-    'aplicación). NO repitas ese contenido dentro de "celdas" — "celdas" es solo para el resto de la ' +
-    'plantilla (fechas, nombres, evidencias, etc.).\n' +
     'NUNCA escribas en el contenido que fue generado por inteligencia artificial, por IA, por un asistente, ni ' +
     'nada similar — el docente es el autor de esta planeación, la IA es solo su herramienta de redacción.\n\n' +
     (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
@@ -2754,113 +2728,77 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     (ctx.diagnosticoConocimientosTexto ? `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados ` +
       `todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` : '') +
     (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
-    'Esta es la cuadrícula completa de la plantilla (una o varias tablas de Word) — cada ' +
-    'celda con su posición, y si ya tiene texto (encabezado o dato fijo, NO se toca) o está VACÍA (candidata a ' +
-    'llenar):\n\n' +
-    celdasATexto(ctx.celdas) + '\n\n' +
-    'Con el texto de las celdas que YA tienen contenido entiendes la estructura del formato (encabezados de ' +
-    'columna/fila, títulos de sección, etc.) — úsalo para decidir qué información pedagógica corresponde a ' +
-    'cada celda VACÍA (nunca a una que ya tiene texto), SIEMPRE específica de este parcial. No todas las ' +
-    'celdas vacías son para llenar con contenido pedagógico: ignora las que sean claramente decorativas o de ' +
-    'diseño (separadores, celdas de firma, celdas en blanco sin relación con ningún encabezado cercano) — ' +
-    'solo responde las que de verdad correspondan a un dato de planeación (tema, actividad, propósito, fecha, ' +
-    'recurso, evaluación, etc.) o de identificación administrativa que sí puedas inferir del contexto (p. ej. ' +
-    'nombre de la asignatura). Los campos administrativos que NO puedas saber (nombre del docente, plantel, ' +
-    'entidad federativa, CCT y similares) NO los inventes — déjalos vacíos, el docente los llena a mano. Si ' +
-    'una celda que sí corresponde llenar no tiene información suficiente en las fuentes, usa la frase exacta ' +
-    '"Información no disponible en las fuentes proporcionadas." en vez de inventar contenido.\n\n' +
-    'CONGRUENCIA OBLIGATORIA entre horas y contenido (error grave encontrado el 15-ago-2026: una plantilla ' +
-    'con "No. de horas de la estrategia: 10 horas" propuesto por la IA, pero cuyas actividades sumaban apenas ' +
-    'hora y media, y que además solo cubría el primer tema del manual, dejando el resto sin planear):\n' +
-    '- Si el número de horas/sesiones de este parcial YA VIENE DADO (una celda con TEXTO, no vacía — p. ej. ' +
-    'porque el docente ya llenó su programación de bloques de clase), ESE es el total real: no lo cambies ni ' +
-    'inventes otro, úsalo para DISTRIBUIR el tiempo de las actividades que planees (la suma de los minutos/' +
-    'horas de cada actividad debe dar exactamente ese total).\n' +
-    '- Si en cambio la celda de horas está vacía y te toca proponerla tú, hazlo al revés: primero calcula ' +
-    'cuánto contenido real hay que cubrir y de ahí saca un número de horas realista — nunca inventes una cifra ' +
-    'y luego actividades que no la llenan.\n' +
-    '- Las actividades que propongas para este parcial deben cubrir TODOS los temas relevantes de las fuentes ' +
+    'CONGRUENCIA OBLIGATORIA entre sesiones y contenido (error grave encontrado el 15-ago-2026: una propuesta ' +
+    'que decía cubrir 10 horas pero cuyas actividades sumaban apenas hora y media, y que además solo cubría el ' +
+    'primer tema del manual, dejando el resto sin planear):\n' +
+    '- Las Secuencias que propongas para este parcial deben cubrir TODOS los temas relevantes de las fuentes ' +
     'que correspondan a este periodo — no te quedes en el primer tema o subtema y dejes el resto del manual ' +
     'sin usar. Si el tiempo disponible no alcanza para cubrir todo el material con profundidad, repártelo en ' +
-    'más actividades/sesiones dentro del mismo parcial en vez de cubrir menos temas.\n' +
+    'más Secuencias/sesiones dentro del mismo parcial en vez de cubrir menos temas.\n' +
     '- Esto aplica más aún cuando el docente indicó fechas reales del periodo (arriba, si las hay): la duración ' +
-    'del periodo, las horas totales y el contenido cubierto deben cuadrar entre sí — no propongas una fracción ' +
-    'de plan para un periodo de varios días o semanas.\n' +
-    '- Nada de lo que escribas es de adorno: cada actividad, recurso, tiempo y evidencia debe conectarse con ' +
-    'contenido real del programa de estudios (o del manual/fuente que haga sus veces) — tu papel es ser el ' +
-    'PEGAMENTO que conecta horas, temas y actividades entre sí, siempre anclado a esa fuente, no relleno ' +
-    'genérico que serviría igual para cualquier tema.\n' +
-    '- El Desarrollo de cada Secuencia Didáctica es UN bloque breve (ver REGLA OBLIGATORIA de extensión ' +
-    'arriba: máximo 3 acciones concretas, ~50 a 80 palabras) — no un listado de todas sus sesiones/horas de ' +
-    'clase una por una; si la secuencia dura varias sesiones, el Desarrollo resume la actividad central, no ' +
-    'cada hora por separado.\n\n' +
+    'del periodo y el contenido cubierto deben cuadrar entre sí — no propongas una fracción de plan para un ' +
+    'periodo de varios días o semanas.\n' +
+    '- Nada de lo que escribas es de adorno: cada Secuencia, actividad, recurso, evidencia y evaluación debe ' +
+    'conectarse con contenido real del programa de estudios (o del manual/fuente que haga sus veces) — tu ' +
+    'papel es ser el PEGAMENTO que conecta temas, tiempo y actividades entre sí, siempre anclado a esa fuente, ' +
+    'no relleno genérico que serviría igual para cualquier tema. Si una fuente no tiene información suficiente ' +
+    'para algún campo, usa la frase exacta "Información no disponible en las fuentes proporcionadas." en vez ' +
+    'de inventar contenido.\n\n' +
     'Responde SOLO con este JSON:\n' +
     '{\n' +
-    '  "celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 4000 caracteres — nunca ' +
-    'lo cortes a media palabra ni a media idea>"}],\n' +
-    '  "aperturaCelda": {"f": <fila de la celda de contenido de Apertura>, "c": <columna>, "t": <tabla o ' +
-    'null>},\n' +
-    '  "desarrolloCelda": {"f": <fila de la celda de contenido de Desarrollo>, "c": <columna>, "t": <tabla o ' +
-    'null>},\n' +
-    '  "cierreCelda": {"f": <fila de la celda de contenido de Cierre>, "c": <columna>, "t": <tabla o null>},\n' +
     '  "bloquesTematicos": <número entero — cuántos bloques temáticos distintos del programa decidiste que ' +
     'cubre este parcial, ANTES de escribir las secuencias>,\n' +
     '  "secuenciasDidacticas": [\n' +
-    '    {"apertura": "<texto de Apertura de la Secuencia Didáctica 1>", "desarrollo": "<texto de Desarrollo ' +
-    'de la Secuencia Didáctica 1, máx 4000 caracteres>", "cierre": "<texto de Cierre de la Secuencia Didáctica ' +
-    '1>"},\n' +
-    '    {"apertura": "<Secuencia Didáctica 2...>", "desarrollo": "...", "cierre": "..."}\n' +
+    `    {${camposJSON}},\n` +
+    '    { ... una entrada más por cada Secuencia Didáctica adicional ... }\n' +
     '  ]\n' +
     '}\n' +
-    '"celdas" lleva TODO lo demás de la plantilla (nunca Apertura/Desarrollo/Cierre, esos van solo en ' +
-    '"secuenciasDidacticas"). "bloquesTematicos" y "secuenciasDidacticas" deben tener el MISMO número de ' +
-    'elementos — es tu propio conteo, así que tiene que cuadrar; si no cuadra, es que te faltó una secuencia. ' +
-    'Si la plantilla no separa Apertura/Desarrollo/Cierre en celdas propias (no aplica a este formato), omite ' +
-    '"aperturaCelda"/"desarrolloCelda"/"cierreCelda"/"bloquesTematicos"/"secuenciasDidacticas" y responde solo ' +
-    '"celdas".'
+    'Cada campo de texto: máximo 2000 caracteres, nunca lo cortes a media palabra ni a media idea. ' +
+    '"bloquesTematicos" y "secuenciasDidacticas" deben tener el MISMO número de elementos — es tu propio ' +
+    'conteo, así que tiene que cuadrar; si no cuadra, es que te faltó una secuencia.'
   )
 }
 
-// Prompt de corrección cuando la propia IA reportó más bloques temáticos de
-// los que entregó en "secuenciasDidacticas" — no es solo repetir la
-// instrucción con otras palabras, es señalarle SU PROPIA inconsistencia
-// (Kike, 16-ago-2026: "dale otra vuelta de una vez, y asegúrala" — el
-// refuerzo de texto en el prompt no basta como garantía, hace falta un
-// reintento automático que de verdad corrija el resultado).
-function promptCorreccionSecuencias(promptOriginal, bloques, entregadas) {
+// Prompt de corrección cuando la cantidad de Secuencias entregadas no
+// cuadra con la exigida — no es solo repetir la instrucción con otras
+// palabras, es señalar la inconsistencia exacta (Kike, 16-ago-2026: "dale
+// otra vuelta de una vez, y asegúrala" — el refuerzo de texto en el prompt
+// no basta como garantía, hace falta un reintento automático que de verdad
+// corrija el resultado).
+function promptCorreccionSecuencias(promptOriginal, objetivo, entregadas) {
   return (
     promptOriginal +
-    '\n\nCORRECCIÓN OBLIGATORIA: en tu respuesta anterior a este mismo mensaje dijiste que este parcial cubre ' +
-    `${bloques} bloques temáticos ("bloquesTematicos": ${bloques}), pero solo entregaste ${entregadas} ` +
-    'elemento(s) en "secuenciasDidacticas" — eso es inconsistente, te faltaron secuencias. Vuelve a responder ' +
-    `el JSON COMPLETO (con "celdas" incluidas otra vez) con EXACTAMENTE ${bloques} elementos en ` +
-    '"secuenciasDidacticas", uno por cada bloque temático que tú mismo identificaste — no comprimas varios ' +
-    'bloques en una sola Secuencia Didáctica.'
+    `\n\nCORRECCIÓN OBLIGATORIA: se necesitan EXACTAMENTE ${objetivo} Secuencia(s) Didáctica(s) para este ` +
+    `parcial, pero tu respuesta anterior solo trajo ${entregadas} en "secuenciasDidacticas" — eso es ` +
+    `insuficiente. Vuelve a responder el JSON COMPLETO con EXACTAMENTE ${objetivo} elementos en ` +
+    '"secuenciasDidacticas", sin comprimir contenido de varias Secuencias en una sola.'
   )
 }
 
-// Ejecuta una llamada a la IA por CADA parcial real, contra la MISMA
-// cuadrícula de plantilla — de ahí sale un documento distinto por parcial
-// (mismo layout, contenido propio). Compartido por la Planeación genérica
-// (plantilla bundleada) y la del formato oficial (plantilla del docente).
-async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
+// Ejecuta una llamada a la IA por CADA parcial real — de ahí sale una
+// Planeación distinta por parcial, no una sola con todo mezclado (decisión
+// de Kike, 15-ago-2026).
+async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSolicitada }) {
   const Anthropic = require('@anthropic-ai/sdk')
   const client = new Anthropic({ apiKey })
-  const vacias = new Set(ctx.celdas.filter((c) => !c.x).map((c) => `${c.t ?? ''}_${c.f}_${c.c}`))
   const porParcial = []
   let tokensEntrada = 0, tokensSalida = 0, ms = 0
-  let reintentos = 0 // cuántos parciales necesitaron el reintento de secuencias — se cobra aparte (ver unidadesReales)
+  let reintentos = 0 // cuántos parciales necesitaron el reintento de cantidad — se cobra aparte (ver unidadesReales)
+
+  const limpiarCampo = (s) => String(s || '').trim().slice(0, 2000)
+  const limpiarSecuencia = (s) => {
+    const out = {}
+    for (const { clave } of CAMPOS_SECUENCIA) out[clave] = limpiarCampo(s?.[clave])
+    return out
+  }
 
   for (const parcialCtx of ctx.parciales) {
-    // El presupuesto de tokens de salida estaba calculado para celdas cortas
-    // (tope viejo de 400 caracteres) — al subir el tope a 4000 (Kike,
-    // 15-ago-2026: "aqui no debes de cortar el texto"), la respuesta se
-    // cortaba a medio JSON en cuanto había varias celdas largas (ver
-    // SyntaxError "Unterminated string in JSON" en producción). Se calcula
-    // ahora sobre las celdas VACÍAS (las únicas que la IA de verdad llena),
-    // con un presupuesto por celda que alcanza para su contenido largo.
-    const maxTokens = Math.min(16000, 1500 + vacias.size * 350)
-    const promptBase = promptPlantillaParcial(ctx, parcialCtx)
+    // Presupuesto de tokens por Secuencia esperada — si el docente pidió un
+    // número, se usa ese; si no, un estimado generoso por si la IA decide
+    // varias.
+    const secuenciasEstimadas = cantidadSolicitada || 4
+    const maxTokens = Math.min(16000, 800 + secuenciasEstimadas * 900)
+    const promptBase = promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada)
     let { datos, interno } = await pedirJSON({
       client, modelo, maxTokens, system: PLANEACION_SISTEMA, prompt: promptBase,
     })
@@ -2868,76 +2806,41 @@ async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
     tokensSalida += interno.tokensSalida || 0
     ms += interno.ms || 0
 
-    // Aseguramiento real (no solo instrucción de texto): si la propia IA
-    // reportó más bloques temáticos que Secuencias Didácticas entregadas,
-    // es una inconsistencia de SU respuesta, no una suposición nuestra —
-    // se le manda UN reintento automático señalando exactamente esa
-    // inconsistencia antes de aceptar el resultado (Kike, 16-ago-2026).
+    let entregadas = Array.isArray(datos?.secuenciasDidacticas) ? datos.secuenciasDidacticas.length : 0
+    // Aseguramiento real (no solo instrucción de texto): si la cantidad
+    // entregada no cuadra con lo exigido (el número que pidió el docente, o
+    // el propio conteo de bloques temáticos que reportó la IA), se manda UN
+    // reintento automático señalando exactamente esa inconsistencia antes
+    // de aceptar el resultado (Kike, 16-ago-2026).
     const bloques = Number(datos?.bloquesTematicos)
-    const entregadas = Array.isArray(datos?.secuenciasDidacticas) ? datos.secuenciasDidacticas.length : 0
-    if (Number.isFinite(bloques) && bloques > entregadas) {
+    const objetivo = cantidadSolicitada || (Number.isFinite(bloques) ? bloques : null)
+    const necesitaReintento = objetivo != null &&
+      (cantidadSolicitada ? entregadas !== objetivo : entregadas < objetivo)
+    if (necesitaReintento) {
       const reintento = await pedirJSON({
         client, modelo, maxTokens, system: PLANEACION_SISTEMA,
-        prompt: promptCorreccionSecuencias(promptBase, bloques, entregadas),
+        prompt: promptCorreccionSecuencias(promptBase, objetivo, entregadas),
       })
       tokensEntrada += reintento.interno.tokensEntrada || 0
       tokensSalida += reintento.interno.tokensSalida || 0
       ms += reintento.interno.ms || 0
-      // Solo se usa el reintento si de verdad corrigió (entregó más
-      // secuencias que antes) — si no, se sigue con la respuesta original
-      // en vez de arriesgar un JSON peor o vacío.
       const entregadasReintento = Array.isArray(reintento.datos?.secuenciasDidacticas) ? reintento.datos.secuenciasDidacticas.length : 0
-      if (entregadasReintento > entregadas) { datos = reintento.datos; reintentos++ }
-    }
-    // Blindaje: solo se aceptan celdas que de verdad estaban VACÍAS en la
-    // plantilla original — si la IA "corrige" o repite una celda con
-    // encabezado (con texto), se descarta aquí, sin importar qué haya
-    // contestado. Así el logo/encabezados de la escuela nunca se tocan
-    // aunque el modelo se equivoque.
-    const limpiar = (s) => String(s || '').trim().slice(0, 4000)
-    const celdasCrudas = Array.isArray(datos?.celdas) ? datos.celdas : []
-    const celdas = []
-    for (const c of celdasCrudas) {
-      const f = Number(c?.f), col = Number(c?.c)
-      const t = c?.t == null ? null : Number(c.t)
-      const x = limpiar(c?.x)
-      if (!x || !Number.isFinite(f) || !Number.isFinite(col)) continue
-      if (!vacias.has(`${t ?? ''}_${f}_${col}`)) continue
-      celdas.push({ f, c: col, t, x })
-    }
-    // Apertura/Desarrollo/Cierre con varias Secuencias Didácticas: en vez de
-    // confiar en que la IA marque cada una de las tres celdas por separado
-    // como array (salía inconsistente — a veces solo Apertura, Desarrollo y
-    // Cierre se quedaban como un solo bloque, ver bug real 16-ago-2026: "me
-    // estás dando solo una secuencia"), la IA entrega UNA lista única
-    // "secuenciasDidacticas" con las tres partes de cada secuencia juntas,
-    // más la posición de cada una de las tres celdas — así las tres SIEMPRE
-    // salen con la MISMA cantidad de elementos, por construcción. El
-    // escritor de la plantilla multiplica cada fila tantas veces como
-    // elementos tenga su array (ver duplicarFilaWord en plantillaOficial.js).
-    const secuencias = Array.isArray(datos?.secuenciasDidacticas) ? datos.secuenciasDidacticas : []
-    const celdaValida = (pos) => {
-      const f = Number(pos?.f), col = Number(pos?.c)
-      const t = pos?.t == null ? null : Number(pos.t)
-      if (!Number.isFinite(f) || !Number.isFinite(col)) return null
-      if (!vacias.has(`${t ?? ''}_${f}_${col}`)) return null
-      return { f, c: col, t }
-    }
-    if (secuencias.length) {
-      for (const [campo, posCampo] of [['apertura', 'aperturaCelda'], ['desarrollo', 'desarrolloCelda'], ['cierre', 'cierreCelda']]) {
-        const pos = celdaValida(datos?.[posCampo])
-        if (!pos) continue
-        // Sin filtrar vacíos: las tres celdas (apertura/desarrollo/cierre)
-        // deben mantener la MISMA cantidad de elementos y en el MISMO
-        // orden — el elemento i de cada una es la Secuencia Didáctica i+1.
-        // Un string vacío en una posición simplemente no escribe esa celda
-        // (ver llenarPlantillaWord), pero la fila de esa secuencia se sigue
-        // creando igual con lo que sí venga en las otras dos.
-        const textos = secuencias.map((s) => limpiar(s?.[campo]))
-        if (textos.some(Boolean)) celdas.push({ ...pos, x: textos })
+      // Solo se usa el reintento si de verdad mejoró (más cerca del
+      // objetivo que antes) — si no, se sigue con la respuesta original en
+      // vez de arriesgar un JSON peor o vacío.
+      if (Math.abs(entregadasReintento - objetivo) < Math.abs(entregadas - objetivo)) {
+        datos = reintento.datos
+        entregadas = entregadasReintento
+        reintentos++
       }
     }
-    porParcial.push({ numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, celdas })
+
+    const secuenciasCrudas = Array.isArray(datos?.secuenciasDidacticas) ? datos.secuenciasDidacticas : []
+    const secuencias = secuenciasCrudas
+      .filter((s) => s && Object.values(s).some((v) => String(v || '').trim()))
+      .map((s) => ({ id: crypto.randomUUID(), ...limpiarSecuencia(s) }))
+
+    porParcial.push({ numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, secuencias })
   }
 
   return { porParcial, reintentos, interno: { modelo, tokensEntrada, tokensSalida, ms } }
@@ -2945,12 +2848,14 @@ async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
 
 async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
-  const { porParcial, reintentos, interno } = await llenarPlantillaPorParciales({ ctx, modelo, apiKey })
+  const { porParcial, reintentos, interno } = await generarSecuenciasPorParciales({
+    ctx, modelo, apiKey, cantidadSolicitada: ctx.cantidadSolicitada,
+  })
 
-  // Regla de no invención (T.7): si NINGÚN parcial produjo una celda
+  // Regla de no invención (T.7): si NINGÚN parcial produjo una Secuencia
   // aprovechable, esto NO se cobra (cae al catch del callable, que
   // reembolsa la reserva).
-  if (!porParcial.some((p) => p.celdas.length)) {
+  if (!porParcial.some((p) => p.secuencias.length)) {
     throw new Error('El asistente de IA no generó una planeación utilizable')
   }
 
@@ -2962,25 +2867,18 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   // recuperarla (incidente de Kike, 15-ago-2026). Al escribir aquí, el
   // listener onSnapshot de PlaneacionInicialSection.jsx la recibe en cuanto
   // se guarda, sin depender de que la llamada del cliente siga viva.
-  const celdasOriginales = ctx.celdas.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x, colSpan: c.s || 1 }))
-  const porParcialGuardado = porParcial.map((p) => ({
-    numero: p.numero, periodo: p.periodo,
-    celdasPropuestas: p.celdas.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x })),
-  }))
   await getFirestore().collection('subjects').doc(String(params.subjectId || '').trim())
     .collection('planeacionesIA').add({
-      celdasOriginales,
-      porParcial: porParcialGuardado,
-      tipo: ctx.plantilla?.tipo || 'docx',
-      nombreOriginal: ctx.plantilla?.nombre || 'Planeación didáctica.docx',
+      porParcial,
+      cantidadSolicitada: ctx.cantidadSolicitada || null,
       docenteId: params.__uid,
       generadoEn: FieldValue.serverTimestamp(),
     })
 
   return {
-    resultado: { porParcial: porParcialGuardado },
+    resultado: { porParcial },
     // Tarifa fija (20 créditos) + 1 unidad extra por cada parcial que
-    // necesitó el reintento de secuencias (ver llenarPlantillaPorParciales)
+    // necesitó el reintento de cantidad (ver generarSecuenciasPorParciales)
     // — ese reintento duplica el gasto real de tokens de ese parcial, así
     // que se refleja en lo que se cobra (Kike, 16-ago-2026: "cóbrale más
     // créditos al usuario por hacerla").
@@ -3142,5 +3040,5 @@ exports._pruebas = {
   analisisDiagnosticoMasReciente,
   comentariosGrupoATexto, autoanalisisDocenteATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
-  promptPlantillaParcial, PLANEACION_OFICIAL_MAX_CELDAS,
+  promptSecuenciasParcial, CAMPOS_SECUENCIA,
 }
