@@ -781,11 +781,15 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
     }
   }
 
-  // Rellena la plantilla real con las celdas aceptadas (mismo insumo que
-  // descargarOficial) y la renderiza con docx-preview — se ve el documento
-  // TAL CUAL, con sus logos e imágenes reales, no una tabla nuestra. Solo
-  // Word: no hay forma confiable de reproducir un .xlsx (con sus imágenes y
-  // formato) fiel en el navegador — ahí solo se avisa que hay que descargar.
+  // Rellena la plantilla real con el contenido actual — lo aceptado si ya
+  // se aceptó, si no lo que esté en edición (o lo propuesto por la IA si
+  // todavía no se toca nada) — y la renderiza con docx-preview: se ve el
+  // documento TAL CUAL, con sus logos e imágenes reales, no una tabla
+  // nuestra. Disponible desde que se genera, no solo tras aceptar (pedido
+  // de Kike, 15-ago-2026) — así se puede revisar cómo se vería ANTES de
+  // decidir. Solo Word: no hay forma confiable de reproducir un .xlsx (con
+  // sus imágenes y formato) fiel en el navegador — ahí solo se avisa que
+  // hay que descargar.
   async function abrirVistaPreviaOficial() {
     if (!actualOficial || !plantillaOficial?.url) return
     const tipo = actualOficial.tipo || plantillaOficial.tipo
@@ -798,7 +802,9 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
     try {
       const resPlantilla = await fetch(plantillaOficial.url)
       const bufferOriginal = await resPlantilla.arrayBuffer()
-      const celdasFinal = celdasOficialAceptadas || actualOficial.celdasPropuestas
+      const celdasFinal = aceptadaOficial
+        ? (celdasOficialAceptadas || actualOficial.celdasPropuestas)
+        : (edicionOficial || actualOficial.celdasPropuestas)
       const blob = await llenarPlantillaWord(bufferOriginal, celdasFinal)
       setBlobVistaPrevia(blob)
     } catch (err) {
@@ -996,10 +1002,10 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
                 Revisar la planeación inicial y aceptarla
               </button>
             )}
-            {actual && aceptada && (
+            {actual && (
               <button
                 type="button"
-                onClick={() => abrirVistaPreviaGenerica(actual, resultadoAceptado)}
+                onClick={() => abrirVistaPreviaGenerica(actual, aceptada ? resultadoAceptado : (edicion || actual.resultado))}
                 disabled={cargandoVistaPreviaGenerica}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
@@ -1043,7 +1049,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
                   Revisar la planeación inicial y aceptarla
                 </button>
               )}
-              {actualOficial && aceptadaOficial && (
+              {actualOficial && (
                 <button
                   type="button"
                   onClick={abrirVistaPreviaOficial}
