@@ -2649,11 +2649,26 @@ function celdasATexto(celdas) {
 // Planeación genérica de 9 campos, ahora aplicado también al formato
 // oficial y a la plantilla propia de la app).
 function promptPlantillaParcial(ctx, parcialCtx) {
+  const totalParciales = ctx.parciales?.length || 1
   return (
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n` +
-    `PARCIAL ${parcialCtx.numero}${parcialCtx.periodoTexto ? ` (periodo: ${parcialCtx.periodoTexto})` : ''} — ` +
+    `PARCIAL ${parcialCtx.numero} de ${totalParciales}${parcialCtx.periodoTexto ? ` (periodo: ${parcialCtx.periodoTexto})` : ''} — ` +
     'esta plantilla se llena UNA VEZ POR CADA PARCIAL: todo el contenido que propongas debe corresponder ' +
     'específicamente a este parcial, no al curso completo.\n\n' +
+    (totalParciales > 1
+      ? 'COBERTURA DEL PROGRAMA DE ESTUDIOS (obligatorio, pedido explícito de Kike, 15-ago-2026): si el docente ' +
+        'subió su programa de estudios (fuentes generales, abajo), TODO su contenido debe quedar cubierto al ' +
+        `sumar los ${totalParciales} parciales del curso — nada del programa puede quedarse sin planear en ` +
+        `ninguno. Como esta llamada es solo para el parcial ${parcialCtx.numero} de ${totalParciales} (no ves lo ` +
+        'que se generó para los demás, cada uno se decide por separado con el mismo criterio), divide el ' +
+        `programa en ${totalParciales} partes proporcionales y consecutivas por orden de aparición en el ` +
+        `programa, y cubre en ESTE parcial exactamente la parte que le corresponde a la posición ` +
+        `${parcialCtx.numero} de ${totalParciales} — ni repitas temas de partes anteriores ni te adelantes a ` +
+        'temas de partes posteriores. Esto NO significa inventar más secciones de las que trae la plantilla: si ' +
+        'solo hay una Apertura, un Desarrollo y un Cierre para el parcial (lo normal en una planeación simple), ' +
+        'ESE mismo bloque único debe abarcar, con varias actividades numeradas dentro de él, todo lo que le toca ' +
+        'a este parcial — no un fragmento chico del tema.\n\n'
+      : '') +
     (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
     (ctx.comentariosGrupoTexto ? `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (el insumo que ` +
       `más debe pesar, junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` : '') +
