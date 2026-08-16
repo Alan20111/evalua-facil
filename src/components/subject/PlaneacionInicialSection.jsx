@@ -483,8 +483,8 @@ function Planeacion({
     setEdicionAceptadaDeId(actualIdParaEdicion)
   }
 
-  const guardadoRaw = subjectPlaneacion?.planeacionBorrador?.planeacionId === actual?.id
-    ? subjectPlaneacion.planeacionBorrador.porParcial : null
+  const guardadoRaw = !!actual && subjectPlaneacion?.planeacionBorrador?.planeacionId === actual.id
+    ? subjectPlaneacion.planeacionBorrador?.porParcial : null
   const guardado = guardadoRaw?.length ? guardadoRaw : actual?.porParcial
   const sinGuardar = !!actual && JSON.stringify(edicion) !== JSON.stringify(guardado)
   const sinGuardarAceptada = aceptada && JSON.stringify(edicionAceptada) !== JSON.stringify(porParcialAceptado || [])
