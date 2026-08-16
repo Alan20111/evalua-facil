@@ -24,7 +24,7 @@ import { renderAsync as renderDocxAsync } from 'docx-preview'
 import { useSubscription } from '../../hooks/useSubscription'
 import useIsDesktop from '../../hooks/useIsDesktop'
 import CheckoutModal from '../CheckoutModal'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2, X, Monitor, Save, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2, X, Monitor, Save, AlertTriangle, Trash2, Plus } from 'lucide-react'
 
 // La plantilla genérica de la app — vacía, sin datos de ninguna escuela en
 // particular. Vive en public/ (Vite la sirve tal cual, sin procesar) para
@@ -318,37 +318,83 @@ function etiquetaColumna(celdasOriginales, tablaIndex, columna, filaCelda) {
   return mejor?.texto || null
 }
 
-// Corrige las celdas con VARIAS Secuencias Didácticas (Apertura/Desarrollo/
-// Cierre con más de una sesión) — quedan fuera de la edición directa sobre
-// el documento (ver activarEdicionDirecta) porque su posición real ya no
-// corresponde a un único <td> tras duplicarse las filas, así que sin esto
-// no había NINGUNA forma de corregirlas una vez que el resto del documento
-// sí se pudo editar directo (bug encontrado por Kike, 16-ago-2026: "aun hay
-// muchas partes que no permite editar"). Siempre visible, no solo como
-// respaldo del mapeo fallido.
-function CeldasMultiSesionEditable({ celdasOriginales, celdas, onChangeSesion }) {
-  const conSesiones = celdas
+// Corrige, agrega, elimina y reordena las Secuencias Didácticas completas
+// (Apertura/Desarrollo/Cierre con varias secuencias) — quedan fuera de la
+// edición directa sobre el documento (ver activarEdicionDirecta) porque su
+// posición real ya no corresponde a un único <td> tras duplicarse las
+// filas, así que sin esto no había NINGUNA forma de corregirlas una vez que
+// el resto del documento sí se pudo editar directo (bug encontrado por
+// Kike, 16-ago-2026: "aun hay muchas partes que no permite editar").
+// Siempre visible, no solo como respaldo del mapeo fallido.
+//
+// Cualquier celda cuyo `texto` sea un arreglo es, por construcción del
+// servidor (ver llenarPlantillaPorParciales en functions/ia.js), parte del
+// MISMO grupo sincronizado de Secuencias Didácticas — Apertura, Desarrollo y
+// Cierre siempre traen el mismo número de elementos, en el mismo orden. Por
+// eso agregar/eliminar/reordenar se aplica IGUAL a TODAS esas celdas a la
+// vez (`onCambiarGrupo`), sin necesidad de saber cuál celda es cuál campo.
+function SecuenciasDidacticasEditable({ celdasOriginales, celdas, onChangeSesion, onCambiarGrupo }) {
+  const conSecuencias = celdas
     .map((c, idx) => ({ ...c, idx }))
-    .filter((c) => Array.isArray(c.texto) && c.texto.length)
-  if (!conSesiones.length) return null
+    .filter((c) => Array.isArray(c.texto))
+  if (!conSecuencias.length) return null
+  const total = Math.max(0, ...conSecuencias.map((c) => c.texto.length))
   return (
-    <div className="mt-4 pt-3 border-t border-outline-variant space-y-3">
+    <div className="mt-4 pt-3 border-t border-outline-variant space-y-4">
       <p className="text-xs font-semibold text-amber-700">
-        Estas celdas tienen una Secuencia Didáctica por Sesión — corrígelas aquí, sesión por sesión:
+        Secuencias Didácticas — corrige, agrega, elimina o reordena las que hagan falta:
       </p>
-      {conSesiones.map((c) => (
-        <div key={c.idx} className="space-y-1.5">
-          <p className="text-xs font-medium text-on-surface">
-            {etiquetaColumna(celdasOriginales, c.tablaIndex, c.columna, c.fila) || `Celda (fila ${c.fila}, columna ${c.columna})`}
-          </p>
-          {c.texto.map((linea, i) => (
-            <div key={i} className="flex items-start gap-2">
-              <span className="text-xs text-muted mt-2 flex-shrink-0 w-16">Sesión {i + 1}:</span>
-              <CeldaEditable value={linea} onChange={(v) => onChangeSesion(c.idx, i, v)} />
+      {Array.from({ length: total }, (_, i) => (
+        <div key={i} className="p-2.5 rounded border border-outline-variant space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-bold text-on-surface">Secuencia Didáctica {i + 1}</p>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => onCambiarGrupo('mover', i, -1)}
+                disabled={i === 0}
+                aria-label="Mover antes"
+                className="p-1 rounded text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface disabled:opacity-30"
+              >
+                <ChevronUp size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onCambiarGrupo('mover', i, 1)}
+                disabled={i === total - 1}
+                aria-label="Mover después"
+                className="p-1 rounded text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface disabled:opacity-30"
+              >
+                <ChevronDown size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onCambiarGrupo('eliminar', i)}
+                disabled={total <= 1}
+                aria-label="Eliminar esta Secuencia Didáctica"
+                className="p-1 rounded text-red-600 hover:bg-red-50 disabled:opacity-30"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+          {conSecuencias.map((c) => (
+            <div key={c.idx} className="space-y-1">
+              <p className="text-xs font-medium text-on-surface">
+                {etiquetaColumna(celdasOriginales, c.tablaIndex, c.columna, c.fila) || `Celda (fila ${c.fila}, columna ${c.columna})`}
+              </p>
+              <CeldaEditable value={c.texto[i] || ''} onChange={(v) => onChangeSesion(c.idx, i, v)} />
             </div>
           ))}
         </div>
       ))}
+      <button
+        type="button"
+        onClick={() => onCambiarGrupo('agregar')}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)]"
+      >
+        <Plus size={14} /> Agregar Secuencia Didáctica
+      </button>
     </div>
   )
 }
@@ -945,13 +991,39 @@ function FormatoSection({
   }
 
   // Igual que actualizarCelda, pero para una celda con VARIAS Secuencias
-  // Didácticas (texto es un array, una entrada por sesión) — ver
-  // CeldasMultiSesionEditable.
-  function actualizarCeldaSesion(idx, sesionIdx, valor) {
+  // Didácticas (texto es un array, una entrada por Secuencia) — ver
+  // SecuenciasDidacticasEditable.
+  function actualizarCeldaSesion(idx, secuenciaIdx, valor) {
     const actualizador = (prev) => prev.map((p) => (
       p.numero !== parcialActivo ? p : {
         ...p,
-        celdas: p.celdas.map((x, j) => (j === idx ? { ...x, texto: x.texto.map((t, k) => (k === sesionIdx ? valor : t)) } : x)),
+        celdas: p.celdas.map((x, j) => (j === idx ? { ...x, texto: x.texto.map((t, k) => (k === secuenciaIdx ? valor : t)) } : x)),
+      }
+    ))
+    if (aceptada) setEdicionAceptada(actualizador)
+    else setEdicion(actualizador)
+  }
+
+  // Agregar/eliminar/mover una Secuencia Didáctica COMPLETA — se aplica a
+  // TODAS las celdas cuyo texto sea un arreglo a la vez (Apertura, Desarrollo,
+  // Cierre...), para que nunca queden desincronizadas en largo u orden.
+  function cambiarGrupoSecuencias(accion, indice, direccion) {
+    const actualizador = (prev) => prev.map((p) => (
+      p.numero !== parcialActivo ? p : {
+        ...p,
+        celdas: p.celdas.map((x) => {
+          if (!Array.isArray(x.texto)) return x
+          if (accion === 'agregar') return { ...x, texto: [...x.texto, ''] }
+          if (accion === 'eliminar') return { ...x, texto: x.texto.filter((_, k) => k !== indice) }
+          if (accion === 'mover') {
+            const destino = indice + direccion
+            if (destino < 0 || destino >= x.texto.length) return x
+            const texto = [...x.texto]
+            ;[texto[indice], texto[destino]] = [texto[destino], texto[indice]]
+            return { ...x, texto }
+          }
+          return x
+        }),
       }
     ))
     if (aceptada) setEdicionAceptada(actualizador)
@@ -1113,10 +1185,11 @@ function FormatoSection({
             </div>
           )}
           {isDesktop && !(cargandoVistaPrevia && !blobVistaPrevia) && (
-            <CeldasMultiSesionEditable
+            <SecuenciasDidacticasEditable
               celdasOriginales={actual?.celdasOriginales || []}
               celdas={celdasEditablesActivo}
               onChangeSesion={actualizarCeldaSesion}
+              onCambiarGrupo={cambiarGrupoSecuencias}
             />
           )}
         </RevisionPantallaCompleta>
