@@ -831,7 +831,7 @@ function FormatoSection({
             className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50 disabled:opacity-60"
           >
             {cargandoVistaPrevia ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
-            Revisar la planeación inicial y aceptarla
+            Vista previa y edición
           </button>
         )}
         {actual && aceptada && (
