@@ -226,20 +226,37 @@ function escribirEnCelda(doc, tablaIndex, filaIdx, columnaLogica, texto) {
   const tc = celdaEnColumnaLogica(tr, columnaLogica)
   if (!tc) return false
 
-  const runs = tc.getElementsByTagNameNS(W_NS, 't')
-  if (runs.length > 0) {
-    // Se limpian los demás <w:t> de la celda (si el texto original estaba
-    // repartido en varios runs) y se deja el texto nuevo en el primero.
-    runs[0].textContent = texto
-    for (let i = 1; i < runs.length; i++) runs[i].textContent = ''
-  } else {
-    // Celda vacía: se arma un <w:p><w:r><w:t> mínimo con el texto.
-    const p = doc.createElementNS(W_NS, 'w:p')
-    const r = doc.createElementNS(W_NS, 'w:r')
+  // Texto con varios renglones (p. ej. una viñeta por Sesión) necesita
+  // <w:br/> reales entre líneas — un "\n" suelto dentro de <w:t> lo ignora
+  // Word y todo sale corrido en una sola línea (Kike lo detectó en
+  // producción, 15-ago-2026: "usa una viñeta por cada Sesión"). Se arma UN
+  // <w:r> con <w:t>/<w:br/> alternados por cada línea.
+  const lineas = texto.split('\n')
+  const runNuevo = doc.createElementNS(W_NS, 'w:r')
+  lineas.forEach((linea, i) => {
+    if (i > 0) runNuevo.appendChild(doc.createElementNS(W_NS, 'w:br'))
     const t = doc.createElementNS(W_NS, 'w:t')
-    t.textContent = texto
-    r.appendChild(t)
-    p.appendChild(r)
+    t.setAttribute('xml:space', 'preserve')
+    t.textContent = linea
+    runNuevo.appendChild(t)
+  })
+
+  const primerRun = tc.getElementsByTagNameNS(W_NS, 'r')[0]
+  if (primerRun) {
+    // Se reemplaza el primer <w:r> (conserva su <w:rPr> de formato si lo
+    // copiamos) y se limpian los <w:t> de los demás runs de la celda para
+    // no dejar texto viejo repetido.
+    const rPr = primerRun.getElementsByTagNameNS(W_NS, 'rPr')[0]
+    if (rPr) runNuevo.insertBefore(rPr.cloneNode(true), runNuevo.firstChild)
+    primerRun.parentNode.replaceChild(runNuevo, primerRun)
+    const runsRestantes = tc.getElementsByTagNameNS(W_NS, 't')
+    for (let i = 0; i < runsRestantes.length; i++) {
+      if (!runNuevo.contains(runsRestantes[i])) runsRestantes[i].textContent = ''
+    }
+  } else {
+    // Celda vacía: se arma un <w:p><w:r> mínimo con el texto.
+    const p = doc.createElementNS(W_NS, 'w:p')
+    p.appendChild(runNuevo)
     tc.appendChild(p)
   }
   return true
