@@ -22,7 +22,7 @@ import { renderAsync as renderDocxAsync } from 'docx-preview'
 import { useSubscription } from '../../hooks/useSubscription'
 import useIsDesktop from '../../hooks/useIsDesktop'
 import CheckoutModal from '../CheckoutModal'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2, X, Monitor, Save } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 
 // Nombres de columnas para la vista previa en pantalla — mismo orden y
 // etiquetas que planeacionExcel.js, pero en tarjetas apiladas (no tabla),
@@ -389,6 +389,14 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   const [confirmarAceptarOficial, setConfirmarAceptarOficial] = useState(false)
   const [guardandoOficial, setGuardandoOficial] = useState(false)
   const [descargandoOficial, setDescargandoOficial] = useState(false)
+  // Deshacer la aceptación (pedido de Kike, 15-ago-2026): antes, una vez
+  // aceptada no había forma de volver atrás desde la pantalla. Esto NO borra
+  // la bitácora (planeacionesIA/planeacionesOficialesIA son inmutables,
+  // firestore.rules lo impide a propósito) — solo quita la aceptación y
+  // cualquier borrador, para que los botones "Generar de nuevo" reaparezcan
+  // y el docente arranque una Planeación Inicial nueva y editable.
+  const [confirmarReiniciar, setConfirmarReiniciar] = useState(false)
+  const [reiniciando, setReiniciando] = useState(false)
   const isDesktop = useIsDesktop()
   // Único requisito indispensable: fuentes generales (programa de estudios) —
   // el Perfil IA ya es obligatorio para llegar a esta pestaña (se oculta
@@ -687,6 +695,28 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
     }
   }
 
+  // Quita la aceptación (cualquiera de las dos, la que esté) y sus
+  // borradores — irreversible: no hay forma de recuperar cuál era la
+  // aceptada una vez hecho esto. Los botones "Generar de nuevo" de arriba
+  // reaparecen solos en cuanto `aceptadaInicial` vuelve a false.
+  async function reiniciarPlaneacionInicial() {
+    setReiniciando(true)
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), {
+        planeacionAceptada: null,
+        planeacionBorrador: null,
+        planeacionOficialAceptada: null,
+        planeacionOficialBorrador: null,
+      })
+      toast('Planeación Inicial eliminada — ya puedes generar una nueva')
+    } catch (err) {
+      toast('No se pudo eliminar: ' + err.message, 'error')
+    } finally {
+      setReiniciando(false)
+      setConfirmarReiniciar(false)
+    }
+  }
+
   // Se descarga cualquier cantidad de veces después de aceptar (no solo la
   // primera) — vuelve a bajar la plantilla en blanco y la llena con las
   // celdas que quedaron aceptadas, nunca con lo que la IA propuso sin
@@ -965,6 +995,16 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
               >
                 <ThumbsUp size={14} />
                 Revisar la planeación inicial y aceptarla
+              </button>
+            )}
+            {aceptadaInicial && (
+              <button
+                type="button"
+                onClick={() => setConfirmarReiniciar(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-red-300 text-red-700 text-sm hover:bg-red-50"
+              >
+                <AlertTriangle size={14} />
+                Generar de nuevo
               </button>
             )}
           </div>
@@ -1292,6 +1332,18 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
           busy={aceptandoOficial}
           onConfirm={aceptarOficial}
           onCancel={() => { if (!aceptandoOficial) setConfirmarAceptarOficial(false) }}
+        />
+      )}
+
+      {confirmarReiniciar && (
+        <ConfirmModal
+          title="¿Generar una Planeación Inicial nueva?"
+          message="Tu Planeación Inicial aceptada se eliminará de forma automática e irreversible — no se puede recuperar después. En su lugar podrás generar y editar una completamente nueva, en cualquiera de los dos formatos."
+          confirmLabel="Eliminar y empezar de nuevo"
+          confirmingLabel="Eliminando…"
+          busy={reiniciando}
+          onConfirm={reiniciarPlaneacionInicial}
+          onCancel={() => { if (!reiniciando) setConfirmarReiniciar(false) }}
         />
       )}
 
