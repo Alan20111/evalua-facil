@@ -1,193 +1,23 @@
-// Plantilla oficial de la escuela para la Planeación Didáctica Inicial: el
-// docente sube el formato REAL de su plantel (Word o Excel, vacío, con su
-// logo) y la IA decide sola qué casillas llenar y con qué — sin que el
-// docente tenga que marcar nada a mano. Ver PlantillaOficialSection.jsx
-// (subida) y PlaneacionInicialSection.jsx (generación).
+// Plantilla Word propia de Evalúa Fácil para la Planeación Didáctica
+// Inicial (decisión de Kike, 16-ago-2026: ya no depende de ningún formato
+// institucional que el docente tenga que subir — ver PlaneacionInicialSection.jsx).
 //
 // Cómo funciona: se lee la plantilla completa como cuadrícula de texto
-// (leerCuadriculaExcel / leerTablasWord) y esa cuadrícula se manda tal cual
-// a la IA junto con el contexto pedagógico — la IA ve los encabezados
-// ("Semana", "Tema", "Actividad"...) y decide qué celdas están vacías y
-// deben llenarse, y devuelve una lista de {fila, columna, texto} (o
-// {tablaIndex, fila, columna, texto} en Word) que se escribe DIRECTO en el
-// archivo original — logo, formato y todo lo demás quedan intactos porque
-// solo se tocan esas celdas.
+// (leerTablasWord) y esa cuadrícula se manda tal cual a la IA junto con el
+// contexto pedagógico — la IA ve los encabezados ("Semana", "Tema",
+// "Actividad"...) y decide qué celdas están vacías y deben llenarse, y
+// devuelve una lista de {tablaIndex, fila, columna, texto} que se escribe
+// DIRECTO en el archivo original — logo, formato y todo lo demás quedan
+// intactos porque solo se tocan esas celdas.
 //
 // Word no tiene "celdas" fuera de una tabla — solo se puede escribir dentro
-// de una tabla (la inmensa mayoría de formatos institucionales de
-// planeación son tablas); texto suelto del documento no se toca.
+// de una tabla; texto suelto del documento no se toca.
 
-// Las librerías son pesadas y solo las usa este apartado — se cargan
-// dinámicamente (mismo patrón que excel.js/planeacionExcel.js con
-// ExcelJS) para no engordar el bundle principal de la asignatura, que se
-// carga para TODOS los docentes aunque la mayoría no use plantilla oficial.
-async function cargarExcelJS() {
-  return (await import('exceljs')).default
-}
+// La librería es pesada y solo la usa este apartado — se carga
+// dinámicamente para no engordar el bundle principal de la asignatura, que
+// se carga para TODOS los docentes aunque no todos generen una Planeación.
 async function cargarPizZip() {
   return (await import('pizzip')).default
-}
-
-export const TIPOS_PLANTILLA = { xlsx: 'xlsx', docx: 'docx' }
-
-export function tipoDePlantilla(nombreArchivo) {
-  const ext = (nombreArchivo || '').split('.').pop().toLowerCase()
-  if (ext === 'xlsx' || ext === 'xls') return TIPOS_PLANTILLA.xlsx
-  if (ext === 'docx' || ext === 'doc') return TIPOS_PLANTILLA.docx
-  return null
-}
-
-// Celdas combinadas (Kike, 15-ago-2026: "es el problema más común" en
-// formatos reales de escuela) — ExcelJS expone los rangos fusionados como
-// strings tipo "B2:D2" en `hoja.model.merges`, sin relación directa con
-// cada celda. Se traduce una sola vez por hoja a dos estructuras:
-// `master` (celda ancla → cuántas columnas/filas ocupa, para el colSpan
-// visual) y `slave` (el resto de celdas del rango, que se omiten de la
-// cuadrícula — ya están cubiertas por el colSpan de su ancla).
-function colLetraANumero(letras) {
-  return letras.split('').reduce((acc, ch) => acc * 26 + (ch.charCodeAt(0) - 64), 0)
-}
-
-function excelMergesInfo(hoja) {
-  const master = new Map()
-  const slave = new Set()
-  for (const rango of hoja.model?.merges || []) {
-    const [ini, fin] = rango.split(':')
-    const pIni = ini.match(/^([A-Z]+)(\d+)$/)
-    const pFin = fin.match(/^([A-Z]+)(\d+)$/)
-    if (!pIni || !pFin) continue
-    const c1 = colLetraANumero(pIni[1]), f1 = parseInt(pIni[2], 10)
-    const c2 = colLetraANumero(pFin[1]), f2 = parseInt(pFin[2], 10)
-    master.set(`${f1}_${c1}`, { colSpan: c2 - c1 + 1 })
-    for (let f = f1; f <= f2; f++) {
-      for (let c = c1; c <= c2; c++) {
-        if (f === f1 && c === c1) continue
-        slave.add(`${f}_${c}`)
-      }
-    }
-  }
-  return { master, slave }
-}
-
-// ── Excel ────────────────────────────────────────────────────────────────
-// Lee la primera hoja como cuadrícula de texto — esto es lo que la IA ve
-// para entender la estructura de la plantilla y decidir qué llenar. Las
-// celdas cubiertas por una combinada se omiten (la ancla ya trae su
-// colSpan) para no repetir la misma celda varias veces en la cuadrícula.
-export async function leerCuadriculaExcel(arrayBuffer) {
-  const ExcelJS = await cargarExcelJS()
-  const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(arrayBuffer)
-  const hoja = wb.worksheets[0]
-  if (!hoja) throw new Error('El archivo no tiene ninguna hoja')
-  const { master, slave } = excelMergesInfo(hoja)
-  const filas = []
-  const maxFila = Math.min(hoja.rowCount, 200)
-  const maxCol = Math.min(hoja.columnCount, 60)
-  for (let f = 1; f <= maxFila; f++) {
-    const fila = []
-    for (let c = 1; c <= maxCol; c++) {
-      const clave = `${f}_${c}`
-      if (slave.has(clave)) continue
-      const celda = hoja.getRow(f).getCell(c)
-      fila.push({ texto: celda.text || '', fila: f, columna: c, colSpan: master.get(clave)?.colSpan || 1 })
-    }
-    filas.push(fila)
-  }
-  return { hojaNombre: hoja.name, filas }
-}
-
-// Abre el archivo ORIGINAL (sin modificar) y escribe cada celda que la IA
-// decidió llenar — conserva formato, logo y todo lo demás intacto, porque
-// solo se tocan esas celdas. Si la celda de destino es parte de un rango
-// combinado, ExcelJS solo acepta el valor en la celda ancla (`.master`) —
-// escribir en cualquier otra del rango se pierde o revienta, así que
-// siempre se apunta a la ancla.
-export async function llenarPlantillaExcel(arrayBuffer, celdas) {
-  const ExcelJS = await cargarExcelJS()
-  const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(arrayBuffer)
-  const hoja = wb.worksheets[0]
-
-  const normales = celdas.filter((c) => !Array.isArray(c.texto))
-  const conSecuencias = celdas.filter((c) => Array.isArray(c.texto) && c.texto.length)
-
-  // Celdas normales primero, con los números de fila ORIGINALES — antes de
-  // duplicar ninguna fila (mismo motivo que en Word, ver llenarPlantillaWord).
-  for (const c of normales) {
-    if (!c.texto) continue
-    const celda = hoja.getRow(c.fila).getCell(c.columna)
-    const destino = celda.master || celda
-    destino.value = c.texto
-  }
-
-  // Apertura/Desarrollo/Cierre con varias Secuencias Didácticas: igual que
-  // en Word (ver llenarPlantillaWord/duplicarBloqueWord), NO basta con
-  // duplicar cada fila por separado — si Apertura, Desarrollo y Cierre son
-  // filas distintas de la hoja, duplicar cada una por su cuenta deja el
-  // documento leyéndose "Apertura [todo] / Desarrollo [todo] / Cierre
-  // [todo]" en vez de una sección completa por secuencia. Se duplica el
-  // BLOQUE de filas [inicio..fin] como una unidad, con una etiqueta
-  // "SECUENCIA DIDÁCTICA N" antes de cada copia.
-  if (conSecuencias.length) {
-    const filas = conSecuencias.map((c) => c.fila)
-    const filaInicio = Math.min(...filas)
-    const filaFin = Math.max(...filas)
-    const alto = filaFin - filaInicio + 1
-    const total = Math.max(...conSecuencias.map((c) => c.texto.length))
-    // Espacio en blanco OBLIGATORIO entre el Cierre/evaluación de una
-    // Secuencia Didáctica y el encabezado de la siguiente (Kike, 16-ago-
-    // 2026: "nunca debe pegar dos secuencias consecutivas sin espacio de
-    // separación") — 2 filas vacías antes de cada etiqueta, incluida la
-    // primera.
-    const ESPACIO = 2
-    const inicioBloque = [] // fila real donde empieza el contenido de cada secuencia, en orden
-
-    hoja.spliceRows(filaInicio, 0, ...Array(ESPACIO).fill([]))
-    const etiqueta1 = filaInicio + ESPACIO
-    hoja.spliceRows(etiqueta1, 0, [])
-    hoja.getRow(etiqueta1).getCell(1).value = 'SECUENCIA DIDÁCTICA 1'
-    hoja.getRow(etiqueta1).getCell(1).font = { bold: true }
-    inicioBloque.push(etiqueta1 + 1) // el bloque original (contenido real) sigue justo después
-    let cursor = etiqueta1 + alto // última fila del bloque original tras los corrimientos
-
-    for (let v = 1; v < total; v++) {
-      hoja.spliceRows(cursor + 1, 0, ...Array(ESPACIO).fill([]))
-      const filaEtiqueta = cursor + ESPACIO + 1
-      hoja.spliceRows(filaEtiqueta, 0, [])
-      hoja.getRow(filaEtiqueta).getCell(1).value = `SECUENCIA DIDÁCTICA ${v + 1}`
-      hoja.getRow(filaEtiqueta).getCell(1).font = { bold: true }
-
-      hoja.spliceRows(filaEtiqueta + 1, 0, ...Array(alto).fill([]))
-      const filaContenido = filaEtiqueta + 1
-      inicioBloque.push(filaContenido)
-      for (let f = 0; f < alto; f++) {
-        const origen = hoja.getRow(inicioBloque[0] + f) // siempre copia desde el primer bloque real
-        const destino = hoja.getRow(filaContenido + f)
-        destino.values = origen.values
-        destino.height = origen.height
-        origen.eachCell({ includeEmpty: true }, (celda, colNum) => {
-          destino.getCell(colNum).style = celda.style
-        })
-      }
-      cursor = filaContenido + alto - 1
-    }
-
-    for (let i = 0; i < total; i++) {
-      const filaDestino = inicioBloque[i]
-      for (const c of conSecuencias) {
-        const texto = c.texto[i]
-        if (!texto) continue
-        const offset = c.fila - filaInicio
-        const celda = hoja.getRow(filaDestino + offset).getCell(c.columna)
-        const destino = celda.master || celda
-        destino.value = texto
-      }
-    }
-  }
-
-  const buffer = await wb.xlsx.writeBuffer()
-  return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 }
 
 // ── Word ─────────────────────────────────────────────────────────────────
@@ -245,9 +75,8 @@ function esVMergeContinuacion(tc) {
   return !val || val === 'continue'
 }
 
-// Recorre document.xml y devuelve cada <w:tbl> como cuadrícula de texto —
-// mismo propósito que leerCuadriculaExcel pero para tablas de Word. Las
-// celdas que son continuación de una combinada verticalmente se saltan (no
+// Recorre document.xml y devuelve cada <w:tbl> como cuadrícula de texto.
+// Las celdas que son continuación de una combinada verticalmente se saltan (no
 // son una celda real que se pueda llenar) pero SÍ avanzan la columna
 // lógica, para que las celdas reales de esa fila queden en la posición que
 // de verdad ocupan.
@@ -461,9 +290,9 @@ export async function llenarPlantillaWord(arrayBuffer, celdas) {
   return buffer
 }
 
-// Aplana la cuadrícula (Excel: una tabla implícita; Word: varias <w:tbl>) a
-// una lista compacta — lo que de verdad se manda a la IA como estructura de
-// la plantilla, y lo que ella devuelve para llenar.
+// Aplana la cuadrícula (varias <w:tbl>) a una lista compacta — lo que de
+// verdad se manda a la IA como estructura de la plantilla, y lo que ella
+// devuelve para llenar.
 export function aplanarCuadricula(tablas) {
   return tablas.flatMap((t) => t.filas.flat())
 }

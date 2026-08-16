@@ -5,7 +5,7 @@
 // guías, material de apoyo — sigue siendo opcional/complementario) y un
 // candado duro: sin programa subido, AsistenteIATab.jsx oculta el resto de
 // la pestaña (Comentarios, Autoanálisis, Consideraciones, Diagnóstico del
-// grupo, Planeación Inicial, formato oficial de la escuela).
+// grupo, Planeación Inicial).
 import { useEffect, useRef, useState } from 'react'
 import { doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { setDoc } from '../../utils/firestoreGuard'

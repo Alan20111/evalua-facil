@@ -434,23 +434,6 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
-      // Planeación en el formato oficial de la escuela (Word/Excel que sube
-      // el docente) — misma forma exacta que planeacionesIA de arriba:
-      // bitácora append-only e inmutable, privada del docente dueño, con su
-      // propio "aceptar" en subjects/{id}.planeacionOficialAceptada
-      // (decisión de Kike, 15-ago-2026: antes era una edición de una sola
-      // sesión sin aceptar; ahora sigue el mismo ciclo que la genérica —
-      // editable hasta aceptar, congelada y visible después, descargable
-      // solo para quien pague).
-      match /planeacionesOficialesIA/{planeacionId} {
-        allow read: if request.auth != null &&
-          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
-        allow create: if docenteActivo() &&
-          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
-          request.resource.data.docenteId == request.auth.uid;
-        allow update, delete: if false;
-      }
-
       // Config del Asistente IA de la asignatura (12-ago-2026) — un solo
       // documento con "Comentarios generales del grupo y su entorno": texto
       // libre del docente (p. ej. "apenas saben sumar", "nunca han usado más

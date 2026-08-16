@@ -84,11 +84,6 @@ const TARIFAS = {
     // reutiliza planeacion_tronco/planeacion_bloque (arquitectura descartada
     // de Planeación Viva, ver más abajo).
     planeacion_didactica_inicial: 20,
-    // Planeación en el formato oficial de la escuela (apartado nuevo,
-    // 14-ago-2026): una sola llamada que llena todas las casillas que el
-    // docente marcó en su plantilla real (Word/Excel) — misma tarifa fija
-    // que la genérica, sin importar cuántas casillas tenga la plantilla.
-    planeacion_formato_oficial: 20,
     examen: 10,
     cuestionario: 10,
     analisis_apoyo: 20,
@@ -120,7 +115,6 @@ const TARIFAS = {
     diagnostico_contexto: 'Diagnóstico',
     diagnostico_conocimientos: 'Diagnóstico',
     planeacion_didactica_inicial: 'Planeación',
-    planeacion_formato_oficial: 'Planeación',
     examen: 'Evaluaciones',
     cuestionario: 'Evaluaciones',
     analisis_apoyo: 'Planeación',
@@ -162,7 +156,6 @@ const TARIFAS = {
     diagnostico_contexto: 'claude-haiku-4-5',
     diagnostico_conocimientos: 'claude-haiku-4-5',
     planeacion_didactica_inicial: 'claude-haiku-4-5',
-    planeacion_formato_oficial: 'claude-haiku-4-5',
   },
   // Datos de exhibición para el panel de créditos (sin costos internos).
   // Nombre comercial, no identificador — `pro`/`mayor` (las claves) no cambian.

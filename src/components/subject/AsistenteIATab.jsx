@@ -16,7 +16,6 @@ import AutoanalisisDocenteSection from './AutoanalisisDocenteSection'
 import ConsideracionesSection from './ConsideracionesSection'
 import DiagnosticoGrupoSection from './DiagnosticoGrupoSection'
 import PlaneacionInicialSection from './PlaneacionInicialSection'
-import PlantillaOficialSection from './PlantillaOficialSection'
 import ProgramaEstudiosSection from './ProgramaEstudiosSection'
 
 // Las fuentes generales del curso: lista + botón para subir hasta
@@ -247,10 +246,6 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
               habilitado
               existingActivitiesCountP1={existingActivitiesCountP1}
             />
-          </div>
-
-          <div className="pt-2 border-t border-outline-variant">
-            <PlantillaOficialSection subjectId={subjectId} docenteId={docenteId} />
           </div>
 
           <div>
