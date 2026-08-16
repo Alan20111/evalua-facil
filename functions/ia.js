@@ -2707,22 +2707,24 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     '- Desarrollo: máximo 3 acciones concretas, ~50 a 80 palabras.\n' +
     '- Cierre: máximo 1 o 2 acciones concretas, ~20 a 40 palabras.\n' +
     'La redacción describe QUÉ HARÁ EL DOCENTE Y/O QUÉ HARÁ EL ESTUDIANTE, de forma directa y ejecutable.\n' +
-    'DISTRIBUCIÓN DE SESIONES (Kike, 16-ago-2026): cada actividad del Desarrollo debe indicar cuántas ' +
-    'sesiones (horas de clase) requiere, de forma visible dentro de su propia descripción — "Sesiones: N" — ' +
-    'no solo en el encabezado general de la secuencia. NO asignes automáticamente 1 sesión a cada actividad ' +
-    'por costumbre: la cantidad debe ser coherente con la complejidad y duración real de esa actividad ' +
-    'específica (una actividad puede necesitar 1, 2, 3 o más sesiones; otra puede compartir sesión con otra ' +
-    'si son cortas). La SUMA de las sesiones de todas las actividades del Desarrollo de una Secuencia ' +
-    'Didáctica debe dar exactamente el total de sesiones disponibles para esa secuencia.\n' +
-    'FORMATO EN VIÑETAS (Kike, 16-ago-2026): cada actividad del Desarrollo (con su "Sesiones: N") va en su ' +
-    'propia viñeta, en su propio renglón, separadas por un salto de línea real "\\n" dentro del texto — nunca ' +
-    'las juntes en un solo párrafo corrido. Lo mismo aplica a Apertura y Cierre si tienen más de una acción.\n' +
-    'Ejemplo de tono, extensión y formato correctos (usa "\\n" real entre viñetas):\n' +
-    'Apertura: "• Preguntar qué saben los estudiantes sobre los números enteros. Sesiones: 1"\n' +
-    'Desarrollo (secuencia de 3 sesiones en total): "• Explicar el uso de números enteros con ejemplos y ' +
-    'resolver ejercicios guiados de suma y resta. Sesiones: 2\\n• Los estudiantes registran ingresos y gastos ' +
-    'de un presupuesto familiar, calculan el saldo y comparan resultados. Sesiones: 1"\n' +
-    'Cierre: "• Resolver un ejercicio final y comentar brevemente qué procedimiento utilizaron. Sesiones: 1"\n' +
+    'REGLA FUNDAMENTAL: UNA VIÑETA = UNA SESIÓN (Kike, 16-ago-2026). Dentro de Apertura, Desarrollo y Cierre, ' +
+    'cada viñeta representa EXACTAMENTE una sesión (una hora de clase) — nunca agrupes dos o más sesiones ' +
+    'dentro de la misma viñeta ni escribas "Sesiones: 2" o "Sesiones: 3" al final de un solo bloque de texto. ' +
+    'Si una actividad requiere varias sesiones, DIVÍDELA en una viñeta por cada sesión, cada una describiendo ' +
+    'específicamente qué se hace en ESA sesión (puede ser continuación de la misma actividad — no hace falta ' +
+    'que cada sesión sea un tema distinto, pero cada una es su propia viñeta):\n' +
+    '"• Sesión 1: ...\\n• Sesión 2: ...\\n• Sesión 3: ..."\n' +
+    'La cantidad de viñetas de Apertura + Desarrollo + Cierre debe coincidir EXACTAMENTE con el número total ' +
+    'de sesiones de esa Secuencia Didáctica — no asignes sesiones por costumbre, cuenta cuántas hay realmente ' +
+    'disponibles y numera las viñetas en consecuencia (p. ej. si Apertura usa la Sesión 1 y Cierre usa la ' +
+    'Sesión 4, el Desarrollo cubre las Sesiones 2 y 3, con una viñeta "Sesión 2: ..." y otra "Sesión 3: ...").\n' +
+    'Formato: viñetas separadas por un salto de línea real "\\n" dentro del texto — nunca un párrafo corrido.\n' +
+    'EJEMPLO CORRECTO (Desarrollo, secuencia con Sesiones 2 y 3):\n' +
+    '"• Sesión 2: Guiar el cálculo del presupuesto mensual de la familia, identificando ingresos, gastos y ' +
+    'balance financiero.\\n• Sesión 3: Resolver ejercicios de presupuesto familiar aplicando operaciones con ' +
+    'números enteros y verificar los resultados."\n' +
+    'EJEMPLO INCORRECTO (nunca hagas esto): "• Guiar el cálculo del presupuesto mensual de la familia y ' +
+    'resolver ejercicios de operaciones con números enteros. Sesiones: 2."\n' +
     'MECANISMO: la aplicación crea automáticamente una sección física de Apertura/Desarrollo/Cierre POR CADA ' +
     'Secuencia Didáctica — para eso, entrégalas en el campo "secuenciasDidacticas" del JSON de respuesta (ver ' +
     'formato exacto más abajo), una entrada por Secuencia Didáctica con sus tres partes juntas ("apertura", ' +
