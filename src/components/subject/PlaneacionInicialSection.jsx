@@ -992,7 +992,7 @@ function FormatoSection({
       {confirmarAceptar && (
         <ConfirmModal
           title="¿Aceptar esta Planeación Didáctica Inicial?"
-          message="Se guarda con las correcciones que hayas hecho arriba, en TODOS los parciales. A partir de aquí queda fija, con la fecha de hoy — ya no podrás editarla, pero sí verla y descargarla (si tu suscripción está pagada) las veces que quieras. Ya no podrás generar otra versión desde aquí."
+          message="Se guarda con las correcciones que hayas hecho, en TODOS los parciales. Cuando la aceptes queda fija, con la fecha de hoy — y ya no podrás editarla, pero sí verla y descargarla las veces que quieras. (si tu suscripción está pagada)."
           confirmLabel="Aceptar"
           confirmingLabel="Aceptando…"
           busy={aceptando}
