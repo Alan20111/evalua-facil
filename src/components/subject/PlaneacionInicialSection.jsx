@@ -895,7 +895,11 @@ function FormatoSection({
                 type="button"
                 onClick={guardar}
                 disabled={!sinGuardar || guardando}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)] disabled:opacity-50"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm disabled:opacity-50 ${
+                  sinGuardar
+                    ? 'bg-amber-500 text-white hover:bg-amber-600'
+                    : 'border border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
+                }`}
               >
                 {guardando ? <Spinner size="sm" /> : <Save size={14} />}
                 {sinGuardar ? 'Guardar cambios' : 'Guardado'}
