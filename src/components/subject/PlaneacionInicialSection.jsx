@@ -306,6 +306,53 @@ function activarEdicionDirecta(container, celdasOriginales, celdasEditables, onC
   return true
 }
 
+// Busca el encabezado de columna más cercano (misma tabla, misma columna,
+// una fila arriba con texto) para dar contexto a una celda multi-sesión —
+// p. ej. "Evidencias" o "Tipo de evaluación / instrumento".
+function etiquetaColumna(celdasOriginales, tablaIndex, columna, filaCelda) {
+  let mejor = null
+  for (const c of celdasOriginales || []) {
+    if (c.tablaIndex !== tablaIndex || c.columna !== columna || c.fila >= filaCelda || !c.texto) continue
+    if (!mejor || c.fila > mejor.fila) mejor = c
+  }
+  return mejor?.texto || null
+}
+
+// Corrige las celdas con VARIAS Secuencias Didácticas (Apertura/Desarrollo/
+// Cierre con más de una sesión) — quedan fuera de la edición directa sobre
+// el documento (ver activarEdicionDirecta) porque su posición real ya no
+// corresponde a un único <td> tras duplicarse las filas, así que sin esto
+// no había NINGUNA forma de corregirlas una vez que el resto del documento
+// sí se pudo editar directo (bug encontrado por Kike, 16-ago-2026: "aun hay
+// muchas partes que no permite editar"). Siempre visible, no solo como
+// respaldo del mapeo fallido.
+function CeldasMultiSesionEditable({ celdasOriginales, celdas, onChangeSesion }) {
+  const conSesiones = celdas
+    .map((c, idx) => ({ ...c, idx }))
+    .filter((c) => Array.isArray(c.texto) && c.texto.length)
+  if (!conSesiones.length) return null
+  return (
+    <div className="mt-4 pt-3 border-t border-outline-variant space-y-3">
+      <p className="text-xs font-semibold text-amber-700">
+        Estas celdas tienen una Secuencia Didáctica por Sesión — corrígelas aquí, sesión por sesión:
+      </p>
+      {conSesiones.map((c) => (
+        <div key={c.idx} className="space-y-1.5">
+          <p className="text-xs font-medium text-on-surface">
+            {etiquetaColumna(celdasOriginales, c.tablaIndex, c.columna, c.fila) || `Celda (fila ${c.fila}, columna ${c.columna})`}
+          </p>
+          {c.texto.map((linea, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <span className="text-xs text-muted mt-2 flex-shrink-0 w-16">Sesión {i + 1}:</span>
+              <CeldaEditable value={linea} onChange={(v) => onChangeSesion(c.idx, i, v)} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // A pantalla completa salvo el sidebar azul (pedido de Kike, 15-ago-2026) —
 // la revisión de la Planeación necesita todo el ancho posible para verse
 // como el documento real, no como una lista angosta. Solo en escritorio: en
@@ -887,6 +934,20 @@ function FormatoSection({
     else setEdicion(actualizador)
   }
 
+  // Igual que actualizarCelda, pero para una celda con VARIAS Secuencias
+  // Didácticas (texto es un array, una entrada por sesión) — ver
+  // CeldasMultiSesionEditable.
+  function actualizarCeldaSesion(idx, sesionIdx, valor) {
+    const actualizador = (prev) => prev.map((p) => (
+      p.numero !== parcialActivo ? p : {
+        ...p,
+        celdas: p.celdas.map((x, j) => (j === idx ? { ...x, texto: x.texto.map((t, k) => (k === sesionIdx ? valor : t)) } : x)),
+      }
+    ))
+    if (aceptada) setEdicionAceptada(actualizador)
+    else setEdicion(actualizador)
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between gap-2 mb-1">
@@ -1039,6 +1100,13 @@ function FormatoSection({
             <div className="flex justify-center overflow-x-auto">
               <div ref={vistaPreviaRef} />
             </div>
+          )}
+          {isDesktop && !(cargandoVistaPrevia && !blobVistaPrevia) && (
+            <CeldasMultiSesionEditable
+              celdasOriginales={actual?.celdasOriginales || []}
+              celdas={celdasEditablesActivo}
+              onChangeSesion={actualizarCeldaSesion}
+            />
           )}
         </RevisionPantallaCompleta>
       )}
