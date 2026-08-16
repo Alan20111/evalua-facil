@@ -24,7 +24,7 @@ import { renderAsync as renderDocxAsync } from 'docx-preview'
 import { useSubscription } from '../../hooks/useSubscription'
 import useIsDesktop from '../../hooks/useIsDesktop'
 import CheckoutModal from '../CheckoutModal'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2, X, Monitor, Save, AlertTriangle, Trash2, Plus } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 
 // La plantilla genérica de la app — vacía, sin datos de ninguna escuela en
 // particular. Vive en public/ (Vite la sirve tal cual, sin procesar) para
@@ -283,15 +283,13 @@ function leerTextoConSaltos(td) {
 // devuelve `false` sin tocar nada si el mapeo no pasó la verificación.
 function activarEdicionDirecta(container, celdasOriginales, celdasEditables, onChangeCelda) {
   const mapa = mapearCeldasDom(container)
-  if (!verificarMapeoDom(mapa, celdasOriginales)) return false
+  if (!verificarMapeoDom(mapa, celdasOriginales)) return { ok: false, mapa }
   celdasEditables.forEach((c, idx) => {
     // Apertura/Desarrollo/Cierre con varias Secuencias Didácticas generan
-    // FILAS NUEVAS reales en el documento (ver duplicarFilaWord) — la
-    // posición original (tablaIndex/fila/columna) ya no corresponde a un
-    // único <td> del render, así que no se activa edición directa ahí (se
-    // vería bien pero editarla guardaría en el lugar equivocado). Se deja
-    // de solo lectura en esta vista; para corregirla, la tabla de respaldo
-    // (TablaPlantillaEditable) sí las puede editar como texto unido.
+    // FILAS/TABLAS NUEVAS reales en el documento (ver duplicarBloqueWord) —
+    // aquí no se editan directo porque su posición se repite una vez por
+    // Secuencia; las edita `activarEdicionSecuencias`, sobre las mismas
+    // tablas clonadas, dentro del propio documento (nunca aparte).
     if (Array.isArray(c.texto)) return
     const td = mapa.get(celdaClave(c.tablaIndex, c.fila, c.columna))
     if (!td) return
@@ -303,101 +301,93 @@ function activarEdicionDirecta(container, celdasOriginales, celdasEditables, onC
     pintarTextoConSaltos(td, c.texto)
     td.addEventListener('input', () => onChangeCelda(idx, leerTextoConSaltos(td)))
   })
-  return true
+  return { ok: true, mapa }
 }
 
-// Busca el encabezado de columna más cercano (misma tabla, misma columna,
-// una fila arriba con texto) para dar contexto a una celda multi-sesión —
-// p. ej. "Evidencias" o "Tipo de evaluación / instrumento".
-function etiquetaColumna(celdasOriginales, tablaIndex, columna, filaCelda) {
-  let mejor = null
-  for (const c of celdasOriginales || []) {
-    if (c.tablaIndex !== tablaIndex || c.columna !== columna || c.fila >= filaCelda || !c.texto) continue
-    if (!mejor || c.fila > mejor.fila) mejor = c
-  }
-  return mejor?.texto || null
-}
-
-// Corrige, agrega, elimina y reordena las Secuencias Didácticas completas
-// (Apertura/Desarrollo/Cierre con varias secuencias) — quedan fuera de la
-// edición directa sobre el documento (ver activarEdicionDirecta) porque su
-// posición real ya no corresponde a un único <td> tras duplicarse las
-// filas, así que sin esto no había NINGUNA forma de corregirlas una vez que
-// el resto del documento sí se pudo editar directo (bug encontrado por
-// Kike, 16-ago-2026: "aun hay muchas partes que no permite editar").
-// Siempre visible, no solo como respaldo del mapeo fallido.
+// Edita, agrega, elimina y reordena las Secuencias Didácticas COMPLETAS
+// directamente sobre el documento renderizado — nunca en un panel aparte
+// (regla permanente de Kike, 16-ago-2026: "las Secuencias Didácticas deben
+// formar parte de la Planeación", "nunca vuelvas a crear una sección
+// independiente debajo del documento").
 //
-// Cualquier celda cuyo `texto` sea un arreglo es, por construcción del
-// servidor (ver llenarPlantillaPorParciales en functions/ia.js), parte del
-// MISMO grupo sincronizado de Secuencias Didácticas — Apertura, Desarrollo y
-// Cierre siempre traen el mismo número de elementos, en el mismo orden. Por
-// eso agregar/eliminar/reordenar se aplica IGUAL a TODAS esas celdas a la
-// vez (`onCambiarGrupo`), sin necesidad de saber cuál celda es cuál campo.
-function SecuenciasDidacticasEditable({ celdasOriginales, celdas, onChangeSesion, onCambiarGrupo }) {
-  const conSecuencias = celdas
-    .map((c, idx) => ({ ...c, idx }))
-    .filter((c) => Array.isArray(c.texto))
-  if (!conSecuencias.length) return null
-  const total = Math.max(0, ...conSecuencias.map((c) => c.texto.length))
-  return (
-    <div className="mt-4 pt-3 border-t border-outline-variant space-y-4">
-      <p className="text-xs font-semibold text-amber-700">
-        Secuencias Didácticas — corrige, agrega, elimina o reordena las que hagan falta:
-      </p>
-      {Array.from({ length: total }, (_, i) => (
-        <div key={i} className="p-2.5 rounded border border-outline-variant space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-bold text-on-surface">Secuencia Didáctica {i + 1}</p>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => onCambiarGrupo('mover', i, -1)}
-                disabled={i === 0}
-                aria-label="Mover antes"
-                className="p-1 rounded text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface disabled:opacity-30"
-              >
-                <ChevronUp size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => onCambiarGrupo('mover', i, 1)}
-                disabled={i === total - 1}
-                aria-label="Mover después"
-                className="p-1 rounded text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface disabled:opacity-30"
-              >
-                <ChevronDown size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => onCambiarGrupo('eliminar', i)}
-                disabled={total <= 1}
-                aria-label="Eliminar esta Secuencia Didáctica"
-                className="p-1 rounded text-red-600 hover:bg-red-50 disabled:opacity-30"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
-          {conSecuencias.map((c) => (
-            <div key={c.idx} className="space-y-1">
-              <p className="text-xs font-medium text-on-surface">
-                {etiquetaColumna(celdasOriginales, c.tablaIndex, c.columna, c.fila) || `Celda (fila ${c.fila}, columna ${c.columna})`}
-              </p>
-              <CeldaEditable value={c.texto[i] || ''} onChange={(v) => onChangeSesion(c.idx, i, v)} />
-            </div>
-          ))}
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => onCambiarGrupo('agregar')}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)]"
-      >
-        <Plus size={14} /> Agregar Secuencia Didáctica
-      </button>
-    </div>
-  )
+// `duplicarBloqueWord` (plantillaOficial.js) clona el MISMO bloque de
+// `anchoBloque` tablas, una vez por Secuencia, en el MISMO orden, e inserta
+// el párrafo "SECUENCIA DIDÁCTICA N" antes de cada copia — así que la
+// Secuencia i ocupa exactamente las tablas [tablaOriginal + i·anchoBloque],
+// con la MISMA fila/columna que la celda original dentro de su bloque. Con
+// esa aritmética (idéntica a la que usa el servidor para escribir el
+// documento) se ubica el <td> real de cada Secuencia en el DOM — no hace
+// falta ninguna estructura de datos aparte.
+function activarEdicionSecuencias(container, mapa, celdasArray, actualizarCeldaSesion, cambiarGrupoSecuencias) {
+  if (!celdasArray.length) return
+  const tablasIndices = celdasArray.map((c) => c.tablaIndex ?? 0)
+  const inicioTabla = Math.min(...tablasIndices)
+  const finTabla = Math.max(...tablasIndices)
+  const anchoBloque = finTabla - inicioTabla + 1
+  const total = Math.max(0, ...celdasArray.map((c) => (Array.isArray(c.texto) ? c.texto.length : 0)))
+  if (!total) return
+
+  // Texto de cada celda, por Secuencia — contentEditable en el <td> real
+  // de la tabla clonada correspondiente.
+  for (let i = 0; i < total; i++) {
+    for (const c of celdasArray) {
+      if (!Array.isArray(c.texto)) continue
+      const tablaDestino = (c.tablaIndex ?? 0) + i * anchoBloque
+      const td = mapa.get(celdaClave(tablaDestino, c.fila, c.columna))
+      if (!td) continue
+      td.contentEditable = 'true'
+      td.style.outline = '2px dashed var(--accent)'
+      td.style.background = 'var(--accent-tint)'
+      td.style.minHeight = '1.2em'
+      td.style.whiteSpace = 'pre-wrap'
+      pintarTextoConSaltos(td, c.texto[i] || '')
+      td.addEventListener('input', () => actualizarCeldaSesion(c.idx, i, leerTextoConSaltos(td)))
+    }
+  }
+
+  // Botones agregar/eliminar/reordenar — insertados como parte del propio
+  // documento renderizado, justo junto al párrafo "SECUENCIA DIDÁCTICA N"
+  // que ya trae el documento (nunca en un bloque aparte). Cambian el número
+  // de Secuencias, así que además de actualizar el estado, hace falta
+  // regenerar y volver a renderizar la vista previa completa (el componente
+  // se encarga vía `necesitaRecargarVistaPrevia`, ver useEffect abajo).
+  const etiquetas = Array.from(container.querySelectorAll('p, div')).filter((el) => {
+    const t = el.textContent?.trim()
+    return t && /^SECUENCIA DIDÁCTICA \d+$/.test(t) && el.children.length === 0
+  })
+  for (let i = 0; i < total; i++) {
+    const numero = i + 1
+    const etiqueta = etiquetas.find((el) => el.textContent.trim() === `SECUENCIA DIDÁCTICA ${numero}`)
+    if (!etiqueta) continue
+    const barra = document.createElement('span')
+    barra.style.cssText = 'display:inline-flex;gap:6px;margin-left:10px;vertical-align:middle;'
+    const boton = (texto, aria, disabled, onClick) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = texto
+      b.setAttribute('aria-label', aria)
+      b.disabled = disabled
+      b.style.cssText = `font-size:11px;line-height:1;padding:2px 6px;border-radius:4px;border:1px solid var(--outline-variant, #ccc);background:${disabled ? 'transparent' : 'var(--accent-tint)'};color:${disabled ? '#999' : 'var(--accent)'};cursor:${disabled ? 'default' : 'pointer'};`
+      if (!disabled) b.addEventListener('click', onClick)
+      return b
+    }
+    barra.appendChild(boton('▲', 'Mover esta Secuencia antes', i === 0, () => cambiarGrupoSecuencias('mover', i, -1)))
+    barra.appendChild(boton('▼', 'Mover esta Secuencia después', i === total - 1, () => cambiarGrupoSecuencias('mover', i, 1)))
+    barra.appendChild(boton('✕ eliminar', 'Eliminar esta Secuencia Didáctica', total <= 1, () => {
+      if (window.confirm(`¿Eliminar la Secuencia Didáctica ${numero}? Puedes deshacerlo con "Generar de nuevo".`)) {
+        cambiarGrupoSecuencias('eliminar', i)
+      }
+    }))
+    etiqueta.appendChild(barra)
+    if (i === total - 1) {
+      const agregar = document.createElement('div')
+      agregar.style.cssText = 'margin:10px 0;'
+      agregar.appendChild(boton('+ Agregar Secuencia Didáctica', 'Agregar una Secuencia Didáctica nueva', false, () => cambiarGrupoSecuencias('agregar')))
+      etiqueta.insertAdjacentElement('afterend', agregar)
+    }
+  }
 }
+
 
 // A pantalla completa salvo el sidebar azul (pedido de Kike, 15-ago-2026) —
 // la revisión de la Planeación necesita todo el ancho posible para verse
@@ -674,6 +664,10 @@ function FormatoSection({
   // mapeo no fue confiable, se cae a TablaPlantillaEditable (respaldo).
   const [edicionDirectaOk, setEdicionDirectaOk] = useState(null)
   const [abrirTrasGenerar, setAbrirTrasGenerar] = useState(false)
+  // Agregar/eliminar/mover una Secuencia Didáctica cambia cuántas tablas
+  // clonadas trae el documento — hay que regenerar el .docx y re-renderizar
+  // (ver cambiarGrupoSecuencias / el efecto que consume esta bandera).
+  const [recargarVistaPreviaPendiente, setRecargarVistaPreviaPendiente] = useState(false)
   const vistaPreviaRef = useRef(null)
   // Copia editable de la planeación YA ACEPTADA — separada de `edicion`
   // (que es la copia previa a aceptar) porque una vez aceptada vive en otro
@@ -939,6 +933,20 @@ function FormatoSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- abrirVistaPrevia se redefine cada render, no es una dependencia real
   }, [abrirTrasGenerar, actual])
 
+  // Tras agregar/eliminar/mover una Secuencia Didáctica (ver
+  // cambiarGrupoSecuencias) — tanto `edicion`/`edicionAceptada` como esta
+  // bandera se actualizan en el MISMO evento, así que React los aplica
+  // juntos en el siguiente render: para cuando este efecto corre, el
+  // estado ya refleja el cambio y `abrirVistaPrevia` regenera el .docx con
+  // el número correcto de Secuencias.
+  useEffect(() => {
+    if (recargarVistaPreviaPendiente) {
+      setRecargarVistaPreviaPendiente(false)
+      abrirVistaPrevia()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- abrirVistaPrevia se redefine cada render, no es una dependencia real
+  }, [recargarVistaPreviaPendiente, edicion, edicionAceptada])
+
   function cerrarVistaPrevia() {
     setVerVistaPrevia(false)
     setBlobVistaPrevia(null)
@@ -959,12 +967,21 @@ function FormatoSection({
         // celular la vista previa de la aceptada se deja de solo lectura
         // (ver AvisoRevisionDesktop / botón "Vista previa y edición").
         if (!isDesktop) return
-        const ok = activarEdicionDirecta(
+        const { ok, mapa } = activarEdicionDirecta(
           vistaPreviaRef.current,
           actual?.celdasOriginales || [],
           celdasEditablesActivo,
           actualizarCelda,
         )
+        if (ok) {
+          activarEdicionSecuencias(
+            vistaPreviaRef.current,
+            mapa,
+            celdasEditablesActivo.map((c, idx) => ({ ...c, idx })).filter((c) => Array.isArray(c.texto)),
+            actualizarCeldaSesion,
+            cambiarGrupoSecuencias,
+          )
+        }
         setEdicionDirectaOk(ok)
       })
       .catch((err) => toast('No se pudo mostrar la vista previa: ' + err.message, 'error'))
@@ -1028,6 +1045,12 @@ function FormatoSection({
     ))
     if (aceptada) setEdicionAceptada(actualizador)
     else setEdicion(actualizador)
+    // Agregar/eliminar/mover cambia CUÁNTAS tablas clonadas trae el
+    // documento — no basta con editar el DOM actual (ver
+    // activarEdicionSecuencias), hay que regenerar el .docx y volver a
+    // renderizarlo. Se marca pendiente y el efecto de abajo lo hace en
+    // cuanto el estado ya se actualizó (mismo patrón que abrirTrasGenerar).
+    setRecargarVistaPreviaPendiente(true)
   }
 
   return (
@@ -1183,14 +1206,6 @@ function FormatoSection({
             <div className="flex justify-center overflow-x-auto">
               <div ref={vistaPreviaRef} />
             </div>
-          )}
-          {isDesktop && !(cargandoVistaPrevia && !blobVistaPrevia) && (
-            <SecuenciasDidacticasEditable
-              celdasOriginales={actual?.celdasOriginales || []}
-              celdas={celdasEditablesActivo}
-              onChangeSesion={actualizarCeldaSesion}
-              onCambiarGrupo={cambiarGrupoSecuencias}
-            />
           )}
         </RevisionPantallaCompleta>
       )}
