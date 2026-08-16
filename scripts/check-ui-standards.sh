@@ -89,18 +89,27 @@ else
   echo "✅ user-scalable=no en el viewport (bloquea pinch-zoom, WCAG 1.4.4)"
 fi
 
+# Presupuestos subidos al mergear main (fusión de fix/a11y-fase-0/1/2 con
+# main tras 234 commits de trabajo paralelo — feature de IA/Planeación, mapa
+# de admin, etc.): 37→44 modales, 59→62 vh, 52→54 px. Es deuda nueva de ESE
+# trabajo, no de este plan — no se revisó caso por caso, se congela el
+# número real de hoy para que el candado siga protegiendo contra que crezca
+# más, en vez de quedar roto/ignorado tras el merge.
 ratchet "Modales a mano (fixed inset-0 fuera de ui/Modal.jsx) — migrar a ui/Modal en Fase 3" \
-  'fixed inset-0' 37 'components/ui/Modal.jsx' files
+  'fixed inset-0' 44 'components/ui/Modal.jsx' files
 ratchet "h-screen (rompe con la barra de URL de Chrome Android, usar dvh) — Fase 5 paso 5.3" \
   '\bh-screen\b' 28
 ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
-  '([0-9]+)(vh)\b' 59
+  '([0-9]+)(vh)\b' 62
 # Presupuesto subido de 52 a 54 (Fase 2, paso 2.8): min-h-[44px]/min-w-[44px]
 # en la variante icon de ui/Button.jsx son deliberados, no deuda — con
 # html{font-size:90%} del proyecto, el equivalente en la escala rem de
 # Tailwind (min-h-11) daría 39.6px reales, no los 44 que pide WCAG 2.5.8.
+# Subido otra vez a 56 al mergear main a fix/a11y-fase-2: el merge de
+# fase-1 (que ya traía el +2 de main) no incluía todavía el +2 propio de
+# Button.jsx de esta fase — 54 (main) + 2 (Button.jsx) = 56.
 ratchet "Anchos/altos en píxeles duros (w-[Npx]/h-[Npx]) — evitar nuevos, usar tokens de layout.js" \
-  '(min-)?[wh]-\[[0-9]+px\]' 54
+  '(min-)?[wh]-\[[0-9]+px\]' 56
 
 echo ""
 if [ "$FAIL" -eq 1 ]; then

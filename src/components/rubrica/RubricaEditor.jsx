@@ -3,7 +3,7 @@ import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/fi
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { ArrowLeft, Trash2, Scale, Check, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Trash2, Scale, Check, Eye, EyeOff, Sparkles } from 'lucide-react'
 import {
   RUBRICA_TOTAL, MIN_CRITERIOS, MAX_CRITERIOS, MIN_NIVELES, MAX_NIVELES,
   pesosEquitativos, validarRubrica, round1,
@@ -123,7 +123,7 @@ function estadoInicial(initial) {
 // estudiante, editable en el lugar (WYSIWYG). Pantalla completa por encima
 // del banco (z-[70] > picker z-[60] > editor de entregables z-50).
 // `initial` = { id, ...rubrica } para editar, null para crear.
-export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) {
+export default function RubricaEditor({ initial, docenteId, onClose, onSaved, iaGenerada = false }) {
   const toast = useToast()
   const isNew = !initial?.id
   const [r, setR] = useState(() => estadoInicial(initial))
@@ -455,6 +455,20 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
       {/* Pantalla completa: la tabla aprovecha todo el ancho disponible */}
       <div className="px-4 py-6">
         <form onSubmit={handleSave} className="space-y-4">
+
+          {/* Aviso obligatorio (siempre visible mientras la propuesta no se
+              haya guardado): esto lo escribió un modelo de IA, no EF, y puede
+              equivocarse. El docente revisa/edita/aprueba antes de guardar. */}
+          {iaGenerada && (
+            <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-card">
+              <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800">
+                <span className="font-semibold">Asistente IA. </span>
+                Esta propuesta fue generada con inteligencia artificial. Puede contener errores.
+                Revísala cuidadosamente y apruébala antes de utilizarla.
+              </p>
+            </div>
+          )}
 
           {/* Nombre — como el encabezado de la imagen: etiqueta + línea */}
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">

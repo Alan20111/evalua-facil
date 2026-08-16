@@ -10,7 +10,8 @@ import { db } from '../firebase'
 // and publishes them afterward — dates almost always differ between groups.
 //
 // Carried over: name, type, category, instructions, attachments, accepted file
-// types, evaluación config + its `preguntas` subcollection.
+// types, rubric (embedded snapshot + banco reference), grading weight,
+// evaluación config + its `preguntas` subcollection.
 // NOT carried over: deadline, per-student extensions, submissions/grades.
 //
 // Returns the created activity docs ({ id, ...data }) for optimistic state.
@@ -29,6 +30,9 @@ export async function importActivitiesToSubject({ sourceActivities, targetSubjec
       tiposArchivo: src.tiposArchivo || 'imagenes',
       extensionesCustom: src.extensionesCustom || '',
       tipo: src.tipo || 'archivo',
+      rubrica: src.rubrica || null,
+      rubricaId: src.rubricaId || null,
+      pesoCalificacion: src.pesoCalificacion ?? null,
       ...(src.evaluacion ? { evaluacion: src.evaluacion } : {}),
       parcial: targetParcial,
       orden: orden++,

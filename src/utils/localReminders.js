@@ -15,6 +15,7 @@ import { App as CapacitorApp } from '@capacitor/app'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { collection, doc, addDoc, getDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore'
 import { db } from '../firebase'
+import { toDateStr } from './horarioBloques'
 import { subjectDisplayName } from './subjectName'
 
 // Ventana hacia adelante en la que se programan recordatorios — más allá de
@@ -354,8 +355,8 @@ export async function refreshTeacherReminders(uid) {
 
     const now = new Date()
     const windowEnd = new Date(now.getTime() + WINDOW_DAYS * 86_400_000)
-    const hoy = now.toISOString().slice(0, 10)
-    const fin = windowEnd.toISOString().slice(0, 10)
+    const hoy = toDateStr(now)
+    const fin = toDateStr(windowEnd)
 
     let programadas = 0
     if (clase.habilitado) {

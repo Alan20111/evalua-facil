@@ -35,9 +35,44 @@ const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestor
 const { getMessaging } = require('firebase-admin/messaging')
 const { onDocumentWritten } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
+const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { logger } = require('firebase-functions')
 
 initializeApp()
+
+// Sistema de créditos IA: el ledger (transacciones de saldo) y las funciones
+// de IA viven en módulos propios; aquí solo se cablean sus exportaciones.
+const creditosLedger = require('./creditosLedger')
+const ia = require('./ia')
+exports.ejecutarOperacionIA = ia.ejecutarOperacionIA
+exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
+
+// Reseteo manual de créditos IA — solo admin, para las cuentas de prueba del
+// equipo (probar todo el sistema sin esperar al ciclo mensual). El cliente no
+// puede tocar iaCreditos directamente (firestore.rules: allow write: if
+// false), así que esto es la única puerta, y valida el rol server-side igual
+// que cualquier otra ruta de admin.
+exports.resetearCreditosIA = onCall(async (request) => {
+  const uid = request.auth?.uid
+  if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para continuar')
+  const perfil = await db.doc(`users/${uid}`).get()
+  if (!perfil.exists || perfil.data().role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Solo un administrador puede resetear créditos')
+  }
+  const docenteId = request.data?.docenteId
+  if (!docenteId || typeof docenteId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Falta el docente a resetear')
+  }
+  try {
+    const r = await creditosLedger.resetearAhora({ uid: docenteId })
+    logger.info(`resetearCreditosIA: admin ${uid} reseteó a ${docenteId} → saldo=${r.saldo}`)
+    return r
+  } catch (e) {
+    if (e.codigo === 'SIN_CREDITOS_AUN') throw new HttpsError('failed-precondition', e.message)
+    logger.error(`resetearCreditosIA(${docenteId}):`, e.message)
+    throw new HttpsError('internal', 'No se pudo resetear los créditos')
+  }
+})
 const db = getFirestore()
 const messaging = getMessaging()
 
@@ -555,21 +590,21 @@ function resolverPendienteRevision(preguntas, respuestasPorPregunta) {
   return preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo) && (respuestasPorPregunta[p.id]?.puntosObtenidos ?? null) == null)
 }
 
-function resolverCalificacionFinal(intentosPrevios, calificacionNueva, conservar) {
-  if (intentosPrevios.length === 0) return calificacionNueva
-  const previas = intentosPrevios.map((i) => i.calificacion)
-  switch (conservar) {
-    case 'primero':
-      return previas[0]
-    case 'promedio':
-      return Math.round((([...previas, calificacionNueva].reduce((a, b) => a + b, 0)) / (previas.length + 1)) * 10) / 10
-    case 'mejor':
-      return Math.max(...previas, calificacionNueva)
-    case 'ultimo':
-    default:
-      return calificacionNueva
-  }
+// Copia deliberada de `publicacionVisible` (src/utils/evaluacionGrading.js).
+// `functions/` es otro paquete y no puede importar de `src/`, y esta regla
+// —cuándo se publican las respuestas— tiene que evaluarse en el servidor:
+// desde A08 es él quien decide si el alumno ve cuál era la correcta, no el
+// navegador. Si cambia una, cambia la otra; hay casos de prueba en las dos.
+function publicacionVisible(modo, fecha, flag) {
+  if (modo === 'nunca') return false
+  if (modo === 'inmediato') return true
+  if (modo === 'fecha') return !!fecha && new Date().toISOString() >= fecha
+  return !!flag
 }
+
+// Extraída a functions/calificacionIntentos.js — fuente única de verdad,
+// compartida también con OP-10 (functions/ia.js), sobre qué intento gana.
+const { resolverCalificacionFinal } = require('./calificacionIntentos')
 
 // Idempotente por INTENTO: el número de intento en curso (intentoActual) se
 // registra en intentos[] al calificar — cualquier re-disparo (la propia
@@ -588,11 +623,20 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   if (!actSnap.exists || actSnap.data().tipo !== 'evaluacion') return
   const act = actSnap.data()
 
-  const [pregSnap, respSnap] = await Promise.all([
+  // La clave de respuestas vive APARTE del reactivo desde A08: el alumno lee
+  // `preguntas` para contestar, y `clave` solo la abre el docente dueño (las
+  // reglas no pueden filtrar campos, así que lo hace el modelo de datos). Aquí
+  // se juntan otra vez porque el Admin SDK no pasa por las reglas.
+  const [pregSnap, claveSnap, respSnap] = await Promise.all([
     actSnap.ref.collection('preguntas').get(),
+    actSnap.ref.collection('clave').get(),
     after.ref.collection('respuestas').get(),
   ])
-  const preguntas = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  const claves = {}
+  claveSnap.docs.forEach((d) => { claves[d.id] = d.data().respuestaCorrecta ?? null })
+  const preguntas = pregSnap.docs.map((d) => ({
+    id: d.id, ...d.data(), respuestaCorrecta: claves[d.id] ?? null,
+  }))
   const respuestasGuardadas = {}
   respSnap.docs.forEach((d) => { respuestasGuardadas[d.id] = d.data() })
 
@@ -603,15 +647,30 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   preguntas.forEach((p) => {
     respuestasPorPregunta[p.id] = { puntosObtenidos: calcularPuntosPregunta(p, respuestasGuardadas[p.id] || {}) }
   })
-  await Promise.all(preguntas.map((p) =>
-    after.ref.collection('respuestas').doc(p.id).set(
-      { puntosObtenidos: respuestasPorPregunta[p.id].puntosObtenidos },
-      { merge: true }
-    )
-  ))
+
+  // El veredicto se escribe EN LA RESPUESTA DEL ALUMNO, que es suya y que ya
+  // carga su pantalla de revisión. Antes esa pantalla comparaba contra
+  // `respuestaCorrecta` del reactivo — por eso la clave tenía que viajarle.
+  //
+  // `correcta` va siempre: saber si acertaste no revela cuál era la buena.
+  // `respuestaCorrecta` va SOLO si el docente publicó las respuestas, que es
+  // exactamente la regla de negocio que hasta hoy decidía el navegador.
+  const ev = act.evaluacion || {}
+  const revelarCorrectas = publicacionVisible(
+    ev.publicarRespuestas || 'inmediato', ev.publicarRespuestasFecha, ev.respuestasPublicadas
+  )
+  await Promise.all(preguntas.map((p) => {
+    const puntos = respuestasPorPregunta[p.id].puntosObtenidos
+    const marcas = { puntosObtenidos: puntos }
+    // Las abiertas quedan pendientes de revisión: ahí no hay veredicto todavía.
+    if (puntos != null) marcas.correcta = puntos > 0
+    // Se escribe también cuando NO se revela, para borrar lo que hubiera
+    // quedado de una configuración anterior más permisiva.
+    marcas.respuestaCorrecta = revelarCorrectas ? (p.respuestaCorrecta ?? null) : null
+    return after.ref.collection('respuestas').doc(p.id).set(marcas, { merge: true })
+  }))
 
   const calificacionIntento = calcularCalificacion(preguntas, respuestasPorPregunta, act.maxCalif || 10)
-  const pendienteRevision = resolverPendienteRevision(preguntas, respuestasPorPregunta)
   // Un instrumento "Sin calificación" (diagnóstico) no produce nota. El
   // servidor no lo sabía y calificaba igual, con dos consecuencias visibles
   // para el estudiante:
@@ -625,6 +684,13 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   // src/utils/activityVisibility.js): el campo puede venir en la actividad o
   // dentro de su configuración de evaluación.
   const noLleveNota = act.sinCalificacion === true || act.evaluacion?.sinCalificacion === true
+  // Corrección de Kike (12-ago-2026, Tanda 2): un instrumento sin
+  // calificación NUNCA tiene nada "pendiente de revisión" — sus
+  // respuesta_corta son respuestas de encuesta, no algo a lo que el docente
+  // deba ponerle puntos. Sin esto, el diagnóstico de contexto se quedaba
+  // para siempre en la lista de "requiere revisión" de EvaluacionManager.jsx,
+  // esperando una calificación que nunca va a existir.
+  const pendienteRevision = noLleveNota ? false : resolverPendienteRevision(preguntas, respuestasPorPregunta)
 
   await db.runTransaction(async (tx) => {
     const freshSnap = await tx.get(after.ref)
@@ -646,6 +712,37 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
       marcas.calificacion = resolverCalificacionFinal(previos, calificacionIntento, act.evaluacion?.conservar)
     }
     tx.update(after.ref, marcas)
+
+    // Capa 2 (OP-10) — fotografía inmutable de las respuestas de ESTE
+    // intento, tomada de `respuestasGuardadas`/`respuestasPorPregunta` ya
+    // leídas arriba (antes de esta transacción, con las respuestas vivas de
+    // este intento — todavía no las pudo limpiar un reintento posterior: eso
+    // solo pasa cuando el alumno vuelve a ActivityPage y pide empezar de
+    // nuevo, después de que este intento ya quedó 'finalizado'). Mismo guard
+    // de idempotencia que `intentos[]` arriba: si `num` ya se hubiera
+    // procesado, ya habríamos retornado antes de llegar aquí. `tx.create`
+    // (no `tx.set`) además rechaza de raíz cualquier intento de sobrescribir
+    // un snapshot que ya exista, aunque `intentos[]` estuviera inconsistente.
+    //
+    // Solo lo que OP-10 necesita para el detalle por reactivo — nunca texto
+    // libre ni archivos (no aportan al análisis, que solo mira reactivos
+    // objetivos) ni nombre/identidad del estudiante (ya la da la ruta).
+    const snapshotRespuestas = {}
+    preguntas.forEach((p) => {
+      const guardada = respuestasGuardadas[p.id] || {}
+      const puntos = respuestasPorPregunta[p.id].puntosObtenidos
+      snapshotRespuestas[p.id] = {
+        opcionSeleccionada: guardada.opcionSeleccionada ?? null,
+        correcta: puntos != null ? puntos > 0 : null,
+        puntosObtenidos: puntos,
+      }
+    })
+    tx.create(after.ref.collection('intentosRespuestas').doc(String(num)), {
+      numero: num,
+      calificacion: calificacionIntento,
+      respuestas: snapshotRespuestas,
+      creadoEn: FieldValue.serverTimestamp(),
+    })
   })
 })
 
@@ -719,14 +816,13 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
 
   const snap = await db.collection('attendance').where('asignaturaId', '==', asignaturaId).get()
   const records = snap.docs.map((d) => d.data())
-    // Columnas viejas de antes de que existiera el campo `parcial` (confirmado
-    // en producción: 4 de 27 documentos reales) no tienen a qué parcial
-    // agruparse — el propio docente ya las excluye de su tabla de Asistencias
-    // (agrupa por parcial === p), así que aquí se ignoran igual por
-    // consistencia. Sin este filtro, `parcial: undefined` tronaba el .set()
-    // de Firestore entero y NINGÚN alumno de esa asignatura recibía su
-    // resumen actualizado — el bug real reportado ("no se refleja").
-    .filter((r) => r.parcial != null)
+    // A13 · H1 · Registros viejos sin `parcial`: antes se filtraban para
+    // evitar que String(undefined) → 'undefined' generara una clave inválida
+    // en porParcial y tronara el .set(). El comentario anterior decía "el
+    // docente ya los excluye de su tabla", pero el cliente usa `?? 1` y SÍ
+    // los muestra en Parcial 1 — quedaba un desfase real entre la vista del
+    // docente y el resumen del alumno. Se corrige asignando el mismo fallback.
+    .map((r) => r.parcial != null ? r : { ...r, parcial: 1 })
     .filter((r) => !enrolledFrom || r.fecha >= enrolledFrom)
     .sort((a, b) => (a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha)))
 
@@ -791,6 +887,14 @@ exports.onAttendanceEscrita = onDocumentWritten('attendance/{attendanceId}', asy
 // Corre cada 30 min. Ventana de 35 min (> intervalo del scheduler) para no
 // perder ninguna actividad entre corridas.
 const SCHEDULE_INTERVAL = 'every 30 minutes'
+
+// A18 · H1 — fecha-solo sin hora se ancla al FIN del día (23:59:59), igual
+// que parseFechaLimite en el cliente (activityVisibility.js). Antes usaba
+// T00:00:00 (inicio del día), lo que hacía que el recordatorio se disparara
+// ~24 h antes de lo que el alumno esperaba para actividades sin hora explícita.
+function parsearFechaLimiteMs(fechaLimite) {
+  return new Date(fechaLimite.includes('T') ? fechaLimite : `${fechaLimite}T23:59:59`).getTime()
+}
 const WINDOW_MS = 35 * 60 * 1000
 
 exports.revisarProgramados = onSchedule(SCHEDULE_INTERVAL, async () => {
@@ -824,7 +928,7 @@ exports.revisarProgramados = onSchedule(SCHEDULE_INTERVAL, async () => {
   for (const doc of todasSnap.docs) {
     const a = doc.data()
     if (!a.fechaLimite) continue
-    const deadline = new Date(a.fechaLimite.includes('T') ? a.fechaLimite : `${a.fechaLimite}T00:00:00`).getTime()
+    const deadline = parsearFechaLimiteMs(a.fechaLimite)
     const msLeft = deadline - now
     if (msLeft <= 0) continue
 
@@ -1013,6 +1117,30 @@ exports.onSuscripcionEscrita = onDocumentWritten('subscriptions/{subId}', async 
   const docenteId = sub?.docenteId || previa?.docenteId
   if (!docenteId) return
 
+  // Créditos IA: si cambió el NIVEL del plan, se sincroniza la capacidad
+  // (subida inmediata conservando saldo; bajada diferida a la renovación).
+  // Es lo único que este trigger hace de más — el espejo de abajo no cambia.
+  // Si config/iaTarifas aún no existe (antes del seed), se registra y sigue.
+  const nivelAntes = previa ? creditosLedger.nivelDeSuscripcion(previa) : null
+  const nivelAhora = sub ? creditosLedger.nivelDeSuscripcion(sub) : null
+  // Cortesía no tiene un nivel fijo en config/iaTarifas: si el administrador
+  // solo cambió el monto de créditos elegido (sin cambiar de plan), también
+  // hay que sincronizar — el nivel por sí solo no lo detecta.
+  const cortesiaCreditosCambio = nivelAhora === 'cortesia' && nivelAhora === nivelAntes &&
+    (sub?.cortesiaCreditos ?? null) !== (previa?.cortesiaCreditos ?? null)
+  if (nivelAhora && (nivelAhora !== nivelAntes || cortesiaCreditosCambio)) {
+    try {
+      const r = await creditosLedger.sincronizarPlan({
+        uid: docenteId,
+        nivelNuevo: nivelAhora,
+        capacidadCortesia: sub?.cortesiaCreditos ?? null,
+      })
+      if (r.hecho) logger.info(`créditos IA de ${docenteId}: plan → ${nivelAhora} (${r.modo})`)
+    } catch (e) {
+      logger.error(`sincronizarPlan(${docenteId}):`, e.message)
+    }
+  }
+
   // Se borró la suscripción: se retira el permiso de trabajar dejando una
   // fecha ya pasada, no borrando el campo (ausente = "todavía sin respaldar",
   // que las reglas dejan pasar).
@@ -1117,3 +1245,28 @@ exports.onDocenteCreado = onDocumentWritten('users/{uid}', async (event) => {
   // crearPruebaSiFalta se sale de inmediato, así que no hay ciclo.
   await crearPruebaSiFalta(event.params.uid)
 })
+
+// ── Solo para las pruebas ───────────────────────────────────────────────────
+//
+// La lógica de estas funciones se prueba llamándola directamente contra el
+// emulador de Firestore (`test/servidor.test.mjs`), sin levantar el emulador
+// de Functions — que es caro, lento y solo verificaría el cableado de los
+// disparadores, una línea por función. Decisión del PO, 6-ago-2026.
+//
+// Es un objeto plano, no una función de firebase-functions: el análisis del
+// despliegue solo recoge exportaciones con `__endpoint`, así que esto no se
+// despliega ni cuenta como función. Hay un caso de prueba que lo comprueba.
+exports._pruebas = {
+  calcularPuntosPregunta,
+  calcularCalificacion,
+  resolverPendienteRevision,
+  resolverCalificacionFinal,
+  idsAfectados,
+  actividadVisible,
+  parsearFechaLimiteMs,
+  vigenciaDe,
+  recalcularResumenAsistencia,
+  crearPruebaSiFalta,
+  TIPOS_OBJETIVOS,
+  TIPOS_REVISION_MANUAL,
+}

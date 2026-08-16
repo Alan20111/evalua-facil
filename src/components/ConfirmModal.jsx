@@ -14,10 +14,10 @@ import Modal from './ui/Modal'
 // la Etapa 2).
 export default function ConfirmModal({
   title, message, confirmLabel = 'Confirmar', confirmingLabel = 'Procesando…',
-  confirmIcon = null, danger = false, busy = false, onConfirm, onCancel, showClose = true,
+  confirmIcon = null, danger = false, busy = false, onConfirm, onCancel, showClose = true, z = 50,
 }) {
   return (
-    <Modal open onClose={onCancel} variant="centered" size="sm" padding="p-4" busy={busy} ariaLabel={title}>
+    <Modal open onClose={onCancel} variant="centered" size="sm" padding="p-4" busy={busy} z={z} ariaLabel={title}>
       {showClose && (
         <button type="button" onClick={() => !busy && onCancel()} aria-label="Cerrar"
           className="absolute top-4 right-4 p-3 -m-1 text-slate-400 hover:text-muted rounded">

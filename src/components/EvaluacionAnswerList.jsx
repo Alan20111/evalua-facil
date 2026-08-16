@@ -33,8 +33,19 @@ export default function EvaluacionAnswerList({
         const abreSeccion = mostrarSecciones && p.seccionNombre &&
           p.seccionNombre !== (preguntas[i - 1]?.seccionNombre || null)
         const esObjetiva = !TIPOS_REVISION_MANUAL.includes(p.tipo)
-        // Whether the student's pick was right — drives the ✓/✗ on their choice.
-        const acierto = esObjetiva && respuesta.opcionSeleccionada === p.respuestaCorrecta
+        // De dónde sale "cuál era la correcta", según quién está mirando (A08):
+        //   · El docente trae la clave en el reactivo — la cargó de
+        //     `activities/{id}/clave`, que solo él puede leer.
+        //   · El alumno NO tiene la clave en ningún sitio. Lo que tiene es lo
+        //     que el servidor le escribió en su propia respuesta al calificar,
+        //     y solo si el docente publicó las respuestas.
+        // Antes esto se resolvía siempre con `p.respuestaCorrecta`, y por eso
+        // la clave tenía que viajarle al alumno para pintar un palomita.
+        const correcta = p.respuestaCorrecta ?? respuesta.respuestaCorrecta ?? null
+        // El veredicto del servidor manda sobre cualquier comparación local.
+        const acierto = esObjetiva && (
+          respuesta.correcta ?? (correcta != null && respuesta.opcionSeleccionada === correcta)
+        )
         return (
           <div key={p.id}>
           {abreSeccion && (
@@ -48,7 +59,7 @@ export default function EvaluacionAnswerList({
               <div className="space-y-1.5">
                 {(p.opciones || []).map((o) => {
                   const esSeleccion = respuesta.opcionSeleccionada === o.id
-                  const esCorrecta = mostrarCorrectas && o.id === p.respuestaCorrecta
+                  const esCorrecta = mostrarCorrectas && correcta != null && o.id === correcta
                   return (
                     <div key={o.id}
                       className={`flex items-center gap-2 px-3 py-2 rounded border text-sm ${

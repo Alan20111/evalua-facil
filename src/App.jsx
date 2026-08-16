@@ -21,12 +21,13 @@ import TeacherDashboard from './pages/teacher/Dashboard'
 import SubjectPage from './pages/teacher/SubjectPage'
 import ActivityPage from './pages/teacher/ActivityPage'
 import Profile from './pages/teacher/Profile'
+import PerfilIA from './pages/teacher/PerfilIA'
 import CalendarPage from './pages/teacher/CalendarPage'
 import VerifyEmail from './pages/teacher/VerifyEmail'
 import PagoResultado from './pages/teacher/PagoResultado'
 import Privacidad from './pages/Privacidad'
 import TeacherNotificationSettings from './pages/teacher/NotificationSettings'
-import ManualPage from './pages/teacher/ManualPage'
+import GettingStartedPage from './pages/teacher/GettingStartedPage'
 
 import StudentActivation from './pages/student/Activation'
 import StudentLogin from './pages/student/Login'
@@ -105,9 +106,10 @@ function TeacherLayoutRoute() {
 }
 
 function ProtectedStudent({ children }) {
-  const { currentUser, loading } = useAuth()
+  const { currentUser, userProfile, loading } = useAuth()
   if (loading) return null
   if (!currentUser) return <Navigate to="/alumno" replace />
+  if (userProfile && userProfile.role !== 'alumno') return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -195,9 +197,10 @@ export default function App() {
               <Route path="/subject/:subjectId" element={<SubjectPage />} />
               <Route path="/activity/:activityId" element={<ActivityPage />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/perfil-ia" element={<PerfilIA />} />
               <Route path="/calendario" element={<CalendarPage />} />
               <Route path="/notificaciones" element={<TeacherNotificationSettings />} />
-              <Route path="/manual" element={<ManualPage />} />
+              <Route path="/manual" element={<GettingStartedPage />} />
             </Route>
 
             {/* Student protected */}

@@ -11,11 +11,12 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore'
-import { Plus, Pencil, Ban, Trash2, X, RotateCcw } from 'lucide-react'
+import { Plus, Pencil, Ban, Trash2, X, RotateCcw, Zap } from 'lucide-react'
+import { httpsCallable } from 'firebase/functions'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import SearchInput from '../../../components/SearchInput'
 import StatusBadge from './StatusBadge'
-import { db } from '../../../firebase'
+import { db, functions } from '../../../firebase'
 import { useAuth } from '../../../context/AuthContext'
 import { apiUrl } from '../../../utils/apiBase'
 import { useToast } from '../../../components/Toast'
@@ -167,6 +168,12 @@ function etiquetaDocente(t) {
 // administrador otorga por un número de días. Se guarda como este valor
 // literal en `planId`, junto con `cortesiaDias`.
 const PLAN_CORTESIA = 'cortesia'
+
+// Tope de créditos IA que un administrador puede otorgar en una cortesía: el
+// máximo que da cualquier plan de pago (mayor / "Asistente IA Pro", $199).
+// Espeja config/iaTarifas.capacidadPorPlan.mayor (seeds-db/seed-ia-tarifas.js)
+// — si ese valor cambia allá, hay que actualizarlo aquí también.
+const CORTESIA_CREDITOS_MAX = 1750
 
 // Fecha en que termina una cortesía. Los días se cuentan desde el inicio, o
 // desde el vencimiento vigente cuando se pide extender — así extender no
@@ -528,6 +535,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         fechaVencimiento: '',
         cortesiaDias: '30',
         cortesiaIndefinida: false,
+        cortesiaCreditos: '',
         extender: false,
       },
     })
@@ -551,6 +559,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       fechaVencimiento: fvCalculado ? fvCalculado.toISOString().slice(0, 10) : '',
       cortesiaDias: sub.cortesiaDias ? String(sub.cortesiaDias) : '30',
       cortesiaIndefinida: sub.cortesiaIndefinida === true,
+      cortesiaCreditos: sub.cortesiaCreditos ? String(sub.cortesiaCreditos) : '',
       extender: false,
     }
     setModal({
@@ -582,6 +591,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     modal.form.fechaVencimiento !== modal.originalForm.fechaVencimiento ||
     modal.form.cortesiaDias !== modal.originalForm.cortesiaDias ||
     modal.form.cortesiaIndefinida !== modal.originalForm.cortesiaIndefinida ||
+    modal.form.cortesiaCreditos !== modal.originalForm.cortesiaCreditos ||
     modal.form.extender !== modal.originalForm.extender
   ))
 
@@ -625,6 +635,12 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
           data.fechaVencimiento = Timestamp.fromDate(fin)
           data.cortesiaDias = parseInt(modal.form.cortesiaDias, 10)
         }
+        // Créditos de IA de la cortesía: el administrador elige el monto,
+        // tope el máximo del plan mayor (1750). En blanco = sin créditos de
+        // IA (la cortesía sigue dando acceso a calificar/pasar lista igual).
+        data.cortesiaCreditos = modal.form.cortesiaCreditos
+          ? Math.min(parseInt(modal.form.cortesiaCreditos, 10), CORTESIA_CREDITOS_MAX)
+          : null
       } else {
         const tsVencimiento = toTimestamp(modal.form.fechaVencimiento)
         if (tsVencimiento) data.fechaVencimiento = tsVencimiento
@@ -690,6 +706,24 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       onRefresh?.()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  // Llena el saldo de créditos IA a su capacidad ACTUAL, sin esperar al ciclo
+  // mensual — pensado para las cuentas de prueba del equipo. No cambia el
+  // plan ni la capacidad: solo repone lo consumido.
+  const [reseteandoCreditos, setReseteandoCreditos] = useState(null)
+  async function handleResetCreditos(sub) {
+    if (!confirm('¿Resetear ahora los créditos de IA de este docente a su capacidad completa?')) return
+    setReseteandoCreditos(sub.id)
+    try {
+      const resetear = httpsCallable(functions, 'resetearCreditosIA')
+      const { data } = await resetear({ docenteId: sub.docenteId })
+      toast(`Créditos reseteados: ${data.saldo}/${data.capacidad}`)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setReseteandoCreditos(null)
     }
   }
 
@@ -882,6 +916,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                           <Ban size={16} />
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleResetCreditos(r.sub)}
+                        disabled={reseteandoCreditos === r.sub.id}
+                        className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"
+                        data-tooltip="Resetear créditos de IA ahora"
+                        aria-label="Resetear créditos de IA"
+                      >
+                        <Zap size={16} />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(r.sub)}
@@ -1078,6 +1122,26 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <p className="text-xs text-accent font-semibold">
                     Nuevo vencimiento: {vencimientoCortesia(modal) || '—'}
                   </p>
+                  <div className="border-t border-outline-variant pt-2">
+                    <label htmlFor="sub-cortesia-creditos" className="block text-xs font-medium text-muted mb-1">
+                      Créditos de IA por mes (máximo {CORTESIA_CREDITOS_MAX})
+                    </label>
+                    <input
+                      id="sub-cortesia-creditos"
+                      type="number"
+                      min="0"
+                      max={CORTESIA_CREDITOS_MAX}
+                      placeholder="Sin créditos de IA"
+                      value={modal.form.cortesiaCreditos}
+                      onChange={(e) =>
+                        setModal({ ...modal, form: { ...modal.form, cortesiaCreditos: e.target.value } })
+                      }
+                      className={inputCls}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      En blanco: la cortesía deja calificar y pasar lista, pero sin acceso a la IA.
+                    </p>
+                  </div>
                 </div>
               )}
               </div>

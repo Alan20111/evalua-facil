@@ -20,7 +20,7 @@ import {
   ArrowUp, ArrowDown, GripVertical, Globe, Smartphone,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
-import { isActivityPublished } from '../../utils/activityVisibility'
+import { isActivityPublished, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollments, updateAllEnrollments, visibleEnrollments } from '../../utils/studentLookup'
@@ -329,13 +329,20 @@ export default function StudentDashboard() {
       // Compute each subject's average in memory.
       const enriched = subs.map((s) => {
         const acts = actsBySubject[s.id] || []
-        // Same math as the teacher: per-parcial (weighted when applicable),
-        // then the mean of parcial averages
+        // A09 · MISMO criterio que la pantalla del docente (SubjectPage.jsx),
+        // número por número: excluye lo que no cuenta para calificación
+        // (`cuentaParaCalificacion` — antes solo isActivityPublished, así que
+        // un diagnóstico marcado "sin calificación" DESPUÉS de tener nota
+        // seguía metiéndose aquí) y redondea CADA actividad a 1 decimal antes
+        // de promediar el parcial — antes promediaba los números crudos y
+        // redondeaba solo el Final, lo que podía dar un Final distinto al de
+        // la pantalla del docente por el orden del redondeo.
         const PARC = Array.from({ length: s.parciales || 3 }, (_, i) => i + 1)
         const parcAvgs = PARC.map((p) => {
-          const pacts = acts.filter((a) => a.parcial === p)
-          const grades = pacts.map((a) => normalizeGrade(gradeByActivity[a.id], a.maxCalif))
-          return promedioParcial(pacts, grades, ponderacionActivaEnParcial(s, p))
+          const pacts = acts.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
+          const grades = pacts.map((a) => normalizeGrade(gradeByActivity[a.id], a.maxCalif, { decimals: 1 }))
+          const raw = promedioParcial(pacts, grades, ponderacionActivaEnParcial(s, p))
+          return raw !== null ? parseFloat(raw.toFixed(1)) : null
         }).filter((v) => v !== null)
         const avg = parcAvgs.length
           ? (parcAvgs.reduce((x, y) => x + y, 0) / parcAvgs.length).toFixed(1)

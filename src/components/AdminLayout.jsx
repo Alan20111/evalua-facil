@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   X,
+  Map,
 } from 'lucide-react'
 import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
@@ -21,6 +22,7 @@ const TABS = [
   { id: 'pagos', label: 'Pagos', icon: Receipt },
   { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
   { id: 'suscripciones', label: 'Suscripciones', icon: CreditCard },
+  { id: 'zonas', label: 'Ventas por zona', icon: Map },
   { id: 'cobros', label: 'Cobros', icon: Wallet },
   { id: 'estudiantes', label: 'Estudiantes', icon: GraduationCap },
 ]

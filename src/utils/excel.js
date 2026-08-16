@@ -5,7 +5,10 @@ import { promedioParcial, pesoDe, ponderacionActivaEnParcial, normalizeGrade } f
 import { attendanceState, countPresence, fmtAttDateParts, enrolledFromDate } from './attendance'
 import { studentFullName } from './studentSearch'
 import { cuentaParaCalificacion } from './activityVisibility'
-import { saveBlob } from './nativeSave'
+import { saveBlob } from './exportGuard'
+// Plantilla en blanco (sin datos reales que "llevarse") — exenta a propósito
+// del candado de descarga en trial, ver exportGuard.js.
+import { saveBlob as saveBlobSinCandado } from './nativeSave'
 import { addExcelWatermarkIfNeeded } from './exportWatermark'
 import { membreteLinea } from './membrete'
 import { estadoEvaluacionLabel } from './evaluacionGrading'
@@ -125,7 +128,7 @@ export async function downloadStudentTemplate() {
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   })
-  await saveBlob(blob, 'plantilla-estudiantes.xlsx')
+  await saveBlobSinCandado(blob, 'plantilla-estudiantes.xlsx')
 }
 
 // Splits a natural full-name string by spaces: 1st word = apellido paterno,
