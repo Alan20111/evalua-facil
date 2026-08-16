@@ -2714,14 +2714,15 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     'específica (una actividad puede necesitar 1, 2, 3 o más sesiones; otra puede compartir sesión con otra ' +
     'si son cortas). La SUMA de las sesiones de todas las actividades del Desarrollo de una Secuencia ' +
     'Didáctica debe dar exactamente el total de sesiones disponibles para esa secuencia.\n' +
-    'Ejemplo de tono, extensión y formato correctos:\n' +
-    'Apertura: "Preguntar qué saben los estudiantes sobre los números enteros y presentar una situación ' +
-    'cotidiana de ingresos y gastos familiares para relacionarla con el tema. Sesiones: 1"\n' +
-    'Desarrollo (secuencia de 3 sesiones en total): "Explicar el uso de números enteros con ejemplos y ' +
-    'resolver ejercicios guiados de suma y resta. Sesiones: 2. Los estudiantes registran ingresos y gastos de ' +
-    'un presupuesto familiar, calculan el saldo y comparan resultados. Sesiones: 1."\n' +
-    'Cierre: "Resolver un ejercicio final y comentar brevemente qué procedimiento utilizaron y cómo se ' +
-    'relaciona con una situación de la vida cotidiana. Sesiones: 1"\n' +
+    'FORMATO EN VIÑETAS (Kike, 16-ago-2026): cada actividad del Desarrollo (con su "Sesiones: N") va en su ' +
+    'propia viñeta, en su propio renglón, separadas por un salto de línea real "\\n" dentro del texto — nunca ' +
+    'las juntes en un solo párrafo corrido. Lo mismo aplica a Apertura y Cierre si tienen más de una acción.\n' +
+    'Ejemplo de tono, extensión y formato correctos (usa "\\n" real entre viñetas):\n' +
+    'Apertura: "• Preguntar qué saben los estudiantes sobre los números enteros. Sesiones: 1"\n' +
+    'Desarrollo (secuencia de 3 sesiones en total): "• Explicar el uso de números enteros con ejemplos y ' +
+    'resolver ejercicios guiados de suma y resta. Sesiones: 2\\n• Los estudiantes registran ingresos y gastos ' +
+    'de un presupuesto familiar, calculan el saldo y comparan resultados. Sesiones: 1"\n' +
+    'Cierre: "• Resolver un ejercicio final y comentar brevemente qué procedimiento utilizaron. Sesiones: 1"\n' +
     'MECANISMO: la aplicación crea automáticamente una sección física de Apertura/Desarrollo/Cierre POR CADA ' +
     'Secuencia Didáctica — para eso, entrégalas en el campo "secuenciasDidacticas" del JSON de respuesta (ver ' +
     'formato exacto más abajo), una entrada por Secuencia Didáctica con sus tres partes juntas ("apertura", ' +
