@@ -2683,6 +2683,19 @@ function promptPlantillaParcial(ctx, parcialCtx) {
         'Desarrollo/Cierre en el documento final si hay varias Secuencias Didácticas — ver la ESTRUCTURA ' +
         'OBLIGATORIA justo abajo, es el mecanismo pensado exactamente para esto.\n\n'
       : '') +
+    'CUÁNTAS SECUENCIAS DIDÁCTICAS HACEN FALTA (Kike, 16-ago-2026 — la IA seguía entregando una sola Secuencia ' +
+    'Didáctica para parciales que en realidad cubren varias semanas y varios temas, y eso está mal): un parcial ' +
+    'normal dura semanas y cubre varios bloques temáticos del programa de estudios — casi NUNCA se resuelve ' +
+    'con una sola Secuencia Didáctica. Antes de escribir Apertura/Desarrollo/Cierre, cuenta cuántos bloques ' +
+    'temáticos distintos te toca cubrir en este parcial (ver COBERTURA DEL PROGRAMA DE ESTUDIOS arriba, si ' +
+    'aplica) y crea AL MENOS una Secuencia Didáctica por cada bloque temático coherente — nunca comprimas ' +
+    'varias semanas de contenido distinto en una sola Secuencia Didáctica.\n' +
+    'EJEMPLO: un parcial de 5 semanas que cubre 3 temas distintos del programa necesita normalmente 3 ' +
+    'Secuencias Didácticas (una por tema), no 1 — cada una con su propia Apertura/Desarrollo/Cierre.\n' +
+    'AUTO-VERIFICACIÓN antes de responder: cuenta cuántas Secuencias Didácticas vas a entregar en ' +
+    '"secuenciasDidacticas". Si es una sola, confirma primero que el parcial de verdad cubre un único bloque ' +
+    'temático breve — si cubre más de uno (lo más común), agrega más Secuencias Didácticas antes de responder, ' +
+    'no te quedes en 1 por costumbre.\n' +
     'REGLA OBLIGATORIA PARA APERTURA, DESARROLLO Y CIERRE (Kike, 16-ago-2026 — antes salía mal repetidas ' +
     'veces, hasta que quedó así de explícito):\n' +
     'NO utilices las secciones de APERTURA, DESARROLLO y CIERRE del formato como secciones únicas para toda ' +
