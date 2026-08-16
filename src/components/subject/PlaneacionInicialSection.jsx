@@ -572,6 +572,14 @@ function FormatoSection({
   const [edicionDirectaOk, setEdicionDirectaOk] = useState(null)
   const [abrirTrasGenerar, setAbrirTrasGenerar] = useState(false)
   const vistaPreviaRef = useRef(null)
+  // Copia editable de la planeación YA ACEPTADA — separada de `edicion`
+  // (que es la copia previa a aceptar) porque una vez aceptada vive en otro
+  // campo de Firestore (`campoAceptada`, no `campoBorrador`). Pedido de
+  // Kike, 16-ago-2026: la planeación aceptada también debe poder corregirse
+  // sin tener que "Generar de nuevo" (que la borra por completo).
+  const [edicionAceptada, setEdicionAceptada] = useState(null)
+  const [edicionAceptadaDeId, setEdicionAceptadaDeId] = useState(null)
+  const [guardandoAceptada, setGuardandoAceptada] = useState(false)
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'subjects', subjectId, coleccion), (snap) => {
@@ -626,6 +634,14 @@ function FormatoSection({
     setParcialActivo(actual?.porParcial?.[0]?.numero || 1)
   }
 
+  if (aceptada && actualIdParaEdicion !== edicionAceptadaDeId) {
+    setEdicionAceptada((porParcialAceptado || []).map((p) => ({
+      numero: p.numero, periodo: p.periodo,
+      celdas: p.celdas || conCeldasVaciasEditables(actual.celdasOriginales, p.celdasPropuestas || []),
+    })))
+    setEdicionAceptadaDeId(actualIdParaEdicion)
+  }
+
   const guardadoRaw = subjectPlaneacion?.[campoBorrador]?.planeacionId === actual?.id
     ? normalizarPorParcial(subjectPlaneacion[campoBorrador]) : null
   const guardado = guardadoRaw?.length ? guardadoRaw : actual?.porParcial?.map((p) => ({
@@ -633,6 +649,13 @@ function FormatoSection({
     celdas: conCeldasVaciasEditables(actual.celdasOriginales, p.celdasPropuestas),
   }))
   const sinGuardar = !!actual && JSON.stringify(edicion) !== JSON.stringify(guardado)
+  const porParcialAceptadoNormalizado = aceptada
+    ? (porParcialAceptado || []).map((p) => ({
+      numero: p.numero, periodo: p.periodo,
+      celdas: p.celdas || conCeldasVaciasEditables(actual.celdasOriginales, p.celdasPropuestas || []),
+    }))
+    : null
+  const sinGuardarAceptada = aceptada && JSON.stringify(edicionAceptada) !== JSON.stringify(porParcialAceptadoNormalizado)
 
   async function generar() {
     if (nuncaAprobado) { onPago(); return }
@@ -701,6 +724,23 @@ function FormatoSection({
     } finally {
       setAceptando(false)
       setConfirmarAceptar(false)
+    }
+  }
+
+  // Guarda correcciones sobre la planeación YA ACEPTADA, en su lugar — no
+  // cambia `planeacionId` ni `aceptadaEn`, solo el contenido de las celdas
+  // (pedido de Kike, 16-ago-2026).
+  async function guardarAceptada() {
+    setGuardandoAceptada(true)
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), {
+        [campoAceptada]: { ...subjectPlaneacion[campoAceptada], porParcial: edicionAceptada },
+      })
+      toast('Cambios guardados')
+    } catch (err) {
+      toast('No se pudo guardar: ' + err.message, 'error')
+    } finally {
+      setGuardandoAceptada(false)
     }
   }
 
@@ -773,7 +813,7 @@ function FormatoSection({
     try {
       const resPlantilla = await fetch(plantillaUrl)
       const bufferOriginal = await resPlantilla.arrayBuffer()
-      const fuente = aceptada ? porParcialAceptado : edicion
+      const fuente = aceptada ? (edicionAceptada || porParcialAceptado) : edicion
       const celdas = celdasDeParcial(numeroParcial ?? parcialActivo, fuente)
       const blob = await llenarPlantillaWord(bufferOriginal, celdas)
       setBlobVistaPrevia(blob)
@@ -812,14 +852,15 @@ function FormatoSection({
     vistaPreviaRef.current.innerHTML = ''
     renderDocxAsync(blobVistaPrevia, vistaPreviaRef.current, undefined, { inWrapper: true })
       .then(() => {
-        if (aceptada) return // solo lectura: se deja el render tal cual, sin activar nada
+        // La edición (aceptada o no) solo se intenta en escritorio — en
+        // celular la vista previa de la aceptada se deja de solo lectura
+        // (ver AvisoRevisionDesktop / botón "Vista previa y edición").
+        if (!isDesktop) return
         const ok = activarEdicionDirecta(
           vistaPreviaRef.current,
           actual?.celdasOriginales || [],
           celdasEditablesActivo,
-          (idx, texto) => setEdicion((prev) => prev.map((p) => (
-            p.numero !== parcialActivo ? p : { ...p, celdas: p.celdas.map((x, j) => (j === idx ? { ...x, texto } : x)) }
-          ))),
+          actualizarCelda,
         )
         setEdicionDirectaOk(ok)
       })
@@ -831,8 +872,20 @@ function FormatoSection({
     return <div className="flex justify-center py-6"><Spinner size="sm" /></div>
   }
 
-  const edicionParcialActivo = edicion?.find((p) => p.numero === parcialActivo)
-  const celdasEditablesActivo = edicionParcialActivo?.celdas || []
+  const fuenteEditableActivo = aceptada ? edicionAceptada : edicion
+  const parcialEditableActivo = fuenteEditableActivo?.find((p) => p.numero === parcialActivo)
+  const celdasEditablesActivo = parcialEditableActivo?.celdas || []
+
+  // Escribe una corrección de celda en la copia editable que corresponda
+  // (aceptada o en revisión) — mismo handler para la edición directa sobre
+  // la vista previa y para la tabla de respaldo (TablaPlantillaEditable).
+  function actualizarCelda(idx, texto) {
+    const actualizador = (prev) => prev.map((p) => (
+      p.numero !== parcialActivo ? p : { ...p, celdas: p.celdas.map((x, j) => (j === idx ? { ...x, texto } : x)) }
+    ))
+    if (aceptada) setEdicionAceptada(actualizador)
+    else setEdicion(actualizador)
+  }
 
   return (
     <div>
@@ -883,10 +936,12 @@ function FormatoSection({
             type="button"
             onClick={() => abrirVistaPrevia()}
             disabled={cargandoVistaPrevia}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)] disabled:opacity-60"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-sm disabled:opacity-60 ${
+              isDesktop ? 'border-green-600 text-green-700 hover:bg-green-50' : 'border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
+            }`}
           >
-            {cargandoVistaPrevia ? <Spinner size="sm" /> : <Eye size={14} />}
-            Vista previa
+            {cargandoVistaPrevia ? <Spinner size="sm" /> : isDesktop ? <ThumbsUp size={14} /> : <Eye size={14} />}
+            {isDesktop ? 'Vista previa y edición' : 'Vista previa'}
           </button>
         )}
         {aceptada && (
@@ -930,52 +985,54 @@ function FormatoSection({
       {actual && !aceptada && !isDesktop && <AvisoRevisionDesktop />}
       {verVistaPrevia && (isDesktop || aceptada) && (
         <RevisionPantallaCompleta
-          titulo={aceptada ? 'Vista previa — así se imprimiría' : 'Corrige y guarda antes de aceptarla (también podrás editar tu archivo descargado)'}
+          titulo={
+            aceptada
+              ? (isDesktop ? 'Corrige y guarda tu Planeación Inicial ya aceptada' : 'Vista previa — así se imprimiría')
+              : 'Corrige y guarda antes de aceptarla (también podrás editar tu archivo descargado)'
+          }
           onCerrar={cerrarVistaPrevia}
           tabs={<SelectorParcial porParcial={actual?.porParcial} activo={parcialActivo} onCambiar={cambiarParcialVistaPrevia} />}
-          acciones={!aceptada && (
+          acciones={isDesktop && (
             <>
               <button
                 type="button"
-                onClick={guardar}
-                disabled={!sinGuardar || guardando}
+                onClick={aceptada ? guardarAceptada : guardar}
+                disabled={aceptada ? (!sinGuardarAceptada || guardandoAceptada) : (!sinGuardar || guardando)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm disabled:opacity-50 ${
-                  sinGuardar
+                  (aceptada ? sinGuardarAceptada : sinGuardar)
                     ? 'bg-amber-500 text-white hover:bg-amber-600'
                     : 'border border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
                 }`}
               >
-                {guardando ? <Spinner size="sm" /> : <Save size={14} />}
-                {sinGuardar ? 'Guardar cambios' : 'Guardado'}
+                {(aceptada ? guardandoAceptada : guardando) ? <Spinner size="sm" /> : <Save size={14} />}
+                {(aceptada ? sinGuardarAceptada : sinGuardar) ? 'Guardar cambios' : 'Guardado'}
               </button>
-              <button
-                type="button"
-                onClick={() => setConfirmarAceptar(true)}
-                disabled={aceptando}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
-              >
-                {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
-                Aceptar esta planeación como mi Planeación Inicial
-              </button>
+              {!aceptada && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmarAceptar(true)}
+                  disabled={aceptando}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
+                >
+                  {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
+                  Aceptar esta planeación como mi Planeación Inicial
+                </button>
+              )}
             </>
           )}
         >
           {cargandoVistaPrevia && !blobVistaPrevia ? (
             <div className="flex justify-center py-10"><Spinner /></div>
-          ) : (!aceptada && edicionDirectaOk === false) ? (
+          ) : (isDesktop && edicionDirectaOk === false) ? (
             <>
-              {!aceptada && (
-                <p className="text-xs text-amber-700 mb-3">
-                  No se pudo activar la edición directa sobre esta plantilla — corrígela aquí abajo, campo por
-                  campo.
-                </p>
-              )}
+              <p className="text-xs text-amber-700 mb-3">
+                No se pudo activar la edición directa sobre esta plantilla — corrígela aquí abajo, campo por
+                campo.
+              </p>
               <TablaPlantillaEditable
                 celdasOriginales={actual?.celdasOriginales || []}
                 celdasPropuestas={celdasEditablesActivo}
-                onChangeCelda={(idx, texto) => setEdicion((prev) => prev.map((p) => (
-                  p.numero !== parcialActivo ? p : { ...p, celdas: p.celdas.map((x, j) => (j === idx ? { ...x, texto } : x)) }
-                )))}
+                onChangeCelda={actualizarCelda}
               />
             </>
           ) : (
@@ -1036,7 +1093,7 @@ function FormatoSection({
       {confirmarAceptar && (
         <ConfirmModal
           title="¿Aceptar esta Planeación Didáctica Inicial?"
-          message="Se guarda con las correcciones que hayas hecho, en TODOS los parciales. Cuando la aceptes queda fija, con la fecha de hoy — y ya no podrás editarla, pero sí verla y descargarla las veces que quieras. (si tu suscripción está pagada)."
+          message="Se guarda con las correcciones que hayas hecho, en TODOS los parciales. Cuando la aceptes queda fija como tu Planeación Inicial, con la fecha de hoy — podrás seguir corrigiéndola desde una computadora, y verla y descargarla las veces que quieras (si tu suscripción está pagada)."
           confirmLabel="Aceptar"
           confirmingLabel="Aceptando…"
           busy={aceptando}

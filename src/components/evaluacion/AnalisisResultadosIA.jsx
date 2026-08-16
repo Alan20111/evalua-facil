@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ArrowLeft, Sparkles, TrendingDown, TrendingUp, AlertTriangle, Lightbulb, FileText } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, Sparkles, TrendingDown, TrendingUp, AlertTriangle, Lightbulb, FileText, Save } from 'lucide-react'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useToast } from '../Toast'
@@ -9,11 +9,15 @@ import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
 import { resolverNombresAnalisis } from '../../utils/resolverNombresAnalisis'
 import { resumenConfiabilidad } from '../../utils/confiabilidadAnalisis'
 
-// Pantalla de resultado de OP-10 (análisis de resultados con IA) — solo
-// lectura, nada que editar ni guardar: es un reporte, no un borrador que se
-// incorpore a la actividad. El aviso de IA va primero y cada sección deja
-// claro si es dato observado (lo calculó Evalúa Fácil), interpretación de la
-// IA, o recomendación — nunca se mezclan.
+// Pantalla de resultado de OP-10 (análisis de resultados con IA). El texto
+// que redacta la IA (resumen, patrones, señales de atención, recomendaciones)
+// es editable ahí mismo, en la misma vista donde se revisa (pedido de Kike,
+// 16-ago-2026: todo lo generado por la IA debe poder corregirse) — lo que
+// NO se edita es el dato observado que calculó Evalúa Fácil (porcentajes,
+// enunciados de reactivos, número de estudiantes), porque no es texto de la
+// IA sino aritmética sobre las entregas reales. El aviso de IA va primero y
+// cada sección deja claro si es dato observado, interpretación de la IA, o
+// recomendación — nunca se mezclan.
 //
 // El PDF se genera aquí (no en EvaluacionManager) porque es el único lugar
 // donde ya existe `nombrePorAnonId`: el reporte descargable nunca debe volver
@@ -22,16 +26,73 @@ import { resumenConfiabilidad } from '../../utils/confiabilidadAnalisis'
 // pantalla). `resolverNombresAnalisis` vive en utils/ (no aquí) para que este
 // archivo exporte solo el componente.
 
+// Textarea "en su lugar" que crece con el contenido, igual que las celdas
+// editables de Planeación — para que el reporte se siga viendo como reporte
+// y no como un formulario con cajas.
+function TextoEditable({ value, onChange, className = '', placeholder }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+  return (
+    <textarea
+      ref={ref}
+      value={value || ''}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className={`w-full bg-transparent border border-dashed border-accent/50 rounded px-1.5 py-1 resize-none overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:bg-[var(--accent-tint)] ${className}`}
+      maxLength={2000}
+    />
+  )
+}
+
+// `onGuardar(resultadoEditado)` — si no se pasa (análisis todavía no
+// persistido en la bitácora), el reporte se muestra editable pero sin botón
+// de guardar; en la práctica siempre llega ya con un id (ver EvaluacionManager).
 // `onPedirDescarga(ejecutar)` es el mismo gate de "exportación en periodo de
 // prueba" que EvaluacionManager ya usa para el resto de sus descargas
 // (Excel/PDF de resultados): decide si mostrar el aviso o correr `ejecutar`
 // de una vez. Sin el prop (por si esta pantalla se usa en otro lado más
 // adelante), se descarga directo, igual que antes.
-export default function AnalisisResultadosIA({ resultado, students, generadoEn = null, activity, subject, membrete = null, watermark = false, onClose, onPedirDescarga = null }) {
+export default function AnalisisResultadosIA({ resultado, students, generadoEn = null, activity, subject, membrete = null, watermark = false, onClose, onGuardar = null, onPedirDescarga = null }) {
   const toast = useToast()
   const [descargando, setDescargando] = useState(false)
+  const [editado, setEditado] = useState(resultado)
+  const [guardando, setGuardando] = useState(false)
   useScrollLock(true)
   useBackHandler(onClose, true)
+
+  useEffect(() => { setEditado(resultado) }, [resultado])
+
+  const sinGuardar = JSON.stringify(editado) !== JSON.stringify(resultado)
+
+  function set(campo, valor) {
+    setEditado((prev) => ({ ...prev, [campo]: valor }))
+  }
+  function setPatron(i, campo, valor) {
+    setEditado((prev) => ({ ...prev, patrones: prev.patrones.map((p, idx) => (idx === i ? { ...p, [campo]: valor } : p)) }))
+  }
+  function setSenalAtencion(i, valor) {
+    setEditado((prev) => ({ ...prev, estudiantesAtencion: prev.estudiantesAtencion.map((e, idx) => (idx === i ? { ...e, senal: valor } : e)) }))
+  }
+  function setRecomendacion(i, valor) {
+    setEditado((prev) => ({ ...prev, recomendaciones: prev.recomendaciones.map((r, idx) => (idx === i ? valor : r)) }))
+  }
+
+  async function guardarCambios() {
+    setGuardando(true)
+    try {
+      await onGuardar(editado)
+      toast('Cambios guardados')
+    } catch (err) {
+      toast('No se pudo guardar: ' + err.message, 'error')
+    } finally {
+      setGuardando(false)
+    }
+  }
 
   const { nombrePorAnonId } = resolverNombresAnalisis(resultado, students)
   const textoConfiabilidad = resumenConfiabilidad(resultado.confiabilidad)
@@ -40,7 +101,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
   async function ejecutarDescargaPDF() {
     setDescargando(true)
     try {
-      const { resultado: resultadoConNombres } = resolverNombresAnalisis(resultado, students)
+      const { resultado: resultadoConNombres } = resolverNombresAnalisis(editado, students)
       await exportAnalisisResultadosPDF({ activity, subject, generadoEn, membrete, watermark, resultado: resultadoConNombres })
     } catch (err) {
       toast('Error al generar el PDF: ' + err.message, 'error')
@@ -66,6 +127,14 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
             <p className="text-xs text-white/70 uppercase tracking-wide">Resultados</p>
             <h1 className="text-xl font-extrabold text-white truncate">Análisis con IA</h1>
           </div>
+          {onGuardar && (
+            <button type="button" onClick={guardarCambios} disabled={!sinGuardar || guardando}
+              data-tooltip="Guardar las correcciones que hiciste a este análisis"
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded transition-colors disabled:opacity-60">
+              {guardando ? <Spinner size="sm" /> : <Save size={14} />}
+              {guardando ? 'Guardando…' : sinGuardar ? 'Guardar' : 'Guardado'}
+            </button>
+          )}
           <button type="button" onClick={handleDescargarPDF} disabled={descargando}
             data-tooltip="Descargar este análisis en PDF"
             className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded transition-colors disabled:opacity-60">
@@ -86,10 +155,10 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
           </p>
         </div>
 
-        {resultado.resumenEjecutivo && (
+        {editado.resumenEjecutivo != null && (
           <div className="bg-surface-card rounded-card shadow-card p-4" style={{ border: '1px solid var(--accent)' }}>
             <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: 'var(--accent)' }}>Resumen ejecutivo</p>
-            <p className="text-sm text-on-surface">{resultado.resumenEjecutivo}</p>
+            <TextoEditable value={editado.resumenEjecutivo} onChange={(v) => set('resumenEjecutivo', v)} className="text-sm text-on-surface" />
           </div>
         )}
 
@@ -101,7 +170,12 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
                 {resultado.porcentajeAciertosGeneral}%
               </span>
             )}
-            <p className="text-sm text-on-surface flex-1">{resultado.resumenGeneral || 'No hay suficiente información para un resumen general.'}</p>
+            <TextoEditable
+              value={editado.resumenGeneral}
+              onChange={(v) => set('resumenGeneral', v)}
+              placeholder="No hay suficiente información para un resumen general."
+              className="text-sm text-on-surface flex-1"
+            />
           </div>
           <p className="text-xs text-muted">{resultado.totalEstudiantes} estudiante{resultado.totalEstudiantes !== 1 ? 's' : ''} · {resultado.totalReactivos} reactivo{resultado.totalReactivos !== 1 ? 's' : ''}</p>
         </div>
@@ -153,13 +227,19 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
           </div>
         )}
 
-        {resultado.patrones?.length > 0 && (
+        {editado.patrones?.length > 0 && (
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Patrones encontrados</p>
-            {resultado.patrones.map((p, i) => (
+            {editado.patrones.map((p, i) => (
               <div key={i} className="border-l-2 pl-3" style={{ borderColor: 'var(--accent)' }}>
-                <p className="text-sm text-on-surface"><span className="font-semibold">Observación (dato): </span>{p.observacion}</p>
-                <p className="text-sm text-muted"><span className="font-semibold">Interpretación: </span>{p.interpretacion}</p>
+                <p className="text-sm text-on-surface flex items-start gap-1">
+                  <span className="font-semibold flex-shrink-0">Observación (dato): </span>
+                  <TextoEditable value={p.observacion} onChange={(v) => setPatron(i, 'observacion', v)} className="text-sm text-on-surface flex-1" />
+                </p>
+                <p className="text-sm text-muted flex items-start gap-1">
+                  <span className="font-semibold flex-shrink-0">Interpretación: </span>
+                  <TextoEditable value={p.interpretacion} onChange={(v) => setPatron(i, 'interpretacion', v)} className="text-sm text-muted flex-1" />
+                </p>
               </div>
             ))}
           </div>
@@ -169,12 +249,12 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
           <p className="text-xs font-bold uppercase tracking-wide text-amber-700 flex items-center gap-1.5">
             <AlertTriangle size={14} /> Estudiantes que podrían requerir atención — señal, no diagnóstico
           </p>
-          {resultado.estudiantesAtencion?.length > 0 ? (
+          {editado.estudiantesAtencion?.length > 0 ? (
             <ul className="space-y-1.5">
-              {resultado.estudiantesAtencion.map((e, i) => (
-                <li key={i} className="text-sm">
-                  <span className="font-semibold text-on-surface">{nombrePorAnonId.get(e.anonId) || e.anonId}: </span>
-                  <span className="text-muted">{e.senal}</span>
+              {editado.estudiantesAtencion.map((e, i) => (
+                <li key={i} className="text-sm flex items-start gap-1">
+                  <span className="font-semibold text-on-surface flex-shrink-0">{nombrePorAnonId.get(e.anonId) || e.anonId}: </span>
+                  <TextoEditable value={e.senal} onChange={(v) => setSenalAtencion(i, v)} className="text-sm text-muted flex-1" />
                 </li>
               ))}
             </ul>
@@ -183,14 +263,16 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
           )}
         </div>
 
-        {resultado.recomendaciones?.length > 0 && (
+        {editado.recomendaciones?.length > 0 && (
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-2">
             <p className="text-xs font-bold uppercase tracking-wide text-accent flex items-center gap-1.5">
               <Lightbulb size={14} /> Recomendaciones
             </p>
             <ul className="list-disc pl-5 space-y-1">
-              {resultado.recomendaciones.map((r, i) => (
-                <li key={i} className="text-sm text-on-surface">{r}</li>
+              {editado.recomendaciones.map((r, i) => (
+                <li key={i} className="text-sm text-on-surface">
+                  <TextoEditable value={r} onChange={(v) => setRecomendacion(i, v)} className="text-sm text-on-surface" />
+                </li>
               ))}
             </ul>
           </div>

@@ -291,6 +291,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [analisisTrabajando, setAnalisisTrabajando] = useState(false)
   const [analisisResultado, setAnalisisResultado] = useState(null)
   const [analisisGeneradoEn, setAnalisisGeneradoEn] = useState(null) // ISO string — solo para mostrar/imprimir
+  const [analisisId, setAnalisisId] = useState(null) // doc en activities/{id}/analisisIA que se está viendo — null = todavía no persistido
   const [analisisHistorial, setAnalisisHistorial] = useState([]) // bitácora de OP-10: un doc por generación, ver activities/{id}/analisisIA
   const [analisisDescargandoId, setAnalisisDescargandoId] = useState(null)
   const [reviewFilter, setReviewFilter] = useState('todos') // review tab: todos|pendiente|calificado|porCalificar
@@ -1063,6 +1064,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             docenteId: auth.currentUser.uid,
             entregasConsideradas: resultado.totalEstudiantes ?? 0,
           })
+          setAnalisisId(ref.id)
           setAnalisisHistorial((prev) => [
             { id: ref.id, resultado, generadoEn: generadoEnLocal, docenteId: auth.currentUser.uid, entregasConsideradas: resultado.totalEstudiantes ?? 0 },
             ...prev,
@@ -1084,6 +1086,17 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   function verAnalisisHistorico(entrada) {
     setAnalisisResultado(entrada.resultado)
     setAnalisisGeneradoEn(new Date(millisDeGeneradoEn(entrada.generadoEn)).toISOString())
+    setAnalisisId(entrada.id)
+  }
+
+  // El docente puede corregir el texto del análisis (es una propuesta de la
+  // IA, no un dato inmutable) — se guarda en el MISMO doc de la bitácora,
+  // sin tocar `generadoEn` ni `entregasConsideradas` (pedido de Kike,
+  // 16-ago-2026: todo lo que genera la IA debe poder editarse).
+  async function guardarAnalisisEditado(resultadoEditado) {
+    await updateDoc(doc(db, 'activities', activityId || activity.id, 'analisisIA', analisisId), { resultado: resultadoEditado })
+    setAnalisisResultado(resultadoEditado)
+    setAnalisisHistorial((prev) => prev.map((h) => (h.id === analisisId ? { ...h, resultado: resultadoEditado } : h)))
   }
 
   async function ejecutarDescargaAnalisisHistoricoPDF(entrada) {
@@ -1909,7 +1922,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 membrete={membrete}
                 watermark={exportsWatermarked}
                 generadoEn={analisisGeneradoEn}
-                onClose={() => { setAnalisisResultado(null); setAnalisisGeneradoEn(null) }}
+                onClose={() => { setAnalisisResultado(null); setAnalisisGeneradoEn(null); setAnalisisId(null) }}
+                onGuardar={analisisId ? guardarAnalisisEditado : null}
                 onPedirDescarga={(ejecutar) => {
                   if (exportsWatermarked) { setPendingExport({ run: ejecutar }); return }
                   ejecutar()
