@@ -87,6 +87,7 @@ export default function PlantillaOficialSection({ subjectId, docenteId }) {
       <p className="text-sm text-muted mt-0.5 mb-2">
         Sube la plantilla real de tu plantel — Word o Excel, vacía, con su logo. Nunca un PDF ni un documento
         escaneado. La IA la analiza y la llena sola, en el mismo formato, cada vez que generes la Planeación.
+        Recomendado: si tu plantel te da a elegir, súbela en Word — su vista previa se ve mucho mejor.
       </p>
 
       {plantillaOficial ? (
@@ -121,7 +122,7 @@ export default function PlantillaOficialSection({ subjectId, docenteId }) {
       {confirmarQuitar && (
         <ConfirmModal
           title="¿Quitar la plantilla oficial?"
-          message="Ya no vas a poder generar la Planeación en el formato de tu escuela — vuelve al Excel genérico. Puedes volver a subirla cuando quieras."
+          message="Ya no vas a poder generar la Planeación en el formato de tu escuela — vuelve al Word genérico. Puedes volver a subirla cuando quieras."
           confirmLabel="Quitar"
           confirmingLabel="Quitando…"
           busy={subiendo}
