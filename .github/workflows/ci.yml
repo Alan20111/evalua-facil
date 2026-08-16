@@ -1,0 +1,40 @@
+name: CI
+
+# Candado de docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 1, paso 1.4.
+# Antes de este workflow, nada verificaba un PR automáticamente — lint,
+# build y check:design solo corrían si alguien se acordaba de correrlos a
+# mano (y check:design nunca se corrió: ver docs/BASELINE_A11Y.md, tenía
+# 12 violaciones reales cuando se enganchó por primera vez en Fase 0).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # No "npm run lint" a secas: hoy tiene 128 problemas preexistentes
+      # (63 son deuda de accesibilidad documentada en docs/BASELINE_A11Y.md,
+      # backlog explícito de Fase 2 — no algo para arreglar en un PR de
+      # candados). lint:budget deja pasar la deuda de HOY, bloquea que
+      # crezca. Ver scripts/lint-budget.mjs y .eslint-budget.json.
+      - name: Lint (presupuesto — no crece la deuda existente)
+        run: npm run lint:budget
+
+      - name: Candado de diseño y accesibilidad (check-ui-standards.sh)
+        run: npm run check:design
+
+      - name: Build
+        run: npm run build

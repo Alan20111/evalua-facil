@@ -8,6 +8,10 @@
     "dev:emuladores": "set VITE_EMULADORES=1&& vite",
     "build": "vite build",
     "lint": "eslint .",
+    "lint:budget": "node scripts/lint-budget.mjs",
+    "lint:budget:write": "node scripts/lint-budget.mjs --write",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "preview": "vite preview",
     "test": "npm run test:unit && npm run test:rules && npm run test:server",
     "test:unit": "node test/unidad.test.mjs",
@@ -66,6 +70,8 @@
   "devDependencies": {
     "@axe-core/react": "^4.13.0",
     "@capacitor/assets": "^3.0.5",
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
     "@eslint/js": "^10.0.1",
     "@firebase/rules-unit-testing": "^5.0.1",
     "@types/react": "^19.2.14",
@@ -73,6 +79,8 @@
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.5.0",
     "eslint": "^10.3.0",
+    "eslint-plugin-better-tailwindcss": "^4.7.0",
+    "eslint-plugin-boundaries": "^7.2.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -80,6 +88,8 @@
     "globals": "^17.6.0",
     "husky": "^9.1.7",
     "postcss": "^8.5.15",
+    "prettier": "^3.9.6",
+    "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^3.4.19",
     "vite": "^8.0.12"
   }

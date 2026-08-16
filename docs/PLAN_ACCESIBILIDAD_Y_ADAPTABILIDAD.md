@@ -407,16 +407,21 @@ de 0.5 y 0.7.
 
 Poner las paredes **antes** de mover los muebles.
 
+> **Ejecutada 2026-08-16** (rama `fix/a11y-fase-1`, apilada sobre `fix/a11y-fase-0`).
+> Notas de lo que salió distinto a lo planeado en cada paso están inline abajo;
+> desglose completo en `docs/BASELINE_A11Y.md` §8.
+
 | Paso | Herramientas | Acción |
 |---|---|---|
-| 1.1 | H-14 | Ampliar `check-ui-standards.sh`: prohibir `user-scalable=no`; `fixed inset-0` fuera de `ui/Modal.jsx`; `h-screen`/`vh` sin variante `dvh`; `w-[NNNpx]` nuevos. |
-| 1.2 | B-11 | Regla `no-restricted-syntax` en ESLint para el mismo conjunto — falla en el editor, no solo en el script. |
-| 1.3 | B-10 | `eslint-plugin-boundaries`: `pages/` **no** puede declarar `<input>`/`<select>`/`<table>` crudos; debe importar de `ui/`. Arrancar como `warn` con allowlist de los 44 archivos actuales, para que **lo nuevo** falle y lo viejo se migre por fases. |
-| 1.4 | H-04, H-10, H-11 | `ci.yml` con `lint` + `build` + `check:design`. `commitlint`. Plantilla de PR con checklist de a11y. |
-| 1.5 | B-06, B-07 | `eslint-plugin-better-tailwindcss` + `prettier-plugin-tailwindcss`. Un commit separado solo de reordenamiento de clases (ruidoso pero mecánico). |
+| 1.1 | H-14 | Ampliar `check-ui-standards.sh`: prohibir `user-scalable=no`; `fixed inset-0` fuera de `ui/Modal.jsx`; `h-screen`/`vh` sin variante `dvh`; `w-[NNNpx]` nuevos. **Ejecutado con presupuesto/ratchet** (37/28/59/52 casos, congelados — cero tolerancia habría roto el script contra deuda ya existente, igual que pasó con `disabled:opacity` en Fase 0), no cero-tolerancia. |
+| 1.2 | B-11 | Regla `no-restricted-syntax` en ESLint para el mismo conjunto. **`no-restricted-syntax` no tiene concepto de presupuesto nativo** (a diferencia del script bash) — se implementó como allowlist de archivos (56 con deuda ya existente, la misma técnica de B-10 aplicada aquí también), no como severidad `warn` global. |
+| 1.3 | B-10 | ~~`eslint-plugin-boundaries`: `pages/` no puede declarar `<input>`/`<select>`/`<table>` crudos~~ — **corregido al ejecutar**: `boundaries` gobierna el grafo de *imports* entre carpetas, no puede ver una etiqueta JSX nativa como `<input>` (no hay ningún `import` que interceptar). Esa parte se implementó con `no-restricted-syntax` (igual que 1.2, allowlist de 20 archivos con deuda real — más que los ~5 que un grep de línea encontraba, porque muchos `<input>`/`<table>` tienen atributos en varias líneas). `eslint-plugin-boundaries` sí se usó, pero para lo que de verdad sirve: `components/ui/` no puede importar de `pages/` (frontera de imports real). |
+| 1.4 | H-04, H-10, H-11 | `ci.yml`, `commitlint`, plantilla de PR. **`npm run lint` crudo no se usó como gate de CI** — con jsx-a11y strict (Fase 0) tiene 128 problemas reales hoy; ponerlo en CI tal cual nace en rojo. Se creó `scripts/lint-budget.mjs` (mismo patrón de presupuesto que 1.1, aplicado al conteo total de ESLint) como paso de CI en su lugar. `subject-case` de commitlint se desactivó: el default habría rechazado commits reales del propio historial ("Fase 0 del plan...", "A17 ejecutada..."). |
+| 1.5 | B-06, B-07 | `eslint-plugin-better-tailwindcss` + `prettier-plugin-tailwindcss` instalados y configurados. **No se ejecutó el reformateo de todo el repo.** Ninguna de las dos herramientas tiene un modo "solo reordena clases" — Prettier reformatea el archivo completo (colapsa/expande objetos, trailing commas, wrapping de destructuring, no solo Tailwind) y las reglas de estilo de `better-tailwindcss` (orden + wrapping de clases) destaparon **6,659 hallazgos autofixeables** de golpe al medirlas. Aplicar cualquiera de las dos a todo `src/` es un diff de alto riesgo (~190 archivos, choca con cualquier PR abierto en paralelo) — no es un "candado de arquitectura, cero riesgo", es su propia fase con aprobación explícita. Quedaron configuradas y enganchadas a `lint-staged` (solo tocan archivos que alguien ya está editando), y `better-tailwindcss` activa solo su regla de corrección (`no-unknown-classes`, 102 hallazgos — mezcla de falsos positivos y algunos sospechosos genuinos, ver `docs/BASELINE_A11Y.md`) en `warn`, sin las reglas de estilo. |
 
 **Puerta de salida:** un PR de prueba que añade un `<input>` crudo en `pages/` es
-rechazado por CI.
+rechazado por CI. **Verificado** con un archivo de prueba fuera del allowlist:
+`no-restricted-syntax` lo bloquea con el mensaje "Usa \<Input\> de components/ui...".
 
 ---
 

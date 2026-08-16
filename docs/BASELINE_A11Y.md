@@ -146,3 +146,171 @@ sorprender si nadie lo sabe. Documentado aquí para que no sea una sorpresa.
 Ninguno de los dos bloquea la puerta de salida de la Fase 0 tal como está definida en
 `docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md` §3 (Fase 0): el axe-core real vía
 navegador cubre la verificación runtime que Lighthouse habría dado para accesibilidad.
+
+---
+
+# Fase 1 — Candados de arquitectura
+
+> Medido el 2026-08-16, rama `fix/a11y-fase-1` (apilada sobre `fix/a11y-fase-0`,
+> que seguía sin mergear a `main` al momento de esta fase).
+
+## 8. Qué se implementó vs. lo que decía el plan original
+
+Tres de los cinco pasos no salieron exactamente como estaban descritos en
+`docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md` — corregido inline en ese documento,
+detalle completo aquí.
+
+### 8.1 `check-ui-standards.sh` — presupuesto, no cero-tolerancia (paso 1.1)
+
+Los 4 patrones nuevos tenían deuda ya existente grande (37 archivos con modales a
+mano, 28 `h-screen`, 59 `vh` crudos, 52 anchos en px duros). Exigir 0 de golpe habría
+roto el script el mismo día que se activó — igual que pasó con `disabled:opacity` en
+Fase 0. Se implementó un helper `ratchet()` en el script: congela el número de HOY,
+bloquea que crezca. Bajar el número (arreglar casos reales) es progreso — para eso
+hay que editar el `BASELINE` a mano en el script, así el candado se aprieta con el
+tiempo en vez de acostumbrarse al número alto.
+
+Verificado con un archivo de prueba (`w-[123px] h-screen`): el script lo bloqueó
+correctamente, mostrando el conteo nuevo contra el presupuesto.
+
+### 8.2 `no-restricted-syntax` — allowlist de archivos, no severidad global (paso 1.2)
+
+A diferencia del script bash, la regla nativa de ESLint no tiene concepto de
+"presupuesto numérico". Se resolvió con la misma técnica que ya proponía el paso 1.3
+para `eslint-plugin-boundaries`: un bloque de `eslint.config.js` con la regla en
+`'error'` para todo el árbol, y un segundo bloque (después, para ganar en la cascada
+de flat config) que apaga la regla completa por archivo en los 56 que ya tenían
+alguno de los 4 patrones. `components/ui/Modal.jsx` queda exceptuado de forma
+permanente (no como deuda) del patrón `fixed inset-0`, porque es la implementación
+canónica — no algo por migrar.
+
+Verificado con un archivo de prueba fuera del allowlist
+(`fixed inset-0 h-screen w-[80px] max-h-[92vh]`): los 4 selectores dispararon
+correctamente, cada uno con su mensaje explicando qué usar en su lugar.
+
+### 8.3 `eslint-plugin-boundaries` no puede ver `<input>` crudo (paso 1.3)
+
+Hallazgo al ejecutar, no al planear: `eslint-plugin-boundaries` gobierna el grafo de
+**imports** entre carpetas (qué tipo de módulo puede importar de qué otro tipo) — no
+tiene forma de inspeccionar una etiqueta JSX nativa como `<input>`, porque ahí no hay
+ningún `import` que interceptar. La regla original del plan ("`pages/` no puede
+declarar `<input>`/`<select>`/`<table>` crudos") se implementó con
+`no-restricted-syntax` (selectores `JSXOpeningElement[name.name='input']` etc.) sobre
+`src/pages/**/*.jsx`, con el mismo patrón de allowlist del punto 8.2.
+
+El allowlist real terminó siendo **20 archivos**, no los ~5 que encontraba un grep de
+línea (`<(input|select|table)[\s>]`) — muchos elementos JSX tienen el nombre de la
+etiqueta y sus atributos en líneas distintas (`<input\n  type=...`), invisibles para
+un grep de una sola línea pero perfectamente visibles para el AST real de ESLint. La
+lista final se generó desde la salida JSON de ESLint, no del grep.
+
+`eslint-plugin-boundaries` sí se usó — para el problema que de verdad es un grafo de
+imports: `components/ui/` (la librería de diseño compartida) no puede importar de
+`pages/`. Se usó la sintaxis v7 (`boundaries/dependencies` + `policies`), no la v5/v6
+(`boundaries/element-types` + `rules`) que el plugin instalado (7.2.0) marca como
+deprecada con warnings. Solo se definieron los tipos `ui` y `pages` (no un tipo
+genérico `components`) porque `src/components/**` incluiría a
+`src/components/ui/**` por estar anidado — evita depender de un orden de resolución
+de patrones no documentado por el plugin.
+
+Verificado con un archivo de prueba en `components/ui/` importando una página:
+`boundaries/dependencies` lo bloqueó con el mensaje de la política.
+
+### 8.4 `npm run lint` crudo no es el gate de CI — se creó `scripts/lint-budget.mjs` (paso 1.4)
+
+Con `jsx-a11y` en `strict` (Fase 0) más `better-tailwindcss` correctness (paso 1.5),
+`eslint .` tiene **230 problemas reales hoy** (128 de Fase 0 + 102 nuevos de
+`no-unknown-classes`, ver 8.5). Ponerlo como paso obligatorio de `ci.yml` habría
+dejado el pipeline en rojo desde el primer commit — un CI perpetuamente rojo entrena
+a la gente a ignorarlo, que es peor que no tener CI.
+
+`scripts/lint-budget.mjs` aplica el mismo principio de presupuesto del punto 8.1 pero
+al conteo TOTAL de `eslint . -f json` en vez de a un puñado de greps: lee
+`.eslint-budget.json` (hoy: 128 → actualizado a 230 tras el paso 1.5), compara contra
+el conteo real, falla solo si creció. `npm run lint:budget:write` graba un nuevo
+presupuesto cuando de verdad se arregla algo. `npm run lint` (sin `:budget`) se deja
+intacto para seguir viendo el detalle completo en desarrollo local.
+
+No se enganchó a pre-commit (a diferencia de `check:design`): una corrida completa de
+ESLint tarda **~30 segundos** en este repo — aceptable para CI, no para cada commit.
+El pre-commit se queda con `lint-staged` (solo archivos tocados, rápido) +
+`check:design` (grep, casi instantáneo).
+
+`commitlint` se configuró con `subject-case: [0]` (desactivada): el default de
+`@commitlint/config-conventional` habría rechazado commits reales ya en el historial
+del repo — "fix(a11y): Fase 0 del plan de accesibilidad..." (el propio commit de esta
+sesión) y "docs(calidad): A17 ejecutada y documentada" arrancan con sustantivo propio
+en mayúscula. Formalizar el patrón que el equipo ya usa, no inventar uno más
+estricto.
+
+### 8.5 Prettier y `better-tailwindcss`: instalados, NO aplicados a todo el repo (paso 1.5)
+
+Este fue el hallazgo más importante de la sesión. El plan original decía "un commit
+separado solo de reordenamiento de clases (ruidoso pero mecánico)" — medido, eso
+resultó ser una simplificación incorrecta:
+
+- **Prettier no tiene un modo "solo ordena clases de Tailwind"**. Es un formateador
+  de todo o nada. Una prueba en un solo archivo (`components/ui/Button.jsx`, que ya
+  sigue una convención de estilo consistente) mostró que Prettier reescribe
+  colapsado/expandido de objetos, agrega trailing commas y reenvuelve destructuring
+  — cambios de estilo general, no reordenamiento de clases. El plugin de Tailwind
+  solo se activa DENTRO de una corrida completa de Prettier.
+- **`eslint-plugin-better-tailwindcss` en modo `recommended`/`stylistic`** (orden +
+  wrapping de clases) destapó **6,659 hallazgos autofixeables** al medirlo contra el
+  código real — confirma que es el mismo problema de escala que Prettier, no una
+  regla puntual.
+
+Aplicar cualquiera de las dos herramientas a los ~190 archivos de `src/` de golpe es
+un diff de alto riesgo: masivo, ruidoso para revisar, y con alta probabilidad de
+choque con cualquier trabajo concurrente en otras ramas (había al menos otro PR
+abierto — #1169 — y otra rama activa al momento de esta sesión). Eso no es un
+"candado de arquitectura, cero riesgo" — es su propia decisión, con su propio PR, que
+necesita luz verde explícita antes de ejecutarse.
+
+**Lo que sí se hizo:**
+- Ambas herramientas instaladas y configuradas (`.prettierrc.json`, `.prettierignore`,
+  bloque `better-tailwindcss` en `eslint.config.js`).
+- `prettier --write` enganchado a `lint-staged` — solo aplica a archivos que alguien
+  ya está editando en ese commit, no a todo el repo de golpe.
+- De `better-tailwindcss` solo se activó la config `correctness-warn` (no
+  `stylistic`): `no-unknown-classes` (102 hallazgos), `no-conflicting-classes` (0),
+  `no-concatenated-classes` (0). Los 102 de `no-unknown-classes` son una mezcla:
+  - Falsos positivos reales: `safe-top`/`safe-bottom` (utilidades del plugin
+    `@capacitor-community/safe-area`, no generadas por Tailwind) y `ef-pop-in`/
+    `ef-pop-in-up`/`ef-nodrag` (clases definidas a mano en `index.css`).
+  - **Sospechosos genuinos, sin investigar todavía**: `bg-accent-tint`,
+    `hover:bg-accent-tint`, `text-on-surface-variant`, `bg-surface-variant` no están
+    registradas en `tailwind.config.js` bajo esos nombres literales — o son
+    utilidades definidas aparte en `index.css` (como las de arriba) o son clases
+    que hoy no generan ningún estilo real. Vale la pena revisar en Fase 2/3.
+- `npm run format` / `npm run format:check` (Prettier sobre todo el repo) quedan
+  disponibles como comandos explícitos que alguien corre a propósito — no se
+  ejecutaron en esta sesión.
+
+**Pendiente, requiere aprobación explícita antes de ejecutarse:** una pasada de
+`npm run format` + activar las reglas de estilo de `better-tailwindcss`, en su propio
+PR dedicado, coordinada para no chocar con ramas concurrentes.
+
+## 9. Candados activados en esta fase
+
+| Candado | Estado |
+|---|---|
+| `check-ui-standards.sh` — 4 patrones nuevos con presupuesto/ratchet | ✅ activo |
+| `no-restricted-syntax` (ESLint) — mismos 4 patrones + `<input>/<select>/<table>` en `pages/` | ✅ activo, con allowlist de deuda existente |
+| `eslint-plugin-boundaries` — `ui/` no puede importar de `pages/` | ✅ activo |
+| `scripts/lint-budget.mjs` en CI — presupuesto sobre el total de ESLint | ✅ activo (`.eslint-budget.json`: 230) |
+| `.github/workflows/ci.yml` — lint:budget + check:design + build en cada PR | ✅ activo |
+| `commitlint` — formato `type(scope): subject` obligatorio vía `.husky/commit-msg` | ✅ activo |
+| `.github/PULL_REQUEST_TEMPLATE.md` — checklist de accesibilidad | ✅ activo |
+| Prettier + `better-tailwindcss` (correctness) | ✅ configurados, aplicados solo a archivos tocados vía `lint-staged` |
+| Reformateo completo del repo (Prettier + reglas de estilo de `better-tailwindcss`) | ⏸ pendiente, decisión explícita del usuario |
+
+## 10. Verificaciones hechas (todas con archivos de prueba, limpiados después)
+
+- `check-ui-standards.sh`: violación de prueba → bloqueada, número mostrado contra presupuesto.
+- `no-restricted-syntax` (patrones de diseño): violación de prueba fuera del allowlist → 4 errores, uno por patrón.
+- `no-restricted-syntax` (`<input>` en `pages/`): la puerta de salida exacta de la Fase 1 → bloqueado.
+- `boundaries/dependencies`: `components/ui/` importando una página → bloqueado.
+- `scripts/lint-budget.mjs`: violación de prueba → conteo sube de 230, falla; limpiado → vuelve a 230, pasa.
+- `lint-staged` con la cadena `eslint --fix` → `prettier --write`: probado en un archivo con formato inconsistente, ambas herramientas corrieron en orden y el resultado quedó correctamente formateado.
+- `commitlint`: mensaje sin formato → rechazado; mensaje real del historial del repo ("Fase 0 del plan...") → aceptado.

@@ -27,6 +27,34 @@ check() {
   fi
 }
 
+# Presupuesto/ratchet: para patrones con deuda YA existente y grande (decenas
+# de casos), exigir 0 de golpe rompería el candado desde el primer commit —
+# igual que pasó con disabled:opacity en la Fase 0. En vez de eso se congela
+# el número de hoy: el candado deja pasar la deuda vieja pero bloquea que
+# crezca. Bajar el número (arreglando casos) es progreso visible; para eso
+# hay que editar el BASELINE de abajo a mano cuando se arregle algo — así el
+# candado se aprieta con el tiempo en vez de acostumbrarse al numero alto.
+# Ver docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 1, paso 1.1.
+ratchet() {
+  local desc="$1" pattern="$2" baseline="$3" exclude="${4:-}" mode="${5:-occurrences}"
+  local grep_flag="-rEo"
+  [ "$mode" = "files" ] && grep_flag="-rlE"
+  local count
+  if [ -n "$exclude" ]; then
+    count=$(grep $grep_flag "$pattern" --include="*.jsx" src/ 2>/dev/null | grep -vF "$exclude" | wc -l)
+  else
+    count=$(grep $grep_flag "$pattern" --include="*.jsx" src/ 2>/dev/null | wc -l)
+  fi
+  if [ "$count" -gt "$baseline" ]; then
+    echo "❌ $desc — $count casos (presupuesto: $baseline). No agregues más sin arreglar de los viejos."
+    FAIL=1
+  elif [ "$count" -lt "$baseline" ]; then
+    echo "✅ $desc — $count casos (¡bajó de $baseline! actualiza el BASELINE en scripts/check-ui-standards.sh para que el candado no se relaje)"
+  else
+    echo "✅ $desc — $count casos (presupuesto: $baseline, sin crecer)"
+  fi
+}
+
 echo "=== Candado anti-regresión — docs/DESIGN_SYSTEM.md §10 ==="
 echo ""
 
@@ -46,6 +74,35 @@ check "focus:ring-2 sin focus-visible — DESIGN_SYSTEM.md §10-#19" 'focus:ring
 check "disabled:opacity fuera de 40/60 — DESIGN_SYSTEM.md §10-#20" 'disabled:opacity-(20|30|50)' '-E'
 check "fontSize inline en píxeles crudos — DESIGN_SYSTEM.md §10 (Fase 1)" 'fontSize: [0-9]' '-E'
 check "role=\"presentation\" (usar el patrón canónico de backdrop de §6.7)" 'role="presentation"'
+
+echo ""
+echo "=== Candados de accesibilidad — docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 1 ==="
+echo ""
+
+# Cero tolerancia: ya se corrigió en la Fase 0 (arregla WCAG 1.4.4), no debe
+# volver a aparecer. El patrón exige comilla después para no disparar con
+# texto que simplemente MENCIONE "user-scalable=no" en un comentario.
+if grep -q 'user-scalable=no"' index.html 2>/dev/null; then
+  echo "❌ user-scalable=no en el viewport (bloquea pinch-zoom, WCAG 1.4.4) — index.html"
+  FAIL=1
+else
+  echo "✅ user-scalable=no en el viewport (bloquea pinch-zoom, WCAG 1.4.4)"
+fi
+
+# Presupuestos subidos al mergear main (fusión de fix/a11y-fase-0/1/2 con
+# main tras 234 commits de trabajo paralelo — feature de IA/Planeación, mapa
+# de admin, etc.): 37→44 modales, 59→62 vh, 52→54 px. Es deuda nueva de ESE
+# trabajo, no de este plan — no se revisó caso por caso, se congela el
+# número real de hoy para que el candado siga protegiendo contra que crezca
+# más, en vez de quedar roto/ignorado tras el merge.
+ratchet "Modales a mano (fixed inset-0 fuera de ui/Modal.jsx) — migrar a ui/Modal en Fase 3" \
+  'fixed inset-0' 44 'components/ui/Modal.jsx' files
+ratchet "h-screen (rompe con la barra de URL de Chrome Android, usar dvh) — Fase 5 paso 5.3" \
+  '\bh-screen\b' 28
+ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
+  '([0-9]+)(vh)\b' 62
+ratchet "Anchos/altos en píxeles duros (w-[Npx]/h-[Npx]) — evitar nuevos, usar tokens de layout.js" \
+  '(min-)?[wh]-\[[0-9]+px\]' 54
 
 echo ""
 if [ "$FAIL" -eq 1 ]; then
