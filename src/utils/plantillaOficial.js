@@ -135,33 +135,46 @@ export async function llenarPlantillaExcel(arrayBuffer, celdas) {
     const filaFin = Math.max(...filas)
     const alto = filaFin - filaInicio + 1
     const total = Math.max(...conSecuencias.map((c) => c.texto.length))
+    // Espacio en blanco OBLIGATORIO entre el Cierre/evaluación de una
+    // Secuencia Didáctica y el encabezado de la siguiente (Kike, 16-ago-
+    // 2026: "nunca debe pegar dos secuencias consecutivas sin espacio de
+    // separación") — 2 filas vacías antes de cada etiqueta, incluida la
+    // primera.
+    const ESPACIO = 2
+    const inicioBloque = [] // fila real donde empieza el contenido de cada secuencia, en orden
 
-    hoja.spliceRows(filaInicio, 0, [])
-    hoja.getRow(filaInicio).getCell(1).value = 'SECUENCIA DIDÁCTICA 1'
-    hoja.getRow(filaInicio).getCell(1).font = { bold: true }
-    let cursor = filaFin + 1 // el bloque original se corrió +1 por la etiqueta insertada arriba
+    hoja.spliceRows(filaInicio, 0, ...Array(ESPACIO).fill([]))
+    const etiqueta1 = filaInicio + ESPACIO
+    hoja.spliceRows(etiqueta1, 0, [])
+    hoja.getRow(etiqueta1).getCell(1).value = 'SECUENCIA DIDÁCTICA 1'
+    hoja.getRow(etiqueta1).getCell(1).font = { bold: true }
+    inicioBloque.push(etiqueta1 + 1) // el bloque original (contenido real) sigue justo después
+    let cursor = etiqueta1 + alto // última fila del bloque original tras los corrimientos
 
     for (let v = 1; v < total; v++) {
-      hoja.spliceRows(cursor + 1, 0, [])
-      const filaEtiqueta = cursor + 1
+      hoja.spliceRows(cursor + 1, 0, ...Array(ESPACIO).fill([]))
+      const filaEtiqueta = cursor + ESPACIO + 1
+      hoja.spliceRows(filaEtiqueta, 0, [])
       hoja.getRow(filaEtiqueta).getCell(1).value = `SECUENCIA DIDÁCTICA ${v + 1}`
       hoja.getRow(filaEtiqueta).getCell(1).font = { bold: true }
 
       hoja.spliceRows(filaEtiqueta + 1, 0, ...Array(alto).fill([]))
+      const filaContenido = filaEtiqueta + 1
+      inicioBloque.push(filaContenido)
       for (let f = 0; f < alto; f++) {
-        const origen = hoja.getRow(filaInicio + 1 + f) // bloque original (corrido +1 desde la primera etiqueta)
-        const destino = hoja.getRow(filaEtiqueta + 1 + f)
+        const origen = hoja.getRow(inicioBloque[0] + f) // siempre copia desde el primer bloque real
+        const destino = hoja.getRow(filaContenido + f)
         destino.values = origen.values
         destino.height = origen.height
         origen.eachCell({ includeEmpty: true }, (celda, colNum) => {
           destino.getCell(colNum).style = celda.style
         })
       }
-      cursor = filaEtiqueta + alto
+      cursor = filaContenido + alto - 1
     }
 
     for (let i = 0; i < total; i++) {
-      const filaDestino = filaInicio + 1 + i * (alto + 1) // +1 por cada etiqueta ya contada
+      const filaDestino = inicioBloque[i]
       for (const c of conSecuencias) {
         const texto = c.texto[i]
         if (!texto) continue
@@ -338,6 +351,15 @@ function parrafoEtiquetaWord(doc, texto) {
   return p
 }
 
+// Párrafo vacío — separación visual OBLIGATORIA entre el Cierre/evaluación
+// de una Secuencia Didáctica y el encabezado de la siguiente (Kike,
+// 16-ago-2026: "nunca debe pegar dos secuencias consecutivas sin espacio de
+// separación"). Dos párrafos vacíos dan un espacio claramente visible sin
+// depender de estilos que la plantilla del docente podría no traer.
+function parrafoVacioWord(doc) {
+  return doc.createElementNS(W_NS, 'w:p')
+}
+
 // Clona el BLOQUE COMPLETO de tablas [inicioTablaIdx..finTablaIdx] (todos
 // los nodos hermanos entre la primera y la última tabla, inclusive)
 // `veces - 1` veces más, insertando las copias en secuencia — y antepone a
@@ -368,10 +390,16 @@ function duplicarBloqueWord(doc, inicioTablaIdx, finTablaIdx, veces) {
   }
   if (rango[rango.length - 1] !== tFin) return // tFin no es hermano de tInicio en orden — no se toca nada
 
+  parent.insertBefore(parrafoVacioWord(doc), tInicio)
+  parent.insertBefore(parrafoVacioWord(doc), tInicio)
   parent.insertBefore(parrafoEtiquetaWord(doc, 'SECUENCIA DIDÁCTICA 1'), tInicio)
 
   let ancla = tFin
   for (let i = 1; i < veces; i++) {
+    parent.insertBefore(parrafoVacioWord(doc), ancla.nextSibling)
+    ancla = ancla.nextSibling
+    parent.insertBefore(parrafoVacioWord(doc), ancla.nextSibling)
+    ancla = ancla.nextSibling
     const etiqueta = parrafoEtiquetaWord(doc, `SECUENCIA DIDÁCTICA ${i + 1}`)
     parent.insertBefore(etiqueta, ancla.nextSibling)
     ancla = etiqueta
