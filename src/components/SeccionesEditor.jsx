@@ -95,22 +95,22 @@ export function SeccionHeader({
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button type="button" onClick={() => onMover('up')} disabled={disabled || primera}
             aria-label="Subir sección" data-tooltip="Subir sección"
-            className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40">
+            className="p-2 text-slate-400 hover:text-accent rounded disabled:opacity-40">
             <ChevronUp size={16} />
           </button>
           <button type="button" onClick={() => onMover('down')} disabled={disabled || ultima}
             aria-label="Bajar sección" data-tooltip="Bajar sección"
-            className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40">
+            className="p-2 text-slate-400 hover:text-accent rounded disabled:opacity-40">
             <ChevronDown size={16} />
           </button>
           <button type="button" onClick={onEditar} disabled={disabled}
             aria-label="Editar sección" data-tooltip="Editar sección"
-            className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40">
+            className="p-2 text-slate-400 hover:text-accent rounded disabled:opacity-40">
             <Pencil size={15} />
           </button>
           <button type="button" onClick={onEliminar} disabled={disabled}
             aria-label="Eliminar sección" data-tooltip="Eliminar sección"
-            className="p-1.5 text-slate-400 hover:text-error rounded disabled:opacity-40">
+            className="p-2 text-slate-400 hover:text-error rounded disabled:opacity-40">
             <Trash2 size={15} />
           </button>
         </div>
@@ -182,7 +182,7 @@ export function SelectorSeccion({ id, secciones, valor, onChange }) {
 // Cerrar el formulario de sección desde el encabezado de la lista.
 export function CerrarFormulario({ onClick }) {
   return (
-    <button type="button" onClick={onClick} aria-label="Cancelar" className="p-1.5 text-slate-400 hover:text-muted rounded">
+    <button type="button" onClick={onClick} aria-label="Cancelar" className="p-2 text-slate-400 hover:text-muted rounded">
       <X size={18} />
     </button>
   )

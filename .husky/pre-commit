@@ -1,1 +1,2 @@
 npm run check:design
+npm run lint:budget

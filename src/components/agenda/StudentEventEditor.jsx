@@ -84,7 +84,7 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
       <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-4 pt-4 pb-2 flex-shrink-0">
           <h2 className="font-semibold text-on-surface">{isNew ? 'Nuevo evento personal' : 'Editar evento'}</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded transition-colors">
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded transition-colors">
             <X size={18} />
           </button>
         </div>

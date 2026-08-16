@@ -899,7 +899,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       <button
                         type="button"
                         onClick={() => openEdit(r.sub)}
-                        className="p-1.5 text-slate-400 hover:text-accent rounded"
+                        className="p-2 text-slate-400 hover:text-accent rounded"
                         data-tooltip="Editar"
                         aria-label="Editar"
                       >
@@ -909,7 +909,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                         <button
                           type="button"
                           onClick={() => handleCancel(r.sub)}
-                          className="p-1.5 text-slate-400 hover:text-amber-600 rounded"
+                          className="p-2 text-slate-400 hover:text-amber-600 rounded"
                           data-tooltip="Cancelar"
                           aria-label="Cancelar"
                         >
@@ -929,7 +929,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       <button
                         type="button"
                         onClick={() => handleDelete(r.sub)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 rounded"
+                        className="p-2 text-slate-400 hover:text-red-600 rounded"
                         data-tooltip="Eliminar"
                         aria-label="Eliminar"
                       >

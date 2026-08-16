@@ -59,7 +59,7 @@ export default function UpdateChecker() {
         type="button"
         aria-label="Cerrar"
         onClick={() => { dismissedRef.current = true; setHayVersionNueva(false) }}
-        className="flex-shrink-0 p-1 text-muted hover:text-on-surface rounded transition-colors"
+        className="flex-shrink-0 p-2 text-muted hover:text-on-surface rounded transition-colors"
       >
         <X size={16} />
       </button>

@@ -131,11 +131,17 @@ const MAX_RESOURCE_SIZE = 15 * 1024 * 1024
 const MAX_ATTACHMENT_FILE_SIZE = 15 * 1024 * 1024
 const EMPTY_MATERIAL_FORM = { nombre: '', descripcion: '', oculta: false, publishAt: '', visibilidadMode: 'show' }
 
+// Contraste medido contra blanco (fondo real de la tabla de calificaciones,
+// docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 2, paso 2.9): con los tonos
+// anteriores, "vacío" (slate-300, 1.48:1), "media" (amber-600, 3.19:1) y
+// "baja" (red-500, 3.76:1) fallaban el mínimo de texto de WCAG AA (4.5:1).
+// Un tono más oscuro en cada familia (slate-500 4.76:1, amber-700 5.02:1,
+// red-600 4.83:1) resuelve los tres sin cambiar de familia de color.
 function gradeColor(norm) {
-  if (norm === null) return 'text-slate-300'
+  if (norm === null) return 'text-slate-500'
   if (norm >= 8) return 'text-emerald-700'
-  if (norm >= 6) return 'text-amber-600'
-  return 'text-red-500'
+  if (norm >= 6) return 'text-amber-700'
+  return 'text-red-600'
 }
 
 // Tabla de asistencias compartida por la vista web y la vista horizontal de la
@@ -4431,7 +4437,7 @@ export default function SubjectPage() {
                       {gradeSortOn && (
                         <button type="button" onClick={() => { setGradeSortOn(false); setGradeSortMenuOpen(false) }}
                           aria-label="Volver al orden normal" data-tooltip="Volver al orden normal"
-                          className="p-1 text-slate-400 hover:text-red-500 rounded">
+                          className="p-2 text-slate-400 hover:text-red-500 rounded">
                           <X size={16} />
                         </button>
                       )}
@@ -5306,7 +5312,7 @@ export default function SubjectPage() {
                   {!IS_NATIVE_APP && (
                     <button type="button"
                       onClick={() => openEditStudent(s)}
-                      className="w-9 flex-shrink-0 p-1 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
+                      className="w-9 flex-shrink-0 p-2 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
                       aria-label="Editar estudiante"
                       data-tooltip="Editar estudiante"
                     >
@@ -5792,7 +5798,7 @@ export default function SubjectPage() {
                         <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.tamano)}</span>
                         <button type="button" onClick={() => setMaterialExistingFiles((prev) => prev.filter((_, idx) => idx !== i))}
                           aria-label="Quitar archivo"
-                          className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                          className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
                           <X size={15} />
                         </button>
                       </div>
@@ -5804,7 +5810,7 @@ export default function SubjectPage() {
                         <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.size)}</span>
                         <button type="button" onClick={() => setMaterialNewFiles((prev) => prev.filter((_, idx) => idx !== i))}
                           aria-label="Quitar archivo"
-                          className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                          className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
                           <X size={15} />
                         </button>
                       </div>
@@ -6187,7 +6193,7 @@ export default function SubjectPage() {
               {importSrc && (
                 <button type="button" onClick={() => { setImportSrc(null); setImportSrcActs([]); setImportSel(new Set()) }}
                   aria-label="Volver"
-                  className="p-1 -ml-1 text-slate-400 hover:text-accent rounded flex-shrink-0"><ArrowLeft size={18} /></button>
+                  className="p-2 -ml-1 text-slate-400 hover:text-accent rounded flex-shrink-0"><ArrowLeft size={18} /></button>
               )}
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-semibold text-on-surface truncate">Traer al Parcial {importFor}</h3>
@@ -6518,7 +6524,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-lg rounded-t-card sm:rounded-card shadow-2xl flex flex-col max-h-[85vh]">
             <div className="p-4 border-b border-outline-variant flex-shrink-0 flex items-center justify-between">
               <h3 className="text-base font-semibold text-on-surface">Revisa antes de importar</h3>
-              <button type="button" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" className="p-1 text-slate-400 hover:text-muted rounded"><X size={18} /></button>
+              <button type="button" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" className="p-2 text-slate-400 hover:text-muted rounded"><X size={18} /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {excelPreview.invalid.length > 0 && (

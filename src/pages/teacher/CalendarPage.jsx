@@ -1724,7 +1724,7 @@ export default function CalendarPage() {
   // dos layouts distintos (nativo vs. web) sin duplicar el marcado.
   const dateNav = (
     <div className="relative flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
-      <button type="button" onClick={prev} aria-label="Anterior" className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
+      <button type="button" onClick={prev} aria-label="Anterior" className="p-2 rounded hover:bg-accent-tint text-muted transition-colors">
         <ChevronLeft size={16} />
       </button>
       <button
@@ -1739,7 +1739,7 @@ export default function CalendarPage() {
       >
         {navLabel()}
       </button>
-      <button type="button" onClick={next} aria-label="Siguiente" className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
+      <button type="button" onClick={next} aria-label="Siguiente" className="p-2 rounded hover:bg-accent-tint text-muted transition-colors">
         <ChevronRight size={16} />
       </button>
 
@@ -1754,13 +1754,13 @@ export default function CalendarPage() {
           />
           <div className="absolute left-1/2 -translate-x-1/2 top-11 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
             <div className="flex items-center justify-between mb-2">
-              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-1 rounded hover:bg-accent-tint text-muted">
+              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-2 rounded hover:bg-accent-tint text-muted">
                 <ChevronLeft size={15} />
               </button>
               <span className="text-sm font-semibold text-on-surface">
                 {MESES[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}
               </span>
-              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, 1))} className="p-1 rounded hover:bg-accent-tint text-muted">
+              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, 1))} className="p-2 rounded hover:bg-accent-tint text-muted">
                 <ChevronRight size={15} />
               </button>
             </div>
@@ -2171,7 +2171,7 @@ export default function CalendarPage() {
                 <CalendarClock size={18} className="text-accent" />
                 <h2 className="font-semibold text-on-surface">Modificar bloques por asignatura</h2>
               </div>
-              <button type="button" onClick={() => setShowModificarPicker(false)} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded"><Plus size={18} className="rotate-45" /></button>
+              <button type="button" onClick={() => setShowModificarPicker(false)} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded"><Plus size={18} className="rotate-45" /></button>
             </div>
             {subjectsConBloques.length === 0 ? (
               <p className="text-sm text-muted py-4 text-center">
@@ -2439,7 +2439,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
             <CalendarOff size={18} className="text-amber-600" />
             <h2 className="font-semibold text-on-surface">Días de asueto</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded"><X size={18} /></button>
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded"><X size={18} /></button>
         </div>
 
         <div className="overflow-y-auto flex-1 p-4 space-y-4">
@@ -2499,7 +2499,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
                 </div>
                 <button
                   type="button" onClick={() => onRemove(a.id)}
-                  className="p-1.5 text-muted hover:text-error rounded transition-colors flex-shrink-0"
+                  className="p-2 text-muted hover:text-error rounded transition-colors flex-shrink-0"
                   data-tooltip="Quitar" aria-label="Quitar"
                 >
                   <Trash2 size={15} />
@@ -2560,7 +2560,7 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
             <CalendarRange size={18} className="text-amber-600" />
             <h2 className="font-semibold text-on-surface">Vacaciones</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded"><X size={18} /></button>
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded"><X size={18} /></button>
         </div>
 
         <div className="overflow-y-auto flex-1 p-4 space-y-4">
@@ -2629,7 +2629,7 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
                 </div>
                 <button
                   type="button" onClick={() => onRemove(v.id)}
-                  className="p-1.5 text-muted hover:text-error rounded transition-colors flex-shrink-0"
+                  className="p-2 text-muted hover:text-error rounded transition-colors flex-shrink-0"
                   data-tooltip="Quitar" aria-label="Quitar"
                 >
                   <Trash2 size={15} />

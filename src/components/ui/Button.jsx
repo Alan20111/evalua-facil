@@ -27,8 +27,12 @@ const VARIANTS = {
   ghost:
     'text-accent hover:underline font-semibold transition-colors disabled:opacity-60',
   // Icon-button: disabled:opacity-40 (convención de toolbars de puro icono).
+  // Alto/ancho mínimo de 44 px reales, en corchetes (no en la escala rem de
+  // Tailwind): con html{font-size:90%} del proyecto, el equivalente en la
+  // escala (ej. min-h-11) daría 39.6px reales, no 44 — WCAG 2.5.8 pide el
+  // tamaño real del target, no el nominal. docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 2, paso 2.8.
   icon:
-    'p-2 rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40',
+    'p-2 min-h-[44px] min-w-[44px] rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40 inline-flex items-center justify-center',
   'cta-dashed':
     'w-full py-2.5 rounded border-2 border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
   fab:

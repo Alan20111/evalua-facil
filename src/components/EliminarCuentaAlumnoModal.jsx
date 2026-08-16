@@ -6,7 +6,6 @@ import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
 import { useBackHandler } from '../hooks/useBackHandler'
-import { useScrollLock } from '../hooks/useScrollLock'
 import Modal from './ui/Modal'
 import Spinner from './Spinner'
 import PasswordInput from './PasswordInput'
@@ -32,7 +31,6 @@ export default function EliminarCuentaAlumnoModal({ photoURL, onClose }) {
   const [borrando, setBorrando] = useState(false)
 
   useBackHandler(() => { if (!borrando) onClose() })
-  useScrollLock(true)
 
   const puedeSeguir = palabra.trim().toUpperCase() === PALABRA && password.length > 0
 

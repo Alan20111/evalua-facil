@@ -175,7 +175,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             que se desplaza). */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 flex-shrink-0">
           <h2 className="font-semibold text-on-surface">{isNew ? 'Nuevo evento' : 'Editar evento'}</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded transition-colors">
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded transition-colors">
             <X size={18} />
           </button>
         </div>

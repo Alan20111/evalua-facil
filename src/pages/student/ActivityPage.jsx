@@ -849,7 +849,7 @@ export default function StudentActivityPage() {
                         type="button"
                         onClick={() => removeSelectedFile(i)}
                         aria-label={`Quitar ${f.name}`}
-                        className="p-1 -mr-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0"
+                        className="p-2 -mr-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0"
                       >
                         <X size={15} />
                       </button>

@@ -65,7 +65,7 @@ function FileRow({ f, onRemove, index }) {
         </span>
         {f.url && canView && (
           <button type="button" onClick={() => setOpen(true)} aria-label="Vista previa"
-            className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Vista previa">
+            className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Vista previa">
             <FileSearch size={15} />
           </button>
         )}
@@ -73,19 +73,19 @@ function FileRow({ f, onRemove, index }) {
           <a href={openInTabUrl} target="_blank" rel="noreferrer"
             data-tooltip={isImgPdf ? 'Abrir página 1 en pestaña nueva' : 'Abrir en Google Docs'}
             aria-label={isImgPdf ? 'Abrir página 1 en pestaña nueva' : 'Abrir en Google Docs'}
-            className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
+            className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <ExternalLink size={15} />
           </a>
         )}
         {f.url && (
           <a href={downloadHref} download={f.nombre} rel="noreferrer" data-tooltip="Descargar" aria-label="Descargar"
-            className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
+            className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <Download size={15} />
           </a>
         )}
         {onRemove && (
           <button type="button" onClick={() => onRemove(index)} data-tooltip="Quitar" aria-label="Quitar"
-            className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+            className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
             <X size={15} />
           </button>
         )}

@@ -944,7 +944,7 @@ export default function ActivityPage() {
                   onClick={() => setEditingActivity(true)}
                   data-tooltip="Editar actividad"
                   aria-label="Editar actividad"
-                  className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                 >
                   <Pencil size={18} />
                 </button>
@@ -2308,7 +2308,7 @@ export default function ActivityPage() {
                 onClick={() => setRubricaViewOpen(false)}
                 aria-label="Cerrar rúbrica"
                 data-tooltip="Cerrar rúbrica"
-                className="p-1.5 text-slate-400 hover:text-accent rounded flex-shrink-0"
+                className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0"
               >
                 <X size={17} />
               </button>

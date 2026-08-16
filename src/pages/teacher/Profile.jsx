@@ -883,7 +883,7 @@ export default function Profile() {
                 </button>
               </div>
               {resendPayment.notasAdmin && (
-                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                <p role="alert" className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
                   Motivo del rechazo: {resendPayment.notasAdmin}
                 </p>
               )}

@@ -158,7 +158,7 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
       <div className="ef-nodrag relative bg-surface-card rounded-card shadow-2xl p-4 w-full max-w-sm">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-on-surface">Ajusta tu foto</h3>
-          <button type="button" onClick={onCancel} aria-label="Cancelar" className="p-1 text-slate-400 hover:text-muted rounded"><X size={20} /></button>
+          <button type="button" onClick={onCancel} aria-label="Cancelar" className="p-2 text-slate-400 hover:text-muted rounded"><X size={20} /></button>
         </div>
         <p className="text-xs text-muted mb-3 text-center">
           {IS_NATIVE_APP ? 'Pellizca para alejar o acercar · arrastra para mover' : 'Rueda del mouse para acercar/alejar · arrastra para mover'}

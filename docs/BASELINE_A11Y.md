@@ -120,7 +120,7 @@ nunca se corrió limpio en CI). Anotado para Fase 6 (H-13/dependencias).
 |---|---|
 | `jsx-a11y/*.strict` + 5 reglas opt-in en `eslint.config.js` | ✅ activo |
 | `@axe-core/react` en consola durante `npm run dev` (solo DEV) | ✅ activo |
-| `husky` + `lint-staged` (`eslint --fix` sobre `.js`/`.jsx` staged) | ✅ activo |
+| `husky` + `lint-staged` (`eslint --fix` sobre `.js`/`.jsx` staged) | ✅ activo — **retirado en Fase 2**, ver §11.9/11.10: resultó inseguro sobre un repo nunca formateado. |
 | `npm run check:design` enganchado a pre-commit | ✅ activo — **tuvo que arreglarse primero**: tenía 12 violaciones reales de `disabled:opacity` fuera de la convención 40/60 del DESIGN_SYSTEM (creeping desde que se declaró "0 residuales" en jul-2026). Corregidas como parte de este PR. |
 | Verificación: commit con violación deliberada (`fixed inset-0` + `role="presentation"`) | ✅ bloqueado correctamente por el hook, revertido sin dejar rastro |
 
@@ -314,3 +314,269 @@ PR dedicado, coordinada para no chocar con ramas concurrentes.
 - `scripts/lint-budget.mjs`: violación de prueba → conteo sube de 230, falla; limpiado → vuelve a 230, pasa.
 - `lint-staged` con la cadena `eslint --fix` → `prettier --write`: probado en un archivo con formato inconsistente, ambas herramientas corrieron en orden y el resultado quedó correctamente formateado.
 - `commitlint`: mensaje sin formato → rechazado; mensaje real del historial del repo ("Fase 0 del plan...") → aceptado.
+
+---
+
+# Fase 2 — Accesibilidad estructural
+
+> Medido el 2026-08-16, rama `fix/a11y-fase-2` (apilada sobre `fix/a11y-fase-1`,
+> que seguía sin mergear a `main` al momento de esta fase, igual que la Fase 0).
+
+## 11. Qué se implementó vs. lo que decía el plan original
+
+### 11.1 `ui/Modal.jsx` — diálogo accesible completo (pasos 2.1–2.3)
+
+- `role="dialog"` + `aria-modal="true"` en el panel (no en el wrapper de centrado).
+  `aria-labelledby` apunta al `<h3>` del título vía `useId()`. Cuando no hay título
+  (2 de los 4 consumidores actuales — `ConfirmModal`, `LinkAccountModal` — construyen
+  su propio encabezado en el `children`), un nuevo prop `ariaLabel` cubre el nombre
+  accesible; `LinkAccountModal` lo pasa dinámico según el paso del flujo (email vs.
+  confirmación enviada). Dev-only `console.warn` si un consumidor no pasa ninguno.
+- `jsx-a11y/prefer-tag-over-role` (Fase 1) sugiere `<dialog>` nativo en vez de
+  `role="dialog"`. **No se migró** — cambiaría el mecanismo de apertura (`showModal()`
+  imperativo vs. el prop `open` declarativo actual), el backdrop (`::backdrop` vs. el
+  `<button>` hermano de `DESIGN_SYSTEM.md` §6.7, ya migrado dos veces antes de
+  converger) y el focus trap (nativo vs. `FocusLock`). Es una migración de
+  arquitectura, no un arreglo de Fase 2 ("sin refactorizar nada") — documentado con
+  `eslint-disable-next-line` explicado inline, no silencioso.
+- `react-focus-lock` con `returnFocus` envuelve el panel.
+- `useScrollLock` se movió DENTRO de `Modal.jsx`. Los 3 consumidores que lo llamaban
+  aparte (`EliminarCuentaModal`, `EliminarCuentaAlumnoModal`, `LinkAccountModal`) se
+  limpiaron; `ConfirmModal` **no lo llamaba** — un hueco real (el fondo podía
+  scrollear detrás del modal de confirmación) que se cerró solo al centralizarlo.
+- La X de cerrar (en `Modal.jsx` y en los encabezados propios de `ConfirmModal`/
+  `LinkAccountModal`) pasó de `p-1`/`p-1.5` (target real ~24–28px) a `p-3` con
+  margen negativo compensador (target real ~42px), ver §11.6.
+
+Verificado: build limpio, lint limpio (con la excepción documentada), commit de
+prueba con `<input>` crudo en `pages/` — sin relación pero confirma que el resto de
+candados de Fase 1 siguen intactos.
+
+### 11.2 Toast — `aria-live` + rol por tipo (paso 2.4)
+
+- Contenedor: `aria-live="polite" aria-atomic="false"` (respaldo).
+- Cada toast: `role="status"` (success/warning, `aria-live` implícito "polite") o
+  `role="alert"` (error, implícito "assertive" — interrumpe al lector, apropiado
+  solo para errores). `jsx-a11y/prefer-tag-over-role` exige `<output>` nativo para
+  "status" (sí existe la etiqueta) — implementado con un `Tag` dinámico (`div` para
+  alert, `output` para status), no con un disable.
+- Hallazgo de paso, corregido: el botón de cerrar del toast **no tenía padding en
+  absoluto** (16px, el tamaño crudo del ícono — bajo el mínimo de 24px de WCAG
+  2.5.8) ni foco visible. Ahora `p-2 -m-2` + `focus-visible:ring-2`.
+- `role="alert"` también en los banners de error de formulario reales: se buscó el
+  patrón exacto (`text-red-600 bg-red-50 border border-red-200`) en todo `src/` en
+  vez de confiar en un grep más laxo — dio solo **3 archivos, 6 apariciones**
+  (`Activation.jsx` ×2, `Login.jsx` alumno ×3, `Profile.jsx` docente ×1). El resto
+  de los 18 archivos con `bg-red-50` encontrados en un grep más amplio eran
+  `hover:bg-red-50` de botones "Eliminar" (no banners) o un prompt de confirmación
+  inline en `RubricaPicker.jsx` (no es un mensaje de error, es una interacción).
+
+### 11.3 Landmarks y skip-link (paso 2.5)
+
+- Los 3 layouts (`Layout.jsx`, `StudentLayout.jsx`, `AdminLayout.jsx`) **ya tenían**
+  `<main>` — deuda que Fase 0 ya había medido y que, aparentemente, alguien cerró
+  entre esa medición y esta fase (o la medición original contaba mal). Lo que
+  faltaba de verdad:
+  - Skip-link "Saltar al contenido" — componente nuevo `SkipLink.jsx`, reusado en
+    los 3 (sigue el patrón de componentes de comportamiento aislado que ya usa el
+    repo: `EscKeyHandler.jsx`, `AndroidBackButton.jsx`).
+  - `id="main-content"` + `tabIndex={-1}` en cada `<main>` — sin esto, el link con
+    `href="#main-content"` desplaza el scroll pero no mueve el foco real.
+- Hallazgo de paso: un **4º `<main>`** (el que hacía que el conteo original de Fase 0
+  diera "4 archivos" en vez de 3) vivía **anidado** dentro de un panel de
+  `EvaluacionManager.jsx` — un landmark `<main>` duplicado es inválido (HTML/ARIA
+  solo permiten uno por documento). Corregido a `<div>`.
+
+### 11.4 `aria-current="page"` (paso 2.6) — ya resuelto por el framework
+
+Verificado en el código fuente de `react-router` (`node_modules/react-router/dist/
+development/chunk-PULC7NLK.js`): `NavLink` pone `aria-current` con default
+`"page"` y lo aplica automáticamente cuando `isActive` es verdadero. Los 3 layouts
+y `StudentBottomNav.jsx` usan `NavLink` en el 100% de su navegación entre rutas —
+**cero código nuevo necesario**. El único uso de `isActive` fuera de `NavLink`
+(`ManualPage.jsx`) es un selector de sección dentro de la misma página con
+`<button>`, no navegación entre rutas — no le corresponde `aria-current="page"`
+(sería, en todo caso, candidato a un patrón de tabs ARIA completo — fuera de
+alcance de este paso).
+
+### 11.5 Jerarquía de headings (paso 2.7)
+
+De 27 archivos con `<h1>`, 4 tenían más de uno. 3 eran ramas `if (...) return (...)`
+mutuamente excluyentes (`Activation.jsx` ×5, `Register.jsx` ×2, `ActivityPage.jsx`
+alumno ×2) — nunca coexisten en el DOM, no es un problema real. El 4º
+(`EvaluacionManager.jsx`) sí lo era: una superposición `fixed inset-0 z-50` de
+pantalla completa (revisar la entrega de un alumno) **no desmonta** el header de la
+lista de atrás — solo lo cubre visualmente. Su propio `<h1>` (con el mismo nombre de
+actividad que el header de atrás) convivía en el DOM con el `<h1>` original. Un
+lector de pantalla navegando por encabezados vería el nombre de la actividad dos
+veces. Corregido: el de la superposición baja a `<h2>` (es, semánticamente,
+correcto de todos modos — revisar una entrega es una sub-vista de la página de la
+evaluación, no una página nueva).
+
+No se tocó el patrón más profundo (contenido de fondo no `aria-hidden` detrás de un
+overlay `fixed inset-0`) — eso es Fase 3 (el mismo patrón está en el presupuesto de
+"modales a mano" de `check-ui-standards.sh`, 37 casos).
+
+### 11.6 Targets táctiles (paso 2.8)
+
+- `ui/Button.jsx`, variante `icon`: `min-h-[44px] min-w-[44px]` en corchetes (no
+  `min-h-11` de la escala rem de Tailwind, que con `html{font-size:90%}` global
+  daría 39.6px reales, no 44 — WCAG 2.5.8 pide el tamaño real, no el nominal). Sin
+  consumidores hoy (`grep 'variant="icon"'` → 0), deja el componente listo para
+  cuando Fase 3 empiece a migrar modales/toolbars.
+- Barrido de `p-1`/`p-1.5` en controles: el grep de línea único (`<(input|select|
+  table)[\s>]`) que se usó para medir "33 archivos" en el plan original no aplica
+  aquí (patrón distinto), pero repitiendo el mismo tipo de medición para este
+  patrón dio **30 archivos, 101 apariciones**. De esas, **16 eran falsos
+  positivos** (contenedores de pestañas/toolbar donde el padding no es el target —
+  el target es cada botón hijo — o filas cuyo alto ya lo da un ícono/logo ≥44px sin
+  relación con el padding). Las **85 restantes** (84 vía un script de reemplazo por
+  contenido exacto de línea + 1 duplicado que el script no cubrió, corregido a
+  mano) pasaron de `p-1`/`p-1.5` a `p-2` uniforme — con el rango de tamaños de
+  ícono presente en el código (13–24px), `p-2` clarea el mínimo WCAG 2.5.8 de 24px
+  en todos los casos (el caso más chico, ícono 13px + `p-2`, da 27.4px reales).
+- El candado de `check-ui-standards.sh` para anchos/altos en píxeles duros subió de
+  52 a 54 (los 2 `min-h/min-w-[44px]` de `Button.jsx`) — presupuesto actualizado
+  con la razón documentada inline en el script, no solo el número.
+
+### 11.7 Contraste (paso 2.9) — calculado, no estimado
+
+Se implementó la fórmula real de contraste de WCAG (luminancia relativa) en un
+script, no una inspección visual. Resultados sobre los pares que el plan marcaba
+como "sospechosos":
+
+| Par | Ratio medido | Mínimo requerido | Resultado |
+|---|---|---|---|
+| `text-slate-400` (ícono, reposo) / blanco | 2.56:1 | 3:1 (UI) | ❌ Falla |
+| `text-slate-300` (`gradeColor` vacío) / blanco | 1.48:1 | 4.5:1 (texto) | ❌ Falla |
+| `text-amber-600` (`gradeColor` media) / blanco | 3.19:1 | 4.5:1 | ❌ Falla |
+| `text-red-500` (`gradeColor` baja) / blanco | 3.76:1 | 4.5:1 | ❌ Falla |
+| `text-emerald-700` (`gradeColor` alta) / blanco | 5.48:1 | 4.5:1 | ✅ Pasa |
+| badge `emerald-700`/`emerald-100` | 4.84:1 | 4.5:1 | ✅ Pasa |
+| badge `amber-700`/`amber-100` | 4.51:1 | 4.5:1 | ✅ Pasa (al límite) |
+| badge `red-700`/`red-100` | 5.30:1 | 4.5:1 | ✅ Pasa |
+| badge `blue-700`/`blue-100` | 5.49:1 | 4.5:1 | ✅ Pasa |
+| `--on-surface-variant` (`text-muted`) / blanco | 9.33:1 | 4.5:1 | ✅ Pasa |
+| `--accent` docente / blanco | 5.17:1 | 4.5:1 | ✅ Pasa |
+
+**Arreglado**: `gradeColor()` en `SubjectPage.jsx` — `slate-300→500` (4.76:1),
+`amber-600→700` (5.02:1), `red-500→600` (4.83:1). Los 3 estados que fallaban ahora
+pasan, sin cambiar de familia de color (sigue siendo "gris/ámbar/rojo").
+
+**Documentado, no arreglado**: `text-slate-400` fuera de `gradeColor` aparece
+**349 veces** como texto real (no en `hover:`/`focus:`/`disabled:`) — helper text,
+mensajes de estado vacío, metadata ("(opcional)", "Ponderación: X", "Sin
+respuesta"), no decoración. `text-amber-600` y `text-red-500` aparecen **51 y 23
+veces** más fuera de `gradeColor`. Mismo problema de escala que el reformateo de
+Prettier en Fase 1: la matemática de contraste que se hizo es contra **blanco**
+específicamente — varias de esas 423 apariciones podrían estar sobre fondos de
+color (badges, chips) donde el par ya es válido, y confirmarlo caso por caso
+requiere ver cada una renderizada, no solo el string de la clase. Cambiarlas a
+ciegas es un diff de cientos de líneas sin verificación visual — la misma razón
+por la que no se corrió `prettier --write .` en Fase 1. Queda como hallazgo medido
+y accionable, no como fix silencioso ni como trabajo perdido.
+
+No se tocó `--outline-variant` (bordes de input, 1.71:1 contra blanco, bajo el 3:1
+de UI) — es un token compartido por toda la escala de inputs/cards/divisores;
+cambiarlo es una decisión de sistema de diseño, no un fix de Fase 2.
+
+### 11.8 Recorrido de teclado (paso 2.10) — bloqueado por el entorno
+
+`.env` tiene las 5 variables de Firebase vacías (`VITE_FIREBASE_API_KEY` y las
+demás) — confirmado por `mtime` que esto es anterior a esta sesión, no algo que se
+rompió durante el trabajo de Fase 2. `src/firebase.js` llama `getAuth(app)` a nivel
+de módulo, sin try/catch — con una API key vacía, Firebase lanza
+`auth/invalid-api-key` de forma síncrona al importar el archivo, lo que impide que
+React monte NINGUNA pantalla (protegida o pública) en `npm run dev` local. No es
+algo arreglable dentro del alcance de este plan (necesita credenciales reales de un
+proyecto de Firebase, y no es un problema de accesibilidad).
+
+Sustituido por verificación estática:
+- `grep "<div[^>]*onClick"` → **0** en todo `src/` (confirma el hallazgo de la
+  Fase 0: cero divs-como-botón).
+- Los 9 hallazgos de `jsx-a11y/click-events-have-key-events` /
+  `no-static-element-interactions` / `no-noninteractive-element-interactions` que
+  sí aparecen en el lint son preexistentes (ya estaban antes de Fase 2, incluidos
+  en el presupuesto de 230) — casos puntuales (`FileDropzone`, `PinchZoomImage`,
+  filas expandibles de tablas admin) que piden criterio caso por caso, no un patrón
+  sistemático.
+- `FocusLock` de `ui/Modal.jsx` (§11.1): revisado por código y probado con build,
+  no con un Tab real — la librería (`react-focus-lock`, usada en producción por
+  miles de proyectos) es la responsable de la mecánica del trap, no código propio.
+
+**Pendiente real**: repetir el recorrido con Tab/Shift+Tab/Enter/Escape en vivo —
+login docente, dashboard, `SubjectPage`, captura de calificaciones, login alumno —
+en cuanto `.env` tenga credenciales de Firebase reales. Anotado para quien tenga
+acceso a un proyecto de Firebase de desarrollo.
+
+### 11.9 Hallazgo en vivo: `eslint --fix` en `lint-staged` bloqueó un commit seguro
+
+Al intentar comitear los cambios de esta fase (40+ archivos tocados), el hook de
+`eslint --fix` de `lint-staged` (Fase 0) bloqueó el commit — no por nada nuevo, sino
+por deuda `jsx-a11y`/`react-hooks` **preexistente** en archivos que esta fase tocó
+sin relación con esas líneas (`AdminLayout.jsx`, `AttachmentList.jsx`,
+`AvatarCropModal.jsx`, `NotificationLog.jsx`, entre otros). `lint:budget` ya
+confirmaba que el total no había crecido — el commit era seguro, y aun así quedó
+bloqueado. Confirma en vivo la advertencia que la propia Fase 0 ya había documentado
+como riesgo aceptado ("puede sorprender si nadie lo sabe") — resultó ser más
+fricción de la que valía la pena.
+
+**Primer intento de arreglo** (revertido, ver 11.10): cambiar `lint-staged` a solo
+`prettier --write` (sin `eslint --fix`) y agregar `npm run lint:budget` al
+pre-commit como gate real (presupuesto sobre el total, igual que CI).
+
+### 11.10 Hallazgo en vivo, más grave: `prettier --write` reformateó ~19,000 líneas — commit descartado
+
+El "arreglo" de 11.9 generó un commit de **47 archivos, 18,997 inserciones, 9,365
+eliminaciones** — `SubjectPage.jsx` solo cambió 9,887 líneas, un archivo donde la
+intención real era tocar ~15. Causa: **ningún archivo de este repo había pasado por
+Prettier antes** (no existía `.prettierrc` hasta Fase 1). `prettier --write` no
+tiene modo "solo reformatea lo nuevo" — reformatea el archivo COMPLETO a su propio
+estilo canónico la primera vez que lo toca, sin importar cuántas líneas cambiaron
+en el commit. Es exactamente el mismo riesgo que ya se había identificado y evitado
+explícitamente en Fase 1 (§8.5, "no se ejecutó `prettier --write .` sobre todo el
+repo") — solo que ahí se evitó a propósito, y aquí se disparó por accidente al
+agregarlo a un hook automático.
+
+El commit nunca se empujó (`fix/a11y-fase-2` no tenía remoto todavía) — se descartó
+con `git reset --hard` al punto anterior (Fase 1) y se rehicieron a mano los
+cambios semánticos reales de esta fase, sin dejar que Prettier tocara ningún
+archivo preexistente.
+
+**Corrección final**: `lint-staged` se **retiró por completo** de `package.json` y
+del pre-commit (el paquete también se desinstaló) — ni `eslint --fix` ni
+`prettier --write` son seguros para correr automáticamente sobre archivos que
+nunca han pasado por esa herramienta. El pre-commit se queda con dos candados que
+sí son seguros porque ya son ratchet/presupuesto, no "todo o nada" por archivo:
+`npm run check:design` (patrones, ~instantáneo) y `npm run lint:budget` (total del
+repo, ~30s). `npm run format`/`format:check` siguen disponibles como comandos
+explícitos para quien quiera formatear algo a propósito — nunca automáticos hasta
+que exista una pasada completa y aprobada de Prettier sobre el repo (la misma
+decisión pendiente de Fase 1 §8.5).
+
+## 12. Candados/arreglos de esta fase
+
+| Cambio | Alcance | Estado |
+|---|---|---|
+| `ui/Modal.jsx`: `role="dialog"`, `aria-modal`, `aria-labelledby`/`ariaLabel`, `FocusLock`, `useScrollLock` interno | 1 archivo + 4 consumidores actuales | ✅ |
+| `Toast.jsx`: `aria-live`, `role` por tipo, botón de cerrar con target/foco corregidos | 1 archivo, 33 consumidores se benefician | ✅ |
+| `role="alert"` en banners de error de formulario reales | 3 archivos, 6 apariciones | ✅ |
+| `SkipLink.jsx` + `id`/`tabIndex` en `<main>` de los 3 layouts | 4 archivos nuevos/tocados | ✅ |
+| Landmark `<main>` duplicado corregido | 1 archivo | ✅ |
+| `aria-current="page"` | 0 cambios — ya lo daba `NavLink` | ✅ (gratis) |
+| `<h1>` duplicado en superposición de pantalla completa → `<h2>` | 1 archivo | ✅ |
+| `ui/Button.jsx` variante `icon` a 44px reales | 1 archivo, 0 consumidores hoy | ✅ |
+| 84 botones de ícono `p-1`/`p-1.5` → `p-2` | 30 archivos | ✅ |
+| `gradeColor()` — 3 de 4 estados corregidos a ≥4.5:1 | 1 archivo | ✅ |
+| `lint-staged` retirado (era inseguro sobre archivos sin formatear); `lint:budget` agregado al pre-commit | `.husky/pre-commit`, `package.json` | ✅ |
+| `text-slate-400`/`amber-600`/`red-500` fuera de `gradeColor` (423 apariciones) | ~50+ archivos | ⏸ medido, documentado, no ejecutado — decisión explícita pendiente |
+| `--outline-variant` (contraste de bordes, 1.71:1) | token compartido, todo el sistema | ⏸ documentado, decisión de sistema de diseño |
+| Recorrido de teclado en vivo | 5 pantallas | ⏸ bloqueado por `.env` sin credenciales — pendiente de verificación real |
+
+## 13. Verificaciones hechas
+
+- `npm run lint:budget` — 230/230 en cada punto de control final, sin crecer.
+- `npm run check:design` — limpio, incluido el presupuesto de píxeles duros subido de 52 a 54 con justificación.
+- `npm run build` — limpio después de cada bloque de cambios.
+- `git diff --stat` revisado antes de cada commit — la primera vez detectó el problema de 11.10 (47 archivos, ~19,000 líneas) antes de empujar nada; la segunda vez confirmó un diff del tamaño esperado (43 archivos, 358 inserciones/201 eliminaciones).
+- Contraste: calculado con la fórmula real de WCAG, no aproximado.

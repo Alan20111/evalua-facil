@@ -63,7 +63,7 @@ export default function Select({
           <div className="relative bg-surface-card rounded-t-card sm:rounded-card drop-shadow-2xl w-full sm:max-w-sm max-h-[80vh] overflow-y-auto safe-bottom">
             <div className="sticky top-0 bg-surface-card px-4 py-3 border-b border-outline-variant flex items-center justify-between">
               <p className="font-semibold text-on-surface">{label || 'Elegir'}</p>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" className="p-1 -mr-1 text-muted hover:text-on-surface rounded transition-colors">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" className="p-2 -mr-1 text-muted hover:text-on-surface rounded transition-colors">
                 <X size={18} />
               </button>
             </div>
