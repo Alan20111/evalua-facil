@@ -86,8 +86,7 @@ export default function ComentariosGrupoSection({ subjectId, docenteId }) {
     <div className="bg-surface-card rounded-card shadow-card p-3">
       <h2 className="font-bold text-on-surface">Comentarios generales del grupo y su entorno</h2>
       <p className="text-sm text-muted mt-0.5 mb-2">
-        Pesan mucho al diseñar la Planeación con IA — junto con los diagnósticos. Nada pesa más que la Fuente
-        Principal (el programa de estudios).
+        Pesan mucho al diseñar la Planeación con IA — junto con los diagnósticos.
       </p>
       <textarea
         className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
