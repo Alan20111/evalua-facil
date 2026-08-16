@@ -2695,11 +2695,20 @@ function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada) {
     'ni los agrupes en uno solo para toda la Planeación.\n' +
     'CADA MOMENTO (Apertura, Desarrollo y Cierre) TIENE SU PROPIO JUEGO COMPLETO — no uno compartido para toda ' +
     'la Secuencia: actividades de enseñanza-aprendizaje, recursos y materiales, estrategia de evaluación, ' +
-    'evidencias, tipo de evaluación/instrumento, y ponderación (%). La Apertura tiene su propia evidencia y su ' +
-    'propia ponderación, distintas de las del Desarrollo y de las del Cierre — igual que en un formato real de ' +
-    'planeación, donde cada momento se evalúa por separado. Las tres ponderaciones de una misma Secuencia ' +
-    '(Apertura + Desarrollo + Cierre) deben sumar 100% cuando los tres momentos se evalúan — si algún momento ' +
-    'no tiene evaluación propia, dile "0%" o "No aplica", nunca lo dejes vacío ni inventes un número.\n' +
+    'evidencias y tipo de evaluación/instrumento. La Apertura tiene su propia evidencia, distinta de las del ' +
+    'Desarrollo y de las del Cierre — igual que en un formato real de planeación, donde cada momento se evalúa ' +
+    'por separado.\n' +
+    'REGLA ÚNICA DE PONDERACIÓN (Kike, 16-ago-2026 — "simplificar la evaluación, el docente NO debe hacer ' +
+    'cálculos"): existe UNA SOLA escala de ponderación, la del PARCIAL completo = 100%. Ni la Secuencia ni sus ' +
+    'momentos (Apertura/Desarrollo/Cierre) tienen porcentaje propio — Apertura, Desarrollo y Cierre son la ' +
+    'METODOLOGÍA de la Secuencia, no niveles de evaluación independientes. Lo que se pondera es la EVIDENCIA que ' +
+    'cada momento produce: si un momento no genera una evidencia que de verdad se evalúe, su "ponderacion" es ' +
+    '"0%" o "No aplica" — nunca inventes un porcentaje solo por rellenar el campo.\n' +
+    'La suma de TODAS las "ponderacion" de TODOS los momentos (Apertura + Desarrollo + Cierre) de TODAS las ' +
+    'Secuencias Didácticas de este parcial debe dar EXACTAMENTE 100% — ni más ni menos. NUNCA repartas 100% ' +
+    'dentro de cada Secuencia por separado (eso sumaría muchas veces 100% en el parcial, que es justo lo que se ' +
+    'debe evitar). Antes de responder, suma mentalmente todas las ponderaciones que vas a entregar en este ' +
+    'parcial y ajústalas para que el total dé exactamente 100%.\n' +
     'EXTENSIÓN DEL TEXTO — breve, claro y conciso, sin párrafos largos, explicaciones pedagógicas extensas, ' +
     'justificaciones ni descripciones innecesarias. Estos son máximos orientativos, no metas a alcanzar (si se ' +
     'puede decir con menos palabras, usa menos):\n' +
@@ -2795,6 +2804,34 @@ function promptCorreccionSecuencias(promptOriginal, objetivo, entregadas) {
   )
 }
 
+// Suma las "ponderacion" de TODOS los momentos de TODAS las Secuencias de
+// un parcial — "0%"/"No aplica"/vacío cuentan como 0. Regla única de
+// ponderación (Kike, 16-ago-2026): esa suma debe dar exactamente 100, la
+// escala es el PARCIAL completo, no cada Secuencia por separado.
+function numeroPonderacion(v) {
+  const m = String(v || '').match(/-?\d+(\.\d+)?/)
+  return m ? parseFloat(m[0]) : 0
+}
+function sumaPonderacionesParcial(secuencias) {
+  return (Array.isArray(secuencias) ? secuencias : []).reduce((total, s) => (
+    total + MOMENTOS.reduce((sub, momento) => sub + numeroPonderacion(s?.[momento]?.ponderacion), 0)
+  ), 0)
+}
+
+// Mismo patrón que promptCorreccionSecuencias: no basta reforzar la
+// instrucción con otras palabras, hay que señalar la suma exacta que dio
+// mal para que la IA la corrija de verdad.
+function promptCorreccionPonderaciones(promptOriginal, sumaActual) {
+  return (
+    promptOriginal +
+    `\n\nCORRECCIÓN OBLIGATORIA: la suma de TODAS las "ponderacion" de TODOS los momentos de TODAS las ` +
+    `Secuencias de este parcial dio ${sumaActual}%, y debe dar EXACTAMENTE 100%. Vuelve a responder el JSON ` +
+    'COMPLETO, con las mismas Secuencias y contenido, ajustando SOLO los valores de "ponderacion" (de los ' +
+    'momentos que sí tienen evidencia evaluable) para que la suma total del parcial dé exactamente 100% — no ' +
+    'repartas 100% dentro de cada Secuencia por separado.'
+  )
+}
+
 // Ejecuta una llamada a la IA por CADA parcial real — de ahí sale una
 // Planeación distinta por parcial, no una sola con todo mezclado (decisión
 // de Kike, 15-ago-2026).
@@ -2863,7 +2900,30 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
       // vez de arriesgar un JSON peor o vacío.
       if (Math.abs(entregadasReintento - objetivo) < Math.abs(entregadas - objetivo)) {
         datos = reintento.datos
-        entregadas = entregadasReintento
+        reintentos++
+      }
+    }
+
+    // Aseguramiento real de la REGLA ÚNICA DE PONDERACIÓN (Kike,
+    // 16-ago-2026): la suma de ponderaciones de todo el parcial debe dar
+    // exactamente 100 — igual que con la cantidad de Secuencias, un
+    // reintento automático que señala la suma exacta que salió mal, no
+    // solo repetir la instrucción.
+    const sumaInicial = sumaPonderacionesParcial(datos?.secuenciasDidacticas)
+    if (Math.abs(sumaInicial - 100) > 0.5) {
+      const reintentoPonderacion = await pedirJSON({
+        client, modelo, maxTokens, system: PLANEACION_SISTEMA,
+        prompt: promptCorreccionPonderaciones(promptBase, sumaInicial),
+      })
+      tokensEntrada += reintentoPonderacion.interno.tokensEntrada || 0
+      tokensSalida += reintentoPonderacion.interno.tokensSalida || 0
+      ms += reintentoPonderacion.interno.ms || 0
+      const sumaReintento = sumaPonderacionesParcial(reintentoPonderacion.datos?.secuenciasDidacticas)
+      // Solo se usa el reintento si de verdad mejoró (más cerca de 100 que
+      // antes) — si no, se sigue con la respuesta original en vez de
+      // arriesgar un JSON peor.
+      if (Math.abs(sumaReintento - 100) < Math.abs(sumaInicial - 100)) {
+        datos = reintentoPonderacion.datos
         reintentos++
       }
     }

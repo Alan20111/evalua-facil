@@ -56,6 +56,21 @@ function nuevaSecuenciaVacia() {
   return s
 }
 
+// Regla única de ponderación (Kike, 16-ago-2026): la escala es el PARCIAL
+// completo = 100%, no cada Secuencia por separado — Apertura/Desarrollo/
+// Cierre nunca tienen porcentaje propio, lo que se pondera es la evidencia
+// que cada momento produce. "0%"/"No aplica"/vacío cuentan como 0.
+function numeroPonderacion(v) {
+  const m = String(v || '').match(/-?\d+(\.\d+)?/)
+  return m ? parseFloat(m[0]) : 0
+}
+
+function sumaPonderacionesParcial(secuencias) {
+  return (Array.isArray(secuencias) ? secuencias : []).reduce((total, s) => (
+    total + CLAVES_MOMENTO.reduce((sub, momento) => sub + numeroPonderacion(s?.[momento]?.ponderacion), 0)
+  ), 0)
+}
+
 // Extrae solo el CONTENIDO editable de un doc de Firestore (generación,
 // borrador o aceptada) — sin `planeacionId`/`aceptadaEn`/`actualizadoEn`,
 // para poder comparar "lo editado" contra "lo guardado" con JSON.stringify
@@ -720,6 +735,14 @@ function Planeacion({
 
   const contenidoEditableActivo = aceptada ? edicionAceptada : edicion
   const secuenciasActivo = secuenciasDeParcial(parcialActivo, contenidoEditableActivo?.porParcial)
+  const sumaParcialActivo = sumaPonderacionesParcial(secuenciasActivo)
+  // Antes de aceptar, TODOS los parciales deben sumar exactamente 100% —
+  // no solo el que se esté viendo en ese momento (Kike, 16-ago-2026: "no
+  // permitir aceptar una Planeación cuya suma de ponderaciones no sea
+  // exactamente 100%").
+  const parcialesConPonderacionMal = !aceptada
+    ? (edicion?.porParcial || []).filter((p) => Math.abs(sumaPonderacionesParcial(p.secuencias) - 100) > 0.5)
+    : []
   // El efecto de render (más abajo) corre en un callback async — para
   // cuando termina, el estado de ESTE render puede ya no ser el más
   // reciente si hubo un cambio entremedio; un ref siempre trae el valor
@@ -972,7 +995,18 @@ function Planeacion({
           }
           onCerrar={cerrarRevision}
           cerrarTexto={!aceptada ? 'Salir y aceptar luego' : null}
-          tabs={<SelectorParcial porParcial={actual?.porParcial} activo={parcialActivo} onCambiar={cambiarParcialRevision} />}
+          tabs={(
+            <>
+              <SelectorParcial porParcial={actual?.porParcial} activo={parcialActivo} onCambiar={cambiarParcialRevision} />
+              <span
+                className={`ml-auto flex-shrink-0 text-xs font-medium px-2 py-1 rounded ${
+                  Math.abs(sumaParcialActivo - 100) <= 0.5 ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'
+                }`}
+              >
+                Ponderación del parcial: {sumaParcialActivo}%
+              </span>
+            </>
+          )}
           acciones={isDesktop && (
             <>
               <button
@@ -991,9 +1025,21 @@ function Planeacion({
               {!aceptada && (
                 <button
                   type="button"
-                  onClick={() => setConfirmarAceptar(true)}
+                  onClick={() => {
+                    if (parcialesConPonderacionMal.length) {
+                      const lista = parcialesConPonderacionMal.map((p) => `Parcial ${p.numero} (${sumaPonderacionesParcial(p.secuencias)}%)`).join(', ')
+                      toast(`La ponderación de cada parcial debe sumar exactamente 100% antes de aceptar: ${lista}`, 'error')
+                      return
+                    }
+                    setConfirmarAceptar(true)
+                  }}
                   disabled={aceptando}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
+                  title={parcialesConPonderacionMal.length ? 'Corrige la ponderación de cada parcial a exactamente 100% antes de aceptar' : undefined}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm disabled:opacity-60 ${
+                    parcialesConPonderacionMal.length
+                      ? 'border border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
+                      : 'bg-accent text-white hover:bg-accent-hover'
+                  }`}
                 >
                   {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
                   Aceptar esta planeación como mi Planeación Inicial
