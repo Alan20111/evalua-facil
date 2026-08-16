@@ -108,12 +108,43 @@ export async function llenarPlantillaExcel(arrayBuffer, celdas) {
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.load(arrayBuffer)
   const hoja = wb.worksheets[0]
-  for (const c of celdas) {
+
+  const normales = celdas.filter((c) => !Array.isArray(c.texto))
+  const conSecuencias = celdas.filter((c) => Array.isArray(c.texto) && c.texto.length)
+
+  // Celdas normales primero, con los números de fila ORIGINALES — antes de
+  // duplicar ninguna fila (mismo motivo que en Word, ver llenarPlantillaWord).
+  for (const c of normales) {
     if (!c.texto) continue
     const celda = hoja.getRow(c.fila).getCell(c.columna)
     const destino = celda.master || celda
     destino.value = c.texto
   }
+
+  // Filas de varias Secuencias Didácticas (Apertura/Desarrollo/Cierre),
+  // de abajo hacia arriba para no desalinear las que faltan por procesar.
+  const porFila = new Map()
+  for (const c of conSecuencias) {
+    const clave = String(c.fila)
+    if (!porFila.has(clave)) porFila.set(clave, [])
+    porFila.get(clave).push(c)
+  }
+  const gruposOrdenados = Array.from(porFila.values()).sort((a, b) => b[0].fila - a[0].fila)
+  for (const grupo of gruposOrdenados) {
+    const { fila } = grupo[0]
+    const total = Math.max(...grupo.map((c) => c.texto.length))
+    hoja.duplicateRow(fila, total - 1, true)
+    for (let i = 0; i < total; i++) {
+      for (const c of grupo) {
+        const texto = c.texto[i]
+        if (!texto) continue
+        const celda = hoja.getRow(fila + i).getCell(c.columna)
+        const destino = celda.master || celda
+        destino.value = texto
+      }
+    }
+  }
+
   const buffer = await wb.xlsx.writeBuffer()
   return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 }
@@ -262,16 +293,68 @@ function escribirEnCelda(doc, tablaIndex, filaIdx, columnaLogica, texto) {
   return true
 }
 
+// Clona la fila `filaIdx` de una tabla `veces - 1` veces más, insertando las
+// copias justo después de la original — se usa para Apertura/Desarrollo/
+// Cierre cuando hay varias Secuencias Didácticas en el parcial (Kike,
+// 16-ago-2026: "crea tantas secciones de apertura, desarrollo, cierre como
+// secuencias didácticas sean" — ya no se comprime todo en una sola fila).
+// La etiqueta de la fila (p. ej. "Apertura") se clona junto con todo lo
+// demás — no hay que reescribirla aparte.
+function duplicarFilaWord(doc, tablaIndex, filaIdx, veces) {
+  const tbl = doc.getElementsByTagNameNS(W_NS, 'tbl')[tablaIndex]
+  if (!tbl) return
+  const tr = tbl.getElementsByTagNameNS(W_NS, 'tr')[filaIdx]
+  if (!tr) return
+  let anterior = tr
+  for (let i = 1; i < veces; i++) {
+    const copia = tr.cloneNode(true)
+    anterior.parentNode.insertBefore(copia, anterior.nextSibling)
+    anterior = copia
+  }
+}
+
 // Abre el archivo ORIGINAL y escribe cada celda que la IA decidió llenar —
-// una sola pasada, sin etiquetas intermedias.
+// una sola pasada, sin etiquetas intermedias. Si `c.texto` es un ARRAY (una
+// Secuencia Didáctica por elemento), esa fila se multiplica primero y cada
+// elemento se escribe en su propia copia — ver duplicarFilaWord.
 export async function llenarPlantillaWord(arrayBuffer, celdas) {
   const PizZip = await cargarPizZip()
   const zip = new PizZip(arrayBuffer)
   const xml = zip.file('word/document.xml').asText()
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
-  for (const c of celdas) {
+
+  const normales = celdas.filter((c) => !Array.isArray(c.texto))
+  const conSecuencias = celdas.filter((c) => Array.isArray(c.texto) && c.texto.length)
+
+  // Primero las celdas normales, con los índices de fila ORIGINALES —
+  // deben escribirse ANTES de duplicar ninguna fila, o los índices de las
+  // filas que vengan después de una duplicación quedarían desalineados.
+  for (const c of normales) {
     if (!c.texto) continue
     escribirEnCelda(doc, c.tablaIndex, c.fila, c.columna, c.texto)
+  }
+
+  // Luego las de varias Secuencias Didácticas, de la fila MÁS ABAJO hacia
+  // arriba dentro de cada tabla — así cada duplicación no desalinea el
+  // índice de una fila-objetivo que todavía no se ha procesado.
+  const porFila = new Map() // "tablaIndex_fila" → celdas de esa fila
+  for (const c of conSecuencias) {
+    const clave = `${c.tablaIndex ?? ''}_${c.fila}`
+    if (!porFila.has(clave)) porFila.set(clave, [])
+    porFila.get(clave).push(c)
+  }
+  const gruposOrdenados = Array.from(porFila.values()).sort((a, b) => b[0].fila - a[0].fila)
+  for (const grupo of gruposOrdenados) {
+    const { tablaIndex, fila } = grupo[0]
+    const total = Math.max(...grupo.map((c) => c.texto.length))
+    duplicarFilaWord(doc, tablaIndex ?? 0, fila, total)
+    for (let i = 0; i < total; i++) {
+      for (const c of grupo) {
+        const texto = c.texto[i]
+        if (!texto) continue
+        escribirEnCelda(doc, tablaIndex ?? 0, fila + i, c.columna, texto)
+      }
+    }
   }
   const xmlFinal = new XMLSerializer().serializeToString(doc)
   zip.file('word/document.xml', xmlFinal)

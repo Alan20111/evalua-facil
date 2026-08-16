@@ -155,7 +155,14 @@ function construirGridPlantilla(celdasOriginales, celdasPropuestas) {
     const t = clave(c.tablaIndex)
     if (!porTabla.has(t)) porTabla.set(t, new Map())
     const previa = porTabla.get(t).get(celda(t, c.fila, c.columna))
-    porTabla.get(t).set(celda(t, c.fila, c.columna), { fila: c.fila, columna: c.columna, texto: c.texto, editable: true, idx, colSpan: previa?.colSpan || 1 })
+    // Apertura/Desarrollo/Cierre con varias Secuencias Didácticas llegan
+    // como ARRAY (una fila real por elemento en el documento final, ver
+    // duplicarFilaWord) — esta tabla de respaldo solo muestra UNA fila por
+    // celda de la plantilla, así que se unen para poder verlas y editarlas
+    // aquí sin romper la estructura (el documento descargado/vista previa
+    // real sí las separa en filas de verdad).
+    const texto = Array.isArray(c.texto) ? c.texto.join('\n\n') : c.texto
+    porTabla.get(t).set(celda(t, c.fila, c.columna), { fila: c.fila, columna: c.columna, texto, editable: true, idx, colSpan: previa?.colSpan || 1 })
   })
 
   return Array.from(porTabla.entries()).map(([t, cellsMap]) => {
@@ -278,6 +285,14 @@ function activarEdicionDirecta(container, celdasOriginales, celdasEditables, onC
   const mapa = mapearCeldasDom(container)
   if (!verificarMapeoDom(mapa, celdasOriginales)) return false
   celdasEditables.forEach((c, idx) => {
+    // Apertura/Desarrollo/Cierre con varias Secuencias Didácticas generan
+    // FILAS NUEVAS reales en el documento (ver duplicarFilaWord) — la
+    // posición original (tablaIndex/fila/columna) ya no corresponde a un
+    // único <td> del render, así que no se activa edición directa ahí (se
+    // vería bien pero editarla guardaría en el lugar equivocado). Se deja
+    // de solo lectura en esta vista; para corregirla, la tabla de respaldo
+    // (TablaPlantillaEditable) sí las puede editar como texto unido.
+    if (Array.isArray(c.texto)) return
     const td = mapa.get(celdaClave(c.tablaIndex, c.fila, c.columna))
     if (!td) return
     td.contentEditable = 'true'
