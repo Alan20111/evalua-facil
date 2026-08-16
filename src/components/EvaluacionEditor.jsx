@@ -1348,9 +1348,9 @@ export default function EvaluacionEditor({
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
                             <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
-                              className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-30" data-tooltip="Mover arriba"><ChevronUp size={18} /></button>
+                              className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover arriba"><ChevronUp size={18} /></button>
                             <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
-                              className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-30" data-tooltip="Mover abajo"><ChevronDown size={18} /></button>
+                              className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover abajo"><ChevronDown size={18} /></button>
                             <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
                             <button type="button" aria-label="Editar" onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
                             <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>

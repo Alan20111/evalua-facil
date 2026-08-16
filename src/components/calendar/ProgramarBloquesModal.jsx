@@ -329,7 +329,7 @@ export default function ProgramarBloquesModal({
               type="button"
               onClick={handleContinue}
               disabled={faltanFechasCurso}
-              className={`px-4 py-2 text-white rounded text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${esModificar ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent hover:bg-accent-hover'}`}
+              className={`px-4 py-2 text-white rounded text-sm font-semibold flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${esModificar ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent hover:bg-accent-hover'}`}
             >
               Continuar <ArrowRight size={15} />
             </button>

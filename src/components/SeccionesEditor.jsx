@@ -95,12 +95,12 @@ export function SeccionHeader({
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button type="button" onClick={() => onMover('up')} disabled={disabled || primera}
             aria-label="Subir sección" data-tooltip="Subir sección"
-            className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-30">
+            className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40">
             <ChevronUp size={16} />
           </button>
           <button type="button" onClick={() => onMover('down')} disabled={disabled || ultima}
             aria-label="Bajar sección" data-tooltip="Bajar sección"
-            className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-30">
+            className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40">
             <ChevronDown size={16} />
           </button>
           <button type="button" onClick={onEditar} disabled={disabled}

@@ -47,7 +47,7 @@ export default function AvisoLecturaModal({ avisos, teacherNames = {}, subjectNa
           {formatAvisoFecha(aviso.fechaCreacion)}{teacherName ? ` · ${teacherName}` : ''}
         </p>
         <button type="button" onClick={handleEntendido} disabled={confirming}
-          className="w-full px-4 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors disabled:opacity-50">
+          className="w-full px-4 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
           {confirming ? 'Guardando…' : 'Entendido'}
         </button>
       </div>
