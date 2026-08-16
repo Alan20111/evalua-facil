@@ -2,18 +2,20 @@
 // Plan Maestro de IA). Se habilita solo cuando ya existen fuentes generales
 // y AMBOS diagnósticos (contexto y conocimientos) — la secuencia completa.
 //
-// Estructura propia de Evalúa Fácil (decisión de Kike, 16-ago-2026): la
-// Planeación es una lista de Secuencias Didácticas (`secuenciasDidacticas[]`,
-// ver CAMPOS_SECUENCIA en utils/planeacionDocx.js), UNA VEZ POR CADA PARCIAL
-// de la asignatura — ya NO depende de ningún formato institucional que el
-// docente tenga que subir, ni de una plantilla Word que haya que "llenar".
-// El docente elige, antes de generar, si define él mismo cuántas Secuencias
-// Didácticas quiere por parcial o si deja que la IA decida. La revisión y
-// edición ocurren en una vista con apariencia de documento (fondo de
-// página, tipografía de texto corrido) — pero es React puro, editable en su
-// lugar, NUNCA en un panel aparte (regla permanente). El .docx solo se
-// genera al descargar, como una REPRESENTACIÓN de estos mismos datos —
-// nunca su estructura interna.
+// Estructura propia de Evalúa Fácil (decisión de Kike, 16-ago-2026) que
+// reproduce EXACTAMENTE el formato visual del Word de referencia que Kike
+// proporcionó (Planeacion_Didactica_Universal.docx, analizado 16-ago-2026):
+// tabla de datos de identificación institucional, luego cada Secuencia
+// Didáctica con su identidad y sus TRES momentos (Apertura/Desarrollo/
+// Cierre, cada uno con su propio juego de actividades/recursos/evaluación),
+// y una tabla de fuentes de información al final — pero la CANTIDAD de
+// Secuencias es dinámica, ya NO depende de ningún formato institucional que
+// el docente tenga que subir. El docente elige, antes de generar, si
+// define él mismo cuántas Secuencias Didácticas quiere por parcial o si
+// deja que la IA decida. La revisión y edición ocurren sobre el documento
+// Word REAL renderizado (pedido explícito de Kike, 16-ago-2026: "DEBE
+// VERSE COMO SE VEIA, COMO UN WORD EN EL CUAL SE ESTA EDITANDO") — nunca en
+// un panel aparte.
 import { useEffect, useRef, useState } from 'react'
 import { collection, doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { updateDoc } from '../../utils/firestoreGuard'
@@ -24,21 +26,47 @@ import ConfirmModal from '../ConfirmModal'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
-import { CAMPOS_SECUENCIA, construirDocumentoPlaneacion } from '../../utils/planeacionDocx'
+import {
+  CAMPOS_IDENTIFICACION, CAMPOS_IDENTIDAD_SECUENCIA, MOMENTOS, CAMPOS_MOMENTO,
+  construirDocumentoPlaneacion,
+} from '../../utils/planeacionDocx'
 import { renderAsync as renderDocxAsync } from 'docx-preview'
 import { useSubscription } from '../../hooks/useSubscription'
 import useIsDesktop from '../../hooks/useIsDesktop'
 import CheckoutModal from '../CheckoutModal'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 
+const CLAVES_MOMENTO = MOMENTOS.map((m) => m.clave)
+const FUENTES_VACIAS = ['', '', '', '', '']
+
 function millisDe(ts) {
   return ts?.toMillis?.() || 0
 }
 
+function nuevoMomentoVacio() {
+  const m = {}
+  for (const { clave } of CAMPOS_MOMENTO) m[clave] = ''
+  return m
+}
+
 function nuevaSecuenciaVacia() {
   const s = { id: crypto.randomUUID() }
-  for (const { clave } of CAMPOS_SECUENCIA) s[clave] = ''
+  for (const { clave } of CAMPOS_IDENTIDAD_SECUENCIA) s[clave] = ''
+  for (const clave of CLAVES_MOMENTO) s[clave] = nuevoMomentoVacio()
   return s
+}
+
+// Extrae solo el CONTENIDO editable de un doc de Firestore (generación,
+// borrador o aceptada) — sin `planeacionId`/`aceptadaEn`/`actualizadoEn`,
+// para poder comparar "lo editado" contra "lo guardado" con JSON.stringify
+// sin que esos metadatos ensucien la comparación.
+function extraerContenido(obj) {
+  if (!obj) return null
+  return {
+    datosIdentificacion: obj.datosIdentificacion || null,
+    fuentesInformacion: obj.fuentesInformacion || FUENTES_VACIAS,
+    porParcial: obj.porParcial || [],
+  }
 }
 
 function RequisitoItem({ ok, texto }) {
@@ -132,29 +160,14 @@ function SelectorCantidadSecuencias({ modo, onCambiarModo, cantidad, onCambiarCa
 // Kike, 16-ago-2026, tras dos vueltas: "DEBE VERSE COMO SE VEIA, COMO UN
 // WORD EN EL CUAL SE ESTA EDITANDO") ────────────────────────────────────
 // El .docx lo genera la propia app (construirDocumentoPlaneacion) — nunca
-// una plantilla ajena — así que su estructura es 100% predecible: una
-// tabla por Secuencia, en el MISMO orden que `secuencias`, con una fila
-// por campo de CAMPOS_SECUENCIA en ese mismo orden. No hace falta ningún
-// mecanismo de verificación de mapeo (el que sí hacía falta antes de hoy,
-// cuando el documento podía ser cualquier plantilla subida por el
-// docente) — la celda de VALOR de cada fila es siempre la segunda <td>.
-function celdaClave(tabla, fila) {
-  return `${tabla}_${fila}`
-}
-
-function mapearCeldasDom(container) {
-  const mapa = new Map()
-  Array.from(container.querySelectorAll('table')).forEach((tabla, tablaIndex) => {
-    Array.from(tabla.querySelectorAll('tr')).forEach((tr, fila) => {
-      const celdas = Array.from(tr.children).filter((td) => td.tagName === 'TD' || td.tagName === 'TH')
-      if (celdas[1]) mapa.set(celdaClave(tablaIndex, fila), celdas[1])
-    })
-  })
-  return mapa
-}
-
-// Convierte "\n" reales (viñetas de sesión) en <br> del DOM — textContent
-// los ignora y todo saldría corrido en una sola línea visual.
+// una plantilla ajena — así que su estructura es 100% predecible: primero
+// la tabla de identificación institucional, luego 4 tablas por Secuencia
+// (identidad + Apertura + Desarrollo + Cierre) en ese orden fijo, y al
+// final la tabla de fuentes de información. La fila y columna de cada
+// campo dentro de cada tabla también son fijas (mismo orden que
+// planeacionDocx.js) — no hace falta ningún mecanismo de verificación de
+// mapeo (el que sí hacía falta antes de hoy, cuando el documento podía ser
+// cualquier plantilla subida por el docente).
 function pintarTextoConSaltos(td, texto) {
   td.textContent = ''
   String(texto || '').split('\n').forEach((linea, i) => {
@@ -172,27 +185,99 @@ function leerTextoConSaltos(td) {
   return texto
 }
 
-// Vuelve editables (contentEditable) las celdas de VALOR de cada tabla —
-// tabla i = Secuencia i, fila k = CAMPOS_SECUENCIA[k]. Además inyecta,
-// junto a la etiqueta "SECUENCIA DIDÁCTICA N" que ya trae el documento, los
-// controles de reordenar/eliminar — dentro del propio documento, nunca en
-// un panel aparte — y un botón para agregar una Secuencia al final.
-function activarEdicionDocumento(container, secuencias, actualizarCampo, cambiarGrupoSecuencias) {
-  const mapa = mapearCeldasDom(container)
-  secuencias.forEach((s, tablaIndex) => {
-    CAMPOS_SECUENCIA.forEach(({ clave }, fila) => {
-      const td = mapa.get(celdaClave(tablaIndex, fila))
-      if (!td) return
-      td.contentEditable = 'true'
-      td.style.outline = '2px dashed var(--accent)'
-      td.style.outlineOffset = '-2px'
-      td.style.background = 'var(--accent-tint)'
-      td.style.minHeight = '1.2em'
-      td.style.whiteSpace = 'pre-wrap'
-      pintarTextoConSaltos(td, s[clave])
-      td.addEventListener('input', () => actualizarCampo(tablaIndex, clave, leerTextoConSaltos(td)))
-    })
+function filasDe(tabla) {
+  return Array.from(tabla.querySelectorAll('tr'))
+}
+
+function celdasDe(tr) {
+  return tr ? Array.from(tr.children).filter((td) => td.tagName === 'TD' || td.tagName === 'TH') : []
+}
+
+function hacerEditable(td, valorInicial, onCambio) {
+  if (!td) return
+  td.contentEditable = 'true'
+  td.style.outline = '2px dashed var(--accent)'
+  td.style.outlineOffset = '-2px'
+  td.style.background = 'var(--accent-tint)'
+  td.style.minHeight = '1.2em'
+  td.style.whiteSpace = 'pre-wrap'
+  pintarTextoConSaltos(td, valorInicial)
+  td.addEventListener('input', () => onCambio(leerTextoConSaltos(td)))
+}
+
+// Tabla "DATOS DE IDENTIFICACIÓN INSTITUCIONAL" — fila 0 encabezado, filas
+// 1-5 pares etiqueta|valor (2 por fila), fila 6 "Competencias" con el
+// valor solo (misma estructura que tablaIdentificacion en planeacionDocx.js).
+function activarTablaIdentificacion(tabla, datos, actualizar) {
+  const filas = filasDe(tabla)
+  for (let i = 0; i < 5; i++) {
+    const celdas = celdasDe(filas[i + 1])
+    const a = CAMPOS_IDENTIFICACION[i * 2]
+    const b = CAMPOS_IDENTIFICACION[i * 2 + 1]
+    hacerEditable(celdas[1], datos?.[a.clave], (v) => actualizar(a.clave, v))
+    hacerEditable(celdas[3], datos?.[b.clave], (v) => actualizar(b.clave, v))
+  }
+  const competencias = CAMPOS_IDENTIFICACION[10]
+  const celdasComp = celdasDe(filas[6])
+  hacerEditable(celdasComp[1], datos?.[competencias.clave], (v) => actualizar(competencias.clave, v))
+}
+
+// Tabla de identidad de UNA Secuencia — fila 0 encabezado, filas 1-5 una
+// por campo de CAMPOS_IDENTIDAD_SECUENCIA.
+function activarTablaIdentidadSecuencia(tabla, secuencia, actualizar) {
+  const filas = filasDe(tabla)
+  CAMPOS_IDENTIDAD_SECUENCIA.forEach(({ clave }, i) => {
+    const celdas = celdasDe(filas[i + 1])
+    hacerEditable(celdas[1], secuencia?.[clave], (v) => actualizar(clave, v))
   })
+}
+
+// Tabla de UN momento (Apertura/Desarrollo/Cierre) — misma estructura de
+// filas que tablaMomento en planeacionDocx.js: fila2 = actividades|recursos,
+// fila4 = estrategia de evaluación, fila6 = evidencias|tipo|ponderación.
+function activarTablaMomento(tabla, datosMomento, actualizar) {
+  const filas = filasDe(tabla)
+  const f2 = celdasDe(filas[2])
+  hacerEditable(f2[0], datosMomento?.actividades, (v) => actualizar('actividades', v))
+  hacerEditable(f2[1], datosMomento?.recursos, (v) => actualizar('recursos', v))
+  const f4 = celdasDe(filas[4])
+  hacerEditable(f4[0], datosMomento?.estrategiaEvaluacion, (v) => actualizar('estrategiaEvaluacion', v))
+  const f6 = celdasDe(filas[6])
+  hacerEditable(f6[0], datosMomento?.evidencias, (v) => actualizar('evidencias', v))
+  hacerEditable(f6[1], datosMomento?.tipoInstrumento, (v) => actualizar('tipoInstrumento', v))
+  hacerEditable(f6[2], datosMomento?.ponderacion, (v) => actualizar('ponderacion', v))
+}
+
+// Tabla "FUENTES DE INFORMACIÓN / BIBLIOGRAFÍA" — fila 0 encabezado, filas
+// 1-5 numeradas.
+function activarTablaBibliografia(tabla, fuentes, actualizarFuente) {
+  const filas = filasDe(tabla)
+  for (let i = 0; i < 5; i++) {
+    const celdas = celdasDe(filas[i + 1])
+    hacerEditable(celdas[1], fuentes?.[i], (v) => actualizarFuente(i, v))
+  }
+}
+
+// Recorre las tablas del documento renderizado EN EL MISMO ORDEN en que
+// planeacionDocx.js las genera y activa la edición directa en cada una.
+// Además inyecta, junto a la etiqueta "SECUENCIA DIDÁCTICA N" que ya trae
+// el documento, los controles de reordenar/eliminar — dentro del propio
+// documento, nunca en un panel aparte — y un botón para agregar una
+// Secuencia al final.
+function activarEdicionDocumento(
+  container, datosIdentificacion, secuencias, fuentesInformacion,
+  actualizarIdentificacion, actualizarFuente, actualizarCampoSecuencia, cambiarGrupoSecuencias,
+) {
+  const tablas = Array.from(container.querySelectorAll('table'))
+  let idx = 0
+  activarTablaIdentificacion(tablas[idx++], datosIdentificacion, actualizarIdentificacion)
+  secuencias.forEach((s, si) => {
+    activarTablaIdentidadSecuencia(tablas[idx++], s, (clave, v) => actualizarCampoSecuencia(si, clave, v))
+    for (const clave of CLAVES_MOMENTO) {
+      activarTablaMomento(tablas[idx++], s[clave], (sub, v) => actualizarCampoSecuencia(si, `${clave}.${sub}`, v))
+    }
+  })
+  activarTablaBibliografia(tablas[idx++], fuentesInformacion, actualizarFuente)
 
   const total = secuencias.length
   // docx-preview envuelve el texto de cada run en su propio <span> — no se
@@ -208,7 +293,7 @@ function activarEdicionDocumento(container, secuencias, actualizarCampo, cambiar
     b.textContent = texto
     b.setAttribute('aria-label', aria)
     b.disabled = disabled
-    b.style.cssText = `font-size:11px;line-height:1;padding:2px 6px;margin-left:6px;border-radius:4px;border:1px solid #ccc;background:${disabled ? 'transparent' : '#f5f5f5'};color:${disabled ? '#bbb' : '#555'};cursor:${disabled ? 'default' : 'pointer'};`
+    b.style.cssText = `font-size:11px;line-height:1;padding:2px 6px;margin-left:6px;border-radius:4px;border:1px solid #ccc;background:${disabled ? 'transparent' : '#fff'};color:${disabled ? '#bbb' : '#333'};cursor:${disabled ? 'default' : 'pointer'};`
     if (!disabled) b.addEventListener('click', onClick)
     return b
   }
@@ -426,7 +511,8 @@ function Planeacion({
   const [cantidadManual, setCantidadManual] = useState(3)
   const [generando, setGenerando] = useState(false)
   const [parcialActivo, setParcialActivo] = useState(1)
-  const [edicion, setEdicion] = useState(null) // [{numero, periodo, secuencias}] mientras no está aceptada
+  // `edicion`/`edicionAceptada`: { datosIdentificacion, fuentesInformacion, porParcial }
+  const [edicion, setEdicion] = useState(null)
   const [edicionDeId, setEdicionDeId] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [aceptando, setAceptando] = useState(false)
@@ -443,7 +529,7 @@ function Planeacion({
   // (ver cambiarGrupoSecuencias / el efecto que consume esta bandera).
   const [recargarVistaPreviaPendiente, setRecargarVistaPreviaPendiente] = useState(false)
   const vistaPreviaRef = useRef(null)
-  const secuenciasActivoRef = useRef([])
+  const fuenteActivaRef = useRef({ datosIdentificacion: null, fuentesInformacion: FUENTES_VACIAS, secuencias: [] })
   const [abrirTrasGenerar, setAbrirTrasGenerar] = useState(false)
   // Copia editable de la planeación YA ACEPTADA — separada de `edicion`
   // (que es la copia previa a aceptar) porque una vez aceptada vive en otro
@@ -468,10 +554,11 @@ function Planeacion({
   const anteriores = historial.slice(1)
   const aceptada = !!actual && subjectPlaneacion?.planeacionAceptada?.planeacionId === actual.id
   const fechaAceptada = aceptada ? subjectPlaneacion.planeacionAceptada.aceptadaEn : null
-  const porParcialAceptado = aceptada
+  const contenidoAceptado = aceptada
     ? (subjectPlaneacion.planeacionAceptada.porParcial?.length
-      ? subjectPlaneacion.planeacionAceptada.porParcial : actual.porParcial)
+      ? extraerContenido(subjectPlaneacion.planeacionAceptada) : extraerContenido(actual))
     : null
+  const porParcialAceptado = contenidoAceptado?.porParcial || null
 
   // Inicializa/reinicia la copia editable cuando aparece una generación
   // nueva (o al recargar la página) — nunca pisa ediciones en curso del
@@ -482,22 +569,22 @@ function Planeacion({
   const actualIdParaEdicion = actual?.id || null
   if (actualIdParaEdicion !== edicionDeId) {
     const borrador = subjectPlaneacion?.planeacionBorrador?.planeacionId === actualIdParaEdicion
-      ? subjectPlaneacion.planeacionBorrador.porParcial : null
-    setEdicion(actualIdParaEdicion ? (borrador?.length ? borrador : actual.porParcial) : null)
+      ? extraerContenido(subjectPlaneacion.planeacionBorrador) : null
+    setEdicion(actualIdParaEdicion ? (borrador?.porParcial?.length ? borrador : extraerContenido(actual)) : null)
     setEdicionDeId(actualIdParaEdicion)
     setParcialActivo(actual?.porParcial?.[0]?.numero || 1)
   }
 
   if (aceptada && actualIdParaEdicion !== edicionAceptadaDeId) {
-    setEdicionAceptada(porParcialAceptado || [])
+    setEdicionAceptada(contenidoAceptado)
     setEdicionAceptadaDeId(actualIdParaEdicion)
   }
 
   const guardadoRaw = !!actual && subjectPlaneacion?.planeacionBorrador?.planeacionId === actual.id
-    ? subjectPlaneacion.planeacionBorrador?.porParcial : null
-  const guardado = guardadoRaw?.length ? guardadoRaw : actual?.porParcial
+    ? extraerContenido(subjectPlaneacion.planeacionBorrador) : null
+  const guardado = guardadoRaw?.porParcial?.length ? guardadoRaw : (actual ? extraerContenido(actual) : null)
   const sinGuardar = !!actual && JSON.stringify(edicion) !== JSON.stringify(guardado)
-  const sinGuardarAceptada = aceptada && JSON.stringify(edicionAceptada) !== JSON.stringify(porParcialAceptado || [])
+  const sinGuardarAceptada = aceptada && JSON.stringify(edicionAceptada) !== JSON.stringify(contenidoAceptado)
 
   async function generar() {
     if (nuncaAprobado) { onPago(); return }
@@ -537,7 +624,7 @@ function Planeacion({
     setGuardando(true)
     try {
       await updateDoc(doc(db, 'subjects', subjectId), {
-        planeacionBorrador: { planeacionId: actual.id, porParcial: edicion, actualizadoEn: serverTimestamp() },
+        planeacionBorrador: { planeacionId: actual.id, ...edicion, actualizadoEn: serverTimestamp() },
       })
       toast('Cambios guardados')
     } catch (err) {
@@ -551,7 +638,7 @@ function Planeacion({
     setAceptando(true)
     try {
       await updateDoc(doc(db, 'subjects', subjectId), {
-        planeacionAceptada: { planeacionId: actual.id, aceptadaEn: serverTimestamp(), porParcial: edicion || actual.porParcial },
+        planeacionAceptada: { planeacionId: actual.id, aceptadaEn: serverTimestamp(), ...(edicion || extraerContenido(actual)) },
         planeacionBorrador: null,
       })
       toast('Planeación Inicial aceptada — ya puedes verla y descargarla')
@@ -564,13 +651,13 @@ function Planeacion({
   }
 
   // Guarda correcciones sobre la planeación YA ACEPTADA, en su lugar — no
-  // cambia `planeacionId` ni `aceptadaEn`, solo el contenido de las
-  // Secuencias (pedido de Kike, 16-ago-2026).
+  // cambia `planeacionId` ni `aceptadaEn`, solo el contenido (pedido de
+  // Kike, 16-ago-2026).
   async function guardarAceptada() {
     setGuardandoAceptada(true)
     try {
       await updateDoc(doc(db, 'subjects', subjectId), {
-        planeacionAceptada: { ...subjectPlaneacion.planeacionAceptada, porParcial: edicionAceptada },
+        planeacionAceptada: { ...subjectPlaneacion.planeacionAceptada, ...edicionAceptada },
       })
       toast('Cambios guardados')
     } catch (err) {
@@ -600,8 +687,8 @@ function Planeacion({
     }
   }
 
-  function secuenciasDeParcial(numero, fuente) {
-    return (fuente || []).find((x) => x.numero === numero)?.secuencias || []
+  function secuenciasDeParcial(numero, porParcial) {
+    return (porParcial || []).find((x) => x.numero === numero)?.secuencias || []
   }
 
   async function descargarParcial(numero) {
@@ -610,7 +697,10 @@ function Planeacion({
     try {
       const p = (porParcialAceptado || []).find((x) => x.numero === numero)
       const titulo = `Planeación Didáctica Inicial — Parcial ${numero}${p?.periodo ? ` (${p.periodo})` : ''}`
-      const blob = await construirDocumentoPlaneacion(secuenciasDeParcial(numero, porParcialAceptado), titulo)
+      const blob = await construirDocumentoPlaneacion(
+        contenidoAceptado?.datosIdentificacion, secuenciasDeParcial(numero, porParcialAceptado),
+        contenidoAceptado?.fuentesInformacion, titulo,
+      )
       const nombreSalida = `Planeación Didáctica Inicial - Parcial ${numero}.docx`
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -628,27 +718,56 @@ function Planeacion({
     }
   }
 
-  const fuenteEditableActivo = aceptada ? edicionAceptada : edicion
-  const secuenciasActivo = secuenciasDeParcial(parcialActivo, fuenteEditableActivo)
+  const contenidoEditableActivo = aceptada ? edicionAceptada : edicion
+  const secuenciasActivo = secuenciasDeParcial(parcialActivo, contenidoEditableActivo?.porParcial)
   // El efecto de render (más abajo) corre en un callback async — para
-  // cuando termina, `secuenciasActivo` de ESTE render puede ya no ser la
-  // más reciente si hubo un cambio de estado entremedio; un ref siempre
-  // trae el valor actual sin tener que declarar el efecto de nuevo en cada
-  // render.
+  // cuando termina, el estado de ESTE render puede ya no ser el más
+  // reciente si hubo un cambio entremedio; un ref siempre trae el valor
+  // actual sin tener que declarar el efecto de nuevo en cada render.
   useEffect(() => {
-    secuenciasActivoRef.current = secuenciasActivo
+    fuenteActivaRef.current = {
+      datosIdentificacion: contenidoEditableActivo?.datosIdentificacion,
+      fuentesInformacion: contenidoEditableActivo?.fuentesInformacion,
+      secuencias: secuenciasActivo,
+    }
   })
 
-  // Escribe una corrección de campo en la copia editable que corresponda
-  // (aceptada o en revisión) — no dispara recarga, la celda ya se edita en
-  // el propio DOM.
-  function cambiarCampo(indiceSecuencia, campo, valor) {
-    const actualizador = (prev) => prev.map((p) => (
-      p.numero !== parcialActivo ? p : {
-        ...p,
-        secuencias: p.secuencias.map((s, j) => (j === indiceSecuencia ? { ...s, [campo]: valor } : s)),
-      }
-    ))
+  // Escribe una corrección en la copia editable que corresponda (aceptada o
+  // en revisión) — no dispara recarga, la celda ya se edita en el propio
+  // DOM.
+  function actualizarIdentificacion(clave, valor) {
+    const actualizador = (prev) => ({ ...prev, datosIdentificacion: { ...prev.datosIdentificacion, [clave]: valor } })
+    if (aceptada) setEdicionAceptada(actualizador)
+    else setEdicion(actualizador)
+  }
+
+  function actualizarFuente(indice, valor) {
+    const actualizador = (prev) => ({
+      ...prev,
+      fuentesInformacion: (prev.fuentesInformacion || FUENTES_VACIAS).map((f, i) => (i === indice ? valor : f)),
+    })
+    if (aceptada) setEdicionAceptada(actualizador)
+    else setEdicion(actualizador)
+  }
+
+  // `ruta` es la clave del campo de identidad de la Secuencia (p. ej.
+  // "nombre") o "momento.campo" (p. ej. "apertura.actividades").
+  function actualizarCampoSecuencia(indiceSecuencia, ruta, valor) {
+    const partes = ruta.split('.')
+    const actualizador = (prev) => ({
+      ...prev,
+      porParcial: prev.porParcial.map((p) => (
+        p.numero !== parcialActivo ? p : {
+          ...p,
+          secuencias: p.secuencias.map((s, j) => {
+            if (j !== indiceSecuencia) return s
+            if (partes.length === 1) return { ...s, [partes[0]]: valor }
+            const [momento, sub] = partes
+            return { ...s, [momento]: { ...s[momento], [sub]: valor } }
+          }),
+        }
+      )),
+    })
     if (aceptada) setEdicionAceptada(actualizador)
     else setEdicion(actualizador)
   }
@@ -657,18 +776,21 @@ function Planeacion({
   // tablas trae el documento, así que regenera y vuelve a renderizar la
   // vista previa completa (ver el useEffect de recargarVistaPreviaPendiente).
   function cambiarGrupoSecuencias(accion, indice, direccion) {
-    const actualizador = (prev) => prev.map((p) => {
-      if (p.numero !== parcialActivo) return p
-      if (accion === 'agregar') return { ...p, secuencias: [...p.secuencias, nuevaSecuenciaVacia()] }
-      if (accion === 'eliminar') return { ...p, secuencias: p.secuencias.filter((_, j) => j !== indice) }
-      if (accion === 'mover') {
-        const destino = indice + direccion
-        if (destino < 0 || destino >= p.secuencias.length) return p
-        const secuencias = [...p.secuencias]
-        ;[secuencias[indice], secuencias[destino]] = [secuencias[destino], secuencias[indice]]
-        return { ...p, secuencias }
-      }
-      return p
+    const actualizador = (prev) => ({
+      ...prev,
+      porParcial: prev.porParcial.map((p) => {
+        if (p.numero !== parcialActivo) return p
+        if (accion === 'agregar') return { ...p, secuencias: [...p.secuencias, nuevaSecuenciaVacia()] }
+        if (accion === 'eliminar') return { ...p, secuencias: p.secuencias.filter((_, j) => j !== indice) }
+        if (accion === 'mover') {
+          const destino = indice + direccion
+          if (destino < 0 || destino >= p.secuencias.length) return p
+          const secuencias = [...p.secuencias]
+          ;[secuencias[indice], secuencias[destino]] = [secuencias[destino], secuencias[indice]]
+          return { ...p, secuencias }
+        }
+        return p
+      }),
     })
     if (aceptada) setEdicionAceptada(actualizador)
     else setEdicion(actualizador)
@@ -684,11 +806,11 @@ function Planeacion({
     setVerRevision(true)
     try {
       const numero = numeroParcial ?? parcialActivo
-      const fuente = aceptada ? (edicionAceptada || porParcialAceptado) : edicion
-      const secuencias = secuenciasDeParcial(numero, fuente)
-      const p = (fuente || []).find((x) => x.numero === numero)
+      const contenido = aceptada ? (edicionAceptada || contenidoAceptado) : (edicion || extraerContenido(actual))
+      const secuencias = secuenciasDeParcial(numero, contenido?.porParcial)
+      const p = (contenido?.porParcial || []).find((x) => x.numero === numero)
       const titulo = `Planeación Didáctica Inicial — Parcial ${numero}${p?.periodo ? ` (${p.periodo})` : ''}`
-      const blob = await construirDocumentoPlaneacion(secuencias, titulo)
+      const blob = await construirDocumentoPlaneacion(contenido?.datosIdentificacion, secuencias, contenido?.fuentesInformacion, titulo)
       setBlobVistaPrevia(blob)
     } catch (err) {
       toast('No se pudo generar la vista previa: ' + err.message, 'error')
@@ -703,6 +825,7 @@ function Planeacion({
   // el listener de Firestore todavía trae los datos del ciclo anterior).
   useEffect(() => {
     if (abrirTrasGenerar && actual) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- solo apaga la bandera que disparó este mismo efecto, no encadena renders externos
       setAbrirTrasGenerar(false)
       abrirVistaPrevia()
     }
@@ -715,6 +838,7 @@ function Planeacion({
   // para cuando este efecto corre, el estado ya refleja el cambio.
   useEffect(() => {
     if (recargarVistaPreviaPendiente) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- solo apaga la bandera que disparó este mismo efecto, no encadena renders externos
       setRecargarVistaPreviaPendiente(false)
       abrirVistaPrevia()
     }
@@ -729,7 +853,11 @@ function Planeacion({
         // La edición solo se activa en escritorio — en celular la Vista
         // previa se deja de solo lectura (ver AvisoRevisionDesktop).
         if (!isDesktop || !vistaPreviaRef.current) return
-        activarEdicionDocumento(vistaPreviaRef.current, secuenciasActivoRef.current, cambiarCampo, cambiarGrupoSecuencias)
+        const { datosIdentificacion, fuentesInformacion, secuencias } = fuenteActivaRef.current
+        activarEdicionDocumento(
+          vistaPreviaRef.current, datosIdentificacion, secuencias, fuentesInformacion,
+          actualizarIdentificacion, actualizarFuente, actualizarCampoSecuencia, cambiarGrupoSecuencias,
+        )
       })
       .catch((err) => toast('No se pudo mostrar la vista previa: ' + err.message, 'error'))
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe re-ejecutar al cambiar de blob, no en cada render
@@ -831,8 +959,8 @@ function Planeacion({
       )}
 
       {/* Sin aceptar, "Revisar y aceptar" y "Vista previa" son la MISMA
-          pantalla — se edita directo sobre la Planeación, con apariencia de
-          documento. Solo en escritorio (celular no tiene espacio para
+          pantalla — se edita directo sobre el documento Word real
+          renderizado. Solo en escritorio (celular no tiene espacio para
           esto). */}
       {actual && !aceptada && !isDesktop && <AvisoRevisionDesktop />}
       {verRevision && (isDesktop || aceptada) && (
