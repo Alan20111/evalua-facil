@@ -2680,6 +2680,21 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     'entidad federativa, CCT y similares) NO los inventes — déjalos vacíos, el docente los llena a mano. Si ' +
     'una celda que sí corresponde llenar no tiene información suficiente en las fuentes, usa la frase exacta ' +
     '"Información no disponible en las fuentes proporcionadas." en vez de inventar contenido.\n\n' +
+    'CONGRUENCIA OBLIGATORIA entre horas y contenido (error grave encontrado el 15-ago-2026: una plantilla ' +
+    'con "No. de horas de la estrategia: 10 horas" propuesto por la IA, pero cuyas actividades sumaban apenas ' +
+    'hora y media, y que además solo cubría el primer tema del manual, dejando el resto sin planear):\n' +
+    '- Si alguna celda vacía pide el número de horas/sesiones de este parcial (o ya viene con ese dato), la ' +
+    'SUMA de los tiempos que le pongas a cada actividad (los minutos u horas que tú mismo indiques en la ' +
+    'descripción de cada actividad) tiene que dar ese total — ni menos ni (salvo que el margen sea mínimo) ' +
+    'más. Si tú mismo decides ese número de horas (la celda estaba vacía), primero calcula cuánto contenido ' +
+    'real hay que cubrir y de ahí saca un número de horas realista — nunca al revés.\n' +
+    '- Las actividades que propongas para este parcial deben cubrir TODOS los temas relevantes de las fuentes ' +
+    'que correspondan a este periodo — no te quedes en el primer tema o subtema y dejes el resto del manual ' +
+    'sin usar. Si el tiempo disponible no alcanza para cubrir todo el material con profundidad, repártelo en ' +
+    'más actividades/sesiones dentro del mismo parcial en vez de cubrir menos temas.\n' +
+    '- Esto aplica más aún cuando el docente indicó fechas reales del periodo (arriba, si las hay): la duración ' +
+    'del periodo, las horas totales y el contenido cubierto deben cuadrar entre sí — no propongas una fracción ' +
+    'de plan para un periodo de varios días o semanas.\n\n' +
     'Responde SOLO con este JSON — una entrada por cada celda que decidas llenar, usando EXACTAMENTE su ' +
     'posición (f=fila, c=columna, t=tabla si aplica) y el texto que le corresponde:\n' +
     '{"celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 400 caracteres>"}]}'
