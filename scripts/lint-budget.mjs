@@ -12,6 +12,12 @@
 //
 // Para bajar el presupuesto (progreso real): arreglar problemas y correr
 // `node scripts/lint-budget.mjs --write` para grabar el nuevo número.
+//
+// Nota de plataforma: el conteo puede variar ±1 entre Windows (dev local) y
+// Ubuntu (CI) — visto en la práctica al mergear fix/a11y-fase-1 (253 local,
+// 254 en CI). El número grabado en .eslint-budget.json es siempre el que
+// reporta CI (ubuntu-latest), no el de la máquina de desarrollo — es la
+// corrida que de verdad bloquea el merge.
 import { execSync } from 'node:child_process'
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
