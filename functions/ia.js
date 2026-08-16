@@ -2296,17 +2296,14 @@ async function ejecutarDiagnosticoConocimientos({ params, modelo, apiKey }) {
 // ── Planeación Didáctica Inicial (FASE 2-BIS, apartado 3 de Asistente IA,
 // 12-ago-2026) — última pieza de la secuencia: Perfil IA → Fuentes generales
 // → Diagnóstico de contexto → Diagnóstico de conocimientos → Planeación.
-// Genera una PROPUESTA en Excel (el cliente arma el .xlsx a partir de
-// `resultado`, ver src/utils/planeacionExcel.js) — no sustituye el formato
-// oficial de la escuela, no crea actividades/exámenes/cuestionarios, y no se
-// aprueba automáticamente. Tarifa (Kike, 12-ago-2026): 20 créditos fijos,
-// una sola operación cubre TODOS los parciales reales de la asignatura.
-
-const MAX_FILAS_PLANEACION_PARCIAL = 10
-// Formato 'extendida' (13-ago-2026, decisión de Kike): una fila por cada
-// tema real de las fuentes, no agrupado — tope más alto que 'simple' porque
-// un parcial puede traer más temas que bloques agrupados razonables.
-const MAX_FILAS_PLANEACION_PARCIAL_EXTENDIDA = 25
+// Genera una PROPUESTA llenando una plantilla Word real, una vez por cada
+// parcial de la asignatura (decisión de Kike, 15-ago-2026 — antes eran 9
+// campos fijos armados en un .xlsx; ver src/utils/planeacionWord.js para el
+// .docx bundleado que usa esta operación cuando no hay plantilla oficial) —
+// no sustituye el formato oficial de la escuela, no crea
+// actividades/exámenes/cuestionarios, y no se aprueba automáticamente.
+// Tarifa (Kike, 12-ago-2026): 20 créditos fijos, una sola operación cubre
+// TODOS los parciales reales de la asignatura (aunque sean N llamadas).
 
 function formatoPeriodo(fechas) {
   if (!fechas?.inicio || !fechas?.fin) return null
@@ -2399,6 +2396,50 @@ async function analisisDiagnosticoMasReciente(db, subjectId, tipo) {
     if (masReciente) return masReciente.resultado
   }
   return null
+}
+
+// Tope de celdas que se mandan a la IA por generación — una plantilla
+// institucional razonable (una tabla de planeación semanal, por ejemplo)
+// cabe sobrada; algo mucho más grande probablemente ya no es un formato de
+// planeación sino otra cosa (o trae demasiado ruido para que la IA decida
+// bien qué llenar). Compartido por la Planeación genérica (plantilla
+// bundleada) y la del formato oficial (plantilla subida por el docente).
+const PLANEACION_OFICIAL_MAX_CELDAS = 400
+
+// La estructura de la plantilla la lee y manda el CLIENTE (el servidor no
+// trae ExcelJS/parseo de .docx) — no es información sensible (en un caso es
+// la plantilla que el propio docente subió, en el otro la genérica que
+// reparte la propia app), así que se acepta con un tope de tamaño en vez de
+// volver a leer el archivo aquí. Mismo validador para ambas operaciones
+// (15-ago-2026, unificación genérica/oficial: las dos llenan una plantilla
+// real, una vez por parcial).
+function validarCeldasPlantilla(params) {
+  const celdasCrudas = Array.isArray(params?.celdas) ? params.celdas : []
+  if (!celdasCrudas.length) {
+    throw new HttpsError('invalid-argument', 'No se pudo leer la estructura de la plantilla.')
+  }
+  return celdasCrudas.slice(0, PLANEACION_OFICIAL_MAX_CELDAS).map((c) => ({
+    f: Number(c.f) || 0, c: Number(c.c) || 0,
+    t: c.t == null ? null : Number(c.t),
+    x: String(c.x || '').slice(0, 200),
+    // Celdas combinadas (Word/Excel, ver PR "soporta celdas combinadas"): se
+    // reenvía tal cual para poder reconstruir la cuadrícula real al guardar
+    // esta generación — sin esto, la bitácora perdía el combinado.
+    s: Math.max(1, Number(c.s) || 1),
+  }))
+}
+
+// Lista de parciales reales de la asignatura con su periodo en texto —
+// compartida por ambas operaciones: cada parcial genera SU PROPIO documento
+// (misma plantilla, contenido distinto), decisión de Kike, 15-ago-2026.
+function construirParcialesCtx(subj) {
+  const numParciales = Math.max(1, Number(subj.parciales) || 1)
+  const parcialesFechas = Array.isArray(subj.parcialesFechas) ? subj.parcialesFechas : []
+  const parciales = []
+  for (let p = 1; p <= numParciales; p++) {
+    parciales.push({ numero: p, periodoTexto: formatoPeriodo(parcialesFechas[p - 1]) })
+  }
+  return parciales
 }
 
 // Precheck: valida la secuencia completa SIN gastar un crédito y arma el
@@ -2530,24 +2571,20 @@ async function precheckPlaneacionInicial({ uid, params }) {
     ? consideracionesATexto(configSnap.data()?.consideraciones)
     : ''
 
-  // Formato elegido por el docente (13-ago-2026, decisión de Kike): 'simple'
-  // (bloques agrupados, como antes) o 'extendida' (una fila por cada tema
-  // real de las fuentes, con fechas reales por tema). Cualquier otro valor
-  // cae a 'simple' — no se inventa un tercer formato ni se truena por un
-  // valor inesperado del cliente.
-  const formato = params?.formato === 'extendida' ? 'extendida' : 'simple'
+  // La Planeación genérica pasó de 9 campos fijos a llenar una plantilla
+  // Word real (decisión de Kike, 15-ago-2026: mejor vista previa, un
+  // documento POR PARCIAL, igual que ya hacía el formato oficial de la
+  // escuela) — el cliente lee la plantilla BUNDLEADA
+  // (public/plantillas/planeacion-generica.docx) y manda su cuadrícula,
+  // mismo mecanismo y misma validación que precheckPlaneacionFormatoOficial.
+  const celdas = validarCeldasPlantilla(params)
 
   // Las fuentes YA NO se agrupan por parcial (se quitó esa sección de la UI
   // el 13-ago-2026 — Diagnóstico y Planeación son eventos de una sola vez, al
   // arrancar el curso, antes de que exista ningún parcial cursado; un grupo
   // de fuentes "por parcial" nunca tuvo sentido ahí). Cada parcial usa el
   // mismo contexto general (fuentes + diagnósticos) — solo cambia su periodo.
-  const numParciales = Math.max(1, Number(subj.parciales) || 1)
-  const parcialesFechas = Array.isArray(subj.parcialesFechas) ? subj.parcialesFechas : []
-  const parciales = []
-  for (let p = 1; p <= numParciales; p++) {
-    parciales.push({ numero: p, periodoTexto: formatoPeriodo(parcialesFechas[p - 1]) })
-  }
+  const parciales = construirParcialesCtx(subj)
 
   return {
     asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
@@ -2558,8 +2595,9 @@ async function precheckPlaneacionInicial({ uid, params }) {
     bloqueFuentesGenerales,
     diagnosticoContextoTexto: incluir.diagContexto ? diagnosticoContextoATexto(resultadoContexto) : '',
     diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
-    formato,
     parciales,
+    celdas,
+    plantillaOficial: { tipo: 'docx', nombre: 'Planeación didáctica.docx' },
     fuentesUsadas: {
       generales: seleccionarFuentesGenerales(generales).map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
     },
@@ -2593,31 +2631,29 @@ const PLANEACION_SISTEMA =
   'trátalo como información útil para ajustar el nivel de detalle de la propuesta. Escribe en ' +
   'español, claro y breve. Responde únicamente con el JSON del esquema indicado, sin texto adicional.'
 
-// 'simple' agrupa el trabajo en bloques (como siempre); 'extendida' pide una
-// fila POR CADA tema/subtema real que aparezca en las fuentes, con una
-// fecha estimada por fila cuando el parcial tiene fechas reales (decisión
-// de Kike, 13-ago-2026: la extendida distribuye los temas en el tiempo real
-// del curso — por eso el cliente exige fechas ANTES de generar en este
-// formato; ver PlaneacionInicialSection.jsx).
-function instruccionFilasPorFormato(formato, tienePeriodo) {
-  if (formato !== 'extendida') {
-    return 'Propón entre 1 y 8 bloques de trabajo para ESTE parcial únicamente (agrupa temas afines en un mismo bloque).'
-  }
-  const base = 'Propón UNA FILA POR CADA tema o subtema real que identifiques en las fuentes para ESTE parcial ' +
-    `(hasta ${MAX_FILAS_PLANEACION_PARCIAL_EXTENDIDA}) — no agrupes varios temas en un solo bloque; si las ` +
-    'fuentes no traen suficiente desglose para un tema, usa la frase exacta "Información no disponible en ' +
-    'las fuentes proporcionadas." en vez de inventar subtemas.'
-  return tienePeriodo
-    ? base + ' Además, reparte los temas a lo largo del periodo real de este parcial (indicado arriba) de forma ' +
-      'realista y en orden cronológico — cada fila lleva su propia fecha estimada en el campo fechaEstimada.'
-    : base
+// Representación compacta de la cuadrícula para el prompt: una línea por
+// celda con TEXTO (encabezados, valores ya puestos — la IA los usa de
+// contexto pero NUNCA los reescribe) o VACÍA (candidatas a llenar).
+function celdasATexto(celdas) {
+  return celdas.map((c) => {
+    const pos = c.t != null ? `tabla ${c.t}, fila ${c.f}, columna ${c.c}` : `fila ${c.f}, columna ${c.c}`
+    return c.x ? `- [${pos}] TEXTO: "${c.x}"` : `- [${pos}] VACÍA`
+  }).join('\n')
 }
 
-function promptPlaneacionParcial(ctx, parcialCtx) {
-  const tienePeriodo = ctx.formato === 'extendida' && !!parcialCtx.periodoTexto
+// Llena UNA plantilla (genérica bundleada o la oficial de la escuela — el
+// mecanismo es idéntico, ver celdasATexto) con el contenido de UN parcial
+// específico — se llama una vez por parcial real de la asignatura, así que
+// el resultado es un documento distinto por parcial, no uno solo con todo
+// mezclado (decisión de Kike, 15-ago-2026: mismo criterio que ya usaba la
+// Planeación genérica de 9 campos, ahora aplicado también al formato
+// oficial y a la plantilla propia de la app).
+function promptPlantillaParcial(ctx, parcialCtx) {
   return (
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n` +
-    `PARCIAL ${parcialCtx.numero}${parcialCtx.periodoTexto ? ` (periodo: ${parcialCtx.periodoTexto})` : ''}.\n\n` +
+    `PARCIAL ${parcialCtx.numero}${parcialCtx.periodoTexto ? ` (periodo: ${parcialCtx.periodoTexto})` : ''} — ` +
+    'esta plantilla se llena UNA VEZ POR CADA PARCIAL: todo el contenido que propongas debe corresponder ' +
+    'específicamente a este parcial, no al curso completo.\n\n' +
     (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
     (ctx.comentariosGrupoTexto ? `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (el insumo que ` +
       `más debe pesar, junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` : '') +
@@ -2629,93 +2665,76 @@ function promptPlaneacionParcial(ctx, parcialCtx) {
     (ctx.diagnosticoConocimientosTexto ? `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados ` +
       `todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` : '') +
     (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
-    `${instruccionFilasPorFormato(ctx.formato, tienePeriodo)} Cada fila tiene EXACTAMENTE estos campos (ningún ` +
-    'campo adicional):\n' +
-    '- contenidosTemas: los contenidos/temas de este bloque.\n' +
-    '- proposito: el propósito o aprendizaje esperado, solo si está respaldado por las fuentes.\n' +
-    '- actividades: actividades de aprendizaje.\n' +
-    '- estrategia: estrategia o metodología sugerida.\n' +
-    '- recursos: recursos a utilizar.\n' +
-    '- evidencias: evidencias de aprendizaje.\n' +
-    '- evaluacion: cómo se evalúa este bloque.\n' +
-    '- observaciones: observaciones o ajustes (p. ej. si algo se pensó a partir del diagnóstico).\n' +
-    (tienePeriodo ? '- fechaEstimada: fecha o rango breve dentro del periodo del parcial (ej. "18-22 ago").\n' : '') +
-    '\nResponde SOLO con este JSON:\n' +
-    '{\n  "filas": [\n' +
-    '    {"contenidosTemas": "<máx 400 caracteres>", "proposito": "<máx 400>", "actividades": "<máx 400>", ' +
-    '"estrategia": "<máx 400>", "recursos": "<máx 300>", "evidencias": "<máx 300>", "evaluacion": "<máx 300>"' +
-    (tienePeriodo ? ', "observaciones": "<máx 300>", "fechaEstimada": "<máx 40>"' : ', "observaciones": "<máx 300>"') +
-    '}\n  ]\n}'
+    'Esta es la cuadrícula completa de la plantilla (una tabla de Excel, o una o varias tablas de Word) — cada ' +
+    'celda con su posición, y si ya tiene texto (encabezado o dato fijo, NO se toca) o está VACÍA (candidata a ' +
+    'llenar):\n\n' +
+    celdasATexto(ctx.celdas) + '\n\n' +
+    'Con el texto de las celdas que YA tienen contenido entiendes la estructura del formato (encabezados de ' +
+    'columna/fila, títulos de sección, etc.) — úsalo para decidir qué información pedagógica corresponde a ' +
+    'cada celda VACÍA (nunca a una que ya tiene texto), SIEMPRE específica de este parcial. No todas las ' +
+    'celdas vacías son para llenar con contenido pedagógico: ignora las que sean claramente decorativas o de ' +
+    'diseño (separadores, celdas de firma, celdas en blanco sin relación con ningún encabezado cercano) — ' +
+    'solo responde las que de verdad correspondan a un dato de planeación (tema, actividad, propósito, fecha, ' +
+    'recurso, evaluación, etc.) o de identificación administrativa que sí puedas inferir del contexto (p. ej. ' +
+    'nombre de la asignatura). Los campos administrativos que NO puedas saber (nombre del docente, plantel, ' +
+    'entidad federativa, CCT y similares) NO los inventes — déjalos vacíos, el docente los llena a mano. Si ' +
+    'una celda que sí corresponde llenar no tiene información suficiente en las fuentes, usa la frase exacta ' +
+    '"Información no disponible en las fuentes proporcionadas." en vez de inventar contenido.\n\n' +
+    'Responde SOLO con este JSON — una entrada por cada celda que decidas llenar, usando EXACTAMENTE su ' +
+    'posición (f=fila, c=columna, t=tabla si aplica) y el texto que le corresponde:\n' +
+    '{"celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 400 caracteres>"}]}'
   )
 }
 
-function normalizarFilaPlaneacion(r) {
-  const campo = (v, max) => String(v || '').trim().slice(0, max)
-  const fila = {
-    contenidosTemas: campo(r?.contenidosTemas, 400),
-    proposito: campo(r?.proposito, 400),
-    actividades: campo(r?.actividades, 400),
-    estrategia: campo(r?.estrategia, 400),
-    recursos: campo(r?.recursos, 300),
-    evidencias: campo(r?.evidencias, 300),
-    evaluacion: campo(r?.evaluacion, 300),
-    observaciones: campo(r?.observaciones, 300),
-    fechaEstimada: campo(r?.fechaEstimada, 40),
-  }
-  return fila
-}
-
-// Una fila sin contenido ni actividades no aporta nada como guía de
-// trabajo — se descarta en vez de dejar una fila vacía en el Excel. `max`
-// por omisión es el tope de 'simple' — llamadores de 'completo' pasan
-// MAX_FILAS_PLANEACION_PARCIAL_EXTENDIDA explícitamente.
-function normalizarFilasPlaneacion(crudos, max = MAX_FILAS_PLANEACION_PARCIAL) {
-  return (Array.isArray(crudos) ? crudos : [])
-    .slice(0, max)
-    .map(normalizarFilaPlaneacion)
-    .filter((f) => f.contenidosTemas || f.actividades)
-}
-
-async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
+// Ejecuta una llamada a la IA por CADA parcial real, contra la MISMA
+// cuadrícula de plantilla — de ahí sale un documento distinto por parcial
+// (mismo layout, contenido propio). Compartido por la Planeación genérica
+// (plantilla bundleada) y la del formato oficial (plantilla del docente).
+async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
   const Anthropic = require('@anthropic-ai/sdk')
   const client = new Anthropic({ apiKey })
-  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+  const vacias = new Set(ctx.celdas.filter((c) => !c.x).map((c) => `${c.t ?? ''}_${c.f}_${c.c}`))
+  const porParcial = []
+  let tokensEntrada = 0, tokensSalida = 0, ms = 0
 
-  const parciales = []
-  let tokensEntrada = 0
-  let tokensSalida = 0
-  let ms = 0
-  // Una llamada POR PARCIAL (no una sola para todos): cada parcial tiene su
-  // propio bloque de fuentes específicas (§5), así que el contexto real que
-  // le corresponde a cada uno es distinto — mismo criterio que los lotes de
-  // ejecutarCrearEvaluacion, pero aquí el contexto varía, no solo el tramo.
-  const maxFilas = ctx.formato === 'extendida' ? MAX_FILAS_PLANEACION_PARCIAL_EXTENDIDA : MAX_FILAS_PLANEACION_PARCIAL
   for (const parcialCtx of ctx.parciales) {
     const { datos, interno } = await pedirJSON({
-      client, modelo, maxTokens: ctx.formato === 'extendida' ? 3600 : 2200, system: PLANEACION_SISTEMA,
-      prompt: promptPlaneacionParcial(ctx, parcialCtx),
+      client, modelo, maxTokens: Math.min(8000, 500 + ctx.celdas.length * 60), system: PLANEACION_SISTEMA,
+      prompt: promptPlantillaParcial(ctx, parcialCtx),
     })
-    parciales.push({
-      numero: parcialCtx.numero,
-      periodo: parcialCtx.periodoTexto,
-      filas: normalizarFilasPlaneacion(datos?.filas, maxFilas),
-    })
+    // Blindaje: solo se aceptan celdas que de verdad estaban VACÍAS en la
+    // plantilla original — si la IA "corrige" o repite una celda con
+    // encabezado (con texto), se descarta aquí, sin importar qué haya
+    // contestado. Así el logo/encabezados de la escuela nunca se tocan
+    // aunque el modelo se equivoque.
+    const celdasCrudas = Array.isArray(datos?.celdas) ? datos.celdas : []
+    const celdas = []
+    for (const c of celdasCrudas) {
+      const f = Number(c?.f), col = Number(c?.c)
+      const t = c?.t == null ? null : Number(c.t)
+      const x = typeof c?.x === 'string' ? c.x.trim().slice(0, 400) : ''
+      if (!x || !Number.isFinite(f) || !Number.isFinite(col)) continue
+      if (!vacias.has(`${t ?? ''}_${f}_${col}`)) continue
+      celdas.push({ f, c: col, t, x })
+    }
+    porParcial.push({ numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, celdas })
     tokensEntrada += interno.tokensEntrada || 0
     tokensSalida += interno.tokensSalida || 0
     ms += interno.ms || 0
   }
 
-  // Regla de no invención (T.7): si NINGÚN parcial produjo una fila
+  return { porParcial, interno: { modelo, tokensEntrada, tokensSalida, ms } }
+}
+
+async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+  const { porParcial, interno } = await llenarPlantillaPorParciales({ ctx, modelo, apiKey })
+
+  // Regla de no invención (T.7): si NINGÚN parcial produjo una celda
   // aprovechable, esto NO se cobra (cae al catch del callable, que
   // reembolsa la reserva).
-  if (!parciales.some((p) => p.filas.length)) {
+  if (!porParcial.some((p) => p.celdas.length)) {
     throw new Error('El asistente de IA no generó una planeación utilizable')
-  }
-
-  const resultado = {
-    asignaturaNombre: ctx.asignaturaNombre,
-    parciales,
-    fuentesUsadasGenerales: ctx.fuentesUsadas.generales,
   }
 
   // El servidor guarda la bitácora ÉL MISMO, no el cliente (a diferencia del
@@ -2726,18 +2745,25 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   // recuperarla (incidente de Kike, 15-ago-2026). Al escribir aquí, el
   // listener onSnapshot de PlaneacionInicialSection.jsx la recibe en cuanto
   // se guarda, sin depender de que la llamada del cliente siga viva.
+  const celdasOriginales = ctx.celdas.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x, colSpan: c.s || 1 }))
+  const porParcialGuardado = porParcial.map((p) => ({
+    numero: p.numero, periodo: p.periodo,
+    celdasPropuestas: p.celdas.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x })),
+  }))
   await getFirestore().collection('subjects').doc(String(params.subjectId || '').trim())
     .collection('planeacionesIA').add({
-      resultado,
+      celdasOriginales,
+      porParcial: porParcialGuardado,
+      tipo: ctx.plantillaOficial?.tipo || 'docx',
+      nombreOriginal: ctx.plantillaOficial?.nombre || 'Planeación didáctica.docx',
       docenteId: params.__uid,
-      formato: ctx.formato,
       generadoEn: FieldValue.serverTimestamp(),
     })
 
   return {
-    resultado,
+    resultado: { porParcial: porParcialGuardado },
     unidadesReales: 1, // tarifa fija (20 créditos), sin importar el número de parciales
-    interno: { modelo, tokensEntrada, tokensSalida, ms },
+    interno,
   }
 }
 
@@ -2751,13 +2777,6 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
 // respuestas como casillas haya. El cliente ya trae el archivo (original o
 // etiquetado con docxtemplater) y solo necesita el texto de cada casilla
 // para llenarlo — el servidor nunca toca el archivo en sí.
-// Tope de celdas que se mandan a la IA por generación — una plantilla
-// institucional razonable (una tabla de planeación semanal, por ejemplo)
-// cabe sobrada; algo mucho más grande probablemente ya no es un formato de
-// planeación sino otra cosa (o trae demasiado ruido para que la IA decida
-// bien qué llenar).
-const PLANEACION_OFICIAL_MAX_CELDAS = 400
-
 async function precheckPlaneacionFormatoOficial({ uid, params }) {
   const db = getFirestore()
   const subjectId = String(params?.subjectId || '').trim()
@@ -2776,24 +2795,7 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
       'No se descontaron créditos.',
       { codigo: 'SIN_PLANTILLA_OFICIAL' })
   }
-
-  // La estructura de la plantilla la lee y manda el CLIENTE (el servidor no
-  // trae ExcelJS/parseo de .docx) — no es información sensible (es la
-  // plantilla que el propio docente subió), así que se acepta con un tope
-  // de tamaño en vez de volver a leer el archivo aquí.
-  const celdasCrudas = Array.isArray(params?.celdas) ? params.celdas : []
-  if (!celdasCrudas.length) {
-    throw new HttpsError('invalid-argument', 'No se pudo leer la estructura de la plantilla.')
-  }
-  const celdas = celdasCrudas.slice(0, PLANEACION_OFICIAL_MAX_CELDAS).map((c) => ({
-    f: Number(c.f) || 0, c: Number(c.c) || 0,
-    t: c.t == null ? null : Number(c.t),
-    x: String(c.x || '').slice(0, 200),
-    // Celdas combinadas (Word/Excel, ver PR "soporta celdas combinadas"): se
-    // reenvía tal cual para poder reconstruir la cuadrícula real al guardar
-    // esta generación — sin esto, la bitácora perdía el combinado.
-    s: Math.max(1, Number(c.s) || 1),
-  }))
+  const celdas = validarCeldasPlantilla(params)
 
   // El ÚNICO insumo obligatorio es el programa de estudios (fuentes
   // generales) — todo lo demás (Perfil IA, comentarios del grupo,
@@ -2881,80 +2883,17 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
     bloqueFuentesGenerales,
     diagnosticoContextoTexto: incluir.diagContexto ? diagnosticoContextoATexto(resultadoContexto) : '',
     diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
+    parciales: construirParcialesCtx(subj),
     celdas,
     plantillaOficial: { tipo: plantillaOficial.tipo, nombre: String(plantillaOficial.nombre || '').slice(0, 200) },
   }
 }
 
-// Representación compacta de la cuadrícula para el prompt: una línea por
-// celda con TEXTO (encabezados, valores ya puestos — la IA los usa de
-// contexto pero NUNCA los reescribe) o VACÍA (candidatas a llenar).
-function celdasATexto(celdas) {
-  return celdas.map((c) => {
-    const pos = c.t != null ? `tabla ${c.t}, fila ${c.f}, columna ${c.c}` : `fila ${c.f}, columna ${c.c}`
-    return c.x ? `- [${pos}] TEXTO: "${c.x}"` : `- [${pos}] VACÍA`
-  }).join('\n')
-}
-
-function promptPlaneacionFormatoOficial(ctx) {
-  return (
-    `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n\n` +
-    (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
-    (ctx.comentariosGrupoTexto ? `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (el insumo que ` +
-      `más debe pesar, junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` : '') +
-    (ctx.autoanalisisDocenteTexto ? `AUTOANÁLISIS DOCENTE (opcional, sobre el docente mismo, no sobre el ` +
-      `grupo):\n${ctx.autoanalisisDocenteTexto}\n\n` : '') +
-    (ctx.consideracionesTexto ? `CONSIDERACIONES DEL DOCENTE PARA QUE LA PLANEACIÓN SEA REALMENTE ` +
-      `UTILIZABLE DURANTE EL CURSO:\n${ctx.consideracionesTexto}\n\n` : '') +
-    (ctx.diagnosticoContextoTexto ? `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${ctx.diagnosticoContextoTexto}\n\n` : '') +
-    (ctx.diagnosticoConocimientosTexto ? `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados ` +
-      `todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` : '') +
-    (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
-    'El docente subió el formato oficial de planeación de su escuela, vacío. Esta es la cuadrícula completa de ' +
-    'la plantilla (una tabla de Excel, o una o varias tablas de Word) — cada celda con su posición, y si ya ' +
-    'tiene texto (encabezado o dato fijo, NO se toca) o está VACÍA (candidata a llenar):\n\n' +
-    celdasATexto(ctx.celdas) + '\n\n' +
-    'Con el texto de las celdas que YA tienen contenido entiendes la estructura del formato (encabezados de ' +
-    'columna/fila, títulos de sección, etc.) — úsalo para decidir qué información pedagógica corresponde a ' +
-    'cada celda VACÍA (nunca a una que ya tiene texto). No todas las celdas vacías son para llenar con ' +
-    'contenido pedagógico: ignora las que sean claramente decorativas o de diseño (separadores, celdas de ' +
-    'firma, celdas en blanco sin relación con ningún encabezado cercano) — solo responde las que de verdad ' +
-    'correspondan a un dato de planeación (tema, actividad, propósito, fecha, recurso, evaluación, etc.). Si ' +
-    'una celda que sí corresponde llenar no tiene información suficiente en las fuentes, usa la frase exacta ' +
-    '"Información no disponible en las fuentes proporcionadas." en vez de inventar contenido.\n\n' +
-    'Responde SOLO con este JSON — una entrada por cada celda que decidas llenar, usando EXACTAMENTE su ' +
-    'posición (f=fila, c=columna, t=tabla si aplica) y el texto que le corresponde:\n' +
-    '{"celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 400 caracteres>"}]}'
-  )
-}
-
 async function ejecutarPlaneacionFormatoOficial({ params, modelo, apiKey }) {
-  const Anthropic = require('@anthropic-ai/sdk')
-  const client = new Anthropic({ apiKey })
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+  const { porParcial, interno } = await llenarPlantillaPorParciales({ ctx, modelo, apiKey })
 
-  const { datos, interno } = await pedirJSON({
-    client, modelo, maxTokens: Math.min(8000, 500 + ctx.celdas.length * 60), system: PLANEACION_SISTEMA,
-    prompt: promptPlaneacionFormatoOficial(ctx),
-  })
-
-  // Blindaje: solo se aceptan celdas que de verdad estaban VACÍAS en la
-  // plantilla original — si la IA "corrige" o repite una celda con
-  // encabezado (con texto), se descarta aquí, sin importar qué haya
-  // contestado. Así el logo/encabezados de la escuela nunca se tocan
-  // aunque el modelo se equivoque.
-  const vacias = new Set(ctx.celdas.filter((c) => !c.x).map((c) => `${c.t ?? ''}_${c.f}_${c.c}`))
-  const celdasCrudas = Array.isArray(datos?.celdas) ? datos.celdas : []
-  const celdas = []
-  for (const c of celdasCrudas) {
-    const f = Number(c?.f), col = Number(c?.c)
-    const t = c?.t == null ? null : Number(c.t)
-    const x = typeof c?.x === 'string' ? c.x.trim().slice(0, 400) : ''
-    if (!x || !Number.isFinite(f) || !Number.isFinite(col)) continue
-    if (!vacias.has(`${t ?? ''}_${f}_${col}`)) continue
-    celdas.push({ f, c: col, t, x })
-  }
-  if (!celdas.length) {
+  if (!porParcial.some((p) => p.celdas.length)) {
     throw new Error('El asistente de IA no generó contenido utilizable para tu plantilla')
   }
 
@@ -2964,11 +2903,14 @@ async function ejecutarPlaneacionFormatoOficial({ params, modelo, apiKey }) {
   // generación entra al mismo ciclo editar → aceptar → ver/descargar que la
   // Planeación genérica, en vez de vivir solo en memoria del navegador.
   const celdasOriginales = ctx.celdas.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x, colSpan: c.s || 1 }))
-  const celdasPropuestas = celdas.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x }))
+  const porParcialGuardado = porParcial.map((p) => ({
+    numero: p.numero, periodo: p.periodo,
+    celdasPropuestas: p.celdas.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x })),
+  }))
   await getFirestore().collection('subjects').doc(String(params.subjectId || '').trim())
     .collection('planeacionesOficialesIA').add({
       celdasOriginales,
-      celdasPropuestas,
+      porParcial: porParcialGuardado,
       tipo: ctx.plantillaOficial?.tipo || null,
       nombreOriginal: ctx.plantillaOficial?.nombre || null,
       docenteId: params.__uid,
@@ -2976,9 +2918,9 @@ async function ejecutarPlaneacionFormatoOficial({ params, modelo, apiKey }) {
     })
 
   return {
-    resultado: { celdas },
+    resultado: { porParcial: porParcialGuardado },
     unidadesReales: 1, // tarifa fija, sin importar cuántas celdas tenga la plantilla
-    interno: { modelo, tokensEntrada: interno.tokensEntrada, tokensSalida: interno.tokensSalida, ms: interno.ms },
+    interno,
   }
 }
 
@@ -3133,8 +3075,7 @@ exports._pruebas = {
   MAX_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO, MIN_PREGUNTAS_CONTEXTO, MAX_PREGUNTAS_CONTEXTO,
   precheckPlaneacionInicial, formatoPeriodo, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
   analisisDiagnosticoMasReciente,
-  normalizarFilaPlaneacion, normalizarFilasPlaneacion, MAX_FILAS_PLANEACION_PARCIAL, comentariosGrupoATexto,
-  autoanalisisDocenteATexto,
+  comentariosGrupoATexto, autoanalisisDocenteATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
-  precheckPlaneacionFormatoOficial, promptPlaneacionFormatoOficial, PLANEACION_OFICIAL_MAX_CELDAS,
+  precheckPlaneacionFormatoOficial, promptPlantillaParcial, PLANEACION_OFICIAL_MAX_CELDAS,
 }
