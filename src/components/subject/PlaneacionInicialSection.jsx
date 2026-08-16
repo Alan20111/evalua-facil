@@ -249,6 +249,28 @@ function verificarMapeoDom(mapa, celdasOriginales) {
   return coincide / conTexto.length >= 0.7
 }
 
+// Convierte "\n" reales (una viñeta por Sesión, ver promptPlantillaParcial)
+// en <br> del DOM — textContent los ignora y todo saldría corrido en una
+// sola línea visual (Kike lo detectó en producción, 15-ago-2026).
+function pintarTextoConSaltos(td, texto) {
+  td.textContent = ''
+  String(texto || '').split('\n').forEach((linea, i) => {
+    if (i > 0) td.appendChild(document.createElement('br'))
+    td.appendChild(document.createTextNode(linea))
+  })
+}
+
+// Lee de vuelta el texto de una celda contentEditable respetando los <br>
+// como "\n" — el textContent plano los pierde.
+function leerTextoConSaltos(td) {
+  let texto = ''
+  td.childNodes.forEach((n) => {
+    if (n.nodeName === 'BR') texto += '\n'
+    else texto += n.textContent || ''
+  })
+  return texto
+}
+
 // Vuelve editables (contentEditable) las celdas del DOM que corresponden a
 // celdas propuestas por la IA o vacías que el docente llena a mano —
 // devuelve `false` sin tocar nada si el mapeo no pasó la verificación.
@@ -262,8 +284,9 @@ function activarEdicionDirecta(container, celdasOriginales, celdasEditables, onC
     td.style.outline = '2px dashed var(--accent)'
     td.style.background = 'var(--accent-tint)'
     td.style.minHeight = '1.2em'
-    td.textContent = c.texto || ''
-    td.addEventListener('input', () => onChangeCelda(idx, td.textContent))
+    td.style.whiteSpace = 'pre-wrap'
+    pintarTextoConSaltos(td, c.texto)
+    td.addEventListener('input', () => onChangeCelda(idx, leerTextoConSaltos(td)))
   })
   return true
 }

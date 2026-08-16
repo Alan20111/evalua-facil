@@ -2685,8 +2685,9 @@ function promptPlantillaParcial(ctx, parcialCtx) {
         'a este parcial — no un fragmento chico del tema.\n\n'
       : '') +
     (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
-    (ctx.comentariosGrupoTexto ? `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (el insumo que ` +
-      `más debe pesar, junto con los diagnósticos):\n${ctx.comentariosGrupoTexto}\n\n` : '') +
+    (ctx.comentariosGrupoTexto ? `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (pesan mucho, ` +
+      `junto con los diagnósticos — pero nada pesa más que la FUENTE PRINCIPAL, el programa de estudios, que ` +
+      `es la base de todo):\n${ctx.comentariosGrupoTexto}\n\n` : '') +
     (ctx.autoanalisisDocenteTexto ? `AUTOANÁLISIS DOCENTE (opcional, sobre el docente mismo, no sobre el ` +
       `grupo):\n${ctx.autoanalisisDocenteTexto}\n\n` : '') +
     (ctx.consideracionesTexto ? `CONSIDERACIONES DEL DOCENTE PARA QUE LA PLANEACIÓN SEA REALMENTE ` +
@@ -2730,7 +2731,12 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     '- Nada de lo que escribas es de adorno: cada actividad, recurso, tiempo y evidencia debe conectarse con ' +
     'contenido real del programa de estudios (o del manual/fuente que haga sus veces) — tu papel es ser el ' +
     'PEGAMENTO que conecta horas, temas y actividades entre sí, siempre anclado a esa fuente, no relleno ' +
-    'genérico que serviría igual para cualquier tema.\n\n' +
+    'genérico que serviría igual para cualquier tema.\n' +
+    '- FORMATO de una celda con varias Sesiones (p. ej. "Actividades de enseñanza-aprendizaje"): UNA VIÑETA ' +
+    'POR SESIÓN, cada una en su propio renglón separado por un salto de línea "\\n" dentro del texto — nunca ' +
+    'las juntes en un solo párrafo corrido. Ejemplo de formato exacto (usa "\\n" real entre viñetas):\n' +
+    '"• Sesión 1-2 (3 horas): descripción de la actividad...\\n• Sesión 3 (2 horas): descripción...\\n• Sesión ' +
+    '4-5 (3 horas): descripción..."\n\n' +
     'Responde SOLO con este JSON — una entrada por cada celda que decidas llenar, usando EXACTAMENTE su ' +
     'posición (f=fila, c=columna, t=tabla si aplica) y el texto que le corresponde:\n' +
     '{"celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 4000 caracteres — nunca ' +
