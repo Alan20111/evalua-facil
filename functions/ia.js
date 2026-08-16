@@ -2680,15 +2680,21 @@ function promptPlantillaParcial(ctx, parcialCtx) {
         `programa, y cubre en ESTE parcial exactamente la parte que le corresponde a la posición ` +
         `${parcialCtx.numero} de ${totalParciales} — ni repitas temas de partes anteriores ni te adelantes a ` +
         'temas de partes posteriores. Esto NO significa inventar más secciones de las que trae la plantilla: si ' +
-        'solo hay una Apertura, un Desarrollo y un Cierre para el parcial (lo normal en una planeación simple), ' +
-        'ESE mismo bloque único debe abarcar, con varias actividades numeradas dentro de él, todo lo que le toca ' +
-        'a este parcial — no un fragmento chico del tema.\n\n'
+        'solo hay una celda de Apertura, una de Desarrollo y una de Cierre para todo el parcial (lo normal en ' +
+        'una planeación simple), ESAS MISMAS tres celdas deben abarcar TODAS las Secuencias Didácticas de este ' +
+        'parcial (ver estructura obligatoria abajo) — no un fragmento chico del tema.\n\n'
       : '') +
-    'ESTRUCTURA OBLIGATORIA por Sesión (corrección de Kike, 15-ago-2026 — antes salía mal): dentro de esas ' +
-    'celdas de Apertura/Desarrollo/Cierre, organiza el contenido SESIÓN POR SESIÓN completa — cada sesión trae ' +
-    'su propia Apertura, su propio Desarrollo y su propio Cierre, uno seguido del otro, antes de pasar a la ' +
-    'siguiente sesión. NUNCA agrupes por tipo (todas las Aperturas de todas las sesiones juntas al inicio, ' +
-    'luego todos los Desarrollos, luego todos los Cierres) — eso rompe la secuencia real de la clase.\n\n' +
+    'ESTRUCTURA OBLIGATORIA por Secuencia Didáctica (corrección de Kike, 15-ago-2026 — antes salía mal): la ' +
+    'unidad que organiza el contenido es la SECUENCIA DIDÁCTICA, no la "sesión" (una sesión es UNA hora de ' +
+    'clase; una secuencia didáctica es una unidad temática completa que puede durar varias sesiones — no las ' +
+    'confundas). Divide el contenido de este parcial en Secuencias Didácticas (Secuencia Didáctica 1, ' +
+    'Secuencia Didáctica 2, etc., cada una durando las sesiones que su contenido real requiera). Dentro de las ' +
+    'celdas de Apertura/Desarrollo/Cierre, organiza el contenido SECUENCIA POR SECUENCIA completa: la ' +
+    'Secuencia Didáctica 1 trae su propia Apertura, su propio Desarrollo y su propio Cierre, uno seguido del ' +
+    'otro; después la Secuencia Didáctica 2 trae su propia Apertura, su propio Desarrollo y su propio Cierre, ' +
+    'y así sucesivamente. NUNCA agrupes por tipo (todas las Aperturas de todas las secuencias juntas al ' +
+    'inicio, luego todos los Desarrollos, luego todos los Cierres) — eso rompe la secuencia real de la clase.' +
+    '\n\n' +
     (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
     (ctx.comentariosGrupoTexto ? `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (pesan mucho, ` +
       `junto con los diagnósticos — pero nada pesa más que la FUENTE PRINCIPAL, el programa de estudios, que ` +
@@ -2737,14 +2743,16 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     'contenido real del programa de estudios (o del manual/fuente que haga sus veces) — tu papel es ser el ' +
     'PEGAMENTO que conecta horas, temas y actividades entre sí, siempre anclado a esa fuente, no relleno ' +
     'genérico que serviría igual para cualquier tema.\n' +
-    '- FORMATO de una celda con varias Sesiones (p. ej. "Actividades de enseñanza-aprendizaje"): UNA VIÑETA ' +
-    'POR SESIÓN, cada una en su propio renglón separado por un salto de línea "\\n" dentro del texto — nunca ' +
-    'las juntes en un solo párrafo corrido. Una sesión NO tiene que ser siempre de 1-2 bloques: puede ser de ' +
-    '3 bloques o más si el tiempo real disponible en el periodo (arriba, si el docente lo indicó) y el ' +
-    'contenido a cubrir lo piden — dimensiona cada sesión según ese tiempo real, no por costumbre. Ejemplo de ' +
-    'formato exacto (usa "\\n" real entre viñetas):\n' +
-    '"• Sesión 1-2 (3 horas): descripción de la actividad...\\n• Sesión 3 (2 horas): descripción...\\n• Sesión ' +
-    '4-6 (4 horas): descripción..."\n\n' +
+    '- FORMATO dentro del Desarrollo de cada Secuencia Didáctica, cuando esa secuencia dura varias sesiones ' +
+    '(horas de clase): UNA VIÑETA POR SESIÓN de esa secuencia, cada una en su propio renglón separado por un ' +
+    'salto de línea "\\n" dentro del texto — nunca las juntes en un solo párrafo corrido. Una sesión NO tiene ' +
+    'que ser siempre de 1-2 bloques: puede ser de 3 bloques o más si el tiempo real disponible en el periodo ' +
+    '(arriba, si el docente lo indicó) y el contenido a cubrir lo piden — dimensiona cada sesión según ese ' +
+    'tiempo real, no por costumbre. Ejemplo de formato exacto para el Desarrollo de UNA Secuencia Didáctica ' +
+    'que dura 3 sesiones (usa "\\n" real entre viñetas):\n' +
+    '"• Sesión 1-2 (3 horas): descripción de la actividad...\\n• Sesión 3 (2 horas): descripción..."\n' +
+    'Y luego, aparte, esa misma Secuencia Didáctica cierra con SU Cierre antes de empezar la Apertura de la ' +
+    'siguiente Secuencia Didáctica.\n\n' +
     'Responde SOLO con este JSON — una entrada por cada celda que decidas llenar, usando EXACTAMENTE su ' +
     'posición (f=fila, c=columna, t=tabla si aplica) y el texto que le corresponde:\n' +
     '{"celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 4000 caracteres — nunca ' +
