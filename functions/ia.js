@@ -2683,23 +2683,46 @@ function promptPlantillaParcial(ctx, parcialCtx) {
         'Desarrollo/Cierre en el documento final si hay varias Secuencias Didácticas — ver la ESTRUCTURA ' +
         'OBLIGATORIA justo abajo, es el mecanismo pensado exactamente para esto.\n\n'
       : '') +
-    'ESTRUCTURA OBLIGATORIA por Secuencia Didáctica (corrección de Kike, 16-ago-2026 — antes salía mal, dos ' +
-    'veces seguidas, hasta que quedó así): la unidad que organiza el contenido es la SECUENCIA DIDÁCTICA, no ' +
-    'la "sesión" (una sesión es UNA hora de clase; una secuencia didáctica es una unidad temática completa que ' +
-    'puede durar varias sesiones — no las confundas). Divide el contenido de este parcial en Secuencias ' +
-    'Didácticas (Secuencia Didáctica 1, Secuencia Didáctica 2, etc., cada una durando las sesiones que su ' +
-    'contenido real requiera).\n' +
-    'NO comprimas todas las secuencias en el texto de una sola celda de Apertura, una de Desarrollo y una de ' +
-    'Cierre — la aplicación va a crear automáticamente una sección física de Apertura/Desarrollo/Cierre POR ' +
-    'CADA Secuencia Didáctica, pero para eso necesita que tú se lo entregues en un bloque aparte y ordenado, ' +
-    'NO como celdas sueltas: usa el campo "secuenciasDidacticas" del JSON de respuesta (ver formato exacto más ' +
-    'abajo) — una entrada por Secuencia Didáctica, cada una con sus tres partes juntas ("apertura", ' +
-    '"desarrollo", "cierre"), en el MISMO orden en que ocurren en el curso. Además indica UNA SOLA VEZ, en ' +
+    'REGLA OBLIGATORIA PARA APERTURA, DESARROLLO Y CIERRE (Kike, 16-ago-2026 — antes salía mal repetidas ' +
+    'veces, hasta que quedó así de explícito):\n' +
+    'NO utilices las secciones de APERTURA, DESARROLLO y CIERRE del formato como secciones únicas para toda ' +
+    'la planeación. La planeación debe dividirse primero en SECUENCIAS DIDÁCTICAS (una secuencia didáctica es ' +
+    'una unidad temática completa — puede durar varias sesiones/horas de clase, no la confundas con "sesión"). ' +
+    'Cada Secuencia Didáctica debe tener su propia Apertura, su propio Desarrollo y su propio Cierre:\n' +
+    'Secuencia Didáctica 1 → Apertura / Desarrollo / Cierre\n' +
+    'Secuencia Didáctica 2 → Apertura / Desarrollo / Cierre\n' +
+    'Secuencia Didáctica 3 → Apertura / Desarrollo / Cierre\n' +
+    'Y así sucesivamente, según el número de secuencias didácticas que definas para este parcial.\n' +
+    'REGLA FUNDAMENTAL: NUNCA agrupes todas las secuencias dentro de una sola Apertura, un solo Desarrollo y ' +
+    'un solo Cierre. NUNCA generes una única Apertura para toda la planeación. NUNCA generes un único ' +
+    'Desarrollo para toda la planeación. NUNCA generes un único Cierre para toda la planeación. Cada secuencia ' +
+    'es una unidad independiente que debe leerse de principio a fin (Apertura → Desarrollo → Cierre) antes de ' +
+    'pasar a la siguiente.\n' +
+    'IMPORTANTE: la cantidad de sesiones NO determina automáticamente la cantidad de Secuencias Didácticas — ' +
+    'primero define las Secuencias Didácticas y después genera para cada una su Apertura, Desarrollo y Cierre.\n' +
+    'EXTENSIÓN DEL TEXTO — breve, claro y conciso, sin párrafos largos, explicaciones pedagógicas extensas, ' +
+    'justificaciones ni descripciones innecesarias. Estos son máximos orientativos, no metas a alcanzar (si se ' +
+    'puede decir con menos palabras, usa menos):\n' +
+    '- Apertura: máximo 2 acciones concretas, ~30 a 50 palabras.\n' +
+    '- Desarrollo: máximo 3 acciones concretas, ~50 a 80 palabras.\n' +
+    '- Cierre: máximo 1 o 2 acciones concretas, ~20 a 40 palabras.\n' +
+    'La redacción describe QUÉ HARÁ EL DOCENTE Y/O QUÉ HARÁ EL ESTUDIANTE, de forma directa y ejecutable. ' +
+    'Ejemplo de tono y extensión correctos:\n' +
+    'Apertura: "Preguntar qué saben los estudiantes sobre los números enteros y presentar una situación ' +
+    'cotidiana de ingresos y gastos familiares para relacionarla con el tema."\n' +
+    'Desarrollo: "Explicar brevemente el uso de números enteros con ejemplos. Resolver ejercicios de suma y ' +
+    'resta aplicados a un presupuesto familiar. Los estudiantes registran ingresos y gastos, calculan el ' +
+    'saldo y comparan sus resultados."\n' +
+    'Cierre: "Resolver un ejercicio final y comentar brevemente qué procedimiento utilizaron y cómo se ' +
+    'relaciona con una situación de la vida cotidiana."\n' +
+    'MECANISMO: la aplicación crea automáticamente una sección física de Apertura/Desarrollo/Cierre POR CADA ' +
+    'Secuencia Didáctica — para eso, entrégalas en el campo "secuenciasDidacticas" del JSON de respuesta (ver ' +
+    'formato exacto más abajo), una entrada por Secuencia Didáctica con sus tres partes juntas ("apertura", ' +
+    '"desarrollo", "cierre"), en el MISMO orden en que ocurren en el curso. Indica además UNA SOLA VEZ, en ' +
     '"aperturaCelda"/"desarrolloCelda"/"cierreCelda", la posición (f, c, t) de la celda de la plantilla donde ' +
-    'va cada tipo de contenido — la aplicación se encarga de multiplicar esa fila tantas veces como Secuencias ' +
-    'Didácticas haya y de repartir cada elemento en su propia sección, sin que tú escribas encabezados tipo ' +
-    '"Secuencia 1:" dentro del texto (esos los pone la aplicación). NO repitas ese mismo contenido otra vez ' +
-    'dentro de "celdas" — "celdas" es solo para el resto de la plantilla (fechas, nombres, evidencias, etc.).\n' +
+    'va cada tipo de contenido — sin encabezados tipo "Secuencia 1:" dentro del texto (esos los pone la ' +
+    'aplicación). NO repitas ese contenido dentro de "celdas" — "celdas" es solo para el resto de la ' +
+    'plantilla (fechas, nombres, evidencias, etc.).\n' +
     'NUNCA escribas en el contenido que fue generado por inteligencia artificial, por IA, por un asistente, ni ' +
     'nada similar — el docente es el autor de esta planeación, la IA es solo su herramienta de redacción.\n\n' +
     (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
@@ -2750,16 +2773,10 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     'contenido real del programa de estudios (o del manual/fuente que haga sus veces) — tu papel es ser el ' +
     'PEGAMENTO que conecta horas, temas y actividades entre sí, siempre anclado a esa fuente, no relleno ' +
     'genérico que serviría igual para cualquier tema.\n' +
-    '- FORMATO dentro del Desarrollo de cada Secuencia Didáctica, cuando esa secuencia dura varias sesiones ' +
-    '(horas de clase): UNA VIÑETA POR SESIÓN de esa secuencia, cada una en su propio renglón separado por un ' +
-    'salto de línea "\\n" dentro del texto — nunca las juntes en un solo párrafo corrido. Una sesión NO tiene ' +
-    'que ser siempre de 1-2 bloques: puede ser de 3 bloques o más si el tiempo real disponible en el periodo ' +
-    '(arriba, si el docente lo indicó) y el contenido a cubrir lo piden — dimensiona cada sesión según ese ' +
-    'tiempo real, no por costumbre. Ejemplo de formato exacto para el Desarrollo de UNA Secuencia Didáctica ' +
-    'que dura 3 sesiones (usa "\\n" real entre viñetas):\n' +
-    '"• Sesión 1-2 (3 horas): descripción de la actividad...\\n• Sesión 3 (2 horas): descripción..."\n' +
-    'Y luego, aparte, esa misma Secuencia Didáctica cierra con SU Cierre antes de empezar la Apertura de la ' +
-    'siguiente Secuencia Didáctica.\n\n' +
+    '- El Desarrollo de cada Secuencia Didáctica es UN bloque breve (ver REGLA OBLIGATORIA de extensión ' +
+    'arriba: máximo 3 acciones concretas, ~50 a 80 palabras) — no un listado de todas sus sesiones/horas de ' +
+    'clase una por una; si la secuencia dura varias sesiones, el Desarrollo resume la actividad central, no ' +
+    'cada hora por separado.\n\n' +
     'Responde SOLO con este JSON:\n' +
     '{\n' +
     '  "celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 4000 caracteres — nunca ' +
