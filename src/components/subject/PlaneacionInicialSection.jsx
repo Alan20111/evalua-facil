@@ -200,6 +200,21 @@ function VistaPreviaPlaneacion({ resultado, onChange }) {
   )
 }
 
+// Celdas que quedaron VACÍAS en la plantilla original y la IA no propuso
+// llenar (campos administrativos como "Nombre del Docente", "Plantel",
+// "Entidad federativa" — a propósito: la IA no los inventa, no los sabe).
+// Kike pidió (15-ago-2026) que el docente SÍ las pueda llenar a mano, así
+// que se agregan al conjunto editable con texto vacío — mismo criterio que
+// una celda propuesta por la IA, solo que el docente la escribe él mismo.
+function conCeldasVaciasEditables(celdasOriginales, celdasPropuestas) {
+  const clave = (c) => `${c.tablaIndex ?? ''}_${c.fila}_${c.columna}`
+  const yaPropuestas = new Set((celdasPropuestas || []).map(clave))
+  const vacias = (celdasOriginales || [])
+    .filter((c) => !c.texto && !yaPropuestas.has(clave(c)))
+    .map((c) => ({ fila: c.fila, columna: c.columna, tablaIndex: c.tablaIndex, texto: '' }))
+  return [...(celdasPropuestas || []), ...vacias]
+}
+
 // Reconstruye la cuadrícula real del formato oficial (una por tabla, para
 // Word con varias tablas) combinando las celdas originales (encabezados,
 // solo lectura) con las que la IA propuso llenar (editables) — para
@@ -505,7 +520,9 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   if (actualOficialIdParaEdicion !== edicionOficialDeId) {
     const borradorOficial = subjectPlaneacion?.planeacionOficialBorrador?.planeacionId === actualOficialIdParaEdicion
       ? subjectPlaneacion.planeacionOficialBorrador.celdas : null
-    setEdicionOficial(actualOficialIdParaEdicion ? (borradorOficial || historialOficial[0].celdasPropuestas) : null)
+    setEdicionOficial(actualOficialIdParaEdicion
+      ? (borradorOficial || conCeldasVaciasEditables(historialOficial[0].celdasOriginales, historialOficial[0].celdasPropuestas))
+      : null)
     setEdicionOficialDeId(actualOficialIdParaEdicion)
   }
 
@@ -691,7 +708,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
         planeacionOficialAceptada: {
           planeacionId: actualOficial.id,
           aceptadaEn: serverTimestamp(),
-          celdas: edicionOficial || actualOficial.celdasPropuestas,
+          celdas: edicionOficial || conCeldasVaciasEditables(actualOficial.celdasOriginales, actualOficial.celdasPropuestas),
         },
         planeacionOficialBorrador: null,
       })
@@ -758,7 +775,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
       const bufferOriginal = await resPlantilla.arrayBuffer()
       const tipo = actualOficial.tipo || plantillaOficial.tipo
       const nombreOriginal = actualOficial.nombreOriginal || plantillaOficial.nombre
-      const celdasFinal = celdasOficialAceptadas || actualOficial.celdasPropuestas
+      const celdasFinal = celdasOficialAceptadas || conCeldasVaciasEditables(actualOficial.celdasOriginales, actualOficial.celdasPropuestas)
       const blob = tipo === 'docx'
         ? await llenarPlantillaWord(bufferOriginal, celdasFinal)
         : await llenarPlantillaExcel(bufferOriginal, celdasFinal)
@@ -803,8 +820,8 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
       const resPlantilla = await fetch(plantillaOficial.url)
       const bufferOriginal = await resPlantilla.arrayBuffer()
       const celdasFinal = aceptadaOficial
-        ? (celdasOficialAceptadas || actualOficial.celdasPropuestas)
-        : (edicionOficial || actualOficial.celdasPropuestas)
+        ? (celdasOficialAceptadas || conCeldasVaciasEditables(actualOficial.celdasOriginales, actualOficial.celdasPropuestas))
+        : (edicionOficial || conCeldasVaciasEditables(actualOficial.celdasOriginales, actualOficial.celdasPropuestas))
       const blob = await llenarPlantillaWord(bufferOriginal, celdasFinal)
       setBlobVistaPrevia(blob)
     } catch (err) {
@@ -913,10 +930,11 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   const aceptadaOficial = !!actualOficial && subjectPlaneacion?.planeacionOficialAceptada?.planeacionId === actualOficial.id
   const fechaAceptadaOficial = aceptadaOficial ? subjectPlaneacion.planeacionOficialAceptada.aceptadaEn : null
   const celdasOficialAceptadas = aceptadaOficial
-    ? (subjectPlaneacion.planeacionOficialAceptada.celdas || actualOficial.celdasPropuestas)
+    ? (subjectPlaneacion.planeacionOficialAceptada.celdas || conCeldasVaciasEditables(actualOficial.celdasOriginales, actualOficial.celdasPropuestas))
     : null
   const guardadoOficialCeldas = actualOficial && subjectPlaneacion?.planeacionOficialBorrador?.planeacionId === actualOficial.id
-    ? subjectPlaneacion.planeacionOficialBorrador.celdas : actualOficial?.celdasPropuestas
+    ? subjectPlaneacion.planeacionOficialBorrador.celdas
+    : (actualOficial ? conCeldasVaciasEditables(actualOficial.celdasOriginales, actualOficial.celdasPropuestas) : undefined)
   const sinGuardarOficial = !!actualOficial && JSON.stringify(edicionOficial) !== JSON.stringify(guardadoOficialCeldas)
 
   // La Planeación Inicial es UNA sola (decisión de Kike, 15-ago-2026,
@@ -1150,7 +1168,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
             >
               <TablaOficialEditable
                 celdasOriginales={actualOficial.celdasOriginales || []}
-                celdasPropuestas={edicionOficial || actualOficial.celdasPropuestas}
+                celdasPropuestas={edicionOficial || conCeldasVaciasEditables(actualOficial.celdasOriginales, actualOficial.celdasPropuestas)}
                 onChangeCelda={(idx, texto) => setEdicionOficial((prev) => prev.map((x, j) => (j === idx ? { ...x, texto } : x)))}
               />
             </RevisionPantallaCompleta>
