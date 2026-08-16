@@ -886,7 +886,7 @@ function FormatoSection({
       {actual && !aceptada && !isDesktop && <AvisoRevisionDesktop />}
       {verVistaPrevia && (isDesktop || aceptada) && (
         <RevisionPantallaCompleta
-          titulo={aceptada ? 'Vista previa — así se imprimiría' : `Revisa la Planeación Inicial (${titulo}) y corrígela antes de aceptarla`}
+          titulo={aceptada ? 'Vista previa — así se imprimiría' : 'Corrige y guarda antes de aceptarla (también podrás editar tu archivo descargado)'}
           onCerrar={cerrarVistaPrevia}
           tabs={<SelectorParcial porParcial={actual?.porParcial} activo={parcialActivo} onCambiar={cambiarParcialVistaPrevia} />}
           acciones={!aceptada && (
