@@ -2643,6 +2643,7 @@ const CAMPOS_MOMENTO = [
   { clave: 'tipoInstrumento', etiqueta: 'Tipo de evaluación / instrumento' },
   { clave: 'ponderacion', etiqueta: 'Ponderación (%)' },
 ]
+const FUENTES_INFORMACION_VACIAS = ['', '', '', '', '']
 
 // Genera el contenido de UN parcial específico — se llama una vez por
 // parcial real de la asignatura, así que el resultado es una Planeación
@@ -2651,7 +2652,7 @@ const CAMPOS_MOMENTO = [
 // si es null, la IA decide y reporta su propio conteo en "bloquesTematicos"
 // para que el llamador pueda exigirle consistencia (ver
 // generarSecuenciasPorParciales).
-function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada) {
+function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada, pedirBibliografia) {
   const totalParciales = ctx.parciales?.length || 1
   const camposIdentidadJSON = CAMPOS_IDENTIDAD_SECUENCIA.map((c) => `"${c.clave}": "<${c.etiqueta}>"`).join(', ')
   const camposMomentoJSON = CAMPOS_MOMENTO.map((c) => `"${c.clave}": "<${c.etiqueta}>"`).join(', ')
@@ -2768,6 +2769,17 @@ function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada) {
     'no relleno genérico que serviría igual para cualquier tema. Si una fuente no tiene información suficiente ' +
     'para algún campo, usa la frase exacta "Información no disponible en las fuentes proporcionadas." en vez ' +
     'de inventar contenido.\n\n' +
+    (pedirBibliografia
+      ? 'FUENTES DE INFORMACIÓN / BIBLIOGRAFÍA (Kike, 16-ago-2026 — no la dejes vacía): propón hasta 5 fuentes ' +
+        'para la Planeación completa (no solo este parcial), citando primero el programa de estudios y las ' +
+        'demás fuentes generales que se te compartieron arriba (si las hay) — usa el nombre real del documento ' +
+        'tal como se llame la fuente. Si conoces con certeza autor/institución y año de una fuente, inclúyelos; ' +
+        'si no los conoces con certeza, usa solo el nombre del documento o del tema, sin inventar autor ni año. ' +
+        'Puedes agregar además 1 o 2 referencias bibliográficas GENERALES y ampliamente conocidas del tema de ' +
+        'la asignatura (p. ej. un libro de texto estándar de la materia) solo si estás seguro de que existen y ' +
+        'de sus datos — nunca inventes una referencia que no conozcas con certeza. Dejar un elemento como "" es ' +
+        'preferible a inventar.\n\n'
+      : '') +
     'Responde SOLO con este JSON:\n' +
     '{\n' +
     '  "bloquesTematicos": <número entero — cuántos bloques temáticos distintos del programa decidiste que ' +
@@ -2779,7 +2791,8 @@ function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada) {
     `      "cierre": {${camposMomentoJSON}}\n` +
     '    },\n' +
     '    { ... una entrada más por cada Secuencia Didáctica adicional, misma forma ... }\n' +
-    '  ]\n' +
+    '  ]' +
+    (pedirBibliografia ? ',\n  "fuentesInformacion": ["<fuente 1>", "<fuente 2>", "<fuente 3 — deja \'\' si no aplica>", "<fuente 4 — deja \'\' si no aplica>", "<fuente 5 — deja \'\' si no aplica>"]\n' : '\n') +
     '}\n' +
     'Cada campo de texto: máximo 2000 caracteres, nunca lo cortes a media palabra ni a media idea. ' +
     '"bloquesTematicos" y "secuenciasDidacticas" deben tener el MISMO número de elementos — es tu propio ' +
@@ -2832,6 +2845,42 @@ function promptCorreccionPonderaciones(promptOriginal, sumaActual) {
   )
 }
 
+// Garantía DURA de la regla única de ponderación — no basta con pedírselo
+// a la IA (el reintento de arriba ayuda, pero un modelo puede seguir sin
+// dar exactamente 100). Mismo principio que ya regía en el resto de
+// Evalúa Fácil (ver repartirPonderacion, más arriba en este archivo): "la
+// IA no reparte puntos, los calcula el código" — así que aquí se
+// reescala matemáticamente cada "ponderacion" no-cero, proporcional a lo
+// que la IA propuso, para que la suma del parcial dé EXACTAMENTE 100 sin
+// depender de que el docente lo revise (Kike, 16-ago-2026: "es muy
+// probable que los docentes no revisen mucho y dejen todo como lo genera
+// la IA"). Los momentos en "0%"/"No aplica" se quedan tal cual — nunca se
+// les asigna ponderación por rescatar la suma.
+function normalizarPonderacionesParcial(secuencias) {
+  const entradas = []
+  for (const s of Array.isArray(secuencias) ? secuencias : []) {
+    for (const momento of MOMENTOS) {
+      const m = s?.[momento]
+      const valor = numeroPonderacion(m?.ponderacion)
+      if (m && valor > 0) entradas.push({ m, valor })
+    }
+  }
+  const total = entradas.reduce((suma, e) => suma + e.valor, 0)
+  if (!entradas.length || total <= 0) return
+  let acumulado = 0
+  entradas.forEach((e, i) => {
+    if (i === entradas.length - 1) {
+      // La última absorbe el residuo del redondeo — así la suma da
+      // exactamente 100, nunca 99.9 ni 100.1.
+      e.m.ponderacion = `${Math.round((100 - acumulado) * 10) / 10}%`
+    } else {
+      const escalado = Math.round((e.valor / total) * 1000) / 10
+      acumulado += escalado
+      e.m.ponderacion = `${escalado}%`
+    }
+  })
+}
+
 // Ejecuta una llamada a la IA por CADA parcial real — de ahí sale una
 // Planeación distinta por parcial, no una sola con todo mezclado (decisión
 // de Kike, 15-ago-2026).
@@ -2841,6 +2890,10 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
   const porParcial = []
   let tokensEntrada = 0, tokensSalida = 0, ms = 0
   let reintentos = 0 // cuántos parciales necesitaron el reintento de cantidad — se cobra aparte (ver unidadesReales)
+  // La bibliografía es de la Planeación completa, no de cada parcial — solo
+  // se pide en la llamada del primer parcial (mismo programa de estudios
+  // para todos, no tiene caso repetir la pregunta y gastar tokens de más).
+  let fuentesInformacion = FUENTES_INFORMACION_VACIAS.slice()
 
   const limpiarCampo = (s) => String(s || '').trim().slice(0, 2000)
   const limpiarMomento = (m) => {
@@ -2866,9 +2919,12 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
     // logs de producción mostraban "SyntaxError: Unterminated string in
     // JSON" — la generación truena, se reembolsa el crédito, y el docente
     // se queda con la Planeación anterior sin darse cuenta de por qué).
+    const esPrimerParcial = parcialCtx === ctx.parciales[0]
     const secuenciasEstimadas = cantidadSolicitada || 4
-    const maxTokens = Math.min(16000, 2500 + secuenciasEstimadas * 3200)
-    const promptBase = promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada)
+    // La bibliografía suma ~5 fuentes cortas al presupuesto — margen extra
+    // solo en la llamada que la pide.
+    const maxTokens = Math.min(16000, (esPrimerParcial ? 3000 : 2500) + secuenciasEstimadas * 3200)
+    const promptBase = promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada, esPrimerParcial)
     let { datos, interno } = await pedirJSON({
       client, modelo, maxTokens, system: PLANEACION_SISTEMA, prompt: promptBase,
     })
@@ -2933,19 +2989,28 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
       CAMPOS_IDENTIDAD_SECUENCIA.some(({ clave }) => String(s?.[clave] || '').trim()) ||
       MOMENTOS.some((momento) => CAMPOS_MOMENTO.some(({ clave }) => String(s?.[momento]?.[clave] || '').trim()))
     )
+    // Garantía dura de la regla única de ponderación (ver comentario en
+    // normalizarPonderacionesParcial) — corre SIEMPRE, sin importar si el
+    // reintento de arriba ya acercó la suma a 100 o no.
+    normalizarPonderacionesParcial(secuenciasCrudas)
     const secuencias = secuenciasCrudas
       .filter((s) => s && tieneContenido(s))
       .map((s) => ({ id: crypto.randomUUID(), ...limpiarSecuencia(s) }))
 
+    if (esPrimerParcial && Array.isArray(datos?.fuentesInformacion)) {
+      const limpias = datos.fuentesInformacion.map((f) => limpiarCampo(f)).filter(Boolean).slice(0, 5)
+      if (limpias.length) fuentesInformacion = [...limpias, ...FUENTES_INFORMACION_VACIAS].slice(0, 5)
+    }
+
     porParcial.push({ numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, secuencias })
   }
 
-  return { porParcial, reintentos, interno: { modelo, tokensEntrada, tokensSalida, ms } }
+  return { porParcial, fuentesInformacion, reintentos, interno: { modelo, tokensEntrada, tokensSalida, ms } }
 }
 
 async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
-  const { porParcial, reintentos, interno } = await generarSecuenciasPorParciales({
+  const { porParcial, fuentesInformacion, reintentos, interno } = await generarSecuenciasPorParciales({
     ctx, modelo, apiKey, cantidadSolicitada: ctx.cantidadSolicitada,
   })
 
@@ -2967,7 +3032,6 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
     plantel: '', cct: '', carrera: '', modulo: ctx.asignaturaNombre || '', docente: '',
     semestre: '', grupo: '', periodo: '', horasTotales: '', horasSemana: '', competencias: '',
   }
-  const fuentesInformacion = ['', '', '', '', '']
 
   // El servidor guarda la bitácora ÉL MISMO, no el cliente (a diferencia del
   // resto de operaciones, que devuelven el resultado y dejan el addDoc del
