@@ -139,67 +139,73 @@ function CampoDocumento({ etiqueta, value, onChange, placeholder, grande = false
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
   }, [value])
+  const SERIF = { fontFamily: 'Georgia, "Times New Roman", serif' }
   return (
-    <div className="mb-2">
-      <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500 mb-0.5">{etiqueta}</p>
+    <p className="mb-3 leading-relaxed">
+      <span className="italic text-neutral-500" style={SERIF}>{etiqueta}: </span>
       <textarea
         ref={ref}
         value={value || ''}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         maxLength={2000}
-        className={`w-full bg-transparent border border-dashed border-transparent hover:border-neutral-300 focus:border-accent rounded px-1 -mx-1 resize-none overflow-hidden focus:outline-none focus:bg-amber-50 text-neutral-900 ${grande ? 'text-base' : 'text-sm'}`}
-        style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+        rows={1}
+        className={`w-[calc(100%-2px)] align-top bg-transparent border-0 rounded-sm resize-none overflow-hidden focus:outline-none focus:bg-amber-50 text-neutral-900 ${grande ? 'text-base' : 'text-[15px]'}`}
+        style={SERIF}
       />
-    </div>
+    </p>
   )
 }
 
-// Una Secuencia Didáctica completa, con apariencia de sección del
-// documento — encabezado editable (nombre/tema) con los controles de
-// reordenar/eliminar A SU LADO (dentro de la propia Planeación, nunca
-// aparte), y los demás campos en el mismo orden en que saldrán en el Word.
+// Una Secuencia Didáctica completa, integrada en el flujo continuo del
+// documento — nunca como tarjeta independiente. El encabezado (nombre/tema)
+// es editable en su lugar; los controles de reordenar/eliminar son
+// discretos, solo visibles al pasar el cursor sobre la Secuencia (pedido de
+// Kike, 16-ago-2026: "no deben dominar visualmente el documento").
 function SecuenciaDocumento({ secuencia, numero, total, onCambiarCampo, onMover, onEliminar }) {
   return (
-    <div className="mb-6 pb-4 border-b border-neutral-200 last:border-b-0">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">Secuencia Didáctica {numero}</p>
-          <textarea
-            value={secuencia.nombre || ''}
-            placeholder="Nombre o tema de esta Secuencia"
-            onChange={(e) => onCambiarCampo('nombre', e.target.value)}
-            maxLength={200}
-            rows={1}
-            className="w-full bg-transparent border border-dashed border-transparent hover:border-neutral-300 focus:border-accent rounded px-1 -mx-1 resize-none overflow-hidden focus:outline-none focus:bg-amber-50 text-neutral-900 text-lg font-bold"
-            style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-          />
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0 pt-4">
-          <button type="button" onClick={() => onMover(-1)} disabled={numero === 1} aria-label="Mover antes"
-            className="p-1 rounded text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface disabled:opacity-30">
-            <ChevronUp size={14} />
-          </button>
-          <button type="button" onClick={() => onMover(1)} disabled={numero === total} aria-label="Mover después"
-            className="p-1 rounded text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface disabled:opacity-30">
-            <ChevronDown size={14} />
-          </button>
-          <button type="button" onClick={onEliminar} disabled={total <= 1} aria-label="Eliminar esta Secuencia Didáctica"
-            className="p-1 rounded text-red-600 hover:bg-red-50 disabled:opacity-30">
-            <Trash2 size={14} />
-          </button>
+    <section className="group relative mt-8 first:mt-0">
+      <div className="flex items-baseline gap-2 pr-16">
+        <span className="text-xs font-semibold uppercase tracking-wide text-accent flex-shrink-0">Secuencia {numero}</span>
+        <textarea
+          value={secuencia.nombre || ''}
+          placeholder="Nombre o tema de esta Secuencia"
+          onChange={(e) => onCambiarCampo('nombre', e.target.value)}
+          maxLength={200}
+          rows={1}
+          className="flex-1 bg-transparent border-0 resize-none overflow-hidden focus:outline-none focus:bg-amber-50 text-neutral-900 text-lg font-bold leading-snug"
+          style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+        />
+      </div>
+      <div className="absolute right-0 top-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+        <button type="button" onClick={() => onMover(-1)} disabled={numero === 1} aria-label="Mover antes"
+          className="p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-0">
+          <ChevronUp size={14} />
+        </button>
+        <button type="button" onClick={() => onMover(1)} disabled={numero === total} aria-label="Mover después"
+          className="p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-0">
+          <ChevronDown size={14} />
+        </button>
+        <button type="button" onClick={onEliminar} disabled={total <= 1} aria-label="Eliminar esta Secuencia Didáctica"
+          className="p-1 rounded text-neutral-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-0">
+          <Trash2 size={14} />
+        </button>
+      </div>
+      <div className="mt-2 pl-1 border-l-2 border-neutral-100">
+        <div className="pl-3">
+          {CAMPOS_SECUENCIA.filter((c) => c.clave !== 'nombre').map(({ clave, etiqueta }) => (
+            <CampoDocumento key={clave} etiqueta={etiqueta} value={secuencia[clave]} onChange={(v) => onCambiarCampo(clave, v)} />
+          ))}
         </div>
       </div>
-      {CAMPOS_SECUENCIA.filter((c) => c.clave !== 'nombre').map(({ clave, etiqueta }) => (
-        <CampoDocumento key={clave} etiqueta={etiqueta} value={secuencia[clave]} onChange={(v) => onCambiarCampo(clave, v)} />
-      ))}
-    </div>
+    </section>
   )
 }
 
 // La Planeación completa de UN parcial, con apariencia de página de
-// documento — todas las Secuencias Didácticas viven aquí, en el mismo
-// lugar, nunca en un panel aparte (regla permanente de Kike, 16-ago-2026).
+// documento — todas las Secuencias Didácticas viven aquí, en flujo
+// continuo, nunca en un panel aparte (regla permanente de Kike,
+// 16-ago-2026).
 function DocumentoPlaneacionEditable({ secuencias, onCambiarCampo, onMover, onEliminar, onAgregar }) {
   return (
     <div className="bg-white rounded shadow-card mx-auto max-w-3xl p-6 sm:p-10">
@@ -217,7 +223,7 @@ function DocumentoPlaneacionEditable({ secuencias, onCambiarCampo, onMover, onEl
       <button
         type="button"
         onClick={onAgregar}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-neutral-300 text-sm text-accent hover:bg-amber-50"
+        className="mt-6 flex items-center gap-1.5 text-sm text-accent hover:underline"
       >
         <Plus size={14} /> Agregar Secuencia Didáctica
       </button>
