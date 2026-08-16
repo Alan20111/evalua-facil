@@ -2698,18 +2698,24 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     'CONGRUENCIA OBLIGATORIA entre horas y contenido (error grave encontrado el 15-ago-2026: una plantilla ' +
     'con "No. de horas de la estrategia: 10 horas" propuesto por la IA, pero cuyas actividades sumaban apenas ' +
     'hora y media, y que además solo cubría el primer tema del manual, dejando el resto sin planear):\n' +
-    '- Si alguna celda vacía pide el número de horas/sesiones de este parcial (o ya viene con ese dato), la ' +
-    'SUMA de los tiempos que le pongas a cada actividad (los minutos u horas que tú mismo indiques en la ' +
-    'descripción de cada actividad) tiene que dar ese total — ni menos ni (salvo que el margen sea mínimo) ' +
-    'más. Si tú mismo decides ese número de horas (la celda estaba vacía), primero calcula cuánto contenido ' +
-    'real hay que cubrir y de ahí saca un número de horas realista — nunca al revés.\n' +
+    '- Si el número de horas/sesiones de este parcial YA VIENE DADO (una celda con TEXTO, no vacía — p. ej. ' +
+    'porque el docente ya llenó su programación de bloques de clase), ESE es el total real: no lo cambies ni ' +
+    'inventes otro, úsalo para DISTRIBUIR el tiempo de las actividades que planees (la suma de los minutos/' +
+    'horas de cada actividad debe dar exactamente ese total).\n' +
+    '- Si en cambio la celda de horas está vacía y te toca proponerla tú, hazlo al revés: primero calcula ' +
+    'cuánto contenido real hay que cubrir y de ahí saca un número de horas realista — nunca inventes una cifra ' +
+    'y luego actividades que no la llenan.\n' +
     '- Las actividades que propongas para este parcial deben cubrir TODOS los temas relevantes de las fuentes ' +
     'que correspondan a este periodo — no te quedes en el primer tema o subtema y dejes el resto del manual ' +
     'sin usar. Si el tiempo disponible no alcanza para cubrir todo el material con profundidad, repártelo en ' +
     'más actividades/sesiones dentro del mismo parcial en vez de cubrir menos temas.\n' +
     '- Esto aplica más aún cuando el docente indicó fechas reales del periodo (arriba, si las hay): la duración ' +
     'del periodo, las horas totales y el contenido cubierto deben cuadrar entre sí — no propongas una fracción ' +
-    'de plan para un periodo de varios días o semanas.\n\n' +
+    'de plan para un periodo de varios días o semanas.\n' +
+    '- Nada de lo que escribas es de adorno: cada actividad, recurso, tiempo y evidencia debe conectarse con ' +
+    'contenido real del programa de estudios (o del manual/fuente que haga sus veces) — tu papel es ser el ' +
+    'PEGAMENTO que conecta horas, temas y actividades entre sí, siempre anclado a esa fuente, no relleno ' +
+    'genérico que serviría igual para cualquier tema.\n\n' +
     'Responde SOLO con este JSON — una entrada por cada celda que decidas llenar, usando EXACTAMENTE su ' +
     'posición (f=fila, c=columna, t=tabla si aplica) y el texto que le corresponde:\n' +
     '{"celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 400 caracteres>"}]}'
