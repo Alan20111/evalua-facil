@@ -2764,8 +2764,15 @@ async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
   let tokensEntrada = 0, tokensSalida = 0, ms = 0
 
   for (const parcialCtx of ctx.parciales) {
+    // El presupuesto de tokens de salida estaba calculado para celdas cortas
+    // (tope viejo de 400 caracteres) — al subir el tope a 4000 (Kike,
+    // 15-ago-2026: "aqui no debes de cortar el texto"), la respuesta se
+    // cortaba a medio JSON en cuanto había varias celdas largas (ver
+    // SyntaxError "Unterminated string in JSON" en producción). Se calcula
+    // ahora sobre las celdas VACÍAS (las únicas que la IA de verdad llena),
+    // con un presupuesto por celda que alcanza para su contenido largo.
     const { datos, interno } = await pedirJSON({
-      client, modelo, maxTokens: Math.min(8000, 500 + ctx.celdas.length * 60), system: PLANEACION_SISTEMA,
+      client, modelo, maxTokens: Math.min(16000, 1500 + vacias.size * 350), system: PLANEACION_SISTEMA,
       prompt: promptPlantillaParcial(ctx, parcialCtx),
     })
     // Blindaje: solo se aceptan celdas que de verdad estaban VACÍAS en la
