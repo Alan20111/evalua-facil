@@ -2683,22 +2683,23 @@ function promptPlantillaParcial(ctx, parcialCtx) {
         'Desarrollo/Cierre en el documento final si hay varias Secuencias Didácticas — ver la ESTRUCTURA ' +
         'OBLIGATORIA justo abajo, es el mecanismo pensado exactamente para esto.\n\n'
       : '') +
-    'ESTRUCTURA OBLIGATORIA por Secuencia Didáctica (corrección de Kike, 16-ago-2026 — antes salía mal): la ' +
-    'unidad que organiza el contenido es la SECUENCIA DIDÁCTICA, no la "sesión" (una sesión es UNA hora de ' +
-    'clase; una secuencia didáctica es una unidad temática completa que puede durar varias sesiones — no las ' +
-    'confundas). Divide el contenido de este parcial en Secuencias Didácticas (Secuencia Didáctica 1, ' +
-    'Secuencia Didáctica 2, etc., cada una durando las sesiones que su contenido real requiera).\n' +
+    'ESTRUCTURA OBLIGATORIA por Secuencia Didáctica (corrección de Kike, 16-ago-2026 — antes salía mal, dos ' +
+    'veces seguidas, hasta que quedó así): la unidad que organiza el contenido es la SECUENCIA DIDÁCTICA, no ' +
+    'la "sesión" (una sesión es UNA hora de clase; una secuencia didáctica es una unidad temática completa que ' +
+    'puede durar varias sesiones — no las confundas). Divide el contenido de este parcial en Secuencias ' +
+    'Didácticas (Secuencia Didáctica 1, Secuencia Didáctica 2, etc., cada una durando las sesiones que su ' +
+    'contenido real requiera).\n' +
     'NO comprimas todas las secuencias en el texto de una sola celda de Apertura, una de Desarrollo y una de ' +
-    'Cierre: cuando identifiques CUÁL celda de la plantilla es el contenido de Apertura (lo mismo para ' +
-    'Desarrollo y para Cierre), responde su "x" como un ARRAY de strings, UN ELEMENTO POR CADA SECUENCIA ' +
-    'DIDÁCTICA de este parcial, en orden (elemento 1 = Secuencia Didáctica 1, elemento 2 = Secuencia Didáctica ' +
-    '2, etc.) — la aplicación se encarga de crear automáticamente una sección física de Apertura/Desarrollo/' +
-    'Cierre por cada elemento del array, así que tú solo entrega el contenido de cada secuencia por separado, ' +
-    'sin encabezados tipo "Secuencia 1:" dentro del texto (esos los pone la aplicación). Las demás celdas que ' +
-    'no sean Apertura/Desarrollo/Cierre siguen respondiéndose como "x" con un string normal, no array.\n' +
-    'NUNCA agrupes por tipo (todas las Aperturas de todas las secuencias juntas al inicio, luego todos los ' +
-    'Desarrollos, luego todos los Cierres) — cada elemento del array de Apertura, el de Desarrollo y el de ' +
-    'Cierre en la MISMA posición del array corresponden a la MISMA Secuencia Didáctica.\n' +
+    'Cierre — la aplicación va a crear automáticamente una sección física de Apertura/Desarrollo/Cierre POR ' +
+    'CADA Secuencia Didáctica, pero para eso necesita que tú se lo entregues en un bloque aparte y ordenado, ' +
+    'NO como celdas sueltas: usa el campo "secuenciasDidacticas" del JSON de respuesta (ver formato exacto más ' +
+    'abajo) — una entrada por Secuencia Didáctica, cada una con sus tres partes juntas ("apertura", ' +
+    '"desarrollo", "cierre"), en el MISMO orden en que ocurren en el curso. Además indica UNA SOLA VEZ, en ' +
+    '"aperturaCelda"/"desarrolloCelda"/"cierreCelda", la posición (f, c, t) de la celda de la plantilla donde ' +
+    'va cada tipo de contenido — la aplicación se encarga de multiplicar esa fila tantas veces como Secuencias ' +
+    'Didácticas haya y de repartir cada elemento en su propia sección, sin que tú escribas encabezados tipo ' +
+    '"Secuencia 1:" dentro del texto (esos los pone la aplicación). NO repitas ese mismo contenido otra vez ' +
+    'dentro de "celdas" — "celdas" es solo para el resto de la plantilla (fechas, nombres, evidencias, etc.).\n' +
     'NUNCA escribas en el contenido que fue generado por inteligencia artificial, por IA, por un asistente, ni ' +
     'nada similar — el docente es el autor de esta planeación, la IA es solo su herramienta de redacción.\n\n' +
     (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
@@ -2759,16 +2760,26 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     '"• Sesión 1-2 (3 horas): descripción de la actividad...\\n• Sesión 3 (2 horas): descripción..."\n' +
     'Y luego, aparte, esa misma Secuencia Didáctica cierra con SU Cierre antes de empezar la Apertura de la ' +
     'siguiente Secuencia Didáctica.\n\n' +
-    'Responde SOLO con este JSON — una entrada por cada celda que decidas llenar, usando EXACTAMENTE su ' +
-    'posición (f=fila, c=columna, t=tabla si aplica) y el texto que le corresponde. "x" es un string normal ' +
-    'para cualquier celda — EXCEPTO la de Apertura, la de Desarrollo y la de Cierre, donde "x" es un ARRAY con ' +
-    'un elemento por Secuencia Didáctica (ver ESTRUCTURA OBLIGATORIA arriba):\n' +
-    '{"celdas": [' +
-    '{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto normal, máx 4000 caracteres — nunca lo ' +
-    'cortes a media palabra ni a media idea>"}, ' +
-    '{"f": <fila de Apertura>, "c": <columna>, "t": <tabla o null>, "x": ["<Apertura Secuencia 1>", ' +
-    '"<Apertura Secuencia 2>", "..."]}' +
-    ']}'
+    'Responde SOLO con este JSON:\n' +
+    '{\n' +
+    '  "celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 4000 caracteres — nunca ' +
+    'lo cortes a media palabra ni a media idea>"}],\n' +
+    '  "aperturaCelda": {"f": <fila de la celda de contenido de Apertura>, "c": <columna>, "t": <tabla o ' +
+    'null>},\n' +
+    '  "desarrolloCelda": {"f": <fila de la celda de contenido de Desarrollo>, "c": <columna>, "t": <tabla o ' +
+    'null>},\n' +
+    '  "cierreCelda": {"f": <fila de la celda de contenido de Cierre>, "c": <columna>, "t": <tabla o null>},\n' +
+    '  "secuenciasDidacticas": [\n' +
+    '    {"apertura": "<texto de Apertura de la Secuencia Didáctica 1>", "desarrollo": "<texto de Desarrollo ' +
+    'de la Secuencia Didáctica 1, máx 4000 caracteres>", "cierre": "<texto de Cierre de la Secuencia Didáctica ' +
+    '1>"},\n' +
+    '    {"apertura": "<Secuencia Didáctica 2...>", "desarrollo": "...", "cierre": "..."}\n' +
+    '  ]\n' +
+    '}\n' +
+    '"celdas" lleva TODO lo demás de la plantilla (nunca Apertura/Desarrollo/Cierre, esos van solo en ' +
+    '"secuenciasDidacticas"). Si la plantilla no separa Apertura/Desarrollo/Cierre en celdas propias (no ' +
+    'aplica a este formato), omite "aperturaCelda"/"desarrolloCelda"/"cierreCelda"/"secuenciasDidacticas" y ' +
+    'responde solo "celdas".'
   )
 }
 
@@ -2800,31 +2811,48 @@ async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
     // encabezado (con texto), se descarta aquí, sin importar qué haya
     // contestado. Así el logo/encabezados de la escuela nunca se tocan
     // aunque el modelo se equivoque.
+    const limpiar = (s) => String(s || '').trim().slice(0, 4000)
     const celdasCrudas = Array.isArray(datos?.celdas) ? datos.celdas : []
     const celdas = []
     for (const c of celdasCrudas) {
       const f = Number(c?.f), col = Number(c?.c)
       const t = c?.t == null ? null : Number(c.t)
-      // 400 caracteres cortaba a media palabra celdas largas de verdad (p.
-      // ej. "Actividades de enseñanza-aprendizaje" con varias sesiones) —
-      // Kike lo detectó en producción, 15-ago-2026: "aqui no debes de
-      // cortar el texto". 4000 es el mismo tope que se usa para bloques de
-      // texto largo en otras operaciones de este archivo (ver
-      // instrucciones.slice(0, 4000) arriba).
-      const limpiar = (s) => String(s || '').trim().slice(0, 4000)
-      // Apertura/Desarrollo/Cierre con varias Secuencias Didácticas: la IA
-      // responde un ARRAY (un elemento por secuencia) en vez de un string —
-      // el escritor de la plantilla multiplica esa fila (ver
-      // duplicarFilaWord en plantillaOficial.js), Kike, 16-ago-2026: "crea
-      // tantas secciones de apertura, desarrollo, cierre como secuencias
-      // didácticas sean".
-      const x = Array.isArray(c?.x)
-        ? c.x.map(limpiar).filter(Boolean).slice(0, 40)
-        : limpiar(c?.x)
-      const xVacio = Array.isArray(x) ? !x.length : !x
-      if (xVacio || !Number.isFinite(f) || !Number.isFinite(col)) continue
+      const x = limpiar(c?.x)
+      if (!x || !Number.isFinite(f) || !Number.isFinite(col)) continue
       if (!vacias.has(`${t ?? ''}_${f}_${col}`)) continue
       celdas.push({ f, c: col, t, x })
+    }
+    // Apertura/Desarrollo/Cierre con varias Secuencias Didácticas: en vez de
+    // confiar en que la IA marque cada una de las tres celdas por separado
+    // como array (salía inconsistente — a veces solo Apertura, Desarrollo y
+    // Cierre se quedaban como un solo bloque, ver bug real 16-ago-2026: "me
+    // estás dando solo una secuencia"), la IA entrega UNA lista única
+    // "secuenciasDidacticas" con las tres partes de cada secuencia juntas,
+    // más la posición de cada una de las tres celdas — así las tres SIEMPRE
+    // salen con la MISMA cantidad de elementos, por construcción. El
+    // escritor de la plantilla multiplica cada fila tantas veces como
+    // elementos tenga su array (ver duplicarFilaWord en plantillaOficial.js).
+    const secuencias = Array.isArray(datos?.secuenciasDidacticas) ? datos.secuenciasDidacticas : []
+    const celdaValida = (pos) => {
+      const f = Number(pos?.f), col = Number(pos?.c)
+      const t = pos?.t == null ? null : Number(pos.t)
+      if (!Number.isFinite(f) || !Number.isFinite(col)) return null
+      if (!vacias.has(`${t ?? ''}_${f}_${col}`)) return null
+      return { f, c: col, t }
+    }
+    if (secuencias.length) {
+      for (const [campo, posCampo] of [['apertura', 'aperturaCelda'], ['desarrollo', 'desarrolloCelda'], ['cierre', 'cierreCelda']]) {
+        const pos = celdaValida(datos?.[posCampo])
+        if (!pos) continue
+        // Sin filtrar vacíos: las tres celdas (apertura/desarrollo/cierre)
+        // deben mantener la MISMA cantidad de elementos y en el MISMO
+        // orden — el elemento i de cada una es la Secuencia Didáctica i+1.
+        // Un string vacío en una posición simplemente no escribe esa celda
+        // (ver llenarPlantillaWord), pero la fila de esa secuencia se sigue
+        // creando igual con lo que sí venga en las otras dos.
+        const textos = secuencias.map((s) => limpiar(s?.[campo]))
+        if (textos.some(Boolean)) celdas.push({ ...pos, x: textos })
+      }
     }
     porParcial.push({ numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, celdas })
     tokensEntrada += interno.tokensEntrada || 0
