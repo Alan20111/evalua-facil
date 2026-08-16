@@ -831,7 +831,7 @@ function FormatoSection({
             className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50 disabled:opacity-60"
           >
             {cargandoVistaPrevia ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
-            Revisar la planeación inicial y aceptarla
+            Vista previa y edición
           </button>
         )}
         {actual && aceptada && (
@@ -886,7 +886,7 @@ function FormatoSection({
       {actual && !aceptada && !isDesktop && <AvisoRevisionDesktop />}
       {verVistaPrevia && (isDesktop || aceptada) && (
         <RevisionPantallaCompleta
-          titulo={aceptada ? 'Vista previa — así se imprimiría' : `Revisa la Planeación Inicial (${titulo}) y corrígela antes de aceptarla`}
+          titulo={aceptada ? 'Vista previa — así se imprimiría' : 'Corrige y guarda antes de aceptarla (también podrás editar tu archivo descargado)'}
           onCerrar={cerrarVistaPrevia}
           tabs={<SelectorParcial porParcial={actual?.porParcial} activo={parcialActivo} onCambiar={cambiarParcialVistaPrevia} />}
           acciones={!aceptada && (
