@@ -3,7 +3,8 @@ import {
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
 import { deleteDoc, writeBatch } from './firestoreGuard'
-import { db } from '../firebase'
+import { db, auth } from '../firebase'
+import { apiUrl } from './apiBase'
 
 async function fetchSubmissionsForActivities(actIds) {
   if (actIds.length === 0) return []
@@ -25,25 +26,53 @@ async function batchDeleteDocs(refs) {
   }
 }
 
+// A12 · H1 — `resources` y `materials` guardan archivos en Cloudinary
+// (url / archivos[]), y borrarlos ahí exige CLOUDINARY_API_KEY/
+// CLOUDINARY_API_SECRET, que nunca viven en el cliente (ver
+// api/subject/delete-resources.js). Antes esta cascada ni siquiera borraba
+// los DOCUMENTOS de `resources` — quedaban huérfanos y legibles para
+// siempre — y para `materials` tampoco se limpiaba Cloudinary.
+//
+// Se llama primero, mientras los documentos todavía existen: es el único
+// momento en que el servidor puede leer sus URLs antes de que la cascada del
+// cliente borre el resto. Si falla (sin conexión, función caída), se
+// registra pero NO bloquea el resto del borrado — mismo criterio que ya
+// usaba el `.catch` de `materials` aquí abajo: peor es un botón "Eliminar"
+// atorado que unos cuantos archivos huérfanos.
+async function deleteSubjectResourcesAndFiles(subjectId) {
+  try {
+    const token = await auth.currentUser?.getIdToken()
+    if (!token) return
+    const res = await fetch(apiUrl('/api/subject/delete-resources'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ subjectId }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      console.warn(`[borrar-asignatura ${subjectId}] resources/materials no se pudieron borrar: ${data.error || res.status}`)
+    }
+  } catch (err) {
+    console.warn(`[borrar-asignatura ${subjectId}] resources/materials no se pudieron borrar: ${err.message}`)
+  }
+}
+
 // Fully deletes a subject and all related data in cascade:
-// activities → submissions → materials → students → attendance → horarioBloques → subject doc.
+// resources+materials (server, incl. their Cloudinary files) → activities →
+// submissions → students → attendance → horarioBloques → subject doc.
 // NOTE: Firebase Auth accounts of students are NOT deleted (same as per-student delete today).
 // `docenteId` is required to list `horarioBloques`: its Firestore rule is owner-only
-// (unlike activities/students/attendance/materials, which any authenticated user can
+// (unlike activities/students/attendance, which any authenticated user can
 // read), so the query must filter by docenteId too or the list itself is denied.
 export async function deleteSubjectCascade(subjectId, docenteId) {
-  // `materials` is fetched separately, with its rejection swallowed: if its
-  // Firestore rules aren't deployed yet, getDocs() rejects with
-  // permission-denied — that must never block deleting the subject itself
-  // (it would have, via this same Promise.all). Worst case, a few orphaned
-  // `materials` docs are left behind instead of a stuck "Eliminar" button.
+  await deleteSubjectResourcesAndFiles(subjectId)
+
   const [actsSnap, studsSnap, attSnap, bloquesSnap] = await Promise.all([
     getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'attendance'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'horarioBloques'), where('docenteId', '==', docenteId), where('asignaturaId', '==', subjectId))),
   ])
-  const matsSnap = await getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))).catch(() => ({ docs: [] }))
 
   const actIds = actsSnap.docs.map((d) => d.id)
   const subsDocs = await fetchSubmissionsForActivities(actIds)
@@ -51,7 +80,6 @@ export async function deleteSubjectCascade(subjectId, docenteId) {
   const refs = [
     ...subsDocs.map((d) => doc(db, 'submissions', d.id)),
     ...actsSnap.docs.map((d) => doc(db, 'activities', d.id)),
-    ...matsSnap.docs.map((d) => doc(db, 'materials', d.id)),
     ...studsSnap.docs.map((d) => doc(db, 'students', d.id)),
     ...attSnap.docs.map((d) => doc(db, 'attendance', d.id)),
     ...bloquesSnap.docs.map((d) => doc(db, 'horarioBloques', d.id)),

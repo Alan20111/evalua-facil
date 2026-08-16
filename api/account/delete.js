@@ -140,7 +140,7 @@ export default async function handler(req, res) {
     // que la inscripción desaparece ya nadie puede: su regla exige
     // `ownsStudentDoc`, y eso falla en cuanto el documento del alumno no está.
     const [alumnos, materiales, recursos, asistenciaPorAsignatura,
-      avisoLecturas, avisoGuardados, avisoOcultos] = await Promise.all([
+      avisoLecturasPorAsig, avisoGuardadosPorAsig, avisoOcultosPorAsig] = await Promise.all([
       docsPorCampoEnLista(db, 'students', 'asignaturaId', subjectIds),
       docsPorCampoEnLista(db, 'materials', 'asignaturaId', subjectIds),
       docsPorCampoEnLista(db, 'resources', 'asignaturaId', subjectIds),
@@ -149,6 +149,25 @@ export default async function handler(req, res) {
       docsPorCampoEnLista(db, 'avisoGuardados', 'asignaturaId', subjectIds),
       docsPorCampoEnLista(db, 'avisoOcultos', 'asignaturaId', subjectIds),
     ])
+
+    // ── 2b. Segunda vía para docs de aviso sin asignaturaId (formato viejo) ──
+    // Un doc escrito por una versión anterior del cliente puede carecer de
+    // `asignaturaId`, así que la consulta de arriba lo pasa por alto. La
+    // segunda vía lo recoge por `avisoId` — si el aviso es del docente que se
+    // va, el registro de estado también es responsabilidad suya (R19, A14).
+    const avisoIds = porColeccion.avisos.map((d) => d.id)
+    const [lectPorAviso, guardPorAviso, ocultPorAviso] = await Promise.all([
+      docsPorCampoEnLista(db, 'avisoLecturas', 'avisoId', avisoIds),
+      docsPorCampoEnLista(db, 'avisoGuardados', 'avisoId', avisoIds),
+      docsPorCampoEnLista(db, 'avisoOcultos', 'avisoId', avisoIds),
+    ])
+    function dedup(a, b) {
+      const seen = new Set(a.map((d) => d.ref.path))
+      return [...a, ...b.filter((d) => !seen.has(d.ref.path))]
+    }
+    const avisoLecturas = dedup(avisoLecturasPorAsig, lectPorAviso)
+    const avisoGuardados = dedup(avisoGuardadosPorAsig, guardPorAviso)
+    const avisoOcultos = dedup(avisoOcultosPorAsig, ocultPorAviso)
 
     // ── 3. Entregas: por actividad y por alumno ─────────────────────────
     // Las dos vías, porque una entrega puede quedar colgando si su actividad
@@ -160,6 +179,11 @@ export default async function handler(req, res) {
 
     // ── 4. Lo que se identifica con el uid, no con docenteId ────────────
     const bitacora = await docsPorCampo(db, 'notificationLog', 'uid', uid)
+    // Créditos IA: historial de consumos y métricas internas (por campo uid);
+    // el saldo y el registro del trial son docs con id = uid y van directo en
+    // el lote de abajo. Sin nada de esto, borrar la cuenta dejaría residuo.
+    const consumosIA = await docsPorCampo(db, 'iaConsumos', 'uid', uid)
+    const consumosIAInterno = await docsPorCampo(db, 'iaConsumosInterno', 'uid', uid)
 
     // ── 5. Archivos de todo lo anterior, subcolecciones incluidas ───────
     const todosLosDocs = [
@@ -204,6 +228,10 @@ export default async function handler(req, res) {
     // veces; borrar dos veces el mismo ref en un batch es un error.
     const unicas = [...new Map([
       ...planos.map((r) => [r.path, r]),
+      ...consumosIA.map((d) => [d.ref.path, d.ref]),
+      ...consumosIAInterno.map((d) => [d.ref.path, d.ref]),
+      [`iaCreditos/${uid}`, db.collection('iaCreditos').doc(uid)],
+      [`iaTrialRegistro/${uid}`, db.collection('iaTrialRegistro').doc(uid)],
       [`notificationSettings/${uid}`, db.collection('notificationSettings').doc(uid)],
       [`users/${uid}`, db.collection('users').doc(uid)],
     ]).values()]

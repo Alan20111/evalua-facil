@@ -6,7 +6,7 @@ import {
   where,
   getDocs,
   getDoc,
-  addDoc,
+  setDoc,
   updateDoc,
   doc,
   onSnapshot,
@@ -14,6 +14,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
+import { submissionDocId } from '../../utils/submissionId'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -137,7 +138,19 @@ export default function StudentActivityPage() {
         navigate('/alumno/dashboard')
         return
       }
-      const actData = { id: actSnap.id, ...actSnap.data() }
+      let actData = { id: actSnap.id, ...actSnap.data() }
+
+      // numPreguntas en Firestore puede quedar desactualizado si el maestro
+      // guarda la configuración antes de agregar todas las preguntas. Contamos
+      // la subcolección para que el resumen siempre muestre el total real.
+      if (actData.tipo === 'evaluacion') {
+        try {
+          const pregSnap = await getDocs(collection(db, 'activities', activityId, 'preguntas'))
+          if (actData.evaluacion) {
+            actData = { ...actData, evaluacion: { ...actData.evaluacion, numPreguntas: pregSnap.size } }
+          }
+        } catch { /* non-fatal: cae al valor guardado en Firestore */ }
+      }
 
       // Subject is needed before the gate check below — a whole parcial can be
       // hidden from students at the subject level, which must override an
@@ -253,7 +266,14 @@ export default function StudentActivityPage() {
       // `archivoURL`/`nombreArchivo` stay as the FIRST file so every existing
       // reader (teacher list, previews, ZIP export) keeps working; `archivos`
       // carries the full set when there is more than one.
-      await addDoc(collection(db, 'submissions'), {
+      // Id determinista (A12 · H5 · R22): una pareja (alumnoId, actividadId)
+      // no puede tener dos documentos — un segundo intento aquí (doble clic,
+      // dos pestañas) cae en el MISMO path, así que Firestore lo trata como
+      // update, no como una fila nueva. `merge: true` es la salvaguarda
+      // contra el propio caso que arregla: si por la carrera este intento
+      // llega DESPUÉS de que la entrega ya exista, no la reemplaza a ciegas
+      // perdiendo campos que este payload no trae.
+      await setDoc(doc(db, 'submissions', submissionDocId(activityId, student.id)), {
         alumnoId: student.id,
         actividadId: activityId,
         archivoURL: uploaded[0].url,
@@ -266,7 +286,7 @@ export default function StudentActivityPage() {
         estado: 'entregado',
         tarde: isPastDeadline,
         historial: [],
-      })
+      }, { merge: true })
       toast(files.length > 1 ? `Tarea entregada — ${files.length} imágenes` : 'Tarea entregada')
       setFiles([])
       setShowFireworks(true)
@@ -327,7 +347,8 @@ export default function StudentActivityPage() {
           notificadoEntregaDocente: false,
         })
       } else {
-        await addDoc(collection(db, 'submissions'), {
+        // Mismo id determinista que la entrega de archivo (A12 · H5 · R22).
+        await setDoc(doc(db, 'submissions', submissionDocId(activityId, student.id)), {
           alumnoId: student.id,
           alumnoUid: currentUser.uid,
           actividadId: activityId,
@@ -339,7 +360,7 @@ export default function StudentActivityPage() {
           intentoActual: 1,
           intentos: [],
           tiempoInicio: serverTimestamp(),
-        })
+        }, { merge: true })
       }
       navigate(`/alumno/evaluacion/${activityId}`)
     } catch (err) {

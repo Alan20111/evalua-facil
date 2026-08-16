@@ -5,7 +5,7 @@ import {
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth'
-import { collection, doc, getDocs, query, updateDoc, where, writeBatch, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, query, updateDoc, where, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -18,7 +18,9 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import { Camera, Lock, User, X, CreditCard, School, ChevronDown, ChevronUp, Plus, Trash2, Upload, ImagePlus } from 'lucide-react'
 import SearchInput from '../../components/SearchInput'
 import { useSubscription } from '../../hooks/useSubscription'
+import useCreditosIA from '../../hooks/useCreditosIA'
 import CheckoutModal from '../../components/CheckoutModal'
+import PlanComparisonTable from '../../components/PlanComparisonTable'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -27,8 +29,8 @@ import {
   ANNUAL_PLAN_ID,
   ANNUAL_PRICE_MXN,
   ANNUAL_SUBSCRIPTION_NAME,
-  MONTHLY_PRICE_MXN,
   SUBSCRIPTION_NAME,
+  MONTHLY_PLAN_ID,
   calcDaysRemaining,
   calcTrialEnd,
   datosDePagoTransferencia,
@@ -269,6 +271,15 @@ export default function Profile() {
   // si es largo, se desplaza dentro de su propia ventana en vez de estirar
   // la tarjeta.
   const [showPayments, setShowPayments] = useState(false)
+  const [showComparacion, setShowComparacion] = useState(false)
+  // Mismo gate que CheckoutModal — la comparación no anuncia un plan que
+  // `plans/mayor.activo` todavía no ofrece.
+  const [mayorDisponible, setMayorDisponible] = useState(false)
+  useEffect(() => {
+    getDoc(doc(db, 'plans', 'mayor'))
+      .then((snap) => setMayorDisponible(!!snap.data()?.activo))
+      .catch(() => setMayorDisponible(false))
+  }, [])
 
   // Cancelar suscripción / eliminar cuenta
   const [cancelandoSub, setCancelandoSub] = useState(false)
@@ -296,6 +307,13 @@ export default function Profile() {
     loading: subLoading,
     refresh: refreshSub,
   } = useSubscription()
+  // Fuente de verdad de nombre/precio/créditos por plan (13-ago-2026, Bloque
+  // 3): mismo hook que ya usan CreditosPanel/la barra — nunca se duplican
+  // aquí. `tarifas.planes.{pro,mayor}` trae nombre comercial ("Asistente
+  // IA"/"Asistente IA Pro") y precio; `capacidad` es la bolsa REAL del
+  // docente (para trial, ya distingue legado/nuevo — ver
+  // capacidadTrialPara en functions/creditosLedger.js).
+  const creditosIA = useCreditosIA()
 
   function openResend(payment) {
     setResendFolio(payment.referencia || '')
@@ -326,6 +344,9 @@ export default function Profile() {
         docenteId: currentUser.uid,
         subscriptionId,
         escuelaId: userProfile?.escuelaId || '',
+        // El mismo plan del folio rechazado — un reenvío no debe cambiar de
+        // plan solo por reenviarse (ver Bloque 4: antes solo existía 'pro').
+        planId: resendPayment.planId || MONTHLY_PLAN_ID,
         meses: resendPayment.mesesPagados || 1,
         referencia: resendFolio,
         comprobanteUrl,
@@ -550,7 +571,12 @@ export default function Profile() {
   // toca — sigue siendo la fecha real de alta, de ahí se recalcula la
   // prueba sin importar qué le haya pasado después a fechaInicio.
   const finDePrueba = subscription?.createdAt ? calcTrialEnd(subscription.createdAt) : null
-  const siguePrueba = !nuncaAprobado && finDePrueba && (calcDaysRemaining(finDePrueba) ?? -1) >= 0
+  // Una cortesía la pone el admin directo, sin esperar a que se agote la
+  // prueba (a diferencia de un pago real — ver comentario arriba). Por eso
+  // no aplica este aviso: contradice al resto de la tarjeta si ya dice
+  // "Cortesía" y "activa" pero también "sigues en tu período de prueba".
+  const siguePrueba =
+    !nuncaAprobado && subscription?.planId !== 'cortesia' && finDePrueba && (calcDaysRemaining(finDePrueba) ?? -1) >= 0
   // Solo se ofrece cancelar cuando hay algo que cancelar. En período de
   // prueba no aparece: no hay ningún cobro que detener, y un botón
   // "cancelar" ahí solo haría dudar a quien apenas está probando.
@@ -585,27 +611,60 @@ export default function Profile() {
                         {TRIAL_DURATION_DAYS} días gratuitos
                         {subscription.fechaInicio && <> · empieza el {formatDate(subscription.fechaInicio)}</>}
                         {' '}· termina el {formatDate(effectiveVencimiento(subscription))}
+                        {/* Capacidad REAL del docente — respeta trial legado
+                            (350) vs nuevo (50) sola, porque viene del mismo
+                            doc iaCreditos/{uid} que ya resuelve esa distinción
+                            (capacidadTrialPara, functions/creditosLedger.js).
+                            No se muestra hasta que el hook termine de cargar,
+                            para no parpadear un número provisional. */}
+                        {creditosIA.listo && <> · {creditosIA.capacidad} créditos IA</>}
                       </p>
                     </>
                   ) : (
                     <>
                       {/* Anual es siempre pago único (nunca domiciliado, ver
-                          CheckoutModal). Entre los dos mensuales: domiciliada
-                          (Mercado Pago cobra solo cada mes) sigue llamándose
-                          "Suscripción mensual"; un pago manual (transferencia
-                          o PayPal de una sola exhibición) es literal un mes
-                          ya pagado, no una suscripción en curso — mismo
-                          criterio que en el admin (ver situacionSuscripcion.js). */}
-                      <p className="font-bold text-on-surface">
-                        {subscription.planId === ANNUAL_PLAN_ID
-                          ? ANNUAL_SUBSCRIPTION_NAME
-                          : subscription.mpPreapprovalId ? SUBSCRIPTION_NAME : 'Mes pagado'}
-                      </p>
-                      <p className="text-sm text-muted">
-                        {subscription.planId === ANNUAL_PLAN_ID
-                          ? `${formatCurrency(ANNUAL_PRICE_MXN)}/año`
-                          : `${formatCurrency(MONTHLY_PRICE_MXN)}/mes`}
-                      </p>
+                          CheckoutModal) — comportamiento intacto, sin tocar.
+                          Entre los pagados NO anuales, el nombre/precio salen
+                          de config/iaTarifas.planes (mismo dato que ya usa
+                          CreditosPanel) según el planId REAL de la
+                          suscripción — antes esto asumía siempre $99, sin
+                          importar si el docente era `pro` o `mayor`. Un
+                          planId que ni sea anual ni tenga entrada en
+                          `tarifas.planes` (p. ej. cortesía, o uno nuevo que
+                          todavía no está en la tabla) cae a un rótulo neutro,
+                          sin inventar un precio que podría ser falso. */}
+                      {(() => {
+                        if (subscription.planId === ANNUAL_PLAN_ID) {
+                          return (
+                            <>
+                              <p className="font-bold text-on-surface">{ANNUAL_SUBSCRIPTION_NAME}</p>
+                              <p className="text-sm text-muted">{formatCurrency(ANNUAL_PRICE_MXN)}/año</p>
+                            </>
+                          )
+                        }
+                        if (subscription.planId === 'cortesia') {
+                          return <p className="font-bold text-on-surface">Cortesía</p>
+                        }
+                        const infoPlan = creditosIA.tarifas?.planes?.[subscription.planId] || null
+                        if (infoPlan) {
+                          return (
+                            <>
+                              <p className="font-bold text-on-surface">
+                                {infoPlan.nombre}
+                                {!subscription.mpPreapprovalId && ' — mes pagado'}
+                              </p>
+                              <p className="text-sm text-muted">
+                                {formatCurrency(infoPlan.precioMXN)}/mes · {infoPlan.creditos.toLocaleString('es-MX')} créditos IA
+                              </p>
+                            </>
+                          )
+                        }
+                        return (
+                          <p className="font-bold text-on-surface">
+                            {subscription.mpPreapprovalId ? SUBSCRIPTION_NAME : 'Mes pagado'}
+                          </p>
+                        )
+                      })()}
                     </>
                   )}
                 </div>
@@ -646,8 +705,10 @@ export default function Profile() {
                   cubre del X al Y") para la promesa antes de pagar. */}
               {subscription.status !== 'trial' && !nuncaAprobado && subscription.fechaInicio && (
                 <p className="text-xs text-slate-400">
-                  Tu plan cubre del {formatDate(subscription.fechaInicio)} al{' '}
-                  {formatDate(effectiveVencimiento(subscription))}
+                  {subscription.planId === 'cortesia' && subscription.cortesiaIndefinida
+                    ? <>Tu plan cubre desde el {formatDate(subscription.fechaInicio)}, sin fecha de fin.</>
+                    : <>Tu plan cubre del {formatDate(subscription.fechaInicio)} al{' '}
+                      {formatDate(effectiveVencimiento(subscription))}</>}
                 </p>
               )}
               {/* Sigue disfrutando su prueba aunque ya haya un pago real
@@ -743,6 +804,27 @@ export default function Profile() {
               {cancelandoSub ? 'Cancelando…' : 'Cancelar suscripción'}
             </button>
           )}
+          {/* Comparar planes (Bloque 7, 13-ago-2026): consulta rápida, no la
+              acción principal — colapsada por omisión, mismo patrón que
+              "Historial de pagos" de abajo. Solo nombres comerciales. */}
+          <div className="mt-2 pt-4 border-t border-outline-variant">
+            <button
+              type="button"
+              onClick={() => setShowComparacion((v) => !v)}
+              className="w-full flex items-center justify-between text-xs font-semibold text-slate-400 uppercase mb-2"
+            >
+              <span>Comparar planes</span>
+              {showComparacion ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            {showComparacion && (
+              <PlanComparisonTable
+                mostrarMayor={mayorDisponible}
+                creditosGratuito={creditosIA.tarifas?.capacidadPorPlan?.trial}
+                creditosPro={creditosIA.tarifas?.planes?.pro?.creditos}
+                creditosMayor={creditosIA.tarifas?.planes?.mayor?.creditos}
+              />
+            )}
+          </div>
           {recentPayments.length > 0 && (
             <div className="mt-2 pt-4 border-t border-outline-variant">
               <button

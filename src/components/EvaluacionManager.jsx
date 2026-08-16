@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  collection, query, where, getDocs, getDoc, doc, serverTimestamp,
+  collection, query, where, getDocs, getDoc, doc, serverTimestamp, onSnapshot,
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
 import { addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from '../utils/firestoreGuard'
@@ -24,12 +24,14 @@ import {
 } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays, Star,
-  Scale, CheckSquare, Square, X, FileSpreadsheet, FileText,
+  Scale, CheckSquare, Square, X, FileSpreadsheet, FileText, Sparkles,
 } from 'lucide-react'
+import useCreditosIA from '../hooks/useCreditosIA'
+import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
 import { estadoEvaluacionLabel } from '../utils/evaluacionGrading'
 import { cargarRespuestasEvaluacion, esGraficable } from '../utils/evaluacionRespuestas'
 import { exportEvaluacionResultadosExcel } from '../utils/excel'
-import { exportEvaluacionResultadosPDF } from '../utils/pdf'
+import { exportEvaluacionResultadosPDF, exportAnalisisResultadosPDF } from '../utils/pdf'
 import { descargaSoloWeb } from '../utils/descargaSoloWeb'
 import { membreteDe } from '../utils/membrete'
 import { useAuth } from '../context/AuthContext'
@@ -44,7 +46,14 @@ import SinCalificacionConfig from './SinCalificacionConfig'
 import { SeccionForm, SeccionHeader, ConfirmarBorrarSeccion, BotonAgregarSeccion, SelectorSeccion } from './SeccionesEditor'
 import { useSecciones } from '../hooks/useSecciones'
 import { agruparPreguntas, preguntasEnOrden, siguienteOrden } from '../utils/secciones'
+import {
+  crearPregunta, actualizarPregunta, borrarPregunta, crearPreguntasEnLote,
+  cargarPreguntasConClave,
+} from '../utils/evaluacionClave'
 import EvaluacionEditor from './EvaluacionEditor'
+import AnalisisResultadosIA from './evaluacion/AnalisisResultadosIA'
+import { resolverNombresAnalisis } from '../utils/resolverNombresAnalisis'
+import { MIN_ENTREGAS_ANALISIS } from '../utils/analisisResultados'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { formatHora12FromDate } from '../utils/formatHora'
@@ -157,6 +166,16 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
     </div>
   )
 }
+// Bitácora de OP-10: `generadoEn` es un Timestamp de Firestore en los docs
+// recién leídos del servidor, o un Date de JS en la entrada optimista que se
+// agrega localmente justo después de generar un análisis nuevo.
+function millisDeGeneradoEn(x) {
+  if (!x) return 0
+  if (typeof x.toMillis === 'function') return x.toMillis()
+  if (x instanceof Date) return x.getTime()
+  return new Date(x).getTime() || 0
+}
+
 export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, onSubmissionUpdated = null, resultadosOnly = false, backState = null, openStudentId = null, onDeleteActivity = null }) {
   const navigate = useNavigate()
   const toast = useToast()
@@ -164,6 +183,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // mismo criterio que las exportaciones de la asignatura.
   const { subscription } = useSubscription()
   const exportsWatermarked = !hasCleanExports(subscription)
+  // Créditos de IA — estimación y ejecución del piloto C-02.
+  const creditosIA = useCreditosIA()
   // Escuela + docente para encabezar los documentos que se descargan de aquí.
   const { userProfile } = useAuth()
   const membrete = membreteDe(userProfile)
@@ -195,8 +216,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [showGraficas, setShowGraficas] = useState(false)
   // Exportación de los resultados de ESTA evaluación (Excel / PDF). `null`
   // cuando no se está generando nada; 'excel' | 'pdf' mientras corre, para
-  // desactivar solo el botón que se tocó. `pendingExport` guarda cuál se pidió
-  // mientras el aviso de marca de agua está en pantalla.
+  // desactivar solo el botón que se tocó. `pendingExport` es el aviso ÚNICO
+  // de "exportación en periodo de prueba" para TODAS las descargas de esta
+  // pantalla (resultados, Excel/PDF, y los PDF de OP-10) — guarda `{ run }`,
+  // la descarga concreta a ejecutar si el docente continúa; si cancela, no
+  // se genera nada.
   const [exportingResultados, setExportingResultados] = useState(null)
   const [pendingExport, setPendingExport] = useState(null)
   const [editingPreguntaId, setEditingPreguntaId] = useState(null)
@@ -238,6 +262,38 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // borrador por pregunta { puntos, comentario } mientras el docente edita.
   const [gradeDrafts, setGradeDrafts] = useState({})
   const [savingGradeId, setSavingGradeId] = useState(null)
+  // C-02 · Sugerir calificación con IA (piloto). Las sugerencias PERSISTEN en
+  // activities/{id}/iaSugerencias (las escribe el servidor al cobrarlas): el
+  // snapshot las recupera aunque el docente cierre o recargue la pestaña, y
+  // verlas de nuevo jamás cobra. La IA no escribe calificaciones (O3): el
+  // docente aplica/edita cada sugerencia y su guardado la marca 'aplicada'.
+  const [iaSugerencias, setIaSugerencias] = useState({}) // { [subId]: { [pregId]: sugerencia } }
+  useEffect(() => {
+    const actId = activityId || activity?.id
+    if (!actId) return undefined
+    const q = query(collection(db, 'activities', actId, 'iaSugerencias'), where('estado', '==', 'pendiente'))
+    const unsub = onSnapshot(q, (snap) => {
+      const mapa = {}
+      snap.docs.forEach((d) => {
+        const x = d.data()
+        if (!mapa[x.sub]) mapa[x.sub] = {}
+        mapa[x.sub][x.preg] = { ...x.sugerencia, _docId: d.id }
+      })
+      setIaSugerencias(mapa)
+    }, () => { /* sin permiso u offline: sin sugerencias que recuperar */ })
+    return unsub
+  }, [activityId, activity?.id])
+  const [iaContando, setIaContando] = useState(false)
+  const [iaConteo, setIaConteo] = useState(null)         // { estudiantes, respuestas } → abre el modal
+  const [iaTrabajando, setIaTrabajando] = useState(false)
+  // ── OP-10 · Analizar resultados con IA ──────────────────────────────────
+  const [analisisConfirmando, setAnalisisConfirmando] = useState(false)
+  const [analisisTrabajando, setAnalisisTrabajando] = useState(false)
+  const [analisisResultado, setAnalisisResultado] = useState(null)
+  const [analisisGeneradoEn, setAnalisisGeneradoEn] = useState(null) // ISO string — solo para mostrar/imprimir
+  const [analisisId, setAnalisisId] = useState(null) // doc en activities/{id}/analisisIA que se está viendo — null = todavía no persistido
+  const [analisisHistorial, setAnalisisHistorial] = useState([]) // bitácora de OP-10: un doc por generación, ver activities/{id}/analisisIA
+  const [analisisDescargandoId, setAnalisisDescargandoId] = useState(null)
   const [reviewFilter, setReviewFilter] = useState('todos') // review tab: todos|pendiente|calificado|porCalificar
   const [reviewNav, setReviewNav] = useState([])            // frozen student order for Anterior/Siguiente
   // Per-student deadline extension ("Modificar fecha de entrega") — en
@@ -270,8 +326,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   async function loadPreguntas() {
     setLoadingPreguntas(true)
     try {
-      const snap = await getDocs(collection(db, 'activities', activityId, 'preguntas'))
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      // Con su clave, que solo el docente dueño puede leer (A08).
+      const list = (await cargarPreguntasConClave(activityId)).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       setPreguntas(list)
     } catch (err) {
       toast('Error al cargar preguntas: ' + err.message, 'error')
@@ -285,6 +341,29 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     setConfigForm(activity.evaluacion)
     configSnap.current = JSON.stringify(activity.evaluacion)
   }, [activity.evaluacion])
+
+  // Bitácora de OP-10 — cargarla es gratis (leerla no cobra créditos), así
+  // que se trae completa una sola vez por actividad. Se ordena en memoria:
+  // no lleva orderBy en la query (ver convención del proyecto en CLAUDE.md).
+  useEffect(() => {
+    const aid = activityId || activity?.id
+    if (!aid) return
+    let cancelado = false
+    ;(async () => {
+      try {
+        const snap = await getDocs(collection(db, 'activities', aid, 'analisisIA'))
+        if (cancelado) return
+        const items = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => millisDeGeneradoEn(b.generadoEn) - millisDeGeneradoEn(a.generadoEn))
+        setAnalisisHistorial(items)
+      } catch {
+        // La bitácora es un complemento de la pantalla de resultados, no un
+        // requisito para verlos: si falla, simplemente no se muestra.
+      }
+    })()
+    return () => { cancelado = true }
+  }, [activityId, activity?.id])
 
   async function loadBanco() {
     if (bancoLoaded) return
@@ -359,9 +438,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         ...buildPreguntaData(preguntaForm), imagenUrl, orden, origenBancoId: null,
         ...seccionesCtl.camposDeSeccion(seccionDestino),
       }
-      const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
-      setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
-      setGlowId(ref.id)
+      const nuevoId = await crearPregunta(activityId, data)
+      setPreguntas((prev) => [...prev, { id: nuevoId, ...data }])
+      setGlowId(nuevoId)
       await syncNumPreguntas(preguntas.length + 1)
       if (preguntaForm.guardarEnBanco) {
         await addDoc(collection(db, 'bancoReactivos'), {
@@ -394,9 +473,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
         imagenUrl: null, orden, origenBancoId: item.id,
       }
-      const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
-      setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
-      setGlowId(ref.id)
+      const nuevoId = await crearPregunta(activityId, data)
+      setPreguntas((prev) => [...prev, { id: nuevoId, ...data }])
+      setGlowId(nuevoId)
       await syncNumPreguntas(preguntas.length + 1)
       toast('Pregunta agregada desde tu banco')
     } catch (err) {
@@ -413,20 +492,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     if (!items.length) return
     setSaving(true)
     try {
-      const batch = writeBatch(db)
       let orden = siguienteOrden(preguntas, seccionDestino)
-      const nuevas = []
-      for (const item of items) {
-        const ref = doc(collection(db, 'activities', activityId, 'preguntas'))
-        const data = {
-          tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
-          respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
-          imagenUrl: null, orden: orden++, origenBancoId: item.id,
-        }
-        batch.set(ref, data)
-        nuevas.push({ id: ref.id, ...data })
-      }
-      await batch.commit()
+      const lista = items.map((item) => ({
+        tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
+        respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
+        imagenUrl: null, orden: orden++, origenBancoId: item.id,
+      }))
+      // Sigue siendo un solo writeBatch (reactivo y clave van juntos dentro).
+      const ids = await crearPreguntasEnLote(activityId, lista)
+      const nuevas = lista.map((data, i) => ({ id: ids[i], ...data }))
       setPreguntas((prev) => [...prev, ...nuevas])
       await syncNumPreguntas(preguntas.length + nuevas.length)
       setSelectedBancoIds(new Set())
@@ -461,7 +535,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   async function handleDeletePregunta(id) {
     if (!confirm('¿Eliminar esta pregunta?')) return
     try {
-      await deleteDoc(doc(db, 'activities', activityId, 'preguntas', id))
+      await borrarPregunta(activityId, id)
       setPreguntas((prev) => prev.filter((p) => p.id !== id))
       await syncNumPreguntas(Math.max(0, preguntas.length - 1))
       toast('Pregunta eliminada')
@@ -511,7 +585,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         ? { ...seccionesCtl.camposDeSeccion(seccionNueva), orden: siguienteOrden(preguntas.filter((p) => p.id !== id), seccionNueva) }
         : {}
       const data = { ...buildPreguntaData({ ...preguntaEditForm }), imagenUrl, ...camposSeccion }
-      await updateDoc(doc(db, 'activities', activityId, 'preguntas', id), data)
+      await actualizarPregunta(activityId, id, data)
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
       setEditingPreguntaId(null)
       setGlowId(id)
@@ -533,9 +607,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         retroalimentacion: p.retroalimentacion || null, imagenUrl: p.imagenUrl || null,
         orden, origenBancoId: null,
       }
-      const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
-      setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
-      setGlowId(ref.id)
+      const nuevoId = await crearPregunta(activityId, data)
+      setPreguntas((prev) => [...prev, { id: nuevoId, ...data }])
+      setGlowId(nuevoId)
       await syncNumPreguntas(preguntas.length + 1)
       toast('Pregunta duplicada')
     } catch (err) {
@@ -860,6 +934,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       const updatedSub = { ...sub, ...patch }
       setReviewing((r) => r && ({ ...r, submission: updatedSub, allRespuestas: allResp }))
       onSubmissionUpdated?.(reviewing.student.id, updatedSub)
+      // C-02: el guardado del docente cierra la sugerencia persistida de este
+      // reactivo (queda 'aplicada' y sale del snapshot de pendientes). Mejor
+      // esfuerzo: si falla, la sugerencia solo sigue visible — sin costo.
+      const sugPersistida = iaSugerencias[sub.id]?.[pregunta.id]
+      if (sugPersistida?._docId) {
+        updateDoc(doc(db, 'activities', activityId || activity.id, 'iaSugerencias', sugPersistida._docId),
+          { estado: 'aplicada', actualizadoEn: serverTimestamp() }).catch(() => {})
+      }
       toast(pendiente
         ? 'Puntos guardados — aún hay reactivos por calificar'
         : `Puntos guardados — calificación final: ${calFinal}/${activity.maxCalif || 10}`)
@@ -868,6 +950,179 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     } finally {
       setSavingGradeId(null)
     }
+  }
+
+  // ── C-02 · Sugerir calificación de respuestas abiertas (piloto IA) ─────────
+  // Cuenta EXACTAMENTE las respuestas que el lote va a calificar (regla del
+  // PO: la estimación debe reflejar la cantidad real). Lee las respuestas de
+  // los estudiantes pendientes — las mismas lecturas que abrir su revisión.
+  // Solo texto (respuesta_corta); documentos y respuestas vacías no cuentan.
+  async function contarRespuestasIA() {
+    setIaContando(true)
+    try {
+      const abiertas = preguntas.filter((p) => p.tipo === 'respuesta_corta')
+      const pendientes = students.filter((s) => {
+        const sub = submissions[s.id]
+        return sub?.estadoEvaluacion === 'finalizado' && sub.pendienteRevision
+      })
+      let respuestas = 0
+      let estudiantes = 0
+      for (const s of pendientes) {
+        const snap = await getDocs(collection(db, 'submissions', submissions[s.id].id, 'respuestas'))
+        const porId = {}
+        snap.docs.forEach((d) => { porId[d.id] = d.data() })
+        let deEste = 0
+        for (const p of abiertas) {
+          const r = porId[p.id]
+          if (!r || r.puntosObtenidos != null) continue
+          // Con sugerencia persistida pendiente: recuperable gratis, no se
+          // vuelve a cobrar ni a pedir.
+          if (iaSugerencias[submissions[s.id].id]?.[p.id]) continue
+          const texto = (r.textoRespuesta || '').trim()
+          if (!texto || texto.length > 40000) continue
+          deEste++
+        }
+        if (deEste) { estudiantes++; respuestas += deEste }
+      }
+      if (!respuestas) {
+        const pendientesIA = Object.values(iaSugerencias).reduce((n, m) => n + Object.keys(m).length, 0)
+        toast(pendientesIA
+          ? 'Todas las respuestas pendientes ya tienen sugerencia de IA — ábrelas al calificar, sin costo adicional'
+          : 'No hay respuestas de texto pendientes de calificar', 'error')
+        return
+      }
+      setIaConteo({ estudiantes, respuestas })
+    } catch (err) {
+      toast('Error al contar respuestas: ' + err.message, 'error')
+    } finally {
+      setIaContando(false)
+    }
+  }
+
+  // Ejecuta el lote tras la confirmación del docente en el modal de créditos.
+  // El servidor relee todo por ID (no confía en textos del cliente), reserva
+  // el lote, cobra solo lo realmente sugerido y reembolsa el resto. Las
+  // sugerencias NUNCA se guardan como calificación (O3): quedan en el estado
+  // de la sesión y el docente las aplica una por una si le convencen.
+  async function ejecutarSugerenciasIA() {
+    setIaTrabajando(true)
+    try {
+      const data = await creditosIA.ejecutar('calificar_abierta', {
+        actividadId: activityId || activity.id,
+        asignaturaId: activity.asignaturaId,
+        asignaturaNombre: subject?.nombre || '',
+      }, iaConteo.respuestas, { timeoutMs: 300000 })
+      // El servidor persistió cada sugerencia en iaSugerencias — el snapshot
+      // llena el estado solo; aquí únicamente se informa el resultado.
+      setIaConteo(null)
+      const n = data?.resultado?.sugerencias?.length || 0
+      const previas = data?.resultado?.yaProcesadas || 0
+      toast(`${n} sugerencia${n !== 1 ? 's' : ''} de calificación lista${n !== 1 ? 's' : ''}${previas ? ` (${previas} ya existían y no se cobraron)` : ''} — revísalas al calificar a cada estudiante. Tú decides.`)
+    } catch (err) {
+      toast(err.codigo === 'SALDO_INSUFICIENTE'
+        ? 'No tienes créditos suficientes para este lote'
+        : 'No se pudo completar: ' + err.message, 'error')
+    } finally {
+      setIaTrabajando(false)
+    }
+  }
+
+  // ── OP-10 · Analizar resultados con IA ──────────────────────────────────
+  // El servidor relee preguntas + entregas por actividadId (el cliente no
+  // manda ningún dato pedagógico) y hace TODA la agregación y la aritmética
+  // ahí — aquí solo se confirma el gasto de créditos y se muestra el
+  // resultado. Los estudiantes viajan anonimizados al modelo; el mapa
+  // anonId→alumnoId que regresa el servidor se usa SOLO para mostrar nombres
+  // reales en pantalla, nunca se lo mandamos de vuelta a la IA.
+  //
+  // Bitácora (ver activities/{id}/analisisIA): cada generación exitosa se
+  // persiste con addDoc — nunca se sobrescribe una anterior. `resultado` se
+  // guarda completo, tal cual lo agregó el servidor (agregarResultados en
+  // functions/ia.js), así que un PDF descargado después sigue mostrando la
+  // fotografía exacta de esa generación aunque después lleguen más entregas.
+  // `entregasConsideradas` = resultado.totalEstudiantes: es literalmente
+  // `entregas.length` con estadoEvaluacion==='finalizado' en el servidor
+  // (agregarResultados), no un conteo aparte.
+  async function generarAnalisisIA() {
+    setAnalisisTrabajando(true)
+    try {
+      const data = await creditosIA.ejecutar('analizar_resultados', {
+        actividadId: activityId || activity.id,
+        asignaturaId: activity.asignaturaId,
+        asignaturaNombre: subject?.nombre || '',
+      })
+      const resultado = data?.resultado || null
+      setAnalisisResultado(resultado)
+      const generadoEnLocal = new Date()
+      setAnalisisGeneradoEn(generadoEnLocal.toISOString())
+      setAnalisisConfirmando(false)
+      if (resultado) {
+        try {
+          const ref = await addDoc(collection(db, 'activities', activityId || activity.id, 'analisisIA'), {
+            resultado,
+            generadoEn: serverTimestamp(),
+            docenteId: auth.currentUser.uid,
+            entregasConsideradas: resultado.totalEstudiantes ?? 0,
+          })
+          setAnalisisId(ref.id)
+          setAnalisisHistorial((prev) => [
+            { id: ref.id, resultado, generadoEn: generadoEnLocal, docenteId: auth.currentUser.uid, entregasConsideradas: resultado.totalEstudiantes ?? 0 },
+            ...prev,
+          ])
+        } catch (err) {
+          toast('El análisis se generó, pero no se pudo guardar en la bitácora: ' + err.message, 'error')
+        }
+      }
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setAnalisisTrabajando(false)
+    }
+  }
+
+  // Ver un análisis histórico o descargar su PDF cuestan 0 créditos: son
+  // solo lectura de lo ya persistido en la bitácora, no vuelven a llamar a
+  // la IA ni recalculan nada con las entregas actuales.
+  function verAnalisisHistorico(entrada) {
+    setAnalisisResultado(entrada.resultado)
+    setAnalisisGeneradoEn(new Date(millisDeGeneradoEn(entrada.generadoEn)).toISOString())
+    setAnalisisId(entrada.id)
+  }
+
+  // El docente puede corregir el texto del análisis (es una propuesta de la
+  // IA, no un dato inmutable) — se guarda en el MISMO doc de la bitácora,
+  // sin tocar `generadoEn` ni `entregasConsideradas` (pedido de Kike,
+  // 16-ago-2026: todo lo que genera la IA debe poder editarse).
+  async function guardarAnalisisEditado(resultadoEditado) {
+    await updateDoc(doc(db, 'activities', activityId || activity.id, 'analisisIA', analisisId), { resultado: resultadoEditado })
+    setAnalisisResultado(resultadoEditado)
+    setAnalisisHistorial((prev) => prev.map((h) => (h.id === analisisId ? { ...h, resultado: resultadoEditado } : h)))
+  }
+
+  async function ejecutarDescargaAnalisisHistoricoPDF(entrada) {
+    setAnalisisDescargandoId(entrada.id)
+    try {
+      const { resultado: resultadoConNombres } = resolverNombresAnalisis(entrada.resultado, students)
+      await exportAnalisisResultadosPDF({
+        activity, subject, membrete,
+        watermark: exportsWatermarked,
+        generadoEn: new Date(millisDeGeneradoEn(entrada.generadoEn)).toISOString(),
+        resultado: resultadoConNombres,
+      })
+    } catch (err) {
+      toast('Error al generar el PDF: ' + err.message, 'error')
+    } finally {
+      setAnalisisDescargandoId(null)
+    }
+  }
+
+  // Descargar el PDF sigue siendo gratis (no pasa por creditosIA): el único
+  // gate aquí es el mismo aviso de "exportación en periodo de prueba" que
+  // usan el resto de las descargas de esta pantalla — ver `pendingExport`.
+  function descargarAnalisisHistoricoPDF(entrada) {
+    if (descargaSoloWeb(toast)) return
+    if (exportsWatermarked) { setPendingExport({ run: () => ejecutarDescargaAnalisisHistoricoPDF(entrada) }); return }
+    ejecutarDescargaAnalisisHistoricoPDF(entrada)
   }
 
   // "Modificar fecha de entrega para este estudiante" — per-student deadline
@@ -966,7 +1221,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   function handleExportResultados(kind) {
     if (descargaSoloWeb(toast)) return
-    if (exportsWatermarked) { setPendingExport(kind); return }
+    if (exportsWatermarked) { setPendingExport({ run: () => runExportResultados(kind) }); return }
     runExportResultados(kind)
   }
 
@@ -1606,6 +1861,75 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               maxCalif={activity.maxCalif || 10}
               onGraficas={() => setShowGraficas(true)}
             />
+            {/* OP-10: solo aparece cuando hay entregas suficientes para un
+                análisis significativo — mismo umbral que valida el servidor. */}
+            {Object.values(submissions).filter((s) => s.estadoEvaluacion === 'finalizado').length >= MIN_ENTREGAS_ANALISIS && (
+              <button type="button" onClick={() => setAnalisisConfirmando(true)}
+                className="w-full mb-3 flex items-center justify-center gap-1.5 py-2.5 text-sm border-2 border-accent text-accent font-semibold rounded-card hover:bg-[var(--accent-tint)] transition-colors">
+                <Sparkles size={15} /> Analizar resultados con IA
+              </button>
+            )}
+            {/* Bitácora de OP-10: ver un análisis anterior o descargar su PDF
+                es gratis; solo generar uno NUEVO cuesta créditos (botón de
+                arriba). Cada renglón es la fotografía exacta de esa
+                generación, no se recalcula con las entregas actuales. */}
+            {analisisHistorial.length > 0 && (
+              <div className="mb-3 bg-surface-card rounded-card shadow-card p-3 space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted px-1">Bitácora de análisis con IA</p>
+                <ul className="divide-y divide-outline-variant">
+                  {analisisHistorial.map((h) => (
+                    <li key={h.id} className="py-2 px-1 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm text-on-surface font-medium truncate">
+                          {new Date(millisDeGeneradoEn(h.generadoEn)).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
+                        </p>
+                        <p className="text-xs text-muted">
+                          {h.entregasConsideradas} entrega{h.entregasConsideradas !== 1 ? 's' : ''} considerada{h.entregasConsideradas !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button type="button" onClick={() => verAnalisisHistorico(h)}
+                          className="px-2.5 py-1 text-xs font-semibold border border-outline-variant rounded hover:bg-surface-container transition-colors">
+                          Ver
+                        </button>
+                        <button type="button" onClick={() => descargarAnalisisHistoricoPDF(h)}
+                          disabled={analisisDescargandoId === h.id}
+                          className="px-2.5 py-1 text-xs font-semibold border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-60">
+                          {analisisDescargandoId === h.id ? '…' : 'PDF'}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {analisisConfirmando && (
+              <ConfirmacionCreditosModal
+                titulo="Analizar resultados con IA"
+                descripcion="El asistente analiza los resultados reales de esta evaluación (aciertos por reactivo, patrones y estudiantes con desempeño bajo) y propone un resumen con recomendaciones. Es una propuesta: tú decides qué hacer con ella."
+                costoMin={creditosIA.estimar('analizar_resultados') ?? 5}
+                ejecutando={analisisTrabajando}
+                onCancelar={() => { if (!analisisTrabajando) setAnalisisConfirmando(false) }}
+                onContinuar={generarAnalisisIA}
+              />
+            )}
+            {analisisResultado && (
+              <AnalisisResultadosIA
+                resultado={analisisResultado}
+                students={students}
+                activity={activity}
+                subject={subject}
+                membrete={membrete}
+                watermark={exportsWatermarked}
+                generadoEn={analisisGeneradoEn}
+                onClose={() => { setAnalisisResultado(null); setAnalisisGeneradoEn(null); setAnalisisId(null) }}
+                onGuardar={analisisId ? guardarAnalisisEditado : null}
+                onPedirDescarga={(ejecutar) => {
+                  if (exportsWatermarked) { setPendingExport({ run: ejecutar }); return }
+                  ejecutar()
+                }}
+              />
+            )}
             {/* Descargar los resultados de este cuestionario/examen. Van aquí,
                 pegados al análisis de resultados, porque es justo lo que el
                 docente acaba de ver en pantalla: el Excel para trabajarlo y el
@@ -1651,10 +1975,33 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               {/* Con reactivos de respuesta escrita / subir documento, el docente
                   debe intervenir: aviso + salto directo a la primera por calificar. */}
               {hasManual && resultCounts.porCalificar > 0 && (
-                <div className="mb-3 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-card flex items-center gap-2 text-sm text-amber-800">
-                  <span className="flex-1">
+                <div className="mb-3 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-card flex items-center gap-2 text-sm text-amber-800 flex-wrap">
+                  <span className="flex-1 min-w-[12rem]">
                     <strong>{resultCounts.porCalificar}</strong> entrega{resultCounts.porCalificar !== 1 ? 's' : ''} con reactivos de respuesta escrita o documentos que debes calificar.
+                    {(() => {
+                      const pendIA = Object.values(iaSugerencias).reduce((n, m) => n + Object.keys(m).length, 0)
+                      return pendIA > 0 ? (
+                        <span className="block text-xs text-accent mt-0.5">
+                          <Sparkles size={11} className="inline mr-1" aria-hidden="true" />
+                          {pendIA} sugerencia{pendIA !== 1 ? 's' : ''} de IA pendiente{pendIA !== 1 ? 's' : ''} de aplicar — ábrelas al calificar, sin costo adicional.
+                        </span>
+                      ) : null
+                    })()}
                   </span>
+                  {/* C-02: sugerencias de calificación por IA para TODOS los
+                      pendientes con respuestas de texto. Estimación previa
+                      obligatoria; la IA solo sugiere, el docente decide. */}
+                  {preguntas.some((p) => p.tipo === 'respuesta_corta') && (
+                    <button
+                      type="button"
+                      onClick={contarRespuestasIA}
+                      disabled={iaContando || iaTrabajando}
+                      className="flex-shrink-0 px-3 py-1.5 bg-accent text-white text-xs font-semibold rounded hover:bg-accent-hover transition-colors flex items-center gap-1.5 disabled:opacity-60"
+                    >
+                      <Sparkles size={13} />
+                      {iaContando ? 'Contando…' : iaTrabajando ? 'Trabajando…' : 'Sugerir con IA'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -1666,6 +2013,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     Calificar ahora
                   </button>
                 </div>
+              )}
+              {iaConteo && (
+                <ConfirmacionCreditosModal
+                  titulo="Sugerir calificaciones con IA"
+                  descripcion={`Se sugerirá calificación para ${iaConteo.respuestas} respuesta${iaConteo.respuestas !== 1 ? 's' : ''} de texto de ${iaConteo.estudiantes} estudiante${iaConteo.estudiantes !== 1 ? 's' : ''}. La IA solo sugiere: tú revisas y decides cada calificación.`}
+                  costoMin={creditosIA.estimar('calificar_abierta', iaConteo.respuestas) ?? iaConteo.respuestas}
+                  ejecutando={iaTrabajando}
+                  onCancelar={() => { if (!iaTrabajando) setIaConteo(null) }}
+                  onContinuar={ejecutarSugerenciasIA}
+                />
               )}
             <div className="rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
               <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
@@ -1860,8 +2217,49 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       const savedComent = respuesta.comentarioDocente || ''
                       const dirty = String(draft.puntos) !== String(savedPuntos) || (draft.comentario || '') !== savedComent
                       const saving = savingGradeId === p.id
+                      // C-02: sugerencia de IA para este reactivo (si el docente
+                      // corrió el lote en esta sesión). Solo se muestra — nada
+                      // se guarda hasta que él la aplique y presione Guardar.
+                      const sug = iaSugerencias[reviewing.submission?.id]?.[p.id]
                       return (
                         <div className="mt-1 p-3 rounded border border-accent/40 bg-[var(--accent-tint)] space-y-2">
+                          {sug && (
+                            <div className="p-2.5 rounded border border-accent/40 bg-surface-card space-y-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <Sparkles size={14} className="text-accent flex-shrink-0" />
+                                <p className="text-xs font-semibold text-accent">Sugerencia de IA — tú decides</p>
+                                <span className="ml-auto text-sm font-bold text-on-surface tabular-nums">{sug.puntos} / {p.ponderacion}</span>
+                              </div>
+                              {sug.criterios?.length > 1 ? (
+                                <ul className="text-xs text-muted list-disc pl-4">
+                                  {sug.criterios.map((cr) => <li key={cr.n}>{cr.puntos} pts — {cr.evidencia}</li>)}
+                                </ul>
+                              ) : sug.criterios?.[0]?.evidencia ? (
+                                <p className="text-xs text-muted">Evidencia: {sug.criterios[0].evidencia}</p>
+                              ) : null}
+                              {sug.fortalezas?.length > 0 && (
+                                <p className="text-xs text-emerald-700">✓ {sug.fortalezas.join(' · ')}</p>
+                              )}
+                              {sug.errores?.length > 0 && (
+                                <ul className="text-xs text-red-700/80 list-disc pl-4">
+                                  {sug.errores.map((e, ei) => <li key={ei}>{e.error}{e.evidencia ? ` — “${e.evidencia}”` : ''}</li>)}
+                                </ul>
+                              )}
+                              {sug.retroalimentacion && (
+                                <p className="text-xs text-muted italic">“{sug.retroalimentacion}”</p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setGradeDrafts((d) => ({
+                                  ...d,
+                                  [p.id]: { puntos: String(sug.puntos), comentario: sug.retroalimentacion || '' },
+                                }))}
+                                className="w-full py-1.5 border border-accent text-accent text-xs font-semibold rounded hover:bg-[var(--accent-medium)] transition-colors"
+                              >
+                                Usar sugerencia (puedes editarla antes de guardar)
+                              </button>
+                            </div>
+                          )}
                           <div className="flex items-center gap-2 flex-wrap">
                             <label htmlFor={`grade-${p.id}`} className="text-sm font-medium text-on-surface">Puntos</label>
                             <input
@@ -2148,13 +2546,18 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
       {/* Mismo aviso que en el resto de las exportaciones del docente: en
           periodo de prueba los archivos salen con marca de agua, y se le dice
-          antes de generarlos, no después. */}
+          antes de generarlos, no después.
+          `z={90}`: el PDF del análisis de OP-10 se pide desde dentro de
+          AnalisisResultadosIA, que es una pantalla completa a z-[60] — con
+          el z-index por defecto (50) este aviso quedaba TAPADO detrás de esa
+          pantalla, invisible aunque técnicamente estuviera montado. */}
       {pendingExport && (
         <ConfirmModal
+          z={90}
           title="Exportación en periodo de prueba"
           message="Los documentos generados durante el periodo de prueba incluyen una marca de agua de Evalúa Fácil. Al activar tu suscripción, todas las exportaciones se generarán sin marca de agua."
           confirmLabel="Continuar"
-          onConfirm={() => { const kind = pendingExport; setPendingExport(null); runExportResultados(kind) }}
+          onConfirm={() => { const p = pendingExport; setPendingExport(null); p.run() }}
           onCancel={() => setPendingExport(null)}
         />
       )}

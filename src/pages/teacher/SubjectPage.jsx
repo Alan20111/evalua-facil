@@ -6,7 +6,7 @@ import {
 } from 'firebase/firestore'
 // Las escrituras pasan por el candado de suscripción vencida (mismos nombres y
 // firmas que 'firebase/firestore'); leer sigue siendo directo.
-import { addDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
+import { addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -44,6 +44,8 @@ import VisibilitySelect from '../../components/VisibilitySelect'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
 import ParcialesFechas, { normalizeParcialesFechas, addOneDay } from '../../components/ParcialesFechas'
 import { minDeadline } from '../../utils/nowIso'
+import { fechaLimiteTimestamp } from '../../utils/deadline'
+import { submissionDocId } from '../../utils/submissionId'
 import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
@@ -61,7 +63,7 @@ import {
   Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
-  AlertTriangle, ArrowUp, ArrowDown,
+  AlertTriangle, ArrowUp, ArrowDown, Sparkles,
 } from 'lucide-react'
 import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
@@ -72,8 +74,12 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import EvaluacionEditor from '../../components/EvaluacionEditor'
 import EntregableEditor from '../../components/EntregableEditor'
+import CrearEvaluacionIAModal from '../../components/CrearEvaluacionIAModal'
+import CrearActividadIAModal from '../../components/CrearActividadIAModal'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
+import AsistenteIATab from '../../components/subject/AsistenteIATab'
+import { isPerfilIACompleto } from '../../utils/perfilIA'
 import { canCreateContent, hasCleanExports } from '../../utils/subscriptionHelpers'
 import ConfirmModal from '../../components/ConfirmModal'
 
@@ -530,6 +536,10 @@ export default function SubjectPage() {
   // Sin suscripción activa (trial, vencida, cancelada, pendiente_pago) todas
   // las exportaciones PDF/Excel llevan marca de agua — pedido explícito.
   const exportsWatermarked = !hasCleanExports(subscription)
+  // Asistente IA (FASE 2-BIS del Plan Maestro de IA) solo aparece si el
+  // docente ya completó su Perfil para IA — mismo contexto para todas sus
+  // asignaturas, capturado una sola vez (ver /perfil-ia).
+  const perfilIACompleto = isPerfilIACompleto(userProfile?.perfilIA)
   // Escuela + docente que encabezan cada PDF/Excel que se descarga de aquí.
   const membrete = membreteDe(userProfile)
   // Resuelve la promesa de confirmExportNotice() — no-null mientras el aviso
@@ -556,6 +566,10 @@ export default function SubjectPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   // null = showing the tipo picker, 'entregable'|'cuestionario'|'examen' = form visible
   const [tipoActividad, setTipoActividad] = useState(null)
+  // OP-03/OP-04 · Examen/Cuestionario con IA: null | { categoria }
+  const [crearEvalIA, setCrearEvalIA] = useState(null)
+  // OP-05 · Entregable/Observación con IA: null | { categoria }
+  const [crearActividadIA, setCrearActividadIA] = useState(null)
   // Full-screen evaluación editor (cuestionario / examen)
   const [evalEditor, setEvalEditor] = useState(null) // null | { activityId, categoria, parcial }
   // Full-screen entregable editor
@@ -953,8 +967,11 @@ export default function SubjectPage() {
           sinEntrega: true,
           fechaEntrega: serverTimestamp(),
         }
-        const ref = await addDoc(collection(db, 'submissions'), data)
-        setGradeSubMap((prev) => ({ ...prev, [key]: { id: ref.id, ...data } }))
+        // Id determinista + merge:true (A12 · H5 · R22) — ver persistGrade()
+        // en ActivityPage.jsx del docente.
+        const id = submissionDocId(activityId, studentId)
+        await setDoc(doc(db, 'submissions', id), data, { merge: true })
+        setGradeSubMap((prev) => ({ ...prev, [key]: { id, ...data } }))
       }
       toast('Calificación guardada')
       setGradeQuickEdit(null)
@@ -1275,6 +1292,7 @@ export default function SubjectPage() {
     if (tab === 'recursos' && !resourcesLoaded) ensureResources()
     if (tab === 'asistencia' && !attendanceLoaded) loadAttendance()
   }
+
 
   // En la app nativa, la pestaña Asistencias se ve en HORIZONTAL (para caber más
   // columnas); el resto de la app queda en vertical.
@@ -1717,7 +1735,8 @@ export default function SubjectPage() {
     for (let i = 0; i < pairs.length; i += 400) {
       const batch = writeBatch(db)
       pairs.slice(i, i + 400).forEach(({ sid, a, grade }) => {
-        const ref = doc(collection(db, 'submissions'))
+        // Id determinista (A12 · H5 · R22).
+        const ref = doc(db, 'submissions', submissionDocId(a.id, sid))
         batch.set(ref, {
           alumnoId: sid,
           actividadId: a.id,
@@ -1986,6 +2005,7 @@ export default function SubjectPage() {
         conExtension.forEach((a) => {
           extBatch.update(doc(db, 'activities', a.id), {
             [`extensiones.${studentToDelete.id}`]: deleteField(),
+            [`extensionesTS.${studentToDelete.id}`]: deleteField(),
             [`extensionesMotivo.${studentToDelete.id}`]: deleteField(),
           })
         })
@@ -2345,6 +2365,10 @@ export default function SubjectPage() {
         instrucciones: sanitizeHtml(form.instrucciones),
         archivosAdjuntos: [...activityExistingFiles, ...uploaded],
         fechaLimite: form.fechaLimite || null,
+        // Timestamp mirror of fechaLimite — see src/utils/deadline.js. This is
+        // what firestore.rules actually enforces (A12 H3); the string above is
+        // display-only from here on.
+        fechaLimiteTS: fechaLimiteTimestamp(form.fechaLimite),
         // Keep receiving submissions after the deadline (marked as "tarde")
         recibirTarde: form.fechaLimite ? !!form.recibirTarde : false,
         tiposArchivo,
@@ -2705,8 +2729,9 @@ export default function SubjectPage() {
   }
 
   // Duplicate an activity as a DRAFT copy: same instructions, file types,
-  // attachments and evaluación config/preguntas — but hidden, unpublished,
-  // unnumbered and without deadline, ready to rename and publish later.
+  // attachments, rubric, grading weight and evaluación config/preguntas — but
+  // hidden, unpublished, unnumbered and without deadline, ready to rename and
+  // publish later.
   async function handleDuplicateActivity() {
     if (!duplicateConfirm) return
     setDuplicating(true)
@@ -2723,6 +2748,9 @@ export default function SubjectPage() {
         tiposArchivo: src.tiposArchivo || [],
         extensionesCustom: src.extensionesCustom || '',
         tipo: src.tipo || 'archivo',
+        rubrica: src.rubrica || null,
+        rubricaId: src.rubricaId || null,
+        pesoCalificacion: src.pesoCalificacion ?? null,
         ...(src.evaluacion ? { evaluacion: src.evaluacion } : {}),
         oculta: true, publishAt: null, publishedAt: null,
         parcial: src.parcial, orden,
@@ -3045,9 +3073,17 @@ export default function SubjectPage() {
         else if (sub.calificacion == null) ungraded++
       })
     })
+    // A09 · Tope de la calificación del cierre. Es el único camino que escribía
+    // notas SIN límite por arriba —y en bloque, a todo el que no entregó—,
+    // mientras que calificar una por una, el arreglo rápido de la tabla y el
+    // panel de la actividad topan todos contra `maxCalif`. Un 50 en escala de
+    // 10 envenenaba el promedio del parcial, el final y lo exportado.
+    // Se toma la escala MÁS BAJA del parcial para que el mismo número sirva
+    // para todas; al escribir se vuelve a acotar contra la de cada actividad.
+    const topeCalif = acts.length ? Math.min(...acts.map((a) => a.maxCalif ?? 10)) : 10
     playAlertSound()
-    setCloseParcialGrade('5')
-    setCloseParcialConfirm({ p, missing, ungraded, pondError })
+    setCloseParcialGrade(String(Math.min(5, topeCalif)))
+    setCloseParcialConfirm({ p, missing, ungraded, pondError, topeCalif })
   }
 
   // Revert a close: delete the 0-grades created by the close (cierreParcial=true)
@@ -3090,9 +3126,10 @@ export default function SubjectPage() {
 
   async function confirmCloseParcial() {
     if (!closeParcialConfirm) return
-    const { p, missing } = closeParcialConfirm
-    // Grade to assign to every no-entrega (default 0 if the field is left blank)
-    const grade = Math.max(0, parseFloat(closeParcialGrade) || 0)
+    const { p, missing, topeCalif = 10 } = closeParcialConfirm
+    // Grade to assign to every no-entrega (default 0 if the field is left
+    // blank), acotada contra la escala del parcial — ver topeCalif arriba.
+    const grade = Math.min(Math.max(0, parseFloat(closeParcialGrade) || 0), topeCalif)
     setClosingParcial(true)
     try {
       // Batched creates (Firestore caps batches at 500 writes)
@@ -3100,11 +3137,15 @@ export default function SubjectPage() {
       for (let i = 0; i < missing.length; i += 400) {
         const batch = writeBatch(db)
         missing.slice(i, i + 400).forEach(({ s, a }) => {
-          const ref = doc(collection(db, 'submissions'))
+          // Id determinista (A12 · H5 · R22).
+          const ref = doc(db, 'submissions', submissionDocId(a.id, s.id))
           const data = {
             alumnoId: s.id,
             actividadId: a.id,
-            calificacion: grade,
+            // Segundo acotado, contra la escala de ESTA actividad: `grade` ya
+            // viene topado por la más baja del parcial, pero si algún día
+            // conviven escalas distintas cada nota respeta la suya.
+            calificacion: Math.min(grade, a.maxCalif ?? 10),
             comentario: '',
             estado: 'calificado',
             sinEntrega: true,
@@ -3950,12 +3991,15 @@ export default function SubjectPage() {
               {(IS_NATIVE_APP
                 ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
                 : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos']
-              ).map((t) => (
+              // Config Asistente IA nunca en la app nativa (pedido de Kike,
+              // 15-ago-2026, mismo criterio que Calificaciones): la revisión
+              // de la Planeación necesita pantalla ancha para ser usable.
+              ).concat(!IS_NATIVE_APP && perfilIACompleto ? ['asistente-ia'] : []).map((t) => (
                 <button type="button" key={t} onClick={() => switchTab(t)}
                   className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                     activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                   }`}>
-                  {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : 'Avisos'}
+                  {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Config Asistente IA'}
                 </button>
               ))}
             </div>
@@ -5382,6 +5426,22 @@ export default function SubjectPage() {
           />
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════
+          TAB: ASISTENTE IA — solo Fuentes en esta etapa (FASE 2-BIS)
+      ══════════════════════════════════════════════════════════ */}
+      {activeTab === 'asistente-ia' && perfilIACompleto && !IS_NATIVE_APP && (
+        <div className={TEACHER_CONTAINER_NARROW}>
+          <AsistenteIATab
+            subjectId={subjectId}
+            docenteId={currentUser.uid}
+            asignaturaNombre={subject?.nombre || ''}
+            subject={subject}
+            watermark={exportsWatermarked}
+            existingActivitiesCountP1={activities.filter((a) => a.parcial === 1).length}
+          />
+        </div>
+      )}
       </div>
 
       {/* ── Activity create/edit modal ── */}
@@ -5409,12 +5469,20 @@ export default function SubjectPage() {
                   { key: 'cuestionario', label: 'Cuestionario', desc: 'Preguntas con calificación automática, abiertas o con archivo. Ideal para práctica o aprendizaje.', Icon: ListChecks, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
                   { key: 'examen', label: 'Examen', desc: 'Preguntas con calificación automática, abiertas o con archivo. Para evaluación formal.', Icon: GraduationCap, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
                   { key: 'observacion', label: 'Observación', desc: 'Sin entrega del alumno: tú observas y calificas. Ej.: actitud, exposición de tema, realización de ejercicio.', Icon: ClipboardCheck, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
+                  { key: 'cuestionario_ia', label: 'Cuestionario con IA', desc: 'Describe qué quieres evaluar y el asistente genera el cuestionario completo con sus reactivos.', Icon: Sparkles, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
+                  { key: 'examen_ia', label: 'Examen con IA', desc: 'Describe qué quieres evaluar y el asistente genera el examen completo con sus reactivos.', Icon: Sparkles, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
+                  { key: 'entregable_ia', label: 'Entregable con IA', desc: 'Describe qué quieres que entreguen tus estudiantes y el asistente genera la actividad completa.', Icon: Sparkles, iconColor: 'text-slate-500', iconBg: 'bg-slate-100' },
+                  { key: 'observacion_ia', label: 'Observación con IA', desc: 'Describe qué quieres observar y el asistente genera la actividad completa.', Icon: Sparkles, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
                 ].map((opt) => (
                   <button key={opt.key} type="button"
                     onClick={() => {
                       setShowModal(false)
                       if (opt.key === 'entregable' || opt.key === 'observacion') {
                         setEntregableEditor({ activityId: null, parcial: modalParcial, categoria: opt.key, activityLabel: null, initialForm: null, initialExistingFiles: null })
+                      } else if (opt.key === 'cuestionario_ia' || opt.key === 'examen_ia') {
+                        setCrearEvalIA({ categoria: opt.key === 'cuestionario_ia' ? 'cuestionario' : 'examen' })
+                      } else if (opt.key === 'entregable_ia' || opt.key === 'observacion_ia') {
+                        setCrearActividadIA({ categoria: opt.key === 'entregable_ia' ? 'entregable' : 'observacion' })
                       } else {
                         setEvalEditor({ activityId: null, categoria: opt.key, parcial: modalParcial, activityLabel: `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.` })
                       }
@@ -6338,12 +6406,14 @@ export default function SubjectPage() {
                         id="close-parcial-grade"
                         type="number"
                         min="0"
+                        max={closeParcialConfirm.topeCalif ?? 10}
                         step="0.1"
                         value={closeParcialGrade}
                         onChange={(e) => setCloseParcialGrade(e.target.value)}
                         disabled={closingParcial}
                         className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       />
+                      <span className="text-sm text-muted">/ {closeParcialConfirm.topeCalif ?? 10}</span>
                     </div>
                   </>
                 ) : (
@@ -6356,7 +6426,7 @@ export default function SubjectPage() {
                   </button>
                   <button type="button" onClick={confirmCloseParcial} disabled={closingParcial}
                     className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
-                    {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? `Cerrar y poner ${Math.max(0, parseFloat(closeParcialGrade) || 0)}` : 'Cerrar parcial')}
+                    {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? `Cerrar y poner ${Math.min(Math.max(0, parseFloat(closeParcialGrade) || 0), closeParcialConfirm.topeCalif ?? 10)}` : 'Cerrar parcial')}
                   </button>
                 </div>
               </>
@@ -7084,6 +7154,11 @@ export default function SubjectPage() {
           onActivityCreated={(act) => {
             setActivities((prev) => [...prev, act])
             setSubmissionCounts((prev) => ({ ...prev, [act.id]: { delivered: 0, graded: 0 } }))
+            // El editor puede crear la actividad SIN cerrarse (guardar borrador
+            // para generar la rúbrica con IA). Si el editor sigue abierto, este
+            // estado tiene que apuntar ya a la actividad creada: de ahí salen
+            // el borrado y la "Nueva fecha de entrega" de esta pantalla.
+            setEntregableEditor((prev) => (prev && !prev.activityId ? { ...prev, activityId: act.id } : prev))
           }}
           onActivityUpdated={(act) => {
             setActivities((prev) => prev.map((a) => a.id === act.id ? { ...a, ...act } : a))
@@ -7105,6 +7180,80 @@ export default function SubjectPage() {
           students={groupStudents}
           onClose={() => setNewDateOpen(false)}
           onSaved={applyNewDateResult}
+        />
+      )}
+
+      {/* ── OP-03/OP-04 · Examen/Cuestionario con IA ── */}
+      {crearEvalIA && (
+        <CrearEvaluacionIAModal
+          open={!!crearEvalIA}
+          categoria={crearEvalIA.categoria}
+          asignaturaId={subjectId}
+          asignaturaNombre={subjectDisplayName(subject)}
+          parcial={modalParcial}
+          docenteId={currentUser?.uid}
+          existingActivitiesCountInParcial={activities.filter((a) => a.parcial === modalParcial).length}
+          onClose={() => setCrearEvalIA(null)}
+          onCreated={(activityId) => {
+            const label = `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.`
+            setCrearEvalIA(null)
+            // Misma ruta que "Editar": abre el editor completo ya con los
+            // reactivos que generó la IA, para que el docente los revise.
+            setEvalEditor({ activityId, categoria: crearEvalIA.categoria, parcial: modalParcial, activityLabel: label })
+          }}
+        />
+      )}
+
+      {/* ── OP-05 · Entregable/Observación con IA ── */}
+      {crearActividadIA && (
+        <CrearActividadIAModal
+          open={!!crearActividadIA}
+          categoria={crearActividadIA.categoria}
+          asignaturaId={subjectId}
+          asignaturaNombre={subjectDisplayName(subject)}
+          parcial={modalParcial}
+          docenteId={currentUser?.uid}
+          existingActivitiesCountInParcial={activities.filter((a) => a.parcial === modalParcial).length}
+          onClose={() => setCrearActividadIA(null)}
+          onCreated={async (activityId) => {
+            const label = `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.`
+            const categoria = crearActividadIA.categoria
+            setCrearActividadIA(null)
+            // A diferencia de CrearEvaluacionIAModal (donde EvaluacionEditor
+            // se auto-carga por activityId), EntregableEditor necesita
+            // `initialForm` ya armado — y lo que generó la IA vive en el
+            // servidor, no en el `activities` local (creado vacío antes de
+            // llamar a la IA). Se relee el documento fresco, mismo shape que
+            // openEdit() de arriba.
+            let activity = null
+            try {
+              const snap = await getDoc(doc(db, 'activities', activityId))
+              if (snap.exists()) activity = { id: snap.id, ...snap.data() }
+            } catch { /* si falla, se abre con el formulario en blanco */ }
+            if (activity) setActivities((prev) => [...prev, activity])
+            setEntregableEditor({
+              activityId,
+              parcial: modalParcial,
+              categoria,
+              activityLabel: label,
+              initialExistingFiles: activity?.archivosAdjuntos || [],
+              initialForm: activity ? {
+                nombre: activity.nombre || '',
+                instrucciones: toRichHtml(activity.instrucciones || ''),
+                fechaLimite: activity.fechaLimite ? withDefaultTime(activity.fechaLimite, '00:00') : '',
+                tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
+                extensionesCustom: activity.extensionesCustom || '',
+                oculta: activity.oculta ?? true,
+                publishAt: activity.publishAt || '',
+                publishedAt: activity.publishedAt || '',
+                visibilidadMode: !activity.oculta ? 'published' : activity.publishAt ? 'schedule' : 'hide',
+                cerrarEntregasEnFecha: !activity.recibirTarde,
+                rubrica: activity.rubrica || null,
+                rubricaId: activity.rubricaId || null,
+                notificarDocente: activity.notificarDocente || false,
+              } : null,
+            })
+          }}
         />
       )}
 
