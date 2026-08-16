@@ -1952,6 +1952,26 @@ function consideracionesATexto(consideraciones) {
 // (recibe `subjectId` ya resuelto) porque a partir del 12-ago-2026 el de
 // conocimientos también necesita validar una actividad (ver
 // precheckDiagnosticoConocimientos) antes de llegar a este punto común.
+// El programa de estudios es la BASE de todo el Asistente IA (decisión de
+// Kike, 15-ago-2026: "un programa de estudios es la base de todo, de la
+// planeación, de los temas, de los tiempos, de todo") — requisito aparte de
+// "Fuentes del curso" (fuentesAsignatura ubicacion:'general', que sigue
+// existiendo pero ahora es solo material COMPLEMENTARIO, ya no obligatorio).
+// El programa vive en asistenteIA/config.programaEstudios (mismo patrón que
+// plantillaOficial). `configSnap` se puede pasar ya leído para no repetir
+// la lectura si el llamador ya lo tenía.
+async function requerirProgramaEstudios(db, subjectId, configSnap) {
+  const config = (configSnap || await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()).data()
+  const programaEstudios = config?.programaEstudios
+  if (!programaEstudios?.url) {
+    throw new HttpsError('failed-precondition',
+      'Sube primero la Fuente Principal en PDF (arriba, en Fuente Principal / programa de estudios) — nada ' +
+      'pesa más que ella en todo lo que hace el Asistente IA. No se descontaron créditos.',
+      { codigo: 'SIN_PROGRAMA_ESTUDIOS' })
+  }
+  return programaEstudios
+}
+
 async function precheckDiagnosticoBase({ uid, subjectId }) {
   const db = getFirestore()
   if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura.')
@@ -1969,31 +1989,29 @@ async function precheckDiagnosticoBase({ uid, subjectId }) {
       { codigo: 'PERFIL_IA_INCOMPLETO' })
   }
 
+  const configSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
+  const programaEstudios = await requerirProgramaEstudios(db, subjectId, configSnap)
+
+  // Fuentes del curso: opcionales, complementarias al programa (que ya es
+  // obligatorio y se manda primero — ver requerirProgramaEstudios).
   const fuentesSnap = await db.collection('fuentesAsignatura')
     .where('asignaturaId', '==', subjectId)
     .where('ubicacion', '==', 'general')
     .get()
-  if (fuentesSnap.empty) {
-    throw new HttpsError('failed-precondition',
-      'Agrega primero al menos un documento en Config Asistente IA → Fuentes → Fuentes para todo el curso. No se descontaron créditos.',
-      { codigo: 'SIN_FUENTES_GENERALES' })
-  }
-
   const fuentes = fuentesSnap.docs.map((d) => {
     const data = d.data()
     return { id: d.id, ...data, creadoEnMillis: data.creadoEn?.toMillis?.() || 0 }
   })
   const seleccionadas = seleccionarFuentesGenerales(fuentes)
-  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes(seleccionadas.map((f) => f.url))
-  const comentariosGrupoSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
-  const comentariosGrupoTexto = comentariosGrupoATexto(comentariosGrupoSnap.data()?.comentariosGrupo)
+  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes([programaEstudios.url, ...seleccionadas.map((f) => f.url)])
+  const comentariosGrupoTexto = comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)
 
   return {
     asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
     perfilIATexto: perfilIATexto(perfilIA),
     comentariosGrupoTexto,
     bloqueFuentes,
-    fuentesUsadas: seleccionadas.map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
+    fuentesUsadas: [{ id: 'programa', nombre: programaEstudios.nombre }, ...seleccionadas.map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) }))],
   }
 }
 
@@ -2488,17 +2506,14 @@ async function precheckPlaneacionInicial({ uid, params }) {
   }
   const perfilIATextoVal = perfilIATexto(perfilIA)
 
+  const programaEstudiosGen = await requerirProgramaEstudios(db, subjectId)
+
   const fuentesSnap = await db.collection('fuentesAsignatura').where('asignaturaId', '==', subjectId).get()
   const fuentes = fuentesSnap.docs.map((d) => {
     const data = d.data()
     return { id: d.id, ...data, creadoEnMillis: data.creadoEn?.toMillis?.() || 0 }
   })
   const generales = fuentes.filter((f) => f.ubicacion === 'general')
-  if (!generales.length) {
-    throw new HttpsError('failed-precondition',
-      'Agrega primero al menos un documento en Config Asistente IA → Fuentes → Fuentes para todo el curso. No se descontaron créditos.',
-      { codigo: 'SIN_FUENTES_GENERALES' })
-  }
 
   // Diagnóstico de CONTEXTO (corrección de Kike, 12-ago-2026, Tanda 2): ya es
   // un cuestionario real — igual que conocimientos, el resultado que cuenta
@@ -2558,7 +2573,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
   }
 
   const bloqueFuentesGenerales = await fuentesIA.prepararBloqueFuentes(
-    seleccionarFuentesGenerales(generales).map((f) => f.url)
+    [programaEstudiosGen.url, ...seleccionarFuentesGenerales(generales).map((f) => f.url)]
   )
   const configSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
   const comentariosGrupoTexto = incluir.comentarios
@@ -2718,7 +2733,8 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     'genérico que serviría igual para cualquier tema.\n\n' +
     'Responde SOLO con este JSON — una entrada por cada celda que decidas llenar, usando EXACTAMENTE su ' +
     'posición (f=fila, c=columna, t=tabla si aplica) y el texto que le corresponde:\n' +
-    '{"celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 400 caracteres>"}]}'
+    '{"celdas": [{"f": <fila>, "c": <columna>, "t": <tabla o null>, "x": "<texto, máx 4000 caracteres — nunca ' +
+    'lo cortes a media palabra ni a media idea>"}]}'
   )
 }
 
@@ -2748,7 +2764,13 @@ async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
     for (const c of celdasCrudas) {
       const f = Number(c?.f), col = Number(c?.c)
       const t = c?.t == null ? null : Number(c.t)
-      const x = typeof c?.x === 'string' ? c.x.trim().slice(0, 400) : ''
+      // 400 caracteres cortaba a media palabra celdas largas de verdad (p.
+      // ej. "Actividades de enseñanza-aprendizaje" con varias sesiones) —
+      // Kike lo detectó en producción, 15-ago-2026: "aqui no debes de
+      // cortar el texto". 4000 es el mismo tope que se usa para bloques de
+      // texto largo en otras operaciones de este archivo (ver
+      // instrucciones.slice(0, 4000) arriba).
+      const x = typeof c?.x === 'string' ? c.x.trim().slice(0, 4000) : ''
       if (!x || !Number.isFinite(f) || !Number.isFinite(col)) continue
       if (!vacias.has(`${t ?? ''}_${f}_${col}`)) continue
       celdas.push({ f, c: col, t, x })
@@ -2832,11 +2854,12 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
       { codigo: 'SIN_PLANTILLA_OFICIAL' })
   }
   const celdas = validarCeldasPlantilla(params)
+  const programaEstudiosOf = await requerirProgramaEstudios(db, subjectId, configSnap)
 
-  // El ÚNICO insumo obligatorio es el programa de estudios (fuentes
-  // generales) — todo lo demás (Perfil IA, comentarios del grupo,
-  // autoanálisis, ambos diagnósticos) es opcional: el docente marca en
-  // pantalla cuáles quiere incluir, y si marca uno, ese sí tiene que
+  // El ÚNICO insumo obligatorio, además del programa de estudios, es el
+  // Perfil IA (si se marca incluirlo) — todo lo demás (comentarios del
+  // grupo, autoanálisis, ambos diagnósticos) es opcional: el docente marca
+  // en pantalla cuáles quiere incluir, y si marca uno, ese sí tiene que
   // estar listo (si no, se detiene con el mismo error de siempre). Lo que
   // NO marca simplemente no se manda a la IA — decisión de Kike, 14-ago-2026.
   const incluir = {
@@ -2854,12 +2877,6 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
     return { id: d.id, ...data, creadoEnMillis: data.creadoEn?.toMillis?.() || 0 }
   })
   const generales = fuentes.filter((f) => f.ubicacion === 'general')
-  if (!generales.length) {
-    throw new HttpsError('failed-precondition',
-      'Agrega primero al menos un documento en Config Asistente IA → Fuentes → Fuentes para todo el curso ' +
-      '(el programa de estudios es el único requisito indispensable). No se descontaron créditos.',
-      { codigo: 'SIN_FUENTES_GENERALES' })
-  }
 
   let perfilIATextoVal = ''
   if (incluir.perfil) {
@@ -2898,7 +2915,7 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
   }
 
   const bloqueFuentesGenerales = await fuentesIA.prepararBloqueFuentes(
-    seleccionarFuentesGenerales(generales).map((f) => f.url)
+    [programaEstudiosOf.url, ...seleccionarFuentesGenerales(generales).map((f) => f.url)]
   )
   const comentariosGrupoTexto = incluir.comentarios
     ? comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)

@@ -54,7 +54,7 @@ function EstadoPlaneacionBadge({ lista }) {
     : 'bg-amber-50 text-amber-700 border-amber-200'
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${className}`}>
-      {lista ? 'Lista para generar' : 'Falta el programa de estudios'}
+      {lista ? 'Lista para generar' : 'Falta la Fuente Principal'}
     </span>
   )
 }
@@ -82,7 +82,7 @@ function InsumosOpcionales({
     <fieldset className="mb-2 p-2.5 rounded border border-outline-variant">
       <legend className="text-sm text-on-surface px-1">Insumos a incluir</legend>
       <p className="text-xs text-muted mb-1.5">
-        Tu Perfil IA y el programa de estudios (Fuentes) siempre se usan. Los demás se marcan arriba, en la
+        Tu Perfil IA y la Fuente Principal (programa de estudios) siempre se usan. Los demás se marcan arriba, en la
         tarjeta de cada uno — entre más insumos incluyas y tengas listos, mejor planeación obtendrás.
       </p>
       {resumen.map(([texto, checked]) => (
@@ -116,7 +116,7 @@ function CeldaEditable({ value, onChange, placeholder }) {
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      maxLength={400}
+      maxLength={4000}
     />
   )
 }
@@ -423,9 +423,15 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
         disponible.
       </p>
 
+      {subjectPlaneacionLoaded && !subjectPlaneacion?.planeacionAceptada && !subjectPlaneacion?.planeacionOficialAceptada && (
+        <p className="text-sm font-semibold text-red-600 mb-2">
+          Haz que tu IA tenga la mejor congruencia ACEPTANDO tu planeación didáctica INICIAL.
+        </p>
+      )}
+
       {!habilitado && (
         <ul className="space-y-1 mb-1">
-          <RequisitoItem ok={hayFuentesGenerales} texto="Fuentes para todo el curso (programa de estudios)" />
+          <RequisitoItem ok={hayFuentesGenerales} texto="Fuente Principal (programa de estudios)" />
         </ul>
       )}
 
@@ -620,7 +626,7 @@ function FormatoSection({
       setConfirmando(false)
       if (err.codigo === 'SALDO_INSUFICIENTE') toast('No tienes suficientes créditos de IA para esta acción', 'error')
       else if (err.codigo === 'PERFIL_IA_INCOMPLETO') toast('Marcaste incluir tu Perfil IA, pero todavía no lo completas — complétalo o desmarca esa casilla', 'error')
-      else if (err.codigo === 'SIN_FUENTES_GENERALES') toast('Agrega primero un documento en Fuentes para todo el curso', 'error')
+      else if (err.codigo === 'SIN_PROGRAMA_ESTUDIOS') toast('Sube primero la Fuente Principal (programa de estudios)', 'error')
       else if (err.codigo === 'SIN_DIAGNOSTICO_CONTEXTO') toast('Marcaste incluir el Diagnóstico de contexto, pero todavía no tiene resultados analizados — genera y analiza el instrumento, o desmarca esa casilla', 'error')
       else if (err.codigo === 'SIN_DIAGNOSTICO_CONOCIMIENTOS') toast('Marcaste incluir el Diagnóstico de conocimientos, pero todavía no tiene resultados analizados — genera y analiza el cuestionario, o desmarca esa casilla', 'error')
       else if (err.codigo === 'SIN_PLANTILLA_OFICIAL') toast('Sube primero la plantilla oficial de tu escuela', 'error')

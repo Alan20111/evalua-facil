@@ -1378,29 +1378,25 @@ await caso('sin Perfil IA completo → failed-precondition PERFIL_IA_INCOMPLETO,
   assert.deepStrictEqual((await creditosDe())?.saldo ?? null, antes?.saldo ?? null)
 })
 
-await caso('Perfil IA completo pero SIN fuentes generales → failed-precondition SIN_FUENTES_GENERALES, no cobra', async () => {
+await caso('Perfil IA completo pero SIN programa de estudios → failed-precondition SIN_PROGRAMA_ESTUDIOS, no cobra', async () => {
   await db.doc(`users/${DOCENTE}`).set({ perfilIA: PERFIL_IA_COMPLETO }, { merge: true })
   const antes = await creditosDe()
   const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag' })
   assert.ok(String(e.code).includes('failed-precondition'), e.code)
-  assert.strictEqual(e.details.codigo, 'SIN_FUENTES_GENERALES')
+  assert.strictEqual(e.details.codigo, 'SIN_PROGRAMA_ESTUDIOS')
   assert.deepStrictEqual((await creditosDe())?.saldo ?? null, antes?.saldo ?? null)
 })
 
-await caso('una fuente de PARCIAL (no general) no cuenta para habilitar el diagnóstico', async () => {
-  await db.collection('fuentesAsignatura').add({
-    asignaturaId: 'sub_diag', docenteId: DOCENTE, nombre: 'parcial1.pdf',
-    ubicacion: 'parcial', parcial: 1, url: 'https://res.cloudinary.com/demo/raw/upload/v1/x.pdf',
-  })
-  const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag' })
-  assert.strictEqual(e.details.codigo, 'SIN_FUENTES_GENERALES')
-})
-
-await caso('con Perfil IA completo y una fuente general: pasa ambas validaciones (llega a intentar leer la fuente)', async () => {
-  await db.collection('fuentesAsignatura').add({
-    asignaturaId: 'sub_diag', docenteId: DOCENTE, nombre: 'programa.pdf',
-    ubicacion: 'general', parcial: null, url: 'https://res.cloudinary.com/demo/raw/upload/v1/programa-de-prueba.pdf',
-  })
+// Fuentes del curso (ubicacion:'general') ya NO son requisito — son
+// complementarias al programa de estudios, que es el único obligatorio
+// (decisión de Kike, 15-ago-2026: "un programa de estudios es la base de
+// todo"). Por eso NO hay una prueba de "fuente de parcial no cuenta": sin
+// programa nada avanza, y con programa nada más ya no bloquea.
+await caso('con Perfil IA completo y programa de estudios: pasa ambas validaciones (llega a intentar leer el programa)', async () => {
+  await db.doc('subjects/sub_diag/asistenteIA/config').set({
+    docenteId: DOCENTE,
+    programaEstudios: { nombre: 'programa.pdf', tipo: 'pdf', url: 'https://res.cloudinary.com/demo/raw/upload/v1/programa-de-prueba.pdf' },
+  }, { merge: true })
   const e = await precheckDiagnosticoFalla({ subjectId: 'sub_diag' })
   // La URL de prueba no existe de verdad — falla al intentar LEERLA (llamada de
   // red, fuera del alcance de esta prueba), pero eso demuestra que ya pasó las
@@ -1408,7 +1404,7 @@ await caso('con Perfil IA completo y una fuente general: pasa ambas validaciones
   // de arriba.
   assert.ok(e, 'debe fallar (URL de prueba no descargable)')
   assert.notStrictEqual(e.details?.codigo, 'PERFIL_IA_INCOMPLETO')
-  assert.notStrictEqual(e.details?.codigo, 'SIN_FUENTES_GENERALES')
+  assert.notStrictEqual(e.details?.codigo, 'SIN_PROGRAMA_ESTUDIOS')
 })
 
 // ── precheckDiagnosticoContexto (corrección de Kike, 12-ago-2026, Tanda 2) ─
@@ -1449,7 +1445,7 @@ await caso('precheckDiagnosticoContexto: una actividad que NO es diagnóstico de
 await caso('precheckDiagnosticoContexto: actividad válida → pasa su propia validación (llega a intentar leer la fuente)', async () => {
   await assert.rejects(
     () => IA.precheckDiagnosticoContexto({ uid: DOCENTE, params: { actividadId: 'act_diag_ctx' } }),
-    (e) => String(e.code).includes('failed-precondition') && !['PERFIL_IA_INCOMPLETO', 'SIN_FUENTES_GENERALES'].includes(e.details?.codigo)
+    (e) => String(e.code).includes('failed-precondition') && !['PERFIL_IA_INCOMPLETO', 'SIN_PROGRAMA_ESTUDIOS'].includes(e.details?.codigo)
   )
 })
 
@@ -1497,7 +1493,7 @@ await caso('precheckDiagnosticoConocimientos: una actividad que NO es diagnósti
 await caso('precheckDiagnosticoConocimientos: actividad válida → pasa su propia validación (llega a intentar leer la fuente)', async () => {
   await assert.rejects(
     () => IA.precheckDiagnosticoConocimientos({ uid: DOCENTE, params: { actividadId: 'act_diag_conoc', cantidad: 999 } }),
-    (e) => String(e.code).includes('failed-precondition') && !['PERFIL_IA_INCOMPLETO', 'SIN_FUENTES_GENERALES'].includes(e.details?.codigo)
+    (e) => String(e.code).includes('failed-precondition') && !['PERFIL_IA_INCOMPLETO', 'SIN_PROGRAMA_ESTUDIOS'].includes(e.details?.codigo)
   )
 })
 
@@ -1563,17 +1559,17 @@ await caso('sin Perfil IA completo → PERFIL_IA_INCOMPLETO, no cobra', async ()
   assert.strictEqual(e.details.codigo, 'PERFIL_IA_INCOMPLETO')
 })
 
-await caso('con Perfil IA pero SIN fuentes generales → SIN_FUENTES_GENERALES', async () => {
+await caso('con Perfil IA pero SIN programa de estudios (Fuente Principal) → SIN_PROGRAMA_ESTUDIOS', async () => {
   await db.doc(`users/${DOCENTE}`).set({ perfilIA: PERFIL_IA_COMPLETO }, { merge: true })
   const e = await precheckPlaneacionFalla({ subjectId: 'sub_plan' })
-  assert.strictEqual(e.details.codigo, 'SIN_FUENTES_GENERALES')
+  assert.strictEqual(e.details.codigo, 'SIN_PROGRAMA_ESTUDIOS')
 })
 
-await caso('con fuentes generales pero SIN diagnóstico de contexto → SIN_DIAGNOSTICO_CONTEXTO', async () => {
-  await db.collection('fuentesAsignatura').add({
-    asignaturaId: 'sub_plan', docenteId: DOCENTE, nombre: 'programa.pdf',
-    ubicacion: 'general', parcial: null, url: 'https://res.cloudinary.com/demo/raw/upload/v1/programa.pdf',
-  })
+await caso('con programa de estudios pero SIN diagnóstico de contexto → SIN_DIAGNOSTICO_CONTEXTO', async () => {
+  await db.doc('subjects/sub_plan/asistenteIA/config').set({
+    docenteId: DOCENTE,
+    programaEstudios: { nombre: 'programa.pdf', tipo: 'pdf', url: 'https://res.cloudinary.com/demo/raw/upload/v1/programa.pdf' },
+  }, { merge: true })
   const e = await precheckPlaneacionFalla({ subjectId: 'sub_plan' })
   assert.strictEqual(e.details.codigo, 'SIN_DIAGNOSTICO_CONTEXTO')
 })
@@ -1599,10 +1595,10 @@ await caso('un diagnóstico VIEJO (formato simulado, subjects/{id}/diagnosticosI
   // La asignatura de prueba dedicada evita interferir con el estado
   // secuencial de sub_plan (usado por el resto de este grupo).
   await db.doc('subjects/sub_plan_viejo').set({ docenteId: DOCENTE, nombre: 'Con diagnóstico viejo', parciales: 1 })
-  await db.collection('fuentesAsignatura').add({
-    asignaturaId: 'sub_plan_viejo', docenteId: DOCENTE, nombre: 'programa.pdf',
-    ubicacion: 'general', parcial: null, url: 'https://res.cloudinary.com/demo/raw/upload/v1/programa.pdf',
-  })
+  await db.doc('subjects/sub_plan_viejo/asistenteIA/config').set({
+    docenteId: DOCENTE,
+    programaEstudios: { nombre: 'programa.pdf', tipo: 'pdf', url: 'https://res.cloudinary.com/demo/raw/upload/v1/programa.pdf' },
+  }, { merge: true })
   // Diagnósticos del formato simulado descartado — YA NO cuentan.
   await db.collection('subjects/sub_plan_viejo/diagnosticosIA').add({
     tipo: 'contexto', docenteId: DOCENTE, resultado: { datosEncontrados: ['viejo'] },
@@ -1634,7 +1630,7 @@ await caso('con la secuencia COMPLETA: arma el contexto con los 2 parciales real
   // las cuatro validaciones anteriores.
   assert.ok(e, 'debe fallar (URL de prueba no descargable)')
   assert.notStrictEqual(e.details?.codigo, 'PERFIL_IA_INCOMPLETO')
-  assert.notStrictEqual(e.details?.codigo, 'SIN_FUENTES_GENERALES')
+  assert.notStrictEqual(e.details?.codigo, 'SIN_PROGRAMA_ESTUDIOS')
   assert.notStrictEqual(e.details?.codigo, 'SIN_DIAGNOSTICO_CONTEXTO')
   assert.notStrictEqual(e.details?.codigo, 'SIN_DIAGNOSTICO_CONOCIMIENTOS')
 })

@@ -17,6 +17,7 @@ import ConsideracionesSection from './ConsideracionesSection'
 import DiagnosticoGrupoSection from './DiagnosticoGrupoSection'
 import PlaneacionInicialSection from './PlaneacionInicialSection'
 import PlantillaOficialSection from './PlantillaOficialSection'
+import ProgramaEstudiosSection from './ProgramaEstudiosSection'
 
 // Las fuentes generales del curso: lista + botón para subir hasta
 // MAX_FUENTES a la vez, con un tope de MAX_FUENTES_POR_GRUPO documentos
@@ -88,6 +89,11 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
   const [loaded, setLoaded] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [eliminandoId, setEliminandoId] = useState(null)
+  // El programa de estudios es la BASE de todo el Asistente IA (decisión de
+  // Kike, 15-ago-2026) — sin él, el resto de la pestaña queda oculto. Null
+  // = todavía sin saber (ProgramaEstudiosSection no ha reportado su
+  // estado); true/false = ya se sabe.
+  const [programaListo, setProgramaListo] = useState(null)
 
   useEffect(() => {
     // Las reglas de fuentesAsignatura filtran por `docenteId` (privada del
@@ -197,59 +203,73 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
 
   return (
     <div className="space-y-4">
-      <div className="bg-surface-card rounded-card shadow-card p-3">
-        <h2 className="font-bold text-on-surface">Fuentes</h2>
-        <p className="text-sm text-muted mt-0.5">
-          Sube el programa y materiales de la asignatura — se reutilizan en todas las funciones de IA.
-          PDF o Word, hasta {MAX_FUENTES} por carga y {MAX_FUENTES_POR_GRUPO} en total.
+      <ProgramaEstudiosSection subjectId={subjectId} docenteId={docenteId} onEstadoCargado={setProgramaListo} />
+
+      {programaListo === null ? (
+        <div className="flex justify-center py-6"><Spinner size="sm" /></div>
+      ) : !programaListo ? (
+        <p className="text-sm text-muted px-1">
+          Sube primero la Fuente Principal (programa de estudios, arriba) para ver Fuentes, Diagnóstico del
+          grupo y Planeación Inicial.
         </p>
-      </div>
+      ) : (
+        <>
+          <div className="bg-surface-card rounded-card shadow-card p-3">
+            <h2 className="font-bold text-on-surface">Fuentes del curso</h2>
+            <p className="text-sm text-muted mt-0.5">
+              Material complementario (manuales, guías) — opcional, aparte de la Fuente Principal. Se
+              reutiliza en todas las funciones de IA. PDF o Word, hasta {MAX_FUENTES} por carga y{' '}
+              {MAX_FUENTES_POR_GRUPO} en total.
+            </p>
+          </div>
 
-      <GrupoFuentes
-        titulo="Fuentes para todo el curso"
-        fuentes={generales}
-        subiendo={subiendo}
-        eliminandoId={eliminandoId}
-        onAgregar={agregarFuentes}
-        onEliminar={eliminarFuente}
-      />
+          <GrupoFuentes
+            titulo="Fuentes para todo el curso"
+            fuentes={generales}
+            subiendo={subiendo}
+            eliminandoId={eliminandoId}
+            onAgregar={agregarFuentes}
+            onEliminar={eliminarFuente}
+          />
 
-      <div className="pt-2 border-t border-outline-variant">
-        <ComentariosGrupoSection subjectId={subjectId} docenteId={docenteId} />
-      </div>
+          <div className="pt-2 border-t border-outline-variant">
+            <ComentariosGrupoSection subjectId={subjectId} docenteId={docenteId} />
+          </div>
 
-      <div>
-        <AutoanalisisDocenteSection subjectId={subjectId} docenteId={docenteId} />
-      </div>
+          <div>
+            <AutoanalisisDocenteSection subjectId={subjectId} docenteId={docenteId} />
+          </div>
 
-      <div>
-        <ConsideracionesSection subjectId={subjectId} docenteId={docenteId} />
-      </div>
+          <div>
+            <ConsideracionesSection subjectId={subjectId} docenteId={docenteId} />
+          </div>
 
-      <div>
-        <DiagnosticoGrupoSection
-          subjectId={subjectId}
-          docenteId={docenteId}
-          asignaturaNombre={asignaturaNombre}
-          habilitado={hayFuentesGenerales(fuentes)}
-          existingActivitiesCountP1={existingActivitiesCountP1}
-        />
-      </div>
+          <div>
+            <DiagnosticoGrupoSection
+              subjectId={subjectId}
+              docenteId={docenteId}
+              asignaturaNombre={asignaturaNombre}
+              habilitado
+              existingActivitiesCountP1={existingActivitiesCountP1}
+            />
+          </div>
 
-      <div className="pt-2 border-t border-outline-variant">
-        <PlantillaOficialSection subjectId={subjectId} docenteId={docenteId} />
-      </div>
+          <div className="pt-2 border-t border-outline-variant">
+            <PlantillaOficialSection subjectId={subjectId} docenteId={docenteId} />
+          </div>
 
-      <div>
-        <PlaneacionInicialSection
-          subjectId={subjectId}
-          docenteId={docenteId}
-          subject={subject}
-          asignaturaNombre={asignaturaNombre}
-          hayFuentesGenerales={hayFuentesGenerales(fuentes)}
-          watermark={watermark}
-        />
-      </div>
+          <div>
+            <PlaneacionInicialSection
+              subjectId={subjectId}
+              docenteId={docenteId}
+              subject={subject}
+              asignaturaNombre={asignaturaNombre}
+              hayFuentesGenerales
+              watermark={watermark}
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }
