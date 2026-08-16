@@ -2684,6 +2684,11 @@ function promptPlantillaParcial(ctx, parcialCtx) {
         'ESE mismo bloque único debe abarcar, con varias actividades numeradas dentro de él, todo lo que le toca ' +
         'a este parcial — no un fragmento chico del tema.\n\n'
       : '') +
+    'ESTRUCTURA OBLIGATORIA por Sesión (corrección de Kike, 15-ago-2026 — antes salía mal): dentro de esas ' +
+    'celdas de Apertura/Desarrollo/Cierre, organiza el contenido SESIÓN POR SESIÓN completa — cada sesión trae ' +
+    'su propia Apertura, su propio Desarrollo y su propio Cierre, uno seguido del otro, antes de pasar a la ' +
+    'siguiente sesión. NUNCA agrupes por tipo (todas las Aperturas de todas las sesiones juntas al inicio, ' +
+    'luego todos los Desarrollos, luego todos los Cierres) — eso rompe la secuencia real de la clase.\n\n' +
     (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
     (ctx.comentariosGrupoTexto ? `COMENTARIOS GENERALES DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO (pesan mucho, ` +
       `junto con los diagnósticos — pero nada pesa más que la FUENTE PRINCIPAL, el programa de estudios, que ` +
