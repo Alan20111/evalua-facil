@@ -121,24 +121,52 @@ export async function llenarPlantillaExcel(arrayBuffer, celdas) {
     destino.value = c.texto
   }
 
-  // Filas de varias Secuencias Didácticas (Apertura/Desarrollo/Cierre),
-  // de abajo hacia arriba para no desalinear las que faltan por procesar.
-  const porFila = new Map()
-  for (const c of conSecuencias) {
-    const clave = String(c.fila)
-    if (!porFila.has(clave)) porFila.set(clave, [])
-    porFila.get(clave).push(c)
-  }
-  const gruposOrdenados = Array.from(porFila.values()).sort((a, b) => b[0].fila - a[0].fila)
-  for (const grupo of gruposOrdenados) {
-    const { fila } = grupo[0]
-    const total = Math.max(...grupo.map((c) => c.texto.length))
-    hoja.duplicateRow(fila, total - 1, true)
+  // Apertura/Desarrollo/Cierre con varias Secuencias Didácticas: igual que
+  // en Word (ver llenarPlantillaWord/duplicarBloqueWord), NO basta con
+  // duplicar cada fila por separado — si Apertura, Desarrollo y Cierre son
+  // filas distintas de la hoja, duplicar cada una por su cuenta deja el
+  // documento leyéndose "Apertura [todo] / Desarrollo [todo] / Cierre
+  // [todo]" en vez de una sección completa por secuencia. Se duplica el
+  // BLOQUE de filas [inicio..fin] como una unidad, con una etiqueta
+  // "SECUENCIA DIDÁCTICA N" antes de cada copia.
+  if (conSecuencias.length) {
+    const filas = conSecuencias.map((c) => c.fila)
+    const filaInicio = Math.min(...filas)
+    const filaFin = Math.max(...filas)
+    const alto = filaFin - filaInicio + 1
+    const total = Math.max(...conSecuencias.map((c) => c.texto.length))
+
+    hoja.spliceRows(filaInicio, 0, [])
+    hoja.getRow(filaInicio).getCell(1).value = 'SECUENCIA DIDÁCTICA 1'
+    hoja.getRow(filaInicio).getCell(1).font = { bold: true }
+    let cursor = filaFin + 1 // el bloque original se corrió +1 por la etiqueta insertada arriba
+
+    for (let v = 1; v < total; v++) {
+      hoja.spliceRows(cursor + 1, 0, [])
+      const filaEtiqueta = cursor + 1
+      hoja.getRow(filaEtiqueta).getCell(1).value = `SECUENCIA DIDÁCTICA ${v + 1}`
+      hoja.getRow(filaEtiqueta).getCell(1).font = { bold: true }
+
+      hoja.spliceRows(filaEtiqueta + 1, 0, ...Array(alto).fill([]))
+      for (let f = 0; f < alto; f++) {
+        const origen = hoja.getRow(filaInicio + 1 + f) // bloque original (corrido +1 desde la primera etiqueta)
+        const destino = hoja.getRow(filaEtiqueta + 1 + f)
+        destino.values = origen.values
+        destino.height = origen.height
+        origen.eachCell({ includeEmpty: true }, (celda, colNum) => {
+          destino.getCell(colNum).style = celda.style
+        })
+      }
+      cursor = filaEtiqueta + alto
+    }
+
     for (let i = 0; i < total; i++) {
-      for (const c of grupo) {
+      const filaDestino = filaInicio + 1 + i * (alto + 1) // +1 por cada etiqueta ya contada
+      for (const c of conSecuencias) {
         const texto = c.texto[i]
         if (!texto) continue
-        const celda = hoja.getRow(fila + i).getCell(c.columna)
+        const offset = c.fila - filaInicio
+        const celda = hoja.getRow(filaDestino + offset).getCell(c.columna)
         const destino = celda.master || celda
         destino.value = texto
       }
@@ -293,30 +321,74 @@ function escribirEnCelda(doc, tablaIndex, filaIdx, columnaLogica, texto) {
   return true
 }
 
-// Clona la fila `filaIdx` de una tabla `veces - 1` veces más, insertando las
-// copias justo después de la original — se usa para Apertura/Desarrollo/
-// Cierre cuando hay varias Secuencias Didácticas en el parcial (Kike,
-// 16-ago-2026: "crea tantas secciones de apertura, desarrollo, cierre como
-// secuencias didácticas sean" — ya no se comprime todo en una sola fila).
-// La etiqueta de la fila (p. ej. "Apertura") se clona junto con todo lo
-// demás — no hay que reescribirla aparte.
-function duplicarFilaWord(doc, tablaIndex, filaIdx, veces) {
-  const tbl = doc.getElementsByTagNameNS(W_NS, 'tbl')[tablaIndex]
-  if (!tbl) return
-  const tr = tbl.getElementsByTagNameNS(W_NS, 'tr')[filaIdx]
-  if (!tr) return
-  let anterior = tr
+// Párrafo con un solo run en negritas — se usa como etiqueta visible antes
+// de cada bloque clonado (ver duplicarBloqueWord), para que el documento se
+// lea "SECUENCIA DIDÁCTICA 1 / Apertura / Desarrollo / Cierre, SECUENCIA
+// DIDÁCTICA 2 / ..." y no una lista ambigua de bloques repetidos sin nombre.
+function parrafoEtiquetaWord(doc, texto) {
+  const p = doc.createElementNS(W_NS, 'w:p')
+  const r = doc.createElementNS(W_NS, 'w:r')
+  const rPr = doc.createElementNS(W_NS, 'w:rPr')
+  rPr.appendChild(doc.createElementNS(W_NS, 'w:b'))
+  r.appendChild(rPr)
+  const t = doc.createElementNS(W_NS, 'w:t')
+  t.textContent = texto
+  r.appendChild(t)
+  p.appendChild(r)
+  return p
+}
+
+// Clona el BLOQUE COMPLETO de tablas [inicioTablaIdx..finTablaIdx] (todos
+// los nodos hermanos entre la primera y la última tabla, inclusive)
+// `veces - 1` veces más, insertando las copias en secuencia — y antepone a
+// cada copia (y al bloque original) una etiqueta "SECUENCIA DIDÁCTICA N".
+//
+// Por qué un bloque de TABLAS y no solo una fila (corrección de Kike,
+// 16-ago-2026, tras revisar el documento real generado): en la plantilla
+// simple, Apertura, Desarrollo y Cierre NO son tres celdas de una misma
+// tabla — son TRES TABLAS SEPARADAS y consecutivas en el documento
+// ("APERTURA" tabla 3, "DESARROLLO" tabla 4, "CIERRE" tabla 5, cada una con
+// su propio encabezado y su fila de evidencias/evaluación). Duplicar solo
+// la fila de contenido dentro de cada tabla por separado (lo que hacía
+// antes) sí generaba el texto correcto por secuencia, pero el documento
+// seguía leyéndose "APERTURA [todo] / DESARROLLO [todo] / CIERRE [todo]"
+// porque las tres tablas nunca se repetían juntas — había que clonar las
+// TRES tablas como una unidad repetible, no cada una por separado.
+function duplicarBloqueWord(doc, inicioTablaIdx, finTablaIdx, veces) {
+  const tablas = Array.from(doc.getElementsByTagNameNS(W_NS, 'tbl'))
+  const tInicio = tablas[inicioTablaIdx]
+  const tFin = tablas[finTablaIdx]
+  if (!tInicio || !tFin || tInicio.parentNode !== tFin.parentNode) return
+  const parent = tInicio.parentNode
+
+  const rango = []
+  for (let n = tInicio; n; n = n.nextSibling) {
+    rango.push(n)
+    if (n === tFin) break
+  }
+  if (rango[rango.length - 1] !== tFin) return // tFin no es hermano de tInicio en orden — no se toca nada
+
+  parent.insertBefore(parrafoEtiquetaWord(doc, 'SECUENCIA DIDÁCTICA 1'), tInicio)
+
+  let ancla = tFin
   for (let i = 1; i < veces; i++) {
-    const copia = tr.cloneNode(true)
-    anterior.parentNode.insertBefore(copia, anterior.nextSibling)
-    anterior = copia
+    const etiqueta = parrafoEtiquetaWord(doc, `SECUENCIA DIDÁCTICA ${i + 1}`)
+    parent.insertBefore(etiqueta, ancla.nextSibling)
+    ancla = etiqueta
+    for (const nodo of rango) {
+      const copia = nodo.cloneNode(true)
+      parent.insertBefore(copia, ancla.nextSibling)
+      ancla = copia
+    }
   }
 }
 
 // Abre el archivo ORIGINAL y escribe cada celda que la IA decidió llenar —
-// una sola pasada, sin etiquetas intermedias. Si `c.texto` es un ARRAY (una
-// Secuencia Didáctica por elemento), esa fila se multiplica primero y cada
-// elemento se escribe en su propia copia — ver duplicarFilaWord.
+// una sola pasada, sin etiquetas intermedias. Las celdas de Apertura/
+// Desarrollo/Cierre llegan con `texto` como ARRAY (una Secuencia Didáctica
+// por elemento, ver promptPlantillaParcial en functions/ia.js) — el bloque
+// de tablas que las contiene se clona completo por cada elemento del array,
+// ver duplicarBloqueWord.
 export async function llenarPlantillaWord(arrayBuffer, celdas) {
   const PizZip = await cargarPizZip()
   const zip = new PizZip(arrayBuffer)
@@ -326,36 +398,35 @@ export async function llenarPlantillaWord(arrayBuffer, celdas) {
   const normales = celdas.filter((c) => !Array.isArray(c.texto))
   const conSecuencias = celdas.filter((c) => Array.isArray(c.texto) && c.texto.length)
 
-  // Primero las celdas normales, con los índices de fila ORIGINALES —
-  // deben escribirse ANTES de duplicar ninguna fila, o los índices de las
-  // filas que vengan después de una duplicación quedarían desalineados.
+  // Primero las celdas normales, con los índices ORIGINALES — antes de
+  // clonar ningún bloque, o quedarían desalineadas.
   for (const c of normales) {
     if (!c.texto) continue
     escribirEnCelda(doc, c.tablaIndex, c.fila, c.columna, c.texto)
   }
 
-  // Luego las de varias Secuencias Didácticas, de la fila MÁS ABAJO hacia
-  // arriba dentro de cada tabla — así cada duplicación no desalinea el
-  // índice de una fila-objetivo que todavía no se ha procesado.
-  const porFila = new Map() // "tablaIndex_fila" → celdas de esa fila
-  for (const c of conSecuencias) {
-    const clave = `${c.tablaIndex ?? ''}_${c.fila}`
-    if (!porFila.has(clave)) porFila.set(clave, [])
-    porFila.get(clave).push(c)
-  }
-  const gruposOrdenados = Array.from(porFila.values()).sort((a, b) => b[0].fila - a[0].fila)
-  for (const grupo of gruposOrdenados) {
-    const { tablaIndex, fila } = grupo[0]
-    const total = Math.max(...grupo.map((c) => c.texto.length))
-    duplicarFilaWord(doc, tablaIndex ?? 0, fila, total)
-    for (let i = 0; i < total; i++) {
-      for (const c of grupo) {
+  if (conSecuencias.length) {
+    const tablasImplicadas = conSecuencias.map((c) => c.tablaIndex ?? 0)
+    const inicioTabla = Math.min(...tablasImplicadas)
+    const finTabla = Math.max(...tablasImplicadas)
+    const anchoBloque = finTabla - inicioTabla + 1
+    const totalSecuencias = Math.max(...conSecuencias.map((c) => c.texto.length))
+
+    duplicarBloqueWord(doc, inicioTabla, finTabla, totalSecuencias)
+
+    // Cada copia del bloque está `anchoBloque` tablas más adelante que la
+    // anterior (se insertaron en orden, en el mismo documento) — no hace
+    // falta volver a leer el documento para saber dónde quedó cada una.
+    for (let i = 0; i < totalSecuencias; i++) {
+      for (const c of conSecuencias) {
         const texto = c.texto[i]
         if (!texto) continue
-        escribirEnCelda(doc, tablaIndex ?? 0, fila + i, c.columna, texto)
+        const tablaDestino = (c.tablaIndex ?? 0) + i * anchoBloque
+        escribirEnCelda(doc, tablaDestino, c.fila, c.columna, texto)
       }
     }
   }
+
   const xmlFinal = new XMLSerializer().serializeToString(doc)
   zip.file('word/document.xml', xmlFinal)
   const buffer = zip.generate({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
