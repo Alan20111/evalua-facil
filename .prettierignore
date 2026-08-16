@@ -1,0 +1,5 @@
+dist
+android
+.claude/worktrees
+node_modules
+package-lock.json
