@@ -1,14 +1,17 @@
 // Apartado 3 de "Asistente IA": Planeación Didáctica Inicial (FASE 2-BIS del
 // Plan Maestro de IA). Se habilita solo cuando ya existen fuentes generales
 // y AMBOS diagnósticos (contexto y conocimientos) — la secuencia completa.
-// Genera una PROPUESTA llenando una plantilla Word/Excel real, UNA VEZ POR
-// CADA PARCIAL de la asignatura (decisión de Kike, 15-ago-2026): la
-// genérica usa la plantilla bundleada de la app (public/plantillas/
-// planeacion-generica.docx) y el formato oficial usa la que subió el
-// docente — mismo mecanismo para las dos (leer la cuadrícula de celdas,
-// mandarla a la IA, escribir solo las celdas vacías que decidió llenar).
-// El docente la revisa, puede regenerarla y descargarla — nunca se aplica
-// sola a ningún otro módulo de Evalúa Fácil.
+// Genera una PROPUESTA llenando la plantilla Word propia de Evalúa Fácil,
+// UNA VEZ POR CADA PARCIAL de la asignatura (decisión de Kike, 15-ago-2026):
+// se lee su cuadrícula de celdas, se manda a la IA, y se escriben solo las
+// celdas vacías que decidió llenar. El docente la revisa, puede regenerarla
+// y descargarla — nunca se aplica sola a ningún otro módulo de Evalúa Fácil.
+//
+// La Planeación Didáctica Inicial NO depende de ningún formato institucional
+// que el docente tenga que subir (decisión de Kike, 16-ago-2026: se eliminó
+// la opción de "formato oficial de la escuela" — ver PlantillaOficialSection,
+// borrado) — el documento Word es solo una REPRESENTACIÓN de la Planeación
+// cuando hace falta descargarla, nunca su estructura interna.
 import { useEffect, useRef, useState } from 'react'
 import { collection, doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { updateDoc } from '../../utils/firestoreGuard'
@@ -19,18 +22,19 @@ import ConfirmModal from '../ConfirmModal'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
-import { leerCuadriculaExcel, leerTablasWord, llenarPlantillaExcel, llenarPlantillaWord, aplanarCuadricula } from '../../utils/plantillaOficial'
+import { leerTablasWord, llenarPlantillaWord, aplanarCuadricula } from '../../utils/plantillaOficial'
 import { renderAsync as renderDocxAsync } from 'docx-preview'
 import { useSubscription } from '../../hooks/useSubscription'
 import useIsDesktop from '../../hooks/useIsDesktop'
 import CheckoutModal from '../CheckoutModal'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2, X, Monitor, Save, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 
-// La plantilla genérica de la app — vacía, sin datos de ninguna escuela en
-// particular. Vive en public/ (Vite la sirve tal cual, sin procesar) para
-// que cualquier asignatura pueda usarla sin que el docente suba nada.
-const PLANTILLA_GENERICA_URL = '/plantillas/planeacion-generica.docx'
-const PLANTILLA_GENERICA_NOMBRE = 'Planeación didáctica.docx'
+// La plantilla Word propia de Evalúa Fácil — vacía, sin datos de ninguna
+// escuela en particular. Vive en public/ (Vite la sirve tal cual, sin
+// procesar) para que cualquier asignatura pueda usarla sin que el docente
+// suba nada.
+const PLANTILLA_URL = '/plantillas/planeacion-generica.docx'
+const PLANTILLA_NOMBRE = 'Planeación didáctica.docx'
 
 function millisDe(ts) {
   return ts?.toMillis?.() || 0
@@ -466,21 +470,14 @@ function SelectorParcial({ porParcial, activo, onCambiar }) {
   )
 }
 
-// Lee la cuadrícula de UNA plantilla (bundleada o subida) — mismo mecanismo
-// para la genérica y la del formato oficial.
-async function leerCeldasDePlantilla(url, tipo) {
+// Lee la cuadrícula de la plantilla Word propia de Evalúa Fácil.
+async function leerCeldasDePlantilla(url) {
   const res = await fetch(url)
   const buffer = await res.arrayBuffer()
-  const tablas = tipo === 'docx'
-    ? await leerTablasWord(buffer)
-    : [(await leerCuadriculaExcel(buffer))].map((c) => ({ filas: c.filas }))
-  const celdas = aplanarCuadricula(tablas)
+  const celdas = aplanarCuadricula(await leerTablasWord(buffer))
   return { buffer, celdas }
 }
 
-async function llenarPlantilla(buffer, tipo, celdas) {
-  return tipo === 'docx' ? llenarPlantillaWord(buffer, celdas) : llenarPlantillaExcel(buffer, celdas)
-}
 
 export default function PlaneacionInicialSection({ subjectId, subject, asignaturaNombre, hayFuentesGenerales, watermark = false }) {
   const toast = useToast()
@@ -509,12 +506,10 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   }, [subjectId])
 
   const [incluirEnPlaneacion, setIncluirEnPlaneacion] = useState({})
-  const [plantillaOficial, setPlantillaOficial] = useState(null)
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), (snap) => {
       setIncluirEnPlaneacion(snap.exists() ? (snap.data().incluirEnPlaneacion || {}) : {})
-      setPlantillaOficial(snap.exists() ? (snap.data().plantillaOficial || null) : null)
-    }, () => { setIncluirEnPlaneacion({}); setPlantillaOficial(null) })
+    }, () => setIncluirEnPlaneacion({}))
     return unsub
   }, [subjectId])
 
@@ -547,14 +542,11 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
         <EstadoPlaneacionBadge lista={hayFuentesGenerales} />
       </div>
       <p className="text-sm text-muted mt-0.5 mb-2">
-        La IA puede generar tu Planeación Didáctica Inicial en dos formatos: uno genérico (con la plantilla de
-        Evalúa Fácil) y, si subiste arriba el formato oficial de tu escuela, ese mismo llenado por la IA — un
-        documento POR CADA PARCIAL real de la asignatura. Puedes probar y corregir los dos antes de decidir,
-        pero solo aceptas UNO — ese es tu Planeación Inicial, y al aceptarlo el otro formato deja de estar
-        disponible.
+        La IA genera una propuesta inicial de planeación — revísala, edítala y acéptala para continuar. Genera un
+        documento POR CADA PARCIAL real de la asignatura.
       </p>
 
-      {subjectPlaneacionLoaded && !subjectPlaneacion?.planeacionAceptada && !subjectPlaneacion?.planeacionOficialAceptada && (
+      {subjectPlaneacionLoaded && !subjectPlaneacion?.planeacionAceptada && (
         <p className="text-sm font-semibold text-red-600 mb-2">
           Haz que tu IA tenga la mejor congruencia ACEPTANDO tu planeación didáctica INICIAL.
         </p>
@@ -587,37 +579,9 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
           operacion="planeacion_didactica_inicial"
           campoAceptada="planeacionAceptada"
           campoBorrador="planeacionBorrador"
-          titulo="Genérica"
-          plantillaUrl={PLANTILLA_GENERICA_URL}
-          plantillaTipo="docx"
-          plantillaNombre={PLANTILLA_GENERICA_NOMBRE}
+          plantillaUrl={PLANTILLA_URL}
+          plantillaNombre={PLANTILLA_NOMBRE}
         />
-      )}
-
-      {habilitado && diagLoaded && subjectPlaneacionLoaded && plantillaOficial && (
-        <div className="mt-4 pt-3 border-t border-outline-variant">
-          <FormatoSection
-            subjectId={subjectId}
-            asignaturaNombre={asignaturaNombre}
-            isDesktop={isDesktop}
-            nuncaAprobado={nuncaAprobado}
-            onPago={() => setShowPaymentModal(true)}
-            subjectPlaneacion={subjectPlaneacion}
-            incluirInsumos={incluirInsumos}
-            hayContexto={hayContexto}
-            hayConocimientos={hayConocimientos}
-            creditosIA={creditosIA}
-            toast={toast}
-            coleccion="planeacionesOficialesIA"
-            operacion="planeacion_formato_oficial"
-            campoAceptada="planeacionOficialAceptada"
-            campoBorrador="planeacionOficialBorrador"
-            titulo="Formato oficial de tu escuela"
-            plantillaUrl={plantillaOficial.url}
-            plantillaTipo={plantillaOficial.tipo}
-            plantillaNombre={plantillaOficial.nombre}
-          />
-        </div>
       )}
 
       <CheckoutModal
@@ -630,17 +594,13 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   )
 }
 
-// Un formato completo (genérico u oficial) — generar, revisar/editar por
-// parcial, guardar avance, aceptar, ver y descargar. Los dos formatos usan
-// EXACTAMENTE el mismo mecanismo (llenar una plantilla real por parcial),
-// solo cambia de dónde sale la plantilla y en qué campo se guarda la
-// aceptación — de ahí que sea un solo componente parametrizado en vez de
-// dos copias casi idénticas.
+// La Planeación Didáctica Inicial — generar, revisar/editar por parcial,
+// guardar avance, aceptar, ver y descargar.
 function FormatoSection({
   subjectId, asignaturaNombre, isDesktop, nuncaAprobado, onPago,
   subjectPlaneacion, incluirInsumos, hayContexto, hayConocimientos, creditosIA, toast,
-  coleccion, operacion, campoAceptada, campoBorrador, titulo,
-  plantillaUrl, plantillaTipo, plantillaNombre,
+  coleccion, operacion, campoAceptada, campoBorrador,
+  plantillaUrl, plantillaNombre,
 }) {
   const [historial, setHistorial] = useState([])
   const [histLoaded, setHistLoaded] = useState(false)
@@ -758,14 +718,14 @@ function FormatoSection({
     if (nuncaAprobado) { onPago(); return }
     setGenerando(true)
     try {
-      const { celdas } = await leerCeldasDePlantilla(plantillaUrl, plantillaTipo)
+      const { celdas } = await leerCeldasDePlantilla(plantillaUrl)
       if (!celdas.length) {
         toast('No se pudo leer la estructura de la plantilla', 'error')
         return
       }
       // La función misma guarda el resultado (ver ejecutarPlaneacionDidacticaInicial
-      // / ejecutarPlaneacionFormatoOficial en functions/ia.js) — el listener
-      // onSnapshot de arriba la recibe en cuanto se guarda.
+      // en functions/ia.js) — el listener onSnapshot de arriba la recibe en
+      // cuanto se guarda.
       const data = await creditosIA.ejecutar(operacion, {
         subjectId, asignaturaId: subjectId, asignaturaNombre, incluir: incluirInsumos,
         celdas: celdas.map((c) => ({ f: c.fila, c: c.columna, t: c.tablaIndex, x: c.texto, s: c.colSpan || 1 })),
@@ -787,7 +747,6 @@ function FormatoSection({
       else if (err.codigo === 'SIN_PROGRAMA_ESTUDIOS') toast('Sube primero la Fuente Principal (programa de estudios)', 'error')
       else if (err.codigo === 'SIN_DIAGNOSTICO_CONTEXTO') toast('Marcaste incluir el Diagnóstico de contexto, pero todavía no tiene resultados analizados — genera y analiza el instrumento, o desmarca esa casilla', 'error')
       else if (err.codigo === 'SIN_DIAGNOSTICO_CONOCIMIENTOS') toast('Marcaste incluir el Diagnóstico de conocimientos, pero todavía no tiene resultados analizados — genera y analiza el cuestionario, o desmarca esa casilla', 'error')
-      else if (err.codigo === 'SIN_PLANTILLA_OFICIAL') toast('Sube primero la plantilla oficial de tu escuela', 'error')
       else toast(err.message || 'El asistente de IA no está disponible en este momento', 'error')
     } finally {
       setGenerando(false)
@@ -843,16 +802,14 @@ function FormatoSection({
 
   // Quita la aceptación y sus borradores — irreversible: no hay forma de
   // recuperar cuál era la aceptada una vez hecho esto (pedido de Kike,
-  // 15-ago-2026). No borra la bitácora (planeacionesIA/planeacionesOficialesIA
-  // son inmutables por regla, a propósito).
+  // 15-ago-2026). No borra la bitácora (planeacionesIA es inmutable por
+  // regla, a propósito).
   async function reiniciar() {
     setReiniciando(true)
     try {
       await updateDoc(doc(db, 'subjects', subjectId), {
         planeacionAceptada: null,
         planeacionBorrador: null,
-        planeacionOficialAceptada: null,
-        planeacionOficialBorrador: null,
       })
       toast('Planeación Inicial eliminada — ya puedes generar una nueva')
     } catch (err) {
@@ -875,9 +832,9 @@ function FormatoSection({
       const resPlantilla = await fetch(plantillaUrl)
       const bufferOriginal = await resPlantilla.arrayBuffer()
       const celdas = celdasDeParcial(numero, porParcialAceptado)
-      const blob = await llenarPlantilla(bufferOriginal, plantillaTipo, celdas)
-      const base = (plantillaNombre || 'planeacion').replace(/\.(docx?|xlsx?)$/i, '')
-      const nombreSalida = `${base} - Parcial ${numero}${plantillaTipo === 'docx' ? '.docx' : '.xlsx'}`
+      const blob = await llenarPlantillaWord(bufferOriginal, celdas)
+      const base = (plantillaNombre || 'planeacion').replace(/\.docx?$/i, '')
+      const nombreSalida = `${base} - Parcial ${numero}.docx`
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -900,10 +857,6 @@ function FormatoSection({
   // aceptada, es de solo lectura.
   async function abrirVistaPrevia(numeroParcial) {
     if (!actual) return
-    if (plantillaTipo !== 'docx') {
-      toast('La vista previa en imagen solo está disponible para Word por ahora — descarga el archivo para verlo con tu formato de Excel', 'info')
-      return
-    }
     setCargandoVistaPrevia(true)
     setEdicionDirectaOk(null)
     setVerVistaPrevia(true)
@@ -1055,10 +1008,6 @@ function FormatoSection({
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <h3 className="text-sm font-semibold text-on-surface">{titulo}</h3>
-      </div>
-
       {aceptada ? (
         <p className="text-xs text-muted mb-2">
           Estado: <span className="font-medium text-green-700">Aceptada — es tu Planeación Inicial, la usa la IA para todo lo demás</span>
@@ -1082,7 +1031,7 @@ function FormatoSection({
             disabled={generando}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
           >
-            {generando ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : actual ? <RotateCcw size={14} /> : (coleccion === 'planeacionesIA' ? <Sparkles size={14} /> : <FileCheck2 size={14} />)}
+            {generando ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : actual ? <RotateCcw size={14} /> : <Sparkles size={14} />}
             {actual ? 'Generar de nuevo (con IA)' : 'Generar planeación (con IA)'}
           </button>
         )}
@@ -1237,7 +1186,7 @@ function FormatoSection({
 
       {confirmando && (
         <ConfirmacionCreditosModal
-          titulo={`Generar Planeación Inicial (${titulo})`}
+          titulo="Generar tu Planeación Inicial"
           descripcion="La IA usa tu Perfil IA, tus fuentes ya guardadas y los diagnósticos del grupo — genera un documento por cada parcial real de la asignatura en una sola operación."
           costoMin={creditosIA.estimar(operacion) ?? 20}
           ejecutando={generando}

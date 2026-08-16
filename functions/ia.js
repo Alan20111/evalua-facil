@@ -125,9 +125,6 @@ const OPERACIONES = {
   // Planeación Didáctica Inicial (FASE 2-BIS, 12-ago-2026, autorizado por
   // Kike en esta conversación — tarifa fija: 20 créditos).
   planeacion_didactica_inicial: ejecutarPlaneacionDidacticaInicial,
-  // Planeación en el formato oficial de la escuela (14-ago-2026, autorizado
-  // por Kike en esta conversación — misma tarifa fija que la genérica).
-  planeacion_formato_oficial: ejecutarPlaneacionFormatoOficial,
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -141,7 +138,6 @@ const PRECHECKS = {
   crear_actividad_ia: precheckCrearActividad,
   diagnostico_contexto: precheckDiagnosticoContexto, diagnostico_conocimientos: precheckDiagnosticoConocimientos,
   planeacion_didactica_inicial: precheckPlaneacionInicial,
-  planeacion_formato_oficial: precheckPlaneacionFormatoOficial,
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
@@ -1957,8 +1953,8 @@ function consideracionesATexto(consideraciones) {
 // planeación, de los temas, de los tiempos, de todo") — requisito aparte de
 // "Fuentes del curso" (fuentesAsignatura ubicacion:'general', que sigue
 // existiendo pero ahora es solo material COMPLEMENTARIO, ya no obligatorio).
-// El programa vive en asistenteIA/config.programaEstudios (mismo patrón que
-// plantillaOficial). `configSnap` se puede pasar ya leído para no repetir
+// El programa vive en asistenteIA/config.programaEstudios. `configSnap` se
+// puede pasar ya leído para no repetir
 // la lectura si el llamador ya lo tenía.
 async function requerirProgramaEstudios(db, subjectId, configSnap) {
   const config = (configSnap || await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()).data()
@@ -2586,12 +2582,10 @@ async function precheckPlaneacionInicial({ uid, params }) {
     ? consideracionesATexto(configSnap.data()?.consideraciones)
     : ''
 
-  // La Planeación genérica pasó de 9 campos fijos a llenar una plantilla
-  // Word real (decisión de Kike, 15-ago-2026: mejor vista previa, un
-  // documento POR PARCIAL, igual que ya hacía el formato oficial de la
-  // escuela) — el cliente lee la plantilla BUNDLEADA
-  // (public/plantillas/planeacion-generica.docx) y manda su cuadrícula,
-  // mismo mecanismo y misma validación que precheckPlaneacionFormatoOficial.
+  // La Planeación Inicial llena una plantilla Word real (decisión de Kike,
+  // 15-ago-2026: mejor vista previa, un documento POR PARCIAL) — el cliente
+  // lee la plantilla BUNDLEADA propia de Evalúa Fácil
+  // (public/plantillas/planeacion-generica.docx) y manda su cuadrícula.
   const celdas = validarCeldasPlantilla(params)
 
   // Las fuentes YA NO se agrupan por parcial (se quitó esa sección de la UI
@@ -2612,7 +2606,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
     diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
     parciales,
     celdas,
-    plantillaOficial: { tipo: 'docx', nombre: 'Planeación didáctica.docx' },
+    plantilla: { tipo: 'docx', nombre: 'Planeación didáctica.docx' },
     fuentesUsadas: {
       generales: seleccionarFuentesGenerales(generales).map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
     },
@@ -2760,7 +2754,7 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     (ctx.diagnosticoConocimientosTexto ? `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados ` +
       `todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` : '') +
     (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
-    'Esta es la cuadrícula completa de la plantilla (una tabla de Excel, o una o varias tablas de Word) — cada ' +
+    'Esta es la cuadrícula completa de la plantilla (una o varias tablas de Word) — cada ' +
     'celda con su posición, y si ya tiene texto (encabezado o dato fijo, NO se toca) o está VACÍA (candidata a ' +
     'llenar):\n\n' +
     celdasATexto(ctx.celdas) + '\n\n' +
@@ -2977,8 +2971,8 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
     .collection('planeacionesIA').add({
       celdasOriginales,
       porParcial: porParcialGuardado,
-      tipo: ctx.plantillaOficial?.tipo || 'docx',
-      nombreOriginal: ctx.plantillaOficial?.nombre || 'Planeación didáctica.docx',
+      tipo: ctx.plantilla?.tipo || 'docx',
+      nombreOriginal: ctx.plantilla?.nombre || 'Planeación didáctica.docx',
       docenteId: params.__uid,
       generadoEn: FieldValue.serverTimestamp(),
     })
@@ -2990,161 +2984,6 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
     // — ese reintento duplica el gasto real de tokens de ese parcial, así
     // que se refleja en lo que se cobra (Kike, 16-ago-2026: "cóbrale más
     // créditos al usuario por hacerla").
-    unidadesReales: 1 + reintentos,
-    interno,
-  }
-}
-
-// ── Planeación en el formato oficial de la escuela ──────────────────────────
-// El docente sube la plantilla REAL de su plantel (Word o Excel, vacía, con
-// su logo) y marca en pantalla qué casilla es qué dato — ver
-// PlantillaOficialSection.jsx / src/utils/plantillaOficial.js. Esta
-// operación NO reparte contenido por parcial: cada casilla marcada tiene su
-// propia etiqueta libre (ej. "Tema semana 1", "Actividad parcial 2") y la
-// IA responde un JSON plano {"<etiqueta>": "<texto>"} — una llamada, tantas
-// respuestas como casillas haya. El cliente ya trae el archivo (original o
-// etiquetado con docxtemplater) y solo necesita el texto de cada casilla
-// para llenarlo — el servidor nunca toca el archivo en sí.
-async function precheckPlaneacionFormatoOficial({ uid, params }) {
-  const db = getFirestore()
-  const subjectId = String(params?.subjectId || '').trim()
-  if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura.')
-
-  const subjSnap = await db.doc(`subjects/${subjectId}`).get()
-  if (!subjSnap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
-  const subj = subjSnap.data()
-  if (subj.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta asignatura no es tuya')
-
-  const configSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
-  const plantillaOficial = configSnap.data()?.plantillaOficial
-  if (!plantillaOficial?.url) {
-    throw new HttpsError('failed-precondition',
-      'Sube primero la plantilla oficial de tu escuela (arriba, en Formato oficial de mi escuela). ' +
-      'No se descontaron créditos.',
-      { codigo: 'SIN_PLANTILLA_OFICIAL' })
-  }
-  const celdas = validarCeldasPlantilla(params)
-  const programaEstudiosOf = await requerirProgramaEstudios(db, subjectId, configSnap)
-
-  // El ÚNICO insumo obligatorio, además del programa de estudios, es el
-  // Perfil IA (si se marca incluirlo) — todo lo demás (comentarios del
-  // grupo, autoanálisis, ambos diagnósticos) es opcional: el docente marca
-  // en pantalla cuáles quiere incluir, y si marca uno, ese sí tiene que
-  // estar listo (si no, se detiene con el mismo error de siempre). Lo que
-  // NO marca simplemente no se manda a la IA — decisión de Kike, 14-ago-2026.
-  const incluir = {
-    perfil: params?.incluir?.perfil === true,
-    comentarios: params?.incluir?.comentarios === true,
-    autoanalisis: params?.incluir?.autoanalisis === true,
-    consideraciones: params?.incluir?.consideraciones === true,
-    diagContexto: params?.incluir?.diagContexto === true,
-    diagConocimientos: params?.incluir?.diagConocimientos === true,
-  }
-
-  const fuentesSnap = await db.collection('fuentesAsignatura').where('asignaturaId', '==', subjectId).get()
-  const fuentes = fuentesSnap.docs.map((d) => {
-    const data = d.data()
-    return { id: d.id, ...data, creadoEnMillis: data.creadoEn?.toMillis?.() || 0 }
-  })
-  const generales = fuentes.filter((f) => f.ubicacion === 'general')
-
-  let perfilIATextoVal = ''
-  if (incluir.perfil) {
-    const perfilSnap = await db.doc(`users/${uid}`).get()
-    const perfilIA = perfilSnap.data()?.perfilIA || null
-    if (!perfilIACompleto(perfilIA)) {
-      throw new HttpsError('failed-precondition',
-        'Marcaste incluir tu Perfil IA, pero todavía no lo completas — complétalo o desmarca esa casilla. ' +
-        'No se descontaron créditos.',
-        { codigo: 'PERFIL_IA_INCOMPLETO' })
-    }
-    perfilIATextoVal = perfilIATexto(perfilIA)
-  }
-
-  let resultadoContexto = null
-  if (incluir.diagContexto) {
-    resultadoContexto = await analisisDiagnosticoMasReciente(db, subjectId, 'contexto')
-    if (!resultadoContexto) {
-      throw new HttpsError('failed-precondition',
-        'Marcaste incluir el Diagnóstico de contexto, pero todavía no tiene resultados analizados — ' +
-        'genera el instrumento, publícalo y analízalo con IA (Config Asistente IA → Diagnóstico del grupo), ' +
-        'o desmarca esa casilla. No se descontaron créditos.',
-        { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
-    }
-  }
-  let resultadoConocimientos = null
-  if (incluir.diagConocimientos) {
-    resultadoConocimientos = await analisisDiagnosticoMasReciente(db, subjectId, 'conocimientos')
-    if (!resultadoConocimientos) {
-      throw new HttpsError('failed-precondition',
-        'Marcaste incluir el Diagnóstico de conocimientos, pero todavía no tiene resultados analizados — ' +
-        'genera el cuestionario, publícalo y analízalo con IA (Config Asistente IA → Diagnóstico del grupo), ' +
-        'o desmarca esa casilla. No se descontaron créditos.',
-        { codigo: 'SIN_DIAGNOSTICO_CONOCIMIENTOS' })
-    }
-  }
-
-  const bloqueFuentesGenerales = await fuentesIA.prepararBloqueFuentes(
-    [programaEstudiosOf.url, ...seleccionarFuentesGenerales(generales).map((f) => f.url)]
-  )
-  const comentariosGrupoTexto = incluir.comentarios
-    ? comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)
-    : ''
-  const autoanalisisDocenteTexto = incluir.autoanalisis
-    ? autoanalisisDocenteATexto(configSnap.data()?.autoanalisisDocente)
-    : ''
-  const consideracionesTexto = incluir.consideraciones
-    ? consideracionesATexto(configSnap.data()?.consideraciones)
-    : ''
-
-  return {
-    asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
-    perfilIATexto: perfilIATextoVal,
-    comentariosGrupoTexto,
-    autoanalisisDocenteTexto,
-    consideracionesTexto,
-    bloqueFuentesGenerales,
-    diagnosticoContextoTexto: incluir.diagContexto ? diagnosticoContextoATexto(resultadoContexto) : '',
-    diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
-    parciales: construirParcialesCtx(subj),
-    celdas,
-    plantillaOficial: { tipo: plantillaOficial.tipo, nombre: String(plantillaOficial.nombre || '').slice(0, 200) },
-  }
-}
-
-async function ejecutarPlaneacionFormatoOficial({ params, modelo, apiKey }) {
-  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
-  const { porParcial, reintentos, interno } = await llenarPlantillaPorParciales({ ctx, modelo, apiKey })
-
-  if (!porParcial.some((p) => p.celdas.length)) {
-    throw new Error('El asistente de IA no generó contenido utilizable para tu plantilla')
-  }
-
-  // El servidor guarda la bitácora ÉL MISMO, igual que
-  // ejecutarPlaneacionDidacticaInicial (mismo incidente, 15-ago-2026): así
-  // queda a salvo aunque el cliente se rinda esperando, y de paso ahora esta
-  // generación entra al mismo ciclo editar → aceptar → ver/descargar que la
-  // Planeación genérica, en vez de vivir solo en memoria del navegador.
-  const celdasOriginales = ctx.celdas.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x, colSpan: c.s || 1 }))
-  const porParcialGuardado = porParcial.map((p) => ({
-    numero: p.numero, periodo: p.periodo,
-    celdasPropuestas: p.celdas.map((c) => ({ fila: c.f, columna: c.c, tablaIndex: c.t, texto: c.x })),
-  }))
-  await getFirestore().collection('subjects').doc(String(params.subjectId || '').trim())
-    .collection('planeacionesOficialesIA').add({
-      celdasOriginales,
-      porParcial: porParcialGuardado,
-      tipo: ctx.plantillaOficial?.tipo || null,
-      nombreOriginal: ctx.plantillaOficial?.nombre || null,
-      docenteId: params.__uid,
-      generadoEn: FieldValue.serverTimestamp(),
-    })
-
-  return {
-    resultado: { porParcial: porParcialGuardado },
-    // Tarifa fija + 1 unidad extra por cada parcial que necesitó el
-    // reintento de secuencias (ver llenarPlantillaPorParciales / la misma
-    // razón en ejecutarPlaneacionDidacticaInicial).
     unidadesReales: 1 + reintentos,
     interno,
   }
@@ -3303,5 +3142,5 @@ exports._pruebas = {
   analisisDiagnosticoMasReciente,
   comentariosGrupoATexto, autoanalisisDocenteATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
-  precheckPlaneacionFormatoOficial, promptPlantillaParcial, PLANEACION_OFICIAL_MAX_CELDAS,
+  promptPlantillaParcial, PLANEACION_OFICIAL_MAX_CELDAS,
 }
