@@ -25,10 +25,11 @@ import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import { CAMPOS_SECUENCIA, construirDocumentoPlaneacion } from '../../utils/planeacionDocx'
+import { renderAsync as renderDocxAsync } from 'docx-preview'
 import { useSubscription } from '../../hooks/useSubscription'
 import useIsDesktop from '../../hooks/useIsDesktop'
 import CheckoutModal from '../CheckoutModal'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle, Plus, Trash2 } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 
 function millisDe(ts) {
   return ts?.toMillis?.() || 0
@@ -127,108 +128,103 @@ function SelectorCantidadSecuencias({ modo, onCambiarModo, cantidad, onCambiarCa
   )
 }
 
-// Campo de texto "de documento" — sin borde propio hasta que se toca, crece
-// con el contenido, tipografía de texto corrido (para que la Vista previa y
-// edición se sienta como editar el documento, no como llenar un formulario
-// de cajitas — pedido de Kike, 16-ago-2026).
-function CampoDocumento({ etiqueta, value, onChange, placeholder, grande = false }) {
-  const ref = useRef(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
-  }, [value])
-  const SERIF = { fontFamily: 'Georgia, "Times New Roman", serif' }
-  return (
-    <p className="mb-3 leading-relaxed">
-      <span className="italic text-neutral-500" style={SERIF}>{etiqueta}: </span>
-      <textarea
-        ref={ref}
-        value={value || ''}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        maxLength={2000}
-        rows={1}
-        className={`w-[calc(100%-2px)] align-top bg-transparent border-0 rounded-sm resize-none overflow-hidden focus:outline-none focus:bg-amber-50 text-neutral-900 ${grande ? 'text-base' : 'text-[15px]'}`}
-        style={SERIF}
-      />
-    </p>
-  )
+// ── Edición directa sobre el documento Word REAL renderizado (pedido de
+// Kike, 16-ago-2026, tras dos vueltas: "DEBE VERSE COMO SE VEIA, COMO UN
+// WORD EN EL CUAL SE ESTA EDITANDO") ────────────────────────────────────
+// El .docx lo genera la propia app (construirDocumentoPlaneacion) — nunca
+// una plantilla ajena — así que su estructura es 100% predecible: una
+// tabla por Secuencia, en el MISMO orden que `secuencias`, con una fila
+// por campo de CAMPOS_SECUENCIA en ese mismo orden. No hace falta ningún
+// mecanismo de verificación de mapeo (el que sí hacía falta antes de hoy,
+// cuando el documento podía ser cualquier plantilla subida por el
+// docente) — la celda de VALOR de cada fila es siempre la segunda <td>.
+function celdaClave(tabla, fila) {
+  return `${tabla}_${fila}`
 }
 
-// Una Secuencia Didáctica completa, integrada en el flujo continuo del
-// documento — nunca como tarjeta independiente. El encabezado (nombre/tema)
-// es editable en su lugar; los controles de reordenar/eliminar son
-// discretos, solo visibles al pasar el cursor sobre la Secuencia (pedido de
-// Kike, 16-ago-2026: "no deben dominar visualmente el documento").
-function SecuenciaDocumento({ secuencia, numero, total, onCambiarCampo, onMover, onEliminar }) {
-  return (
-    <section className="group relative mt-8 first:mt-0">
-      <div className="flex items-baseline gap-2 pr-16">
-        <span className="text-xs font-semibold uppercase tracking-wide text-accent flex-shrink-0">Secuencia {numero}</span>
-        <textarea
-          value={secuencia.nombre || ''}
-          placeholder="Nombre o tema de esta Secuencia"
-          onChange={(e) => onCambiarCampo('nombre', e.target.value)}
-          maxLength={200}
-          rows={1}
-          className="flex-1 bg-transparent border-0 resize-none overflow-hidden focus:outline-none focus:bg-amber-50 text-neutral-900 text-lg font-bold leading-snug"
-          style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-        />
-      </div>
-      <div className="absolute right-0 top-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-        <button type="button" onClick={() => onMover(-1)} disabled={numero === 1} aria-label="Mover antes"
-          className="p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-0">
-          <ChevronUp size={14} />
-        </button>
-        <button type="button" onClick={() => onMover(1)} disabled={numero === total} aria-label="Mover después"
-          className="p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-0">
-          <ChevronDown size={14} />
-        </button>
-        <button type="button" onClick={onEliminar} disabled={total <= 1} aria-label="Eliminar esta Secuencia Didáctica"
-          className="p-1 rounded text-neutral-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-0">
-          <Trash2 size={14} />
-        </button>
-      </div>
-      <div className="mt-2 pl-1 border-l-2 border-neutral-100">
-        <div className="pl-3">
-          {CAMPOS_SECUENCIA.filter((c) => c.clave !== 'nombre').map(({ clave, etiqueta }) => (
-            <CampoDocumento key={clave} etiqueta={etiqueta} value={secuencia[clave]} onChange={(v) => onCambiarCampo(clave, v)} />
-          ))}
-        </div>
-      </div>
-    </section>
-  )
+function mapearCeldasDom(container) {
+  const mapa = new Map()
+  Array.from(container.querySelectorAll('table')).forEach((tabla, tablaIndex) => {
+    Array.from(tabla.querySelectorAll('tr')).forEach((tr, fila) => {
+      const celdas = Array.from(tr.children).filter((td) => td.tagName === 'TD' || td.tagName === 'TH')
+      if (celdas[1]) mapa.set(celdaClave(tablaIndex, fila), celdas[1])
+    })
+  })
+  return mapa
 }
 
-// La Planeación completa de UN parcial, con apariencia de página de
-// documento — todas las Secuencias Didácticas viven aquí, en flujo
-// continuo, nunca en un panel aparte (regla permanente de Kike,
-// 16-ago-2026).
-function DocumentoPlaneacionEditable({ secuencias, onCambiarCampo, onMover, onEliminar, onAgregar }) {
-  return (
-    <div className="bg-white rounded shadow-card mx-auto max-w-3xl p-6 sm:p-10">
-      {secuencias.map((s, i) => (
-        <SecuenciaDocumento
-          key={s.id}
-          secuencia={s}
-          numero={i + 1}
-          total={secuencias.length}
-          onCambiarCampo={(campo, valor) => onCambiarCampo(i, campo, valor)}
-          onMover={(direccion) => onMover(i, direccion)}
-          onEliminar={() => onEliminar(i)}
-        />
-      ))}
-      <button
-        type="button"
-        onClick={onAgregar}
-        className="mt-6 flex items-center gap-1.5 text-sm text-accent hover:underline"
-      >
-        <Plus size={14} /> Agregar Secuencia Didáctica
-      </button>
-    </div>
-  )
+// Convierte "\n" reales (viñetas de sesión) en <br> del DOM — textContent
+// los ignora y todo saldría corrido en una sola línea visual.
+function pintarTextoConSaltos(td, texto) {
+  td.textContent = ''
+  String(texto || '').split('\n').forEach((linea, i) => {
+    if (i > 0) td.appendChild(document.createElement('br'))
+    td.appendChild(document.createTextNode(linea))
+  })
+}
+
+function leerTextoConSaltos(td) {
+  let texto = ''
+  td.childNodes.forEach((n) => {
+    if (n.nodeName === 'BR') texto += '\n'
+    else texto += n.textContent || ''
+  })
+  return texto
+}
+
+// Vuelve editables (contentEditable) las celdas de VALOR de cada tabla —
+// tabla i = Secuencia i, fila k = CAMPOS_SECUENCIA[k]. Además inyecta,
+// junto a la etiqueta "SECUENCIA DIDÁCTICA N" que ya trae el documento, los
+// controles de reordenar/eliminar — dentro del propio documento, nunca en
+// un panel aparte — y un botón para agregar una Secuencia al final.
+function activarEdicionDocumento(container, secuencias, actualizarCampo, cambiarGrupoSecuencias) {
+  const mapa = mapearCeldasDom(container)
+  secuencias.forEach((s, tablaIndex) => {
+    CAMPOS_SECUENCIA.forEach(({ clave }, fila) => {
+      const td = mapa.get(celdaClave(tablaIndex, fila))
+      if (!td) return
+      td.contentEditable = 'true'
+      td.style.outline = '2px dashed var(--accent)'
+      td.style.outlineOffset = '-2px'
+      td.style.background = 'var(--accent-tint)'
+      td.style.minHeight = '1.2em'
+      td.style.whiteSpace = 'pre-wrap'
+      pintarTextoConSaltos(td, s[clave])
+      td.addEventListener('input', () => actualizarCampo(tablaIndex, clave, leerTextoConSaltos(td)))
+    })
+  })
+
+  const total = secuencias.length
+  // docx-preview envuelve el texto de cada run en su propio <span> — no se
+  // puede exigir "sin hijos", solo que el texto completo del párrafo sea
+  // exactamente la etiqueta (el contenedor se limpia con innerHTML='' antes
+  // de cada render, así que no hace falta cuidar la doble inyección).
+  const etiquetas = Array.from(container.querySelectorAll('p')).filter((el) => (
+    /^SECUENCIA DIDÁCTICA \d+$/.test(el.textContent?.trim() || '')
+  ))
+  const boton = (texto, aria, disabled, onClick) => {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.textContent = texto
+    b.setAttribute('aria-label', aria)
+    b.disabled = disabled
+    b.style.cssText = `font-size:11px;line-height:1;padding:2px 6px;margin-left:6px;border-radius:4px;border:1px solid #ccc;background:${disabled ? 'transparent' : '#f5f5f5'};color:${disabled ? '#bbb' : '#555'};cursor:${disabled ? 'default' : 'pointer'};`
+    if (!disabled) b.addEventListener('click', onClick)
+    return b
+  }
+  etiquetas.forEach((etiqueta, i) => {
+    etiqueta.appendChild(boton('▲', 'Mover esta Secuencia antes', i === 0, () => cambiarGrupoSecuencias('mover', i, -1)))
+    etiqueta.appendChild(boton('▼', 'Mover esta Secuencia después', i === total - 1, () => cambiarGrupoSecuencias('mover', i, 1)))
+    etiqueta.appendChild(boton('✕ eliminar', 'Eliminar esta Secuencia Didáctica', total <= 1, () => {
+      if (window.confirm(`¿Eliminar la Secuencia Didáctica ${i + 1}?`)) cambiarGrupoSecuencias('eliminar', i)
+    }))
+  })
+  const agregar = document.createElement('button')
+  agregar.type = 'button'
+  agregar.textContent = '+ Agregar Secuencia Didáctica'
+  agregar.style.cssText = 'margin-top:14px;font-size:13px;padding:6px 12px;border-radius:4px;border:1px dashed #bbb;background:transparent;color:var(--accent);cursor:pointer;'
+  agregar.addEventListener('click', () => cambiarGrupoSecuencias('agregar'))
+  container.appendChild(agregar)
 }
 
 // A pantalla completa salvo el sidebar azul (pedido de Kike, 15-ago-2026) —
@@ -440,6 +436,14 @@ function Planeacion({
   const [verHistorial, setVerHistorial] = useState(false)
   const [descargandoParcial, setDescargandoParcial] = useState(null)
   const [verRevision, setVerRevision] = useState(false)
+  const [cargandoVistaPrevia, setCargandoVistaPrevia] = useState(false)
+  const [blobVistaPrevia, setBlobVistaPrevia] = useState(null)
+  // Agregar/eliminar/mover una Secuencia Didáctica cambia cuántas tablas
+  // trae el documento — hay que regenerar el .docx y volver a renderizarlo
+  // (ver cambiarGrupoSecuencias / el efecto que consume esta bandera).
+  const [recargarVistaPreviaPendiente, setRecargarVistaPreviaPendiente] = useState(false)
+  const vistaPreviaRef = useRef(null)
+  const secuenciasActivoRef = useRef([])
   const [abrirTrasGenerar, setAbrirTrasGenerar] = useState(false)
   // Copia editable de la planeación YA ACEPTADA — separada de `edicion`
   // (que es la copia previa a aceptar) porque una vez aceptada vive en otro
@@ -624,25 +628,20 @@ function Planeacion({
     }
   }
 
-  // Se llama en cuanto `actual` de verdad refleja la generación recién
-  // hecha (ver `generar()` — no se puede abrir en el mismo instante porque
-  // el listener de Firestore todavía trae los datos del ciclo anterior).
-  useEffect(() => {
-    if (abrirTrasGenerar && actual) {
-      setAbrirTrasGenerar(false)
-      setVerRevision(true)
-    }
-  }, [abrirTrasGenerar, actual])
-
-  if (!histLoaded) {
-    return <div className="flex justify-center py-6"><Spinner size="sm" /></div>
-  }
-
   const fuenteEditableActivo = aceptada ? edicionAceptada : edicion
   const secuenciasActivo = secuenciasDeParcial(parcialActivo, fuenteEditableActivo)
+  // El efecto de render (más abajo) corre en un callback async — para
+  // cuando termina, `secuenciasActivo` de ESTE render puede ya no ser la
+  // más reciente si hubo un cambio de estado entremedio; un ref siempre
+  // trae el valor actual sin tener que declarar el efecto de nuevo en cada
+  // render.
+  useEffect(() => {
+    secuenciasActivoRef.current = secuenciasActivo
+  })
 
   // Escribe una corrección de campo en la copia editable que corresponda
-  // (aceptada o en revisión).
+  // (aceptada o en revisión) — no dispara recarga, la celda ya se edita en
+  // el propio DOM.
   function cambiarCampo(indiceSecuencia, campo, valor) {
     const actualizador = (prev) => prev.map((p) => (
       p.numero !== parcialActivo ? p : {
@@ -654,42 +653,100 @@ function Planeacion({
     else setEdicion(actualizador)
   }
 
-  // Agregar/eliminar/mover una Secuencia Didáctica COMPLETA.
-  function moverSecuencia(indice, direccion) {
+  // Agregar/eliminar/mover una Secuencia Didáctica COMPLETA — cambia cuántas
+  // tablas trae el documento, así que regenera y vuelve a renderizar la
+  // vista previa completa (ver el useEffect de recargarVistaPreviaPendiente).
+  function cambiarGrupoSecuencias(accion, indice, direccion) {
     const actualizador = (prev) => prev.map((p) => {
       if (p.numero !== parcialActivo) return p
-      const destino = indice + direccion
-      if (destino < 0 || destino >= p.secuencias.length) return p
-      const secuencias = [...p.secuencias]
-      ;[secuencias[indice], secuencias[destino]] = [secuencias[destino], secuencias[indice]]
-      return { ...p, secuencias }
+      if (accion === 'agregar') return { ...p, secuencias: [...p.secuencias, nuevaSecuenciaVacia()] }
+      if (accion === 'eliminar') return { ...p, secuencias: p.secuencias.filter((_, j) => j !== indice) }
+      if (accion === 'mover') {
+        const destino = indice + direccion
+        if (destino < 0 || destino >= p.secuencias.length) return p
+        const secuencias = [...p.secuencias]
+        ;[secuencias[indice], secuencias[destino]] = [secuencias[destino], secuencias[indice]]
+        return { ...p, secuencias }
+      }
+      return p
     })
     if (aceptada) setEdicionAceptada(actualizador)
     else setEdicion(actualizador)
+    setRecargarVistaPreviaPendiente(true)
   }
 
-  function eliminarSecuencia(indice) {
-    const actualizador = (prev) => prev.map((p) => (
-      p.numero !== parcialActivo ? p : { ...p, secuencias: p.secuencias.filter((_, j) => j !== indice) }
-    ))
-    if (aceptada) setEdicionAceptada(actualizador)
-    else setEdicion(actualizador)
+  // Abre la Vista previa y edición — genera el .docx desde los datos
+  // actuales (sin fetch, sin plantilla) y lo renderiza; el efecto de abajo
+  // activa la edición directa en cuanto termina de pintarse.
+  async function abrirVistaPrevia(numeroParcial) {
+    if (!actual) return
+    setCargandoVistaPrevia(true)
+    setVerRevision(true)
+    try {
+      const numero = numeroParcial ?? parcialActivo
+      const fuente = aceptada ? (edicionAceptada || porParcialAceptado) : edicion
+      const secuencias = secuenciasDeParcial(numero, fuente)
+      const p = (fuente || []).find((x) => x.numero === numero)
+      const titulo = `Planeación Didáctica Inicial — Parcial ${numero}${p?.periodo ? ` (${p.periodo})` : ''}`
+      const blob = await construirDocumentoPlaneacion(secuencias, titulo)
+      setBlobVistaPrevia(blob)
+    } catch (err) {
+      toast('No se pudo generar la vista previa: ' + err.message, 'error')
+      setVerRevision(false)
+    } finally {
+      setCargandoVistaPrevia(false)
+    }
   }
 
-  function agregarSecuencia() {
-    const actualizador = (prev) => prev.map((p) => (
-      p.numero !== parcialActivo ? p : { ...p, secuencias: [...p.secuencias, nuevaSecuenciaVacia()] }
-    ))
-    if (aceptada) setEdicionAceptada(actualizador)
-    else setEdicion(actualizador)
+  // Se llama en cuanto `actual` de verdad refleja la generación recién
+  // hecha (ver `generar()` — no se puede abrir en el mismo instante porque
+  // el listener de Firestore todavía trae los datos del ciclo anterior).
+  useEffect(() => {
+    if (abrirTrasGenerar && actual) {
+      setAbrirTrasGenerar(false)
+      abrirVistaPrevia()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- abrirVistaPrevia se redefine cada render, no es una dependencia real
+  }, [abrirTrasGenerar, actual])
+
+  // Tras agregar/eliminar/mover una Secuencia Didáctica (ver
+  // cambiarGrupoSecuencias) — el estado y esta bandera se actualizan en el
+  // MISMO evento, así que React los aplica juntos en el siguiente render:
+  // para cuando este efecto corre, el estado ya refleja el cambio.
+  useEffect(() => {
+    if (recargarVistaPreviaPendiente) {
+      setRecargarVistaPreviaPendiente(false)
+      abrirVistaPrevia()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- abrirVistaPrevia se redefine cada render, no es una dependencia real
+  }, [recargarVistaPreviaPendiente, edicion, edicionAceptada])
+
+  useEffect(() => {
+    if (!verRevision || !blobVistaPrevia || !vistaPreviaRef.current) return
+    vistaPreviaRef.current.innerHTML = ''
+    renderDocxAsync(blobVistaPrevia, vistaPreviaRef.current, undefined, { inWrapper: true })
+      .then(() => {
+        // La edición solo se activa en escritorio — en celular la Vista
+        // previa se deja de solo lectura (ver AvisoRevisionDesktop).
+        if (!isDesktop || !vistaPreviaRef.current) return
+        activarEdicionDocumento(vistaPreviaRef.current, secuenciasActivoRef.current, cambiarCampo, cambiarGrupoSecuencias)
+      })
+      .catch((err) => toast('No se pudo mostrar la vista previa: ' + err.message, 'error'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe re-ejecutar al cambiar de blob, no en cada render
+  }, [verRevision, blobVistaPrevia])
+
+  if (!histLoaded) {
+    return <div className="flex justify-center py-6"><Spinner size="sm" /></div>
   }
 
   function cambiarParcialRevision(numero) {
     setParcialActivo(numero)
+    abrirVistaPrevia(numero)
   }
 
   function cerrarRevision() {
     setVerRevision(false)
+    setBlobVistaPrevia(null)
   }
 
   return (
@@ -724,7 +781,7 @@ function Planeacion({
         {actual && !aceptada && isDesktop && (
           <button
             type="button"
-            onClick={() => setVerRevision(true)}
+            onClick={() => abrirVistaPrevia()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50"
           >
             <ThumbsUp size={14} />
@@ -734,7 +791,7 @@ function Planeacion({
         {actual && aceptada && (
           <button
             type="button"
-            onClick={() => setVerRevision(true)}
+            onClick={() => abrirVistaPrevia()}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-sm ${
               isDesktop ? 'border-green-600 text-green-700 hover:bg-green-50' : 'border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
             }`}
@@ -817,32 +874,11 @@ function Planeacion({
             </>
           )}
         >
-          {isDesktop ? (
-            <DocumentoPlaneacionEditable
-              secuencias={secuenciasActivo}
-              onCambiarCampo={cambiarCampo}
-              onMover={moverSecuencia}
-              onEliminar={eliminarSecuencia}
-              onAgregar={agregarSecuencia}
-            />
+          {cargandoVistaPrevia && !blobVistaPrevia ? (
+            <div className="flex justify-center py-10"><Spinner /></div>
           ) : (
-            // Solo lectura en celular (aceptada) — sin controles de edición.
-            <div className="bg-white rounded shadow-card mx-auto max-w-3xl p-6 space-y-4">
-              {secuenciasActivo.map((s, i) => (
-                <div key={s.id} className="pb-3 border-b border-neutral-200 last:border-b-0">
-                  <p className="text-lg font-bold text-neutral-900" style={{ fontFamily: 'Georgia, serif' }}>
-                    Secuencia Didáctica {i + 1}{s.nombre ? ` — ${s.nombre}` : ''}
-                  </p>
-                  {CAMPOS_SECUENCIA.filter((c) => c.clave !== 'nombre').map(({ clave, etiqueta }) => (
-                    s[clave] ? (
-                      <div key={clave} className="mt-1">
-                        <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">{etiqueta}</p>
-                        <p className="text-sm text-neutral-900 whitespace-pre-wrap" style={{ fontFamily: 'Georgia, serif' }}>{s[clave]}</p>
-                      </div>
-                    ) : null
-                  ))}
-                </div>
-              ))}
+            <div className="flex justify-center overflow-x-auto">
+              <div ref={vistaPreviaRef} />
             </div>
           )}
         </RevisionPantallaCompleta>
