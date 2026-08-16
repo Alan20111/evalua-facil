@@ -28,11 +28,14 @@ import ProgramaEstudiosSection from './ProgramaEstudiosSection'
 // Actividades → por parcial, `materials` en Firestore), que ya es donde el
 // docente sube documentos específicos de cada parcial — la IA lee de ahí
 // (ver bloqueFuentesPermanentes en functions/ia.js), sin duplicar el lugar.
-function GrupoFuentes({ titulo, fuentes, onAgregar, onEliminar, subiendo, eliminandoId }) {
+function GrupoFuentes({ titulo, descripcion, fuentes, onAgregar, onEliminar, subiendo, eliminandoId }) {
   return (
     <div className="bg-surface-card rounded-card shadow-card p-3">
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <h3 className="font-semibold text-on-surface text-sm">{titulo}</h3>
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="min-w-0">
+          <h2 className="font-bold text-on-surface">{titulo}</h2>
+          {descripcion && <p className="text-sm text-muted mt-0.5">{descripcion}</p>}
+        </div>
         {fuentes.length < MAX_FUENTES_POR_GRUPO ? (
           <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-dashed border-outline-variant text-xs sm:text-sm text-accent cursor-pointer hover:bg-[var(--accent-tint)] flex-shrink-0">
             {subiendo ? <Spinner size="sm" /> : <Paperclip size={14} />}
@@ -214,17 +217,9 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
         </p>
       ) : (
         <>
-          <div className="bg-surface-card rounded-card shadow-card p-3">
-            <h2 className="font-bold text-on-surface">Fuentes del curso</h2>
-            <p className="text-sm text-muted mt-0.5">
-              Material complementario (manuales, guías) — opcional, aparte de la Fuente Principal. Se
-              reutiliza en todas las funciones de IA. PDF o Word, hasta {MAX_FUENTES} por carga y{' '}
-              {MAX_FUENTES_POR_GRUPO} en total.
-            </p>
-          </div>
-
           <GrupoFuentes
-            titulo="Fuentes para todo el curso"
+            titulo="Fuentes del curso"
+            descripcion={`Material complementario (manuales, guías) — opcional, aparte de la Fuente Principal. Se reutiliza en todas las funciones de IA. PDF o Word, hasta ${MAX_FUENTES} por carga y ${MAX_FUENTES_POR_GRUPO} en total.`}
             fuentes={generales}
             subiendo={subiendo}
             eliminandoId={eliminandoId}
