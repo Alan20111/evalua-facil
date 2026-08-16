@@ -2855,6 +2855,7 @@ async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
   const vacias = new Set(ctx.celdas.filter((c) => !c.x).map((c) => `${c.t ?? ''}_${c.f}_${c.c}`))
   const porParcial = []
   let tokensEntrada = 0, tokensSalida = 0, ms = 0
+  let reintentos = 0 // cuántos parciales necesitaron el reintento de secuencias — se cobra aparte (ver unidadesReales)
 
   for (const parcialCtx of ctx.parciales) {
     // El presupuesto de tokens de salida estaba calculado para celdas cortas
@@ -2892,7 +2893,7 @@ async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
       // secuencias que antes) — si no, se sigue con la respuesta original
       // en vez de arriesgar un JSON peor o vacío.
       const entregadasReintento = Array.isArray(reintento.datos?.secuenciasDidacticas) ? reintento.datos.secuenciasDidacticas.length : 0
-      if (entregadasReintento > entregadas) datos = reintento.datos
+      if (entregadasReintento > entregadas) { datos = reintento.datos; reintentos++ }
     }
     // Blindaje: solo se aceptan celdas que de verdad estaban VACÍAS en la
     // plantilla original — si la IA "corrige" o repite una celda con
@@ -2945,12 +2946,12 @@ async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
     porParcial.push({ numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, celdas })
   }
 
-  return { porParcial, interno: { modelo, tokensEntrada, tokensSalida, ms } }
+  return { porParcial, reintentos, interno: { modelo, tokensEntrada, tokensSalida, ms } }
 }
 
 async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
-  const { porParcial, interno } = await llenarPlantillaPorParciales({ ctx, modelo, apiKey })
+  const { porParcial, reintentos, interno } = await llenarPlantillaPorParciales({ ctx, modelo, apiKey })
 
   // Regla de no invención (T.7): si NINGÚN parcial produjo una celda
   // aprovechable, esto NO se cobra (cae al catch del callable, que
@@ -2984,7 +2985,12 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
 
   return {
     resultado: { porParcial: porParcialGuardado },
-    unidadesReales: 1, // tarifa fija (20 créditos), sin importar el número de parciales
+    // Tarifa fija (20 créditos) + 1 unidad extra por cada parcial que
+    // necesitó el reintento de secuencias (ver llenarPlantillaPorParciales)
+    // — ese reintento duplica el gasto real de tokens de ese parcial, así
+    // que se refleja en lo que se cobra (Kike, 16-ago-2026: "cóbrale más
+    // créditos al usuario por hacerla").
+    unidadesReales: 1 + reintentos,
     interno,
   }
 }
@@ -3108,7 +3114,7 @@ async function precheckPlaneacionFormatoOficial({ uid, params }) {
 
 async function ejecutarPlaneacionFormatoOficial({ params, modelo, apiKey }) {
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
-  const { porParcial, interno } = await llenarPlantillaPorParciales({ ctx, modelo, apiKey })
+  const { porParcial, reintentos, interno } = await llenarPlantillaPorParciales({ ctx, modelo, apiKey })
 
   if (!porParcial.some((p) => p.celdas.length)) {
     throw new Error('El asistente de IA no generó contenido utilizable para tu plantilla')
@@ -3136,7 +3142,10 @@ async function ejecutarPlaneacionFormatoOficial({ params, modelo, apiKey }) {
 
   return {
     resultado: { porParcial: porParcialGuardado },
-    unidadesReales: 1, // tarifa fija, sin importar cuántas celdas tenga la plantilla
+    // Tarifa fija + 1 unidad extra por cada parcial que necesitó el
+    // reintento de secuencias (ver llenarPlantillaPorParciales / la misma
+    // razón en ejecutarPlaneacionDidacticaInicial).
+    unidadesReales: 1 + reintentos,
     interno,
   }
 }
