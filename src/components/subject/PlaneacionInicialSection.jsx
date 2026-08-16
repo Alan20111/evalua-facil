@@ -205,6 +205,69 @@ function TablaPlantillaEditable({ celdasOriginales, celdasPropuestas, onChangeCe
   )
 }
 
+// ── Edición directa sobre la Vista previa (pedido de Kike, 15-ago-2026:
+// "por lo que veo la vista previa podría editarse y nos ahorraríamos la
+// vista de edición") ──────────────────────────────────────────────────────
+// docx-preview solo RENDERIZA el .docx a HTML — no sabe qué celda nuestra
+// (tablaIndex/fila/columna) es cuál <td> del DOM. Se reconstruye esa
+// correspondencia recorriendo las tablas renderizadas en el MISMO orden y
+// con la MISMA lógica de columna (arrastrando colSpan) que usa
+// leerTablasWord en plantillaOficial.js — y ANTES de confiar en ella, se
+// verifica contra una muestra de celdas que YA tenían texto en el original
+// (encabezados): si lo que hay en el DOM en esa posición no coincide con lo
+// esperado, la correspondencia no es confiable y se cae a la tabla de
+// respaldo (TablaPlantillaEditable) en vez de arriesgarse a guardar una
+// corrección en la celda equivocada sin que el docente se entere.
+function celdaClave(t, f, c) {
+  return `${t ?? ''}_${f}_${c}`
+}
+
+function mapearCeldasDom(container) {
+  const mapa = new Map()
+  Array.from(container.querySelectorAll('table')).forEach((tabla, tablaIndex) => {
+    Array.from(tabla.querySelectorAll('tr')).forEach((tr, fila) => {
+      let columna = 0
+      Array.from(tr.children).forEach((td) => {
+        if (td.tagName !== 'TD' && td.tagName !== 'TH') return
+        mapa.set(celdaClave(tablaIndex, fila, columna), td)
+        columna += td.colSpan || 1
+      })
+    })
+  })
+  return mapa
+}
+
+function verificarMapeoDom(mapa, celdasOriginales) {
+  const conTexto = (celdasOriginales || []).filter((c) => c.texto?.trim()).slice(0, 30)
+  if (!conTexto.length) return false
+  let coincide = 0
+  for (const c of conTexto) {
+    const td = mapa.get(celdaClave(c.tablaIndex, c.fila, c.columna))
+    const esperado = c.texto.trim().slice(0, 12).toLowerCase()
+    if (td && td.textContent.trim().toLowerCase().startsWith(esperado)) coincide++
+  }
+  return coincide / conTexto.length >= 0.7
+}
+
+// Vuelve editables (contentEditable) las celdas del DOM que corresponden a
+// celdas propuestas por la IA o vacías que el docente llena a mano —
+// devuelve `false` sin tocar nada si el mapeo no pasó la verificación.
+function activarEdicionDirecta(container, celdasOriginales, celdasEditables, onChangeCelda) {
+  const mapa = mapearCeldasDom(container)
+  if (!verificarMapeoDom(mapa, celdasOriginales)) return false
+  celdasEditables.forEach((c, idx) => {
+    const td = mapa.get(celdaClave(c.tablaIndex, c.fila, c.columna))
+    if (!td) return
+    td.contentEditable = 'true'
+    td.style.outline = '2px dashed var(--accent)'
+    td.style.background = 'var(--accent-tint)'
+    td.style.minHeight = '1.2em'
+    td.textContent = c.texto || ''
+    td.addEventListener('input', () => onChangeCelda(idx, td.textContent))
+  })
+  return true
+}
+
 // A pantalla completa salvo el sidebar azul (pedido de Kike, 15-ago-2026) —
 // la revisión de la Planeación necesita todo el ancho posible para verse
 // como el documento real, no como una lista angosta. Solo en escritorio: en
@@ -446,7 +509,6 @@ function FormatoSection({
   const [histLoaded, setHistLoaded] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
   const [generando, setGenerando] = useState(false)
-  const [revisando, setRevisando] = useState(false)
   const [parcialActivo, setParcialActivo] = useState(1)
   const [edicion, setEdicion] = useState(null) // [{numero, periodo, celdas}] mientras no está aceptada
   const [edicionDeId, setEdicionDeId] = useState(null)
@@ -460,6 +522,11 @@ function FormatoSection({
   const [verVistaPrevia, setVerVistaPrevia] = useState(false)
   const [cargandoVistaPrevia, setCargandoVistaPrevia] = useState(false)
   const [blobVistaPrevia, setBlobVistaPrevia] = useState(null)
+  // null = todavía sin determinar (justo después de renderizar); true = se
+  // pudo activar la edición directa sobre la vista previa; false = el
+  // mapeo no fue confiable, se cae a TablaPlantillaEditable (respaldo).
+  const [edicionDirectaOk, setEdicionDirectaOk] = useState(null)
+  const [abrirTrasGenerar, setAbrirTrasGenerar] = useState(false)
   const vistaPreviaRef = useRef(null)
 
   useEffect(() => {
@@ -543,7 +610,11 @@ function FormatoSection({
       if (data?.resultado?.porParcial?.length) {
         toast(data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional) — revísala y acéptala cuando estés conforme.'
           : 'Planeación generada — revísala y acéptala cuando estés conforme.', 'info')
-        setRevisando(true)
+        // No se abre aquí mismo: `actual`/`edicion` todavía son del ciclo
+        // ANTERIOR (el listener de Firestore no ha recibido la nueva
+        // generación) — se marca pendiente y un efecto la abre en cuanto
+        // `actual` de verdad cambie.
+        setAbrirTrasGenerar(true)
       }
     } catch (err) {
       setConfirmando(false)
@@ -642,6 +713,10 @@ function FormatoSection({
     }
   }
 
+  // Abre la Vista previa — sin aceptar, ES la revisión: si el mapeo al DOM
+  // resulta confiable, se edita directo sobre el documento renderizado; si
+  // no, cae a TablaPlantillaEditable (ver el efecto de render, abajo). Ya
+  // aceptada, es de solo lectura.
   async function abrirVistaPrevia(numeroParcial) {
     if (!actual) return
     if (plantillaTipo !== 'docx') {
@@ -649,6 +724,7 @@ function FormatoSection({
       return
     }
     setCargandoVistaPrevia(true)
+    setEdicionDirectaOk(null)
     setVerVistaPrevia(true)
     try {
       const resPlantilla = await fetch(plantillaUrl)
@@ -665,9 +741,21 @@ function FormatoSection({
     }
   }
 
+  // Se llama en cuanto `actual` de verdad refleja la generación recién
+  // hecha (ver `generar()` — no se puede abrir en el mismo instante porque
+  // el listener de Firestore todavía trae los datos del ciclo anterior).
+  useEffect(() => {
+    if (abrirTrasGenerar && actual) {
+      setAbrirTrasGenerar(false)
+      abrirVistaPrevia()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- abrirVistaPrevia se redefine cada render, no es una dependencia real
+  }, [abrirTrasGenerar, actual])
+
   function cerrarVistaPrevia() {
     setVerVistaPrevia(false)
     setBlobVistaPrevia(null)
+    setEdicionDirectaOk(null)
   }
 
   function cambiarParcialVistaPrevia(numero) {
@@ -679,8 +767,21 @@ function FormatoSection({
     if (!verVistaPrevia || !blobVistaPrevia || !vistaPreviaRef.current) return
     vistaPreviaRef.current.innerHTML = ''
     renderDocxAsync(blobVistaPrevia, vistaPreviaRef.current, undefined, { inWrapper: true })
+      .then(() => {
+        if (aceptada) return // solo lectura: se deja el render tal cual, sin activar nada
+        const ok = activarEdicionDirecta(
+          vistaPreviaRef.current,
+          actual?.celdasOriginales || [],
+          celdasEditablesActivo,
+          (idx, texto) => setEdicion((prev) => prev.map((p) => (
+            p.numero !== parcialActivo ? p : { ...p, celdas: p.celdas.map((x, j) => (j === idx ? { ...x, texto } : x)) }
+          ))),
+        )
+        setEdicionDirectaOk(ok)
+      })
       .catch((err) => toast('No se pudo mostrar la vista previa: ' + err.message, 'error'))
-  }, [verVistaPrevia, blobVistaPrevia, toast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe re-ejecutar al cambiar de blob, no en cada render
+  }, [verVistaPrevia, blobVistaPrevia])
 
   if (!histLoaded) {
     return <div className="flex justify-center py-6"><Spinner size="sm" /></div>
@@ -725,14 +826,15 @@ function FormatoSection({
         {actual && !aceptada && isDesktop && (
           <button
             type="button"
-            onClick={() => setRevisando(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50"
+            onClick={() => abrirVistaPrevia()}
+            disabled={cargandoVistaPrevia}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50 disabled:opacity-60"
           >
-            <ThumbsUp size={14} />
+            {cargandoVistaPrevia ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
             Revisar la planeación inicial y aceptarla
           </button>
         )}
-        {actual && (
+        {actual && aceptada && (
           <button
             type="button"
             onClick={() => abrirVistaPrevia()}
@@ -773,15 +875,21 @@ function FormatoSection({
         </div>
       )}
 
-      {/* Sin aceptar: revisión a pantalla completa (Opción C) — es el paso
-          obligatorio antes de poder aceptar y descargar. Solo en escritorio. */}
+      {/* Sin aceptar, "Revisar y aceptar" y "Vista previa" son la MISMA
+          pantalla (pedido de Kike, 15-ago-2026: "por lo que veo la vista
+          previa podría editarse y nos ahorraríamos la vista de edición") —
+          se edita directo sobre el documento real renderizado. Si el
+          mapeo entre ese render y nuestras celdas no resulta confiable
+          (edicionDirectaOk === false), cae a TablaPlantillaEditable en vez
+          de arriesgar guardar una corrección en la celda equivocada sin
+          que el docente se entere. Solo en escritorio. */}
       {actual && !aceptada && !isDesktop && <AvisoRevisionDesktop />}
-      {actual && !aceptada && isDesktop && revisando && (
+      {verVistaPrevia && (isDesktop || aceptada) && (
         <RevisionPantallaCompleta
-          titulo={`Revisa la Planeación Inicial (${titulo}) y corrígela antes de aceptarla`}
-          onCerrar={() => setRevisando(false)}
-          tabs={<SelectorParcial porParcial={edicion} activo={parcialActivo} onCambiar={setParcialActivo} />}
-          acciones={(
+          titulo={aceptada ? 'Vista previa — así se imprimiría' : `Revisa la Planeación Inicial (${titulo}) y corrígela antes de aceptarla`}
+          onCerrar={cerrarVistaPrevia}
+          tabs={<SelectorParcial porParcial={actual?.porParcial} activo={parcialActivo} onCambiar={cambiarParcialVistaPrevia} />}
+          acciones={!aceptada && (
             <>
               <button
                 type="button"
@@ -804,24 +912,24 @@ function FormatoSection({
             </>
           )}
         >
-          <TablaPlantillaEditable
-            celdasOriginales={actual.celdasOriginales || []}
-            celdasPropuestas={celdasEditablesActivo}
-            onChangeCelda={(idx, texto) => setEdicion((prev) => prev.map((p) => (
-              p.numero !== parcialActivo ? p : { ...p, celdas: p.celdas.map((x, j) => (j === idx ? { ...x, texto } : x)) }
-            )))}
-          />
-        </RevisionPantallaCompleta>
-      )}
-
-      {verVistaPrevia && (
-        <RevisionPantallaCompleta
-          titulo="Vista previa — así se imprimiría"
-          onCerrar={cerrarVistaPrevia}
-          tabs={<SelectorParcial porParcial={actual?.porParcial} activo={parcialActivo} onCambiar={cambiarParcialVistaPrevia} />}
-        >
           {cargandoVistaPrevia && !blobVistaPrevia ? (
             <div className="flex justify-center py-10"><Spinner /></div>
+          ) : (!aceptada && edicionDirectaOk === false) ? (
+            <>
+              {!aceptada && (
+                <p className="text-xs text-amber-700 mb-3">
+                  No se pudo activar la edición directa sobre esta plantilla — corrígela aquí abajo, campo por
+                  campo.
+                </p>
+              )}
+              <TablaPlantillaEditable
+                celdasOriginales={actual?.celdasOriginales || []}
+                celdasPropuestas={celdasEditablesActivo}
+                onChangeCelda={(idx, texto) => setEdicion((prev) => prev.map((p) => (
+                  p.numero !== parcialActivo ? p : { ...p, celdas: p.celdas.map((x, j) => (j === idx ? { ...x, texto } : x)) }
+                )))}
+              />
+            </>
           ) : (
             <div className="flex justify-center overflow-x-auto">
               <div ref={vistaPreviaRef} />
