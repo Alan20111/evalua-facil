@@ -358,21 +358,31 @@ function CeldasMultiSesionEditable({ celdasOriginales, celdas, onChangeSesion })
 // como el documento real, no como una lista angosta. Solo en escritorio: en
 // celular no hay espacio para una tabla así, así que ni se intenta mostrar
 // (ver useIsDesktop) — el docente revisa desde una computadora.
-function RevisionPantallaCompleta({ titulo, onCerrar, acciones, tabs, children }) {
+function RevisionPantallaCompleta({ titulo, onCerrar, cerrarTexto = null, acciones, tabs, children }) {
   return (
     <div className="fixed inset-0 md:left-[300px] z-40 bg-surface-card flex flex-col">
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-outline-variant flex-shrink-0">
         <h2 className="font-bold text-on-surface truncate">{titulo}</h2>
         <div className="flex items-center gap-2 flex-shrink-0">
           {acciones}
-          <button
-            type="button"
-            onClick={onCerrar}
-            aria-label="Cerrar"
-            className="p-1.5 rounded text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface"
-          >
-            <X size={18} />
-          </button>
+          {cerrarTexto ? (
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="flex-shrink-0 px-3 py-1.5 rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface"
+            >
+              {cerrarTexto}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onCerrar}
+              aria-label="Cerrar"
+              className="p-1.5 rounded text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
       </div>
       {tabs && (
@@ -1052,6 +1062,7 @@ function FormatoSection({
               : 'Corrige y guarda antes de aceptarla (también podrás editar tu archivo descargado)'
           }
           onCerrar={cerrarVistaPrevia}
+          cerrarTexto={!aceptada ? 'Salir y aceptar luego' : null}
           tabs={<SelectorParcial porParcial={actual?.porParcial} activo={parcialActivo} onCambiar={cambiarParcialVistaPrevia} />}
           acciones={isDesktop && (
             <>
