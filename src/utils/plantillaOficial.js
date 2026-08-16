@@ -154,8 +154,31 @@ function gridSpanDe(tc) {
   return val > 0 ? val : 1
 }
 
+// Celdas combinadas VERTICALMENTE en Word (encontrado 15-ago-2026, plantilla
+// SEP de Kike: 3 casos rompían el mapeo de la Vista previa editable): la
+// celda de arriba trae <w:vMerge w:val="restart"/> (o simplemente no trae
+// vMerge, si nunca se combina); las de abajo traen <w:vMerge/> SIN val, que
+// por especificación OOXML significa "continúa la de arriba" — siguen
+// siendo un <w:tc> real en el XML, con texto vacío casi siempre, pero
+// Word/docx-preview NO las dibuja como celda propia (usan rowSpan en la de
+// arriba) — si se cuentan aquí como si fueran una celda normal, las demás
+// celdas de esa fila quedan una columna corridas respecto a como se ve/
+// renderiza de verdad.
+function esVMergeContinuacion(tc) {
+  const tcPr = tc.getElementsByTagNameNS(W_NS, 'tcPr')[0]
+  if (!tcPr) return false
+  const vMerge = tcPr.getElementsByTagNameNS(W_NS, 'vMerge')[0]
+  if (!vMerge) return false
+  const val = vMerge.getAttribute('w:val')
+  return !val || val === 'continue'
+}
+
 // Recorre document.xml y devuelve cada <w:tbl> como cuadrícula de texto —
-// mismo propósito que leerCuadriculaExcel pero para tablas de Word.
+// mismo propósito que leerCuadriculaExcel pero para tablas de Word. Las
+// celdas que son continuación de una combinada verticalmente se saltan (no
+// son una celda real que se pueda llenar) pero SÍ avanzan la columna
+// lógica, para que las celdas reales de esa fila queden en la posición que
+// de verdad ocupan.
 export async function leerTablasWord(arrayBuffer) {
   const PizZip = await cargarPizZip()
   const zip = new PizZip(arrayBuffer)
@@ -164,12 +187,15 @@ export async function leerTablasWord(arrayBuffer) {
   const tablas = Array.from(doc.getElementsByTagNameNS(W_NS, 'tbl')).map((tbl, tablaIndex) => {
     const filas = Array.from(tbl.getElementsByTagNameNS(W_NS, 'tr')).map((tr, fila) => {
       let columnaLogica = 0
-      return celdasDeFila(tr).map((tc) => {
+      const entradas = []
+      for (const tc of celdasDeFila(tr)) {
         const span = gridSpanDe(tc)
-        const entrada = { texto: textoDeCelda(tc), fila, columna: columnaLogica, colSpan: span, tablaIndex }
+        if (!esVMergeContinuacion(tc)) {
+          entradas.push({ texto: textoDeCelda(tc), fila, columna: columnaLogica, colSpan: span, tablaIndex })
+        }
         columnaLogica += span
-        return entrada
-      })
+      }
+      return entradas
     })
     return { filas }
   })
@@ -177,14 +203,14 @@ export async function leerTablasWord(arrayBuffer) {
 }
 
 // Busca, dentro de una fila, el <w:tc> cuyo rango de columnas lógicas
-// (arrastrando gridSpan) cubre la columna pedida — reemplaza el acceso
-// directo por índice, que se desalineaba en cuanto una fila tenía una
-// celda combinada.
+// (arrastrando gridSpan, saltando continuaciones de vMerge) cubre la
+// columna pedida — reemplaza el acceso directo por índice, que se
+// desalineaba en cuanto una fila tenía una celda combinada.
 function celdaEnColumnaLogica(tr, columnaObjetivo) {
   let columnaLogica = 0
   for (const tc of celdasDeFila(tr)) {
     const span = gridSpanDe(tc)
-    if (columnaObjetivo >= columnaLogica && columnaObjetivo < columnaLogica + span) return tc
+    if (!esVMergeContinuacion(tc) && columnaObjetivo >= columnaLogica && columnaObjetivo < columnaLogica + span) return tc
     columnaLogica += span
   }
   return null
