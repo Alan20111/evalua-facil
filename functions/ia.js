@@ -2809,6 +2809,8 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     '  "desarrolloCelda": {"f": <fila de la celda de contenido de Desarrollo>, "c": <columna>, "t": <tabla o ' +
     'null>},\n' +
     '  "cierreCelda": {"f": <fila de la celda de contenido de Cierre>, "c": <columna>, "t": <tabla o null>},\n' +
+    '  "bloquesTematicos": <número entero — cuántos bloques temáticos distintos del programa decidiste que ' +
+    'cubre este parcial, ANTES de escribir las secuencias>,\n' +
     '  "secuenciasDidacticas": [\n' +
     '    {"apertura": "<texto de Apertura de la Secuencia Didáctica 1>", "desarrollo": "<texto de Desarrollo ' +
     'de la Secuencia Didáctica 1, máx 4000 caracteres>", "cierre": "<texto de Cierre de la Secuencia Didáctica ' +
@@ -2817,9 +2819,29 @@ function promptPlantillaParcial(ctx, parcialCtx) {
     '  ]\n' +
     '}\n' +
     '"celdas" lleva TODO lo demás de la plantilla (nunca Apertura/Desarrollo/Cierre, esos van solo en ' +
-    '"secuenciasDidacticas"). Si la plantilla no separa Apertura/Desarrollo/Cierre en celdas propias (no ' +
-    'aplica a este formato), omite "aperturaCelda"/"desarrolloCelda"/"cierreCelda"/"secuenciasDidacticas" y ' +
-    'responde solo "celdas".'
+    '"secuenciasDidacticas"). "bloquesTematicos" y "secuenciasDidacticas" deben tener el MISMO número de ' +
+    'elementos — es tu propio conteo, así que tiene que cuadrar; si no cuadra, es que te faltó una secuencia. ' +
+    'Si la plantilla no separa Apertura/Desarrollo/Cierre en celdas propias (no aplica a este formato), omite ' +
+    '"aperturaCelda"/"desarrolloCelda"/"cierreCelda"/"bloquesTematicos"/"secuenciasDidacticas" y responde solo ' +
+    '"celdas".'
+  )
+}
+
+// Prompt de corrección cuando la propia IA reportó más bloques temáticos de
+// los que entregó en "secuenciasDidacticas" — no es solo repetir la
+// instrucción con otras palabras, es señalarle SU PROPIA inconsistencia
+// (Kike, 16-ago-2026: "dale otra vuelta de una vez, y asegúrala" — el
+// refuerzo de texto en el prompt no basta como garantía, hace falta un
+// reintento automático que de verdad corrija el resultado).
+function promptCorreccionSecuencias(promptOriginal, bloques, entregadas) {
+  return (
+    promptOriginal +
+    '\n\nCORRECCIÓN OBLIGATORIA: en tu respuesta anterior a este mismo mensaje dijiste que este parcial cubre ' +
+    `${bloques} bloques temáticos ("bloquesTematicos": ${bloques}), pero solo entregaste ${entregadas} ` +
+    'elemento(s) en "secuenciasDidacticas" — eso es inconsistente, te faltaron secuencias. Vuelve a responder ' +
+    `el JSON COMPLETO (con "celdas" incluidas otra vez) con EXACTAMENTE ${bloques} elementos en ` +
+    '"secuenciasDidacticas", uno por cada bloque temático que tú mismo identificaste — no comprimas varios ' +
+    'bloques en una sola Secuencia Didáctica.'
   )
 }
 
@@ -2842,10 +2864,36 @@ async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
     // SyntaxError "Unterminated string in JSON" en producción). Se calcula
     // ahora sobre las celdas VACÍAS (las únicas que la IA de verdad llena),
     // con un presupuesto por celda que alcanza para su contenido largo.
-    const { datos, interno } = await pedirJSON({
-      client, modelo, maxTokens: Math.min(16000, 1500 + vacias.size * 350), system: PLANEACION_SISTEMA,
-      prompt: promptPlantillaParcial(ctx, parcialCtx),
+    const maxTokens = Math.min(16000, 1500 + vacias.size * 350)
+    const promptBase = promptPlantillaParcial(ctx, parcialCtx)
+    let { datos, interno } = await pedirJSON({
+      client, modelo, maxTokens, system: PLANEACION_SISTEMA, prompt: promptBase,
     })
+    tokensEntrada += interno.tokensEntrada || 0
+    tokensSalida += interno.tokensSalida || 0
+    ms += interno.ms || 0
+
+    // Aseguramiento real (no solo instrucción de texto): si la propia IA
+    // reportó más bloques temáticos que Secuencias Didácticas entregadas,
+    // es una inconsistencia de SU respuesta, no una suposición nuestra —
+    // se le manda UN reintento automático señalando exactamente esa
+    // inconsistencia antes de aceptar el resultado (Kike, 16-ago-2026).
+    const bloques = Number(datos?.bloquesTematicos)
+    const entregadas = Array.isArray(datos?.secuenciasDidacticas) ? datos.secuenciasDidacticas.length : 0
+    if (Number.isFinite(bloques) && bloques > entregadas) {
+      const reintento = await pedirJSON({
+        client, modelo, maxTokens, system: PLANEACION_SISTEMA,
+        prompt: promptCorreccionSecuencias(promptBase, bloques, entregadas),
+      })
+      tokensEntrada += reintento.interno.tokensEntrada || 0
+      tokensSalida += reintento.interno.tokensSalida || 0
+      ms += reintento.interno.ms || 0
+      // Solo se usa el reintento si de verdad corrigió (entregó más
+      // secuencias que antes) — si no, se sigue con la respuesta original
+      // en vez de arriesgar un JSON peor o vacío.
+      const entregadasReintento = Array.isArray(reintento.datos?.secuenciasDidacticas) ? reintento.datos.secuenciasDidacticas.length : 0
+      if (entregadasReintento > entregadas) datos = reintento.datos
+    }
     // Blindaje: solo se aceptan celdas que de verdad estaban VACÍAS en la
     // plantilla original — si la IA "corrige" o repite una celda con
     // encabezado (con texto), se descarta aquí, sin importar qué haya
@@ -2895,9 +2943,6 @@ async function llenarPlantillaPorParciales({ ctx, modelo, apiKey }) {
       }
     }
     porParcial.push({ numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, celdas })
-    tokensEntrada += interno.tokensEntrada || 0
-    tokensSalida += interno.tokensSalida || 0
-    ms += interno.ms || 0
   }
 
   return { porParcial, interno: { modelo, tokensEntrada, tokensSalida, ms } }
