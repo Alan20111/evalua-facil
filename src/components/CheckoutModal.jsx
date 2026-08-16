@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react'
-import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { collection, doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { X } from 'lucide-react'
 import { db } from '../firebase'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
+import PlanComparisonTable from './PlanComparisonTable'
 import { usePaymentConfig } from '../hooks/usePaymentConfig'
+import useCreditosIA from '../hooks/useCreditosIA'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import {
+  MAYOR_PLAN_ID,
+  MAYOR_PRICE_MXN,
+  MAYOR_SUBSCRIPTION_NAME,
   MESES_DESCUENTO,
+  MONTHLY_PLAN_ID,
+  MONTHLY_PRICE_MXN,
   calcDaysRemaining,
   calcVencimiento,
   datosDePagoTransferencia,
@@ -34,14 +41,41 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   const { currentUser, userProfile } = useAuth()
   const toast = useToast()
   const { config, loading: configLoading } = usePaymentConfig()
+  const creditosIA = useCreditosIA()
 
+  const [planId, setPlanId] = useState(MONTHLY_PLAN_ID)
   const [meses, setMeses] = useState(1)
   const [referencia, setReferencia] = useState('')
   const [file, setFile] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  // `mayor` (Asistente IA Pro) todavía no se ofrece: `plans/mayor.activo`
+  // sigue en `false` a propósito (ver seeds-db/seed-ia-tarifas.js) hasta que
+  // se tome la decisión comercial de lanzarlo. El checkout ya sabe cobrarlo
+  // — falta solo esta bandera para que aparezca — así que activarlo después
+  // no requiere tocar código, solo ese documento.
+  const [mayorDisponible, setMayorDisponible] = useState(false)
 
   useBackHandler(onClose, open)
   useScrollLock(open)
+
+  useEffect(() => {
+    if (!open) return
+    getDoc(doc(db, 'plans', 'mayor'))
+      .then((snap) => setMayorDisponible(!!snap.data()?.activo))
+      .catch(() => setMayorDisponible(false))
+  }, [open])
+
+  // Plan efectivo: derivado, no estado — si mayor se apaga a medio checkout
+  // (o nunca estuvo disponible), el valor se recalcula solo en el siguiente
+  // render sin necesitar un efecto que reescriba `planId` por su cuenta.
+  const planIdEfectivo = planId === MAYOR_PLAN_ID && !mayorDisponible ? MONTHLY_PLAN_ID : planId
+  const esMayor = planIdEfectivo === MAYOR_PLAN_ID
+  // `mayor` no tiene todavía política de varios meses (decisión comercial
+  // pendiente) — se le fija 1 mes siempre, tanto aquí como en
+  // datosDePagoTransferencia y firestore.rules, así nadie puede colarle un
+  // `meses` distinto desde ningún punto de entrada. También derivado, no
+  // estado: evita el mismo patrón "setState dentro de un efecto".
+  const mesesEfectivos = esMayor ? 1 : meses
 
   // Este modal nunca se desmonta — Profile.jsx lo renderiza siempre y solo
   // alterna `open` (aquí abajo hace `if (!open) return null`), así que su
@@ -126,7 +160,8 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
         docenteId: currentUser.uid,
         subscriptionId: subscription.id,
         escuelaId: userProfile?.escuelaId || '',
-        meses,
+        planId: planIdEfectivo,
+        meses: mesesEfectivos,
         referencia,
         comprobanteUrl,
       }))
@@ -153,7 +188,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   const diasVigentes = calcDaysRemaining(vigenteHasta)
   const tieneDiasVigentes = diasVigentes !== null && diasVigentes > 0
   const inicioPeriodo = tieneDiasVigentes ? vigenteHasta : new Date()
-  const finPeriodo = calcVencimiento(inicioPeriodo, 'mensual', meses)
+  const finPeriodo = calcVencimiento(inicioPeriodo, 'mensual', mesesEfectivos)
 
   const t = config?.transferencia
 
@@ -178,10 +213,59 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
           </div>
         ) : (
           <div className="space-y-3">
+            {/* Tabla comercial (Bloque 7, 13-ago-2026): para que el docente
+                entienda en segundos qué obtiene con cada plan, cuánto cuesta
+                y cuál le conviene — visible siempre en el momento de decidir,
+                no escondida detrás de un toggle. Solo nombres comerciales:
+                nada de planId/pro/mayor/trial ni de dónde salen los datos. */}
+            <PlanComparisonTable
+              mostrarMayor={mayorDisponible}
+              creditosGratuito={creditosIA.tarifas?.capacidadPorPlan?.trial}
+              creditosPro={creditosIA.tarifas?.planes?.pro?.creditos}
+              creditosMayor={creditosIA.tarifas?.planes?.mayor?.creditos}
+            />
+
+            {/* Selector de plan — solo aparece si `plans/mayor.activo` es
+                true (Bloque 4: técnicamente listo, comercialmente apagado
+                hasta nueva orden). Con un solo plan disponible no se muestra
+                nada aquí, igual que antes. */}
+            {mayorDisponible && (
+              <div>
+                <p className="text-xs font-medium text-muted mb-1.5">Elige tu plan</p>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { id: MONTHLY_PLAN_ID, nombre: 'Asistente IA', precio: MONTHLY_PRICE_MXN },
+                    { id: MAYOR_PLAN_ID, nombre: MAYOR_SUBSCRIPTION_NAME, precio: MAYOR_PRICE_MXN },
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setPlanId(p.id)}
+                      className={`flex items-center justify-between text-left px-3 py-2.5 rounded-card border transition-colors ${
+                        planIdEfectivo === p.id ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
+                      }`}
+                    >
+                      <span className="font-semibold text-on-surface text-sm">{p.nombre}</span>
+                      <span className="text-sm text-muted tabular-nums">{formatCurrency(p.precio)}/mes</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Selector de meses — reemplaza al selector mensual/anual: en
                 v1.0.1 solo hay un plan (mensual) y transferencia como único
                 método, así que el incentivo de "paga varios meses de una
-                vez" (antes el plan anual) vive aquí. */}
+                vez" (antes el plan anual) vive aquí. `mayor` todavía no
+                tiene política de descuento por varios meses (decisión
+                comercial pendiente), así que para ese plan se muestra solo
+                el mes único a $199, sin selector. */}
+            {esMayor ? (
+              <div className="rounded-card border border-accent bg-accent-light px-3 py-2.5">
+                <p className="font-semibold text-on-surface text-sm">1 mes</p>
+                <p className="text-base text-muted tabular-nums">{formatCurrency(MAYOR_PRICE_MXN)}</p>
+              </div>
+            ) : (
             <div>
               <p className="text-xs font-medium text-muted mb-1.5">¿Cuántos meses deseas pagar?</p>
               <div className="grid grid-cols-3 gap-2">
@@ -212,6 +296,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 ))}
               </div>
             </div>
+            )}
 
             <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2.5">
               {tieneDiasVigentes ? (

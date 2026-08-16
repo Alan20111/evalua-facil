@@ -6,6 +6,7 @@ import EFDateTimePicker from './EFDateTimePicker'
 import SearchInput from './SearchInput'
 import { matchesStudentSearch, studentFullName } from '../utils/studentSearch'
 import { nowIsoLocal } from '../utils/nowIso'
+import { fechaLimiteTimestamp } from '../utils/deadline'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
@@ -46,7 +47,9 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
     setSaving(true)
     try {
       if (mode === 'todos') {
-        await updateDoc(doc(db, 'activities', activityId), { fechaLimite: date, cerradaManual: false })
+        await updateDoc(doc(db, 'activities', activityId), {
+          fechaLimite: date, fechaLimiteTS: fechaLimiteTimestamp(date), cerradaManual: false,
+        })
         onSaved({ mode, date })
         toast('Nueva fecha de entrega para todo el grupo')
       } else {
@@ -55,6 +58,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
         const patch = {}
         ids.forEach((id) => {
           patch[`extensiones.${id}`] = date
+          patch[`extensionesTS.${id}`] = fechaLimiteTimestamp(date)
           patch[`extensionesMotivo.${id}`] = motivoTrim
         })
         await updateDoc(doc(db, 'activities', activityId), patch)

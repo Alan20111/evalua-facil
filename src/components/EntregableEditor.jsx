@@ -11,13 +11,20 @@ import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, htmlToPlainText, toRichHtml, richTextContentClass } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts, fileTypesInstructions } from '../config/fileTypes'
-import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen, ChevronRight, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen, ChevronRight, Trash2, Sparkles } from 'lucide-react'
 import InfoDisclosure from './ui/InfoDisclosure'
 import ConfirmModal from './ConfirmModal'
 import RubricaPicker from './rubrica/RubricaPicker'
 import RubricaEditor from './rubrica/RubricaEditor'
+import ListaCotejoEditor from './rubrica/ListaCotejoEditor'
 import RubricaTable from './rubrica/RubricaTable'
-import { snapshotRubrica, esCotejo, instrumentoColors } from '../utils/rubrica'
+import {
+  snapshotRubrica, esCotejo, instrumentoColors,
+  rubricaDesdePropuesta, cotejoDesdePropuesta, validarRubrica, trazaIA,
+  MIN_CRITERIOS, MAX_CRITERIOS, MIN_NIVELES, MAX_NIVELES,
+} from '../utils/rubrica'
+import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
+import useCreditosIA from '../hooks/useCreditosIA'
 import EFDateTimePicker from './EFDateTimePicker'
 import { formatDeadline, isActivityPublished, resolveVisibilidad, isDraftActivity } from '../utils/activityVisibility'
 import { minDeadline, isoLocalFromDate } from '../utils/nowIso'
@@ -61,7 +68,14 @@ export default function EntregableEditor({
   onDeleteActivity,   // ActivityPage only: abre la confirmación de borrado — ausente al crear
 }) {
   const toast = useToast()
-  const isNew = !activityId
+  // La actividad puede nacer DENTRO de este editor: "Generar con IA" necesita
+  // una actividad padre en Firestore, y la guarda como borrador sin cerrar la
+  // pantalla (ver guardarBorradorParaIA). A partir de ahí este editor edita esa
+  // actividad, no crea otra — por eso el id efectivo, y no el prop, manda en
+  // todo lo que escribe.
+  const [createdId, setCreatedId] = useState(null)
+  const effectiveActivityId = activityId || createdId
+  const isNew = !effectiveActivityId
   // Observación: no file submission → file types and deadline don't apply,
   // and instructions are optional (the name alone often says it all).
   const isObservacion = categoria === 'observacion'
@@ -82,6 +96,28 @@ export default function EntregableEditor({
   const [rubricaEditorOpen, setRubricaEditorOpen] = useState(false)
   const [rubricaPreview, setRubricaPreview] = useState(false)
   const [preview, setPreview] = useState(false)
+
+  // ── Generar el instrumento con IA (OP-06 rúbrica / OP-07 lista de cotejo) ──
+  // La regla arquitectónica es que una rúbrica SIEMPRE se deriva de su
+  // actividad padre, así que el botón vive aquí —dentro del entregable o de la
+  // observación— y nunca en el banco de rúbricas, donde no habría de qué
+  // derivarla. Lo único que viaja al servidor es el id de la actividad: el
+  // contexto lo lee él de Firestore.
+  const creditosIA = useCreditosIA()
+  const [iaTipo, setIaTipo] = useState(null)              // 'rubrica' | 'cotejo'
+  const [iaConfirmando, setIaConfirmando] = useState(false)
+  const [iaTrabajando, setIaTrabajando] = useState(false)
+  const [iaPropuesta, setIaPropuesta] = useState(null)    // instrumento listo para editar
+  const [iaGuardarPrimero, setIaGuardarPrimero] = useState(null)
+  // Cuántos criterios/niveles pide el docente — se elige ANTES de reservar
+  // créditos (dentro del mismo modal de confirmación) y viaja al servidor;
+  // rubricaDesdePropuesta/cotejoDesdePropuesta fuerzan ese número exacto
+  // aunque la IA regrese de más o de menos. Default = el mínimo permitido.
+  const [iaNumCriterios, setIaNumCriterios] = useState(MIN_CRITERIOS)
+  const [iaNumNiveles, setIaNumNiveles] = useState(MIN_NIVELES)
+  // Datos de la generación, para dejar la traza (T.8) en la copia que guarda
+  // la actividad. No viajan al banco de rúbricas.
+  const [iaOrigen, setIaOrigen] = useState(null)          // { clase, generadoEn }
   // Confirmación de "regresar a borrador" — solo se pide cuando la actividad
   // ya estaba publicada (ver el botón "Guardar como borrador").
   const [confirmDraft, setConfirmDraft] = useState(false)
@@ -151,8 +187,8 @@ export default function EntregableEditor({
     if (isNew) return
     setSavingNotificar(true)
     try {
-      await updateDoc(doc(db, 'activities', activityId), { notificarDocente: checked })
-      onActivityUpdated?.({ id: activityId, notificarDocente: checked })
+      await updateDoc(doc(db, 'activities', effectiveActivityId), { notificarDocente: checked })
+      onActivityUpdated?.({ id: effectiveActivityId, notificarDocente: checked })
     } catch (err) {
       toast('No se pudo guardar: ' + err.message, 'error')
       setForm((f) => ({ ...f, notificarDocente: !checked }))
@@ -163,8 +199,12 @@ export default function EntregableEditor({
 
   // asDraft: save hidden with NO publication — a borrador. It only becomes
   // published when the teacher publishes it (here or via the card's eye icon).
-  async function handleSave(e, asDraft = false) {
-    e.preventDefault()
+  // `cerrar` en false deja la pantalla abierta: lo usa "Generar con IA", que
+  // necesita que la actividad exista en Firestore pero no debe sacar al
+  // docente de lo que está haciendo. Devuelve el id de la actividad (o null si
+  // no se pudo guardar) para que quien la llamó sepa si puede seguir.
+  async function handleSave(e, asDraft = false, { cerrar = true } = {}) {
+    e?.preventDefault?.()
     const tiposArchivo = normalizeFileTypeKeys(form.tiposArchivo)
     if (tiposArchivo.includes(CUSTOM_FILE_TYPE) && parseCustomExts(form.extensionesCustom).length === 0) {
       toast('Escribe al menos una extensión para "Personalizado"', 'error'); return
@@ -180,6 +220,9 @@ export default function EntregableEditor({
     const { mode, oculta, publishAt: resolvedPublishAt, publishedAt: newPublishedAt } = resolved
 
     setSaving(true)
+    // Id de la actividad guardada — lo espera "Generar con IA" para saber si
+    // ya puede seguir. Queda sin valor si el guardado falla.
+    let guardadoId
     try {
       const uploaded = await Promise.all(
         newFiles.map(async (file) => ({
@@ -215,11 +258,13 @@ export default function EntregableEditor({
           ...payload, tipo, parcial, orden,
           asignaturaId: subjectId, docenteId, createdAt: serverTimestamp(),
         })
+        setCreatedId(ref.id)
+        guardadoId = ref.id
         onActivityCreated?.({ id: ref.id, ...payload, tipo, parcial, orden, asignaturaId: subjectId, docenteId })
         toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Actividad creada')
       } else {
-        await updateDoc(doc(db, 'activities', activityId), payload)
-        onActivityUpdated?.({ id: activityId, ...payload })
+        await updateDoc(doc(db, 'activities', effectiveActivityId), payload)
+        onActivityUpdated?.({ id: effectiveActivityId, ...payload })
         toast(
           asDraft
             ? (wasAlreadyPublished
@@ -230,12 +275,74 @@ export default function EntregableEditor({
         if (!asDraft && wasAlreadyPublished) {
           toast('Esta actividad ya estaba publicada — avisa a tus estudiantes sobre estos cambios.', 'warning')
         }
+        guardadoId = effectiveActivityId
       }
-      onClose()
+      if (cerrar) onClose()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
+      guardadoId = null
     } finally {
       setSaving(false)
+    }
+    return guardadoId
+  }
+
+  // ── Generación con IA ──────────────────────────────────────────────────────
+  // Sin actividad padre no hay operación: si todavía no existe el documento,
+  // se ofrece guardarla como borrador (que es justo lo que falta) en vez de
+  // enseñar un botón que reventaría por falta de id.
+  function pedirIA(tipo) {
+    if (!effectiveActivityId) { setIaGuardarPrimero(tipo); return }
+    setIaNumCriterios(MIN_CRITERIOS)
+    setIaNumNiveles(MIN_NIVELES)
+    setIaTipo(tipo)
+    setIaConfirmando(true)
+  }
+
+  async function guardarBorradorYSeguir(tipo) {
+    const id = await handleSave(null, true, { cerrar: false })
+    if (!id) return            // el guardado avisó del problema con su propio toast
+    setIaGuardarPrimero(null)
+    setIaNumCriterios(MIN_CRITERIOS)
+    setIaNumNiveles(MIN_NIVELES)
+    setIaTipo(tipo)
+    setIaConfirmando(true)
+  }
+
+  async function generarConIA() {
+    setIaTrabajando(true)
+    try {
+      const r = await creditosIA.ejecutar(iaTipo, {
+        // El id + cuántos criterios/niveles pidió el docente (elegido ANTES de
+        // esta llamada, que es la que reserva créditos). El servidor lee la
+        // actividad, comprueba que es de este docente y arma el contexto con
+        // lo que hay guardado.
+        actividadId: effectiveActivityId,
+        asignaturaId: subjectId,
+        asignaturaNombre: contextLine || '',
+        numCriterios: iaNumCriterios,
+        ...(iaTipo === 'rubrica' ? { numNiveles: iaNumNiveles } : {}),
+      })
+      // La IA propuso solo el contenido pedagógico; los números los pone EF
+      // aquí, con el mismo reparto del editor, forzando el número EXACTO que
+      // pidió el docente, y se validan con la misma función de siempre antes
+      // de presentárselos.
+      const propuesta = r?.resultado?.propuesta
+      const instrumento = iaTipo === 'cotejo'
+        ? cotejoDesdePropuesta(propuesta, iaNumCriterios)
+        : rubricaDesdePropuesta(propuesta, iaNumCriterios, iaNumNiveles)
+      const error = validarRubrica(instrumento)
+      if (error) {
+        // Se abre igual —es un borrador editable— pero sin fingir que cuadra.
+        toast(`La propuesta necesita un ajuste tuyo: ${error}`, 'warning')
+      }
+      setIaPropuesta(instrumento)
+      setIaOrigen({ clase: r?.resultado?.clase || (isObservacion ? 'observacion' : 'entregable'), generadoEn: new Date().toISOString() })
+      setIaConfirmando(false)
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setIaTrabajando(false)
     }
   }
 
@@ -396,11 +503,34 @@ export default function EntregableEditor({
                 </>
               ) : (
                 <div className="space-y-2">
+                  {/* Generar con IA a partir de ESTA actividad — el único lugar
+                      desde donde puede generarse (el banco no tiene actividad
+                      padre de la cual derivar los criterios). Solo en la web,
+                      igual que crear rúbricas a mano. */}
+                  {!IS_NATIVE_APP && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button type="button" onClick={() => pedirIA('rubrica')}
+                        className="w-full py-2.5 text-sm bg-accent text-white font-semibold rounded hover:bg-accent-hover transition-colors flex items-center justify-center gap-2">
+                        <Sparkles size={16} /> Generar rúbrica con IA
+                      </button>
+                      <button type="button" onClick={() => pedirIA('cotejo')}
+                        className="w-full py-2.5 text-sm border-2 border-accent text-accent font-semibold rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2">
+                        <Sparkles size={16} /> Generar lista de cotejo con IA
+                      </button>
+                    </div>
+                  )}
+                  {!IS_NATIVE_APP && (
+                    <p className="text-xs text-muted text-center">
+                      {isObservacion
+                        ? 'La IA propone los criterios a partir de lo que escribiste que vas a observar. Tú los revisas y los ajustas.'
+                        : 'La IA propone los criterios a partir de las instrucciones de esta actividad. Tú los revisas y los ajustas.'}
+                    </p>
+                  )}
                   {/* Crear directo (banco Y asignación en un paso): solo en la web */}
                   {!IS_NATIVE_APP && (
                     <button type="button" onClick={() => setRubricaEditorOpen(true)}
-                      className="w-full py-2.5 text-sm bg-accent text-white font-semibold rounded hover:bg-accent-hover transition-colors flex items-center justify-center gap-2">
-                      <Plus size={16} /> Crear rúbrica
+                      className="w-full py-2 text-sm border border-outline-variant text-muted rounded hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-2">
+                      <Plus size={16} /> Crear rúbrica a mano
                     </button>
                   )}
                   <button type="button" onClick={() => setRubricaPickerOpen(true)}
@@ -632,6 +762,99 @@ export default function EntregableEditor({
           }}
         />
       )}
+
+      {/* La actividad todavía no existe: lo que falta es guardarla, y eso es lo
+          que se ofrece — nunca un botón que falle por no tener id. */}
+      {iaGuardarPrimero && (
+        <ConfirmModal
+          title="Primero guardo la actividad"
+          message={`La IA construye ${iaGuardarPrimero === 'cotejo' ? 'la lista de cotejo' : 'la rúbrica'} a partir de esta actividad, así que necesita que ya esté guardada. La guardo como borrador —oculta para tus estudiantes— y seguimos.`}
+          confirmLabel="Guardar borrador y continuar"
+          confirmingLabel="Guardando…"
+          busy={saving}
+          onConfirm={() => guardarBorradorYSeguir(iaGuardarPrimero)}
+          onCancel={() => { if (!saving) setIaGuardarPrimero(null) }}
+        />
+      )}
+
+      {iaConfirmando && (
+        <ConfirmacionCreditosModal
+          titulo={iaTipo === 'cotejo' ? 'Generar la lista de cotejo con IA' : 'Generar la rúbrica con IA'}
+          descripcion={isObservacion
+            ? 'El asistente propondrá criterios observables a partir de esta actividad; tú los revisas, los editas y decides.'
+            : 'El asistente propondrá los criterios a partir de las instrucciones de esta actividad; tú los revisas, los editas y decides.'}
+          costoMin={creditosIA.estimar(iaTipo) ?? 1}
+          ejecutando={iaTrabajando}
+          onCancelar={() => { if (!iaTrabajando) { setIaConfirmando(false); setIaTipo(null) } }}
+          onContinuar={generarConIA}
+        >
+          {/* Se elige ANTES de tocar el botón Continuar, que es el que reserva
+              créditos — cancelar aquí no cuesta nada. Controles mínimos: dos
+              selects con el default ya puesto en el mínimo permitido. */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="ia-num-criterios" className="text-sm text-on-surface">¿Cuántos criterios quieres?</label>
+              <select
+                id="ia-num-criterios"
+                value={iaNumCriterios}
+                disabled={iaTrabajando}
+                onChange={(e) => setIaNumCriterios(Number(e.target.value))}
+                className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                {Array.from({ length: MAX_CRITERIOS - MIN_CRITERIOS + 1 }, (_, i) => MIN_CRITERIOS + i).map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+            {iaTipo === 'rubrica' && (
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="ia-num-niveles" className="text-sm text-on-surface">¿Cuántos niveles de desempeño quieres?</label>
+                <select
+                  id="ia-num-niveles"
+                  value={iaNumNiveles}
+                  disabled={iaTrabajando}
+                  onChange={(e) => setIaNumNiveles(Number(e.target.value))}
+                  className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  {Array.from({ length: MAX_NIVELES - MIN_NIVELES + 1 }, (_, i) => MIN_NIVELES + i).map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </ConfirmacionCreditosModal>
+      )}
+
+      {/* La propuesta entra al editor de siempre como borrador editable: la IA
+          nunca guarda nada por su cuenta. Al guardarla va al banco y queda
+          asignada a esta actividad por el mismo camino de siempre. */}
+      {iaPropuesta && (() => {
+        // La traza (T.8) se agrega a la COPIA de la actividad, nunca al banco:
+        // el documento del banco lo escribe el propio editor y se queda igual
+        // que cualquier rúbrica hecha a mano.
+        const guardarConTraza = (saved) => setForm((f) => ({
+          ...f,
+          rubrica: {
+            ...snapshotRubrica(saved),
+            ia: trazaIA({
+              operacion: iaTipo,
+              actividadPadreId: effectiveActivityId,
+              clase: iaOrigen?.clase || null,
+              propuesta: iaPropuesta,
+              guardada: saved,
+              generadoEn: iaOrigen?.generadoEn || null,
+            }),
+          },
+          rubricaId: saved.id,
+        }))
+        const cerrar = () => { setIaPropuesta(null); setIaTipo(null); setIaOrigen(null) }
+        return iaTipo === 'cotejo' ? (
+          <ListaCotejoEditor initial={iaPropuesta} docenteId={docenteId} onClose={cerrar} onSaved={guardarConTraza} iaGenerada />
+        ) : (
+          <RubricaEditor initial={iaPropuesta} docenteId={docenteId} onClose={cerrar} onSaved={guardarConTraza} iaGenerada />
+        )
+      })()}
 
       {/* Regresar a borrador algo ya publicado no es lo mismo que esconderlo
           con el ojito: pierde su fecha de publicación y su número, y deja de

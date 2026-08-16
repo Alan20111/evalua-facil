@@ -18,6 +18,27 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'docente';
     }
 
+    // ── Tarifa oficial de un pago por transferencia (Bloque 7, 13-ago-2026) ──
+    // Espejo de MESES_DESCUENTO/MAYOR_PRICE_MXN en subscriptionHelpers.js —
+    // ahí vive la fuente comercial editable; aquí solo se repite para que el
+    // servidor deje de confiar en el monto que declara el cliente. `mayor`
+    // solo tiene tarifa a 1 mes (sin política de descuento por varios
+    // meses); cualquier otra combinación de planId/meses no tiene tarifa
+    // oficial y `null` nunca es igual a un monto numérico, así que la
+    // combinación se rechaza sola.
+    function montoOficialPago(planId, meses) {
+      return planId == 'pro' ? (
+        meses == 1 ? 99 :
+        meses == 2 ? 190 :
+        meses == 3 ? 273 :
+        meses == 4 ? 348 :
+        meses == 5 ? 415 :
+        meses == 6 ? 474 : null
+      ) : planId == 'mayor' ? (
+        meses == 1 ? 199 : null
+      ) : null;
+    }
+
     // ── Candado de suscripción ──────────────────────────────────────────────
     // Un docente sin suscripción vigente puede LEER y exportar todo lo suyo,
     // pero no escribir. Hasta ahora ese candado vivía solo en el navegador
@@ -78,17 +99,180 @@ service cloud.firestore {
           get(/databases/$(database)/documents/activities/$(actId)).data.asignaturaId;
     }
 
+    // ── A12 · H3 · El servidor, no el navegador, decide si el plazo cerró ──
+    //
+    // "Entregar después del cierre" pasaba sin más: el cliente calculaba
+    // `isPastDeadline` con el reloj del teléfono (ActivityPage.jsx) y solo
+    // ESCONDÍA el formulario — un `addDoc` directo, o simplemente atrasar el
+    // reloj, creaba la entrega igual. Reproducido contra el emulador antes de
+    // corregirse.
+    //
+    // `fechaLimite`/`extensiones` se guardan como STRING (para mostrarse tal
+    // cual), así que la regla no las lee: compara contra `fechaLimiteTS` /
+    // `extensionesTS`, el mismo instante ya resuelto a Timestamp por el
+    // CLIENTE con un Date real (ver src/utils/deadline.js) — parsear el string
+    // aquí, con los helpers de timestamp.date(), asumiría UTC y desfasaría el
+    // corte varias horas contra la hora local de México. Ambos campos son
+    // opcionales (actividad sin plazo, alumno sin prórroga) y su ausencia dice
+    // "sin plazo", igual que el resto del archivo: un dato faltante nunca
+    // cierra el trabajo de nadie.
+    //
+    // La prórroga de un alumno, si existe, REEMPLAZA la fecha límite del
+    // grupo para él — mismo criterio que `displayDate` en el cliente, no se
+    // suman ambos plazos.
+    //
+    // Actividades sembradas antes de este candado no tienen `fechaLimiteTS`
+    // hasta que el docente edite la fecha o corra
+    // seeds-db/backfill-fecha-limite-ts.js — hasta entonces, para ellas, el
+    // candado no aplica (mismo criterio de "campo ausente" de arriba).
+    function actividadVencidaParaAlumno(actId, alumnoId) {
+      let act = exists(/databases/$(database)/documents/activities/$(actId))
+        ? get(/databases/$(database)/documents/activities/$(actId)).data
+        : null;
+      let limite = act == null ? null : act.get('extensionesTS', {}).get(alumnoId, act.get('fechaLimiteTS', null));
+      return act != null && (
+        act.get('cerradaManual', false) == true ||
+        (limite != null && request.time >= limite && act.get('recibirTarde', false) != true)
+      );
+    }
+
     // La calificación de una evaluación la escribe SOLO el servidor (Cloud
     // Function onEvaluacionFinalizada, vía Admin SDK — no pasa por estas
     // reglas) o el docente. Un alumno nunca toca los campos de nota en sus
     // propias escrituras: ni en updates (diff) ni marcándose 'calificado'.
+    // A09 · `rubricaEval` entra a esta lista, y no es un detalle. Es la
+    // evaluación por criterio con la que se calificó: el instrumento que
+    // justifica el número ante la escuela, y lo escribía el propio calificado.
+    // Reproducido contra el emulador: un alumno con un 4.7 reescribía su
+    // rúbrica a "todo excelente" sin tocar la calificación.
+    //
+    // Y no se queda en la apariencia. El panel del docente se PRELLENA desde
+    // este campo (ActivityPage.jsx:349), así que al reabrir una entrega ya
+    // calificada el docente ve la rúbrica falsificada; si ajusta un solo
+    // criterio, selectRubricaNivel recalcula el total sobre esa base y el
+    // número falsificado se vuelve la calificación.
+    //
+    // Ningún flujo del alumno escribe aquí: su pantalla solo lo lee.
     function studentNoTocaCalificacion() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['calificacion', 'intentos', 'pendienteRevision']) &&
+          .hasAny(['calificacion', 'intentos', 'pendienteRevision', 'rubricaEval']) &&
         (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['estado']) ||
           request.resource.data.estado != 'calificado'
         );
+    }
+
+    // ── A09 · La calificación no puede salirse de su escala ─────────────────
+    //
+    // Todos los caminos del cliente topan contra `maxCalif` menos uno: el
+    // cierre de parcial, que acota por abajo y no por arriba y escribe EN
+    // BLOQUE a todo el que no entregó (SubjectPage.jsx). Un 50 en una escala
+    // de 10 envenena el promedio del parcial, el final y lo exportado.
+    // Comprobado contra el emulador: el servidor aceptaba 50 y también −5.
+    //
+    // Campo AUSENTE en la actividad = escala 10, que es lo que crean hoy los
+    // tres editores. Y solo se revisa cuando la calificación CAMBIA: sin eso,
+    // un documento viejo fuera de rango se volvería imposible de editar,
+    // aunque solo se le tocara el comentario (§1.2). Comprobado en producción
+    // el 7-ago-2026: 0 de 46 calificaciones están fuera de rango.
+    function maxCalifDe(actId) {
+      return exists(/databases/$(database)/documents/activities/$(actId))
+        ? get(/databases/$(database)/documents/activities/$(actId)).data.get('maxCalif', 10)
+        : 10;
+    }
+
+    function calificacionEnRango(actId) {
+      return request.resource.data.get('calificacion', null) == null ||
+        (
+          request.resource.data.calificacion >= 0 &&
+          request.resource.data.calificacion <= maxCalifDe(actId)
+        );
+    }
+
+    function calificacionEnRangoSiCambia(actId) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['calificacion']) ||
+        calificacionEnRango(actId);
+    }
+
+    // ── A08 · El alumno no maneja la máquina de estados de su examen ────────
+    //
+    // Blindar `calificacion` no basta, y esto no era evidente: el alumno no
+    // necesitaba escribir su nota para elegirla. Le bastaba con mover tres
+    // campos que nadie vigilaba —`estadoEvaluacion`, `intentoActual` y
+    // `tiempoInicio`— para hacer que el SERVIDOR se la recalculara cuantas
+    // veces quisiera:
+    //
+    //   contestar → finalizar → leer la nota que puso el servidor →
+    //   volver a "en_progreso" → cambiar las respuestas → subir el número de
+    //   intento para esquivar el candado de idempotencia → finalizar otra vez
+    //
+    // Con `conservar: 'mejor'` eso es quedarse con el 10 a base de repetir, y
+    // con 'ultimo' es contestar con el examen delante. Reproducido contra el
+    // emulador antes de corregirse: los cuatro pasos pasaban.
+    //
+    // La clave del arreglo es que `intentos[]` SOLO lo escribe el servidor (ya
+    // estaba blindado arriba), así que sirve de ancla honesta: el número de
+    // intento en curso tiene que ser exactamente los ya calificados + 1. Eso
+    // permite el reintento legítimo (ver handleStartOrContinueEvaluacion en
+    // ActivityPage.jsx, que manda justamente `intentos.length + 1`) y hace
+    // imposible inventarse un número.
+    function evalConfig(actId) {
+      return get(/databases/$(database)/documents/activities/$(actId)).data
+        .get('evaluacion', {});
+    }
+
+    // Un intento nuevo: el número avanza al siguiente real y quedan intentos.
+    // `intentosPermitidos` ausente o null = ilimitados (regla 1.2: un dato que
+    // falta no deja a nadie fuera).
+    function intentoNuevoValido() {
+      return request.resource.data.get('intentoActual', 0) == resource.data.get('intentos', []).size() + 1 &&
+        (
+          evalConfig(resource.data.actividadId).get('intentosPermitidos', null) == null ||
+          resource.data.get('intentos', []).size() < evalConfig(resource.data.actividadId).get('intentosPermitidos', 0)
+        );
+    }
+
+    function studentNoManipulaIntento() {
+      // Si no toca ninguno de los tres campos, no hay nada que revisar: es un
+      // autoguardado normal (ordenSeed, notificadoEntregaDocente, etc.).
+      return !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['estadoEvaluacion', 'intentoActual', 'tiempoInicio']) ||
+        (
+          // Abrir un intento nuevo. Es la ÚNICA vía por la que el alumno puede
+          // mover estos tres campos, y los mueve los tres a la vez.
+          //
+          // El número TIENE que avanzar. Sin esa condición, un documento que ya
+          // estaba en curso cumplía esta rama sin cambiar nada, y por ahí se
+          // colaba el reinicio del cronómetro a secas — que era justo uno de
+          // los ataques. El primer intento no pasa por aquí: se crea con
+          // addDoc, no con update.
+          request.resource.data.get('estadoEvaluacion', '') == 'en_progreso' &&
+          request.resource.data.get('intentoActual', 0) != resource.data.get('intentoActual', 0) &&
+          intentoNuevoValido()
+        ) ||
+        (
+          // Cerrar el intento en curso. Ni el número ni el reloj se tocan: el
+          // reloj congelado es lo que sostiene el plazo de las respuestas.
+          request.resource.data.get('estadoEvaluacion', '') == 'finalizado' &&
+          resource.data.get('estadoEvaluacion', '') == 'en_progreso' &&
+          request.resource.data.get('intentoActual', 0) == resource.data.get('intentoActual', 0) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['tiempoInicio'])
+        );
+    }
+
+    // El plazo se mide contra `request.time` —el reloj del SERVIDOR— y contra
+    // `tiempoInicio`, que ya no se puede mover (arriba). Antes el único control
+    // era `Date.now()` en el navegador (EvaluacionRunner.jsx): atrasar el reloj
+    // del teléfono daba tiempo infinito, y contestar 15 minutos después de que
+    // se acabara pasaba sin más. Reproducido antes de corregirse.
+    //
+    // El margen de un minuto es para no castigar a quien contesta en el último
+    // segundo con la red lenta: a un tramposo no le sirve de nada.
+    function dentroDelPlazo(submissionId) {
+      let sub = get(/databases/$(database)/documents/submissions/$(submissionId)).data;
+      let limite = evalConfig(sub.actividadId).get('tiempoLimiteMin', null);
+      return limite == null || sub.get('tiempoInicio', null) == null ||
+        request.time < sub.tiempoInicio + duration.value(limite, 'm') + duration.value(1, 'm');
     }
 
     match /schools/{schoolId} {
@@ -209,6 +393,62 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.docenteId;
       allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
+
+      // Diagnóstico del grupo — Asistente IA (FASE 2-BIS del Plan Maestro de
+      // IA). Bitácora de generaciones, mismo patrón que activities/analisisIA:
+      // append-only (cada "Generar diagnóstico" crea un documento nuevo, la
+      // versión anterior nunca se pisa) e INMUTABLE en su contenido (sin
+      // update). A diferencia de analisisIA (cualquier autenticado la lee),
+      // esta es PRIVADA del docente dueño: es contexto pedagógico suyo, no
+      // material del grupo.
+      //
+      // SÍ permite delete (12-ago-2026, pedido explícito de Kike): una
+      // generación mal hecha de la IA (p. ej. del reporte simulado que
+      // Tanda 2 reemplaza) el docente debe poder borrarla de inmediato — no
+      // es lo mismo que "editarla" (eso seguiría inventando sobre algo ya
+      // guardado), es simplemente descartarla.
+      match /diagnosticosIA/{diagnosticoId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
+        allow create: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
+          request.resource.data.docenteId == request.auth.uid;
+        allow update: if false;
+        allow delete: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
+      }
+
+      // Planeación Didáctica Inicial — Asistente IA (FASE 2-BIS, apartado 3).
+      // Misma forma exacta que diagnosticosIA: bitácora append-only e
+      // inmutable, privada del docente dueño. El .xlsx nunca se guarda aquí
+      // (ni en ningún storage) — se arma en el cliente a partir de
+      // `resultado` cada vez que el docente descarga (ver
+      // src/utils/planeacionExcel.js), así que descargar no cuesta nada
+      // aparte ni depende de la red.
+      match /planeacionesIA/{planeacionId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
+        allow create: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
+          request.resource.data.docenteId == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      // Config del Asistente IA de la asignatura (12-ago-2026) — un solo
+      // documento con "Comentarios generales del grupo y su entorno": texto
+      // libre del docente (p. ej. "apenas saben sumar", "nunca han usado más
+      // tecnología que el celular"). A diferencia de diagnosticosIA/
+      // planeacionesIA, esto NO es una bitácora — es un campo que el docente
+      // edita y vuelve a guardar, como el Perfil IA. Privado del docente
+      // dueño: es una observación suya sobre el grupo, no material del curso.
+      match /asistenteIA/{docId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
+        allow create, update: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
+          request.resource.data.docenteId == request.auth.uid;
+        allow delete: if false;
+      }
     }
 
     match /activities/{activityId} {
@@ -220,14 +460,69 @@ service cloud.firestore {
       allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
 
-      // Evaluación questions — only the owning teacher (looked up on the
-      // parent activity) may write; any authenticated user may read. The
-      // student-facing UI is responsible for not requesting `respuestaCorrecta`
-      // while an attempt is in progress (rules can't filter fields).
+      // Reactivos de una evaluación. Los lee cualquier cuenta autenticada
+      // porque el alumno los necesita para contestar; los escribe solo el
+      // docente dueño (se resuelve en la actividad padre).
+      //
+      // Aquí YA NO vive `respuestaCorrecta`. Vivía, y era el peor agujero que
+      // encontró A08: las reglas no pueden filtrar campos, así que la clave
+      // viajaba al navegador de cualquiera con sesión —incluido el alumno a
+      // punto de contestar—, y ni siquiera hacía falta un cliente modificado
+      // porque el runner ya descargaba los documentos enteros. El comentario
+      // que había aquí lo admitía: decía que la interfaz era la responsable de
+      // no pedir ese campo. Una restricción que solo vive en el navegador no
+      // existe (§1.1).
       match /preguntas/{preguntaId} {
         allow read: if request.auth != null;
         allow write: if docenteActivo() &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+      }
+
+      // La clave de respuestas, aparte y SOLO para el docente dueño. Es lo que
+      // las reglas sí pueden hacer: no filtran campos, pero sí documentos.
+      //
+      // El alumno nunca lee aquí. Se entera de si acertó por su propia
+      // respuesta (`submissions/{id}/respuestas/{pid}`), donde el servidor
+      // escribe el veredicto al calificar — y la respuesta correcta solo si el
+      // docente publicó las respuestas. Ver `onEvaluacionFinalizada`.
+      //
+      // La califica el Admin SDK, que no pasa por estas reglas.
+      match /clave/{preguntaId} {
+        allow read, write: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+      }
+
+      // Sugerencias de calificación de C-02 (piloto IA). Las CREA únicamente
+      // el servidor (Admin SDK, tras cobrar el crédito): el documento es a la
+      // vez el candado de concurrencia por respuesta y la sugerencia
+      // persistida. El docente dueño las lee para recuperarlas aunque cierre
+      // la pestaña (verlas de nuevo jamás cobra), y las actualiza/borra solo
+      // para marcarlas aplicadas o descartarlas. El alumno NUNCA las ve: una
+      // calificación sugerida no confirmada no debe llegarle.
+      // La lectura NO exige suscripción vigente (ya se pagó con créditos);
+      // la escritura sí, como toda escritura de docente.
+      match /iaSugerencias/{sugerenciaId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow update, delete: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow create: if false;
+      }
+
+      // Bitácora de OP-10 (análisis de resultados con IA). Un documento NUEVO
+      // por cada generación exitosa — el docente los crea desde el cliente
+      // (ya pagó el crédito antes de llegar aquí; esto solo persiste la
+      // fotografía) vía addDoc, nunca setDoc/update: cada análisis histórico
+      // es inmutable, así que no hay update ni delete. Ver los mismos
+      // requisitos que iaSugerencias: leer no exige suscripción vigente
+      // (consultar la bitácora es gratis), escribir sí.
+      match /analisisIA/{analisisId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow create: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId &&
+          request.resource.data.docenteId == request.auth.uid;
+        allow update, delete: if false;
       }
     }
 
@@ -284,10 +579,30 @@ service cloud.firestore {
     // enrolled student) can read; only the owning teacher can write/delete.
     match /resources/{resourceId} {
       allow read: if request.auth != null;
-      // Only teachers create resources, always attributed to themselves.
+      // Only teachers create resources, always attributed to themselves,
+      // and only within a subject they own.
       allow create: if docenteActivo() &&
-        request.auth.uid == request.resource.data.docenteId;
+        request.auth.uid == request.resource.data.docenteId &&
+        ownsSubject(request.resource.data.asignaturaId);
       allow update, delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
+    }
+
+    // Fuentes del Asistente IA (FASE 2-BIS del Plan Maestro de IA) — PDF/Word
+    // que el docente guarda una vez por Asignatura (generales o por parcial)
+    // para reutilizarlos como contexto en operaciones de IA futuras. A
+    // diferencia de `resources`/`materials`, son PRIVADAS del docente dueño:
+    // ni otro docente ni ningún estudiante puede leerlas (piden contexto
+    // pedagógico del docente, no material para el grupo). Inmutables: se
+    // eliminan y se vuelven a subir, no se editan (así no hay que validar
+    // cambios parciales de `ubicacion`/`parcial` en `update`).
+    match /fuentesAsignatura/{fuenteId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.docenteId;
+      allow create: if docenteActivo() &&
+        request.auth.uid == request.resource.data.docenteId &&
+        ownsSubject(request.resource.data.asignaturaId);
+      allow update: if false;
+      allow delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -364,9 +679,11 @@ service cloud.firestore {
     // Same read/write shape as resources/activities.
     match /materials/{materialId} {
       allow read: if request.auth != null;
-      // Only teachers create materials, always attributed to themselves.
+      // Only teachers create materials, always attributed to themselves,
+      // and only within a subject they own.
       allow create: if docenteActivo() &&
-        request.auth.uid == request.resource.data.docenteId;
+        request.auth.uid == request.resource.data.docenteId &&
+        ownsSubject(request.resource.data.asignaturaId);
       allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
     }
@@ -391,18 +708,44 @@ service cloud.firestore {
       // estado no puede ser 'calificado'; al actualizar aplica
       // studentNoTocaCalificacion(). La nota real la pone la Cloud Function
       // onEvaluacionFinalizada (Admin SDK) o el docente (ownsActivity).
-      allow create: if request.auth != null && (
+      //
+      // A12 · H5 · R22 — el id NO es libre: tiene que ser
+      // `{actividadId}_{alumnoId}`. Antes cada entrega nacía con `addDoc` (id
+      // aleatorio), así que nada impedía crear una SEGUNDA submission para la
+      // misma pareja — doble clic, dos pestañas, o un reintento de red
+      // bastaban. El docente veía una entrega al azar (según el orden, no
+      // garantizado, en que Firestore devolvía la consulta) y en una
+      // evaluación se saltaba el límite de intentos por completo. Con esto,
+      // esa pareja tiene UN SOLO documento posible por construcción: un
+      // segundo "create" en el mismo path es, para Firestore, un UPDATE del
+      // documento existente — sujeto a studentNoTocaCalificacion() más abajo,
+      // no una fila nueva.
+      allow create: if request.auth != null &&
+        submissionId == request.resource.data.actividadId + '_' + request.resource.data.alumnoId && (
         (
           ownsStudentDoc(request.resource.data.alumnoId) &&
           enrollmentMatchesActivity(request.resource.data.alumnoId, request.resource.data.actividadId) &&
           request.resource.data.get('calificacion', null) == null &&
-          request.resource.data.get('estado', '') != 'calificado'
+          request.resource.data.get('estado', '') != 'calificado' &&
+          !actividadVencidaParaAlumno(request.resource.data.actividadId, request.resource.data.alumnoId)
         ) ||
-        (docenteActivo() && ownsActivity(request.resource.data.actividadId))
+        (
+          docenteActivo() &&
+          ownsActivity(request.resource.data.actividadId) &&
+          calificacionEnRango(request.resource.data.actividadId)
+        )
       );
       allow update: if request.auth != null && (
-        (ownsStudentDoc(resource.data.alumnoId) && studentNoTocaCalificacion()) ||
-        (docenteActivo() && ownsActivity(resource.data.actividadId))
+        (
+          ownsStudentDoc(resource.data.alumnoId) &&
+          studentNoTocaCalificacion() &&
+          studentNoManipulaIntento()
+        ) ||
+        (
+          docenteActivo() &&
+          ownsActivity(resource.data.actividadId) &&
+          calificacionEnRangoSiCambia(resource.data.actividadId)
+        )
       );
       // Borrar una submission borra su nota — eso es manipulación de
       // calificaciones si lo hace el alumno (ningún flujo del alumno borra
@@ -442,9 +785,28 @@ service cloud.firestore {
               resource == null
                 ? !request.resource.data.keys().hasAny(['puntosObtenidos'])
                 : !request.resource.data.diff(resource.data).affectedKeys().hasAny(['puntosObtenidos'])
-            )
+            ) &&
+            // El tiempo se acabó de verdad, no según el reloj del teléfono.
+            dentroDelPlazo(submissionId)
           )
         );
+      }
+
+      // Capa 2 de OP-10 — fotografía inmutable de las respuestas de un
+      // intento (ver functions/index.js, onEvaluacionFinalizada). A
+      // diferencia de `respuestas`, aquí NUNCA lee el alumno (no es una
+      // pantalla de revisión, es un insumo interno de análisis) y NADIE
+      // escribe desde el cliente — ni el propio docente: solo el Admin SDK,
+      // que no pasa por estas reglas. `allow write: if false` es la
+      // protección que sí puede hacer cumplir el cliente; que además `tx.create`
+      // (no `tx.set`) en el servidor rechace sobrescribir un snapshot
+      // existente es la protección de inmutabilidad real (ver el comentario
+      // en onEvaluacionFinalizada).
+      match /intentosRespuestas/{numeroIntento} {
+        allow read: if request.auth != null &&
+          exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
+          ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId);
+        allow write: if false;
       }
     }
 
@@ -500,10 +862,15 @@ service cloud.firestore {
       // convertía una transferencia de un mes en SEIS AÑOS de suscripción, sin
       // que el diálogo de confirmación dijera nada de años. Por eso el plan y
       // los meses se fijan aquí:
-      //   · planId 'pro' — el único plan que se vende hoy (MONTHLY_PLAN_ID en
-      //     subscriptionHelpers.js), y el único mensual. Si algún día vuelve el
-      //     anual, se agrega aquí a propósito.
-      //   · mesesPagados 1..6 — el tope real del selector (MESES_DESCUENTO).
+      //   · planId + mesesPagados + monto — desde el Bloque 7 (13-ago-2026)
+      //     los tres se validan juntos vía `montoOficialPago`: solo 'pro'
+      //     (1 a 6 meses, tabla de descuento) y 'mayor' (únicamente 1 mes,
+      //     $199, sin descuento) tienen tarifa oficial. Cualquier otro
+      //     planId, o una combinación de meses que no exista en la tabla
+      //     (p. ej. 'mayor' a 2 meses, o 'pro' a 7), no tiene tarifa y la
+      //     comparación de monto falla sola — no hace falta un chequeo de
+      //     rango de meses aparte. Si algún día vuelve el anual, se agrega
+      //     aquí a propósito.
       //   · subscriptionId tiene que ser SUYA: sin esto, un docente podía pagar
       //     y acreditarle el mes a la cuenta de otro.
       //   · createdAt == request.time — el folio de transacción del panel se
@@ -513,10 +880,15 @@ service cloud.firestore {
       //     lista del admin), `comentarios`, `notasAdmin` (notas del admin que
       //     el docente no escribe) y `notificadoAdmin` (el candado de
       //     idempotencia del aviso — ponerlo en true silenciaba el push).
-      // El MONTO no se valida aquí a propósito: la tarifa cambia (hoy es precio
-      // de lanzamiento) y una regla desfasada dejaría a todos sin poder pagar.
-      // Se acota a un rango sano y el panel avisa cuando no coincide con la
-      // tarifa oficial — el admin ya coteja ese monto contra el banco.
+      // El MONTO SÍ se valida contra la tarifa oficial (Bloque 7,
+      // 13-ago-2026 — antes NO se validaba a propósito porque la tarifa de
+      // lanzamiento cambiaba seguido; ahora el modelo comercial ya es
+      // definitivo, así que dejar de validarlo era el hueco real: un
+      // docente podía declarar 'mayor' a $1 y solo la revisión manual del
+      // admin lo detenía). `montoOficialPago` es la única fuente — si la
+      // combinación planId/meses no tiene tarifa, regresa null y
+      // `monto == null` nunca es cierto para un número, así que la
+      // combinación se rechaza sola sin necesitar un chequeo aparte.
       // `hasAll`/`hasOnly` van PRIMERO: leer un campo que no existe no da
       // falso, revienta la evaluación entera de la regla. Con el juego de
       // llaves ya comprobado, todo lo de abajo se puede leer sin rodeos.
@@ -532,18 +904,13 @@ service cloud.firestore {
         request.resource.data.docenteId == request.auth.uid &&
         request.resource.data.status == 'pendiente' &&
         request.resource.data.metodo == 'transferencia' &&
-        request.resource.data.planId == 'pro' &&
         // `mesesPagados` se valida pero NO se exige: la app de Android lleva su
         // propio paquete y tarda en actualizarse, y un pago sin el campo vale
         // por un mes en todo el proyecto (`mesesPagados || 1` al aprobar). Sin
         // este default, la app instalada hoy se quedaría sin poder reenviar un
         // pago rechazado en cuanto se publiquen estas reglas.
         request.resource.data.get('mesesPagados', 1) is int &&
-        request.resource.data.get('mesesPagados', 1) >= 1 &&
-        request.resource.data.get('mesesPagados', 1) <= 6 &&
-        request.resource.data.monto is number &&
-        request.resource.data.monto > 0 &&
-        request.resource.data.monto <= 5000 &&
+        request.resource.data.monto == montoOficialPago(request.resource.data.planId, request.resource.data.get('mesesPagados', 1)) &&
         request.resource.data.createdAt == request.time &&
         request.resource.data.subscriptionId is string &&
         exists(/databases/$(database)/documents/subscriptions/$(request.resource.data.subscriptionId)) &&
@@ -681,6 +1048,33 @@ service cloud.firestore {
       // entregados en su celular — los push del servidor los sigue
       // registrando la Cloud Function (Admin SDK, no pasa por esta regla).
       allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+    }
+
+    // ── Créditos IA ─────────────────────────────────────────────────────────
+    // Evalúa Fácil (el servidor) es la ÚNICA fuente de verdad del saldo: todo
+    // se escribe con Admin SDK desde Cloud Functions, que bypasa estas reglas.
+    // El cliente solo LEE lo suyo (la barra y el panel viven de eso). Sin
+    // escrituras de cliente no existe camino para manipular el saldo.
+    match /iaCreditos/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Historial de consumos (alimenta el detalle del panel). Cada quien lee
+    // los suyos. Sin tokens ni costos monetarios: el docente piensa en
+    // créditos — lo interno vive en iaConsumosInterno.
+    match /iaConsumos/{consumoId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.uid;
+      allow write: if false;
+    }
+
+    // Métricas internas (tokens, modelo, tiempos) y registro de medición del
+    // trial: nada de esto es visible para ningún cliente.
+    match /iaConsumosInterno/{consumoId} {
+      allow read, write: if false;
+    }
+    match /iaTrialRegistro/{uid} {
+      allow read, write: if false;
     }
   }
 }

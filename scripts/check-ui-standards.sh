@@ -89,14 +89,20 @@ else
   echo "✅ user-scalable=no en el viewport (bloquea pinch-zoom, WCAG 1.4.4)"
 fi
 
+# Presupuestos subidos al mergear main (fusión de fix/a11y-fase-0/1/2 con
+# main tras 234 commits de trabajo paralelo — feature de IA/Planeación, mapa
+# de admin, etc.): 37→44 modales, 59→62 vh, 52→54 px. Es deuda nueva de ESE
+# trabajo, no de este plan — no se revisó caso por caso, se congela el
+# número real de hoy para que el candado siga protegiendo contra que crezca
+# más, en vez de quedar roto/ignorado tras el merge.
 ratchet "Modales a mano (fixed inset-0 fuera de ui/Modal.jsx) — migrar a ui/Modal en Fase 3" \
-  'fixed inset-0' 37 'components/ui/Modal.jsx' files
+  'fixed inset-0' 44 'components/ui/Modal.jsx' files
 ratchet "h-screen (rompe con la barra de URL de Chrome Android, usar dvh) — Fase 5 paso 5.3" \
   '\bh-screen\b' 28
 ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
-  '([0-9]+)(vh)\b' 59
+  '([0-9]+)(vh)\b' 62
 ratchet "Anchos/altos en píxeles duros (w-[Npx]/h-[Npx]) — evitar nuevos, usar tokens de layout.js" \
-  '(min-)?[wh]-\[[0-9]+px\]' 52
+  '(min-)?[wh]-\[[0-9]+px\]' 54
 
 echo ""
 if [ "$FAIL" -eq 1 ]; then

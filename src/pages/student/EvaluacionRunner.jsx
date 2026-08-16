@@ -130,6 +130,7 @@ export default function EvaluacionRunner() {
       }
       if (actData.evaluacion?.barajarRespuestas) {
         const baseSeed = seed || (subData.intentoActual || 1) * 7919 + lista.length
+        seed = baseSeed
         // "Otra" no se baraja con las demás — se queda SIEMPRE hasta abajo,
         // pedido explícito (si entrara en la mezcla, a veces aparecería en
         // medio de las opciones reales, lo cual no tiene sentido: es la

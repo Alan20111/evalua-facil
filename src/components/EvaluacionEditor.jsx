@@ -15,7 +15,7 @@ import { sanitizeHtml, toRichHtml, htmlToPlainText, richTextContentClass } from 
 import { repartirPonderacionParejo } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy, Scale, CheckSquare, Square,
-  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight, ChevronUp, ChevronDown,
+  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight, ChevronUp, ChevronDown, FolderOpen, Sparkles,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
@@ -23,9 +23,22 @@ import SinCalificacionConfig from './SinCalificacionConfig'
 import { SeccionForm, SeccionHeader, ConfirmarBorrarSeccion, BotonAgregarSeccion, SelectorSeccion } from './SeccionesEditor'
 import { useSecciones } from '../hooks/useSecciones'
 import { agruparPreguntas, preguntasEnOrden, siguienteOrden } from '../utils/secciones'
+import {
+  crearPregunta, actualizarPregunta, borrarPregunta, crearPreguntasEnLote,
+  cargarPreguntasConClave,
+} from '../utils/evaluacionClave'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import ConfirmModal from './ConfirmModal'
 import SearchInput from './SearchInput'
+import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
+import useCreditosIA from '../hooks/useCreditosIA'
+import ReactivosIAReview from './evaluacion/ReactivosIAReview'
+import FuentesIAInput from './ia/FuentesIAInput'
+import { resolverFuentes } from '../utils/fuentesIA'
+import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
+import {
+  MIN_REACTIVOS, MAX_REACTIVOS, DEFAULT_REACTIVOS, TIPOS_REACTIVO_IA, reactivosDesdePropuesta,
+} from '../utils/reactivosIA'
 import { minDeadline, nowIsoLocal, isoLocalFromDate } from '../utils/nowIso'
 import { isActivityPublished, resolveVisibilidad, isDraftActivity, formatDeadline } from '../utils/activityVisibility'
 import { groupExtensions } from '../utils/extensiones'
@@ -235,6 +248,9 @@ export default function EvaluacionEditor({
   // the accent highlight — the most recently edited/created one. Starting a
   // new edit/creation moves the focus there.
   const [glowId, setGlowId] = useState(null)
+  // Última sección que estuvo activa — permanece ámbar hasta que el usuario
+  // abre una edición en otra sección o en otro reactivo.
+  const [focusSectionId, setFocusSectionId] = useState(null)
   // Snapshots taken when an edit form opens — Guardar stays disabled until
   // something actually changed
   const bancoEditSnap = useRef(null)
@@ -245,6 +261,26 @@ export default function EvaluacionEditor({
   const preguntasSnap = useRef(null)
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
+
+  // ── OP-09 · Generar reactivos con IA ──────────────────────────────────
+  // La configuración (tema, qué evaluar, cantidad, tipo) se elige ANTES de
+  // reservar créditos, dentro del mismo modal — cancelar ahí no cuesta nada.
+  // La propuesta entra a una pantalla de revisión aparte: la IA nunca guarda
+  // nada por su cuenta, el docente edita/descarta y decide qué se agrega.
+  const creditosIA = useCreditosIA()
+  const [iaConfirmando, setIaConfirmando] = useState(false)
+  const [iaTrabajando, setIaTrabajando] = useState(false)
+  const [iaPropuesta, setIaPropuesta] = useState(null)
+  const [iaTema, setIaTema] = useState('')
+  const [iaQuiereEvaluar, setIaQuiereEvaluar] = useState('')
+  const [iaCantidad, setIaCantidad] = useState(DEFAULT_REACTIVOS)
+  const [iaTipoSolicitado, setIaTipoSolicitado] = useState('mixto')
+  // Fuentes opcionales (hasta 3 PDF/Word) — mismo mecanismo que OP-03/OP-04:
+  // fuente ADICIONAL a "qué quieres evaluar", nunca la sustituye.
+  const [iaArchivos, setIaArchivos] = useState([])
+  const fuentesGuardadas = useFuentesAsignatura(subjectId, docenteId)
+  useBackHandler(() => setIaConfirmando(false), iaConfirmando)
+  useBackHandler(() => setIaPropuesta(null), !!iaPropuesta)
 
   const isNew = !currentActivityId
 
@@ -298,8 +334,9 @@ export default function EvaluacionEditor({
   async function loadPreguntas(aId) {
     setLoadingPreguntas(true)
     try {
-      const snap = await getDocs(collection(db, 'activities', aId, 'preguntas'))
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      // Con su clave: la lee de `activities/{id}/clave`, que solo abre el
+      // docente dueño. El alumno no tiene forma de pedirla (A08).
+      const list = (await cargarPreguntasConClave(aId)).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       setPreguntas(list)
       // Punto de partida para saber si el docente tocó los reactivos (ver
       // `preguntasTocadas` abajo). Se toma aquí, con la lista recién cargada,
@@ -446,7 +483,7 @@ export default function EvaluacionEditor({
     }
     // "Ahora (guardar para que se publique)" enciende la bandera al guardar para
     // que el estudiante lo vea de inmediato; la bandera es permanente.
-    const toSave = { ...configForm }
+    const toSave = { ...configForm, numPreguntas: preguntas.length }
     toSave.publicarResultados = toSave.publicarResultados || 'inmediato'
     toSave.publicarRespuestas = toSave.publicarRespuestas || 'inmediato'
     if (toSave.publicarResultados === 'ahora') toSave.resultadosPublicados = true
@@ -502,6 +539,7 @@ export default function EvaluacionEditor({
   async function syncNumPreguntas(total) {
     if (!currentActivityId) return
     await updateDoc(doc(db, 'activities', currentActivityId), { 'evaluacion.numPreguntas': total })
+    setConfigForm((f) => ({ ...f, numPreguntas: total }))
   }
 
   // ── Secciones (opcionales) ──────────────────────────────────────────────
@@ -538,30 +576,38 @@ export default function EvaluacionEditor({
         ...buildPreguntaData(preguntaForm), imagenUrl, orden, origenBancoId: null,
         ...seccionesCtl.camposDeSeccion(seccionDestino),
       }
-      const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
-      const updated = [...preguntas, { id: ref.id, ...data }]
+      const nuevoId = await crearPregunta(currentActivityId, data)
+      const updated = [...preguntas, { id: nuevoId, ...data }]
       setPreguntas(updated)
-      setGlowId(ref.id)
+      setGlowId(nuevoId)
       await syncNumPreguntas(updated.length)
       if (preguntaForm.guardarEnBanco) {
-        // already imported at top
-        await addDoc(collection(db, 'bancoReactivos'), {
+        const bancoRef = await addDoc(collection(db, 'bancoReactivos'), {
           docenteId: auth.currentUser.uid, tipo: data.tipo, enunciado: data.enunciado,
           opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta,
           tema: preguntaForm.tema.trim() || null,
-          // Bank is organized by materia (auto, from the subject) + tema —
-          // NOT by parcial: a question is reusable across parciales/ciclos
           materia: subject?.nombre || null, asignaturaId: subjectId || null,
           createdAt: serverTimestamp(),
         })
+        await actualizarPregunta(currentActivityId, nuevoId, { origenBancoId: bancoRef.id })
+        setPreguntas((prev) => prev.map((q) => q.id === nuevoId ? { ...q, origenBancoId: bancoRef.id } : q))
       }
-      setPreguntaForm(emptyPregunta()); setShowPreguntaForm(false)
+      const savedSection = seccionDestino
+      setFocusSectionId(savedSection)
+      setPreguntaForm(emptyPregunta()); setShowPreguntaForm(false); setSeccionDestino(null)
+      setTimeout(() => {
+        if (savedSection) {
+          document.getElementById(`seccion-grupo-${savedSection}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+          document.getElementById(`preg-item-${nuevoId}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+        }
+      }, 120)
       toast('Pregunta agregada')
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingPregunta(false) }
   }
 
   function openEditPregunta(p) {
+    setFocusSectionId(null)
     setEditingPreguntaId(p.id)
     const opciones = opcionesFromExisting(p)
     const base = {
@@ -571,11 +617,11 @@ export default function EvaluacionEditor({
       vfRespuesta: p.tipo === 'verdadero_falso' ? (p.respuestaCorrecta || 'v') : 'v',
       ponderacion: p.ponderacion ?? 1, imagenFile: null,
       seccionId: p.seccionId || null,
+      guardarEnBanco: false, tema: '',
     }
     setPreguntaEditForm(base)
     setGlowId(null)
-    // Bring the chosen reactivo to the top so the edit form is fully visible
-    setTimeout(() => document.getElementById(`preg-item-${p.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
+    setTimeout(() => document.getElementById(`edit-form-${p.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80)
     preguntaEditSnap.current = JSON.stringify(base)
   }
 
@@ -591,9 +637,6 @@ export default function EvaluacionEditor({
     try {
       let imagenUrl = preguntas.find((p) => p.id === id)?.imagenUrl || null
       if (preguntaEditForm.imagenFile) imagenUrl = await uploadToCloudinary(preguntaEditForm.imagenFile, 'evalua-facil/preguntas')
-      // Mover de sección: `orden` es relativo a su grupo, así que al cambiar
-      // de sección hay que darle uno nuevo — el último del grupo destino — o
-      // quedaría empatado con algún reactivo que ya estaba ahí.
       const antes = preguntas.find((p) => p.id === id)
       const seccionNueva = preguntaEditForm.seccionId || null
       const cambioDeSeccion = (antes?.seccionId || null) !== seccionNueva
@@ -601,9 +644,26 @@ export default function EvaluacionEditor({
         ? { ...seccionesCtl.camposDeSeccion(seccionNueva), orden: siguienteOrden(preguntas.filter((p) => p.id !== id), seccionNueva) }
         : {}
       const data = { ...buildPreguntaData(preguntaEditForm), imagenUrl, ...camposSeccion }
-      await updateDoc(doc(db, 'activities', currentActivityId, 'preguntas', id), data)
+      await actualizarPregunta(currentActivityId, id, data)
+      if (preguntaEditForm.guardarEnBanco) {
+        const bancoRef = await addDoc(collection(db, 'bancoReactivos'), {
+          docenteId: auth.currentUser.uid, tipo: data.tipo, enunciado: data.enunciado,
+          opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta,
+          tema: preguntaEditForm.tema.trim() || null,
+          materia: subject?.nombre || null, asignaturaId: subjectId || null,
+          createdAt: serverTimestamp(),
+        })
+        await actualizarPregunta(currentActivityId, id, { origenBancoId: bancoRef.id })
+        data.origenBancoId = bancoRef.id
+      }
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
+      const seccionDest = preguntaEditForm.seccionId || null
+      setFocusSectionId(seccionDest)
       setEditingPreguntaId(null); setGlowId(id); toast('Pregunta actualizada')
+      setTimeout(() => {
+        document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        document.getElementById(`preg-item-${id}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+      }, 120)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingPregunta(false) }
   }
@@ -638,7 +698,8 @@ export default function EvaluacionEditor({
 
   async function handleDeletePregunta(id) {
     if (!confirm('¿Eliminar esta pregunta?')) return
-    await deleteDoc(doc(db, 'activities', currentActivityId, 'preguntas', id))
+    // Se lleva también su clave: si se quedara, sería un huérfano invisible.
+    await borrarPregunta(currentActivityId, id)
     const updated = preguntas.filter((p) => p.id !== id)
     setPreguntas(updated)
     await syncNumPreguntas(updated.length)
@@ -649,10 +710,10 @@ export default function EvaluacionEditor({
     const orden = siguienteOrden(preguntas, p.seccionId || null)
     const data = { ...p, enunciado: `${p.enunciado} (copia)`, orden, origenBancoId: null }
     delete data.id
-    const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
-    const updated = [...preguntas, { id: ref.id, ...data }]
+    const nuevoId = await crearPregunta(currentActivityId, data)
+    const updated = [...preguntas, { id: nuevoId, ...data }]
     setPreguntas(updated)
-    setGlowId(ref.id)
+    setGlowId(nuevoId)
     await syncNumPreguntas(updated.length)
     toast('Pregunta duplicada')
   }
@@ -663,10 +724,10 @@ export default function EvaluacionEditor({
     const data = { tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
       respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
       imagenUrl: null, orden, origenBancoId: item.id }
-    const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
-    const updated = [...preguntas, { id: ref.id, ...data }]
+    const nuevoId = await crearPregunta(currentActivityId, data)
+    const updated = [...preguntas, { id: nuevoId, ...data }]
     setPreguntas(updated)
-    setGlowId(ref.id)
+    setGlowId(nuevoId)
     await syncNumPreguntas(updated.length)
     toast('Pregunta agregada desde tu banco')
   }
@@ -677,18 +738,15 @@ export default function EvaluacionEditor({
     if (!currentActivityId || !items.length) return
     setSavingPregunta(true)
     try {
-      const batch = writeBatch(db)
       let orden = siguienteOrden(preguntas, seccionDestino)
-      const nuevas = []
-      for (const item of items) {
-        const ref = doc(collection(db, 'activities', currentActivityId, 'preguntas'))
-        const data = { tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
-          respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
-          imagenUrl: null, orden: orden++, origenBancoId: item.id }
-        batch.set(ref, data)
-        nuevas.push({ id: ref.id, ...data })
-      }
-      await batch.commit()
+      const lista = items.map((item) => ({
+        tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
+        respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
+        imagenUrl: null, orden: orden++, origenBancoId: item.id,
+      }))
+      // Sigue siendo un solo writeBatch (reactivo y clave van juntos dentro).
+      const ids = await crearPreguntasEnLote(currentActivityId, lista)
+      const nuevas = lista.map((data, i) => ({ id: ids[i], ...data }))
       const updated = [...preguntas, ...nuevas]
       setPreguntas(updated)
       await syncNumPreguntas(updated.length)
@@ -696,6 +754,76 @@ export default function EvaluacionEditor({
       toast(`${items.length} pregunta${items.length > 1 ? 's' : ''} agregada${items.length > 1 ? 's' : ''} desde tu banco`)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingPregunta(false) }
+  }
+
+  // ── OP-09 · Generar reactivos con IA ──────────────────────────────────────
+  function pedirReactivosIA() {
+    if (!currentActivityId) { toast('Guarda la información antes de generar reactivos', 'error'); return }
+    setIaTema(''); setIaQuiereEvaluar(''); setIaCantidad(DEFAULT_REACTIVOS); setIaTipoSolicitado('mixto'); setIaArchivos([])
+    setIaConfirmando(true)
+  }
+
+  async function generarReactivosConIA() {
+    setIaTrabajando(true)
+    try {
+      const urls = iaArchivos.length ? await resolverFuentes(iaArchivos) : []
+      const r = await creditosIA.ejecutar('reactivos', {
+        actividadId: currentActivityId,
+        asignaturaId: subjectId,
+        asignaturaNombre: contextLine || '',
+        tema: iaTema,
+        quiereEvaluar: iaQuiereEvaluar,
+        cantidad: iaCantidad,
+        tipoSolicitado: iaTipoSolicitado,
+        fuentes: urls,
+      })
+      // El servidor ya forzó la cantidad y el tipo exacto de cada reactivo
+      // (ver functions/ia.js); aquí solo se le da forma al editor de revisión.
+      const propuesta = reactivosDesdePropuesta(r?.resultado, iaCantidad)
+      setIaPropuesta(propuesta)
+      setIaConfirmando(false)
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setIaTrabajando(false)
+    }
+  }
+
+  // La propuesta entra como cualquier reactivo nuevo: mismo reparto público/
+  // clave (crearPreguntasEnLote) que "Agregar desde el Banco" — la IA nunca
+  // guarda nada por su cuenta, esto solo corre cuando el docente confirma.
+  async function handleGuardarReactivosIA(items) {
+    if (!currentActivityId || !items.length) return
+    try {
+      let orden = siguienteOrden(preguntas, seccionDestino)
+      const lista = items.map((r) => {
+        const base = {
+          tipo: r.tipo, enunciado: r.enunciado.trim(), ponderacion: 1, retroalimentacion: null,
+          imagenUrl: null, orden: orden++, origenBancoId: null,
+          ...seccionesCtl.camposDeSeccion(seccionDestino),
+        }
+        if (r.tipo === 'opcion_multiple') {
+          const opciones = r.opciones.map((texto) => makeOption(texto.trim()))
+          return { ...base, opciones, respuestaCorrecta: opciones[r.correcta]?.id ?? opciones[0]?.id }
+        }
+        if (r.tipo === 'verdadero_falso') {
+          return { ...base, opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }], respuestaCorrecta: r.correcta === 'f' ? 'f' : 'v' }
+        }
+        if (r.tipo === 'respuesta_corta') {
+          return { ...base, opciones: null, respuestaCorrecta: null, respuestaEsperada: r.respuestaEsperada?.trim() || null }
+        }
+        return { ...base, opciones: null, respuestaCorrecta: null } // subir_archivo
+      })
+      const ids = await crearPreguntasEnLote(currentActivityId, lista)
+      const nuevas = lista.map((data, i) => ({ id: ids[i], ...data }))
+      const updated = [...preguntas, ...nuevas]
+      setPreguntas(updated)
+      await syncNumPreguntas(updated.length)
+      setIaPropuesta(null)
+      toast(`${items.length} reactivo${items.length > 1 ? 's' : ''} agregado${items.length > 1 ? 's' : ''} con IA`)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
   }
 
   // "Repartir parejo" — pedido explícito: reparte los 10 puntos entre todas
@@ -761,7 +889,7 @@ export default function EvaluacionEditor({
 
   async function handleGuardarEnBanco(p) {
     try {
-      await addDoc(collection(db, 'bancoReactivos'), {
+      const bancoRef = await addDoc(collection(db, 'bancoReactivos'), {
         docenteId: auth.currentUser.uid,
         tipo: p.tipo,
         enunciado: p.enunciado,
@@ -772,6 +900,8 @@ export default function EvaluacionEditor({
         asignaturaId: subjectId || null,
         createdAt: serverTimestamp(),
       })
+      await actualizarPregunta(currentActivityId, p.id, { origenBancoId: bancoRef.id })
+      setPreguntas((prev) => prev.map((q) => q.id === p.id ? { ...q, origenBancoId: bancoRef.id } : q))
       toast('Pregunta guardada en tu banco')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -1012,7 +1142,7 @@ export default function EvaluacionEditor({
               <h3 className="text-sm font-semibold text-on-surface">Resumen</h3>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted flex items-center gap-1.5"><ListChecks size={16} /> Número de preguntas</span>
-                <span className="font-semibold text-on-surface">{configForm.numPreguntas || 0}</span>
+                <span className="font-semibold text-on-surface">{preguntas.length}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted flex items-center gap-1.5"><Timer size={16} /> Tiempo disponible</span>
@@ -1219,7 +1349,9 @@ export default function EvaluacionEditor({
         <div className="bg-surface-card rounded-card shadow-card overflow-hidden" style={{ border: '1px solid var(--accent)' }}>
           <div className="px-4 py-3 flex items-center justify-between"
             style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
-            <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Preguntas</h2>
+            <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>
+              Preguntas {preguntas.length > 0 && <span className="font-normal">({preguntas.length})</span>}
+            </h2>
             {preguntas.length > 0 && (
               <span className={`text-sm font-semibold ${Math.abs(ponderacionUsada - 10) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
                 {parseFloat(ponderacionUsada.toFixed(2))} / 10 pts
@@ -1251,131 +1383,337 @@ export default function EvaluacionEditor({
                   <p className="text-sm text-slate-400 text-center py-4">Aún no hay reactivos.</p>
                 )}
 
-                {grupos.map((grupo) => (
-                  <div key={grupo.seccion?.id || 'sueltas'} className="space-y-3">
-                    {grupo.seccion && (
-                      <SeccionHeader
-                        seccion={grupo.seccion}
-                        total={grupo.preguntas.length}
-                        primera={seccionesCtl.secciones[0]?.id === grupo.seccion.id}
-                        ultima={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id}
-                        disabled={savingPregunta || seccionesCtl.guardando}
-                        onMover={(dir) => seccionesCtl.mover(grupo.seccion.id, dir)}
-                        onEditar={() => seccionesCtl.setEditando(grupo.seccion)}
-                        onEliminar={() => seccionesCtl.setPorBorrar(grupo.seccion)}
-                        onAgregarReactivo={() => { setSeccionDestino(grupo.seccion.id); setShowPreguntaForm(true) }}
-                      />
-                    )}
-                {grupo.preguntas.map((p) => (
-                  <div key={p.id} id={`preg-item-${p.id}`} className="border rounded-card"
-                    style={editingPreguntaId === p.id
-                      ? { borderColor: 'var(--accent)', background: 'var(--accent-light)', borderWidth: 2 }
-                      : p.id === glowId
-                        ? { borderColor: 'var(--accent)', background: 'var(--accent-light)' }
-                        : { borderColor: 'var(--outline-variant)' }}>
-                    {editingPreguntaId === p.id ? (
-                      <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="p-4 space-y-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando · Pregunta {numeroDePregunta[p.id]}</p>
-                        <SelectorSeccion
-                          id={`preg-edit-seccion-${p.id}`}
-                          secciones={seccionesCtl.secciones}
-                          valor={preguntaEditForm.seccionId}
-                          onChange={(v) => setPreguntaEditForm((f) => ({ ...f, seccionId: v }))}
-                        />
-                        <div>
-                          <Select
-                            id="preg-edit-tipo"
-                            label="Tipo de pregunta"
-                            value={preguntaEditForm.tipo}
-                            onChange={(v) => setPreguntaEditForm((f) => ({ ...f, tipo: v }))}
-                            options={TIPOS_PREGUNTA}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="preg-edit-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
-                          <textarea id="preg-edit-enunciado" value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
-                            rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
-                        </div>
-                        {preguntaEditForm.tipo === 'opcion_multiple' && (
-                          <OpcionesEditor
-                            opciones={preguntaEditForm.opciones}
-                            respuestaCorrecta={preguntaEditForm.respuestaCorrecta}
-                            onChange={(next) => setPreguntaEditForm((f) => ({ ...f, opciones: next }))}
-                            onChangeCorrecta={(id) => setPreguntaEditForm((f) => ({ ...f, respuestaCorrecta: id }))}
-                            radioName={`ep-${p.id}`}
-                          />
-                        )}
-                        {preguntaEditForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>}
-                        {preguntaEditForm.tipo === 'verdadero_falso' && (
-                          <div className="flex gap-3">
-                            {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
-                              <label key={id} className="flex items-center gap-2 text-sm">
-                                <input type="radio" name={`evf-${p.id}`} checked={preguntaEditForm.vfRespuesta === id}
-                                  onChange={() => setPreguntaEditForm((f) => ({ ...f, vfRespuesta: id }))} className="accent-[var(--accent)]" />
-                                {label}
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <label htmlFor="preg-edit-ponderacion" className="text-sm font-medium text-muted">Ponderación</label>
-                            {(() => {
-                              const otras = preguntas.filter((x) => x.id !== p.id).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)
-                              const disp = Math.max(0, parseFloat((10 - otras).toFixed(2)))
-                              return <span className={`text-xs font-medium ${disp <= 0 ? 'text-error' : 'text-slate-400'}`}>Disponible: {disp} / 10</span>
-                            })()}
-                          </div>
-                          <input id="preg-edit-ponderacion" type="number" min="0.1" max={Math.max(0, parseFloat((10 - preguntas.filter((x) => x.id !== p.id).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)).toFixed(2)))} step="0.1" value={preguntaEditForm.ponderacion}
-                            onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                            className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
-                        </div>
-                        <div className="flex gap-2 pt-1">
-                          <button type="button" onClick={() => { setEditingPreguntaId(null); setGlowId(p.id) }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
-                          <button type="submit" disabled={savingPregunta || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
-                            {savingPregunta ? 'Guardando…' : 'Guardar cambios'}
-                          </button>
-                        </div>
-                      </form>
-                    ) : (
-                      <div className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1">
-                            <span className="inline-block text-xs font-semibold uppercase tracking-wide text-accent bg-accent-light px-2 py-0.5 rounded mb-2">
-                              {TIPOS_PREGUNTA.find((t) => t.value === p.tipo)?.label}
-                            </span>
-                            <p className="text-base font-semibold text-on-surface">{numeroDePregunta[p.id]}. {p.enunciado}</p>
-                          </div>
-                          <div className="flex gap-1 flex-shrink-0">
-                            <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
-                              className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover arriba"><ChevronUp size={18} /></button>
-                            <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
-                              className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover abajo"><ChevronDown size={18} /></button>
-                            <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
-                            <button type="button" aria-label="Editar" onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
-                            <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>
-                            <button type="button" aria-label="Eliminar" onClick={() => handleDeletePregunta(p.id)} className="p-1.5 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={18} /></button>
-                          </div>
-                        </div>
-                        {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-36 rounded border border-outline-variant" />}
-                        {p.opciones && (
-                          <div className="mt-2 grid grid-cols-2 gap-1.5">
-                            {p.opciones.map((o) => (
-                              <p key={o.id} className={`text-sm px-3 py-1.5 rounded ${o.id === p.respuestaCorrecta ? 'bg-emerald-50 text-emerald-700 font-medium' : 'bg-surface-container text-muted'}`}>{o.texto}</p>
-                            ))}
-                          </div>
-                        )}
-                        {p.tipo === 'respuesta_corta' && <p className="text-sm text-slate-400 mt-2 italic">Respuesta de texto libre — se califica manualmente</p>}
-                        {p.tipo === 'subir_archivo' && <p className="text-sm text-slate-400 mt-2 italic">El alumno sube un documento — se califica manualmente</p>}
-                        <p className="text-sm text-slate-400 mt-2">Ponderación: {p.ponderacion}</p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                  </div>
-                ))}
+                <div className="space-y-3">
+                {grupos.map((grupo) => {
+                  const isSeccion = !!grupo.seccion
+                  const editandoEstaSeccion = isSeccion && seccionesCtl.editando?.id === grupo.seccion.id
+                  const editingInThisGroup = editingPreguntaId != null && grupo.preguntas.some((p) => p.id === editingPreguntaId)
+                  const addingInThisGroup = isSeccion && showPreguntaForm && seccionDestino === grupo.seccion.id
+                  const isActiveSection = isSeccion && (editandoEstaSeccion || editingInThisGroup || addingInThisGroup || focusSectionId === grupo.seccion.id)
+                  const pregEditando = editingInThisGroup ? preguntas.find((p) => p.id === editingPreguntaId) : null
+                  return (
+                    <div key={grupo.seccion?.id || 'sueltas'}
+                      id={`seccion-grupo-${grupo.seccion?.id || 'sueltas'}`}
+                      className={isActiveSection ? 'rounded-card p-3 space-y-2' : isSeccion ? 'rounded-card p-2 space-y-1.5' : 'space-y-1.5'}
+                      style={isActiveSection
+                        ? { border: '2px solid #d97706', background: 'rgba(251,191,36,0.10)' }
+                        : isSeccion
+                          ? { border: '1.5px solid var(--accent)' }
+                          : {}}>
 
-                {showPreguntaForm ? (
+                      {/* Sección activa: SeccionHeader completo o SeccionForm */}
+                      {isSeccion && isActiveSection && !editandoEstaSeccion && (
+                        <SeccionHeader
+                          seccion={grupo.seccion}
+                          total={grupo.preguntas.length}
+                          primera={seccionesCtl.secciones[0]?.id === grupo.seccion.id}
+                          ultima={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id}
+                          disabled={savingPregunta || seccionesCtl.guardando}
+                          onMover={(dir) => seccionesCtl.mover(grupo.seccion.id, dir)}
+                          onEditar={() => { setFocusSectionId(null); seccionesCtl.setEditando(grupo.seccion) }}
+                          onEliminar={() => seccionesCtl.setPorBorrar(grupo.seccion)}
+                        />
+                      )}
+                      {isSeccion && editandoEstaSeccion && (
+                        <SeccionForm
+                          inicial={seccionesCtl.editando}
+                          guardando={seccionesCtl.guardando}
+                          onGuardar={(data) => { seccionesCtl.guardar(data); setFocusSectionId(grupo.seccion.id) }}
+                          onCancelar={() => { seccionesCtl.setEditando(null); setFocusSectionId(grupo.seccion.id) }}
+                        />
+                      )}
+                      {/* Sección inactiva: encabezado compacto — clicar la tira la activa */}
+                      {isSeccion && !isActiveSection && (
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setFocusSectionId(grupo.seccion.id)}
+                          onKeyDown={(e) => e.key === 'Enter' && setFocusSectionId(grupo.seccion.id)}
+                          className="flex items-center gap-1 px-2 py-1.5 rounded cursor-pointer hover:opacity-80 transition-opacity"
+                          style={{ background: 'var(--accent-light)' }}
+                        >
+                          <FolderOpen size={13} className="text-accent flex-shrink-0" />
+                          <span className="text-xs font-semibold text-on-surface truncate flex-1 min-w-0">{grupo.seccion.nombre}</span>
+                          <span className="text-xs font-medium text-accent flex-shrink-0">({grupo.preguntas.length})</span>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.mover(grupo.seccion.id, 'up') }}
+                            disabled={seccionesCtl.secciones[0]?.id === grupo.seccion.id || seccionesCtl.guardando}
+                            aria-label="Subir sección"
+                            className="p-0.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"><ChevronUp size={13} /></button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.mover(grupo.seccion.id, 'down') }}
+                            disabled={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id || seccionesCtl.guardando}
+                            aria-label="Bajar sección"
+                            className="p-0.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"><ChevronDown size={13} /></button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setFocusSectionId(null); seccionesCtl.setEditando(grupo.seccion) }}
+                            disabled={seccionesCtl.guardando}
+                            aria-label="Editar sección"
+                            className="p-0.5 text-slate-400 hover:text-accent rounded"><Pencil size={12} /></button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.setPorBorrar(grupo.seccion) }}
+                            aria-label="Eliminar sección"
+                            className="p-0.5 text-slate-400 hover:text-error rounded"><Trash2 size={12} /></button>
+                        </div>
+                      )}
+                      {!isSeccion && seccionesCtl.secciones.length > 0 && grupo.preguntas.length > 0 && (
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted px-1">Sin sección</p>
+                      )}
+
+                      {/* Reactivos en scroll horizontal — cada tarjeta tiene ancho fijo */}
+                      {grupo.preguntas.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
+                          {grupo.preguntas.map((p) => (
+                            <div key={p.id} id={`preg-item-${p.id}`}
+                              className="flex-shrink-0 rounded-card flex flex-col"
+                              style={{
+                                width: '15rem',
+                                background: p.id === glowId ? 'rgba(251,191,36,0.08)' : 'var(--surface)',
+                                border: editingPreguntaId === p.id
+                                  ? '2px solid #d97706'
+                                  : p.id === glowId
+                                    ? '2px solid #d97706'
+                                    : '1px solid var(--outline-variant)',
+                              }}>
+                              <div className="p-3 flex flex-col flex-1">
+                                {/* Número + tipo + ponderación */}
+                                <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                                  <span className="text-xs font-bold text-muted">{numeroDePregunta[p.id]}.</span>
+                                  <span className="text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent-light px-1.5 py-0.5 rounded leading-tight">
+                                    {TIPOS_PREGUNTA.find((t) => t.value === p.tipo)?.label}
+                                  </span>
+                                  <span className="ml-auto text-xs font-medium text-muted">{parseFloat(p.ponderacion ?? 0).toFixed(2)} pt</span>
+                                </div>
+                                {/* Enunciado */}
+                                <p className="text-sm font-medium text-on-surface mb-2 line-clamp-3 flex-1">{p.enunciado}</p>
+                                {/* Imagen */}
+                                {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mb-2 max-h-20 rounded border border-outline-variant object-contain" />}
+                                {/* Opciones (máx 3 visibles) */}
+                                {p.opciones && (
+                                  <div className="mb-2 space-y-0.5">
+                                    {p.opciones.slice(0, 3).map((o, idx) => (
+                                      <p key={o.id} className={`text-xs px-2 py-0.5 rounded truncate ${o.id === p.respuestaCorrecta ? 'bg-emerald-50 text-emerald-700 font-medium' : 'bg-surface-container text-muted'}`}>
+                                        {o.esOtra ? 'Otra…' : `${String.fromCharCode(65 + idx)}. ${o.texto}`}
+                                      </p>
+                                    ))}
+                                    {p.opciones.length > 3 && (
+                                      <p className="text-xs text-muted px-2">+{p.opciones.length - 3} opción{p.opciones.length - 3 > 1 ? 'es' : ''} más</p>
+                                    )}
+                                  </div>
+                                )}
+                                {p.tipo === 'verdadero_falso' && (
+                                  <p className="text-xs text-muted mb-2">
+                                    Correcta: <span className="font-semibold text-emerald-700">{p.respuestaCorrecta === 'v' ? 'Verdadero' : 'Falso'}</span>
+                                  </p>
+                                )}
+                                {(p.tipo === 'respuesta_corta' || p.tipo === 'subir_archivo') && (
+                                  <p className="text-xs text-slate-400 mb-2 italic">
+                                    {p.tipo === 'respuesta_corta' ? 'Respuesta libre' : 'Sube documento'} — calificación manual
+                                  </p>
+                                )}
+                                {/* Acciones: reordenar (izq/der) + banco + editar + duplicar + eliminar */}
+                                <div className="flex items-center justify-between pt-1.5 border-t border-outline-variant mt-auto">
+                                  <div className="flex gap-0.5">
+                                    <button type="button" aria-label="Mover antes" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
+                                      className="p-1 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover antes"><ChevronUp size={15} /></button>
+                                    <button type="button" aria-label="Mover después" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
+                                      className="p-1 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover después"><ChevronDown size={15} /></button>
+                                  </div>
+                                  <div className="flex gap-0.5">
+                                    {p.origenBancoId
+                                      ? <span className="p-1 text-emerald-600 inline-flex" title="Ya está en el banco"><Library size={14} /></span>
+                                      : <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-1 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={14} /></button>
+                                    }
+                                    <button type="button" aria-label="Editar" onClick={() => openEditPregunta(p)}
+                                      className={`p-1 rounded ${editingPreguntaId === p.id ? 'text-accent' : 'text-slate-400 hover:text-accent'}`} data-tooltip="Editar"><Pencil size={14} /></button>
+                                    <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={14} /></button>
+                                    <button type="button" aria-label="Eliminar" onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={14} /></button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Formulario de edición — aparece debajo del scroll, ocupa el ancho completo */}
+                      {editingInThisGroup && preguntaEditForm && (
+                        <form id={`edit-form-${editingPreguntaId}`} onSubmit={(e) => handleSavePreguntaEdit(e, editingPreguntaId)}
+                          className="border-2 rounded-card p-4 space-y-3 bg-surface" style={{ borderColor: isActiveSection ? '#d97706' : 'var(--accent)' }}>
+                          <p className="text-xs font-semibold uppercase tracking-wide flex items-center gap-2" style={{ color: isActiveSection ? '#d97706' : 'var(--accent)' }}>
+                            Editando · Pregunta {numeroDePregunta[editingPreguntaId]}
+                            {pregEditando?.origenBancoId && (
+                              <span className="normal-case font-normal text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                <Library size={11} /> Del banco
+                              </span>
+                            )}
+                          </p>
+                          <SelectorSeccion
+                            id={`preg-edit-seccion-${editingPreguntaId}`}
+                            secciones={seccionesCtl.secciones}
+                            valor={preguntaEditForm.seccionId}
+                            onChange={(v) => setPreguntaEditForm((f) => ({ ...f, seccionId: v }))}
+                          />
+                          <div>
+                            <Select
+                              id="preg-edit-tipo"
+                              label="Tipo de pregunta"
+                              value={preguntaEditForm.tipo}
+                              onChange={(v) => setPreguntaEditForm((f) => ({ ...f, tipo: v }))}
+                              options={TIPOS_PREGUNTA}
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="preg-edit-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
+                            <textarea id="preg-edit-enunciado" value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
+                              rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                          </div>
+                          {preguntaEditForm.tipo === 'opcion_multiple' && (
+                            <OpcionesEditor
+                              opciones={preguntaEditForm.opciones}
+                              respuestaCorrecta={preguntaEditForm.respuestaCorrecta}
+                              onChange={(next) => setPreguntaEditForm((f) => ({ ...f, opciones: next }))}
+                              onChangeCorrecta={(id) => setPreguntaEditForm((f) => ({ ...f, respuestaCorrecta: id }))}
+                              radioName={`ep-${editingPreguntaId}`}
+                            />
+                          )}
+                          {preguntaEditForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>}
+                          {preguntaEditForm.tipo === 'verdadero_falso' && (
+                            <div className="flex gap-3">
+                              {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
+                                <label key={id} className="flex items-center gap-2 text-sm">
+                                  <input type="radio" name={`evf-${editingPreguntaId}`} checked={preguntaEditForm.vfRespuesta === id}
+                                    onChange={() => setPreguntaEditForm((f) => ({ ...f, vfRespuesta: id }))} className="accent-[var(--accent)]" />
+                                  {label}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label htmlFor="preg-edit-ponderacion" className="text-sm font-medium text-muted">Ponderación</label>
+                              {(() => {
+                                const otras = preguntas.filter((x) => x.id !== editingPreguntaId).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)
+                                const disp = Math.max(0, parseFloat((10 - otras).toFixed(2)))
+                                return <span className={`text-xs font-medium ${disp <= 0 ? 'text-error' : 'text-slate-400'}`}>Disponible: {disp} / 10</span>
+                              })()}
+                            </div>
+                            <input id="preg-edit-ponderacion" type="number" min="0.01"
+                              max={Math.max(0, parseFloat((10 - preguntas.filter((x) => x.id !== editingPreguntaId).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)).toFixed(2)))}
+                              step="0.01" value={preguntaEditForm.ponderacion}
+                              onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
+                              className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                          </div>
+                          {!pregEditando?.origenBancoId && (
+                            <>
+                              <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
+                                <input type="checkbox" checked={preguntaEditForm.guardarEnBanco}
+                                  onChange={(e) => setPreguntaEditForm((f) => ({ ...f, guardarEnBanco: e.target.checked }))} className="accent-[var(--accent)]" />
+                                Guardar también en mi banco de reactivos
+                              </label>
+                              {preguntaEditForm.guardarEnBanco && (
+                                <input type="text" value={preguntaEditForm.tema}
+                                  onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tema: e.target.value }))}
+                                  required placeholder="Tema (obligatorio, ej. Fracciones)"
+                                  className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                              )}
+                            </>
+                          )}
+                          <div className="flex gap-2 pt-1">
+                            <button type="button" onClick={() => {
+                              const pid = editingPreguntaId
+                              const seccionDest = preguntaEditForm?.seccionId || null
+                              setFocusSectionId(seccionDest)
+                              setEditingPreguntaId(null); setGlowId(pid)
+                              setTimeout(() => {
+                                document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+                                document.getElementById(`preg-item-${pid}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+                              }, 120)
+                            }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
+                            <button type="submit" disabled={savingPregunta || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current}
+                              className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                              {savingPregunta ? 'Guardando…' : 'Guardar cambios'}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+
+                      {/* Formulario inline cuando se está agregando a ESTA sección */}
+                      {addingInThisGroup && (
+                        <form onSubmit={handleAddPregunta} className="border-2 rounded-card p-4 space-y-3 bg-surface" style={{ borderColor: '#d97706' }}>
+                          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#d97706' }}>Nuevo reactivo · {grupo.seccion.nombre}</p>
+                          <SelectorSeccion id={`preg-new-seccion-${grupo.seccion.id}`} secciones={seccionesCtl.secciones} valor={seccionDestino} onChange={setSeccionDestino} />
+                          <Select id={`preg-new-tipo-${grupo.seccion.id}`} label="Tipo de pregunta" value={preguntaForm.tipo} onChange={(v) => setPreguntaForm((f) => ({ ...f, tipo: v }))} options={TIPOS_PREGUNTA} />
+                          <div>
+                            <label htmlFor={`preg-new-enunciado-${grupo.seccion.id}`} className="block text-sm font-medium text-muted mb-1">Enunciado</label>
+                            <textarea id={`preg-new-enunciado-${grupo.seccion.id}`} value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
+                              rows={2} required autoFocus className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                          </div>
+                          {preguntaForm.tipo === 'opcion_multiple' && (
+                            <OpcionesEditor opciones={preguntaForm.opciones} respuestaCorrecta={preguntaForm.respuestaCorrecta}
+                              onChange={(next) => setPreguntaForm((f) => ({ ...f, opciones: next }))}
+                              onChangeCorrecta={(id) => setPreguntaForm((f) => ({ ...f, respuestaCorrecta: id }))} radioName={`rc-sec-${grupo.seccion.id}`} />
+                          )}
+                          {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>}
+                          {preguntaForm.tipo === 'verdadero_falso' && (
+                            <div className="flex gap-3">
+                              {[['v', 'Verdadero'], ['f', 'Falso']].map(([val, label]) => (
+                                <label key={val} className="flex items-center gap-2 text-sm">
+                                  <input type="radio" name={`vf-sec-${grupo.seccion.id}`} checked={preguntaForm.vfRespuesta === val}
+                                    onChange={() => setPreguntaForm((f) => ({ ...f, vfRespuesta: val }))} className="accent-[var(--accent)]" />
+                                  {label}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                          {(preguntaForm.tipo === 'respuesta_corta') && <p className="text-xs text-slate-400 italic">Respuesta libre — calificación manual.</p>}
+                          {(preguntaForm.tipo === 'subir_archivo') && <p className="text-xs text-slate-400 italic">El alumno sube un documento — calificación manual.</p>}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-sm font-medium text-muted">Ponderación</label>
+                              <span className={`text-xs font-medium ${ponderacionRestante <= 0 ? 'text-error' : 'text-slate-400'}`}>Disponible: {ponderacionRestante} / 10</span>
+                            </div>
+                            <input type="number" min="0.01" max={ponderacionRestante} step="0.01" value={preguntaForm.ponderacion}
+                              onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
+                              className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                          </div>
+                          <label className="flex items-center gap-2 text-sm text-muted">
+                            <input type="checkbox" checked={preguntaForm.guardarEnBanco} onChange={(e) => setPreguntaForm((f) => ({ ...f, guardarEnBanco: e.target.checked }))} className="accent-[var(--accent)]" />
+                            Guardar también en mi banco
+                          </label>
+                          {preguntaForm.guardarEnBanco && (
+                            <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
+                              required placeholder="Tema (obligatorio, ej. Fracciones)" className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                          )}
+                          <div className="flex gap-2 pt-1">
+                            <button type="button" onClick={() => {
+                              const dest = seccionDestino
+                              setFocusSectionId(dest)
+                              setShowPreguntaForm(false); setSeccionDestino(null); setPreguntaForm(emptyPregunta())
+                              setTimeout(() => document.getElementById(`agregar-seccion-${dest}`)?.focus(), 80)
+                            }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
+                            <button type="submit" disabled={savingPregunta}
+                              className="flex-1 py-2 text-sm font-medium text-white rounded disabled:opacity-60" style={{ background: '#d97706' }}>
+                              {savingPregunta ? 'Guardando…' : 'Guardar reactivo'}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                      {/* Botón agregar — solo cuando el form no está abierto en esta sección */}
+                      {isSeccion && isActiveSection && !addingInThisGroup && !editandoEstaSeccion && (
+                        <button
+                          type="button"
+                          id={`agregar-seccion-${grupo.seccion.id}`}
+                          onClick={() => { setFocusSectionId(null); setSeccionDestino(grupo.seccion.id); setShowPreguntaForm(true) }}
+                          disabled={savingPregunta || seccionesCtl.guardando}
+                          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-card text-sm font-semibold transition-colors disabled:opacity-40 hover:opacity-80"
+                          style={{ border: '2px dashed #d97706', color: '#d97706' }}
+                        >
+                          <Plus size={15} /> Agregar reactivo a esta sección
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+                </div>
+
+                {showPreguntaForm && !seccionDestino ? (
                   <form onSubmit={handleAddPregunta} className="border-2 border-accent rounded-card p-4 space-y-3"
                     style={{ background: 'var(--accent-light)' }}>
                     <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando · Pregunta {preguntas.length + 1}</p>
@@ -1440,7 +1778,7 @@ export default function EvaluacionEditor({
                           Disponible: {ponderacionRestante} / 10
                         </span>
                       </div>
-                      <input id="preg-new-ponderacion" type="number" min="0.1" max={ponderacionRestante} step="0.1" value={preguntaForm.ponderacion}
+                      <input id="preg-new-ponderacion" type="number" min="0.01" max={ponderacionRestante} step="0.01" value={preguntaForm.ponderacion}
                         onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
                         className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                     </div>
@@ -1464,9 +1802,9 @@ export default function EvaluacionEditor({
                   </form>
                 ) : (
                   <div className="pt-2 mt-2 border-t border-outline-variant space-y-2">
-                    {seccionesCtl.editando ? (
+                    {seccionesCtl.editando === 'nueva' ? (
                       <SeccionForm
-                        inicial={seccionesCtl.editando === 'nueva' ? null : seccionesCtl.editando}
+                        inicial={null}
                         guardando={seccionesCtl.guardando}
                         onGuardar={seccionesCtl.guardar}
                         onCancelar={() => seccionesCtl.setEditando(null)}
@@ -1487,6 +1825,13 @@ export default function EvaluacionEditor({
                         <Library size={15} /> Agregar desde el Banco
                       </button>
                     </div>
+                    {/* OP-09: solo en la web, igual que la generación de rúbrica/cotejo. */}
+                    {!IS_NATIVE_APP && (
+                      <button type="button" onClick={pedirReactivosIA}
+                        className="w-full flex items-center justify-center gap-1.5 py-2.5 text-sm border-2 border-accent text-accent font-semibold rounded-card hover:bg-[var(--accent-tint)] transition-colors">
+                        <Sparkles size={15} /> Generar reactivos con IA
+                      </button>
+                    )}
                   </div>
                 )}
               </>
@@ -1526,6 +1871,22 @@ export default function EvaluacionEditor({
                   />
                 )}
               </div>
+              {/* Selector de sección destino — solo cuando el examen tiene secciones */}
+              {seccionesCtl.secciones.length > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-muted flex-shrink-0">Agregar a:</span>
+                  <select
+                    value={seccionDestino || ''}
+                    onChange={(e) => setSeccionDestino(e.target.value || null)}
+                    className="flex-1 text-xs px-2 py-1.5 rounded border border-outline-variant bg-surface"
+                  >
+                    <option value="">Sin sección</option>
+                    {seccionesCtl.secciones.map((s) => (
+                      <option key={s.id} value={s.id}>{s.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {/* Barra de selección múltiple — pedido explícito: agregar
                   varios reactivos de un jalón. */}
               {selectedBancoIds.size > 0 && (
@@ -1717,6 +2078,65 @@ export default function EvaluacionEditor({
           busy={savingInfo}
           onConfirm={() => { setConfirmDraft(false); handleSaveInfo({ preventDefault: () => {} }, true, false) }}
           onCancel={() => setConfirmDraft(false)}
+        />
+      )}
+
+      {/* OP-09: configuración ANTES de reservar créditos — cancelar aquí no
+          cuesta nada (ver ConfirmacionCreditosModal, mismo patrón de OP-06/07). */}
+      {iaConfirmando && (
+        <ConfirmacionCreditosModal
+          titulo="Generar reactivos con IA"
+          descripcion="El asistente redacta los reactivos a partir de lo que describas abajo; tú los revisas, editas y decides cuáles agregar."
+          costoMin={creditosIA.estimar('reactivos') ?? 1}
+          ejecutando={iaTrabajando}
+          onCancelar={() => { if (!iaTrabajando) setIaConfirmando(false) }}
+          onContinuar={generarReactivosConIA}
+        >
+          <div className="space-y-2.5">
+            <div>
+              <label htmlFor="ia-tema" className="block text-sm text-on-surface mb-1">Tema (opcional)</label>
+              <input id="ia-tema" type="text" value={iaTema} disabled={iaTrabajando}
+                onChange={(e) => setIaTema(e.target.value)}
+                placeholder="Ej: Algoritmos y estructuras condicionales"
+                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+            </div>
+            <div>
+              <label htmlFor="ia-quiere-evaluar" className="block text-sm text-on-surface mb-1">¿Qué quieres evaluar?</label>
+              <textarea id="ia-quiere-evaluar" value={iaQuiereEvaluar} disabled={iaTrabajando} rows={4}
+                onChange={(e) => setIaQuiereEvaluar(e.target.value)}
+                placeholder="Describe con el mayor detalle posible el tema, contenidos, conceptos, procedimientos, habilidades, conocimientos o aspectos que quieres evaluar. Entre más información proporciones, mejor podrá el Asistente IA generar los reactivos."
+                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="ia-cantidad" className="text-sm text-on-surface">¿Cuántos reactivos quieres generar?</label>
+              <select id="ia-cantidad" value={iaCantidad} disabled={iaTrabajando}
+                onChange={(e) => setIaCantidad(Number(e.target.value))}
+                className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                {Array.from({ length: MAX_REACTIVOS - MIN_REACTIVOS + 1 }, (_, i) => MIN_REACTIVOS + i).map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="ia-tipo" className="text-sm text-on-surface">¿Qué tipo de reactivos quieres generar?</label>
+              <select id="ia-tipo" value={iaTipoSolicitado} disabled={iaTrabajando}
+                onChange={(e) => setIaTipoSolicitado(e.target.value)}
+                className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                {TIPOS_REACTIVO_IA.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <FuentesIAInput files={iaArchivos} onChange={setIaArchivos} disabled={iaTrabajando} fuentesGuardadas={fuentesGuardadas} />
+          </div>
+        </ConfirmacionCreditosModal>
+      )}
+
+      {iaPropuesta && (
+        <ReactivosIAReview
+          reactivos={iaPropuesta}
+          onClose={() => setIaPropuesta(null)}
+          onGuardar={handleGuardarReactivosIA}
         />
       )}
     </div>

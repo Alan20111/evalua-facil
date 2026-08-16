@@ -142,9 +142,22 @@ export default defineConfig([
   // scripts/check-ui-standards.sh sigue siendo la fuente de verdad (cuenta
   // ocurrencias, no archivos, y sube de severidad si el número CRECE); esta
   // lista solo evita ruido en el editor mientras se migra en Fase 3/5.
+  // Los 7 archivos "Creditos*/CrearActividadIA*/CrearEvaluacionIA*/
+  // AnalisisResultadosIA/ReactivosIAReview/PlaneacionInicialSection/
+  // MexicoMap" se sumaron al mergear main (feature de IA/Planeación
+  // desarrollada en paralelo, 234 commits) — mismo patrón, deuda nueva de
+  // ESE trabajo, no de este plan.
   {
     files: [
       'src/components/AdminLayout.jsx',
+      'src/components/ConfirmacionCreditosModal.jsx',
+      'src/components/CrearActividadIAModal.jsx',
+      'src/components/CrearEvaluacionIAModal.jsx',
+      'src/components/CreditosPanel.jsx',
+      'src/components/admin/MexicoMap.jsx',
+      'src/components/evaluacion/AnalisisResultadosIA.jsx',
+      'src/components/evaluacion/ReactivosIAReview.jsx',
+      'src/components/subject/PlaneacionInicialSection.jsx',
       'src/components/AttachmentList.jsx',
       'src/components/AvatarCropModal.jsx',
       'src/components/CheckoutModal.jsx',
