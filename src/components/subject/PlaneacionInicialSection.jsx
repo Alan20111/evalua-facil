@@ -1,9 +1,10 @@
 // Apartado 3 de "Asistente IA": Planeación Didáctica Inicial (FASE 2-BIS del
 // Plan Maestro de IA). Se habilita solo cuando ya existen fuentes generales
 // y AMBOS diagnósticos (contexto y conocimientos) — la secuencia completa.
-// Genera una PROPUESTA en Excel para los parciales reales de la asignatura;
-// el docente la revisa, puede regenerarla y descargarla — nunca se aplica
-// sola a ningún otro módulo de Evalúa Fácil.
+// Genera una PROPUESTA en Word para los parciales reales de la asignatura
+// (Excel hasta el 15-ago-2026 — la vista previa de Word es mejor, ver
+// docx-preview más abajo); el docente la revisa, puede regenerarla y
+// descargarla — nunca se aplica sola a ningún otro módulo de Evalúa Fácil.
 import { useEffect, useRef, useState } from 'react'
 import { collection, doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { updateDoc } from '../../utils/firestoreGuard'
@@ -16,7 +17,7 @@ import EFDateTimePicker from '../EFDateTimePicker'
 import ParcialesFechas, { addOneDay, normalizeParcialesFechas } from '../ParcialesFechas'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
-import { descargarPlaneacionExcel } from '../../utils/planeacionExcel'
+import { construirPlaneacionDocumento, descargarPlaneacionWord } from '../../utils/planeacionWord'
 import { leerCuadriculaExcel, leerTablasWord, llenarPlantillaExcel, llenarPlantillaWord, aplanarCuadricula } from '../../utils/plantillaOficial'
 import { renderAsync as renderDocxAsync } from 'docx-preview'
 import { useSubscription } from '../../hooks/useSubscription'
@@ -25,7 +26,7 @@ import CheckoutModal from '../CheckoutModal'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, FileCheck2, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 
 // Nombres de columnas para la vista previa en pantalla — mismo orden y
-// etiquetas que planeacionExcel.js, pero en tarjetas apiladas (no tabla),
+// etiquetas que planeacionWord.js, pero en tarjetas apiladas (no tabla),
 // porque una tabla de 8 columnas no cabe en un celular sin scroll horizontal
 // (ver PlanComparisonTable.jsx, mismo problema encontrado ahí el 13-ago-2026).
 const CAMPOS_VISTA_PREVIA = [
@@ -325,7 +326,13 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   // Mismo criterio que exportGuard.js: bloqueado mientras nunca hubo un pago
   // aprobado, sin importar si la suscripción sigue vigente o no.
   const nuncaAprobado = !subscription?.planId
-  const [verPreview, setVerPreview] = useState(false)
+  // Vista previa en imagen de cómo se imprimiría el Word genérico ya
+  // aceptado — mismo patrón que abrirVistaPreviaOficial (docx-preview sobre
+  // el .docx real, generado por construirPlaneacionDocumento).
+  const [verVistaPreviaGenerica, setVerVistaPreviaGenerica] = useState(false)
+  const [cargandoVistaPreviaGenerica, setCargandoVistaPreviaGenerica] = useState(false)
+  const [blobVistaPreviaGenerica, setBlobVistaPreviaGenerica] = useState(null)
+  const vistaPreviaGenericaRef = useRef(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [historial, setHistorial] = useState([])
   const [histLoaded, setHistLoaded] = useState(false)
@@ -428,6 +435,24 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
     return unsub
   }, [subjectId])
 
+  // `subject` (prop) lo carga SubjectPage con un getDoc de una sola vez, no
+  // con onSnapshot — así que cuando ESTE componente escribe en
+  // subjects/{id} (aceptar/guardar/reiniciar la Planeación Inicial), la
+  // página padre nunca se entera y el docente veía los botones equivocados
+  // hasta recargar (bug encontrado por Kike, 15-ago-2026). Se escucha aparte,
+  // solo para los campos de Planeación — el resto del `subject` (parciales,
+  // fechas, nombre) sigue viniendo del prop, que SubjectPage sí mantiene al
+  // día cuando ES ELLA quien los cambia.
+  const [subjectPlaneacion, setSubjectPlaneacion] = useState(null)
+  const [subjectPlaneacionLoaded, setSubjectPlaneacionLoaded] = useState(false)
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'subjects', subjectId), (snap) => {
+      setSubjectPlaneacion(snap.exists() ? snap.data() : null)
+      setSubjectPlaneacionLoaded(true)
+    }, () => setSubjectPlaneacionLoaded(true))
+    return unsub
+  }, [subjectId])
+
   // El diagnóstico "real" (Tandas 1 y 2) vive en `activities` — no en la
   // vieja `subjects/{id}/diagnosticosIA` (reporte simulado, descartado).
   // Mismo hook que usa DiagnosticoGrupoSection para su propia señal visual —
@@ -471,15 +496,15 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   // useEffect).
   const actualIdParaEdicion = historial[0]?.id || null
   if (actualIdParaEdicion !== edicionDeId) {
-    const borrador = subject?.planeacionBorrador?.planeacionId === actualIdParaEdicion
-      ? subject.planeacionBorrador.resultado : null
+    const borrador = subjectPlaneacion?.planeacionBorrador?.planeacionId === actualIdParaEdicion
+      ? subjectPlaneacion.planeacionBorrador.resultado : null
     setEdicion(actualIdParaEdicion ? (borrador || historial[0].resultado) : null)
     setEdicionDeId(actualIdParaEdicion)
   }
   const actualOficialIdParaEdicion = historialOficial[0]?.id || null
   if (actualOficialIdParaEdicion !== edicionOficialDeId) {
-    const borradorOficial = subject?.planeacionOficialBorrador?.planeacionId === actualOficialIdParaEdicion
-      ? subject.planeacionOficialBorrador.celdas : null
+    const borradorOficial = subjectPlaneacion?.planeacionOficialBorrador?.planeacionId === actualOficialIdParaEdicion
+      ? subjectPlaneacion.planeacionOficialBorrador.celdas : null
     setEdicionOficial(actualOficialIdParaEdicion ? (borradorOficial || historialOficial[0].celdasPropuestas) : null)
     setEdicionOficialDeId(actualOficialIdParaEdicion)
   }
@@ -799,11 +824,13 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
       .catch((err) => toast('No se pudo mostrar la vista previa: ' + err.message, 'error'))
   }, [verVistaPreviaOficial, blobVistaPrevia])
 
-  // La descarga NUNCA pasa por el servidor ni por créditos: el .xlsx se
+  // La descarga NUNCA pasa por el servidor ni por créditos: el .docx se
   // arma en el navegador a partir del `resultado` ya guardado. `resultado`
   // se pasa explícito (en vez de usar siempre `entry.resultado`) porque la
   // versión aceptada puede traer ediciones del docente que ya no coinciden
-  // con lo que la IA generó originalmente — ver `aceptar()`.
+  // con lo que la IA generó originalmente — ver `aceptar()`. Word en vez de
+  // Excel (decisión de Kike, 15-ago-2026: la vista previa de Word es
+  // mejor) — ver abrirVistaPreviaGenerica, que usa el mismo documento.
   async function descargar(entry, resultado) {
     if (nuncaAprobado) {
       setShowPaymentModal(true)
@@ -811,13 +838,45 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
     }
     setDescargandoId(entry.id)
     try {
-      await descargarPlaneacionExcel({ subject, resultado: resultado || entry.resultado, watermark, formato: entry.formato || 'simple' })
+      await descargarPlaneacionWord({ subject, resultado: resultado || entry.resultado, watermark, formato: entry.formato || 'simple' })
     } catch (err) {
-      toast('No se pudo generar el Excel: ' + err.message, 'error')
+      toast('No se pudo generar el Word: ' + err.message, 'error')
     } finally {
       setDescargandoId(null)
     }
   }
+
+  // Arma el mismo .docx que se descargaría (sin descargarlo) y lo renderiza
+  // con docx-preview — mismo criterio que abrirVistaPreviaOficial.
+  async function abrirVistaPreviaGenerica(entry, resultado) {
+    setCargandoVistaPreviaGenerica(true)
+    setVerVistaPreviaGenerica(true)
+    try {
+      const { Packer } = await import('docx')
+      const documento = await construirPlaneacionDocumento({
+        subject, resultado: resultado || entry.resultado, watermark, formato: entry.formato || 'simple',
+      })
+      const blob = await Packer.toBlob(documento)
+      setBlobVistaPreviaGenerica(blob)
+    } catch (err) {
+      toast('No se pudo generar la vista previa: ' + err.message, 'error')
+      setVerVistaPreviaGenerica(false)
+    } finally {
+      setCargandoVistaPreviaGenerica(false)
+    }
+  }
+
+  function cerrarVistaPreviaGenerica() {
+    setVerVistaPreviaGenerica(false)
+    setBlobVistaPreviaGenerica(null)
+  }
+
+  useEffect(() => {
+    if (!verVistaPreviaGenerica || !blobVistaPreviaGenerica || !vistaPreviaGenericaRef.current) return
+    vistaPreviaGenericaRef.current.innerHTML = ''
+    renderDocxAsync(blobVistaPreviaGenerica, vistaPreviaGenericaRef.current, undefined, { inWrapper: true })
+      .catch((err) => toast('No se pudo mostrar la vista previa: ' + err.message, 'error'))
+  }, [verVistaPreviaGenerica, blobVistaPreviaGenerica])
 
   const actual = historial[0] || null
   const anteriores = historial.slice(1)
@@ -827,17 +886,17 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   // versión sin aceptar la anterior, esa aceptación queda "huérfana"
   // apuntando a un id que ya no es `actual` — se trata como no aceptada,
   // nunca se hereda a una generación distinta de la que de verdad se aceptó.
-  const aceptada = !!actual && subject?.planeacionAceptada?.planeacionId === actual.id
-  const fechaAceptada = aceptada ? subject.planeacionAceptada.aceptadaEn : null
+  const aceptada = !!actual && subjectPlaneacion?.planeacionAceptada?.planeacionId === actual.id
+  const fechaAceptada = aceptada ? subjectPlaneacion.planeacionAceptada.aceptadaEn : null
   // Lo que de verdad quedó aceptado — con las ediciones del docente si las
   // hizo (planeacionAceptada.resultado) o el resultado original si se
   // aceptó antes de que existiera la edición en pantalla (14-ago-2026).
-  const resultadoAceptado = aceptada ? (subject.planeacionAceptada.resultado || actual.resultado) : null
+  const resultadoAceptado = aceptada ? (subjectPlaneacion.planeacionAceptada.resultado || actual.resultado) : null
   // Lo ya guardado (borrador si hay uno para esta generación, si no el
   // resultado original) — compara contra `edicion` para saber si hay algo
   // sin guardar y así habilitar el botón "Guardar".
-  const guardadoResultado = actual && subject?.planeacionBorrador?.planeacionId === actual.id
-    ? subject.planeacionBorrador.resultado : actual?.resultado
+  const guardadoResultado = actual && subjectPlaneacion?.planeacionBorrador?.planeacionId === actual.id
+    ? subjectPlaneacion.planeacionBorrador.resultado : actual?.resultado
   const sinGuardar = !!actual && JSON.stringify(edicion) !== JSON.stringify(guardadoResultado)
 
   // Mismo criterio, para la versión en el formato oficial de la escuela —
@@ -845,13 +904,13 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   // pisa planeacionAceptada de arriba: son dos aceptaciones independientes).
   const actualOficial = historialOficial[0] || null
   const anterioresOficial = historialOficial.slice(1)
-  const aceptadaOficial = !!actualOficial && subject?.planeacionOficialAceptada?.planeacionId === actualOficial.id
-  const fechaAceptadaOficial = aceptadaOficial ? subject.planeacionOficialAceptada.aceptadaEn : null
+  const aceptadaOficial = !!actualOficial && subjectPlaneacion?.planeacionOficialAceptada?.planeacionId === actualOficial.id
+  const fechaAceptadaOficial = aceptadaOficial ? subjectPlaneacion.planeacionOficialAceptada.aceptadaEn : null
   const celdasOficialAceptadas = aceptadaOficial
-    ? (subject.planeacionOficialAceptada.celdas || actualOficial.celdasPropuestas)
+    ? (subjectPlaneacion.planeacionOficialAceptada.celdas || actualOficial.celdasPropuestas)
     : null
-  const guardadoOficialCeldas = actualOficial && subject?.planeacionOficialBorrador?.planeacionId === actualOficial.id
-    ? subject.planeacionOficialBorrador.celdas : actualOficial?.celdasPropuestas
+  const guardadoOficialCeldas = actualOficial && subjectPlaneacion?.planeacionOficialBorrador?.planeacionId === actualOficial.id
+    ? subjectPlaneacion.planeacionOficialBorrador.celdas : actualOficial?.celdasPropuestas
   const sinGuardarOficial = !!actualOficial && JSON.stringify(edicionOficial) !== JSON.stringify(guardadoOficialCeldas)
 
   // La Planeación Inicial es UNA sola (decisión de Kike, 15-ago-2026,
@@ -861,7 +920,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
   // ve/descarga el que sí se aceptó.
   const aceptadaInicial = aceptada || aceptadaOficial
 
-  if (!diagLoaded || !histLoaded || !histOficialLoaded) {
+  if (!diagLoaded || !histLoaded || !histOficialLoaded || !subjectPlaneacionLoaded) {
     return (
       <div className="bg-surface-card rounded-card shadow-card p-3 flex justify-center py-6">
         <Spinner size="sm" />
@@ -876,9 +935,9 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
         <EstadoPlaneacionBadge lista={hayFuentesGenerales} />
       </div>
       <p className="text-sm text-muted mt-0.5 mb-2">
-        La IA puede generar tu Planeación Didáctica Inicial en dos formatos: un Excel genérico (una hoja
-        por parcial) y, si subiste arriba el formato oficial de tu escuela, ese mismo llenado por la IA.
-        Puedes probar y corregir los dos antes de decidir, pero solo aceptas UNO — ese es tu Planeación
+        La IA puede generar tu Planeación Didáctica Inicial en dos formatos: un Word genérico (por temas,
+        parcial por parcial) y, si subiste arriba el formato oficial de tu escuela, ese mismo llenado por la
+        IA. Puedes probar y corregir los dos antes de decidir, pero solo aceptas UNO — ese es tu Planeación
         Inicial, y al aceptarlo el otro formato deja de estar disponible.
       </p>
 
@@ -898,7 +957,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
           ) : aceptadaOficial ? (
             <p className="text-xs text-muted mb-2">
               Tu Planeación Inicial ya quedó aceptada en el formato oficial de tu escuela (abajo) — no hace
-              falta, ni se puede, aceptar también esta versión en Excel genérico.
+              falta, ni se puede, aceptar también esta versión en Word genérico.
             </p>
           ) : !actual ? (
             <p className="text-xs text-muted mb-2">Estado: <span className="font-medium">No generada</span></p>
@@ -911,7 +970,11 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
             </p>
           )}
 
-          <div className="flex flex-wrap gap-2">
+          {/* Una fila POR FORMATO (pedido de Kike, 15-ago-2026) — así
+              "Vista previa"/"Descargar" siempre quedan a la derecha del
+              "Generar"/"Revisar" de SU MISMO formato, no mezclados con el
+              otro en un solo flex-wrap. */}
+          <div className="flex flex-wrap items-center gap-2">
             {!aceptadaInicial && (
               <button
                 type="button"
@@ -920,28 +983,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
                 {generando ? <Spinner size="sm" /> : actual ? <RotateCcw size={14} /> : <Sparkles size={14} />}
-                {actual ? 'Generar de nuevo (Excel genérico, con IA)' : 'Generar planeación (Excel genérico, con IA)'}
-              </button>
-            )}
-            {actual && aceptada && (
-              <button
-                type="button"
-                onClick={() => setVerPreview((v) => !v)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)]"
-              >
-                <Eye size={14} />
-                {verPreview ? 'Ocultar vista previa' : 'Ver planeación'}
-              </button>
-            )}
-            {actual && aceptada && (
-              <button
-                type="button"
-                onClick={() => descargar(actual, resultadoAceptado)}
-                disabled={descargandoId === actual.id}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
-              >
-                {descargandoId === actual.id ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : <Download size={14} />}
-                Descargar Excel
+                {actual ? 'Generar de nuevo (Word genérico, con IA)' : 'Generar planeación (Word genérico, con IA)'}
               </button>
             )}
             {actual && !aceptadaInicial && isDesktop && (
@@ -954,50 +996,80 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
                 Revisar la planeación inicial y aceptarla
               </button>
             )}
-            {plantillaOficial && !aceptadaInicial && (
+            {actual && aceptada && (
               <button
                 type="button"
-                onClick={() => (nuncaAprobado ? setShowPaymentModal(true) : setConfirmandoOficial(true))}
-                disabled={generandoOficial}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
-              >
-                {generandoOficial ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : actualOficial ? <RotateCcw size={14} /> : <FileCheck2 size={14} />}
-                {actualOficial ? 'Generar de nuevo mi formato oficial (con IA)' : 'Generar en el formato de mi escuela (con IA)'}
-              </button>
-            )}
-            {actualOficial && aceptadaOficial && (
-              <button
-                type="button"
-                onClick={abrirVistaPreviaOficial}
-                disabled={cargandoVistaPrevia}
+                onClick={() => abrirVistaPreviaGenerica(actual, resultadoAceptado)}
+                disabled={cargandoVistaPreviaGenerica}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
-                {cargandoVistaPrevia ? <Spinner size="sm" /> : <Eye size={14} />}
+                {cargandoVistaPreviaGenerica ? <Spinner size="sm" /> : <Eye size={14} />}
                 Vista previa
               </button>
             )}
-            {actualOficial && aceptadaOficial && (
+            {actual && aceptada && (
               <button
                 type="button"
-                onClick={descargarOficial}
-                disabled={descargandoOficial}
+                onClick={() => descargar(actual, resultadoAceptado)}
+                disabled={descargandoId === actual.id}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
               >
-                {descargandoOficial ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : <Download size={14} />}
-                Descargar {actualOficial.tipo === 'docx' ? 'Word' : 'Excel'}
+                {descargandoId === actual.id ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : <Download size={14} />}
+                Descargar Word
               </button>
             )}
-            {actualOficial && !aceptadaInicial && isDesktop && (
-              <button
-                type="button"
-                onClick={() => setRevisandoOficial(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50"
-              >
-                <ThumbsUp size={14} />
-                Revisar la planeación inicial y aceptarla
-              </button>
-            )}
-            {aceptadaInicial && (
+          </div>
+
+          {plantillaOficial && (
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              {!aceptadaInicial && (
+                <button
+                  type="button"
+                  onClick={() => (nuncaAprobado ? setShowPaymentModal(true) : setConfirmandoOficial(true))}
+                  disabled={generandoOficial}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
+                >
+                  {generandoOficial ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : actualOficial ? <RotateCcw size={14} /> : <FileCheck2 size={14} />}
+                  {actualOficial ? 'Generar de nuevo mi formato oficial (con IA)' : 'Generar en el formato de mi escuela (con IA)'}
+                </button>
+              )}
+              {actualOficial && !aceptadaInicial && isDesktop && (
+                <button
+                  type="button"
+                  onClick={() => setRevisandoOficial(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50"
+                >
+                  <ThumbsUp size={14} />
+                  Revisar la planeación inicial y aceptarla
+                </button>
+              )}
+              {actualOficial && aceptadaOficial && (
+                <button
+                  type="button"
+                  onClick={abrirVistaPreviaOficial}
+                  disabled={cargandoVistaPrevia}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-on-surface hover:bg-[var(--accent-tint)] disabled:opacity-60"
+                >
+                  {cargandoVistaPrevia ? <Spinner size="sm" /> : <Eye size={14} />}
+                  Vista previa
+                </button>
+              )}
+              {actualOficial && aceptadaOficial && (
+                <button
+                  type="button"
+                  onClick={descargarOficial}
+                  disabled={descargandoOficial}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent text-white text-sm hover:bg-accent-hover disabled:opacity-60"
+                >
+                  {descargandoOficial ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : <Download size={14} />}
+                  Descargar {actualOficial.tipo === 'docx' ? 'Word' : 'Excel'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {aceptadaInicial && (
+            <div className="mt-2">
               <button
                 type="button"
                 onClick={() => setConfirmarReiniciar(true)}
@@ -1006,8 +1078,8 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
                 <AlertTriangle size={14} />
                 Generar de nuevo
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {plantillaOficial && (
             aceptadaOficial ? (
@@ -1017,7 +1089,7 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
               </p>
             ) : aceptada ? (
               <p className="text-xs text-muted mt-1.5">
-                Tu Planeación Inicial ya quedó aceptada en el Excel genérico (arriba) — no hace falta, ni se
+                Tu Planeación Inicial ya quedó aceptada en el Word genérico (arriba) — no hace falta, ni se
                 puede, aceptar también esta versión en el formato oficial.
               </p>
             ) : !actualOficial ? (
@@ -1156,10 +1228,19 @@ export default function PlaneacionInicialSection({ subjectId, subject, asignatur
             </RevisionPantallaCompleta>
           )}
 
-          {verPreview && aceptada && (
-            <div className="mt-3 pt-2 border-t border-outline-variant">
-              <VistaPreviaPlaneacion resultado={resultadoAceptado} />
-            </div>
+          {verVistaPreviaGenerica && (
+            <RevisionPantallaCompleta
+              titulo="Vista previa — así se imprimiría"
+              onCerrar={cerrarVistaPreviaGenerica}
+            >
+              {cargandoVistaPreviaGenerica && !blobVistaPreviaGenerica ? (
+                <div className="flex justify-center py-10"><Spinner /></div>
+              ) : (
+                <div className="flex justify-center overflow-x-auto">
+                  <div ref={vistaPreviaGenericaRef} />
+                </div>
+              )}
+            </RevisionPantallaCompleta>
           )}
 
           {anteriores.length > 0 && (
