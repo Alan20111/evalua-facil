@@ -2619,24 +2619,29 @@ const PLANEACION_SISTEMA =
   'trátalo como información útil para ajustar el nivel de detalle de la propuesta. Escribe en ' +
   'español, claro y breve. Responde únicamente con el JSON del esquema indicado, sin texto adicional.'
 
-// Campos que tiene CADA Secuencia Didáctica — estructura propia de Evalúa
-// Fácil (decisión de Kike, 16-ago-2026: ya no depende de ninguna plantilla
-// externa). Un solo lugar para la lista de campos: el prompt, la limpieza
-// de la respuesta de la IA y el generador del Word (ver
-// src/utils/planeacionDocx.js) recorren esta MISMA lista — agregar un campo
-// nuevo el día de mañana es un solo cambio, no tres.
-const CAMPOS_SECUENCIA = [
+// Campos de CADA Secuencia Didáctica — estructura propia de Evalúa Fácil
+// que reproduce EXACTAMENTE el formato de referencia que Kike proporcionó
+// (Planeacion_Didactica_Universal.docx, analizado 16-ago-2026): identidad
+// de la secuencia + TRES momentos (Apertura/Desarrollo/Cierre), cada uno
+// con su PROPIO juego completo de actividades/recursos/evaluación — no uno
+// compartido por toda la Secuencia. Mismas listas en
+// src/utils/planeacionDocx.js (el generador del Word) — se duplican a
+// propósito, son runtimes distintos sin módulo compartido en este proyecto.
+const CAMPOS_IDENTIDAD_SECUENCIA = [
   { clave: 'nombre', etiqueta: 'Nombre o tema' },
   { clave: 'aprendizajesEsperados', etiqueta: 'Aprendizajes esperados' },
   { clave: 'proposito', etiqueta: 'Propósito' },
   { clave: 'sesiones', etiqueta: 'Sesiones que abarca' },
-  { clave: 'apertura', etiqueta: 'Apertura' },
-  { clave: 'desarrollo', etiqueta: 'Desarrollo' },
-  { clave: 'cierre', etiqueta: 'Cierre' },
-  { clave: 'evidencia', etiqueta: 'Evidencia de aprendizaje' },
-  { clave: 'estrategiaEvaluacion', etiqueta: 'Estrategia de evaluación' },
-  { clave: 'instrumento', etiqueta: 'Instrumento de evaluación' },
+  { clave: 'contenidosRelacionados', etiqueta: 'Contenidos relacionados' },
+]
+const MOMENTOS = ['apertura', 'desarrollo', 'cierre']
+const CAMPOS_MOMENTO = [
+  { clave: 'actividades', etiqueta: 'Actividades de enseñanza-aprendizaje' },
   { clave: 'recursos', etiqueta: 'Recursos y materiales' },
+  { clave: 'estrategiaEvaluacion', etiqueta: 'Estrategia de evaluación' },
+  { clave: 'evidencias', etiqueta: 'Evidencias' },
+  { clave: 'tipoInstrumento', etiqueta: 'Tipo de evaluación / instrumento' },
+  { clave: 'ponderacion', etiqueta: 'Ponderación (%)' },
 ]
 
 // Genera el contenido de UN parcial específico — se llama una vez por
@@ -2648,7 +2653,8 @@ const CAMPOS_SECUENCIA = [
 // generarSecuenciasPorParciales).
 function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada) {
   const totalParciales = ctx.parciales?.length || 1
-  const camposJSON = CAMPOS_SECUENCIA.map((c) => `"${c.clave}": "<${c.etiqueta}>"`).join(', ')
+  const camposIdentidadJSON = CAMPOS_IDENTIDAD_SECUENCIA.map((c) => `"${c.clave}": "<${c.etiqueta}>"`).join(', ')
+  const camposMomentoJSON = CAMPOS_MOMENTO.map((c) => `"${c.clave}": "<${c.etiqueta}>"`).join(', ')
   return (
     `Asignatura: ${ctx.asignaturaNombre || 'la asignatura del docente'} (bachillerato).\n` +
     `PARCIAL ${parcialCtx.numero} de ${totalParciales}${parcialCtx.periodoTexto ? ` (periodo: ${parcialCtx.periodoTexto})` : ''} — ` +
@@ -2683,30 +2689,39 @@ function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada) {
         '"secuenciasDidacticas" y repórtalo también en "bloquesTematicos". Si es una sola, confirma primero que ' +
         'el parcial de verdad cubre un único bloque temático breve — si cubre más de uno (lo más común), ' +
         'agrega más Secuencias Didácticas antes de responder, no te quedes en 1 por costumbre.\n\n') +
-    'CADA SECUENCIA DIDÁCTICA ES UNA UNIDAD COMPLETA E INDEPENDIENTE (Kike, 16-ago-2026): con su propio nombre/' +
-    'tema, aprendizajes esperados, propósito, sesiones que abarca, Apertura, Desarrollo, Cierre, evidencia de ' +
-    'aprendizaje, estrategia e instrumento de evaluación, y recursos/materiales — nunca compartas estos campos ' +
-    'entre varias Secuencias ni los agrupes en uno solo para toda la Planeación.\n' +
+    'CADA SECUENCIA DIDÁCTICA ES UNA UNIDAD COMPLETA E INDEPENDIENTE (Kike, 16-ago-2026): con su propia ' +
+    'identidad (nombre/tema, aprendizajes esperados, propósito, sesiones que abarca, contenidos relacionados) ' +
+    'y sus TRES momentos (Apertura, Desarrollo, Cierre) — nunca compartas estos campos entre varias Secuencias ' +
+    'ni los agrupes en uno solo para toda la Planeación.\n' +
+    'CADA MOMENTO (Apertura, Desarrollo y Cierre) TIENE SU PROPIO JUEGO COMPLETO — no uno compartido para toda ' +
+    'la Secuencia: actividades de enseñanza-aprendizaje, recursos y materiales, estrategia de evaluación, ' +
+    'evidencias, tipo de evaluación/instrumento, y ponderación (%). La Apertura tiene su propia evidencia y su ' +
+    'propia ponderación, distintas de las del Desarrollo y de las del Cierre — igual que en un formato real de ' +
+    'planeación, donde cada momento se evalúa por separado. Las tres ponderaciones de una misma Secuencia ' +
+    '(Apertura + Desarrollo + Cierre) deben sumar 100% cuando los tres momentos se evalúan — si algún momento ' +
+    'no tiene evaluación propia, dile "0%" o "No aplica", nunca lo dejes vacío ni inventes un número.\n' +
     'EXTENSIÓN DEL TEXTO — breve, claro y conciso, sin párrafos largos, explicaciones pedagógicas extensas, ' +
     'justificaciones ni descripciones innecesarias. Estos son máximos orientativos, no metas a alcanzar (si se ' +
     'puede decir con menos palabras, usa menos):\n' +
-    '- Apertura: máximo 2 acciones concretas, ~30 a 50 palabras.\n' +
-    '- Desarrollo: máximo 3 acciones concretas, ~50 a 80 palabras.\n' +
-    '- Cierre: máximo 1 o 2 acciones concretas, ~20 a 40 palabras.\n' +
-    '- El resto de los campos: directos, sin relleno — una o dos oraciones bastan para propósito, evidencia, ' +
-    'estrategia/instrumento de evaluación y recursos.\n' +
-    'La redacción describe QUÉ HARÁ EL DOCENTE Y/O QUÉ HARÁ EL ESTUDIANTE, de forma directa y ejecutable.\n' +
-    'REGLA FUNDAMENTAL: UNA VIÑETA = UNA SESIÓN (Kike, 16-ago-2026). Dentro de Apertura, Desarrollo y Cierre, ' +
-    'cada viñeta representa EXACTAMENTE una sesión (una hora de clase) — nunca agrupes dos o más sesiones ' +
-    'dentro de la misma viñeta ni escribas "Sesiones: 2" o "Sesiones: 3" al final de un solo bloque de texto. ' +
-    'Si una actividad requiere varias sesiones, DIVÍDELA en una viñeta por cada sesión, cada una describiendo ' +
-    'específicamente qué se hace en ESA sesión (puede ser continuación de la misma actividad — no hace falta ' +
-    'que cada sesión sea un tema distinto, pero cada una es su propia viñeta):\n' +
+    '- Actividades de Apertura: máximo 2 acciones concretas, ~30 a 50 palabras.\n' +
+    '- Actividades de Desarrollo: máximo 3 acciones concretas, ~50 a 80 palabras.\n' +
+    '- Actividades de Cierre: máximo 1 o 2 acciones concretas, ~20 a 40 palabras.\n' +
+    '- El resto de los campos de cada momento (estrategia de evaluación, evidencias, tipo/instrumento, ' +
+    'recursos): directos, sin relleno — una frase corta basta.\n' +
+    'La redacción de "actividades" describe QUÉ HARÁ EL DOCENTE Y/O QUÉ HARÁ EL ESTUDIANTE, de forma directa y ' +
+    'ejecutable.\n' +
+    'REGLA FUNDAMENTAL: UNA VIÑETA = UNA SESIÓN (Kike, 16-ago-2026). Dentro del campo "actividades" de cada ' +
+    'momento (Apertura, Desarrollo y Cierre), cada viñeta representa EXACTAMENTE una sesión (una hora de clase) ' +
+    '— nunca agrupes dos o más sesiones dentro de la misma viñeta ni escribas "Sesiones: 2" o "Sesiones: 3" al ' +
+    'final de un solo bloque de texto. Si una actividad requiere varias sesiones, DIVÍDELA en una viñeta por ' +
+    'cada sesión, cada una describiendo específicamente qué se hace en ESA sesión (puede ser continuación de ' +
+    'la misma actividad — no hace falta que cada sesión sea un tema distinto, pero cada una es su propia ' +
+    'viñeta):\n' +
     '"• Sesión 1: ...\\n• Sesión 2: ...\\n• Sesión 3: ..."\n' +
     'El campo "sesiones" de cada Secuencia debe indicar en texto breve cuáles sesiones abarca (p. ej. ' +
-    '"Sesiones 1 a 3" o "Sesión 4"), y la cantidad de viñetas de Apertura+Desarrollo+Cierre debe coincidir ' +
-    'EXACTAMENTE con esas sesiones — no asignes sesiones por costumbre, cuenta cuántas hay realmente ' +
-    'disponibles y numera las viñetas en consecuencia.\n' +
+    '"Sesiones 1 a 3" o "Sesión 4"), y la cantidad de viñetas en las "actividades" de Apertura+Desarrollo+Cierre ' +
+    'debe coincidir EXACTAMENTE con esas sesiones — no asignes sesiones por costumbre, cuenta cuántas hay ' +
+    'realmente disponibles y numera las viñetas en consecuencia.\n' +
     'Formato: viñetas separadas por un salto de línea real "\\n" dentro del texto — nunca un párrafo corrido.\n' +
     'EJEMPLO CORRECTO (Desarrollo, secuencia con Sesiones 2 y 3):\n' +
     '"• Sesión 2: Guiar el cálculo del presupuesto mensual de la familia, identificando ingresos, gastos y ' +
@@ -2749,13 +2764,18 @@ function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada) {
     '  "bloquesTematicos": <número entero — cuántos bloques temáticos distintos del programa decidiste que ' +
     'cubre este parcial, ANTES de escribir las secuencias>,\n' +
     '  "secuenciasDidacticas": [\n' +
-    `    {${camposJSON}},\n` +
-    '    { ... una entrada más por cada Secuencia Didáctica adicional ... }\n' +
+    `    {${camposIdentidadJSON},\n` +
+    `      "apertura": {${camposMomentoJSON}},\n` +
+    `      "desarrollo": {${camposMomentoJSON}},\n` +
+    `      "cierre": {${camposMomentoJSON}}\n` +
+    '    },\n' +
+    '    { ... una entrada más por cada Secuencia Didáctica adicional, misma forma ... }\n' +
     '  ]\n' +
     '}\n' +
     'Cada campo de texto: máximo 2000 caracteres, nunca lo cortes a media palabra ni a media idea. ' +
     '"bloquesTematicos" y "secuenciasDidacticas" deben tener el MISMO número de elementos — es tu propio ' +
-    'conteo, así que tiene que cuadrar; si no cuadra, es que te faltó una secuencia.'
+    'conteo, así que tiene que cuadrar; si no cuadra, es que te faltó una secuencia. Los objetos "apertura", ' +
+    '"desarrollo" y "cierre" son OBLIGATORIOS en cada Secuencia, cada uno con sus 6 campos completos.'
   )
 }
 
@@ -2786,9 +2806,15 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
   let reintentos = 0 // cuántos parciales necesitaron el reintento de cantidad — se cobra aparte (ver unidadesReales)
 
   const limpiarCampo = (s) => String(s || '').trim().slice(0, 2000)
+  const limpiarMomento = (m) => {
+    const out = {}
+    for (const { clave } of CAMPOS_MOMENTO) out[clave] = limpiarCampo(m?.[clave])
+    return out
+  }
   const limpiarSecuencia = (s) => {
     const out = {}
-    for (const { clave } of CAMPOS_SECUENCIA) out[clave] = limpiarCampo(s?.[clave])
+    for (const { clave } of CAMPOS_IDENTIDAD_SECUENCIA) out[clave] = limpiarCampo(s?.[clave])
+    for (const momento of MOMENTOS) out[momento] = limpiarMomento(s?.[momento])
     return out
   }
 
@@ -2836,8 +2862,12 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
     }
 
     const secuenciasCrudas = Array.isArray(datos?.secuenciasDidacticas) ? datos.secuenciasDidacticas : []
+    const tieneContenido = (s) => (
+      CAMPOS_IDENTIDAD_SECUENCIA.some(({ clave }) => String(s?.[clave] || '').trim()) ||
+      MOMENTOS.some((momento) => CAMPOS_MOMENTO.some(({ clave }) => String(s?.[momento]?.[clave] || '').trim()))
+    )
     const secuencias = secuenciasCrudas
-      .filter((s) => s && Object.values(s).some((v) => String(v || '').trim()))
+      .filter((s) => s && tieneContenido(s))
       .map((s) => ({ id: crypto.randomUUID(), ...limpiarSecuencia(s) }))
 
     porParcial.push({ numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, secuencias })
@@ -2859,6 +2889,19 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
     throw new Error('El asistente de IA no generó una planeación utilizable')
   }
 
+  // Tabla "DATOS DE IDENTIFICACIÓN INSTITUCIONAL" del Word de referencia
+  // (Kike, 16-ago-2026) — la IA NO inventa datos administrativos que no
+  // sabe (plantel, CCT, docente, etc. — mismo criterio que ya regía para
+  // celdas de plantilla): se deja en blanco para que el docente las llene
+  // él mismo en la propia Planeación, igual que cualquier otro campo
+  // editable. Lo único que sí se puede prellenar sin inventar nada es el
+  // nombre de la asignatura, que ya se conoce.
+  const datosIdentificacion = {
+    plantel: '', cct: '', carrera: '', modulo: ctx.asignaturaNombre || '', docente: '',
+    semestre: '', grupo: '', periodo: '', horasTotales: '', horasSemana: '', competencias: '',
+  }
+  const fuentesInformacion = ['', '', '', '', '']
+
   // El servidor guarda la bitácora ÉL MISMO, no el cliente (a diferencia del
   // resto de operaciones, que devuelven el resultado y dejan el addDoc del
   // lado del cliente): una llamada por parcial puede tardar más que el
@@ -2870,13 +2913,15 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   await getFirestore().collection('subjects').doc(String(params.subjectId || '').trim())
     .collection('planeacionesIA').add({
       porParcial,
+      datosIdentificacion,
+      fuentesInformacion,
       cantidadSolicitada: ctx.cantidadSolicitada || null,
       docenteId: params.__uid,
       generadoEn: FieldValue.serverTimestamp(),
     })
 
   return {
-    resultado: { porParcial },
+    resultado: { porParcial, datosIdentificacion, fuentesInformacion },
     // Tarifa fija (20 créditos) + 1 unidad extra por cada parcial que
     // necesitó el reintento de cantidad (ver generarSecuenciasPorParciales)
     // — ese reintento duplica el gasto real de tokens de ese parcial, así
@@ -3040,5 +3085,5 @@ exports._pruebas = {
   analisisDiagnosticoMasReciente,
   comentariosGrupoATexto, autoanalisisDocenteATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
-  promptSecuenciasParcial, CAMPOS_SECUENCIA,
+  promptSecuenciasParcial, CAMPOS_IDENTIDAD_SECUENCIA, CAMPOS_MOMENTO,
 }

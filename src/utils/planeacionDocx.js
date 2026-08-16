@@ -1,34 +1,53 @@
 // Genera el .docx de la Planeación Didáctica Inicial DESDE CERO — decisión
 // de Kike, 16-ago-2026: la Planeación es una estructura propia de Evalúa
-// Fácil (secuenciasDidacticas[]), nunca depende de una plantilla externa.
-// Pedido de Kike (16-ago-2026, tras dos vueltas): la edición debe sentirse
-// como editar el documento Word REAL — se genera un .docx con una tabla
-// (etiqueta | contenido) por Secuencia, igual que un formato de planeación
-// típico, se renderiza con docx-preview, y se edita directo sobre esas
-// celdas (ver activarEdicionSecuencias en PlaneacionInicialSection.jsx).
-//
-// Como el documento lo genera la propia app (nunca una plantilla subida por
-// el docente), la posición de cada celda es 100% predecible: una tabla por
-// Secuencia, en el MISMO orden que `secuencias`, con una fila por campo de
-// CAMPOS_SECUENCIA en ese mismo orden — no hace falta ningún mecanismo de
-// verificación de mapeo (el que sí hacía falta antes de hoy, cuando el
-// documento podía ser cualquier plantilla ajena).
+// Fácil, nunca depende de una plantilla externa. Su estructura visual
+// reproduce EXACTAMENTE el formato de referencia que Kike proporcionó
+// (Planeacion_Didactica_Universal.docx, analizado el 16-ago-2026): página
+// carta apaisada, mismas tablas, mismos anchos de columna, mismos colores.
+// La única diferencia estructural es que la cantidad de Secuencias
+// Didácticas es dinámica (el Word de referencia es un ejemplo con 2).
 
-// Mismo orden y etiquetas que CAMPOS_SECUENCIA en functions/ia.js — se
-// duplica aquí (cliente) a propósito: son runtimes distintos (navegador vs.
-// Cloud Function) sin un módulo compartido entre ambos en este proyecto.
-export const CAMPOS_SECUENCIA = [
-  { clave: 'nombre', etiqueta: 'Secuencia Didáctica — nombre o tema' },
+// ── Estructura de datos (mismo orden y claves en functions/ia.js — se
+// duplica aquí a propósito: son runtimes distintos sin módulo compartido en
+// este proyecto) ────────────────────────────────────────────────────────
+export const CAMPOS_IDENTIFICACION = [
+  { clave: 'plantel', etiqueta: 'Plantel' },
+  { clave: 'cct', etiqueta: 'Clave del centro de trabajo' },
+  { clave: 'carrera', etiqueta: 'Programa educativo / Carrera' },
+  { clave: 'modulo', etiqueta: 'Módulo / Submódulo o Asignatura' },
+  { clave: 'docente', etiqueta: 'Docente' },
+  { clave: 'semestre', etiqueta: 'Semestre' },
+  { clave: 'grupo', etiqueta: 'Grupo(s)' },
+  { clave: 'periodo', etiqueta: 'Periodo escolar' },
+  { clave: 'horasTotales', etiqueta: 'Horas totales de la asignatura' },
+  { clave: 'horasSemana', etiqueta: 'Horas por semana' },
+  { clave: 'competencias', etiqueta: 'Competencias profesionales / genéricas' },
+]
+
+// Campos de identidad de CADA Secuencia Didáctica (una tabla de 2 columnas
+// por Secuencia, aparte de sus 3 momentos).
+export const CAMPOS_IDENTIDAD_SECUENCIA = [
+  { clave: 'nombre', etiqueta: 'Nombre o tema' },
   { clave: 'aprendizajesEsperados', etiqueta: 'Aprendizajes esperados' },
   { clave: 'proposito', etiqueta: 'Propósito' },
   { clave: 'sesiones', etiqueta: 'Sesiones que abarca' },
-  { clave: 'apertura', etiqueta: 'Apertura' },
-  { clave: 'desarrollo', etiqueta: 'Desarrollo' },
-  { clave: 'cierre', etiqueta: 'Cierre' },
-  { clave: 'evidencia', etiqueta: 'Evidencia de aprendizaje' },
-  { clave: 'estrategiaEvaluacion', etiqueta: 'Estrategia de evaluación' },
-  { clave: 'instrumento', etiqueta: 'Instrumento de evaluación' },
-  { clave: 'recursos', etiqueta: 'Recursos y materiales' },
+  { clave: 'contenidosRelacionados', etiqueta: 'Contenidos relacionados' },
+]
+
+// Apertura, Desarrollo y Cierre cada uno con su PROPIO juego completo (no
+// uno compartido por Secuencia) — así es el Word de referencia.
+export const MOMENTOS = [
+  { clave: 'apertura', etiqueta: 'APERTURA' },
+  { clave: 'desarrollo', etiqueta: 'DESARROLLO' },
+  { clave: 'cierre', etiqueta: 'CIERRE' },
+]
+export const CAMPOS_MOMENTO = [
+  { clave: 'actividades', etiqueta: 'ACTIVIDADES DE ENSEÑANZA - APRENDIZAJE' },
+  { clave: 'recursos', etiqueta: 'RECURSOS Y MATERIALES' },
+  { clave: 'estrategiaEvaluacion', etiqueta: 'ESTRATEGIA DE EVALUACIÓN' },
+  { clave: 'evidencias', etiqueta: 'EVIDENCIAS' },
+  { clave: 'tipoInstrumento', etiqueta: 'TIPO DE EVALUACIÓN / INSTRUMENTO' },
+  { clave: 'ponderacion', etiqueta: 'PONDERACIÓN (%)' },
 ]
 
 async function cargarPizZip() {
@@ -43,15 +62,29 @@ function escaparXml(texto) {
     .replace(/"/g, '&quot;')
 }
 
-// Un párrafo con runs alternando texto/salto de línea real (<w:br/>) por
-// cada "\n" — mismo criterio que ya se usaba para las viñetas de sesión
-// (Kike, 15-ago-2026: un "\n" suelto dentro de <w:t> Word lo ignora).
-function runsConSaltos(texto, negrita) {
-  const props = negrita ? '<w:rPr><w:b/></w:rPr>' : ''
+// ── Colores y anchos EXACTOS del Word de referencia (16-ago-2026) ───────
+const AZUL_MARINO = '011649' // encabezados de tabla completos (identificación, identidad de secuencia... es decir el nivel más alto)
+const AZUL = '0967F0'        // encabezado "SECUENCIA DIDÁCTICA N" y "APERTURA/DESARROLLO/CIERRE"
+const TURQUESA = '1CD3BB'    // sub-encabezados "EVIDENCIAS / TIPO / PONDERACIÓN"
+const CELDA_ETIQUETA = 'DCEBFC' // fondo de las celdas de etiqueta (columna izquierda)
+
+const ANCHO_IDENTIFICACION = [2200, 5000, 2200, 5000]
+const ANCHO_IDENTIDAD_SECUENCIA = [3200, 11200]
+const ANCHO_MOMENTO = [5040, 5760, 3600]
+const ANCHO_BIBLIOGRAFIA = [700, 13700]
+
+function runTexto(texto, { negrita, color, sz, blanco } = {}) {
+  const props = []
+  if (negrita) props.push('<w:b/>')
+  if (blanco) props.push('<w:color w:val="FFFFFF"/>')
+  else if (color) props.push(`<w:color w:val="${color}"/>`)
+  if (sz) props.push(`<w:sz w:val="${sz}"/>`)
+  props.push('<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>')
+  const rPr = props.length ? `<w:rPr>${props.join('')}</w:rPr>` : ''
   const lineas = String(texto || '').split('\n')
   return lineas.map((linea, i) => (
     (i > 0 ? '<w:br/>' : '') + `<w:t xml:space="preserve">${escaparXml(linea)}</w:t>`
-  )).map((t) => `<w:r>${props}${t}</w:r>`).join('')
+  )).map((t) => `<w:r>${rPr}${t}</w:r>`).join('')
 }
 
 function parrafo(contenidoXml, propsParrafo = '') {
@@ -59,69 +92,161 @@ function parrafo(contenidoXml, propsParrafo = '') {
 }
 
 function parrafoTitulo(texto) {
-  return parrafo(
-    `<w:r><w:rPr><w:b/><w:sz w:val="32"/></w:rPr><w:t xml:space="preserve">${escaparXml(texto)}</w:t></w:r>`,
-    '<w:pPr><w:spacing w:after="200"/></w:pPr>'
+  return parrafo(runTexto(texto, { negrita: true, sz: 32 }), '<w:pPr><w:spacing w:after="200"/></w:pPr>')
+}
+
+// Cada fila de tabla trae `cantSplit` — nunca se corta una fila a la mitad
+// entre dos páginas, pero la tabla SÍ puede seguir en la página siguiente
+// entre una fila y otra (regla de paginación de Kike, 16-ago-2026: nunca
+// forzar una Secuencia completa a cambiar de página, pero tampoco partir
+// una fila).
+function celda(anchoTwips, contenidoXml, { fill, spanCols } = {}) {
+  const span = spanCols > 1 ? `<w:gridSpan w:val="${spanCols}"/>` : ''
+  const sombra = fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : ''
+  return `<w:tc><w:tcPr><w:tcW w:w="${anchoTwips}" w:type="dxa"/>${span}${sombra}<w:vAlign w:val="center"/></w:tcPr>${contenidoXml}</w:tc>`
+}
+
+function filaTr(contenidoXml) {
+  return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${contenidoXml}</w:tr>`
+}
+
+// Fila de encabezado que ocupa TODO el ancho de la tabla (una sola celda
+// con gridSpan = número de columnas) — el patrón de "DATOS DE
+// IDENTIFICACIÓN INSTITUCIONAL" / "SECUENCIA DIDÁCTICA N" / "APERTURA".
+function filaEncabezadoCompleto(anchos, texto, fill) {
+  const anchoTotal = anchos.reduce((a, b) => a + b, 0)
+  const p = parrafo(runTexto(texto, { negrita: true, blanco: true }))
+  return filaTr(celda(anchoTotal, p, { fill, spanCols: anchos.length }))
+}
+
+// Fila etiqueta (fondo CELDA_ETIQUETA, negritas) | valor (editable, texto
+// normal) — el patrón de casi todas las filas de datos del Word.
+function filaEtiquetaValor(anchoEtiqueta, anchoValor, etiqueta, valor) {
+  const pEtiqueta = parrafo(runTexto(etiqueta, { negrita: true, sz: 17 }))
+  const pValor = parrafo(runTexto(valor || ' ', { sz: 17 }))
+  return filaTr(celda(anchoEtiqueta, pEtiqueta, { fill: CELDA_ETIQUETA }) + celda(anchoValor, pValor, {}))
+}
+
+// ── Tabla "DATOS DE IDENTIFICACIÓN INSTITUCIONAL" — 4 columnas, pares
+// etiqueta|valor, la última fila (Competencias) con el valor ocupando las
+// 3 columnas restantes.
+function tablaIdentificacion(datos) {
+  const [c0, c1, c2, c3] = ANCHO_IDENTIFICACION
+  const pares = []
+  for (let i = 0; i < CAMPOS_IDENTIFICACION.length - 1; i += 2) {
+    const a = CAMPOS_IDENTIFICACION[i]
+    const b = CAMPOS_IDENTIFICACION[i + 1]
+    pares.push(filaTr(
+      celda(c0, parrafo(runTexto(a.etiqueta, { negrita: true, sz: 17 })), { fill: CELDA_ETIQUETA }) +
+      celda(c1, parrafo(runTexto(datos?.[a.clave] || ' ', { sz: 17 })), {}) +
+      celda(c2, parrafo(runTexto(b.etiqueta, { negrita: true, sz: 17 })), { fill: CELDA_ETIQUETA }) +
+      celda(c3, parrafo(runTexto(datos?.[b.clave] || ' ', { sz: 17 })), {})
+    ))
+  }
+  const competencias = CAMPOS_IDENTIFICACION[CAMPOS_IDENTIFICACION.length - 1]
+  const filaCompetencias = filaTr(
+    celda(c0, parrafo(runTexto(competencias.etiqueta, { negrita: true, sz: 17 })), { fill: CELDA_ETIQUETA }) +
+    celda(c1 + c2 + c3, parrafo(runTexto(datos?.[competencias.clave] || ' ', { sz: 17 })), { spanCols: 3 })
+  )
+  return (
+    `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_IDENTIFICACION.reduce((a, b) => a + b, 0)}" w:type="dxa"/>${TABLA_BORDES}<w:tblLayout w:type="fixed"/></w:tblPr>` +
+    `<w:tblGrid>${ANCHO_IDENTIFICACION.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>` +
+    filaEncabezadoCompleto(ANCHO_IDENTIFICACION, 'DATOS DE IDENTIFICACIÓN INSTITUCIONAL', AZUL_MARINO) +
+    pares.join('') + filaCompetencias +
+    '</w:tbl>'
   )
 }
 
-// Bordes finos en las 4 direcciones + entre celdas — el look de "formato de
-// planeación" que se espera de una tabla real, no de texto corrido.
-const TABLA_BORDES =
-  '<w:tblBorders>' +
-  '<w:top w:val="single" w:sz="4" w:color="999999"/>' +
-  '<w:left w:val="single" w:sz="4" w:color="999999"/>' +
-  '<w:bottom w:val="single" w:sz="4" w:color="999999"/>' +
-  '<w:right w:val="single" w:sz="4" w:color="999999"/>' +
-  '<w:insideH w:val="single" w:sz="4" w:color="999999"/>' +
-  '<w:insideV w:val="single" w:sz="4" w:color="999999"/>' +
-  '</w:tblBorders>'
-
-// Ancho de página tipo carta con márgenes normales, en twips (1440/pulgada).
-const ANCHO_TABLA = 9350
-const ANCHO_ETIQUETA = 2500
-const ANCHO_VALOR = ANCHO_TABLA - ANCHO_ETIQUETA
-
-function celda(anchoTwips, contenidoXml, sombreado) {
-  const sombra = sombreado ? '<w:shd w:val="clear" w:fill="F2F2F2"/>' : ''
-  return `<w:tc><w:tcPr><w:tcW w:w="${anchoTwips}" w:type="dxa"/>${sombra}<w:vAlign w:val="top"/></w:tcPr>${contenidoXml}</w:tc>`
-}
-
-// Una fila etiqueta | valor — la celda de VALOR es la que se vuelve
-// editable en pantalla (ver activarEdicionSecuencias).
-function filaCampo(etiqueta, valor) {
-  const pEtiqueta = parrafo(`<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escaparXml(etiqueta)}</w:t></w:r>`)
-  const pValor = parrafo(runsConSaltos(valor, false) || '<w:r><w:t xml:space="preserve"> </w:t></w:r>')
-  return `<w:tr>${celda(ANCHO_ETIQUETA, pEtiqueta, true)}${celda(ANCHO_VALOR, pValor, false)}</w:tr>`
-}
-
-// Una tabla completa — una Secuencia Didáctica, una fila por cada campo de
-// CAMPOS_SECUENCIA en ESE orden exacto (incluyendo "nombre", como primera
-// fila) — el orden es lo que permite mapear cada celda de vuelta a su
-// campo sin ambigüedad.
-function tablaSecuencia(secuencia) {
-  const filas = CAMPOS_SECUENCIA.map(({ clave, etiqueta }) => filaCampo(etiqueta, secuencia[clave]))
+// ── Tabla de identidad de UNA Secuencia Didáctica — 2 columnas, encabezado
+// "SECUENCIA DIDÁCTICA N", luego 5 filas etiqueta|valor.
+function tablaIdentidadSecuencia(secuencia, numero) {
+  const [c0, c1] = ANCHO_IDENTIDAD_SECUENCIA
+  const filas = CAMPOS_IDENTIDAD_SECUENCIA.map(({ clave, etiqueta }) => (
+    filaEtiquetaValor(c0, c1, etiqueta, secuencia?.[clave])
+  ))
   return (
-    `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO_TABLA}" w:type="dxa"/>${TABLA_BORDES}<w:tblLayout w:type="fixed"/></w:tblPr>` +
-    `<w:tblGrid><w:gridCol w:w="${ANCHO_ETIQUETA}"/><w:gridCol w:w="${ANCHO_VALOR}"/></w:tblGrid>` +
+    `<w:tbl><w:tblPr><w:tblW w:w="${c0 + c1}" w:type="dxa"/>${TABLA_BORDES}<w:tblLayout w:type="fixed"/></w:tblPr>` +
+    `<w:tblGrid>${ANCHO_IDENTIDAD_SECUENCIA.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>` +
+    filaEncabezadoCompleto(ANCHO_IDENTIDAD_SECUENCIA, `SECUENCIA DIDÁCTICA ${numero}`, AZUL) +
     filas.join('') +
     '</w:tbl>'
   )
 }
 
-// Párrafo vacío — separación visual entre la tabla de una Secuencia y la
-// etiqueta/tabla de la siguiente (mismo criterio que ya se usaba antes de
-// hoy: nunca pegar dos Secuencias sin espacio).
+// ── Tabla de UN momento (Apertura/Desarrollo/Cierre) — 3 columnas:
+// fila0 encabezado del momento (azul, 3 cols)
+// fila1 "ACTIVIDADES..." (span 2, navy) | "RECURSOS..." (navy)
+// fila2 contenido actividades (span 2) | contenido recursos
+// fila3 "ESTRATEGIA DE EVALUACIÓN" (span 3, navy)
+// fila4 contenido estrategia (span 3)
+// fila5 "EVIDENCIAS" | "TIPO..." | "PONDERACIÓN (%)" (turquesa, 3 celdas)
+// fila6 contenido evidencias | contenido tipo | contenido ponderación
+function tablaMomento(momentoEtiqueta, datos) {
+  const [c0, c1, c2] = ANCHO_MOMENTO
+  const anchoTotal = c0 + c1 + c2
+  const camposPorClave = Object.fromEntries(CAMPOS_MOMENTO.map((c) => [c.clave, c]))
+  const val = (clave) => datos?.[clave] || ' '
+
+  const filaSub1 = filaTr(
+    celda(c0 + c1, parrafo(runTexto(camposPorClave.actividades.etiqueta, { negrita: true, blanco: true, sz: 16 })), { fill: AZUL_MARINO, spanCols: 2 }) +
+    celda(c2, parrafo(runTexto(camposPorClave.recursos.etiqueta, { negrita: true, blanco: true, sz: 16 })), { fill: AZUL_MARINO })
+  )
+  const filaContenido1 = filaTr(
+    celda(c0 + c1, parrafo(runTexto(val('actividades'), { sz: 17 })), { spanCols: 2 }) +
+    celda(c2, parrafo(runTexto(val('recursos'), { sz: 17 })), {})
+  )
+  const filaSub2 = filaEncabezadoCompleto(ANCHO_MOMENTO, camposPorClave.estrategiaEvaluacion.etiqueta, AZUL_MARINO)
+  const filaContenido2 = filaTr(celda(anchoTotal, parrafo(runTexto(val('estrategiaEvaluacion'), { sz: 17 })), { spanCols: 3 }))
+  const filaSub3 = filaTr(
+    celda(c0, parrafo(runTexto(camposPorClave.evidencias.etiqueta, { negrita: true, blanco: true, sz: 16 })), { fill: TURQUESA }) +
+    celda(c1, parrafo(runTexto(camposPorClave.tipoInstrumento.etiqueta, { negrita: true, blanco: true, sz: 16 })), { fill: TURQUESA }) +
+    celda(c2, parrafo(runTexto(camposPorClave.ponderacion.etiqueta, { negrita: true, blanco: true, sz: 16 })), { fill: TURQUESA })
+  )
+  const filaContenido3 = filaTr(
+    celda(c0, parrafo(runTexto(val('evidencias'), { sz: 17 })), {}) +
+    celda(c1, parrafo(runTexto(val('tipoInstrumento'), { sz: 17 })), {}) +
+    celda(c2, parrafo(runTexto(val('ponderacion'), { sz: 17 })), {})
+  )
+
+  return (
+    `<w:tbl><w:tblPr><w:tblW w:w="${anchoTotal}" w:type="dxa"/>${TABLA_BORDES}<w:tblLayout w:type="fixed"/></w:tblPr>` +
+    `<w:tblGrid>${ANCHO_MOMENTO.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>` +
+    filaEncabezadoCompleto(ANCHO_MOMENTO, momentoEtiqueta, AZUL) +
+    filaSub1 + filaContenido1 + filaSub2 + filaContenido2 + filaSub3 + filaContenido3 +
+    '</w:tbl>'
+  )
+}
+
+// ── Tabla "FUENTES DE INFORMACIÓN / BIBLIOGRAFÍA" — 2 columnas, 5 filas
+// numeradas.
+function tablaBibliografia(fuentes) {
+  const [c0, c1] = ANCHO_BIBLIOGRAFIA
+  const filas = Array.from({ length: 5 }, (_, i) => filaTr(
+    celda(c0, parrafo(runTexto(String(i + 1), { negrita: true, sz: 17 })), { fill: CELDA_ETIQUETA }) +
+    celda(c1, parrafo(runTexto(fuentes?.[i], { sz: 17 })), {})
+  ))
+  return (
+    `<w:tbl><w:tblPr><w:tblW w:w="${c0 + c1}" w:type="dxa"/>${TABLA_BORDES}<w:tblLayout w:type="fixed"/></w:tblPr>` +
+    `<w:tblGrid>${ANCHO_BIBLIOGRAFIA.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>` +
+    filaEncabezadoCompleto(ANCHO_BIBLIOGRAFIA, 'FUENTES DE INFORMACIÓN / BIBLIOGRAFÍA', AZUL_MARINO) +
+    filas.join('') +
+    '</w:tbl>'
+  )
+}
+
 function parrafoVacio() {
   return '<w:p/>'
 }
 
-function parrafoEtiquetaSecuencia(numero) {
-  return parrafo(
-    `<w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="1F5FBF"/></w:rPr><w:t xml:space="preserve">SECUENCIA DIDÁCTICA ${numero}</w:t></w:r>`,
-    '<w:pPr><w:spacing w:before="120" w:after="80"/></w:pPr>'
-  )
-}
+const TABLA_BORDES =
+  '<w:tblBorders>' +
+  '<w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+  '<w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+  '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+  '<w:right w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+  '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+  '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+  '</w:tblBorders>'
 
 const CONTENT_TYPES =
   '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
@@ -137,26 +262,42 @@ const RELS_RAIZ =
   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
   '</Relationships>'
 
-// `secuencias`: array de {nombre, aprendizajesEsperados, proposito, sesiones,
-// apertura, desarrollo, cierre, evidencia, estrategiaEvaluacion, instrumento,
-// recursos} — mismos campos que CAMPOS_SECUENCIA. `titulo`: encabezado del
-// documento, p. ej. "Planeación Didáctica Inicial — Parcial 1".
-export async function construirDocumentoPlaneacion(secuencias, titulo) {
+// Página carta apaisada, márgenes de 0.5" — EXACTO al Word de referencia.
+const SECT_PR =
+  '<w:sectPr>' +
+  '<w:pgSz w:w="15840" w:h="12240" w:orient="landscape"/>' +
+  '<w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="708" w:footer="708" w:gutter="0"/>' +
+  '</w:sectPr>'
+
+// `datosIdentificacion`: {plantel, cct, carrera, modulo, docente, semestre,
+// grupo, periodo, horasTotales, horasSemana, competencias}.
+// `secuencias`: array de {nombre, aprendizajesEsperados, proposito,
+// sesiones, contenidosRelacionados, apertura, desarrollo, cierre} — cada
+// momento un objeto con {actividades, recursos, estrategiaEvaluacion,
+// evidencias, tipoInstrumento, ponderacion}.
+// `fuentesInformacion`: array de hasta 5 strings.
+export async function construirDocumentoPlaneacion(datosIdentificacion, secuencias, fuentesInformacion, titulo) {
   const PizZip = await cargarPizZip()
   const zip = new PizZip()
 
   const cuerpo = [parrafoTitulo(titulo || 'Planeación Didáctica Inicial')]
-  secuencias.forEach((s, i) => {
-    if (i > 0) cuerpo.push(parrafoVacio())
-    cuerpo.push(parrafoEtiquetaSecuencia(i + 1))
-    cuerpo.push(tablaSecuencia(s))
+  cuerpo.push(tablaIdentificacion(datosIdentificacion))
+  cuerpo.push(parrafoVacio())
+  secuencias.forEach((s) => {
+    if (cuerpo.length > 2) cuerpo.push(parrafoVacio())
+    cuerpo.push(tablaIdentidadSecuencia(s, secuencias.indexOf(s) + 1))
+    for (const { clave, etiqueta } of MOMENTOS) {
+      cuerpo.push(parrafoVacio())
+      cuerpo.push(tablaMomento(etiqueta, s[clave]))
+    }
   })
   cuerpo.push(parrafoVacio())
+  cuerpo.push(tablaBibliografia(fuentesInformacion))
 
   const documentXml =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
-    `<w:body>${cuerpo.join('')}<w:sectPr/></w:body>` +
+    `<w:body>${cuerpo.join('')}${SECT_PR}</w:body>` +
     '</w:document>'
 
   zip.file('[Content_Types].xml', CONTENT_TYPES)
