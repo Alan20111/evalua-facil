@@ -521,7 +521,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                           {j >= MIN_NIVELES && (
                             <button type="button" onClick={() => removeNivel(j)}
                               aria-label={`Eliminar nivel ${nv.nombre || j + 1}`} data-tooltip="Eliminar nivel"
-                              className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                              className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
                               <Trash2 size={14} />
                             </button>
                           )}
@@ -569,7 +569,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                           {i >= MIN_CRITERIOS && (
                             <button type="button" onClick={() => removeCriterio(i)}
                               aria-label={`Eliminar criterio ${i + 1}`} data-tooltip="Eliminar criterio"
-                              className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                              className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
                               <Trash2 size={14} />
                             </button>
                           )}
@@ -634,7 +634,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                         <button type="button" onClick={() => repartirColumna(j)}
                           aria-label={`Repartir los ${s.target} puntos de esta columna en partes iguales`}
                           data-tooltip={`Repartir los ${s.target} puntos de esta columna en partes iguales`}
-                          className="mt-1 p-1.5 rounded border border-outline-variant text-muted hover:text-accent hover:border-accent transition-colors">
+                          className="mt-1 p-2 rounded border border-outline-variant text-muted hover:text-accent hover:border-accent transition-colors">
                           <Scale size={14} />
                         </button>
                       </td>

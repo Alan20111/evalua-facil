@@ -17,10 +17,10 @@ export default function ConfirmModal({
   confirmIcon = null, danger = false, busy = false, onConfirm, onCancel, showClose = true,
 }) {
   return (
-    <Modal open onClose={onCancel} variant="centered" size="sm" padding="p-4" busy={busy}>
+    <Modal open onClose={onCancel} variant="centered" size="sm" padding="p-4" busy={busy} ariaLabel={title}>
       {showClose && (
         <button type="button" onClick={() => !busy && onCancel()} aria-label="Cerrar"
-          className="absolute top-4 right-4 p-1 text-slate-400 hover:text-muted rounded">
+          className="absolute top-4 right-4 p-3 -m-1 text-slate-400 hover:text-muted rounded">
           <X size={20} />
         </button>
       )}

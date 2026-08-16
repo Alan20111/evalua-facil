@@ -136,7 +136,7 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
                 onChange(next)
                 if (respuestaCorrecta === o.id) onChangeCorrecta(next.find((x) => !x.esOtra)?.id ?? null)
               }}
-              className="p-1 text-slate-400 hover:text-error rounded flex-shrink-0">
+              className="p-2 text-slate-400 hover:text-error rounded flex-shrink-0">
               <X size={16} />
             </button>
           )}
@@ -1020,7 +1020,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   onClick={() => setShowEvalEditor(true)}
                   data-tooltip="Editar actividad"
                   aria-label="Editar actividad"
-                  className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                 >
                   <Pencil size={18} />
                 </button>
@@ -1188,12 +1188,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           </div>
                           <div className="flex gap-0.5 flex-shrink-0">
                             <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
-                              className="p-1 text-slate-400 hover:text-accent disabled:opacity-40 rounded"><ChevronUp size={15} /></button>
+                              className="p-2 text-slate-400 hover:text-accent disabled:opacity-40 rounded"><ChevronUp size={15} /></button>
                             <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
-                              className="p-1 text-slate-400 hover:text-accent disabled:opacity-40 rounded"><ChevronDown size={15} /></button>
-                            <button type="button" aria-label="Editar pregunta" onClick={() => openEditPregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={15} /></button>
-                            <button type="button" aria-label="Duplicar pregunta" onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={15} /></button>
-                            <button type="button" aria-label="Eliminar pregunta" onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={15} /></button>
+                              className="p-2 text-slate-400 hover:text-accent disabled:opacity-40 rounded"><ChevronDown size={15} /></button>
+                            <button type="button" aria-label="Editar pregunta" onClick={() => openEditPregunta(p)} className="p-2 text-slate-400 hover:text-accent rounded"><Pencil size={15} /></button>
+                            <button type="button" aria-label="Duplicar pregunta" onClick={() => handleDuplicatePregunta(p)} className="p-2 text-slate-400 hover:text-accent rounded"><Copy size={15} /></button>
+                            <button type="button" aria-label="Eliminar pregunta" onClick={() => handleDeletePregunta(p.id)} className="p-2 text-slate-400 hover:text-error rounded"><Trash2 size={15} /></button>
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-32 rounded border border-outline-variant" />}
@@ -1461,9 +1461,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 )}
                               </button>
                               <div className="flex gap-1 flex-shrink-0">
-                                <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={14} /></button>
-                                <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={14} /></button>
-                                <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={14} /></button>
+                                <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-2 text-slate-400 hover:text-accent rounded"><Pencil size={14} /></button>
+                                <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-2 text-slate-400 hover:text-accent rounded"><Copy size={14} /></button>
+                                <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-2 text-slate-400 hover:text-error rounded"><Trash2 size={14} /></button>
                               </div>
                             </div>
                           )}
@@ -1804,9 +1804,17 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent flex-shrink-0">Evaluación</p>
                     {contextLine && <p className="text-[1.75rem] leading-tight font-medium text-muted truncate">{contextLine}</p>}
                   </div>
-                  <h1 className="text-xl font-bold text-on-surface truncate">
+                  {/* h2, no h1: esta superposición (fixed inset-0) cubre
+                      visualmente el header de arriba (line ~1011, su propio
+                      h1) pero no lo desmonta del DOM — un lector de pantalla
+                      vería dos h1 a la vez. Semánticamente es correcto de
+                      todos modos: revisar la entrega de un alumno es una
+                      sub-vista de la página de la Evaluación, no una página
+                      nueva. docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 2,
+                      paso 2.7. */}
+                  <h2 className="text-xl font-bold text-on-surface truncate">
                     {activityLabel && <span className="text-accent">{activityLabel} </span>}{activity.nombre}
-                  </h1>
+                  </h2>
                   {/* text-base, igual que en la página de la actividad: las
                       cuatro variantes de este encabezado (EVALUAR y EVALUACIÓN,
                       página y pantalla completa) llevan la misma escala. */}
@@ -1840,12 +1848,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           </div>
           )}
 
-          {/* Body: answer sheet (main) + actions sidebar (right).
-              min-h-0 en main es necesario para que flex-1 respete el alto
-              disponible del padre en vez de crecer con el contenido — sin
-              esto el alto de esta zona variaba según el estudiante/aside. */}
+          {/* Body: answer sheet (main) + actions sidebar (right). No es un
+              <main> real — ya vive dentro del <main> del layout de página, y
+              un segundo landmark <main> anidado es inválido (HTML/ARIA solo
+              permiten uno por documento). min-h-0 sigue siendo necesario
+              para que flex-1 respete el alto disponible del padre en vez de
+              crecer con el contenido — sin esto el alto de esta zona variaba
+              según el estudiante/aside. */}
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-            <main className="flex-1 min-h-0 overflow-y-auto p-4">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4">
               <div className="max-w-3xl mx-auto">
                 {done ? (
                   <EvaluacionAnswerList
@@ -1904,7 +1915,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   </div>
                 )}
               </div>
-            </main>
+            </div>
 
             <aside className="w-full md:w-[380px] flex-shrink-0 border-t md:border-t-0 md:border-l border-outline-variant bg-surface-card overflow-y-auto p-4 space-y-3">
               {/* Filter tabs — 2×2 grid en web. En Android estas 4 se

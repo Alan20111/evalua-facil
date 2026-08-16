@@ -377,7 +377,7 @@ export default function EntregableEditor({
                     <button type="button"
                       onClick={() => setForm((f) => ({ ...f, rubrica: null, rubricaId: null }))}
                       aria-label="Quitar rúbrica" data-tooltip="Quitar rúbrica"
-                      className="p-1.5 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                      className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
                       <X size={17} />
                     </button>
                   </div>

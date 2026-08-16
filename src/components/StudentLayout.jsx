@@ -17,6 +17,7 @@ import { useScrollLock } from '../hooks/useScrollLock'
 import StudentBottomNav from './StudentBottomNav'
 import PushPermissionPrimer from './PushPermissionPrimer'
 import AvisosGate from './AvisosGate'
+import SkipLink from './SkipLink'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { capitalizarNombre } from '../utils/nombres'
 
@@ -121,6 +122,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
 
   return (
     <div className="min-h-screen bg-surface">
+      <SkipLink />
       <PushPermissionPrimer />
       <AvisosGate />
       {/* Mobile top bar */}
@@ -341,7 +343,13 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             inset de seguridad de Android que ya se le suma a esa barra
             (.safe-bottom en <nav> abajo); si no, el último contenido de cada
             página queda tapado detrás de la barra. Mismo estándar que el docente. */}
-        <main className="flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0">{children}</main>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0 focus:outline-none"
+        >
+          {children}
+        </main>
       </div>
 
       {/* Mobile bottom nav — mismo estándar que la App del docente */}

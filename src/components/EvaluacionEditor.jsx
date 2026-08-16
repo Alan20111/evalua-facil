@@ -128,7 +128,7 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
                 onChange(next)
                 if (respuestaCorrecta === o.id) onChangeCorrecta(next.find((x) => !x.esOtra)?.id ?? null)
               }}
-              className="p-1 text-slate-400 hover:text-error rounded flex-shrink-0">
+              className="p-2 text-slate-400 hover:text-error rounded flex-shrink-0">
               <X size={16} />
             </button>
           )}
@@ -1348,13 +1348,13 @@ export default function EvaluacionEditor({
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
                             <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
-                              className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover arriba"><ChevronUp size={18} /></button>
+                              className="p-2 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover arriba"><ChevronUp size={18} /></button>
                             <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
-                              className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover abajo"><ChevronDown size={18} /></button>
-                            <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
-                            <button type="button" aria-label="Editar" onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
-                            <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>
-                            <button type="button" aria-label="Eliminar" onClick={() => handleDeletePregunta(p.id)} className="p-1.5 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={18} /></button>
+                              className="p-2 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover abajo"><ChevronDown size={18} /></button>
+                            <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-2 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
+                            <button type="button" aria-label="Editar" onClick={() => openEditPregunta(p)} className="p-2 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
+                            <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-2 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>
+                            <button type="button" aria-label="Eliminar" onClick={() => handleDeletePregunta(p.id)} className="p-2 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={18} /></button>
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-36 rounded border border-outline-variant" />}
@@ -1622,9 +1622,9 @@ export default function EvaluacionEditor({
                               <p className="text-sm font-semibold text-on-surface">{item.enunciado}</p>
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
-                              <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
-                              <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
-                              <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
+                              <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-2 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
+                              <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-2 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
+                              <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-2 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
                             </div>
                           </div>
                           {item.opciones && Array.isArray(item.opciones) && (

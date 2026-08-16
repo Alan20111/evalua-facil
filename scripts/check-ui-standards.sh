@@ -95,8 +95,12 @@ ratchet "h-screen (rompe con la barra de URL de Chrome Android, usar dvh) — Fa
   '\bh-screen\b' 28
 ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
   '([0-9]+)(vh)\b' 59
+# Presupuesto subido de 52 a 54 (Fase 2, paso 2.8): min-h-[44px]/min-w-[44px]
+# en la variante icon de ui/Button.jsx son deliberados, no deuda — con
+# html{font-size:90%} del proyecto, el equivalente en la escala rem de
+# Tailwind (min-h-11) daría 39.6px reales, no los 44 que pide WCAG 2.5.8.
 ratchet "Anchos/altos en píxeles duros (w-[Npx]/h-[Npx]) — evitar nuevos, usar tokens de layout.js" \
-  '(min-)?[wh]-\[[0-9]+px\]' 52
+  '(min-)?[wh]-\[[0-9]+px\]' 54
 
 echo ""
 if [ "$FAIL" -eq 1 ]; then

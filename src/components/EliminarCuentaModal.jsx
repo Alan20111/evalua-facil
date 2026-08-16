@@ -6,7 +6,6 @@ import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
 import { useBackHandler } from '../hooks/useBackHandler'
-import { useScrollLock } from '../hooks/useScrollLock'
 import Modal from './ui/Modal'
 import Spinner from './Spinner'
 import PasswordInput from './PasswordInput'
@@ -44,7 +43,6 @@ export default function EliminarCuentaModal({ onClose }) {
   const [borrando, setBorrando] = useState(false)
 
   useBackHandler(() => { if (!borrando) onClose() })
-  useScrollLock(true)
 
   // Quien entró con Google no tiene contraseña que pedirle: se reautentica
   // volviendo a pasar por Google.

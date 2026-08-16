@@ -314,7 +314,7 @@ export default function ProgramarZonaSemanal({
             paddingTop: `calc(env(safe-area-inset-top, 0px) + ${IS_NATIVE_APP ? '0.75rem' : '1.5rem'})`,
           }}
         >
-          <button type="button" onClick={intentarSalir} className="p-1 text-muted hover:text-error rounded transition-colors" aria-label="Volver">
+          <button type="button" onClick={intentarSalir} className="p-2 text-muted hover:text-error rounded transition-colors" aria-label="Volver">
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0 flex-1">
@@ -528,7 +528,7 @@ export default function ProgramarZonaSemanal({
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-on-surface text-sm">Colocar bloque</h3>
-              <button type="button" onClick={() => setPlacing(null)} className="p-1 text-muted hover:text-error" aria-label="Cerrar"><X size={16} /></button>
+              <button type="button" onClick={() => setPlacing(null)} className="p-2 text-muted hover:text-error" aria-label="Cerrar"><X size={16} /></button>
             </div>
             <div className="space-y-1">
               <span className="text-xs text-muted">Día</span>
@@ -605,7 +605,7 @@ export default function ProgramarZonaSemanal({
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2.5">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-on-surface text-sm">Editar bloque</h3>
-              <button type="button" onClick={() => setEditing(null)} className="p-1 text-muted hover:text-error" aria-label="Cerrar"><X size={16} /></button>
+              <button type="button" onClick={() => setEditing(null)} className="p-2 text-muted hover:text-error" aria-label="Cerrar"><X size={16} /></button>
             </div>
 
             <div className="grid grid-cols-2 gap-2">

@@ -206,7 +206,7 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
                           <td className="border border-outline-variant px-1.5 py-1.5 align-top text-on-surface break-words">{detalles}</td>
                           <td className="border border-outline-variant text-center align-top">
                             <button type="button" onClick={() => setEntryToDelete(e)} aria-label="Borrar notificación"
-                              className="p-1 text-muted hover:text-error rounded transition-colors">
+                              className="p-2 text-muted hover:text-error rounded transition-colors">
                               <Trash2 size={13} />
                             </button>
                           </td>
@@ -243,7 +243,7 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
                           <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{detalles}</td>
                           <td className="border border-outline-variant px-2 py-1.5 text-center">
                             <button type="button" onClick={() => setEntryToDelete(e)} aria-label="Borrar notificación" data-tooltip="Borrar"
-                              className="p-1 text-muted hover:text-error rounded transition-colors">
+                              className="p-2 text-muted hover:text-error rounded transition-colors">
                               <Trash2 size={15} />
                             </button>
                           </td>

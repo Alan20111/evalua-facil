@@ -570,7 +570,7 @@ export default function StudentActivation() {
                   />
                 </div>
                 {passwordError && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
+                  <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
                     {passwordError}
                   </p>
                 )}
@@ -664,7 +664,7 @@ export default function StudentActivation() {
                   />
                 </div>
                 {passwordError && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
+                  <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
                     {passwordError}
                   </p>
                 )}

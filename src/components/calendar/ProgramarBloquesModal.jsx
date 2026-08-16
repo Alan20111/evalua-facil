@@ -142,7 +142,7 @@ export default function ProgramarBloquesModal({
               {esModificar ? `Modificar bloques de ${subjectName}` : 'Programar bloques de clase por asignatura'}
             </h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded transition-colors">
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded transition-colors">
             <ArrowRight size={18} className="rotate-90 md:rotate-0 hidden" />
             <span className="text-xl leading-none">×</span>
           </button>

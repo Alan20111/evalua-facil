@@ -15,6 +15,7 @@ import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { useResizableSidebar, SIDEBAR_MIN, SIDEBAR_MAX } from '../hooks/useResizableSidebar'
+import SkipLink from './SkipLink'
 
 const TABS = [
   { id: 'pagos', label: 'Pagos', icon: Receipt },
@@ -44,6 +45,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
 
   return (
     <div className="min-h-screen bg-[var(--admin-canvas)]">
+      <SkipLink />
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded bg-[var(--admin-plane)] flex items-center justify-center text-white text-sm font-bold">
@@ -163,7 +165,13 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
             largas y anchas), no texto de lectura. Con `max-w-7xl` el contenido
             se cortaba en 1280 px y en un monitor ancho quedaba media pantalla
             desaprovechada a la derecha. */}
-        <main className="flex-1 min-w-0 min-h-screen p-4 md:p-5 lg:p-8">{children}</main>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 min-w-0 min-h-screen p-4 md:p-5 lg:p-8 focus:outline-none"
+        >
+          {children}
+        </main>
       </div>
     </div>
   )

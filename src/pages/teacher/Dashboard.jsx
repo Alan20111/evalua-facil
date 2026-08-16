@@ -462,7 +462,7 @@ export default function TeacherDashboard() {
                           disabled={i === 0}
                           data-tooltip="Subir"
                           aria-label="Subir"
-                          className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                          className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
                         >
                           <ArrowUp size={16} />
                         </button>
@@ -472,7 +472,7 @@ export default function TeacherDashboard() {
                           disabled={i === subjects.length - 1}
                           data-tooltip="Bajar"
                           aria-label="Bajar"
-                          className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                          className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
                         >
                           <ArrowDown size={16} />
                         </button>

@@ -35,6 +35,7 @@ import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
 import AppQRButton from './AppQRButton'
 import ConfirmModal from './ConfirmModal'
+import SkipLink from './SkipLink'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
@@ -127,6 +128,7 @@ export default function TeacherLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-surface">
+      <SkipLink />
       {/* Mobile top bar */}
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top">
         <div className="flex items-center gap-2 min-w-0">
@@ -389,7 +391,13 @@ export default function TeacherLayout({ children }) {
             inset de seguridad de Android que ya se le suma a esa barra
             (.safe-bottom en <nav> abajo); si no, el último contenido de cada
             página queda tapado detrás de la barra, que ahora es más alta. */}
-        <main className="flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0">{children}</main>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0 focus:outline-none"
+        >
+          {children}
+        </main>
       </div>
 
       {/* Mobile bottom nav */}

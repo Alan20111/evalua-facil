@@ -6,7 +6,6 @@ import { X, CheckCircle2 } from 'lucide-react'
 import Spinner from './Spinner'
 import Modal from './ui/Modal'
 import { useBackHandler } from '../hooks/useBackHandler'
-import { useScrollLock } from '../hooks/useScrollLock'
 
 // "Acceso desde otra computadora" — lets a teacher who normally signs in
 // with Google add a password without ever being signed in on this device.
@@ -31,7 +30,6 @@ export default function LinkAccountModal({ onClose }) {
   const [loading, setLoading] = useState(false)
 
   useBackHandler(onClose, true)
-  useScrollLock(true)
 
   async function handleContinue(e) {
     e.preventDefault()
@@ -78,11 +76,18 @@ export default function LinkAccountModal({ onClose }) {
   }
 
   return (
-    <Modal open onClose={onClose} variant="centered" size="sm" padding="p-5">
+    <Modal
+      open
+      onClose={onClose}
+      variant="centered"
+      size="sm"
+      padding="p-5"
+      ariaLabel={step === 'email' ? 'Acceso desde otra computadora' : 'Revisa tu correo'}
+    >
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-on-surface rounded"
+          className="absolute top-3 right-3 p-3 -m-1.5 text-slate-400 hover:text-on-surface rounded"
         >
           <X size={18} />
         </button>

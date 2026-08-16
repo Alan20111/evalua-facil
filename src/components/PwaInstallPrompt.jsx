@@ -85,7 +85,7 @@ export default function PwaInstallPrompt() {
           type="button"
           onClick={dismissNotif}
           aria-label="Cerrar"
-          className="absolute top-2 right-2 p-1.5 text-muted hover:text-on-surface rounded transition-colors"
+          className="absolute top-2 right-2 p-2 text-muted hover:text-on-surface rounded transition-colors"
         >
           <X size={18} />
         </button>

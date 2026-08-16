@@ -429,21 +429,29 @@ rechazado por CI. **Verificado** con un archivo de prueba fuera del allowlist:
 
 Los arreglos que no dependen de refactorizar nada.
 
+> **Ejecutada 2026-08-16** (rama `fix/a11y-fase-2`, apilada sobre `fix/a11y-fase-1`).
+> Desglose completo, incluidos los hallazgos que ampliaron o recortaron el alcance
+> original, en `docs/BASELINE_A11Y.md` §11.
+
 | Paso | Herramientas | Acción |
 |---|---|---|
-| 2.1 | A-07, D-15 | **Arreglar B3 en `ui/Modal.jsx`**: `role="dialog"`, `aria-modal="true"`, `aria-labelledby` apuntando al `<h3>` del título. Un solo archivo, beneficia a todos los consumidores futuros. |
-| 2.2 | D-05 | Añadir `react-focus-lock` a `ui/Modal.jsx` + devolver el foco al elemento que lo abrió. |
-| 2.3 | — | Integrar `useScrollLock` (ya existe en `hooks/`) dentro de `ui/Modal.jsx` en vez de dejarlo a cada consumidor. |
-| 2.4 | D-13 o manual | **Arreglar B4**: `aria-live="polite"` en `Toast.jsx`, `role="alert"` en los banners de error. Es el cambio de una línea con mayor alcance del plan (33 archivos consumen Toast). |
-| 2.5 | I-10, A-01 | Landmarks: `<main>` en cada layout (`Layout.jsx`, `StudentLayout.jsx`, `AdminLayout.jsx`) + skip-link "Saltar al contenido" con `.sr-only focus:not-sr-only`. |
-| 2.6 | — | `aria-current="page"` en la navegación de los tres layouts + `StudentBottomNav.jsx`. |
-| 2.7 | I-09 | Auditar jerarquía de headings con `headingsMap`; una sola `<h1>` por pantalla. |
-| 2.8 | A-02, A-03 | **Targets táctiles**: barrer los 33 archivos con `p-1`/`p-1.5` en controles. Mínimo `min-h-[44px] min-w-[44px]` en la variante `icon` de `ui/Button` (hoy `p-2`, insuficiente con `font-size:90%`). Ojo: la X de `ui/Modal.jsx` usa `p-1`. |
-| 2.9 | F-01, F-04, A-06 | Auditar contraste de los pares del DS §2. Sospechosos: `text-slate-400` sobre blanco, `text-slate-300` de `gradeColor`, badges `-100/-700`. |
-| 2.10 | I-11 | Recorrido completo solo con teclado de: login docente, dashboard, SubjectPage, captura de calificaciones, login alumno. Documentar cada trampa de foco. |
+| 2.1 | A-07, D-15 | **Arreglar B3 en `ui/Modal.jsx`**: `role="dialog"`, `aria-modal="true"`, `aria-labelledby` apuntando al `<h3>` del título (o `aria-label` cuando no hay título — 2 de los 4 consumidores actuales no lo tenían). `jsx-a11y/prefer-tag-over-role` (propio de Fase 1) sugiere `<dialog>` nativo — no se migró, es un cambio de arquitectura (backdrop/apertura/focus-trap), documentado como excepción con comentario inline. |
+| 2.2 | D-05 | `react-focus-lock` en `ui/Modal.jsx` + `returnFocus`. |
+| 2.3 | — | `useScrollLock` movido dentro de `ui/Modal.jsx`; quitado de los 3 consumidores que lo llamaban aparte (uno, `ConfirmModal`, ni siquiera lo tenía — hueco real que se cerró solo). |
+| 2.4 | D-13 o manual | `aria-live="polite"` + `role="status"`/`role="alert"` según tipo en `Toast.jsx` (el rol reemplaza al `<div>` genérico — `jsx-a11y/prefer-tag-over-role` exige `<output>` nativo para "status", que sí tiene ese rol implícito). De paso, el botón de cerrar del toast no tenía padding (16px, bajo el mínimo de 24px) ni foco visible — corregido. `role="alert"` también en los 6 banners de error de formulario reales encontrados (`Activation.jsx`, `Login.jsx` alumno, `Profile.jsx` docente) — la mayoría de los `bg-red-50` del resto del código eran `hover:` de botones de eliminar, no banners. |
+| 2.5 | I-10, A-01 | Los 3 layouts **ya tenían** `<main>` (deuda de Fase 0 ya cerrada antes de esta fase). Lo que faltaba: el skip-link (nuevo componente `SkipLink.jsx`, reusado en los 3) + `id`/`tabIndex={-1}` en cada `<main>` para que el salto realmente mueva el foco. De paso: un 4º `<main>` en `EvaluacionManager.jsx` estaba **anidado** dentro de un panel (landmark duplicado, inválido) — corregido a `<div>`. |
+| 2.6 | — | **Ya estaba resuelto por el framework**: `NavLink` de React Router pone `aria-current="page"` automáticamente cuando la ruta coincide (confirmado en el código fuente de la librería). Los 3 layouts + `StudentBottomNav.jsx` usan `NavLink` al 100% de su navegación — cero código nuevo necesario. |
+| 2.7 | I-09 | De los 27 archivos con `<h1>`, 4 tenían más de uno; 3 eran ramas `if/return` mutuamente excluyentes (no es un problema real). El cuarto (`EvaluacionManager.jsx`) sí era un problema genuino: una superposición `fixed inset-0` de pantalla completa no desmonta el header de atrás, así que su propio `<h1>` convivía con el de la superposición — degradado a `<h2>` (es, de hecho, una sub-vista). |
+| 2.8 | A-02, A-03 | El grep de línea original (`<(input\|select\|table)[\s>]`) para el conteo de la Fase 1 no aplica aquí, pero el mismo problema de fondo sí: **30 archivos** (no 33) con `p-1`/`p-1.5` en controles reales, **84 instancias** arregladas a `p-2` (clarea WCAG AA 24×24 para todos los tamaños de ícono presentes, 13–24px) vía script de reemplazo por contenido exacto — 16 casos quedaron sin tocar por ser contenedores de pestañas/toolbar o filas cuyo alto ya lo da el contenido (logo/ícono ≥44px), no el padding. `ui/Button` variante `icon`: `min-h-[44px] min-w-[44px]` en corchetes (no en la escala rem de Tailwind, que con `font-size:90%` global daría 39.6px reales, no 44) — sin consumidores todavía, deja el componente listo para Fase 3. |
+| 2.9 | F-01, F-04, A-06 | Contraste calculado con la fórmula real de WCAG (luminancia relativa), no estimado. **Confirmado, no solo sospechado**: `text-slate-400` en reposo (2.56:1, bajo el 3:1 mínimo de UI) y 3 de los 4 estados de `gradeColor` (`text-slate-300` 1.48:1, `text-amber-600` 3.19:1, `text-red-500` 3.76:1, los 3 bajo el 4.5:1 de texto) — arreglado (`gradeColor` a slate-500/amber-700/red-600, los 3 ahora ≥4.5:1). Los badges `-100/-700` (emerald/amber/red/blue) **sí pasan** (4.5–5.5:1) — el DS ya acertó ahí. **No arreglado, solo documentado**: `text-slate-400` fuera de `gradeColor` aparece **349 veces** como texto real (no decorativo) fuera de estados `hover:`/`disabled:`, y `text-amber-600`/`text-red-500` **51/23 veces** más — mismo problema de escala que el reformateo de Prettier en Fase 1: cambiar esto a ciegas en 400+ instancias sin poder verificar visualmente cada contexto (algunas podrían estar sobre fondos de color donde el contraste ya es correcto) es un diff de alto riesgo, no un "arreglo puntual". Decisión explícita, no ejecutada. |
+| 2.10 | I-11 | **Bloqueado por el entorno, no por el código**: `.env` tiene las credenciales de Firebase vacías (preexistente — `mtime` de antes de esta sesión), y `getAuth()` truena de forma síncrona al importar `firebase.js`, lo que tumba toda la app antes de que React monte nada — ninguna pantalla renderiza en este `npm run dev` local, protegida o pública. Sustituido por verificación estática: 0 `<div onClick>` crudos confirmado, `FocusLock` revisado por código + build, y los 9 hallazgos de interacción por teclado que sí aparecen en el lint son preexistentes (ya contados en el presupuesto de 230). |
 
 **Puerta de salida:** `@axe-core/react` reporta **0 violaciones críticas** en las 5 pantallas
 principales; el skip-link funciona; NVDA anuncia "diálogo" al abrir un modal.
+**Parcialmente verificado** — ver 2.10: el bloqueo de entorno impidió la corrida en vivo de
+axe-core sobre las 5 pantallas y la prueba de NVDA en esta sesión; sí se verificó cada
+candado nuevo con lint + build + revisión de código. Pendiente: repetir la verificación en
+vivo en cuanto `.env` tenga credenciales de Firebase reales.
 
 ---
 
