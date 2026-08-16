@@ -2821,9 +2821,16 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
   for (const parcialCtx of ctx.parciales) {
     // Presupuesto de tokens por Secuencia esperada — si el docente pidió un
     // número, se usa ese; si no, un estimado generoso por si la IA decide
-    // varias.
+    // varias. Cada Secuencia trae 23 campos (5 de identidad + 3 momentos ×
+    // 6 campos cada uno, ver CAMPOS_IDENTIDAD_SECUENCIA/CAMPOS_MOMENTO) —
+    // bastante más que el modelo plano anterior (11 campos), así que el
+    // presupuesto anterior (800 + 900/secuencia) se quedaba corto y la
+    // respuesta se cortaba a media cadena (bug real, 16-ago-2026: los
+    // logs de producción mostraban "SyntaxError: Unterminated string in
+    // JSON" — la generación truena, se reembolsa el crédito, y el docente
+    // se queda con la Planeación anterior sin darse cuenta de por qué).
     const secuenciasEstimadas = cantidadSolicitada || 4
-    const maxTokens = Math.min(16000, 800 + secuenciasEstimadas * 900)
+    const maxTokens = Math.min(16000, 2500 + secuenciasEstimadas * 3200)
     const promptBase = promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada)
     let { datos, interno } = await pedirJSON({
       client, modelo, maxTokens, system: PLANEACION_SISTEMA, prompt: promptBase,
