@@ -920,7 +920,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                         type="button"
                         onClick={() => handleResetCreditos(r.sub)}
                         disabled={reseteandoCreditos === r.sub.id}
-                        className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-50"
+                        className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"
                         data-tooltip="Resetear créditos de IA ahora"
                         aria-label="Resetear créditos de IA"
                       >

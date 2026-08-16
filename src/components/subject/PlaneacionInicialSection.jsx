@@ -794,7 +794,7 @@ function Planeacion({
                 type="button"
                 onClick={aceptada ? guardarAceptada : guardar}
                 disabled={aceptada ? (!sinGuardarAceptada || guardandoAceptada) : (!sinGuardar || guardando)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm disabled:opacity-50 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm disabled:opacity-60 ${
                   (aceptada ? sinGuardarAceptada : sinGuardar)
                     ? 'bg-amber-500 text-white hover:bg-amber-600'
                     : 'border border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'

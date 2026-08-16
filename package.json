@@ -15,7 +15,8 @@
     "test:server": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/servidor.test.mjs\"",
     "test:ia": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/ia-creditos.test.mjs\"",
     "deploy:rules": "firebase deploy --only firestore --project evalua-facil-app",
-    "check:design": "bash scripts/check-ui-standards.sh"
+    "check:design": "bash scripts/check-ui-standards.sh",
+    "prepare": "husky"
   },
   "dependencies": {
     "@capacitor-community/safe-area": "^8.0.1",
@@ -63,6 +64,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@axe-core/react": "^4.13.0",
     "@capacitor/assets": "^3.0.5",
     "@eslint/js": "^10.0.1",
     "@firebase/rules-unit-testing": "^5.0.1",
@@ -76,6 +78,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "husky": "^9.1.7",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
     "vite": "^8.0.12"

@@ -12,8 +12,21 @@ initStatusBar()
 // permitir la rotación en runtime vía plugin.
 lockPortrait()
 
-createRoot(document.getElementById('root')).render(
+const root = createRoot(document.getElementById('root'))
+
+root.render(
   <StrictMode>
     <App />
   </StrictMode>,
 )
+
+// Solo en dev: audita el DOM real con axe-core y reporta violaciones en la
+// consola sin tocar el bundle de producción. Import dinámico para que ni el
+// paquete se resuelva fuera de dev. Ver docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md C-02.
+if (import.meta.env.DEV) {
+  Promise.all([import('@axe-core/react'), import('react'), import('react-dom')]).then(
+    ([axe, React, ReactDOM]) => {
+      axe.default(React, ReactDOM, 1000)
+    }
+  )
+}

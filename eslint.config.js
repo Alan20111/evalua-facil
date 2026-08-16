@@ -25,7 +25,7 @@ export default defineConfig([
       react.configs.flat['jsx-runtime'],
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
-      jsxA11y.flatConfigs.recommended,
+      jsxA11y.flatConfigs.strict,
     ],
     languageOptions: {
       // __BUILD_ID__: inyectado por vite.config.js (define) en build time —
@@ -42,6 +42,19 @@ export default defineConfig([
       // Proyecto JS puro sin PropTypes en ningún lado (ni TypeScript) — la regla
       // no encaja con la práctica real del código, solo generaría boilerplate.
       'react/prop-types': 'off',
+      // `strict` de jsx-a11y NO añade reglas sobre `recommended` (de hecho tiene
+      // una menos) — solo le quita las escapatorias (allowExpressionValues,
+      // allowlists) a las reglas que ya estaban activas. Estas 5 reglas están
+      // 'off' en AMBAS configs y se activan aquí a mano porque atrapan huecos
+      // reales medidos en el código (ver docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md
+      // B-02..B-05): 27 icon-buttons sin nombre accesible, 6 `role="button"` que
+      // deberían ser `<button>`, 1 `aria-hidden` sobre elemento enfocable.
+      'jsx-a11y/control-has-associated-label': 'error',
+      'jsx-a11y/prefer-tag-over-role': 'error',
+      'jsx-a11y/no-aria-hidden-on-focusable': 'error',
+      // strict() QUITA esta respecto a recommended — se reactiva a mano.
+      'jsx-a11y/anchor-ambiguous-text': 'error',
+      'jsx-a11y/lang': 'error',
     },
   },
   // Cloud Functions — paquete Node CommonJS aparte (su propio package.json),
