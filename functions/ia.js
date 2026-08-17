@@ -2861,6 +2861,21 @@ function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada, pedirBibli
     'no relleno genérico que serviría igual para cualquier tema. Si una fuente no tiene información suficiente ' +
     'para algún campo, usa la frase exacta "Información no disponible en las fuentes proporcionadas." en vez ' +
     'de inventar contenido.\n\n' +
+    'COBERTURA COMPLETA DEL CONTENIDO FUENTE (Kike, 17-ago-2026 — error encontrado: una fuente con 10 temas, ' +
+    'unidades o apartados, y la planeación final solo cubría los primeros 6): antes de escribir las Secuencias, ' +
+    'identifica en el texto de la fuente TODOS los temas, unidades, sesiones o apartados distintos que ' +
+    'correspondan a la parte de este parcial (ver COBERTURA DEL PROGRAMA DE ESTUDIOS arriba, si aplica) — sin ' +
+    'importar si la fuente los numera explícitamente o no. Ninguno de esos temas puede quedar fuera de la ' +
+    'Planeación por ninguna de estas razones: te pareció poco importante, "ya quedó cubierto" dentro de otro, ' +
+    'lo fusionaste con otro sin decirlo, te pareció redundante con otro, o simplemente se te acabó el espacio ' +
+    'de Secuencias que ibas a usar. Si el contenido no cabe en la cantidad de Secuencias que tenías pensada, ' +
+    'la solución es SIEMPRE agregar más Secuencias Didácticas (no hay límite fijo) o repartir un tema entre ' +
+    'varias sesiones de clase — nunca recortar el contenido fuente. Puedes combinar dos temas dentro de la ' +
+    'misma Secuencia solo si de verdad son la misma unidad temática — nunca para ahorrar espacio.\n' +
+    'Reporta esta identificación en el campo "temasFuente" del JSON (ver esquema abajo): un elemento por cada ' +
+    'tema/unidad/apartado que identificaste, con "cubierto": true SOLO si alguna Secuencia lo desarrolla de ' +
+    'verdad — nunca marques "cubierto": true por descuido o para que la lista se vea completa; si al final NO ' +
+    'lo cubriste, repórtalo como false, no lo omitas de la lista.\n\n' +
     (pedirBibliografia
       ? 'FUENTES DE INFORMACIÓN / BIBLIOGRAFÍA (Kike, 16-ago-2026 — no la dejes vacía): propón hasta 5 fuentes ' +
         'para la Planeación completa (no solo este parcial), citando primero el programa de estudios y las ' +
@@ -2876,6 +2891,10 @@ function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada, pedirBibli
     '{\n' +
     '  "bloquesTematicos": <número entero — cuántos bloques temáticos distintos del programa decidiste que ' +
     'cubre este parcial, ANTES de escribir las secuencias>,\n' +
+    '  "temasFuente": [\n' +
+    '    { "titulo": "<tema/unidad/apartado identificado en la fuente, tal como se llame ahí>", "cubierto": <true o false> },\n' +
+    '    { ... una entrada más por cada tema/unidad/apartado adicional que identificaste ... }\n' +
+    '  ],\n' +
     '  "secuenciasDidacticas": [\n' +
     `    {${camposIdentidadJSON},\n` +
     `      "apertura": {${camposMomentoJSON}},\n` +
@@ -2889,7 +2908,9 @@ function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada, pedirBibli
     'Cada campo de texto: máximo 2000 caracteres, nunca lo cortes a media palabra ni a media idea. ' +
     '"bloquesTematicos" y "secuenciasDidacticas" deben tener el MISMO número de elementos — es tu propio ' +
     'conteo, así que tiene que cuadrar; si no cuadra, es que te faltó una secuencia. Los objetos "apertura", ' +
-    '"desarrollo" y "cierre" son OBLIGATORIOS en cada Secuencia, cada uno con sus 6 campos completos.'
+    '"desarrollo" y "cierre" son OBLIGATORIOS en cada Secuencia, cada uno con sus 6 campos completos. TODOS los ' +
+    'elementos de "temasFuente" deben traer "cubierto": true — si alguno queda en false, tu respuesta está ' +
+    'incompleta, agrega la(s) Secuencia(s) que le falten antes de responder.'
   )
 }
 
@@ -2906,6 +2927,38 @@ function promptCorreccionSecuencias(promptOriginal, objetivo, entregadas) {
     `parcial, pero tu respuesta anterior solo trajo ${entregadas} en "secuenciasDidacticas" — eso es ` +
     `insuficiente. Vuelve a responder el JSON COMPLETO con EXACTAMENTE ${objetivo} elementos en ` +
     '"secuenciasDidacticas", sin comprimir contenido de varias Secuencias en una sola.'
+  )
+}
+
+// ¿Algún elemento de "temasFuente" quedó sin cubrir? No confiamos en que la
+// IA "crea" que cubrió todo — se valida por código, igual que cantidad de
+// Secuencias y ponderaciones (Kike, 17-ago-2026: "la validación debe
+// hacerse mediante código/reglas, no depender únicamente de que la IA crea
+// que cubrió todo"). Sin "temasFuente" en la respuesta (nada que validar,
+// p. ej. si el modelo no devolvió el campo) no se considera incompleto —
+// eso ya lo cubre el reintento de cantidad de Secuencias.
+function coberturaIncompleta(temasFuente) {
+  return Array.isArray(temasFuente) && temasFuente.some((t) => t?.cubierto !== true)
+}
+
+// Mismo patrón que promptCorreccionSecuencias/Ponderaciones: señala
+// exactamente qué temas quedaron sin cubrir, en vez de repetir la
+// instrucción general — y deja explícito que la solución es agregar
+// Secuencias, nunca recortar contenido de la fuente.
+function promptCorreccionCobertura(promptOriginal, temasFuente) {
+  const faltantes = (Array.isArray(temasFuente) ? temasFuente : [])
+    .filter((t) => t?.cubierto !== true)
+    .map((t) => `- ${String(t?.titulo || '(sin título)').slice(0, 200)}`)
+    .join('\n')
+  return (
+    promptOriginal +
+    `\n\nCORRECCIÓN OBLIGATORIA: tu respuesta anterior dejó estos temas de la fuente SIN CUBRIR (marcados o ` +
+    `implícitos como "cubierto": false en "temasFuente"):\n${faltantes}\n` +
+    'Vuelve a responder el JSON COMPLETO, conservando el contenido y las Secuencias que ya estaban bien, y ' +
+    'AGREGA las Secuencias Didácticas adicionales que hagan falta para cubrir cada uno de esos temas — no los ' +
+    'fusiones ni los recortes para que quepan en las Secuencias que ya tenías. Actualiza también ' +
+    '"bloquesTematicos" y todos los "cubierto" de "temasFuente" para que reflejen la respuesta corregida ' +
+    '(todos deben quedar en true).'
   )
 }
 
@@ -3055,6 +3108,37 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
       // vez de arriesgar un JSON peor o vacío.
       if (Math.abs(entregadasReintento - objetivo) < Math.abs(entregadas - objetivo)) {
         datos = reintento.datos
+        reintentos++
+      }
+    }
+
+    // Aseguramiento real de COBERTURA COMPLETA DEL CONTENIDO FUENTE (Kike,
+    // 17-ago-2026 — error encontrado: una fuente con 10 temas, la
+    // planeación final solo cubría los primeros 6). Igual que cantidad de
+    // Secuencias y ponderaciones: no basta con pedírselo en el prompt, se
+    // valida por código el propio reporte de "temasFuente" que la IA
+    // entregó, y si algo quedó sin cubrir se manda un reintento señalando
+    // exactamente qué temas faltan — nunca se resuelve recortando la
+    // fuente, solo agregando las Secuencias que hagan falta.
+    if (coberturaIncompleta(datos?.temasFuente)) {
+      const temasAntes = datos.temasFuente
+      const reintentoCobertura = await pedirJSON({
+        client, modelo, maxTokens, system: PLANEACION_SISTEMA,
+        prompt: promptCorreccionCobertura(promptBase, temasAntes),
+      })
+      tokensEntrada += reintentoCobertura.interno.tokensEntrada || 0
+      tokensSalida += reintentoCobertura.interno.tokensSalida || 0
+      ms += reintentoCobertura.interno.ms || 0
+      // Solo se usa el reintento si de verdad mejoró (menos temas sin
+      // cubrir que antes, y sin perder Secuencias que ya estaban bien) — si
+      // no, se sigue con la respuesta original en vez de arriesgar un JSON
+      // peor o vacío.
+      const sinCubrir = (temas) => (Array.isArray(temas) ? temas.filter((t) => t?.cubierto !== true).length : Infinity)
+      const entregadasAntes = Array.isArray(datos?.secuenciasDidacticas) ? datos.secuenciasDidacticas.length : 0
+      const entregadasReintentoCobertura = Array.isArray(reintentoCobertura.datos?.secuenciasDidacticas) ? reintentoCobertura.datos.secuenciasDidacticas.length : 0
+      if (sinCubrir(reintentoCobertura.datos?.temasFuente) < sinCubrir(temasAntes) &&
+          entregadasReintentoCobertura >= entregadasAntes) {
+        datos = reintentoCobertura.datos
         reintentos++
       }
     }
@@ -3330,4 +3414,5 @@ exports._pruebas = {
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
   promptSecuenciasParcial, CAMPOS_IDENTIDAD_SECUENCIA, CAMPOS_MOMENTO,
   sumaPonderacionesParcial, normalizarPonderacionesParcial, promptCorreccionPonderaciones, PONDERACION_TOTAL,
+  coberturaIncompleta, promptCorreccionCobertura,
 }

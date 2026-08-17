@@ -5,7 +5,14 @@
 // desde una URL de Cloudinary — no interpreta, no resume, no decide nada
 // pedagógico. Ese texto se trunca y se agrega al prompt en functions/ia.js.
 
-const MAX_CHARS = 12000
+// 12000 (~4-5 páginas) se quedaba corto para programas de estudios/manuales
+// reales de varias decenas de páginas — causa raíz real de que Planeación
+// Inicial "perdiera" temas que estaban más adelante en el documento fuente:
+// el texto ya venía cortado antes de llegar al prompt, la IA nunca lo vio
+// (Kike, 17-ago-2026). 40000 iguala el límite ya usado en functions/ia.js
+// (C02_MAX_CHARS) para la misma decisión — "cuánto texto de un documento
+// se manda en un solo prompt" — en vez de inventar un número nuevo.
+const MAX_CHARS = 40000
 
 function extension(url) {
   const limpio = String(url || '').split('?')[0]
