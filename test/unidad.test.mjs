@@ -1845,6 +1845,79 @@ caso('montoCoincideConTarifa: SEGURIDAD · pro declarado con un monto que no est
 })
 
 // ═══ Resumen ═════════════════════════════════════════════════════════════════
+// ═══ Chat con Asistente — por asignatura (17-ago-2026) ════════════════════════
+grupo('Chat con Asistente — sanear historial, contexto de Planeación/exámenes')
+
+caso('MAX_TURNOS_HISTORIAL es 10, tal como se pidió', () => {
+  assert.strictEqual(FIA.MAX_TURNOS_HISTORIAL, 10)
+})
+
+caso('sanearHistorialChat: descarta turnos con role inválido o sin texto', () => {
+  const historial = [
+    { role: 'user', content: 'hola' },
+    { role: 'system', content: 'esto no debería colarse' },
+    { role: 'assistant', content: '' },
+    { role: 'assistant', content: 'respuesta válida' },
+  ]
+  const saneado = FIA.sanearHistorialChat(historial)
+  assert.deepStrictEqual(saneado, [{ role: 'user', content: 'hola' }, { role: 'assistant', content: 'respuesta válida' }])
+})
+
+caso('sanearHistorialChat: se queda solo con los últimos 10 turnos', () => {
+  const historial = Array.from({ length: 15 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `turno ${i}` }))
+  const saneado = FIA.sanearHistorialChat(historial)
+  assert.strictEqual(saneado.length, 10)
+  assert.strictEqual(saneado[0].content, 'turno 5')
+  assert.strictEqual(saneado.at(-1).content, 'turno 14')
+})
+
+caso('sanearHistorialChat: recorta mensajes larguísimos a MAX_LARGO_MENSAJE', () => {
+  const saneado = FIA.sanearHistorialChat([{ role: 'user', content: 'x'.repeat(5000) }])
+  assert.strictEqual(saneado[0].content.length, FIA.MAX_LARGO_MENSAJE)
+})
+
+caso('sanearHistorialChat: sin historial (asignatura nueva o primer mensaje) no truena', () => {
+  assert.deepStrictEqual(FIA.sanearHistorialChat(undefined), [])
+  assert.deepStrictEqual(FIA.sanearHistorialChat(null), [])
+})
+
+caso('planeacionAceptadaATexto: sin Planeación aceptada, null (no bloquea, no inventa)', () => {
+  assert.strictEqual(FIA.planeacionAceptadaATexto(null), null)
+  assert.strictEqual(FIA.planeacionAceptadaATexto({}), null)
+})
+
+caso('planeacionAceptadaATexto: con Planeación aceptada, arma texto por parcial y secuencia', () => {
+  const texto = FIA.planeacionAceptadaATexto({
+    porParcial: [{
+      numero: 1, periodo: '1 sep – 15 oct',
+      secuencias: [{ nombre: 'Presupuesto', sesiones: 'Sesiones 1 a 3', contenidosRelacionados: 'números enteros' }],
+    }],
+  })
+  assert.ok(texto.includes('Parcial 1'))
+  assert.ok(texto.includes('Presupuesto'))
+  assert.ok(texto.includes('números enteros'))
+})
+
+caso('analisisExamenesATexto: sin exámenes analizados, null', () => {
+  assert.strictEqual(FIA.analisisExamenesATexto([]), null)
+})
+
+caso('analisisExamenesATexto: arma texto con nombre, resumen y % de aciertos, sin datos de alumnos individuales', () => {
+  const texto = FIA.analisisExamenesATexto([
+    { nombre: 'Examen parcial 1', resultado: { resumenGeneral: 'grupo con buen desempeño', porcentajeAciertosGeneral: 82, recomendaciones: ['repasar fracciones'] } },
+  ])
+  assert.ok(texto.includes('Examen parcial 1'))
+  assert.ok(texto.includes('82%'))
+  assert.ok(texto.includes('repasar fracciones'))
+  assert.ok(!/alumno|estudiante \d|nombre/i.test(texto))
+})
+
+caso('CHAT_SISTEMA: define el rol de asistente contextualizado, no un chat genérico', () => {
+  assert.ok(FIA.CHAT_SISTEMA.includes('Asistente Docente de Evalúa Fácil'))
+  assert.ok(FIA.CHAT_SISTEMA.includes('EXCLUSIVAMENTE la información de este contexto'))
+  assert.ok(FIA.CHAT_SISTEMA.includes('Nunca inventes calificaciones'))
+})
+
 console.log(`\n${'─'.repeat(60)}`)
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)

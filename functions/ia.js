@@ -133,6 +133,9 @@ const OPERACIONES = {
   // Planeación Didáctica Inicial (FASE 2-BIS, 12-ago-2026, autorizado por
   // Kike en esta conversación — tarifa fija: 20 créditos).
   planeacion_didactica_inicial: ejecutarPlaneacionDidacticaInicial,
+  // Chat con Asistente, por asignatura (17-ago-2026, autorizado por Kike en
+  // esta conversación) — tarifa fija baja, 1 crédito por turno.
+  chat_asistente: ejecutarChatAsistente,
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -146,6 +149,7 @@ const PRECHECKS = {
   crear_actividad_ia: precheckCrearActividad,
   diagnostico_contexto: precheckDiagnosticoContexto, diagnostico_conocimientos: precheckDiagnosticoConocimientos,
   planeacion_didactica_inicial: precheckPlaneacionInicial,
+  chat_asistente: precheckChatAsistente,
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
@@ -3406,6 +3410,229 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   }
 }
 
+// ── Chat con Asistente — por asignatura (17-ago-2026) ───────────────────────
+//
+// Un chat conversacional contextualizado a UNA asignatura. NO es un
+// "ChatGPT genérico": el contexto se reconstruye desde Firestore en CADA
+// turno (nunca se reutiliza entre asignaturas ni se cachea entre mensajes),
+// usando EXCLUSIVAMENTE información que ya existe en la plataforma — nada
+// se inventa. Reutiliza el mismo patrón OPERACIONES/PRECHECKS/ledger que ya
+// usa el resto de Evalúa Fácil; no es un sistema de IA paralelo.
+//
+// Alcance de esta primera versión (Kike, 17-ago-2026): solo por asignatura.
+// El Asistente General, memoria permanente entre conversaciones, y
+// agregaciones nuevas (promedio de grupo, alumnos en riesgo, asistencia
+// agregada, pendientes de calificar) quedan fuera — quedan reportadas como
+// mejora futura, no implementadas aquí.
+
+const MAX_TURNOS_HISTORIAL = 10
+const MAX_LARGO_MENSAJE = 2000
+
+// Últimos MAX_TURNOS_HISTORIAL turnos válidos — nunca se confía en lo que
+// mande el cliente sin sanear: solo roles 'user'/'assistant', solo texto,
+// recortado. Evita que un historial corrupto o larguísimo dispare un costo
+// de tokens fuera de control.
+function sanearHistorialChat(historial) {
+  return (Array.isArray(historial) ? historial : [])
+    .filter((h) => h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim())
+    .map((h) => ({ role: h.role, content: h.content.trim().slice(0, MAX_LARGO_MENSAJE) }))
+    .slice(-MAX_TURNOS_HISTORIAL)
+}
+
+// Texto compacto de la Planeación Inicial ACEPTADA (si existe) — mismo
+// campo que ya usa el cliente (subjects/{id}.planeacionAceptada, ver
+// PlaneacionInicialSection.jsx), no una consulta nueva. Sin aceptar
+// todavía, no hay nada real que dar de la Planeación — no se inventa.
+function planeacionAceptadaATexto(planeacionAceptada) {
+  const porParcial = planeacionAceptada?.porParcial
+  if (!Array.isArray(porParcial) || !porParcial.length) return null
+  return porParcial.map((p) => {
+    const secuencias = (p.secuencias || []).map((s) => (
+      `  - ${s.nombre || '(sin nombre)'} (${s.sesiones || 'sesiones no especificadas'}): ${s.contenidosRelacionados || ''}`
+    )).join('\n')
+    return `Parcial ${p.numero}${p.periodo ? ` (${p.periodo})` : ''}:\n${secuencias || '  (sin secuencias)'}`
+  }).join('\n\n')
+}
+
+// Análisis IA (OP-10) de los exámenes/cuestionarios YA calificados de esta
+// asignatura — hasta 3 más recientes, para no inflar el prompt. Excluye los
+// de diagnóstico (esos ya se incluyen aparte, con su propio texto) para no
+// duplicar la misma información dos veces. Mismo patrón de lectura que
+// analisisDiagnosticoMasReciente, generalizado a cualquier examen/cuestionario.
+async function analisisExamenesRecientes(db, subjectId, limite = 3) {
+  const actsSnap = await db.collection('activities').where('asignaturaId', '==', subjectId).get()
+  const candidatas = actsSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((a) => (a.categoria === 'examen' || a.categoria === 'cuestionario') && !a.diagnosticoTipo)
+    .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+
+  const resultados = []
+  for (const act of candidatas) {
+    if (resultados.length >= limite) break
+    const analisisSnap = await db.collection(`activities/${act.id}/analisisIA`).get()
+    if (analisisSnap.empty) continue
+    const masReciente = analisisSnap.docs
+      .map((d) => d.data())
+      .sort((a, b) => (b.generadoEn?.toMillis?.() || 0) - (a.generadoEn?.toMillis?.() || 0))[0]
+    if (masReciente?.resultado) resultados.push({ nombre: act.nombre, resultado: masReciente.resultado })
+  }
+  return resultados
+}
+
+function analisisExamenesATexto(lista) {
+  if (!lista.length) return null
+  return lista.map(({ nombre, resultado: r }) => {
+    const partes = [`"${nombre}"`]
+    if (r.resumenGeneral) partes.push(r.resumenGeneral)
+    if (Number.isFinite(r.porcentajeAciertosGeneral)) partes.push(`Aciertos generales: ${r.porcentajeAciertosGeneral}%`)
+    if (r.recomendaciones?.length) partes.push(`Recomendaciones: ${r.recomendaciones.join('; ')}`)
+    return partes.join(' — ')
+  }).join('\n')
+}
+
+// Precheck: arma TODO el contexto de la asignatura desde Firestore — nunca
+// desde lo que mande el cliente (asignaturaId es lo único que se confía, y
+// solo para leer, tras validar dueño). Mismo criterio que
+// precheckPlaneacionInicial: si el docente no tiene Perfil IA completo, se
+// detiene aquí (antes de reservar créditos), porque toda la pestaña
+// Asistente IA ya exige tenerlo.
+async function precheckChatAsistente({ uid, params }) {
+  const db = getFirestore()
+  const subjectId = String(params?.subjectId || '').trim()
+  if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura.')
+  const mensaje = String(params?.mensaje || '').trim().slice(0, MAX_LARGO_MENSAJE)
+  if (!mensaje) throw new HttpsError('invalid-argument', 'Falta el mensaje.')
+
+  const subjSnap = await db.doc(`subjects/${subjectId}`).get()
+  if (!subjSnap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
+  const subj = subjSnap.data()
+  if (subj.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta asignatura no es tuya')
+
+  const perfilSnap = await db.doc(`users/${uid}`).get()
+  const perfilIA = perfilSnap.data()?.perfilIA || null
+  if (!perfilIACompleto(perfilIA)) {
+    throw new HttpsError('failed-precondition',
+      'Completa primero tu Perfil para IA del docente — es indispensable para usar el Chat con Asistente. ' +
+      'No se descontaron créditos.',
+      { codigo: 'PERFIL_IA_INCOMPLETO' })
+  }
+
+  const configSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
+  const comentariosGrupoTexto = comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)
+  const autoanalisisDocenteTexto = autoanalisisDocenteATexto(configSnap.data()?.autoanalisisDocente)
+  const consideracionesTexto = consideracionesATexto(configSnap.data()?.consideraciones)
+
+  // Mismo bloque que precheckPlaneacionInicial: sesiones reales SOLO si ya
+  // hay horarioPatron, sin bloquear ni inventar horario si no lo hay.
+  let diasAsueto = []
+  let sesionesCanceladas = []
+  if (Array.isArray(subj.horarioPatron) && subj.horarioPatron.length) {
+    const [asuetosSnap, vacacionesSnap, bloquesSnap] = await Promise.all([
+      db.collection('asuetos').where('docenteId', '==', uid).get(),
+      db.collection('vacaciones').where('docenteId', '==', uid).get(),
+      db.collection('horarioBloques').where('docenteId', '==', uid).where('asignaturaId', '==', subjectId).get(),
+    ])
+    diasAsueto = [
+      ...asuetosSnap.docs.map((d) => d.data()).filter((a) => a.clases).map((a) => a.fecha),
+      ...fechasVacacionParaClases(vacacionesSnap.docs.map((d) => d.data())),
+    ]
+    sesionesCanceladas = bloquesSnap.docs.map((d) => d.data()).filter((b) => b.cancelada)
+      .map((b) => ({ fecha: b.fecha, horaInicio: b.horaInicio }))
+  }
+  const parciales = construirParcialesCtx(subj, { diasAsueto, sesionesCanceladas })
+
+  const [resultadoContexto, resultadoConocimientos, examenesRecientes] = await Promise.all([
+    analisisDiagnosticoMasReciente(db, subjectId, 'contexto'),
+    analisisDiagnosticoMasReciente(db, subjectId, 'conocimientos'),
+    analisisExamenesRecientes(db, subjectId),
+  ])
+
+  const bloques = [
+    `ASIGNATURA: ${String(subj.nombre || '').trim() || '(sin nombre)'}${subj.grupo ? ` — Grupo ${subj.grupo}` : ''}.`,
+    subj.fechaInicio && subj.fechaFin ? `Periodo del curso: ${subj.fechaInicio} a ${subj.fechaFin}.` : null,
+    `PERFIL DEL DOCENTE:\n${perfilIATexto(perfilIA)}`,
+    comentariosGrupoTexto ? `COMENTARIOS DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO:\n${comentariosGrupoTexto}` : null,
+    autoanalisisDocenteTexto ? `AUTOANÁLISIS DOCENTE (sobre el docente mismo, no sobre el grupo):\n${autoanalisisDocenteTexto}` : null,
+    consideracionesTexto ? `CONSIDERACIONES DEL DOCENTE:\n${consideracionesTexto}` : null,
+    `PARCIALES DE LA ASIGNATURA (con sus fechas y, cuando exista horario configurado, sus sesiones reales):\n` +
+      parciales.map((p) => (
+        `Parcial ${p.numero}${p.periodoTexto ? ` (${p.periodoTexto})` : ''}` +
+        (p.sesionesReales?.length ? ` — ${p.sesionesReales.length} sesiones reales de clase` : '')
+      )).join('\n'),
+    (() => {
+      const texto = planeacionAceptadaATexto(subj.planeacionAceptada)
+      return texto ? `PLANEACIÓN DIDÁCTICA INICIAL ACEPTADA (referencia de lo que el docente planeó para el curso):\n${texto}` : null
+    })(),
+    resultadoContexto ? `DIAGNÓSTICO DE CONTEXTO DEL GRUPO:\n${diagnosticoContextoATexto(resultadoContexto)}` : null,
+    resultadoConocimientos ? `DIAGNÓSTICO DE CONOCIMIENTOS DEL GRUPO:\n${diagnosticoConocimientosATexto(resultadoConocimientos)}` : null,
+    (() => {
+      const texto = analisisExamenesATexto(examenesRecientes)
+      return texto ? `ANÁLISIS DE EXÁMENES/CUESTIONARIOS RECIENTES YA CALIFICADOS (agregado del grupo, sin datos de alumnos individuales):\n${texto}` : null
+    })(),
+  ].filter(Boolean)
+
+  return {
+    contextoSistema: bloques.join('\n\n'),
+    mensaje,
+    historial: sanearHistorialChat(params?.historial),
+  }
+}
+
+const CHAT_SISTEMA =
+  REGLA_ACTIVIDADES_NO_DENIGRANTES +
+  'Eres el Asistente Docente de Evalúa Fácil, conversando con un docente de bachillerato mexicano sobre UNA ' +
+  'asignatura específica suya — el contexto completo de esa asignatura viene a continuación. Responde en ' +
+  'español, breve y práctico, como un colega pedagógico con el que se conversa, no como un reporte. Usa ' +
+  'EXCLUSIVAMENTE la información de este contexto — si el docente pregunta algo que no puedes responder con ' +
+  'lo que tienes (por ejemplo, si falta un diagnóstico, la Planeación no está aceptada, o no hay horario ' +
+  'configurado), dilo con claridad y sugiere qué le falta generar o configurar, en vez de inventar. Nunca ' +
+  'inventes calificaciones, nombres de estudiantes ni resultados que no estén en el contexto. No repitas todo ' +
+  'el contexto en cada respuesta — ve directo a lo que te preguntan, y usa el historial de la conversación ' +
+  'para entender preguntas de seguimiento (p. ej. "¿y qué actividad?" se refiere a tu respuesta anterior). ' +
+  'Nunca escribas que fuiste generado por IA o por un asistente — eres una herramienta del docente, él es ' +
+  'quien decide.'
+
+// Llamada simple de texto libre (a diferencia de pedirJSON: el chat no
+// responde JSON, responde conversación). Misma forma de client/medición que
+// el resto de operaciones.
+async function pedirTexto({ client, modelo, maxTokens, system, messages }) {
+  const inicio = Date.now()
+  const msg = await client.messages.create({ model: modelo, max_tokens: maxTokens, system, messages })
+  const texto = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
+  return {
+    texto,
+    interno: {
+      modelo,
+      tokensEntrada: msg.usage?.input_tokens ?? null,
+      tokensSalida: msg.usage?.output_tokens ?? null,
+      ms: Date.now() - inicio,
+    },
+  }
+}
+
+async function ejecutarChatAsistente({ params, modelo, apiKey }) {
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+
+  const messages = [
+    ...ctx.historial.map((h) => ({ role: h.role, content: h.content })),
+    { role: 'user', content: ctx.mensaje },
+  ]
+  const { texto, interno } = await pedirTexto({
+    client, modelo, maxTokens: 1024,
+    system: CHAT_SISTEMA + '\n\n' + ctx.contextoSistema,
+    messages,
+  })
+  if (!texto) throw new Error('El asistente de IA no generó una respuesta utilizable')
+
+  return {
+    resultado: { respuesta: texto },
+    unidadesReales: 1, // tarifa fija por turno — cada mensaje es su propia operación
+    interno,
+  }
+}
+
 // ── Traducción de errores del ledger a HttpsError ───────────────────────────
 function comoHttpsError(e) {
   if (e instanceof HttpsError) return e
@@ -3576,4 +3803,6 @@ exports._pruebas = {
   coberturaIncompleta, promptCorreccionCobertura,
   promptExtraerTemasFragmento, construirBloqueFuenteEstructurada, extraerTemasDeDocumentoGrande,
   FUENTE_UMBRAL_FRAGMENTAR_CHARS, FUENTE_FRAGMENTO_MAX_CHARS, calcularUnidadesMinimasFuente,
+  precheckChatAsistente, sanearHistorialChat, planeacionAceptadaATexto, analisisExamenesATexto,
+  CHAT_SISTEMA, MAX_TURNOS_HISTORIAL, MAX_LARGO_MENSAJE,
 }
