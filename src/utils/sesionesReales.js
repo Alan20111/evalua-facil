@@ -22,7 +22,7 @@
 // `attendance`, no esta función.
 
 import { generarBloques, diaSemanaLunes, toDateStr } from './horarioBloques.js'
-import { parcialForDate } from './attendanceAuto.js'
+import { parcialForDate } from './parciales.js'
 
 function resumenVacio() {
   return {

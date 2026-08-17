@@ -5,20 +5,15 @@ import { db } from '../firebase'
 import { toDateStr, diaSemanaLunes } from './horarioBloques'
 import { buildAsuetoMap, esAsuetoPara } from './asuetos'
 import { buildVacacionMap } from './vacaciones'
+// parcialForDate es pura (sin Firebase) — vive en ./parciales.js para poder
+// compartirse con Cloud Functions. Se reexporta aquí para no romper los
+// imports existentes que la traen desde este archivo, y se importa también
+// como binding local porque este módulo la usa internamente (línea de abajo).
+import { parcialForDate } from './parciales'
+export { parcialForDate }
 
 // Firestore batches cap at 500 writes; leave margin for chunking.
 const BATCH_LIMIT = 400
-
-// Índice del parcial (1-based) cuyo rango [inicio, fin] contiene `fecha`, o
-// null si no cae en ninguno (fechas fuera del curso, o parcialesFechas vacío).
-export function parcialForDate(parcialesFechas, fecha) {
-  if (!Array.isArray(parcialesFechas)) return null
-  for (let i = 0; i < parcialesFechas.length; i++) {
-    const { inicio, fin } = parcialesFechas[i] || {}
-    if (inicio && fin && fecha >= inicio && fecha <= fin) return i + 1
-  }
-  return null
-}
 
 // Consulta horarioBloques UNA vez — separada de syncAutoAttendanceDays para
 // poder correrla en PARALELO con ensureGroupStudents/loadAttendanceRecords
