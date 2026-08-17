@@ -34,7 +34,7 @@ import { renderAsync as renderDocxAsync } from 'docx-preview'
 import { useSubscription } from '../../hooks/useSubscription'
 import useIsDesktop from '../../hooks/useIsDesktop'
 import CheckoutModal from '../CheckoutModal'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ChevronDown, ChevronUp, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 
 const CLAVES_MOMENTO = MOMENTOS.map((m) => m.clave)
 const FUENTES_VACIAS = ['', '', '', '', '']
@@ -540,7 +540,9 @@ function Planeacion({
   const [cantidadManual, setCantidadManual] = useState(3)
   const [generando, setGenerando] = useState(false)
   const [parcialActivo, setParcialActivo] = useState(1)
-  // `edicion`/`edicionAceptada`: { datosIdentificacion, fuentesInformacion, porParcial }
+  // Copia editable — solo existe/importa ANTES de aceptar (una vez
+  // aceptada, la Planeación queda bloqueada, ver `contenidoActivo` más
+  // abajo). { datosIdentificacion, fuentesInformacion, validacion, porParcial }
   const [edicion, setEdicion] = useState(null)
   const [edicionDeId, setEdicionDeId] = useState(null)
   const [guardando, setGuardando] = useState(false)
@@ -548,7 +550,6 @@ function Planeacion({
   const [confirmarAceptar, setConfirmarAceptar] = useState(false)
   const [confirmarReiniciar, setConfirmarReiniciar] = useState(false)
   const [reiniciando, setReiniciando] = useState(false)
-  const [verHistorial, setVerHistorial] = useState(false)
   const [descargandoParcial, setDescargandoParcial] = useState(null)
   const [verRevision, setVerRevision] = useState(false)
   const [cargandoVistaPrevia, setCargandoVistaPrevia] = useState(false)
@@ -560,14 +561,6 @@ function Planeacion({
   const vistaPreviaRef = useRef(null)
   const fuenteActivaRef = useRef({ datosIdentificacion: null, fuentesInformacion: FUENTES_VACIAS, validacion: null, secuencias: [] })
   const [abrirTrasGenerar, setAbrirTrasGenerar] = useState(false)
-  // Copia editable de la planeación YA ACEPTADA — separada de `edicion`
-  // (que es la copia previa a aceptar) porque una vez aceptada vive en otro
-  // campo de Firestore (`planeacionAceptada`, no `planeacionBorrador`).
-  // Pedido de Kike, 16-ago-2026: la planeación aceptada también debe poder
-  // corregirse sin tener que "Generar de nuevo" (que la borra por completo).
-  const [edicionAceptada, setEdicionAceptada] = useState(null)
-  const [edicionAceptadaDeId, setEdicionAceptadaDeId] = useState(null)
-  const [guardandoAceptada, setGuardandoAceptada] = useState(false)
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'subjects', subjectId, 'planeacionesIA'), (snap) => {
@@ -579,8 +572,12 @@ function Planeacion({
     return unsub
   }, [subjectId])
 
+  // Solo la generación MÁS RECIENTE es "la" Planeación Inicial, desde la
+  // perspectiva del docente — regla permanente de Kike: en todo momento
+  // debe existir una sola Planeación Inicial vigente, nunca un historial de
+  // generaciones visible. `planeacionesIA` sigue siendo append-only por
+  // dentro (bitácora técnica), pero solo `historial[0]` se muestra.
   const actual = historial[0] || null
-  const anteriores = historial.slice(1)
   const aceptada = !!actual && subjectPlaneacion?.planeacionAceptada?.planeacionId === actual.id
   const fechaAceptada = aceptada ? subjectPlaneacion.planeacionAceptada.aceptadaEn : null
   const contenidoAceptado = aceptada
@@ -604,16 +601,10 @@ function Planeacion({
     setParcialActivo(actual?.porParcial?.[0]?.numero || 1)
   }
 
-  if (aceptada && actualIdParaEdicion !== edicionAceptadaDeId) {
-    setEdicionAceptada(contenidoAceptado)
-    setEdicionAceptadaDeId(actualIdParaEdicion)
-  }
-
   const guardadoRaw = !!actual && subjectPlaneacion?.planeacionBorrador?.planeacionId === actual.id
     ? extraerContenido(subjectPlaneacion.planeacionBorrador) : null
   const guardado = guardadoRaw?.porParcial?.length ? guardadoRaw : (actual ? extraerContenido(actual) : null)
   const sinGuardar = !!actual && JSON.stringify(edicion) !== JSON.stringify(guardado)
-  const sinGuardarAceptada = aceptada && JSON.stringify(edicionAceptada) !== JSON.stringify(contenidoAceptado)
 
   async function generar() {
     if (nuncaAprobado) { onPago(); return }
@@ -679,23 +670,6 @@ function Planeacion({
     }
   }
 
-  // Guarda correcciones sobre la planeación YA ACEPTADA, en su lugar — no
-  // cambia `planeacionId` ni `aceptadaEn`, solo el contenido (pedido de
-  // Kike, 16-ago-2026).
-  async function guardarAceptada() {
-    setGuardandoAceptada(true)
-    try {
-      await updateDoc(doc(db, 'subjects', subjectId), {
-        planeacionAceptada: { ...subjectPlaneacion.planeacionAceptada, ...edicionAceptada },
-      })
-      toast('Cambios guardados')
-    } catch (err) {
-      toast('No se pudo guardar: ' + err.message, 'error')
-    } finally {
-      setGuardandoAceptada(false)
-    }
-  }
-
   // Quita la aceptación y sus borradores — irreversible: no hay forma de
   // recuperar cuál era la aceptada una vez hecho esto (pedido de Kike,
   // 15-ago-2026). No borra la bitácora (planeacionesIA es inmutable por
@@ -747,8 +721,12 @@ function Planeacion({
     }
   }
 
-  const contenidoEditableActivo = aceptada ? edicionAceptada : edicion
-  const secuenciasActivo = secuenciasDeParcial(parcialActivo, contenidoEditableActivo?.porParcial)
+  // Una vez aceptada, la Planeación queda BLOQUEADA — de solo lectura,
+  // nunca editable (regla permanente de Kike). Por eso ya no hay una copia
+  // "editable de la aceptada": la vista de solo lectura usa directamente
+  // `contenidoAceptado`.
+  const contenidoActivo = aceptada ? contenidoAceptado : edicion
+  const secuenciasActivo = secuenciasDeParcial(parcialActivo, contenidoActivo?.porParcial)
   const sumaParcialActivo = sumaPonderacionesParcial(secuenciasActivo)
   // Antes de aceptar, TODOS los parciales deben sumar exactamente 100% —
   // no solo el que se esté viendo en ese momento (Kike, 16-ago-2026: "no
@@ -763,46 +741,40 @@ function Planeacion({
   // actual sin tener que declarar el efecto de nuevo en cada render.
   useEffect(() => {
     fuenteActivaRef.current = {
-      datosIdentificacion: contenidoEditableActivo?.datosIdentificacion,
-      fuentesInformacion: contenidoEditableActivo?.fuentesInformacion,
-      validacion: contenidoEditableActivo?.validacion,
+      datosIdentificacion: contenidoActivo?.datosIdentificacion,
+      fuentesInformacion: contenidoActivo?.fuentesInformacion,
+      validacion: contenidoActivo?.validacion,
       secuencias: secuenciasActivo,
     }
   })
 
-  // Escribe una corrección en la copia editable que corresponda (aceptada o
-  // en revisión) — no dispara recarga, la celda ya se edita en el propio
-  // DOM.
+  // Escribe una corrección en la copia editable — solo se llama antes de
+  // aceptar (una vez aceptada, `activarEdicionDocumento` ya ni siquiera se
+  // activa, ver el useEffect que renderiza la vista previa).
   function actualizarIdentificacion(clave, valor) {
-    const actualizador = (prev) => ({ ...prev, datosIdentificacion: { ...prev.datosIdentificacion, [clave]: valor } })
-    if (aceptada) setEdicionAceptada(actualizador)
-    else setEdicion(actualizador)
+    setEdicion((prev) => ({ ...prev, datosIdentificacion: { ...prev.datosIdentificacion, [clave]: valor } }))
   }
 
   function actualizarFuente(indice, valor) {
-    const actualizador = (prev) => ({
+    setEdicion((prev) => ({
       ...prev,
       fuentesInformacion: (prev.fuentesInformacion || FUENTES_VACIAS).map((f, i) => (i === indice ? valor : f)),
-    })
-    if (aceptada) setEdicionAceptada(actualizador)
-    else setEdicion(actualizador)
+    }))
   }
 
   // Sección VALIDACIÓN (Elaborado por / Avalado por ×2) — pertenece a
   // PERSONALIZAR, pero se edita aquí mismo, igual que cualquier otro campo
   // de la Planeación (regla general: todo lo que genera la IA es editable
-  // en el propio documento).
+  // en el propio documento, MIENTRAS no se haya aceptado).
   function actualizarValidacion(clave, valor) {
-    const actualizador = (prev) => ({ ...prev, validacion: { ...(prev.validacion || validacionVacia()), [clave]: valor } })
-    if (aceptada) setEdicionAceptada(actualizador)
-    else setEdicion(actualizador)
+    setEdicion((prev) => ({ ...prev, validacion: { ...(prev.validacion || validacionVacia()), [clave]: valor } }))
   }
 
   // `ruta` es la clave del campo de identidad de la Secuencia (p. ej.
   // "nombre") o "momento.campo" (p. ej. "apertura.actividades").
   function actualizarCampoSecuencia(indiceSecuencia, ruta, valor) {
     const partes = ruta.split('.')
-    const actualizador = (prev) => ({
+    setEdicion((prev) => ({
       ...prev,
       porParcial: prev.porParcial.map((p) => (
         p.numero !== parcialActivo ? p : {
@@ -815,16 +787,14 @@ function Planeacion({
           }),
         }
       )),
-    })
-    if (aceptada) setEdicionAceptada(actualizador)
-    else setEdicion(actualizador)
+    }))
   }
 
   // Agregar/eliminar/mover una Secuencia Didáctica COMPLETA — cambia cuántas
   // tablas trae el documento, así que regenera y vuelve a renderizar la
   // vista previa completa (ver el useEffect de recargarVistaPreviaPendiente).
   function cambiarGrupoSecuencias(accion, indice, direccion) {
-    const actualizador = (prev) => ({
+    setEdicion((prev) => ({
       ...prev,
       porParcial: prev.porParcial.map((p) => {
         if (p.numero !== parcialActivo) return p
@@ -839,9 +809,7 @@ function Planeacion({
         }
         return p
       }),
-    })
-    if (aceptada) setEdicionAceptada(actualizador)
-    else setEdicion(actualizador)
+    }))
     setRecargarVistaPreviaPendiente(true)
   }
 
@@ -854,7 +822,7 @@ function Planeacion({
     setVerRevision(true)
     try {
       const numero = numeroParcial ?? parcialActivo
-      const contenido = aceptada ? (edicionAceptada || contenidoAceptado) : (edicion || extraerContenido(actual))
+      const contenido = aceptada ? contenidoAceptado : (edicion || extraerContenido(actual))
       const secuencias = secuenciasDeParcial(numero, contenido?.porParcial)
       const p = (contenido?.porParcial || []).find((x) => x.numero === numero)
       const titulo = `Planeación Didáctica Inicial — Parcial ${numero}${p?.periodo ? ` (${p.periodo})` : ''}`
@@ -891,16 +859,18 @@ function Planeacion({
       abrirVistaPrevia()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- abrirVistaPrevia se redefine cada render, no es una dependencia real
-  }, [recargarVistaPreviaPendiente, edicion, edicionAceptada])
+  }, [recargarVistaPreviaPendiente, edicion])
 
   useEffect(() => {
     if (!verRevision || !blobVistaPrevia || !vistaPreviaRef.current) return
     vistaPreviaRef.current.innerHTML = ''
     renderDocxAsync(blobVistaPrevia, vistaPreviaRef.current, undefined, { inWrapper: true })
       .then(() => {
-        // La edición solo se activa en escritorio — en celular la Vista
-        // previa se deja de solo lectura (ver AvisoRevisionDesktop).
-        if (!isDesktop || !vistaPreviaRef.current) return
+        // La edición NUNCA se activa una vez aceptada (queda bloqueada, de
+        // solo lectura) — y solo se activa en escritorio mientras no se ha
+        // aceptado (en celular la Vista previa se deja de solo lectura, ver
+        // AvisoRevisionDesktop).
+        if (aceptada || !isDesktop || !vistaPreviaRef.current) return
         const { datosIdentificacion, fuentesInformacion, validacion, secuencias } = fuenteActivaRef.current
         activarEdicionDocumento(
           vistaPreviaRef.current, datosIdentificacion, secuencias, fuentesInformacion, validacion,
@@ -968,12 +938,10 @@ function Planeacion({
           <button
             type="button"
             onClick={() => abrirVistaPrevia()}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-sm ${
-              isDesktop ? 'border-green-600 text-green-700 hover:bg-green-50' : 'border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
-            }`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
           >
-            {isDesktop ? <ThumbsUp size={14} /> : <Eye size={14} />}
-            {isDesktop ? 'Vista previa y edición' : 'Vista previa'}
+            <Eye size={14} />
+            Vista previa
           </button>
         )}
         {aceptada && (
@@ -1013,63 +981,59 @@ function Planeacion({
       {actual && !aceptada && !isDesktop && <AvisoRevisionDesktop />}
       {verRevision && (isDesktop || aceptada) && (
         <RevisionPantallaCompleta
-          titulo={
-            aceptada
-              ? (isDesktop ? 'Corrige y guarda tu Planeación Inicial ya aceptada' : 'Vista previa — Planeación Inicial')
-              : 'Corrige y guarda antes de aceptarla'
-          }
+          titulo={aceptada ? 'Planeación Inicial aceptada (solo lectura)' : 'Corrige y guarda antes de aceptarla'}
           onCerrar={cerrarRevision}
           cerrarTexto={!aceptada ? 'Salir y aceptar luego' : null}
           tabs={(
             <>
               <SelectorParcial porParcial={actual?.porParcial} activo={parcialActivo} onCambiar={cambiarParcialRevision} />
-              <span
-                className={`ml-auto flex-shrink-0 text-xs font-medium px-2 py-1 rounded ${
-                  Math.abs(sumaParcialActivo - 100) <= 0.5 ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'
-                }`}
-              >
-                Ponderación del parcial: {sumaParcialActivo}%
-              </span>
+              {!aceptada && (
+                <span
+                  className={`ml-auto flex-shrink-0 text-xs font-medium px-2 py-1 rounded ${
+                    Math.abs(sumaParcialActivo - 100) <= 0.5 ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'
+                  }`}
+                >
+                  Ponderación del parcial: {sumaParcialActivo}%
+                </span>
+              )}
             </>
           )}
-          acciones={isDesktop && (
+          acciones={isDesktop && !aceptada && (
             <>
               <button
                 type="button"
-                onClick={aceptada ? guardarAceptada : guardar}
-                disabled={aceptada ? (!sinGuardarAceptada || guardandoAceptada) : (!sinGuardar || guardando)}
+                onClick={guardar}
+                disabled={!sinGuardar || guardando}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm disabled:opacity-60 ${
-                  (aceptada ? sinGuardarAceptada : sinGuardar)
+                  sinGuardar
                     ? 'bg-amber-500 text-white hover:bg-amber-600'
                     : 'border border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
                 }`}
               >
-                {(aceptada ? guardandoAceptada : guardando) ? <Spinner size="sm" /> : <Save size={14} />}
-                {(aceptada ? sinGuardarAceptada : sinGuardar) ? 'Guardar cambios' : 'Guardado'}
+                {guardando ? <Spinner size="sm" /> : <Save size={14} />}
+                {sinGuardar ? 'Guardar cambios' : 'Guardado'}
               </button>
-              {!aceptada && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (parcialesConPonderacionMal.length) {
-                      const lista = parcialesConPonderacionMal.map((p) => `Parcial ${p.numero} (${sumaPonderacionesParcial(p.secuencias)}%)`).join(', ')
-                      toast(`La ponderación de cada parcial debe sumar exactamente 100% antes de aceptar: ${lista}`, 'error')
-                      return
-                    }
-                    setConfirmarAceptar(true)
-                  }}
-                  disabled={aceptando}
-                  title={parcialesConPonderacionMal.length ? 'Corrige la ponderación de cada parcial a exactamente 100% antes de aceptar' : undefined}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm disabled:opacity-60 ${
-                    parcialesConPonderacionMal.length
-                      ? 'border border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
-                      : 'bg-accent text-white hover:bg-accent-hover'
-                  }`}
-                >
-                  {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
-                  Aceptar esta planeación como mi Planeación Inicial
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (parcialesConPonderacionMal.length) {
+                    const lista = parcialesConPonderacionMal.map((p) => `Parcial ${p.numero} (${sumaPonderacionesParcial(p.secuencias)}%)`).join(', ')
+                    toast(`La ponderación de cada parcial debe sumar exactamente 100% antes de aceptar: ${lista}`, 'error')
+                    return
+                  }
+                  setConfirmarAceptar(true)
+                }}
+                disabled={aceptando}
+                title={parcialesConPonderacionMal.length ? 'Corrige la ponderación de cada parcial a exactamente 100% antes de aceptar' : undefined}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm disabled:opacity-60 ${
+                  parcialesConPonderacionMal.length
+                    ? 'border border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
+                    : 'bg-accent text-white hover:bg-accent-hover'
+                }`}
+              >
+                {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
+                Aceptar esta planeación como mi Planeación Inicial
+              </button>
             </>
           )}
         >
@@ -1081,31 +1045,6 @@ function Planeacion({
             </div>
           )}
         </RevisionPantallaCompleta>
-      )}
-
-      {anteriores.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-outline-variant">
-          <button
-            type="button"
-            onClick={() => setVerHistorial((v) => !v)}
-            className="flex items-center gap-1 text-xs text-muted hover:text-on-surface"
-          >
-            {verHistorial ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {anteriores.length} generación{anteriores.length > 1 ? 'es' : ''} anterior{anteriores.length > 1 ? 'es' : ''} (sin aceptar, no descargable)
-          </button>
-          {verHistorial && (
-            <div className="mt-2 space-y-1.5">
-              {anteriores.map((h) => (
-                <div key={h.id} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="text-muted">
-                    {h.generadoEn?.toDate && h.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
-                  </span>
-                  <span className="text-muted italic">Reemplazada — no se puede descargar</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       )}
 
       {confirmando && (
@@ -1140,7 +1079,7 @@ function Planeacion({
       {confirmarAceptar && (
         <ConfirmModal
           title="¿Aceptar esta Planeación Didáctica Inicial?"
-          message="Se guarda con las correcciones que hayas hecho, en TODOS los parciales. Cuando la aceptes queda fija como tu Planeación Inicial, con la fecha de hoy — podrás seguir corrigiéndola desde una computadora, y verla y descargarla las veces que quieras (si tu suscripción está pagada)."
+          message="Se guarda con las correcciones que hayas hecho, en TODOS los parciales. Cuando la aceptes queda fija como tu Planeación Inicial, con la fecha de hoy, en modo de solo lectura — ya no podrás editarla directamente. Podrás verla y descargarla las veces que quieras (si tu suscripción está pagada), o generar una nueva si necesitas cambiarla."
           confirmLabel="Aceptar"
           confirmingLabel="Aceptando…"
           busy={aceptando}
