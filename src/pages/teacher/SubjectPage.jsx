@@ -21,7 +21,7 @@ import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloa
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttDateLong, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay, enrolledFromDate } from '../../utils/attendance'
-import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana } from '../../utils/attendanceAuto'
+import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana, parcialForDate } from '../../utils/attendanceAuto'
 import { diaSemanaLunes, DIAS_SEMANA, derivarPatrones, tramosFaltantes, generarBloques } from '../../utils/horarioBloques'
 import { buildAsuetoMap, esAsuetoPara } from '../../utils/asuetos'
 import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacaciones'
@@ -3390,8 +3390,8 @@ export default function SubjectPage() {
     const hoy = new Date().toISOString().slice(0, 10)
     const pf = subject?.parcialesFechas
     if (pf?.length) {
-      const idx = pf.findIndex((r) => r?.inicio && r?.fin && hoy >= r.inicio && hoy <= r.fin)
-      if (idx >= 0) return idx + 1
+      const parcial = parcialForDate(pf, hoy)
+      if (parcial) return parcial
       if (pf[0]?.inicio && hoy < pf[0].inicio) return 1
       return pf.length
     }
