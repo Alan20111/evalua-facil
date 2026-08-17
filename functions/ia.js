@@ -2641,6 +2641,8 @@ async function precheckPlaneacionInicial({ uid, params }) {
   // mismo contexto general (fuentes + diagnósticos) — solo cambia su periodo.
   const parciales = construirParcialesCtx(subj, { diasAsueto, sesionesCanceladas })
 
+  const unidadesMinimas = calcularUnidadesMinimasFuente(bloqueFuentesGenerales)
+
   return {
     asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
     perfilIATexto: perfilIATextoVal,
@@ -2652,6 +2654,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
     diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
     parciales,
     cantidadSolicitada,
+    unidadesMinimas,
     fuentesUsadas: {
       generales: seleccionarFuentesGenerales(generales).map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) })),
     },
@@ -2739,6 +2742,22 @@ const FUENTE_UMBRAL_FRAGMENTAR_CHARS = 150000
 // por debajo de la ventana de contexto del modelo, para dejar margen a la
 // instrucción del prompt y a la respuesta.
 const FUENTE_FRAGMENTO_MAX_CHARS = 80000
+
+// Cuántas unidades hace falta RESERVAR de crédito para procesar el
+// documento fuente completo (Kike, 17-ago-2026: "el sistema debe poder
+// consumir los créditos adicionales necesarios... el tamaño del documento
+// puede aumentar el costo, pero nunca provocar pérdida silenciosa de
+// contenido"). Documento normal: 1 (la tarifa fija de siempre, sin
+// cambio). Documento que necesita fragmentarse: 1 + un fragmento extra por
+// cada llamada real de extracción que va a hacer falta — mismo cálculo
+// (dividirEnFragmentos) que usa extraerTemasDeDocumentoGrande, así que el
+// número de unidades reservadas siempre coincide con el trabajo real que
+// se va a hacer. Puro — no llama a la IA, no cuesta nada calcularlo.
+function calcularUnidadesMinimasFuente(bloqueFuentesGenerales) {
+  const largo = bloqueFuentesGenerales?.length || 0
+  if (largo <= FUENTE_UMBRAL_FRAGMENTAR_CHARS) return 1
+  return 1 + dividirEnFragmentos(bloqueFuentesGenerales, FUENTE_FRAGMENTO_MAX_CHARS).length
+}
 
 function promptExtraerTemasFragmento(fragmento, indice, totalFragmentos) {
   return (
@@ -3144,6 +3163,7 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
   const porParcial = []
   let tokensEntrada = 0, tokensSalida = 0, ms = 0
   let reintentos = 0 // cuántos parciales necesitaron el reintento de cantidad — se cobra aparte (ver unidadesReales)
+  let fragmentosProcesados = 0 // documento fuente grande: cuántos fragmentos se procesaron — también se cobra aparte
   // La bibliografía es de la Planeación completa, no de cada parcial — solo
   // se pide en la llamada del primer parcial (mismo programa de estudios
   // para todos, no tiene caso repetir la pregunta y gastar tokens de más).
@@ -3158,9 +3178,10 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
   // reservado, igual que cualquier otro error de esta función) — nunca se
   // continúa con una fuente incompleta en silencio.
   if ((ctx.bloqueFuentesGenerales?.length || 0) > FUENTE_UMBRAL_FRAGMENTAR_CHARS) {
-    const { temas, fragmentosProcesados, interno } = await extraerTemasDeDocumentoGrande({
+    const { temas, fragmentosProcesados: n, interno } = await extraerTemasDeDocumentoGrande({
       texto: ctx.bloqueFuentesGenerales, client, modelo,
     })
+    fragmentosProcesados = n
     tokensEntrada += interno.tokensEntrada || 0
     tokensSalida += interno.tokensSalida || 0
     ms += interno.ms || 0
@@ -3310,12 +3331,12 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
     porParcial.push({ numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, secuencias })
   }
 
-  return { porParcial, fuentesInformacion, reintentos, interno: { modelo, tokensEntrada, tokensSalida, ms } }
+  return { porParcial, fuentesInformacion, reintentos, fragmentosProcesados, interno: { modelo, tokensEntrada, tokensSalida, ms } }
 }
 
 async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
-  const { porParcial, fuentesInformacion, reintentos, interno } = await generarSecuenciasPorParciales({
+  const { porParcial, fuentesInformacion, reintentos, fragmentosProcesados, interno } = await generarSecuenciasPorParciales({
     ctx, modelo, apiKey, cantidadSolicitada: ctx.cantidadSolicitada,
   })
 
@@ -3371,11 +3392,16 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
   return {
     resultado: { porParcial, datosIdentificacion, fuentesInformacion, validacion },
     // Tarifa fija (20 créditos) + 1 unidad extra por cada parcial que
-    // necesitó el reintento de cantidad (ver generarSecuenciasPorParciales)
-    // — ese reintento duplica el gasto real de tokens de ese parcial, así
-    // que se refleja en lo que se cobra (Kike, 16-ago-2026: "cóbrale más
-    // créditos al usuario por hacerla").
-    unidadesReales: 1 + reintentos,
+    // necesitó algún reintento (cantidad, ponderaciones o cobertura de
+    // contenido fuente — ver generarSecuenciasPorParciales) + 1 unidad
+    // extra por cada fragmento que hizo falta procesar de un documento
+    // fuente grande (Kike, 17-ago-2026: "el tamaño del documento puede
+    // aumentar el costo, pero nunca provocar pérdida silenciosa de
+    // contenido"). Cada uno de estos es una llamada real a la IA además de
+    // las de siempre, así que se refleja en lo que se cobra — nunca más de
+    // lo que ya se reservó (ver ledger.liquidar: Math.min(unidadesReales,
+    // unidadesReservadas)).
+    unidadesReales: 1 + reintentos + fragmentosProcesados,
     interno,
   }
 }
@@ -3418,7 +3444,7 @@ exports.ejecutarOperacionIA = onCall(
     if (!ejecutor) {
       throw new HttpsError('unimplemented', 'Esta operación de IA aún no está disponible')
     }
-    const n = Number.isInteger(unidades) && unidades > 0 && unidades <= 500 ? unidades : 1
+    const unidadesCliente = Number.isInteger(unidades) && unidades > 0 && unidades <= 500 ? unidades : 1
 
     // Comprobaciones previas a CUALQUIER cobro: propiedad de la actividad,
     // categoría válida y suficiencia del contexto. Si algo de esto falla, el
@@ -3428,6 +3454,18 @@ exports.ejecutarOperacionIA = onCall(
     if (PRECHECKS[operacion]) {
       precontexto = await PRECHECKS[operacion]({ uid, params })
     }
+
+    // El precheck puede saber, ANTES de reservar, que esta operación va a
+    // necesitar más unidades que las que pidió el cliente — p. ej. Planeación
+    // Inicial con un documento fuente grande que requiere fragmentarse
+    // (Kike, 17-ago-2026: "el tamaño del documento puede aumentar el costo,
+    // pero nunca provocar pérdida silenciosa de contenido"). El cliente
+    // nunca puede BAJAR lo que el precheck determinó necesario — solo
+    // puede pedir más (unidades > 1 en operaciones que sí lo usan así).
+    const unidadesMinimas = Number.isInteger(precontexto?.unidadesMinimas) && precontexto.unidadesMinimas > 0
+      ? Math.min(precontexto.unidadesMinimas, 500)
+      : 0
+    const n = Math.max(unidadesCliente, unidadesMinimas)
 
     let tarifas
     let reserva
@@ -3537,5 +3575,5 @@ exports._pruebas = {
   sumaPonderacionesParcial, normalizarPonderacionesParcial, promptCorreccionPonderaciones, PONDERACION_TOTAL,
   coberturaIncompleta, promptCorreccionCobertura,
   promptExtraerTemasFragmento, construirBloqueFuenteEstructurada, extraerTemasDeDocumentoGrande,
-  FUENTE_UMBRAL_FRAGMENTAR_CHARS, FUENTE_FRAGMENTO_MAX_CHARS,
+  FUENTE_UMBRAL_FRAGMENTAR_CHARS, FUENTE_FRAGMENTO_MAX_CHARS, calcularUnidadesMinimasFuente,
 }
