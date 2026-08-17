@@ -271,7 +271,7 @@ export default function TeacherDashboard() {
 
   async function handleCreateSubject(e) {
     e.preventDefault()
-    if (!newSubjectName.trim() || !newSubjectGrupo.trim()) return
+    if (!newSubjectName.trim() || !newSubjectGrupo.trim() || !newSubjectFechaInicio || !newSubjectFechaFin) return
     if (!canCreate) {
       toast('Activa tu suscripción mensual para crear nuevas asignaturas — toda tu información sigue disponible')
       return
@@ -704,12 +704,12 @@ export default function TeacherDashboard() {
                 />
               </div>
 
-              {/* Fechas (opcionales) */}
+              {/* Fechas (obligatorias — pedido explícito de Kike, 17-ago-2026:
+                  sin ellas no funcionan bien los bloques de horario, el
+                  horario y agenda, las asistencias ni la Planeación Inicial). */}
               <div>
-                <p className="block text-sm font-medium text-muted mb-1">
-                  Fechas <span className="text-accent font-normal text-xs">(recomendado)</span>
-                </p>
-                <p className="text-xs text-muted mb-1.5">Con fechas de inicio y fin, los días para marcar asistencia se generan de forma automática y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y elegirlas después.</p>
+                <p className="block text-sm font-medium text-muted mb-1">Fechas del curso</p>
+                <p className="text-xs text-muted mb-1.5">Son obligatorias: con ellas se generan los días para marcar asistencia, se organiza cada parcial por periodo, y se arma tu horario y tu Planeación Inicial.</p>
                 <div className="space-y-2">
                   <div>
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
@@ -765,7 +765,7 @@ export default function TeacherDashboard() {
 
               <button
                 type="submit"
-                disabled={creatingSubject}
+                disabled={creatingSubject || !newSubjectFechaInicio || !newSubjectFechaFin}
                 className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {creatingSubject ? <Spinner size="sm" /> : <Plus size={18} />}

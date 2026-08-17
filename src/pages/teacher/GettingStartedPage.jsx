@@ -25,7 +25,7 @@ const GUIDES = [
         image: '/ayuda-comenzar/01-dashboard-nueva-asignatura.png',
       },
       {
-        text: 'Se abre un formulario. Nombre (por ejemplo "Matemáticas") y grupo (por ejemplo "1A") son los dos únicos datos obligatorios — todo lo demás lo puedes dejar para después.',
+        text: 'Se abre un formulario. Nombre (por ejemplo "Matemáticas"), grupo (por ejemplo "1A") y las fechas de inicio y fin del curso son obligatorios — con las fechas se arman tus bloques de horario, tu horario y agenda, las asistencias y la Planeación Inicial. Todo lo demás lo puedes dejar para después.',
         image: '/ayuda-comenzar/02-modal-crear-asignatura.png',
       },
       {
