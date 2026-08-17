@@ -485,6 +485,11 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
         documento POR CADA PARCIAL real de la asignatura.
       </p>
 
+      <p className="text-xs text-muted mb-2">
+        💡 Guía, no guion: adapta esta planeación con libertad según las necesidades de tu grupo. La IA la tomará
+        como referencia para crear actividades.
+      </p>
+
       {subjectPlaneacionLoaded && !subjectPlaneacion?.planeacionAceptada && (
         <p className="text-sm font-semibold text-red-600 mb-2">
           Haz que tu IA tenga la mejor congruencia ACEPTANDO tu planeación didáctica INICIAL.
