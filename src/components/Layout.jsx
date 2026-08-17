@@ -155,6 +155,18 @@ export default function TeacherLayout({ children }) {
         <div className="flex items-center gap-1">
           {/* Créditos IA — visibles sin entrar a ninguna sección (chip compacto) */}
           <CreditosBar variant="movil" />
+          {/* Chat con Asistente en móvil/app (18-ago-2026) — la barra inferior
+              ya tiene sus 4 espacios ocupados, así que entra aquí junto a
+              "Ayuda para comenzar", mismo criterio que en el sidebar de
+              escritorio: es del Asistente IA en general, no de una
+              asignatura en particular. */}
+          <NavLink
+            to="/chat-asistente"
+            aria-label="Chat con Asistente"
+            className="p-2 text-muted hover:text-accent rounded transition-colors"
+          >
+            <MessageCircle size={20} />
+          </NavLink>
           <NavLink
             to="/manual"
             aria-label="Ayuda para comenzar"
