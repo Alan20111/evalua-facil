@@ -3,16 +3,17 @@
 // El docente puede adjuntar hasta 3 PDF/Word como fuente del contenido de un
 // examen o cuestionario generado con IA. Este módulo SOLO extrae texto plano
 // desde una URL de Cloudinary — no interpreta, no resume, no decide nada
-// pedagógico. Ese texto se trunca y se agrega al prompt en functions/ia.js.
-
-// 12000 (~4-5 páginas) se quedaba corto para programas de estudios/manuales
-// reales de varias decenas de páginas — causa raíz real de que Planeación
-// Inicial "perdiera" temas que estaban más adelante en el documento fuente:
-// el texto ya venía cortado antes de llegar al prompt, la IA nunca lo vio
-// (Kike, 17-ago-2026). 40000 iguala el límite ya usado en functions/ia.js
-// (C02_MAX_CHARS) para la misma decisión — "cuánto texto de un documento
-// se manda en un solo prompt" — en vez de inventar un número nuevo.
-const MAX_CHARS = 40000
+// pedagógico.
+//
+// REGLA DE ORO (Kike, 17-ago-2026): el tamaño del documento fuente nunca
+// debe provocar pérdida silenciosa de contenido. Este módulo devuelve el
+// texto COMPLETO extraído del documento — nunca lo trunca (antes lo hacía,
+// primero a 12000 caracteres y luego a 40000; ambos eran la misma causa
+// raíz con otro número, y "otro límite arbitrario" seguía siendo la
+// respuesta equivocada). Si un consumidor necesita acotar cuánto de ese
+// texto manda en un solo prompt, esa es una decisión SUYA (ver
+// functions/docChunking.js para fragmentar sin perder contenido cuando el
+// texto es demasiado grande para una sola llamada) — no de esta función.
 
 function extension(url) {
   const limpio = String(url || '').split('?')[0]
@@ -20,7 +21,7 @@ function extension(url) {
   return m ? m[1].toLowerCase() : ''
 }
 
-/** Descarga una URL y extrae su texto plano, truncado a MAX_CHARS. */
+/** Descarga una URL y extrae su texto plano COMPLETO — sin truncar. */
 async function extraerTextoDocumento(url) {
   let res
   try {
@@ -52,7 +53,7 @@ async function extraerTextoDocumento(url) {
 
   texto = texto.trim()
   if (!texto) throw new Error('El documento no tiene texto extraíble.')
-  return texto.slice(0, MAX_CHARS)
+  return texto
 }
 
-module.exports = { extraerTextoDocumento, MAX_CHARS }
+module.exports = { extraerTextoDocumento }
