@@ -1541,8 +1541,80 @@ caso('coberturaIncompleta: un elemento sin la clave "cubierto" cuenta como no cu
   assert.strictEqual(FIA.coberturaIncompleta([{ titulo: 'A' }]), true)
 })
 
-caso('docExtract.MAX_CHARS: se subió de 12000 a 40000 — causa raíz real de temas perdidos en fuentes largas', () => {
-  assert.strictEqual(docExtract.MAX_CHARS, 40000)
+caso('docExtract: ya no trunca — no expone ningún MAX_CHARS (el documento completo es la fuente)', () => {
+  assert.strictEqual(docExtract.MAX_CHARS, undefined)
+})
+
+// Fragmentación de documentos grandes SIN pérdida de contenido (17-ago-2026)
+const docChunking = require('../functions/docChunking.js')
+
+caso('dividirEnFragmentos: documento pequeño no se fragmenta (CASO 1)', () => {
+  assert.deepStrictEqual(docChunking.dividirEnFragmentos('hola mundo', 1000), ['hola mundo'])
+})
+
+caso('dividirEnFragmentos: documento vacío devuelve arreglo vacío', () => {
+  assert.deepStrictEqual(docChunking.dividirEnFragmentos('', 1000), [])
+  assert.deepStrictEqual(docChunking.dividirEnFragmentos(null, 1000), [])
+})
+
+caso('dividirEnFragmentos: respeta límites de párrafo cuando puede (no corta una sesión a la mitad)', () => {
+  const parrafos = Array.from({ length: 10 }, (_, i) => `Sesión ${i + 1}. ${'contenido '.repeat(20)}`)
+  const texto = parrafos.join('\n\n')
+  const fragmentos = docChunking.dividirEnFragmentos(texto, 500)
+  assert.ok(fragmentos.length > 1)
+  // Cada párrafo completo aparece ENTERO en algún fragmento — ninguno quedó partido a la mitad.
+  parrafos.forEach((p) => {
+    assert.ok(fragmentos.some((f) => f.includes(p)), `"${p.slice(0, 20)}..." no apareció completo en ningún fragmento`)
+  })
+})
+
+caso('dividirEnFragmentos: la unión de los fragmentos reproduce el texto original completo — nunca se pierde contenido', () => {
+  const texto = Array.from({ length: 15 }, (_, i) => `Tema ${i + 1}\n\n${'x'.repeat(300)}`).join('\n\n')
+  const fragmentos = docChunking.dividirEnFragmentos(texto, 400)
+  assert.strictEqual(fragmentos.join(''), texto)
+})
+
+caso('dividirEnFragmentos: sin ningún separador de párrafo (documento de un solo bloque), igual fragmenta sin perder nada', () => {
+  const texto = 'y'.repeat(50000)
+  const fragmentos = docChunking.dividirEnFragmentos(texto, 12000)
+  assert.ok(fragmentos.length >= 4)   // sin tope artificial de fragmentos
+  assert.strictEqual(fragmentos.join(''), texto)
+})
+
+caso('dividirEnFragmentos: documento que supera el antiguo límite de 12000 caracteres no se pierde (CASO 2)', () => {
+  const texto = Array.from({ length: 30 }, (_, i) => `Sesión ${i + 1} de un manual real.\n${'contenido '.repeat(60)}`).join('\n\n')
+  assert.ok(texto.length > 12000)
+  const fragmentos = docChunking.dividirEnFragmentos(texto, FIA.FUENTE_FRAGMENTO_MAX_CHARS)
+  assert.strictEqual(fragmentos.join(''), texto)
+  for (let i = 1; i <= 30; i++) {
+    assert.ok(fragmentos.some((f) => f.includes(`Sesión ${i} de un manual real.`)), `Sesión ${i} se perdió`)
+  }
+})
+
+caso('FUENTE_UMBRAL_FRAGMENTAR_CHARS / FUENTE_FRAGMENTO_MAX_CHARS: valores razonables y coherentes entre sí', () => {
+  assert.ok(FIA.FUENTE_UMBRAL_FRAGMENTAR_CHARS > 40000)   // más grande que el límite viejo que se eliminó
+  assert.ok(FIA.FUENTE_FRAGMENTO_MAX_CHARS > 0)
+  assert.ok(FIA.FUENTE_FRAGMENTO_MAX_CHARS <= FIA.FUENTE_UMBRAL_FRAGMENTAR_CHARS)
+})
+
+caso('promptExtraerTemasFragmento: identifica el fragmento (índice/total) e incluye su texto completo', () => {
+  const prompt = FIA.promptExtraerTemasFragmento('CONTENIDO DEL FRAGMENTO', 2, 5)
+  assert.ok(prompt.includes('FRAGMENTO 3 de 5'))
+  assert.ok(prompt.includes('CONTENIDO DEL FRAGMENTO'))
+  assert.ok(prompt.includes('"temas"'))
+})
+
+caso('construirBloqueFuenteEstructurada: sin temas devuelve null', () => {
+  assert.strictEqual(FIA.construirBloqueFuenteEstructurada([]), null)
+})
+
+caso('construirBloqueFuenteEstructurada: representa TODOS los temas consolidados, ninguno se pierde (CASO 6, 10 sesiones)', () => {
+  const temas = Array.from({ length: 10 }, (_, i) => ({ titulo: `Sesión ${i + 1}`, resumen: `Resumen ${i + 1}` }))
+  const bloque = FIA.construirBloqueFuenteEstructurada(temas)
+  assert.ok(bloque.includes('10 temas identificados'))
+  for (let i = 1; i <= 10; i++) {
+    assert.ok(bloque.includes(`Sesión ${i}`), `Sesión ${i} no aparece en el bloque consolidado`)
+  }
 })
 
 caso('promptCorreccionCobertura: lista exactamente los temas sin cubrir y pide agregar Secuencias, no recortar', () => {

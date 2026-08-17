@@ -27,6 +27,7 @@ const { logger } = require('firebase-functions')
 const ledger = require('./creditosLedger')
 const { resolverIntentoGanador, respuestasVivasSonDelIntentoGanador } = require('./calificacionIntentos')
 const fuentesIA = require('./fuentesIA')
+const { dividirEnFragmentos } = require('./docChunking')
 // Lógica PURA de calendario/sesiones, compartida con el cliente — ver
 // src/utils/sesionesReales.js (fuente real) y scripts/sync-functions-shared.mjs
 // (genera esta copia en cada predeploy; también hay que correrlo a mano antes
@@ -2715,6 +2716,107 @@ const CAMPOS_MOMENTO = [
 ]
 const FUENTES_INFORMACION_VACIAS = ['', '', '', '', '']
 
+// ─── Documentos fuente grandes — REGLA DE ORO (Kike, 17-ago-2026): el ──────
+// tamaño del documento fuente nunca debe provocar pérdida silenciosa de
+// contenido. docExtract.js ya no trunca nada — extrae el documento COMPLETO,
+// sin importar cuántas páginas tenga. Lo que se resuelve aquí es distinto:
+// una sola llamada al modelo tiene un límite real de contexto (los modelos
+// Claude usados en Evalúa Fácil soportan ~200k tokens de entrada), y meter
+// el texto completo de un documento enorme en CADA llamada por parcial,
+// además de ser potencialmente imposible, sería carísimo (se repetiría N
+// veces, una por parcial). La solución NO es truncar — es fragmentar,
+// procesar TODOS los fragmentos y consolidar, UNA SOLA VEZ (no por parcial).
+//
+// FUENTE_UMBRAL_FRAGMENTAR_CHARS decide la ESTRATEGIA, no un contenido
+// máximo: por debajo, el texto completo se manda tal cual (como ya hacía
+// antes de esta pieza) — arriba, se fragmenta y se extraen sus temas por
+// partes, pero NINGÚN contenido se descarta en ningún caso. ~150000
+// caracteres (~37500 tokens) deja margen generoso para que el resto del
+// prompt (perfil docente, diagnósticos, instrucciones) quepa cómodo dentro
+// de la ventana de contexto sin fragmentar.
+const FUENTE_UMBRAL_FRAGMENTAR_CHARS = 150000
+// Tamaño de cada fragmento que sí se manda a extracción — generoso pero muy
+// por debajo de la ventana de contexto del modelo, para dejar margen a la
+// instrucción del prompt y a la respuesta.
+const FUENTE_FRAGMENTO_MAX_CHARS = 80000
+
+function promptExtraerTemasFragmento(fragmento, indice, totalFragmentos) {
+  return (
+    `Este es el FRAGMENTO ${indice + 1} de ${totalFragmentos} de un documento fuente más grande (programa de ` +
+    'estudios, manual o material similar de una asignatura de bachillerato) — los demás fragmentos se procesan ' +
+    'por separado, tú solo ves este pedazo. Identifica TODOS los temas, unidades, sesiones o apartados ' +
+    'distintos que aparezcan en ESTE fragmento, sin importar si el documento los numera explícitamente o no. ' +
+    'No omitas ninguno por parecer poco importante o repetido — si dos partes de este fragmento son de verdad ' +
+    'la misma unidad temática, repórtalas juntas; si no estás seguro, repórtalas por separado (es preferible un ' +
+    'tema de más que uno perdido). Para cada uno, escribe también un resumen breve (2-4 líneas) del contenido ' +
+    'real de esa unidad — ese resumen es la única referencia a este fragmento que tendrá el siguiente paso, así ' +
+    'que debe bastar para escribir actividades sobre ese tema sin volver a leer el documento completo.\n\n' +
+    `"""${fragmento}"""\n\n` +
+    'Responde SOLO con este JSON:\n' +
+    '{\n  "temas": [\n    { "titulo": "<tal como se llame en el documento, o un título breve si no tiene ' +
+    'nombre propio>", "resumen": "<2-4 líneas>" },\n    { ... una entrada más por cada tema/unidad/apartado ' +
+    'adicional de este fragmento ... }\n  ]\n}\n' +
+    'Si este fragmento no contiene ningún tema identificable (p. ej. es una portada o un índice), responde ' +
+    '{"temas": []} — no inventes uno para rellenar.'
+  )
+}
+
+// Fragmenta `texto`, extrae los temas de CADA fragmento (en paralelo, sin
+// tope artificial de cuántos fragmentos se procesan — ver docChunking.js) y
+// consolida todo en una sola lista. Se llama UNA VEZ por generación de
+// Planeación (no una vez por parcial) — el resultado se reutiliza en todos
+// los parciales, así que el documento grande solo se manda a extracción una
+// vez, sin importar cuántos parciales tenga la asignatura.
+//
+// Si CUALQUIER fragmento falla (JSON ilegible, error de red, lo que sea),
+// esta función misma falla — nunca se arma una Planeación "aparentemente
+// completa" a partir de una extracción parcial en silencio (Kike,
+// 17-ago-2026: "nunca ocultar una pérdida de información").
+async function extraerTemasDeDocumentoGrande({ texto, client, modelo }) {
+  const fragmentos = dividirEnFragmentos(texto, FUENTE_FRAGMENTO_MAX_CHARS)
+  let tokensEntrada = 0, tokensSalida = 0, ms = 0
+
+  const resultados = await Promise.all(fragmentos.map((fragmento, i) => (
+    pedirJSON({
+      client, modelo, maxTokens: 4000, system: PLANEACION_SISTEMA,
+      prompt: promptExtraerTemasFragmento(fragmento, i, fragmentos.length),
+    }).catch((err) => {
+      throw new Error(
+        `No se pudo procesar por completo el documento fuente (fragmento ${i + 1} de ${fragmentos.length}): ` +
+        `${err.message || err}`
+      )
+    })
+  )))
+
+  const temas = []
+  for (const { datos, interno } of resultados) {
+    tokensEntrada += interno.tokensEntrada || 0
+    tokensSalida += interno.tokensSalida || 0
+    ms += interno.ms || 0
+    for (const t of Array.isArray(datos?.temas) ? datos.temas : []) {
+      const titulo = String(t?.titulo || '').trim().slice(0, 200)
+      if (!titulo) continue
+      temas.push({ titulo, resumen: String(t?.resumen || '').trim().slice(0, 600) })
+    }
+  }
+  return { temas, fragmentosProcesados: fragmentos.length, interno: { tokensEntrada, tokensSalida, ms } }
+}
+
+// Texto compacto (proporcional a la CANTIDAD de temas, no al tamaño
+// original del documento — por eso sí cabe en el prompt de cada parcial)
+// que representa el documento completo cuando fue demasiado grande para
+// mandarlo tal cual. Deja explícito que es un documento grande ya
+// procesado por partes, para que la IA no espere el texto crudo completo.
+function construirBloqueFuenteEstructurada(temas) {
+  if (!temas.length) return null
+  const lista = temas.map((t, i) => `${i + 1}. ${t.titulo}${t.resumen ? ` — ${t.resumen}` : ''}`).join('\n')
+  return (
+    `Documento(s) de referencia del docente — documento GRANDE, procesado por partes y consolidado aquí ` +
+    `(${temas.length} temas identificados en total; esta lista representa el documento COMPLETO, no un ` +
+    'resumen parcial):\n' + lista
+  )
+}
+
 // Genera el contenido de UN parcial específico — se llama una vez por
 // parcial real de la asignatura, así que el resultado es una Planeación
 // distinta por parcial, no una sola con todo mezclado (decisión de Kike,
@@ -3046,6 +3148,25 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
   // se pide en la llamada del primer parcial (mismo programa de estudios
   // para todos, no tiene caso repetir la pregunta y gastar tokens de más).
   let fuentesInformacion = FUENTES_INFORMACION_VACIAS.slice()
+
+  // Documento(s) fuente demasiado grandes para una sola llamada: se
+  // fragmentan y se extraen sus temas UNA SOLA VEZ aquí (no una vez por
+  // parcial), y ese resultado consolidado sustituye el texto crudo en el
+  // contexto que ve cada parcial — ver comentario de FUENTE_UMBRAL_
+  // FRAGMENTAR_CHARS más arriba. Si la extracción de algún fragmento falla,
+  // esto se propaga y toda la generación falla (se reembolsa el crédito
+  // reservado, igual que cualquier otro error de esta función) — nunca se
+  // continúa con una fuente incompleta en silencio.
+  if ((ctx.bloqueFuentesGenerales?.length || 0) > FUENTE_UMBRAL_FRAGMENTAR_CHARS) {
+    const { temas, fragmentosProcesados, interno } = await extraerTemasDeDocumentoGrande({
+      texto: ctx.bloqueFuentesGenerales, client, modelo,
+    })
+    tokensEntrada += interno.tokensEntrada || 0
+    tokensSalida += interno.tokensSalida || 0
+    ms += interno.ms || 0
+    logger.info(`Planeación: documento fuente grande fragmentado en ${fragmentosProcesados} partes, ${temas.length} temas consolidados`)
+    ctx = { ...ctx, bloqueFuentesGenerales: construirBloqueFuenteEstructurada(temas) }
+  }
 
   const limpiarCampo = (s) => String(s || '').trim().slice(0, 2000)
   const limpiarMomento = (m) => {
@@ -3415,4 +3536,6 @@ exports._pruebas = {
   promptSecuenciasParcial, CAMPOS_IDENTIDAD_SECUENCIA, CAMPOS_MOMENTO,
   sumaPonderacionesParcial, normalizarPonderacionesParcial, promptCorreccionPonderaciones, PONDERACION_TOTAL,
   coberturaIncompleta, promptCorreccionCobertura,
+  promptExtraerTemasFragmento, construirBloqueFuenteEstructurada, extraerTemasDeDocumentoGrande,
+  FUENTE_UMBRAL_FRAGMENTAR_CHARS, FUENTE_FRAGMENTO_MAX_CHARS,
 }
