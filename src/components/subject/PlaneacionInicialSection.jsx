@@ -986,7 +986,7 @@ function Planeacion({
       {actual && !aceptada && !isDesktop && <AvisoRevisionDesktop />}
       {verRevision && (isDesktop || aceptada) && (
         <RevisionPantallaCompleta
-          titulo={aceptada ? 'Planeación Inicial aceptada (solo lectura)' : 'Corrige y guarda antes de aceptarla'}
+          titulo={`Planeación Inicial — ${asignaturaNombre}${aceptada ? ' (aceptada, solo lectura)' : ''}`}
           onCerrar={cerrarRevision}
           cerrarTexto={!aceptada ? 'Salir y aceptar luego' : null}
           tabs={(
