@@ -1943,6 +1943,83 @@ caso('resumenGeneralATexto: arma una línea por asignatura con conteos AGREGADOS
   assert.ok(!/alumno \d|nombre:|@/.test(texto)) // nunca identidad individual
 })
 
+// Chat con Acciones — CONVERSAR → PROPONER → CONFIRMAR → EJECUTAR
+// (17-ago-2026). sanearPropuestaAccionChat es la ÚNICA autoridad sobre qué
+// puede llegar de la IA a la propuesta que ve el docente — nunca confía en
+// el modelo, siempre recorta/valida.
+caso('sanearPropuestaAccionChat: en el Asistente General (permitirAcciones=false) SIEMPRE descarta la propuesta', () => {
+  const propuesta = { accion: 'CREAR_ACTIVIDAD_ENTREGABLE', nombre: 'Tarea', instrucciones: 'Haz esto' }
+  assert.strictEqual(FIA.sanearPropuestaAccionChat(propuesta, { permitirAcciones: false }), null)
+})
+
+caso('sanearPropuestaAccionChat: accion fuera de la lista blanca se descarta entera', () => {
+  const propuesta = { accion: 'BORRAR_TODO', nombre: 'x' }
+  assert.strictEqual(FIA.sanearPropuestaAccionChat(propuesta, { permitirAcciones: true }), null)
+})
+
+caso('sanearPropuestaAccionChat: entregable sin instrucciones se descarta (igual que EntregableEditor.jsx)', () => {
+  const propuesta = { accion: 'CREAR_ACTIVIDAD_ENTREGABLE', nombre: 'Tarea de fracciones', instrucciones: '' }
+  assert.strictEqual(FIA.sanearPropuestaAccionChat(propuesta, { permitirAcciones: true }), null)
+})
+
+caso('sanearPropuestaAccionChat: entregable válido conserva categoria y recorta longitudes', () => {
+  const propuesta = {
+    accion: 'CREAR_ACTIVIDAD_ENTREGABLE', nombre: 'x'.repeat(200), instrucciones: 'Resuelve los ejercicios de fracciones',
+  }
+  const r = FIA.sanearPropuestaAccionChat(propuesta, { permitirAcciones: true })
+  assert.strictEqual(r.accion, 'CREAR_ACTIVIDAD_ENTREGABLE')
+  assert.strictEqual(r.categoria, 'entregable')
+  assert.strictEqual(r.nombre.length, 120)
+})
+
+caso('sanearPropuestaAccionChat: observación NO requiere instrucciones y queda con categoria observacion', () => {
+  const propuesta = { accion: 'CREAR_ACTIVIDAD_OBSERVACION', nombre: 'Observar participación', instrucciones: '' }
+  const r = FIA.sanearPropuestaAccionChat(propuesta, { permitirAcciones: true })
+  assert.ok(r)
+  assert.strictEqual(r.categoria, 'observacion')
+  assert.strictEqual(r.instrucciones, null)
+})
+
+caso('sanearPropuestaAccionChat: examen con menos de MIN_REACTIVOS reactivos válidos se descarta', () => {
+  const propuesta = {
+    accion: 'CREAR_EXAMEN', nombre: 'Examen de fracciones',
+    reactivos: [{ tipo: 'verdadero_falso', enunciado: 'Uno solo' }],
+  }
+  assert.strictEqual(FIA.sanearPropuestaAccionChat(propuesta, { permitirAcciones: true }), null)
+})
+
+caso('sanearPropuestaAccionChat: examen válido conserva categoria examen y sus reactivos saneados', () => {
+  const propuesta = {
+    accion: 'CREAR_EXAMEN', nombre: 'Examen de fracciones',
+    reactivos: [
+      { tipo: 'opcion_multiple', enunciado: '¿Cuánto es 1/2 + 1/2?', opciones: ['0', '1', '2', '3'], correcta: 1 },
+      { tipo: 'verdadero_falso', enunciado: '1/2 es mayor que 1/4', correcta: 'v' },
+      { tipo: 'opcion_multiple', enunciado: 'sin suficientes opciones', opciones: ['a', '', '', ''], correcta: 0 },
+    ],
+  }
+  const r = FIA.sanearPropuestaAccionChat(propuesta, { permitirAcciones: true })
+  assert.strictEqual(r.categoria, 'examen')
+  // el tercer reactivo (solo 1 opción con texto) se descarta, quedan 2
+  assert.strictEqual(r.reactivos.length, 2)
+  assert.strictEqual(r.reactivos[0].tipo, 'opcion_multiple')
+  assert.strictEqual(r.reactivos[1].correcta, 'v')
+})
+
+caso('sanearPropuestaAccionChat: fechaLimite en el pasado o con formato inválido se descarta a null', () => {
+  const base = { accion: 'CREAR_ACTIVIDAD_ENTREGABLE', nombre: 'Tarea', instrucciones: 'Haz esto' }
+  assert.strictEqual(FIA.sanearPropuestaAccionChat({ ...base, fechaLimite: '2020-01-01' }, { permitirAcciones: true }).fechaLimite, null)
+  assert.strictEqual(FIA.sanearPropuestaAccionChat({ ...base, fechaLimite: 'no es una fecha' }, { permitirAcciones: true }).fechaLimite, null)
+})
+
+caso('sanearReactivoPropuestaChat: tipo fuera de la lista blanca cae a opcion_multiple', () => {
+  const r = FIA.sanearReactivoPropuestaChat({ tipo: 'lo-que-sea', enunciado: 'x', opciones: ['a', 'b', 'c', 'd'] })
+  assert.strictEqual(r.tipo, 'opcion_multiple')
+})
+
+caso('sanearReactivoPropuestaChat: sin enunciado se descarta (null)', () => {
+  assert.strictEqual(FIA.sanearReactivoPropuestaChat({ tipo: 'verdadero_falso', enunciado: '  ' }), null)
+})
+
 console.log(`\n${'─'.repeat(60)}`)
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
