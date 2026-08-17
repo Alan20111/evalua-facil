@@ -33,6 +33,7 @@ const require = createRequire(import.meta.url)
 const { _pruebas: F } = require('../functions/index.js')
 const { _pruebas: FIA } = require('../functions/ia.js')
 const { resolverIntentoGanador, respuestasVivasSonDelIntentoGanador } = require('../functions/calificacionIntentos.js')
+const docExtract = require('../functions/docExtract.js')
 const L = require('../functions/creditosLedger.js')
 const { Timestamp } = require('firebase-admin/firestore')
 
@@ -1511,6 +1512,50 @@ caso('promptSecuenciasParcial: la regla de ponderación exige números enteros, 
   assert.ok(prompt.includes('ENTERO'))
   assert.ok(prompt.includes('nunca decimales'))
   assert.ok(prompt.includes('100%'))
+})
+
+// Cobertura completa del contenido fuente (17-ago-2026, Kike: una fuente con
+// 10 temas terminaba con una planeación que solo cubría los primeros 6).
+caso('promptSecuenciasParcial: pide identificar y cubrir TODOS los temas de la fuente, y expone "temasFuente" en el JSON', () => {
+  const prompt = FIA.promptSecuenciasParcial(CTX_BASE, { numero: 1, periodoTexto: null }, null, false)
+  assert.ok(prompt.includes('COBERTURA COMPLETA DEL CONTENIDO FUENTE'))
+  assert.ok(prompt.includes('"temasFuente"'))
+  assert.ok(prompt.includes('nunca recortar el contenido fuente'))
+})
+
+caso('coberturaIncompleta: true si algún tema no está cubierto', () => {
+  assert.strictEqual(FIA.coberturaIncompleta([{ titulo: 'A', cubierto: true }, { titulo: 'B', cubierto: false }]), true)
+})
+
+caso('coberturaIncompleta: false si todos los temas están cubiertos', () => {
+  assert.strictEqual(FIA.coberturaIncompleta([{ titulo: 'A', cubierto: true }, { titulo: 'B', cubierto: true }]), false)
+})
+
+caso('coberturaIncompleta: sin temasFuente (o vacío/no-array), no se considera incompleto — nada que reintentar', () => {
+  assert.strictEqual(FIA.coberturaIncompleta(undefined), false)
+  assert.strictEqual(FIA.coberturaIncompleta([]), false)
+  assert.strictEqual(FIA.coberturaIncompleta(null), false)
+})
+
+caso('coberturaIncompleta: un elemento sin la clave "cubierto" cuenta como no cubierto (nunca se asume true)', () => {
+  assert.strictEqual(FIA.coberturaIncompleta([{ titulo: 'A' }]), true)
+})
+
+caso('docExtract.MAX_CHARS: se subió de 12000 a 40000 — causa raíz real de temas perdidos en fuentes largas', () => {
+  assert.strictEqual(docExtract.MAX_CHARS, 40000)
+})
+
+caso('promptCorreccionCobertura: lista exactamente los temas sin cubrir y pide agregar Secuencias, no recortar', () => {
+  const prompt = FIA.promptCorreccionCobertura('PROMPT BASE', [
+    { titulo: 'Las afores', cubierto: false },
+    { titulo: 'El idioma del dinero', cubierto: false },
+    { titulo: 'Presupuesto', cubierto: true },
+  ])
+  assert.ok(prompt.startsWith('PROMPT BASE'))
+  assert.ok(prompt.includes('Las afores'))
+  assert.ok(prompt.includes('El idioma del dinero'))
+  assert.ok(!prompt.includes('- Presupuesto'))   // el ya cubierto no debe listarse como faltante
+  assert.ok(prompt.includes('AGREGA'))
 })
 
 // Corrección de Kike (12-ago-2026, Tanda 2): `resultado` ahora es la salida
