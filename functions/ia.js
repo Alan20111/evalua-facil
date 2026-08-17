@@ -2700,13 +2700,18 @@ const CAMPOS_IDENTIDAD_SECUENCIA = [
   { clave: 'contenidosRelacionados', etiqueta: 'Contenidos relacionados' },
 ]
 const MOMENTOS = ['apertura', 'desarrollo', 'cierre']
+// Escala única de ponderación de un parcial completo — PORCENTAJE, en
+// puntos ENTEROS, sin decimales (Kike, 17-ago-2026: "no quiero decimales
+// en las ponderaciones" — la escala sigue siendo 100%, solo se corrigieron
+// los decimales).
+const PONDERACION_TOTAL = 100
 const CAMPOS_MOMENTO = [
   { clave: 'actividades', etiqueta: 'Actividades de enseñanza-aprendizaje' },
   { clave: 'recursos', etiqueta: 'Recursos y materiales' },
   { clave: 'estrategiaEvaluacion', etiqueta: 'Estrategia de evaluación' },
   { clave: 'evidencias', etiqueta: 'Evidencias' },
   { clave: 'tipoInstrumento', etiqueta: 'Tipo de evaluación / instrumento' },
-  { clave: 'ponderacion', etiqueta: 'Ponderación (%)' },
+  { clave: 'ponderacion', etiqueta: 'Ponderación (%, número entero)' },
 ]
 const FUENTES_INFORMACION_VACIAS = ['', '', '', '', '']
 
@@ -2765,16 +2770,21 @@ function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada, pedirBibli
     'Desarrollo y de las del Cierre — igual que en un formato real de planeación, donde cada momento se evalúa ' +
     'por separado.\n' +
     'REGLA ÚNICA DE PONDERACIÓN (Kike, 16-ago-2026 — "simplificar la evaluación, el docente NO debe hacer ' +
-    'cálculos"): existe UNA SOLA escala de ponderación, la del PARCIAL completo = 100%. Ni la Secuencia ni sus ' +
-    'momentos (Apertura/Desarrollo/Cierre) tienen porcentaje propio — Apertura, Desarrollo y Cierre son la ' +
-    'METODOLOGÍA de la Secuencia, no niveles de evaluación independientes. Lo que se pondera es la EVIDENCIA que ' +
-    'cada momento produce: si un momento no genera una evidencia que de verdad se evalúe, su "ponderacion" es ' +
-    '"0%" o "No aplica" — nunca inventes un porcentaje solo por rellenar el campo.\n' +
+    'cálculos"; ajustada a números enteros el 17-ago-2026): existe UNA SOLA escala de ponderación, la del ' +
+    `PARCIAL completo = ${PONDERACION_TOTAL}% — y cada valor individual debe ser un número ENTERO, nunca ` +
+    'decimales (1%, 2%, 3%... nunca 1.5%, 2.5%, 0.5%). Ni la Secuencia ni sus momentos ' +
+    '(Apertura/Desarrollo/Cierre) tienen porcentaje propio — Apertura, Desarrollo y Cierre son la METODOLOGÍA de ' +
+    'la Secuencia, no niveles de evaluación independientes. Lo que se pondera es la EVIDENCIA que cada momento ' +
+    'produce: si un momento no genera una evidencia que de verdad se evalúe, su "ponderacion" es "0%" o "No ' +
+    'aplica" — nunca inventes un porcentaje solo por rellenar el campo.\n' +
     'La suma de TODAS las "ponderacion" de TODOS los momentos (Apertura + Desarrollo + Cierre) de TODAS las ' +
-    'Secuencias Didácticas de este parcial debe dar EXACTAMENTE 100% — ni más ni menos. NUNCA repartas 100% ' +
-    'dentro de cada Secuencia por separado (eso sumaría muchas veces 100% en el parcial, que es justo lo que se ' +
-    'debe evitar). Antes de responder, suma mentalmente todas las ponderaciones que vas a entregar en este ' +
-    'parcial y ajústalas para que el total dé exactamente 100%.\n' +
+    `Secuencias Didácticas de este parcial debe dar EXACTAMENTE ${PONDERACION_TOTAL}% — ni más ni menos, y cada ` +
+    'valor individual debe ser un número ENTERO (por ejemplo: 20% + 30% + 10% + 40% = 100% es válido; 15.5% + ' +
+    '24.5% + 30% + 30% = 100% NO es válido porque tiene decimales). NUNCA repartas ' +
+    `${PONDERACION_TOTAL}% dentro de cada Secuencia por separado (eso sumaría varias veces ` +
+    `${PONDERACION_TOTAL}% en el parcial, que es justo lo que se debe evitar). Antes de responder, suma ` +
+    'mentalmente todas las ponderaciones enteras que vas a entregar en este parcial y ajústalas para que el ' +
+    `total dé exactamente ${PONDERACION_TOTAL}%.\n` +
     'EXTENSIÓN DEL TEXTO — breve, claro y conciso, sin párrafos largos, explicaciones pedagógicas extensas, ' +
     'justificaciones ni descripciones innecesarias. Estos son máximos orientativos, no metas a alcanzar (si se ' +
     'puede decir con menos palabras, usa menos):\n' +
@@ -2900,9 +2910,10 @@ function promptCorreccionSecuencias(promptOriginal, objetivo, entregadas) {
 }
 
 // Suma las "ponderacion" de TODOS los momentos de TODAS las Secuencias de
-// un parcial — "0%"/"No aplica"/vacío cuentan como 0. Regla única de
-// ponderación (Kike, 16-ago-2026): esa suma debe dar exactamente 100, la
-// escala es el PARCIAL completo, no cada Secuencia por separado.
+// un parcial — "0"/"No aplica"/vacío cuentan como 0. Regla única de
+// ponderación (Kike, 16-ago-2026, ajustada a puntos enteros el
+// 17-ago-2026): esa suma debe dar exactamente PONDERACION_TOTAL, la escala
+// es el PARCIAL completo, no cada Secuencia por separado.
 function numeroPonderacion(v) {
   const m = String(v || '').match(/-?\d+(\.\d+)?/)
   return m ? parseFloat(m[0]) : 0
@@ -2920,24 +2931,33 @@ function promptCorreccionPonderaciones(promptOriginal, sumaActual) {
   return (
     promptOriginal +
     `\n\nCORRECCIÓN OBLIGATORIA: la suma de TODAS las "ponderacion" de TODOS los momentos de TODAS las ` +
-    `Secuencias de este parcial dio ${sumaActual}%, y debe dar EXACTAMENTE 100%. Vuelve a responder el JSON ` +
-    'COMPLETO, con las mismas Secuencias y contenido, ajustando SOLO los valores de "ponderacion" (de los ' +
-    'momentos que sí tienen evidencia evaluable) para que la suma total del parcial dé exactamente 100% — no ' +
-    'repartas 100% dentro de cada Secuencia por separado.'
+    `Secuencias de este parcial dio ${sumaActual}%, y debe dar EXACTAMENTE ${PONDERACION_TOTAL}% — cada valor ` +
+    'individual tiene que ser además un número ENTERO, sin decimales. Vuelve a responder el JSON COMPLETO, con ' +
+    'las mismas Secuencias y contenido, ajustando SOLO los valores de "ponderacion" (de los momentos que sí ' +
+    `tienen evidencia evaluable, todos enteros) para que la suma total del parcial dé exactamente ` +
+    `${PONDERACION_TOTAL}% — no repartas ${PONDERACION_TOTAL}% dentro de cada Secuencia por separado.`
   )
 }
 
 // Garantía DURA de la regla única de ponderación — no basta con pedírselo
 // a la IA (el reintento de arriba ayuda, pero un modelo puede seguir sin
-// dar exactamente 100). Mismo principio que ya regía en el resto de
-// Evalúa Fácil (ver repartirPonderacion, más arriba en este archivo): "la
-// IA no reparte puntos, los calcula el código" — así que aquí se
-// reescala matemáticamente cada "ponderacion" no-cero, proporcional a lo
-// que la IA propuso, para que la suma del parcial dé EXACTAMENTE 100 sin
-// depender de que el docente lo revise (Kike, 16-ago-2026: "es muy
-// probable que los docentes no revisen mucho y dejen todo como lo genera
-// la IA"). Los momentos en "0%"/"No aplica" se quedan tal cual — nunca se
-// les asigna ponderación por rescatar la suma.
+// dar exactamente PONDERACION_TOTAL, o seguir usando decimales). Mismo
+// principio que ya regía en el resto de Evalúa Fácil (ver
+// repartirPonderacion, más arriba en este archivo): "la IA no reparte
+// puntos, los calcula el código" — así que aquí se reparte
+// matemáticamente PONDERACION_TOTAL en partes ENTERAS, proporcional a lo
+// que la IA propuso, sin depender de que el docente lo revise (Kike,
+// 16-ago-2026: "es muy probable que los docentes no revisen mucho y dejen
+// todo como lo genera la IA"). Los momentos en "0%"/"No aplica" se quedan
+// tal cual — nunca se les asigna ponderación por rescatar la suma.
+//
+// Método del resto mayor (Hare quota), no "la última absorbe el residuo del
+// redondeo" que había antes: ese truco podía dejar valores con un solo
+// decimal (33.3%) — exactamente el bug que reportó Kike (17-ago-2026). El
+// resto mayor reparte los puntos enteros sobrantes (siempre menos que el
+// número de entradas) a quienes tenían el residuo más alto, así que la
+// suma da 100 exacto, en enteros, sin arriesgar un valor negativo aunque
+// haya muchas Secuencias/momentos.
 function normalizarPonderacionesParcial(secuencias) {
   const entradas = []
   for (const s of Array.isArray(secuencias) ? secuencias : []) {
@@ -2949,18 +2969,15 @@ function normalizarPonderacionesParcial(secuencias) {
   }
   const total = entradas.reduce((suma, e) => suma + e.valor, 0)
   if (!entradas.length || total <= 0) return
-  let acumulado = 0
-  entradas.forEach((e, i) => {
-    if (i === entradas.length - 1) {
-      // La última absorbe el residuo del redondeo — así la suma da
-      // exactamente 100, nunca 99.9 ni 100.1.
-      e.m.ponderacion = `${Math.round((100 - acumulado) * 10) / 10}%`
-    } else {
-      const escalado = Math.round((e.valor / total) * 1000) / 10
-      acumulado += escalado
-      e.m.ponderacion = `${escalado}%`
-    }
-  })
+  const cuotas = entradas.map((e) => (e.valor / total) * PONDERACION_TOTAL)
+  const bases = cuotas.map((c) => Math.floor(c))
+  const sobrante = PONDERACION_TOTAL - bases.reduce((suma, b) => suma + b, 0)
+  const ordenPorResiduo = cuotas
+    .map((c, i) => ({ i, residuo: c - bases[i] }))
+    .sort((a, b) => b.residuo - a.residuo)
+  const asignado = [...bases]
+  for (let k = 0; k < sobrante; k++) asignado[ordenPorResiduo[k % ordenPorResiduo.length].i]++
+  entradas.forEach((e, i) => { e.m.ponderacion = `${asignado[i]}%` })
 }
 
 // Ejecuta una llamada a la IA por CADA parcial real — de ahí sale una
@@ -3043,12 +3060,13 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
     }
 
     // Aseguramiento real de la REGLA ÚNICA DE PONDERACIÓN (Kike,
-    // 16-ago-2026): la suma de ponderaciones de todo el parcial debe dar
-    // exactamente 100 — igual que con la cantidad de Secuencias, un
+    // 16-ago-2026, ajustada a números enteros el 17-ago-2026): la suma de
+    // ponderaciones de todo el parcial debe dar exactamente
+    // PONDERACION_TOTAL — igual que con la cantidad de Secuencias, un
     // reintento automático que señala la suma exacta que salió mal, no
     // solo repetir la instrucción.
     const sumaInicial = sumaPonderacionesParcial(datos?.secuenciasDidacticas)
-    if (Math.abs(sumaInicial - 100) > 0.5) {
+    if (Math.abs(sumaInicial - PONDERACION_TOTAL) > 0.5) {
       const reintentoPonderacion = await pedirJSON({
         client, modelo, maxTokens, system: PLANEACION_SISTEMA,
         prompt: promptCorreccionPonderaciones(promptBase, sumaInicial),
@@ -3057,10 +3075,10 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
       tokensSalida += reintentoPonderacion.interno.tokensSalida || 0
       ms += reintentoPonderacion.interno.ms || 0
       const sumaReintento = sumaPonderacionesParcial(reintentoPonderacion.datos?.secuenciasDidacticas)
-      // Solo se usa el reintento si de verdad mejoró (más cerca de 100 que
-      // antes) — si no, se sigue con la respuesta original en vez de
-      // arriesgar un JSON peor.
-      if (Math.abs(sumaReintento - 100) < Math.abs(sumaInicial - 100)) {
+      // Solo se usa el reintento si de verdad mejoró (más cerca de
+      // PONDERACION_TOTAL que antes) — si no, se sigue con la respuesta
+      // original en vez de arriesgar un JSON peor.
+      if (Math.abs(sumaReintento - PONDERACION_TOTAL) < Math.abs(sumaInicial - PONDERACION_TOTAL)) {
         datos = reintentoPonderacion.datos
         reintentos++
       }
@@ -3311,4 +3329,5 @@ exports._pruebas = {
   comentariosGrupoATexto, autoanalisisDocenteATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
   promptSecuenciasParcial, CAMPOS_IDENTIDAD_SECUENCIA, CAMPOS_MOMENTO,
+  sumaPonderacionesParcial, normalizarPonderacionesParcial, promptCorreccionPonderaciones, PONDERACION_TOTAL,
 }

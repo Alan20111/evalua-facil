@@ -1449,6 +1449,70 @@ caso('promptSecuenciasParcial: no toca el esquema JSON de salida (mismos campos 
   assert.ok(conSesiones.includes('"cierre"'))
 })
 
+// Ponderaciones sin decimales (17-ago-2026, Kike: "no quiero decimales en
+// las ponderaciones") — escala sigue en 100%, ahora en números enteros.
+const secuenciaConPonderacion = (apertura, desarrollo, cierre) => ({
+  apertura: { ponderacion: apertura }, desarrollo: { ponderacion: desarrollo }, cierre: { ponderacion: cierre },
+})
+
+caso('PONDERACION_TOTAL sigue siendo 100 (escala de porcentaje, no de 10 puntos)', () => {
+  assert.strictEqual(FIA.PONDERACION_TOTAL, 100)
+})
+
+caso('sumaPonderacionesParcial: suma todos los momentos de todas las secuencias, "%" no estorba al parseo', () => {
+  const suma = FIA.sumaPonderacionesParcial([
+    secuenciaConPonderacion('20%', '30%', '0%'),
+    secuenciaConPonderacion('10%', '40%', 'No aplica'),
+  ])
+  assert.strictEqual(suma, 100)
+})
+
+caso('normalizarPonderacionesParcial: una entrada con decimales queda en enteros y la suma da exactamente 100', () => {
+  const secuencias = [secuenciaConPonderacion('33.3%', '33.3%', '33.4%')]
+  FIA.normalizarPonderacionesParcial(secuencias)
+  const valores = [secuencias[0].apertura.ponderacion, secuencias[0].desarrollo.ponderacion, secuencias[0].cierre.ponderacion]
+  valores.forEach((v) => assert.ok(/^\d+%$/.test(v), `"${v}" no es un entero seguido de %`))
+  assert.strictEqual(FIA.sumaPonderacionesParcial(secuencias), 100)
+})
+
+caso('normalizarPonderacionesParcial: reparte enteros correctamente incluso con muchas entradas (sin negativos)', () => {
+  // 8 momentos con evidencia, valor "1" cada uno (proporciones iguales) —
+  // caso que con el método viejo ("la última absorbe el residuo") podía
+  // arriesgar un valor negativo en la última entrada.
+  const secuencias = Array.from({ length: 3 }, () => secuenciaConPonderacion('1', '1', '1'))
+  FIA.normalizarPonderacionesParcial(secuencias)
+  const valores = secuencias.flatMap((s) => [s.apertura.ponderacion, s.desarrollo.ponderacion, s.cierre.ponderacion])
+  valores.forEach((v) => {
+    assert.ok(/^\d+%$/.test(v))
+    assert.ok(parseInt(v, 10) >= 0, `"${v}" es negativo`)
+  })
+  assert.strictEqual(FIA.sumaPonderacionesParcial(secuencias), 100)
+})
+
+caso('normalizarPonderacionesParcial: los momentos en "0%"/"No aplica" no reciben ponderación al rescatar la suma', () => {
+  const secuencias = [secuenciaConPonderacion('50%', '50%', '0%'), secuenciaConPonderacion('No aplica', 'No aplica', 'No aplica')]
+  FIA.normalizarPonderacionesParcial(secuencias)
+  assert.strictEqual(secuencias[0].cierre.ponderacion, '0%')
+  assert.strictEqual(secuencias[1].apertura.ponderacion, 'No aplica')
+  assert.strictEqual(FIA.sumaPonderacionesParcial(secuencias), 100)
+})
+
+caso('promptCorreccionPonderaciones: señala la suma real y pide números enteros', () => {
+  const prompt = FIA.promptCorreccionPonderaciones('PROMPT BASE', 87.5)
+  assert.ok(prompt.startsWith('PROMPT BASE'))
+  assert.ok(prompt.includes('87.5%'))
+  assert.ok(prompt.includes('EXACTAMENTE 100%'))
+  assert.ok(prompt.includes('ENTERO'))
+})
+
+caso('promptSecuenciasParcial: la regla de ponderación exige números enteros, no decimales', () => {
+  const prompt = FIA.promptSecuenciasParcial(CTX_BASE, { numero: 1, periodoTexto: null }, null, false)
+  assert.ok(prompt.includes('REGLA ÚNICA DE PONDERACIÓN'))
+  assert.ok(prompt.includes('ENTERO'))
+  assert.ok(prompt.includes('nunca decimales'))
+  assert.ok(prompt.includes('100%'))
+})
+
 // Corrección de Kike (12-ago-2026, Tanda 2): `resultado` ahora es la salida
 // de normalizarAnalisisEncuestaContexto (OP-10 en modo encuesta), resultados
 // reales de un cuestionario que contestaron los estudiantes.
