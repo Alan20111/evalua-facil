@@ -1329,7 +1329,10 @@ export default function CalendarPage() {
       return
     }
     const fechas = propios.map(b => b.fecha).sort()
-    const patrones = derivarPatrones(asignaturaId)
+    // Fuente preferente: el patrón guardado en la asignatura. Fallback (curso
+    // viejo sin horarioPatron todavía): reconstruirlo de los bloques reales.
+    const patronesGuardados = subjects[asignaturaId]?.horarioPatron
+    const patrones = patronesGuardados?.length ? patronesGuardados : derivarPatrones(asignaturaId)
     const durComun = patrones[0]?.duracionMin || 60
     const primerAlarma = patrones.find(p => p.alarma?.activa)?.alarma
       || { activa: false, sonido: 'campana', minutosAntes: 10 }
@@ -1407,6 +1410,11 @@ export default function CalendarPage() {
         })
         await batch.commit()
       }
+      // Persiste el mismo patrón semanal usado para materializar los bloques
+      // — así queda disponible como dato propio de la asignatura (prerrequisito
+      // del "calendario real de sesiones"), sin depender de reconstruirlo con
+      // derivarPatrones() a partir de horarioBloques.
+      await updateDoc(doc(db, 'subjects', asignaturaId), { horarioPatron: patrones })
       toast(modo === 'modificar'
         ? `Bloques actualizados (${created.length})`
         : `Se programaron ${created.length} bloques de clase`)
@@ -1472,7 +1480,8 @@ export default function CalendarPage() {
     const tramos = tramosFaltantes(asignaturaId)
     setConfirmGenerarFaltantes(null)
     if (tramos.length === 0) return
-    const patrones = derivarPatrones(asignaturaId)
+    const patronesGuardados = subjects[asignaturaId]?.horarioPatron
+    const patrones = patronesGuardados?.length ? patronesGuardados : derivarPatrones(asignaturaId)
     if (patrones.length === 0) { toast('No se pudo deducir el horario semanal de esa asignatura', 'error'); return }
     const diasAsueto = [
       ...asuetos.filter(a => a.clases).map(a => a.fecha),
