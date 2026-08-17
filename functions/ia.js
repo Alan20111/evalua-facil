@@ -27,6 +27,13 @@ const { logger } = require('firebase-functions')
 const ledger = require('./creditosLedger')
 const { resolverIntentoGanador, respuestasVivasSonDelIntentoGanador } = require('./calificacionIntentos')
 const fuentesIA = require('./fuentesIA')
+// Lógica PURA de calendario/sesiones, compartida con el cliente — ver
+// src/utils/sesionesReales.js (fuente real) y scripts/sync-functions-shared.mjs
+// (genera esta copia en cada predeploy; también hay que correrlo a mano antes
+// de `npm run test:unit/test:server/test:ia`, ya cubierto por los pretest:*
+// de package.json).
+const { calcularSesionesReales } = require('./_shared/sesionesReales.js')
+const { fechasVacacionParaClases } = require('./_shared/vacaciones.js')
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
@@ -2426,12 +2433,30 @@ function validarCantidadSolicitada(params) {
 // Lista de parciales reales de la asignatura con su periodo en texto —
 // compartida por ambas operaciones: cada parcial genera SU PROPIO documento
 // (misma plantilla, contenido distinto), decisión de Kike, 15-ago-2026.
-function construirParcialesCtx(subj) {
+// `diasAsueto`/`sesionesCanceladas` ya vienen combinados por quien llama
+// (precheckPlaneacionInicial) — misma responsabilidad que ya tienen esos dos
+// parámetros en calcularSesionesReales(), esta función no lee Firestore.
+//
+// `sesionesReales` solo se agrega cuando la asignatura YA tiene horarioPatron
+// guardado — si no, el parcial se queda igual que antes (solo periodoTexto):
+// sin horario no hay nada que calcular, y no se bloquea ni se inventa uno.
+// El prompt (promptSecuenciasParcial) NO usa todavía este dato — queda
+// disponible en el contexto para una integración posterior.
+function construirParcialesCtx(subj, { diasAsueto = [], sesionesCanceladas = [] } = {}) {
   const numParciales = Math.max(1, Number(subj.parciales) || 1)
   const parcialesFechas = Array.isArray(subj.parcialesFechas) ? subj.parcialesFechas : []
+  const horarioPatron = Array.isArray(subj.horarioPatron) ? subj.horarioPatron : []
   const parciales = []
   for (let p = 1; p <= numParciales; p++) {
-    parciales.push({ numero: p, periodoTexto: formatoPeriodo(parcialesFechas[p - 1]) })
+    const ctx = { numero: p, periodoTexto: formatoPeriodo(parcialesFechas[p - 1]) }
+    if (horarioPatron.length && subj.fechaInicio && subj.fechaFin) {
+      const { sesiones } = calcularSesionesReales({
+        fechaInicio: subj.fechaInicio, fechaFin: subj.fechaFin,
+        parcialesFechas, horarioPatron, diasAsueto, sesionesCanceladas, parcial: p,
+      })
+      if (sesiones.length) ctx.sesionesReales = sesiones
+    }
+    parciales.push(ctx)
   }
   return parciales
 }
@@ -2568,12 +2593,35 @@ async function precheckPlaneacionInicial({ uid, params }) {
   // la fuente de la verdad; el Word solo se genera al descargar, aparte.
   const cantidadSolicitada = validarCantidadSolicitada(params)
 
+  // Sesiones reales por parcial (calendario real de sesiones) — SOLO si la
+  // asignatura ya tiene horarioPatron guardado, para no pagar lecturas de más
+  // en cursos viejos sin horario programado (fallback: construirParcialesCtx
+  // los deja igual que siempre, solo con periodoTexto). docenteId, no
+  // asignaturaId: asuetos/vacaciones son del calendario del docente, aplican
+  // a todas sus asignaturas — mismo criterio que ya usa el cliente
+  // (CalendarPage.jsx/attendanceAuto.js).
+  let diasAsueto = []
+  let sesionesCanceladas = []
+  if (Array.isArray(subj.horarioPatron) && subj.horarioPatron.length) {
+    const [asuetosSnap, vacacionesSnap, bloquesSnap] = await Promise.all([
+      db.collection('asuetos').where('docenteId', '==', uid).get(),
+      db.collection('vacaciones').where('docenteId', '==', uid).get(),
+      db.collection('horarioBloques').where('docenteId', '==', uid).where('asignaturaId', '==', subjectId).get(),
+    ])
+    diasAsueto = [
+      ...asuetosSnap.docs.map((d) => d.data()).filter((a) => a.clases).map((a) => a.fecha),
+      ...fechasVacacionParaClases(vacacionesSnap.docs.map((d) => d.data())),
+    ]
+    sesionesCanceladas = bloquesSnap.docs.map((d) => d.data()).filter((b) => b.cancelada)
+      .map((b) => ({ fecha: b.fecha, horaInicio: b.horaInicio }))
+  }
+
   // Las fuentes YA NO se agrupan por parcial (se quitó esa sección de la UI
   // el 13-ago-2026 — Diagnóstico y Planeación son eventos de una sola vez, al
   // arrancar el curso, antes de que exista ningún parcial cursado; un grupo
   // de fuentes "por parcial" nunca tuvo sentido ahí). Cada parcial usa el
   // mismo contexto general (fuentes + diagnósticos) — solo cambia su periodo.
-  const parciales = construirParcialesCtx(subj)
+  const parciales = construirParcialesCtx(subj, { diasAsueto, sesionesCanceladas })
 
   return {
     asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
@@ -3224,7 +3272,7 @@ exports._pruebas = {
   precheckDiagnosticoBase, precheckDiagnosticoContexto, precheckDiagnosticoConocimientos, seleccionarFuentesGenerales, perfilIACompleto, perfilIATexto,
   promptInstrumentoContexto, normalizarPreguntasContexto, promptDiagnosticoConocimientos,
   MAX_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO, MIN_PREGUNTAS_CONTEXTO, MAX_PREGUNTAS_CONTEXTO,
-  precheckPlaneacionInicial, formatoPeriodo, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
+  precheckPlaneacionInicial, formatoPeriodo, construirParcialesCtx, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
   analisisDiagnosticoMasReciente,
   comentariosGrupoATexto, autoanalisisDocenteATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,

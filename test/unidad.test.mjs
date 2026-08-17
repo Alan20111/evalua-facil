@@ -1334,6 +1334,71 @@ caso('formatoPeriodo: sin fechas o fechas inválidas, null (no inventa un period
   assert.strictEqual(FIA.formatoPeriodo({ inicio: 'no-es-fecha', fin: '2026-10-15' }), null)
 })
 
+// construirParcialesCtx — agrega sesionesReales al contexto de cada parcial
+// SOLO cuando la asignatura ya tiene horarioPatron guardado (calendario real
+// de sesiones, 17-ago-2026). El prompt de la IA todavía no usa este dato.
+const PATRON_LUN_MIE = [
+  { diaSemana: 0, horaInicio: '08:00', duracionMin: 60 },
+  { diaSemana: 2, horaInicio: '08:00', duracionMin: 60 },
+]
+const SUBJ_2_PARCIALES = {
+  parciales: 2,
+  fechaInicio: '2026-08-17', fechaFin: '2026-09-16',
+  parcialesFechas: [
+    { inicio: '2026-08-17', fin: '2026-09-02' },
+    { inicio: '2026-09-03', fin: '2026-09-16' },
+  ],
+  horarioPatron: PATRON_LUN_MIE,
+}
+
+caso('construirParcialesCtx: con horarioPatron, cada parcial trae sesionesReales dentro de su propio rango', () => {
+  const parciales = FIA.construirParcialesCtx(SUBJ_2_PARCIALES)
+  assert.strictEqual(parciales.length, 2)
+  assert.strictEqual(parciales[0].sesionesReales.length, 6)
+  assert.strictEqual(parciales[1].sesionesReales.length, 4)
+  assert.ok(parciales[0].sesionesReales.every((s) => s.fecha >= '2026-08-17' && s.fecha <= '2026-09-02'))
+  assert.ok(parciales[0].periodoTexto.includes('–'))   // periodoTexto se conserva igual que antes
+})
+
+caso('construirParcialesCtx: vacaciones/asuetos (diasAsueto) excluyen esa fecha de sesionesReales', () => {
+  const parciales = FIA.construirParcialesCtx(SUBJ_2_PARCIALES, { diasAsueto: ['2026-08-19'] })
+  assert.ok(!parciales[0].sesionesReales.some((s) => s.fecha === '2026-08-19'))
+  assert.strictEqual(parciales[0].sesionesReales.length, 5)
+})
+
+caso('construirParcialesCtx: una sesión cancelada no aparece en sesionesReales', () => {
+  const parciales = FIA.construirParcialesCtx(SUBJ_2_PARCIALES, {
+    sesionesCanceladas: [{ fecha: '2026-08-24', horaInicio: '08:00' }],
+  })
+  assert.ok(!parciales[0].sesionesReales.some((s) => s.fecha === '2026-08-24'))
+  assert.strictEqual(parciales[0].sesionesReales.length, 5)
+})
+
+caso('construirParcialesCtx: varios bloques el mismo día quedan como sesiones independientes', () => {
+  const subj = {
+    parciales: 1, fechaInicio: '2026-08-17', fechaFin: '2026-08-17',
+    parcialesFechas: [{ inicio: '2026-08-17', fin: '2026-08-17' }],
+    horarioPatron: [
+      { diaSemana: 0, horaInicio: '08:00', duracionMin: 60 },
+      { diaSemana: 0, horaInicio: '09:00', duracionMin: 60 },
+    ],
+  }
+  const parciales = FIA.construirParcialesCtx(subj)
+  assert.strictEqual(parciales[0].sesionesReales.length, 2)
+})
+
+caso('construirParcialesCtx: SIN horarioPatron, el parcial se queda igual que antes (sin sesionesReales, sin bloquear)', () => {
+  const subj = {
+    parciales: 1, fechaInicio: '2026-08-17', fechaFin: '2026-09-16',
+    parcialesFechas: [{ inicio: '2026-08-17', fin: '2026-09-16' }],
+    // sin horarioPatron — asignatura vieja o sin horario programado todavía
+  }
+  const parciales = FIA.construirParcialesCtx(subj)
+  assert.strictEqual(parciales.length, 1)
+  assert.strictEqual(parciales[0].sesionesReales, undefined)
+  assert.ok(parciales[0].periodoTexto.includes('–'))
+})
+
 // Corrección de Kike (12-ago-2026, Tanda 2): `resultado` ahora es la salida
 // de normalizarAnalisisEncuestaContexto (OP-10 en modo encuesta), resultados
 // reales de un cuestionario que contestaron los estudiantes.
