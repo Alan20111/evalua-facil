@@ -27,8 +27,8 @@ import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import {
-  CAMPOS_IDENTIFICACION, CAMPOS_IDENTIDAD_SECUENCIA, MOMENTOS, CAMPOS_MOMENTO,
-  construirDocumentoPlaneacion,
+  CAMPOS_IDENTIFICACION, CAMPOS_IDENTIDAD_SECUENCIA, MOMENTOS, CAMPOS_MOMENTO, CAMPOS_VALIDACION,
+  validacionVacia, construirDocumentoPlaneacion,
 } from '../../utils/planeacionDocx'
 import { renderAsync as renderDocxAsync } from 'docx-preview'
 import { useSubscription } from '../../hooks/useSubscription'
@@ -80,6 +80,7 @@ function extraerContenido(obj) {
   return {
     datosIdentificacion: obj.datosIdentificacion || null,
     fuentesInformacion: obj.fuentesInformacion || FUENTES_VACIAS,
+    validacion: obj.validacion || validacionVacia(),
     porParcial: obj.porParcial || [],
   }
 }
@@ -273,6 +274,18 @@ function activarTablaBibliografia(tabla, fuentes, actualizarFuente) {
   }
 }
 
+// Tabla "VALIDACIÓN" — fila 0 encabezado, fila 1 etiquetas (fijas, no se
+// editan), fila 2 espacio de firma (nunca editable, se queda en blanco),
+// fila 3 = 3 celdas editables (nombre + cargo, mismo campo, separados por
+// salto de línea real).
+function activarTablaValidacion(tabla, validacion, actualizarValidacion) {
+  const filas = filasDe(tabla)
+  const celdas = celdasDe(filas[3])
+  CAMPOS_VALIDACION.forEach((campo, i) => {
+    hacerEditable(celdas[i], validacion?.[campo.clave], (v) => actualizarValidacion(campo.clave, v))
+  })
+}
+
 // Recorre las tablas del documento renderizado EN EL MISMO ORDEN en que
 // planeacionDocx.js las genera y activa la edición directa en cada una.
 // Además inyecta, junto a la etiqueta "SECUENCIA DIDÁCTICA N" que ya trae
@@ -280,8 +293,8 @@ function activarTablaBibliografia(tabla, fuentes, actualizarFuente) {
 // documento, nunca en un panel aparte — y un botón para agregar una
 // Secuencia al final.
 function activarEdicionDocumento(
-  container, datosIdentificacion, secuencias, fuentesInformacion,
-  actualizarIdentificacion, actualizarFuente, actualizarCampoSecuencia, cambiarGrupoSecuencias,
+  container, datosIdentificacion, secuencias, fuentesInformacion, validacion,
+  actualizarIdentificacion, actualizarFuente, actualizarCampoSecuencia, cambiarGrupoSecuencias, actualizarValidacion,
 ) {
   const tablas = Array.from(container.querySelectorAll('table'))
   let idx = 0
@@ -293,6 +306,7 @@ function activarEdicionDocumento(
     }
   })
   activarTablaBibliografia(tablas[idx++], fuentesInformacion, actualizarFuente)
+  activarTablaValidacion(tablas[idx++], validacion, actualizarValidacion)
 
   const total = secuencias.length
   // docx-preview envuelve el texto de cada run en su propio <span> — no se
@@ -544,7 +558,7 @@ function Planeacion({
   // (ver cambiarGrupoSecuencias / el efecto que consume esta bandera).
   const [recargarVistaPreviaPendiente, setRecargarVistaPreviaPendiente] = useState(false)
   const vistaPreviaRef = useRef(null)
-  const fuenteActivaRef = useRef({ datosIdentificacion: null, fuentesInformacion: FUENTES_VACIAS, secuencias: [] })
+  const fuenteActivaRef = useRef({ datosIdentificacion: null, fuentesInformacion: FUENTES_VACIAS, validacion: null, secuencias: [] })
   const [abrirTrasGenerar, setAbrirTrasGenerar] = useState(false)
   // Copia editable de la planeación YA ACEPTADA — separada de `edicion`
   // (que es la copia previa a aceptar) porque una vez aceptada vive en otro
@@ -714,7 +728,7 @@ function Planeacion({
       const titulo = `Planeación Didáctica Inicial — Parcial ${numero}${p?.periodo ? ` (${p.periodo})` : ''}`
       const blob = await construirDocumentoPlaneacion(
         contenidoAceptado?.datosIdentificacion, secuenciasDeParcial(numero, porParcialAceptado),
-        contenidoAceptado?.fuentesInformacion, titulo,
+        contenidoAceptado?.fuentesInformacion, titulo, contenidoAceptado?.validacion,
       )
       const nombreSalida = `Planeación Didáctica Inicial - Parcial ${numero}.docx`
       const url = URL.createObjectURL(blob)
@@ -751,6 +765,7 @@ function Planeacion({
     fuenteActivaRef.current = {
       datosIdentificacion: contenidoEditableActivo?.datosIdentificacion,
       fuentesInformacion: contenidoEditableActivo?.fuentesInformacion,
+      validacion: contenidoEditableActivo?.validacion,
       secuencias: secuenciasActivo,
     }
   })
@@ -769,6 +784,16 @@ function Planeacion({
       ...prev,
       fuentesInformacion: (prev.fuentesInformacion || FUENTES_VACIAS).map((f, i) => (i === indice ? valor : f)),
     })
+    if (aceptada) setEdicionAceptada(actualizador)
+    else setEdicion(actualizador)
+  }
+
+  // Sección VALIDACIÓN (Elaborado por / Avalado por ×2) — pertenece a
+  // PERSONALIZAR, pero se edita aquí mismo, igual que cualquier otro campo
+  // de la Planeación (regla general: todo lo que genera la IA es editable
+  // en el propio documento).
+  function actualizarValidacion(clave, valor) {
+    const actualizador = (prev) => ({ ...prev, validacion: { ...(prev.validacion || validacionVacia()), [clave]: valor } })
     if (aceptada) setEdicionAceptada(actualizador)
     else setEdicion(actualizador)
   }
@@ -833,7 +858,7 @@ function Planeacion({
       const secuencias = secuenciasDeParcial(numero, contenido?.porParcial)
       const p = (contenido?.porParcial || []).find((x) => x.numero === numero)
       const titulo = `Planeación Didáctica Inicial — Parcial ${numero}${p?.periodo ? ` (${p.periodo})` : ''}`
-      const blob = await construirDocumentoPlaneacion(contenido?.datosIdentificacion, secuencias, contenido?.fuentesInformacion, titulo)
+      const blob = await construirDocumentoPlaneacion(contenido?.datosIdentificacion, secuencias, contenido?.fuentesInformacion, titulo, contenido?.validacion)
       setBlobVistaPrevia(blob)
     } catch (err) {
       toast('No se pudo generar la vista previa: ' + err.message, 'error')
@@ -876,10 +901,10 @@ function Planeacion({
         // La edición solo se activa en escritorio — en celular la Vista
         // previa se deja de solo lectura (ver AvisoRevisionDesktop).
         if (!isDesktop || !vistaPreviaRef.current) return
-        const { datosIdentificacion, fuentesInformacion, secuencias } = fuenteActivaRef.current
+        const { datosIdentificacion, fuentesInformacion, validacion, secuencias } = fuenteActivaRef.current
         activarEdicionDocumento(
-          vistaPreviaRef.current, datosIdentificacion, secuencias, fuentesInformacion,
-          actualizarIdentificacion, actualizarFuente, actualizarCampoSecuencia, cambiarGrupoSecuencias,
+          vistaPreviaRef.current, datosIdentificacion, secuencias, fuentesInformacion, validacion,
+          actualizarIdentificacion, actualizarFuente, actualizarCampoSecuencia, cambiarGrupoSecuencias, actualizarValidacion,
         )
       })
       .catch((err) => toast('No se pudo mostrar la vista previa: ' + err.message, 'error'))
