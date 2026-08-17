@@ -13,7 +13,7 @@ import ProgramarZonaSemanal from '../../components/calendar/ProgramarZonaSemanal
 import useAlarmas from '../../components/calendar/useAlarmas'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
-import { bloqueColor, timeToMinutes, addMinutesToTime, generarBloques } from '../../utils/horarioBloques'
+import { bloqueColor, timeToMinutes, addMinutesToTime, generarBloques, tramosFaltantes as tramosFaltantesDe } from '../../utils/horarioBloques'
 import { CATEGORIA_LABEL, deadlineEstado, assignLanes, mergeEvents } from '../../utils/calendarEvents'
 import { formatLongDate } from '../../utils/dateRange'
 import SubjectIcon from '../../components/SubjectIcon'
@@ -1460,15 +1460,8 @@ export default function CalendarPage() {
   function tramosFaltantes(asignaturaId) {
     const subj = subjects[asignaturaId]
     if (!subj?.fechaInicio || !subj?.fechaFin) return []
-    const fechas = bloques.filter(b => b.asignaturaId === asignaturaId).map(b => b.fecha).sort()
-    if (fechas.length === 0) return []   // sin bloques no hay patrón que extender
-    const correr = (f, dias) => toDateStr(addDays(new Date(f + 'T12:00:00'), dias))
-    const primero = fechas[0]
-    const ultimo = fechas[fechas.length - 1]
-    const tramos = []
-    if (subj.fechaInicio < primero) tramos.push({ desde: subj.fechaInicio, hasta: correr(primero, -1) })
-    if (subj.fechaFin > ultimo) tramos.push({ desde: correr(ultimo, 1), hasta: subj.fechaFin })
-    return tramos
+    const bloquesAsignatura = bloques.filter(b => b.asignaturaId === asignaturaId)
+    return tramosFaltantesDe(bloquesAsignatura, subj.fechaInicio, subj.fechaFin)
   }
 
   // Extiende el patrón semanal vigente a los tramos que faltan. NO borra ni
