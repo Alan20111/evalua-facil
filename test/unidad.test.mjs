@@ -1399,6 +1399,56 @@ caso('construirParcialesCtx: SIN horarioPatron, el parcial se queda igual que an
   assert.ok(parciales[0].periodoTexto.includes('–'))
 })
 
+// formatoSesionesReales / promptSecuenciasParcial — restricción real de
+// tiempo inyectada al prompt (17-ago-2026), sin tocar el esquema JSON.
+caso('formatoSesionesReales: una línea "Sesión N — día fecha" por sesión, en orden', () => {
+  const texto = FIA.formatoSesionesReales([
+    { fecha: '2026-09-01', diaSemana: 1, numeroSesionParcial: 1 },
+    { fecha: '2026-09-03', diaSemana: 3, numeroSesionParcial: 2 },
+  ])
+  const lineas = texto.split('\n')
+  assert.strictEqual(lineas.length, 2)
+  assert.ok(lineas[0].startsWith('Sesión 1 — martes 1 de septiembre'))
+  assert.ok(lineas[1].startsWith('Sesión 2 — jueves 3 de septiembre'))
+})
+
+const CTX_BASE = { asignaturaNombre: 'Matemáticas', parciales: [{ numero: 1 }] }
+
+caso('promptSecuenciasParcial: CON sesionesReales, incluye la restricción real de tiempo y la lista de fechas', () => {
+  const parcialCtx = {
+    numero: 1, periodoTexto: '1 sep 2026 – 2 oct 2026',
+    sesionesReales: [
+      { fecha: '2026-09-01', diaSemana: 1, numeroSesionParcial: 1 },
+      { fecha: '2026-09-03', diaSemana: 3, numeroSesionParcial: 2 },
+    ],
+  }
+  const prompt = FIA.promptSecuenciasParcial(CTX_BASE, parcialCtx, null, false)
+  assert.ok(prompt.includes('RESTRICCIÓN REAL DE TIEMPO'))
+  assert.ok(prompt.includes('2 en total'))
+  assert.ok(prompt.includes('Sesión 1 — martes 1 de septiembre'))
+  assert.ok(prompt.includes('nunca uses un número de sesión mayor a 2'))
+})
+
+caso('promptSecuenciasParcial: SIN sesionesReales, el prompt no cambia (mismo comportamiento de siempre)', () => {
+  const parcialCtx = { numero: 1, periodoTexto: '1 sep 2026 – 2 oct 2026' }
+  const prompt = FIA.promptSecuenciasParcial(CTX_BASE, parcialCtx, null, false)
+  assert.ok(!prompt.includes('RESTRICCIÓN REAL DE TIEMPO'))
+  // La regla pedagógica de "UNA VIÑETA = UNA SESIÓN" sigue intacta.
+  assert.ok(prompt.includes('REGLA FUNDAMENTAL: UNA VIÑETA = UNA SESIÓN'))
+})
+
+caso('promptSecuenciasParcial: no toca el esquema JSON de salida (mismos campos de siempre)', () => {
+  const conSesiones = FIA.promptSecuenciasParcial(CTX_BASE, {
+    numero: 1, periodoTexto: null,
+    sesionesReales: [{ fecha: '2026-09-01', diaSemana: 1, numeroSesionParcial: 1 }],
+  }, null, false)
+  assert.ok(conSesiones.includes('"bloquesTematicos"'))
+  assert.ok(conSesiones.includes('"secuenciasDidacticas"'))
+  assert.ok(conSesiones.includes('"apertura"'))
+  assert.ok(conSesiones.includes('"desarrollo"'))
+  assert.ok(conSesiones.includes('"cierre"'))
+})
+
 // Corrección de Kike (12-ago-2026, Tanda 2): `resultado` ahora es la salida
 // de normalizarAnalisisEncuestaContexto (OP-10 en modo encuesta), resultados
 // reales de un cuestionario que contestaron los estudiantes.
