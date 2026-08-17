@@ -481,19 +481,18 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
         <EstadoPlaneacionBadge lista={hayFuentesGenerales} />
       </div>
       <p className="text-sm text-muted mt-0.5 mb-2">
-        La IA genera una propuesta inicial de planeación — revísala, edítala y acéptala para continuar. Genera un
-        documento POR CADA PARCIAL real de la asignatura.
+        La IA ha generado una propuesta de planeación para cada parcial de la asignatura.
       </p>
 
       <p className="text-xs text-muted mb-2">
-        💡 La planeación es una propuesta de trabajo. No tienes que realizar exactamente las actividades que aquí se
-        proponen. Durante tus clases puedes crear, cambiar o sustituir actividades según lo que necesite tu grupo.
-        La IA tomará esta planeación inicial solo como referencia para proponerte actividades.
+        💡 Es una guía de trabajo, no un guion. Puedes adaptarla, cambiar o sustituir actividades según las
+        necesidades de tu grupo. La IA la tomará como base para proponerte actividades congruentes con tu
+        planeación.
       </p>
 
       {subjectPlaneacionLoaded && !subjectPlaneacion?.planeacionAceptada && (
         <p className="text-sm font-semibold text-red-600 mb-2">
-          Haz que tu IA tenga la mejor congruencia ACEPTANDO tu planeación didáctica INICIAL.
+          Revísala y acéptala para continuar.
         </p>
       )}
 
@@ -914,7 +913,7 @@ function Planeacion({
         <p className="text-xs text-muted mb-2">
           Estado: <span className="font-medium text-amber-700">Generada, sin aceptar todavía</span>
           {actual.generadoEn?.toDate && ` · ${actual.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
-          . Revísala y corrígela antes de aceptarla — no se puede descargar hasta que la aceptes.
+          . No podrás descargarla hasta aceptarla.
         </p>
       )}
 
