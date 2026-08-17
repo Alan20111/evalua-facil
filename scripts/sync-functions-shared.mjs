@@ -1,6 +1,7 @@
-// Copia la lógica PURA de calendario/sesiones de src/utils/ hacia
-// functions/_shared/ como CommonJS, para que Cloud Functions tenga su propia
-// copia desplegable sin duplicar el código a mano.
+// Copia lógica PURA de src/utils/ (calendario/sesiones y, desde el
+// Asistente General, promedios de calificación) hacia functions/_shared/
+// como CommonJS, para que Cloud Functions tenga su propia copia desplegable
+// sin duplicar el código a mano.
 //
 // Por qué existe: Cloud Functions (functions/) es un proyecto npm aparte,
 // CommonJS, Node 20 fijo (functions/package.json → engines.node), y
@@ -35,7 +36,7 @@ const outDir = path.join(root, 'functions', '_shared')
 // Únicamente los módulos puros que ya verificamos que cargan sin Firebase.
 // Si algún día uno de estos archivos gana un import fuera de esta lista, el
 // script debe fallar (ver validarImports) en vez de sincronizar algo roto.
-const ARCHIVOS = ['horarioBloques.js', 'parciales.js', 'sesionesReales.js', 'asuetos.js', 'vacaciones.js']
+const ARCHIVOS = ['horarioBloques.js', 'parciales.js', 'sesionesReales.js', 'asuetos.js', 'vacaciones.js', 'ponderacion.js']
 
 function fallar(mensaje) {
   console.error(`\n✗ sync-functions-shared: ${mensaje}\n`)
