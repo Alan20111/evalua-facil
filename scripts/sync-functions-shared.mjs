@@ -35,7 +35,7 @@ const outDir = path.join(root, 'functions', '_shared')
 // Únicamente los módulos puros que ya verificamos que cargan sin Firebase.
 // Si algún día uno de estos archivos gana un import fuera de esta lista, el
 // script debe fallar (ver validarImports) en vez de sincronizar algo roto.
-const ARCHIVOS = ['horarioBloques.js', 'parciales.js', 'sesionesReales.js']
+const ARCHIVOS = ['horarioBloques.js', 'parciales.js', 'sesionesReales.js', 'asuetos.js', 'vacaciones.js']
 
 function fallar(mensaje) {
   console.error(`\n✗ sync-functions-shared: ${mensaje}\n`)
