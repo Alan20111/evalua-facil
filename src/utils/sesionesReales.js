@@ -20,6 +20,14 @@
 // hayan estado vigentes en el pasado. Para fechas ya transcurridas, la fuente
 // de verdad de lo que realmente ocurrió sigue siendo `horarioBloques`/
 // `attendance`, no esta función.
+//
+// `sesionesCanceladas` (opcional) resta del resultado las sesiones que SÍ
+// estaban en el patrón pero un docente canceló puntualmente (marcadas
+// `cancelada: true` en su documento de `horarioBloques` — ver
+// CalendarPage.jsx). Se identifican por `fecha + horaInicio`, igual que
+// distingue el proyecto una sesión de otra cuando hay varios bloques el mismo
+// día. Es distinto de `diasAsueto`: una vacación/asueto excluye TODAS las
+// asignaturas ese día; una cancelación es puntual, de una sola asignatura.
 
 import { generarBloques, diaSemanaLunes, toDateStr } from './horarioBloques.js'
 import { parcialForDate } from './parciales.js'
@@ -52,6 +60,7 @@ export function calcularSesionesReales({
   parcialesFechas = [],
   horarioPatron = [],
   diasAsueto = [],
+  sesionesCanceladas = [],
   parcial = null,
 } = {}) {
   // Sin patrón guardado no hay nada que proyectar — no se reconstruye con
@@ -69,7 +78,9 @@ export function calcularSesionesReales({
   }
   if (!rangoInicio || !rangoFin) return { sesiones: [], resumen: resumenVacio() }
 
+  const canceladas = new Set((sesionesCanceladas || []).map((s) => `${s.fecha}|${s.horaInicio}`))
   const bloques = generarBloques({ fechaInicio: rangoInicio, fechaFin: rangoFin, diasAsueto, patrones: horarioPatron })
+    .filter((b) => !canceladas.has(`${b.fecha}|${b.horaInicio}`))
   if (!bloques.length) return { sesiones: [], resumen: resumenVacio() }
 
   const ordenados = [...bloques].sort((a, b) => (

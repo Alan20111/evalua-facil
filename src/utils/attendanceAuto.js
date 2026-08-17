@@ -35,8 +35,14 @@ export async function fetchClaseDiasSemana({ subjectId, docenteId }) {
   bloquesSnap.docs.forEach((d) => {
     const b = d.data()
     if (!b.fecha) return
-    porFecha[b.fecha] = (porFecha[b.fecha] || 0) + 1
+    // Una clase cancelada (b.cancelada) no debe generar asistencia — se
+    // excluye del conteo por fecha (que es lo que determina cuántos slots de
+    // asistencia se crean ese día), pero SÍ sigue contando para diasSemana:
+    // que una instancia puntual se haya cancelado no cambia que ese día de la
+    // semana sea parte del patrón recurrente de la asignatura.
     if (typeof b.diaSemana === 'number') diasSemana.add(b.diaSemana)
+    if (b.cancelada) return
+    porFecha[b.fecha] = (porFecha[b.fecha] || 0) + 1
   })
   return { porFecha, diasSemana }
 }
