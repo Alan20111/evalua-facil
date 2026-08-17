@@ -486,8 +486,9 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
       </p>
 
       <p className="text-xs text-muted mb-2">
-        💡 Guía, no guion: adapta esta planeación con libertad según las necesidades de tu grupo. La IA la tomará
-        como referencia para crear actividades.
+        💡 La planeación es una propuesta de trabajo. No tienes que realizar exactamente las actividades que aquí se
+        proponen. Durante tus clases puedes crear, cambiar o sustituir actividades según lo que necesite tu grupo.
+        La IA tomará esta planeación inicial solo como referencia para proponerte actividades.
       </p>
 
       {subjectPlaneacionLoaded && !subjectPlaneacion?.planeacionAceptada && (
