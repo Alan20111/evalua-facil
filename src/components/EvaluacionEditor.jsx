@@ -39,6 +39,7 @@ import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
 import {
   MIN_REACTIVOS, MAX_REACTIVOS, DEFAULT_REACTIVOS, TIPOS_REACTIVO_IA, reactivosDesdePropuesta,
 } from '../utils/reactivosIA'
+import { EVALUACION_DEFAULTS } from '../utils/evaluacionDefaults'
 import { minDeadline, nowIsoLocal, isoLocalFromDate } from '../utils/nowIso'
 import { isActivityPublished, resolveVisibilidad, isDraftActivity, formatDeadline } from '../utils/activityVisibility'
 import { groupExtensions } from '../utils/extensiones'
@@ -87,22 +88,6 @@ function emptyPregunta() {
 function opcionesFromExisting(p) {
   if (p.tipo !== 'opcion_multiple' || !p.opciones?.length) return emptyOpciones()
   return p.opciones.map((o) => ({ id: o.id, texto: o.texto || '', esOtra: !!o.esOtra }))
-}
-const EVALUACION_DEFAULTS = {
-  cuestionario: {
-    numPreguntas: 0, ordenPreguntas: 'creacion', navegacion: 'libre',
-    tiempoLimiteMin: null, intentosPermitidos: null, conservar: 'mejor',
-    publicarResultados: 'inmediato', publicarResultadosFecha: null, resultadosPublicados: false,
-    publicarRespuestas: 'inmediato', publicarRespuestasFecha: null, respuestasPublicadas: false,
-    mostrarRetroalimentacion: true, mostrarRespuestasCorrectas: false, mostrarPorcentaje: true, barajarRespuestas: false,
-  },
-  examen: {
-    numPreguntas: 0, ordenPreguntas: 'creacion', navegacion: 'secuencial',
-    tiempoLimiteMin: 30, intentosPermitidos: 1, conservar: 'ultimo',
-    publicarResultados: 'inmediato', publicarResultadosFecha: null, resultadosPublicados: false,
-    publicarRespuestas: 'inmediato', publicarRespuestasFecha: null, respuestasPublicadas: false,
-    mostrarRetroalimentacion: true, mostrarRespuestasCorrectas: false, mostrarPorcentaje: true, barajarRespuestas: false,
-  },
 }
 
 // Lista editable de opciones de un reactivo de opción múltiple — compartida

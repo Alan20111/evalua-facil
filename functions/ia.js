@@ -3585,6 +3585,11 @@ async function precheckAsistenteGeneral({ uid, params }) {
     contextoSistema: bloques.join('\n\n'),
     mensaje,
     historial: sanearHistorialChat(params?.historial),
+    // Chat con Acciones (17-ago-2026): el Asistente General NUNCA propone
+    // crear nada — "ACCIONES = SOLO CONTEXTO DE ASIGNATURA" (pedido
+    // explícito). ejecutarChatAsistente descarta cualquier propuesta si esto
+    // es false, sin importar lo que haya devuelto el modelo.
+    permitirAcciones: false,
   }
 }
 
@@ -3676,7 +3681,70 @@ async function precheckChatAsistente({ uid, params }) {
     contextoSistema: bloques.join('\n\n'),
     mensaje,
     historial: sanearHistorialChat(params?.historial),
+    // Con subjectId (asignatura verificada arriba, subj.docenteId === uid) sí
+    // se permite proponer una acción — ver precheckAsistenteGeneral, que
+    // siempre la deja en false.
+    permitirAcciones: true,
+    subjectId,
   }
+}
+
+// ── Chat con Acciones — CONVERSAR → PROPONER → CONFIRMAR → EJECUTAR ────────
+//
+// Alcance (Kike, 17-ago-2026): solo estas tres acciones, solo por
+// asignatura. La IA JAMÁS escribe Firestore ni decide el subjectId — aquí
+// solo se valida/recorta la propuesta que devolvió el modelo dentro del
+// mismo turno de chat_asistente (mismo crédito, ninguna operación nueva). La
+// creación real la hace el CLIENTE, con la función existente de creación de
+// actividades/exámenes, usando el subjectId que YA validó el precheck de
+// este turno — nunca uno que la IA haya podido mencionar en el texto.
+const ACCIONES_CHAT_PERMITIDAS = ['CREAR_ACTIVIDAD_ENTREGABLE', 'CREAR_ACTIVIDAD_OBSERVACION', 'CREAR_EXAMEN']
+
+function sanearReactivoPropuestaChat(r) {
+  const tipo = TIPOS_REACTIVO.includes(r?.tipo) ? r.tipo : 'opcion_multiple'
+  const enunciado = String(r?.enunciado || '').trim().slice(0, 500)
+  if (!enunciado) return null
+  const base = { tipo, enunciado }
+  if (tipo === 'opcion_multiple') {
+    const opciones = Array.from({ length: 4 }, (_, i) => String(r?.opciones?.[i] || '').trim().slice(0, 300))
+    if (opciones.filter(Boolean).length < 2) return null
+    const correcta = Number.isInteger(r?.correcta) ? Math.min(3, Math.max(0, r.correcta)) : 0
+    return { ...base, opciones, correcta }
+  }
+  if (tipo === 'verdadero_falso') return { ...base, correcta: r?.correcta === 'f' ? 'f' : 'v' }
+  if (tipo === 'respuesta_corta') return { ...base, respuestaEsperada: String(r?.respuestaEsperada || '').trim().slice(0, 300) }
+  return base // subir_archivo — sin datos adicionales
+}
+
+// Nunca confía en lo que "dijo" el modelo más allá de content — accion viene
+// de una lista blanca, cada campo se recorta a un máximo, y una propuesta
+// incompleta (sin lo que el editor manual exige) se descarta entera en vez
+// de dejar que el cliente intente crear algo inválido.
+function sanearPropuestaAccionChat(propuesta, { permitirAcciones }) {
+  if (!permitirAcciones || !propuesta || typeof propuesta !== 'object') return null
+  const accion = ACCIONES_CHAT_PERMITIDAS.includes(propuesta.accion) ? propuesta.accion : null
+  if (!accion) return null
+  const nombre = String(propuesta.nombre || '').trim().slice(0, 120)
+  if (!nombre) return null
+  const instrucciones = String(propuesta.instrucciones || '').trim().slice(0, 3000)
+  const fechaLimiteRaw = String(propuesta.fechaLimite || '').trim()
+  const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(fechaLimiteRaw) && new Date(`${fechaLimiteRaw}T23:59:59`) > new Date()
+  const fechaLimite = fechaValida ? fechaLimiteRaw : null
+
+  if (accion === 'CREAR_ACTIVIDAD_ENTREGABLE') {
+    // Mismo requisito que EntregableEditor.jsx: instrucciones obligatorias
+    // para un entregable (no para observación).
+    if (!instrucciones) return null
+    return { accion, categoria: 'entregable', nombre, instrucciones, fechaLimite }
+  }
+  if (accion === 'CREAR_ACTIVIDAD_OBSERVACION') {
+    return { accion, categoria: 'observacion', nombre, instrucciones: instrucciones || null }
+  }
+  // CREAR_EXAMEN
+  const reactivos = (Array.isArray(propuesta.reactivos) ? propuesta.reactivos : [])
+    .map(sanearReactivoPropuestaChat).filter(Boolean).slice(0, MAX_REACTIVOS)
+  if (reactivos.length < MIN_REACTIVOS) return null
+  return { accion, categoria: 'examen', nombre, instrucciones: instrucciones || null, fechaLimite, reactivos }
 }
 
 const CHAT_SISTEMA =
@@ -3695,23 +3763,33 @@ const CHAT_SISTEMA =
   'actividad?" se refiere a tu respuesta anterior). Nunca escribas que fuiste generado por IA o por un ' +
   'asistente — eres una herramienta del docente, él es quien decide.'
 
-// Llamada simple de texto libre (a diferencia de pedirJSON: el chat no
-// responde JSON, responde conversación). Misma forma de client/medición que
-// el resto de operaciones.
-async function pedirTexto({ client, modelo, maxTokens, system, messages }) {
-  const inicio = Date.now()
-  const msg = await client.messages.create({ model: modelo, max_tokens: maxTokens, system, messages })
-  const texto = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
-  return {
-    texto,
-    interno: {
-      modelo,
-      tokensEntrada: msg.usage?.input_tokens ?? null,
-      tokensSalida: msg.usage?.output_tokens ?? null,
-      ms: Date.now() - inicio,
-    },
-  }
-}
+// Instrucción de Chat con Acciones, agregada SOLO cuando ctx.permitirAcciones
+// (nunca en el Asistente General). Fuerza al modelo a responder siempre con
+// el mismo JSON {respuesta, propuesta} — un solo formato de salida, nunca
+// texto libre mezclado con JSON.
+const INSTRUCCION_ACCIONES_CHAT =
+  '\n\nADEMÁS: si en este turno el docente te pide EXPLÍCITAMENTE crear una actividad entregable, una ' +
+  'actividad de observación, o un examen — y ya tienes info suficiente (nombre/tema y, si aplica, ' +
+  'instrucciones; para examen, además los reactivos) — incluye una propuesta. Si NO tienes info suficiente ' +
+  '(falta el tema, o pidió examen sin decir cuántos reactivos ni de qué trata), NO propongas nada todavía: ' +
+  'pregunta lo que falta. Si solo está conversando o pidiendo ideas sin pedir crear, tampoco propongas nada. ' +
+  'NUNCA propongas una acción que el docente no pidió crear.\n\n' +
+  'Responde SIEMPRE con este JSON exacto, sin bloques de código ni ```, nada de texto fuera de él:\n' +
+  '{"respuesta": "<tu respuesta conversacional en español>", "propuesta": null}\n' +
+  'o, solo cuando corresponda proponer:\n' +
+  '{"respuesta": "<mensaje breve confirmando qué vas a proponer, invitando a revisar la tarjeta>", ' +
+  '"propuesta": {"accion": "CREAR_ACTIVIDAD_ENTREGABLE" | "CREAR_ACTIVIDAD_OBSERVACION" | "CREAR_EXAMEN", ' +
+  '"nombre": "<máx 120 caracteres>", "instrucciones": "<qué debe hacer o qué vas a observar>", ' +
+  '"fechaLimite": "YYYY-MM-DD" | null, ' +
+  '"reactivos": [ /* SOLO para examen, entre 2 y 10 */ {"tipo": "opcion_multiple"|"verdadero_falso"|"respuesta_corta"|"subir_archivo", ' +
+  '"enunciado": "...", "opciones": ["...","...","...","..."], "correcta": 0, "respuestaEsperada": "..."} ]}}'
+
+// Instrucción de formato para el Asistente General (sin acciones) — igual
+// necesita responder JSON, para que el parseo del lado del servidor sea uno
+// solo en los dos casos.
+const INSTRUCCION_FORMATO_SIN_ACCIONES =
+  '\n\nResponde SIEMPRE con este JSON exacto, sin bloques de código ni ```, nada de texto fuera de él: ' +
+  '{"respuesta": "<tu respuesta conversacional en español>", "propuesta": null}'
 
 async function ejecutarChatAsistente({ params, modelo, apiKey }) {
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
@@ -3722,17 +3800,42 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
     ...ctx.historial.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: ctx.mensaje },
   ]
-  const { texto, interno } = await pedirTexto({
-    client, modelo, maxTokens: 1024,
-    system: CHAT_SISTEMA + '\n\n' + ctx.contextoSistema,
-    messages,
-  })
-  if (!texto) throw new Error('El asistente de IA no generó una respuesta utilizable')
+  const system = CHAT_SISTEMA +
+    (ctx.permitirAcciones ? INSTRUCCION_ACCIONES_CHAT : INSTRUCCION_FORMATO_SIN_ACCIONES) +
+    '\n\n' + ctx.contextoSistema
+
+  const inicio = Date.now()
+  const msg = await client.messages.create({ model: modelo, max_tokens: 1400, system, messages })
+  const texto = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
+
+  // El modelo a veces no obedece el formato JSON al pie de la letra (texto
+  // antes/después del bloque, cercas de código anidadas) — en vez de solo
+  // pelar un ``` inicial/final, se busca el primer '{' y el último '}' del
+  // texto completo. Si ni así se puede parsear, no se pierde la respuesta:
+  // se usa el texto crudo como conversación y simplemente no hay propuesta.
+  let datos
+  const inicioJson = texto.indexOf('{')
+  const finJson = texto.lastIndexOf('}')
+  try {
+    if (inicioJson === -1 || finJson === -1 || finJson < inicioJson) throw new Error('sin JSON')
+    datos = JSON.parse(texto.slice(inicioJson, finJson + 1))
+  } catch {
+    datos = { respuesta: texto, propuesta: null }
+  }
+
+  const respuesta = String(datos?.respuesta || '').trim()
+  if (!respuesta) throw new Error('El asistente de IA no generó una respuesta utilizable')
+  const propuesta = sanearPropuestaAccionChat(datos?.propuesta, { permitirAcciones: ctx.permitirAcciones })
 
   return {
-    resultado: { respuesta: texto },
-    unidadesReales: 1, // tarifa fija por turno — cada mensaje es su propia operación
-    interno,
+    resultado: { respuesta, propuesta },
+    unidadesReales: 1, // tarifa fija por turno — cada mensaje es su propia operación, con o sin propuesta
+    interno: {
+      modelo,
+      tokensEntrada: msg.usage?.input_tokens ?? null,
+      tokensSalida: msg.usage?.output_tokens ?? null,
+      ms: Date.now() - inicio,
+    },
   }
 }
 
@@ -3909,4 +4012,5 @@ exports._pruebas = {
   precheckChatAsistente, sanearHistorialChat, planeacionAceptadaATexto, analisisExamenesATexto,
   CHAT_SISTEMA, MAX_TURNOS_HISTORIAL, MAX_LARGO_MENSAJE,
   resumenGeneralATexto, precheckAsistenteGeneral,
+  sanearPropuestaAccionChat, sanearReactivoPropuestaChat, ACCIONES_CHAT_PERMITIDAS,
 }
