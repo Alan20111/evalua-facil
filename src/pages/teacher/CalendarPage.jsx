@@ -32,7 +32,7 @@ import { isActivityPublished, isDraftActivity, withDefaultTime } from '../../uti
 import {
   Clock, Send, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
-  CalendarOff, Trash2, X, Minus, Columns3, Lock, LockOpen,
+  CalendarOff, Trash2, X, Minus, Columns3, Lock, LockOpen, Ban,
 } from 'lucide-react'
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
@@ -332,6 +332,7 @@ export function AgendaView({
               bg = pal.bg; fg = pal.text
               titulo = subjectDisplayName(subjects[it.b.asignaturaId]) || 'Clase'
               sub = it.b.lugar
+              if (it.b.cancelada) sub = sub ? `Cancelada · ${sub}` : 'Cancelada'
             } else {
               bg = it.ev.bg; fg = it.ev.text
               titulo = it.ev.titulo
@@ -354,7 +355,7 @@ export function AgendaView({
                   left: `calc(${lane * w}% + 3px)`,
                   width: `calc(${w}% - 6px)`,
                   background: bg, color: fg,
-                  opacity: isDragging ? 0.3 : 1,
+                  opacity: isDragging ? 0.3 : (it.kind === 'bloque' && it.b.cancelada ? 0.55 : 1),
                   touchAction: 'none',
                 }}
                 data-tooltip={
@@ -387,7 +388,7 @@ export function AgendaView({
                     {total >= 3 && (
                       <span className={`block font-bold leading-tight whitespace-nowrap ${DIA_HOUR_INI_TEXT}`}>{fmtHour(horaIni)}</span>
                     )}
-                    <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight ${total >= 3 ? 'truncate' : 'break-words'}`}>{titulo}</span>
+                    <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight ${total >= 3 ? 'truncate' : 'break-words'} ${it.kind === 'bloque' && it.b.cancelada ? 'line-through' : ''}`}>{titulo}</span>
                     {sub && total < 3 && <span className={`block ${IS_NATIVE_APP ? GRID_ITEM_TEXT : 'text-xs'} opacity-75 leading-tight truncate`}>{sub}</span>}
                     {it.kind === 'bloque' && it.b.alarma?.activa && (
                       <span className="inline-flex items-center gap-1 text-[10px] opacity-70 leading-tight">
@@ -441,10 +442,10 @@ export function BloquePill({ b, subj, onClick }) {
       type="button"
       onClick={onClick ? e => { e.stopPropagation(); onClick(b) } : undefined}
       className={`flex items-center gap-1 rounded-md w-full px-1 py-0.5 ${MES_ITEM_TEXT} ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
-      style={{ background: pal.bg, color: pal.text }}
-      data-tooltip={onClick ? 'Usa modificar bloques para editar' : undefined}
+      style={{ background: pal.bg, color: pal.text, opacity: b.cancelada ? 0.55 : 1 }}
+      data-tooltip={onClick ? (b.cancelada ? 'Clase cancelada — usa modificar bloques para editar' : 'Usa modificar bloques para editar') : undefined}
     >
-      <span className="truncate">{subjectDisplayName(subj)}</span>
+      <span className={`truncate ${b.cancelada ? 'line-through' : ''}`}>{subjectDisplayName(subj)}</span>
     </button>
   )
 }
@@ -783,13 +784,14 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
                         left: `calc(${lane * w}% + 2px)`,
                         width: `calc(${w}% - 4px)`,
                         background: pal.bg, color: pal.text,
-                        opacity: isDragging ? 0.3 : 1,
+                        opacity: isDragging ? 0.3 : (b.cancelada ? 0.55 : 1),
                         touchAction: 'none',
                       }}
-                      data-tooltip={editable ? 'Usa modificar bloques para editar, o muévelo' : undefined}
+                      data-tooltip={b.cancelada ? 'Clase cancelada' : editable ? 'Usa modificar bloques para editar, o muévelo' : undefined}
                     >
-                      <span className={`block ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>{subjectDisplayName(subj)}</span>
-                      {b.lugar && <span className={`block ${GRID_ITEM_TEXT} opacity-70 leading-tight truncate`}>{b.lugar}</span>}
+                      <span className={`block ${GRID_ITEM_TEXT} font-normal leading-tight truncate ${b.cancelada ? 'line-through' : ''}`}>{subjectDisplayName(subj)}</span>
+                      {b.cancelada && <span className={`block ${GRID_ITEM_TEXT} leading-tight truncate`}>Cancelada</span>}
+                      {!b.cancelada && b.lugar && <span className={`block ${GRID_ITEM_TEXT} opacity-70 leading-tight truncate`}>{b.lugar}</span>}
                     </div>
                   )
                 })}
@@ -1656,7 +1658,9 @@ export default function CalendarPage() {
     await moveBloque(pm.bloque, pm.bloque.fecha, pm.hora)
   }
 
-  // Borrar SOLO esta clase (p. ej. suspendida). No toca las demás instancias.
+  // Eliminar SOLO esta clase (creada por error) — deleteDoc real, sin dejar
+  // rastro. Distinto de CANCELAR (abajo): esto es para cuando el bloque nunca
+  // debió existir, no para una clase que sí estaba programada y no se dio.
   async function borrarBloqueUnico(bloque) {
     setPendingMove(null)
     try {
@@ -1665,6 +1669,35 @@ export default function CalendarPage() {
       refreshTeacherReminders(currentUser.uid)
     } catch (err) {
       toast('No se pudo borrar la clase: ' + err.message, 'error')
+    }
+  }
+
+  // CANCELAR una clase que sí estaba programada y no se va a impartir — se
+  // conserva el documento (a diferencia de "Eliminar"), solo se marca. Así
+  // queda registrada como hecho histórico y puede excluirse del cálculo de
+  // sesiones efectivas y de asistencia, sin perder que existió. Reversible
+  // con "Reactivar" (p. ej. si al final sí se repuso la clase ese día).
+  async function cancelarBloqueUnico(bloque) {
+    setPendingMove(null)
+    try {
+      await updateDoc(doc(db, 'horarioBloques', bloque.id), {
+        cancelada: true, canceladaEn: serverTimestamp(),
+      })
+      toast('Esta clase quedó marcada como cancelada. No generará asistencia.')
+      refreshTeacherReminders(currentUser.uid)
+    } catch (err) {
+      toast('No se pudo cancelar la clase: ' + err.message, 'error')
+    }
+  }
+
+  async function reactivarBloqueUnico(bloque) {
+    setPendingMove(null)
+    try {
+      await updateDoc(doc(db, 'horarioBloques', bloque.id), { cancelada: false })
+      toast('Esta clase vuelve a estar activa.')
+      refreshTeacherReminders(currentUser.uid)
+    } catch (err) {
+      toast('No se pudo reactivar la clase: ' + err.message, 'error')
     }
   }
 
@@ -2297,6 +2330,7 @@ export default function CalendarPage() {
       {pendingMove && (() => {
         const { bloque: b, hora, confirmDel, soloBorrar } = pendingMove
         const subj = subjects[b.asignaturaId]
+        const cancelada = !!b.cancelada
         const durMin = Math.max(5, timeToMinutes(b.horaFin) - timeToMinutes(b.horaInicio))
         const fmtF = s => {
           const d = new Date(s + 'T12:00:00')
@@ -2319,14 +2353,20 @@ export default function CalendarPage() {
               aria-label="Cerrar"
             />
             <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
-              <h2 className="font-semibold text-on-surface">{soloBorrar ? 'Borrar esta clase' : 'Mover o borrar esta clase'}</h2>
+              <h2 className="font-semibold text-on-surface">{cancelada ? 'Clase cancelada' : soloBorrar ? 'Borrar esta clase' : 'Mover, cancelar o borrar esta clase'}</h2>
               <div className="text-sm text-on-surface space-y-0.5 bg-surface rounded-card border border-outline-variant p-3">
                 <p className="font-medium">{subjectDisplayName(subj) || 'Clase'}</p>
                 <p className="text-muted text-xs">{fmtF(b.fecha)} · empieza a las {fmtHour(b.horaInicio)}</p>
               </div>
 
-              {/* Mover el MISMO día a otra hora — no disponible en la vista Mes */}
-              {!soloBorrar && (<>
+              {cancelada && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-amber-50 border border-amber-200">
+                  <span className="text-xs text-amber-800 flex-1">Esta clase está cancelada — no genera asistencia ni cuenta como sesión disponible.</span>
+                </div>
+              )}
+
+              {/* Mover el MISMO día a otra hora — no disponible en la vista Mes ni en una clase cancelada */}
+              {!soloBorrar && !cancelada && (<>
               <div className="space-y-1">
                 <span className="text-xs font-semibold text-muted uppercase tracking-wide">Cambiar la hora (el mismo día)</span>
                 <div className="flex items-center gap-1.5">
@@ -2362,29 +2402,52 @@ export default function CalendarPage() {
               </button>
               </>)}
 
-              {soloBorrar && (
+              {soloBorrar && !cancelada && (
                 <p className="text-xs text-muted">En la vista Mes las clases no se cambian de hora ni de día. Para eso, usa <strong className="text-on-surface">Modificar bloques</strong>.</p>
               )}
 
-              {/* Borrar SOLO esta clase */}
-              {confirmDel ? (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-error/10 border border-error/30">
-                  <span className="text-xs text-error flex-1">¿Borrar solo esta clase? Las demás clases no se tocan.</span>
-                  <button type="button" onClick={() => setPendingMove(pm => ({ ...pm, confirmDel: false }))} className="text-xs text-muted px-2 py-1">No</button>
-                  <button type="button" onClick={() => borrarBloqueUnico(b)} className="text-xs bg-error text-white rounded px-2.5 py-1 font-medium">Sí, borrar</button>
-                </div>
-              ) : (
+              {cancelada ? (
+                /* Ya cancelada: la única acción disponible es reactivarla. */
                 <button
                   type="button"
-                  onClick={() => setPendingMove(pm => ({ ...pm, confirmDel: true }))}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-card border border-error/30 text-error text-sm hover:bg-error/10 transition-colors"
+                  onClick={() => reactivarBloqueUnico(b)}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-card border border-accent/30 text-accent text-sm hover:bg-accent-tint transition-colors"
                 >
-                  <Trash2 size={14} /> Borrar esta clase (suspendida)
+                  Reactivar esta clase
                 </button>
-              )}
+              ) : (<>
+                {/* CANCELAR: la clase sí estaba programada pero no se va a
+                    impartir — se conserva el registro (no es un deleteDoc). */}
+                <button
+                  type="button"
+                  onClick={() => cancelarBloqueUnico(b)}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-card border border-amber-300 text-amber-700 text-sm hover:bg-amber-50 transition-colors"
+                >
+                  <Ban size={14} /> Cancelar esta clase (no se impartirá)
+                </button>
+
+                {/* ELIMINAR: el bloque se creó por error, no debió existir. */}
+                {confirmDel ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-error/10 border border-error/30">
+                    <span className="text-xs text-error flex-1">¿Borrar solo esta clase? Las demás clases no se tocan.</span>
+                    <button type="button" onClick={() => setPendingMove(pm => ({ ...pm, confirmDel: false }))} className="text-xs text-muted px-2 py-1">No</button>
+                    <button type="button" onClick={() => borrarBloqueUnico(b)} className="text-xs bg-error text-white rounded px-2.5 py-1 font-medium">Sí, borrar</button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPendingMove(pm => ({ ...pm, confirmDel: true }))}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-card border border-error/30 text-error text-sm hover:bg-error/10 transition-colors"
+                  >
+                    <Trash2 size={14} /> Eliminar esta clase (se creó por error)
+                  </button>
+                )}
+              </>)}
 
               <p className="text-xs text-muted">
-                Esto solo afecta a <strong className="text-on-surface">esta clase</strong>. Para mover también las clases siguientes, o reacomodar todo el horario, entra a <strong className="text-on-surface">Modificar bloques</strong>.
+                {cancelada
+                  ? <>Cancelar conserva el registro de la clase; eliminar la borra por completo. Reactivar la vuelve a dejar disponible.</>
+                  : <>Esto solo afecta a <strong className="text-on-surface">esta clase</strong>. Para mover también las clases siguientes, o reacomodar todo el horario, entra a <strong className="text-on-surface">Modificar bloques</strong>.</>}
               </p>
 
               <button

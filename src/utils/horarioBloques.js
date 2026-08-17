@@ -17,6 +17,14 @@
 //     alarma: { activa, sonido, minutosAntes },
 //     movido,           // true si el docente lo arrastró manualmente
 //     createdAt,
+//     cancelada,          // true si el docente avisó que esta clase no se
+//                         // impartió — NO se borra el documento (a diferencia
+//                         // de "Eliminar", que sí es un deleteDoc real para
+//                         // bloques creados por error). Identidad de la
+//                         // sesión cancelada = asignaturaId + fecha +
+//                         // horaInicio (ver CalendarPage.jsx).
+//     motivoCancelacion,  // opcional, texto libre
+//     canceladaEn,        // opcional, serverTimestamp()
 //   }
 
 // ─── Paleta de fondos suaves (texto legible encima) ──────────────────────────
