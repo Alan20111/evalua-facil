@@ -1003,6 +1003,23 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.docenteId;
     }
 
+    // Chat con Asistente (17-ago-2026) — un documento por MENSAJE (docente o
+    // asistente), de una asignatura (subjectId) o del Asistente General
+    // (subjectId ausente/null). Persiste hasta que el docente lo borre —
+    // "el docente debe poder ver hacia atrás", pedido explícito — nunca se
+    // borra solo, ni al cambiar de asignatura ni al recargar.
+    match /chatMensajes/{mensajeId} {
+      allow read: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if docenteActivo() &&
+        request.auth.uid == request.resource.data.docenteId;
+      // Borrar (limpiar la conversación) es lo único que el docente hace
+      // aquí después de crear un mensaje — nunca lo edita.
+      allow delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
+      allow update: if false;
+    }
+
     // Vacaciones del docente. Cada doc marca un PERIODO (fechaInicio–fechaFin)
     // en el que no se permiten (según su alcance) clases, eventos y/o
     // actividades — misma estructura que asuetos, pero para un rango de días.

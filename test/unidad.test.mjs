@@ -1918,6 +1918,31 @@ caso('CHAT_SISTEMA: define el rol de asistente contextualizado, no un chat gené
   assert.ok(FIA.CHAT_SISTEMA.includes('Nunca inventes calificaciones'))
 })
 
+caso('CHAT_SISTEMA: también contempla el Asistente General (resumen de todas las asignaturas)', () => {
+  assert.ok(FIA.CHAT_SISTEMA.includes('Asistente General'))
+})
+
+// Asistente General — resumen agregado de todas las asignaturas (segunda
+// etapa del Chat con Asistente, 17-ago-2026).
+caso('resumenGeneralATexto: sin asignaturas, lo dice explícitamente (no inventa)', () => {
+  assert.strictEqual(FIA.resumenGeneralATexto([]), 'El docente todavía no tiene asignaturas.')
+})
+
+caso('resumenGeneralATexto: arma una línea por asignatura con conteos AGREGADOS, sin nombres de alumnos', () => {
+  const texto = FIA.resumenGeneralATexto([
+    { nombre: 'Matemáticas', grupo: '1A', parcialActual: 2, totalAlumnos: 30, actividadesPendientes: 5, promedioGrupo: 7.8, alumnosEnRiesgo: 3 },
+    { nombre: 'Física', grupo: '', parcialActual: 1, totalAlumnos: 25, actividadesPendientes: 0, promedioGrupo: null, alumnosEnRiesgo: 0 },
+  ])
+  assert.ok(texto.includes('Matemáticas (1A)'))
+  assert.ok(texto.includes('Parcial 2'))
+  assert.ok(texto.includes('5 entrega(s) sin calificar'))
+  assert.ok(texto.includes('7.8'))
+  assert.ok(texto.includes('3 alumno(s) por debajo de 6'))
+  assert.ok(texto.includes('Física'))
+  assert.ok(texto.includes('sin calificaciones todavía'))
+  assert.ok(!/alumno \d|nombre:|@/.test(texto)) // nunca identidad individual
+})
+
 console.log(`\n${'─'.repeat(60)}`)
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)

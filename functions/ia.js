@@ -35,6 +35,8 @@ const { dividirEnFragmentos } = require('./docChunking')
 // de package.json).
 const { calcularSesionesReales } = require('./_shared/sesionesReales.js')
 const { fechasVacacionParaClases } = require('./_shared/vacaciones.js')
+const { parcialForDate } = require('./_shared/parciales.js')
+const { promedioParcial, normalizeGrade, ponderacionActivaEnParcial } = require('./_shared/ponderacion.js')
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
@@ -3490,16 +3492,115 @@ function analisisExamenesATexto(lista) {
   }).join('\n')
 }
 
+// ── Asistente General — resumen agregado de TODAS las asignaturas ──────────
+//
+// Segunda etapa del Chat con Asistente (17-ago-2026), autorizada por Kike
+// después de validar la primera (por asignatura). Reutiliza el MISMO
+// operacion 'chat_asistente' — solo cambia el precheck según venga o no
+// `subjectId`: sin asignatura → Asistente General.
+//
+// Agregaciones nuevas (no existían en ningún lado del proyecto, confirmado
+// en el análisis previo): actividades pendientes de calificar, promedio del
+// grupo y alumnos en riesgo, del PARCIAL ACTUAL de cada asignatura. Se
+// calculan aquí mismo, reutilizando promedioParcial/normalizeGrade/
+// ponderacionActivaEnParcial (ya existían en src/utils/ponderacion.js, solo
+// se usaban del lado cliente) — nunca se expone nombre ni identidad de
+// ningún alumno a la IA, solo conteos y promedios agregados.
+async function resumenAsignaturaParaGeneral(db, subjectId, subj) {
+  const hoy = new Date().toISOString().slice(0, 10)
+  const parcialesFechas = Array.isArray(subj.parcialesFechas) ? subj.parcialesFechas : []
+  const parcialActual = parcialForDate(parcialesFechas, hoy) || Math.max(1, Number(subj.parciales) || 1)
+
+  const [actsSnap, studentsSnap] = await Promise.all([
+    db.collection('activities').where('asignaturaId', '==', subjectId).where('parcial', '==', parcialActual).get(),
+    db.collection('students').where('asignaturaId', '==', subjectId).get(),
+  ])
+  const actividades = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  const actIds = actividades.map((a) => a.id)
+
+  const submissions = []
+  for (let i = 0; i < actIds.length; i += 30) {
+    const chunk = actIds.slice(i, i + 30)
+    if (!chunk.length) continue
+    const snap = await db.collection('submissions').where('actividadId', 'in', chunk).get()
+    submissions.push(...snap.docs.map((d) => d.data()))
+  }
+  const actividadesPendientes = submissions.filter((s) => s.estado && s.estado !== 'calificado').length
+
+  const subMap = {}
+  submissions.forEach((s) => { subMap[`${s.alumnoId}-${s.actividadId}`] = s })
+
+  const ponderacionOn = ponderacionActivaEnParcial(subj, parcialActual)
+  const promedios = studentsSnap.docs.map((alumnoDoc) => {
+    const grades = actividades.map((a) => {
+      const sub = subMap[`${alumnoDoc.id}-${a.id}`]
+      return sub?.calificacion != null ? normalizeGrade(sub.calificacion, a.maxCalif || 10) : null
+    })
+    return promedioParcial(actividades, grades, ponderacionOn)
+  }).filter((p) => p != null)
+
+  const promedioGrupo = promedios.length ? promedios.reduce((s, p) => s + p, 0) / promedios.length : null
+  const alumnosEnRiesgo = promedios.filter((p) => p < 6).length // 6/10 — mínimo aprobatorio SEP
+
+  return {
+    nombre: String(subj.nombre || '').trim() || '(sin nombre)', grupo: subj.grupo || '',
+    parcialActual, totalAlumnos: studentsSnap.size, actividadesPendientes, promedioGrupo, alumnosEnRiesgo,
+  }
+}
+
+function resumenGeneralATexto(resumenes) {
+  if (!resumenes.length) return 'El docente todavía no tiene asignaturas.'
+  return resumenes.map((r) => (
+    `- ${r.nombre}${r.grupo ? ` (${r.grupo})` : ''}, Parcial ${r.parcialActual}: ${r.totalAlumnos} alumnos, ` +
+    `${r.actividadesPendientes} entrega(s) sin calificar, promedio del grupo ` +
+    `${r.promedioGrupo != null ? r.promedioGrupo.toFixed(1) : 'sin calificaciones todavía'}, ` +
+    `${r.alumnosEnRiesgo} alumno(s) por debajo de 6.`
+  )).join('\n')
+}
+
+async function precheckAsistenteGeneral({ uid, params }) {
+  const db = getFirestore()
+  const mensaje = String(params?.mensaje || '').trim().slice(0, MAX_LARGO_MENSAJE)
+  if (!mensaje) throw new HttpsError('invalid-argument', 'Falta el mensaje.')
+
+  const perfilSnap = await db.doc(`users/${uid}`).get()
+  const perfilIA = perfilSnap.data()?.perfilIA || null
+  if (!perfilIACompleto(perfilIA)) {
+    throw new HttpsError('failed-precondition',
+      'Completa primero tu Perfil para IA del docente — es indispensable para usar el Chat con Asistente. ' +
+      'No se descontaron créditos.',
+      { codigo: 'PERFIL_IA_INCOMPLETO' })
+  }
+
+  const subjectsSnap = await db.collection('subjects').where('docenteId', '==', uid).get()
+  const subjects = subjectsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((s) => !s.archived)
+  const resumenes = await Promise.all(subjects.map((s) => resumenAsignaturaParaGeneral(db, s.id, s)))
+
+  const bloques = [
+    `PERFIL DEL DOCENTE:\n${perfilIATexto(perfilIA)}`,
+    `RESUMEN DE TODAS LAS ASIGNATURAS DEL DOCENTE (parcial actual de cada una):\n${resumenGeneralATexto(resumenes)}`,
+  ]
+
+  return {
+    contextoSistema: bloques.join('\n\n'),
+    mensaje,
+    historial: sanearHistorialChat(params?.historial),
+  }
+}
+
 // Precheck: arma TODO el contexto de la asignatura desde Firestore — nunca
 // desde lo que mande el cliente (asignaturaId es lo único que se confía, y
 // solo para leer, tras validar dueño). Mismo criterio que
 // precheckPlaneacionInicial: si el docente no tiene Perfil IA completo, se
 // detiene aquí (antes de reservar créditos), porque toda la pestaña
 // Asistente IA ya exige tenerlo.
+//
+// SIN `subjectId` → Asistente General (precheckAsistenteGeneral), no un
+// error: es la forma en que el cliente pide el contexto transversal.
 async function precheckChatAsistente({ uid, params }) {
   const db = getFirestore()
   const subjectId = String(params?.subjectId || '').trim()
-  if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura.')
+  if (!subjectId) return precheckAsistenteGeneral({ uid, params })
   const mensaje = String(params?.mensaje || '').trim().slice(0, MAX_LARGO_MENSAJE)
   if (!mensaje) throw new HttpsError('invalid-argument', 'Falta el mensaje.')
 
@@ -3580,17 +3681,19 @@ async function precheckChatAsistente({ uid, params }) {
 
 const CHAT_SISTEMA =
   REGLA_ACTIVIDADES_NO_DENIGRANTES +
-  'Eres el Asistente Docente de Evalúa Fácil, conversando con un docente de bachillerato mexicano sobre UNA ' +
-  'asignatura específica suya — el contexto completo de esa asignatura viene a continuación. Responde en ' +
-  'español, breve y práctico, como un colega pedagógico con el que se conversa, no como un reporte. Usa ' +
-  'EXCLUSIVAMENTE la información de este contexto — si el docente pregunta algo que no puedes responder con ' +
-  'lo que tienes (por ejemplo, si falta un diagnóstico, la Planeación no está aceptada, o no hay horario ' +
-  'configurado), dilo con claridad y sugiere qué le falta generar o configurar, en vez de inventar. Nunca ' +
-  'inventes calificaciones, nombres de estudiantes ni resultados que no estén en el contexto. No repitas todo ' +
-  'el contexto en cada respuesta — ve directo a lo que te preguntan, y usa el historial de la conversación ' +
-  'para entender preguntas de seguimiento (p. ej. "¿y qué actividad?" se refiere a tu respuesta anterior). ' +
-  'Nunca escribas que fuiste generado por IA o por un asistente — eres una herramienta del docente, él es ' +
-  'quien decide.'
+  'Eres el Asistente Docente de Evalúa Fácil, conversando con un docente de bachillerato mexicano. Si el ' +
+  'contexto que sigue es de UNA asignatura específica, todo lo que respondas gira en torno a ella; si es un ' +
+  'resumen de TODAS sus asignaturas (Asistente General), ayúdalo a decidir en qué enfocarse y a organizarse ' +
+  'entre ellas, comparándolas cuando haga sentido. Responde en español, breve y práctico, como un colega ' +
+  'pedagógico con el que se conversa, no como un reporte. Usa EXCLUSIVAMENTE la información de este contexto ' +
+  '— si el docente pregunta algo que no puedes responder con lo que tienes (por ejemplo, si falta un ' +
+  'diagnóstico, la Planeación no está aceptada, o no hay horario configurado), dilo con claridad y sugiere qué ' +
+  'le falta generar o configurar, en vez de inventar. Nunca inventes calificaciones, nombres de estudiantes ni ' +
+  'resultados que no estén en el contexto — los promedios y conteos que sí tienes ya vienen agregados y ' +
+  'anónimos, nunca por alumno individual. No repitas todo el contexto en cada respuesta — ve directo a lo que ' +
+  'te preguntan, y usa el historial de la conversación para entender preguntas de seguimiento (p. ej. "¿y qué ' +
+  'actividad?" se refiere a tu respuesta anterior). Nunca escribas que fuiste generado por IA o por un ' +
+  'asistente — eres una herramienta del docente, él es quien decide.'
 
 // Llamada simple de texto libre (a diferencia de pedirJSON: el chat no
 // responde JSON, responde conversación). Misma forma de client/medición que
@@ -3805,4 +3908,5 @@ exports._pruebas = {
   FUENTE_UMBRAL_FRAGMENTAR_CHARS, FUENTE_FRAGMENTO_MAX_CHARS, calcularUnidadesMinimasFuente,
   precheckChatAsistente, sanearHistorialChat, planeacionAceptadaATexto, analisisExamenesATexto,
   CHAT_SISTEMA, MAX_TURNOS_HISTORIAL, MAX_LARGO_MENSAJE,
+  resumenGeneralATexto, precheckAsistenteGeneral,
 }
