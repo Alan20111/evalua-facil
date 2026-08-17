@@ -56,3 +56,7 @@ seeds-db/*.json
 
 # Excepción: launch.json sí se versiona (config de dev-server para revisiones locales)
 !.claude/launch.json
+
+# Copia generada por scripts/sync-functions-shared.mjs — fuente real en
+# src/utils/. Nunca se edita a mano ni se commitea.
+functions/_shared/

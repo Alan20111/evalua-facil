@@ -4,7 +4,10 @@
     "indexes": "firestore.indexes.json"
   },
   "functions": {
-    "source": "functions"
+    "source": "functions",
+    "predeploy": [
+      "node scripts/sync-functions-shared.mjs"
+    ]
   },
   "emulators": {
     "firestore": { "port": 8080 },
