@@ -2326,6 +2326,23 @@ async function ejecutarDiagnosticoConocimientos({ params, modelo, apiKey }) {
 // Tarifa (Kike, 12-ago-2026): 20 créditos fijos, una sola operación cubre
 // TODOS los parciales reales de la asignatura (aunque sean N llamadas).
 
+const DIAS_SEMANA_LARGO = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
+
+// Texto legible de las sesiones reales de un parcial (una línea por sesión,
+// "Sesión N — día fecha"), para inyectar como restricción temporal en el
+// prompt de promptSecuenciasParcial. NO recalcula nada — `sesionesReales` ya
+// viene resuelta por calcularSesionesReales() vía construirParcialesCtx();
+// esto solo la formatea para el modelo.
+function formatoSesionesReales(sesionesReales) {
+  return sesionesReales.map((s) => {
+    const d = new Date(s.fecha + 'T12:00:00')
+    const fechaTexto = Number.isNaN(d.getTime())
+      ? s.fecha
+      : `${DIAS_SEMANA_LARGO[s.diaSemana] || ''} ${d.getDate()} de ${d.toLocaleDateString('es-MX', { month: 'long' })}`.trim()
+    return `Sesión ${s.numeroSesionParcial} — ${fechaTexto}`
+  }).join('\n')
+}
+
 function formatoPeriodo(fechas) {
   if (!fechas?.inicio || !fechas?.fin) return null
   const fmt = (iso) => {
@@ -2787,6 +2804,23 @@ function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada, pedirBibli
     'números enteros y verificar los resultados."\n' +
     'EJEMPLO INCORRECTO (nunca hagas esto): "• Guiar el cálculo del presupuesto mensual de la familia y ' +
     'resolver ejercicios de operaciones con números enteros. Sesiones: 2."\n' +
+    (parcialCtx.sesionesReales?.length
+      ? 'RESTRICCIÓN REAL DE TIEMPO — SESIONES DISPONIBLES para este parcial (Kike, 17-ago-2026): estas son las ' +
+        'ÚNICAS sesiones de clase que existen de verdad en este parcial — ya se descontaron vacaciones, asuetos, ' +
+        `días inhábiles y clases canceladas — ${parcialCtx.sesionesReales.length} en total:\n` +
+        `${formatoSesionesReales(parcialCtx.sesionesReales)}\n` +
+        'Sigues decidiendo TÚ, pedagógicamente, cómo agrupar y repartir el contenido — puedes dedicar varias ' +
+        'sesiones a una sola actividad, combinar actividades, o cerrar una Secuencia antes de tiempo si el tema ' +
+        `lo permite. Pero el número de sesión que uses (en el campo "sesiones" y en cada viñeta "Sesión N:") ` +
+        'tiene que corresponder EXACTAMENTE a esta lista: "Sesión 1" es la primera fecha de arriba, "Sesión 2" ' +
+        `la segunda, y así sucesivamente — nunca uses un número de sesión mayor a ` +
+        `${parcialCtx.sesionesReales.length} ni inventes que hay clase en una fecha que no aparece en la lista. ` +
+        'Si una actividad ocupa varias sesiones, tienen que ser sesiones CONSECUTIVAS de esta lista (p. ej. ' +
+        'Sesión 2 y Sesión 3), nunca fechas de calendario consecutivas que no estén ambas en la lista (el ' +
+        'ejemplo de arriba puede saltarse días por vacaciones o porque ese día no hay clase). Al escribir cada ' +
+        'viñeta, agrega la fecha real entre paréntesis junto al número de sesión, por ejemplo "• Sesión 2 ' +
+        '(miércoles 3 de septiembre): ...".\n\n'
+      : '') +
     'NUNCA escribas en el contenido que fue generado por inteligencia artificial, por IA, por un asistente, ni ' +
     'nada similar — el docente es el autor de esta planeación, la IA es solo su herramienta de redacción.\n\n' +
     (ctx.perfilIATexto ? `PERFIL DEL DOCENTE:\n${ctx.perfilIATexto}\n\n` : '') +
@@ -3272,7 +3306,7 @@ exports._pruebas = {
   precheckDiagnosticoBase, precheckDiagnosticoContexto, precheckDiagnosticoConocimientos, seleccionarFuentesGenerales, perfilIACompleto, perfilIATexto,
   promptInstrumentoContexto, normalizarPreguntasContexto, promptDiagnosticoConocimientos,
   MAX_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO, MIN_PREGUNTAS_CONTEXTO, MAX_PREGUNTAS_CONTEXTO,
-  precheckPlaneacionInicial, formatoPeriodo, construirParcialesCtx, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
+  precheckPlaneacionInicial, formatoPeriodo, construirParcialesCtx, formatoSesionesReales, diagnosticoContextoATexto, diagnosticoConocimientosATexto,
   analisisDiagnosticoMasReciente,
   comentariosGrupoATexto, autoanalisisDocenteATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
