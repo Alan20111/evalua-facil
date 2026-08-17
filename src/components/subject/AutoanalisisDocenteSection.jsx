@@ -46,10 +46,9 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
   const [loaded, setLoaded] = useState(false)
   const [guardando, setGuardando] = useState(false)
   // Colapsada por omisión (es opcional, no se le pone al frente al docente
-  // sin querer) — pero si ya tenía respuestas guardadas de antes, se abre
-  // sola la primera vez que cargan, para que no piense que se perdieron.
+  // sin querer). Si ya la había llenado, se queda replegada igual — abrirla
+  // es decisión del docente (pedido de Kike, 17-ago-2026).
   const [abierta, setAbierta] = useState(false)
-  const [seAbrioSola, setSeAbrioSola] = useState(false)
   // Palomeado por el docente (Kike, 14-ago-2026): se marca aquí mismo, en la
   // tarjeta, no en un modal aparte — por omisión true (si el campo no existe
   // todavía, se incluye).
@@ -63,13 +62,8 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
       setGuardado(datos)
       setIncluir(snap.data()?.incluirEnPlaneacion?.autoanalisis !== false)
       setLoaded(true)
-      if (!seAbrioSola && !sonIguales(datos, VACIO)) {
-        setAbierta(true)
-        setSeAbrioSola(true)
-      }
     }, () => setLoaded(true))
     return unsub
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- seAbrioSola es un candado de una sola vez, no debe reiniciar la suscripción
   }, [subjectId])
 
   async function toggleIncluir(checked) {
