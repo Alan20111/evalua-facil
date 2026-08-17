@@ -84,6 +84,9 @@ const TARIFAS = {
     // reutiliza planeacion_tronco/planeacion_bloque (arquitectura descartada
     // de Planeación Viva, ver más abajo).
     planeacion_didactica_inicial: 20,
+    // Chat con Asistente, por asignatura (17-ago-2026) — tarifa fija baja,
+    // 1 crédito por turno (cada mensaje del docente es su propia operación).
+    chat_asistente: 1,
     examen: 10,
     cuestionario: 10,
     analisis_apoyo: 20,
@@ -115,6 +118,7 @@ const TARIFAS = {
     diagnostico_contexto: 'Diagnóstico',
     diagnostico_conocimientos: 'Diagnóstico',
     planeacion_didactica_inicial: 'Planeación',
+    chat_asistente: 'Chat con Asistente',
     examen: 'Evaluaciones',
     cuestionario: 'Evaluaciones',
     analisis_apoyo: 'Planeación',
@@ -156,6 +160,8 @@ const TARIFAS = {
     diagnostico_contexto: 'claude-haiku-4-5',
     diagnostico_conocimientos: 'claude-haiku-4-5',
     planeacion_didactica_inicial: 'claude-haiku-4-5',
+    // Chat con Asistente (17-ago-2026): conversación breve, modelo económico.
+    chat_asistente: 'claude-haiku-4-5',
   },
   // Datos de exhibición para el panel de créditos (sin costos internos).
   // Nombre comercial, no identificador — `pro`/`mayor` (las claves) no cambian.

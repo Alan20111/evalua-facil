@@ -13,6 +13,7 @@ import {
   Lock,
   BookOpen,
   Sparkles,
+  MessageCircle,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -334,6 +335,23 @@ export default function TeacherLayout({ children }) {
             >
               <Sparkles size={17} className="flex-shrink-0" />
               Perfil para IA del docente
+            </NavLink>
+          </div>
+
+          {/* Chat con Asistente — por asignatura (17-ago-2026). Mismo lugar
+              que Perfil para IA del docente: ambos son entradas del
+              Asistente IA, no de una asignatura en particular. */}
+          <div className="px-2 pt-2 border-t border-white/15">
+            <NavLink
+              to="/chat-asistente"
+              className={({ isActive }) =>
+                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
+                  isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
+                }`
+              }
+            >
+              <MessageCircle size={17} className="flex-shrink-0" />
+              Chat con Asistente
             </NavLink>
           </div>
 
