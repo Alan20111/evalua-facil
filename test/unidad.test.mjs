@@ -1597,6 +1597,32 @@ caso('FUENTE_UMBRAL_FRAGMENTAR_CHARS / FUENTE_FRAGMENTO_MAX_CHARS: valores razon
   assert.ok(FIA.FUENTE_FRAGMENTO_MAX_CHARS <= FIA.FUENTE_UMBRAL_FRAGMENTAR_CHARS)
 })
 
+// Crédito variable según el tamaño real del documento fuente (17-ago-2026,
+// Kike: "el tamaño del documento puede aumentar el costo, pero nunca
+// provocar pérdida silenciosa de contenido").
+caso('calcularUnidadesMinimasFuente: sin fuente, o documento pequeño (CASO 1) — 1 unidad, el precio fijo de siempre', () => {
+  assert.strictEqual(FIA.calcularUnidadesMinimasFuente(null), 1)
+  assert.strictEqual(FIA.calcularUnidadesMinimasFuente(''), 1)
+  assert.strictEqual(FIA.calcularUnidadesMinimasFuente('x'.repeat(1000)), 1)
+})
+
+caso('calcularUnidadesMinimasFuente: justo en el umbral (inclusive) sigue costando 1 unidad', () => {
+  assert.strictEqual(FIA.calcularUnidadesMinimasFuente('x'.repeat(FIA.FUENTE_UMBRAL_FRAGMENTAR_CHARS)), 1)
+})
+
+caso('calcularUnidadesMinimasFuente: documento grande (CASO 2) — 1 + un fragmento por cada llamada real de extracción', () => {
+  const texto = 'x'.repeat(FIA.FUENTE_UMBRAL_FRAGMENTAR_CHARS + 1)
+  const fragmentosEsperados = docChunking.dividirEnFragmentos(texto, FIA.FUENTE_FRAGMENTO_MAX_CHARS).length
+  assert.ok(fragmentosEsperados > 1)
+  assert.strictEqual(FIA.calcularUnidadesMinimasFuente(texto), 1 + fragmentosEsperados)
+})
+
+caso('calcularUnidadesMinimasFuente: el costo escala con el tamaño real (documento más grande, más unidades)', () => {
+  const chico = FIA.calcularUnidadesMinimasFuente('x'.repeat(FIA.FUENTE_UMBRAL_FRAGMENTAR_CHARS + 1))
+  const grande = FIA.calcularUnidadesMinimasFuente('x'.repeat(FIA.FUENTE_UMBRAL_FRAGMENTAR_CHARS * 4))
+  assert.ok(grande > chico)
+})
+
 caso('promptExtraerTemasFragmento: identifica el fragmento (índice/total) e incluye su texto completo', () => {
   const prompt = FIA.promptExtraerTemasFragmento('CONTENIDO DEL FRAGMENTO', 2, 5)
   assert.ok(prompt.includes('FRAGMENTO 3 de 5'))
