@@ -3033,6 +3033,17 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
     semestre: '', grupo: '', periodo: '', horasTotales: '', horasSemana: '', competencias: '',
   }
 
+  // Sección "VALIDACIÓN" del Word de referencia (Kike, 16-ago-2026) —
+  // igual que datosIdentificacion, pertenece a PERSONALIZAR: la IA NUNCA
+  // inventa nombres de personas. Solo el cargo trae un valor por default
+  // (mismo texto de CAMPOS_VALIDACION en src/utils/planeacionDocx.js — se
+  // duplica a propósito, runtimes distintos sin módulo compartido).
+  const validacion = {
+    elaboradoPor: '\nDocente',
+    avaladoPor1: '\nJefe de servicios docentes',
+    avaladoPor2: '\nPresidente de academia correspondiente',
+  }
+
   // El servidor guarda la bitácora ÉL MISMO, no el cliente (a diferencia del
   // resto de operaciones, que devuelven el resultado y dejan el addDoc del
   // lado del cliente): una llamada por parcial puede tardar más que el
@@ -3046,13 +3057,14 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
       porParcial,
       datosIdentificacion,
       fuentesInformacion,
+      validacion,
       cantidadSolicitada: ctx.cantidadSolicitada || null,
       docenteId: params.__uid,
       generadoEn: FieldValue.serverTimestamp(),
     })
 
   return {
-    resultado: { porParcial, datosIdentificacion, fuentesInformacion },
+    resultado: { porParcial, datosIdentificacion, fuentesInformacion, validacion },
     // Tarifa fija (20 créditos) + 1 unidad extra por cada parcial que
     // necesitó el reintento de cantidad (ver generarSecuenciasPorParciales)
     // — ese reintento duplica el gasto real de tokens de ese parcial, así

@@ -50,6 +50,23 @@ export const CAMPOS_MOMENTO = [
   { clave: 'ponderacion', etiqueta: 'PONDERACIÓN (%)' },
 ]
 
+// Sección de cierre "VALIDACIÓN" — firmas de Elaborado por / Avalado por ×2
+// (Kike, 16-ago-2026). Pertenece a PERSONALIZAR: la IA nunca inventa
+// nombres de personas, solo el cargo trae un valor por default. `cargo` es
+// editable igual que `nombre` (misma celda, separados por un salto de
+// línea real — mismo mecanismo que cualquier otro campo de varias líneas).
+export const CAMPOS_VALIDACION = [
+  { clave: 'elaboradoPor', etiqueta: 'Elaborado por:', cargoDefault: 'Docente' },
+  { clave: 'avaladoPor1', etiqueta: 'Avalado por:', cargoDefault: 'Jefe de servicios docentes' },
+  { clave: 'avaladoPor2', etiqueta: 'Avalado por:', cargoDefault: 'Presidente de academia correspondiente' },
+]
+
+export function validacionVacia() {
+  const v = {}
+  for (const { clave, cargoDefault } of CAMPOS_VALIDACION) v[clave] = `\n${cargoDefault}`
+  return v
+}
+
 async function cargarPizZip() {
   return (await import('pizzip')).default
 }
@@ -72,6 +89,7 @@ const ANCHO_IDENTIFICACION = [2200, 5000, 2200, 5000]
 const ANCHO_IDENTIDAD_SECUENCIA = [3200, 11200]
 const ANCHO_MOMENTO = [5040, 5760, 3600]
 const ANCHO_BIBLIOGRAFIA = [700, 13700]
+const ANCHO_VALIDACION = [4800, 4800, 4800]
 
 function runTexto(texto, { negrita, color, sz, blanco } = {}) {
   const props = []
@@ -106,8 +124,9 @@ function celda(anchoTwips, contenidoXml, { fill, spanCols } = {}) {
   return `<w:tc><w:tcPr><w:tcW w:w="${anchoTwips}" w:type="dxa"/>${span}${sombra}<w:vAlign w:val="center"/></w:tcPr>${contenidoXml}</w:tc>`
 }
 
-function filaTr(contenidoXml) {
-  return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${contenidoXml}</w:tr>`
+function filaTr(contenidoXml, alturaTwips) {
+  const altura = alturaTwips ? `<w:trHeight w:val="${alturaTwips}" w:hRule="atLeast"/>` : ''
+  return `<w:tr><w:trPr><w:cantSplit/>${altura}</w:trPr>${contenidoXml}</w:tr>`
 }
 
 // Fila de encabezado que ocupa TODO el ancho de la tabla (una sola celda
@@ -234,6 +253,51 @@ function tablaBibliografia(fuentes) {
   )
 }
 
+function valorValidacion(validacion, campo) {
+  const v = validacion?.[campo.clave]
+  return (v !== undefined && v !== null && v !== '') ? v : `\n${campo.cargoDefault}`
+}
+
+// ── Sección de cierre "VALIDACIÓN" — 3 columnas iguales, ÚNICA por
+// documento (Kike, 16-ago-2026): encabezado | "Elaborado por:"/"Avalado
+// por:" ×2, centrados | espacio de firma REALMENTE vacío (sin texto, sin
+// líneas, sin guiones — solo la celda en blanco con altura fija) | nombre
+// (editable, vacío) + cargo (editable, con default) en la misma celda.
+function tablaValidacion(validacion) {
+  const [c0, c1, c2] = ANCHO_VALIDACION
+  const anchoTotal = c0 + c1 + c2
+  // keepNext en cada párrafo de las primeras 3 filas: intenta mantener el
+  // bloque unido con lo que sigue si no cabe completo en la página actual
+  // (regla de paginación de Kike — nunca partir la tabla innecesariamente).
+  const keepNext = '<w:pPr><w:keepNext/></w:pPr>'
+  const centrado = '<w:pPr><w:jc w:val="center"/><w:keepNext/></w:pPr>'
+  const filaHeader = filaTr(
+    celda(anchoTotal, parrafo(runTexto('VALIDACIÓN', { negrita: true, blanco: true }), keepNext), { fill: AZUL_MARINO, spanCols: 3 })
+  )
+  const filaEtiquetas = filaTr(
+    CAMPOS_VALIDACION.map((campo, i) => (
+      celda([c0, c1, c2][i], parrafo(runTexto(campo.etiqueta, { negrita: true, sz: 17 }), centrado), { fill: CELDA_ETIQUETA })
+    )).join('')
+  )
+  // Espacio de firma: SIN texto, sin línea, sin guion — literalmente un
+  // párrafo vacío, con altura mínima fija para que se note el espacio.
+  const filaFirma = filaTr(
+    [c0, c1, c2].map((c) => celda(c, parrafo('', keepNext), {})).join(''),
+    1800,
+  )
+  const filaNombreCargo = filaTr(
+    CAMPOS_VALIDACION.map((campo, i) => (
+      celda([c0, c1, c2][i], parrafo(runTexto(valorValidacion(validacion, campo), { sz: 17 })), {})
+    )).join('')
+  )
+  return (
+    `<w:tbl><w:tblPr><w:tblW w:w="${anchoTotal}" w:type="dxa"/>${TABLA_BORDES}<w:tblLayout w:type="fixed"/></w:tblPr>` +
+    `<w:tblGrid>${ANCHO_VALIDACION.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>` +
+    filaHeader + filaEtiquetas + filaFirma + filaNombreCargo +
+    '</w:tbl>'
+  )
+}
+
 function parrafoVacio() {
   return '<w:p/>'
 }
@@ -276,7 +340,8 @@ const SECT_PR =
 // momento un objeto con {actividades, recursos, estrategiaEvaluacion,
 // evidencias, tipoInstrumento, ponderacion}.
 // `fuentesInformacion`: array de hasta 5 strings.
-export async function construirDocumentoPlaneacion(datosIdentificacion, secuencias, fuentesInformacion, titulo) {
+// `validacion`: {elaboradoPor, avaladoPor1, avaladoPor2} — ver CAMPOS_VALIDACION.
+export async function construirDocumentoPlaneacion(datosIdentificacion, secuencias, fuentesInformacion, titulo, validacion) {
   const PizZip = await cargarPizZip()
   const zip = new PizZip()
 
@@ -293,6 +358,8 @@ export async function construirDocumentoPlaneacion(datosIdentificacion, secuenci
   })
   cuerpo.push(parrafoVacio())
   cuerpo.push(tablaBibliografia(fuentesInformacion))
+  cuerpo.push(parrafoVacio())
+  cuerpo.push(tablaValidacion(validacion))
 
   const documentXml =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
