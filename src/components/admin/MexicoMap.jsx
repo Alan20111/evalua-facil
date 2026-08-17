@@ -105,8 +105,8 @@ const CIUDADES = Object.entries(cityShapes).map(([clave, info]) => {
   }
 })
 
-// Escala de azules por intensidad de ventas.
-const ESCALA = ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']
+// Escala de verdes por intensidad de ventas (azul se reservó para el mar).
+const ESCALA = ['#86efac', '#4ade80', '#22c55e', '#16a34a', '#166534']
 // Manchas urbanas sin ventas todavía: naranja notorio, para que la ciudad
 // se distinga de un vistazo del resto del mapa (pedido explícito, aunque el
 // resto de la UI de docente/admin sea azul).
@@ -306,11 +306,11 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
       ctx.globalAlpha = valor ? (m?.aprox ? 0.6 : 0.9) : 0.75
       ctx.fill('evenodd')
       ctx.globalAlpha = 1
-      ctx.strokeStyle = valor ? '#1e3a8a' : SIN_DATOS_BORDE
+      ctx.strokeStyle = valor ? '#166534' : SIN_DATOS_BORDE
       ctx.lineWidth = (valor ? 1 : 1.2) * escalaTrazo
       ctx.stroke()
     }
-    ctx.fillStyle = '#1e3a8a'
+    ctx.fillStyle = '#166534'
     ctx.font = `600 ${11 * escalaTexto}px sans-serif`
     ctx.lineWidth = 3 * escalaTexto
     ctx.strokeStyle = '#fff'
@@ -331,7 +331,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
       ctx.globalAlpha = m.aprox ? 0.6 : 0.9
       ctx.fill()
       ctx.globalAlpha = 1
-      ctx.strokeStyle = '#1e3a8a'
+      ctx.strokeStyle = '#166534'
       ctx.lineWidth = escalaTrazo
       ctx.stroke()
       if (circulosEtiquetados.has(m.clave)) {
@@ -576,7 +576,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
           </span>
         ))}
         <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full inline-block bg-blue-400 opacity-50" />
+          <span className="w-3 h-3 rounded-full inline-block bg-green-400 opacity-50" />
           Ubicación aproximada
         </span>
       </div>
