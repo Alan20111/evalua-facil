@@ -8,7 +8,7 @@ import { matchesStudentSearch, studentFullName } from '../utils/studentSearch'
 import { nowIsoLocal } from '../utils/nowIso'
 import { fechaLimiteTimestamp } from '../utils/deadline'
 import { useBackHandler } from '../hooks/useBackHandler'
-import { useScrollLock } from '../hooks/useScrollLock'
+import Modal from './ui/Modal'
 
 // Shared by ActivityPage (grading view) and SubjectPage (activity editor):
 // extends a group's deadline, or gives specific students their own extension.
@@ -26,9 +26,6 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
   // Physical Android back button: this modal is only mounted while its parent
   // renders it (open), so it mirrors the Cancelar button unconditionally.
   useBackHandler(onClose, true)
-
-  // Same reasoning: only mounted while open, so the scroll lock is unconditional.
-  useScrollLock(true)
 
   function toggleStudent(id) {
     setSelected((prev) => {
@@ -74,11 +71,28 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
-      <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !saving && onClose()} aria-label="Cerrar" />
-      <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] flex flex-col">
-        <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
-        <div className="flex gap-2 mt-3 flex-shrink-0">
+    <Modal
+      open
+      onClose={onClose}
+      z={60}
+      size="md"
+      busy={saving}
+      title="Nueva fecha de entrega"
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={saving}
+            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+            Cancelar
+          </button>
+          <button type="button" onClick={save}
+            disabled={saving || !date || (mode === 'algunos' && selected.size === 0)}
+            className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors">
+            {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+        </>
+      }
+    >
+        <div className="flex gap-2 flex-shrink-0">
           <button type="button" onClick={() => setMode('todos')}
             className={`flex-1 py-2 rounded text-sm font-medium border transition-colors ${mode === 'todos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
             Para todos
@@ -89,7 +103,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
           </button>
         </div>
 
-        <div className="mt-3 overflow-auto">
+        <div className="mt-3">
           <p className="block text-sm font-medium text-muted mb-1">Nueva fecha y hora límite</p>
           <EFDateTimePicker mode="datetime" value={date} onChange={setDate} clearable={false} minDateTime={nowIsoLocal()} />
 
@@ -129,19 +143,6 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
             </div>
           )}
         </div>
-
-        <div className="flex gap-2 mt-4 flex-shrink-0">
-          <button type="button" onClick={onClose} disabled={saving}
-            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
-            Cancelar
-          </button>
-          <button type="button" onClick={save}
-            disabled={saving || !date || (mode === 'algunos' && selected.size === 0)}
-            className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors">
-            {saving ? 'Guardando…' : 'Guardar'}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

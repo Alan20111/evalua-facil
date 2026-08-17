@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bell } from 'lucide-react'
 import { registrarExplicacionPush } from '../utils/pushNotifications'
+import Modal from './ui/Modal'
 
 // Explicación propia ANTES del diálogo nativo de "Permitir notificaciones" —
 // pedido explícito: que el estudiante entienda para qué sirven (avisos,
@@ -27,10 +28,19 @@ export default function PushPermissionPrimer() {
     resolveRef.current = null
   }
 
-  if (!visible) return null
   return (
-    <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center px-4">
-      <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-6 text-center">
+    <Modal
+      open={visible}
+      onClose={continuar}
+      variant="centered"
+      size="sm"
+      z={70}
+      padding="p-6"
+      busy
+      closeOnBackdrop={false}
+      ariaLabel="Activa tus notificaciones"
+    >
+      <div className="text-center">
         <div className="w-14 h-14 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3">
           <Bell size={26} className="text-accent" />
         </div>
@@ -43,6 +53,6 @@ export default function PushPermissionPrimer() {
           Entendido, continuar
         </button>
       </div>
-    </div>
+    </Modal>
   )
 }

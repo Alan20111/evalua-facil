@@ -14,6 +14,7 @@
 import { Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useCreditosIA from '../hooks/useCreditosIA'
+import Modal from './ui/Modal'
 
 export default function ConfirmacionCreditosModal({
   titulo = 'Usar el asistente de IA',
@@ -37,14 +38,17 @@ export default function ConfirmacionCreditosModal({
   const infoDocente = c.tarifas?.planes?.pro
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={onCancelar} aria-label="Cerrar" />
-      <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 drop-shadow-2xl">
-        <div className="flex items-center gap-2 mb-3">
+    <Modal
+      open
+      onClose={onCancelar}
+      busy={ejecutando}
+      title={
+        <span className="inline-flex items-center gap-2">
           <Sparkles size={18} className="text-accent flex-shrink-0" />
-          <h3 className="text-base font-semibold flex-1">{titulo}</h3>
-        </div>
-
+          {titulo}
+        </span>
+      }
+    >
         {alcanza ? (
           <>
             {descripcion && <p className="text-sm text-muted mb-2">{descripcion}</p>}
@@ -96,7 +100,6 @@ export default function ConfirmacionCreditosModal({
             </div>
           </>
         )}
-      </div>
-    </div>
+    </Modal>
   )
 }

@@ -11,10 +11,11 @@
 // 'examen'.
 
 import { useState } from 'react'
-import { Sparkles, X } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
+import Modal from './ui/Modal'
 import useCreditosIA from '../hooks/useCreditosIA'
 import { resolverFuentes } from '../utils/fuentesIA'
 import FuentesIAInput from './ia/FuentesIAInput'
@@ -88,16 +89,18 @@ export default function CrearActividadIAModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default"
-        onClick={() => { if (!trabajando) onClose?.() }} aria-label="Cerrar" />
-      <div className="relative bg-surface-card w-full max-w-md rounded-t-card sm:rounded-card p-5 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center gap-2 mb-3">
+    <Modal
+      open
+      onClose={onClose}
+      size="md"
+      busy={trabajando}
+      title={
+        <span className="inline-flex items-center gap-2">
           <Sparkles size={18} className="text-accent flex-shrink-0" />
-          <h3 className="text-base font-semibold flex-1">{tipoLabel} con IA</h3>
-          <button type="button" onClick={() => { if (!trabajando) onClose?.() }} aria-label="Cerrar"
-            className="p-1 text-slate-400 rounded"><X size={18} /></button>
-        </div>
+          {tipoLabel} con IA
+        </span>
+      }
+    >
         <p className="text-sm text-muted mb-3">
           El asistente propone {isObservacion ? 'la actividad completa (qué vas a observar y cómo se evaluará)' : 'la actividad completa (nombre, instrucciones y tipos de archivo)'} a partir de lo que describas. Lo revisas y ajustas después, como cualquier otra actividad.
         </p>
@@ -133,7 +136,6 @@ export default function CrearActividadIAModal({
             {trabajando ? 'Generando…' : 'Generar con IA'}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
