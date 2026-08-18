@@ -372,7 +372,7 @@ ok('expired teacher CAN still read their rubric bank')
 // se le puede impedir PAGARLA.
 await assertSucceeds(setDoc(doc(asVencido, 'payments', 'PAY_1'), {
   docenteId: T_VENCIDO, subscriptionId: 'SUB_DEL_VENCIDO', planId: 'pro', escuelaId: 'E3',
-  monto: 99, mesesPagados: 1, metodo: 'transferencia', referencia: '9001',
+  monto: 199, mesesPagados: 1, metodo: 'transferencia', referencia: '9001',
   status: 'pendiente', createdAt: serverTimestamp(),
 })); ok('expired teacher CAN declare a payment')
 
@@ -457,7 +457,7 @@ const pagoValido = (extra = {}) => ({
   subscriptionId: 'SUB_T1',
   planId: 'pro',
   escuelaId: 'E1',
-  monto: 99,
+  monto: 199,
   mesesPagados: 1,
   metodo: 'transferencia',
   referencia: '123456',
@@ -469,7 +469,7 @@ const pagoValido = (extra = {}) => ({
 await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_OK'), pagoValido()))
 ok('teacher CAN declare a transfer payment')
 
-await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_6M'), pagoValido({ monto: 474, mesesPagados: 6 })))
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_6M'), pagoValido({ monto: 953, mesesPagados: 6 })))
 ok('teacher CAN declare a 6-month transfer')
 
 await assertFails(setDoc(doc(asT1, 'payments', 'PAY_FALSO'), pagoValido({ status: 'completado' })))
@@ -479,17 +479,15 @@ ok('teacher CANNOT mark their own payment as completed')
 await assertFails(setDoc(doc(asT1, 'payments', 'PAY_ANUAL'), pagoValido({ planId: 'anual' })))
 ok('teacher CANNOT declare a payment on the annual plan')
 
-// Bloque 4 (13-ago-2026): 'mayor' (Asistente IA Pro, $199) ya es un plan
-// aceptado por la regla — CheckoutModal todavía no lo ofrece
-// (`plans/mayor.activo` sigue en false), pero el servidor ya sabe cobrarlo
-// correctamente el día que se active.
-await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_MAYOR'), pagoValido({ planId: 'mayor', monto: 199, mesesPagados: 1 })))
-ok('teacher CAN declare a transfer payment on the mayor plan (1 month, $199)')
+// Reestructuración de precios (18-ago-2026): 'mayor' (Asistente IA Pro) es
+// ahora $299 — ya es un plan aceptado por la regla, activo comercialmente.
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_MAYOR'), pagoValido({ planId: 'mayor', monto: 299, mesesPagados: 1 })))
+ok('teacher CAN declare a transfer payment on the mayor plan (1 month, $299)')
 
 // 'mayor' no tiene política de varios meses todavía (decisión comercial
 // pendiente) — la regla lo rechaza en vez de aceptar un monto que nadie
 // definió.
-await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_6M'), pagoValido({ planId: 'mayor', monto: 1000, mesesPagados: 6 })))
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_6M'), pagoValido({ planId: 'mayor', monto: 1500, mesesPagados: 6 })))
 ok('teacher CANNOT claim multiple months on the mayor plan (no discount policy exists yet)')
 
 // Cualquier `planId` que no sea 'pro' ni 'mayor' se rechaza — el mismo
@@ -506,44 +504,59 @@ ok('teacher CANNOT declare a payment on planId "trial" (not a payable plan)')
 // documentado (antes cualquier monto en (0, 5000] pasaba). Una tabla
 // completa: cada tarifa oficial de `pro` (1-6 meses) permitida, y cualquier
 // desviación de un peso rechazada — tanto para `pro` como para `mayor`.
+// Reestructuración de precios (18-ago-2026): base pro $199, tabla escalada
+// proporcionalmente desde la anterior ($99) — ver ESCALA_MESES_DESCUENTO en
+// subscriptionHelpers.js.
 const TARIFAS_PRO = [
-  [1, 99], [2, 190], [3, 273], [4, 348], [5, 415], [6, 474],
+  [1, 199], [2, 382], [3, 549], [4, 700], [5, 834], [6, 953],
 ]
 for (const [meses, monto] of TARIFAS_PRO) {
   await assertSucceeds(setDoc(doc(asT1, 'payments', `PAY_PRO_${meses}M_OK`), pagoValido({ planId: 'pro', mesesPagados: meses, monto })))
   ok(`teacher CAN declare pro + ${meses} month(s) at the exact tariff ($${monto})`)
 }
 
-await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_OK'), pagoValido({ planId: 'mayor', mesesPagados: 1, monto: 199 })))
-ok('teacher CAN declare mayor + 1 month at the exact tariff ($199)')
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_OK'), pagoValido({ planId: 'mayor', mesesPagados: 1, monto: 299 })))
+ok('teacher CAN declare mayor + 1 month at the exact tariff ($299)')
 
-// Declarar mayor por debajo de la tarifa ($198, un peso menos) — el hallazgo
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_BASICO_OK'), pagoValido({ planId: 'basico', mesesPagados: 1, monto: 99 })))
+ok('teacher CAN declare basico + 1 month at the exact tariff ($99) — reestructuración 18-ago-2026')
+
+// Declarar mayor por debajo de la tarifa ($298, un peso menos) — el hallazgo
 // exacto que pidió la revisión: ahora el servidor lo rechaza, ya no depende
 // solo de que el admin lo note a mano.
-await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_BARATO'), pagoValido({ planId: 'mayor', monto: 198, mesesPagados: 1 })))
-ok('teacher CANNOT declare mayor at $198 (one peso below the $199 tariff) — server now rejects it')
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_BARATO'), pagoValido({ planId: 'mayor', monto: 298, mesesPagados: 1 })))
+ok('teacher CANNOT declare mayor at $298 (one peso below the $299 tariff) — server now rejects it')
 
-await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_CARO'), pagoValido({ planId: 'mayor', monto: 200, mesesPagados: 1 })))
-ok('teacher CANNOT declare mayor at $200 (one peso above the $199 tariff either)')
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_CARO'), pagoValido({ planId: 'mayor', monto: 300, mesesPagados: 1 })))
+ok('teacher CANNOT declare mayor at $300 (one peso above the $299 tariff either)')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_BASICO_BARATO'), pagoValido({ planId: 'basico', monto: 98, mesesPagados: 1 })))
+ok('teacher CANNOT declare basico at $98 (one peso below the $99 tariff)')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_BASICO_MULTI'), pagoValido({ planId: 'basico', monto: 594, mesesPagados: 6 })))
+ok('teacher CANNOT claim multiple months on the basico plan — no prepay discount policy exists for it')
 
 // Bloque 8 (revisión crítica, 13-ago-2026): casos exactos pedidos — intentar
-// pagar 'mayor' con el precio o los precios de descuento de 'pro'.
-await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_PRECIO_PRO_1M'), pagoValido({ planId: 'mayor', monto: 99, mesesPagados: 1 })))
-ok('teacher CANNOT declare mayor at $99 (the pro 1-month price)')
+// pagar 'mayor' con el precio o los precios de descuento de 'pro'/'basico'.
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_PRECIO_PRO_1M'), pagoValido({ planId: 'mayor', monto: 199, mesesPagados: 1 })))
+ok('teacher CANNOT declare mayor at $199 (the pro 1-month price)')
 
-await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_PRECIO_PRO_2M'), pagoValido({ planId: 'mayor', monto: 190, mesesPagados: 1 })))
-ok('teacher CANNOT declare mayor at $190 (the pro 2-month discounted price)')
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_PRECIO_PRO_2M'), pagoValido({ planId: 'mayor', monto: 382, mesesPagados: 1 })))
+ok('teacher CANNOT declare mayor at $382 (the pro 2-month discounted price)')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_MAYOR_PRECIO_BASICO'), pagoValido({ planId: 'mayor', monto: 99, mesesPagados: 1 })))
+ok('teacher CANNOT declare mayor at $99 (the basico price)')
 
 await assertFails(setDoc(doc(asT1, 'payments', 'PAY_PRO_BARATO'), pagoValido({ planId: 'pro', monto: 1, mesesPagados: 1 })))
 ok('teacher CANNOT declare pro at $1 — must match the exact tariff for the declared months')
 
-await assertFails(setDoc(doc(asT1, 'payments', 'PAY_PRO_1M_MAL'), pagoValido({ planId: 'pro', mesesPagados: 1, monto: 100 })))
-ok('teacher CANNOT declare pro + 1 month at $100 (off by one peso from the $99 tariff)')
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_PRO_1M_MAL'), pagoValido({ planId: 'pro', mesesPagados: 1, monto: 200 })))
+ok('teacher CANNOT declare pro + 1 month at $200 (off by one peso from the $199 tariff)')
 
-// mayor a 2-6 meses sigue sin tarifa oficial — se rechaza igual, ahora
-// también aunque alguien intente adivinar un monto "razonable" para ellos.
+// mayor/basico a 2-6 meses siguen sin tarifa oficial — se rechazan igual,
+// ahora también aunque alguien intente adivinar un monto "razonable".
 for (const meses of [2, 3, 4, 5, 6]) {
-  await assertFails(setDoc(doc(asT1, 'payments', `PAY_MAYOR_MULTI_${meses}M`), pagoValido({ planId: 'mayor', mesesPagados: meses, monto: 199 * meses })))
+  await assertFails(setDoc(doc(asT1, 'payments', `PAY_MAYOR_MULTI_${meses}M`), pagoValido({ planId: 'mayor', mesesPagados: meses, monto: 299 * meses })))
   ok(`teacher CANNOT declare mayor + ${meses} months at any price — no prepay discount policy exists for mayor`)
 }
 

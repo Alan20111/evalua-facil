@@ -94,6 +94,12 @@ export default function TeacherLayout({ children }) {
 
   const { subscription, refresh: refreshSubscription } = useSubscription()
   const trialBanner = getTrialBannerMessage(subscription)
+  // Plan Básico ($99, reestructuración de precios 18-ago-2026): sin IA, sin
+  // Chat con Asistente — el nav ni siquiera lo ofrece (el candado real es
+  // server-side, esto es solo UX: no llevar a un botón que el servidor va a
+  // rechazar). Sin suscripción (trial) o cualquier otro plan: se muestra
+  // igual que siempre.
+  const sinIA = subscription?.planId === 'basico'
 
   // ── Suscripción vencida ────────────────────────────────────────────
   // Consultar y descargar sigue libre; lo que se bloquea es trabajar. El
@@ -164,13 +170,15 @@ export default function TeacherLayout({ children }) {
               entre los demás íconos, que son grises — mismo animate-bounce
               que ya usa el proyecto (p. ej. SubjectPage.jsx al copiar código
               de acceso). */}
-          <NavLink
-            to="/chat-asistente"
-            aria-label="Chat con Asistente"
-            className="p-2 text-orange-500 rounded transition-colors"
-          >
-            <MessageCircle size={20} fill="currentColor" className="animate-bounce" />
-          </NavLink>
+          {!sinIA && (
+            <NavLink
+              to="/chat-asistente"
+              aria-label="Chat con Asistente"
+              className="p-2 text-orange-500 rounded transition-colors"
+            >
+              <MessageCircle size={20} fill="currentColor" className="animate-bounce" />
+            </NavLink>
+          )}
           <NavLink
             to="/manual"
             aria-label="Ayuda para comenzar"
@@ -356,20 +364,23 @@ export default function TeacherLayout({ children }) {
 
           {/* Chat con Asistente — por asignatura (17-ago-2026). Mismo lugar
               que Perfil para IA del docente: ambos son entradas del
-              Asistente IA, no de una asignatura en particular. */}
-          <div className="px-2 pt-2 border-t border-white/15">
-            <NavLink
-              to="/chat-asistente"
-              className={({ isActive }) =>
-                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
-                  isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
-                }`
-              }
-            >
-              <MessageCircle size={17} className="flex-shrink-0" />
-              Chat con Asistente
-            </NavLink>
-          </div>
+              Asistente IA, no de una asignatura en particular. Oculto para
+              el plan Básico (sin IA, reestructuración de precios 18-ago-2026). */}
+          {!sinIA && (
+            <div className="px-2 pt-2 border-t border-white/15">
+              <NavLink
+                to="/chat-asistente"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
+                    isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
+                  }`
+                }
+              >
+                <MessageCircle size={17} className="flex-shrink-0" />
+                Chat con Asistente
+              </NavLink>
+            </div>
+          )}
 
           <div className="px-2 pt-2 border-t border-white/15">
             <AppQRButton

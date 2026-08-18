@@ -18,24 +18,27 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'docente';
     }
 
-    // ── Tarifa oficial de un pago por transferencia (Bloque 7, 13-ago-2026) ──
-    // Espejo de MESES_DESCUENTO/MAYOR_PRICE_MXN en subscriptionHelpers.js —
-    // ahí vive la fuente comercial editable; aquí solo se repite para que el
-    // servidor deje de confiar en el monto que declara el cliente. `mayor`
-    // solo tiene tarifa a 1 mes (sin política de descuento por varios
-    // meses); cualquier otra combinación de planId/meses no tiene tarifa
-    // oficial y `null` nunca es igual a un monto numérico, así que la
-    // combinación se rechaza sola.
+    // ── Tarifa oficial de un pago por transferencia (Bloque 7, 13-ago-2026;
+    // reestructuración de precios 18-ago-2026) ──
+    // Espejo de MESES_DESCUENTO/MAYOR_PRICE_MXN/BASICO_PRICE_MXN en
+    // subscriptionHelpers.js — ahí vive la fuente comercial editable; aquí
+    // solo se repite para que el servidor deje de confiar en el monto que
+    // declara el cliente. `mayor` y `basico` solo tienen tarifa a 1 mes (sin
+    // política de descuento por varios meses); cualquier otra combinación de
+    // planId/meses no tiene tarifa oficial y `null` nunca es igual a un monto
+    // numérico, así que la combinación se rechaza sola.
     function montoOficialPago(planId, meses) {
       return planId == 'pro' ? (
-        meses == 1 ? 99 :
-        meses == 2 ? 190 :
-        meses == 3 ? 273 :
-        meses == 4 ? 348 :
-        meses == 5 ? 415 :
-        meses == 6 ? 474 : null
+        meses == 1 ? 199 :
+        meses == 2 ? 382 :
+        meses == 3 ? 549 :
+        meses == 4 ? 700 :
+        meses == 5 ? 834 :
+        meses == 6 ? 953 : null
       ) : planId == 'mayor' ? (
-        meses == 1 ? 199 : null
+        meses == 1 ? 299 : null
+      ) : planId == 'basico' ? (
+        meses == 1 ? 99 : null
       ) : null;
     }
 

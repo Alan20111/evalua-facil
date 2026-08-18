@@ -319,7 +319,6 @@ export default function ChatAsistente() {
   // una asignatura distinta).
   useEffect(() => {
     if (!currentUser) return undefined
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia el historial anterior antes de suscribirse a la conversación recién seleccionada
     setHistorial([])
     const subjectIdFiltro = seleccion === GENERAL ? null : seleccion
     const q = query(
@@ -350,6 +349,20 @@ export default function ChatAsistente() {
   // la bolsa completa del plan, nunca 0 — mismo criterio que el servidor.
   const sinCreditos = creditosIA.listo && creditosIA.saldo <= 0
 
+  // Límite de interacciones del Chat (reestructuración de precios,
+  // 18-ago-2026) — el servidor es la única autoridad (ver
+  // reservarInteraccionChat en functions/ia.js); el cliente solo refleja lo
+  // que la ÚLTIMA respuesta real trajo en `resultado.limiteChat`. No hay
+  // forma de saber el conteo ANTES del primer mensaje de la sesión (no existe
+  // un endpoint de "solo consultar") — se actualiza en cuanto llega la
+  // primera respuesta. `tipo: 'trial'` = 10 TOTALES durante todo el periodo
+  // de prueba; `tipo: 'diario'` = 50 combinadas entre Asistente General y
+  // todas las asignaturas, se reinicia solo con el cambio de día.
+  const [limiteChat, setLimiteChat] = useState(null)
+  const [sinIA, setSinIA] = useState(false) // plan Básico: bloqueo explícito, no relacionado a saldo/límite
+  const avisoUmbralMostrado = useRef(null)
+  const limiteAlcanzado = !!limiteChat && limiteChat.usadas >= limiteChat.max
+
   // `creadoEnMillis` es un número local además del serverTimestamp real —
   // sirve para ordenar de inmediato en la propia sesión, sin esperar a que
   // el servidor resuelva el timestamp. Se calcula en el event handler (no
@@ -375,32 +388,55 @@ export default function ChatAsistente() {
       toast('Necesitas créditos disponibles para seguir usando el Chat con Asistente.', 'error')
       return
     }
+    if (sinIA) {
+      toast('Tu plan actual no incluye el Chat con Asistente IA.', 'error')
+      return
+    }
+    if (limiteAlcanzado) return
     // El servidor igual vuelve a acotar a los últimos 10 — se manda ya
     // acotado para no depender de eso.
     const historialParaEnviar = historial.slice(-10).map((h) => ({ role: h.role, content: h.content }))
     setMensaje('')
     setEnviando(true)
     try {
-      // eslint-disable-next-line react-hooks/purity -- Date.now() aquí es solo una clave de orden local para un mensaje que se está enviando (event handler, no render)
       await guardarMensaje('user', texto, Date.now())
-      // chat_asistente ya no cobra créditos (tarifa 0) — el único candado
-      // del lado del servidor es el límite diario de 100 interacciones por
-      // este mismo contexto (verificarLimiteChat en functions/ia.js) y el
-      // saldo > 0 (verificarSaldoChat).
+      // chat_asistente ya no cobra créditos (tarifa 0) — los candados del
+      // servidor son: plan con IA (basico lo rechaza), saldo > 0
+      // (verificarSaldoChat) y el límite de interacciones (reservado de
+      // antemano por reservarInteraccionChat en functions/ia.js).
       const data = await creditosIA.ejecutar('chat_asistente', {
         subjectId: seleccion === GENERAL ? null : seleccion, mensaje: texto, historial: historialParaEnviar,
       }, 1, { timeoutMs: 60000 })
       const respuesta = data?.resultado?.respuesta || ''
       const propuesta = data?.resultado?.propuesta || null
-      // eslint-disable-next-line react-hooks/purity -- ídem, clave de orden local del turno de respuesta
+      const nuevoLimite = data?.resultado?.limiteChat || null
+      if (nuevoLimite) {
+        setLimiteChat(nuevoLimite)
+        // Aviso a 10 restantes (planes de pago) o 5 restantes (trial) — una
+        // sola vez por umbral cruzado, nunca en cada mensaje posterior
+        // (pedido explícito).
+        const restantes = nuevoLimite.max - nuevoLimite.usadas
+        const umbral = nuevoLimite.tipo === 'trial' ? 2 : 10
+        if (restantes <= umbral && restantes > 0 && avisoUmbralMostrado.current !== nuevoLimite.tipo) {
+          avisoUmbralMostrado.current = nuevoLimite.tipo
+          toast(
+            nuevoLimite.tipo === 'trial'
+              ? `Te quedan ${restantes} interacciones de Chat durante tu periodo de prueba.`
+              : `Te quedan ${restantes} interacciones con el Chat hoy.`,
+            'warning'
+          )
+        }
+      }
       await guardarMensaje('assistant', respuesta || 'No obtuve una respuesta esta vez.', Date.now(), propuesta)
     } catch (err) {
-      if (err.codigo === 'LIMITE_DIARIO_CHAT') {
+      if (err.codigo === 'LIMITE_DIARIO_CHAT' || err.codigo === 'LIMITE_TRIAL_CHAT') {
+        setLimiteChat((actual) => (actual ? { ...actual, usadas: actual.max } : { tipo: err.codigo === 'LIMITE_TRIAL_CHAT' ? 'trial' : 'diario', usadas: 1, max: 1 }))
         // Se ve como una respuesta más del asistente, no como un error — es
-        // un estado normal del chat, no una falla (pedido explícito: nunca
-        // mostrar un contador, solo el mensaje sencillo cuando se alcanza).
-        // eslint-disable-next-line react-hooks/purity -- clave de orden local del mensaje de límite
-        await guardarMensaje('assistant', err.message || 'Has alcanzado el límite diario de este chat. Podrás continuar mañana.', Date.now())
+        // un estado normal del chat, no una falla.
+        await guardarMensaje('assistant', err.message || 'Has alcanzado tu límite de interacciones con el Chat.', Date.now())
+      } else if (err.codigo === 'PLAN_SIN_IA') {
+        setSinIA(true)
+        toast(err.message || 'Tu plan actual no incluye el Chat con Asistente IA.', 'error')
       } else if (err.codigo === 'SIN_CREDITOS_CHAT') {
         toast(err.message || 'Necesitas créditos disponibles para seguir usando el Chat con Asistente.', 'error')
       } else if (err.codigo === 'PERFIL_IA_INCOMPLETO') {
@@ -457,7 +493,6 @@ export default function ChatAsistente() {
       // operación atómica del ledger (un fallo reembolsa la reserva sola).
       const operacion = OPERACION_PARA_ACCION[propuesta.accion] || 'chat_crear_actividad'
       await creditosIA.ejecutar(operacion, { subjectId: propuesta.subjectId, mensajeId: msg.id }, 1, { timeoutMs: 60000 })
-      // eslint-disable-next-line react-hooks/purity -- clave de orden local del mensaje de confirmación
       await guardarMensaje('assistant', TEXTO_CREADA_ACCION[propuesta.accion] || 'Listo, se creó correctamente.', Date.now())
     } catch (err) {
       if (err.codigo === 'SALDO_INSUFICIENTE') {
@@ -565,6 +600,27 @@ export default function ChatAsistente() {
           Necesitas créditos disponibles para seguir usando el Chat con Asistente.
         </p>
       )}
+      {sinIA && (
+        <p className="text-xs mb-2 text-error font-medium">
+          Tu plan actual no incluye el Chat con Asistente IA. Actualiza a Asistente IA o Asistente IA Pro para usarlo.
+        </p>
+      )}
+      {limiteAlcanzado && (
+        <p className="text-xs mb-2 text-error font-medium">
+          {limiteChat.tipo === 'trial'
+            ? 'Has utilizado tus 10 interacciones de Chat incluidas en el periodo de prueba. Elige un plan con IA para continuar.'
+            : 'Has alcanzado el límite diario de 50 interacciones con el Chat con Asistente. Podrás continuar mañana.'}
+        </p>
+      )}
+      {/* Contador — visible, compacto, SIN mencionar créditos (el límite de
+          interacciones y el saldo de créditos son cosas distintas). Solo
+          aparece una vez que se conoce (tras el primer mensaje de la
+          sesión — el servidor no expone un endpoint de "solo consultar"). */}
+      {limiteChat && !limiteAlcanzado && (
+        <p className="text-xs mb-2 text-muted">
+          {limiteChat.usadas} de {limiteChat.max} interacciones{limiteChat.tipo === 'trial' ? ' (periodo de prueba)' : ' hoy'}
+        </p>
+      )}
 
       {/* Conversación */}
       <div className="flex-1 min-h-0 bg-surface-card rounded-card shadow-card p-3 mb-3 overflow-y-auto space-y-3">
@@ -584,7 +640,7 @@ export default function ChatAsistente() {
                   key={s}
                   type="button"
                   onClick={() => enviar(s)}
-                  disabled={enviando || sinCreditos}
+                  disabled={enviando || sinCreditos || sinIA || limiteAlcanzado}
                   className="px-3 py-1.5 rounded-full border border-outline-variant text-xs text-on-surface hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
                 >
                   {s}
@@ -640,14 +696,14 @@ export default function ChatAsistente() {
           value={mensaje}
           onChange={(e) => setMensaje(e.target.value)}
           placeholder="Escribe tu pregunta…"
-          disabled={enviando}
+          disabled={enviando || sinCreditos || sinIA || limiteAlcanzado}
           maxLength={2000}
           wrapperClassName="flex-1"
           className="disabled:opacity-60"
         />
         <button
           type="submit"
-          disabled={enviando || !mensaje.trim() || sinCreditos}
+          disabled={enviando || !mensaje.trim() || sinCreditos || sinIA || limiteAlcanzado}
           className="flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded transition-colors disabled:opacity-45"
         >
           {enviando ? <Spinner size="sm" /> : <Send size={16} />}

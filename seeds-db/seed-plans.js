@@ -23,29 +23,30 @@ try {
 
 const db = admin.firestore()
 
-// Two offerings: monthly ($99 MXN/mes, launch price — was $116, see
-// MONTHLY_PRICE_MXN in src/utils/subscriptionHelpers.js) and annual ($990
-// MXN/año — pago único, 2 meses de regalo frente a pagar 12 meses sueltos,
-// ver ANNUAL_PRICE_MXN). Los ids ('pro'/'anual') nunca son user-facing; 'pro'
-// se mantiene igual desde el setup multi-plan original para no romper
-// ninguna suscripción que ya apunte a ese planId. Mantener `precio` en
-// sincronía con MONTHLY_PRICE_MXN/ANNUAL_PRICE_MXN en subscriptionHelpers.js.
+// Dos ofertas de "Asistente IA" (id interno `pro`, sin cambiar — para no
+// romper ninguna suscripción que ya apunte a ese planId): mensual ($199
+// MXN/mes desde la reestructuración de precios del 18-ago-2026 — antes $99;
+// ver MONTHLY_PRICE_MXN en subscriptionHelpers.js) y anual ($990 MXN/año —
+// pago único, 2 meses de regalo frente a pagar 12 meses sueltos, ver
+// ANNUAL_PRICE_MXN). Mantener `precio` en sincronía con
+// MONTHLY_PRICE_MXN/ANNUAL_PRICE_MXN en subscriptionHelpers.js. `plans/basico`
+// y `plans/mayor` se siembran aparte, en seed-ia-tarifas.js.
 const DEFAULT_PLANS = [
   {
     id: 'pro',
-    nombre: 'Suscripción mensual',
-    descripcion: 'Acceso completo a Evalúa Fácil sin límites de asignaturas ni alumnos.',
-    precio: 99,
+    nombre: 'Asistente IA',
+    descripcion: 'IA en todas las funciones de Evalúa Fácil, sin límites de asignaturas ni alumnos.',
+    precio: 199,
     periodicidad: 'mensual',
     maxAsignaturas: -1,
     maxAlumnos: -1,
     activo: true,
-    orden: 1,
+    orden: 2,
   },
   {
     id: 'anual',
-    nombre: 'Suscripción anual',
-    descripcion: 'Acceso completo a Evalúa Fácil sin límites de asignaturas ni alumnos — paga 10 meses, disfruta 12.',
+    nombre: 'Asistente IA (anual)',
+    descripcion: 'IA en todas las funciones de Evalúa Fácil, sin límites de asignaturas ni alumnos — paga 10 meses, disfruta 12.',
     precio: 990,
     periodicidad: 'anual',
     maxAsignaturas: -1,
