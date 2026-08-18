@@ -82,10 +82,14 @@ function SeccionCreditosAdicionales({ paquetes }) {
       <p className="text-[11px] text-muted mb-2">
         Si se te acaban tus créditos del mes, puedes comprar más — se suman a tu saldo y no se pierden al renovarse tu periodo.
       </p>
-      <div className="flex flex-wrap gap-1.5">
+      {/* Los 5 paquetes en una sola fila en el ancho normal del modal
+          (18-ago-2026) — grid-cols-5 fijo en vez de flex-wrap, que los
+          amontonaba en 2-3 líneas. En pantallas angostas el texto se achica
+          solo, sin saltar de línea (whitespace-nowrap + tabular-nums). */}
+      <div className="grid grid-cols-5 gap-1">
         {paquetes.map((p) => (
-          <span key={p.creditos} className="text-[11px] px-2 py-1 rounded-full bg-surface border border-outline-variant text-on-surface tabular-nums">
-            {p.creditos.toLocaleString('es-MX')} · ${p.precioMXN}
+          <span key={p.creditos} className="text-[10px] px-1 py-1 rounded-full bg-surface border border-outline-variant text-on-surface tabular-nums text-center whitespace-nowrap">
+            {p.creditos.toLocaleString('es-MX')}·${p.precioMXN}
           </span>
         ))}
       </div>
@@ -160,6 +164,16 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
             <CeldaNo />
             <CeldaSi />
             {mostrarMayor && <CeldaSiDoble />}
+          </tr>
+          {/* Chat con Asistente IA (18-ago-2026): no consume créditos por
+              mensaje — solo confirmar una acción (crear actividad/examen
+              desde la conversación) cobra, con el costo real de esa
+              operación. Esta fila solo dice dónde está incluido. */}
+          <tr className="border-b border-outline-variant">
+            <td className="px-1.5 py-2 font-medium text-muted">Chat con Asistente IA</td>
+            <CeldaNo />
+            <CeldaSi />
+            {mostrarMayor && <CeldaSi />}
           </tr>
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Pago de varios meses</td>
