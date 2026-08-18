@@ -1014,20 +1014,13 @@ service cloud.firestore {
       allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
       // Borrar (limpiar la conversación) es lo único que el docente hace
-      // aquí después de crear un mensaje — nunca lo edita.
-      //
-      // ÚNICA excepción (Chat con Acciones, 17-ago-2026): marcar una
-      // propuesta ya creada como `ejecutada` — necesario para que "Crear
-      // actividad/examen" sea idempotente (un reintento de red o doble clic
-      // no puede volver a crear otra actividad si el mensaje ya quedó
-      // marcado). El candado sigue cerrado para cualquier otro campo: solo
-      // se permite tocar `propuesta`, y solo para ponerla en `ejecutada`.
-      allow update: if docenteActivo() &&
-        request.auth.uid == resource.data.docenteId &&
-        resource.data.role == 'assistant' &&
-        resource.data.propuesta != null &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['propuesta']) &&
-        request.resource.data.propuesta.ejecutada == true;
+      // aquí después de crear un mensaje — nunca lo edita. Marcar una
+      // propuesta como `ejecutada` (Chat con Acciones) lo hace el SERVIDOR
+      // con el Admin SDK, dentro de la misma operación de crédito que crea
+      // la actividad/examen (18-ago-2026) — el cliente ya no necesita ni
+      // puede escribir ese campo, así que no hace falta ninguna excepción
+      // aquí.
+      allow update: if false;
     }
 
     // Vacaciones del docente. Cada doc marca un PERIODO (fechaInicio–fechaFin)

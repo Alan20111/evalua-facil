@@ -30,7 +30,7 @@
 // que sigue acotado es cuánto historial se manda al MODELO en cada turno
 // (últimos 10 turnos, por costo) — la vista hacia atrás no tiene ese límite.
 import { useEffect, useRef, useState } from 'react'
-import { collection, query, where, onSnapshot, addDoc, updateDoc, writeBatch, doc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, addDoc, writeBatch, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -96,7 +96,7 @@ const SUGERENCIAS_GENERAL = [
 // pedido explícito ("no quiero que la propuesta sea solamente texto libre").
 // Puramente presentacional: toda la decisión de qué se puede confirmar vive
 // en confirmarPropuesta (arriba), no aquí.
-function TarjetaPropuesta({ propuesta, contextoVigente, ejecutando, bloqueado, onConfirmar, costoAccion }) {
+function TarjetaPropuesta({ propuesta, contextoVigente, esLaVigente, ejecutando, bloqueado, onConfirmar, costoAccion }) {
   const esExamen = propuesta.accion === 'CREAR_EXAMEN'
   return (
     <div className="max-w-[85%] w-full rounded-card border border-outline-variant bg-surface-card p-3 text-sm space-y-2">
@@ -112,6 +112,11 @@ function TarjetaPropuesta({ propuesta, contextoVigente, ejecutando, bloqueado, o
         <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
           <CheckCircle2 size={16} /> {TEXTO_TARJETA_CREADA[propuesta.accion] || 'Creada'}
         </p>
+      ) : !esLaVigente ? (
+        // Refinada por una propuesta más nueva (pedido explícito, 18-ago-2026):
+        // deja de ser ejecutable — el servidor la rechaza igual aunque este
+        // botón no existiera, esto es solo para que se vea consistente.
+        <p className="text-xs text-muted italic">Versión anterior — ya no disponible, revisa la propuesta más reciente.</p>
       ) : !contextoVigente ? (
         <p className="text-xs text-error">Cambiaste de asignatura — vuelve a esta asignatura para crearla.</p>
       ) : (
@@ -339,29 +344,30 @@ export default function ChatAsistente() {
     }
 
     try {
-      // Único punto de cobro real: el servidor vuelve a validar y a saneear
-      // la propuesta (nunca confía en esta copia), calcula parcial/orden, y
-      // hace la creación con el Admin SDK — cobro y creación quedan
-      // atómicos (un fallo en la escritura reembolsa la reserva sola,
-      // mismo mecanismo que ya usa el resto de operaciones de IA).
+      // Único punto de cobro real: el servidor lee la propuesta DIRECTO de
+      // Firestore por mensajeId (nunca confía en una copia que mande el
+      // cliente), comprueba que sea la más reciente sin ejecutar de esta
+      // conversación (rechaza cualquier versión vieja, aunque se le pida
+      // explícitamente), calcula parcial/orden, hace la creación con el
+      // Admin SDK y marca la propuesta como ejecutada — todo en la misma
+      // operación atómica del ledger (un fallo reembolsa la reserva sola).
       const operacion = OPERACION_PARA_ACCION[propuesta.accion] || 'chat_crear_actividad'
-      const data = await creditosIA.ejecutar(operacion, { subjectId: propuesta.subjectId, propuesta }, 1, { timeoutMs: 60000 })
-      const resultado = data?.resultado
-      // Marca la propuesta como ejecutada ANTES que nada más — es lo que
-      // evita que un reintento (doble clic, reintento de red) pueda volver a
-      // crear otra actividad: una vez marcada, el botón deja de existir.
-      await updateDoc(doc(db, 'chatMensajes', msg.id), {
-        'propuesta.ejecutada': true, 'propuesta.activityId': resultado?.activityId || null,
-      })
+      await creditosIA.ejecutar(operacion, { subjectId: propuesta.subjectId, mensajeId: msg.id }, 1, { timeoutMs: 60000 })
       // eslint-disable-next-line react-hooks/purity -- clave de orden local del mensaje de confirmación
       await guardarMensaje('assistant', TEXTO_CREADA_ACCION[propuesta.accion] || 'Listo, se creó correctamente.', Date.now())
     } catch (err) {
       if (err.codigo === 'SALDO_INSUFICIENTE') {
         toast(`No tienes suficientes créditos para crear esto — necesitas ${err.costo} y tienes ${err.saldo}.`, 'error')
+      } else if (err.codigo === 'PROPUESTA_SUPERADA') {
+        toast('Esta propuesta ya no está vigente — revisa la más reciente.', 'error')
+      } else if (err.codigo === 'PROPUESTA_YA_EJECUTADA') {
+        toast('Esta propuesta ya fue creada.', 'error')
       } else {
         toast('No se pudo crear: ' + (err.message || 'intenta de nuevo'), 'error')
       }
-      // No se marca ejecutada: el botón sigue disponible para reintentar.
+      // No se marca ejecutada: el botón sigue disponible para reintentar
+      // (salvo que el servidor la haya rechazado por estar superada/ya
+      // ejecutada — ahí no hay nada que reintentar en ESTA tarjeta).
     } finally {
       ejecutandoRef.current = null
       setEjecutandoId(null)
@@ -383,6 +389,19 @@ export default function ChatAsistente() {
   const asignaturaActual = subjects.find((s) => s.id === seleccion)
   const esGeneral = seleccion === GENERAL
   const sugerencias = esGeneral ? SUGERENCIAS_GENERAL : SUGERENCIAS_ASIGNATURA
+
+  // Propuestas duplicadas (18-ago-2026, pedido explícito): dentro de esta
+  // conversación, solo la propuesta PENDIENTE (sin ejecutar) más reciente
+  // puede ejecutarse — `historial` ya viene ordenado por creadoEnMillis, así
+  // que es la última que cumpla la condición. El servidor vuelve a decidir
+  // esto por su cuenta con `creadoEn` (precheckAccionChat) — esto es solo
+  // para que la UI se vea consistente con lo que el servidor va a aceptar.
+  const idPropuestaVigente = (() => {
+    for (let i = historial.length - 1; i >= 0; i--) {
+      if (historial[i].propuesta && !historial[i].propuesta.ejecutada) return historial[i].id
+    }
+    return null
+  })()
 
   const opcionesSelector = [
     { value: GENERAL, label: 'Asistente General' },
@@ -483,6 +502,7 @@ export default function ChatAsistente() {
                 <TarjetaPropuesta
                   propuesta={h.propuesta}
                   contextoVigente={h.propuesta.subjectId === (seleccion === GENERAL ? null : seleccion)}
+                  esLaVigente={h.id === idPropuestaVigente}
                   ejecutando={ejecutandoId === h.id}
                   bloqueado={!!ejecutandoId && ejecutandoId !== h.id}
                   onConfirmar={() => confirmarPropuesta(h)}
