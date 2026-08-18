@@ -28,7 +28,7 @@ const TARIFAS = {
   version: 1,
   tarifas: { aviso: 1, examen: 10, analisis_programa: 45, reactivos: 1, analizar_resultados: 5 },
   categorias: { aviso: 'Avisos', examen: 'Evaluaciones', analisis_programa: 'Planeación', reactivos: 'Evaluaciones', analizar_resultados: 'Evaluaciones' },
-  capacidadPorPlan: { trial: 350, pro: 350, anual: 350, mayor: 1750 },
+  capacidadPorPlan: { trial: 350, pro: 350, anual: 350, mayor: 1000 },
 }
 
 async function sembrarDocente({ uid = DOCENTE, status = 'trial', planId = '', suscripcionHasta = null, fechaInicio = null } = {}) {
@@ -273,7 +273,7 @@ await caso('subida de plan: inmediata y conservando el saldo', async () => {
   assert.strictEqual(r.modo, 'inmediato')
   const c = await creditosDe()
   assert.strictEqual(c.plan, 'mayor')
-  assert.strictEqual(c.capacidad, 1750)
+  assert.strictEqual(c.capacidad, 1000)
   assert.strictEqual(c.saldo, 120, 'no pierde los créditos que tenía')
 })
 
@@ -292,6 +292,51 @@ await caso('bajada de plan: diferida — se aplica en la renovación con la capa
   assert.strictEqual(c.capacidad, 350)
   assert.strictEqual(c.saldo, 350)
   assert.strictEqual(c.planSiguiente, undefined)
+})
+
+// Plan Básico ($99, reestructuración de precios 18-ago-2026): SIN funciones
+// de IA — reservar() lo bloquea ANTES de tocar saldo/capacidad, para
+// cualquier operación con tarifa (incluidas las confirmadas desde el Chat).
+await caso('plan basico: la IA se rechaza con PLAN_SIN_IA, sin crear ningún doc de créditos', async () => {
+  await limpiar()
+  await db.doc(`users/basico_1`).set({ role: 'docente', escuelaId: 'E1' })
+  await db.collection('subscriptions').add({
+    docenteId: 'basico_1', planId: 'basico', status: 'activa', updatedAt: Timestamp.now(),
+  })
+  await db.doc('config/iaTarifas').set(TARIFAS)
+  await assert.rejects(
+    () => L.reservar({ uid: 'basico_1', operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS }),
+    (e) => e.codigo === 'PLAN_SIN_IA'
+  )
+  const creditosSnap = await db.doc('iaCreditos/basico_1').get()
+  assert.strictEqual(creditosSnap.exists, false, 'basico nunca debe llegar a crear un doc de créditos')
+})
+
+// Bajar de un plan CON IA a basico a media suscripción bloquea la SIGUIENTE
+// operación de inmediato — no hasta la próxima renovación de ciclo (hueco
+// real que reservar() cerró explícitamente, ver el comentario ahí).
+await caso('plan basico: bajar de pro a basico bloquea la IA en la siguiente operación, sin esperar la renovación', async () => {
+  await limpiar()
+  await db.doc(`users/basico_2`).set({ role: 'docente', escuelaId: 'E1' })
+  const subRef = await db.collection('subscriptions').add({
+    docenteId: 'basico_2', planId: 'pro', status: 'activa', updatedAt: Timestamp.now(),
+  })
+  await db.doc('config/iaTarifas').set(TARIFAS)
+  // Primer uso real, en 'pro': crea el doc de créditos con normalidad.
+  await L.reservar({ uid: 'basico_2', operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS })
+  let c = (await db.doc('iaCreditos/basico_2').get()).data()
+  assert.strictEqual(c.plan, 'pro')
+  // El docente baja a basico (a media suscripción, el ciclo de créditos
+  // SIGUE vigente — esto no es una renovación).
+  await subRef.update({ planId: 'basico', updatedAt: Timestamp.now() })
+  await assert.rejects(
+    () => L.reservar({ uid: 'basico_2', operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS }),
+    (e) => e.codigo === 'PLAN_SIN_IA'
+  )
+  // El contenido/saldo que ya tenía NO se toca ni se borra — solo se
+  // bloquea poder GASTARLO en una operación nueva.
+  c = (await db.doc('iaCreditos/basico_2').get()).data()
+  assert.strictEqual(c.plan, 'pro', 'el doc de créditos no se modifica solo por bajar de plan')
 })
 
 await caso('plan cortesía: la IA se rechaza con mensaje claro (pendiente por decisión)', async () => {
@@ -476,7 +521,7 @@ grupo('Trial — modelo comercial nuevo (13-ago-2026): 50 créditos, sin recorta
 const CORTE_TRIAL = new Date('2026-08-13T00:00:00Z')
 const TARIFAS_CON_LEGADO = {
   ...TARIFAS,
-  capacidadPorPlan: { trial: 50, pro: 350, anual: 350, mayor: 1750 },
+  capacidadPorPlan: { trial: 50, pro: 350, anual: 350, mayor: 1000 },
   trialLegado: { capacidad: 350, corte: Timestamp.fromDate(CORTE_TRIAL) },
 }
 

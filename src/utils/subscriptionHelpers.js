@@ -8,33 +8,42 @@ export const TRIAL_DURATION_DAYS = 30
 // Warning notice starts when this many days (or fewer) are left — day 25 of 30.
 export const TRIAL_WARNING_DAYS = 6
 
-// ── Commercial model — single source of truth ──────────────────────────────
-// Dos ofertas: mensual y anual (paga 10 meses, disfruta 12). No tiers ni
-// nombres de nivel ("Pro"/"Básico"/"Premium"/"Enterprise") en el producto —
-// solo la periodicidad cambia.
+// ── Commercial model — single source de verdad ──────────────────────────────
+// Estructura definitiva (18-ago-2026, reemplaza el modelo de un solo plan
+// pagado + "mayor" opcional): TRES planes de pago, cada uno con su propia
+// oferta — Básico (sin IA), Asistente IA, Asistente IA Pro. El periodo de
+// prueba gratuito (trial) es una cosa APARTE, no un cuarto plan de pago — ver
+// TRIAL_DURATION_DAYS arriba y capacidadTrialPara en functions/creditosLedger.js.
 export const CURRENCY = 'MXN'
-// Precio de lanzamiento — $99 en vez de los $116 normales, mientras dure la
-// promoción de arranque (ligada al lanzamiento de la app Android). Sin fecha
-// de reversión automática a propósito: el docente-dueño avisa cuando quiera
-// subirlo, y ese día se edita este archivo otra vez, igual que ahora.
-export const MONTHLY_PRICE_MXN = 99
-export const MONTHLY_PRICE_LABEL = '$99 MXN al mes'
+
+// Plan de entrada — SIN funciones de IA, sin créditos, sin Chat con
+// Asistente. Igual que pro/mayor abajo: el precio de verdad vive en
+// `plans/basico.precio` (Firestore, ver seeds-db/seed-plans.js), esto solo
+// evita leer ese doc en cada pantalla.
+export const BASICO_PLAN_ID = 'basico'
+export const BASICO_PRICE_MXN = 99
+export const BASICO_PRICE_LABEL = '$99 MXN al mes'
+export const BASICO_SUBSCRIPTION_NAME = 'Plan Básico'
+
+// Antes el plan pagado principal a $99 — ahora "Asistente IA" a $199 (18-ago-2026,
+// reestructuración de precios). `MONTHLY_PLAN_ID` conserva el id interno `pro`
+// a propósito (no se renombra en la base de datos, solo cambia lo que
+// comercialmente representa) para no tener que migrar suscripciones activas.
+export const MONTHLY_PRICE_MXN = 199
+export const MONTHLY_PRICE_LABEL = '$199 MXN al mes'
 export const LAUNCH_PRICE_NOTE = 'Precio de lanzamiento'
-export const SUBSCRIPTION_NAME = 'Suscripción mensual'
+export const SUBSCRIPTION_NAME = 'Asistente IA'
 // Must match the id of the single Firestore `plans/{id}` doc that
 // api/_lib/billing.js reads server-side to charge via Mercado Pago/PayPal —
 // the price always comes from there, never from the client. Keep that
 // document's `precio` in sync with MONTHLY_PRICE_MXN via seeds-db/seed-plans.js.
 export const MONTHLY_PLAN_ID = 'pro'
 
-// Segunda oferta mensual (13-ago-2026): Asistente IA Pro. Mismo criterio que
-// arriba — el precio de verdad vive en `plans/mayor.precio` (Firestore) y
-// aquí solo se refleja para no tener que leer ese doc en cada pantalla.
-// `plans/mayor.activo` sigue en `false` (ver seeds-db/seed-ia-tarifas.js):
-// CheckoutModal no ofrece este plan hasta que ese doc diga lo contrario.
+// Antes $199/1,750 créditos — ahora "Asistente IA Pro" a $299/1,000 créditos
+// (18-ago-2026). El precio de verdad vive en `plans/mayor.precio`.
 export const MAYOR_PLAN_ID = 'mayor'
-export const MAYOR_PRICE_MXN = 199
-export const MAYOR_PRICE_LABEL = '$199 MXN al mes'
+export const MAYOR_PRICE_MXN = 299
+export const MAYOR_PRICE_LABEL = '$299 MXN al mes'
 export const MAYOR_SUBSCRIPTION_NAME = 'Asistente IA Pro'
 
 // Plan anual — pago único (no domiciliación: Mercado Pago cobra $990 una vez
@@ -54,16 +63,26 @@ export const ANNUAL_SAVINGS_MXN = MONTHLY_PRICE_MXN * 12 - ANNUAL_PRICE_MXN
 // versión (validación de tarjeta, domiciliación, webhooks...) — se retoman en
 // 1.0.2. Mientras tanto el único incentivo para pagar varios meses de un
 // golpe (antes era el plan anual) es este descuento por transferencia.
-// `pagas` es la decisión de negocio (editar a mano si cambia); `pagarias` y
-// `ahorras` se derivan de MONTHLY_PRICE_MXN para que nunca queden
-// desincronizados si el precio mensual cambia.
+//
+// Los montos por mes de 2-6 NO se derivan matemáticamente de
+// MONTHLY_PRICE_MXN — son la tarifa que decidió el negocio a $99 base
+// (190/273/348/415/474). Al subir la base a $199 (18-ago-2026,
+// reestructuración de precios) no había una tarifa nueva definida para estos
+// escalones — DECISIÓN TOMADA para no romper la función ni dejar sin oferta
+// de prepago al plan "Asistente IA": se escala cada escalón por la misma
+// razón (199/99) que cambió la base, así el % de ahorro por mes se conserva
+// exactamente igual que antes. Esto es una continuación mecánica de la
+// política ya vigente, no una tarifa nueva inventada — pero SIGUE siendo una
+// decisión de precio que el dueño del negocio debe poder revisar; ver el
+// reporte de entrega.
+const ESCALA_MESES_DESCUENTO = MONTHLY_PRICE_MXN / 99
 export const MESES_DESCUENTO = [
   { meses: 1, pagas: MONTHLY_PRICE_MXN },
-  { meses: 2, pagas: 190 },
-  { meses: 3, pagas: 273 },
-  { meses: 4, pagas: 348 },
-  { meses: 5, pagas: 415 },
-  { meses: 6, pagas: 474 },
+  { meses: 2, pagas: Math.round(190 * ESCALA_MESES_DESCUENTO) },
+  { meses: 3, pagas: Math.round(273 * ESCALA_MESES_DESCUENTO) },
+  { meses: 4, pagas: Math.round(348 * ESCALA_MESES_DESCUENTO) },
+  { meses: 5, pagas: Math.round(415 * ESCALA_MESES_DESCUENTO) },
+  { meses: 6, pagas: Math.round(474 * ESCALA_MESES_DESCUENTO) },
 ].map((r) => ({
   ...r,
   pagarias: r.meses * MONTHLY_PRICE_MXN,
@@ -81,13 +100,15 @@ export function mesesDescuentoDe(meses) {
 export const MESES_MAX = MESES_DESCUENTO.length
 
 // La tarifa oficial de N meses para el `planId` dado, o null si esa
-// combinación no tiene tarifa definida. `mayor` NO tiene tabla de descuento
-// por varios meses (no existe esa política comercial todavía — decisión
-// pendiente, 13-ago-2026): solo se le reconoce 1 mes a $MAYOR_PRICE_MXN;
-// cualquier otro número de meses para `mayor` no tiene tarifa oficial.
+// combinación no tiene tarifa definida. `mayor` y `basico` NO tienen tabla de
+// descuento por varios meses (mismo criterio: sin política comercial de
+// prepago para ellos) — solo se les reconoce 1 mes, a su precio de lista.
 export function montoOficialDe(meses, planId = MONTHLY_PLAN_ID) {
   if (planId === MAYOR_PLAN_ID) {
     return meses === 1 ? MAYOR_PRICE_MXN : null
+  }
+  if (planId === BASICO_PLAN_ID) {
+    return meses === 1 ? BASICO_PRICE_MXN : null
   }
   return MESES_DESCUENTO.find((r) => r.meses === meses)?.pagas ?? null
 }
@@ -146,18 +167,24 @@ export function datosDePagoTransferencia({
   reenvioDePagoId = null,
   monto = null,
 }) {
-  // `mayor` todavía no tiene política de varios meses (ver montoOficialDe) —
-  // se le fija 1 mes aquí mismo, no solo en la UI, para que un reenvío u otro
-  // llamador no puedan colarle un `meses` distinto.
-  const esMayor = planId === MAYOR_PLAN_ID
-  const seguros = esMayor ? 1 : Math.min(Math.max(Math.round(meses || 1), 1), MESES_MAX)
-  const montoPorOmision = esMayor ? MAYOR_PRICE_MXN : mesesDescuentoDe(seguros).pagas
+  // `mayor` y `basico` no tienen política de varios meses (ver montoOficialDe)
+  // — se les fija 1 mes aquí mismo, no solo en la UI, para que un reenvío u
+  // otro llamador no puedan colarle un `meses` distinto.
+  const soloUnMes = planId === MAYOR_PLAN_ID || planId === BASICO_PLAN_ID
+  const seguros = soloUnMes ? 1 : Math.min(Math.max(Math.round(meses || 1), 1), MESES_MAX)
+  const montoPorOmision = planId === MAYOR_PLAN_ID
+    ? MAYOR_PRICE_MXN
+    : planId === BASICO_PLAN_ID
+      ? BASICO_PRICE_MXN
+      : mesesDescuentoDe(seguros).pagas
   return {
     docenteId,
     subscriptionId,
-    // El plan lo fijan también las reglas (firestore.rules exige planId in
-    // ['pro','mayor']): es el dato del que cuelga la periodicidad al aprobar,
-    // y por eso no puede venir del cliente a placer más allá de esos dos.
+    // El plan lo valida también el servidor: firestore.rules exige que
+    // `monto` coincida EXACTO con `montoOficialPago(planId, meses)` — para
+    // cualquier planId que esa función no reconozca (incluido basico/pro/mayor
+    // mal escritos), devuelve null y ningún monto numérico es igual a null,
+    // así que la combinación se rechaza sola sin necesitar un allowlist aparte.
     planId,
     escuelaId,
     // Por omisión, la tarifa de hoy. El reenvío de un pago rechazado pasa el

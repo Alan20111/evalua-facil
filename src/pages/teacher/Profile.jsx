@@ -5,7 +5,7 @@ import {
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth'
-import { collection, doc, getDoc, getDocs, query, updateDoc, where, writeBatch, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, getDocs, query, updateDoc, where, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -272,14 +272,6 @@ export default function Profile() {
   // la tarjeta.
   const [showPayments, setShowPayments] = useState(false)
   const [showComparacion, setShowComparacion] = useState(false)
-  // Mismo gate que CheckoutModal — la comparación no anuncia un plan que
-  // `plans/mayor.activo` todavía no ofrece.
-  const [mayorDisponible, setMayorDisponible] = useState(false)
-  useEffect(() => {
-    getDoc(doc(db, 'plans', 'mayor'))
-      .then((snap) => setMayorDisponible(!!snap.data()?.activo))
-      .catch(() => setMayorDisponible(false))
-  }, [])
 
   // Cancelar suscripción / eliminar cuenta
   const [cancelandoSub, setCancelandoSub] = useState(false)
@@ -818,8 +810,6 @@ export default function Profile() {
             </button>
             {showComparacion && (
               <PlanComparisonTable
-                mostrarMayor={mayorDisponible}
-                creditosGratuito={creditosIA.tarifas?.capacidadPorPlan?.trial}
                 creditosPro={creditosIA.tarifas?.planes?.pro?.creditos}
                 creditosMayor={creditosIA.tarifas?.planes?.mayor?.creditos}
                 paquetesCreditos={creditosIA.paquetesCreditos}

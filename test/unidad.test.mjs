@@ -1776,11 +1776,11 @@ caso('datosDePagoTransferencia: sin planId explícito, sigue cayendo en pro (com
     docenteId: 'D1', subscriptionId: 'S1', meses: 2, referencia: 'F1',
   })
   assert.strictEqual(pago.planId, SH.MONTHLY_PLAN_ID)
-  assert.strictEqual(pago.monto, 190)
+  assert.strictEqual(pago.monto, SH.mesesDescuentoDe(2).pagas)
   assert.strictEqual(pago.mesesPagados, 2)
 })
 
-caso('datosDePagoTransferencia: planId mayor cobra $199 fijo, sin importar qué meses se pidan', () => {
+caso('datosDePagoTransferencia: planId mayor cobra su precio fijo, sin importar qué meses se pidan', () => {
   const pago = SH.datosDePagoTransferencia({
     docenteId: 'D1', subscriptionId: 'S1', planId: SH.MAYOR_PLAN_ID, meses: 6, referencia: 'F2',
   })
@@ -1789,53 +1789,66 @@ caso('datosDePagoTransferencia: planId mayor cobra $199 fijo, sin importar qué 
   assert.strictEqual(pago.mesesPagados, 1, 'mayor no tiene política de varios meses — siempre se recorta a 1')
 })
 
+caso('datosDePagoTransferencia: planId basico cobra su precio fijo, sin importar qué meses se pidan (reestructuración 18-ago-2026)', () => {
+  const pago = SH.datosDePagoTransferencia({
+    docenteId: 'D1', subscriptionId: 'S1', planId: SH.BASICO_PLAN_ID, meses: 6, referencia: 'F4',
+  })
+  assert.strictEqual(pago.planId, SH.BASICO_PLAN_ID)
+  assert.strictEqual(pago.monto, SH.BASICO_PRICE_MXN)
+  assert.strictEqual(pago.mesesPagados, 1, 'basico no tiene política de varios meses — siempre se recorta a 1')
+})
+
 caso('datosDePagoTransferencia: planId pro sigue respetando la tabla de descuento por meses', () => {
   const pago = SH.datosDePagoTransferencia({
     docenteId: 'D1', subscriptionId: 'S1', planId: SH.MONTHLY_PLAN_ID, meses: 6, referencia: 'F3',
   })
-  assert.strictEqual(pago.monto, 474)
+  assert.strictEqual(pago.monto, SH.mesesDescuentoDe(6).pagas)
   assert.strictEqual(pago.mesesPagados, 6)
 })
 
 caso('montoOficialDe: pro sigue leyendo la tabla MESES_DESCUENTO tal cual', () => {
-  assert.strictEqual(SH.montoOficialDe(1, SH.MONTHLY_PLAN_ID), 99)
-  assert.strictEqual(SH.montoOficialDe(3, SH.MONTHLY_PLAN_ID), 273)
+  assert.strictEqual(SH.montoOficialDe(1, SH.MONTHLY_PLAN_ID), SH.MONTHLY_PRICE_MXN)
+  assert.strictEqual(SH.montoOficialDe(3, SH.MONTHLY_PLAN_ID), SH.mesesDescuentoDe(3).pagas)
 })
 
-caso('montoOficialDe: mayor solo tiene tarifa oficial a 1 mes ($199) — cualquier otro número de meses no tiene tarifa (no inventa un descuento)', () => {
+caso('montoOficialDe: mayor solo tiene tarifa oficial a 1 mes — cualquier otro número de meses no tiene tarifa (no inventa un descuento)', () => {
   assert.strictEqual(SH.montoOficialDe(1, SH.MAYOR_PLAN_ID), SH.MAYOR_PRICE_MXN)
   assert.strictEqual(SH.montoOficialDe(2, SH.MAYOR_PLAN_ID), null)
   assert.strictEqual(SH.montoOficialDe(6, SH.MAYOR_PLAN_ID), null)
 })
 
-caso('montoOficialDe: sin planId, se comporta igual que antes (pro por omisión) — no rompe llamadores viejos', () => {
-  assert.strictEqual(SH.montoOficialDe(2), 190)
+caso('montoOficialDe: basico solo tiene tarifa oficial a 1 mes (reestructuración 18-ago-2026) — cualquier otro número de meses no tiene tarifa', () => {
+  assert.strictEqual(SH.montoOficialDe(1, SH.BASICO_PLAN_ID), SH.BASICO_PRICE_MXN)
+  assert.strictEqual(SH.montoOficialDe(2, SH.BASICO_PLAN_ID), null)
 })
 
-caso('montoCoincideConTarifa: un pago de mayor a $199/1 mes coincide', () => {
-  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: 199 }
+caso('montoOficialDe: sin planId, se comporta igual que antes (pro por omisión) — no rompe llamadores viejos', () => {
+  assert.strictEqual(SH.montoOficialDe(2), SH.mesesDescuentoDe(2).pagas)
+})
+
+caso('montoCoincideConTarifa: un pago de mayor a su precio/1 mes coincide', () => {
+  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: SH.MAYOR_PRICE_MXN }
   assert.strictEqual(SH.montoCoincideConTarifa(pago), true)
 })
 
-caso('montoCoincideConTarifa: un pago de mayor con el monto de pro ($99) NO coincide', () => {
-  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: 99 }
+caso('montoCoincideConTarifa: un pago de mayor con el monto de pro NO coincide', () => {
+  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: SH.MONTHLY_PRICE_MXN }
   assert.strictEqual(SH.montoCoincideConTarifa(pago), false)
 })
 
 caso('montoCoincideConTarifa: pagos viejos sin planId siguen leyéndose como pro (no truena, no cambia su veredicto)', () => {
-  const pago = { metodo: 'transferencia', mesesPagados: 3, monto: 273 }
+  const pago = { metodo: 'transferencia', mesesPagados: 3, monto: SH.mesesDescuentoDe(3).pagas }
   assert.strictEqual(SH.montoCoincideConTarifa(pago), true)
 })
 
 // ── Revisión de seguridad del Bloque 4 (13-ago-2026) — ataque B/E del pedido:
 // firestore.rules NO valida el monto contra la tarifa (a propósito, ver
 // comentario en la regla) — la única defensa contra "declarar mayor y pagar
-// menos de $199" es que esta función lo marque para el admin ANTES de
-// aprobar (ver AvisoMonto/handleApprove en PaymentsTable.jsx). Estas pruebas
-// confirman que la marca sí ocurre, para los montos exactos que se pidieron
-// revisar.
-caso('montoCoincideConTarifa: SEGURIDAD · mayor declarado a $198 (un peso menos de la tarifa) se marca como NO coincide', () => {
-  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: 198 }
+// de menos" es que esta función lo marque para el admin ANTES de aprobar
+// (ver AvisoMonto/handleApprove en PaymentsTable.jsx). Estas pruebas
+// confirman que la marca sí ocurre.
+caso('montoCoincideConTarifa: SEGURIDAD · mayor declarado a un peso menos de la tarifa se marca como NO coincide', () => {
+  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: SH.MAYOR_PRICE_MXN - 1 }
   assert.strictEqual(SH.montoCoincideConTarifa(pago), false)
 })
 
@@ -2051,19 +2064,20 @@ caso('calcularTarifaExamen: entradas inválidas (0, negativo, no numérico) no t
   assert.strictEqual(FIA.calcularTarifaExamen('no es un número'), 8)
 })
 
-caso('claveLimiteChat: distingue asignatura de "general" y cambia con la fecha', () => {
+caso('claveLimiteChatDiario: UN solo contador por docente y por día (18-ago-2026 — antes era por asignatura/general, ahora es combinado)', () => {
   const hoy = new Date().toISOString().slice(0, 10)
-  assert.strictEqual(FIA.claveLimiteChat('uid1', 'subj-a'), `uid1_subj-a_${hoy}`)
-  assert.strictEqual(FIA.claveLimiteChat('uid1', null), `uid1_general_${hoy}`)
-  // Misma clave para el mismo docente+contexto en el mismo día — es lo que
-  // hace que el contador sea POR chat, no global.
-  assert.strictEqual(FIA.claveLimiteChat('uid1', 'subj-a'), FIA.claveLimiteChat('uid1', 'subj-a'))
-  // Asignatura distinta → clave distinta (aislamiento del límite por chat).
-  assert.notStrictEqual(FIA.claveLimiteChat('uid1', 'subj-a'), FIA.claveLimiteChat('uid1', 'subj-b'))
+  assert.strictEqual(FIA.claveLimiteChatDiario('uid1'), `uid1_${hoy}`)
+  // Misma clave para el mismo docente en el mismo día, sin importar de qué
+  // asignatura (o del Asistente General) venga — es justo lo que hace que
+  // el límite sea GLOBAL por docente, no por conversación.
+  assert.strictEqual(FIA.claveLimiteChatDiario('uid1'), FIA.claveLimiteChatDiario('uid1'))
+  // Docente distinto → clave distinta (aislamiento entre cuentas).
+  assert.notStrictEqual(FIA.claveLimiteChatDiario('uid1'), FIA.claveLimiteChatDiario('uid2'))
 })
 
-caso('LIMITE_INTERACCIONES_CHAT_DIA es 100, tal como se pidió', () => {
-  assert.strictEqual(FIA.LIMITE_INTERACCIONES_CHAT_DIA, 100)
+caso('LIMITE_CHAT_DIARIO_PAGO es 50 y LIMITE_CHAT_TRIAL_TOTAL es 10 (reestructuración de precios, 18-ago-2026 — corregido de 30 a 10)', () => {
+  assert.strictEqual(FIA.LIMITE_CHAT_DIARIO_PAGO, 50)
+  assert.strictEqual(FIA.LIMITE_CHAT_TRIAL_TOTAL, 10)
 })
 
 caso('ACCIONES_ACTIVIDAD cubre entregable y observación, no examen (examen tiene su propia operación de cobro)', () => {

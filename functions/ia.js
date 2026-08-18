@@ -3568,45 +3568,95 @@ function resumenGeneralATexto(resumenes) {
   )).join('\n')
 }
 
-// ── Límite diario de interacciones del Chat con Asistente (18-ago-2026) ────
-// El chat deja de cobrar créditos por mensaje (nuevo modelo, aprobado por
-// Kike) — este es el ÚNICO candado contra abuso que queda: 100 interacciones
-// REALES (que de verdad llegaron a Anthropic) por día, por CONTEXTO de chat
-// (una asignatura, o el Asistente General) — nunca un total global de la
-// cuenta, cada contexto lleva su propio contador. La clave del documento
-// (uid_contexto_fecha) expira sola con el cambio de día: no hace falta
-// ningún job de reinicio, un día nuevo es simplemente otra clave. Fecha
-// "hoy" con el mismo criterio ya usado en este archivo (new Date().
-// toISOString().slice(0,10)) — no se inventa una zona horaria nueva.
-const LIMITE_INTERACCIONES_CHAT_DIA = 100
+// ── Límite de interacciones del Chat con Asistente (18-ago-2026, reestructuración
+// de precios) ────────────────────────────────────────────────────────────────
+// El chat no cobra créditos por mensaje — el candado real es este límite de
+// interacciones. UNA interacción = UN mensaje enviado por el docente (nunca
+// la respuesta del modelo, nunca abrir el chat). Tres reglas distintas según
+// el nivel de suscripción — NUNCA una sola constante reusada sin distinguir:
+//
+//   · `basico` ($99, sin IA) → NADA de Chat. Bloqueado aquí mismo, antes de
+//     cualquier otra verificación.
+//   · trial (periodo de prueba gratuito) → 10 interacciones TOTALES durante
+//     TODO el periodo de prueba — NO se reinician cada día. Doc en
+//     `chatInteraccionesTrial/{uid}`, sin fecha en la clave (vive mientras
+//     dure el trial).
+//   · pro / mayor / cortesia (planes de pago con IA) → 50 interacciones POR
+//     DÍA, COMBINADAS entre el Asistente General y TODAS las asignaturas —
+//     antes (hasta el 18-ago-2026) cada asignatura y el Asistente General
+//     tenían su propio contador de 100/día (la clave incluía `subjectId`);
+//     ahora la clave es solo `uid_fecha`, así que cambiar de conversación o
+//     de asignatura NUNCA vuelve a dar interacciones frescas. Expira sola
+//     con el cambio de día (fecha en la clave, mismo criterio de siempre:
+//     `new Date().toISOString().slice(0,10)`, sin inventar zona horaria).
+//
+// RESERVA, no solo verificación: a diferencia del diseño anterior (leer el
+// contador, y solo incrementarlo horas después si Anthropic respondió),
+// `reservarInteraccionChat` corre en una TRANSACCIÓN que lee y aumenta el
+// contador en el mismo paso, ANTES de llamar a Anthropic — así dos
+// solicitudes simultáneas (doble clic, dos pestañas) nunca pueden leer
+// ambas "49 de 50" y las dos pasar: Firestore serializa la transacción, la
+// segunda relee el valor YA incrementado por la primera. Si Anthropic falla
+// después, `liberarInteraccionChat` decrementa — la interacción reservada
+// nunca se pierde silenciosamente ni se cuenta de más.
+const LIMITE_CHAT_DIARIO_PAGO = 50
+const LIMITE_CHAT_TRIAL_TOTAL = 10
 
-function claveLimiteChat(uid, subjectId) {
-  return `${uid}_${subjectId || 'general'}_${new Date().toISOString().slice(0, 10)}`
+function claveLimiteChatDiario(uid) {
+  return `${uid}_${new Date().toISOString().slice(0, 10)}`
 }
 
-// Se llama al inicio del precheck — ANTES de reservar créditos y ANTES de
-// llamar a Anthropic. Si ya se alcanzó el límite, rechaza aquí: no hay
-// llamada a la IA, no hay reserva de créditos que reembolsar. Devuelve la
-// referencia del documento contador para que ejecutarChatAsistente la
-// incremente SOLO si la IA de verdad respondió.
-async function verificarLimiteChat(db, uid, subjectId) {
-  const ref = db.doc(`chatInteraccionesDiarias/${claveLimiteChat(uid, subjectId)}`)
-  const snap = await ref.get()
-  if ((snap.data()?.contador || 0) >= LIMITE_INTERACCIONES_CHAT_DIA) {
-    throw new HttpsError('resource-exhausted',
-      'Has alcanzado el límite diario de este chat. Podrás continuar mañana.',
-      { codigo: 'LIMITE_DIARIO_CHAT' })
+// El nivel de suscripción decide qué candado de Chat aplica — se calcula UNA
+// vez por turno y se reutiliza (nunca una constante compartida sin
+// distinguir trial/pago/básico). Mismo criterio de "última suscripción
+// actualizada" que ya usa creditosLedger.reservar().
+async function nivelParaChat(db, uid) {
+  const subsSnap = await db.collection('subscriptions').where('docenteId', '==', uid).get()
+  let sub = null
+  const ms = (s) => s.updatedAt?.toMillis?.() || 0
+  subsSnap.docs.forEach((d) => { if (!sub || ms(d.data()) > ms(sub)) sub = d.data() })
+  return ledger.nivelDeSuscripcion(sub)
+}
+
+// Se llama al inicio del precheck — ANTES de llamar a Anthropic. `basico`
+// nunca llega a leer ningún contador. Devuelve { ref, tipo, max, usadas }
+// para que el cliente pueda mostrar "X de Y interacciones" y para que
+// ejecutarChatAsistente pueda liberar la reserva si Anthropic falla.
+async function reservarInteraccionChat(db, uid, nivel) {
+  if (nivel === 'basico') {
+    throw new HttpsError('permission-denied',
+      'Tu plan actual no incluye el Chat con Asistente IA. Actualiza a Asistente IA o Asistente IA Pro para usarlo.',
+      { codigo: 'PLAN_SIN_IA' })
   }
-  return ref
+  const esTrial = nivel === 'trial'
+  const ref = esTrial
+    ? db.doc(`chatInteraccionesTrial/${uid}`)
+    : db.doc(`chatInteraccionesDiarias/${claveLimiteChatDiario(uid)}`)
+  const max = esTrial ? LIMITE_CHAT_TRIAL_TOTAL : LIMITE_CHAT_DIARIO_PAGO
+  const usadas = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    const actuales = snap.data()?.contador || 0
+    if (actuales >= max) {
+      throw new HttpsError('resource-exhausted',
+        esTrial
+          ? 'Has utilizado tus 10 interacciones de Chat incluidas en el periodo de prueba. Elige un plan con IA para continuar.'
+          : 'Has alcanzado el límite diario de 50 interacciones con el Chat con Asistente. Podrás continuar mañana.',
+        { codigo: esTrial ? 'LIMITE_TRIAL_CHAT' : 'LIMITE_DIARIO_CHAT' })
+    }
+    tx.set(ref, { contador: actuales + 1, actualizadoEn: FieldValue.serverTimestamp() }, { merge: true })
+    return actuales + 1
+  })
+  return { ref, tipo: esTrial ? 'trial' : 'diario', max, usadas }
 }
 
-// Solo se llama tras una respuesta real de Anthropic (nunca en una solicitud
-// rechazada por saldo, autorización o límite). Fire-and-forget, mismo
-// criterio que el registro de iaConsumosInterno: si esta escritura fallara,
-// no debe tirar abajo una respuesta que el docente ya recibió.
-function registrarInteraccionChat(refLimite) {
-  refLimite.set({ contador: FieldValue.increment(1), actualizadoEn: FieldValue.serverTimestamp() }, { merge: true })
-    .catch((err) => logger.error('chatInteraccionesDiarias:', err))
+// Solo se llama si Anthropic NO respondió de verdad (error de red/API, o
+// respuesta vacía) — devuelve la interacción reservada. Fire-and-forget,
+// mismo criterio que el resto de escrituras de métricas: si esta escritura
+// fallara, no debe tirar abajo el manejo del error original.
+function liberarInteraccionChat(reserva) {
+  if (!reserva) return
+  reserva.ref.set({ contador: FieldValue.increment(-1), actualizadoEn: FieldValue.serverTimestamp() }, { merge: true })
+    .catch((err) => logger.error('liberarInteraccionChat:', err))
 }
 
 // Saldo = 0 → el chat entero queda bloqueado (pedido explícito, 18-ago-2026):
@@ -3649,7 +3699,7 @@ async function bloqueAyudaPlataforma() {
     '· Crear una actividad: dentro de la asignatura, pestaña "Actividades", botón "Nueva actividad" — tipo "Entregable" (le pide algo al estudiante, con instrucciones y tipos de archivo permitidos) u "Observación". Al publicar, los estudiantes ya la ven y pueden entregar; las entregas se revisan y califican en esa misma actividad.\n' +
     '· Pasar asistencia: dentro de la asignatura, pestaña "Asistencia", se elige el día — cada estudiante empieza "presente" y se toca su celda para rotar entre presente/falta/justificada, se guarda solo.\n' +
     '· Evaluaciones/exámenes y diagnósticos, Planeación Didáctica Inicial, y rúbricas/listas de cotejo: se generan con IA desde la pestaña "Asistente IA" de cada asignatura. Este mismo Chat también puede crear una actividad o un examen directamente si el docente lo pide con suficiente detalle.\n\n' +
-    `PLANES: Gratuito ($0, ${cap.trial ?? 50} créditos de IA) · Asistente IA ($${planes.pro?.precioMXN ?? 99}/mes, ${planes.pro?.creditos ?? cap.pro ?? 350} créditos) · Asistente IA Pro ($${planes.mayor?.precioMXN ?? 199}/mes, ${planes.mayor?.creditos ?? cap.mayor ?? 1750} créditos). ` +
+    `PLANES: periodo de prueba gratuito (${cap.trial ?? 50} créditos de IA, hasta 10 interacciones de Chat en total durante la prueba) · Básico $99/mes (sin funciones de IA, sin Chat) · Asistente IA $${planes.pro?.precioMXN ?? 199}/mes (${planes.pro?.creditos ?? cap.pro ?? 350} créditos, hasta 50 interacciones de Chat por día) · Asistente IA Pro $${planes.mayor?.precioMXN ?? 299}/mes (${planes.mayor?.creditos ?? cap.mayor ?? 1000} créditos, hasta 50 interacciones de Chat por día). ` +
     'Los créditos son compartidos entre TODAS las funciones de IA (diagnósticos, planeación, actividades, exámenes, rúbricas/listas de cotejo y este Chat) — no hay bolsas separadas por función. El saldo se ve tocando la barra de créditos o en "Mi plan" dentro de Perfil. Suscribirse/pagar la suscripción mensual también se hace desde Perfil, por transferencia bancaria (los datos de la cuenta se muestran ahí al iniciar el pago).\n' +
     (listaPaquetes
       ? `CRÉDITOS ADICIONALES: si se agotan los del mes, se compran desde "Comprar créditos" en Perfil — paquetes: ${listaPaquetes}. El pago es por transferencia bancaria; los datos de la cuenta se muestran ahí mismo al elegir el paquete. IMPORTANTE: los créditos comprados se agregan al saldo SOLO después de que el administrador confirma el pago recibido — nunca de inmediato al hacer el depósito. Los créditos comprados no se pierden al renovarse el periodo mensual.`
@@ -3660,8 +3710,18 @@ async function precheckAsistenteGeneral({ uid, params }) {
   const db = getFirestore()
   const mensaje = String(params?.mensaje || '').trim().slice(0, MAX_LARGO_MENSAJE)
   if (!mensaje) throw new HttpsError('invalid-argument', 'Falta el mensaje.')
+  const nivel = await nivelParaChat(db, uid)
+  // `basico` se rechaza aquí (sin tocar ningún contador) antes de cualquier
+  // otra verificación — igual de válido dejar que reservarInteraccionChat lo
+  // vuelva a rechazar más abajo (lo hace, por defensa en profundidad), pero
+  // así el docente en Básico nunca "gasta" una interacción reservada por un
+  // saldo insuficiente que ni siquiera aplica a su plan.
+  if (nivel === 'basico') {
+    throw new HttpsError('permission-denied',
+      'Tu plan actual no incluye el Chat con Asistente IA. Actualiza a Asistente IA o Asistente IA Pro para usarlo.',
+      { codigo: 'PLAN_SIN_IA' })
+  }
   await verificarSaldoChat(db, uid)
-  const refLimiteChat = await verificarLimiteChat(db, uid, null)
 
   const perfilSnap = await db.doc(`users/${uid}`).get()
   const perfilIA = perfilSnap.data()?.perfilIA || null
@@ -3671,6 +3731,11 @@ async function precheckAsistenteGeneral({ uid, params }) {
       'No se descontaron créditos.',
       { codigo: 'PERFIL_IA_INCOMPLETO' })
   }
+
+  // La reserva de la interacción va AL FINAL de las validaciones — justo
+  // antes de construir el contexto y llamar a Anthropic — para que un
+  // rechazo por saldo/perfil incompleto nunca consuma una interacción real.
+  const reservaLimiteChat = await reservarInteraccionChat(db, uid, nivel)
 
   const subjectsSnap = await db.collection('subjects').where('docenteId', '==', uid).get()
   const subjects = subjectsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((s) => !s.archived)
@@ -3691,7 +3756,7 @@ async function precheckAsistenteGeneral({ uid, params }) {
     // explícito). ejecutarChatAsistente descarta cualquier propuesta si esto
     // es false, sin importar lo que haya devuelto el modelo.
     permitirAcciones: false,
-    refLimiteChat,
+    reservaLimiteChat,
   }
 }
 
@@ -3710,8 +3775,13 @@ async function precheckChatAsistente({ uid, params }) {
   if (!subjectId) return precheckAsistenteGeneral({ uid, params })
   const mensaje = String(params?.mensaje || '').trim().slice(0, MAX_LARGO_MENSAJE)
   if (!mensaje) throw new HttpsError('invalid-argument', 'Falta el mensaje.')
+  const nivel = await nivelParaChat(db, uid)
+  if (nivel === 'basico') {
+    throw new HttpsError('permission-denied',
+      'Tu plan actual no incluye el Chat con Asistente IA. Actualiza a Asistente IA o Asistente IA Pro para usarlo.',
+      { codigo: 'PLAN_SIN_IA' })
+  }
   await verificarSaldoChat(db, uid)
-  const refLimiteChat = await verificarLimiteChat(db, uid, subjectId)
 
   const subjSnap = await db.doc(`subjects/${subjectId}`).get()
   if (!subjSnap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
@@ -3802,6 +3872,12 @@ async function precheckChatAsistente({ uid, params }) {
     })(),
   ].filter(Boolean)
 
+  // Igual que en precheckAsistenteGeneral: la reserva de la interacción va al
+  // final, justo antes de devolver el contexto a ejecutarChatAsistente — un
+  // rechazo anterior (saldo, perfil, asignatura ajena) nunca consume una
+  // interacción real.
+  const reservaLimiteChat = await reservarInteraccionChat(db, uid, nivel)
+
   return {
     contextoSistema: bloques.join('\n\n'),
     mensaje,
@@ -3811,7 +3887,7 @@ async function precheckChatAsistente({ uid, params }) {
     // siempre la deja en false.
     permitirAcciones: true,
     subjectId,
-    refLimiteChat,
+    reservaLimiteChat,
   }
 }
 
@@ -4031,7 +4107,17 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
   const system = bloqueConCache(systemTexto)
 
   const inicio = Date.now()
-  const msg = await client.messages.create({ model: modelo, max_tokens: 1400, system, messages })
+  // La interacción ya quedó RESERVADA (incrementada) en el precheck, antes
+  // de llegar aquí — si algo de lo que sigue falla (Anthropic no responde,
+  // o responde vacío), hay que LIBERARLA: no fue una interacción real, no
+  // debe contar contra el límite del docente.
+  let msg
+  try {
+    msg = await client.messages.create({ model: modelo, max_tokens: 1400, system, messages })
+  } catch (e) {
+    liberarInteraccionChat(ctx.reservaLimiteChat)
+    throw e
+  }
   const texto = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
 
   // El modelo a veces no obedece el formato JSON al pie de la letra: texto
@@ -4058,16 +4144,26 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
   }
 
   const respuesta = String(datos?.respuesta || '').trim()
-  if (!respuesta) throw new Error('El asistente de IA no generó una respuesta utilizable')
+  if (!respuesta) {
+    liberarInteraccionChat(ctx.reservaLimiteChat)
+    throw new Error('El asistente de IA no generó una respuesta utilizable')
+  }
   const propuesta = sanearPropuestaAccionChat(datos?.propuesta, { permitirAcciones: ctx.permitirAcciones })
 
-  // Recién AHORA se cuenta la interacción contra el límite diario — Anthropic
-  // ya respondió de verdad. Una solicitud rechazada antes (saldo, límite,
-  // falta de autorización) nunca llega hasta aquí.
-  registrarInteraccionChat(ctx.refLimiteChat)
-
   return {
-    resultado: { respuesta, propuesta },
+    resultado: {
+      respuesta,
+      propuesta,
+      // Info del límite de interacciones (18-ago-2026) — para que el cliente
+      // pueda mostrar "X de Y interacciones" y avisar antes de bloquear, sin
+      // tener que adivinar el límite de cada plan. `tipo` distingue el
+      // periodo de prueba (total acumulado) de un plan de pago (diario).
+      limiteChat: {
+        tipo: ctx.reservaLimiteChat.tipo,
+        usadas: ctx.reservaLimiteChat.usadas,
+        max: ctx.reservaLimiteChat.max,
+      },
+    },
     unidadesReales: 1, // tarifa fija por turno — cada mensaje es su propia operación, con o sin propuesta
     interno: {
       modelo,
@@ -4328,6 +4424,7 @@ function comoHttpsError(e) {
       OPERACION_DESCONOCIDA: 'invalid-argument',
       CLAVE_INVALIDA: 'invalid-argument',
       SIN_TARIFAS: 'failed-precondition',
+      PLAN_SIN_IA: 'permission-denied',
     }
     return new HttpsError(codigos[e.codigo] || 'failed-precondition', e.message, { codigo: e.codigo, ...e.datos })
   }
@@ -4491,7 +4588,8 @@ exports._pruebas = {
   CHAT_SISTEMA, MAX_TURNOS_HISTORIAL, MAX_LARGO_MENSAJE,
   resumenGeneralATexto, precheckAsistenteGeneral,
   sanearPropuestaAccionChat, sanearReactivoPropuestaChat, ACCIONES_CHAT_PERMITIDAS,
-  verificarLimiteChat, registrarInteraccionChat, claveLimiteChat, LIMITE_INTERACCIONES_CHAT_DIA,
+  reservarInteraccionChat, liberarInteraccionChat, claveLimiteChatDiario, nivelParaChat,
+  LIMITE_CHAT_DIARIO_PAGO, LIMITE_CHAT_TRIAL_TOTAL,
   verificarSaldoChat, calcularTarifaExamen, precheckChatCrearActividad, precheckChatCrearExamen,
   ACCIONES_ACTIVIDAD,
 }

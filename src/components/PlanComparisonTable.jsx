@@ -1,15 +1,23 @@
 import { Check } from 'lucide-react'
-import { TRIAL_DURATION_DAYS, MONTHLY_PRICE_MXN, MAYOR_PRICE_MXN } from '../utils/subscriptionHelpers'
+import { BASICO_PRICE_MXN, MONTHLY_PRICE_MXN, MAYOR_PRICE_MXN } from '../utils/subscriptionHelpers'
 
 // Tabla comercial — lo único que el docente necesita para decidir en pocos
 // segundos: qué obtiene, cuánto cuesta y qué le conviene. A propósito NO
 // muestra nada interno (planId, nombres de documentos/colecciones): los
-// encabezados son los nombres comerciales, no `pro`/`mayor`/`trial`.
+// encabezados son los nombres comerciales, no `basico`/`pro`/`mayor`.
 //
-// `creditosGratuito`/`creditosPro`/`creditosMayor` vienen de
-// config/iaTarifas (vía useCreditosIA en quien la use) para no duplicar esos
-// números — todo lo demás (precio, duración, filas de función) es fijo y
-// comercial, no cambia con la tarifa.
+// Reestructuración de precios (18-ago-2026): esta tabla representa los TRES
+// PLANES DE PAGO — Básico ($99, sin IA), Asistente IA ($199, 350 créditos,
+// Chat hasta 50 interacciones/día) y Asistente IA Pro ($299, 1,000 créditos,
+// Chat hasta 50 interacciones/día). El periodo de PRUEBA GRATUITO (trial) es
+// una cosa aparte, NO una cuarta columna aquí — se explica en el texto que
+// va junto a esta tabla (CheckoutModal/Profile.jsx), nunca mezclado con los
+// planes de pago.
+//
+// `creditosPro`/`creditosMayor` vienen de config/iaTarifas (vía
+// useCreditosIA en quien la use) para no duplicar esos números — todo lo
+// demás (precio, filas de función) es fijo y comercial, no cambia con la
+// tarifa.
 //
 // `table-layout: fixed` con anchos porcentuales fijos (en vez del ancho
 // mínimo anterior de 420px): en un celular normal (~360-390px de ancho útil
@@ -50,7 +58,7 @@ function CeldaNo() {
 // Dos palomitas: acento visual de "más capacidad" para Asistente IA Pro —
 // la función es la MISMA que en Asistente IA (calificar y analizar con IA),
 // no hay una segunda función exclusiva; el "más" real ya está en los
-// créditos (1,750 vs 350). Confirmado con Kike, 13-ago-2026.
+// créditos (1,000 vs 350). Confirmado con Kike, 13-ago-2026.
 function CeldaSiDoble() {
   return (
     <td className="px-1 py-2 text-center border-l border-outline-variant whitespace-nowrap">
@@ -61,9 +69,7 @@ function CeldaSiDoble() {
 }
 
 // Distinto de CeldaNo: aquí la pregunta SÍ aplica al plan (paga, pero no
-// tiene descuento) — "No" es una respuesta, no "no aplica". El guion queda
-// reservado para cuando el plan Gratuito ni siquiera participa de la fila
-// (no paga, así que "meses"/"descuento" no le corresponden).
+// tiene descuento) — "No" es una respuesta, no "no aplica".
 function CeldaRespuestaNo() {
   return <td className="px-1 py-2 text-center border-l border-outline-variant text-[11px] text-muted">No</td>
 }
@@ -72,19 +78,16 @@ function CeldaRespuestaNo() {
 // paquetes; NO es un plan de suscripción nuevo, por eso va aparte de la
 // tabla. `paquetes` viene de config/iaTarifas.paquetesCreditos (vía
 // useCreditosIA), la MISMA fuente que usa ComprarCreditosModal — nada de
-// precios repetidos aquí.
+// precios repetidos aquí. Solo aplican a Asistente IA / Asistente IA Pro —
+// Básico no tiene créditos que ampliar.
 function SeccionCreditosAdicionales({ paquetes }) {
   if (!paquetes || paquetes.length === 0) return null
   return (
     <div className="mt-3 pt-3 border-t border-outline-variant">
       <p className="text-xs font-semibold text-on-surface mb-1">Créditos adicionales</p>
       <p className="text-[11px] text-muted mb-2">
-        Si se te acaban tus créditos del mes, puedes comprar más — se suman a tu saldo y no se pierden al renovarse tu periodo.
+        Si se te acaban tus créditos del mes (Asistente IA o Asistente IA Pro), puedes comprar más — se suman a tu saldo y no se pierden al renovarse tu periodo.
       </p>
-      {/* Los 5 paquetes en una sola fila en el ancho normal del modal
-          (18-ago-2026) — grid-cols-5 fijo en vez de flex-wrap, que los
-          amontonaba en 2-3 líneas. En pantallas angostas el texto se achica
-          solo, sin saltar de línea (whitespace-nowrap + tabular-nums). */}
       <div className="grid grid-cols-5 gap-1">
         {paquetes.map((p) => (
           <span key={p.creditos} className="text-[10px] px-1 py-1 rounded-full bg-surface border border-outline-variant text-on-surface tabular-nums text-center whitespace-nowrap">
@@ -96,8 +99,8 @@ function SeccionCreditosAdicionales({ paquetes }) {
   )
 }
 
-export default function PlanComparisonTable({ mostrarMayor = true, creditosGratuito, creditosPro, creditosMayor, paquetesCreditos }) {
-  const nCols = mostrarMayor ? 4 : 3
+export default function PlanComparisonTable({ creditosPro, creditosMayor, paquetesCreditos }) {
+  const nCols = 3
   const colValorPct = (100 - 34) / (nCols - 1)
 
   return (
@@ -113,110 +116,107 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
           <tr className="border-b border-outline-variant">
             <th className="px-1 py-2 text-left font-semibold text-muted">Plan</th>
             <th className="px-1 py-2 text-center border-l border-outline-variant">
-              <p className="font-bold text-on-surface leading-tight text-[11px]">Gratuito</p>
-              <p className="text-[10px] text-muted font-normal">$0</p>
+              <p className="font-bold text-on-surface leading-tight text-[11px]">Básico</p>
+              <p className="text-[10px] text-muted font-normal">${BASICO_PRICE_MXN}<br />/mes</p>
             </th>
             <th className="px-1 py-2 text-center border-l border-outline-variant">
               <p className="font-bold text-on-surface leading-tight text-[11px]">Asistente IA</p>
               <p className="text-[10px] text-accent font-semibold leading-tight">${MONTHLY_PRICE_MXN}<br />/mes</p>
             </th>
-            {mostrarMayor && (
-              <th className="px-1 py-2 text-center border-l border-outline-variant">
-                <p className="font-bold text-on-surface leading-tight text-[11px]">Asistente IA Pro</p>
-                <p className="text-[10px] text-accent font-semibold leading-tight">${MAYOR_PRICE_MXN}<br />/mes</p>
-              </th>
-            )}
+            <th className="px-1 py-2 text-center border-l border-outline-variant">
+              <p className="font-bold text-on-surface leading-tight text-[11px]">Asistente IA Pro</p>
+              <p className="text-[10px] text-accent font-semibold leading-tight">${MAYOR_PRICE_MXN}<br />/mes</p>
+            </th>
           </tr>
         </thead>
         <tbody>
-          {/* Filas que SÍ distinguen un plan de otro — resaltadas, van primero
-              después del precio (ya en el encabezado) para que salten a la
-              vista antes que la lista de funciones (idénticas en los tres). */}
-          {/* Gratuito NO descarga archivos (decisión de Kike, 13-ago-2026):
-              a propósito, para que nadie se registre solo a generar su
-              Planeación Didáctica Inicial y se vaya sin usar la plataforma.
-              Va primero — es el diferenciador más fuerte de todos. */}
-          <tr className="border-b border-outline-variant bg-accent-light/40">
+          {/* Descarga de archivos: función de plan PAGADO (no de IA) — los
+              tres planes de esta tabla ya son de pago, así que los tres la
+              tienen. Distinto del periodo de prueba gratuito, que NO la
+              tiene (ver el texto aparte sobre el trial). */}
+          <tr className="border-b border-outline-variant bg-accent-light">
             <td className="px-1.5 py-2 font-medium text-muted">Descarga de archivos</td>
-            <CeldaRespuestaNo />
             <CeldaSi />
-            {mostrarMayor && <CeldaSi />}
+            <CeldaSi />
+            <CeldaSi />
           </tr>
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Créditos de IA</td>
-            <Celda destacada>{creditosGratuito ?? '—'}</Celda>
+            <CeldaNo />
             <Celda destacada>{creditosPro != null ? creditosPro.toLocaleString('es-MX') : '—'}</Celda>
-            {mostrarMayor && <Celda destacada>{creditosMayor != null ? creditosMayor.toLocaleString('es-MX') : '—'}</Celda>}
-          </tr>
-          <tr className="border-b border-outline-variant">
-            <td className="px-1.5 py-2 font-medium text-muted">Duración</td>
-            <Celda>{TRIAL_DURATION_DAYS} días</Celda>
-            <Celda>Mensual</Celda>
-            {mostrarMayor && <Celda>Mensual</Celda>}
+            <Celda destacada>{creditosMayor != null ? creditosMayor.toLocaleString('es-MX') : '—'}</Celda>
           </tr>
           {/* Calificar respuestas abiertas y analizar resultados con IA
-              (C-02/OP-10) — no está en Gratuito. Igual en ambos planes
-              pagados; la doble palomita en Pro es solo acento visual (ver
-              CeldaSiDoble), el "más" real ya está en los créditos. */}
-          <tr className="border-b border-outline-variant bg-accent-light/40">
+              (C-02/OP-10) — no está en Básico (sin IA). Igual en ambos
+              planes con IA; la doble palomita en Pro es solo acento visual
+              (ver CeldaSiDoble), el "más" real ya está en los créditos. */}
+          <tr className="border-b border-outline-variant bg-accent-light">
             <td className="px-1.5 py-2 font-medium text-muted">Evaluación con apoyo de IA</td>
             <CeldaNo />
             <CeldaSi />
-            {mostrarMayor && <CeldaSiDoble />}
+            <CeldaSiDoble />
           </tr>
-          {/* Chat con Asistente IA (18-ago-2026): disponible en LOS TRES
-              planes, incluido Gratuito (usa su bolsa de 50 créditos) — no
-              hay candado por plan, solo por saldo > 0. No consume créditos
-              por mensaje — solo confirmar una acción (crear actividad/examen
-              desde la conversación) cobra, con el costo real de esa
-              operación. Esta fila solo dice dónde está incluido. */}
+          {/* Chat con Asistente IA (reestructuración de precios, 18-ago-2026):
+              Básico NO lo tiene — es de los planes con IA. No consume
+              créditos por mensaje (solo confirmar una acción de creación
+              cobra, con el costo real de esa operación); el candado real es
+              el límite de interacciones (fila de abajo). */}
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Chat con Asistente IA</td>
+            <CeldaNo />
             <CeldaSi />
             <CeldaSi />
-            {mostrarMayor && <CeldaSi />}
+          </tr>
+          <tr className="border-b border-outline-variant bg-accent-light">
+            <td className="px-1.5 py-2 font-medium text-muted">Interacciones con el Chat</td>
+            <CeldaNo />
+            <Celda destacada>Hasta 50/día</Celda>
+            <Celda destacada>Hasta 50/día</Celda>
           </tr>
           {/* Creación de cuestionarios y exámenes con IA (18-ago-2026): los
-              tres planes tienen acceso, pero Gratuito genera menos reactivos
-              por corrida (functions/ia.js: MAX_REACTIVOS_EVALUACION_TRIAL=10
-              vs MAX_REACTIVOS_EVALUACION_PAGO=100) — diferencia real e
-              intencional, por eso esta fila usa texto en vez de ✓ (que
-              implicaría paridad total). */}
-          <tr className="border-b border-outline-variant bg-accent-light/40">
+              dos planes con IA tienen acceso, pero con distinto tope de
+              reactivos por corrida (functions/ia.js:
+              MAX_REACTIVOS_EVALUACION_PAGO=100 para ambos desde la
+              reestructuración — ya no hay un nivel "trial" en esta tabla). */}
+          <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Creación de cuestionarios y exámenes con IA</td>
-            <Celda>Hasta 10 reactivos</Celda>
+            <CeldaNo />
             <Celda>Hasta 100 reactivos</Celda>
-            {mostrarMayor && <Celda>Hasta 100 reactivos</Celda>}
+            <Celda>Hasta 100 reactivos</Celda>
+          </tr>
+          <tr className="border-b border-outline-variant bg-accent-light">
+            <td className="px-1.5 py-2 font-medium text-muted">Pago de varios meses</td>
+            <CeldaRespuestaNo />
+            <Celda destacada>1-6 meses</Celda>
+            <Celda destacada>Solo 1</Celda>
           </tr>
           <tr className="border-b border-outline-variant">
-            <td className="px-1.5 py-2 font-medium text-muted">Pago de varios meses</td>
-            <CeldaNo />
-            <Celda destacada>1-6 meses</Celda>
-            {mostrarMayor && <Celda destacada>Solo 1</Celda>}
-          </tr>
-          <tr className="border-b border-outline-variant bg-accent-light/40">
             <td className="px-1.5 py-2 font-medium text-muted">Descuentos por prepago</td>
-            <CeldaNo />
+            <CeldaRespuestaNo />
             <CeldaSi />
-            {mostrarMayor && <CeldaRespuestaNo />}
+            <CeldaRespuestaNo />
           </tr>
 
-          {/* Funciones de IA: iguales en los tres planes — se agrupan al
-              final, en gris claro, para no competir visualmente con las
-              filas de arriba (que sí cambian de un plan a otro). */}
+          {/* Funciones de IA: iguales en Asistente IA / Asistente IA Pro — se
+              agrupan al final, en gris claro. Básico no las tiene (sin IA). */}
           <tr className="border-b border-t-2 border-outline-variant">
-            <td className="px-1.5 py-2 font-semibold text-slate-400 text-[11px] uppercase" colSpan={nCols}>
-              Funciones de IA incluidas en los tres planes
+            <td className="px-1.5 py-2 font-semibold text-slate-400 text-[11px] uppercase" colSpan={nCols + 1}>
+              Funciones de IA — Asistente IA y Asistente IA Pro
             </td>
           </tr>
           {FILAS_FUNCIONES.map((fila) => (
             <tr key={fila} className="border-b border-outline-variant">
               <td className="px-1.5 py-2 text-muted text-[11px]">{fila}</td>
-              <CeldaSi /><CeldaSi />{mostrarMayor && <CeldaSi />}
+              <CeldaNo />
+              <CeldaSi />
+              <CeldaSi />
             </tr>
           ))}
         </tbody>
       </table>
+      <p className="mt-3 pt-3 border-t border-outline-variant text-[11px] text-muted">
+        Todo docente nuevo empieza con un <strong className="text-on-surface font-semibold">periodo de prueba gratuito</strong> — incluye IA (50 créditos) y hasta 10 interacciones con el Chat con Asistente durante TODA la prueba (no por día). Al terminar, elige uno de los planes de arriba.
+      </p>
       <SeccionCreditosAdicionales paquetes={paquetesCreditos} />
     </div>
   )

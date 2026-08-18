@@ -48,9 +48,15 @@ class ErrorCreditos extends Error {
 
 // ── Planes ──────────────────────────────────────────────────────────────────
 // La suscripción actual usa: status 'trial' (planId vacío), o planId
-// 'pro' | 'anual' | 'mayor' | 'cortesia'. Para créditos:
+// 'basico' | 'pro' | 'anual' | 'mayor' | 'cortesia'. Para créditos:
 //   trial → capacidad de trial (50, decisión de Kike del 13-ago-2026 — ver
-//           capacidadTrialPara para los trials creados ANTES de este cambio)
+//           capacidadTrialPara para los trials creados ANTES de este cambio).
+//           El trial es un periodo de prueba aparte de los planes de pago —
+//           NUNCA se confunde con `basico` (18-ago-2026): el trial SÍ tiene
+//           IA, `basico` NO.
+//   basico → SIN IA (18-ago-2026, reestructuración de precios: $99, plan de
+//            entrada sin funciones de IA). `reservar()` lo bloquea antes de
+//            cualquier lógica de crédito — ver el candado explícito ahí.
 //   pro y anual → nivel Asistente IA (mismo producto, distinta periodicidad)
 //   mayor → nivel Asistente IA Pro
 //   cortesia → el administrador elige el monto por docente al otorgarla
@@ -62,6 +68,7 @@ function nivelDeSuscripcion(sub) {
   if (!sub) return 'trial' // sin suscripción: mismo criterio que el candado (se repone la prueba)
   if (sub.planId === 'cortesia') return 'cortesia'
   if (sub.planId === 'mayor') return 'mayor'
+  if (sub.planId === 'basico') return 'basico'
   if (sub.planId === 'pro' || sub.planId === 'anual') return 'pro'
   return 'trial'
 }
@@ -183,7 +190,17 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
       return { repetida: true, consumo: consumoSnap.data() }
     }
 
-    const [creditosSnap, usuarioSnap] = await Promise.all([tx.get(refCreditos), tx.get(refUsuario)])
+    const [creditosSnap, usuarioSnap, subsSnap] = await Promise.all([
+      tx.get(refCreditos),
+      tx.get(refUsuario),
+      // Se lee SIEMPRE (no solo en el primer uso): un docente que baja a
+      // `basico` a media suscripción debe quedar bloqueado en su SIGUIENTE
+      // operación, no solo en la próxima renovación de ciclo — la rama del
+      // doc ya existente (abajo) nunca antes volvía a consultar la
+      // suscripción real, así que una bajada de plan no se enteraba hasta
+      // que camposRenovados corriera semanas después (hueco real, 18-ago-2026).
+      tx.get(db().collection('subscriptions').where('docenteId', '==', uid)),
+    ])
 
     // Vigencia de la suscripción: mismo criterio que el candado de escrituras
     // (campo ausente deja pasar; fecha vencida rechaza).
@@ -192,17 +209,28 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
       throw new ErrorCreditos('SUSCRIPCION_VENCIDA', 'Tu suscripción no está vigente')
     }
 
+    let sub = null
+    const ms = (s) => s.updatedAt?.toMillis?.() || 0
+    subsSnap.docs.forEach((d) => { if (!sub || ms(d.data()) > ms(sub)) sub = d.data() })
+
+    // Plan Básico ($99, 18-ago-2026): SIN funciones de IA — se bloquea aquí,
+    // ANTES de tocar saldo/capacidad, para cualquier operación con tarifa
+    // (incluidas las confirmadas desde el Chat: chat_crear_actividad/
+    // chat_crear_examen). El bloqueo de la conversación en sí (que no pasa
+    // por reservar(), tarifa 0) vive en functions/ia.js — ver
+    // precheckChatAsistente/precheckAsistenteGeneral. "SIN IA" nunca borra ni
+    // oculta contenido ya creado — eso vive en las reglas normales de lectura/
+    // escritura de cada colección (activities/subjects/etc.), que esta función
+    // no toca en absoluto.
+    if (nivelDeSuscripcion(sub) === 'basico') {
+      throw new ErrorCreditos('PLAN_SIN_IA', 'Tu plan actual no incluye funciones de IA. Actualiza a Asistente IA o Asistente IA Pro para usarlas.')
+    }
+
     let creditos
     let camposNuevos = {}
     if (!creditosSnap.exists) {
       // Primer uso de IA de este docente: el doc nace aquí, con el plan que
       // diga su suscripción más reciente (mismo criterio que el candado).
-      const subsSnap = await tx.get(
-        db().collection('subscriptions').where('docenteId', '==', uid)
-      )
-      let sub = null
-      const ms = (s) => s.updatedAt?.toMillis?.() || 0
-      subsSnap.docs.forEach((d) => { if (!sub || ms(d.data()) > ms(sub)) sub = d.data() })
       const plan = nivelDeSuscripcion(sub)
       const capacidad = plan === 'trial'
         ? capacidadTrialPara(sub, tarifas)

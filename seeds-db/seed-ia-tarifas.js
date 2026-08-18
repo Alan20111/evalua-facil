@@ -8,10 +8,11 @@
  *     operación y datos de exhibición de los planes. Es la ÚNICA fuente de
  *     estos valores: servidor y cliente la leen; nada de esto se duplica en
  *     código.
- *   · plans/mayor — Asistente IA Pro (id interno `mayor`, sin cambios).
- *     `activo: true` (Bloque 5, 13-ago-2026): activación comercial
- *     intencional — el checkout (Bloque 4) ya sabe ofrecerlo y cobrarlo
- *     correctamente, y las reglas ya lo aceptan.
+ *   · plans/mayor — Asistente IA Pro (id interno `mayor`).
+ *   · plans/basico — Plan Básico, SIN IA (id interno `basico`,
+ *     reestructuración de precios 18-ago-2026).
+ *     Ambos `activo: true` — el checkout ya sabe ofrecerlos y cobrarlos
+ *     correctamente, y las reglas ya los aceptan.
  *
  * Nombres comerciales (13-ago-2026): "Plan Docente"→"Asistente IA" (`pro`),
  * "Plan Mayor"→"Asistente IA Pro" (`mayor`) — solo el texto que ve el
@@ -150,7 +151,11 @@ const TARIFAS = {
   // Trial bajó de 350 a 50 (decisión de Kike, 13-ago-2026) — ver
   // `trialLegado` abajo para que esto NO le recorte nada a quien ya estaba
   // en trial antes del cambio (functions/creditosLedger.js: capacidadTrialPara).
-  capacidadPorPlan: { trial: 50, pro: 350, anual: 350, mayor: 1750 },
+  // `basico` NO tiene entrada aquí a propósito: es el plan sin IA
+  // (reestructuración de precios, 18-ago-2026) — creditosLedger.reservar() lo
+  // bloquea antes de siquiera llegar a buscar una capacidad, así que no
+  // necesita (ni debe) tener un número aquí.
+  capacidadPorPlan: { trial: 50, pro: 350, anual: 350, mayor: 1000 },
   // Trials con `subscriptions.fechaInicio` ANTERIOR a `corte` conservan
   // `capacidad` (el valor de antes del cambio) en vez del nuevo
   // `capacidadPorPlan.trial` — decisión de Kike, 13-ago-2026: no se le quita
@@ -191,10 +196,13 @@ const TARIFAS = {
     chat_crear_examen: 'claude-haiku-4-5',
   },
   // Datos de exhibición para el panel de créditos (sin costos internos).
-  // Nombre comercial, no identificador — `pro`/`mayor` (las claves) no cambian.
+  // Nombre comercial, no identificador — `basico`/`pro`/`mayor` (las claves)
+  // no cambian. `basico` no tiene `creditos` (sin IA, reestructuración de
+  // precios 18-ago-2026).
   planes: {
-    pro: { nombre: 'Asistente IA', precioMXN: 99, creditos: 350 },
-    mayor: { nombre: 'Asistente IA Pro', precioMXN: 199, creditos: 1750 },
+    basico: { nombre: 'Plan Básico', precioMXN: 99, creditos: 0 },
+    pro: { nombre: 'Asistente IA', precioMXN: 199, creditos: 350 },
+    mayor: { nombre: 'Asistente IA Pro', precioMXN: 299, creditos: 1000 },
   },
   // Compra de créditos adicionales (18-ago-2026) — $50 MXN por cada bloque de
   // 100 créditos, lineal, sin descuentos por volumen. Misma fuente que lee el
@@ -212,12 +220,25 @@ const TARIFAS = {
 const PLAN_MAYOR = {
   nombre: 'Asistente IA Pro',
   descripcion: 'Para el docente que utiliza intensivamente la IA',
-  precio: 199,
+  precio: 299,
   periodicidad: 'mensual',
   maxAsignaturas: -1,
   maxAlumnos: -1,
   activo: true, // Bloque 5 (13-ago-2026): activación comercial intencional
   orden: 3,
+}
+
+// Plan de entrada, SIN funciones de IA (reestructuración de precios,
+// 18-ago-2026) — mismo patrón que PLAN_MAYOR, en `plans/basico`.
+const PLAN_BASICO = {
+  nombre: 'Plan Básico',
+  descripcion: 'Gestión de asignaturas, calificaciones y asistencia — sin funciones de IA',
+  precio: 99,
+  periodicidad: 'mensual',
+  maxAsignaturas: -1,
+  maxAlumnos: -1,
+  activo: true,
+  orden: 1,
 }
 
 async function main() {
@@ -235,10 +256,12 @@ async function main() {
   console.log('config/iaTarifas →', JSON.stringify(TARIFAS, null, 2).slice(0, 400) + ' …')
   console.log('trialLegado.corte →', TARIFAS.trialLegado.corte.toDate().toISOString(), corteExistente ? '(preservado)' : '(recién fijado)')
   console.log('plans/mayor →', JSON.stringify(PLAN_MAYOR))
+  console.log('plans/basico →', JSON.stringify(PLAN_BASICO))
   if (dryRun) return
   await db.doc('config/iaTarifas').set(TARIFAS)
   await db.doc('plans/mayor').set(PLAN_MAYOR, { merge: true })
-  console.log(`Listo. config/iaTarifas y plans/mayor (activo:${PLAN_MAYOR.activo}) sembrados.`)
+  await db.doc('plans/basico').set(PLAN_BASICO, { merge: true })
+  console.log('Listo. config/iaTarifas, plans/mayor y plans/basico sembrados.')
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1) })
