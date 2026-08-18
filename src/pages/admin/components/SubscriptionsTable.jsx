@@ -473,7 +473,10 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     // renglón con la constancia. Van al final por su fecha de baja.
     const bajas = (stats.bajas || []).map((b) =>
       construir(
-        { cuentaEliminada: true, fechaInicio: b.fechaBaja, status: 'eliminada' },
+        // `docenteId` (19-ago-2026): hace falta para poder borrar la
+        // CONSTANCIA (`bajas/{docenteId}`) — sin esto `handleDeleteBaja` no
+        // tenía de dónde sacar el id del documento a borrar.
+        { cuentaEliminada: true, fechaInicio: b.fechaBaja, status: 'eliminada', docenteId: b.docenteId },
         { id: b.docenteId, nombre: b.nombre, email: b.email }
       )
     )
@@ -725,6 +728,26 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     }
   }
 
+  // Borra la CONSTANCIA de una cuenta eliminada (colección `bajas`, doc id =
+  // uid del docente — ver api/account/delete.js) — un documento totalmente
+  // distinto al de `handleDelete` (que borra `subscriptions`). Corrección
+  // 19-ago-2026: antes el botón de esta fila intentaba borrar de
+  // `subscriptions` con un `sub.id` que nunca existió ahí (truena en el SDK
+  // de Firestore) — por eso la fila no desaparecía sin importar cuántas
+  // veces se intentara. `firestore.rules` necesita `allow delete: if
+  // isAdmin()` en `match /bajas/{docenteId}` para que esto funcione — antes
+  // solo tenía `allow read`.
+  async function handleDeleteBaja(docenteId) {
+    if (!confirm('¿Eliminar esta constancia de cuenta eliminada? No se puede deshacer.')) return
+    try {
+      await deleteDoc(doc(db, 'bajas', docenteId))
+      toast('Constancia eliminada')
+      onRefresh?.()
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
   // Llena el saldo de créditos IA a su capacidad ACTUAL, sin esperar al ciclo
   // mensual — pensado para las cuentas de prueba del equipo. No cambia el
   // plan ni la capacidad: solo repone lo consumido.
@@ -906,21 +929,28 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   </td>
                   <td className="px-3 py-2 text-muted truncate" title={r.ultimoPago}>{r.ultimoPago}</td>
                   {/* Sin suscripción no hay nada que editar, cancelar ni
-                      eliminar: a ese docente se le crea una con "Nueva".
-                      Una BAJA (cuentaEliminada) tampoco tiene nada que hacer
-                      aquí: es la constancia permanente de una cuenta ya
-                      borrada, a propósito NO desaparece del panel (ver el
-                      comentario de `bajas` en `rows`) — mostrar aquí un
-                      botón "Eliminar" no tenía sentido y además truena, ya
-                      que la constancia no tiene un documento de suscripción
-                      real que borrar (bug real, 19-ago-2026: el `sub` de
-                      constancia no trae `.id`, así que
-                      `deleteDoc(doc(db,'subscriptions', undefined))` tronaba
-                      dentro del SDK de Firestore — la fila nunca se borraba
-                      sin importar cuántas veces se hiciera clic). */}
+                      eliminar: a ese docente se le crea una con "Nueva". Una
+                      BAJA (cuentaEliminada) solo tiene "Eliminar" — Editar,
+                      Cancelar y Resetear créditos no aplican a una
+                      constancia, pero SÍ debe poderse borrar la constancia
+                      misma (bug real, 19-ago-2026: el botón intentaba borrar
+                      de `subscriptions` con un id que nunca existió ahí —
+                      truena en el SDK de Firestore y la fila no
+                      desaparecía; ahora `handleDeleteBaja` borra el
+                      documento correcto, `bajas/{docenteId}`). */}
                   <td className="px-3 py-2">
-                    {!r.sub || r.sub.cuentaEliminada ? (
+                    {!r.sub ? (
                       <span className="text-xs text-slate-400">—</span>
+                    ) : r.sub.cuentaEliminada ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBaja(r.sub.docenteId)}
+                        className="p-2 text-slate-400 hover:text-red-600 rounded"
+                        data-tooltip="Eliminar constancia"
+                        aria-label="Eliminar constancia"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     ) : (
                     <div className="flex items-center gap-1">
                       <button

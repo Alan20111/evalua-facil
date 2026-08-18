@@ -1101,6 +1101,10 @@ service cloud.firestore {
     // servía de nada, y en silencio.
     match /bajas/{docenteId} {
       allow read: if isAdmin();
+      // El admin puede borrar la CONSTANCIA (no es el docente ni su
+      // suscripción, que ya no existen) — pedido explícito 19-ago-2026 tras
+      // encontrar registros duplicados que el panel no dejaba limpiar.
+      allow delete: if isAdmin();
     }
 
     match /notificationSettings/{uid} {
