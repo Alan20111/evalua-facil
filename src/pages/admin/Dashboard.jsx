@@ -10,8 +10,10 @@ import CreditPurchasesTable from './components/CreditPurchasesTable'
 import PaymentConfig from './components/PaymentConfig'
 import StudentsTable from './components/StudentsTable'
 import VentasPorZona from './components/VentasPorZona'
+import AdminChat from './components/AdminChat'
 
 const TAB_TITLES = {
+  chat: 'Inteligencia de Evalúa Fácil',
   resumen: 'Resumen',
   suscripciones: 'Suscripciones',
   pagos: 'Pagos',
@@ -58,6 +60,7 @@ export default function AdminDashboard() {
         </div>
       ) : (
         <>
+          {activeTab === 'chat' && <AdminChat />}
           {activeTab === 'resumen' && (
             /* Tabla de indicadores a la izquierda con su ancho justo, y a su
                derecha la columna de gráficas (top 10 arriba, estado de las

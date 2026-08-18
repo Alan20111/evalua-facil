@@ -12,6 +12,7 @@ import {
   X,
   Map,
   Sparkles,
+  BrainCircuit,
 } from 'lucide-react'
 import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
@@ -20,6 +21,7 @@ import { useResizableSidebar, SIDEBAR_MIN, SIDEBAR_MAX } from '../hooks/useResiz
 import SkipLink from './SkipLink'
 
 const TABS = [
+  { id: 'chat', label: 'Inteligencia de EF', icon: BrainCircuit },
   { id: 'pagos', label: 'Pagos', icon: Receipt },
   { id: 'creditos', label: 'Créditos adicionales', icon: Sparkles },
   { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },

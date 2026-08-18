@@ -47,6 +47,11 @@ const ia = require('./ia')
 exports.ejecutarOperacionIA = ia.ejecutarOperacionIA
 exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
 
+// Chat de Administración (19-ago-2026) — solo lectura, exclusivo admin,
+// independiente del Chat con Asistente del docente (ver functions/adminChat.js).
+const adminChat = require('./adminChat')
+exports.chatAdmin = adminChat.chatAdmin
+
 // Reseteo manual de créditos IA — solo admin, para las cuentas de prueba del
 // equipo (probar todo el sistema sin esperar al ciclo mensual). El cliente no
 // puede tocar iaCreditos directamente (firestore.rules: allow write: if
