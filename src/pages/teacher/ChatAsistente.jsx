@@ -84,13 +84,78 @@ const SUGERENCIAS_ASIGNATURA = [
   '¿Qué me recomiendas para mi próxima sesión?',
   '¿Qué aspectos debería reforzar con este grupo?',
 ]
-const SUGERENCIAS_GENERAL = [
-  '¿Cómo van mis grupos?',
-  '¿Qué debería atender primero?',
-  '¿Qué tengo pendiente?',
-  '¿Qué asignatura necesita más atención?',
-  'Ayúdame a organizar mi semana.',
+// Sugerencias del Asistente General por categoría (18-ago-2026) — el
+// Asistente General también responde dudas de uso de la plataforma y de
+// planes/créditos/pagos (ver bloqueAyudaPlataforma en functions/ia.js), no
+// solo de trabajo docente. Se agregan/quitan preguntas editando ESTE array
+// — el render (más abajo) solo aplana la lista, sin lógica nueva que tocar.
+// Dos por categoría (no las tres del ejemplo) para no saturar la pantalla
+// inicial ("no mostrar demasiadas sugerencias").
+const SUGERENCIAS_GENERAL_POR_CATEGORIA = [
+  { categoria: 'Trabajo docente', preguntas: ['¿Qué debería atender primero?', '¿Qué tengo pendiente?'] },
+  { categoria: 'Uso de Evalúa Fácil', preguntas: ['¿Cómo hago una planeación?', '¿Cómo creo un examen?'] },
+  { categoria: 'Planes, créditos y pagos', preguntas: ['¿Qué incluye mi plan?', '¿Cómo compro más créditos?'] },
 ]
+const SUGERENCIAS_GENERAL = SUGERENCIAS_GENERAL_POR_CATEGORIA.flatMap((c) => c.preguntas)
+
+// ── Formato ligero de la respuesta del asistente (18-ago-2026) ─────────────
+// El modelo a veces devuelve **negritas** y listas en Markdown simple dentro
+// de `respuesta` — el docente nunca debe ver asteriscos, "\n" literales ni
+// el JSON crudo. No es un renderer de Markdown completo (nada de librería
+// nueva): solo cubre lo que el asistente realmente produce — párrafos,
+// viñetas (-, *, •) y listas numeradas, con **negrita** dentro de cualquiera
+// de las dos. `texto.replace(/\\n/g, '\n')` es puro blindaje defensivo por
+// si algún borde se cuela con el salto de línea escapado como texto en vez
+// de real — la causa raíz ya se corrigió del lado del servidor
+// (repararSaltosLiteralesEnJson en functions/ia.js).
+function formatearNegritas(texto, keyPrefix) {
+  return texto.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((parte, i) => {
+    const m = parte.match(/^\*\*([^*]+)\*\*$/)
+    return m ? <strong key={`${keyPrefix}-b${i}`}>{m[1]}</strong> : <span key={`${keyPrefix}-t${i}`}>{parte}</span>
+  })
+}
+
+function MensajeFormateado({ texto }) {
+  const lineas = texto.replace(/\\r\\n|\\n/g, '\n').replace(/\\r/g, '').split('\n')
+
+  const bloques = []
+  let listaActual = null
+  const cerrarLista = () => { if (listaActual) { bloques.push(listaActual); listaActual = null } }
+  lineas.forEach((linea) => {
+    const limpia = linea.trim()
+    const viñeta = limpia.match(/^[-*•]\s+(.*)/)
+    const numerada = limpia.match(/^\d+[.)]\s+(.*)/)
+    if (viñeta) {
+      if (!listaActual || listaActual.tipo !== 'ul') { cerrarLista(); listaActual = { tipo: 'ul', items: [] } }
+      listaActual.items.push(viñeta[1])
+    } else if (numerada) {
+      if (!listaActual || listaActual.tipo !== 'ol') { cerrarLista(); listaActual = { tipo: 'ol', items: [] } }
+      listaActual.items.push(numerada[1])
+    } else {
+      cerrarLista()
+      if (limpia) bloques.push({ tipo: 'p', texto: limpia })
+    }
+  })
+  cerrarLista()
+
+  return bloques.map((b, i) => {
+    if (b.tipo === 'ul') {
+      return (
+        <ul key={i} className="list-disc pl-5 space-y-0.5 my-1 first:mt-0 last:mb-0">
+          {b.items.map((it, j) => <li key={j}>{formatearNegritas(it, `${i}-${j}`)}</li>)}
+        </ul>
+      )
+    }
+    if (b.tipo === 'ol') {
+      return (
+        <ol key={i} className="list-decimal pl-5 space-y-0.5 my-1 first:mt-0 last:mb-0">
+          {b.items.map((it, j) => <li key={j}>{formatearNegritas(it, `${i}-${j}`)}</li>)}
+        </ol>
+      )
+    }
+    return <p key={i} className="my-1 first:mt-0 last:mb-0">{formatearNegritas(b.texto, `${i}`)}</p>
+  })
+}
 
 // Tarjeta de la propuesta — la representación ESTRUCTURADA que pide el
 // pedido explícito ("no quiero que la propuesta sea solamente texto libre").
@@ -492,10 +557,10 @@ export default function ChatAsistente() {
           historial.map((h) => (
             <div key={h.id} className={`flex flex-col ${h.role === 'user' ? 'items-end' : 'items-start'} gap-1.5`}>
               <div className={`flex ${h.role === 'user' ? 'justify-end' : 'justify-start'} w-full`}>
-                <div className={`max-w-[85%] rounded-card px-3 py-2 text-base whitespace-pre-wrap ${
-                  h.role === 'user' ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'
+                <div className={`max-w-[85%] rounded-card px-3 py-2 text-base ${
+                  h.role === 'user' ? 'bg-accent text-white whitespace-pre-wrap' : 'bg-surface-container text-on-surface'
                 }`}>
-                  {h.content}
+                  {h.role === 'user' ? h.content : <MensajeFormateado texto={h.content} />}
                 </div>
               </div>
               {h.propuesta && (

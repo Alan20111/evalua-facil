@@ -3624,6 +3624,38 @@ async function verificarSaldoChat(db, uid) {
   }
 }
 
+// Ayuda contextual de la plataforma (18-ago-2026) — SOLO para el Asistente
+// General: además de resolver dudas de trabajo docente, debe poder responder
+// CUALQUIER pregunta de uso de Evalúa Fácil (navegación, asignaturas,
+// estudiantes, actividades, asistencia, evaluaciones, planeación, chat) y de
+// planes/créditos/pagos, sin inventar nada. Los números de planes/créditos
+// salen de config/iaTarifas (misma fuente que PlanComparisonTable/
+// ComprarCreditosModal en el cliente) — cero precios duplicados. La parte de
+// navegación/módulos está tomada literal de las mismas 4 guías reales de
+// GettingStartedPage.jsx ("Ayuda para comenzar", /manual) — no se inventa
+// nada que no exista ya documentado ahí. No se listan datos bancarios
+// (cambian y viven en config/paymentConfig, no en un texto estático del
+// prompt); se remite al flujo real ("Comprar créditos" en el perfil).
+async function bloqueAyudaPlataforma() {
+  const tarifas = await ledger.cargarTarifas()
+  const cap = tarifas.capacidadPorPlan || {}
+  const planes = tarifas.planes || {}
+  const paquetes = tarifas.paquetesCreditos || []
+  const listaPaquetes = paquetes.map((p) => `${p.creditos} créditos = $${p.precioMXN} MXN`).join(', ')
+  return 'AYUDA DE EVALÚA FÁCIL — usa esto tal cual para CUALQUIER pregunta sobre cómo usar la plataforma, sus planes, créditos o pagos (no son temas ajenos a ti, son parte de tu trabajo como Asistente General). Nunca inventes datos, funciones o proveedores de pago que no estén aquí; si algo no está cubierto, dilo con claridad y remite a "Ayuda para comenzar" (menú lateral) o al administrador.\n\n' +
+    'NAVEGACIÓN Y MÓDULOS: cada asignatura es su propio espacio, con pestañas propias — Estudiantes, Actividades, Asistencia, entre otras — accesible desde el Dashboard tocándola. Para crear cualquier elemento (asignatura, actividad, estudiante) se busca dónde se administra ese tipo de elemento y se usa su botón de crear/agregar.\n' +
+    '· Crear una asignatura: desde el Dashboard, botón "Nueva asignatura" — nombre, grupo y fechas de inicio/fin son obligatorios (con las fechas se arman horario, agenda y asistencias).\n' +
+    '· Agregar estudiantes: dentro de la asignatura, pestaña "Estudiantes" — uno por uno con el ícono de agregar, o un grupo completo con "Plantilla Excel" (descargar, llenar, subir). Cada estudiante activado tiene su propio usuario para entrar.\n' +
+    '· Crear una actividad: dentro de la asignatura, pestaña "Actividades", botón "Nueva actividad" — tipo "Entregable" (le pide algo al estudiante, con instrucciones y tipos de archivo permitidos) u "Observación". Al publicar, los estudiantes ya la ven y pueden entregar; las entregas se revisan y califican en esa misma actividad.\n' +
+    '· Pasar asistencia: dentro de la asignatura, pestaña "Asistencia", se elige el día — cada estudiante empieza "presente" y se toca su celda para rotar entre presente/falta/justificada, se guarda solo.\n' +
+    '· Evaluaciones/exámenes y diagnósticos, Planeación Didáctica Inicial, y rúbricas/listas de cotejo: se generan con IA desde la pestaña "Asistente IA" de cada asignatura. Este mismo Chat también puede crear una actividad o un examen directamente si el docente lo pide con suficiente detalle.\n\n' +
+    `PLANES: Gratuito ($0, ${cap.trial ?? 50} créditos de IA) · Asistente IA ($${planes.pro?.precioMXN ?? 99}/mes, ${planes.pro?.creditos ?? cap.pro ?? 350} créditos) · Asistente IA Pro ($${planes.mayor?.precioMXN ?? 199}/mes, ${planes.mayor?.creditos ?? cap.mayor ?? 1750} créditos). ` +
+    'Los créditos son compartidos entre TODAS las funciones de IA (diagnósticos, planeación, actividades, exámenes, rúbricas/listas de cotejo y este Chat) — no hay bolsas separadas por función. El saldo se ve tocando la barra de créditos o en "Mi plan" dentro de Perfil. Suscribirse/pagar la suscripción mensual también se hace desde Perfil, por transferencia bancaria (los datos de la cuenta se muestran ahí al iniciar el pago).\n' +
+    (listaPaquetes
+      ? `CRÉDITOS ADICIONALES: si se agotan los del mes, se compran desde "Comprar créditos" en Perfil — paquetes: ${listaPaquetes}. El pago es por transferencia bancaria; los datos de la cuenta se muestran ahí mismo al elegir el paquete. IMPORTANTE: los créditos comprados se agregan al saldo SOLO después de que el administrador confirma el pago recibido — nunca de inmediato al hacer el depósito. Los créditos comprados no se pierden al renovarse el periodo mensual.`
+      : '')
+}
+
 async function precheckAsistenteGeneral({ uid, params }) {
   const db = getFirestore()
   const mensaje = String(params?.mensaje || '').trim().slice(0, MAX_LARGO_MENSAJE)
@@ -3647,6 +3679,7 @@ async function precheckAsistenteGeneral({ uid, params }) {
   const bloques = [
     `PERFIL DEL DOCENTE:\n${perfilIATexto(perfilIA)}`,
     `RESUMEN DE TODAS LAS ASIGNATURAS DEL DOCENTE (parcial actual de cada una):\n${resumenGeneralATexto(resumenes)}`,
+    await bloqueAyudaPlataforma(),
   ]
 
   return {
@@ -3699,6 +3732,26 @@ async function precheckChatAsistente({ uid, params }) {
   const autoanalisisDocenteTexto = autoanalisisDocenteATexto(configSnap.data()?.autoanalisisDocente)
   const consideracionesTexto = consideracionesATexto(configSnap.data()?.consideraciones)
 
+  // Fuente Principal / programa de estudios (18-ago-2026, bug real: el Chat
+  // nunca la incluía — el docente preguntaba por "el manual" y el modelo
+  // respondía que no tenía acceso, aunque Planeación/Diagnóstico SÍ la usan
+  // vía requerirProgramaEstudios+fuentesIA.prepararBloqueFuentes). Se
+  // reutiliza EXACTAMENTE el mismo extractor que ya usan esas operaciones —
+  // nada de una segunda copia del documento. A diferencia de Planeación
+  // (donde requerirProgramaEstudios truena si no existe, porque ahí es
+  // obligatoria), el Chat no debe morir si el docente aún no la subió o si
+  // por lo que sea no se pudo leer — sigue funcionando con el resto del
+  // contexto, solo sin ese bloque.
+  let programaTexto = null
+  const programaEstudios = configSnap.data()?.programaEstudios
+  if (programaEstudios?.url) {
+    try {
+      programaTexto = await fuentesIA.prepararBloqueFuentes([programaEstudios.url])
+    } catch (e) {
+      logger.warn(`precheckChatAsistente: no se pudo leer la Fuente Principal de ${subjectId}: ${String(e.message || e).slice(0, 200)}`)
+    }
+  }
+
   // Mismo bloque que precheckPlaneacionInicial: sesiones reales SOLO si ya
   // hay horarioPatron, sin bloquear ni inventar horario si no lo hay.
   let diasAsueto = []
@@ -3727,6 +3780,7 @@ async function precheckChatAsistente({ uid, params }) {
   const bloques = [
     `ASIGNATURA: ${String(subj.nombre || '').trim() || '(sin nombre)'}${subj.grupo ? ` — Grupo ${subj.grupo}` : ''}.`,
     subj.fechaInicio && subj.fechaFin ? `Periodo del curso: ${subj.fechaInicio} a ${subj.fechaFin}.` : null,
+    programaTexto ? `FUENTE PRINCIPAL DE LA ASIGNATURA (programa de estudios que el docente subió — la base de la Planeación y de las demás funciones de IA de esta asignatura):\n${programaTexto}` : null,
     `PERFIL DEL DOCENTE:\n${perfilIATexto(perfilIA)}`,
     comentariosGrupoTexto ? `COMENTARIOS DEL DOCENTE SOBRE EL GRUPO Y SU ENTORNO:\n${comentariosGrupoTexto}` : null,
     autoanalisisDocenteTexto ? `AUTOANÁLISIS DOCENTE (sobre el docente mismo, no sobre el grupo):\n${autoanalisisDocenteTexto}` : null,
@@ -3824,16 +3878,21 @@ const CHAT_SISTEMA =
   'Eres el Asistente Docente de Evalúa Fácil, conversando con un docente de bachillerato mexicano. Si el ' +
   'contexto que sigue es de UNA asignatura específica, todo lo que respondas gira en torno a ella; si es un ' +
   'resumen de TODAS sus asignaturas (Asistente General), ayúdalo a decidir en qué enfocarse y a organizarse ' +
-  'entre ellas, comparándolas cuando haga sentido. Responde en español, breve y práctico, como un colega ' +
-  'pedagógico con el que se conversa, no como un reporte. Usa EXCLUSIVAMENTE la información de este contexto ' +
-  '— si el docente pregunta algo que no puedes responder con lo que tienes (por ejemplo, si falta un ' +
-  'diagnóstico, la Planeación no está aceptada, o no hay horario configurado), dilo con claridad y sugiere qué ' +
-  'le falta generar o configurar, en vez de inventar. Nunca inventes calificaciones, nombres de estudiantes ni ' +
-  'resultados que no estén en el contexto — los promedios y conteos que sí tienes ya vienen agregados y ' +
-  'anónimos, nunca por alumno individual. No repitas todo el contexto en cada respuesta — ve directo a lo que ' +
-  'te preguntan, y usa el historial de la conversación para entender preguntas de seguimiento (p. ej. "¿y qué ' +
-  'actividad?" se refiere a tu respuesta anterior). Nunca escribas que fuiste generado por IA o por un ' +
-  'asistente — eres una herramienta del docente, él es quien decide.'
+  'entre ellas, comparándolas cuando haga sentido — Y ADEMÁS (18-ago-2026: esto es parte central de tu trabajo ' +
+  'en el Asistente General, no un tema fuera de tu área) responde con naturalidad cualquier pregunta sobre CÓMO ' +
+  'USAR EVALÚA FÁCIL, sus planes, suscripción, créditos de IA, compra de créditos adicionales y pagos, usando la ' +
+  'sección "AYUDA DE EVALÚA FÁCIL" de tu contexto — nunca digas que esos temas "no son tu área" ni remitas al ' +
+  'docente a otro lugar cuando la respuesta ya está en ese bloque. Responde en español, breve y práctico, como ' +
+  'un colega pedagógico con el que se conversa, no como un reporte. Usa EXCLUSIVAMENTE la información de este ' +
+  'contexto — si el docente pregunta algo que no puedes responder con lo que tienes (por ejemplo, si falta un ' +
+  'diagnóstico, la Planeación no está aceptada, no hay horario configurado, o pregunta un procedimiento de la ' +
+  'plataforma que tu contexto no cubre), dilo con claridad y sugiere qué le falta generar/configurar o a dónde ' +
+  'más puede consultarlo (la sección "Ayuda para comenzar" del menú, o el administrador), en vez de inventar. ' +
+  'Nunca inventes calificaciones, nombres de estudiantes ni resultados que no estén en el contexto — los ' +
+  'promedios y conteos que sí tienes ya vienen agregados y anónimos, nunca por alumno individual. No repitas ' +
+  'todo el contexto en cada respuesta — ve directo a lo que te preguntan, y usa el historial de la conversación ' +
+  'para entender preguntas de seguimiento (p. ej. "¿y qué actividad?" se refiere a tu respuesta anterior). Nunca ' +
+  'escribas que fuiste generado por IA o por un asistente — eres una herramienta del docente, él es quien decide.'
 
 // Instrucción de Chat con Acciones, agregada SOLO cuando ctx.permitirAcciones
 // (nunca en el Asistente General). Fuerza al modelo a responder siempre con
@@ -3863,6 +3922,21 @@ const INSTRUCCION_FORMATO_SIN_ACCIONES =
   '\n\nResponde SIEMPRE con este JSON exacto, sin bloques de código ni ```, nada de texto fuera de él: ' +
   '{"respuesta": "<tu respuesta conversacional en español>", "propuesta": null}'
 
+function repararSaltosLiteralesEnJson(s) {
+  let dentroDeString = false
+  let out = ''
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (c === '"' && s[i - 1] !== '\\') dentroDeString = !dentroDeString
+    if (dentroDeString && (c === '\n' || c === '\r')) {
+      out += c === '\n' ? '\\n' : '\\r'
+    } else {
+      out += c
+    }
+  }
+  return out
+}
+
 async function ejecutarChatAsistente({ params, modelo, apiKey }) {
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
   const Anthropic = require('@anthropic-ai/sdk')
@@ -3890,7 +3964,17 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
   const finJson = texto.lastIndexOf('}')
   try {
     if (inicioJson === -1 || finJson === -1 || finJson < inicioJson) throw new Error('sin JSON')
-    datos = JSON.parse(texto.slice(inicioJson, finJson + 1))
+    // Bug real (18-ago-2026): cuando "respuesta" es un párrafo largo con
+    // listas/saltos de línea, el modelo a veces mete el salto de línea REAL
+    // dentro del string en vez de escaparlo como \n — JSON no permite
+    // control characters sin escapar dentro de un string, así que
+    // JSON.parse tronaba y el docente veía el JSON crudo completo
+    // ("respuesta":"...", las llaves, los \n literales del resto del texto,
+    // etc.). `repararSaltosLiteralesEnJson` escapa esos saltos SOLO cuando
+    // están dentro de comillas (lleva la cuenta de comillas sin escapar para
+    // saber si está "dentro de un string") — fuera de un string un salto de
+    // línea es solo espacio en blanco, válido en JSON tal cual.
+    datos = JSON.parse(repararSaltosLiteralesEnJson(texto.slice(inicioJson, finJson + 1)))
   } catch {
     datos = { respuesta: texto, propuesta: null }
   }
