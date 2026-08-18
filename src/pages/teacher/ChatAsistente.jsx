@@ -171,8 +171,11 @@ export default function ChatAsistente() {
     return unsub
   }, [currentUser, seleccion])
 
+  // 'auto' (instantáneo) — pedido explícito: al abrir/cambiar de
+  // conversación debe dejarte directo al último mensaje, no animar el
+  // scroll pasando por toda la conversación de arriba a abajo.
   useEffect(() => {
-    finRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    finRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
   }, [historial, enviando])
 
   const costoPorMensaje = creditosIA.estimar('chat_asistente')
@@ -294,7 +297,7 @@ export default function ChatAsistente() {
   ]
 
   return (
-    <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW} flex flex-col`} style={{ minHeight: 'calc(100dvh - 2rem)' }}>
+    <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW} flex flex-col overflow-hidden`} style={{ height: 'calc(100dvh - 2rem)' }}>
       <div className="flex items-center gap-2 mb-3">
         <MessageCircle size={22} className="text-accent flex-shrink-0" />
         <h1 className="text-lg font-bold text-on-surface">Chat con Asistente</h1>
@@ -314,6 +317,7 @@ export default function ChatAsistente() {
               value={seleccion}
               onChange={setSeleccion}
               options={opcionesSelector}
+              className="border-2 border-accent bg-[var(--accent-tint)] font-semibold"
             />
           )}
         </div>
@@ -346,7 +350,7 @@ export default function ChatAsistente() {
       )}
 
       {/* Conversación */}
-      <div className="flex-1 bg-surface-card rounded-card shadow-card p-3 mb-3 overflow-y-auto space-y-3">
+      <div className="flex-1 min-h-0 bg-surface-card rounded-card shadow-card p-3 mb-3 overflow-y-auto space-y-3">
         {!historialCargado ? (
           <div className="h-full flex items-center justify-center"><Spinner size="sm" /></div>
         ) : historial.length === 0 && !enviando ? (

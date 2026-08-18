@@ -159,13 +159,17 @@ export default function TeacherLayout({ children }) {
               ya tiene sus 4 espacios ocupados, así que entra aquí junto a
               "Ayuda para comenzar", mismo criterio que en el sidebar de
               escritorio: es del Asistente IA en general, no de una
-              asignatura en particular. */}
+              asignatura en particular. Naranja y RELLENO (fill), con
+              animate-bounce (pedido explícito, 18-ago-2026) para que se note
+              entre los demás íconos, que son grises — mismo animate-bounce
+              que ya usa el proyecto (p. ej. SubjectPage.jsx al copiar código
+              de acceso). */}
           <NavLink
             to="/chat-asistente"
             aria-label="Chat con Asistente"
-            className="p-2 text-muted hover:text-accent rounded transition-colors"
+            className="p-2 text-orange-500 rounded transition-colors"
           >
-            <MessageCircle size={20} />
+            <MessageCircle size={20} fill="currentColor" className="animate-bounce" />
           </NavLink>
           <NavLink
             to="/manual"
