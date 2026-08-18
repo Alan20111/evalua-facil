@@ -678,12 +678,17 @@ export default function ChatAsistente() {
         </p>
       )}
       {/* Contador — visible, compacto, SIN mencionar créditos (el límite de
-          interacciones y el saldo de créditos son cosas distintas). Solo
-          aparece una vez que se conoce (tras el primer mensaje de la
-          sesión — el servidor no expone un endpoint de "solo consultar"). */}
+          interacciones y el saldo de créditos son cosas distintas). Formato
+          pedido explícitamente: "X/50 interacciones" (19-ago-2026). Un solo
+          `limiteChat` a nivel de componente, nunca reseteado al cambiar
+          `seleccion` (General/asignatura) — mismo contador acumulado que
+          valida el servidor (reservarInteraccionChat), no un conteo aparte
+          del cliente. Solo aparece una vez que se conoce (tras el primer
+          mensaje de la sesión — el servidor no expone un endpoint de "solo
+          consultar"). */}
       {limiteChat && !limiteAlcanzado && (
         <p className="text-xs mb-2 text-muted">
-          {limiteChat.usadas} de {limiteChat.max} interacciones{limiteChat.tipo === 'trial' ? ' (periodo de prueba)' : ' hoy'}
+          {limiteChat.usadas}/{limiteChat.max} interacciones{limiteChat.tipo === 'trial' ? ' (prueba)' : ' hoy'}
         </p>
       )}
 
