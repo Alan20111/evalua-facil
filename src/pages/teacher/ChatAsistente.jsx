@@ -169,9 +169,12 @@ function MensajeFormateado({ texto: textoOriginal }) {
     } else if (numerada) {
       if (!listaActual || listaActual.tipo !== 'ol') { cerrarLista(); listaActual = { tipo: 'ol', items: [] } }
       listaActual.items.push(numerada[1])
-    } else {
+    } else if (limpia) {
+      // Línea vacía: NO cierra la lista — la IA suele separar cada punto
+      // numerado con una línea en blanco, y cerrar ahí reiniciaba el <ol> en
+      // cada punto siguiente (todos mostraban "1." en vez de 1, 2, 3...).
       cerrarLista()
-      if (limpia) bloques.push({ tipo: 'p', texto: limpia })
+      bloques.push({ tipo: 'p', texto: limpia })
     }
   })
   cerrarLista()
