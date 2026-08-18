@@ -101,14 +101,15 @@ function SeccionCreditosAdicionales({ paquetes }) {
 
 export default function PlanComparisonTable({ creditosPro, creditosMayor, paquetesCreditos }) {
   const nCols = 3
-  const colValorPct = (100 - 34) / (nCols - 1)
+  const colEtiquetaPct = 28
+  const colValorPct = (100 - colEtiquetaPct) / nCols
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-xs border-collapse table-fixed">
         <colgroup>
-          <col style={{ width: '34%' }} />
-          {Array.from({ length: nCols - 1 }).map((_, i) => (
+          <col style={{ width: `${colEtiquetaPct}%` }} />
+          {Array.from({ length: nCols }).map((_, i) => (
             <col key={i} style={{ width: `${colValorPct}%` }} />
           ))}
         </colgroup>
