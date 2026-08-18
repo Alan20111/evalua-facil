@@ -84,9 +84,27 @@ const TARIFAS = {
     // reutiliza planeacion_tronco/planeacion_bloque (arquitectura descartada
     // de Planeación Viva, ver más abajo).
     planeacion_didactica_inicial: 20,
-    // Chat con Asistente, por asignatura (17-ago-2026) — tarifa fija baja,
-    // 1 crédito por turno (cada mensaje del docente es su propia operación).
-    chat_asistente: 1,
+    // Chat con Asistente (17-ago-2026, NUEVO MODELO 18-ago-2026, decisión
+    // definitiva de Kike): la conversación deja de cobrar por mensaje — el
+    // único candado contra abuso es el límite de 100 interacciones/día por
+    // contexto (functions/ia.js, verificarLimiteChat), no créditos. Lo que
+    // SÍ cobra es confirmar una acción (ver chat_crear_actividad/
+    // chat_crear_examen abajo) — un único cobro que ya representa toda la
+    // conversación que llevó a ella, nunca mensaje + propuesta + creación.
+    chat_asistente: 0,
+    // Actividad Entregable u Observación creada/confirmada desde el chat —
+    // tarifa fija, 18-ago-2026, decisión definitiva de Kike (misma para
+    // ambas categorías, igual que el editor manual las trata como una sola
+    // acción con `categoria` distinta).
+    chat_crear_actividad: 4,
+    // Examen creado/confirmado desde el chat — tarifa por TRAMOS de 10
+    // reactivos (18-ago-2026, decisión definitiva de Kike): 1–10→8,
+    // 11–20→10, 21–30→12, 31–40→14, 41–50→16 créditos. Aquí el valor es la
+    // UNIDAD base (1 crédito) — el número real de créditos lo fija
+    // `unidadesMinimas` en precheckChatCrearExamen (functions/ia.js,
+    // calcularTarifaExamen), a partir de los reactivos reales de la
+    // propuesta ya saneada — el cliente nunca puede bajarlo.
+    chat_crear_examen: 1,
     examen: 10,
     cuestionario: 10,
     analisis_apoyo: 20,
@@ -119,6 +137,8 @@ const TARIFAS = {
     diagnostico_conocimientos: 'Diagnóstico',
     planeacion_didactica_inicial: 'Planeación',
     chat_asistente: 'Chat con Asistente',
+    chat_crear_actividad: 'Chat con Asistente',
+    chat_crear_examen: 'Chat con Asistente',
     examen: 'Evaluaciones',
     cuestionario: 'Evaluaciones',
     analisis_apoyo: 'Planeación',
@@ -162,6 +182,13 @@ const TARIFAS = {
     planeacion_didactica_inicial: 'claude-haiku-4-5',
     // Chat con Asistente (17-ago-2026): conversación breve, modelo económico.
     chat_asistente: 'claude-haiku-4-5',
+    // chat_crear_actividad/chat_crear_examen (18-ago-2026) NO llaman a
+    // Anthropic — la propuesta ya se generó gratis dentro de chat_asistente;
+    // confirmar solo escribe Firestore. El campo es obligatorio igual
+    // (ejecutarOperacionIA lo exige para cualquier operación registrada),
+    // aunque el ejecutor nunca lo use.
+    chat_crear_actividad: 'claude-haiku-4-5',
+    chat_crear_examen: 'claude-haiku-4-5',
   },
   // Datos de exhibición para el panel de créditos (sin costos internos).
   // Nombre comercial, no identificador — `pro`/`mayor` (las claves) no cambian.

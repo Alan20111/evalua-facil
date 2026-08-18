@@ -152,7 +152,10 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
     throw new ErrorCreditos('CLAVE_INVALIDA', 'Falta la clave de idempotencia')
   }
   const porUso = tarifas.tarifas?.[operacion]
-  if (!porUso) throw new ErrorCreditos('OPERACION_DESCONOCIDA', `Sin tarifa para "${operacion}"`)
+  // `porUso == null` (no `!porUso`): una tarifa de 0 es válida — el Chat con
+  // Asistente (18-ago-2026) no cobra por mensaje, y `!0` sería `true`,
+  // rechazando la operación como si no tuviera tarifa configurada.
+  if (porUso == null) throw new ErrorCreditos('OPERACION_DESCONOCIDA', `Sin tarifa para "${operacion}"`)
   const costo = porUso * unidades
   const categoria = tarifas.categorias?.[operacion] || 'Otros'
   const capacidadPorPlan = tarifas.capacidadPorPlan || {}

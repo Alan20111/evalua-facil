@@ -36,7 +36,24 @@ const outDir = path.join(root, 'functions', '_shared')
 // Únicamente los módulos puros que ya verificamos que cargan sin Firebase.
 // Si algún día uno de estos archivos gana un import fuera de esta lista, el
 // script debe fallar (ver validarImports) en vez de sincronizar algo roto.
-const ARCHIVOS = ['horarioBloques.js', 'parciales.js', 'sesionesReales.js', 'asuetos.js', 'vacaciones.js', 'ponderacion.js']
+const ARCHIVOS = [
+  'horarioBloques.js', 'parciales.js', 'sesionesReales.js', 'asuetos.js', 'vacaciones.js', 'ponderacion.js',
+  // Chat con Acciones (18-ago-2026): la creación de actividades/exámenes
+  // confirmada desde el chat pasa a ejecutarse en el servidor (para que el
+  // cobro y la creación sean atómicos) — resolveVisibilidad es la misma
+  // máquina de estados de "publicar de inmediato por default" que ya usan
+  // los editores manuales, no una reimplementación.
+  'formatHora.js', 'nowIso.js', 'activityVisibility.js',
+  // Defaults de configuración de examen (EvaluacionEditor.jsx) — el mismo
+  // objeto que usa el editor manual, para que un examen creado desde el
+  // chat quede con la misma configuración que uno creado a mano.
+  'evaluacionDefaults.js',
+  // Tarifa escalonada del examen del chat (18-ago-2026) — MISMA función que
+  // usa el cliente para mostrar el costo antes de confirmar; el servidor
+  // vuelve a calcularla aquí desde el número real de reactivos, nunca
+  // confía en lo que mostró la tarjeta.
+  'tarifaExamen.js',
+]
 
 function fallar(mensaje) {
   console.error(`\n✗ sync-functions-shared: ${mensaje}\n`)
