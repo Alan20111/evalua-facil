@@ -55,6 +55,14 @@ function CeldaNo() {
   return <td className="px-1 py-2 text-center border-l border-outline-variant text-slate-300">—</td>
 }
 
+// Distinto de CeldaNo: la función SÍ existe en Básico, pero sin apoyo de IA
+// — el docente la hace a mano (calificar sin sugerencias de IA, crear
+// reactivos uno por uno). "Manual" ≠ "no disponible" (corrección UX,
+// 18-ago-2026).
+function CeldaManual() {
+  return <td className="px-1 py-2 text-center border-l border-outline-variant text-[11px] text-muted">Manual</td>
+}
+
 // Dos palomitas: acento visual de "más capacidad" para Asistente IA Pro —
 // la función es la MISMA que en Asistente IA (calificar y analizar con IA),
 // no hay una segunda función exclusiva; el "más" real ya está en los
@@ -153,7 +161,7 @@ export default function PlanComparisonTable({ creditosPro, creditosMayor, paquet
               (ver CeldaSiDoble), el "más" real ya está en los créditos. */}
           <tr className="border-b border-outline-variant bg-accent-light">
             <td className="px-1.5 py-2 font-medium text-muted">Evaluación con apoyo de IA</td>
-            <CeldaNo />
+            <CeldaManual />
             <CeldaSi />
             <CeldaSiDoble />
           </tr>
@@ -181,7 +189,7 @@ export default function PlanComparisonTable({ creditosPro, creditosMayor, paquet
               reestructuración — ya no hay un nivel "trial" en esta tabla). */}
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Creación de cuestionarios y exámenes con IA</td>
-            <CeldaNo />
+            <CeldaManual />
             <Celda>Hasta 100 reactivos</Celda>
             <Celda>Hasta 100 reactivos</Celda>
           </tr>
