@@ -165,13 +165,15 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
             <CeldaSi />
             {mostrarMayor && <CeldaSiDoble />}
           </tr>
-          {/* Chat con Asistente IA (18-ago-2026): no consume créditos por
-              mensaje — solo confirmar una acción (crear actividad/examen
+          {/* Chat con Asistente IA (18-ago-2026): disponible en LOS TRES
+              planes, incluido Gratuito (usa su bolsa de 50 créditos) — no
+              hay candado por plan, solo por saldo > 0. No consume créditos
+              por mensaje — solo confirmar una acción (crear actividad/examen
               desde la conversación) cobra, con el costo real de esa
               operación. Esta fila solo dice dónde está incluido. */}
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Chat con Asistente IA</td>
-            <CeldaNo />
+            <CeldaSi />
             <CeldaSi />
             {mostrarMayor && <CeldaSi />}
           </tr>
