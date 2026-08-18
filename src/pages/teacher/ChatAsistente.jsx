@@ -115,7 +115,46 @@ function formatearNegritas(texto, keyPrefix) {
   })
 }
 
-function MensajeFormateado({ texto }) {
+// Compatibilidad con mensajes YA GUARDADOS antes de la corrección del
+// servidor (18-ago-2026, corrección de la corrección): algunos quedaron en
+// Firestore con el JSON crudo completo como `content` — nunca se editan los
+// datos históricos, pero al mostrarlos se detecta el patrón y se extrae
+// solo `respuesta`, igual que hace el servidor con los mensajes nuevos.
+function extraerObjetoJsonBalanceado(texto) {
+  const inicio = texto.indexOf('{')
+  if (inicio === -1) return null
+  let profundidad = 0
+  let dentroDeString = false
+  for (let i = inicio; i < texto.length; i++) {
+    const c = texto[i]
+    if (dentroDeString) {
+      if (c === '\\') { i++; continue }
+      if (c === '"') dentroDeString = false
+      continue
+    }
+    if (c === '"') { dentroDeString = true; continue }
+    if (c === '{' || c === '[') profundidad++
+    else if (c === '}' || c === ']') {
+      profundidad--
+      if (profundidad === 0) return texto.slice(inicio, i + 1)
+    }
+  }
+  return null
+}
+
+function extraerRespuestaSiEsJsonCrudo(texto) {
+  const t = texto.trim()
+  if (!t.startsWith('{') || !t.includes('"respuesta"')) return texto
+  try {
+    const bloque = extraerObjetoJsonBalanceado(t)
+    const datos = bloque ? JSON.parse(bloque) : null
+    if (typeof datos?.respuesta === 'string' && datos.respuesta.trim()) return datos.respuesta
+  } catch { /* no era JSON válido — se muestra tal cual */ }
+  return texto
+}
+
+function MensajeFormateado({ texto: textoOriginal }) {
+  const texto = extraerRespuestaSiEsJsonCrudo(textoOriginal)
   const lineas = texto.replace(/\\r\\n|\\n/g, '\n').replace(/\\r/g, '').split('\n')
 
   const bloques = []
