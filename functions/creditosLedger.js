@@ -110,7 +110,12 @@ function camposRenovados(creditos, ahora, capacidadPorPlan) {
   // lo que ocurra primero. Sin esto, un mes corto (febrero) podría regalar
   // una segunda bolsa dentro de los 30 días. La conversión a pago no pasa por
   // aquí: la maneja sincronizarPlan cuando cambia la suscripción.
-  if ((creditos.planSiguiente || creditos.plan) === 'trial') return null
+  // Sin plan (18-ago-2026): un docente cuyo iaCreditos nació de una compra de
+  // créditos adicionales SIN haber usado la IA todavía (ver
+  // acreditarCompraCreditos) no tiene un nivel de suscripción que renovar —
+  // mismo criterio que el trial: no hay bolsa mensual que reponer hasta que
+  // reservar() lo inicialice de verdad en su primer uso real.
+  if (!(creditos.planSiguiente || creditos.plan) || (creditos.planSiguiente || creditos.plan) === 'trial') return null
   let inicio = creditos.cicloInicio.toDate()
   while (ahora >= fin) {
     inicio = fin
@@ -523,7 +528,7 @@ async function resetearAhora({ uid }) {
 // lógica de "primer uso" (plan/capacidad/ciclo) que ya vive en `reservar()`.
 // Si todavía no existe, se rechaza con un mensaje claro — pendiente conocido,
 // ver el reporte de entrega.
-async function acreditarCompraCreditos({ purchaseId, adminUid }) {
+async function acreditarCompraCreditos({ purchaseId, adminUid, ahora = new Date() }) {
   const refCompra = db().doc(`creditPurchases/${purchaseId}`)
 
   return db().runTransaction(async (tx) => {
@@ -537,21 +542,56 @@ async function acreditarCompraCreditos({ purchaseId, adminUid }) {
 
     const refCreditos = db().doc(`iaCreditos/${compra.docenteId}`)
     const creditosSnap = await tx.get(refCreditos)
-    if (!creditosSnap.exists) {
-      throw new ErrorCreditos('SIN_CREDITOS_AUN',
-        'Este docente todavía no ha usado la IA — no tiene una bolsa de créditos activa donde abonar la compra.')
-    }
-    const creditos = creditosSnap.data()
-    const nuevoSaldo = (creditos.saldo || 0) + compra.creditos
-    const nuevoAdicionalesVigentes = (creditos.creditosAdicionalesVigentes || 0) + compra.creditos
-    const nuevoAdicionalesComprados = (creditos.creditosAdicionalesComprados || 0) + compra.creditos
 
-    tx.update(refCreditos, {
-      saldo: nuevoSaldo,
-      creditosAdicionalesVigentes: nuevoAdicionalesVigentes,
-      creditosAdicionalesComprados: nuevoAdicionalesComprados,
-      actualizadoEn: FieldValue.serverTimestamp(),
-    })
+    let nuevoSaldo
+    let nuevoAdicionalesVigentes
+    let nuevoAdicionalesComprados
+    if (!creditosSnap.exists) {
+      // Docente que compra créditos adicionales SIN haber usado la IA todavía
+      // (18-ago-2026) — antes esto se rechazaba con SIN_CREDITOS_AUN, pero una
+      // compra de créditos no debería depender de haber usado la IA primero.
+      // Se crea el doc con SOLO lo comprado — sin inicializar plan/capacidad
+      // de suscripción (eso sigue siendo trabajo exclusivo de reservar(), en
+      // su primer uso real, para no duplicar esa lógica aquí). `plan: null` +
+      // `capacidad: 0` es una bolsa "solo de adicionales" hasta que:
+      //   · el docente use la IA (reservar() la deja tal cual: ya existe, así
+      //     que no la reinicializa — solo importa que saldo/comprados no se
+      //     toquen, y no los toca), o
+      //   · su suscripción cambie (sincronizarPlan sube capacidad/plan sin
+      //     tocar el saldo ya acumulado).
+      // `cicloInicio`/`cicloFin` se fijan igual (un mes desde ahora) para que
+      // camposRenovados tenga con qué comparar — con `plan: null` la
+      // renovación no hace nada (ver el guard agregado ahí) hasta que este
+      // docente tenga un plan de verdad.
+      nuevoSaldo = compra.creditos
+      nuevoAdicionalesVigentes = compra.creditos
+      nuevoAdicionalesComprados = compra.creditos
+      tx.set(refCreditos, {
+        plan: null,
+        capacidad: 0,
+        saldo: nuevoSaldo,
+        consumidoCiclo: 0,
+        consumoPorCategoria: {},
+        creditosAdicionalesVigentes: nuevoAdicionalesVigentes,
+        creditosAdicionalesComprados: nuevoAdicionalesComprados,
+        cicloInicio: Timestamp.fromDate(ahora),
+        cicloFin: Timestamp.fromDate(unMesDespues(ahora)),
+        creadoEn: FieldValue.serverTimestamp(),
+        actualizadoEn: FieldValue.serverTimestamp(),
+      })
+    } else {
+      const creditos = creditosSnap.data()
+      nuevoSaldo = (creditos.saldo || 0) + compra.creditos
+      nuevoAdicionalesVigentes = (creditos.creditosAdicionalesVigentes || 0) + compra.creditos
+      nuevoAdicionalesComprados = (creditos.creditosAdicionalesComprados || 0) + compra.creditos
+      tx.update(refCreditos, {
+        saldo: nuevoSaldo,
+        creditosAdicionalesVigentes: nuevoAdicionalesVigentes,
+        creditosAdicionalesComprados: nuevoAdicionalesComprados,
+        actualizadoEn: FieldValue.serverTimestamp(),
+      })
+    }
+
     tx.update(refCompra, {
       status: 'completado',
       resueltoEn: FieldValue.serverTimestamp(),

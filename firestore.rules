@@ -1063,6 +1063,12 @@ service cloud.firestore {
       // puede escribir ese campo, así que no hace falta ninguna excepción
       // aquí.
       allow update: if false;
+      // Faltaba esta regla (bug real, 18-ago-2026): el comentario de arriba
+      // ya describía borrar como la acción del docente, pero sin `allow
+      // delete` Firestore lo negaba por omisión — "Missing or insufficient
+      // permissions" cada vez que intentaba limpiar una conversación.
+      allow delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
     }
 
     // Vacaciones del docente. Cada doc marca un PERIODO (fechaInicio–fechaFin)
