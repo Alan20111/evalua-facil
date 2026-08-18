@@ -1,16 +1,25 @@
 // Chat con Asistente — por asignatura y Asistente General (17-ago-2026),
-// más Chat con Acciones (17-ago-2026, segunda entrega): CONVERSAR →
-// PROPONER → CONFIRMAR → EJECUTAR para crear Actividad Entregable, Actividad
-// de Observación o Examen. El contexto lo arma el servidor en cada turno
-// (precheckChatAsistente / precheckAsistenteGeneral en functions/ia.js) —
-// este componente solo manda subjectId (o nada, para el General) + mensaje +
-// historial reciente, nunca contenido pedagógico armado en el cliente. La
-// IA nunca escribe Firestore: cuando el servidor decide incluir una
-// `propuesta` en su respuesta, ya viene saneada (ver
-// sanearPropuestaAccionChat) y este componente solo la muestra como tarjeta;
-// la creación real la ejecuta ejecutarPropuestaAccion (utils/accionesChat.js)
-// SOLO al hacer clic en "Crear actividad"/"Crear examen" — nunca al
-// interpretar texto libre como "sí".
+// más Chat con Acciones (17-ago-2026) para crear Actividad Entregable,
+// Actividad de Observación o Examen. El contexto lo arma el servidor en
+// cada turno (precheckChatAsistente / precheckAsistenteGeneral en
+// functions/ia.js) — este componente solo manda subjectId (o nada, para el
+// General) + mensaje + historial reciente, nunca contenido pedagógico
+// armado en el cliente. La IA nunca escribe Firestore: cuando el servidor
+// decide incluir una `propuesta` en su respuesta, ya viene saneada (ver
+// sanearPropuestaAccionChat) y este componente solo la muestra como
+// tarjeta; la creación real la ejecuta el SERVIDOR (chat_crear_actividad /
+// chat_crear_examen en functions/ia.js) SOLO al hacer clic en "Crear
+// actividad"/"Crear examen" — nunca al interpretar texto libre como "sí".
+//
+// Modelo de cobro (18-ago-2026, decisión definitiva de Kike): la
+// conversación NUNCA cobra créditos por mensaje — ni por asignatura ni en
+// el Asistente General. Solo cobra confirmar una acción (una sola
+// operación de crédito, nunca mensaje+propuesta+creación por separado). El
+// único candado visible de "uso" es el límite de 100 interacciones/día por
+// contexto que aplica el servidor — el chat NUNCA muestra créditos, "0
+// créditos" ni un contador de mensajes/interacciones; ver TarjetaPropuesta
+// para el único lugar donde SÍ se ve un costo (el de la acción, antes de
+// confirmarla).
 //
 // Persistencia (pedido explícito, 17-ago-2026: "no se deben borrar los
 // mensajes a menos de que el docente las borre, debe poder ver hacia
@@ -30,9 +39,8 @@ import Spinner from '../../components/Spinner'
 import Select from '../../components/ui/Select'
 import Input from '../../components/ui/Input'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { parcialForDate } from '../../utils/parciales'
 import { formatDeadline } from '../../utils/activityVisibility'
-import { ejecutarPropuestaAccion } from '../../utils/accionesChat'
+import { calcularTarifaExamen } from '../../utils/tarifaExamen'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { MessageCircle, Send, Sparkles, Trash2, Globe, ClipboardList, CheckCircle2 } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
@@ -46,6 +54,14 @@ const TEXTO_BOTON_ACCION = {
   CREAR_ACTIVIDAD_ENTREGABLE: 'Crear actividad',
   CREAR_ACTIVIDAD_OBSERVACION: 'Crear actividad',
   CREAR_EXAMEN: 'Crear examen',
+}
+// Operación de créditos (functions/ia.js) que cobra cada acción — entregable
+// y observación comparten una sola operación (misma tarifa fija, 4
+// créditos); el examen tiene la suya propia por su tarifa variable.
+const OPERACION_PARA_ACCION = {
+  CREAR_ACTIVIDAD_ENTREGABLE: 'chat_crear_actividad',
+  CREAR_ACTIVIDAD_OBSERVACION: 'chat_crear_actividad',
+  CREAR_EXAMEN: 'chat_crear_examen',
 }
 const TEXTO_CREADA_ACCION = {
   CREAR_ACTIVIDAD_ENTREGABLE: 'La actividad fue creada correctamente.',
@@ -80,7 +96,7 @@ const SUGERENCIAS_GENERAL = [
 // pedido explícito ("no quiero que la propuesta sea solamente texto libre").
 // Puramente presentacional: toda la decisión de qué se puede confirmar vive
 // en confirmarPropuesta (arriba), no aquí.
-function TarjetaPropuesta({ propuesta, contextoVigente, ejecutando, bloqueado, onConfirmar }) {
+function TarjetaPropuesta({ propuesta, contextoVigente, ejecutando, bloqueado, onConfirmar, costoAccion }) {
   const esExamen = propuesta.accion === 'CREAR_EXAMEN'
   return (
     <div className="max-w-[85%] w-full rounded-card border border-outline-variant bg-surface-card p-3 text-sm space-y-2">
@@ -107,6 +123,7 @@ function TarjetaPropuesta({ propuesta, contextoVigente, ejecutando, bloqueado, o
         >
           {ejecutando && <Spinner size="sm" />}
           {TEXTO_BOTON_ACCION[propuesta.accion] || 'Crear'}
+          {costoAccion != null && ` — ${costoAccion} ${costoAccion === 1 ? 'crédito' : 'créditos'}`}
         </button>
       )}
     </div>
@@ -142,8 +159,16 @@ export default function ChatAsistente() {
   const [confirmarBorrar, setConfirmarBorrar] = useState(false)
   // id del mensaje cuya propuesta se está creando — deshabilita SU botón y,
   // por sencillez, cualquier otro botón de "Crear" mientras tanto (evita
-  // doble clic / doble ejecución).
+  // doble clic / doble ejecución). El STATE (ejecutandoId) es solo para
+  // pintar el botón — React agrupa sus actualizaciones, así que dos clics
+  // casi simultáneos pueden leer el mismo valor viejo antes del primer
+  // re-render y colarse los dos (bug real encontrado en pruebas: 3 clics
+  // seguidos crearon 3 actividades y cobraron 3 veces). La guardia real que
+  // SÍ bloquea de inmediato es `ejecutandoRef`, síncrona, verificada y
+  // marcada en la primera línea de confirmarPropuesta, antes de cualquier
+  // await.
   const [ejecutandoId, setEjecutandoId] = useState(null)
+  const ejecutandoRef = useRef(null)
   const finRef = useRef(null)
 
   // Alto real del header sticky móvil ("DOCENTE") + la barra inferior de
@@ -210,8 +235,11 @@ export default function ChatAsistente() {
     finRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
   }, [historial, enviando])
 
-  const costoPorMensaje = creditosIA.estimar('chat_asistente')
-  const saldoAlcanza = costoPorMensaje == null || creditosIA.saldo >= costoPorMensaje
+  // Saldo = 0 → el chat entero queda bloqueado (regla definitiva, 18-ago-2026)
+  // — no es un costo por mensaje, es una condición de ACCESO. Antes del
+  // primer uso de IA (sin doc iaCreditos todavía) useCreditosIA ya devuelve
+  // la bolsa completa del plan, nunca 0 — mismo criterio que el servidor.
+  const sinCreditos = creditosIA.listo && creditosIA.saldo <= 0
 
   // `creadoEnMillis` es un número local además del serverTimestamp real —
   // sirve para ordenar de inmediato en la propia sesión, sin esperar a que
@@ -234,8 +262,8 @@ export default function ChatAsistente() {
   async function enviar(textoForzado) {
     const texto = (textoForzado ?? mensaje).trim()
     if (!texto || enviando) return
-    if (!saldoAlcanza) {
-      toast(`No tienes créditos suficientes — necesitas ${costoPorMensaje} y tienes ${creditosIA.saldo}.`, 'error')
+    if (sinCreditos) {
+      toast('Necesitas créditos disponibles para seguir usando el Chat con Asistente.', 'error')
       return
     }
     // El servidor igual vuelve a acotar a los últimos 10 — se manda ya
@@ -246,6 +274,10 @@ export default function ChatAsistente() {
     try {
       // eslint-disable-next-line react-hooks/purity -- Date.now() aquí es solo una clave de orden local para un mensaje que se está enviando (event handler, no render)
       await guardarMensaje('user', texto, Date.now())
+      // chat_asistente ya no cobra créditos (tarifa 0) — el único candado
+      // del lado del servidor es el límite diario de 100 interacciones por
+      // este mismo contexto (verificarLimiteChat en functions/ia.js) y el
+      // saldo > 0 (verificarSaldoChat).
       const data = await creditosIA.ejecutar('chat_asistente', {
         subjectId: seleccion === GENERAL ? null : seleccion, mensaje: texto, historial: historialParaEnviar,
       }, 1, { timeoutMs: 60000 })
@@ -254,8 +286,14 @@ export default function ChatAsistente() {
       // eslint-disable-next-line react-hooks/purity -- ídem, clave de orden local del turno de respuesta
       await guardarMensaje('assistant', respuesta || 'No obtuve una respuesta esta vez.', Date.now(), propuesta)
     } catch (err) {
-      if (err.codigo === 'SALDO_INSUFICIENTE') {
-        toast(`No tienes créditos suficientes — necesitas ${err.costo ?? costoPorMensaje} y tienes ${err.saldo ?? creditosIA.saldo}.`, 'error')
+      if (err.codigo === 'LIMITE_DIARIO_CHAT') {
+        // Se ve como una respuesta más del asistente, no como un error — es
+        // un estado normal del chat, no una falla (pedido explícito: nunca
+        // mostrar un contador, solo el mensaje sencillo cuando se alcanza).
+        // eslint-disable-next-line react-hooks/purity -- clave de orden local del mensaje de límite
+        await guardarMensaje('assistant', err.message || 'Has alcanzado el límite diario de este chat. Podrás continuar mañana.', Date.now())
+      } else if (err.codigo === 'SIN_CREDITOS_CHAT') {
+        toast(err.message || 'Necesitas créditos disponibles para seguir usando el Chat con Asistente.', 'error')
       } else if (err.codigo === 'PERFIL_IA_INCOMPLETO') {
         toast('Completa primero tu Perfil para IA del docente para usar el Chat con Asistente.', 'error')
       } else {
@@ -277,32 +315,55 @@ export default function ChatAsistente() {
   // equivocada.
   async function confirmarPropuesta(msg) {
     const propuesta = msg.propuesta
-    if (!propuesta || propuesta.ejecutada || ejecutandoId) return
+    if (!propuesta || propuesta.ejecutada) return
+    // Guardia SÍNCRONA — se revisa y se marca ANTES de cualquier `await` o
+    // `setState`, así que dos clics (o tres) en el mismo tick no pueden
+    // colarse los dos: el segundo ve `ejecutandoRef.current` ya puesto y
+    // sale de inmediato, sin esperar a que React re-pinte el botón.
+    if (ejecutandoRef.current) return
+    ejecutandoRef.current = msg.id
+    setEjecutandoId(msg.id)
     const subjectIdActual = seleccion === GENERAL ? null : seleccion
     if (propuesta.subjectId !== subjectIdActual) {
       toast('Esta propuesta era de otra asignatura — cámbiate a esa asignatura para crearla.', 'error')
+      ejecutandoRef.current = null
+      setEjecutandoId(null)
       return
     }
     const subject = subjects.find((s) => s.id === propuesta.subjectId)
-    if (!subject) { toast('No se encontró la asignatura de esta propuesta.', 'error'); return }
+    if (!subject) {
+      toast('No se encontró la asignatura de esta propuesta.', 'error')
+      ejecutandoRef.current = null
+      setEjecutandoId(null)
+      return
+    }
 
-    setEjecutandoId(msg.id)
     try {
-      const hoy = new Date().toISOString().slice(0, 10)
-      const parcial = parcialForDate(subject.parcialesFechas, hoy) || Math.max(1, Number(subject.parciales) || 1)
-      const resultado = await ejecutarPropuestaAccion(propuesta, { subjectId: propuesta.subjectId, docenteId: currentUser.uid, parcial })
+      // Único punto de cobro real: el servidor vuelve a validar y a saneear
+      // la propuesta (nunca confía en esta copia), calcula parcial/orden, y
+      // hace la creación con el Admin SDK — cobro y creación quedan
+      // atómicos (un fallo en la escritura reembolsa la reserva sola,
+      // mismo mecanismo que ya usa el resto de operaciones de IA).
+      const operacion = OPERACION_PARA_ACCION[propuesta.accion] || 'chat_crear_actividad'
+      const data = await creditosIA.ejecutar(operacion, { subjectId: propuesta.subjectId, propuesta }, 1, { timeoutMs: 60000 })
+      const resultado = data?.resultado
       // Marca la propuesta como ejecutada ANTES que nada más — es lo que
       // evita que un reintento (doble clic, reintento de red) pueda volver a
       // crear otra actividad: una vez marcada, el botón deja de existir.
       await updateDoc(doc(db, 'chatMensajes', msg.id), {
-        'propuesta.ejecutada': true, 'propuesta.activityId': resultado.id,
+        'propuesta.ejecutada': true, 'propuesta.activityId': resultado?.activityId || null,
       })
       // eslint-disable-next-line react-hooks/purity -- clave de orden local del mensaje de confirmación
       await guardarMensaje('assistant', TEXTO_CREADA_ACCION[propuesta.accion] || 'Listo, se creó correctamente.', Date.now())
     } catch (err) {
-      toast('No se pudo crear: ' + (err.message || 'intenta de nuevo'), 'error')
+      if (err.codigo === 'SALDO_INSUFICIENTE') {
+        toast(`No tienes suficientes créditos para crear esto — necesitas ${err.costo} y tienes ${err.saldo}.`, 'error')
+      } else {
+        toast('No se pudo crear: ' + (err.message || 'intenta de nuevo'), 'error')
+      }
       // No se marca ejecutada: el botón sigue disponible para reintentar.
     } finally {
+      ejecutandoRef.current = null
       setEjecutandoId(null)
     }
   }
@@ -372,12 +433,13 @@ export default function ChatAsistente() {
         )}
       </div>
 
-      {/* Transparencia de créditos (pedido explícito, 17-ago-2026): el costo
-          y el saldo se ven ANTES de mandar, no se descubren después. */}
-      {creditosIA.listo && costoPorMensaje != null && (
-        <p className={`text-xs mb-2 ${saldoAlcanza ? 'text-muted' : 'text-error font-medium'}`}>
-          Cada mensaje cuesta {costoPorMensaje} {costoPorMensaje === 1 ? 'crédito' : 'créditos'} de IA · Saldo disponible: {creditosIA.saldo}
-          {!saldoAlcanza && ' — no alcanza para enviar otro mensaje'}
+      {/* Nunca se muestra costo/saldo durante la conversación (regla
+          definitiva, 18-ago-2026) — el chat es gratis por mensaje. Solo se
+          avisa cuando de plano no hay saldo para usarlo (condición de
+          acceso, no un costo por mensaje). */}
+      {sinCreditos && (
+        <p className="text-xs mb-2 text-error font-medium">
+          Necesitas créditos disponibles para seguir usando el Chat con Asistente.
         </p>
       )}
 
@@ -399,7 +461,7 @@ export default function ChatAsistente() {
                   key={s}
                   type="button"
                   onClick={() => enviar(s)}
-                  disabled={enviando || !saldoAlcanza}
+                  disabled={enviando || sinCreditos}
                   className="px-3 py-1.5 rounded-full border border-outline-variant text-xs text-on-surface hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
                 >
                   {s}
@@ -424,6 +486,11 @@ export default function ChatAsistente() {
                   ejecutando={ejecutandoId === h.id}
                   bloqueado={!!ejecutandoId && ejecutandoId !== h.id}
                   onConfirmar={() => confirmarPropuesta(h)}
+                  // Solo informativo — el servidor vuelve a calcular y a
+                  // cobrar esto por su cuenta, nunca confía en este número.
+                  costoAccion={h.propuesta.accion === 'CREAR_EXAMEN'
+                    ? calcularTarifaExamen(h.propuesta.reactivos?.length)
+                    : creditosIA.estimar('chat_crear_actividad')}
                 />
               )}
             </div>
@@ -456,7 +523,7 @@ export default function ChatAsistente() {
         />
         <button
           type="submit"
-          disabled={enviando || !mensaje.trim() || !saldoAlcanza}
+          disabled={enviando || !mensaje.trim() || sinCreditos}
           className="flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded transition-colors disabled:opacity-45"
         >
           {enviando ? <Spinner size="sm" /> : <Send size={16} />}

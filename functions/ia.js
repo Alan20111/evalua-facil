@@ -37,6 +37,9 @@ const { calcularSesionesReales } = require('./_shared/sesionesReales.js')
 const { fechasVacacionParaClases } = require('./_shared/vacaciones.js')
 const { parcialForDate } = require('./_shared/parciales.js')
 const { promedioParcial, normalizeGrade, ponderacionActivaEnParcial } = require('./_shared/ponderacion.js')
+const { resolveVisibilidad } = require('./_shared/activityVisibility.js')
+const { EVALUACION_DEFAULTS } = require('./_shared/evaluacionDefaults.js')
+const { calcularTarifaExamen } = require('./_shared/tarifaExamen.js')
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
@@ -135,9 +138,14 @@ const OPERACIONES = {
   // Planeación Didáctica Inicial (FASE 2-BIS, 12-ago-2026, autorizado por
   // Kike en esta conversación — tarifa fija: 20 créditos).
   planeacion_didactica_inicial: ejecutarPlaneacionDidacticaInicial,
-  // Chat con Asistente, por asignatura (17-ago-2026, autorizado por Kike en
-  // esta conversación) — tarifa fija baja, 1 crédito por turno.
+  // Chat con Asistente (17-ago-2026, 18-ago-2026): la conversación ya no
+  // cobra (tarifa 0) — solo cobran las acciones que confirma, abajo.
   chat_asistente: ejecutarChatAsistente,
+  // Confirmar/ejecutar una acción del Chat con Acciones (18-ago-2026) —
+  // tarifas definitivas: actividad (entregable/observación) 4 créditos fijos;
+  // examen por tramos de 10 reactivos (ver calcularTarifaExamen).
+  chat_crear_actividad: ejecutarChatCrearActividad,
+  chat_crear_examen: ejecutarChatCrearExamen,
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -152,6 +160,8 @@ const PRECHECKS = {
   diagnostico_contexto: precheckDiagnosticoContexto, diagnostico_conocimientos: precheckDiagnosticoConocimientos,
   planeacion_didactica_inicial: precheckPlaneacionInicial,
   chat_asistente: precheckChatAsistente,
+  chat_crear_actividad: precheckChatCrearActividad,
+  chat_crear_examen: precheckChatCrearExamen,
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
@@ -3558,10 +3568,68 @@ function resumenGeneralATexto(resumenes) {
   )).join('\n')
 }
 
+// ── Límite diario de interacciones del Chat con Asistente (18-ago-2026) ────
+// El chat deja de cobrar créditos por mensaje (nuevo modelo, aprobado por
+// Kike) — este es el ÚNICO candado contra abuso que queda: 100 interacciones
+// REALES (que de verdad llegaron a Anthropic) por día, por CONTEXTO de chat
+// (una asignatura, o el Asistente General) — nunca un total global de la
+// cuenta, cada contexto lleva su propio contador. La clave del documento
+// (uid_contexto_fecha) expira sola con el cambio de día: no hace falta
+// ningún job de reinicio, un día nuevo es simplemente otra clave. Fecha
+// "hoy" con el mismo criterio ya usado en este archivo (new Date().
+// toISOString().slice(0,10)) — no se inventa una zona horaria nueva.
+const LIMITE_INTERACCIONES_CHAT_DIA = 100
+
+function claveLimiteChat(uid, subjectId) {
+  return `${uid}_${subjectId || 'general'}_${new Date().toISOString().slice(0, 10)}`
+}
+
+// Se llama al inicio del precheck — ANTES de reservar créditos y ANTES de
+// llamar a Anthropic. Si ya se alcanzó el límite, rechaza aquí: no hay
+// llamada a la IA, no hay reserva de créditos que reembolsar. Devuelve la
+// referencia del documento contador para que ejecutarChatAsistente la
+// incremente SOLO si la IA de verdad respondió.
+async function verificarLimiteChat(db, uid, subjectId) {
+  const ref = db.doc(`chatInteraccionesDiarias/${claveLimiteChat(uid, subjectId)}`)
+  const snap = await ref.get()
+  if ((snap.data()?.contador || 0) >= LIMITE_INTERACCIONES_CHAT_DIA) {
+    throw new HttpsError('resource-exhausted',
+      'Has alcanzado el límite diario de este chat. Podrás continuar mañana.',
+      { codigo: 'LIMITE_DIARIO_CHAT' })
+  }
+  return ref
+}
+
+// Solo se llama tras una respuesta real de Anthropic (nunca en una solicitud
+// rechazada por saldo, autorización o límite). Fire-and-forget, mismo
+// criterio que el registro de iaConsumosInterno: si esta escritura fallara,
+// no debe tirar abajo una respuesta que el docente ya recibió.
+function registrarInteraccionChat(refLimite) {
+  refLimite.set({ contador: FieldValue.increment(1), actualizadoEn: FieldValue.serverTimestamp() }, { merge: true })
+    .catch((err) => logger.error('chatInteraccionesDiarias:', err))
+}
+
+// Saldo = 0 → el chat entero queda bloqueado (pedido explícito, 18-ago-2026):
+// no es que "cada mensaje cueste 0" — es que el saldo funciona como condición
+// de ACCESO al chat completo. Sin `iaCreditos/{uid}` (docente que nunca ha
+// usado la IA) se deja pasar: ese documento nace con el saldo lleno de su
+// plan en su primer uso real (ver creditosLedger.reservar) — no existir
+// todavía no es lo mismo que estar en cero.
+async function verificarSaldoChat(db, uid) {
+  const snap = await db.doc(`iaCreditos/${uid}`).get()
+  if (snap.exists && (snap.data()?.saldo || 0) <= 0) {
+    throw new HttpsError('failed-precondition',
+      'Necesitas créditos disponibles para seguir usando el Chat con Asistente.',
+      { codigo: 'SIN_CREDITOS_CHAT' })
+  }
+}
+
 async function precheckAsistenteGeneral({ uid, params }) {
   const db = getFirestore()
   const mensaje = String(params?.mensaje || '').trim().slice(0, MAX_LARGO_MENSAJE)
   if (!mensaje) throw new HttpsError('invalid-argument', 'Falta el mensaje.')
+  await verificarSaldoChat(db, uid)
+  const refLimiteChat = await verificarLimiteChat(db, uid, null)
 
   const perfilSnap = await db.doc(`users/${uid}`).get()
   const perfilIA = perfilSnap.data()?.perfilIA || null
@@ -3590,6 +3658,7 @@ async function precheckAsistenteGeneral({ uid, params }) {
     // explícito). ejecutarChatAsistente descarta cualquier propuesta si esto
     // es false, sin importar lo que haya devuelto el modelo.
     permitirAcciones: false,
+    refLimiteChat,
   }
 }
 
@@ -3608,6 +3677,8 @@ async function precheckChatAsistente({ uid, params }) {
   if (!subjectId) return precheckAsistenteGeneral({ uid, params })
   const mensaje = String(params?.mensaje || '').trim().slice(0, MAX_LARGO_MENSAJE)
   if (!mensaje) throw new HttpsError('invalid-argument', 'Falta el mensaje.')
+  await verificarSaldoChat(db, uid)
+  const refLimiteChat = await verificarLimiteChat(db, uid, subjectId)
 
   const subjSnap = await db.doc(`subjects/${subjectId}`).get()
   if (!subjSnap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
@@ -3686,6 +3757,7 @@ async function precheckChatAsistente({ uid, params }) {
     // siempre la deja en false.
     permitirAcciones: true,
     subjectId,
+    refLimiteChat,
   }
 }
 
@@ -3827,6 +3899,11 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
   if (!respuesta) throw new Error('El asistente de IA no generó una respuesta utilizable')
   const propuesta = sanearPropuestaAccionChat(datos?.propuesta, { permitirAcciones: ctx.permitirAcciones })
 
+  // Recién AHORA se cuenta la interacción contra el límite diario — Anthropic
+  // ya respondió de verdad. Una solicitud rechazada antes (saldo, límite,
+  // falta de autorización) nunca llega hasta aquí.
+  registrarInteraccionChat(ctx.refLimiteChat)
+
   return {
     resultado: { respuesta, propuesta },
     unidadesReales: 1, // tarifa fija por turno — cada mensaje es su propia operación, con o sin propuesta
@@ -3837,6 +3914,178 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
       ms: Date.now() - inicio,
     },
   }
+}
+
+// ── Confirmar/ejecutar una acción del Chat con Acciones (18-ago-2026) ──────
+//
+// Nuevo modelo de cobro (Kike, 18-ago-2026): la conversación y la propuesta
+// del chat ya NO cobran nada (chat_asistente pasó a tarifa 0) — el único
+// cobro ocurre aquí, al confirmar, y es UNA sola operación de crédito que
+// ya representa económicamente toda la conversación que llevó a ella. La
+// IA no vuelve a llamarse: la propuesta ya trae el contenido completo
+// (generado en un turno gratis de chat_asistente); esto solo la vuelve a
+// validar contra la MISMA lista blanca del servidor (nunca confía en lo que
+// mande el cliente) y hace la escritura real en Firestore con el Admin SDK
+// — mismo patrón ya usado por ejecutarCrearEvaluacion (OP-03/04) para
+// reactivos, no un mecanismo nuevo. Al ejecutarse aquí dentro del ejecutor
+// de una operación de créditos, un fallo en la escritura reembolsa la
+// reserva automáticamente (mismo catch genérico de ejecutarOperacionIA) —
+// así el cobro y la creación quedan atómicos: nunca se cobra sin crear.
+//
+// El subjectId SIEMPRE es el que YA validó este precheck (subj.docenteId
+// === uid) — nunca el que la IA pudo mencionar en el texto de la propuesta,
+// ni el que mande el cliente sin verificar.
+
+async function precalcularParcialYOrden(db, subjectId, subj) {
+  const hoy = new Date().toISOString().slice(0, 10)
+  const parcial = parcialForDate(subj.parcialesFechas, hoy) || Math.max(1, Number(subj.parciales) || 1)
+  const existentesSnap = await db.collection('activities')
+    .where('asignaturaId', '==', subjectId).where('parcial', '==', parcial).get()
+  return { parcial, orden: existentesSnap.size + 1 }
+}
+
+async function precheckAccionChat({ uid, params, accionesEsperadas }) {
+  const db = getFirestore()
+  const subjectId = String(params?.subjectId || '').trim()
+  if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura de esta acción.')
+  const subjSnap = await db.doc(`subjects/${subjectId}`).get()
+  if (!subjSnap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
+  const subj = subjSnap.data()
+  if (subj.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta asignatura no es tuya')
+
+  // Se vuelve a saneear la propuesta que manda el cliente — es EXACTAMENTE
+  // el mismo saneamiento que ya corrió al proponerla (nunca se confía en
+  // que el cliente la haya conservado intacta).
+  const propuesta = sanearPropuestaAccionChat(params?.propuesta, { permitirAcciones: true })
+  if (!propuesta) throw new HttpsError('invalid-argument', 'La propuesta no es válida o está incompleta.')
+  if (!accionesEsperadas.includes(propuesta.accion)) {
+    throw new HttpsError('invalid-argument', 'Esta propuesta no corresponde a esta acción.')
+  }
+
+  const { parcial, orden } = await precalcularParcialYOrden(db, subjectId, subj)
+  return { subjectId, docenteId: uid, parcial, orden, propuesta }
+}
+
+const ACCIONES_ACTIVIDAD = ['CREAR_ACTIVIDAD_ENTREGABLE', 'CREAR_ACTIVIDAD_OBSERVACION']
+
+async function precheckChatCrearActividad({ uid, params }) {
+  return precheckAccionChat({ uid, params, accionesEsperadas: ACCIONES_ACTIVIDAD })
+}
+
+async function precheckChatCrearExamen({ uid, params }) {
+  const ctx = await precheckAccionChat({ uid, params, accionesEsperadas: ['CREAR_EXAMEN'] })
+  // Tarifa DEFINITIVA por tramos de 10 reactivos (Kike, 18-ago-2026) — el
+  // cliente nunca puede bajarla: `unidadesMinimas` la fija aquí, a partir
+  // del número REAL de reactivos ya saneados, y ejecutarOperacionIA nunca
+  // deja reservar menos de esto (ver el comentario junto a `unidadesMinimas`
+  // en el callable).
+  return { ...ctx, unidadesMinimas: calcularTarifaExamen(ctx.propuesta.reactivos.length) }
+}
+
+async function ejecutarChatCrearActividad({ params }) {
+  const ctx = params.__contexto
+  const db = getFirestore()
+  const p = ctx.propuesta
+  const isObservacion = p.categoria === 'observacion'
+  const resolved = resolveVisibilidad({
+    visibilidadMode: 'show', publishedAt: '', publishAt: '',
+    fechaLimite: isObservacion ? null : p.fechaLimite, asDraft: false,
+  })
+  if (!resolved.ok) throw new Error(resolved.error)
+
+  const ref = db.collection('activities').doc()
+  await ref.set({
+    nombre: p.nombre,
+    categoria: isObservacion ? 'observacion' : 'entregable',
+    tipo: isObservacion ? 'observacion' : 'archivo',
+    maxCalif: 10,
+    instrucciones: p.instrucciones || '',
+    archivosAdjuntos: [],
+    fechaLimite: isObservacion ? null : (p.fechaLimite || null),
+    tiposArchivo: [],
+    extensionesCustom: '',
+    oculta: resolved.oculta,
+    publishAt: resolved.publishAt,
+    publishedAt: resolved.publishedAt,
+    recibirTarde: isObservacion ? null : false,
+    rubrica: null,
+    rubricaId: null,
+    notificarDocente: false,
+    parcial: ctx.parcial,
+    orden: ctx.orden,
+    asignaturaId: ctx.subjectId,
+    docenteId: ctx.docenteId,
+    createdAt: FieldValue.serverTimestamp(),
+  })
+
+  return { resultado: { activityId: ref.id }, unidadesReales: 1, interno: null }
+}
+
+function idOpcionExamenChat() {
+  return `o${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
+}
+
+async function ejecutarChatCrearExamen({ params }) {
+  const ctx = params.__contexto
+  const db = getFirestore()
+  const p = ctx.propuesta
+  const resolved = resolveVisibilidad({
+    visibilidadMode: 'show', publishedAt: '', publishAt: '', fechaLimite: p.fechaLimite, asDraft: false,
+  })
+  if (!resolved.ok) throw new Error(resolved.error)
+
+  const ref = db.collection('activities').doc()
+  await ref.set({
+    nombre: p.nombre,
+    categoria: 'examen',
+    instrucciones: p.instrucciones || '',
+    archivosAdjuntos: [],
+    fechaLimite: p.fechaLimite || null,
+    recibirTarde: false,
+    oculta: resolved.oculta,
+    publishAt: resolved.publishAt,
+    publishedAt: resolved.publishedAt,
+    maxCalif: 10,
+    notificarDocente: false,
+    tipo: 'evaluacion',
+    evaluacion: EVALUACION_DEFAULTS.examen,
+    parcial: ctx.parcial,
+    orden: ctx.orden,
+    asignaturaId: ctx.subjectId,
+    docenteId: ctx.docenteId,
+    createdAt: FieldValue.serverTimestamp(),
+  })
+
+  // Mismo reparto público/clave que crearPreguntasEnLote (utils/evaluacionClave.js)
+  // ya hace del lado del cliente para "Agregar desde el Banco" — aquí con
+  // el Admin SDK porque la creación completa vive en el servidor.
+  const batch = db.batch()
+  p.reactivos.forEach((r, i) => {
+    const pregRef = db.collection(`activities/${ref.id}/preguntas`).doc()
+    const claveRef = db.collection(`activities/${ref.id}/clave`).doc(pregRef.id)
+    const base = { tipo: r.tipo, enunciado: r.enunciado, ponderacion: 1, retroalimentacion: null, imagenUrl: null, orden: i, origenBancoId: null }
+    if (r.tipo === 'opcion_multiple') {
+      const opciones = r.opciones.filter(Boolean).map((texto) => ({ id: idOpcionExamenChat(), texto: texto.trim() }))
+      const idx = Math.min(opciones.length - 1, Math.max(0, r.correcta ?? 0))
+      batch.set(pregRef, { ...base, opciones })
+      batch.set(claveRef, { respuestaCorrecta: opciones[idx]?.id ?? opciones[0]?.id ?? null, respuestaEsperada: null })
+    } else if (r.tipo === 'verdadero_falso') {
+      batch.set(pregRef, { ...base, opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }] })
+      batch.set(claveRef, { respuestaCorrecta: r.correcta === 'f' ? 'f' : 'v', respuestaEsperada: null })
+    } else if (r.tipo === 'respuesta_corta') {
+      batch.set(pregRef, { ...base, opciones: null })
+      batch.set(claveRef, { respuestaCorrecta: null, respuestaEsperada: r.respuestaEsperada || null })
+    } else { // subir_archivo
+      batch.set(pregRef, { ...base, opciones: null })
+      batch.set(claveRef, { respuestaCorrecta: null, respuestaEsperada: null })
+    }
+  })
+  await batch.commit()
+  await ref.update({ 'evaluacion.numPreguntas': p.reactivos.length })
+
+  // unidadesReales = EXACTAMENTE lo que ya fijó el precheck (unidadesMinimas)
+  // — el ejecutor no puede ni subirlo ni bajarlo por su cuenta.
+  return { resultado: { activityId: ref.id, numReactivos: p.reactivos.length }, unidadesReales: ctx.unidadesMinimas, interno: null }
 }
 
 // ── Traducción de errores del ledger a HttpsError ───────────────────────────
@@ -4013,4 +4262,7 @@ exports._pruebas = {
   CHAT_SISTEMA, MAX_TURNOS_HISTORIAL, MAX_LARGO_MENSAJE,
   resumenGeneralATexto, precheckAsistenteGeneral,
   sanearPropuestaAccionChat, sanearReactivoPropuestaChat, ACCIONES_CHAT_PERMITIDAS,
+  verificarLimiteChat, registrarInteraccionChat, claveLimiteChat, LIMITE_INTERACCIONES_CHAT_DIA,
+  verificarSaldoChat, calcularTarifaExamen, precheckChatCrearActividad, precheckChatCrearExamen,
+  ACCIONES_ACTIVIDAD,
 }

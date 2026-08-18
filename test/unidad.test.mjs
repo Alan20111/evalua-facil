@@ -2020,6 +2020,56 @@ caso('sanearReactivoPropuestaChat: sin enunciado se descarta (null)', () => {
   assert.strictEqual(FIA.sanearReactivoPropuestaChat({ tipo: 'verdadero_falso', enunciado: '  ' }), null)
 })
 
+// Nuevo modelo de cobro del Chat con Asistente (18-ago-2026): el chat deja
+// de cobrar por mensaje, y las 3 acciones que confirma cobran su tarifa
+// definitiva. calcularTarifaExamen es la única pieza puramente numérica de
+// ese cambio — el resto (límite diario, saldo cero, reserva/liquidación)
+// necesita Firestore real, se prueba en la verificación E2E, no aquí.
+caso('calcularTarifaExamen: escala definitiva por tramos de 10 reactivos', () => {
+  assert.strictEqual(FIA.calcularTarifaExamen(1), 8)
+  assert.strictEqual(FIA.calcularTarifaExamen(10), 8)
+  assert.strictEqual(FIA.calcularTarifaExamen(11), 10)
+  assert.strictEqual(FIA.calcularTarifaExamen(20), 10)
+  assert.strictEqual(FIA.calcularTarifaExamen(21), 12)
+  assert.strictEqual(FIA.calcularTarifaExamen(30), 12)
+  assert.strictEqual(FIA.calcularTarifaExamen(31), 14)
+  assert.strictEqual(FIA.calcularTarifaExamen(40), 14)
+  assert.strictEqual(FIA.calcularTarifaExamen(41), 16)
+  assert.strictEqual(FIA.calcularTarifaExamen(50), 16)
+})
+
+caso('calcularTarifaExamen: por encima de 50 sigue la misma progresión (2 créditos cada 10 más), no inventa una regla distinta', () => {
+  assert.strictEqual(FIA.calcularTarifaExamen(51), 18)
+  assert.strictEqual(FIA.calcularTarifaExamen(60), 18)
+  assert.strictEqual(FIA.calcularTarifaExamen(61), 20)
+})
+
+caso('calcularTarifaExamen: entradas inválidas (0, negativo, no numérico) no truenan, tratan como 1 reactivo', () => {
+  assert.strictEqual(FIA.calcularTarifaExamen(0), 8)
+  assert.strictEqual(FIA.calcularTarifaExamen(-5), 8)
+  assert.strictEqual(FIA.calcularTarifaExamen(undefined), 8)
+  assert.strictEqual(FIA.calcularTarifaExamen('no es un número'), 8)
+})
+
+caso('claveLimiteChat: distingue asignatura de "general" y cambia con la fecha', () => {
+  const hoy = new Date().toISOString().slice(0, 10)
+  assert.strictEqual(FIA.claveLimiteChat('uid1', 'subj-a'), `uid1_subj-a_${hoy}`)
+  assert.strictEqual(FIA.claveLimiteChat('uid1', null), `uid1_general_${hoy}`)
+  // Misma clave para el mismo docente+contexto en el mismo día — es lo que
+  // hace que el contador sea POR chat, no global.
+  assert.strictEqual(FIA.claveLimiteChat('uid1', 'subj-a'), FIA.claveLimiteChat('uid1', 'subj-a'))
+  // Asignatura distinta → clave distinta (aislamiento del límite por chat).
+  assert.notStrictEqual(FIA.claveLimiteChat('uid1', 'subj-a'), FIA.claveLimiteChat('uid1', 'subj-b'))
+})
+
+caso('LIMITE_INTERACCIONES_CHAT_DIA es 100, tal como se pidió', () => {
+  assert.strictEqual(FIA.LIMITE_INTERACCIONES_CHAT_DIA, 100)
+})
+
+caso('ACCIONES_ACTIVIDAD cubre entregable y observación, no examen (examen tiene su propia operación de cobro)', () => {
+  assert.deepStrictEqual(FIA.ACCIONES_ACTIVIDAD, ['CREAR_ACTIVIDAD_ENTREGABLE', 'CREAR_ACTIVIDAD_OBSERVACION'])
+})
+
 console.log(`\n${'─'.repeat(60)}`)
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
