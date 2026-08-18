@@ -196,6 +196,17 @@ const TARIFAS = {
     pro: { nombre: 'Asistente IA', precioMXN: 99, creditos: 350 },
     mayor: { nombre: 'Asistente IA Pro', precioMXN: 199, creditos: 1750 },
   },
+  // Compra de créditos adicionales (18-ago-2026) — $50 MXN por cada bloque de
+  // 100 créditos, lineal, sin descuentos por volumen. Misma fuente que lee el
+  // cliente (useCreditosIA) y firestore.rules (montoOficialCredito, hardcode
+  // espejo de esta lista, igual que montoOficialPago con planes).
+  paquetesCreditos: [
+    { creditos: 100, precioMXN: 50 },
+    { creditos: 200, precioMXN: 100 },
+    { creditos: 300, precioMXN: 150 },
+    { creditos: 400, precioMXN: 200 },
+    { creditos: 500, precioMXN: 250 },
+  ],
 }
 
 const PLAN_MAYOR = {

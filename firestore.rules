@@ -39,6 +39,19 @@ service cloud.firestore {
       ) : null;
     }
 
+    // ── Tarifa oficial de un paquete de créditos adicionales (18-ago-2026) ──
+    // Espejo de config/iaTarifas.paquetesCreditos (seeds-db/seed-ia-tarifas.js)
+    // — misma razón que montoOficialPago arriba: el servidor no confía en el
+    // precio que declara el cliente. Modelo lineal fijo: $50 MXN por cada
+    // bloque de 100 créditos, sin descuentos por volumen.
+    function montoOficialCredito(creditos) {
+      return creditos == 100 ? 50 :
+        creditos == 200 ? 100 :
+        creditos == 300 ? 150 :
+        creditos == 400 ? 200 :
+        creditos == 500 ? 250 : null;
+    }
+
     // ── Candado de suscripción ──────────────────────────────────────────────
     // Un docente sin suscripción vigente puede LEER y exportar todo lo suyo,
     // pero no escribir. Hasta ahora ese candado vivía solo en el navegador
@@ -916,6 +929,35 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/subscriptions/$(request.resource.data.subscriptionId)) &&
         get(/databases/$(database)/documents/subscriptions/$(request.resource.data.subscriptionId)).data.docenteId == request.auth.uid
       );
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Compra de créditos adicionales (18-ago-2026) ────────────────────────
+    // Mismo patrón que `payments`: hoy la única vía real es transferencia +
+    // aprobación manual del admin. La acreditación del saldo NUNCA pasa por
+    // aquí — `iaCreditos` es allow write: if false para todo cliente, así que
+    // aprobar una compra siempre pasa por la Cloud Function
+    // `aprobarCompraCreditos` (functions/index.js →
+    // creditosLedger.acreditarCompraCreditos), que relee este doc dentro de
+    // una transacción y es idempotente por diseño.
+    match /creditPurchases/{purchaseId} {
+      allow read: if isAdmin() || (
+        request.auth != null && request.auth.uid == resource.data.docenteId
+      );
+      allow create: if isDocente() &&
+        request.resource.data.keys().hasAll([
+          'docenteId', 'creditos', 'montoMXN', 'metodo', 'status', 'origen', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'docenteId', 'creditos', 'montoMXN', 'metodo', 'referencia', 'status', 'origen',
+          'createdAt', 'comprobanteUrl'
+        ]) &&
+        request.resource.data.docenteId == request.auth.uid &&
+        request.resource.data.status == 'pendiente' &&
+        request.resource.data.metodo == 'transferencia' &&
+        request.resource.data.origen == 'creditos_adicionales' &&
+        request.resource.data.montoMXN == montoOficialCredito(request.resource.data.creditos) &&
+        request.resource.data.createdAt == request.time;
       allow update, delete: if isAdmin();
     }
 

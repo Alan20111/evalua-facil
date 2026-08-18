@@ -99,6 +99,11 @@ export function useCreditosIA() {
       listo: cargado && !!tarifas,
       esDocente,
       tarifas,
+      // Paquetes de créditos adicionales (18-ago-2026) — misma fuente que lee
+      // el servidor (firestore.rules → montoOficialCredito, seed-ia-tarifas.js).
+      // La UI de compra y "Comparar planes" leen de aquí, nunca de un precio
+      // duplicado en el componente.
+      paquetesCreditos: tarifas?.paquetesCreditos || [],
       creditos,
       capacidad,
       saldo,

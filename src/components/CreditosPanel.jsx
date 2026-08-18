@@ -16,9 +16,11 @@
 // (seed-ia-tarifas.js) y de ETIQUETAS_PLAN (useCreditosIA.js) — este archivo
 // no tiene los nombres hardcodeados salvo el aviso de trial agotado, abajo.
 
+import { useState } from 'react'
 import { X, Sparkles, CalendarClock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useCreditosIA from '../hooks/useCreditosIA'
+import ComprarCreditosModal from './ComprarCreditosModal'
 
 function fechaCorta(d) {
   if (!d) return '—'
@@ -28,6 +30,7 @@ function fechaCorta(d) {
 export default function CreditosPanel({ onCerrar }) {
   const c = useCreditosIA()
   const navigate = useNavigate()
+  const [comprarAbierto, setComprarAbierto] = useState(false)
   if (!c.listo) return null
 
   const usados = c.consumidoCiclo
@@ -101,7 +104,21 @@ export default function CreditosPanel({ onCerrar }) {
                 Contratar {infoDocente.nombre} · ${infoDocente.precioMXN}/mes
               </button>
             )}
+            {!c.esTrial && (
+              <button type="button" onClick={() => setComprarAbierto(true)}
+                className="mt-2 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                Comprar créditos
+              </button>
+            )}
           </div>
+        )}
+
+        {/* Comprar créditos adicionales — siempre disponible, no solo agotado */}
+        {!c.esTrial && !agotado && (
+          <button type="button" onClick={() => setComprarAbierto(true)}
+            className="w-full mb-4 px-3 py-2 border border-outline-variant text-on-surface text-sm font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors">
+            Comprar créditos adicionales
+          </button>
         )}
 
         {/* Consumo por categorías */}
@@ -129,6 +146,7 @@ export default function CreditosPanel({ onCerrar }) {
           </div>
         )}
       </div>
+      <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />
     </div>
   )
 }

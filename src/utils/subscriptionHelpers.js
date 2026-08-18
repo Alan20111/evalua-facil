@@ -175,6 +175,26 @@ export function datosDePagoTransferencia({
   }
 }
 
+// ── El documento de una compra de créditos adicionales (18-ago-2026) ───────
+// Mismo criterio que datosDePagoTransferencia: un solo armador para que el
+// monto nunca se calcule dos veces de forma distinta. `montoMXN` SIEMPRE sale
+// del paquete elegido (nunca se recibe suelto) — firestore.rules revalida la
+// pareja (creditos, montoMXN) de todos modos, esto es solo para no duplicar
+// el cálculo en el componente.
+export function datosDeCompraCreditos({ docenteId, paquete, referencia, comprobanteUrl = null }) {
+  return {
+    docenteId,
+    creditos: paquete.creditos,
+    montoMXN: paquete.precioMXN,
+    metodo: 'transferencia',
+    referencia: (referencia || '').trim(),
+    status: PAYMENT_STATUS.PENDIENTE,
+    origen: 'creditos_adicionales',
+    createdAt: serverTimestamp(),
+    ...(comprobanteUrl ? { comprobanteUrl } : {}),
+  }
+}
+
 // ── Retención tras vencer ────────────────────────────────────────────────
 // Cuántos días se conserva la información de una cuenta vencida (prueba sin
 // convertir o suscripción sin renovar) antes de que se elimine definitiva.
