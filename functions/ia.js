@@ -4053,6 +4053,47 @@ function extraerObjetoJsonBalanceado(texto) {
   return null // nunca volvió a profundidad 0 — objeto incompleto/cortado
 }
 
+// Causa raíz real del "Chat muestra JSON/Markdown crudo a mitad de
+// respuesta" (19-ago-2026): `max_tokens` del Chat cortaba la generación de
+// Anthropic ANTES de que el modelo terminara de cerrar el JSON — el string
+// de "respuesta" queda sin comillas de cierre, `extraerObjetoJsonBalanceado`
+// nunca vuelve a profundidad 0 (correcto: el objeto de verdad está
+// incompleto) y el único respaldo que existía volcaba el texto crudo
+// COMPLETO (con `{"respuesta":"`, `###`, `**` sin interpretar, y cortado a
+// media palabra) directo a la pantalla del docente. Subir `max_tokens` (ver
+// más abajo) reduce cuánto pasa esto, pero no lo puede eliminar del todo —
+// cualquier respuesta pedida lo bastante extensa puede seguir topando el
+// límite del modelo. Este extractor es la pieza que faltaba: a diferencia
+// de JSON.parse, no exige que el string cierre con comillas — recupera todo
+// lo que el modelo alcanzó a escribir dentro de "respuesta" aunque el JSON
+// se haya cortado a la mitad, y avisa (`completo: false`) para que quien
+// llama pueda decírselo al docente en vez de fingir que esa es toda la
+// respuesta.
+function extraerRespuestaParcial(texto) {
+  const clave = texto.indexOf('"respuesta"')
+  if (clave === -1) return null
+  const dosPuntos = texto.indexOf(':', clave)
+  if (dosPuntos === -1) return null
+  const comillaInicio = texto.indexOf('"', dosPuntos)
+  if (comillaInicio === -1) return null
+  let out = ''
+  for (let i = comillaInicio + 1; i < texto.length; i++) {
+    const c = texto[i]
+    if (c === '\\') {
+      const sig = texto[i + 1]
+      if (sig === 'n') out += '\n'
+      else if (sig === 't') out += '\t'
+      else if (sig === '"' || sig === '\\' || sig === '/') out += sig
+      else if (sig !== undefined) out += sig
+      i++
+      continue
+    }
+    if (c === '"') return { texto: out, completo: true }
+    out += c
+  }
+  return { texto: out, completo: false } // se acabó el texto sin comilla de cierre — sí estaba cortado
+}
+
 // Prompt caching de Anthropic (18-ago-2026) — el Chat es la única operación
 // conversacional: cada turno reenvía TODO el historial + el system prompt
 // completo, y ambos son casi siempre idénticos al turno anterior de la
@@ -4113,7 +4154,17 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
   // debe contar contra el límite del docente.
   let msg
   try {
-    msg = await client.messages.create({ model: modelo, max_tokens: 1400, system, messages })
+    // 1400 → 4096 (19-ago-2026, causa raíz real del "Chat corta la
+    // respuesta a mitad de una sección"): el modelo (claude-haiku-4-5)
+    // acepta hasta 8192 tokens de salida, muy por encima del tope de 1400
+    // que tenía este endpoint — un plan de clase completo con varias
+    // secciones desarrolladas (contextualización, apertura, desarrollo,
+    // cierre, evaluación, observaciones...) pedido explícitamente por el
+    // docente supera 1400 tokens con facilidad. 4096 deja margen amplio
+    // para una respuesta extensa real sin acercarse al techo del modelo;
+    // no es "sin límite" — sigue acotado, solo que a un número calculado
+    // para lo que este endpoint de verdad necesita, no arbitrario.
+    msg = await client.messages.create({ model: modelo, max_tokens: 4096, system, messages })
   } catch (e) {
     liberarInteraccionChat(ctx.reservaLimiteChat)
     throw e
@@ -4124,10 +4175,9 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
   // antes del bloque, o (visto en producción) basura DESPUÉS del `}` real.
   // `extraerObjetoJsonBalanceado` encuentra el cierre VERDADERO del objeto
   // de nivel superior (por profundidad de llaves, no por "la última `}` del
-  // texto") — tolera basura al final sin caer al modo de respaldo. Si aun
-  // así no se puede parsear, no se pierde la respuesta: se usa el texto
-  // crudo como conversación y simplemente no hay propuesta.
+  // texto") — tolera basura al final sin caer al modo de respaldo.
   let datos
+  let truncado = false
   const bloqueJson = extraerObjetoJsonBalanceado(texto)
   try {
     if (!bloqueJson) throw new Error('sin JSON')
@@ -4140,14 +4190,31 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
     // línea es solo espacio en blanco, válido en JSON tal cual.
     datos = JSON.parse(repararSaltosLiteralesEnJson(bloqueJson))
   } catch {
-    datos = { respuesta: texto, propuesta: null }
+    // No parseó — lo más probable (y lo confirmado en producción) es que
+    // `max_tokens` cortó al modelo a media generación, dejando el string de
+    // "respuesta" sin cerrar. Ya NO se vuelca el texto crudo completo (eso
+    // era lo que el docente veía como "{"respuesta":"### ...", JSON y
+    // Markdown sin interpretar): se recupera solo el CONTENIDO de
+    // "respuesta" con `extraerRespuestaParcial` (tolerante a que falte la
+    // comilla de cierre) y se avisa con `truncado` para que el docente sepa
+    // que eso no es toda la respuesta — nunca se le hace creer que sí lo es.
+    const parcial = extraerRespuestaParcial(texto)
+    truncado = msg.stop_reason === 'max_tokens' || !!(parcial && !parcial.completo)
+    datos = { respuesta: parcial ? parcial.texto : texto, propuesta: null }
   }
 
-  const respuesta = String(datos?.respuesta || '').trim()
+  let respuesta = String(datos?.respuesta || '').trim()
   if (!respuesta) {
     liberarInteraccionChat(ctx.reservaLimiteChat)
     throw new Error('El asistente de IA no generó una respuesta utilizable')
   }
+  if (truncado) {
+    respuesta += '\n\nLa respuesta se cortó por ser muy extensa — pídeme que continúe donde me quedé.'
+  }
+  // Una propuesta que viene de un JSON que NO se pudo parsear podría estar
+  // incompleta o corrupta (p. ej. cortada a media lista de reactivos) — con
+  // `datos.propuesta` ya forzado a null arriba en ese caso, nunca llega
+  // ninguna a sanearPropuestaAccionChat.
   const propuesta = sanearPropuestaAccionChat(datos?.propuesta, { permitirAcciones: ctx.permitirAcciones })
 
   return {
@@ -4167,6 +4234,13 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
     unidadesReales: 1, // tarifa fija por turno — cada mensaje es su propia operación, con o sin propuesta
     interno: {
       modelo,
+      // `stopReason` (19-ago-2026): antes de esto no había forma de saber,
+      // ante un reporte de "respuesta cortada", si Anthropic de verdad
+      // truncó por `max_tokens` o si el corte pasaba en otro punto del
+      // flujo — quedar sin esta pista fue justo lo que obligó a razonar por
+      // eliminación en vez de comprobar. 'end_turn' = respuesta completa,
+      // 'max_tokens' = cortada por el techo de salida.
+      stopReason: msg.stop_reason ?? null,
       tokensEntrada: msg.usage?.input_tokens ?? null,
       tokensSalida: msg.usage?.output_tokens ?? null,
       // Prompt caching (18-ago-2026): tokens de escritura de caché (turno

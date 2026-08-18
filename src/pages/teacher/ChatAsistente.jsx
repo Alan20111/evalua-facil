@@ -141,6 +141,37 @@ function extraerObjetoJsonBalanceado(texto) {
   return null
 }
 
+// Mismo extractor tolerante que functions/ia.js (server) — recupera el
+// CONTENIDO de "respuesta" aunque el string nunca haya cerrado con
+// comillas. Necesario aquí también: mensajes viejos guardados en Firestore
+// ANTES de esta corrección (19-ago-2026) pueden tener el JSON crudo y
+// cortado como `content`, y la regla es no tocar datos históricos — el
+// cliente tiene que poder mostrarlos lo más limpio posible tal como están.
+function extraerRespuestaParcial(texto) {
+  const clave = texto.indexOf('"respuesta"')
+  if (clave === -1) return null
+  const dosPuntos = texto.indexOf(':', clave)
+  if (dosPuntos === -1) return null
+  const comillaInicio = texto.indexOf('"', dosPuntos)
+  if (comillaInicio === -1) return null
+  let out = ''
+  for (let i = comillaInicio + 1; i < texto.length; i++) {
+    const c = texto[i]
+    if (c === '\\') {
+      const sig = texto[i + 1]
+      if (sig === 'n') out += '\n'
+      else if (sig === 't') out += '\t'
+      else if (sig === '"' || sig === '\\' || sig === '/') out += sig
+      else if (sig !== undefined) out += sig
+      i++
+      continue
+    }
+    if (c === '"') return { texto: out, completo: true }
+    out += c
+  }
+  return { texto: out, completo: false }
+}
+
 function extraerRespuestaSiEsJsonCrudo(texto) {
   const t = texto.trim()
   if (!t.startsWith('{') || !t.includes('"respuesta"')) return texto
@@ -148,7 +179,11 @@ function extraerRespuestaSiEsJsonCrudo(texto) {
     const bloque = extraerObjetoJsonBalanceado(t)
     const datos = bloque ? JSON.parse(bloque) : null
     if (typeof datos?.respuesta === 'string' && datos.respuesta.trim()) return datos.respuesta
-  } catch { /* no era JSON válido — se muestra tal cual */ }
+  } catch { /* no era JSON válido — se intenta el extractor tolerante abajo */ }
+  const parcial = extraerRespuestaParcial(t)
+  if (parcial?.texto.trim()) {
+    return parcial.completo ? parcial.texto : `${parcial.texto}\n\n(Esta respuesta se cortó por ser muy extensa.)`
+  }
   return texto
 }
 
@@ -161,9 +196,21 @@ function MensajeFormateado({ texto: textoOriginal }) {
   const cerrarLista = () => { if (listaActual) { bloques.push(listaActual); listaActual = null } }
   lineas.forEach((linea) => {
     const limpia = linea.trim()
+    // Encabezados (#, ##, ###...) y separadores (---, ***) — antes se
+    // colaban tal cual a la pantalla del docente ("### Contextualización",
+    // "---") porque este parser solo sabía de viñetas, numeradas y
+    // **negritas**; nunca de encabezados ni líneas horizontales (19-ago-2026).
+    const encabezado = limpia.match(/^#{1,6}\s+(.*)/)
+    const separador = /^([-*_])\1{2,}$/.test(limpia)
     const viñeta = limpia.match(/^[-*•]\s+(.*)/)
     const numerada = limpia.match(/^\d+[.)]\s+(.*)/)
-    if (viñeta) {
+    if (encabezado) {
+      cerrarLista()
+      bloques.push({ tipo: 'h', texto: encabezado[1] })
+    } else if (separador) {
+      cerrarLista()
+      bloques.push({ tipo: 'hr' })
+    } else if (viñeta) {
       if (!listaActual || listaActual.tipo !== 'ul') { cerrarLista(); listaActual = { tipo: 'ul', items: [] } }
       listaActual.items.push(viñeta[1])
     } else if (numerada) {
@@ -193,6 +240,12 @@ function MensajeFormateado({ texto: textoOriginal }) {
           {b.items.map((it, j) => <li key={j}>{formatearNegritas(it, `${i}-${j}`)}</li>)}
         </ol>
       )
+    }
+    if (b.tipo === 'h') {
+      return <p key={i} className="font-semibold text-on-surface mt-2 mb-0.5 first:mt-0">{formatearNegritas(b.texto, `${i}`)}</p>
+    }
+    if (b.tipo === 'hr') {
+      return <hr key={i} className="my-2 border-outline-variant" />
     }
     return <p key={i} className="my-1 first:mt-0 last:mb-0">{formatearNegritas(b.texto, `${i}`)}</p>
   })
