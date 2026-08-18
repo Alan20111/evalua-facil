@@ -33,6 +33,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { parcialForDate } from '../../utils/parciales'
 import { formatDeadline } from '../../utils/activityVisibility'
 import { ejecutarPropuestaAccion } from '../../utils/accionesChat'
+import { useScrollLock } from '../../hooks/useScrollLock'
 import { MessageCircle, Send, Sparkles, Trash2, Globe, ClipboardList, CheckCircle2 } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
@@ -117,6 +118,17 @@ export default function ChatAsistente() {
   const toast = useToast()
   const creditosIA = useCreditosIA()
 
+  // La página entera está pensada para caber exacta en la pantalla (altura
+  // fija + overflow-hidden, ver más abajo) — sin esto, un pixelaje de más
+  // (p. ej. por el <main> del layout forzando una altura mínima de pantalla completa, o el teclado abriéndose)
+  // dejaba a la PÁGINA con un poco de scroll residual, y ese scroll movía
+  // el título/"Contexto" detrás del header sticky ("DOCENTE") — quejado
+  // explícitamente. Bloquear el scroll de fondo mientras el chat está
+  // montado lo elimina de raíz, sin depender de calcular la altura exacta
+  // del header/teclado a cada momento. Mismo hook que ya usa el resto de la
+  // app para overlays (Select, modales) — no es un mecanismo nuevo.
+  useScrollLock(true)
+
   const [subjects, setSubjects] = useState([])
   const [subjectsLoaded, setSubjectsLoaded] = useState(false)
   const [seleccion, setSeleccion] = useState(GENERAL)
@@ -133,6 +145,26 @@ export default function ChatAsistente() {
   // doble clic / doble ejecución).
   const [ejecutandoId, setEjecutandoId] = useState(null)
   const finRef = useRef(null)
+
+  // Alto real del header sticky móvil ("DOCENTE") + la barra inferior de
+  // navegación — SIN esto, la altura fija de abajo (100dvh - 2rem) no
+  // descontaba ese espacio, así que el contenedor quedaba más alto que lo
+  // visible y el título/"Contexto" terminaban escondiéndose detrás del
+  // header con cualquier scroll residual. En escritorio ambos tienen
+  // display:none (md:hidden), miden 0 y el cálculo no cambia. Se vuelven a
+  // medir si cambian de tamaño (rotación, aparece un banner, etc.).
+  const [altoChromeMovil, setAltoChromeMovil] = useState(0)
+  useEffect(() => {
+    const header = document.querySelector('header')
+    const nav = document.querySelector('nav')
+    if (!header || !nav) return undefined
+    const medir = () => setAltoChromeMovil(header.getBoundingClientRect().height + nav.getBoundingClientRect().height)
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(header)
+    ro.observe(nav)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!currentUser) return undefined
@@ -297,7 +329,7 @@ export default function ChatAsistente() {
   ]
 
   return (
-    <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW} flex flex-col overflow-hidden`} style={{ height: 'calc(100dvh - 2rem)' }}>
+    <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW} flex flex-col overflow-hidden`} style={{ height: `calc(100dvh - ${altoChromeMovil}px - 2rem)` }}>
       <div className="flex items-center gap-2 mb-3">
         <MessageCircle size={22} className="text-accent flex-shrink-0" />
         <h1 className="text-lg font-bold text-on-surface">Chat con Asistente</h1>
