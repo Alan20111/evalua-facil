@@ -102,22 +102,31 @@ export default function ComprarCreditosModal({ open, onClose, onSuccess }) {
             </p>
             <div>
               <p className="text-xs font-medium text-muted mb-1.5">Elige un paquete</p>
-              <div className="grid grid-cols-2 gap-2">
+              {/* Los 5 paquetes en una sola fila en el ancho normal del modal
+                  (18-ago-2026) — antes eran 2 columnas (2/2/1). Vertical y
+                  compacto (créditos arriba, precio abajo) para que quepan
+                  sin salto de línea; en pantallas angostas el propio grid se
+                  angosta en vez de reflowir a otra fila. */}
+              <div className="grid grid-cols-5 gap-1">
                 {paquetes.map((p, i) => (
                   <button
                     key={p.creditos}
                     type="button"
                     onClick={() => setPaqueteIdx(i)}
-                    className={`flex items-center justify-between text-left px-3 py-2.5 rounded-card border transition-colors ${
+                    className={`flex flex-col items-center justify-center px-1 py-2 rounded-card border transition-colors ${
                       paqueteIdx === i ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
                     }`}
                   >
-                    <span className="font-semibold text-on-surface text-sm">{p.creditos.toLocaleString('es-MX')}</span>
-                    <span className="text-sm text-muted tabular-nums">{formatCurrency(p.precioMXN)}</span>
+                    <span className="font-semibold text-on-surface text-xs tabular-nums">{p.creditos.toLocaleString('es-MX')}</span>
+                    <span className="text-[11px] text-muted tabular-nums">{formatCurrency(p.precioMXN)}</span>
                   </button>
                 ))}
               </div>
             </div>
+
+            <p className="text-xs text-accent bg-accent-light rounded p-2.5 text-center">
+              Los créditos se agregarán a tu saldo una vez confirmado tu pago.
+            </p>
 
             <form onSubmit={submitCompra} className="space-y-3">
               <div className="bg-surface rounded p-4 text-sm space-y-1.5 border border-outline-variant">
