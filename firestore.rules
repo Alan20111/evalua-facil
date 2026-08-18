@@ -1074,6 +1074,23 @@ service cloud.firestore {
         request.auth.uid == resource.data.docenteId;
     }
 
+    // Chat de Administración (19-ago-2026) — mismo patrón que chatMensajes,
+    // pero con `adminUid` en vez de `docenteId`, exclusivo del rol admin, y
+    // SIN candado de suscripción (docenteActivo() no aplica a un admin).
+    match /adminChatMensajes/{mensajeId} {
+      allow read: if isAdmin() && request.auth.uid == resource.data.adminUid;
+      allow create: if isAdmin() && request.auth.uid == request.resource.data.adminUid;
+      allow update: if false;
+      allow delete: if isAdmin() && request.auth.uid == resource.data.adminUid;
+    }
+
+    // Métricas internas del Chat de Administración (tokens, modelo,
+    // stopReason) — mismo criterio que iaConsumosInterno: nada visible para
+    // ningún cliente, solo lo escribe el servidor con el Admin SDK.
+    match /adminChatConsumosInterno/{consumoId} {
+      allow read, write: if false;
+    }
+
     // Vacaciones del docente. Cada doc marca un PERIODO (fechaInicio–fechaFin)
     // en el que no se permiten (según su alcance) clases, eventos y/o
     // actividades — misma estructura que asuetos, pero para un rango de días.
