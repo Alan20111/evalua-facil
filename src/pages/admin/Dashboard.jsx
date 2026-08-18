@@ -6,6 +6,7 @@ import { useAdminStats } from '../../hooks/useAdminStats'
 import StatsCards, { ResumenCharts } from './components/StatsCards'
 import SubscriptionsTable from './components/SubscriptionsTable'
 import PaymentsTable from './components/PaymentsTable'
+import CreditPurchasesTable from './components/CreditPurchasesTable'
 import PaymentConfig from './components/PaymentConfig'
 import StudentsTable from './components/StudentsTable'
 import VentasPorZona from './components/VentasPorZona'
@@ -14,6 +15,7 @@ const TAB_TITLES = {
   resumen: 'Resumen',
   suscripciones: 'Suscripciones',
   pagos: 'Pagos',
+  creditos: 'Créditos adicionales',
   zonas: 'Ventas por zona',
   cobros: 'Configuración de cobros',
   estudiantes: 'Estudiantes',
@@ -69,6 +71,7 @@ export default function AdminDashboard() {
             <SubscriptionsTable stats={stats} onRefresh={refresh} />
           )}
           {activeTab === 'pagos' && <PaymentsTable stats={stats} onRefresh={refresh} />}
+          {activeTab === 'creditos' && <CreditPurchasesTable stats={stats} onRefresh={refresh} />}
           {activeTab === 'zonas' && <VentasPorZona stats={stats} />}
           {activeTab === 'cobros' && <PaymentConfig />}
           {activeTab === 'estudiantes' && <StudentsTable stats={stats} />}

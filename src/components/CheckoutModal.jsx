@@ -223,6 +223,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
               creditosGratuito={creditosIA.tarifas?.capacidadPorPlan?.trial}
               creditosPro={creditosIA.tarifas?.planes?.pro?.creditos}
               creditosMayor={creditosIA.tarifas?.planes?.mayor?.creditos}
+              paquetesCreditos={creditosIA.paquetesCreditos}
             />
 
             {/* Selector de plan — solo aparece si `plans/mayor.activo` es

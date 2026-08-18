@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Map,
+  Sparkles,
 } from 'lucide-react'
 import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
@@ -20,6 +21,7 @@ import SkipLink from './SkipLink'
 
 const TABS = [
   { id: 'pagos', label: 'Pagos', icon: Receipt },
+  { id: 'creditos', label: 'Créditos adicionales', icon: Sparkles },
   { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
   { id: 'suscripciones', label: 'Suscripciones', icon: CreditCard },
   { id: 'zonas', label: 'Ventas por zona', icon: Map },

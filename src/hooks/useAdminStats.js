@@ -41,6 +41,7 @@ export function useAdminStats() {
         studentsSnap,
         subsSnap,
         paymentsSnap,
+        creditPurchasesSnap,
         plansSnap,
         schoolsSnap,
         subjectsSnap,
@@ -50,6 +51,7 @@ export function useAdminStats() {
         getDocs(collection(db, 'students')),
         getDocs(collection(db, 'subscriptions')),
         getDocs(collection(db, 'payments')),
+        getDocs(collection(db, 'creditPurchases')),
         getDocs(collection(db, 'plans')),
         getDocs(collection(db, 'schools')),
         getDocs(collection(db, 'subjects')),
@@ -60,6 +62,7 @@ export function useAdminStats() {
       const students = studentsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       const subscriptions = subsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       const payments = paymentsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const creditPurchases = creditPurchasesSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       const plans = plansSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       const schools = schoolsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       const subjects = subjectsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -170,6 +173,7 @@ export function useAdminStats() {
         subjectsMap,
         subscriptions,
         payments,
+        creditPurchases,
         plans,
         schools,
         schoolsMap,

@@ -73,6 +73,38 @@ exports.resetearCreditosIA = onCall(async (request) => {
     throw new HttpsError('internal', 'No se pudo resetear los créditos')
   }
 })
+
+// Aprobar una compra de créditos adicionales (18-ago-2026) — solo admin.
+// Igual que resetearCreditosIA: `iaCreditos` es de solo lectura para el
+// cliente, así que abonar el saldo SIEMPRE pasa por aquí. La cantidad y el
+// precio nunca vienen del cliente en esta llamada — el servidor los lee de
+// `creditPurchases/{purchaseId}`, el documento que ya validaron las reglas
+// de Firestore al crearse (cantidad/precio deben coincidir con
+// config/iaTarifas.paquetesCreditos). Idempotente por diseño del propio
+// ledger: una segunda aprobación del mismo id no vuelve a sumar créditos.
+exports.aprobarCompraCreditos = onCall(async (request) => {
+  const uid = request.auth?.uid
+  if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para continuar')
+  const perfil = await db.doc(`users/${uid}`).get()
+  if (!perfil.exists || perfil.data().role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Solo un administrador puede aprobar compras de créditos')
+  }
+  const purchaseId = request.data?.purchaseId
+  if (!purchaseId || typeof purchaseId !== 'string') {
+    throw new HttpsError('invalid-argument', 'Falta la compra a aprobar')
+  }
+  try {
+    const r = await creditosLedger.acreditarCompraCreditos({ purchaseId, adminUid: uid })
+    logger.info(`aprobarCompraCreditos: admin ${uid} aprobó ${purchaseId} → +${r.creditos} créditos`)
+    return r
+  } catch (e) {
+    if (e.codigo === 'COMPRA_INEXISTENTE' || e.codigo === 'SIN_CREDITOS_AUN' || e.codigo === 'ESTADO_INVALIDO') {
+      throw new HttpsError('failed-precondition', e.message, { codigo: e.codigo })
+    }
+    logger.error(`aprobarCompraCreditos(${purchaseId}):`, e.message)
+    throw new HttpsError('internal', 'No se pudo aprobar la compra')
+  }
+})
 const db = getFirestore()
 const messaging = getMessaging()
 

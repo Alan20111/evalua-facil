@@ -125,7 +125,12 @@ function camposRenovados(creditos, ahora, capacidadPorPlan) {
     plan,
     planSiguiente: FieldValue.delete(),
     capacidad,
-    saldo: capacidad, // asignación, no suma: los créditos no usados no se acumulan
+    // `creditosAdicionalesVigentes` (compra de créditos, 18-ago-2026) NO se
+    // pierde en la renovación — es la ÚNICA excepción a "los créditos no
+    // usados no se acumulan", que sigue aplicando tal cual a la bolsa de la
+    // suscripción (`capacidad`). Se lee del doc actual (nunca se toca en
+    // otro lado del objeto que se retorna) y se vuelve a sumar aquí.
+    saldo: capacidad + (creditos.creditosAdicionalesVigentes || 0),
     consumidoCiclo: 0,
     consumoPorCategoria: {},
     cicloInicio: Timestamp.fromDate(inicio),
@@ -313,10 +318,18 @@ async function liquidar({ uid, idempotencyKey, creditosReales, resultado = null 
       liquidadoEn: FieldValue.serverTimestamp(),
     })
     const saldoFinal = creditos.saldo + devolucion
+    // El gasto real (`reales`) se descuenta también de la bolsa de
+    // "adicionales vigentes" (compra de créditos, 18-ago-2026) — nunca baja
+    // de 0. No se distingue de qué bolsa salió cada crédito exactamente
+    // (saldo es un solo número); esto es una aproximación deliberadamente
+    // simple que SIEMPRE es correcta en un sentido: jamás protege de la
+    // renovación más créditos de los que en verdad quedan sin usar.
+    const adicionalesVigentes = Math.max(0, (creditos.creditosAdicionalesVigentes || 0) - reales)
     tx.update(refCreditos, {
       saldo: saldoFinal,
       consumidoCiclo: (creditos.consumidoCiclo || 0) + reales,
       consumoPorCategoria: categorias,
+      creditosAdicionalesVigentes: adicionalesVigentes,
       actualizadoEn: FieldValue.serverTimestamp(),
     })
     // Trial que llega a 0 créditos: se marca el agotamiento en el registro
@@ -496,12 +509,65 @@ async function resetearAhora({ uid }) {
   })
 }
 
+// ── ACREDITAR UNA COMPRA DE CRÉDITOS ADICIONALES (18-ago-2026) ─────────────
+// Aprobación manual del admin (única vía de pago hoy, transferencia — ver
+// [[project_solo_transferencia_v101]]), pero la acreditación en sí SIEMPRE
+// pasa por aquí, nunca por una escritura directa a `iaCreditos` (que las
+// reglas de Firestore ya bloquean por completo al cliente). La transacción
+// relee `creditPurchases/{purchaseId}` primero: si ya está "completado", no
+// vuelve a sumar nada — así una doble aprobación (doble clic del admin, o un
+// reintento) nunca acredita dos veces.
+//
+// El docente debe tener YA un doc `iaCreditos` (haber usado la IA al menos
+// una vez) — no se le crea uno aquí desde cero, porque eso duplicaría la
+// lógica de "primer uso" (plan/capacidad/ciclo) que ya vive en `reservar()`.
+// Si todavía no existe, se rechaza con un mensaje claro — pendiente conocido,
+// ver el reporte de entrega.
+async function acreditarCompraCreditos({ purchaseId, adminUid }) {
+  const refCompra = db().doc(`creditPurchases/${purchaseId}`)
+
+  return db().runTransaction(async (tx) => {
+    const compraSnap = await tx.get(refCompra)
+    if (!compraSnap.exists) throw new ErrorCreditos('COMPRA_INEXISTENTE', 'Esta compra ya no existe')
+    const compra = compraSnap.data()
+    if (compra.status === 'completado') return { repetida: true, creditos: compra.creditos }
+    if (compra.status !== 'pendiente') {
+      throw new ErrorCreditos('ESTADO_INVALIDO', `No se puede aprobar una compra "${compra.status}"`)
+    }
+
+    const refCreditos = db().doc(`iaCreditos/${compra.docenteId}`)
+    const creditosSnap = await tx.get(refCreditos)
+    if (!creditosSnap.exists) {
+      throw new ErrorCreditos('SIN_CREDITOS_AUN',
+        'Este docente todavía no ha usado la IA — no tiene una bolsa de créditos activa donde abonar la compra.')
+    }
+    const creditos = creditosSnap.data()
+    const nuevoSaldo = (creditos.saldo || 0) + compra.creditos
+    const nuevoAdicionalesVigentes = (creditos.creditosAdicionalesVigentes || 0) + compra.creditos
+    const nuevoAdicionalesComprados = (creditos.creditosAdicionalesComprados || 0) + compra.creditos
+
+    tx.update(refCreditos, {
+      saldo: nuevoSaldo,
+      creditosAdicionalesVigentes: nuevoAdicionalesVigentes,
+      creditosAdicionalesComprados: nuevoAdicionalesComprados,
+      actualizadoEn: FieldValue.serverTimestamp(),
+    })
+    tx.update(refCompra, {
+      status: 'completado',
+      resueltoEn: FieldValue.serverTimestamp(),
+      resueltoPor: adminUid,
+    })
+    return { repetida: false, creditos: compra.creditos, saldo: nuevoSaldo }
+  })
+}
+
 module.exports = {
   ErrorCreditos,
   nivelDeSuscripcion,
   capacidadTrialPara,
   camposRenovados,
   cargarTarifas,
+  acreditarCompraCreditos,
   reservar,
   liquidar,
   reembolsar,

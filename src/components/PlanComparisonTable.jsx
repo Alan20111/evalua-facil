@@ -69,7 +69,31 @@ function CeldaRespuestaNo() {
   return <td className="px-1 py-2 text-center border-l border-outline-variant text-[11px] text-muted">No</td>
 }
 
-export default function PlanComparisonTable({ mostrarMayor = true, creditosGratuito, creditosPro, creditosMayor }) {
+// Créditos adicionales (18-ago-2026) — solo aclara que existen y sus 5
+// paquetes; NO es un plan de suscripción nuevo, por eso va aparte de la
+// tabla. `paquetes` viene de config/iaTarifas.paquetesCreditos (vía
+// useCreditosIA), la MISMA fuente que usa ComprarCreditosModal — nada de
+// precios repetidos aquí.
+function SeccionCreditosAdicionales({ paquetes }) {
+  if (!paquetes || paquetes.length === 0) return null
+  return (
+    <div className="mt-3 pt-3 border-t border-outline-variant">
+      <p className="text-xs font-semibold text-on-surface mb-1">Créditos adicionales</p>
+      <p className="text-[11px] text-muted mb-2">
+        Si se te acaban tus créditos del mes, puedes comprar más — se suman a tu saldo y no se pierden al renovarse tu periodo.
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {paquetes.map((p) => (
+          <span key={p.creditos} className="text-[11px] px-2 py-1 rounded-full bg-surface border border-outline-variant text-on-surface tabular-nums">
+            {p.creditos.toLocaleString('es-MX')} · ${p.precioMXN}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function PlanComparisonTable({ mostrarMayor = true, creditosGratuito, creditosPro, creditosMayor, paquetesCreditos }) {
   const nCols = mostrarMayor ? 4 : 3
   const colValorPct = (100 - 34) / (nCols - 1)
 
@@ -166,6 +190,7 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
           ))}
         </tbody>
       </table>
+      <SeccionCreditosAdicionales paquetes={paquetesCreditos} />
     </div>
   )
 }
