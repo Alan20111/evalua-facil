@@ -57,21 +57,21 @@ function CeldaNo() {
 
 // Distinto de CeldaNo: la función SÍ existe en Básico, pero sin apoyo de IA
 // — el docente la hace a mano (calificar sin sugerencias de IA, crear
-// reactivos uno por uno). "Manual" ≠ "no disponible" (corrección UX,
-// 18-ago-2026).
+// reactivos uno por uno). "Sí, manual" ≠ "no disponible". La palabra sola
+// "Manual" al lado de un nombre de fila con "IA" leía como contradictorio
+// (revisión UX, 18-ago-2026) — de ahí el "Sí," al frente y el renombre de
+// las filas (quitarles "con IA" del título, ver más abajo).
 function CeldaManual() {
-  return <td className="px-1 py-2 text-center border-l border-outline-variant text-[11px] text-muted">Manual</td>
+  return <td className="px-1 py-2 text-center border-l border-outline-variant text-[11px] text-muted">Sí, manual</td>
 }
 
-// Dos palomitas: acento visual de "más capacidad" para Asistente IA Pro —
-// la función es la MISMA que en Asistente IA (calificar y analizar con IA),
-// no hay una segunda función exclusiva; el "más" real ya está en los
-// créditos (1,000 vs 350). Confirmado con Kike, 13-ago-2026.
-function CeldaSiDoble() {
+// Contraparte de CeldaManual en la misma fila: mismo patrón "Con IA [·
+// detalle]" para que la comparación manual/IA se lea de un vistazo sin
+// tener que descifrar símbolos.
+function CeldaConIA({ detalle }) {
   return (
-    <td className="px-1 py-2 text-center border-l border-outline-variant whitespace-nowrap">
-      <Check size={15} className="inline-block text-accent" aria-label="Sí" />
-      <Check size={15} className="inline-block text-accent -ml-1.5" aria-hidden="true" />
+    <td className="px-1 py-2 text-center border-l border-outline-variant text-[11px] font-semibold text-accent">
+      Con IA{detalle && <><br /><span className="font-normal text-muted">{detalle}</span></>}
     </td>
   )
 }
@@ -127,14 +127,17 @@ export default function PlanComparisonTable({ creditosPro, creditosMayor, paquet
             <th className="px-1 py-2 text-center border-l border-outline-variant">
               <p className="font-bold text-on-surface leading-tight text-[11px]">Básico</p>
               <p className="text-[10px] text-muted font-normal">${BASICO_PRICE_MXN}<br />/mes</p>
+              <p className="text-[9px] text-muted leading-tight mt-0.5">Sin IA, trabajo manual</p>
             </th>
             <th className="px-1 py-2 text-center border-l border-outline-variant">
               <p className="font-bold text-on-surface leading-tight text-[11px]">Asistente IA</p>
               <p className="text-[10px] text-accent font-semibold leading-tight">${MONTHLY_PRICE_MXN}<br />/mes</p>
+              <p className="text-[9px] text-muted leading-tight mt-0.5">Todo + IA</p>
             </th>
             <th className="px-1 py-2 text-center border-l border-outline-variant">
               <p className="font-bold text-on-surface leading-tight text-[11px]">Asistente IA Pro</p>
               <p className="text-[10px] text-accent font-semibold leading-tight">${MAYOR_PRICE_MXN}<br />/mes</p>
+              <p className="text-[9px] text-muted leading-tight mt-0.5">Todo + IA, más créditos</p>
             </th>
           </tr>
         </thead>
@@ -156,14 +159,15 @@ export default function PlanComparisonTable({ creditosPro, creditosMayor, paquet
             <Celda destacada>{creditosMayor != null ? creditosMayor.toLocaleString('es-MX') : '—'}</Celda>
           </tr>
           {/* Calificar respuestas abiertas y analizar resultados con IA
-              (C-02/OP-10) — no está en Básico (sin IA). Igual en ambos
-              planes con IA; la doble palomita en Pro es solo acento visual
-              (ver CeldaSiDoble), el "más" real ya está en los créditos. */}
+              (C-02/OP-10). Nombre de fila sin "con IA" a propósito (revisión
+              UX, 18-ago-2026): así "Sí, manual" en Básico no lee como
+              contradictorio junto al título. Igual en ambos planes con IA —
+              el "más" real de Pro ya está en los créditos, no aquí. */}
           <tr className="border-b border-outline-variant bg-accent-light">
-            <td className="px-1.5 py-2 font-medium text-muted">Evaluación con apoyo de IA</td>
+            <td className="px-1.5 py-2 font-medium text-muted">Evaluación</td>
             <CeldaManual />
-            <CeldaSi />
-            <CeldaSiDoble />
+            <CeldaConIA />
+            <CeldaConIA />
           </tr>
           {/* Chat con Asistente IA (reestructuración de precios, 18-ago-2026):
               Básico NO lo tiene — es de los planes con IA. No consume
@@ -182,16 +186,16 @@ export default function PlanComparisonTable({ creditosPro, creditosMayor, paquet
             <Celda destacada>Hasta 50/día</Celda>
             <Celda destacada>Hasta 50/día</Celda>
           </tr>
-          {/* Creación de cuestionarios y exámenes con IA (18-ago-2026): los
-              dos planes con IA tienen acceso, pero con distinto tope de
-              reactivos por corrida (functions/ia.js:
-              MAX_REACTIVOS_EVALUACION_PAGO=100 para ambos desde la
-              reestructuración — ya no hay un nivel "trial" en esta tabla). */}
+          {/* Cuestionarios y exámenes (18-ago-2026). Nombre de fila sin "con
+              IA" por la misma razón que "Evaluación" arriba. Mismo tope de
+              reactivos por corrida en ambos planes con IA (functions/ia.js:
+              MAX_REACTIVOS_EVALUACION_PAGO=100 — ya no hay nivel "trial" en
+              esta tabla). */}
           <tr className="border-b border-outline-variant">
-            <td className="px-1.5 py-2 font-medium text-muted">Creación de cuestionarios y exámenes con IA</td>
+            <td className="px-1.5 py-2 font-medium text-muted">Cuestionarios y exámenes</td>
             <CeldaManual />
-            <Celda>Hasta 100 reactivos</Celda>
-            <Celda>Hasta 100 reactivos</Celda>
+            <CeldaConIA detalle="hasta 100 reactivos" />
+            <CeldaConIA detalle="hasta 100 reactivos" />
           </tr>
           <tr className="border-b border-outline-variant bg-accent-light">
             <td className="px-1.5 py-2 font-medium text-muted">Pago de varios meses</td>
@@ -223,9 +227,12 @@ export default function PlanComparisonTable({ creditosPro, creditosMayor, paquet
           ))}
         </tbody>
       </table>
-      <p className="mt-3 pt-3 border-t border-outline-variant text-[11px] text-muted">
-        Todo docente nuevo empieza con un <strong className="text-on-surface font-semibold">periodo de prueba gratuito</strong> — incluye IA (50 créditos) y hasta 10 interacciones con el Chat con Asistente durante TODA la prueba (no por día). Al terminar, elige uno de los planes de arriba.
-      </p>
+      <div className="mt-3 pt-3 border-t border-outline-variant">
+        <p className="text-xs font-semibold text-on-surface mb-1">Prueba gratis con IA</p>
+        <p className="text-[11px] text-muted">
+          Todo docente nuevo puede probar Evalúa Fácil durante su periodo de prueba. Incluye 50 créditos de IA y 10 interacciones con el Chat durante TODO el periodo de prueba. Al terminar, puedes continuar con el Plan Básico sin IA (${BASICO_PRICE_MXN}) o elegir un plan con IA.
+        </p>
+      </div>
       <SeccionCreditosAdicionales paquetes={paquetesCreditos} />
     </div>
   )
