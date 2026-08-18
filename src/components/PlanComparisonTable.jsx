@@ -24,7 +24,6 @@ const FILAS_FUNCIONES = [
   'Diagnóstico de conocimientos',
   'Planeación didáctica con IA',
   'Creación de actividades con IA',
-  'Creación de cuestionarios y exámenes con IA',
   'Creación de rúbricas y listas de cotejo con IA',
 ]
 
@@ -176,6 +175,18 @@ export default function PlanComparisonTable({ mostrarMayor = true, creditosGratu
             <CeldaSi />
             <CeldaSi />
             {mostrarMayor && <CeldaSi />}
+          </tr>
+          {/* Creación de cuestionarios y exámenes con IA (18-ago-2026): los
+              tres planes tienen acceso, pero Gratuito genera menos reactivos
+              por corrida (functions/ia.js: MAX_REACTIVOS_EVALUACION_TRIAL=10
+              vs MAX_REACTIVOS_EVALUACION_PAGO=100) — diferencia real e
+              intencional, por eso esta fila usa texto en vez de ✓ (que
+              implicaría paridad total). */}
+          <tr className="border-b border-outline-variant bg-accent-light/40">
+            <td className="px-1.5 py-2 font-medium text-muted">Creación de cuestionarios y exámenes con IA</td>
+            <Celda>Hasta 10 reactivos</Celda>
+            <Celda>Hasta 100 reactivos</Celda>
+            {mostrarMayor && <Celda>Hasta 100 reactivos</Celda>}
           </tr>
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Pago de varios meses</td>
