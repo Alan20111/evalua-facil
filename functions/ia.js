@@ -3944,26 +3944,72 @@ async function precalcularParcialYOrden(db, subjectId, subj) {
   return { parcial, orden: existentesSnap.size + 1 }
 }
 
+// Propuestas duplicadas (18-ago-2026, corrección de Kike): cuando el
+// docente refina una propuesta varias veces, cada turno guarda su PROPIO
+// mensaje con su PROPIA propuesta — sin esto, cualquiera de esas tarjetas
+// más viejas seguía siendo ejecutable, y el docente podía confirmar por
+// accidente una versión ya superada. La regla es simple y no necesita un
+// campo "invalidada" nuevo ni un sistema de versiones: en cada contexto
+// (una asignatura) solo la propuesta PENDIENTE (sin ejecutar) más reciente
+// es válida — cualquier otra, aunque el cliente la mande explícitamente,
+// se rechaza aquí. "Más reciente" se decide con `creadoEn` (serverTimestamp,
+// lo puso el servidor al guardarse — nunca el reloj del cliente), nunca con
+// lo que diga la solicitud entrante.
+//
+// Además, la propuesta NUNCA viaja en `params` — el cliente solo manda
+// `mensajeId`; el contenido real siempre se lee de `chatMensajes/{mensajeId}`
+// (fuente única de verdad), así que no hay forma de "ejecutar" un contenido
+// que el cliente haya alterado en memoria.
 async function precheckAccionChat({ uid, params, accionesEsperadas }) {
   const db = getFirestore()
   const subjectId = String(params?.subjectId || '').trim()
   if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura de esta acción.')
+  const mensajeId = String(params?.mensajeId || '').trim()
+  if (!mensajeId) throw new HttpsError('invalid-argument', 'Falta la propuesta a confirmar.')
+
   const subjSnap = await db.doc(`subjects/${subjectId}`).get()
   if (!subjSnap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
   const subj = subjSnap.data()
   if (subj.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta asignatura no es tuya')
 
-  // Se vuelve a saneear la propuesta que manda el cliente — es EXACTAMENTE
-  // el mismo saneamiento que ya corrió al proponerla (nunca se confía en
-  // que el cliente la haya conservado intacta).
-  const propuesta = sanearPropuestaAccionChat(params?.propuesta, { permitirAcciones: true })
+  const msgSnap = await db.doc(`chatMensajes/${mensajeId}`).get()
+  if (!msgSnap.exists) throw new HttpsError('not-found', 'Esta propuesta ya no existe.')
+  const msgData = msgSnap.data()
+  if (msgData.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta propuesta no es tuya.')
+  if (msgData.subjectId !== subjectId) {
+    throw new HttpsError('invalid-argument', 'Esta propuesta pertenece a otra asignatura.')
+  }
+  if (!msgData.propuesta) throw new HttpsError('invalid-argument', 'Este mensaje no tiene una propuesta.')
+  if (msgData.propuesta.ejecutada) {
+    throw new HttpsError('failed-precondition', 'Esta propuesta ya fue creada.', { codigo: 'PROPUESTA_YA_EJECUTADA' })
+  }
+
+  // Solo equality en la consulta (regla del proyecto) — el orden se decide
+  // en memoria con `creadoEn`.
+  const pendientesSnap = await db.collection('chatMensajes')
+    .where('docenteId', '==', uid).where('subjectId', '==', subjectId).where('role', '==', 'assistant').get()
+  const pendientes = pendientesSnap.docs
+    .map((d) => ({ id: d.id, ms: d.data().creadoEn?.toMillis?.() || 0, propuesta: d.data().propuesta }))
+    .filter((m) => m.propuesta && !m.propuesta.ejecutada)
+    .sort((a, b) => a.ms - b.ms)
+  const masReciente = pendientes[pendientes.length - 1]
+  if (!masReciente || masReciente.id !== mensajeId) {
+    throw new HttpsError('failed-precondition',
+      'Esta propuesta ya no está vigente — hay una más reciente en la conversación.',
+      { codigo: 'PROPUESTA_SUPERADA' })
+  }
+
+  // Se vuelve a saneear la propuesta LEÍDA DE FIRESTORE — es exactamente el
+  // mismo saneamiento que ya corrió al proponerla (defensa en profundidad,
+  // nunca se confía en un contenido ya guardado sin volver a validarlo).
+  const propuesta = sanearPropuestaAccionChat(msgData.propuesta, { permitirAcciones: true })
   if (!propuesta) throw new HttpsError('invalid-argument', 'La propuesta no es válida o está incompleta.')
   if (!accionesEsperadas.includes(propuesta.accion)) {
     throw new HttpsError('invalid-argument', 'Esta propuesta no corresponde a esta acción.')
   }
 
   const { parcial, orden } = await precalcularParcialYOrden(db, subjectId, subj)
-  return { subjectId, docenteId: uid, parcial, orden, propuesta }
+  return { subjectId, docenteId: uid, parcial, orden, propuesta, mensajeId }
 }
 
 const ACCIONES_ACTIVIDAD = ['CREAR_ACTIVIDAD_ENTREGABLE', 'CREAR_ACTIVIDAD_OBSERVACION']
@@ -4016,6 +4062,16 @@ async function ejecutarChatCrearActividad({ params }) {
     asignaturaId: ctx.subjectId,
     docenteId: ctx.docenteId,
     createdAt: FieldValue.serverTimestamp(),
+  })
+
+  // Marca la propuesta como ejecutada AQUÍ, en el servidor — no depende de
+  // que el cliente haga una segunda escritura después de esta respuesta
+  // (si esa segunda escritura fallara por red, un reintento del docente
+  // habría encontrado la MISMA propuesta todavía "pendiente" y la habría
+  // vuelto a cobrar y crear). Con esto, el marcado y la creación quedan en
+  // la misma operación atómica del ledger.
+  await db.doc(`chatMensajes/${ctx.mensajeId}`).update({
+    'propuesta.ejecutada': true, 'propuesta.activityId': ref.id,
   })
 
   return { resultado: { activityId: ref.id }, unidadesReales: 1, interno: null }
@@ -4082,6 +4138,11 @@ async function ejecutarChatCrearExamen({ params }) {
   })
   await batch.commit()
   await ref.update({ 'evaluacion.numPreguntas': p.reactivos.length })
+  // Mismo criterio que ejecutarChatCrearActividad: marcar ejecutada aquí
+  // evita que un reintento del cliente pueda volver a cobrar/crear.
+  await db.doc(`chatMensajes/${ctx.mensajeId}`).update({
+    'propuesta.ejecutada': true, 'propuesta.activityId': ref.id,
+  })
 
   // unidadesReales = EXACTAMENTE lo que ya fijó el precheck (unidadesMinimas)
   // — el ejecutor no puede ni subirlo ni bajarlo por su cuenta.
