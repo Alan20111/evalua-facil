@@ -3937,44 +3937,122 @@ function repararSaltosLiteralesEnJson(s) {
   return out
 }
 
+// Causa raíz real (18-ago-2026, corrección de la corrección anterior): el
+// modelo a veces termina su turno con basura DESPUÉS del `}` que en verdad
+// cierra el objeto — por ejemplo `...null}` seguido de un `"}` sobrante
+// (visto en producción: 1 sola `{` pero 2 `}` en el texto crudo). El
+// extractor anterior usaba `indexOf('{')`/`lastIndexOf('}')` — con basura
+// al final, `lastIndexOf` agarra la ÚLTIMA `}` (la de la basura, no la que
+// de verdad cierra el objeto), el slice queda inválido y TODO el texto
+// crudo (con llaves, comillas, "respuesta":, etc.) caía al modo de
+// respaldo — literal a la vista del docente. Un ajuste al prompt no
+// arregla esto: por más que se le pida al modelo no agregar basura, sigue
+// siendo un modelo de lenguaje, no un serializador — el extractor tiene
+// que ser tolerante a lo que de verdad llega.
+//
+// `extraerObjetoJsonBalanceado` no confía en la ÚLTIMA `}` del texto: desde
+// la PRIMERA `{`, cuenta profundidad de llaves/corchetes respetando strings
+// y escapes, y corta exactamente donde la profundidad regresa a cero — ahí
+// está el verdadero cierre del objeto de nivel superior, sin importar qué
+// venga después.
+function extraerObjetoJsonBalanceado(texto) {
+  const inicio = texto.indexOf('{')
+  if (inicio === -1) return null
+  let profundidad = 0
+  let dentroDeString = false
+  for (let i = inicio; i < texto.length; i++) {
+    const c = texto[i]
+    if (dentroDeString) {
+      if (c === '\\') { i++; continue } // salta el carácter escapado completo
+      if (c === '"') dentroDeString = false
+      continue
+    }
+    if (c === '"') { dentroDeString = true; continue }
+    if (c === '{' || c === '[') profundidad++
+    else if (c === '}' || c === ']') {
+      profundidad--
+      if (profundidad === 0) return texto.slice(inicio, i + 1)
+    }
+  }
+  return null // nunca volvió a profundidad 0 — objeto incompleto/cortado
+}
+
+// Prompt caching de Anthropic (18-ago-2026) — el Chat es la única operación
+// conversacional: cada turno reenvía TODO el historial + el system prompt
+// completo, y ambos son casi siempre idénticos al turno anterior de la
+// MISMA conversación (nada en precheckChatAsistente depende del número de
+// turno — perfil, planeación, manual, diagnósticos, etc. no cambian entre
+// mensajes seguidos). Eso los vuelve candidatos perfectos para el
+// mecanismo OFICIAL de Anthropic (cache_control: 'ephemeral', TTL 5 min,
+// GA desde el SDK actual — sin header beta) en vez de inventar una caché
+// propia (expresamente pedido: no duplicar lo que Anthropic ya resuelve).
+//
+// Dos breakpoints (tope de Anthropic: 4 por request, aquí solo hacen falta 2):
+//   1. Al final del `system` completo (instrucciones + contextoSistema) —
+//      es el bloque más grande y el más estable: mismo contenido en CADA
+//      turno de la conversación mientras el docente no cambie de
+//      asignatura ni pase suficiente tiempo para que cambien sus datos.
+//   2. Al final del último mensaje YA EXISTENTE del historial (si lo hay)
+//      — cachea toda la conversación previa, dejando SOLO el mensaje que
+//      el docente acaba de escribir fuera del caché (nunca se cachea lo
+//      dinámico: mensaje actual, saldo, propuestas — ninguno de esos vive
+//      aquí). Si el modelo es Haiku, Anthropic ignora silenciosamente el
+//      breakpoint cuando el bloque no llega al mínimo de tokens cacheables
+//      — no es un error, simplemente no cachea esa vez (fallback natural:
+//      la llamada sigue funcionando igual, sin caché, sin cobro doble).
+//
+// Aislamiento (nunca se comparte caché entre docentes/asignaturas): el
+// cache de Anthropic es puramente por CONTENIDO — su clave interna es un
+// hash del prefijo exacto de tokens enviado. Dos conversaciones con texto
+// distinto (asignatura distinta, docente distinto, perfil distinto) jamás
+// generan el mismo prefijo, así que nunca pueden compartir una entrada de
+// caché entre sí — no hace falta (ni existe) una "clave de caché" que se
+// pudiera filtrar de un docente a otro.
+function bloqueConCache(texto) {
+  return [{ type: 'text', text: texto, cache_control: { type: 'ephemeral' } }]
+}
+
 async function ejecutarChatAsistente({ params, modelo, apiKey }) {
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
   const Anthropic = require('@anthropic-ai/sdk')
   const client = new Anthropic({ apiKey })
 
-  const messages = [
-    ...ctx.historial.map((h) => ({ role: h.role, content: h.content })),
-    { role: 'user', content: ctx.mensaje },
-  ]
-  const system = CHAT_SISTEMA +
+  const historialPrevio = ctx.historial.map((h) => ({ role: h.role, content: h.content }))
+  // El breakpoint va en el ÚLTIMO mensaje YA EXISTENTE (nunca en el mensaje
+  // nuevo del docente, que es lo único dinámico de `messages`).
+  if (historialPrevio.length) {
+    const ultimo = historialPrevio[historialPrevio.length - 1]
+    ultimo.content = bloqueConCache(ultimo.content)
+  }
+  const messages = [...historialPrevio, { role: 'user', content: ctx.mensaje }]
+  const systemTexto = CHAT_SISTEMA +
     (ctx.permitirAcciones ? INSTRUCCION_ACCIONES_CHAT : INSTRUCCION_FORMATO_SIN_ACCIONES) +
     '\n\n' + ctx.contextoSistema
+  const system = bloqueConCache(systemTexto)
 
   const inicio = Date.now()
   const msg = await client.messages.create({ model: modelo, max_tokens: 1400, system, messages })
   const texto = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
 
-  // El modelo a veces no obedece el formato JSON al pie de la letra (texto
-  // antes/después del bloque, cercas de código anidadas) — en vez de solo
-  // pelar un ``` inicial/final, se busca el primer '{' y el último '}' del
-  // texto completo. Si ni así se puede parsear, no se pierde la respuesta:
-  // se usa el texto crudo como conversación y simplemente no hay propuesta.
+  // El modelo a veces no obedece el formato JSON al pie de la letra: texto
+  // antes del bloque, o (visto en producción) basura DESPUÉS del `}` real.
+  // `extraerObjetoJsonBalanceado` encuentra el cierre VERDADERO del objeto
+  // de nivel superior (por profundidad de llaves, no por "la última `}` del
+  // texto") — tolera basura al final sin caer al modo de respaldo. Si aun
+  // así no se puede parsear, no se pierde la respuesta: se usa el texto
+  // crudo como conversación y simplemente no hay propuesta.
   let datos
-  const inicioJson = texto.indexOf('{')
-  const finJson = texto.lastIndexOf('}')
+  const bloqueJson = extraerObjetoJsonBalanceado(texto)
   try {
-    if (inicioJson === -1 || finJson === -1 || finJson < inicioJson) throw new Error('sin JSON')
+    if (!bloqueJson) throw new Error('sin JSON')
     // Bug real (18-ago-2026): cuando "respuesta" es un párrafo largo con
     // listas/saltos de línea, el modelo a veces mete el salto de línea REAL
     // dentro del string en vez de escaparlo como \n — JSON no permite
     // control characters sin escapar dentro de un string, así que
-    // JSON.parse tronaba y el docente veía el JSON crudo completo
-    // ("respuesta":"...", las llaves, los \n literales del resto del texto,
-    // etc.). `repararSaltosLiteralesEnJson` escapa esos saltos SOLO cuando
-    // están dentro de comillas (lleva la cuenta de comillas sin escapar para
-    // saber si está "dentro de un string") — fuera de un string un salto de
+    // JSON.parse tronaba. `repararSaltosLiteralesEnJson` escapa esos saltos
+    // SOLO cuando están dentro de comillas — fuera de un string un salto de
     // línea es solo espacio en blanco, válido en JSON tal cual.
-    datos = JSON.parse(repararSaltosLiteralesEnJson(texto.slice(inicioJson, finJson + 1)))
+    datos = JSON.parse(repararSaltosLiteralesEnJson(bloqueJson))
   } catch {
     datos = { respuesta: texto, propuesta: null }
   }
@@ -3995,6 +4073,12 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
       modelo,
       tokensEntrada: msg.usage?.input_tokens ?? null,
       tokensSalida: msg.usage?.output_tokens ?? null,
+      // Prompt caching (18-ago-2026): tokens de escritura de caché (turno
+      // que crea el prefijo, cuesta 1.25x) y de lectura de caché (turnos
+      // siguientes que lo reutilizan, cuestan 0.1x) — se guardan para medir
+      // el ahorro real, no solo asumirlo.
+      tokensCacheEscritura: msg.usage?.cache_creation_input_tokens ?? null,
+      tokensCacheLectura: msg.usage?.cache_read_input_tokens ?? null,
       ms: Date.now() - inicio,
     },
   }
