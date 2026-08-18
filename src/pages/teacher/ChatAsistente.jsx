@@ -37,7 +37,6 @@ import { useToast } from '../../components/Toast'
 import { useCreditosIA } from '../../hooks/useCreditosIA'
 import Spinner from '../../components/Spinner'
 import Select from '../../components/ui/Select'
-import Input from '../../components/ui/Input'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { formatDeadline } from '../../utils/activityVisibility'
 import { calcularTarifaExamen } from '../../utils/tarifaExamen'
@@ -264,6 +263,16 @@ export default function ChatAsistente() {
   const [historial, setHistorial] = useState([])
   const [historialCargado, setHistorialCargado] = useState(false)
   const [mensaje, setMensaje] = useState('')
+  const textareaRef = useRef(null)
+  // Auto-crece con el contenido (hasta max-h-32 del textarea) — sin esto el
+  // textarea se queda en 1 renglón fijo y el texto pegado con saltos de
+  // línea solo se ve haciendo scroll adentro de la caja.
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [mensaje])
   const [enviando, setEnviando] = useState(false)
   const [confirmarBorrar, setConfirmarBorrar] = useState(false)
   // id del mensaje cuya propuesta se está creando — deshabilita SU botón y,
@@ -686,20 +695,30 @@ export default function ChatAsistente() {
         <div ref={finRef} />
       </div>
 
-      {/* Campo de escritura */}
+      {/* Campo de escritura — textarea (no <input>) para que pegar texto
+          respete los saltos de renglón; un <input> de una sola línea los
+          descarta al pegar. Enter envía, Shift+Enter baja de renglón (pedido
+          de Kike, 18-ago-2026). Auto-crece con el contenido hasta un máximo
+          para no comerse la conversación. */}
       <form
         onSubmit={(e) => { e.preventDefault(); enviar() }}
-        className="flex items-center gap-2"
+        className="flex items-end gap-2"
       >
-        <Input
-          type="text"
+        <textarea
+          ref={textareaRef}
           value={mensaje}
           onChange={(e) => setMensaje(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              if (!enviando && mensaje.trim() && !sinCreditos && !sinIA && !limiteAlcanzado) enviar()
+            }
+          }}
           placeholder="Escribe tu pregunta…"
           disabled={enviando || sinCreditos || sinIA || limiteAlcanzado}
           maxLength={2000}
-          wrapperClassName="flex-1"
-          className="disabled:opacity-60"
+          rows={1}
+          className="flex-1 w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none max-h-32 disabled:opacity-60"
         />
         <button
           type="submit"
