@@ -426,7 +426,13 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       const altaTexto = sub ? formatDate(altaValor) : '—'
       const vencTexto = sub ? formatDate(vencValor) : '—'
       return {
-        id: sub ? sub.id : `sin-suscripcion-${teacher?.id}`,
+        // Bug real (19-ago-2026): las bajas arman un `sub` de constancia SIN
+        // `.id` (no hay documento de suscripción que borrar — nunca existió
+        // o ya se borró junto con la cuenta), así que `sub.id` daba
+        // `undefined` para TODAS las bajas — la key de React quedaba
+        // repetida (`undefined`) en cada una, y por eso se veían como filas
+        // "duplicadas" que no se distinguían entre sí.
+        id: sub ? (sub.id ?? `baja-${teacher?.id}`) : `sin-suscripcion-${teacher?.id}`,
         sub,
         docente,
         usuario,
@@ -699,6 +705,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   }
 
   async function handleDelete(sub) {
+    // Guarda de más (19-ago-2026): un `sub` sin `.id` (p. ej. la constancia
+    // de una baja) no tiene documento real que borrar — sin esto,
+    // `doc(db, 'subscriptions', undefined)` tronaba dentro del SDK de
+    // Firestore con un error críptico ("Cannot read properties of undefined
+    // (reading 'indexOf')") que no decía nada de la causa real, y la fila
+    // parecía "no borrarse nunca" sin importar cuántas veces se intentara.
+    if (!sub?.id) {
+      toast('Esta fila no tiene una suscripción que eliminar.', 'error')
+      return
+    }
     if (!confirm('¿Eliminar esta suscripción? No se puede deshacer.')) return
     try {
       await deleteDoc(doc(db, 'subscriptions', sub.id))
@@ -890,9 +906,20 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   </td>
                   <td className="px-3 py-2 text-muted truncate" title={r.ultimoPago}>{r.ultimoPago}</td>
                   {/* Sin suscripción no hay nada que editar, cancelar ni
-                      eliminar: a ese docente se le crea una con "Nueva". */}
+                      eliminar: a ese docente se le crea una con "Nueva".
+                      Una BAJA (cuentaEliminada) tampoco tiene nada que hacer
+                      aquí: es la constancia permanente de una cuenta ya
+                      borrada, a propósito NO desaparece del panel (ver el
+                      comentario de `bajas` en `rows`) — mostrar aquí un
+                      botón "Eliminar" no tenía sentido y además truena, ya
+                      que la constancia no tiene un documento de suscripción
+                      real que borrar (bug real, 19-ago-2026: el `sub` de
+                      constancia no trae `.id`, así que
+                      `deleteDoc(doc(db,'subscriptions', undefined))` tronaba
+                      dentro del SDK de Firestore — la fila nunca se borraba
+                      sin importar cuántas veces se hiciera clic). */}
                   <td className="px-3 py-2">
-                    {!r.sub ? (
+                    {!r.sub || r.sub.cuentaEliminada ? (
                       <span className="text-xs text-slate-400">—</span>
                     ) : (
                     <div className="flex items-center gap-1">
