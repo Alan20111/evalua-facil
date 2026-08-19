@@ -139,7 +139,7 @@ export default function AdminChat() {
         ) : historial.length === 0 && !enviando ? (
           <div className="h-full flex flex-col items-center justify-center text-center py-6 gap-3">
             <BrainCircuit size={28} className="text-accent" />
-            <p className="text-sm text-muted max-w-sm">
+            <p className="text-[19px] text-muted max-w-sm">
               Pregunta sobre usuarios, planes, ingresos, consumo de IA o uso del Chat — respondo con datos reales de la plataforma, nunca inventados.
             </p>
             <div className="flex flex-wrap gap-1.5 justify-center max-w-md">
@@ -159,7 +159,7 @@ export default function AdminChat() {
           historial.map((h) => (
             <div key={h.id} className={`flex flex-col ${h.role === 'user' ? 'items-end' : 'items-start'} gap-1.5`}>
               <div className={`flex ${h.role === 'user' ? 'justify-end' : 'justify-start'} w-full`}>
-                <div className={`max-w-[85%] rounded-card px-3 py-2 text-sm ${
+                <div className={`max-w-[85%] rounded-card px-3 py-2 text-[19px] ${
                   h.role === 'user' ? 'bg-accent text-white whitespace-pre-wrap' : 'bg-surface-container text-on-surface'
                 }`}>
                   {h.role === 'user' ? h.content : <AdminChatMensaje texto={h.content} />}
@@ -193,7 +193,7 @@ export default function AdminChat() {
           disabled={enviando}
           maxLength={2000}
           rows={1}
-          className="flex-1 w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none max-h-32 disabled:opacity-60"
+          className="flex-1 w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-[19px] bg-surface resize-none max-h-32 disabled:opacity-60"
         />
         <button
           type="submit"
