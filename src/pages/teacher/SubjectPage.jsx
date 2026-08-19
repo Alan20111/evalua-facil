@@ -543,7 +543,7 @@ const ESTADO_FILTRO_OPCIONES = [
   { value: 'activo', label: 'Activos' },
   { value: 'sin_activar', label: 'Sin activar' },
 ]
-function EstadoFiltroHeader({ value, onChange, open, setOpen }) {
+function EstadoFiltroHeader({ value, onChange, open, setOpen, total, activos }) {
   const boxRef = useRef(null)
 
   useEffect(() => {
@@ -558,6 +558,10 @@ function EstadoFiltroHeader({ value, onChange, open, setOpen }) {
   useBackHandler(() => setOpen(false), open)
 
   const current = ESTADO_FILTRO_OPCIONES.find((o) => o.value === value)
+  // Cuenta de cada opción sobre el TOTAL de la asignatura, no sobre lo ya
+  // filtrado por búsqueda — para que el número diga "de cuántos en total",
+  // no "de cuántos me quedan visibles ahora".
+  const CONTEO = { todos: total, activo: activos, sin_activar: total - activos }
 
   return (
     <div ref={boxRef} className={`relative flex-shrink-0 ${IS_NATIVE_APP ? 'w-14' : 'w-24'}`}>
@@ -574,17 +578,18 @@ function EstadoFiltroHeader({ value, onChange, open, setOpen }) {
         <ChevronDown size={IS_NATIVE_APP ? 10 : 12} className={`flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute z-40 top-full mt-1 left-0 w-32 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden normal-case">
+        <div className="absolute z-40 top-full mt-1 left-0 w-36 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden normal-case">
           {ESTADO_FILTRO_OPCIONES.map((o) => (
             <button
               key={o.value}
               type="button"
               onClick={() => { onChange(o.value); setOpen(false) }}
-              className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+              className={`w-full flex items-center justify-between gap-2 text-left px-3 py-2 text-sm transition-colors ${
                 o.value === value ? 'bg-[var(--accent-tint)] text-accent font-semibold' : 'text-on-surface hover:bg-[var(--accent-tint)]'
               }`}
             >
-              {o.label}
+              <span>{o.label}</span>
+              <span className="text-xs text-muted flex-shrink-0">{CONTEO[o.value]}/{total}</span>
             </button>
           ))}
         </div>
@@ -5335,6 +5340,8 @@ export default function SubjectPage() {
                   onChange={setFiltroActivacion}
                   open={estadoFiltroOpen}
                   setOpen={setEstadoFiltroOpen}
+                  total={groupStudents.length}
+                  activos={groupStudents.filter((s) => s.activado).length}
                 />
                 {!IS_NATIVE_APP && <span className="w-9 flex-shrink-0" />}
               </div>
