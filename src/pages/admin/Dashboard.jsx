@@ -11,6 +11,7 @@ import PaymentConfig from './components/PaymentConfig'
 import StudentsTable from './components/StudentsTable'
 import VentasPorZona from './components/VentasPorZona'
 import AdminChat from './components/AdminChat'
+import DownloadLinks from './components/DownloadLinks'
 
 const TAB_TITLES = {
   chat: 'Inteligencia de Evalúa Fácil',
@@ -21,6 +22,7 @@ const TAB_TITLES = {
   zonas: 'Ventas por zona',
   cobros: 'Configuración de cobros',
   estudiantes: 'Estudiantes',
+  descargas: 'Enlaces de descarga del APK',
 }
 
 export default function AdminDashboard() {
@@ -78,6 +80,7 @@ export default function AdminDashboard() {
           {activeTab === 'zonas' && <VentasPorZona stats={stats} />}
           {activeTab === 'cobros' && <PaymentConfig />}
           {activeTab === 'estudiantes' && <StudentsTable stats={stats} />}
+          {activeTab === 'descargas' && <DownloadLinks />}
         </>
       )}
     </AdminLayout>

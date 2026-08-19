@@ -187,10 +187,10 @@ export default function App() {
             <Route path="/privacy" element={<Privacidad />} />
 
             {/* Descarga directa del APK de Android — ruta NO listada, a propósito.
-                El slug es aleatorio para que solo entre quien tenga el link exacto;
+                Los slugs se generan desde el panel de admin (pestaña Descargas);
                 no la enlaces desde ningún menú ni la publiques. Si el link se filtra,
                 basta con cambiar el slug de aquí abajo para invalidarlo. */}
-            <Route path="/descarga/p47hj9m8lk" element={<DescargaApp />} />
+            <Route path="/descarga/:slug" element={<DescargaApp />} />
 
             {/* Admin protected */}
             <Route path="/Admin" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />

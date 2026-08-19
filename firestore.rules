@@ -1168,5 +1168,21 @@ service cloud.firestore {
     match /iaTrialRegistro/{uid} {
       allow read, write: if false;
     }
+
+    // ── Enlaces de descarga del APK de Android ──
+    // El ID del doc ES el slug del enlace (ver src/utils/descargaLinks.js).
+    //
+    // Lectura pública a propósito: quien abre /descarga/{slug} no está
+    // autenticado, así que la página no podría resolver el enlace de otro
+    // modo. Lo que protege el enlace es que el slug sea impredecible (10
+    // caracteres aleatorios), no la regla — igual que un enlace "no listado"
+    // de YouTube. No guardes nada sensible en estos docs.
+    //
+    // Escritura solo para admin: crear, activar/desactivar y borrar enlaces
+    // se hace desde el panel (pestaña Descargas).
+    match /downloadLinks/{slug} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }
