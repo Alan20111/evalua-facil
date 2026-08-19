@@ -810,6 +810,7 @@ export default function Profile() {
             </button>
             {showComparacion && (
               <PlanComparisonTable
+                creditosTrial={creditosIA.tarifas?.capacidadPorPlan?.trial}
                 creditosPro={creditosIA.tarifas?.planes?.pro?.creditos}
                 creditosMayor={creditosIA.tarifas?.planes?.mayor?.creditos}
                 paquetesCreditos={creditosIA.paquetesCreditos}

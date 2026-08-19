@@ -7,6 +7,13 @@ import { Timestamp, serverTimestamp } from 'firebase/firestore'
 export const TRIAL_DURATION_DAYS = 30
 // Warning notice starts when this many days (or fewer) are left — day 25 of 30.
 export const TRIAL_WARNING_DAYS = 6
+// Límite de interacciones del Chat con Asistente durante el trial — TOTAL
+// para todo el periodo de prueba, no por día (a diferencia de los planes de
+// pago). Mismo valor que LIMITE_CHAT_TRIAL_TOTAL en functions/ia.js — el
+// servidor es quien de verdad lo hace cumplir; esta constante es solo para
+// que el frontend (tabla de planes, textos del Chat) no repita el número
+// suelto en cada lugar que lo menciona.
+export const TRIAL_CHAT_INTERACCIONES_LIMITE = 10
 
 // ── Commercial model — single source de verdad ──────────────────────────────
 // Estructura definitiva (18-ago-2026, reemplaza el modelo de un solo plan

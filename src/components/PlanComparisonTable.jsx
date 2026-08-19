@@ -1,22 +1,32 @@
 import { Check } from 'lucide-react'
-import { BASICO_PRICE_MXN, MONTHLY_PRICE_MXN, MAYOR_PRICE_MXN } from '../utils/subscriptionHelpers'
+import {
+  BASICO_PRICE_MXN, MONTHLY_PRICE_MXN, MAYOR_PRICE_MXN,
+  TRIAL_DURATION_DAYS, TRIAL_CHAT_INTERACCIONES_LIMITE,
+} from '../utils/subscriptionHelpers'
 
 // Tabla comercial — lo único que el docente necesita para decidir en pocos
 // segundos: qué obtiene, cuánto cuesta y qué le conviene. A propósito NO
 // muestra nada interno (planId, nombres de documentos/colecciones): los
 // encabezados son los nombres comerciales, no `basico`/`pro`/`mayor`.
 //
-// Reestructuración de precios (18-ago-2026): esta tabla representa los TRES
-// PLANES DE PAGO — Básico ($99, sin IA), Asistente IA ($199, 350 créditos,
-// Chat hasta 50 interacciones/día) y Asistente IA Pro ($299, 1,000 créditos,
-// Chat hasta 50 interacciones/día). El periodo de PRUEBA GRATUITO (trial) es
-// una cosa aparte, NO una cuarta columna aquí — se explica en el texto que
-// va junto a esta tabla (CheckoutModal/Profile.jsx), nunca mezclado con los
-// planes de pago.
+// Reestructuración de precios (18-ago-2026): TRES PLANES DE PAGO — Básico
+// ($99, sin IA), Asistente IA ($199, 350 créditos, Chat hasta 50
+// interacciones/día) y Asistente IA Pro ($299, 1,000 créditos, Chat hasta 50
+// interacciones/día).
 //
-// `creditosPro`/`creditosMayor` vienen de config/iaTarifas (vía
-// useCreditosIA en quien la use) para no duplicar esos números — todo lo
-// demás (precio, filas de función) es fijo y comercial, no cambia con la
+// Prueba gratuita como CUARTA columna, primera de la tabla (19-ago-2026,
+// pedido explícito) — antes se explicaba solo en el texto aparte debajo de
+// la tabla; ahora también se compara función por función igual que los
+// planes de pago. $0, dura TRIAL_DURATION_DAYS (30) días, 50 créditos de IA
+// y Chat con Asistente hasta TRIAL_CHAT_INTERACCIONES_LIMITE (10)
+// interacciones TOTALES durante todo el periodo — NO por día, a propósito
+// distinto de "Hasta 50/día" de los planes de pago para no confundir los dos
+// límites. El texto explicativo debajo de la tabla ("Prueba gratis con IA")
+// se mantiene tal cual — esta columna lo complementa, no lo reemplaza.
+//
+// `creditosPro`/`creditosMayor`/`creditosTrial` vienen de config/iaTarifas
+// (vía useCreditosIA en quien la use) para no duplicar esos números — todo
+// lo demás (precio, filas de función) es fijo y comercial, no cambia con la
 // tarifa.
 //
 // `table-layout: fixed` con anchos porcentuales fijos (en vez del ancho
@@ -107,9 +117,9 @@ function SeccionCreditosAdicionales({ paquetes }) {
   )
 }
 
-export default function PlanComparisonTable({ creditosPro, creditosMayor, paquetesCreditos }) {
-  const nCols = 3
-  const colEtiquetaPct = 28
+export default function PlanComparisonTable({ creditosTrial, creditosPro, creditosMayor, paquetesCreditos }) {
+  const nCols = 4
+  const colEtiquetaPct = 24
   const colValorPct = (100 - colEtiquetaPct) / nCols
 
   return (
@@ -124,6 +134,11 @@ export default function PlanComparisonTable({ creditosPro, creditosMayor, paquet
         <thead>
           <tr className="border-b border-outline-variant">
             <th className="px-1 py-2 text-left font-semibold text-muted">Plan</th>
+            <th className="px-1 py-2 text-center border-l border-outline-variant">
+              <p className="font-bold text-on-surface leading-tight text-[11px]">Prueba gratuita</p>
+              <p className="text-[10px] text-muted font-normal">$0<br />{TRIAL_DURATION_DAYS} días</p>
+              <p className="text-[9px] text-muted leading-tight mt-0.5">Con IA, de prueba</p>
+            </th>
             <th className="px-1 py-2 text-center border-l border-outline-variant">
               <p className="font-bold text-on-surface leading-tight text-[11px]">Básico</p>
               <p className="text-[10px] text-muted font-normal">${BASICO_PRICE_MXN}<br />/mes</p>
@@ -143,17 +158,18 @@ export default function PlanComparisonTable({ creditosPro, creditosMayor, paquet
         </thead>
         <tbody>
           {/* Descarga de archivos: función de plan PAGADO (no de IA) — los
-              tres planes de esta tabla ya son de pago, así que los tres la
-              tienen. Distinto del periodo de prueba gratuito, que NO la
-              tiene (ver el texto aparte sobre el trial). */}
+              tres planes de pago la tienen. La Prueba gratuita NO la tiene
+              (especificación explícita, 19-ago-2026). */}
           <tr className="border-b border-outline-variant bg-accent-light">
             <td className="px-1.5 py-2 font-medium text-muted">Descarga de archivos</td>
+            <CeldaNo />
             <CeldaSi />
             <CeldaSi />
             <CeldaSi />
           </tr>
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Créditos de IA</td>
+            <Celda destacada>{creditosTrial != null ? creditosTrial.toLocaleString('es-MX') : '—'}</Celda>
             <CeldaNo />
             <Celda destacada>{creditosPro != null ? creditosPro.toLocaleString('es-MX') : '—'}</Celda>
             <Celda destacada>{creditosMayor != null ? creditosMayor.toLocaleString('es-MX') : '—'}</Celda>
@@ -162,9 +178,12 @@ export default function PlanComparisonTable({ creditosPro, creditosMayor, paquet
               (C-02/OP-10). Nombre de fila sin "con IA" a propósito (revisión
               UX, 18-ago-2026): así "Sí, manual" en Básico no lee como
               contradictorio junto al título. Igual en ambos planes con IA —
-              el "más" real de Pro ya está en los créditos, no aquí. */}
+              el "más" real de Pro ya está en los créditos, no aquí. La
+              Prueba gratuita también incluye IA aquí (especificación
+              explícita, 19-ago-2026). */}
           <tr className="border-b border-outline-variant bg-accent-light">
             <td className="px-1.5 py-2 font-medium text-muted">Evaluación</td>
+            <CeldaConIA />
             <CeldaManual />
             <CeldaConIA />
             <CeldaConIA />
@@ -173,53 +192,65 @@ export default function PlanComparisonTable({ creditosPro, creditosMayor, paquet
               Básico NO lo tiene — es de los planes con IA. No consume
               créditos por mensaje (solo confirmar una acción de creación
               cobra, con el costo real de esa operación); el candado real es
-              el límite de interacciones (fila de abajo). */}
+              el límite de interacciones (fila de abajo). La Prueba gratuita
+              SÍ tiene Chat (especificación explícita, 19-ago-2026). */}
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Chat con Asistente IA</td>
+            <CeldaSi />
             <CeldaNo />
             <CeldaSi />
             <CeldaSi />
           </tr>
+          {/* El límite del trial es TOTAL para todo el periodo, no diario —
+              texto distinto a propósito de "Hasta 50/día" para no dar a
+              entender que también se reinicia cada día. */}
           <tr className="border-b border-outline-variant bg-accent-light">
             <td className="px-1.5 py-2 font-medium text-muted">Interacciones con el Chat</td>
+            <Celda destacada>Hasta {TRIAL_CHAT_INTERACCIONES_LIMITE} (todo el periodo)</Celda>
             <CeldaNo />
             <Celda destacada>Hasta 50/día</Celda>
             <Celda destacada>Hasta 50/día</Celda>
           </tr>
           {/* Cuestionarios y exámenes (18-ago-2026). Nombre de fila sin "con
               IA" por la misma razón que "Evaluación" arriba. Mismo tope de
-              reactivos por corrida en ambos planes con IA (functions/ia.js:
-              MAX_REACTIVOS_EVALUACION_PAGO=100 — ya no hay nivel "trial" en
-              esta tabla). */}
+              reactivos por corrida en ambos planes de pago con IA
+              (functions/ia.js: MAX_REACTIVOS_EVALUACION_PAGO=100). La Prueba
+              gratuita también tiene IA aquí, sin un tope de reactivos
+              específico en la especificación — se muestra sin ese detalle. */}
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Cuestionarios y exámenes</td>
+            <CeldaConIA />
             <CeldaManual />
             <CeldaConIA detalle="hasta 100 reactivos" />
             <CeldaConIA detalle="hasta 100 reactivos" />
           </tr>
           <tr className="border-b border-outline-variant bg-accent-light">
             <td className="px-1.5 py-2 font-medium text-muted">Pago de varios meses</td>
+            <CeldaNo />
             <CeldaRespuestaNo />
             <Celda destacada>1-6 meses</Celda>
             <Celda destacada>Solo 1</Celda>
           </tr>
           <tr className="border-b border-outline-variant">
             <td className="px-1.5 py-2 font-medium text-muted">Descuentos por prepago</td>
+            <CeldaNo />
             <CeldaRespuestaNo />
             <CeldaSi />
             <CeldaRespuestaNo />
           </tr>
 
-          {/* Funciones de IA: iguales en Asistente IA / Asistente IA Pro — se
+          {/* Funciones de IA: iguales en Prueba gratuita, Asistente IA y
+              Asistente IA Pro (especificación explícita, 19-ago-2026) — se
               agrupan al final, en gris claro. Básico no las tiene (sin IA). */}
           <tr className="border-b border-t-2 border-outline-variant">
             <td className="px-1.5 py-2 font-semibold text-slate-400 text-[11px] uppercase" colSpan={nCols + 1}>
-              Funciones de IA — Asistente IA y Asistente IA Pro
+              Funciones de IA — Prueba gratuita, Asistente IA y Asistente IA Pro
             </td>
           </tr>
           {FILAS_FUNCIONES.map((fila) => (
             <tr key={fila} className="border-b border-outline-variant">
               <td className="px-1.5 py-2 text-muted text-[11px]">{fila}</td>
+              <CeldaSi />
               <CeldaNo />
               <CeldaSi />
               <CeldaSi />
