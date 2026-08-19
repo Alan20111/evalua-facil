@@ -534,6 +534,65 @@ function ExportSplitButton({ label, Icon, onMain, mainDisabled, mainTooltip, men
   )
 }
 
+// Filtro de estado de activación en el encabezado de la lista de estudiantes
+// — reemplaza el texto fijo "Estado". Mismo patrón de menú que
+// ExportSplitButton de arriba (absolute + click-afuera + botón atrás de
+// Android), pero encogido al ancho de la columna (w-14 en App, w-24 en web).
+const ESTADO_FILTRO_OPCIONES = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'activo', label: 'Activos' },
+  { value: 'sin_activar', label: 'Sin activar' },
+]
+function EstadoFiltroHeader({ value, onChange, open, setOpen }) {
+  const boxRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return undefined
+    function onDocMouseDown(e) {
+      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocMouseDown, true)
+    return () => document.removeEventListener('mousedown', onDocMouseDown, true)
+  }, [open, setOpen])
+
+  useBackHandler(() => setOpen(false), open)
+
+  const current = ESTADO_FILTRO_OPCIONES.find((o) => o.value === value)
+
+  return (
+    <div ref={boxRef} className={`relative flex-shrink-0 ${IS_NATIVE_APP ? 'w-14' : 'w-24'}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label="Filtrar por estado"
+        className={`w-full flex items-center gap-0.5 font-semibold uppercase tracking-wide transition-colors ${
+          value !== 'todos' ? 'text-accent' : 'text-muted hover:text-on-surface'
+        } ${IS_NATIVE_APP ? 'text-[9px]' : 'text-xs'}`}
+      >
+        <span className="truncate">{IS_NATIVE_APP ? 'Estado' : current.label === 'Todos' ? 'Estado' : current.label}</span>
+        <ChevronDown size={IS_NATIVE_APP ? 10 : 12} className={`flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute z-40 top-full mt-1 left-0 w-32 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden normal-case">
+          {ESTADO_FILTRO_OPCIONES.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => { onChange(o.value); setOpen(false) }}
+              className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                o.value === value ? 'bg-[var(--accent-tint)] text-accent font-semibold' : 'text-on-surface hover:bg-[var(--accent-tint)]'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function SubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
@@ -744,6 +803,11 @@ export default function SubjectPage() {
   const [newStudent, setNewStudent] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
   const [savingStudent, setSavingStudent] = useState(false)
   const [searchAlumnos, setSearchAlumnos] = useState('')
+  // Filtro por estado de activación en la lista de estudiantes — pedido
+  // explícito: con grupos grandes no había forma de ver de un vistazo quién
+  // ya se activó y quién todavía no.
+  const [filtroActivacion, setFiltroActivacion] = useState('todos') // 'todos' | 'activo' | 'sin_activar'
+  const [estadoFiltroOpen, setEstadoFiltroOpen] = useState(false)
   // Vista previa antes de importar el Excel de estudiantes — pedido
   // explícito: antes se subía directo a Firestore sin mostrar qué se iba a
   // crear ni avisar de filas mal capturadas.
@@ -3727,12 +3791,18 @@ export default function SubjectPage() {
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
   }
 
-  const filteredAlumnos = groupStudents.filter((s) =>
-    matchesStudentSearch(s, searchAlumnos) ||
-    // El username nunca trae acentos (generateUsername los quita), así que la
-    // búsqueda también se los quita: escribir "garcía" encuentra garcia.juan.
-    sinAcentos(s.username).includes(sinAcentos(searchAlumnos).trim())
-  )
+  const filteredAlumnos = groupStudents
+    .filter((s) =>
+      matchesStudentSearch(s, searchAlumnos) ||
+      // El username nunca trae acentos (generateUsername los quita), así que la
+      // búsqueda también se los quita: escribir "garcía" encuentra garcia.juan.
+      sinAcentos(s.username).includes(sinAcentos(searchAlumnos).trim())
+    )
+    .filter((s) =>
+      filtroActivacion === 'activo' ? s.activado :
+      filtroActivacion === 'sin_activar' ? !s.activado :
+      true
+    )
 
   // Tabla de asistencias — ver componente AttendanceTable (memo) arriba.
   const attendanceTableJsx = (
@@ -5246,7 +5316,7 @@ export default function SubjectPage() {
             <div className="flex justify-center py-10"><Spinner /></div>
           ) : filteredAlumnos.length === 0 ? (
             <div className="text-center py-10 text-slate-400 text-sm">
-              {searchAlumnos ? 'Sin resultados' : 'No hay estudiantes en esta asignatura'}
+              {searchAlumnos || filtroActivacion !== 'todos' ? 'Sin resultados' : 'No hay estudiantes en esta asignatura'}
             </div>
           ) : (
             <div className="bg-surface-card rounded-card overflow-y-auto max-h-[65vh] shadow-card">
@@ -5260,7 +5330,12 @@ export default function SubjectPage() {
                   <p className="w-7 flex-shrink-0 text-[9px] font-semibold text-muted uppercase tracking-wide">No.</p>
                 )}
                 <p className={`font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'flex-1 text-[9px]' : 'flex-shrink-0 w-44 text-xs'}`}>Código</p>
-                <p className={`flex-shrink-0 font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'w-14 text-[9px]' : 'w-24 text-xs'}`}>Estado</p>
+                <EstadoFiltroHeader
+                  value={filtroActivacion}
+                  onChange={setFiltroActivacion}
+                  open={estadoFiltroOpen}
+                  setOpen={setEstadoFiltroOpen}
+                />
                 {!IS_NATIVE_APP && <span className="w-9 flex-shrink-0" />}
               </div>
               {filteredAlumnos.map((s, i) => (
