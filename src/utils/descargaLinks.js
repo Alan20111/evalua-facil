@@ -17,7 +17,7 @@ const COL = 'downloadLinks'
 // que no se rompa. No borrar mientras siga circulando por WhatsApp.
 export const LINK_LEGADO = {
   slug: 'p47hj9m8lk',
-  version: '1.0.2',
+  version: '1.0.3',
   fecha: '19 de agosto de 2026',
   url: '/descargas/evalua-facil.apk',
   activo: true,
