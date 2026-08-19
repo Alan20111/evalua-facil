@@ -33,7 +33,12 @@ export async function getEnrollments(currentUser, userProfile) {
       getDocs(query(collection(db, 'students'), where('username', '==', u)))
     ))
     let docs = snaps.flatMap((s) => s.docs).map((d) => ({ id: d.id, ...d.data() }))
-    if (escuelaId) docs = docs.filter((s) => s.escuelaId === escuelaId)
+    // escuelaId viene del correo de Auth (siempre en minúsculas), pero el
+    // escuelaId real en Firestore es un ID autogenerado con mayúsculas — sin
+    // este toLowerCase() este fallback nunca encontraba nada para ninguna
+    // escuela con mayúscula en su ID (mismo bug que firestore.rules,
+    // corregido 19-ago-2026).
+    if (escuelaId) docs = docs.filter((s) => s.escuelaId?.toLowerCase() === escuelaId)
     if (docs.length) return docs
   }
   return []

@@ -142,7 +142,13 @@ export function AuthProvider({ children }) {
                 getDocs(query(collection(db, 'students'), where('username', '==', u)))
               ))
               docs = snaps.flatMap((s) => s.docs).map((d) => ({ id: d.id, ...d.data() }))
-              if (escuelaId) docs = docs.filter((d) => d.escuelaId === escuelaId)
+              // escuelaId viene del correo de Auth, que Firebase siempre guarda en
+              // minúsculas — pero el escuelaId real en Firestore es un ID
+              // autogenerado con mayúsculas. Sin este toLowerCase() aquí también,
+              // este filtro nunca encontraba nada para ninguna escuela con
+              // mayúscula en su ID (mismo bug que firestore.rules, corregido
+              // 19-ago-2026).
+              if (escuelaId) docs = docs.filter((d) => d.escuelaId?.toLowerCase() === escuelaId)
             }
             const s = docs.find((d) => d.uid === user.uid) || docs[0]
             if (s) {

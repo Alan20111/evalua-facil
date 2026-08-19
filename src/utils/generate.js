@@ -30,7 +30,7 @@ export function usernameCandidates(input) {
 // inscripción es de verdad esa persona (ver match /students en
 // firestore.rules). Cambiar la forma de este correo rompe esa comprobación.
 export function studentEmail(username, escuelaId) {
-  return `${username.toLowerCase()}.${escuelaId}@evalua.local`
+  return `${username.toLowerCase()}.${escuelaId.toLowerCase()}@evalua.local`
 }
 
 // Aquí vivían `generateResetPassword` y `maskEmail`, las dos sin un solo uso:
