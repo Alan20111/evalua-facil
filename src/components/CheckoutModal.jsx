@@ -232,6 +232,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 no escondida detrás de un toggle. Solo nombres comerciales:
                 nada de planId/pro/mayor/trial ni de dónde salen los datos. */}
             <PlanComparisonTable
+              creditosTrial={creditosIA.tarifas?.capacidadPorPlan?.trial}
               creditosPro={creditosIA.tarifas?.planes?.pro?.creditos}
               creditosMayor={creditosIA.tarifas?.planes?.mayor?.creditos}
               paquetesCreditos={creditosIA.paquetesCreditos}
