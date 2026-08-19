@@ -27,6 +27,7 @@ import CalendarPage from './pages/teacher/CalendarPage'
 import VerifyEmail from './pages/teacher/VerifyEmail'
 import PagoResultado from './pages/teacher/PagoResultado'
 import Privacidad from './pages/Privacidad'
+import DescargaApp from './pages/DescargaApp'
 import TeacherNotificationSettings from './pages/teacher/NotificationSettings'
 import GettingStartedPage from './pages/teacher/GettingStartedPage'
 
@@ -184,6 +185,12 @@ export default function App() {
             <Route path="/pago-resultado" element={<PagoResultado />} />
             <Route path="/privacidad" element={<Privacidad />} />
             <Route path="/privacy" element={<Privacidad />} />
+
+            {/* Descarga directa del APK de Android — ruta NO listada, a propósito.
+                El slug es aleatorio para que solo entre quien tenga el link exacto;
+                no la enlaces desde ningún menú ni la publiques. Si el link se filtra,
+                basta con cambiar el slug de aquí abajo para invalidarlo. */}
+            <Route path="/descarga/p47hj9m8lk" element={<DescargaApp />} />
 
             {/* Admin protected */}
             <Route path="/Admin" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />

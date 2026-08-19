@@ -1,0 +1,6 @@
+# Evalúa Fácil
+# La página de descarga del APK y el archivo en sí no deben indexarse:
+# se comparten solo por link directo.
+User-agent: *
+Disallow: /descarga/
+Disallow: /descargas/
