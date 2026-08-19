@@ -386,8 +386,14 @@ service cloud.firestore {
           request.auth != null &&
           request.resource.data.uid == request.auth.uid &&
           (resource.data.get('uid', null) == null || resource.data.uid == request.auth.uid) &&
+          // escuelaId es un ID autogenerado de Firestore (mezcla mayúsculas y
+          // minúsculas), pero Firebase Auth SIEMPRE guarda el correo en
+          // minúsculas — sin este .lower() aquí también, la comparación nunca
+          // coincidía para ninguna escuela con una mayúscula en su ID (casi
+          // todas), y ningún alumno nuevo podía activarse desde el 5-ago-2026
+          // (#989). Bug real en producción, encontrado el 19-ago-2026.
           request.auth.token.get('email', '') ==
-            resource.data.username.lower() + '.' + resource.data.escuelaId + '@evalua.local' &&
+            resource.data.username.lower() + '.' + resource.data.escuelaId.lower() + '@evalua.local' &&
           request.resource.data.username == resource.data.username &&
           request.resource.data.escuelaId == resource.data.escuelaId &&
           request.resource.data.asignaturaId == resource.data.asignaturaId &&

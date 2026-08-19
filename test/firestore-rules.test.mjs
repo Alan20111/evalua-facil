@@ -101,12 +101,15 @@ const asT2 = testEnv.authenticatedContext(T2).firestore()
 // El correo de Auth de un estudiante es determinista: usuario.escuela@evalua.local
 // (ver studentEmail en src/utils/generate.js). Es lo que prueba que quien
 // reclama una inscripción es de verdad esa persona, así que los contextos de
-// prueba lo llevan.
-const asJuan = testEnv.authenticatedContext(U_JUAN, { email: 'juan.E1@evalua.local' }).firestore()
+// prueba lo llevan. Firebase Auth SIEMPRE guarda el correo en minúsculas —a
+// diferencia del emulador, que deja el literal tal cual se le pasa— así que
+// aquí va en minúsculas aunque escuelaId ('E1') se guarde con mayúscula en el
+// documento: es justo el caso real que rompía la activación (bug 19-ago-2026).
+const asJuan = testEnv.authenticatedContext(U_JUAN, { email: 'juan.e1@evalua.local' }).firestore()
 const U_INTRUSO = 'authuid_intruso'
-const asIntruso = testEnv.authenticatedContext(U_INTRUSO, { email: 'otro.E1@evalua.local' }).firestore()
+const asIntruso = testEnv.authenticatedContext(U_INTRUSO, { email: 'otro.e1@evalua.local' }).firestore()
 const U_SIN_UID = 'authuid_sin_uid'
-const asSinUid = testEnv.authenticatedContext(U_SIN_UID, { email: 'sinuid.E1@evalua.local' }).firestore()
+const asSinUid = testEnv.authenticatedContext(U_SIN_UID, { email: 'sinuid.e1@evalua.local' }).firestore()
 const asMallory = testEnv.authenticatedContext(U_MALLORY).firestore()
 
 // ── students ────────────────────────────────────────────────────────────────
