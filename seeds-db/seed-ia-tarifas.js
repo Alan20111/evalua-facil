@@ -215,6 +215,32 @@ const TARIFAS = {
     { creditos: 400, precioMXN: 200 },
     { creditos: 500, precioMXN: 250 },
   ],
+  // Tarifa REAL de Anthropic (19-ago-2026, pedido explícito de Kike) — USD
+  // por millón de tokens, confirmada contra la documentación oficial
+  // (platform.claude.com/docs/en/about-claude/pricing) el mismo día. Sirve
+  // para que el Chat de Administración calcule el costo real de cada
+  // operación de IA a partir de los tokens que ya registra
+  // iaConsumosInterno — NO son las tarifas de créditos que le cobran al
+  // docente (esas son `tarifas` arriba), son lo que Evalúa Fácil le paga a
+  // Anthropic. Parámetro de sistema, no una constante en código: cambia
+  // aquí (o directo en Firestore) cuando Anthropic actualice precios, sin
+  // tocar ni redesplegar functions/adminChat.js.
+  //
+  // `cacheEscritura5mPorMTok`/`cacheLecturaPorMTok`: multiplicadores 1.25x y
+  // 0.1x del precio de entrada — el único breakpoint que usa Evalúa Fácil es
+  // el de 5 minutos (ver bloqueConCache en functions/ia.js y
+  // functions/adminChat.js), nunca el de 1 hora, así que no hace falta esa
+  // tercera tarifa.
+  costosAnthropicUSD: {
+    'claude-haiku-4-5': {
+      entradaPorMTok: 1, salidaPorMTok: 5, cacheEscritura5mPorMTok: 1.25, cacheLecturaPorMTok: 0.10,
+    },
+  },
+  // Tipo de cambio FIJO (no se actualiza solo) — se ajusta a mano aquí
+  // cuando se quiera refrescar. Referencia usada en el proyecto para estas
+  // cuentas desde antes (docs/ia/PLAN_MAESTRO_IA_EVALUA_FACIL.md, "TC ref.
+  // 18.50") — no es un número nuevo inventado para esto.
+  tipoCambioUsdMxn: 18.50,
 }
 
 const PLAN_MAYOR = {

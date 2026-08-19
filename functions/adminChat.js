@@ -22,6 +22,18 @@
 // usuario"), el system prompt le instruye al modelo que debe decir que esta
 // versión del chat es de consulta — no hay ninguna herramienta de escritura
 // que pudiera ejecutar aunque quisiera.
+//
+// Costo real de Anthropic (19-ago-2026, pedido explícito de Kike): la
+// tarifa oficial de Anthropic (USD por millón de tokens de entrada/salida,
+// más los multiplicadores de caché) vive en
+// config/iaTarifas.costosAnthropicUSD, junto con un tipo de cambio fijo
+// (tipoCambioUsdMxn) — es un PARÁMETRO DE SISTEMA en Firestore, no una
+// constante en código: se actualiza ahí (o en seeds-db/seed-ia-tarifas.js y
+// re-corriendo el seed) cuando Anthropic cambie precios, sin tocar ni
+// redesplegar este archivo. `calcularCostoUSD` (más abajo) es la única
+// función que hace esa cuenta, y las herramientas `consumo_ia`,
+// `costo_por_docente` y `rentabilidad_plan` la usan — ninguna otra parte
+// del código calcula esto por su cuenta.
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { defineSecret } = require('firebase-functions/params')
@@ -61,7 +73,7 @@ REGLAS ABSOLUTAS:
    - DATO REAL: viene directo de una herramienta (ej. "Dato registrado: 127 docentes").
    - ESTIMACIÓN: un cálculo tuyo a partir de datos reales (ej. usuarios × precio = ingreso potencial). Dilo explícitamente como estimación y aclara qué NO incluye.
    - No hay una tercera categoría "inferencia" separada de estimación — si no es un dato directo de una herramienta, es una estimación y se marca como tal.
-4. FACTURACIÓN (usuarios × precio) NO es lo mismo que GANANCIA. Si te preguntan "¿cuánto ganamos?" y no tienes todos los costos (Firebase, Vercel, Cloudinary, pasarela de pago — hoy NINGUNO de esos está disponible como dato en el sistema), dilo explícitamente: no puedes calcular ganancia neta, solo ingresos y, cuando exista el dato, el costo estimado de Anthropic en TOKENS (no en pesos: el sistema no tiene configurada una tarifa de USD/token de Anthropic, así que nunca conviertas tokens a dinero — solo reporta el conteo de tokens como dato real).
+4. FACTURACIÓN (usuarios × precio) NO es lo mismo que GANANCIA. El sistema SÍ tiene configurado el costo real de Anthropic (USD por millón de tokens, en config/iaTarifas) y las herramientas de consumo/costo lo usan para calcular el costo REAL en USD y MXN — pero eso sigue sin ser toda la operación: NO incluye Firebase, Vercel, Cloudinary ni la pasarela de pago (ninguno de esos está disponible como dato en el sistema). Si te preguntan "¿cuánto ganamos?" o "margen neto", usa el costo real de Anthropic que sí tienes, pero deja explícito que es "margen sobre el costo de IA únicamente" — NUNCA lo llames "ganancia neta" ni "utilidad real" sin esa aclaración.
 5. Esta es la PRIMERA VERSIÓN del Chat de Administración y es SOLO DE CONSULTA. No existe ninguna herramienta que modifique datos. Si el administrador pide una acción (borrar, cambiar, cancelar, modificar algo), responde que este chat todavía es solo de consulta y no puede ejecutar esa acción.
 6. No existe ningún registro de errores de la plataforma consultable desde aquí — si te preguntan por errores o "algo raro", dilo explícitamente en vez de adivinar.
 7. Responde en español, ejecutivo y directo — como para alguien que dirige el negocio, no un reporte técnico. Cuando haya varios puntos, usa viñetas ("- punto"), cada una en su propio renglón. Cuando una comparación se entienda mejor como tabla, usa una tabla Markdown simple — no abuses de las tablas. NUNCA muestres JSON crudo, ni encabezados Markdown (#, ##, ###) sin razón, ni el texto "{"respuesta"" en tu respuesta — texto limpio, directo.
@@ -72,6 +84,41 @@ REGLAS ABSOLUTAS:
 
 const HOY_ISO = () => new Date().toISOString().slice(0, 10)
 
+// Costo real de Anthropic (19-ago-2026, pedido explícito de Kike) — la
+// tarifa vive en config/iaTarifas.costosAnthropicUSD/tipoCambioUsdMxn (ver
+// seeds-db/seed-ia-tarifas.js), NUNCA hardcodeada aquí: así se puede
+// actualizar sin tocar ni redesplegar este archivo cuando Anthropic cambie
+// precios. Se lee UNA vez por invocación del callable (ver exports.chatAdmin
+// más abajo) y se pasa a las herramientas que la necesiten — a propósito NO
+// es una caché a nivel de módulo: una Cloud Function puede quedar "tibia" y
+// atender llamadas de sesiones distintas reusando la misma instancia, así
+// que cachear ahí serviría precios viejos a admins distintos hasta el
+// siguiente cold start.
+async function obtenerConfigCostos(db) {
+  const snap = await db.doc('config/iaTarifas').get()
+  const data = snap.data() || {}
+  return {
+    costosPorModelo: data.costosAnthropicUSD || {},
+    tipoCambioUsdMxn: typeof data.tipoCambioUsdMxn === 'number' ? data.tipoCambioUsdMxn : null,
+  }
+}
+
+// Pura — nada de Firestore aquí, para poder probarla aislada. Cache write
+// SIEMPRE se cobra como el breakpoint de 5 minutos: es el ÚNICO que usa
+// Evalúa Fácil (bloqueConCache en functions/ia.js y functions/adminChat.js
+// nunca piden el de 1 hora). Si el modelo de la operación no tiene tarifa
+// configurada, devuelve null — nunca inventa un número ni asume la tarifa
+// de otro modelo.
+function calcularCostoUSD({ modelo, tokensEntrada, tokensSalida, tokensCacheEscritura, tokensCacheLectura }, costosPorModelo) {
+  const t = costosPorModelo?.[modelo]
+  if (!t) return null
+  const entrada = (tokensEntrada || 0) * t.entradaPorMTok / 1e6
+  const salida = (tokensSalida || 0) * t.salidaPorMTok / 1e6
+  const cacheEscritura = (tokensCacheEscritura || 0) * t.cacheEscritura5mPorMTok / 1e6
+  const cacheLectura = (tokensCacheLectura || 0) * t.cacheLecturaPorMTok / 1e6
+  return entrada + salida + cacheEscritura + cacheLectura
+}
+
 function rangoOCorriente({ desde, hasta }) {
   // Sin fechas explícitas del modelo: el mes calendario actual — el caso más
   // común ("este mes", "hoy" se resuelve aparte con rangos de un solo día).
@@ -80,6 +127,39 @@ function rangoOCorriente({ desde, hasta }) {
   const h = hasta ? new Date(hasta) : hoy
   h.setHours(23, 59, 59, 999)
   return { desde: d, hasta: h }
+}
+
+// Compartido entre `distribucion_planes` y `rentabilidad_plan` — un solo
+// lugar para "a qué plan pertenece hoy este docente", para no repetir la
+// clasificación en dos herramientas y que puedan desalinearse.
+const PRECIOS_PLAN = { basico: 99, pro: 199, anual: 199, mayor: 299 }
+const NOMBRES_PLAN = {
+  basico: 'Básico ($99)', pro: 'Asistente IA ($199)', anual: 'Asistente IA ($199, prepago)', mayor: 'Asistente IA Pro ($299)',
+  cortesia: 'Cortesía', trial: 'Periodo de prueba', cancelada_o_vencida: 'Cancelada o vencida',
+}
+async function mapaPlanPorDocente(db) {
+  const [subsSnap, teachersSnap] = await Promise.all([
+    db.collection('subscriptions').get(),
+    db.collection('users').where('role', '==', 'docente').get(),
+  ])
+  const ultimaSubPorDocente = new Map()
+  subsSnap.docs.forEach((d) => {
+    const s = d.data()
+    const prev = ultimaSubPorDocente.get(s.docenteId)
+    const ms = (x) => x.updatedAt?.toMillis?.() || 0
+    if (!prev || ms(s) > ms(prev)) ultimaSubPorDocente.set(s.docenteId, s)
+  })
+  const planPorDocente = new Map()
+  teachersSnap.docs.forEach((t) => {
+    const sub = ultimaSubPorDocente.get(t.id)
+    let clave
+    if (!sub || sub.status === 'trial') clave = 'trial'
+    else if (sub.status === 'cancelada' || sub.status === 'vencida') clave = 'cancelada_o_vencida'
+    else if (sub.planId === 'cortesia') clave = 'cortesia'
+    else clave = sub.planId || 'trial'
+    planPorDocente.set(t.id, clave)
+  })
+  return { planPorDocente, docentesTotal: teachersSnap.size }
 }
 
 const HERRAMIENTAS = [
@@ -106,37 +186,16 @@ const HERRAMIENTAS = [
     description: 'Cuenta docentes por plan actual (trial, básico $99, asistente IA $199, asistente IA pro $299, cortesía, cancelada) y calcula el ingreso mensual ESTIMADO (usuarios × precio de lista — no es facturación real cobrada). Úsala para "¿cuántos tienen el plan de $X?", "¿cómo se distribuyen por plan?", "¿cuánto facturaríamos con la base actual?".',
     input_schema: { type: 'object', properties: {} },
     async run(db) {
-      const PRECIOS = { basico: 99, pro: 199, anual: 199, mayor: 299 }
-      const NOMBRES = {
-        basico: 'Básico ($99)', pro: 'Asistente IA ($199)', anual: 'Asistente IA ($199, prepago)', mayor: 'Asistente IA Pro ($299)',
-        cortesia: 'Cortesía', trial: 'Periodo de prueba', cancelada_o_vencida: 'Cancelada o vencida',
-      }
-      const [subsSnap, teachersSnap] = await Promise.all([
-        db.collection('subscriptions').get(),
-        db.collection('users').where('role', '==', 'docente').get(),
-      ])
-      const porDocente = new Map()
-      subsSnap.docs.forEach((d) => {
-        const s = d.data()
-        const prev = porDocente.get(s.docenteId)
-        const ms = (x) => x.updatedAt?.toMillis?.() || 0
-        if (!prev || ms(s) > ms(prev)) porDocente.set(s.docenteId, s)
-      })
+      const { planPorDocente, docentesTotal } = await mapaPlanPorDocente(db)
       const conteo = {}
       let ingresoEstimadoMensual = 0
-      teachersSnap.docs.forEach((t) => {
-        const sub = porDocente.get(t.id)
-        let clave
-        if (!sub || sub.status === 'trial') clave = 'trial'
-        else if (sub.status === 'cancelada' || sub.status === 'vencida') clave = 'cancelada_o_vencida'
-        else if (sub.planId === 'cortesia') clave = 'cortesia'
-        else clave = sub.planId || 'trial'
+      planPorDocente.forEach((clave) => {
         conteo[clave] = (conteo[clave] || 0) + 1
-        if (PRECIOS[clave]) ingresoEstimadoMensual += PRECIOS[clave]
+        if (PRECIOS_PLAN[clave]) ingresoEstimadoMensual += PRECIOS_PLAN[clave]
       })
       return {
-        docentesTotal: teachersSnap.size,
-        distribucion: Object.fromEntries(Object.entries(conteo).map(([k, v]) => [NOMBRES[k] || k, v])),
+        docentesTotal,
+        distribucion: Object.fromEntries(Object.entries(conteo).map(([k, v]) => [NOMBRES_PLAN[k] || k, v])),
         ingresoMensualEstimadoMXN: ingresoEstimadoMensual,
         nota: 'ingresoMensualEstimadoMXN es usuarios × precio de lista actual, NO facturación real cobrada (usa ingresos_pagos para eso).',
       }
@@ -232,7 +291,7 @@ const HERRAMIENTAS = [
   },
   {
     name: 'consumo_ia',
-    description: 'Agrega el consumo REAL de IA (tokens, no dinero) por operación y modelo en un rango de fechas, y cuántas respuestas se truncaron por max_tokens. Úsala para "¿qué operación de IA consume más?", "¿cuánto se truncó?", "¿cuántos tokens usamos?". NO da un costo en pesos: el sistema no tiene configurada una tarifa de USD/token de Anthropic. Parámetros opcionales desde/hasta (YYYY-MM-DD); sin parámetros usa el mes actual.',
+    description: 'Agrega el consumo REAL de IA (tokens y costo real de Anthropic en USD/MXN) por operación y modelo en un rango de fechas, y cuántas respuestas se truncaron por max_tokens. Úsala para "¿qué operación de IA consume/cuesta más?", "¿cuánto se truncó?", "¿cuánto nos cuesta el Chat?", "¿cuánto gastamos en Anthropic?". Parámetros opcionales desde/hasta (YYYY-MM-DD); sin parámetros usa el mes actual.',
     input_schema: {
       type: 'object',
       properties: {
@@ -240,7 +299,7 @@ const HERRAMIENTAS = [
         hasta: { type: 'string', description: 'YYYY-MM-DD, opcional' },
       },
     },
-    async run(db, args) {
+    async run(db, args, costos) {
       const { desde, hasta } = rangoOCorriente(args || {})
       // iaConsumosInterno no tiene índice por fecha con rango — se filtra en
       // memoria tras traer los docs del rango más amplio posible (createdAt
@@ -250,19 +309,117 @@ const HERRAMIENTAS = [
         .where('createdAt', '>=', desde).where('createdAt', '<=', hasta).get()
       const porOperacion = {}
       let truncadas = 0
+      let costoTotalUSD = 0
+      const modelosSinTarifa = new Set()
       snap.docs.forEach((d) => {
         const c = d.data()
         const k = c.operacion || 'desconocida'
-        if (!porOperacion[k]) porOperacion[k] = { llamadas: 0, tokensEntrada: 0, tokensSalida: 0 }
+        if (!porOperacion[k]) porOperacion[k] = { llamadas: 0, tokensEntrada: 0, tokensSalida: 0, costoUSD: 0 }
         porOperacion[k].llamadas++
         porOperacion[k].tokensEntrada += c.tokensEntrada || 0
         porOperacion[k].tokensSalida += c.tokensSalida || 0
         if (c.stopReason === 'max_tokens') truncadas++
+        const costo = calcularCostoUSD(c, costos?.costosPorModelo)
+        if (costo == null) { if (c.modelo) modelosSinTarifa.add(c.modelo); return }
+        porOperacion[k].costoUSD += costo
+        costoTotalUSD += costo
       })
+      Object.values(porOperacion).forEach((o) => { o.costoUSD = Number(o.costoUSD.toFixed(4)) })
+      const tc = costos?.tipoCambioUsdMxn
       return {
         desde: desde.toISOString().slice(0, 10), hasta: hasta.toISOString().slice(0, 10),
         llamadasTotal: snap.size, porOperacion, respuestasTruncadasPorLimiteDeSalida: truncadas,
-        nota: 'Tokens reales. No incluye costo en pesos ni dólares — esa tarifa no está configurada en el sistema.',
+        costoTotalUSD: Number(costoTotalUSD.toFixed(4)),
+        costoTotalMXN: tc != null ? Number((costoTotalUSD * tc).toFixed(2)) : null,
+        tipoCambioUsdMxnUsado: tc,
+        modelosSinTarifaConfigurada: modelosSinTarifa.size ? [...modelosSinTarifa] : undefined,
+        nota: 'costoUSD/costoTotalUSD es el costo REAL pagado a Anthropic (config/iaTarifas.costosAnthropicUSD), calculado sobre los tokens reales registrados — NO incluye Firebase, Vercel, Cloudinary ni pasarela de pago. costoTotalMXN usa el tipo de cambio fijo configurado (tipoCambioUsdMxnUsado); si es null, no hay tipo de cambio configurado y esa conversión no se puede hacer.',
+      }
+    },
+  },
+  {
+    name: 'costo_por_docente',
+    description: 'Costo REAL de Anthropic por docente en un rango de fechas (tokens reales × tarifa real, sumados por uid) — los docentes más caros de servir. Úsala para "¿cuánto nos cuesta atender a X docente?", "¿quién nos cuesta más?". Parámetros opcionales desde/hasta (YYYY-MM-DD); sin parámetros usa el mes actual.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        desde: { type: 'string', description: 'YYYY-MM-DD, opcional' },
+        hasta: { type: 'string', description: 'YYYY-MM-DD, opcional' },
+      },
+    },
+    async run(db, args, costos) {
+      const { desde, hasta } = rangoOCorriente(args || {})
+      const snap = await db.collection('iaConsumosInterno')
+        .where('createdAt', '>=', desde).where('createdAt', '<=', hasta).get()
+      const costoPorUid = new Map()
+      let sinTarifa = 0
+      snap.docs.forEach((d) => {
+        const c = d.data()
+        const costo = calcularCostoUSD(c, costos?.costosPorModelo)
+        if (costo == null) { sinTarifa++; return }
+        costoPorUid.set(c.uid, (costoPorUid.get(c.uid) || 0) + costo)
+      })
+      const top = [...costoPorUid.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([docenteId, costoUSD]) => ({ docenteId, costoUSD: Number(costoUSD.toFixed(4)) }))
+      const tc = costos?.tipoCambioUsdMxn
+      return {
+        desde: desde.toISOString().slice(0, 10), hasta: hasta.toISOString().slice(0, 10),
+        docentesConConsumo: costoPorUid.size,
+        topDocentesPorCosto: tc != null ? top.map((t) => ({ ...t, costoMXN: Number((t.costoUSD * tc).toFixed(2)) })) : top,
+        llamadasSinTarifaConfigurada: sinTarifa || undefined,
+        nota: 'Costo REAL de Anthropic por docente, no incluye otros costos de infraestructura (Firebase, Vercel, etc.).',
+      }
+    },
+  },
+  {
+    name: 'rentabilidad_plan',
+    description: 'Compara, por plan (trial, básico, asistente IA, asistente IA pro), el ingreso ESTIMADO (docentes activos × precio de lista) contra el costo REAL de Anthropic atribuido a esos mismos docentes en un rango de fechas — para responder "¿el plan de $199 es rentable?", "¿cuál plan deja más margen?". El margen resultante NO es ganancia neta: no incluye Firebase, Vercel, Cloudinary ni pasarela de pago. Parámetros opcionales desde/hasta (YYYY-MM-DD); sin parámetros usa el mes actual.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        desde: { type: 'string', description: 'YYYY-MM-DD, opcional' },
+        hasta: { type: 'string', description: 'YYYY-MM-DD, opcional' },
+      },
+    },
+    async run(db, args, costos) {
+      const { desde, hasta } = rangoOCorriente(args || {})
+      const [{ planPorDocente }, consumoSnap] = await Promise.all([
+        mapaPlanPorDocente(db),
+        db.collection('iaConsumosInterno').where('createdAt', '>=', desde).where('createdAt', '<=', hasta).get(),
+      ])
+      const costoPorPlan = {}
+      let sinTarifa = 0
+      consumoSnap.docs.forEach((d) => {
+        const c = d.data()
+        const plan = planPorDocente.get(c.uid) || 'desconocido'
+        const costo = calcularCostoUSD(c, costos?.costosPorModelo)
+        if (costo == null) { sinTarifa++; return }
+        costoPorPlan[plan] = (costoPorPlan[plan] || 0) + costo
+      })
+      const conteoPorPlan = {}
+      planPorDocente.forEach((clave) => { conteoPorPlan[clave] = (conteoPorPlan[clave] || 0) + 1 })
+      const tc = costos?.tipoCambioUsdMxn
+      const porPlan = Object.keys(conteoPorPlan).map((clave) => {
+        const docentes = conteoPorPlan[clave]
+        const ingresoEstimadoMXN = (PRECIOS_PLAN[clave] || 0) * docentes
+        const costoUSD = Number((costoPorPlan[clave] || 0).toFixed(4))
+        const costoMXN = tc != null ? Number((costoUSD * tc).toFixed(2)) : null
+        return {
+          plan: NOMBRES_PLAN[clave] || clave,
+          docentes,
+          ingresoMensualEstimadoMXN: ingresoEstimadoMXN,
+          costoRealAnthropicUSD: costoUSD,
+          costoRealAnthropicMXN: costoMXN,
+          margenEstimadoMXN: costoMXN != null ? Number((ingresoEstimadoMXN - costoMXN).toFixed(2)) : null,
+        }
+      })
+      return {
+        desde: desde.toISOString().slice(0, 10), hasta: hasta.toISOString().slice(0, 10),
+        porPlan,
+        llamadasSinTarifaConfigurada: sinTarifa || undefined,
+        nota: 'ingresoMensualEstimadoMXN es usuarios × precio de lista (NO facturación real cobrada — usa ingresos_pagos para eso). costoRealAnthropic* es el costo REAL de IA de los docentes que HOY están en ese plan, en el rango de fechas pedido. margenEstimadoMXN = ingreso estimado − costo real de Anthropic ÚNICAMENTE — NO es ganancia neta: no incluye Firebase, Vercel, Cloudinary ni pasarela de pago.',
       }
     },
   },
@@ -330,7 +487,7 @@ function bloqueConCache(texto) {
   return [{ type: 'text', text: texto, cache_control: { type: 'ephemeral' } }]
 }
 
-async function correrConversacion({ client, db, historial, mensaje }) {
+async function correrConversacion({ client, db, historial, mensaje, costos }) {
   const messages = [...historial, { role: 'user', content: mensaje }]
   let vueltas = 0
 
@@ -358,7 +515,7 @@ async function correrConversacion({ client, db, historial, mensaje }) {
       const herramienta = HERRAMIENTAS_POR_NOMBRE[llamada.name]
       let content
       try {
-        content = herramienta ? JSON.stringify(await herramienta.run(db, llamada.input)) : JSON.stringify({ error: 'herramienta desconocida' })
+        content = herramienta ? JSON.stringify(await herramienta.run(db, llamada.input, costos)) : JSON.stringify({ error: 'herramienta desconocida' })
       } catch (e) {
         logger.error(`adminChat herramienta ${llamada.name}:`, e)
         content = JSON.stringify({ error: 'No se pudo consultar este dato ahora mismo.' })
@@ -397,9 +554,10 @@ exports.chatAdmin = onCall(
 
     const Anthropic = require('@anthropic-ai/sdk')
     const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() })
+    const costos = await obtenerConfigCostos(db)
 
     const inicio = Date.now()
-    const { texto, stopReason, usage } = await correrConversacion({ client, db, historial, mensaje })
+    const { texto, stopReason, usage } = await correrConversacion({ client, db, historial, mensaje, costos })
 
     if (!texto) throw new HttpsError('internal', 'El Chat de Administración no generó una respuesta utilizable')
 
@@ -420,4 +578,4 @@ exports.chatAdmin = onCall(
 // consulta para poder probarlas contra un Firestore falso sin llamar a
 // Anthropic ni desplegar. No los usa `exports.chatAdmin` ni ningún código de
 // producción.
-exports.__test = { herramientas: HERRAMIENTAS_POR_NOMBRE, rangoOCorriente }
+exports.__test = { herramientas: HERRAMIENTAS_POR_NOMBRE, rangoOCorriente, calcularCostoUSD, mapaPlanPorDocente }
