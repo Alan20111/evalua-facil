@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { Download } from 'lucide-react'
+import { Download, Smartphone } from 'lucide-react'
+import EFLogo from '../components/EFLogo'
 
 // Página de descarga directa del APK de Android — ruta NO listada.
 // Solo se llega con el link exacto (ver la ruta /descarga/... en App.jsx);
@@ -23,23 +24,41 @@ export default function DescargaApp() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-surface flex items-center justify-center px-6">
-      <div className="w-full max-w-sm text-center">
-        <p className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Versión {VERSION}
-        </p>
-        <p className="mt-2 text-4xl font-bold text-on-surface leading-tight">
-          {FECHA}
-        </p>
+    <div className="min-h-dvh bg-surface flex items-center justify-center px-4 py-12">
+      {/* Halo de acento detrás de la tarjeta — puro adorno, no interactivo */}
+      <div className="relative w-full max-w-sm">
+        <div
+          aria-hidden="true"
+          className="absolute -inset-6 rounded-card opacity-60 blur-2xl"
+          style={{ background: 'var(--accent-tint)' }}
+        />
 
-        <a
-          href={ARCHIVO}
-          download="evalua-facil.apk"
-          className="mt-10 w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl py-4 transition-colors"
-        >
-          <Download className="w-5 h-5" />
-          Descargar la app
-        </a>
+        <div className="relative bg-surface-card rounded-card shadow-card px-7 py-9 text-center">
+          <EFLogo className="w-52 h-auto mx-auto" />
+
+          <div className="mt-8">
+            <span className="inline-flex items-center gap-1.5 rounded-pill bg-accent-light text-accent text-xs font-bold uppercase tracking-wide px-3 py-1">
+              <Smartphone className="w-3.5 h-3.5" />
+              Android · Versión {VERSION}
+            </span>
+            <p className="mt-4 text-3xl font-bold text-on-surface leading-tight">
+              {FECHA}
+            </p>
+          </div>
+
+          <a
+            href={ARCHIVO}
+            download="evalua-facil.apk"
+            className="mt-8 w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-accent hover:bg-accent-hover text-white font-semibold rounded shadow-card transition-colors"
+          >
+            <Download className="w-5 h-5" />
+            Descargar la app
+          </a>
+
+          <p className="mt-4 text-xs text-slate-400">
+            Ábrelo desde tu celular Android
+          </p>
+        </div>
       </div>
     </div>
   )
