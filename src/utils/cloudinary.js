@@ -3,7 +3,7 @@
 // lets us preview PDFs (page by page) even when the account has "PDF and ZIP
 // delivery" disabled — delivering a JPG of a page is allowed, delivering the
 // .pdf itself is not.
-const NON_IMAGE_EXTS = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar', 'txt', 'csv']
+const NON_IMAGE_EXTS = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar', 'txt', 'csv', 'apk']
 
 function fileExt(file) {
   return file.name.split('.').pop().toLowerCase()
@@ -42,7 +42,13 @@ export async function uploadToCloudinary(file, folder = 'evalua-facil/uploads') 
     `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
     { method: 'POST', body: formData }
   )
-  if (!res.ok) throw new Error('Error al subir el archivo')
+  if (!res.ok) {
+    // Cloudinary explica el motivo real en el cuerpo (extensión no permitida,
+    // preset inválido, límite de tamaño…). Sin esto todos los fallos se ven
+    // igual y no hay forma de saber qué arreglar.
+    const motivo = await res.json().then((j) => j?.error?.message).catch(() => null)
+    throw new Error(motivo ? `Error al subir el archivo: ${motivo}` : 'Error al subir el archivo')
+  }
   return (await res.json()).secure_url
 }
 

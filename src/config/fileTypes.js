@@ -134,14 +134,33 @@ export function fileTypesInstructions(value, customExts) {
   return lines.length ? lines : ['1 archivo']
 }
 
+// Cadena del atributo `accept` del <input type="file">.
+//
+// Tiene que llevar tipos MIME, no solo extensiones: en el WebView de Android
+// (la app de Capacitor) el selector de archivos traduce `accept` a los MIME
+// del Intent del sistema, y una extensión suelta como ".jpg" no es un MIME.
+// Con puras extensiones el selector abre sin nada seleccionable — de ahí el
+// reporte de que los alumnos "no pueden subir archivos" desde el APK aunque
+// en la web funcione. Las extensiones se conservan porque en el escritorio
+// afinan el filtro; el orden no importa.
+//
+// Si la selección solo trae extensiones personalizadas (sin MIME conocido) no
+// hay nada que Android entienda, así que se abre a cualquier archivo: la
+// validación real vive en isFileAllowed(), que corre después de elegir.
+function buildAccept(mimes, exts) {
+  const extPart = exts.map((e) => `.${e}`)
+  if (mimes.length === 0) return exts.length ? ['*/*', ...extPart].join(',') : ''
+  return [...mimes, ...extPart].join(',')
+}
+
 // Combined accept/mime/ext set for the current selection — used for the upload
 // <input accept> attribute and to validate an uploaded file.
 export function resolveFileTypes(value, customExts) {
   const keys = normalizeFileTypeKeys(value)
   if (keys.includes(ALL_FILES_KEY)) {
-    const mimes = FILE_TYPE_BASE_OPTIONS.flatMap((o) => o.mimes)
-    const exts = FILE_TYPE_BASE_OPTIONS.flatMap((o) => o.exts)
-    return { mimes, exts, accept: exts.map((e) => `.${e}`).join(',') }
+    const mimes = [...new Set(FILE_TYPE_BASE_OPTIONS.flatMap((o) => o.mimes))]
+    const exts = [...new Set(FILE_TYPE_BASE_OPTIONS.flatMap((o) => o.exts))]
+    return { mimes, exts, accept: buildAccept(mimes, exts) }
   }
   const mimes = []
   const exts = []
@@ -153,10 +172,12 @@ export function resolveFileTypes(value, customExts) {
     const base = FILE_TYPE_BASE_OPTIONS.find((o) => o.key === k)
     if (base) { mimes.push(...base.mimes); exts.push(...base.exts) }
   })
+  const mimesUnicos = [...new Set(mimes)]
+  const extsUnicas = [...new Set(exts)]
   return {
-    mimes: [...new Set(mimes)],
-    exts: [...new Set(exts)],
-    accept: [...new Set(exts)].map((e) => `.${e}`).join(','),
+    mimes: mimesUnicos,
+    exts: extsUnicas,
+    accept: buildAccept(mimesUnicos, extsUnicas),
   }
 }
 

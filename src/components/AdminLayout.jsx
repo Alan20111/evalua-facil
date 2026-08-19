@@ -13,6 +13,7 @@ import {
   Map,
   Sparkles,
   BrainCircuit,
+  Download,
 } from 'lucide-react'
 import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
@@ -29,6 +30,7 @@ const TABS = [
   { id: 'zonas', label: 'Ventas por zona', icon: Map },
   { id: 'cobros', label: 'Cobros', icon: Wallet },
   { id: 'estudiantes', label: 'Estudiantes', icon: GraduationCap },
+  { id: 'descargas', label: 'Descargas', icon: Download },
 ]
 
 // Los tonos guinda viven en [data-role='admin'] (src/index.css), no aquí: la
