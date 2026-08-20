@@ -2453,6 +2453,62 @@ async function analisisDiagnosticoMasReciente(db, subjectId, tipo) {
   return null
 }
 
+// Detalle por alumno (nombre, quién entregó cada actividad y su calificación)
+// — SOLO para el Chat por asignatura, nunca para el Asistente General ni para
+// el análisis con IA (OP-10), que se quedan agregados/anónimos. Decisión
+// explícita de Kike (19-ago-2026): esto no es un dato privado frente al
+// propio docente — es exactamente lo que ya ve en su pestaña Actividades, así
+// que el chat debe poder contestarlo igual, con nombre.
+// Tope de 20 actividades más recientes para no disparar el contexto en
+// asignaturas con muchas actividades — si hay más, se avisa en el texto en
+// vez de recortar en silencio.
+const MAX_ACTIVIDADES_DETALLE_ALUMNO = 20
+function nombreAlumno(s) {
+  return [s?.apellidoPaterno, s?.apellidoMaterno, s?.nombre].filter(Boolean).join(' ').trim() || s?.username || '(sin nombre)'
+}
+async function detalleAlumnosTexto(db, subjectId) {
+  const studentsSnap = await db.collection('students').where('asignaturaId', '==', subjectId).get()
+  const alumnos = studentsSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((s) => !s.ocultaPorAlumno)
+  if (!alumnos.length) return ''
+
+  const rosterTexto = `Alumnos inscritos (${alumnos.length}): ` +
+    alumnos.map((s) => `${nombreAlumno(s)} (usuario ${s.username}, ${s.activado ? 'cuenta activa' : 'sin activar todavía'})`).join('; ') + '.'
+
+  const actividadesSnap = await db.collection('activities').where('asignaturaId', '==', subjectId).get()
+  const todasActividades = actividadesSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+  if (!todasActividades.length) return rosterTexto
+
+  const truncado = todasActividades.length > MAX_ACTIVIDADES_DETALLE_ALUMNO
+  const actividades = todasActividades.slice(0, MAX_ACTIVIDADES_DETALLE_ALUMNO)
+
+  const submissionsPorActividad = await Promise.all(
+    actividades.map((act) => db.collection('submissions').where('actividadId', '==', act.id).get())
+  )
+
+  const lineasActividades = actividades.map((act, i) => {
+    const subsPorAlumno = {}
+    submissionsPorActividad[i].docs.forEach((d) => { subsPorAlumno[d.data().alumnoId] = d.data() })
+    const detalle = alumnos.map((al) => {
+      const sub = subsPorAlumno[al.id]
+      if (!sub) return `${nombreAlumno(al)}: sin entregar`
+      if (Number.isFinite(sub.calificacion)) {
+        return `${nombreAlumno(al)}: entregó, calificación ${sub.calificacion}${act.maxCalif ? `/${act.maxCalif}` : ''}`
+      }
+      return `${nombreAlumno(al)}: entregó, sin calificar todavía`
+    }).join('; ')
+    return `"${act.nombre || '(sin nombre)'}"${act.diagnosticoTipo ? ` [diagnóstico de ${act.diagnosticoTipo}]` : ''} — ${detalle}`
+  })
+
+  return rosterTexto + '\n\n' +
+    `Detalle por actividad, quién entregó y quién no (con nombre y calificación cuando aplica)` +
+    (truncado ? ` — se muestran solo las ${MAX_ACTIVIDADES_DETALLE_ALUMNO} actividades más recientes de ${todasActividades.length} totales` : '') +
+    `:\n${lineasActividades.join('\n\n')}`
+}
+
 // Cuántas Secuencias Didácticas puede pedir el docente explícitamente antes
 // de generar (ver PlaneacionInicialSection.jsx) — un tope razonable para no
 // disparar el gasto de tokens ni pedirle a la IA algo absurdo.
@@ -3841,10 +3897,11 @@ async function precheckChatAsistente({ uid, params }) {
   }
   const parciales = construirParcialesCtx(subj, { diasAsueto, sesionesCanceladas })
 
-  const [resultadoContexto, resultadoConocimientos, examenesRecientes] = await Promise.all([
+  const [resultadoContexto, resultadoConocimientos, examenesRecientes, alumnosTexto] = await Promise.all([
     analisisDiagnosticoMasReciente(db, subjectId, 'contexto'),
     analisisDiagnosticoMasReciente(db, subjectId, 'conocimientos'),
     analisisExamenesRecientes(db, subjectId),
+    detalleAlumnosTexto(db, subjectId),
   ])
 
   const bloques = [
@@ -3868,8 +3925,14 @@ async function precheckChatAsistente({ uid, params }) {
     resultadoConocimientos ? `DIAGNÓSTICO DE CONOCIMIENTOS DEL GRUPO:\n${diagnosticoConocimientosATexto(resultadoConocimientos)}` : null,
     (() => {
       const texto = analisisExamenesATexto(examenesRecientes)
-      return texto ? `ANÁLISIS DE EXÁMENES/CUESTIONARIOS RECIENTES YA CALIFICADOS (agregado del grupo, sin datos de alumnos individuales):\n${texto}` : null
+      return texto ? `ANÁLISIS DE EXÁMENES/CUESTIONARIOS RECIENTES YA CALIFICADOS (agregado del grupo):\n${texto}` : null
     })(),
+    // Detalle con nombre (19-ago-2026, pedido explícito de Kike): esto es
+    // exactamente lo que el docente ya ve en su pestaña Actividades — no es
+    // un dato nuevo ni privado frente a él, solo lo hace consultable por
+    // chat. Ver detalleAlumnosTexto: nunca se usa en el Asistente General ni
+    // en el análisis con IA (OP-10), que se quedan agregados/anónimos.
+    alumnosTexto ? `ALUMNOS DE ESTA ASIGNATURA — DETALLE INDIVIDUAL (con nombre, quién entregó cada actividad y su calificación; SOLO para este chat, el docente ya ve exactamente esto en su panel):\n${alumnosTexto}` : null,
   ].filter(Boolean)
 
   // Igual que en precheckAsistenteGeneral: la reserva de la interacción va al
@@ -3967,15 +4030,17 @@ const CHAT_SISTEMA =
   'lista de lo que sí/no ves ni menú de pasos a seguir — eso solo si el docente insiste o pregunta explícitamente ' +
   'qué puede hacer al respecto; ahí sí sugiere qué le falta generar/configurar o a dónde más puede consultarlo ' +
   '(la sección "Ayuda para comenzar" del menú, o el administrador). ' +
-  'Nunca inventes calificaciones, nombres de estudiantes ni resultados que no estén en el contexto — los ' +
-  'promedios y conteos que sí tienes ya vienen agregados y anónimos, nunca por alumno individual. Cuando un ' +
-  'diagnóstico (contexto o conocimientos) SÍ está en tu contexto, apóyate en TODO lo que aplique de él ' +
-  '(características, condiciones, intereses, necesidades, patrones, recomendaciones) para dar un análisis con ' +
-  'sustancia — no te quedes en un solo dato suelto si hay más evidencia ahí que responde la pregunta. Y nunca le ' +
-  'pidas al docente que te copie/pegue reactivos, respuestas o resultados por alumno para "analizarlos": esos ' +
-  'datos nunca llegan a este chat por diseño (privacidad de los estudiantes) — si el diagnóstico que falta ' +
-  'todavía no tiene análisis, dilo (ver arriba) y remite a generarlo/analizarlo con IA desde Diagnóstico del ' +
-  'grupo o Análisis de resultados, nunca invites a mandarlo aquí. No repitas ' +
+  'Nunca inventes calificaciones, nombres de estudiantes ni resultados que no estén en el contexto. Si tu ' +
+  'contexto trae el bloque "ALUMNOS DE ESTA ASIGNATURA — DETALLE INDIVIDUAL", SÍ puedes (y debes, cuando te lo ' +
+  'pidan) nombrar alumnos específicos, decir quién entregó o no cada actividad y su calificación — no es un dato ' +
+  'privado frente al propio docente, es exactamente lo que él ya ve en su panel; nunca lo compartas con nadie ' +
+  'más que él. Cuando un diagnóstico (contexto o conocimientos) SÍ está en tu contexto, apóyate en TODO lo que ' +
+  'aplique de él (características, condiciones, intereses, necesidades, patrones, recomendaciones) para dar un ' +
+  'análisis con sustancia — no te quedes en un solo dato suelto si hay más evidencia ahí que responde la ' +
+  'pregunta. Y nunca le pidas al docente que te copie/pegue reactivos o resultados para "analizarlos": si algo no ' +
+  'está en tu contexto es porque ese diagnóstico o esa actividad todavía no tiene análisis o entregas — dilo (ver ' +
+  'arriba) y remite a generarlo/analizarlo con IA desde Diagnóstico del grupo o Análisis de resultados, nunca ' +
+  'invites a mandarlo aquí. No repitas ' +
   'todo el contexto en cada respuesta — ve directo a lo que te preguntan, y usa el historial de la conversación ' +
   'para entender preguntas de seguimiento (p. ej. "¿y qué actividad?" se refiere a tu respuesta anterior). Nunca ' +
   'escribas que fuiste generado por IA o por un asistente — eres una herramienta del docente, él es quien decide.'
