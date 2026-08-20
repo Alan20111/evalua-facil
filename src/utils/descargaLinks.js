@@ -53,12 +53,15 @@ export async function listarLinks() {
   return links
 }
 
-export async function crearLink({ slug, version, fecha, url, fileName, createdBy }) {
+export async function crearLink({ slug, version, fecha, url, fileName, produccion, createdBy }) {
   const data = {
     version,
     fecha,
     url,
     fileName: fileName || null,
+    // Marca la versión que se envió al canal de Producción de Play. Solo
+    // cambia lo que se muestra en la página pública; no afecta la descarga.
+    produccion: !!produccion,
     activo: true,
     createdBy: createdBy || null,
     createdAt: new Date().toISOString(),
