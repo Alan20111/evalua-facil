@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import {
-  Copy, Check, Trash2, Upload, Plus, Link2, Link2Off, Smartphone, AlertTriangle,
+  Copy, Check, Trash2, Upload, Plus, Link2, Link2Off, Smartphone, AlertTriangle, BadgeCheck,
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
-import { Button, Input } from '../../../components/ui'
+import { Button, Input, Checkbox } from '../../../components/ui'
 import { uploadToCloudinary } from '../../../utils/cloudinary'
 import {
   listarLinks, crearLink, borrarLink, cambiarActivo, generarSlug, urlPublica, LINK_LEGADO,
@@ -48,6 +48,7 @@ export default function DownloadLinks() {
   const [fecha, setFecha] = useState(hoyLargo())
   const [archivo, setArchivo] = useState(null)
   const [urlManual, setUrlManual] = useState('')
+  const [produccion, setProduccion] = useState(false)
 
   useEffect(() => {
     let vivo = true
@@ -82,6 +83,7 @@ export default function DownloadLinks() {
         fecha: fecha.trim(),
         url,
         fileName,
+        produccion,
         createdBy: currentUser?.email || null,
       })
       setLinks((prev) => [nuevo, ...prev])
@@ -89,6 +91,7 @@ export default function DownloadLinks() {
       setFecha(hoyLargo())
       setArchivo(null)
       setUrlManual('')
+      setProduccion(false)
       toast('Enlace creado')
     } catch (err) {
       // El caso frecuente: Cloudinary rechaza la extensión .apk si el preset
@@ -165,6 +168,14 @@ export default function DownloadLinks() {
           className="file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:bg-accent-light file:text-accent file:text-sm file:font-semibold"
         />
 
+        <Checkbox
+          label="Es la versión que se envió a producción"
+          hint="Añade el distintivo “Versión de producción” en la página de descarga."
+          checked={produccion}
+          onChange={(e) => setProduccion(e.target.checked)}
+          wrapperClassName="mt-4"
+        />
+
         <Input
           id="dl-url"
           label="…o pega la URL de un APK ya subido"
@@ -208,6 +219,12 @@ export default function DownloadLinks() {
                       {l.version}
                     </span>
                     <span className="text-sm text-on-surface font-medium">{l.fecha}</span>
+                    {l.produccion && (
+                      <span className="inline-flex items-center gap-1 rounded-pill bg-emerald-50 text-emerald-700 text-xs font-semibold px-2 py-0.5">
+                        <BadgeCheck size={12} />
+                        Producción
+                      </span>
+                    )}
                     {l.activo === false && (
                       <span className="inline-flex items-center gap-1 rounded-pill bg-slate-100 text-slate-500 text-xs font-semibold px-2 py-0.5">
                         <Link2Off size={12} />

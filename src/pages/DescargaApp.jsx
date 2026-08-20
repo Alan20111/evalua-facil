@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Download, Smartphone, Link2Off } from 'lucide-react'
+import { Download, Smartphone, Link2Off, BadgeCheck } from 'lucide-react'
 import EFLogo from '../components/EFLogo'
 import Spinner from '../components/Spinner'
 import { obtenerLink } from '../utils/descargaLinks'
@@ -94,6 +94,13 @@ export default function DescargaApp() {
         <p className="mt-4 text-3xl font-bold text-on-surface leading-tight">
           {link.fecha}
         </p>
+
+        {link.produccion && (
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-pill bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1">
+            <BadgeCheck className="w-3.5 h-3.5" />
+            Versión de producción
+          </span>
+        )}
       </div>
 
       <a
