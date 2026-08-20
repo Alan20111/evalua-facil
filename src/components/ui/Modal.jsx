@@ -28,8 +28,9 @@
 //                        visible (ej. ConfirmModal, LinkAccountModal).
 //   variant  'sheet' (default) | 'centered'
 //   size     'sm' (default) | 'md' | 'lg' | '3xl'  — max-width del panel.
-//   z        50 (default) | 40 | 60 | 90 | 110  — z-index del wrapper (algunos
-//            modales son sub-modales y viven por encima de otro).
+//   z        50 (default) | 20 | 30 | 40 | 60 | 70 | 80 | 90 | 100 | 110 —
+//            z-index del wrapper (algunos modales son sub-modales y viven
+//            por encima de otro).
 //   padding  clases de padding del panel (default 'p-4 sm:p-5').
 //   footer   nodo opcional para la fila de acciones.
 //   busy     bloquea el cierre por backdrop/Escape.
@@ -42,7 +43,13 @@ import { cn } from './cn'
 import { useScrollLock } from '../../hooks/useScrollLock'
 
 const SIZES = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', '3xl': 'max-w-3xl' }
-const Z = { 40: 'z-40', 50: 'z-50', 60: 'z-[60]', 90: 'z-[90]', 110: 'z-[110]' }
+// Rango completo relevado en los 44 modales a mano de la Fase 3 (paso 3.4) —
+// no solo los 5 niveles que se necesitaban hasta ahora. Ampliarlo aquí evita
+// que cada migración futura tenga que volver a tocar este archivo.
+const Z = {
+  20: 'z-20', 30: 'z-30', 40: 'z-40', 50: 'z-50', 60: 'z-[60]',
+  70: 'z-[70]', 80: 'z-[80]', 90: 'z-[90]', 100: 'z-[100]', 110: 'z-[110]',
+}
 
 export default function Modal({
   open,

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { avisoEmoji, formatAvisoFecha } from '../../utils/avisos'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { useScrollLock } from '../../hooks/useScrollLock'
+import Modal from '../ui/Modal'
 
 // Lectura obligatoria de avisos pendientes — pedido explícito: nada de cerrar,
 // omitir, "más tarde", X, deslizar o botón atrás. La única salida es leer el
@@ -16,7 +16,6 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 export default function AvisoLecturaModal({ avisos, teacherNames = {}, subjectNames = {}, onConfirm, confirming }) {
   const [idx, setIdx] = useState(0)
   useBackHandler(() => {}, avisos.length > 0)
-  useScrollLock(avisos.length > 0)
 
   if (avisos.length === 0) return null
   const aviso = avisos[Math.min(idx, avisos.length - 1)]
@@ -30,8 +29,18 @@ export default function AvisoLecturaModal({ avisos, teacherNames = {}, subjectNa
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center px-4">
-      <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-md p-6 text-center">
+    <Modal
+      open
+      onClose={handleEntendido}
+      variant="centered"
+      size="md"
+      z={60}
+      padding="p-6"
+      busy
+      closeOnBackdrop={false}
+      ariaLabel={aviso.titulo}
+    >
+      <div className="text-center">
         {avisos.length > 1 && (
           <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-2">
             Aviso {idx + 1} de {avisos.length}
@@ -51,6 +60,6 @@ export default function AvisoLecturaModal({ avisos, teacherNames = {}, subjectNa
           {confirming ? 'Guardando…' : 'Entendido'}
         </button>
       </div>
-    </div>
+    </Modal>
   )
 }

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Lock, Download, CreditCard } from 'lucide-react'
 import CheckoutModal from './CheckoutModal'
+import Modal from './ui/Modal'
 import { useBackHandler } from '../hooks/useBackHandler'
-import { useScrollLock } from '../hooks/useScrollLock'
 import {
   LAUNCH_PRICE_NOTE,
   MONTHLY_PRICE_LABEL,
@@ -34,7 +34,6 @@ export default function SuscripcionVencidaModal({ open, subscription, onSoloCons
   // Atrás (botón físico de Android) hace lo mismo que "Solo consultar": nunca
   // dejar a nadie encerrado en una pantalla sin salida.
   useBackHandler(() => (mostrarPago ? setMostrarPago(false) : onSoloConsultar?.()), open)
-  useScrollLock(open && !mostrarPago)
 
   if (!open) return null
 
@@ -50,10 +49,19 @@ export default function SuscripcionVencidaModal({ open, subscription, onSoloCons
   }
 
   return (
-    // Sin cierre al tocar el fondo: de aquí se sale por una de las dos
-    // puertas de abajo, a propósito.
-    <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center px-4 py-6 overflow-y-auto">
-      <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-md p-6 my-auto">
+    // Sin cierre al tocar el fondo ni con Escape: de aquí se sale por una de
+    // las dos puertas de abajo, a propósito (busy + closeOnBackdrop={false}).
+    <Modal
+      open
+      onClose={onSoloConsultar}
+      variant="centered"
+      size="md"
+      z={60}
+      busy
+      closeOnBackdrop={false}
+      ariaLabel="Tu suscripción venció"
+    >
+      <div>
         <div className="w-14 h-14 rounded-card bg-amber-100 flex items-center justify-center mx-auto mb-3">
           <Lock size={28} className="text-amber-600" />
         </div>
@@ -103,6 +111,6 @@ export default function SuscripcionVencidaModal({ open, subscription, onSoloCons
           <Download size={16} /> Solo consultar y descargar lo mío
         </button>
       </div>
-    </div>
+    </Modal>
   )
 }
