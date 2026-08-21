@@ -409,8 +409,8 @@ export default function Profile() {
               {creditosIA.saldo === 0 && (
                 <p className="text-sm text-red-600">
                   {creditosIA.mostrarCTAActivarBienvenida
-                    ? 'Adquiere créditos para usar las funciones de IA, así como el módulo de Asistencia y descarga de documentos, o disfruta de tus 50 créditos de IA de regalo activándolos.'
-                    : 'Adquiere créditos para usar las funciones de IA, así como el módulo de Asistencia y descarga de documentos.'}
+                    ? 'Adquiere créditos para usar las funciones de IA, así como el manejo de Asistencias y la descarga de documentos, o disfruta de tus 50 créditos de IA de regalo activándolos para que conozcas como funciona la IA en Evalúa Fácil.'
+                    : 'Adquiere créditos para usar las funciones de IA, así como el manejo de Asistencias y la descarga de documentos.'}
                 </p>
               )}
             </div>
