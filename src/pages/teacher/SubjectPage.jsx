@@ -69,7 +69,6 @@ import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
 import { capitalizarNombre, sinAcentos } from '../../utils/nombres'
-import { useSubscription } from '../../hooks/useSubscription'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import EvaluacionEditor from '../../components/EvaluacionEditor'
@@ -80,8 +79,6 @@ import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
 import AsistenteIATab from '../../components/subject/AsistenteIATab'
 import { isPerfilIACompleto } from '../../utils/perfilIA'
-import { hasCleanExports } from '../../utils/creditosHelpers'
-import ConfirmModal from '../../components/ConfirmModal'
 
 async function fetchSubmissionsForActivities(actIds) {
   if (actIds.length === 0) return []
@@ -601,27 +598,17 @@ function EstadoFiltroHeader({ value, onChange, open, setOpen, total, activos }) 
 export default function SubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
-  const { subscription } = useSubscription()
   // Modelo de créditos puros (20-ago-2026): crear contenido ya no depende de
-  // ninguna suscripción — todo lo no-IA es gratis para cualquier docente.
+  // ninguna suscripción — todo lo no-IA es gratis para cualquier docente. Las
+  // exportaciones ya NO llevan marca de agua (no existe suscripción/trial que
+  // gatee eso) — ver [[project_modelo_precios_ia_complemento]].
   const canCreate = true
-  // Sin suscripción activa (trial, vencida, cancelada, pendiente_pago) todas
-  // las exportaciones PDF/Excel llevan marca de agua — pedido explícito.
-  const exportsWatermarked = !hasCleanExports(subscription)
   // Asistente IA (FASE 2-BIS del Plan Maestro de IA) solo aparece si el
   // docente ya completó su Perfil para IA — mismo contexto para todas sus
   // asignaturas, capturado una sola vez (ver /perfil-ia).
   const perfilIACompleto = isPerfilIACompleto(userProfile?.perfilIA)
   // Escuela + docente que encabezan cada PDF/Excel que se descarga de aquí.
   const membrete = membreteDe(userProfile)
-  // Resuelve la promesa de confirmExportNotice() — no-null mientras el aviso
-  // está en pantalla. Un solo modal reutilizado por las 8 funciones de
-  // exportación de este archivo, en vez de un estado por cada una.
-  const [watermarkNoticeResolve, setWatermarkNoticeResolve] = useState(null)
-  function confirmExportNotice() {
-    if (!exportsWatermarked) return Promise.resolve(true)
-    return new Promise((resolve) => setWatermarkNoticeResolve(() => resolve))
-  }
   const [subject, setSubject] = useState(null)
   const [activities, setActivities] = useState([])
   const [submissionCounts, setSubmissionCounts] = useState({})
@@ -3103,7 +3090,6 @@ export default function SubjectPage() {
       toast(`La ponderación del Parcial ${falta.p} suma ${falta.total} de 10 — complétala antes de generar las calificaciones`, 'warning')
       return
     }
-    if (!(await confirmExportNotice())) return
     setExporting(true)
     try {
       let students = groupStudents
@@ -3122,7 +3108,7 @@ export default function SubjectPage() {
       await exportSubjectGrades({
         subject, activities, students,
         submissions: Object.values(subMap),
-        membrete, watermark: exportsWatermarked,
+        membrete,
       })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExporting(false) }
@@ -3275,22 +3261,20 @@ export default function SubjectPage() {
   async function doExportParcialExcel(p) {
     if (descargaSoloWeb(toast)) return
     if (!subject) return
-    if (!(await confirmExportNotice())) return
     setExporting(true)
     try {
       const { students, submissions } = await ensureGradesData()
-      await exportParcialGrades({ subject, activities, students, submissions, parcial: p, membrete, watermark: exportsWatermarked })
+      await exportParcialGrades({ subject, activities, students, submissions, parcial: p, membrete })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExporting(false) }
   }
   async function doExportParcialPDF(p) {
     if (descargaSoloWeb(toast)) return
     if (!subject) return
-    if (!(await confirmExportNotice())) return
     setExportingGradesPdf(true)
     try {
       const { students, submissions } = await ensureGradesData()
-      await exportParcialGradesPDF({ subject, activities, students, submissions, parcial: p, membrete, watermark: exportsWatermarked })
+      await exportParcialGradesPDF({ subject, activities, students, submissions, parcial: p, membrete })
     } catch (err) { toast('Error al exportar PDF: ' + err.message, 'error') }
     finally { setExportingGradesPdf(false) }
   }
@@ -3302,24 +3286,22 @@ export default function SubjectPage() {
   async function handleExportAttendance() {
     if (descargaSoloWeb(toast)) return
     if (!subject) return
-    if (!(await confirmExportNotice())) return
     setExportingAttendance(true)
     try {
       // Exportar SIEMPRE es del curso completo, sin importar el interruptor
       // "Parcial actual / Todo el curso" (ese es solo para lo que se pinta
       // en pantalla) — por eso usa attendanceParcialesAll, no la variable
       // filtrada attendanceParciales.
-      await exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, membrete, watermark: exportsWatermarked })
+      await exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, membrete })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
   async function doExportParcialAttendance(p) {
     if (descargaSoloWeb(toast)) return
     if (!subject) return
-    if (!(await confirmExportNotice())) return
     setExportingAttendance(true)
     try {
-      await exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p, membrete, watermark: exportsWatermarked })
+      await exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p, membrete })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
@@ -3334,7 +3316,6 @@ export default function SubjectPage() {
       toast(`La ponderación del Parcial ${falta.p} suma ${falta.total} de 10 — complétala antes de generar las calificaciones`, 'warning')
       return
     }
-    if (!(await confirmExportNotice())) return
     setExportingGradesPdf(true)
     try {
       let students = groupStudents
@@ -3350,7 +3331,7 @@ export default function SubjectPage() {
         subDocs.forEach((d) => { const data = { id: d.id, ...d.data() }; subMap[`${data.alumnoId}-${data.actividadId}`] = data })
         setGradeSubMap(subMap); setGradesLoaded(true)
       }
-      await exportSubjectGradesPDF({ subject, activities, students, submissions: Object.values(subMap), membrete, watermark: exportsWatermarked })
+      await exportSubjectGradesPDF({ subject, activities, students, submissions: Object.values(subMap), membrete })
     } catch (err) { toast('Error al exportar PDF: ' + err.message, 'error') }
     finally { setExportingGradesPdf(false) }
   }
@@ -3360,7 +3341,6 @@ export default function SubjectPage() {
   async function handleGenerateCredentials() {
     if (descargaSoloWeb(toast)) return
     if (!subject) return
-    if (!(await confirmExportNotice())) return
     setGeneratingCredentials(true)
     try {
       let students = groupStudents
@@ -3372,7 +3352,7 @@ export default function SubjectPage() {
       if (students.length === 0) { toast('No hay estudiantes en esta asignatura', 'error'); return }
 
       const docenteNombre = capitalizarNombre(userProfile?.nombreMostrar || userProfile?.nombre)
-      await exportCredentialsPDF({ subject, students, docenteNombre, membrete, watermark: exportsWatermarked })
+      await exportCredentialsPDF({ subject, students, docenteNombre, membrete })
       toast('Lista de acceso descargada')
       setShowCredentialsModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
@@ -3789,12 +3769,11 @@ export default function SubjectPage() {
   async function doExportRanking(kind, parcial) {
     if (descargaSoloWeb(toast)) return
     setRankingExportMenu(null)
-    if (!(await confirmExportNotice())) return
     const rows = rankingRowsFor(parcial)
     const label = parcial == null ? 'Promedio final' : `Parcial ${parcial}`
     try {
-      if (kind === 'excel') await exportRankingExcel({ subject, rows, label, membrete, watermark: exportsWatermarked })
-      else await exportRankingPDF({ subject, rows, label, membrete, watermark: exportsWatermarked })
+      if (kind === 'excel') await exportRankingExcel({ subject, rows, label, membrete })
+      else await exportRankingPDF({ subject, rows, label, membrete })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
   }
 
@@ -5527,7 +5506,7 @@ export default function SubjectPage() {
             docenteId={currentUser.uid}
             asignaturaNombre={subject?.nombre || ''}
             subject={subject}
-            watermark={exportsWatermarked}
+            
             existingActivitiesCountP1={activities.filter((a) => a.parcial === 1).length}
           />
         </div>
@@ -7372,19 +7351,6 @@ export default function SubjectPage() {
             const a = activities.find((x) => x.id === evalEditor.activityId)
             return a ? () => setDeleteConfirm(a) : undefined
           })()}
-        />
-      )}
-
-      {/* Aviso previo a exportar en periodo de prueba — pedido explícito: se
-          puede continuar, no es un bloqueo. Un solo modal para las 8
-          funciones de exportación de este archivo (confirmExportNotice). */}
-      {watermarkNoticeResolve && (
-        <ConfirmModal
-          title="Exportación en periodo de prueba"
-          message="Los documentos generados durante el periodo de prueba incluyen una marca de agua de Evalúa Fácil. Al activar tu suscripción, todas las exportaciones se generarán sin marca de agua."
-          confirmLabel="Continuar"
-          onConfirm={() => { watermarkNoticeResolve(true); setWatermarkNoticeResolve(null) }}
-          onCancel={() => { watermarkNoticeResolve(false); setWatermarkNoticeResolve(null) }}
         />
       )}
     </>

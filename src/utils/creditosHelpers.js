@@ -2,16 +2,13 @@ import { Timestamp, serverTimestamp } from 'firebase/firestore'
 
 // Créditos puros sin caducidad (20-ago-2026, migración — ver
 // docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md). Este módulo reemplaza a
-// subscriptionHelpers.js: ya NO hay planes mensuales, trial de 30 días ni
-// candado de suscripción — todo lo que no es IA es gratis para cualquier
-// docente autenticado. Lo que queda:
+// subscriptionHelpers.js: ya NO hay planes mensuales, trial de 30 días,
+// candado de suscripción ni marca de agua en las exportaciones (21-ago-2026,
+// decisión de Kike) — todo lo que no es IA es gratis para cualquier docente
+// autenticado. Lo que queda:
 //   · Formato/estado de PAGOS (histórico — subscriptions/payments se
 //     conservan como infraestructura, sin controlar acceso).
 //   · Compra de créditos (única vía de pago activa hoy).
-//   · Watermark de exportaciones (hasCleanExports) — sigue leyendo el
-//     histórico de `subscriptions` porque no hubo una decisión nueva del PO
-//     sobre exportaciones "limpias" en el modelo de créditos; ver el reporte
-//     de entrega de esta migración.
 
 // ── Compra de créditos (paquetes de config/iaTarifas.paquetesCreditos) ─────
 export const COMPROBANTE_MAX_MB = 10
@@ -205,14 +202,3 @@ export function getDaysLabel(days) {
 }
 
 export const SUBSCRIPTION_STATUSES = ['activa', 'vencida', 'cancelada', 'pendiente_pago', 'trial']
-
-// Documentos "limpios" (sin marca de agua). NO decidido de nuevo por el PO en
-// esta migración a créditos puros — se conserva el criterio histórico
-// (¿alguna vez pagó un plan y sigue dentro de lo cubierto?) sin inventar una
-// regla nueva ligada a créditos. Riesgo conocido: con `subscriptions` sin
-// crearse más, esto tenderá a marcar watermark para cuentas nuevas — ver el
-// reporte de entrega, es una decisión de producto pendiente, no un bug de
-// esta migración.
-export function hasCleanExports(subscription) {
-  return !!subscription?.planId && !isSubscriptionExpiredHistorico(subscription)
-}

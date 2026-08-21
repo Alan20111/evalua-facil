@@ -52,11 +52,9 @@ function TextoEditable({ value, onChange, className = '', placeholder }) {
 // `onGuardar(resultadoEditado)` — si no se pasa (análisis todavía no
 // persistido en la bitácora), el reporte se muestra editable pero sin botón
 // de guardar; en la práctica siempre llega ya con un id (ver EvaluacionManager).
-// `onPedirDescarga(ejecutar)` es el mismo gate de "exportación en periodo de
-// prueba" que EvaluacionManager ya usa para el resto de sus descargas
-// (Excel/PDF de resultados): decide si mostrar el aviso o correr `ejecutar`
-// de una vez. Sin el prop (por si esta pantalla se usa en otro lado más
-// adelante), se descarga directo, igual que antes.
+// `onPedirDescarga(ejecutar)` — hook opcional por si un llamador futuro
+// necesita interceptar la descarga antes de correrla. Sin el prop, se
+// descarga directo.
 export default function AnalisisResultadosIA({ resultado, students, generadoEn = null, activity, subject, membrete = null, watermark = false, onClose, onGuardar = null, onPedirDescarga = null }) {
   const toast = useToast()
   const [descargando, setDescargando] = useState(false)
