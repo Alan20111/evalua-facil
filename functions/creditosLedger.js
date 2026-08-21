@@ -47,6 +47,20 @@ function db() {
 // pagado por el docente, es un regalo fijo del producto.
 const CREDITOS_BIENVENIDA = 50
 
+// Fracciones de crédito (21-ago-2026, decisión de Kike: calificar_entregable_ia
+// cuesta 0.5 — UN SOLO tipo de crédito de IA, sin moneda especial). Firestore
+// guarda `saldo` como number (IEEE 754 double) sin ninguna restricción a
+// enteros — ni aquí, ni en firestore.rules (`saldoIAPositivo` solo compara
+// `> 0`), ni en el cliente. Fracciones "limpias" en binario (0.5, 0.25, 0.125)
+// no arrastran error de redondeo, pero cualquier tarifa futura que NO lo sea
+// (p. ej. 0.3) sí podría acumular deriva tras miles de operaciones — por eso
+// TODO cálculo de saldo en este archivo pasa por round2 antes de escribirse,
+// sin excepción, para que el sistema quede seguro para cualquier fracción
+// futura y no solo para 0.5. Precisión de centavos de crédito (2 decimales)
+// es más que suficiente: al valor comercial de $0.50 MXN/crédito, 0.01
+// crédito equivale a medio centavo.
+const round2 = (n) => Math.round(n * 100) / 100
+
 // ── Errores con código, para que el callable los traduzca a HttpsError ──────
 class ErrorCreditos extends Error {
   constructor(codigo, mensaje, datos = {}) {
@@ -82,7 +96,7 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
   // Asistente no cobra por mensaje, y `!0` sería `true`, rechazando la
   // operación como si no tuviera tarifa configurada.
   if (porUso == null) throw new ErrorCreditos('OPERACION_DESCONOCIDA', `Sin tarifa para "${operacion}"`)
-  const costo = porUso * unidades
+  const costo = round2(porUso * unidades)
   const categoria = tarifas.categorias?.[operacion] || 'Otros'
 
   const refCreditos = db().doc(`iaCreditos/${uid}`)
@@ -129,9 +143,10 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
       estado: 'reservado',
       createdAt: Timestamp.fromDate(ahora),
     })
+    const saldoTrasReserva = round2((creditos.saldo || 0) - costo)
     tx.set(refCreditos, {
       ...camposNuevos,
-      saldo: (creditos.saldo || 0) - costo,
+      saldo: saldoTrasReserva,
       actualizadoEn: FieldValue.serverTimestamp(),
     }, { merge: true })
 
@@ -139,7 +154,7 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
       repetida: false,
       costo,
       categoria,
-      saldoTrasReserva: (creditos.saldo || 0) - costo,
+      saldoTrasReserva,
     }
   })
 }
@@ -168,11 +183,11 @@ async function liquidar({ uid, idempotencyKey, creditosReales, resultado = null 
     // Lo real nunca excede lo reservado (se reservó la estimación máxima);
     // si por un defecto llegara más alto, se recorta: el saldo no baja de lo
     // ya descontado y el defecto queda a la vista en el registro.
-    const reales = Math.min(Math.max(creditosReales, 0), consumo.creditosReservados)
-    const devolucion = consumo.creditosReservados - reales
+    const reales = round2(Math.min(Math.max(creditosReales, 0), consumo.creditosReservados))
+    const devolucion = round2(consumo.creditosReservados - reales)
 
     const categorias = { ...(creditos.consumoPorCategoria || {}) }
-    categorias[consumo.categoria] = (categorias[consumo.categoria] || 0) + reales
+    categorias[consumo.categoria] = round2((categorias[consumo.categoria] || 0) + reales)
 
     tx.update(refConsumo, {
       estado: 'ejecutado',
@@ -180,11 +195,11 @@ async function liquidar({ uid, idempotencyKey, creditosReales, resultado = null 
       resultado,
       liquidadoEn: FieldValue.serverTimestamp(),
     })
-    const saldoFinal = (creditos.saldo || 0) + devolucion
+    const saldoFinal = round2((creditos.saldo || 0) + devolucion)
     tx.update(refCreditos, {
       saldo: saldoFinal,
       // Histórico total, sin reseteo — solo crece, sirve para reportes.
-      consumidoTotal: (creditos.consumidoTotal || 0) + reales,
+      consumidoTotal: round2((creditos.consumidoTotal || 0) + reales),
       consumoPorCategoria: categorias,
       actualizadoEn: FieldValue.serverTimestamp(),
     })
@@ -205,7 +220,7 @@ async function reembolsar({ uid, idempotencyKey, motivo = 'fallo', estadoFinal =
     if (consumo.estado !== 'reservado') return { hecho: false, estado: consumo.estado }
 
     const creditosSnap = await tx.get(refCreditos)
-    const saldo = (creditosSnap.data()?.saldo || 0) + consumo.creditosReservados
+    const saldo = round2((creditosSnap.data()?.saldo || 0) + consumo.creditosReservados)
 
     tx.update(refConsumo, {
       estado: estadoFinal,
@@ -250,7 +265,7 @@ async function ajustarSaldoManual({ uid, delta, motivo, adminUid }) {
   return db().runTransaction(async (tx) => {
     const snap = await tx.get(ref)
     const actual = snap.exists ? (snap.data().saldo || 0) : 0
-    const saldo = Math.max(0, actual + delta)
+    const saldo = round2(Math.max(0, actual + delta))
     tx.set(ref, {
       saldo,
       consumidoTotal: snap.exists ? (snap.data().consumidoTotal || 0) : 0,

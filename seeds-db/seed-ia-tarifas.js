@@ -59,12 +59,23 @@ const TARIFAS = {
     reactivos: 1,
     // OP-11 (21-ago-2026, decisión de Kike): calificar una entrega con IA
     // contra su rúbrica/lista de cotejo a partir de las evidencias (JPG,
-    // PNG, PDF o Word) — tarifa FIJA de 1 crédito por entrega evaluada, sin
-    // importar cuántas evidencias trajo (tope de 5, ver evidenciasEntrega.js).
-    // Costo real verificado ANTES de fijar esta tarifa — ver
-    // docs/ia/COSTO_CALIFICAR_ENTREGABLE_IA.md (promedio ~$0.17 MXN,
-    // objetivo $0.25 MXN).
-    calificar_entregable_ia: 1,
+    // PNG, PDF o Word), sin importar cuántas evidencias trajo (tope de 5,
+    // ver evidenciasEntrega.js). Tarifa FIJA de 0.5 crédito por entrega —
+    // corregido el mismo día: con 1 crédito = $0.50 MXN (100 créditos =
+    // $50 MXN de costo interno), 1 crédito íntegro por entrega se pasaba
+    // del objetivo comercial de ~$0.25 MXN/entrega; 0.5 lo alcanza EXACTO
+    // sin inventar un tipo de crédito especial — sigue siendo la misma
+    // moneda de créditos IA de todo el proyecto, solo que esta tarifa es
+    // fraccionaria (ver creditosLedger.js: el ledger ya soportaba
+    // fracciones de saldo sin cambios, se le agregó round2() como blindaje
+    // contra deriva de punto flotante para esta y cualquier tarifa
+    // fraccionaria futura). Costo real verificado en
+    // docs/ia/COSTO_CALIFICAR_ENTREGABLE_IA.md (promedio ~$0.17 MXN de
+    // costo real de API, bien dentro de lo que cubre el 0.5 crédito).
+    calificar_entregable_ia: 0.5,
+    // Lote "Calificar todas con IA" (mismo día) — MISMA tarifa por entrega
+    // realmente evaluada, sin importar si se pidió una por una o en lote.
+    calificar_entregable_ia_lote: 0.5,
     // OP-03/OP-04 (11-ago-2026): crear examen/cuestionario completo con IA —
     // 1 crédito por REACTIVO realmente generado (unidadesReales), igual que
     // 'reactivos'; no confundir con 'examen'/'cuestionario' de abajo, que son
@@ -136,6 +147,7 @@ const TARIFAS = {
     // función de valor (calificar con IA), solo que ahora también contra
     // evidencia fotográfica/PDF/Word en vez de solo texto.
     calificar_entregable_ia: 'Calificación de evidencias',
+    calificar_entregable_ia_lote: 'Calificación de evidencias',
     crear_evaluacion_ia: 'Evaluaciones',
     crear_actividad_ia: 'Actividades',
     analizar_resultados: 'Evaluaciones',
@@ -167,6 +179,7 @@ const TARIFAS = {
     // resto, es el más barato con visión disponible (ver
     // docs/ia/COSTO_CALIFICAR_ENTREGABLE_IA.md).
     calificar_entregable_ia: 'claude-haiku-4-5',
+    calificar_entregable_ia_lote: 'claude-haiku-4-5',
     // OP-03/OP-04 (11-ago-2026): crear examen/cuestionario completo con IA.
     crear_evaluacion_ia: 'claude-haiku-4-5',
     // OP-05 (11-ago-2026): crear entregable/observación completo con IA.

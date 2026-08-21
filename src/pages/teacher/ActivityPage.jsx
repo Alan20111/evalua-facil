@@ -8,6 +8,7 @@ import {
   getDoc,
   doc,
   serverTimestamp,
+  onSnapshot,
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
 import { updateDoc, setDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
@@ -45,6 +46,7 @@ import EntregableEditor from '../../components/EntregableEditor'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import RubricaGradeTable from '../../components/rubrica/RubricaGradeTable'
 import CalificarConIAModal from '../../components/rubrica/CalificarConIAModal'
+import ConfirmacionCreditosModal from '../../components/ConfirmacionCreditosModal'
 import { ClipboardList, ListChecks, X, Sparkles } from 'lucide-react'
 import { totalRubrica, RUBRICA_TOTAL, esCotejo, instrumentoColors } from '../../utils/rubrica'
 import useCreditosIA from '../../hooks/useCreditosIA'
@@ -204,6 +206,15 @@ export default function ActivityPage() {
   // siendo el mismo botón "Guardar calificación" de siempre.
   const [calificarIAAbierto, setCalificarIAAbierto] = useState(false)
   const creditosIA = useCreditosIA()
+  // "Calificar todas con IA" (lote) — mismo patrón que C-02 en
+  // EvaluacionManager.jsx: el servidor persiste cada propuesta en
+  // activities/{id}/iaSugerenciasEntregable/{submissionId} (estado
+  // 'pendiente') y este snapshot las recupera solo — sobreviven un cierre de
+  // pestaña, y verlas de nuevo jamás cobra. Al aplicar una se marca
+  // 'aplicada' (ver aplicarPropuestaIA).
+  const [sugerenciasLoteIA, setSugerenciasLoteIA] = useState({}) // { [submissionId]: sugerencia }
+  const [loteIAConteo, setLoteIAConteo] = useState(null) // { entregas } → abre el modal de costo
+  const [loteIATrabajando, setLoteIATrabajando] = useState(false)
   // La ventana se ancla DEBAJO del renglón de la calificación oficial, para
   // que ésta quede siempre a la vista mientras se marca la rúbrica
   const califRowRef = useRef(null)
@@ -266,6 +277,19 @@ export default function ActivityPage() {
   // guard de propiedad (docenteId !== currentUser.uid) expulsaría a un docente
   // legítimo antes de tiempo.
   useEffect(() => { if (currentUser) loadAll() }, [activityId, currentUser])
+
+  // Propuestas del lote "Calificar todas con IA" persistidas por el servidor
+  // — mismo patrón que iaSugerencias de C-02 (EvaluacionManager.jsx).
+  useEffect(() => {
+    if (!activityId) return undefined
+    const q = query(collection(db, 'activities', activityId, 'iaSugerenciasEntregable'), where('estado', '==', 'pendiente'))
+    const unsub = onSnapshot(q, (snap) => {
+      const mapa = {}
+      snap.docs.forEach((d) => { mapa[d.data().sub] = { ...d.data().sugerencia, _docId: d.id } })
+      setSugerenciasLoteIA(mapa)
+    }, () => { /* sin permiso u offline: sin sugerencias que recuperar */ })
+    return unsub
+  }, [activityId])
 
   // Coming from a grade-table cell: open that student's grading view once the
   // data is committed (openGrade reads `submissions`/`activity` from state).
@@ -500,6 +524,48 @@ export default function ActivityPage() {
       calificacion: total != null ? String(total) : f.calificacion,
       comentario: retroalimentacion || f.comentario,
     }))
+  }
+
+  // ── "Calificar todas con IA" (lote) — mismo patrón que contarRespuestasIA
+  // de C-02 en EvaluacionManager.jsx. Cuenta EXACTAMENTE las entregas
+  // pendientes (sin calificar) con evidencia en un formato legible que
+  // TODAVÍA no tienen propuesta persistida — esas se recuperan gratis, sin
+  // volver a contarlas ni cobrarlas.
+  function contarEntregasIA() {
+    const elegibles = students.filter((s) => {
+      const sub = submissions[s.id]
+      if (!sub || sub.calificacion != null) return false
+      if (sugerenciasLoteIA[sub.id]) return false
+      return submissionFiles(sub).some((f) => isEvidenciaSoportada(f.nombre, f.url))
+    })
+    if (!elegibles.length) {
+      const yaListas = Object.keys(sugerenciasLoteIA).length
+      toast(yaListas
+        ? 'Todas las entregas pendientes con evidencia ya tienen propuesta de IA — ábrelas al calificar, sin costo adicional'
+        : 'No hay entregas pendientes con evidencia en un formato legible (JPG, PNG, PDF o Word)', 'error')
+      return
+    }
+    setLoteIAConteo({ entregas: elegibles.length })
+  }
+
+  // Ejecuta el lote tras la confirmación del docente. El servidor relee todo
+  // por ID (nunca confía en el cliente), persiste cada propuesta y cobra
+  // solo lo realmente generado — las sugerencias NUNCA se guardan como
+  // calificación (regla O3): el snapshot de arriba las entrega y el docente
+  // las aplica una por una si le convencen.
+  async function ejecutarLoteIA() {
+    setLoteIATrabajando(true)
+    try {
+      const data = await creditosIA.ejecutar('calificar_entregable_ia_lote', { actividadId: activityId }, loteIAConteo.entregas, { timeoutMs: 300000 })
+      setLoteIAConteo(null)
+      const n = data?.resultado?.generadas || 0
+      const previas = data?.resultado?.yaProcesadas || 0
+      toast(`${n} propuesta${n !== 1 ? 's' : ''} de IA lista${n !== 1 ? 's' : ''}${previas ? ` (${previas} ya existían y no se cobraron)` : ''} — revísalas al calificar a cada estudiante. Tú decides.`)
+    } catch (err) {
+      toast(err.codigo === 'SALDO_INSUFICIENTE' ? 'No tienes créditos suficientes para este lote' : 'No se pudo completar: ' + err.message, 'error')
+    } finally {
+      setLoteIATrabajando(false)
+    }
   }
 
   // Single save path shared by the Guardar button and Anterior/Siguiente.
@@ -770,10 +836,16 @@ export default function ActivityPage() {
     : (selected?.sub?.archivoURL ? [{ nombre: selected.sub.nombreArchivo, url: selected.sub.archivoURL }] : [])
   const previewHasImage = previewFiles.some((f) => isImageFile(f.nombre, f.url))
   const previewHasPdf = previewFiles.some((f) => f.nombre?.toLowerCase().endsWith('.pdf'))
-  // "Calificar con IA": visible solo si hay rúbrica/cotejo guardado, al
-  // menos una evidencia en un formato soportado, y saldo de créditos.
-  const puedeCalificarConIA = hasRubrica && creditosIA.saldoPositivo &&
-    selFiles.some((f) => isEvidenciaSoportada(f.nombre, f.url))
+  // Propuesta del lote "Calificar todas con IA" ya lista para esta entrega
+  // (gratis de revisar, ya se cobró al generarla).
+  const sugerenciaPersistidaIA = selected?.sub ? sugerenciasLoteIA[selected.sub.id] : null
+  // "Calificar con IA": visible si hay rúbrica/cotejo guardado, y (a) ya hay
+  // una propuesta persistida esperando (no cuesta nada verla), o (b) al
+  // menos una evidencia en formato soportado y saldo de créditos.
+  const puedeCalificarConIA = hasRubrica && (
+    !!sugerenciaPersistidaIA ||
+    (creditosIA.saldoPositivo && selFiles.some((f) => isEvidenciaSoportada(f.nombre, f.url)))
+  )
   // Clamp while typing: never above maxCalif, never below 0, at most 1 decimal.
   // Partial input like "9." is left alone so decimals can still be typed.
   function onCalifChange(e) {
@@ -1069,6 +1141,21 @@ export default function ActivityPage() {
               {zipDownloading
                 ? `Comprimiendo ${zipProgress.done}/${zipProgress.total}…`
                 : 'Descargar entregas como ZIP'}
+            </button>
+          </div>
+        )}
+
+        {/* "Calificar todas con IA" — lote sobre las entregas pendientes de
+            esta actividad, mismo instrumento (rúbrica/cotejo) para todas. */}
+        {hasRubrica && (
+          <div className="px-4 pt-3">
+            <button
+              type="button"
+              onClick={contarEntregasIA}
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+            >
+              <Sparkles size={18} />
+              Calificar todas con IA
             </button>
           </div>
         )}
@@ -1499,7 +1586,7 @@ export default function ActivityPage() {
                         className="w-full py-2.5 text-sm font-semibold rounded border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
                       >
                         <Sparkles size={17} />
-                        Calificar con IA
+                        {sugerenciaPersistidaIA ? 'Ver propuesta de IA' : 'Calificar con IA'}
                       </button>
                     )}
 
@@ -2410,6 +2497,19 @@ export default function ActivityPage() {
           submissionId={selected.sub.id}
           rubrica={activity.rubrica}
           onAplicar={aplicarPropuestaIA}
+          resultadoPersistido={sugerenciaPersistidaIA}
+          onAplicado={(docId) => updateDoc(doc(db, 'activities', activityId, 'iaSugerenciasEntregable', docId), { estado: 'aplicada' })}
+        />
+      )}
+
+      {loteIAConteo && (
+        <ConfirmacionCreditosModal
+          titulo="Calificar todas con IA"
+          descripcion={`Se generará una propuesta de calificación para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} pendiente${loteIAConteo.entregas !== 1 ? 's' : ''}. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`}
+          costoMin={creditosIA.estimar('calificar_entregable_ia_lote', loteIAConteo.entregas) ?? loteIAConteo.entregas * 0.5}
+          ejecutando={loteIATrabajando}
+          onCancelar={() => { if (!loteIATrabajando) setLoteIAConteo(null) }}
+          onContinuar={ejecutarLoteIA}
         />
       )}
 
