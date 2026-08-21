@@ -120,9 +120,9 @@ export default function CreditPurchasesTable({ stats, onRefresh }) {
   return (
     <div>
       <div className="px-1 pb-3">
-        <h2 className="font-semibold text-on-surface">Créditos adicionales</h2>
+        <h2 className="font-semibold text-on-surface">Compras de créditos</h2>
         <p className="text-xs text-muted mt-0.5">
-          Compras de créditos adicionales — distintas de los créditos incluidos en la suscripción mensual.
+          Compras de créditos por transferencia — se agregan al saldo del docente al aprobarse, nunca caducan.
         </p>
       </div>
       <Table columns={columns} data={rows} rowKey={(p) => p.id} emptyMessage="Sin compras registradas" />

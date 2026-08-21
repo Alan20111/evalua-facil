@@ -1,12 +1,11 @@
-// Compra de créditos adicionales de IA (18-ago-2026).
-//
-// Mismo patrón que CheckoutModal: único método hoy es transferencia bancaria
-// con aprobación manual del admin (ver [[project_solo_transferencia_v101]]).
+// Compra de créditos (modelo de créditos puros, 20-ago-2026 — ver
+// docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md). Único método hoy es transferencia
+// bancaria con aprobación manual del admin (ver [[project_solo_transferencia_v101]]).
 // La cantidad/precio del paquete elegido NUNCA se manda suelta — siempre sale
 // de `paquetes` (config/iaTarifas.paquetesCreditos, vía useCreditosIA), la
-// MISMA fuente que lee PlanComparisonTable y que revalida firestore.rules
-// (montoOficialCredito). El servidor es quien de verdad decide: esto solo
-// evita mandar una combinación que las reglas van a rechazar de todos modos.
+// MISMA fuente que revalida firestore.rules (montoOficialCredito). El
+// servidor es quien de verdad decide: esto solo evita mandar una combinación
+// que las reglas van a rechazar de todos modos.
 import { useState } from 'react'
 import { collection, doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -21,6 +20,12 @@ import { datosDeCompraCreditos, formatCurrency, validarComprobante } from '../ut
 
 const inputCls =
   'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
+
+// Precio de referencia sin descuento ($2 MXN/crédito, plan técnico §12) —
+// solo para mostrar "Ahorras $X" por paquete; el precio real que se cobra
+// SIEMPRE sale de config/iaTarifas.paquetesCreditos (paquetes ya trae el
+// precio con descuento aplicado), nunca de esta constante.
+const PRECIO_REFERENCIA_MXN = 2
 
 export default function ComprarCreditosModal({ open, onClose, onSuccess }) {
   const { currentUser } = useAuth()
@@ -98,29 +103,37 @@ export default function ComprarCreditosModal({ open, onClose, onSuccess }) {
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-muted">
-              Créditos adicionales a tu bolsa mensual — se suman a tu saldo y no se pierden al renovarse tu periodo.
+              Los créditos se agregan a tu saldo y no caducan. Úsalos cuando los necesites.
             </p>
             <div>
               <p className="text-xs font-medium text-muted mb-1.5">Elige un paquete</p>
-              {/* Los 5 paquetes en una sola fila en el ancho normal del modal
-                  (18-ago-2026) — antes eran 2 columnas (2/2/1). Vertical y
-                  compacto (créditos arriba, precio abajo) para que quepan
-                  sin salto de línea; en pantallas angostas el propio grid se
-                  angosta en vez de reflowir a otra fila. */}
-              <div className="grid grid-cols-5 gap-1">
-                {paquetes.map((p, i) => (
-                  <button
-                    key={p.creditos}
-                    type="button"
-                    onClick={() => setPaqueteIdx(i)}
-                    className={`flex flex-col items-center justify-center px-1 py-2 rounded-card border transition-colors ${
-                      paqueteIdx === i ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
-                    }`}
-                  >
-                    <span className="font-semibold text-on-surface text-xs tabular-nums">{p.creditos.toLocaleString('es-MX')}</span>
-                    <span className="text-[11px] text-muted tabular-nums">{formatCurrency(p.precioMXN)}</span>
-                  </button>
-                ))}
+              {/* 6 paquetes definitivos (20-ago-2026, modelo de créditos
+                  puros — ver docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md), en 2
+                  filas de 3 para que quepan cómodos incluso en pantallas
+                  angostas. El ahorro se calcula aquí mismo contra la
+                  referencia de $2 MXN/crédito — nunca hardcodeado por
+                  paquete, así que sigue siendo correcto si config/iaTarifas
+                  cambia. */}
+              <div className="grid grid-cols-3 gap-1">
+                {paquetes.map((p, i) => {
+                  const ahorro = p.creditos * PRECIO_REFERENCIA_MXN - p.precioMXN
+                  return (
+                    <button
+                      key={p.creditos}
+                      type="button"
+                      onClick={() => setPaqueteIdx(i)}
+                      className={`flex flex-col items-center justify-center px-1 py-2 rounded-card border transition-colors ${
+                        paqueteIdx === i ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
+                      }`}
+                    >
+                      <span className="font-semibold text-on-surface text-xs tabular-nums">{p.creditos.toLocaleString('es-MX')}</span>
+                      <span className="text-[11px] text-muted tabular-nums">{formatCurrency(p.precioMXN)}</span>
+                      <span className="text-[10px] tabular-nums text-accent">
+                        {ahorro > 0 ? `Ahorras ${formatCurrency(ahorro)}` : ' '}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
