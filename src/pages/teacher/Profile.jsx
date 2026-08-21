@@ -403,8 +403,9 @@ export default function Profile() {
             <div className="space-y-1">
               <p className="text-2xl font-bold text-accent tabular-nums">{creditosIA.saldo}</p>
               <p className="text-sm text-muted">
-                Créditos disponibles — nunca caducan ni se resetean. Todas las funciones de Evalúa Fácil son
-                totalmente gratuitas, excepto la IA, Asistencia y la descarga de documentos, que se pagan con créditos.
+                Los Créditos que adquieras no caducan ni se resetean. Todas las funciones de Evalúa Fácil son
+                totalmente gratuitas, excepto la IA, el manejo de Asistencias y la descarga de documentos, que
+                permanecen activas mientras tengas créditos.
               </p>
               {creditosIA.saldo === 0 && (
                 <p className="text-sm text-red-600">
