@@ -27,6 +27,11 @@ import { saveWorkbook as _saveWorkbook, savePdfDoc as _savePdfDoc, saveBlob as _
 //     importar alumnos, sin ningún dato real que "llevarse".
 //   · exportAppQRPDF (pdf.js, botón en AppQRButton.jsx) — el QR de la App
 //     SIEMPRE se puede descargar, sin importar el saldo de créditos.
+//   · exportCredentialsPDF (pdf.js, "Generar PDF con códigos" en la pestaña
+//     Estudiantes) — es lo que le permite a sus estudiantes ENTRAR a la
+//     plataforma; bloquearlo dejaría al docente sin poder dar de alta a su
+//     grupo aunque se haya quedado sin créditos (decisión de Kike,
+//     21-ago-2026).
 
 let sinCreditos = () => false
 let avisar = null
