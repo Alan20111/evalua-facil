@@ -1,4 +1,4 @@
-import { calcDaysRemaining, effectiveVencimiento, toDate } from './subscriptionHelpers'
+import { calcDaysRemaining, effectiveVencimiento, toDate } from './creditosHelpers'
 
 // A cuántos días de vencer se enciende el aviso naranja en el panel (Resumen,
 // "por vencer"). No se pinta ya en la insignia de Plan —ver más abajo— pero

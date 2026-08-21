@@ -31,7 +31,7 @@
 // simple usando el mismo título/cuerpo.
 
 const { initializeApp } = require('firebase-admin/app')
-const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore')
+const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const { onDocumentWritten } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
@@ -52,30 +52,37 @@ exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
 const adminChat = require('./adminChat')
 exports.chatAdmin = adminChat.chatAdmin
 
-// Reseteo manual de créditos IA — solo admin, para las cuentas de prueba del
-// equipo (probar todo el sistema sin esperar al ciclo mensual). El cliente no
-// puede tocar iaCreditos directamente (firestore.rules: allow write: if
-// false), así que esto es la única puerta, y valida el rol server-side igual
-// que cualquier otra ruta de admin.
-exports.resetearCreditosIA = onCall(async (request) => {
+// Ajuste manual de saldo de créditos IA — solo admin (renombrado de
+// resetearCreditosIA, 20-ago-2026: en créditos puros no hay "capacidad" a la
+// que resetear, así que la operación es un delta explícito con motivo — ver
+// creditosLedger.ajustarSaldoManual). El cliente no puede tocar iaCreditos
+// directamente (firestore.rules: allow write: if false), así que esto es la
+// única puerta, y valida el rol server-side igual que cualquier otra ruta de
+// admin.
+exports.ajustarSaldoCreditosIA = onCall(async (request) => {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para continuar')
   const perfil = await db.doc(`users/${uid}`).get()
   if (!perfil.exists || perfil.data().role !== 'admin') {
-    throw new HttpsError('permission-denied', 'Solo un administrador puede resetear créditos')
+    throw new HttpsError('permission-denied', 'Solo un administrador puede ajustar créditos')
   }
   const docenteId = request.data?.docenteId
+  const delta = request.data?.delta
+  const motivo = request.data?.motivo || null
   if (!docenteId || typeof docenteId !== 'string') {
-    throw new HttpsError('invalid-argument', 'Falta el docente a resetear')
+    throw new HttpsError('invalid-argument', 'Falta el docente a ajustar')
+  }
+  if (typeof delta !== 'number' || !Number.isFinite(delta) || delta === 0) {
+    throw new HttpsError('invalid-argument', 'El ajuste debe ser un número distinto de cero')
   }
   try {
-    const r = await creditosLedger.resetearAhora({ uid: docenteId })
-    logger.info(`resetearCreditosIA: admin ${uid} reseteó a ${docenteId} → saldo=${r.saldo}`)
+    const r = await creditosLedger.ajustarSaldoManual({ uid: docenteId, delta, motivo, adminUid: uid })
+    logger.info(`ajustarSaldoCreditosIA: admin ${uid} ajustó a ${docenteId} en ${delta} → saldo=${r.saldo}`)
     return r
   } catch (e) {
-    if (e.codigo === 'SIN_CREDITOS_AUN') throw new HttpsError('failed-precondition', e.message)
-    logger.error(`resetearCreditosIA(${docenteId}):`, e.message)
-    throw new HttpsError('internal', 'No se pudo resetear los créditos')
+    if (e.codigo === 'DELTA_INVALIDO') throw new HttpsError('invalid-argument', e.message)
+    logger.error(`ajustarSaldoCreditosIA(${docenteId}):`, e.message)
+    throw new HttpsError('internal', 'No se pudo ajustar el saldo')
   }
 })
 
@@ -103,7 +110,7 @@ exports.aprobarCompraCreditos = onCall(async (request) => {
     logger.info(`aprobarCompraCreditos: admin ${uid} aprobó ${purchaseId} → +${r.creditos} créditos`)
     return r
   } catch (e) {
-    if (e.codigo === 'COMPRA_INEXISTENTE' || e.codigo === 'SIN_CREDITOS_AUN' || e.codigo === 'ESTADO_INVALIDO') {
+    if (e.codigo === 'COMPRA_INEXISTENTE' || e.codigo === 'ESTADO_INVALIDO') {
       throw new HttpsError('failed-precondition', e.message, { codigo: e.codigo })
     }
     logger.error(`aprobarCompraCreditos(${purchaseId}):`, e.message)
@@ -1146,141 +1153,28 @@ function vigenciaDe(sub) {
   return fin
 }
 
-exports.onSuscripcionEscrita = onDocumentWritten('subscriptions/{subId}', async (event) => {
-  const after = event.data?.after
-  const before = event.data?.before
-  const sub = after?.exists ? after.data() : null
-  const previa = before?.exists ? before.data() : null
-  const docenteId = sub?.docenteId || previa?.docenteId
-  if (!docenteId) return
-
-  // Créditos IA: si cambió el NIVEL del plan, se sincroniza la capacidad
-  // (subida inmediata conservando saldo; bajada diferida a la renovación).
-  // Es lo único que este trigger hace de más — el espejo de abajo no cambia.
-  // Si config/iaTarifas aún no existe (antes del seed), se registra y sigue.
-  const nivelAntes = previa ? creditosLedger.nivelDeSuscripcion(previa) : null
-  const nivelAhora = sub ? creditosLedger.nivelDeSuscripcion(sub) : null
-  // Cortesía no tiene un nivel fijo en config/iaTarifas: si el administrador
-  // solo cambió el monto de créditos elegido (sin cambiar de plan), también
-  // hay que sincronizar — el nivel por sí solo no lo detecta.
-  const cortesiaCreditosCambio = nivelAhora === 'cortesia' && nivelAhora === nivelAntes &&
-    (sub?.cortesiaCreditos ?? null) !== (previa?.cortesiaCreditos ?? null)
-  if (nivelAhora && (nivelAhora !== nivelAntes || cortesiaCreditosCambio)) {
-    try {
-      const r = await creditosLedger.sincronizarPlan({
-        uid: docenteId,
-        nivelNuevo: nivelAhora,
-        capacidadCortesia: sub?.cortesiaCreditos ?? null,
-      })
-      if (r.hecho) logger.info(`créditos IA de ${docenteId}: plan → ${nivelAhora} (${r.modo})`)
-    } catch (e) {
-      logger.error(`sincronizarPlan(${docenteId}):`, e.message)
-    }
-  }
-
-  // Se borró la suscripción: se retira el permiso de trabajar dejando una
-  // fecha ya pasada, no borrando el campo (ausente = "todavía sin respaldar",
-  // que las reglas dejan pasar).
-  const hasta = sub ? vigenciaDe(sub) : new Date(0)
-  if (!hasta) return
-
-  const usuario = db.collection('users').doc(docenteId)
-  const snap = await usuario.get()
-  if (!snap.exists) return // cuenta eliminada: no hay a quién espejarle nada
-  const actual = snap.data().suscripcionHasta?.toDate?.()
-  // Sin cambio real, no se escribe: esta función se dispara con CUALQUIER
-  // escritura sobre la suscripción (updatedAt incluido).
-  if (actual && Math.abs(actual.getTime() - hasta.getTime()) < 1000) return
-  await usuario.update({ suscripcionHasta: Timestamp.fromDate(hasta) })
-  logger.info(`onSuscripcionEscrita: ${docenteId} puede trabajar hasta ${hasta.toISOString()}`)
-})
-
-// Re-espejo periódico del candado. onSuscripcionEscrita cubre los cambios de
-// aquí en adelante; esto cubre dos huecos:
-//   · Las cuentas que ya existían cuando se instaló el candado (las reglas
-//     dejan pasar a quien no tiene el campo, así que sin esto el candado no
-//     le aplicaría a nadie de antes).
-//   · Cualquier desfase futuro — un campo escrito a mano, una función que
-//     falló, un documento restaurado de un respaldo.
-// Solo escribe cuando la fecha cambia de verdad, así que en régimen normal no
-// hace nada: recorre las suscripciones y se va.
-exports.sincronizarCandadoSuscripcion = onSchedule('every 60 minutes', async () => {
-  const snap = await db.collection('subscriptions').get()
-  // Una suscripción por docente; si hubiera dos, manda la más reciente —
-  // mismo criterio que useSubscription en el cliente.
-  const porDocente = new Map()
-  snap.docs.forEach((d) => {
-    const sub = d.data()
-    if (!sub.docenteId) return
-    const previa = porDocente.get(sub.docenteId)
-    const ms = (s) => s.updatedAt?.toMillis?.() || 0
-    if (!previa || ms(sub) > ms(previa)) porDocente.set(sub.docenteId, sub)
-  })
-
-  // Docentes sin ninguna suscripción: se les repone la prueba. Es la misma
-  // autorreparación que hacía el navegador al iniciar sesión (borrar una
-  // suscripción NO deja a nadie sin servicio: para eso está cancelarla), ahora
-  // del lado del servidor y sin depender de que el docente entre.
-  const docentes = await db.collection('users').where('role', '==', 'docente').get()
-  let repuestas = 0
-  for (const d of docentes.docs) {
-    if (porDocente.has(d.id)) continue
-    if (await crearPruebaSiFalta(d.id)) repuestas++
-  }
-
-  let actualizados = 0
-  for (const [docenteId, sub] of porDocente) {
-    const hasta = vigenciaDe(sub)
-    if (!hasta) continue
-    const ref = db.collection('users').doc(docenteId)
-    const usuario = await ref.get()
-    if (!usuario.exists) continue
-    const actual = usuario.data().suscripcionHasta?.toDate?.()
-    if (actual && Math.abs(actual.getTime() - hasta.getTime()) < 1000) continue
-    await ref.update({ suscripcionHasta: Timestamp.fromDate(hasta) })
-    actualizados++
-  }
-  logger.info(`sincronizarCandadoSuscripcion: ${porDocente.size} docentes revisados, ${actualizados} actualizados, ${repuestas} prueba(s) repuesta(s)`)
-})
-
-// ─── La prueba inicial la crea el SERVIDOR ───────────────────────────────────
-// Antes la creaba el navegador al registrarse (y otra vez, como
-// autorreparación, si el documento se perdía). Eso obligaba a dejar abierto el
-// `create` de `subscriptions` para el docente, y por ahí se podía crear una
-// suscripción con la fecha de vencimiento que uno quisiera — o una prueba nueva
-// cada vez que la anterior se acababa. Ahora las reglas solo permiten crearlas
-// al administrador, y esta función pone la que de verdad corresponde, con
-// fechas del servidor.
-const DIAS_PRUEBA_INICIAL = 30
-
-async function crearPruebaSiFalta(docenteId) {
-  const previas = await db.collection('subscriptions').where('docenteId', '==', docenteId).limit(1).get()
-  if (!previas.empty) return false
-  const inicio = new Date()
-  const fin = new Date(inicio)
-  fin.setDate(fin.getDate() + DIAS_PRUEBA_INICIAL)
-  await db.collection('subscriptions').add({
-    docenteId,
-    planId: '',
-    status: 'trial',
-    fechaInicio: Timestamp.fromDate(inicio),
-    fechaVencimiento: Timestamp.fromDate(fin),
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-  })
-  logger.info(`crearPruebaSiFalta: prueba creada para ${docenteId}`)
-  return true
-}
-
+// Modelo de créditos puros (20-ago-2026): ya no hay candado de suscripción
+// que sincronizar ni prueba de 30 días que reponer — onSuscripcionEscrita,
+// sincronizarCandadoSuscripcion y crearPruebaSiFalta se eliminan por
+// completo (ver docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md §4). `subscriptions`/
+// `payments`/`plans` quedan como colecciones históricas sin lógica que las
+// escriba desde aquí.
+//
+// onDocenteCreado se conserva: ahora otorga el regalo de bienvenida de
+// créditos (50, una sola vez, sin caducidad) apenas se crea la cuenta del
+// docente — síncrono con la creación para que Asistencia nunca vea una
+// ventana de saldo 0 en una cuenta nueva.
 exports.onDocenteCreado = onDocumentWritten('users/{uid}', async (event) => {
   const after = event.data?.after
   if (!after?.exists) return
   const perfil = after.data()
   if (perfil.role !== 'docente') return
-  // Esta función también se dispara cuando onSuscripcionEscrita escribe
-  // `suscripcionHasta` en este mismo documento; ahí ya hay suscripción y
-  // crearPruebaSiFalta se sale de inmediato, así que no hay ciclo.
-  await crearPruebaSiFalta(event.params.uid)
+  try {
+    const r = await creditosLedger.otorgarCreditosBienvenida({ uid: event.params.uid })
+    if (!r.repetida) logger.info(`onDocenteCreado: ${event.params.uid} recibió ${creditosLedger.CREDITOS_BIENVENIDA} créditos de bienvenida`)
+  } catch (e) {
+    logger.error(`otorgarCreditosBienvenida(${event.params.uid}):`, e.message)
+  }
 })
 
 // ── Solo para las pruebas ───────────────────────────────────────────────────
@@ -1303,7 +1197,6 @@ exports._pruebas = {
   parsearFechaLimiteMs,
   vigenciaDe,
   recalcularResumenAsistencia,
-  crearPruebaSiFalta,
   TIPOS_OBJETIVOS,
   TIPOS_REVISION_MANUAL,
 }

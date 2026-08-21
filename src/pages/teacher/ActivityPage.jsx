@@ -32,8 +32,6 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
 import { abrirArchivoNativo } from '../../utils/nativeSave'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
-import { useSubscription } from '../../hooks/useSubscription'
-import { canCreateContent } from '../../utils/subscriptionHelpers'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
@@ -223,8 +221,10 @@ export default function ActivityPage() {
   // agenda: al cerrar el editor debe regresar directo al calendario (que ya
   // conserva su vista/fecha en localStorage), no quedarse en esta pantalla.
   const returnToCalendar = location.state?.returnTo === 'calendario'
-  const { subscription } = useSubscription()
-  const canCreate = canCreateContent(subscription)
+  // Modelo de créditos puros (20-ago-2026): crear/editar contenido ya no
+  // depende de ninguna suscripción — todo lo no-IA es gratis para cualquier
+  // docente.
+  const canCreate = true
   // Observación: no student submission — the teacher observes and grades directly,
   // so the grade form is always available and saving creates the submission doc.
   const isObservacion = activity?.tipo === 'observacion' || activity?.categoria === 'observacion'

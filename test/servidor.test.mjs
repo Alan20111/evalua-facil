@@ -518,21 +518,11 @@ await caso('A18 · H1 — fechaLimite sin hora → fin del día (23:59:59), igua
     'fecha con hora explícita debe respetarse intacta')
 })
 
-await caso('la prueba gratuita se crea una vez y no se duplica', async () => {
-  await limpiar()
-  assert.strictEqual(await F.crearPruebaSiFalta(DOCENTE), true)
-  assert.strictEqual(await F.crearPruebaSiFalta(DOCENTE), false, 'no debe crear una segunda')
-  const subs = await db.collection('subscriptions').where('docenteId', '==', DOCENTE).get()
-  assert.strictEqual(subs.size, 1)
-  assert.strictEqual(subs.docs[0].data().status, 'trial')
-})
-
-await caso('quien ya tiene suscripción de pago no recibe una prueba encima', async () => {
-  await limpiar()
-  await db.collection('subscriptions').add({ docenteId: DOCENTE, status: 'activa', planId: 'mensual' })
-  assert.strictEqual(await F.crearPruebaSiFalta(DOCENTE), false)
-  assert.strictEqual((await db.collection('subscriptions').where('docenteId', '==', DOCENTE).get()).size, 1)
-})
+// `crearPruebaSiFalta` se eliminó con el modelo de créditos puros
+// (20-ago-2026): ya no se crea una prueba de 30 días al registrarse — el
+// regalo real es `creditosLedger.otorgarCreditosBienvenida` (ver
+// test/ia-creditos.test.mjs), no una suscripción. Ver
+// docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md §4.
 
 // ═════════════════════════════════════════════════════════════════════════════
 // OP-10 · CAPA 2 — snapshot de respuestas por intento

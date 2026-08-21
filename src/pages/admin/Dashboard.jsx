@@ -5,7 +5,6 @@ import Spinner from '../../components/Spinner'
 import { useAdminStats } from '../../hooks/useAdminStats'
 import StatsCards, { ResumenCharts } from './components/StatsCards'
 import SubscriptionsTable from './components/SubscriptionsTable'
-import PaymentsTable from './components/PaymentsTable'
 import CreditPurchasesTable from './components/CreditPurchasesTable'
 import PaymentConfig from './components/PaymentConfig'
 import StudentsTable from './components/StudentsTable'
@@ -16,9 +15,8 @@ import DownloadLinks from './components/DownloadLinks'
 const TAB_TITLES = {
   chat: 'Inteligencia de Evalúa Fácil',
   resumen: 'Resumen',
-  suscripciones: 'Suscripciones',
-  pagos: 'Pagos',
-  creditos: 'Créditos adicionales',
+  suscripciones: 'Suscripciones (histórico)',
+  creditos: 'Compras de créditos',
   zonas: 'Ventas por zona',
   cobros: 'Configuración de cobros',
   estudiantes: 'Estudiantes',
@@ -26,7 +24,7 @@ const TAB_TITLES = {
 }
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('pagos')
+  const [activeTab, setActiveTab] = useState('resumen')
   const { stats, loading, refresh } = useAdminStats()
   const [refreshing, setRefreshing] = useState(false)
 
@@ -75,7 +73,6 @@ export default function AdminDashboard() {
           {activeTab === 'suscripciones' && (
             <SubscriptionsTable stats={stats} onRefresh={refresh} />
           )}
-          {activeTab === 'pagos' && <PaymentsTable stats={stats} onRefresh={refresh} />}
           {activeTab === 'creditos' && <CreditPurchasesTable stats={stats} onRefresh={refresh} />}
           {activeTab === 'zonas' && <VentasPorZona stats={stats} />}
           {activeTab === 'cobros' && <PaymentConfig />}

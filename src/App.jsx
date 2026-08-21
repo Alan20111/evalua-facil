@@ -25,7 +25,6 @@ import PerfilIA from './pages/teacher/PerfilIA'
 import ChatAsistente from './pages/teacher/ChatAsistente'
 import CalendarPage from './pages/teacher/CalendarPage'
 import VerifyEmail from './pages/teacher/VerifyEmail'
-import PagoResultado from './pages/teacher/PagoResultado'
 import Privacidad from './pages/Privacidad'
 import DescargaApp from './pages/DescargaApp'
 import TeacherNotificationSettings from './pages/teacher/NotificationSettings'
@@ -182,7 +181,6 @@ export default function App() {
             <Route path="/alumno" element={<StudentRootRedirect />} />
             <Route path="/activate/:accessCode" element={<StudentActivation />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/pago-resultado" element={<PagoResultado />} />
             <Route path="/privacidad" element={<Privacidad />} />
             <Route path="/privacy" element={<Privacidad />} />
 

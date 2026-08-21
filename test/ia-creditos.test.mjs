@@ -4,10 +4,11 @@
 //     "node test/ia-creditos.test.mjs"
 //
 // Mismo criterio que test/servidor.test.mjs: se prueba la LÓGICA llamándola
-// directamente (sin emulador de Functions). Las pruebas afirman los
-// invariantes del sistema de créditos que aprobó el PO el 9-ago-2026:
+// directamente (sin emulador de Functions). Modelo de créditos puros
+// (20-ago-2026, ver docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md): sin planes, sin
+// ciclo, sin caducidad. Las pruebas afirman los invariantes que quedan:
 // idempotencia, concurrencia, saldo nunca negativo, reembolsos, huérfanas,
-// renovación sin duplicar y sincronización de plan.
+// regalo de bienvenida único, ajuste manual y compra de créditos.
 
 import { createRequire } from 'node:module'
 import crypto from 'node:crypto'
@@ -28,54 +29,80 @@ const TARIFAS = {
   version: 1,
   tarifas: { aviso: 1, examen: 10, analisis_programa: 45, reactivos: 1, analizar_resultados: 5 },
   categorias: { aviso: 'Avisos', examen: 'Evaluaciones', analisis_programa: 'Planeación', reactivos: 'Evaluaciones', analizar_resultados: 'Evaluaciones' },
-  capacidadPorPlan: { trial: 350, pro: 350, anual: 350, mayor: 1000 },
 }
 
-async function sembrarDocente({ uid = DOCENTE, status = 'trial', planId = '', suscripcionHasta = null, fechaInicio = null } = {}) {
-  const usuario = { role: 'docente', nombre: 'Prueba', escuelaId: 'E1' }
-  if (suscripcionHasta) usuario.suscripcionHasta = Timestamp.fromDate(suscripcionHasta)
-  await db.doc(`users/${uid}`).set(usuario)
-  const sub = { docenteId: uid, planId, status, updatedAt: Timestamp.now() }
-  if (fechaInicio) sub.fechaInicio = Timestamp.fromDate(fechaInicio)
-  await db.collection('subscriptions').add(sub)
+async function sembrarDocente({ uid = DOCENTE } = {}) {
+  await db.doc(`users/${uid}`).set({ role: 'docente', nombre: 'Prueba', escuelaId: 'E1' })
   await db.doc('config/iaTarifas').set(TARIFAS)
 }
 
 const creditosDe = async (uid = DOCENTE) => (await db.doc(`iaCreditos/${uid}`).get()).data()
 const consumoDe = async (k) => (await db.doc(`iaConsumos/${k}`).get()).data()
 
+async function darSaldo(uid, saldo) {
+  await db.doc(`iaCreditos/${uid}`).set({ saldo, consumidoTotal: 0, consumoPorCategoria: {} })
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
-grupo('Reserva y liquidación — el ciclo feliz')
+grupo('Créditos de bienvenida — una sola vez, sin caducidad')
 
 await limpiar()
 await sembrarDocente()
 
-await caso('primer uso: el doc de créditos nace con el plan del docente (trial → 350)', async () => {
+await caso('otorgarCreditosBienvenida: acredita 50 créditos la primera vez', async () => {
+  const r = await L.otorgarCreditosBienvenida({ uid: DOCENTE })
+  assert.strictEqual(r.repetida, false)
+  assert.strictEqual(r.saldo, 50)
+  assert.strictEqual((await creditosDe()).saldo, 50)
+})
+
+await caso('otorgarCreditosBienvenida es idempotente: una segunda llamada no vuelve a acreditar', async () => {
+  const r = await L.otorgarCreditosBienvenida({ uid: DOCENTE })
+  assert.strictEqual(r.repetida, true)
+  assert.strictEqual((await creditosDe()).saldo, 50, 'el saldo no se duplica')
+})
+
+await caso('el saldo de bienvenida no tiene fecha de expiración: no existe cicloFin ni campo de vencimiento', async () => {
+  const c = await creditosDe()
+  assert.strictEqual(c.cicloFin, undefined)
+  assert.strictEqual(c.capacidad, undefined)
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('Reserva y liquidación — el ciclo feliz')
+
+await caso('primer uso sin doc previo: nace con saldo 0 y rechaza por saldo insuficiente', async () => {
+  await limpiar()
+  await sembrarDocente()
+  const k = clave()
+  await assert.rejects(
+    () => L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: k, tarifas: TARIFAS }),
+    (e) => e.codigo === 'SALDO_INSUFICIENTE' && e.datos.saldo === 0
+  )
+})
+
+await caso('con saldo suficiente: reserva, liquida y descuenta exactamente el costo configurado', async () => {
+  await darSaldo(DOCENTE, 50)
   const k = clave()
   const r = await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: k, tarifas: TARIFAS })
   assert.strictEqual(r.repetida, false)
-  assert.strictEqual(r.saldoTrasReserva, 349)
-  const c = await creditosDe()
-  assert.strictEqual(c.plan, 'trial')
-  assert.strictEqual(c.capacidad, 350)
-  assert.strictEqual(c.saldo, 349)
-  assert.ok(c.cicloFin.toDate() > new Date())
+  assert.strictEqual(r.saldoTrasReserva, 49)
   const liq = await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 1, resultado: { titulo: 'Hola' } })
-  assert.strictEqual(liq.saldo, 349)
+  assert.strictEqual(liq.saldo, 49)
   const con = await consumoDe(k)
   assert.strictEqual(con.estado, 'ejecutado')
   assert.strictEqual(con.creditosReales, 1)
   assert.strictEqual((await creditosDe()).consumoPorCategoria['Avisos'], 1)
-  assert.strictEqual((await creditosDe()).consumidoCiclo, 1)
+  assert.strictEqual((await creditosDe()).consumidoTotal, 1)
 })
 
 await caso('la liquidación devuelve lo reservado de más (estimación máxima vs real)', async () => {
   const k = clave()
   await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
-  assert.strictEqual((await creditosDe()).saldo, 339) // 349 - 10 reservados
+  assert.strictEqual((await creditosDe()).saldo, 39) // 49 - 10 reservados
   await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 7 }) // solo 7 reales
-  assert.strictEqual((await creditosDe()).saldo, 342) // devolvió 3
-  assert.strictEqual((await creditosDe()).consumidoCiclo, 8) // 1 + 7
+  assert.strictEqual((await creditosDe()).saldo, 42) // devolvió 3
+  assert.strictEqual((await creditosDe()).consumidoTotal, 8) // 1 + 7
 })
 
 await caso('lo real jamás excede lo reservado (se recorta y queda a la vista)', async () => {
@@ -111,16 +138,12 @@ await caso('liquidar dos veces la misma clave: la segunda es inofensiva', async 
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-grupo('Saldo — insuficiente, concurrencia, nunca negativo')
+grupo('Saldo — insuficiente, concurrencia, nunca negativo, nunca caduca')
 
 await caso('saldo justo alcanza (costo == saldo) y termina exactamente en cero', async () => {
   await limpiar()
   await sembrarDocente()
-  await db.doc(`iaCreditos/${DOCENTE}`).set({
-    plan: 'trial', capacidad: 350, saldo: 10, consumidoCiclo: 340, consumoPorCategoria: {},
-    activadoEn: Timestamp.now(), cicloInicio: Timestamp.now(),
-    cicloFin: Timestamp.fromDate(L._unMesDespues(new Date())),
-  })
+  await darSaldo(DOCENTE, 10)
   const k = clave()
   const r = await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
   assert.strictEqual(r.saldoTrasReserva, 0)
@@ -141,11 +164,7 @@ await caso('saldo insuficiente: NO se ejecuta, NO se descuenta, NO hay consumo',
 await caso('dos operaciones SIMULTÁNEAS no pueden gastar los mismos créditos', async () => {
   await limpiar()
   await sembrarDocente()
-  await db.doc(`iaCreditos/${DOCENTE}`).set({
-    plan: 'trial', capacidad: 350, saldo: 10, consumidoCiclo: 0, consumoPorCategoria: {},
-    activadoEn: Timestamp.now(), cicloInicio: Timestamp.now(),
-    cicloFin: Timestamp.fromDate(L._unMesDespues(new Date())),
-  })
+  await darSaldo(DOCENTE, 10)
   // Dos exámenes de 10 con saldo 10: exactamente UNO debe pasar.
   const resultados = await Promise.allSettled([
     L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: clave(), tarifas: TARIFAS }),
@@ -159,18 +178,29 @@ await caso('dos operaciones SIMULTÁNEAS no pueden gastar los mismos créditos',
   assert.strictEqual((await creditosDe()).saldo, 0)
 })
 
+await caso('el saldo NO baja por el simple paso del tiempo (sin ciclo, sin reseteo)', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 30)
+  // Simular "el tiempo pasa": nada en el ledger depende de la fecha para
+  // decidir el saldo — no hay función de renovación que llamar.
+  assert.strictEqual((await creditosDe()).saldo, 30)
+  assert.strictEqual(typeof L.renovarCiclosVencidos, 'undefined', 'la renovación por ciclo ya no existe')
+})
+
 // ═════════════════════════════════════════════════════════════════════════════
 grupo('Fallos — reembolso, interrupción y huérfanas')
 
 await caso('fallo de la IA: reembolso completo y consumo marcado como fallido', async () => {
   await limpiar()
   await sembrarDocente()
+  await darSaldo(DOCENTE, 50)
   const k = clave()
   await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
-  assert.strictEqual((await creditosDe()).saldo, 340)
+  assert.strictEqual((await creditosDe()).saldo, 40)
   const r = await L.reembolsar({ uid: DOCENTE, idempotencyKey: k, motivo: 'API caída' })
   assert.strictEqual(r.hecho, true)
-  assert.strictEqual((await creditosDe()).saldo, 350)
+  assert.strictEqual((await creditosDe()).saldo, 50)
   const con = await consumoDe(k)
   assert.strictEqual(con.estado, 'fallido')
   assert.strictEqual(con.creditosReales, 0)
@@ -192,14 +222,13 @@ await caso('proceso interrumpido tras reservar: la reserva queda descontada y en
   await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
   // ... y aquí el proceso "muere": nadie liquida.
   assert.strictEqual((await consumoDe(k)).estado, 'reservado')
-  assert.strictEqual((await creditosDe()).saldo, 339) // 349 - 10
+  assert.strictEqual((await creditosDe()).saldo, 39) // 49 - 10
 })
 
 await caso('la limpieza recupera la reserva huérfana (y respeta las recientes)', async () => {
   const kFresca = clave()
   await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: kFresca, tarifas: TARIFAS })
-  // Con límite 0 minutos pero "ahora" en el futuro, la vieja ya expiró; la
-  // fresca también entra al filtro — así que primero probamos el respeto:
+  // Con límite 15 minutos y "ahora" real, nada tiene 15 minutos todavía:
   const r1 = await L.limpiarReservasHuerfanas({ minutos: 15 })
   assert.strictEqual(r1.recuperadas, 0, 'ninguna tiene 15 minutos todavía')
   // Y ahora la expiración (simulando el paso del tiempo con ahora futuro):
@@ -208,363 +237,87 @@ await caso('la limpieza recupera la reserva huérfana (y respeta las recientes)'
   assert.strictEqual(r2.recuperadas, 2) // la interrumpida del caso anterior + la fresca
   const con = await consumoDe(globalThis.__claveInterrumpida)
   assert.strictEqual(con.estado, 'expirado')
-  // 350 menos el único consumo LEGÍTIMO del grupo (el aviso liquidado dos
-  // casos atrás): las dos reservas huérfanas (10 + 1) se devolvieron íntegras.
-  assert.strictEqual((await creditosDe()).saldo, 349)
+  // Ambas reservas huérfanas (el examen interrumpido del caso anterior y la
+  // fresca de este caso) se devuelven íntegras.
+  const saldoTrasLimpieza = (await creditosDe()).saldo
+  assert.strictEqual(saldoTrasLimpieza, 49)
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-grupo('Renovación mensual — desde la fecha de activación, sin acumular, sin duplicar')
+grupo('Ajuste manual de saldo (panel de admin) — reemplaza al reseteo del modelo anterior')
 
-await caso('renovación perezosa al reservar: ciclo vencido → saldo = capacidad (no se acumula)', async () => {
-  await limpiar()
-  // Plan de PAGO: el trial no renueva (eso lo afirma su propio grupo abajo).
-  await sembrarDocente({ status: 'activa', planId: 'pro' })
-  const hace2Meses = new Date(); hace2Meses.setMonth(hace2Meses.getMonth() - 2)
-  const hace1Mes = new Date(); hace1Mes.setMonth(hace1Mes.getMonth() - 1)
-  await db.doc(`iaCreditos/${DOCENTE}`).set({
-    plan: 'pro', capacidad: 350, saldo: 5, consumidoCiclo: 345,
-    consumoPorCategoria: { Avisos: 345 },
-    activadoEn: Timestamp.fromDate(hace2Meses),
-    cicloInicio: Timestamp.fromDate(hace2Meses),
-    cicloFin: Timestamp.fromDate(hace1Mes),
-  })
-  const r = await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS })
-  assert.strictEqual(r.saldoTrasReserva, 349) // 350 nuevos - 1, NO 355 - 1
-  const c = await creditosDe()
-  assert.strictEqual(c.consumidoCiclo, 0)
-  assert.deepStrictEqual(c.consumoPorCategoria, {})
-  assert.ok(c.cicloFin.toDate() > new Date(), 'el ciclo avanzó hasta cubrir hoy')
-})
-
-await caso('renovación por cron: renueva al vencido y la segunda corrida no duplica', async () => {
-  await limpiar()
-  await sembrarDocente({ status: 'activa', planId: 'pro' })
-  const hace1Mes = new Date(); hace1Mes.setMonth(hace1Mes.getMonth() - 1)
-  const hace2Meses = new Date(); hace2Meses.setMonth(hace2Meses.getMonth() - 2)
-  await db.doc(`iaCreditos/${DOCENTE}`).set({
-    plan: 'pro', capacidad: 350, saldo: 12, consumidoCiclo: 338, consumoPorCategoria: {},
-    activadoEn: Timestamp.fromDate(hace2Meses),
-    cicloInicio: Timestamp.fromDate(hace2Meses),
-    cicloFin: Timestamp.fromDate(hace1Mes),
-  })
-  const r1 = await L.renovarCiclosVencidos({ tarifas: TARIFAS })
-  assert.strictEqual(r1.renovados, 1)
-  const c1 = await creditosDe()
-  assert.strictEqual(c1.saldo, 350)
-  const finTrasRenovar = c1.cicloFin.toDate().getTime()
-  const r2 = await L.renovarCiclosVencidos({ tarifas: TARIFAS })
-  assert.strictEqual(r2.renovados, 0, 'la segunda corrida no encuentra nada que renovar')
-  assert.strictEqual((await creditosDe()).cicloFin.toDate().getTime(), finTrasRenovar)
-})
-
-// ═════════════════════════════════════════════════════════════════════════════
-grupo('Planes — cambio, cortesía pendiente y suscripción vencida')
-
-await caso('subida de plan: inmediata y conservando el saldo', async () => {
+await caso('ajustarSaldoManual: un delta positivo suma al saldo (cortesía)', async () => {
   await limpiar()
   await sembrarDocente()
-  await db.doc(`iaCreditos/${DOCENTE}`).set({
-    plan: 'pro', capacidad: 350, saldo: 120, consumidoCiclo: 230, consumoPorCategoria: {},
-    activadoEn: Timestamp.now(), cicloInicio: Timestamp.now(),
-    cicloFin: Timestamp.fromDate(L._unMesDespues(new Date())),
-  })
-  const r = await L.sincronizarPlan({ uid: DOCENTE, nivelNuevo: 'mayor', tarifas: TARIFAS })
-  assert.strictEqual(r.modo, 'inmediato')
-  const c = await creditosDe()
-  assert.strictEqual(c.plan, 'mayor')
-  assert.strictEqual(c.capacidad, 1000)
-  assert.strictEqual(c.saldo, 120, 'no pierde los créditos que tenía')
+  await darSaldo(DOCENTE, 10)
+  const r = await L.ajustarSaldoManual({ uid: DOCENTE, delta: 25, motivo: 'cortesía', adminUid: 'admin_1' })
+  assert.strictEqual(r.saldo, 35)
+  assert.strictEqual((await creditosDe()).saldo, 35)
 })
 
-await caso('bajada de plan: diferida — se aplica en la renovación con la capacidad nueva', async () => {
-  const r = await L.sincronizarPlan({ uid: DOCENTE, nivelNuevo: 'pro', tarifas: TARIFAS })
-  assert.strictEqual(r.modo, 'diferido')
-  let c = await creditosDe()
-  assert.strictEqual(c.plan, 'mayor', 'sigue en Mayor durante el ciclo contratado')
-  assert.strictEqual(c.planSiguiente, 'pro')
-  // Simular que el ciclo venció y renovarlo:
-  const hace1Mes = new Date(); hace1Mes.setMonth(hace1Mes.getMonth() - 1)
-  await db.doc(`iaCreditos/${DOCENTE}`).update({ cicloFin: Timestamp.fromDate(hace1Mes) })
-  await L.renovarCiclosVencidos({ tarifas: TARIFAS })
-  c = await creditosDe()
-  assert.strictEqual(c.plan, 'pro')
-  assert.strictEqual(c.capacidad, 350)
-  assert.strictEqual(c.saldo, 350)
-  assert.strictEqual(c.planSiguiente, undefined)
+await caso('ajustarSaldoManual: un delta negativo resta, pero nunca deja el saldo negativo', async () => {
+  await darSaldo(DOCENTE, 5)
+  const r = await L.ajustarSaldoManual({ uid: DOCENTE, delta: -100, motivo: 'corrección', adminUid: 'admin_1' })
+  assert.strictEqual(r.saldo, 0)
 })
 
-// Plan Básico ($99, reestructuración de precios 18-ago-2026): SIN funciones
-// de IA — reservar() lo bloquea ANTES de tocar saldo/capacidad, para
-// cualquier operación con tarifa (incluidas las confirmadas desde el Chat).
-await caso('plan basico: la IA se rechaza con PLAN_SIN_IA, sin crear ningún doc de créditos', async () => {
+await caso('ajustarSaldoManual: sin doc previo, lo crea desde 0', async () => {
   await limpiar()
-  await db.doc(`users/basico_1`).set({ role: 'docente', escuelaId: 'E1' })
-  await db.collection('subscriptions').add({
-    docenteId: 'basico_1', planId: 'basico', status: 'activa', updatedAt: Timestamp.now(),
-  })
-  await db.doc('config/iaTarifas').set(TARIFAS)
+  await sembrarDocente()
+  const r = await L.ajustarSaldoManual({ uid: DOCENTE, delta: 15, motivo: 'cuenta de prueba', adminUid: 'admin_1' })
+  assert.strictEqual(r.saldo, 15)
+})
+
+await caso('ajustarSaldoManual: delta no numérico se rechaza', async () => {
   await assert.rejects(
-    () => L.reservar({ uid: 'basico_1', operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS }),
-    (e) => e.codigo === 'PLAN_SIN_IA'
-  )
-  const creditosSnap = await db.doc('iaCreditos/basico_1').get()
-  assert.strictEqual(creditosSnap.exists, false, 'basico nunca debe llegar a crear un doc de créditos')
-})
-
-// Bajar de un plan CON IA a basico a media suscripción bloquea la SIGUIENTE
-// operación de inmediato — no hasta la próxima renovación de ciclo (hueco
-// real que reservar() cerró explícitamente, ver el comentario ahí).
-await caso('plan basico: bajar de pro a basico bloquea la IA en la siguiente operación, sin esperar la renovación', async () => {
-  await limpiar()
-  await db.doc(`users/basico_2`).set({ role: 'docente', escuelaId: 'E1' })
-  const subRef = await db.collection('subscriptions').add({
-    docenteId: 'basico_2', planId: 'pro', status: 'activa', updatedAt: Timestamp.now(),
-  })
-  await db.doc('config/iaTarifas').set(TARIFAS)
-  // Primer uso real, en 'pro': crea el doc de créditos con normalidad.
-  await L.reservar({ uid: 'basico_2', operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS })
-  let c = (await db.doc('iaCreditos/basico_2').get()).data()
-  assert.strictEqual(c.plan, 'pro')
-  // El docente baja a basico (a media suscripción, el ciclo de créditos
-  // SIGUE vigente — esto no es una renovación).
-  await subRef.update({ planId: 'basico', updatedAt: Timestamp.now() })
-  await assert.rejects(
-    () => L.reservar({ uid: 'basico_2', operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS }),
-    (e) => e.codigo === 'PLAN_SIN_IA'
-  )
-  // El contenido/saldo que ya tenía NO se toca ni se borra — solo se
-  // bloquea poder GASTARLO en una operación nueva.
-  c = (await db.doc('iaCreditos/basico_2').get()).data()
-  assert.strictEqual(c.plan, 'pro', 'el doc de créditos no se modifica solo por bajar de plan')
-})
-
-await caso('plan cortesía: la IA se rechaza con mensaje claro (pendiente por decisión)', async () => {
-  await limpiar()
-  await db.doc(`users/cortesia_1`).set({ role: 'docente', escuelaId: 'E1' })
-  await db.collection('subscriptions').add({
-    docenteId: 'cortesia_1', planId: 'cortesia', status: 'activa',
-    cortesiaIndefinida: true, updatedAt: Timestamp.now(),
-  })
-  await db.doc('config/iaTarifas').set(TARIFAS)
-  await assert.rejects(
-    () => L.reservar({ uid: 'cortesia_1', operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS }),
-    (e) => e.codigo === 'CORTESIA_PENDIENTE'
-  )
-})
-
-await caso('plan cortesía: con créditos asignados por el admin, la IA funciona y renueva cada mes', async () => {
-  await limpiar()
-  await db.doc(`users/cortesia_2`).set({ role: 'docente', escuelaId: 'E1' })
-  await db.collection('subscriptions').add({
-    docenteId: 'cortesia_2', planId: 'cortesia', status: 'activa',
-    cortesiaIndefinida: true, cortesiaCreditos: 1750, updatedAt: Timestamp.now(),
-  })
-  await db.doc('config/iaTarifas').set(TARIFAS)
-  await L.reservar({ uid: 'cortesia_2', operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS })
-  let c = (await db.doc('iaCreditos/cortesia_2').get()).data()
-  assert.strictEqual(c.plan, 'cortesia')
-  assert.strictEqual(c.capacidad, 1750)
-  assert.ok(c.saldo < 1750)
-  // Ciclo vencido: renueva a la MISMA capacidad (no depende de config/iaTarifas,
-  // que no tiene un nivel "cortesia" — cada docente conserva la suya).
-  const hace1Mes = new Date(); hace1Mes.setMonth(hace1Mes.getMonth() - 1)
-  await db.doc('iaCreditos/cortesia_2').update({ cicloFin: Timestamp.fromDate(hace1Mes) })
-  await L.renovarCiclosVencidos({ tarifas: TARIFAS })
-  c = (await db.doc('iaCreditos/cortesia_2').get()).data()
-  assert.strictEqual(c.capacidad, 1750)
-  assert.strictEqual(c.saldo, 1750)
-})
-
-await caso('resetearAhora: repone el saldo a la capacidad en el acto, sin esperar al ciclo', async () => {
-  await limpiar()
-  await sembrarDocente({ status: 'activa', planId: 'pro' })
-  await db.doc('config/iaTarifas').set(TARIFAS)
-  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: clave(), tarifas: TARIFAS })
-  let c = (await db.doc(`iaCreditos/${DOCENTE}`).get()).data()
-  assert.strictEqual(c.saldo, 340) // 350 - 10
-  assert.strictEqual(c.consumidoCiclo, 0) // reserva sin liquidar, no cuenta como consumido aún
-
-  const r = await L.resetearAhora({ uid: DOCENTE })
-  assert.strictEqual(r.saldo, 350)
-  c = (await db.doc(`iaCreditos/${DOCENTE}`).get()).data()
-  assert.strictEqual(c.saldo, 350)
-  assert.strictEqual(c.capacidad, 350) // la capacidad/plan no cambia, solo el saldo
-})
-
-await caso('resetearAhora: sin doc de créditos (nunca usó la IA) → error claro, no crea nada', async () => {
-  await limpiar()
-  await sembrarDocente({ status: 'activa', planId: 'pro' })
-  await assert.rejects(
-    () => L.resetearAhora({ uid: DOCENTE }),
-    (e) => e.codigo === 'SIN_CREDITOS_AUN'
-  )
-})
-
-await caso('suscripción vencida: la IA se rechaza (mismo criterio que el candado de escrituras)', async () => {
-  await limpiar()
-  const ayer = new Date(Date.now() - 24 * 60 * 60 * 1000)
-  await sembrarDocente({ suscripcionHasta: ayer })
-  await assert.rejects(
-    () => L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS }),
-    (e) => e.codigo === 'SUSCRIPCION_VENCIDA'
+    () => L.ajustarSaldoManual({ uid: DOCENTE, delta: 'mucho', motivo: 'x', adminUid: 'admin_1' }),
+    (e) => e.codigo === 'DELTA_INVALIDO'
   )
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-grupo('Trial — 350 una sola vez, registro interno y conversión')
+grupo('Compra de créditos — acreditación idempotente, sin caducidad')
 
-await caso('el trial NO renueva créditos: ciclo vencido no rellena la bolsa', async () => {
-  await limpiar()
-  await sembrarDocente()
-  const hace40Dias = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000)
-  const hace10Dias = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
-  await db.doc(`iaCreditos/${DOCENTE}`).set({
-    plan: 'trial', capacidad: 350, saldo: 40, consumidoCiclo: 310, consumoPorCategoria: {},
-    activadoEn: Timestamp.fromDate(hace40Dias),
-    cicloInicio: Timestamp.fromDate(hace40Dias),
-    cicloFin: Timestamp.fromDate(hace10Dias), // "venció" y aun así no debe rellenar
-  })
-  const r = await L.renovarCiclosVencidos({ tarifas: TARIFAS })
-  assert.strictEqual(r.renovados, 0, 'el trial no entra a la renovación')
-  const res = await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS })
-  assert.strictEqual(res.saldoTrasReserva, 39, 'sigue con su bolsa original, sin recarga')
-})
-
-await caso('el registro interno del trial nace con el primer uso (sin costos visibles)', async () => {
-  await limpiar()
-  await sembrarDocente()
-  await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS })
-  const reg = (await db.doc(`iaTrialRegistro/${DOCENTE}`).get()).data()
-  assert.strictEqual(reg.creditosAsignados, 350)
-  assert.strictEqual(reg.agotoCreditos, false)
-  assert.strictEqual(reg.convertidoAPago, false)
-  assert.ok(reg.inicioTrial && reg.finTrial)
-})
-
-await caso('cada consumo queda etiquetado con el plan vigente (trial vs pago)', async () => {
-  const k = clave()
-  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
-  assert.strictEqual((await consumoDe(k)).plan, 'trial')
-})
-
-await caso('agotar los 350 en trial marca el registro y suspende SOLO la IA', async () => {
-  await limpiar()
-  await sembrarDocente()
-  await db.doc(`iaCreditos/${DOCENTE}`).set({
-    plan: 'trial', capacidad: 350, saldo: 1, consumidoCiclo: 349, consumoPorCategoria: {},
-    activadoEn: Timestamp.now(), cicloInicio: Timestamp.now(),
-    cicloFin: Timestamp.fromDate(L._unMesDespues(new Date())),
-  })
-  const k = clave()
-  await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: k, tarifas: TARIFAS })
-  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 1 })
-  const reg = (await db.doc(`iaTrialRegistro/${DOCENTE}`).get()).data()
-  assert.strictEqual(reg.agotoCreditos, true)
-  assert.strictEqual(reg.creditosConsumidos, 350)
-  // La IA se rechaza; el resto del producto no pasa por este ledger.
-  await assert.rejects(
-    () => L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS }),
-    (e) => e.codigo === 'SALDO_INSUFICIENTE'
-  )
-})
-
-await caso('conversión trial → pago: inmediata, conserva saldo y queda medida en el registro', async () => {
-  await limpiar()
-  await sembrarDocente()
-  await db.doc(`iaCreditos/${DOCENTE}`).set({
-    plan: 'trial', capacidad: 350, saldo: 220, consumidoCiclo: 130, consumoPorCategoria: {},
-    activadoEn: Timestamp.now(), cicloInicio: Timestamp.now(),
-    cicloFin: Timestamp.fromDate(L._unMesDespues(new Date())),
-  })
-  await db.doc(`iaTrialRegistro/${DOCENTE}`).set({
-    uid: DOCENTE, creditosAsignados: 350, agotoCreditos: false,
-    terminoPorTiempo: false, convertidoAPago: false,
-  })
-  const r = await L.sincronizarPlan({ uid: DOCENTE, nivelNuevo: 'pro', tarifas: TARIFAS })
-  assert.strictEqual(r.modo, 'inmediato')
-  const c = await creditosDe()
-  assert.strictEqual(c.plan, 'pro')
-  assert.strictEqual(c.saldo, 220, 'conserva los créditos del trial')
-  const reg = (await db.doc(`iaTrialRegistro/${DOCENTE}`).get()).data()
-  assert.strictEqual(reg.convertidoAPago, true)
-  assert.strictEqual(reg.planDestino, 'pro')
-  assert.strictEqual(reg.creditosConsumidos, 130)
-})
-
-await caso('trial vencido por tiempo sin conversión: el cierre lo deja medido (y es idempotente)', async () => {
-  await limpiar()
-  await sembrarDocente()
-  const hace40Dias = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000)
-  const hace10Dias = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
-  await db.doc(`iaCreditos/${DOCENTE}`).set({
-    plan: 'trial', capacidad: 350, saldo: 275, consumidoCiclo: 75, consumoPorCategoria: {},
-    activadoEn: Timestamp.fromDate(hace40Dias),
-    cicloInicio: Timestamp.fromDate(hace40Dias),
-    cicloFin: Timestamp.fromDate(hace10Dias),
-  })
-  const r1 = await L.cerrarTrialsVencidos({})
-  assert.strictEqual(r1.cerrados, 1)
-  const reg = (await db.doc(`iaTrialRegistro/${DOCENTE}`).get()).data()
-  assert.strictEqual(reg.terminoPorTiempo, true)
-  assert.strictEqual(reg.creditosConsumidos, 75)
-  const r2 = await L.cerrarTrialsVencidos({})
-  assert.strictEqual(r2.cerrados, 0, 'la segunda corrida no lo vuelve a cerrar')
-})
-
-// ═════════════════════════════════════════════════════════════════════════════
-grupo('Trial — modelo comercial nuevo (13-ago-2026): 50 créditos, sin recortar a quien ya estaba en trial')
-
-// TARIFAS local con capacidadPorPlan.trial en 50 (el valor nuevo) + un corte
-// de trialLegado a medio camino, para probar el ledger de punta a punta (no
-// solo la función pura — ver test/unidad.test.mjs para esa).
-const CORTE_TRIAL = new Date('2026-08-13T00:00:00Z')
-const TARIFAS_CON_LEGADO = {
-  ...TARIFAS,
-  capacidadPorPlan: { trial: 50, pro: 350, anual: 350, mayor: 1000 },
-  trialLegado: { capacidad: 350, corte: Timestamp.fromDate(CORTE_TRIAL) },
+async function crearCompra({ id, docenteId = DOCENTE, creditos = 100, status = 'pendiente' }) {
+  await db.doc(`creditPurchases/${id}`).set({ docenteId, creditos, montoMXN: 175, status, metodo: 'transferencia' })
 }
 
-await caso('trial NUEVO (fechaInicio después del corte): nace con 50 créditos', async () => {
+await caso('acreditarCompraCreditos: suma el saldo y marca la compra como completada', async () => {
   await limpiar()
-  await sembrarDocente({ fechaInicio: new Date('2026-08-14') })
-  const r = await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS_CON_LEGADO })
-  assert.strictEqual(r.saldoTrasReserva, 49)
-  const c = await creditosDe()
-  assert.strictEqual(c.capacidad, 50)
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 10)
+  await crearCompra({ id: 'compra_1', creditos: 100 })
+  const r = await L.acreditarCompraCreditos({ purchaseId: 'compra_1', adminUid: 'admin_1' })
+  assert.strictEqual(r.repetida, false)
+  assert.strictEqual(r.saldo, 110)
+  assert.strictEqual((await db.doc('creditPurchases/compra_1').get()).data().status, 'completado')
 })
 
-await caso('trial YA EXISTENTE (fechaInicio antes del corte): conserva 350, no se le recorta nada', async () => {
-  await limpiar()
-  await sembrarDocente({ fechaInicio: new Date('2026-08-01') })
-  const r = await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS_CON_LEGADO })
-  assert.strictEqual(r.saldoTrasReserva, 349)
-  const c = await creditosDe()
-  assert.strictEqual(c.capacidad, 350)
+await caso('acreditarCompraCreditos es idempotente: aprobar dos veces no acredita dos veces', async () => {
+  const r = await L.acreditarCompraCreditos({ purchaseId: 'compra_1', adminUid: 'admin_1' })
+  assert.strictEqual(r.repetida, true)
+  assert.strictEqual((await creditosDe()).saldo, 110, 'el saldo no se duplica')
 })
 
-await caso('un trial ya existente que YA tenía su doc de iaCreditos (350) no se toca al bajar capacidadPorPlan.trial', async () => {
-  await limpiar()
-  await sembrarDocente({ fechaInicio: new Date('2026-08-01') })
-  // Ya usó IA antes del cambio: su doc nació con 350.
-  await db.doc(`iaCreditos/${DOCENTE}`).set({
-    plan: 'trial', capacidad: 350, saldo: 300, consumidoCiclo: 50, consumoPorCategoria: {},
-    activadoEn: Timestamp.now(), cicloInicio: Timestamp.now(),
-    cicloFin: Timestamp.fromDate(L._unMesDespues(new Date())),
-  })
-  // Ahora se reserva con las tarifas YA actualizadas (trial:50) — el doc
-  // existente no se recrea, solo se reserva sobre lo que ya tenía.
-  const r = await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS_CON_LEGADO })
-  assert.strictEqual(r.saldoTrasReserva, 299)
-  assert.strictEqual((await creditosDe()).capacidad, 350, 'su capacidad ya fijada no se recorta retroactivamente')
+await caso('acreditarCompraCreditos: sin doc previo de créditos, lo crea con solo lo comprado', async () => {
+  await crearCompra({ id: 'compra_2', docenteId: 'sin_creditos_aun', creditos: 50 })
+  const r = await L.acreditarCompraCreditos({ purchaseId: 'compra_2', adminUid: 'admin_1' })
+  assert.strictEqual(r.saldo, 50)
 })
 
-await caso('pro y mayor no se ven afectados por trialLegado (solo aplica a nivel trial)', async () => {
-  await limpiar()
-  await sembrarDocente({ status: 'activa', planId: 'pro', fechaInicio: new Date('2026-08-01') })
-  const r = await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: clave(), tarifas: TARIFAS_CON_LEGADO })
-  assert.strictEqual((await creditosDe()).capacidad, 350)
-  assert.strictEqual(r.plan, 'pro')
+await caso('acreditarCompraCreditos: una compra que no existe se rechaza', async () => {
+  await assert.rejects(
+    () => L.acreditarCompraCreditos({ purchaseId: 'no_existe', adminUid: 'admin_1' }),
+    (e) => e.codigo === 'COMPRA_INEXISTENTE'
+  )
+})
+
+await caso('acreditarCompraCreditos: una compra ya rechazada no puede aprobarse', async () => {
+  await crearCompra({ id: 'compra_3', creditos: 50, status: 'rechazado' })
+  await assert.rejects(
+    () => L.acreditarCompraCreditos({ purchaseId: 'compra_3', adminUid: 'admin_1' }),
+    (e) => e.codigo === 'ESTADO_INVALIDO'
+  )
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -661,6 +414,7 @@ async function precheckFalla({ actividadId, uid = DOCENTE }) {
 
 await limpiar()
 await sembrarDocente()
+await darSaldo(DOCENTE, 1000)
 await db.doc('activities/act_entregable').set(ENTREGABLE)
 await db.doc('activities/act_observacion').set(OBSERVACION)
 await db.doc('activities/act_ajena').set({ ...ENTREGABLE, docenteId: OTRO_DOCENTE })
@@ -769,6 +523,7 @@ await caso('normalizarReactivos: rellena huecos cuando la IA entrega menos react
 
 await limpiar()
 await sembrarDocente()
+await darSaldo(DOCENTE, 1000)
 await db.doc('activities/act_cuestionario').set(CUESTIONARIO)
 await db.doc('activities/act_examen_reactivos').set(EXAMEN)
 await db.doc('activities/act_entregable_reactivos').set({ docenteId: DOCENTE, categoria: 'entregable', nombre: 'No es evaluación' })
@@ -1283,6 +1038,7 @@ async function sembrarEvaluacionConEntregas({ actId, categoria = 'cuestionario',
 
 await limpiar()
 await sembrarDocente()
+await darSaldo(DOCENTE, 1000)
 await sembrarEvaluacionConEntregas({ actId: 'act_quiz_ok', nEntregasFinalizadas: IA.MIN_ENTREGAS_ANALISIS })
 await sembrarEvaluacionConEntregas({ actId: 'act_quiz_pocas', nEntregasFinalizadas: IA.MIN_ENTREGAS_ANALISIS - 1 })
 await db.doc('activities/act_examen_ok').set({ docenteId: DOCENTE, categoria: 'examen', nombre: 'Examen' })
@@ -1394,6 +1150,7 @@ async function precheckDiagnosticoFalla({ subjectId, uid = DOCENTE }) {
 
 await limpiar()
 await sembrarDocente()
+await darSaldo(DOCENTE, 1000)
 await db.doc('subjects/sub_diag').set({ docenteId: DOCENTE, nombre: 'Matemáticas I' })
 await db.doc('subjects/sub_diag_ajena').set({ docenteId: OTRO_DOCENTE, nombre: 'Ajena' })
 
@@ -1591,6 +1348,7 @@ async function precheckPlaneacionFalla({ subjectId, uid = DOCENTE }) {
 
 await limpiar()
 await sembrarDocente()
+await darSaldo(DOCENTE, 1000)
 await db.doc('subjects/sub_plan').set({ docenteId: DOCENTE, nombre: 'Cultura Digital I', parciales: 2 })
 await db.doc('subjects/sub_plan_ajena').set({ docenteId: OTRO_DOCENTE, nombre: 'Ajena' })
 

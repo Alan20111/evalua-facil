@@ -42,42 +42,39 @@ service cloud.firestore {
       ) : null;
     }
 
-    // ── Tarifa oficial de un paquete de créditos adicionales (18-ago-2026) ──
+    // ── Tarifa oficial de un paquete de créditos (créditos puros, 20-ago-2026) ──
     // Espejo de config/iaTarifas.paquetesCreditos (seeds-db/seed-ia-tarifas.js)
     // — misma razón que montoOficialPago arriba: el servidor no confía en el
-    // precio que declara el cliente. Modelo lineal fijo: $50 MXN por cada
-    // bloque de 100 créditos, sin descuentos por volumen.
+    // precio que declara el cliente. 6 paquetes definitivos, con descuento por
+    // volumen creciente (reemplazan al modelo lineal de $0.50/crédito).
     function montoOficialCredito(creditos) {
-      return creditos == 100 ? 50 :
-        creditos == 200 ? 100 :
-        creditos == 300 ? 150 :
-        creditos == 400 ? 200 :
-        creditos == 500 ? 250 : null;
+      return creditos == 50 ? 100 :
+        creditos == 100 ? 175 :
+        creditos == 200 ? 350 :
+        creditos == 400 ? 700 :
+        creditos == 800 ? 1400 :
+        creditos == 1600 ? 2800 : null;
     }
 
-    // ── Candado de suscripción ──────────────────────────────────────────────
-    // Un docente sin suscripción vigente puede LEER y exportar todo lo suyo,
-    // pero no escribir. Hasta ahora ese candado vivía solo en el navegador
-    // (src/utils/firestoreGuard.js): bastaban las herramientas de desarrollador
-    // para seguir trabajando sin pagar. Aquí lo decide el servidor.
+    // ── Modelo de créditos puros (20-ago-2026) ──────────────────────────────
+    // Se retira el candado por tiempo de suscripción (`isDocente()`/
+    // `suscripcionHasta()` ya NO existen): todo lo que no es IA queda abierto
+    // para cualquier docente autenticado — `isDocente()` es suficiente en toda
+    // escritura de docente que no sea Asistencia (ver `saldoIAPositivo` abajo).
+    // `users/{uid}.suscripcionHasta` puede seguir existiendo como dato
+    // histórico; simplemente ya no lo lee ninguna regla.
     //
-    // `users/{uid}.suscripcionHasta` es un Timestamp que espeja la Cloud
-    // Function onSuscripcionEscrita cada vez que cambia la suscripción. Se
-    // compara contra request.time, así que el vencimiento ocurre solo con el
-    // paso del tiempo: nada tiene que correr ese día.
-    //
-    // Campo AUSENTE = se deja pasar. Es una cuenta que todavía no pasó por el
-    // respaldo inicial (seeds-db/backfill-suscripcion.js), y un dato faltante
-    // nunca debe dejar a un docente fuera de su propio trabajo — mismo criterio
-    // que isSubscriptionExpired en el cliente.
-    function suscripcionHasta() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('suscripcionHasta', null);
-    }
-
-    // Docente que además puede TRABAJAR: crear, editar, calificar, pasar lista,
-    // publicar. Leer y exportar nunca pasan por aquí.
-    function docenteActivo() {
-      return isDocente() && (suscripcionHasta() == null || request.time < suscripcionHasta());
+    // Excepción: Asistencia (`attendance`/`attendanceSummaries`) NO consume
+    // créditos, pero exige saldo positivo para estar habilitada — se
+    // rehabilita sola en cuanto el saldo vuelve a ser mayor a cero (compra
+    // aprobada). A diferencia del patrón anterior de `suscripcionHasta()`
+    // (campo ausente = se deja pasar), aquí la AUSENCIA del doc de créditos
+    // significa saldo 0: se BLOQUEA. Esto es intencional (§9 del plan
+    // técnico) — antes de que `onDocenteCreado` otorgue el regalo de
+    // bienvenida, la cuenta no debe poder escribir asistencia.
+    function saldoIAPositivo(uid) {
+      return exists(/databases/$(database)/documents/iaCreditos/$(uid)) &&
+        get(/databases/$(database)/documents/iaCreditos/$(uid)).data.get('saldo', 0) > 0;
     }
 
     // ── Ownership helpers (cross-document) ──────────────────────────────────
@@ -335,11 +332,11 @@ service cloud.firestore {
       allow create: if request.auth.uid == userId &&
         request.resource.data.role == 'docente' &&
         !request.resource.data.keys().hasAny(['suscripcionHasta']);
-      // `suscripcionHasta` (el candado de escritura, ver docenteActivo) queda
-      // congelado en las ediciones del propio docente: solo lo escribe la Cloud
-      // Function con el Admin SDK, que no pasa por estas reglas. Sin esto, el
-      // candado se abriría desde la consola del navegador con un updateDoc al
-      // propio perfil.
+      // `suscripcionHasta` ya no gatea nada (modelo de créditos puros,
+      // 20-ago-2026) pero se congela igual como dato histórico: solo lo
+      // escribe la Cloud Function con el Admin SDK, que no pasa por estas
+      // reglas. Sin esto, el campo se editaría desde la consola del
+      // navegador con un updateDoc al propio perfil.
       allow update: if isAdmin() ||
         (request.auth.uid == userId &&
          request.resource.data.role == resource.data.role &&
@@ -354,8 +351,8 @@ service cloud.firestore {
 
       // Only the owning teacher (docente of the target subject) creates/deletes
       // enrollments. Students never create or delete their own record.
-      allow create: if docenteActivo() && ownsSubject(request.resource.data.asignaturaId);
-      allow delete: if docenteActivo() && ownsSubject(resource.data.asignaturaId);
+      allow create: if isDocente() && ownsSubject(request.resource.data.asignaturaId);
+      allow delete: if isDocente() && ownsSubject(resource.data.asignaturaId);
 
       // Two legitimate updaters:
       //  (a) the owning teacher — may edit any field of their students.
@@ -381,7 +378,7 @@ service cloud.firestore {
       // dadas de alta por Excel no traen el campo, y así ninguna se quedaba sin
       // poder activarse.
       allow update: if
-        (docenteActivo() && ownsSubject(resource.data.asignaturaId)) ||
+        (isDocente() && ownsSubject(resource.data.asignaturaId)) ||
         (
           request.auth != null &&
           request.resource.data.uid == request.auth.uid &&
@@ -411,9 +408,9 @@ service cloud.firestore {
     match /subjects/{subjectId} {
       allow read: if true;
       // Only teachers create subjects, always attributed to themselves.
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId;
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
 
       // Diagnóstico del grupo — Asistente IA (FASE 2-BIS del Plan Maestro de
@@ -432,11 +429,11 @@ service cloud.firestore {
       match /diagnosticosIA/{diagnosticoId} {
         allow read: if request.auth != null &&
           request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
-        allow create: if docenteActivo() &&
+        allow create: if isDocente() &&
           request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
           request.resource.data.docenteId == request.auth.uid;
         allow update: if false;
-        allow delete: if docenteActivo() &&
+        allow delete: if isDocente() &&
           request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
       }
 
@@ -450,7 +447,7 @@ service cloud.firestore {
       match /planeacionesIA/{planeacionId} {
         allow read: if request.auth != null &&
           request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
-        allow create: if docenteActivo() &&
+        allow create: if isDocente() &&
           request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
           request.resource.data.docenteId == request.auth.uid;
         allow update, delete: if false;
@@ -466,7 +463,7 @@ service cloud.firestore {
       match /asistenteIA/{docId} {
         allow read: if request.auth != null &&
           request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
-        allow create, update: if docenteActivo() &&
+        allow create, update: if isDocente() &&
           request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId &&
           request.resource.data.docenteId == request.auth.uid;
         allow delete: if false;
@@ -476,10 +473,10 @@ service cloud.firestore {
     match /activities/{activityId} {
       allow read: if request.auth != null;
       // Create only within a subject you own, attributed to yourself.
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
 
       // Reactivos de una evaluación. Los lee cualquier cuenta autenticada
@@ -496,7 +493,7 @@ service cloud.firestore {
       // existe (§1.1).
       match /preguntas/{preguntaId} {
         allow read: if request.auth != null;
-        allow write: if docenteActivo() &&
+        allow write: if isDocente() &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
       }
 
@@ -510,7 +507,7 @@ service cloud.firestore {
       //
       // La califica el Admin SDK, que no pasa por estas reglas.
       match /clave/{preguntaId} {
-        allow read, write: if docenteActivo() &&
+        allow read, write: if isDocente() &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
       }
 
@@ -526,7 +523,7 @@ service cloud.firestore {
       match /iaSugerencias/{sugerenciaId} {
         allow read: if request.auth != null &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
-        allow update, delete: if docenteActivo() &&
+        allow update, delete: if isDocente() &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
         allow create: if false;
       }
@@ -541,7 +538,7 @@ service cloud.firestore {
       match /analisisIA/{analisisId} {
         allow read: if request.auth != null &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
-        allow create: if docenteActivo() &&
+        allow create: if isDocente() &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId &&
           request.resource.data.docenteId == request.auth.uid;
         allow update, delete: if false;
@@ -557,10 +554,14 @@ service cloud.firestore {
       // podía listar los pases de lista de toda la plataforma. El alumno ve su
       // propio resumen vía attendanceSummaries (ver más abajo).
       allow read: if isDocente() || isAdmin();
-      allow create: if docenteActivo() &&
+      // Asistencia NO consume créditos, pero exige saldo positivo (§9 del
+      // plan de créditos puros) — no `isDocente()`/suscripción, sino
+      // `saldoIAPositivo`: se bloquea en saldo==0 y se rehabilita sola en
+      // saldo>0, sin depender de historial de compras.
+      allow create: if isDocente() && saldoIAPositivo(request.auth.uid) &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() && saldoIAPositivo(request.auth.uid) &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -578,9 +579,9 @@ service cloud.firestore {
     match /bancoReactivos/{reactivoId} {
       allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -589,9 +590,9 @@ service cloud.firestore {
     match /bancoRubricas/{rubricaId} {
       allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -603,10 +604,10 @@ service cloud.firestore {
       allow read: if request.auth != null;
       // Only teachers create resources, always attributed to themselves,
       // and only within a subject they own.
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -620,11 +621,11 @@ service cloud.firestore {
     // cambios parciales de `ubicacion`/`parcial` en `update`).
     match /fuentesAsignatura/{fuenteId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.docenteId;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
       allow update: if false;
-      allow delete: if docenteActivo() &&
+      allow delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -635,10 +636,10 @@ service cloud.firestore {
     // docente dueño de la asignatura crea/edita/borra los suyos.
     match /avisos/{avisoId} {
       allow read: if request.auth != null;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -689,9 +690,9 @@ service cloud.firestore {
     match /avisoPlantillas/{plantillaId} {
       allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -703,10 +704,10 @@ service cloud.firestore {
       allow read: if request.auth != null;
       // Only teachers create materials, always attributed to themselves,
       // and only within a subject they own.
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -752,7 +753,7 @@ service cloud.firestore {
           !actividadVencidaParaAlumno(request.resource.data.actividadId, request.resource.data.alumnoId)
         ) ||
         (
-          docenteActivo() &&
+          isDocente() &&
           ownsActivity(request.resource.data.actividadId) &&
           calificacionEnRango(request.resource.data.actividadId)
         )
@@ -764,7 +765,7 @@ service cloud.firestore {
           studentNoManipulaIntento()
         ) ||
         (
-          docenteActivo() &&
+          isDocente() &&
           ownsActivity(resource.data.actividadId) &&
           calificacionEnRangoSiCambia(resource.data.actividadId)
         )
@@ -772,7 +773,7 @@ service cloud.firestore {
       // Borrar una submission borra su nota — eso es manipulación de
       // calificaciones si lo hace el alumno (ningún flujo del alumno borra
       // submissions). Solo el docente dueño de la actividad.
-      allow delete: if docenteActivo() &&
+      allow delete: if isDocente() &&
         ownsActivity(resource.data.actividadId);
 
       // Evaluación answers (autosave + teacher revision). Only the student who
@@ -797,7 +798,7 @@ service cloud.firestore {
         );
         allow write: if request.auth != null && (
           (
-            docenteActivo() &&
+            isDocente() &&
             exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
             ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId)
           ) || (
@@ -982,9 +983,9 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -1002,10 +1003,10 @@ service cloud.firestore {
     // información sensible, el alumno filtra del lado cliente sus materias.
     match /academicEvents/{eventId} {
       allow read: if request.auth != null;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -1022,9 +1023,9 @@ service cloud.firestore {
     match /horario/{bloqueId} {
       allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -1037,9 +1038,9 @@ service cloud.firestore {
     // del lado cliente solo lo de sus materias inscritas.
     match /horarioBloques/{bloqueId} {
       allow read: if request.auth != null;
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -1048,9 +1049,9 @@ service cloud.firestore {
     match /asuetos/{asuetoId} {
       allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -1062,7 +1063,7 @@ service cloud.firestore {
     match /chatMensajes/{mensajeId} {
       allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId;
       // Borrar (limpiar la conversación) es lo único que el docente hace
       // aquí después de crear un mensaje — nunca lo edita. Marcar una
@@ -1076,13 +1077,13 @@ service cloud.firestore {
       // ya describía borrar como la acción del docente, pero sin `allow
       // delete` Firestore lo negaba por omisión — "Missing or insufficient
       // permissions" cada vez que intentaba limpiar una conversación.
-      allow delete: if docenteActivo() &&
+      allow delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
     }
 
     // Chat de Administración (19-ago-2026) — mismo patrón que chatMensajes,
     // pero con `adminUid` en vez de `docenteId`, exclusivo del rol admin, y
-    // SIN candado de suscripción (docenteActivo() no aplica a un admin).
+    // SIN candado de suscripción (isDocente() no aplica a un admin).
     match /adminChatMensajes/{mensajeId} {
       allow read: if isAdmin() && request.auth.uid == resource.data.adminUid;
       allow create: if isAdmin() && request.auth.uid == request.resource.data.adminUid;
@@ -1103,9 +1104,9 @@ service cloud.firestore {
     match /vacaciones/{vacacionId} {
       allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow update, delete: if docenteActivo() &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if docenteActivo() &&
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 

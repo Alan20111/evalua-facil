@@ -39,6 +39,11 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore()
   await setDoc(doc(db, 'users', T1), { role: 'docente', escuelaId: 'E1' })
   await setDoc(doc(db, 'users', T2), { role: 'docente', escuelaId: 'E2' })
+  // Modelo de créditos puros (20-ago-2026): Asistencia exige saldo>0 — T1
+  // necesita este doc para que sus pruebas normales de asistencia (abajo)
+  // sigan pasando; T2 se deja SIN doc a propósito para las pruebas de
+  // saldoIAPositivo más abajo (doc ausente = bloqueado).
+  await setDoc(doc(db, 'iaCreditos', T1), { saldo: 50, consumidoTotal: 0, consumoPorCategoria: {} })
   await setDoc(doc(db, 'users', U_MALLORY), { role: 'docente', escuelaId: 'E1' }) // even a docente can't cross tenants
   await setDoc(doc(db, 'subjects', 'S1'), { docenteId: T1, escuelaId: 'E1', accessCode: 'abc' })
   await setDoc(doc(db, 'subjects', 'S2'), { docenteId: T2, escuelaId: 'E2', accessCode: 'xyz' })
@@ -302,30 +307,23 @@ ok('attacker CANNOT write answers to another student’s attempt')
 await assertSucceeds(setDoc(doc(asT1, 'submissions', 'A1_ST_JUAN', 'respuestas', 'Q1'), { puntosObtenidos: 5 }))
 ok('owning teacher writes revision points on an answer')
 
-// ── Candado de suscripción ───────────────────────────────────────────────────
-// Un docente sin suscripción vigente puede leer y exportar lo suyo, pero no
-// escribir. La fecha vive en users/{uid}.suscripcionHasta, la espeja la Cloud
-// Function onSuscripcionEscrita y la compara docenteActivo() en las reglas.
+// ── Modelo de créditos puros (20-ago-2026): sin candado de suscripción ──────
+// `docenteActivo()`/`suscripcionHasta()` ya no existen — una suscripción
+// vencida (o inexistente) NO bloquea ninguna escritura no-IA. Se conserva un
+// docente "T_VENCIDO" con `suscripcionHasta` en el pasado solo para probar
+// que ese campo histórico YA NO tiene ningún efecto.
 const T_VENCIDO = 'teacher_vencido'
 const T_SIN_CAMPO = 'teacher_sin_campo'
 const AYER = new Date(Date.now() - 86400000)
-const EN_UN_MES = new Date(Date.now() + 30 * 86400000)
 
 await testEnv.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore()
   await setDoc(doc(db, 'users', T_VENCIDO), { role: 'docente', escuelaId: 'E3', suscripcionHasta: AYER })
-  // Cuenta que todavía no pasó por seeds-db/backfill-suscripcion.js.
   await setDoc(doc(db, 'users', T_SIN_CAMPO), { role: 'docente', escuelaId: 'E4' })
-  // T1 sí está al corriente — las pruebas de arriba corrieron sin el campo
-  // (ausente = se deja pasar), aquí se le pone explícito.
-  await setDoc(doc(db, 'users', T1), { role: 'docente', escuelaId: 'E1', suscripcionHasta: EN_UN_MES }, { merge: true })
   await setDoc(doc(db, 'subjects', 'S_VENC'), { docenteId: T_VENCIDO, escuelaId: 'E3', accessCode: 'ven' })
   await setDoc(doc(db, 'activities', 'A_VENC'), { docenteId: T_VENCIDO, asignaturaId: 'S_VENC', tipo: 'archivo' })
   await setDoc(doc(db, 'submissions', 'SUB_VENC'), { alumnoId: 'ST_JUAN', actividadId: 'A_VENC' })
-  await setDoc(doc(db, 'subscriptions', 'SUB_DEL_VENCIDO'), { docenteId: T_VENCIDO, status: 'vencida' })
   await setDoc(doc(db, 'bancoRubricas', 'RUB_VENC'), { docenteId: T_VENCIDO, titulo: 'Suya' })
-  // Inscripción de Juan en la materia del docente vencido: sin ella no podría
-  // entregar ahí por una razón distinta a la que se quiere probar.
   await setDoc(doc(db, 'students', 'ST_JUAN_VENC'), {
     asignaturaId: 'S_VENC', escuelaId: 'E3', username: 'JUAN', uid: U_JUAN, activado: true,
   })
@@ -334,76 +332,72 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
 const asVencido = testEnv.authenticatedContext(T_VENCIDO).firestore()
 const asSinCampo = testEnv.authenticatedContext(T_SIN_CAMPO).firestore()
 
-// No puede TRABAJAR
-await assertFails(setDoc(doc(asVencido, 'activities', 'A_NUEVA'), {
+// Todo lo NO-IA queda abierto para cualquier docente autenticado, sin
+// importar su historial de suscripción.
+await assertSucceeds(setDoc(doc(asVencido, 'activities', 'A_NUEVA'), {
   docenteId: T_VENCIDO, asignaturaId: 'S_VENC', tipo: 'archivo',
-})); ok('expired teacher CANNOT create an activity')
+})); ok('teacher with an expired suscripcionHasta CAN still create an activity (no subscription gate)')
 
-await assertFails(updateDoc(doc(asVencido, 'activities', 'A_VENC'), { nombre: 'Editada' }))
-ok('expired teacher CANNOT edit their own activity')
+await assertSucceeds(updateDoc(doc(asVencido, 'activities', 'A_VENC'), { nombre: 'Editada' }))
+ok('teacher with an expired suscripcionHasta CAN edit their own activity')
 
-await assertFails(updateDoc(doc(asVencido, 'submissions', 'SUB_VENC'), { calificacion: 10 }))
-ok('expired teacher CANNOT grade')
+await assertSucceeds(updateDoc(doc(asVencido, 'submissions', 'SUB_VENC'), { calificacion: 10 }))
+ok('teacher with an expired suscripcionHasta CAN grade')
 
-await assertFails(setDoc(doc(asVencido, 'attendance', 'AT_1'), {
-  docenteId: T_VENCIDO, asignaturaId: 'S_VENC', fecha: '2026-08-05',
-})); ok('expired teacher CANNOT take attendance')
-
-await assertFails(setDoc(doc(asVencido, 'avisos', 'AV_1'), {
+await assertSucceeds(setDoc(doc(asVencido, 'avisos', 'AV_1'), {
   docenteId: T_VENCIDO, asignaturaId: 'S_VENC', titulo: 'Hola',
-})); ok('expired teacher CANNOT publish an aviso')
+})); ok('teacher with an expired suscripcionHasta CAN publish an aviso')
 
-await assertFails(setDoc(doc(asVencido, 'students', 'ST_NUEVO'), {
+await assertSucceeds(setDoc(doc(asVencido, 'students', 'ST_NUEVO'), {
   asignaturaId: 'S_VENC', escuelaId: 'E3', username: 'NUE', uid: null,
-})); ok('expired teacher CANNOT add a student')
+})); ok('teacher with an expired suscripcionHasta CAN add a student')
 
-await assertFails(setDoc(doc(asVencido, 'bancoRubricas', 'RUB_NUEVA'), { docenteId: T_VENCIDO, titulo: 'R' }))
-ok('expired teacher CANNOT create a rubric')
-
-// Y sobre todo: no puede abrirse el candado a sí mismo.
-await assertFails(updateDoc(doc(asVencido, 'users', T_VENCIDO), { suscripcionHasta: EN_UN_MES }))
-ok('expired teacher CANNOT lift their own lock from the client')
-
-// Sí puede CONSULTAR y PAGAR
-await assertSucceeds(getDoc(doc(asVencido, 'activities', 'A_VENC')))
-ok('expired teacher CAN still read their activity')
-
-await assertSucceeds(getDoc(doc(asVencido, 'bancoRubricas', 'RUB_VENC')))
-ok('expired teacher CAN still read their rubric bank')
-
-// Lo más importante de todo el candado: a quien se le venció la suscripción no
-// se le puede impedir PAGARLA.
-await assertSucceeds(setDoc(doc(asVencido, 'payments', 'PAY_1'), {
-  docenteId: T_VENCIDO, subscriptionId: 'SUB_DEL_VENCIDO', planId: 'pro', escuelaId: 'E3',
-  monto: 199, mesesPagados: 1, metodo: 'transferencia', referencia: '9001',
-  status: 'pendiente', createdAt: serverTimestamp(),
-})); ok('expired teacher CAN declare a payment')
-
-await assertSucceeds(updateDoc(doc(asVencido, 'subscriptions', 'SUB_DEL_VENCIDO'), {
-  docenteId: T_VENCIDO, status: 'pendiente_pago',
-})); ok('expired teacher CAN mark their subscription as paying')
+await assertSucceeds(setDoc(doc(asVencido, 'bancoRubricas', 'RUB_NUEVA'), { docenteId: T_VENCIDO, titulo: 'R' }))
+ok('teacher with an expired suscripcionHasta CAN create a rubric')
 
 await assertSucceeds(updateDoc(doc(asVencido, 'users', T_VENCIDO), { nombre: 'Otro' }))
-ok('expired teacher CAN still edit their own profile')
+ok('teacher with an expired suscripcionHasta CAN still edit their own profile')
 
-// Al corriente: todo normal
-await assertSucceeds(setDoc(doc(asT1, 'activities', 'A_OK'), {
-  docenteId: T1, asignaturaId: 'S1', tipo: 'archivo',
-})); ok('paid teacher works normally')
-
-// Sin el campo todavía (cuenta previa al respaldo): no se bloquea a nadie por
-// un dato faltante.
+// Sin el campo suscripcionHasta (cuenta que nunca tuvo suscripción real):
+// tampoco se bloquea a nadie — mismo criterio, todavía más simple.
 await assertSucceeds(setDoc(doc(asSinCampo, 'bancoRubricas', 'RUB_SC'), { docenteId: T_SIN_CAMPO, titulo: 'R' }))
-ok('teacher without the mirrored field is NOT locked out')
+ok('teacher without the suscripcionHasta field is NOT locked out')
 
-// El alumno no pierde nada porque su maestro no pagó.
+// El alumno tampoco pierde nada, por la misma razón.
 await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_VENC_ST_JUAN_VENC'), {
   alumnoId: 'ST_JUAN_VENC', actividadId: 'A_VENC', archivoURL: 'x',
-})); ok('student of an expired teacher CAN still submit')
+})); ok('student of a teacher with an expired suscripcionHasta CAN still submit')
+
+// ── Asistencia: candado por saldo de créditos IA (saldoIAPositivo) ──────────
+// No consume créditos, pero exige saldo>0 — la ÚNICA función no-IA con este
+// requisito. Doc ausente = bloqueado (a diferencia de suscripcionHasta,
+// donde ausente dejaba pasar) — ver plan §9.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'users', 'teacher_saldo0'), { role: 'docente', escuelaId: 'E1' })
+  await setDoc(doc(db, 'iaCreditos', 'teacher_saldo0'), { saldo: 0, consumidoTotal: 5, consumoPorCategoria: {} })
+  await setDoc(doc(db, 'subjects', 'S_SALDO0'), { docenteId: 'teacher_saldo0', escuelaId: 'E1', accessCode: 'sd0' })
+})
+const asSaldo0 = testEnv.authenticatedContext('teacher_saldo0').firestore()
+
+await assertSucceeds(setDoc(doc(asT1, 'attendance', 'AT_SALDO_POS'), {
+  asignaturaId: 'S1', docenteId: T1, fecha: '2026-08-06', slot: 1, parcial: 1, presentes: {},
+})); ok('teacher with saldo>0 CAN take attendance')
+
+await assertFails(setDoc(doc(asSaldo0, 'attendance', 'AT_SALDO_0'), {
+  asignaturaId: 'S_SALDO0', docenteId: 'teacher_saldo0', fecha: '2026-08-06', slot: 1, parcial: 1, presentes: {},
+})); ok('teacher with saldo==0 CANNOT take attendance')
+
+await assertFails(setDoc(doc(asSinCampo, 'attendance', 'AT_SIN_DOC'), {
+  asignaturaId: 'S_VENC', docenteId: T_SIN_CAMPO, fecha: '2026-08-06', slot: 1, parcial: 1, presentes: {},
+})); ok('teacher with NO iaCreditos doc CANNOT take attendance (absent = blocked, unlike suscripcionHasta)')
 
 // ── Suscripciones: el candado no se puede abrir desde el cliente ─────────────
 // Los dos ataques que la auditoría encontró abiertos: reescribir las fechas al
-// declarar un pago, y crearse una suscripción a modo.
+// declarar un pago, y crearse una suscripción a modo. `subscriptions` ya no
+// controla acceso (modelo de créditos puros), pero se conserva como colección
+// histórica — estas reglas de integridad siguen vigentes por si acaso.
+const EN_UN_MES = new Date(Date.now() + 30 * 86400000)
 await testEnv.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore()
   await setDoc(doc(db, 'subscriptions', 'SUB_T1'), {

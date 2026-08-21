@@ -1,6 +1,15 @@
 #!/usr/bin/env node
 
 /**
+ * DEPRECADO (20-ago-2026, migración a créditos puros — ver
+ * docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md). `plans/{id}` ya no controla
+ * ningún acceso: no hay candado de suscripción ni checkout que lo lea.
+ * `subscriptions`/`payments`/`plans` se conservan como colecciones
+ * históricas/infraestructura (regla 7 del PO), así que este script no se
+ * borra, pero ya no forma parte del flujo de despliegue — correrlo no
+ * tiene efecto funcional, solo reescribiría documentos que nadie consulta.
+ *
+ * ── Documentación original (ya no aplica) ───────────────────────────────
  * Seed default subscription plans into Firestore.
  * Usage: node seed-plans.js
  *

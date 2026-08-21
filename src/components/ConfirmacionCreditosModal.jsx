@@ -11,9 +11,10 @@
 // Con la tarifa de enteros la estimación casi siempre es EXACTA; costoMax
 // solo difiere en lotes (rango sin falsa precisión).
 
+import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import useCreditosIA from '../hooks/useCreditosIA'
+import ComprarCreditosModal from './ComprarCreditosModal'
 
 export default function ConfirmacionCreditosModal({
   titulo = 'Usar el asistente de IA',
@@ -26,15 +27,13 @@ export default function ConfirmacionCreditosModal({
   onContinuar,
 }) {
   const c = useCreditosIA()
-  const navigate = useNavigate()
+  const [comprarAbierto, setComprarAbierto] = useState(false)
   const max = costoMax ?? costoMin
   const rango = max !== costoMin ? `${costoMin}–${max}` : `${costoMin}`
   const restanteMin = c.saldo - max
   const restanteMax = c.saldo - costoMin
   const restante = restanteMin !== restanteMax ? `${restanteMin}–${restanteMax}` : `${restanteMin}`
   const alcanza = c.saldo >= max
-  const infoMayor = c.tarifas?.planes?.mayor
-  const infoDocente = c.tarifas?.planes?.pro
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -82,21 +81,15 @@ export default function ConfirmacionCreditosModal({
                 className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
                 Cerrar
               </button>
-              {c.esTrial && infoDocente ? (
-                <button type="button" onClick={() => navigate('/profile')}
-                  className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
-                  Contratar {infoDocente.nombre} · ${infoDocente.precioMXN}
-                </button>
-              ) : infoMayor ? (
-                <button type="button" onClick={onCancelar} data-tooltip="Próximamente disponible"
-                  className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
-                  Ver {infoMayor.nombre}
-                </button>
-              ) : null}
+              <button type="button" onClick={() => setComprarAbierto(true)}
+                className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                Comprar créditos
+              </button>
             </div>
           </>
         )}
       </div>
+      <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />
     </div>
   )
 }
