@@ -31,9 +31,7 @@ import {
   validacionVacia, construirDocumentoPlaneacion,
 } from '../../utils/planeacionDocx'
 import { renderAsync as renderDocxAsync } from 'docx-preview'
-import { useSubscription } from '../../hooks/useSubscription'
 import useIsDesktop from '../../hooks/useIsDesktop'
-import CheckoutModal from '../CheckoutModal'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 
 const CLAVES_MOMENTO = MOMENTOS.map((m) => m.clave)
@@ -421,11 +419,10 @@ function SelectorParcial({ porParcial, activo, onCambiar }) {
 export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, hayFuentesGenerales }) {
   const toast = useToast()
   const creditosIA = useCreditosIA()
-  const { subscription, refresh: refreshSubscription } = useSubscription()
-  // Mismo criterio que exportGuard.js: bloqueado mientras nunca hubo un pago
-  // aprobado, sin importar si la suscripción sigue vigente o no.
-  const nuncaAprobado = !subscription?.planId
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  // Modelo de créditos puros (20-ago-2026): generar/descargar Planeación ya
+  // no depende de historial de pago — solo del saldo de créditos (gate
+  // aparte, vía ConfirmacionCreditosModal/creditosIA).
+  const nuncaAprobado = false
   const isDesktop = useIsDesktop()
 
   // `subject` (prop) lo carga SubjectPage con un getDoc de una sola vez, no
@@ -512,7 +509,7 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
           asignaturaNombre={asignaturaNombre}
           isDesktop={isDesktop}
           nuncaAprobado={nuncaAprobado}
-          onPago={() => setShowPaymentModal(true)}
+          onPago={() => {}}
           subjectPlaneacion={subjectPlaneacion}
           incluirInsumos={incluirInsumos}
           hayContexto={hayContexto}
@@ -522,12 +519,6 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
         />
       )}
 
-      <CheckoutModal
-        open={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        subscription={subscription}
-        onSuccess={refreshSubscription}
-      />
     </div>
   )
 }

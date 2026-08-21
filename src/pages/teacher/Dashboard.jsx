@@ -26,8 +26,6 @@ import EFDateTimePicker from '../../components/EFDateTimePicker'
 import ParcialesFechas, { normalizeParcialesFechas, addOneDay } from '../../components/ParcialesFechas'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
-import { useSubscription } from '../../hooks/useSubscription'
-import { canCreateContent } from '../../utils/subscriptionHelpers'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -51,10 +49,9 @@ export default function TeacherDashboard() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const photoInputRef = useRef(null)
 
-  // Whether the trial (or subscription) is expired — only gates NEW creation;
-  // everything already in the account stays fully visible/exportable.
-  const { subscription } = useSubscription()
-  const canCreate = canCreateContent(subscription)
+  // Modelo de créditos puros (20-ago-2026): crear contenido ya no depende de
+  // ninguna suscripción — todo lo no-IA es gratis para cualquier docente.
+  const canCreate = true
 
   // Subject creation modal
   const [showSubjectModal, setShowSubjectModal] = useState(location.state?.openCreate === true)

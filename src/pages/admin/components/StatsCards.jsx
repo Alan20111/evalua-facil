@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../../utils/subscriptionHelpers'
+import { formatCurrency } from '../../../utils/creditosHelpers'
 import { DIAS_POR_VENCER, INSIGNIAS } from '../../../utils/situacionSuscripcion'
 import StatusBadge from './StatusBadge'
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
-import { calcDaysRemaining, effectiveVencimiento, toDate } from '../utils/subscriptionHelpers'
+import { calcDaysRemaining, effectiveVencimiento, toDate } from '../utils/creditosHelpers'
 import { DIAS_POR_VENCER } from '../utils/situacionSuscripcion'
 
 function isThisMonth(date) {

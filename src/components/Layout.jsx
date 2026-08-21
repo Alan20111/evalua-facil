@@ -7,10 +7,8 @@ import {
   Plus,
   Archive,
   ChevronRight,
-  Timer,
   CalendarDays,
   Bell,
-  Lock,
   BookOpen,
   Sparkles,
   MessageCircle,
@@ -26,10 +24,7 @@ import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import Spinner from './Spinner'
 import { useSubscription } from '../hooks/useSubscription'
-import { getTrialBannerMessage, isSubscriptionExpired } from '../utils/subscriptionHelpers'
-import { configurarBloqueoEscritura } from '../utils/firestoreGuard'
 import { configurarBloqueoExportacion } from '../utils/exportGuard'
-import SuscripcionVencidaModal from './SuscripcionVencidaModal'
 import { subjectDisplayName } from '../utils/subjectName'
 import { teacherDisplayName } from '../utils/studentSearch'
 import { IS_NATIVE_APP } from '../utils/platform'
@@ -92,40 +87,12 @@ export default function TeacherLayout({ children }) {
   const activeSubjects = subjects.filter((s) => !s.archived)
   const archivedSubjects = subjects.filter((s) => s.archived)
 
-  const { subscription, refresh: refreshSubscription } = useSubscription()
-  const trialBanner = getTrialBannerMessage(subscription)
-  // Plan Básico ($99, reestructuración de precios 18-ago-2026): sin IA, sin
-  // Chat con Asistente — el nav ni siquiera lo ofrece (el candado real es
-  // server-side, esto es solo UX: no llevar a un botón que el servidor va a
-  // rechazar). Sin suscripción (trial) o cualquier otro plan: se muestra
-  // igual que siempre.
-  const sinIA = subscription?.planId === 'basico'
-
-  // ── Suscripción vencida ────────────────────────────────────────────
-  // Consultar y descargar sigue libre; lo que se bloquea es trabajar. El
-  // candado real vive en utils/firestoreGuard.js (las pantallas del docente
-  // escriben a través de él), y aquí se le dice cuándo apretar y cómo avisar.
-  const vencida = isSubscriptionExpired(subscription)
-  // Qué suscripción tiene la ventana cerrada "para consultar". Guardar el id
-  // —en vez de un simple sí/no— hace que la ventana vuelva sola en cuanto la
-  // suscripción cambia (se renovó, o llegó una nueva), sin efectos de por medio.
-  const [ventanaCerradaPara, setVentanaCerradaPara] = useState(null)
-  const claveSuscripcion = subscription?.id || 'sin-suscripcion'
-  const paywallAbierto = vencida && ventanaCerradaPara !== claveSuscripcion
-
-  // El guard corre fuera de React: necesita leer el valor de AHORA, no el que
-  // había cuando se registró.
-  const vencidaRef = useRef(vencida)
-  useEffect(() => { vencidaRef.current = vencida }, [vencida])
-
-  useEffect(() => {
-    configurarBloqueoEscritura({
-      vencida: () => vencidaRef.current,
-      // Intentó trabajar: ese es el momento de volver a mostrarle cómo seguir.
-      onIntento: () => setVentanaCerradaPara(null),
-    })
-    return () => configurarBloqueoEscritura({ vencida: () => false, onIntento: null })
-  }, [])
+  const { subscription } = useSubscription()
+  // Modelo de créditos puros (20-ago-2026): ya no hay candado de suscripción
+  // ni de plan — todo lo no-IA (incluido el Chat con Asistente) es gratis
+  // para cualquier docente, sin importar su historial de pago. El único
+  // candado que sigue vivo es el de Asistencia por saldo, ver CreditosBar/
+  // useCreditosIA y firestore.rules (saldoIAPositivo).
 
   // Candado de DESCARGA (utils/exportGuard.js) — distinto del de escritura:
   // bloquea solo mientras nunca hubo un pago aprobado (planId ausente, el
@@ -170,15 +137,13 @@ export default function TeacherLayout({ children }) {
               entre los demás íconos, que son grises — mismo animate-bounce
               que ya usa el proyecto (p. ej. SubjectPage.jsx al copiar código
               de acceso). */}
-          {!sinIA && (
-            <NavLink
-              to="/chat-asistente"
-              aria-label="Chat con Asistente"
-              className="p-2 text-orange-500 rounded transition-colors"
-            >
-              <MessageCircle size={20} fill="currentColor" className="animate-bounce" />
-            </NavLink>
-          )}
+          <NavLink
+            to="/chat-asistente"
+            aria-label="Chat con Asistente"
+            className="p-2 text-orange-500 rounded transition-colors"
+          >
+            <MessageCircle size={20} fill="currentColor" className="animate-bounce" />
+          </NavLink>
           <NavLink
             to="/manual"
             aria-label="Ayuda para comenzar"
@@ -242,29 +207,6 @@ export default function TeacherLayout({ children }) {
             </div>
             <ChevronRight size={16} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
           </NavLink>
-
-          {/* Trial status — the day counter is always visible from day 1; an amber
-              notice is added only for the last stretch. Never a popup. Clicking
-              goes to /profile, where the real subscription-activation flow lives. */}
-          {trialBanner && (
-            <button
-              type="button"
-              onClick={() => navigate('/profile')}
-              className={`mx-2 mt-1 px-3 py-1.5 flex items-start gap-2 rounded transition-colors text-left w-[calc(100%-1rem)] ${
-                trialBanner.tone !== 'neutral' ? 'bg-amber-400/20 hover:bg-amber-400/30' : 'hover:bg-white/10'
-              }`}
-            >
-              <Timer size={15} className="text-white/80 flex-shrink-0 mt-0.5" />
-              <div className="leading-tight">
-                {trialBanner.counter && (
-                  <p className="text-metadata text-white/90">{trialBanner.counter}</p>
-                )}
-                {trialBanner.notice && (
-                  <p className="text-metadata text-white/90">{trialBanner.notice}</p>
-                )}
-              </div>
-            </button>
-          )}
 
           {/* Horario y Agenda */}
           <NavLink
@@ -364,23 +306,22 @@ export default function TeacherLayout({ children }) {
 
           {/* Chat con Asistente — por asignatura (17-ago-2026). Mismo lugar
               que Perfil para IA del docente: ambos son entradas del
-              Asistente IA, no de una asignatura en particular. Oculto para
-              el plan Básico (sin IA, reestructuración de precios 18-ago-2026). */}
-          {!sinIA && (
-            <div className="px-2 pt-2 border-t border-white/15">
-              <NavLink
-                to="/chat-asistente"
-                className={({ isActive }) =>
-                  `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
-                    isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
-                  }`
-                }
-              >
-                <MessageCircle size={17} className="flex-shrink-0" />
-                Chat con Asistente
-              </NavLink>
-            </div>
-          )}
+              Asistente IA, no de una asignatura en particular. Visible para
+              todo docente (modelo de créditos puros, 20-ago-2026) — el
+              candado real es de saldo/límite diario, no de plan. */}
+          <div className="px-2 pt-2 border-t border-white/15">
+            <NavLink
+              to="/chat-asistente"
+              className={({ isActive }) =>
+                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
+                  isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
+                }`
+              }
+            >
+              <MessageCircle size={17} className="flex-shrink-0" />
+              Chat con Asistente
+            </NavLink>
+          </div>
 
           <div className="px-2 pt-2 border-t border-white/15">
             <AppQRButton
@@ -541,26 +482,6 @@ export default function TeacherLayout({ children }) {
           </NavLink>
         </div>
       </nav>
-
-      {/* Suscripción vencida: la ventana de pago y, cuando el docente la cierra
-          para consultar lo suyo, el botón fijo que la vuelve a abrir. */}
-      <SuscripcionVencidaModal
-        open={paywallAbierto}
-        subscription={subscription}
-        onSoloConsultar={() => setVentanaCerradaPara(claveSuscripcion)}
-        onPagado={refreshSubscription}
-      />
-      {vencida && !paywallAbierto && (
-        <button
-          type="button"
-          onClick={() => setVentanaCerradaPara(null)}
-          // Por encima de la barra inferior en móvil (donde existe) y pegado a
-          // la esquina en escritorio.
-          className="fixed right-4 bottom-20 md:bottom-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-card bg-amber-500 text-white text-sm font-semibold shadow-2xl hover:bg-amber-600 transition-colors"
-        >
-          <Lock size={16} /> Suscripción vencida — activar
-        </button>
-      )}
 
       {/* Confirmación de cierre de sesión — solo en la app nativa */}
       {confirmLogout && (

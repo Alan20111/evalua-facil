@@ -20,7 +20,7 @@ import useCreditosIA from '../hooks/useCreditosIA'
 import { resolverFuentes } from '../utils/fuentesIA'
 import FuentesIAInput from './ia/FuentesIAInput'
 import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
-import { MIN_REACTIVOS, MAX_REACTIVOS_EVALUACION_TRIAL, MAX_REACTIVOS_EVALUACION_PAGO } from '../utils/reactivosIA'
+import { MIN_REACTIVOS, MAX_REACTIVOS_EVALUACION } from '../utils/reactivosIA'
 
 const MIN_QUIERE_EVALUAR = 40
 
@@ -51,7 +51,7 @@ export default function CrearEvaluacionIAModal({
   const creditosIA = useCreditosIA()
   const [nombre, setNombre] = useState('')
   const [quiereEvaluar, setQuiereEvaluar] = useState('')
-  const tope = creditosIA.plan === 'trial' ? MAX_REACTIVOS_EVALUACION_TRIAL : MAX_REACTIVOS_EVALUACION_PAGO
+  const tope = MAX_REACTIVOS_EVALUACION
   const [cantidad, setCantidad] = useState(10)
   const [archivos, setArchivos] = useState([])
   const [trabajando, setTrabajando] = useState(false)

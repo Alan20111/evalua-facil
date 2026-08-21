@@ -9,7 +9,7 @@ import { SLICE_COLORS, esGraficable, cargarRespuestasEvaluacion } from '../utils
 import { membreteDe } from '../utils/membrete'
 import { useAuth } from '../context/AuthContext'
 import { useSubscription } from '../hooks/useSubscription'
-import { hasCleanExports } from '../utils/subscriptionHelpers'
+import { hasCleanExports } from '../utils/creditosHelpers'
 import ConfirmModal from './ConfirmModal'
 import Spinner from './Spinner'
 

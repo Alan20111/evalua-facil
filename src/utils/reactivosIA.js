@@ -10,13 +10,12 @@ export const MIN_REACTIVOS = 2
 export const MAX_REACTIVOS = 10
 export const DEFAULT_REACTIVOS = 5
 
-// OP-03/OP-04 · Crear examen/cuestionario completo con IA — el tope de
-// reactivos depende del plan del docente. El servidor es la autoridad real
-// (functions/ia.js clampea igual con nivelDeSuscripcion); esto solo evita
-// mostrarle al docente en periodo de prueba un selector hasta 100 que el
-// servidor le va a recortar a 10.
-export const MAX_REACTIVOS_EVALUACION_TRIAL = 10
-export const MAX_REACTIVOS_EVALUACION_PAGO = 100
+// OP-03/OP-04 · Crear examen/cuestionario completo con IA — tope único de
+// reactivos, igual para todos los docentes (modelo de créditos puros,
+// 20-ago-2026 — ya no varía por plan). El servidor es la autoridad real
+// (functions/ia.js, MAX_REACTIVOS_EVALUACION); esto solo evita mostrar un
+// selector con un número que el servidor recortaría.
+export const MAX_REACTIVOS_EVALUACION = 100
 
 export const TIPOS_REACTIVO_IA = [
   { value: 'mixto', label: 'Mixto' },

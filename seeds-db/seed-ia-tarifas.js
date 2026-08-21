@@ -147,23 +147,6 @@ const TARIFAS = {
     planeacion_tronco: 'Planeación',
     planeacion_bloque: 'Planeación',
   },
-  // Capacidad mensual por nivel de plan. Cortesía: PENDIENTE a propósito.
-  // Trial bajó de 350 a 50 (decisión de Kike, 13-ago-2026) — ver
-  // `trialLegado` abajo para que esto NO le recorte nada a quien ya estaba
-  // en trial antes del cambio (functions/creditosLedger.js: capacidadTrialPara).
-  // `basico` NO tiene entrada aquí a propósito: es el plan sin IA
-  // (reestructuración de precios, 18-ago-2026) — creditosLedger.reservar() lo
-  // bloquea antes de siquiera llegar a buscar una capacidad, así que no
-  // necesita (ni debe) tener un número aquí.
-  capacidadPorPlan: { trial: 50, pro: 350, anual: 350, mayor: 1000 },
-  // Trials con `subscriptions.fechaInicio` ANTERIOR a `corte` conservan
-  // `capacidad` (el valor de antes del cambio) en vez del nuevo
-  // `capacidadPorPlan.trial` — decisión de Kike, 13-ago-2026: no se le quita
-  // nada a nadie que ya estuviera en trial. `corte` se fija la PRIMERA vez
-  // que se corre este seed con este bloque y luego se preserva tal cual en
-  // cada re-siembra (ver main() abajo) — si se recalculara "ahora" en cada
-  // corrida, un trial creado ENTRE dos corridas quedaría mal clasificado.
-  trialLegado: { capacidad: 350, corte: null }, // `corte` real lo pone main()
   // Modelo PROVISIONAL por operación (M3 sigue abierta: cambiar aquí no toca
   // código). Solo las pilotos conectadas.
   modeloPorOperacion: {
@@ -195,25 +178,19 @@ const TARIFAS = {
     chat_crear_actividad: 'claude-haiku-4-5',
     chat_crear_examen: 'claude-haiku-4-5',
   },
-  // Datos de exhibición para el panel de créditos (sin costos internos).
-  // Nombre comercial, no identificador — `basico`/`pro`/`mayor` (las claves)
-  // no cambian. `basico` no tiene `creditos` (sin IA, reestructuración de
-  // precios 18-ago-2026).
-  planes: {
-    basico: { nombre: 'Plan Básico', precioMXN: 99, creditos: 0 },
-    pro: { nombre: 'Asistente IA', precioMXN: 199, creditos: 350 },
-    mayor: { nombre: 'Asistente IA Pro', precioMXN: 299, creditos: 1000 },
-  },
-  // Compra de créditos adicionales (18-ago-2026) — $50 MXN por cada bloque de
-  // 100 créditos, lineal, sin descuentos por volumen. Misma fuente que lee el
-  // cliente (useCreditosIA) y firestore.rules (montoOficialCredito, hardcode
-  // espejo de esta lista, igual que montoOficialPago con planes).
+  // Créditos puros sin caducidad (20-ago-2026, migración a modelo de
+  // créditos puros — ver docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md §12): ya no
+  // hay planes mensuales que exhibir aquí (`planes` se elimina). Paquetes
+  // definitivos, 6 tramos con descuento por volumen creciente — única fuente
+  // de precios, leída por el cliente (useCreditosIA/ComprarCreditosModal) y
+  // por firestore.rules (montoOficialCredito).
   paquetesCreditos: [
-    { creditos: 100, precioMXN: 50 },
-    { creditos: 200, precioMXN: 100 },
-    { creditos: 300, precioMXN: 150 },
-    { creditos: 400, precioMXN: 200 },
-    { creditos: 500, precioMXN: 250 },
+    { creditos: 50, precioMXN: 100 },
+    { creditos: 100, precioMXN: 175 },
+    { creditos: 200, precioMXN: 350 },
+    { creditos: 400, precioMXN: 700 },
+    { creditos: 800, precioMXN: 1400 },
+    { creditos: 1600, precioMXN: 2800 },
   ],
   // Tarifa REAL de Anthropic (19-ago-2026, pedido explícito de Kike) — USD
   // por millón de tokens, confirmada contra la documentación oficial
@@ -243,51 +220,15 @@ const TARIFAS = {
   tipoCambioUsdMxn: 18.50,
 }
 
-const PLAN_MAYOR = {
-  nombre: 'Asistente IA Pro',
-  descripcion: 'Para el docente que utiliza intensivamente la IA',
-  precio: 299,
-  periodicidad: 'mensual',
-  maxAsignaturas: -1,
-  maxAlumnos: -1,
-  activo: true, // Bloque 5 (13-ago-2026): activación comercial intencional
-  orden: 3,
-}
-
-// Plan de entrada, SIN funciones de IA (reestructuración de precios,
-// 18-ago-2026) — mismo patrón que PLAN_MAYOR, en `plans/basico`.
-const PLAN_BASICO = {
-  nombre: 'Plan Básico',
-  descripcion: 'Gestión de asignaturas, calificaciones y asistencia — sin funciones de IA',
-  precio: 99,
-  periodicidad: 'mensual',
-  maxAsignaturas: -1,
-  maxAlumnos: -1,
-  activo: true,
-  orden: 1,
-}
-
 async function main() {
-  // El `corte` de trialLegado se fija UNA sola vez, la primera vez que se
-  // corre este seed con el bloque nuevo — si ya existe en Firestore (de una
-  // corrida anterior), se conserva tal cual en vez de recalcularse a "ahora".
-  // Sin esto, re-correr el script para cambiar cualquier otra tarifa movería
-  // el corte hacia adelante y reclasificaría mal a los trials creados entre
-  // una corrida y otra.
-  const actual = await db.doc('config/iaTarifas').get()
-  const corteExistente = actual.exists ? actual.data()?.trialLegado?.corte : null
-  TARIFAS.trialLegado.corte = corteExistente || admin.firestore.Timestamp.now()
-
   console.log(dryRun ? '— DRY RUN (no escribe nada) —' : '— Escribiendo —')
   console.log('config/iaTarifas →', JSON.stringify(TARIFAS, null, 2).slice(0, 400) + ' …')
-  console.log('trialLegado.corte →', TARIFAS.trialLegado.corte.toDate().toISOString(), corteExistente ? '(preservado)' : '(recién fijado)')
-  console.log('plans/mayor →', JSON.stringify(PLAN_MAYOR))
-  console.log('plans/basico →', JSON.stringify(PLAN_BASICO))
   if (dryRun) return
+  // `set` (no merge) a propósito: purga cualquier campo legado
+  // (capacidadPorPlan/trialLegado/planes) que haya quedado del modelo de
+  // suscripciones mensuales — config/iaTarifas ahora es solo lo de arriba.
   await db.doc('config/iaTarifas').set(TARIFAS)
-  await db.doc('plans/mayor').set(PLAN_MAYOR, { merge: true })
-  await db.doc('plans/basico').set(PLAN_BASICO, { merge: true })
-  console.log('Listo. config/iaTarifas, plans/mayor y plans/basico sembrados.')
+  console.log('Listo. config/iaTarifas sembrado (modelo de créditos puros). plans/mayor y plans/basico ya NO se siembran aquí — ver seeds-db/seed-plans.js (deprecado, solo histórico).')
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1) })

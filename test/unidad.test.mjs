@@ -26,7 +26,6 @@ import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
-import * as SH from '../src/utils/subscriptionHelpers.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -1727,136 +1726,6 @@ caso('normalizarFilasPlaneacion: entrada basura no truena — arreglo vacío', (
   assert.deepStrictEqual(FIA.normalizarFilasPlaneacion(null), [])
 })
 
-grupo('Créditos IA — capacidad de Trial (modelo comercial, 13-ago-2026)')
-
-caso('capacidadTrialPara: sin trialLegado en las tarifas, usa capacidadPorPlan.trial tal cual', () => {
-  const tarifas = { capacidadPorPlan: { trial: 50 } }
-  const sub = { fechaInicio: Timestamp.fromDate(new Date('2026-01-01')) }
-  assert.strictEqual(L.capacidadTrialPara(sub, tarifas), 50)
-})
-
-caso('capacidadTrialPara: fechaInicio ANTES del corte conserva la capacidad legada (no se le recorta a nadie)', () => {
-  const tarifas = {
-    capacidadPorPlan: { trial: 50 },
-    trialLegado: { capacidad: 350, corte: Timestamp.fromDate(new Date('2026-08-13')) },
-  }
-  const subViejo = { fechaInicio: Timestamp.fromDate(new Date('2026-08-01')) }
-  assert.strictEqual(L.capacidadTrialPara(subViejo, tarifas), 350)
-})
-
-caso('capacidadTrialPara: fechaInicio DESPUÉS del corte usa la capacidad nueva', () => {
-  const tarifas = {
-    capacidadPorPlan: { trial: 50 },
-    trialLegado: { capacidad: 350, corte: Timestamp.fromDate(new Date('2026-08-13')) },
-  }
-  const subNuevo = { fechaInicio: Timestamp.fromDate(new Date('2026-08-14')) }
-  assert.strictEqual(L.capacidadTrialPara(subNuevo, tarifas), 50)
-})
-
-caso('capacidadTrialPara: sin fechaInicio en la suscripción, no truena y usa la capacidad nueva (no puede probar que es legado)', () => {
-  const tarifas = {
-    capacidadPorPlan: { trial: 50 },
-    trialLegado: { capacidad: 350, corte: Timestamp.fromDate(new Date('2026-08-13')) },
-  }
-  assert.strictEqual(L.capacidadTrialPara({}, tarifas), 50)
-  assert.strictEqual(L.capacidadTrialPara(null, tarifas), 50)
-})
-
-caso('capacidadTrialPara: fechaInicio EXACTAMENTE en el corte no cuenta como legado (< estricto, no <=)', () => {
-  const corte = Timestamp.fromDate(new Date('2026-08-13T10:00:00Z'))
-  const tarifas = { capacidadPorPlan: { trial: 50 }, trialLegado: { capacidad: 350, corte } }
-  const sub = { fechaInicio: corte }
-  assert.strictEqual(L.capacidadTrialPara(sub, tarifas), 50)
-})
-
-// ═══ Checkout — selección de plan (Bloque 4, 13-ago-2026) ═════════════════════
-
-caso('datosDePagoTransferencia: sin planId explícito, sigue cayendo en pro (compatibilidad con el checkout de siempre)', () => {
-  const pago = SH.datosDePagoTransferencia({
-    docenteId: 'D1', subscriptionId: 'S1', meses: 2, referencia: 'F1',
-  })
-  assert.strictEqual(pago.planId, SH.MONTHLY_PLAN_ID)
-  assert.strictEqual(pago.monto, SH.mesesDescuentoDe(2).pagas)
-  assert.strictEqual(pago.mesesPagados, 2)
-})
-
-caso('datosDePagoTransferencia: planId mayor cobra su precio fijo, sin importar qué meses se pidan', () => {
-  const pago = SH.datosDePagoTransferencia({
-    docenteId: 'D1', subscriptionId: 'S1', planId: SH.MAYOR_PLAN_ID, meses: 6, referencia: 'F2',
-  })
-  assert.strictEqual(pago.planId, SH.MAYOR_PLAN_ID)
-  assert.strictEqual(pago.monto, SH.MAYOR_PRICE_MXN)
-  assert.strictEqual(pago.mesesPagados, 1, 'mayor no tiene política de varios meses — siempre se recorta a 1')
-})
-
-caso('datosDePagoTransferencia: planId basico cobra su precio fijo, sin importar qué meses se pidan (reestructuración 18-ago-2026)', () => {
-  const pago = SH.datosDePagoTransferencia({
-    docenteId: 'D1', subscriptionId: 'S1', planId: SH.BASICO_PLAN_ID, meses: 6, referencia: 'F4',
-  })
-  assert.strictEqual(pago.planId, SH.BASICO_PLAN_ID)
-  assert.strictEqual(pago.monto, SH.BASICO_PRICE_MXN)
-  assert.strictEqual(pago.mesesPagados, 1, 'basico no tiene política de varios meses — siempre se recorta a 1')
-})
-
-caso('datosDePagoTransferencia: planId pro sigue respetando la tabla de descuento por meses', () => {
-  const pago = SH.datosDePagoTransferencia({
-    docenteId: 'D1', subscriptionId: 'S1', planId: SH.MONTHLY_PLAN_ID, meses: 6, referencia: 'F3',
-  })
-  assert.strictEqual(pago.monto, SH.mesesDescuentoDe(6).pagas)
-  assert.strictEqual(pago.mesesPagados, 6)
-})
-
-caso('montoOficialDe: pro sigue leyendo la tabla MESES_DESCUENTO tal cual', () => {
-  assert.strictEqual(SH.montoOficialDe(1, SH.MONTHLY_PLAN_ID), SH.MONTHLY_PRICE_MXN)
-  assert.strictEqual(SH.montoOficialDe(3, SH.MONTHLY_PLAN_ID), SH.mesesDescuentoDe(3).pagas)
-})
-
-caso('montoOficialDe: mayor solo tiene tarifa oficial a 1 mes — cualquier otro número de meses no tiene tarifa (no inventa un descuento)', () => {
-  assert.strictEqual(SH.montoOficialDe(1, SH.MAYOR_PLAN_ID), SH.MAYOR_PRICE_MXN)
-  assert.strictEqual(SH.montoOficialDe(2, SH.MAYOR_PLAN_ID), null)
-  assert.strictEqual(SH.montoOficialDe(6, SH.MAYOR_PLAN_ID), null)
-})
-
-caso('montoOficialDe: basico solo tiene tarifa oficial a 1 mes (reestructuración 18-ago-2026) — cualquier otro número de meses no tiene tarifa', () => {
-  assert.strictEqual(SH.montoOficialDe(1, SH.BASICO_PLAN_ID), SH.BASICO_PRICE_MXN)
-  assert.strictEqual(SH.montoOficialDe(2, SH.BASICO_PLAN_ID), null)
-})
-
-caso('montoOficialDe: sin planId, se comporta igual que antes (pro por omisión) — no rompe llamadores viejos', () => {
-  assert.strictEqual(SH.montoOficialDe(2), SH.mesesDescuentoDe(2).pagas)
-})
-
-caso('montoCoincideConTarifa: un pago de mayor a su precio/1 mes coincide', () => {
-  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: SH.MAYOR_PRICE_MXN }
-  assert.strictEqual(SH.montoCoincideConTarifa(pago), true)
-})
-
-caso('montoCoincideConTarifa: un pago de mayor con el monto de pro NO coincide', () => {
-  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: SH.MONTHLY_PRICE_MXN }
-  assert.strictEqual(SH.montoCoincideConTarifa(pago), false)
-})
-
-caso('montoCoincideConTarifa: pagos viejos sin planId siguen leyéndose como pro (no truena, no cambia su veredicto)', () => {
-  const pago = { metodo: 'transferencia', mesesPagados: 3, monto: SH.mesesDescuentoDe(3).pagas }
-  assert.strictEqual(SH.montoCoincideConTarifa(pago), true)
-})
-
-// ── Revisión de seguridad del Bloque 4 (13-ago-2026) — ataque B/E del pedido:
-// firestore.rules NO valida el monto contra la tarifa (a propósito, ver
-// comentario en la regla) — la única defensa contra "declarar mayor y pagar
-// de menos" es que esta función lo marque para el admin ANTES de aprobar
-// (ver AvisoMonto/handleApprove en PaymentsTable.jsx). Estas pruebas
-// confirman que la marca sí ocurre.
-caso('montoCoincideConTarifa: SEGURIDAD · mayor declarado a un peso menos de la tarifa se marca como NO coincide', () => {
-  const pago = { metodo: 'transferencia', planId: SH.MAYOR_PLAN_ID, mesesPagados: 1, monto: SH.MAYOR_PRICE_MXN - 1 }
-  assert.strictEqual(SH.montoCoincideConTarifa(pago), false)
-})
-
-caso('montoCoincideConTarifa: SEGURIDAD · pro declarado con un monto que no está en la tabla de descuentos se marca como NO coincide', () => {
-  const pago = { metodo: 'transferencia', planId: SH.MONTHLY_PLAN_ID, mesesPagados: 1, monto: 50 }
-  assert.strictEqual(SH.montoCoincideConTarifa(pago), false)
-})
-
 // ═══ Resumen ═════════════════════════════════════════════════════════════════
 // ═══ Chat con Asistente — por asignatura (17-ago-2026) ════════════════════════
 grupo('Chat con Asistente — sanear historial, contexto de Planeación/exámenes')
@@ -2075,9 +1944,8 @@ caso('claveLimiteChatDiario: UN solo contador por docente y por día (18-ago-202
   assert.notStrictEqual(FIA.claveLimiteChatDiario('uid1'), FIA.claveLimiteChatDiario('uid2'))
 })
 
-caso('LIMITE_CHAT_DIARIO_PAGO es 50 y LIMITE_CHAT_TRIAL_TOTAL es 10 (reestructuración de precios, 18-ago-2026 — corregido de 30 a 10)', () => {
-  assert.strictEqual(FIA.LIMITE_CHAT_DIARIO_PAGO, 50)
-  assert.strictEqual(FIA.LIMITE_CHAT_TRIAL_TOTAL, 10)
+caso('LIMITE_CHAT_DIARIO es 50, igual para todo docente (modelo de créditos puros, 20-ago-2026 — ya no hay límite distinto de trial)', () => {
+  assert.strictEqual(FIA.LIMITE_CHAT_DIARIO, 50)
 })
 
 caso('ACCIONES_ACTIVIDAD cubre entregable y observación, no examen (examen tiene su propia operación de cobro)', () => {

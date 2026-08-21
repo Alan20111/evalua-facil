@@ -1,5 +1,10 @@
 // Créditos IA del docente — lectura en tiempo real y ejecución de operaciones.
 //
+// Modelo de créditos puros sin caducidad (20-ago-2026, migración — ver
+// docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md): un solo número, `saldo`, sin
+// capacidad ni plan ni ciclo mensual — nunca se resetea, solo sube (compra
+// aprobada, regalo de bienvenida) o baja (consumo de IA).
+//
 // El cliente NUNCA calcula ni escribe el saldo: lee `iaCreditos/{uid}` por
 // snapshot (el servidor es la única fuente de verdad) y ejecuta operaciones a
 // través del callable `ejecutarOperacionIA`, que reserva, ejecuta la IA,
@@ -15,7 +20,6 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import { useSubscription } from './useSubscription'
 
 // Tarifas cacheadas a nivel módulo: cambian rara vez y las usan la barra, el
 // panel y cada diálogo de confirmación — una sola lectura por sesión.
@@ -29,20 +33,9 @@ function cargarTarifas() {
   return _tarifasPromise
 }
 
-// Nombres comerciales visibles (13-ago-2026): "Plan Docente"→"Asistente IA",
-// "Plan Mayor"→"Asistente IA Pro" — los identificadores internos `pro`/
-// `anual`/`mayor`/`trial` (claves de este objeto) NO cambian, solo el texto.
-const ETIQUETAS_PLAN = {
-  trial: 'Periodo de prueba',
-  pro: 'Asistente IA',
-  anual: 'Asistente IA (anual)',
-  mayor: 'Asistente IA Pro',
-}
-
 export function useCreditosIA() {
   const { currentUser, userProfile } = useAuth()
   const esDocente = userProfile?.role === 'docente'
-  const { subscription } = useSubscription()
   const [creditos, setCreditos] = useState(null)
   const [cargado, setCargado] = useState(false)
   const [tarifas, setTarifas] = useState(null)
@@ -65,54 +58,24 @@ export function useCreditosIA() {
   }, [currentUser, esDocente])
 
   return useMemo(() => {
-    // Antes del primer uso de IA el documento no existe: se muestra la bolsa
-    // completa del nivel base (solo visual — el doc real nace en el servidor
-    // con el plan correcto en la primera operación). Bug real encontrado en
-    // el Bloque 6 (13-ago-2026): esto asumía SIEMPRE el nivel 'pro' (350),
-    // así que un trial NUEVO veía "350 créditos" en Mi plan antes de su
-    // primer uso, en vez de los 50 reales — mismo criterio que
-    // capacidadTrialPara en functions/creditosLedger.js, portado aquí
-    // porque ese archivo no se puede importar desde el cliente.
-    const capacidadPorPlan = tarifas?.capacidadPorPlan || {}
-    let capacidadBase = capacidadPorPlan.pro ?? 350
-    if (!subscription?.planId) {
-      // Trial (o suscripción todavía sin resolver): respeta el trial legado
-      // — quien empezó ANTES del corte conserva la capacidad de antes.
-      const legado = tarifas?.trialLegado
-      const inicio = subscription?.fechaInicio
-      const inicioMs = inicio?.toMillis ? inicio.toMillis() : null
-      const corteMs = legado?.corte?.toMillis ? legado.corte.toMillis() : null
-      capacidadBase = (legado && inicioMs != null && corteMs != null && inicioMs < corteMs)
-        ? legado.capacidad
-        : (capacidadPorPlan.trial ?? 50)
-    } else if (subscription.planId === 'mayor') {
-      capacidadBase = capacidadPorPlan.mayor ?? capacidadBase
-    } else if (subscription.planId === 'cortesia') {
-      capacidadBase = capacidadPorPlan.cortesia ?? capacidadBase
-    }
-    const capacidad = creditos?.capacidad ?? capacidadBase
-    const saldo = creditos?.saldo ?? capacidad
-    const plan = creditos?.plan ?? null
-    const pct = capacidad > 0 ? Math.max(0, Math.min(100, (saldo / capacidad) * 100)) : 0
+    // Antes del primer uso/otorgamiento el documento puede no existir todavía
+    // (carrera con onDocenteCreado, muy breve) — se asume 0, nunca se inventa
+    // saldo en el cliente.
+    const saldo = creditos?.saldo ?? 0
 
     return {
       listo: cargado && !!tarifas,
       esDocente,
       tarifas,
-      // Paquetes de créditos adicionales (18-ago-2026) — misma fuente que lee
-      // el servidor (firestore.rules → montoOficialCredito, seed-ia-tarifas.js).
-      // La UI de compra y "Comparar planes" leen de aquí, nunca de un precio
-      // duplicado en el componente.
+      // Paquetes de créditos — misma fuente que lee el servidor
+      // (firestore.rules → montoOficialCredito, seed-ia-tarifas.js).
       paquetesCreditos: tarifas?.paquetesCreditos || [],
       creditos,
-      capacidad,
       saldo,
-      pct,
-      plan,
-      etiquetaPlan: ETIQUETAS_PLAN[plan] || ETIQUETAS_PLAN.pro,
-      esTrial: plan === 'trial',
-      cicloFin: creditos?.cicloFin?.toDate?.() || null,
-      consumidoCiclo: creditos?.consumidoCiclo ?? 0,
+      // Saldo positivo: además de habilitar IA, es lo único que gatea
+      // Asistencia (§9 del plan) — no consume créditos, solo exige saldo>0.
+      saldoPositivo: saldo > 0,
+      consumidoTotal: creditos?.consumidoTotal ?? 0,
       consumoPorCategoria: creditos?.consumoPorCategoria || {},
 
       // Estimación informativa (jamás descuenta): costo en créditos de una
@@ -147,7 +110,7 @@ export function useCreditosIA() {
         }
       },
     }
-  }, [cargado, tarifas, creditos, esDocente, subscription])
+  }, [cargado, tarifas, creditos, esDocente])
 }
 
 export default useCreditosIA

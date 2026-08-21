@@ -4,7 +4,6 @@ import { signOut } from 'firebase/auth'
 import {
   LayoutDashboard,
   CreditCard,
-  Receipt,
   GraduationCap,
   Wallet,
   LogOut,
@@ -21,12 +20,14 @@ import { useScrollLock } from '../hooks/useScrollLock'
 import { useResizableSidebar, SIDEBAR_MIN, SIDEBAR_MAX } from '../hooks/useResizableSidebar'
 import SkipLink from './SkipLink'
 
+// Modelo de créditos puros (20-ago-2026): se retira la pestaña "Pagos"
+// (suscripción mensual, flujo eliminado) — "Créditos" pasa a ser la compra
+// principal de IA, y "Suscripciones" queda como histórico de solo lectura.
 const TABS = [
   { id: 'chat', label: 'Inteligencia de EF', icon: BrainCircuit },
-  { id: 'pagos', label: 'Pagos', icon: Receipt },
-  { id: 'creditos', label: 'Créditos adicionales', icon: Sparkles },
   { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
-  { id: 'suscripciones', label: 'Suscripciones', icon: CreditCard },
+  { id: 'creditos', label: 'Compras de créditos', icon: Sparkles },
+  { id: 'suscripciones', label: 'Suscripciones (histórico)', icon: CreditCard },
   { id: 'zonas', label: 'Ventas por zona', icon: Map },
   { id: 'cobros', label: 'Cobros', icon: Wallet },
   { id: 'estudiantes', label: 'Estudiantes', icon: GraduationCap },

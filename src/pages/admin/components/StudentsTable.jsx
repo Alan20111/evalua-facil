@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { RotateCcw, X } from 'lucide-react'
 import SearchInput from '../../../components/SearchInput'
-import { formatDate, toDate } from '../../../utils/subscriptionHelpers'
+import { formatDate, toDate } from '../../../utils/creditosHelpers'
 import { formatHora12FromDate } from '../../../utils/formatHora'
 import { studentFullName } from '../../../utils/studentSearch'
 import { capitalizarNombre } from '../../../utils/nombres'

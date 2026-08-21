@@ -35,7 +35,7 @@ import {
   formatCurrency,
   formatDate,
   toDate,
-} from '../../../utils/subscriptionHelpers'
+} from '../../../utils/creditosHelpers'
 
 const inputCls =
   'w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
@@ -748,17 +748,25 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     }
   }
 
-  // Llena el saldo de créditos IA a su capacidad ACTUAL, sin esperar al ciclo
-  // mensual — pensado para las cuentas de prueba del equipo. No cambia el
-  // plan ni la capacidad: solo repone lo consumido.
+  // Ajuste manual de saldo de créditos IA (modelo de créditos puros,
+  // 20-ago-2026 — reemplaza al reseteo a capacidad, que ya no existe sin
+  // capacidad/plan). Pide un delta explícito (positivo o negativo) y un
+  // motivo, vía creditosLedger.ajustarSaldoManual.
   const [reseteandoCreditos, setReseteandoCreditos] = useState(null)
   async function handleResetCreditos(sub) {
-    if (!confirm('¿Resetear ahora los créditos de IA de este docente a su capacidad completa?')) return
+    const deltaTexto = prompt('¿Cuántos créditos ajustar? Usa un número negativo para restar.', '50')
+    if (deltaTexto === null) return
+    const delta = parseInt(deltaTexto, 10)
+    if (!Number.isFinite(delta) || delta === 0) {
+      toast('Ingresa un número distinto de cero', 'error')
+      return
+    }
+    const motivo = prompt('Motivo del ajuste (para el registro interno):', 'Ajuste manual — cuenta de prueba') || null
     setReseteandoCreditos(sub.id)
     try {
-      const resetear = httpsCallable(functions, 'resetearCreditosIA')
-      const { data } = await resetear({ docenteId: sub.docenteId })
-      toast(`Créditos reseteados: ${data.saldo}/${data.capacidad}`)
+      const ajustar = httpsCallable(functions, 'ajustarSaldoCreditosIA')
+      const { data } = await ajustar({ docenteId: sub.docenteId, delta, motivo })
+      toast(`Saldo ajustado: ${data.saldo} créditos`)
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -978,8 +986,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                         onClick={() => handleResetCreditos(r.sub)}
                         disabled={reseteandoCreditos === r.sub.id}
                         className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"
-                        data-tooltip="Resetear créditos de IA ahora"
-                        aria-label="Resetear créditos de IA"
+                        data-tooltip="Ajustar saldo de créditos de IA"
+                        aria-label="Ajustar saldo de créditos de IA"
                       >
                         <Zap size={16} />
                       </button>

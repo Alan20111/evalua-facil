@@ -1,6 +1,21 @@
 #!/usr/bin/env node
 
 /**
+ * DEPRECADO (20-ago-2026, migración a créditos puros — ver
+ * docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md). `docenteActivo()`/
+ * `suscripcionHasta()` ya NO existen en firestore.rules: nada lee más el
+ * campo `users/{uid}.suscripcionHasta` que este script escribía, así que
+ * correrlo ya no tiene ningún efecto. Se conserva el archivo tal cual
+ * (histórico/infraestructura, mismo criterio que las colecciones
+ * subscriptions/payments/plans — no se borra nada innecesariamente) por si
+ * algún día se quisiera limpiar ese campo de la base; no se ejecuta más como
+ * parte del flujo de despliegue.
+ *
+ * ── Respaldo inicial del candado de suscripción (documentación original,
+ * ya no aplica) ──────────────────────────────────────────────────────────
+ */
+
+/**
  * Respaldo inicial del candado de suscripción.
  *
  * Copia a `users/{docenteId}.suscripcionHasta` la fecha hasta la que cada

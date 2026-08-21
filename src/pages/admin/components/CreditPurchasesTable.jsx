@@ -16,7 +16,7 @@ import { db, functions } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import Table from '../../../components/ui/Table'
-import { formatCurrency, formatDateTime, getPaymentStatusColor, getPaymentStatusLabel } from '../../../utils/subscriptionHelpers'
+import { formatCurrency, formatDateTime, getPaymentStatusColor, getPaymentStatusLabel } from '../../../utils/creditosHelpers'
 
 function StatusBadge({ status }) {
   return (

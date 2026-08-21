@@ -5,7 +5,7 @@ import {
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth'
-import { collection, doc, getDocs, query, updateDoc, where, writeBatch, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -14,47 +14,19 @@ import ConfirmModal from '../../components/ConfirmModal'
 import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
 import { resolveSchoolSelection, normalizeName, findSimilarSchools } from '../../utils/schoolSelection'
-import { uploadToCloudinary } from '../../utils/cloudinary'
-import { Camera, Lock, User, X, CreditCard, School, ChevronDown, ChevronUp, Plus, Trash2, Upload, ImagePlus } from 'lucide-react'
+import { Camera, Lock, User, X, Sparkles, School, ChevronDown, Plus, Trash2 } from 'lucide-react'
 import SearchInput from '../../components/SearchInput'
-import { useSubscription } from '../../hooks/useSubscription'
 import useCreditosIA from '../../hooks/useCreditosIA'
-import CheckoutModal from '../../components/CheckoutModal'
-import PlanComparisonTable from '../../components/PlanComparisonTable'
+import ComprarCreditosModal from '../../components/ComprarCreditosModal'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import {
-  TRIAL_DURATION_DAYS,
-  ANNUAL_PLAN_ID,
-  ANNUAL_PRICE_MXN,
-  ANNUAL_SUBSCRIPTION_NAME,
-  SUBSCRIPTION_NAME,
-  MONTHLY_PLAN_ID,
-  calcDaysRemaining,
-  calcTrialEnd,
-  datosDePagoTransferencia,
-  effectiveVencimiento,
-  validarComprobante,
-  formatCurrency,
-  formatDate,
-  getDaysLabel,
-  getPaymentStatusColor,
-  getPaymentStatusLabel,
-  getSubscriptionStatusColor,
-  canRenew as canRenewSubscription,
-  isSubscriptionExpired,
-  diasParaEliminacion,
-  fechaEliminacion,
-} from '../../utils/subscriptionHelpers'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
 import EliminarCuentaModal from '../../components/EliminarCuentaModal'
-import { sendSubscriptionCancelledEmail } from '../../utils/accountEmails'
-import { apiUrl } from '../../utils/apiBase'
 import { PREFIJOS } from '../../utils/prefijos'
 import { capitalizarNombre } from '../../utils/nombres'
 import Select from '../../components/ui/Select'
@@ -265,103 +237,15 @@ export default function Profile() {
   useBackHandler(() => setConfirm(null), !!confirm)
   useScrollLock(!!confirm)
 
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  // Historial de pagos: oculto por default — con varios meses de pagos
-  // hacía muy larga la tarjeta "Mi plan"; ahora se despliega bajo pedido y,
-  // si es largo, se desplaza dentro de su propia ventana en vez de estirar
-  // la tarjeta.
-  const [showPayments, setShowPayments] = useState(false)
-  const [showComparacion, setShowComparacion] = useState(false)
-
   // Cancelar suscripción / eliminar cuenta
-  const [cancelandoSub, setCancelandoSub] = useState(false)
   const [showEliminarCuenta, setShowEliminarCuenta] = useState(false)
   useBackHandler(() => setShowEliminarCuenta(false), showEliminarCuenta)
 
-  // Reenviar un pago por transferencia que el admin rechazó — pedido
-  // explícito: adjuntar foto del comprobante (con el folio visible) y
-  // volver a mandarlo a revisión. Las reglas de Firestore solo dejan al
-  // docente CREAR pagos, no actualizar uno existente (ver
-  // firestore.rules match /payments/{paymentId}), así que reenviar crea un
-  // documento nuevo — nunca se toca el rechazado, que queda como historial.
-  const [resendPayment, setResendPayment] = useState(null) // el pago rechazado que se está reenviando
-  const [resendFolio, setResendFolio] = useState('')
-  const [resendFile, setResendFile] = useState(null)
-  const [resendSubmitting, setResendSubmitting] = useState(false)
-  useBackHandler(() => setResendPayment(null), !!resendPayment)
-  useScrollLock(!!resendPayment)
-
-  const {
-    subscription,
-    recentPayments,
-    transferenciaEnRevision,
-    pagoLiquidando,
-    loading: subLoading,
-    refresh: refreshSub,
-  } = useSubscription()
-  // Fuente de verdad de nombre/precio/créditos por plan (13-ago-2026, Bloque
-  // 3): mismo hook que ya usan CreditosPanel/la barra — nunca se duplican
-  // aquí. `tarifas.planes.{pro,mayor}` trae nombre comercial ("Asistente
-  // IA"/"Asistente IA Pro") y precio; `capacidad` es la bolsa REAL del
-  // docente (para trial, ya distingue legado/nuevo — ver
-  // capacidadTrialPara en functions/creditosLedger.js).
+  // Créditos IA (modelo de créditos puros, 20-ago-2026) — ver CreditosPanel
+  // para el detalle completo; aquí solo un resumen con acceso a comprar más.
   const creditosIA = useCreditosIA()
+  const [showComprarCreditos, setShowComprarCreditos] = useState(false)
 
-  function openResend(payment) {
-    setResendFolio(payment.referencia || '')
-    setResendFile(null)
-    setResendPayment(payment)
-  }
-
-  async function submitResend(e) {
-    e.preventDefault()
-    if (!resendFolio.trim()) return toast('Ingresa la referencia', 'error')
-    if (!resendFile) return toast('Adjunta la foto de tu comprobante', 'error')
-    const problema = validarComprobante(resendFile)
-    if (problema) return toast(problema, 'error')
-    // El pago tiene que colgar de una suscripción propia — es lo que el panel
-    // extiende al aprobarlo, y las reglas ya no aceptan un pago sin ella.
-    const subscriptionId = subscription?.id || resendPayment.subscriptionId
-    if (!subscriptionId) {
-      return toast('Estamos preparando tu cuenta. Intenta de nuevo en unos segundos.', 'warning')
-    }
-    setResendSubmitting(true)
-    try {
-      const comprobanteUrl = await uploadToCloudinary(resendFile, 'evalua-facil/comprobantes')
-      const batch = writeBatch(db)
-      // Mismo armador que el checkout (ver datosDePagoTransferencia): sin él,
-      // el reenvío perdía `mesesPagados` y quien pagaba seis meses terminaba
-      // con uno solo activado.
-      batch.set(doc(collection(db, 'payments')), datosDePagoTransferencia({
-        docenteId: currentUser.uid,
-        subscriptionId,
-        escuelaId: userProfile?.escuelaId || '',
-        // El mismo plan del folio rechazado — un reenvío no debe cambiar de
-        // plan solo por reenviarse (ver Bloque 4: antes solo existía 'pro').
-        planId: resendPayment.planId || MONTHLY_PLAN_ID,
-        meses: resendPayment.mesesPagados || 1,
-        referencia: resendFolio,
-        comprobanteUrl,
-        reenvioDePagoId: resendPayment.id,
-        // El mismo dinero que ya se transfirió, no la tarifa de hoy.
-        monto: typeof resendPayment.monto === 'number' ? resendPayment.monto : undefined,
-      }))
-      if (subscription?.id) {
-        batch.update(doc(db, 'subscriptions', subscription.id), {
-          status: 'pendiente_pago',
-          updatedAt: serverTimestamp(),
-        })
-      }
-      await batch.commit()
-      toast('Reenviado. Lo revisamos dentro de las próximas 12 horas.')
-      setResendPayment(null)
-      refreshSub()
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setResendSubmitting(false)
-    }
-  }
   const hasEmailProvider = currentUser?.providerData?.some((p) => p.providerId === 'password')
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -489,49 +373,6 @@ export default function Profile() {
     }
   }
 
-  // ── Cancelar suscripción ────────────────────────────────────────────────
-  // No borra nada: el acceso sigue hasta la fecha ya cubierta y solo deja de
-  // renovarse. El cambio de estado lo hace el servidor (ver
-  // api/account/cancel-subscription.js); aquí solo se pide confirmación,
-  // se refresca la tarjeta y se manda el correo.
-  function requestCancelSub() {
-    const hasta = formatDate(effectiveVencimiento(subscription))
-    const hastaBorrado = formatDate(fechaEliminacion(subscription))
-    setConfirm({
-      title: 'Cancelar mi suscripción',
-      message: `Luego de ${hasta}, podrás seguir teniendo acceso a toda la información que hayas creado hasta ese momento, hasta por 90 días más (${hastaBorrado}). Al renovar podrás seguir usando Evalúa Fácil de forma normal. ¿Confirmas?`,
-      onConfirm: executeCancelSub,
-    })
-  }
-
-  async function executeCancelSub() {
-    setCancelandoSub(true)
-    try {
-      const token = await currentUser.getIdToken()
-      const res = await fetch(apiUrl('/api/account/cancel-subscription'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'No se pudo cancelar la suscripción')
-
-      // El correo es lo último y no puede tumbar la cancelación, que ya está
-      // hecha en el servidor — si falla, el docente igual ve el estado nuevo.
-      sendSubscriptionCancelledEmail({
-        email: currentUser.email,
-        accesoHasta: formatDate(effectiveVencimiento(subscription)),
-        eraTrial: data.eraTrial,
-      }).catch(() => {})
-
-      await refreshSub()
-      toast('Suscripción cancelada. Te mandamos un correo de confirmación.')
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setCancelandoSub(false)
-    }
-  }
-
   async function handleConfirm() {
     setConfirming(true)
     try {
@@ -544,386 +385,45 @@ export default function Profile() {
 
   const displayName = capitalizarNombre(userProfile?.nombreMostrar) || 'Docente'
   const initials = displayName.charAt(0).toUpperCase()
-  const daysRemaining = subscription ? calcDaysRemaining(effectiveVencimiento(subscription)) : null
-  const canRenew = canRenewSubscription(subscription, {
-    transferenciaEnRevision: !!transferenciaEnRevision,
-  })
-  // planId solo se pone al aprobar un pago de verdad (ver PaymentsTable.jsx
-  // handleApprove) — createTeacherAccount crea la prueba con planId: ''. Si
-  // sigue vacío, este docente NUNCA tuvo un pago aprobado, sin importar qué
-  // tan lejos haya llegado el status (pendiente_pago, cancelada…): sus
-  // fechaInicio/fechaVencimiento siguen siendo los de su prueba original.
-  const nuncaAprobado = !subscription?.planId
-  // Cuando SÍ hubo un pago real aprobado pero todavía quedaban días de
-  // prueba en ese momento, el plan pagado arranca hasta que esos días se
-  // agoten (política de "no se recorta nada" — ver handleApprove en el
-  // admin). Mientras tanto el docente sigue literalmente en su prueba, así
-  // que sus fechas no deben desaparecer solo porque ya haya un plan pagado
-  // esperando turno. `createdAt` es el único campo que handleApprove NUNCA
-  // toca — sigue siendo la fecha real de alta, de ahí se recalcula la
-  // prueba sin importar qué le haya pasado después a fechaInicio.
-  const finDePrueba = subscription?.createdAt ? calcTrialEnd(subscription.createdAt) : null
-  // Una cortesía la pone el admin directo, sin esperar a que se agote la
-  // prueba (a diferencia de un pago real — ver comentario arriba). Por eso
-  // no aplica este aviso: contradice al resto de la tarjeta si ya dice
-  // "Cortesía" y "activa" pero también "sigues en tu período de prueba".
-  const siguePrueba =
-    !nuncaAprobado && subscription?.planId !== 'cortesia' && finDePrueba && (calcDaysRemaining(finDePrueba) ?? -1) >= 0
-  // Solo se ofrece cancelar cuando hay algo que cancelar. En período de
-  // prueba no aparece: no hay ningún cobro que detener, y un botón
-  // "cancelar" ahí solo haría dudar a quien apenas está probando.
-  const puedeCancelar = subscription?.status === 'activa' || subscription?.status === 'pendiente_pago'
-  // Vencida por cualquier motivo (no pagó, o él la canceló y ya se le acabaron
-  // los días cubiertos): mismo mensaje terminal en ambos casos.
-  const expirada = subscription ? isSubscriptionExpired(subscription) : false
-  // Canceló pero todavía le quedan días pagados: sigue viendo su plan con
-  // normalidad — no se le anuncia "cancelada" antes de tiempo — solo se le
-  // avisa que no se va a renovar.
-  const enGraciaCancelada = subscription?.status === 'cancelada' && !expirada
 
   return (
     <>
       <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER_NARROW}`}>
 
-        {/* Mi plan */}
+        {/* Créditos IA — modelo de créditos puros sin caducidad (20-ago-2026).
+            Todo lo demás de la plataforma es gratis para cualquier docente;
+            aquí solo vive lo relacionado con IA. */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-            <CreditCard size={19} className="text-slate-400" /> Mi plan
+            <Sparkles size={19} className="text-slate-400" /> Créditos de IA
           </h2>
-          {subLoading ? (
+          {!creditosIA.listo ? (
             <div className="flex justify-center py-2"><Spinner /></div>
-          ) : subscription ? (
-            <div className="space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  {subscription.status === 'trial' || nuncaAprobado ? (
-                    <>
-                      <p className="font-bold text-on-surface">Período de prueba</p>
-                      <p className="text-sm text-muted">
-                        {TRIAL_DURATION_DAYS} días gratuitos
-                        {subscription.fechaInicio && <> · empieza el {formatDate(subscription.fechaInicio)}</>}
-                        {' '}· termina el {formatDate(effectiveVencimiento(subscription))}
-                        {/* Capacidad REAL del docente — respeta trial legado
-                            (350) vs nuevo (50) sola, porque viene del mismo
-                            doc iaCreditos/{uid} que ya resuelve esa distinción
-                            (capacidadTrialPara, functions/creditosLedger.js).
-                            No se muestra hasta que el hook termine de cargar,
-                            para no parpadear un número provisional. */}
-                        {creditosIA.listo && <> · {creditosIA.capacidad} créditos IA</>}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      {/* Anual es siempre pago único (nunca domiciliado, ver
-                          CheckoutModal) — comportamiento intacto, sin tocar.
-                          Entre los pagados NO anuales, el nombre/precio salen
-                          de config/iaTarifas.planes (mismo dato que ya usa
-                          CreditosPanel) según el planId REAL de la
-                          suscripción — antes esto asumía siempre $99, sin
-                          importar si el docente era `pro` o `mayor`. Un
-                          planId que ni sea anual ni tenga entrada en
-                          `tarifas.planes` (p. ej. cortesía, o uno nuevo que
-                          todavía no está en la tabla) cae a un rótulo neutro,
-                          sin inventar un precio que podría ser falso. */}
-                      {(() => {
-                        if (subscription.planId === ANNUAL_PLAN_ID) {
-                          return (
-                            <>
-                              <p className="font-bold text-on-surface">{ANNUAL_SUBSCRIPTION_NAME}</p>
-                              <p className="text-sm text-muted">{formatCurrency(ANNUAL_PRICE_MXN)}/año</p>
-                            </>
-                          )
-                        }
-                        if (subscription.planId === 'cortesia') {
-                          return <p className="font-bold text-on-surface">Cortesía</p>
-                        }
-                        const infoPlan = creditosIA.tarifas?.planes?.[subscription.planId] || null
-                        if (infoPlan) {
-                          return (
-                            <>
-                              <p className="font-bold text-on-surface">
-                                {infoPlan.nombre}
-                                {!subscription.mpPreapprovalId && ' — mes pagado'}
-                              </p>
-                              <p className="text-sm text-muted">
-                                {formatCurrency(infoPlan.precioMXN)}/mes · {infoPlan.creditos.toLocaleString('es-MX')} créditos IA
-                              </p>
-                            </>
-                          )
-                        }
-                        return (
-                          <p className="font-bold text-on-surface">
-                            {subscription.mpPreapprovalId ? SUBSCRIPTION_NAME : 'Mes pagado'}
-                          </p>
-                        )
-                      })()}
-                    </>
-                  )}
-                </div>
-                <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                    expirada ? 'bg-slate-100 text-slate-600' : getSubscriptionStatusColor(subscription.status)
-                  }`}
-                >
-                  {expirada ? 'Suscripción cancelada' : subscription.status?.replace('_', ' ')}
-                </span>
-              </div>
-              {/* Pedido explícito: que cualquiera entienda de un vistazo que
-                  con Mercado Pago no hay nada que aprobar — el cobro se repite
-                  solo cada mes. Solo aplica a la domiciliada YA activa; una
-                  transferencia o un PayPal de una sola exhibición ("Mes
-                  pagado") si requieren que el docente vuelva a pagar cada mes. */}
-              {subscription.mpPreapprovalId && subscription.status === 'activa' && !expirada && (
-                <p className="text-xs text-emerald-600 font-medium">
-                  Pago automático: se cobra solo cada mes desde tu tarjeta — no tienes que volver a
-                  pagar ni esperar aprobación de nadie.
-                </p>
-              )}
-              <p className="text-xs text-slate-400">Hoy: {formatDate(new Date())}</p>
-              {/* nuncaAprobado: nunca hubo un pago aprobado por el admin — el
-                  status pudo cambiar (pendiente_pago, cancelada) pero
-                  fechaInicio/fechaVencimiento siguen siendo los de SU
-                  PRUEBA (createTeacherAccount los deja ahí desde el
-                  registro; solo handleApprove en el admin los reescribe con
-                  fechas reales). Mostrar "Pagaste el X" aquí sería afirmar
-                  un pago que nunca se aprobó — bug real detectado con una
-                  cuenta de prueba (chary560@gmail.com, 2026-08-02). */}
-              {/* "Tu plan cubre del X al Y", no "Pagaste el X": cuando aún
-                  quedaban días vigentes al aprobar, el periodo pagado
-                  arranca cuando esos días se agotan (política de "no se
-                  recorta nada"), y esa fecha puede ser futura — "Pagaste el
-                  [fecha futura]" no tenía sentido con la fecha de hoy al
-                  lado. Mismo lenguaje que ya usa CheckoutModal ("Este pago
-                  cubre del X al Y") para la promesa antes de pagar. */}
-              {subscription.status !== 'trial' && !nuncaAprobado && subscription.fechaInicio && (
-                <p className="text-xs text-slate-400">
-                  {subscription.planId === 'cortesia' && subscription.cortesiaIndefinida
-                    ? <>Tu plan cubre desde el {formatDate(subscription.fechaInicio)}, sin fecha de fin.</>
-                    : <>Tu plan cubre del {formatDate(subscription.fechaInicio)} al{' '}
-                      {formatDate(effectiveVencimiento(subscription))}</>}
-                </p>
-              )}
-              {/* Sigue disfrutando su prueba aunque ya haya un pago real
-                  aprobado esperando turno — pedido explícito, sus fechas de
-                  prueba no deben desaparecer solo por eso. */}
-              {siguePrueba && (
-                <p className="text-xs text-emerald-600">
-                  Todavía estás en tu período de prueba: empezó el {formatDate(subscription.createdAt)} y
-                  termina el {formatDate(finDePrueba)}.
-                </p>
-              )}
-              {daysRemaining !== null && !expirada && (
-                <p
-                  className={`text-sm font-medium ${
-                    daysRemaining <= 7 && !enGraciaCancelada ? 'text-amber-600' : 'text-emerald-600'
-                  }`}
-                >
-                  {getDaysLabel(daysRemaining)}
-                </p>
-              )}
-              {enGraciaCancelada && (
-                <p className="text-sm text-muted">
-                  Cancelaste tu suscripción — sigues usando todo con normalidad hasta el{' '}
-                  {formatDate(effectiveVencimiento(subscription))}, cuando tu cuenta pasará a “Suscripción cancelada”.
-                </p>
-              )}
-              {subscription.status === 'activa' && !expirada && daysRemaining !== null && daysRemaining <= 7 && (
-                <p className="text-sm text-amber-600">
-                  Si no renuevas, el {formatDate(effectiveVencimiento(subscription))} tu cuenta pasará a
-                  “Suscripción cancelada” (conservas todo, solo no puedes seguir creando).
-                </p>
-              )}
-              {/* Solo se anuncian estados en los que el dinero SÍ se movió.
-                  Antes bastaba con `status === 'pendiente_pago'`, que el
-                  servidor ponía nomás abrir la pasarela: con solo presionar
-                  "Pagar con Mercado Pago" —sin pagar nada— esto ya decía que
-                  el pago estaba en revisión y prometía una aprobación en 12
-                  horas que, para tarjeta, ni siquiera existe (esos cobros los
-                  confirma el webhook, no una persona). */}
-              {transferenciaEnRevision && (
-                <p className="text-sm text-amber-600">
-                  Tu transferencia está en revisión. La aprobamos dentro de las 12 horas siguientes a
-                  que la registraste — vuelve a checar aquí.
-                </p>
-              )}
-              {pagoLiquidando && (
-                <p className="text-sm text-amber-600">
-                  Tu pago todavía no se acredita. Tu suscripción se activará sola en cuanto se
-                  confirme — no hace falta que vuelvas a pagar ni que nadie lo apruebe.
-                </p>
-              )}
-              {expirada && (
-                <p className="text-sm text-red-600">
-                  Tus grupos, estudiantes, actividades, entregas y calificaciones siguen disponibles. Solo no puedes
-                  crear ni editar hasta que actives tu suscripción.
-                </p>
-              )}
-              {expirada && (
-                <p className="text-sm text-red-600">
-                  {(() => {
-                    const dias = diasParaEliminacion(subscription)
-                    const fecha = formatDate(fechaEliminacion(subscription))
-                    return dias > 0
-                      ? `Guardamos toda tu información hasta el ${fecha} (${dias} día${dias === 1 ? '' : 's'} más) por si decides volver. Después de esa fecha se elimina definitivamente.`
-                      : 'Está a punto de eliminarse definitivamente. Reactiva para conservarla.'
-                  })()}
-                </p>
-              )}
-            </div>
           ) : (
-            <p className="text-sm text-muted">No tienes un plan activo.</p>
-          )}
-          {canRenew && (
-            <button
-              type="button"
-              onClick={() => setShowPaymentModal(true)}
-              className="mt-2 w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors"
-            >
-              {subscription?.status === 'trial' || nuncaAprobado
-                ? 'Suscripción mensual'
-                : subscription && !expirada
-                  ? 'Renovar suscripción mensual'
-                  : 'Activar suscripción mensual'}
-            </button>
-          )}
-          {puedeCancelar && (
-            <button
-              type="button"
-              onClick={requestCancelSub}
-              disabled={cancelandoSub}
-              className="mt-2 w-full py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
-            >
-              {cancelandoSub ? 'Cancelando…' : 'Cancelar suscripción'}
-            </button>
-          )}
-          {/* Comparar planes (Bloque 7, 13-ago-2026): consulta rápida, no la
-              acción principal — colapsada por omisión, mismo patrón que
-              "Historial de pagos" de abajo. Solo nombres comerciales. */}
-          <div className="mt-2 pt-4 border-t border-outline-variant">
-            <button
-              type="button"
-              onClick={() => setShowComparacion((v) => !v)}
-              className="w-full flex items-center justify-between text-xs font-semibold text-slate-400 uppercase mb-2"
-            >
-              <span>Comparar planes</span>
-              {showComparacion ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-            {showComparacion && (
-              <PlanComparisonTable
-                creditosTrial={creditosIA.tarifas?.capacidadPorPlan?.trial}
-                creditosPro={creditosIA.tarifas?.planes?.pro?.creditos}
-                creditosMayor={creditosIA.tarifas?.planes?.mayor?.creditos}
-                paquetesCreditos={creditosIA.paquetesCreditos}
-              />
-            )}
-          </div>
-          {recentPayments.length > 0 && (
-            <div className="mt-2 pt-4 border-t border-outline-variant">
-              <button
-                type="button"
-                onClick={() => setShowPayments((v) => !v)}
-                className="w-full flex items-center justify-between text-xs font-semibold text-slate-400 uppercase mb-2"
-              >
-                <span>Historial de pagos ({recentPayments.length})</span>
-                {showPayments ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </button>
-              {showPayments && (
-              <ul className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {recentPayments.map((p) => (
-                  <li key={p.id} className="text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted">{formatDate(p.createdAt)}</span>
-                      <span className="font-medium">{formatCurrency(p.monto)}</span>
-                      <span
-                        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getPaymentStatusColor(p.status)}`}
-                      >
-                        {getPaymentStatusLabel(p.status)}
-                      </span>
-                    </div>
-                    {/* Antes un pago rechazado quedaba mudo — ni el motivo ni
-                        forma de corregirlo. Pedido explícito: mostrar por qué
-                        y dejar adjuntar el comprobante para reenviarlo. */}
-                    {p.status === 'rechazado' && (
-                      <div className="mt-1 pl-1 border-l-2 border-red-200 space-y-1">
-                        {p.notasAdmin && <p className="text-xs text-red-600">{p.notasAdmin}</p>}
-                        <button
-                          type="button"
-                          onClick={() => openResend(p)}
-                          className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
-                        >
-                          <ImagePlus size={13} /> Adjuntar comprobante que tenga el folio y reenviar, por favor
-                        </button>
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
+            <div className="space-y-1">
+              <p className="text-2xl font-bold text-accent tabular-nums">{creditosIA.saldo}</p>
+              <p className="text-sm text-muted">
+                Créditos disponibles — nunca caducan ni se resetean. Se usan cuando ejecutas una función de IA;
+                el resto de Evalúa Fácil (asignaturas, actividades, calificaciones, asistencia) es gratis siempre.
+              </p>
+              {creditosIA.saldo === 0 && (
+                <p className="text-sm text-red-600">
+                  Sin créditos, las funciones de IA se bloquean al intentar usarlas — y Asistencia también,
+                  hasta que compres más créditos.
+                </p>
               )}
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => setShowComprarCreditos(true)}
+            className="mt-2 w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors"
+          >
+            Comprar créditos
+          </button>
         </div>
 
-        {/* Reenviar pago rechazado con foto del comprobante */}
-        {resendPayment && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !resendSubmitting && setResendPayment(null)} aria-label="Cerrar" />
-            <form onSubmit={submitResend} className="relative bg-surface-card rounded-card p-5 w-full max-w-sm shadow-xl space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-on-surface">Reenviar pago</h3>
-                <button type="button" onClick={() => setResendPayment(null)} className="text-slate-400 hover:text-muted">
-                  <X size={20} />
-                </button>
-              </div>
-              {resendPayment.notasAdmin && (
-                <p role="alert" className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
-                  Motivo del rechazo: {resendPayment.notasAdmin}
-                </p>
-              )}
-              <div>
-                <label htmlFor="resend-folio" className="block text-sm font-medium text-muted mb-1">Folio de operación / folio bancario</label>
-                <input
-                  id="resend-folio"
-                  type="text"
-                  value={resendFolio}
-                  onChange={(e) => setResendFolio(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Folio de operación / folio bancario"
-                />
-              </div>
-              <div>
-                <label htmlFor="resend-file" className="block text-sm font-medium text-muted mb-1">Foto de tu comprobante (donde se vea el folio)</label>
-                <input
-                  id="resend-file"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => setResendFile(e.target.files?.[0] || null)}
-                  required
-                  className="w-full text-sm text-muted file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-accent-light file:text-accent file:font-semibold file:text-sm"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={resendSubmitting}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {resendSubmitting ? <Spinner size="sm" /> : <Upload size={18} />}
-                {resendSubmitting ? 'Enviando…' : 'Reenviar a revisión'}
-              </button>
-              <p className="text-xs text-slate-500 text-center">
-                Lo revisamos dentro de las 12 horas siguientes a tu reenvío.
-              </p>
-            </form>
-          </div>
-        )}
-
-        <CheckoutModal
-          open={showPaymentModal}
-          onClose={() => setShowPaymentModal(false)}
-          subscription={subscription}
-          onSuccess={refreshSub}
-        />
+        <ComprarCreditosModal open={showComprarCreditos} onClose={() => setShowComprarCreditos(false)} />
 
         {cropFile && (
           <AvatarCropModal

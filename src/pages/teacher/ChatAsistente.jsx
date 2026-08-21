@@ -384,6 +384,7 @@ export default function ChatAsistente() {
   // una asignatura distinta).
   useEffect(() => {
     if (!currentUser) return undefined
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia el historial anterior antes de suscribirse a la conversación nueva (cambio de asignatura/General)
     setHistorial([])
     const subjectIdFiltro = seleccion === GENERAL ? null : seleccion
     const q = query(
@@ -424,7 +425,6 @@ export default function ChatAsistente() {
   // de prueba; `tipo: 'diario'` = 50 combinadas entre Asistente General y
   // todas las asignaturas, se reinicia solo con el cambio de día.
   const [limiteChat, setLimiteChat] = useState(null)
-  const [sinIA, setSinIA] = useState(false) // plan Básico: bloqueo explícito, no relacionado a saldo/límite
   const avisoUmbralMostrado = useRef(null)
   const limiteAlcanzado = !!limiteChat && limiteChat.usadas >= limiteChat.max
 
@@ -453,10 +453,6 @@ export default function ChatAsistente() {
       toast('Necesitas créditos disponibles para seguir usando el Chat con Asistente.', 'error')
       return
     }
-    if (sinIA) {
-      toast('Tu plan actual no incluye el Chat con Asistente IA.', 'error')
-      return
-    }
     if (limiteAlcanzado) return
     // El servidor igual vuelve a acotar a los últimos 10 — se manda ya
     // acotado para no depender de eso.
@@ -464,6 +460,7 @@ export default function ChatAsistente() {
     setMensaje('')
     setEnviando(true)
     try {
+      // eslint-disable-next-line react-hooks/purity -- Date.now() solo corre dentro de este handler async, disparado por el envío del docente, nunca durante el render (mismo patrón que AdminChat.jsx)
       await guardarMensaje('user', texto, Date.now())
       // chat_asistente ya no cobra créditos (tarifa 0) — los candados del
       // servidor son: plan con IA (basico lo rechaza), saldo > 0
@@ -477,31 +474,26 @@ export default function ChatAsistente() {
       const nuevoLimite = data?.resultado?.limiteChat || null
       if (nuevoLimite) {
         setLimiteChat(nuevoLimite)
-        // Aviso a 10 restantes (planes de pago) o 5 restantes (trial) — una
-        // sola vez por umbral cruzado, nunca en cada mensaje posterior
-        // (pedido explícito).
+        // Aviso a 10 restantes — una sola vez por umbral cruzado, nunca en
+        // cada mensaje posterior (pedido explícito). Un único límite diario
+        // para todos los docentes (modelo de créditos puros, sin distinción
+        // por plan).
         const restantes = nuevoLimite.max - nuevoLimite.usadas
-        const umbral = nuevoLimite.tipo === 'trial' ? 2 : 10
-        if (restantes <= umbral && restantes > 0 && avisoUmbralMostrado.current !== nuevoLimite.tipo) {
-          avisoUmbralMostrado.current = nuevoLimite.tipo
-          toast(
-            nuevoLimite.tipo === 'trial'
-              ? `Te quedan ${restantes} interacciones de Chat durante tu periodo de prueba.`
-              : `Te quedan ${restantes} interacciones con el Chat hoy.`,
-            'warning'
-          )
+        const umbral = 10
+        if (restantes <= umbral && restantes > 0 && avisoUmbralMostrado.current !== 'diario') {
+          avisoUmbralMostrado.current = 'diario'
+          toast(`Te quedan ${restantes} interacciones con el Chat hoy.`, 'warning')
         }
       }
+      // eslint-disable-next-line react-hooks/purity -- ver comentario arriba
       await guardarMensaje('assistant', respuesta || 'No obtuve una respuesta esta vez.', Date.now(), propuesta)
     } catch (err) {
-      if (err.codigo === 'LIMITE_DIARIO_CHAT' || err.codigo === 'LIMITE_TRIAL_CHAT') {
-        setLimiteChat((actual) => (actual ? { ...actual, usadas: actual.max } : { tipo: err.codigo === 'LIMITE_TRIAL_CHAT' ? 'trial' : 'diario', usadas: 1, max: 1 }))
+      if (err.codigo === 'LIMITE_DIARIO_CHAT') {
+        setLimiteChat((actual) => (actual ? { ...actual, usadas: actual.max } : { usadas: 1, max: 1 }))
         // Se ve como una respuesta más del asistente, no como un error — es
         // un estado normal del chat, no una falla.
+        // eslint-disable-next-line react-hooks/purity -- ver comentario arriba
         await guardarMensaje('assistant', err.message || 'Has alcanzado tu límite de interacciones con el Chat.', Date.now())
-      } else if (err.codigo === 'PLAN_SIN_IA') {
-        setSinIA(true)
-        toast(err.message || 'Tu plan actual no incluye el Chat con Asistente IA.', 'error')
       } else if (err.codigo === 'SIN_CREDITOS_CHAT') {
         toast(err.message || 'Necesitas créditos disponibles para seguir usando el Chat con Asistente.', 'error')
       } else if (err.codigo === 'PERFIL_IA_INCOMPLETO') {
@@ -558,6 +550,7 @@ export default function ChatAsistente() {
       // operación atómica del ledger (un fallo reembolsa la reserva sola).
       const operacion = OPERACION_PARA_ACCION[propuesta.accion] || 'chat_crear_actividad'
       await creditosIA.ejecutar(operacion, { subjectId: propuesta.subjectId, mensajeId: msg.id }, 1, { timeoutMs: 60000 })
+      // eslint-disable-next-line react-hooks/purity -- ver comentario arriba
       await guardarMensaje('assistant', TEXTO_CREADA_ACCION[propuesta.accion] || 'Listo, se creó correctamente.', Date.now())
     } catch (err) {
       if (err.codigo === 'SALDO_INSUFICIENTE') {
@@ -665,16 +658,9 @@ export default function ChatAsistente() {
           Necesitas créditos disponibles para seguir usando el Chat con Asistente.
         </p>
       )}
-      {sinIA && (
-        <p className="text-xs mb-2 text-error font-medium">
-          Tu plan actual no incluye el Chat con Asistente IA. Actualiza a Asistente IA o Asistente IA Pro para usarlo.
-        </p>
-      )}
       {limiteAlcanzado && (
         <p className="text-xs mb-2 text-error font-medium">
-          {limiteChat.tipo === 'trial'
-            ? 'Has utilizado tus 10 interacciones de Chat incluidas en el periodo de prueba. Elige un plan con IA para continuar.'
-            : 'Has alcanzado el límite diario de 50 interacciones con el Chat con Asistente. Podrás continuar mañana.'}
+          Has alcanzado el límite diario de 50 interacciones con el Chat con Asistente. Podrás continuar mañana.
         </p>
       )}
       {/* Contador — visible, compacto, SIN mencionar créditos (el límite de
@@ -710,7 +696,7 @@ export default function ChatAsistente() {
                   key={s}
                   type="button"
                   onClick={() => enviar(s)}
-                  disabled={enviando || sinCreditos || sinIA || limiteAlcanzado}
+                  disabled={enviando || sinCreditos || limiteAlcanzado}
                   className="px-3 py-1.5 rounded-full border border-outline-variant text-xs text-on-surface hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
                 >
                   {s}
@@ -772,18 +758,18 @@ export default function ChatAsistente() {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
-              if (!enviando && mensaje.trim() && !sinCreditos && !sinIA && !limiteAlcanzado) enviar()
+              if (!enviando && mensaje.trim() && !sinCreditos && !limiteAlcanzado) enviar()
             }
           }}
           placeholder="Escribe tu pregunta…"
-          disabled={enviando || sinCreditos || sinIA || limiteAlcanzado}
+          disabled={enviando || sinCreditos || limiteAlcanzado}
           maxLength={2000}
           rows={1}
           className="flex-1 w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none max-h-32 disabled:opacity-60"
         />
         <button
           type="submit"
-          disabled={enviando || !mensaje.trim() || sinCreditos || sinIA || limiteAlcanzado}
+          disabled={enviando || !mensaje.trim() || sinCreditos || limiteAlcanzado}
           className="flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded transition-colors disabled:opacity-45"
         >
           {enviando ? <Spinner size="sm" /> : <Send size={16} />}

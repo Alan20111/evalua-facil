@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import { esTransferenciaEnRevision, PAYMENT_STATUS } from '../utils/subscriptionHelpers'
+import { esTransferenciaEnRevision, PAYMENT_STATUS } from '../utils/creditosHelpers'
 
 // Regla vigente: TODO docente tiene, como mínimo, una prueba de 30 días. La
 // única excepción es la Cortesía, que el administrador otorga a mano.

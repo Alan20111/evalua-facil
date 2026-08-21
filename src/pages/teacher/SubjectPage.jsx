@@ -80,7 +80,7 @@ import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
 import AsistenteIATab from '../../components/subject/AsistenteIATab'
 import { isPerfilIACompleto } from '../../utils/perfilIA'
-import { canCreateContent, hasCleanExports } from '../../utils/subscriptionHelpers'
+import { hasCleanExports } from '../../utils/creditosHelpers'
 import ConfirmModal from '../../components/ConfirmModal'
 
 async function fetchSubmissionsForActivities(actIds) {
@@ -602,7 +602,9 @@ export default function SubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
   const { subscription } = useSubscription()
-  const canCreate = canCreateContent(subscription)
+  // Modelo de créditos puros (20-ago-2026): crear contenido ya no depende de
+  // ninguna suscripción — todo lo no-IA es gratis para cualquier docente.
+  const canCreate = true
   // Sin suscripción activa (trial, vencida, cancelada, pendiente_pago) todas
   // las exportaciones PDF/Excel llevan marca de agua — pedido explícito.
   const exportsWatermarked = !hasCleanExports(subscription)
