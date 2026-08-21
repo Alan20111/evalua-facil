@@ -1160,20 +1160,38 @@ function vigenciaDe(sub) {
 // `payments`/`plans` quedan como colecciones históricas sin lógica que las
 // escriba desde aquí.
 //
-// onDocenteCreado se conserva: ahora otorga el regalo de bienvenida de
-// créditos (50, una sola vez, sin caducidad) apenas se crea la cuenta del
-// docente — síncrono con la creación para que Asistencia nunca vea una
-// ventana de saldo 0 en una cuenta nueva.
+// onDocenteCreado se conserva: ahora solo MARCA que el docente tiene 50
+// créditos de bienvenida disponibles (bienvenidaDisponible:true en
+// iaTrialRegistro/{uid}) — NO los acredita. La activación es voluntaria del
+// docente (ver exports.activarCreditosBienvenida más abajo, 20-ago-2026,
+// decisión del PO: "el docente debe activarlos, no se otorgan solos").
 exports.onDocenteCreado = onDocumentWritten('users/{uid}', async (event) => {
   const after = event.data?.after
   if (!after?.exists) return
   const perfil = after.data()
   if (perfil.role !== 'docente') return
   try {
-    const r = await creditosLedger.otorgarCreditosBienvenida({ uid: event.params.uid })
-    if (!r.repetida) logger.info(`onDocenteCreado: ${event.params.uid} recibió ${creditosLedger.CREDITOS_BIENVENIDA} créditos de bienvenida`)
+    await creditosLedger.marcarBienvenidaDisponible({ uid: event.params.uid })
   } catch (e) {
-    logger.error(`otorgarCreditosBienvenida(${event.params.uid}):`, e.message)
+    logger.error(`marcarBienvenidaDisponible(${event.params.uid}):`, e.message)
+  }
+})
+
+// Activación voluntaria de los 50 créditos de bienvenida — solo el propio
+// docente autenticado puede activar SU cuenta (auth.uid, nunca un uid
+// arbitrario del payload). Idempotente: una segunda llamada (doble clic, dos
+// pestañas) no vuelve a acreditar — el ledger lo resuelve transaccionalmente.
+exports.activarCreditosBienvenida = onCall(async (request) => {
+  const uid = request.auth?.uid
+  if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para continuar')
+  try {
+    const r = await creditosLedger.activarCreditosBienvenida({ uid })
+    if (!r.repetida) logger.info(`activarCreditosBienvenida: ${uid} activó ${creditosLedger.CREDITOS_BIENVENIDA} créditos de bienvenida`)
+    return r
+  } catch (e) {
+    if (e.codigo === 'BIENVENIDA_NO_DISPONIBLE') throw new HttpsError('failed-precondition', e.message, { codigo: e.codigo })
+    logger.error(`activarCreditosBienvenida(${uid}):`, e.message)
+    throw new HttpsError('internal', 'No se pudo activar tus créditos de bienvenida')
   }
 })
 

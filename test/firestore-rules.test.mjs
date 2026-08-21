@@ -1261,8 +1261,21 @@ ok('IA · client CANNOT forge consumption records')
 await assertFails(getDoc(doc(asT1, 'iaConsumosInterno', 'CONS_T1')))
 ok('IA · NOBODY (client-side) can read internal token metrics')
 
-await assertFails(getDoc(doc(asT1, 'iaTrialRegistro', T1)))
-ok('IA · NOBODY (client-side) can read the trial measurement registry')
+// Bienvenida voluntaria (20-ago-2026): el dueño SÍ puede leer su propio
+// estado de bienvenida (para que el frontend sepa si mostrar el CTA de
+// activación) — pero nunca escribirlo, la acreditación sigue siendo
+// exclusivamente server-side (activarCreditosBienvenida).
+await assertSucceeds(getDoc(doc(asT1, 'iaTrialRegistro', T1)))
+ok('IA · docente CAN read own bienvenida status (para mostrar el CTA)')
+
+await assertFails(getDoc(doc(asT2, 'iaTrialRegistro', T1)))
+ok('IA · foreign teacher CANNOT read another teacher\'s bienvenida status')
+
+await assertFails(setDoc(doc(asT1, 'iaTrialRegistro', T1), { bienvenidaActivada: true }, { merge: true }))
+ok('IA · owner CANNOT self-activate bienvenida from the client (server-only)')
+
+await assertFails(updateDoc(doc(asT1, 'iaTrialRegistro', T1), { creditosBienvenida: 999999 }))
+ok('IA · owner CANNOT forge the welcome-credit amount from the client')
 
 await assertSucceeds(getDoc(doc(asT1, 'config', 'iaTarifas')))
 ok('IA · authenticated client CAN read the public tariff config (estimations)')

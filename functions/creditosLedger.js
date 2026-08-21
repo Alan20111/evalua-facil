@@ -267,21 +267,49 @@ async function ajustarSaldoManual({ uid, delta, motivo, adminUid }) {
   })
 }
 
-// ── REGALO DE BIENVENIDA (una sola vez por cuenta) ──────────────────────────
-// Otorga CREDITOS_BIENVENIDA créditos, sin caducidad, la primera vez que se
-// llama para un uid — nunca una segunda. Idempotente vía `iaTrialRegistro/
-// {uid}`: si ya existe con `bienvenidaOtorgada: true`, no vuelve a acreditar.
-// Debe dispararse desde onDocenteCreado, síncrono con la creación de la
-// cuenta, para que Asistencia nunca vea una ventana de saldo 0 en una cuenta
-// recién creada (riesgo ALTO del plan, §14).
-async function otorgarCreditosBienvenida({ uid, ahora = new Date() }) {
+// ── BIENVENIDA VOLUNTARIA (20-ago-2026, decisión del PO) ───────────────────
+// Los 50 créditos de bienvenida ya NO se acreditan automáticamente al crear
+// la cuenta — el docente los activa cuando quiere. Dos pasos separados:
+//
+//   1. marcarBienvenidaDisponible(uid) — se dispara desde onDocenteCreado,
+//      síncrono con la creación de la cuenta. NO toca `saldo` en absoluto:
+//      solo dice "este docente tiene 50 créditos esperando". Idempotente
+//      (no reescribe si ya existe el registro).
+//   2. activarCreditosBienvenida(uid) — la llama el propio docente (callable
+//      autenticado) al confirmar "Activar mis 50 créditos". Solo entonces
+//      se acreditan. Idempotente vía `bienvenidaActivada`: una segunda
+//      llamada (doble clic, dos pestañas) no vuelve a sumar.
+//
+// Ambas reutilizan `iaTrialRegistro/{uid}` (sin colección nueva):
+//   { bienvenidaDisponible, bienvenidaActivada, activadaEn, creditosBienvenida }
+
+async function marcarBienvenidaDisponible({ uid }) {
+  const refRegistro = db().doc(`iaTrialRegistro/${uid}`)
+  return db().runTransaction(async (tx) => {
+    const snap = await tx.get(refRegistro)
+    if (snap.exists) return { repetida: true }
+    tx.set(refRegistro, {
+      uid,
+      bienvenidaDisponible: true,
+      bienvenidaActivada: false,
+      activadaEn: null,
+      creditosBienvenida: CREDITOS_BIENVENIDA,
+    })
+    return { repetida: false }
+  })
+}
+
+async function activarCreditosBienvenida({ uid, ahora = new Date() }) {
   const refCreditos = db().doc(`iaCreditos/${uid}`)
   const refRegistro = db().doc(`iaTrialRegistro/${uid}`)
 
   return db().runTransaction(async (tx) => {
     const registroSnap = await tx.get(refRegistro)
-    if (registroSnap.exists && registroSnap.data().bienvenidaOtorgada) {
-      return { repetida: true }
+    if (!registroSnap.exists || !registroSnap.data().bienvenidaDisponible) {
+      throw new ErrorCreditos('BIENVENIDA_NO_DISPONIBLE', 'Esta cuenta no tiene créditos de bienvenida por activar')
+    }
+    if (registroSnap.data().bienvenidaActivada) {
+      return { repetida: true, saldo: undefined }
     }
     const creditosSnap = await tx.get(refCreditos)
     const saldoActual = creditosSnap.exists ? (creditosSnap.data().saldo || 0) : 0
@@ -294,10 +322,8 @@ async function otorgarCreditosBienvenida({ uid, ahora = new Date() }) {
       ...(creditosSnap.exists ? {} : { creadoEn: FieldValue.serverTimestamp() }),
     }, { merge: true })
     tx.set(refRegistro, {
-      uid,
-      bienvenidaOtorgada: true,
-      creditosBienvenida: CREDITOS_BIENVENIDA,
-      otorgadaEn: Timestamp.fromDate(ahora),
+      bienvenidaActivada: true,
+      activadaEn: Timestamp.fromDate(ahora),
     }, { merge: true })
 
     return { repetida: false, saldo: saldoActual + CREDITOS_BIENVENIDA }
@@ -351,7 +377,8 @@ module.exports = {
   CREDITOS_BIENVENIDA,
   cargarTarifas,
   acreditarCompraCreditos,
-  otorgarCreditosBienvenida,
+  marcarBienvenidaDisponible,
+  activarCreditosBienvenida,
   reservar,
   liquidar,
   reembolsar,

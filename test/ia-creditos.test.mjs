@@ -44,25 +44,73 @@ async function darSaldo(uid, saldo) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-grupo('Créditos de bienvenida — una sola vez, sin caducidad')
+grupo('Bienvenida voluntaria — disponible ≠ activada (20-ago-2026)')
+
+const registroDe = async (uid = DOCENTE) => (await db.doc(`iaTrialRegistro/${uid}`).get()).data()
 
 await limpiar()
 await sembrarDocente()
 
-await caso('otorgarCreditosBienvenida: acredita 50 créditos la primera vez', async () => {
-  const r = await L.otorgarCreditosBienvenida({ uid: DOCENTE })
+await caso('marcarBienvenidaDisponible: cuenta nueva queda con bienvenida disponible pero saldo 0 (no acredita nada)', async () => {
+  const r = await L.marcarBienvenidaDisponible({ uid: DOCENTE })
+  assert.strictEqual(r.repetida, false)
+  const reg = await registroDe()
+  assert.strictEqual(reg.bienvenidaDisponible, true)
+  assert.strictEqual(reg.bienvenidaActivada, false)
+  assert.strictEqual(reg.activadaEn, null)
+  assert.strictEqual(reg.creditosBienvenida, 50)
+  // Sin doc de créditos todavía — el saldo implícito es 0 (mismo criterio
+  // que ya usa saldoIAPositivo(): doc ausente = sin saldo).
+  assert.strictEqual(await creditosDe(), undefined)
+})
+
+await caso('marcarBienvenidaDisponible es idempotente: no reescribe un registro ya existente', async () => {
+  const r = await L.marcarBienvenidaDisponible({ uid: DOCENTE })
+  assert.strictEqual(r.repetida, true)
+  const reg = await registroDe()
+  assert.strictEqual(reg.bienvenidaActivada, false, 'sigue sin activar')
+})
+
+await caso('activarCreditosBienvenida: sin bienvenida disponible (nunca se marcó) se rechaza con BIENVENIDA_NO_DISPONIBLE', async () => {
+  await assert.rejects(
+    () => L.activarCreditosBienvenida({ uid: 'nadie_tiene_bienvenida' }),
+    (e) => e.codigo === 'BIENVENIDA_NO_DISPONIBLE'
+  )
+})
+
+await caso('activarCreditosBienvenida: acredita exactamente 50 la primera vez', async () => {
+  const r = await L.activarCreditosBienvenida({ uid: DOCENTE })
   assert.strictEqual(r.repetida, false)
   assert.strictEqual(r.saldo, 50)
   assert.strictEqual((await creditosDe()).saldo, 50)
+  const reg = await registroDe()
+  assert.strictEqual(reg.bienvenidaActivada, true)
+  assert.ok(reg.activadaEn, 'queda un timestamp real de activación')
 })
 
-await caso('otorgarCreditosBienvenida es idempotente: una segunda llamada no vuelve a acreditar', async () => {
-  const r = await L.otorgarCreditosBienvenida({ uid: DOCENTE })
+await caso('activarCreditosBienvenida es idempotente: doble clic no acredita 100', async () => {
+  const r = await L.activarCreditosBienvenida({ uid: DOCENTE })
   assert.strictEqual(r.repetida, true)
   assert.strictEqual((await creditosDe()).saldo, 50, 'el saldo no se duplica')
 })
 
-await caso('el saldo de bienvenida no tiene fecha de expiración: no existe cicloFin ni campo de vencimiento', async () => {
+await caso('dos activaciones SIMULTÁNEAS (dos pestañas) tampoco acreditan 100', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await L.marcarBienvenidaDisponible({ uid: DOCENTE })
+  const resultados = await Promise.allSettled([
+    L.activarCreditosBienvenida({ uid: DOCENTE }),
+    L.activarCreditosBienvenida({ uid: DOCENTE }),
+  ])
+  assert.ok(resultados.every((r) => r.status === 'fulfilled'), 'ninguna debe fallar — una repetida es un resultado válido, no un error')
+  const repetidas = resultados.filter((r) => r.value.repetida === true).length
+  const nuevas = resultados.filter((r) => r.value.repetida === false).length
+  assert.strictEqual(nuevas, 1, 'exactamente una acredita de verdad')
+  assert.strictEqual(repetidas, 1, 'la otra encuentra bienvenidaActivada ya en true')
+  assert.strictEqual((await creditosDe()).saldo, 50, 'el saldo final es 50, nunca 100')
+})
+
+await caso('los 50 activados no tienen fecha de expiración: no existe cicloFin ni campo de vencimiento', async () => {
   const c = await creditosDe()
   assert.strictEqual(c.cicloFin, undefined)
   assert.strictEqual(c.capacidad, undefined)

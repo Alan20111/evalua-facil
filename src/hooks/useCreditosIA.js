@@ -39,6 +39,7 @@ export function useCreditosIA() {
   const [creditos, setCreditos] = useState(null)
   const [cargado, setCargado] = useState(false)
   const [tarifas, setTarifas] = useState(null)
+  const [bienvenida, setBienvenida] = useState(null)
 
   useEffect(() => {
     cargarTarifas().then(setTarifas)
@@ -53,6 +54,20 @@ export function useCreditosIA() {
         setCargado(true)
       },
       () => setCargado(true) // sin permiso/offline: la barra muestra el estado por omisión
+    )
+    return unsub
+  }, [currentUser, esDocente])
+
+  // Bienvenida voluntaria (20-ago-2026): iaTrialRegistro/{uid} dice si hay
+  // 50 créditos por activar. Doc ausente (cuenta creada antes de este
+  // cambio, o carrera muy breve con onDocenteCreado) = sin bienvenida que
+  // ofrecer, no se inventa un CTA de la nada.
+  useEffect(() => {
+    if (!currentUser || !esDocente) return undefined
+    const unsub = onSnapshot(
+      doc(db, 'iaTrialRegistro', currentUser.uid),
+      (snap) => setBienvenida(snap.exists() ? snap.data() : null),
+      () => {}
     )
     return unsub
   }, [currentUser, esDocente])
@@ -77,6 +92,28 @@ export function useCreditosIA() {
       saldoPositivo: saldo > 0,
       consumidoTotal: creditos?.consumidoTotal ?? 0,
       consumoPorCategoria: creditos?.consumoPorCategoria || {},
+
+      // Bienvenida voluntaria: el CTA "Activa tus 50 créditos IA de regalo"
+      // se muestra cuando hay bienvenida disponible y AÚN no se activó.
+      bienvenidaDisponible: !!bienvenida?.bienvenidaDisponible,
+      bienvenidaActivada: !!bienvenida?.bienvenidaActivada,
+      mostrarCTAActivarBienvenida: !!bienvenida?.bienvenidaDisponible && !bienvenida?.bienvenidaActivada,
+
+      // Activa los 50 créditos de bienvenida — una sola vez, server-side
+      // (functions/index.js → activarCreditosBienvenida). El propio ledger
+      // rechaza una segunda activación sin que el cliente tenga que evitarlo.
+      async activarBienvenida() {
+        const llamar = httpsCallable(functions, 'activarCreditosBienvenida')
+        try {
+          const { data } = await llamar()
+          return data
+        } catch (e) {
+          const codigo = e?.details?.codigo || null
+          const err = new Error(e?.message || 'No se pudo activar tus créditos de bienvenida')
+          err.codigo = codigo
+          throw err
+        }
+      },
 
       // Estimación informativa (jamás descuenta): costo en créditos de una
       // operación según las tarifas centrales.
@@ -110,7 +147,7 @@ export function useCreditosIA() {
         }
       },
     }
-  }, [cargado, tarifas, creditos, esDocente])
+  }, [cargado, tarifas, creditos, esDocente, bienvenida])
 }
 
 export default useCreditosIA
