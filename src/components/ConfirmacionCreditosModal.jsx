@@ -15,6 +15,7 @@ import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ComprarCreditosModal from './ComprarCreditosModal'
+import ActivarCreditosModal from './ActivarCreditosModal'
 
 export default function ConfirmacionCreditosModal({
   titulo = 'Usar el asistente de IA',
@@ -28,6 +29,7 @@ export default function ConfirmacionCreditosModal({
 }) {
   const c = useCreditosIA()
   const [comprarAbierto, setComprarAbierto] = useState(false)
+  const [activarAbierto, setActivarAbierto] = useState(false)
   const max = costoMax ?? costoMin
   const rango = max !== costoMin ? `${costoMin}–${max}` : `${costoMin}`
   const restanteMin = c.saldo - max
@@ -75,12 +77,19 @@ export default function ConfirmacionCreditosModal({
             </p>
             <p className="text-sm text-muted mb-4">
               Esta acción requiere aproximadamente {rango} {max === 1 ? 'crédito' : 'créditos'} y tienes {c.saldo} disponibles.
+              {c.mostrarCTAActivarBienvenida && ' Puedes comprar créditos o activar tus créditos de regalo.'}
             </p>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={onCancelar}
                 className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
                 Cerrar
               </button>
+              {c.mostrarCTAActivarBienvenida && (
+                <button type="button" onClick={() => setActivarAbierto(true)}
+                  className="px-4 py-2 border border-accent text-accent text-sm font-medium rounded hover:bg-[var(--accent-tint)] transition-colors">
+                  Activar créditos de regalo
+                </button>
+              )}
               <button type="button" onClick={() => setComprarAbierto(true)}
                 className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
                 Comprar créditos
@@ -90,6 +99,7 @@ export default function ConfirmacionCreditosModal({
         )}
       </div>
       <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />
+      <ActivarCreditosModal open={activarAbierto} onClose={() => setActivarAbierto(false)} onSuccess={onCancelar} />
     </div>
   )
 }
