@@ -79,6 +79,9 @@ import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
 import AsistenteIATab from '../../components/subject/AsistenteIATab'
 import { isPerfilIACompleto } from '../../utils/perfilIA'
+import useCreditosIA from '../../hooks/useCreditosIA'
+import ActivarCreditosModal from '../../components/ActivarCreditosModal'
+import ComprarCreditosModal from '../../components/ComprarCreditosModal'
 
 async function fetchSubmissionsForActivities(actIds) {
   if (actIds.length === 0) return []
@@ -603,6 +606,14 @@ export default function SubjectPage() {
   // exportaciones ya NO llevan marca de agua (no existe suscripción/trial que
   // gatee eso) — ver [[project_modelo_precios_ia_complemento]].
   const canCreate = true
+  // Candado de Asistencia por saldo de créditos IA (§9 del plan de créditos
+  // puros) — el servidor (firestore.rules → saldoIAPositivo) ya lo bloquea;
+  // esto es solo la capa amable: banner explicando por qué y CTA, en vez de
+  // dejar que el docente choque con un error crudo de permisos al guardar.
+  const creditosIA = useCreditosIA()
+  const asistenciaBloqueada = creditosIA.listo && !creditosIA.saldoPositivo
+  const [showActivarCreditosAsistencia, setShowActivarCreditosAsistencia] = useState(false)
+  const [showComprarCreditosAsistencia, setShowComprarCreditosAsistencia] = useState(false)
   // Asistente IA (FASE 2-BIS del Plan Maestro de IA) solo aparece si el
   // docente ya completó su Perfil para IA — mismo contexto para todas sus
   // asignaturas, capturado una sola vez (ver /perfil-ia).
@@ -3806,6 +3817,46 @@ export default function SubjectPage() {
     />
   )
 
+  // Banner "Asistencia bloqueada por saldo" — mismo bloque en web y en app.
+  // El servidor (firestore.rules → saldoIAPositivo) ya rechaza la escritura;
+  // esto es la capa amable: explica por qué y ofrece la salida correcta, en
+  // vez de dejar que el docente choque con un error crudo de permisos.
+  const attendanceCreditsBanner = asistenciaBloqueada && (
+    <div className="bg-amber-50 border border-amber-200 rounded-card px-3 py-2.5 text-sm text-amber-800">
+      <p className="font-medium mb-1">El módulo de Asistencias requiere créditos IA.</p>
+      <p className="mb-2">
+        Puedes ver tu lista de estudiantes, pero para agregar días y pasar lista necesitas saldo disponible.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {creditosIA.mostrarCTAActivarBienvenida && (
+          <button type="button" onClick={() => setShowActivarCreditosAsistencia(true)}
+            className="px-3 py-1.5 border border-amber-600 text-amber-700 text-xs font-semibold rounded hover:bg-amber-100 transition-colors">
+            Activar créditos de regalo
+          </button>
+        )}
+        <button type="button" onClick={() => setShowComprarCreditosAsistencia(true)}
+          className="px-3 py-1.5 bg-amber-600 text-white text-xs font-semibold rounded hover:bg-amber-700 transition-colors">
+          Comprar créditos
+        </button>
+      </div>
+    </div>
+  )
+
+  // Lista de estudiantes de solo lectura para Asistencias — visible SIEMPRE
+  // (sin días agregados, o con Asistencia bloqueada por saldo), para que el
+  // docente vea quién está inscrito y qué va a poder hacer aquí en cuanto
+  // tenga créditos, en vez de una pestaña que parece vacía o rota.
+  const attendanceStudentsRosterJsx = (
+    <ul className="divide-y divide-outline-variant rounded-card border border-outline-variant bg-surface-card overflow-hidden">
+      {filteredAttendanceStudents.map((s) => (
+        <li key={s.id} className="px-3 py-2 text-sm text-on-surface flex items-center gap-2">
+          <span className="text-muted tabular-nums w-6 flex-shrink-0">{s.orden ?? ''}</span>
+          {studentFullName(s)}
+        </li>
+      ))}
+    </ul>
+  )
+
   // Leyenda de estados de asistencia (compartida web/app) — en la web el
   // texto queda solo un poco más grande que los nombres de la tabla (text-sm),
   // y los íconos del mismo tamaño que tienen en las celdas (w-6 h-6, 14px);
@@ -3875,7 +3926,7 @@ export default function SubjectPage() {
         <ArrowLeft size={20} />
       </button>
       <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
-      {addDayLabel && totalStudents > 0 && (
+      {addDayLabel && totalStudents > 0 && !asistenciaBloqueada && (
         <button type="button" onClick={handleAddDayClick}
           className="ml-auto flex items-center gap-1.5 px-2.5 py-1 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
           <CalendarPlus size={14} /> {addDayLabel}
@@ -4804,11 +4855,21 @@ export default function SubjectPage() {
           ) : totalStudents === 0 ? (
             <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p></>
           ) : attendanceRecords.length === 0 ? (
-            <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p></>
+            <>
+              {nativeAttBar}
+              <div className="flex-1 overflow-auto p-3 space-y-2">
+                {attendanceCreditsBanner}
+                {!asistenciaBloqueada && (
+                  <p className="text-slate-400 text-sm text-center py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+                )}
+                {attendanceStudentsRosterJsx}
+              </div>
+            </>
           ) : attendanceParciales.length === 0 ? (
             <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Sin días de asistencia en el parcial actual.</p></>
           ) : (
             <div className="flex-1 overflow-auto bg-surface-card">
+              {asistenciaBloqueada && <div className="p-2">{attendanceCreditsBanner}</div>}
               {attendanceTableJsx}
             </div>
           )}
@@ -4821,13 +4882,15 @@ export default function SubjectPage() {
           <>
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Asistencias</p>
-            {addDayLabel && (
+            {addDayLabel && !asistenciaBloqueada && (
               <button type="button" onClick={handleAddDayClick}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
                 <CalendarPlus size={16} /> {addDayLabel}
               </button>
             )}
           </div>
+
+          {attendanceCreditsBanner}
 
           {/* Por defecto solo se pinta el parcial actual — pedido explícito,
               antes se armaba TODA la tabla del curso completo de una sola
@@ -4910,7 +4973,12 @@ export default function SubjectPage() {
           {loadingAttendance ? (
             <div className="flex justify-center py-12"><Spinner size="lg" /></div>
           ) : attendanceRecords.length === 0 ? (
-            <p className="text-center text-slate-400 text-sm py-12">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+            <>
+              {!asistenciaBloqueada && (
+                <p className="text-center text-slate-400 text-sm py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+              )}
+              {attendanceStudentsRosterJsx}
+            </>
           ) : attendanceParciales.length === 0 ? (
             <p className="text-center text-slate-400 text-sm py-12">Sin días de asistencia en el parcial actual — toca &quot;Todo el curso&quot; para ver los demás.</p>
           ) : (
@@ -7353,6 +7421,8 @@ export default function SubjectPage() {
           })()}
         />
       )}
+      <ActivarCreditosModal open={showActivarCreditosAsistencia} onClose={() => setShowActivarCreditosAsistencia(false)} />
+      <ComprarCreditosModal open={showComprarCreditosAsistencia} onClose={() => setShowComprarCreditosAsistencia(false)} />
     </>
   )
 }

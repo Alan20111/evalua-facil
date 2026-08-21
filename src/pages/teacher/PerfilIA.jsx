@@ -100,8 +100,9 @@ export default function PerfilIA() {
           <p className="text-sm text-muted mt-0.5">
             Cuéntanos cómo trabajas para que las funciones de IA de Evalúa Fácil
             (crear exámenes, cuestionarios, actividades, rúbricas y más) den
-            resultados más ajustados a ti. Se captura una sola vez y se reutiliza
-            en todas tus asignaturas — no es necesario repetirlo.
+            resultados más ajustados a ti. Se reutiliza en todas tus asignaturas
+            — no es necesario repetirlo por cada una, aunque puedes volver
+            a editarlo cuando quieras.
           </p>
         </div>
       </div>
