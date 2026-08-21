@@ -3957,7 +3957,7 @@ const CHAT_SISTEMA =
   'resumen de TODAS sus asignaturas (Asistente General), ayúdalo a decidir en qué enfocarse y a organizarse ' +
   'entre ellas, comparándolas cuando haga sentido — Y ADEMÁS (18-ago-2026: esto es parte central de tu trabajo ' +
   'en el Asistente General, no un tema fuera de tu área) responde con naturalidad cualquier pregunta sobre CÓMO ' +
-  'USAR EVALÚA FÁCIL, sus planes, suscripción, créditos de IA, compra de créditos adicionales y pagos, usando la ' +
+  'USAR EVALÚA FÁCIL, sus créditos de IA, compra de créditos y pagos, usando la ' +
   'sección "AYUDA DE EVALÚA FÁCIL" de tu contexto — nunca digas que esos temas "no son tu área" ni remitas al ' +
   'docente a otro lugar cuando la respuesta ya está en ese bloque. Responde en español, breve y práctico, como ' +
   'un colega pedagógico con el que se conversa, no como un reporte. Usa EXCLUSIVAMENTE la información de este ' +

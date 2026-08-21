@@ -1,26 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * Siembra la configuración del sistema de créditos IA (una sola vez).
+ * Siembra la configuración del sistema de créditos IA (modelo de créditos
+ * puros, 20-ago-2026 — ver docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md).
  *
- *   · config/iaTarifas — tarifas en créditos por operación (valores APROBADOS
- *     por el PO el 9-ago-2026), capacidades por plan, modelo provisional por
- *     operación y datos de exhibición de los planes. Es la ÚNICA fuente de
- *     estos valores: servidor y cliente la leen; nada de esto se duplica en
- *     código.
- *   · plans/mayor — Asistente IA Pro (id interno `mayor`).
- *   · plans/basico — Plan Básico, SIN IA (id interno `basico`,
- *     reestructuración de precios 18-ago-2026).
- *     Ambos `activo: true` — el checkout ya sabe ofrecerlos y cobrarlos
- *     correctamente, y las reglas ya los aceptan.
+ *   · config/iaTarifas — tarifas en créditos por operación, modelo por
+ *     operación (Claude Haiku 4.5, único modelo) y los 6 paquetes de compra
+ *     definitivos (`paquetesCreditos`). Es la ÚNICA fuente de estos
+ *     valores: servidor y cliente la leen; nada de esto se duplica en
+ *     código. `set()` (no merge) purga cualquier campo legado del modelo de
+ *     suscripciones mensuales (`capacidadPorPlan`/`trialLegado`/`planes`).
  *
- * Nombres comerciales (13-ago-2026): "Plan Docente"→"Asistente IA" (`pro`),
- * "Plan Mayor"→"Asistente IA Pro" (`mayor`) — solo el texto que ve el
- * docente cambió; los identificadores internos `pro`/`anual`/`mayor`/`trial`
- * siguen siendo los mismos en todo el proyecto.
- *
- * NOTA: el plan cortesía queda deliberadamente SIN capacidad — la IA se
- * rechaza para ese plan hasta que el PO decida sus créditos.
+ * `plans/mayor` y `plans/basico` YA NO se siembran aquí — ver
+ * seeds-db/seed-plans.js (deprecado, solo histórico: esas colecciones se
+ * conservan pero ya no controlan ningún acceso).
  *
  * Uso:
  *   cd seeds-db && npm install
