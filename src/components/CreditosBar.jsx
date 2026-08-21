@@ -96,7 +96,7 @@ export default function CreditosBar({ variant = 'sidebar' }) {
           aria-label={c.mostrarCTAActivarBienvenida ? 'Activa tus 50 créditos IA de regalo' : `Créditos de IA: ${c.saldo} disponibles. Ver detalle`}
           className={
             c.mostrarCTAActivarBienvenida
-              ? 'w-full px-3 py-2 rounded-lg text-left bg-white text-accent font-semibold shadow-md hover:bg-white/90 transition-colors animate-pulse'
+              ? 'w-full px-3 py-2 rounded-lg text-left bg-white text-accent font-semibold shadow-md hover:bg-white/90 transition-colors'
               : 'w-full px-3 py-2 rounded text-left hover:bg-white/10 transition-colors'
           }
         >

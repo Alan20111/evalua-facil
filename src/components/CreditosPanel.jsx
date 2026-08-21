@@ -57,14 +57,17 @@ export default function CreditosPanel({ onCerrar }) {
         </p>
 
         {/* Agotamiento: se suspenden IA, Asistencia y el bonus de descarga de
-            documentos (21-ago-2026) — el resto (asignaturas, estudiantes,
-            evidencias, calificaciones EN PANTALLA) sigue disponible. */}
+            documentos (21-ago-2026) — todo lo demás de Evalúa Fácil sigue
+            siendo 100% gratuito. */}
         {agotado && (
           <div className="bg-surface rounded-card border border-outline-variant p-3 mb-4 text-sm">
             <p className="font-medium text-on-surface mb-1">Te quedaste sin créditos de IA.</p>
             <p className="text-muted">
-              Tus asignaturas, estudiantes, evidencias y calificaciones siguen disponibles. Para seguir usando la IA,
-              pasar Asistencia y descargar documentos (bonus ligado al saldo), compra más créditos.
+              Todas las funciones de Evalúa Fácil son totalmente gratuitas, excepto la IA, Asistencia y la descarga
+              de documentos, que se pagan con créditos.
+              {c.mostrarCTAActivarBienvenida
+                ? ' Adquiere créditos para usarlas, o disfruta de tus 50 créditos de IA de regalo activándolos.'
+                : ' Adquiere créditos para usarlas.'}
             </p>
             <button type="button" onClick={() => setComprarAbierto(true)}
               className="mt-2 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
