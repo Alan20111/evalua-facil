@@ -18,6 +18,7 @@ import { Camera, Lock, User, X, Sparkles, School, ChevronDown, Plus, Trash2 } fr
 import SearchInput from '../../components/SearchInput'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import ComprarCreditosModal from '../../components/ComprarCreditosModal'
+import ActivarCreditosModal from '../../components/ActivarCreditosModal'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -245,6 +246,7 @@ export default function Profile() {
   // para el detalle completo; aquí solo un resumen con acceso a comprar más.
   const creditosIA = useCreditosIA()
   const [showComprarCreditos, setShowComprarCreditos] = useState(false)
+  const [showActivarCreditos, setShowActivarCreditos] = useState(false)
 
   const hasEmailProvider = currentUser?.providerData?.some((p) => p.providerId === 'password')
 
@@ -416,6 +418,15 @@ export default function Profile() {
               )}
             </div>
           )}
+          {creditosIA.mostrarCTAActivarBienvenida && (
+            <button
+              type="button"
+              onClick={() => setShowActivarCreditos(true)}
+              className="mt-2 w-full py-2 border border-accent text-accent font-semibold rounded text-sm hover:bg-[var(--accent-tint)] transition-colors"
+            >
+              Activar tus 50 créditos IA de regalo
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowComprarCreditos(true)}
@@ -426,6 +437,7 @@ export default function Profile() {
         </div>
 
         <ComprarCreditosModal open={showComprarCreditos} onClose={() => setShowComprarCreditos(false)} />
+        <ActivarCreditosModal open={showActivarCreditos} onClose={() => setShowActivarCreditos(false)} />
 
         {cropFile && (
           <AvatarCropModal
