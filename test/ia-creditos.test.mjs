@@ -1517,4 +1517,96 @@ await caso('fallo de la IA generando la planeación: reembolso completo de los 2
   assert.strictEqual((await consumoDe(k)).estado, 'fallido')
 })
 
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('Créditos fraccionarios (21-ago-2026) — calificar_entregable_ia = 0.5')
+// El ledger ya soportaba `saldo` decimal sin ningún cambio de esquema (es un
+// number de Firestore); esto prueba que reservar/liquidar/reembolsar hacen
+// bien la aritmética con una tarifa fraccionaria real, que el saldo nunca
+// queda negativo, y que encadenar varias 0.5 no deriva por redondeo de
+// punto flotante (round2 en creditosLedger.js).
+
+const TARIFAS_FRACCION = {
+  version: 1,
+  tarifas: { calificar_entregable_ia: 0.5 },
+  categorias: { calificar_entregable_ia: 'Calificación de evidencias' },
+}
+
+await limpiar()
+await sembrarDocente()
+
+await caso('reservar con tarifa 0.5: descuenta exactamente 0.5, no 1 ni 0', async () => {
+  await darSaldo(DOCENTE, 10)
+  const k = clave()
+  const r = await L.reservar({ uid: DOCENTE, operacion: 'calificar_entregable_ia', idempotencyKey: k, tarifas: TARIFAS_FRACCION })
+  assert.strictEqual(r.costo, 0.5)
+  assert.strictEqual(r.saldoTrasReserva, 9.5)
+  assert.strictEqual((await creditosDe()).saldo, 9.5)
+})
+
+await caso('liquidar 0.5 completo: no devuelve nada, saldo se queda en lo reservado', async () => {
+  await darSaldo(DOCENTE, 10)
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'calificar_entregable_ia', idempotencyKey: k, tarifas: TARIFAS_FRACCION })
+  const liq = await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 0.5 })
+  assert.strictEqual(liq.creditosReales, 0.5)
+  assert.strictEqual(liq.saldo, 9.5)
+  assert.strictEqual((await creditosDe()).consumidoTotal, 0.5)
+})
+
+await caso('reembolso de una reserva de 0.5: el saldo vuelve exacto a como estaba antes', async () => {
+  await darSaldo(DOCENTE, 10)
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'calificar_entregable_ia', idempotencyKey: k, tarifas: TARIFAS_FRACCION })
+  assert.strictEqual((await creditosDe()).saldo, 9.5)
+  await L.reembolsar({ uid: DOCENTE, idempotencyKey: k, motivo: 'prueba' })
+  assert.strictEqual((await creditosDe()).saldo, 10)
+})
+
+await caso('saldo insuficiente para 0.5: se rechaza, NUNCA queda negativo', async () => {
+  await darSaldo(DOCENTE, 0.3)
+  const k = clave()
+  await assert.rejects(
+    L.reservar({ uid: DOCENTE, operacion: 'calificar_entregable_ia', idempotencyKey: k, tarifas: TARIFAS_FRACCION }),
+    (e) => e.codigo === 'SALDO_INSUFICIENTE' && e.datos.saldo === 0.3 && e.datos.costo === 0.5
+  )
+  assert.strictEqual((await creditosDe()).saldo, 0.3) // intacto, no se tocó
+})
+
+await caso('saldo exacto de 0.5 SÍ alcanza (el límite es >=, no >)', async () => {
+  await darSaldo(DOCENTE, 0.5)
+  const k = clave()
+  const r = await L.reservar({ uid: DOCENTE, operacion: 'calificar_entregable_ia', idempotencyKey: k, tarifas: TARIFAS_FRACCION })
+  assert.strictEqual(r.saldoTrasReserva, 0)
+  assert.strictEqual((await creditosDe()).saldo, 0)
+})
+
+await caso('encadenar 7 reservas+liquidaciones de 0.5 no deriva por punto flotante — saldo exacto', async () => {
+  await darSaldo(DOCENTE, 10)
+  for (let i = 0; i < 7; i++) {
+    const k = clave()
+    await L.reservar({ uid: DOCENTE, operacion: 'calificar_entregable_ia', idempotencyKey: k, tarifas: TARIFAS_FRACCION })
+    await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 0.5 })
+  }
+  // 10 - 7*0.5 = 6.5 exacto — sin round2 un acumulado de floats podría dar
+  // 6.499999999999999 o 6.500000000000001, que ===6.5 detectaría al vuelo.
+  assert.strictEqual((await creditosDe()).saldo, 6.5)
+  assert.strictEqual((await creditosDe()).consumidoTotal, 3.5)
+})
+
+await caso('operación entera junto a fraccionaria en la misma cuenta: cada una descuenta lo suyo, sin contaminarse', async () => {
+  const TARIFAS_MIXTAS = {
+    version: 1,
+    tarifas: { calificar_entregable_ia: 0.5, aviso: 1 },
+    categorias: { calificar_entregable_ia: 'Calificación de evidencias', aviso: 'Avisos' },
+  }
+  await darSaldo(DOCENTE, 10)
+  const k1 = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'calificar_entregable_ia', idempotencyKey: k1, tarifas: TARIFAS_MIXTAS })
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k1, creditosReales: 0.5 })
+  const k2 = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: k2, tarifas: TARIFAS_MIXTAS })
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k2, creditosReales: 1 })
+  assert.strictEqual((await creditosDe()).saldo, 8.5) // 10 - 0.5 - 1
+})
+
 resumen('pruebas del ledger de créditos IA')

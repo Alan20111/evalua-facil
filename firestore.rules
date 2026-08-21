@@ -528,6 +528,19 @@ service cloud.firestore {
         allow create: if false;
       }
 
+      // Mismo patrón que iaSugerencias, pero UNA por ENTREGA (no por
+      // pregunta) — lote "Calificar todas con IA" (OP-11-bis, 21-ago-2026).
+      // Las crea únicamente el servidor; el docente dueño las lee y las
+      // marca aplicadas/descartadas al revisar cada entrega. El alumno
+      // nunca las ve.
+      match /iaSugerenciasEntregable/{sugerenciaId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow update, delete: if isDocente() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow create: if false;
+      }
+
       // Bitácora de OP-10 (análisis de resultados con IA). Un documento NUEVO
       // por cada generación exitosa — el docente los crea desde el cliente
       // (ya pagó el crédito antes de llegar aquí; esto solo persiste la

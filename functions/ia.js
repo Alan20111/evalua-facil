@@ -131,6 +131,7 @@ const OPERACIONES = {
   rubrica: ejecutarRubrica,
   cotejo: ejecutarCotejo,
   calificar_entregable_ia: ejecutarCalificarEntregableIA,
+  calificar_entregable_ia_lote: ejecutarCalificarEntregableIALote,
   reactivos: ejecutarReactivos,
   analizar_resultados: ejecutarAnalisisResultados,
   crear_evaluacion_ia: ejecutarCrearEvaluacion,
@@ -160,6 +161,7 @@ const OPERACIONES = {
 const PRECHECKS = {
   rubrica: precheckInstrumento, cotejo: precheckInstrumento,
   calificar_entregable_ia: precheckCalificarEntregable,
+  calificar_entregable_ia_lote: precheckCalificarEntregableLote,
   reactivos: precheckReactivos,
   analizar_resultados: precheckAnalisisResultados, crear_evaluacion_ia: precheckCrearEvaluacion,
   crear_actividad_ia: precheckCrearActividad,
@@ -881,19 +883,19 @@ async function precheckCalificarEntregable({ uid, params }) {
   }
 }
 
-async function ejecutarCalificarEntregableIA({ params, modelo, apiKey }) {
-  const Anthropic = require('@anthropic-ai/sdk')
-  const client = new Anthropic({ apiKey })
-  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
-  const rubrica = ctx.rubrica
+// Motor ÚNICO de evaluación — lo usan tanto la calificación de UNA entrega
+// (ejecutarCalificarEntregableIA) como el lote de "Calificar todas con IA"
+// (ejecutarCalificarEntregableIALote). Un solo prompt, un solo parseo, un
+// solo esquema de salida — nada de tres rutas de código por tipo de
+// evidencia ni por individual/lote.
+async function evaluarEntregaConIA({ client, modelo, rubrica, nombre, instrucciones, evidenciasBloques, evidenciasDetalle }) {
   const numCriterios = rubrica.criterios.length
-
   const promptTexto =
     'Asignatura: bachillerato mexicano.\n' +
-    `ACTIVIDAD ENTREGABLE: "${ctx.nombre}".\n\n` +
-    `INSTRUCCIONES PARA EL ESTUDIANTE:\n"""${ctx.instrucciones}"""\n\n` +
+    `ACTIVIDAD ENTREGABLE: "${nombre}".\n\n` +
+    `INSTRUCCIONES PARA EL ESTUDIANTE:\n"""${instrucciones}"""\n\n` +
     `${bloqueCriteriosInstrumento(rubrica)}\n\n` +
-    `A continuación se adjuntan las evidencias que entregó el estudiante (${ctx.evidenciasDetalle.length} archivo(s)). ` +
+    `A continuación se adjuntan las evidencias que entregó el estudiante (${evidenciasDetalle.length} archivo(s)). ` +
     `Analízalas y propón, para CADA UNO de los ${numCriterios} criterios de arriba, el nivel que corresponde según lo que observes.\n\n` +
     'Responde SOLO con este JSON:\n' +
     '{\n' +
@@ -905,7 +907,7 @@ async function ejecutarCalificarEntregableIA({ params, modelo, apiKey }) {
     '  "confianza": "alta" | "media" | "baja"\n' +
     '}'
 
-  const content = [{ type: 'text', text: promptTexto }, ...ctx.evidenciasBloques]
+  const content = [{ type: 'text', text: promptTexto }, ...evidenciasBloques]
 
   const inicio = Date.now()
   const msg = await client.messages.create({
@@ -943,22 +945,198 @@ async function ejecutarCalificarEntregableIA({ params, modelo, apiKey }) {
   const confianza = CONFIANZA_VALIDAS.has(datos.confianza) ? datos.confianza : 'media'
 
   return {
-    resultado: {
+    sugerencia: {
       criterios, // [{n, nivel, evidencia, sinEvidenciaSuficiente}] — mismo orden que rubrica.criterios
       retroalimentacionGeneral: String(datos.retroalimentacionGeneral || '').slice(0, 1000),
       confianza,
-      evidenciasAnalizadas: ctx.evidenciasDetalle,
+      evidenciasAnalizadas: evidenciasDetalle,
+    },
+    tokensEntrada: msg.usage?.input_tokens ?? null,
+    tokensSalida: msg.usage?.output_tokens ?? null,
+    ms: Date.now() - inicio,
+  }
+}
+
+async function ejecutarCalificarEntregableIA({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+
+  const { sugerencia, tokensEntrada, tokensSalida, ms } = await evaluarEntregaConIA({
+    client, modelo, rubrica: ctx.rubrica, nombre: ctx.nombre, instrucciones: ctx.instrucciones,
+    evidenciasBloques: ctx.evidenciasBloques, evidenciasDetalle: ctx.evidenciasDetalle,
+  })
+
+  return {
+    resultado: {
+      ...sugerencia,
       ignoradosPorFormato: ctx.ignoradosPorFormato,
       ignoradosPorTope: ctx.ignoradosPorTope,
     },
     unidadesReales: 1, // tarifa fija por entrega evaluada — nunca por número de evidencias
-    interno: {
-      modelo,
-      tokensEntrada: msg.usage?.input_tokens ?? null,
-      tokensSalida: msg.usage?.output_tokens ?? null,
-      ms: Date.now() - inicio,
-      evidencias: ctx.evidenciasDetalle.length,
-    },
+    interno: { modelo, tokensEntrada, tokensSalida, ms, evidencias: ctx.evidenciasDetalle.length },
+  }
+}
+
+// ── OP-11-BIS · "Calificar todas con IA" — lote de una actividad completa ──
+// Mismo motor (evaluarEntregaConIA) que la operación individual de arriba;
+// el lote solo agrega la orquestación: qué entregas entran, el candado por
+// entrega para no cobrar dos veces, y la persistencia de cada propuesta para
+// que sobreviva un cierre de pestaña — MISMO patrón que ya usa C-02
+// (ejecutarCalificarAbierta/activities/{id}/iaSugerencias) para respuestas
+// abiertas, aquí aplicado a activities/{id}/iaSugerenciasEntregable/{subId}
+// (una sugerencia POR ENTREGA, no por pregunta — aquí no hay preguntas).
+//
+// Alcance decidido por Kike (21-ago-2026): solo entregas PENDIENTES (sin
+// calificar) — nunca pisa una calificación que el docente ya puso a mano.
+// Revisión: una por una, como la individual — el lote NO aplica ni guarda
+// ninguna calificación, solo dEJA LISTAS las propuestas para que el docente
+// las revise/edite/confirme al calificar a cada estudiante (regla O3).
+
+const CALIFICAR_ENTREGABLE_LOTE_CONCURRENCIA = 4
+
+async function precheckCalificarEntregableLote({ uid, params }) {
+  const db = getFirestore()
+  const actividadId = String(params?.actividadId || '')
+  if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad a calificar')
+
+  const actSnap = await db.doc(`activities/${actividadId}`).get()
+  if (!actSnap.exists) throw new HttpsError('not-found', 'La actividad no existe')
+  const act = actSnap.data()
+  if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+  if (PADRES_VALIDOS[act.categoria] !== 'entregable') {
+    throw new HttpsError('failed-precondition', 'Solo un entregable con evidencia se puede calificar así.')
+  }
+  const rubrica = act.rubrica
+  if (!rubrica?.criterios?.length) {
+    throw new HttpsError('failed-precondition',
+      'Esta actividad todavía no tiene rúbrica ni lista de cotejo guardada — créala primero. No se descontaron créditos.')
+  }
+
+  // Solo entregas PENDIENTES (sin calificar) — mismo criterio que la
+  // pestaña "Pendientes" del docente, nunca pisa una calificación ya dada.
+  const subsSnap = await db.collection('submissions').where('actividadId', '==', actividadId).get()
+  const pendientes = subsSnap.docs.filter((d) => d.data().calificacion == null)
+
+  const items = []
+  let sinEvidencia = 0
+  for (const subDoc of pendientes) {
+    const sub = subDoc.data()
+    const archivos = Array.isArray(sub.archivos) && sub.archivos.length
+      ? sub.archivos
+      : (sub.archivoURL ? [{ url: sub.archivoURL, nombre: sub.nombreArchivo }] : [])
+    const evidencias = await prepararEvidenciasEntrega(archivos)
+    if (!evidencias.bloques.length) { sinEvidencia++; continue }
+    items.push({ submissionId: subDoc.id, evidencias })
+  }
+
+  if (!items.length) {
+    throw new HttpsError('failed-precondition',
+      'No hay entregas pendientes con evidencia en un formato legible (JPG, PNG, PDF o Word). No se descontaron créditos.')
+  }
+
+  return {
+    clase: 'entregable',
+    nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
+    instrucciones: textoPlano(act.instrucciones).slice(0, 4000),
+    rubrica,
+    items,
+    sinEvidencia,
+  }
+}
+
+async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unidades }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const db = getFirestore()
+  const ctx = params.__contexto
+  const actividadId = String(params?.actividadId || '')
+
+  if (ctx.items.length > unidades) {
+    throw new HttpsError('failed-precondition',
+      `Hay ${ctx.items.length} entregas pendientes con evidencia pero la estimación fue de ${unidades}. Vuelve a intentarlo para re-estimar.`)
+  }
+
+  // ── Candado por entrega: adquirir el derecho a procesarla (mismo patrón
+  // que C-02) — un create() atómico es el único que puede ganarlo; ya
+  // 'pendiente'/'aplicada' → ya tiene sugerencia, se recupera gratis.
+  const adquiridos = []
+  let yaProcesadas = 0
+  for (const item of ctx.items) {
+    const ref = db.doc(`activities/${actividadId}/iaSugerenciasEntregable/${item.submissionId}`)
+    try {
+      await ref.create({
+        estado: 'procesando', actividadId, sub: item.submissionId,
+        consumoKey: params.__idempotencyKey || null, creadoEn: FieldValue.serverTimestamp(),
+      })
+      adquiridos.push({ ...item, ref })
+    } catch {
+      const tomado = await db.runTransaction(async (tx) => {
+        const s = await tx.get(ref)
+        if (!s.exists) return false
+        const d = s.data()
+        const edadMs = d.creadoEn?.toDate ? Date.now() - d.creadoEn.toDate().getTime() : 0
+        if (d.estado === 'procesando' && edadMs > 10 * 60 * 1000) {
+          tx.update(ref, { consumoKey: params.__idempotencyKey || null, creadoEn: FieldValue.serverTimestamp() })
+          return true
+        }
+        return false
+      })
+      if (tomado) adquiridos.push({ ...item, ref })
+      else yaProcesadas++
+    }
+  }
+
+  if (!adquiridos.length) {
+    throw new HttpsError('failed-precondition',
+      'Estas entregas ya tienen propuesta de IA o se están procesando en este momento. No se descontaron créditos.')
+  }
+
+  let tokensEntrada = 0
+  let tokensSalida = 0
+  let fallidas = 0
+  let generadas = 0
+
+  let cursor = 0
+  async function trabajador() {
+    while (cursor < adquiridos.length) {
+      const item = adquiridos[cursor++]
+      try {
+        const { sugerencia, tokensEntrada: te, tokensSalida: ts } = await evaluarEntregaConIA({
+          client, modelo, rubrica: ctx.rubrica, nombre: ctx.nombre, instrucciones: ctx.instrucciones,
+          evidenciasBloques: item.evidencias.bloques, evidenciasDetalle: item.evidencias.detalle,
+        })
+        tokensEntrada += te || 0
+        tokensSalida += ts || 0
+        // Persistir ANTES de contar como cobrable — si esta escritura falla,
+        // la entrega cae al catch (candado liberado, sin cobro).
+        await item.ref.set({
+          estado: 'pendiente',
+          sugerencia: {
+            ...sugerencia,
+            ignoradosPorFormato: item.evidencias.ignoradosPorFormato,
+            ignoradosPorTope: item.evidencias.ignoradosPorTope,
+          },
+          actualizadoEn: FieldValue.serverTimestamp(),
+        }, { merge: true })
+        generadas++
+      } catch (e) {
+        fallidas++
+        logger.warn(`OP-11-lote: entrega ${item.submissionId} falló: ${String(e.message || e).slice(0, 200)}`)
+        await item.ref.delete().catch((err) => logger.error('OP-11-lote: liberar candado falló:', err))
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CALIFICAR_ENTREGABLE_LOTE_CONCURRENCIA, adquiridos.length) }, trabajador))
+
+  if (!generadas) {
+    throw new HttpsError('unavailable', 'El asistente de IA no pudo calificar ninguna entrega. No se descontaron créditos.')
+  }
+
+  return {
+    resultado: { generadas, fallidas, yaProcesadas, sinEvidencia: ctx.sinEvidencia },
+    unidadesReales: generadas, // 1 crédito por entrega REALMENTE evaluada
+    interno: { modelo, tokensEntrada, tokensSalida, entregas: generadas, fallidas, yaProcesadas },
   }
 }
 
@@ -4872,5 +5050,5 @@ exports._pruebas = {
   LIMITE_CHAT_DIARIO,
   verificarSaldoChat, calcularTarifaExamen, precheckChatCrearActividad, precheckChatCrearExamen,
   ACCIONES_ACTIVIDAD,
-  precheckCalificarEntregable, bloqueCriteriosInstrumento,
+  precheckCalificarEntregable, bloqueCriteriosInstrumento, precheckCalificarEntregableLote,
 }

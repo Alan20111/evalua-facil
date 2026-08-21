@@ -30,24 +30,31 @@ const CONFIANZA_LABEL = {
   baja: { texto: 'Confianza baja', cls: 'bg-red-100 text-red-700' },
 }
 
-export default function CalificarConIAModal({ open, onClose, actividadId, submissionId, rubrica, onAplicar }) {
+export default function CalificarConIAModal({
+  open, onClose, actividadId, submissionId, rubrica, onAplicar,
+  // Propuesta ya generada y pagada por el lote "Calificar todas con IA"
+  // (ver ActivityPage.jsx) — cuando llega, el modal se abre DIRECTO en
+  // 'revisar', sin volver a cobrar. `onAplicado(docId)` marca esa sugerencia
+  // persistida como 'aplicada' cuando el docente confirma.
+  resultadoPersistido = null, onAplicado = null,
+}) {
   const c = useCreditosIA()
   const toast = useToast()
   const retroId = useId()
-  const [paso, setPaso] = useState('confirmar') // 'confirmar' | 'revisar'
+  const [paso, setPaso] = useState(resultadoPersistido ? 'revisar' : 'confirmar')
   const [ejecutando, setEjecutando] = useState(false)
-  const [resultado, setResultado] = useState(null)
-  const [retro, setRetro] = useState('')
+  const [resultado, setResultado] = useState(resultadoPersistido)
+  const [retro, setRetro] = useState(resultadoPersistido?.retroalimentacionGeneral || '')
   const [comprarAbierto, setComprarAbierto] = useState(false)
   const [activarAbierto, setActivarAbierto] = useState(false)
 
-  const costo = c.estimar('calificar_entregable_ia') ?? 1
+  const costo = c.estimar('calificar_entregable_ia') ?? 0.5
   const alcanza = c.saldo >= costo
 
   function cerrarTodo() {
-    setPaso('confirmar')
-    setResultado(null)
-    setRetro('')
+    setPaso(resultadoPersistido ? 'revisar' : 'confirmar')
+    setResultado(resultadoPersistido)
+    setRetro(resultadoPersistido?.retroalimentacionGeneral || '')
     onClose()
   }
 
@@ -68,6 +75,7 @@ export default function CalificarConIAModal({ open, onClose, actividadId, submis
 
   function aplicar() {
     onAplicar(resultado.criterios, retro)
+    if (resultadoPersistido?._docId) onAplicado?.(resultadoPersistido._docId)
     cerrarTodo()
   }
 
