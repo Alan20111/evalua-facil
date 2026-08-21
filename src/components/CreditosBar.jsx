@@ -11,11 +11,12 @@
 // (marca en localStorage por uid+saldo) — discreto y sin repetirse.
 
 import { useEffect, useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, Gift } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
 import useCreditosIA from '../hooks/useCreditosIA'
 import CreditosPanel from './CreditosPanel'
+import ActivarCreditosModal from './ActivarCreditosModal'
 
 const UMBRALES = [10, 3, 0] // créditos restantes
 
@@ -30,11 +31,16 @@ export default function CreditosBar({ variant = 'sidebar' }) {
   const toast = useToast()
   const c = useCreditosIA()
   const [panelAbierto, setPanelAbierto] = useState(false)
+  const [activarAbierto, setActivarAbierto] = useState(false)
 
   // Aviso de umbral: una sola vez por saldo (aunque recargue o cambie de
   // dispositivo se tolera repetir — el candado fuerte es por navegador).
   useEffect(() => {
-    if (!c.listo || !currentUser) return
+    // Saldo 0 antes de activar la bienvenida no es "te quedaste sin
+    // créditos" — es "todavía no activaste los tuyos". El aviso de umbral
+    // solo aplica una vez que ya hay bienvenida activada (o nunca hubo
+    // bienvenida que ofrecer, cuentas viejas).
+    if (!c.listo || !currentUser || c.mostrarCTAActivarBienvenida) return
     const u = umbralAlcanzado(c.saldo)
     if (u === null) return
     const llave = `ia-aviso-${currentUser.uid}-${u}`
@@ -48,7 +54,7 @@ export default function CreditosBar({ variant = 'sidebar' }) {
     } else {
       toast(`Te quedan ${c.saldo} créditos de IA.`)
     }
-  }, [c.listo, c.saldo, currentUser, toast])
+  }, [c.listo, c.saldo, c.mostrarCTAActivarBienvenida, currentUser, toast])
 
   if (!c.esDocente || !c.listo) return null
 
@@ -56,19 +62,26 @@ export default function CreditosBar({ variant = 'sidebar' }) {
   const bajo = c.saldo <= 10
 
   if (variant === 'movil') {
-    // Chip compacto en la cabecera móvil: "IA 284".
+    // Chip compacto en la cabecera móvil: "IA 284", o el regalo por activar.
     return (
       <>
         <button
           type="button"
-          onClick={() => setPanelAbierto(true)}
-          aria-label={`Créditos de IA: ${c.saldo} disponibles`}
+          onClick={() => (c.mostrarCTAActivarBienvenida ? setActivarAbierto(true) : setPanelAbierto(true))}
+          aria-label={c.mostrarCTAActivarBienvenida ? 'Activa tus 50 créditos IA de regalo' : `Créditos de IA: ${c.saldo} disponibles`}
           className="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-surface-container transition-colors"
         >
-          <Sparkles size={16} className={critico ? 'text-error' : 'text-accent'} />
-          <span className={`text-xs font-semibold tabular-nums ${critico ? 'text-error' : 'text-on-surface'}`}>{c.saldo}</span>
+          {c.mostrarCTAActivarBienvenida ? (
+            <Gift size={16} className="text-accent" />
+          ) : (
+            <>
+              <Sparkles size={16} className={critico ? 'text-error' : 'text-accent'} />
+              <span className={`text-xs font-semibold tabular-nums ${critico ? 'text-error' : 'text-on-surface'}`}>{c.saldo}</span>
+            </>
+          )}
         </button>
         {panelAbierto && <CreditosPanel onCerrar={() => setPanelAbierto(false)} />}
+        <ActivarCreditosModal open={activarAbierto} onClose={() => setActivarAbierto(false)} />
       </>
     )
   }
@@ -79,17 +92,25 @@ export default function CreditosBar({ variant = 'sidebar' }) {
       <div className="px-2 py-2 border-t border-white/15">
         <button
           type="button"
-          onClick={() => setPanelAbierto(true)}
-          aria-label={`Créditos de IA: ${c.saldo} disponibles. Ver detalle`}
+          onClick={() => (c.mostrarCTAActivarBienvenida ? setActivarAbierto(true) : setPanelAbierto(true))}
+          aria-label={c.mostrarCTAActivarBienvenida ? 'Activa tus 50 créditos IA de regalo' : `Créditos de IA: ${c.saldo} disponibles. Ver detalle`}
           className="w-full px-3 py-2 rounded text-left hover:bg-white/10 transition-colors"
         >
-          <div className="flex items-center gap-2 text-body-sm text-white/90">
-            <Sparkles size={15} className={`flex-shrink-0 ${critico ? 'text-red-300' : bajo ? 'text-amber-300' : ''}`} />
-            <span className="flex-1">IA · <span className="font-semibold tabular-nums">{c.saldo}</span> créditos</span>
-          </div>
+          {c.mostrarCTAActivarBienvenida ? (
+            <div className="flex items-center gap-2 text-body-sm text-white/90">
+              <Gift size={15} className="flex-shrink-0" />
+              <span className="flex-1">Activa tus 50 créditos IA de regalo</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-body-sm text-white/90">
+              <Sparkles size={15} className={`flex-shrink-0 ${critico ? 'text-red-300' : bajo ? 'text-amber-300' : ''}`} />
+              <span className="flex-1">IA · <span className="font-semibold tabular-nums">{c.saldo}</span> créditos</span>
+            </div>
+          )}
         </button>
       </div>
       {panelAbierto && <CreditosPanel onCerrar={() => setPanelAbierto(false)} />}
+      <ActivarCreditosModal open={activarAbierto} onClose={() => setActivarAbierto(false)} />
     </>
   )
 }

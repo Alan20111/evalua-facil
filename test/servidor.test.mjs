@@ -519,9 +519,10 @@ await caso('A18 · H1 — fechaLimite sin hora → fin del día (23:59:59), igua
 })
 
 // `crearPruebaSiFalta` se eliminó con el modelo de créditos puros
-// (20-ago-2026): ya no se crea una prueba de 30 días al registrarse — el
-// regalo real es `creditosLedger.otorgarCreditosBienvenida` (ver
-// test/ia-creditos.test.mjs), no una suscripción. Ver
+// (20-ago-2026): ya no se crea una prueba de 30 días al registrarse. El
+// regalo de bienvenida (20-ago-2026, activación voluntaria) es
+// `creditosLedger.marcarBienvenidaDisponible` + `activarCreditosBienvenida`
+// (ver test/ia-creditos.test.mjs), no una suscripción. Ver
 // docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md §4.
 
 // ═════════════════════════════════════════════════════════════════════════════

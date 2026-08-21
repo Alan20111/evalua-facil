@@ -1172,8 +1172,15 @@ service cloud.firestore {
     match /iaConsumosInterno/{consumoId} {
       allow read, write: if false;
     }
+    // Bienvenida voluntaria de créditos (20-ago-2026): el docente necesita
+    // LEER su propio estado (bienvenidaDisponible/bienvenidaActivada) para
+    // que el frontend sepa si mostrar el CTA de activación — pero la
+    // acreditación en sí sigue siendo exclusivamente server-side
+    // (activarCreditosBienvenida en functions/index.js), nunca un write
+    // directo del cliente.
     match /iaTrialRegistro/{uid} {
-      allow read, write: if false;
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
     }
 
     // ── Enlaces de descarga del APK de Android ──
