@@ -94,11 +94,15 @@ export default function CreditosBar({ variant = 'sidebar' }) {
           type="button"
           onClick={() => (c.mostrarCTAActivarBienvenida ? setActivarAbierto(true) : setPanelAbierto(true))}
           aria-label={c.mostrarCTAActivarBienvenida ? 'Activa tus 50 créditos IA de regalo' : `Créditos de IA: ${c.saldo} disponibles. Ver detalle`}
-          className="w-full px-3 py-2 rounded text-left hover:bg-white/10 transition-colors"
+          className={
+            c.mostrarCTAActivarBienvenida
+              ? 'w-full px-3 py-2 rounded-lg text-left bg-white text-accent font-semibold shadow-md hover:bg-white/90 transition-colors animate-pulse'
+              : 'w-full px-3 py-2 rounded text-left hover:bg-white/10 transition-colors'
+          }
         >
           {c.mostrarCTAActivarBienvenida ? (
-            <div className="flex items-center gap-2 text-body-sm text-white/90">
-              <Gift size={15} className="flex-shrink-0" />
+            <div className="flex items-center gap-2 text-body-sm">
+              <Gift size={16} className="flex-shrink-0" />
               <span className="flex-1">Activa tus 50 créditos IA de regalo</span>
             </div>
           ) : (
