@@ -57,6 +57,14 @@ const TARIFAS = {
     resumen_grupo: 1,
     rubrica: 3,
     reactivos: 1,
+    // OP-11 (21-ago-2026, decisión de Kike): calificar una entrega con IA
+    // contra su rúbrica/lista de cotejo a partir de las evidencias (JPG,
+    // PNG, PDF o Word) — tarifa FIJA de 1 crédito por entrega evaluada, sin
+    // importar cuántas evidencias trajo (tope de 5, ver evidenciasEntrega.js).
+    // Costo real verificado ANTES de fijar esta tarifa — ver
+    // docs/ia/COSTO_CALIFICAR_ENTREGABLE_IA.md (promedio ~$0.17 MXN,
+    // objetivo $0.25 MXN).
+    calificar_entregable_ia: 1,
     // OP-03/OP-04 (11-ago-2026): crear examen/cuestionario completo con IA —
     // 1 crédito por REACTIVO realmente generado (unidadesReales), igual que
     // 'reactivos'; no confundir con 'examen'/'cuestionario' de abajo, que son
@@ -124,6 +132,10 @@ const TARIFAS = {
     resumen_grupo: 'Seguimiento',
     rubrica: 'Actividades',
     reactivos: 'Evaluaciones',
+    // Misma categoría que calificar_abierta/retroalimentacion: es la MISMA
+    // función de valor (calificar con IA), solo que ahora también contra
+    // evidencia fotográfica/PDF/Word en vez de solo texto.
+    calificar_entregable_ia: 'Calificación de evidencias',
     crear_evaluacion_ia: 'Evaluaciones',
     crear_actividad_ia: 'Actividades',
     analizar_resultados: 'Evaluaciones',
@@ -151,6 +163,10 @@ const TARIFAS = {
     cotejo: 'claude-haiku-4-5',
     // OP-09 (10-ago-2026): reactivos de un cuestionario o examen.
     reactivos: 'claude-haiku-4-5',
+    // OP-11 (21-ago-2026): calificar entrega con IA — mismo modelo que el
+    // resto, es el más barato con visión disponible (ver
+    // docs/ia/COSTO_CALIFICAR_ENTREGABLE_IA.md).
+    calificar_entregable_ia: 'claude-haiku-4-5',
     // OP-03/OP-04 (11-ago-2026): crear examen/cuestionario completo con IA.
     crear_evaluacion_ia: 'claude-haiku-4-5',
     // OP-05 (11-ago-2026): crear entregable/observación completo con IA.

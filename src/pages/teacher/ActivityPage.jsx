@@ -44,8 +44,10 @@ import EvaluacionManager from '../../components/EvaluacionManager'
 import EntregableEditor from '../../components/EntregableEditor'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import RubricaGradeTable from '../../components/rubrica/RubricaGradeTable'
-import { ClipboardList, ListChecks, X } from 'lucide-react'
+import CalificarConIAModal from '../../components/rubrica/CalificarConIAModal'
+import { ClipboardList, ListChecks, X, Sparkles } from 'lucide-react'
 import { totalRubrica, RUBRICA_TOTAL, esCotejo, instrumentoColors } from '../../utils/rubrica'
+import useCreditosIA from '../../hooks/useCreditosIA'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12FromDate } from '../../utils/formatHora'
@@ -88,6 +90,16 @@ const FILE_TYPE_SHORT_LABELS = {
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
   return /\.(jpg|jpeg|png|gif|webp)(\?|$|\s)/.test(s) || /\.(jpg|jpeg|png|gif|webp)$/.test((name || '').toLowerCase())
+}
+
+// Formatos que "Calificar con IA" (OP-11) puede analizar en esta primera
+// versión — mismo criterio que evidenciasEntrega.js del servidor (JPG/PNG
+// imagen, PDF nativo, DOCX por texto extraído); .doc antiguo y cualquier
+// otro formato quedan fuera. Solo decide si el botón se MUESTRA — el
+// servidor vuelve a validar todo desde Firestore, nunca confía en esto.
+function isEvidenciaSoportada(name, url) {
+  const s = `${name || ''} ${url || ''}`.toLowerCase().split('?')[0]
+  return /\.(jpe?g|png|pdf|docx)$/.test(s)
 }
 
 // Botón para archivos sin vista previa en la App (Excel, ZIP, y cualquier
@@ -187,6 +199,11 @@ export default function ActivityPage() {
   // abajo como en la web) — se ancla por `bottom` en vez de por `top`.
   const [rubricaWinBottom, setRubricaWinBottom] = useState(80)
   const rubricaBtnRef = useRef(null)
+  // "Calificar con IA" (OP-11, 21-ago-2026) — abre CalificarConIAModal, que
+  // PRELLENA rubricEval/comentario con la propuesta; el guardado sigue
+  // siendo el mismo botón "Guardar calificación" de siempre.
+  const [calificarIAAbierto, setCalificarIAAbierto] = useState(false)
+  const creditosIA = useCreditosIA()
   // La ventana se ancla DEBAJO del renglón de la calificación oficial, para
   // que ésta quede siempre a la vista mientras se marca la rúbrica
   const califRowRef = useRef(null)
@@ -469,6 +486,22 @@ export default function ActivityPage() {
     })
   }
 
+  // Aplicar la propuesta de "Calificar con IA": PRELLENA rubricEval y el
+  // comentario con lo que propuso la IA — exactamente el mismo estado que
+  // llena selectRubricaNivel a mano. No guarda nada por sí sola: el docente
+  // sigue viendo la rúbrica de siempre, puede ajustar cualquier nivel, y el
+  // guardado real sigue siendo el botón "Guardar calificación" existente.
+  function aplicarPropuestaIA(criteriosIA, retroalimentacion) {
+    const next = criteriosIA.map((c) => c.nivel)
+    setRubricEval(next)
+    const total = totalRubrica(activity.rubrica, next)
+    setGradeForm((f) => ({
+      ...f,
+      calificacion: total != null ? String(total) : f.calificacion,
+      comentario: retroalimentacion || f.comentario,
+    }))
+  }
+
   // Single save path shared by the Guardar button and Anterior/Siguiente.
   // Updates local state in place (no reload) so navigation stays fluid.
   // For observación, the first grade CREATES the submission doc (there is no
@@ -737,6 +770,10 @@ export default function ActivityPage() {
     : (selected?.sub?.archivoURL ? [{ nombre: selected.sub.nombreArchivo, url: selected.sub.archivoURL }] : [])
   const previewHasImage = previewFiles.some((f) => isImageFile(f.nombre, f.url))
   const previewHasPdf = previewFiles.some((f) => f.nombre?.toLowerCase().endsWith('.pdf'))
+  // "Calificar con IA": visible solo si hay rúbrica/cotejo guardado, al
+  // menos una evidencia en un formato soportado, y saldo de créditos.
+  const puedeCalificarConIA = hasRubrica && creditosIA.saldoPositivo &&
+    selFiles.some((f) => isEvidenciaSoportada(f.nombre, f.url))
   // Clamp while typing: never above maxCalif, never below 0, at most 1 decimal.
   // Partial input like "9." is left alone so decimals can still be typed.
   function onCalifChange(e) {
@@ -1455,6 +1492,16 @@ export default function ActivityPage() {
                         </button>
                       )
                     })()}
+                    {puedeCalificarConIA && (
+                      <button
+                        type="button"
+                        onClick={() => setCalificarIAAbierto(true)}
+                        className="w-full py-2.5 text-sm font-semibold rounded border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Sparkles size={17} />
+                        Calificar con IA
+                      </button>
+                    )}
 
                     {/* Download on the left, grade (with its own header) on the
                         right — narrow input keeps the spinner arrows by the number */}
@@ -2000,6 +2047,16 @@ export default function ActivityPage() {
                     </button>
                   )
                 })()}
+                {puedeCalificarConIA && (
+                  <button
+                    type="button"
+                    onClick={() => setCalificarIAAbierto(true)}
+                    className="w-full py-2.5 text-sm font-semibold rounded border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Sparkles size={17} />
+                    Calificar con IA
+                  </button>
+                )}
 
                 {/* Calificación grande — sin la etiqueta de arriba (le cede
                     ese espacio a la entrega). Vacía ("—") mientras no hay
@@ -2344,6 +2401,17 @@ export default function ActivityPage() {
           </div>
         )
       })()}
+
+      {calificarIAAbierto && selected?.sub && hasRubrica && (
+        <CalificarConIAModal
+          open={calificarIAAbierto}
+          onClose={() => setCalificarIAAbierto(false)}
+          actividadId={activityId}
+          submissionId={selected.sub.id}
+          rubrica={activity.rubrica}
+          onAplicar={aplicarPropuestaIA}
+        />
+      )}
 
       {editingActivity && activity && (
         <EntregableEditor

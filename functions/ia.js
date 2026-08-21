@@ -28,6 +28,7 @@ const ledger = require('./creditosLedger')
 const { resolverIntentoGanador, respuestasVivasSonDelIntentoGanador } = require('./calificacionIntentos')
 const fuentesIA = require('./fuentesIA')
 const { dividirEnFragmentos } = require('./docChunking')
+const { prepararEvidenciasEntrega } = require('./evidenciasEntrega')
 // Lógica PURA de calendario/sesiones, compartida con el cliente — ver
 // src/utils/sesionesReales.js (fuente real) y scripts/sync-functions-shared.mjs
 // (genera esta copia en cada predeploy; también hay que correrlo a mano antes
@@ -121,12 +122,15 @@ async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual
 //   · OP-06 'rubrica' y OP-07 'cotejo' (10-ago-2026) · OP-09 'reactivos' (10-ago-2026)
 //   · OP-10 'analizar_resultados' (11-ago-2026) · OP-03/OP-04 'crear_evaluacion_ia'
 //     (11-ago-2026, autorizado en conversación con el PO) · OP-05
-//     'crear_actividad_ia' (11-ago-2026, misma autorización).
+//     'crear_actividad_ia' (11-ago-2026, misma autorización) · OP-11
+//     'calificar_entregable_ia' (21-ago-2026, autorizado por Kike en esta
+//     conversación — función CENTRAL de valor de la IA, no secundaria).
 const OPERACIONES = {
   aviso: ejecutarAviso,
   calificar_abierta: ejecutarCalificarAbierta,
   rubrica: ejecutarRubrica,
   cotejo: ejecutarCotejo,
+  calificar_entregable_ia: ejecutarCalificarEntregableIA,
   reactivos: ejecutarReactivos,
   analizar_resultados: ejecutarAnalisisResultados,
   crear_evaluacion_ia: ejecutarCrearEvaluacion,
@@ -154,7 +158,9 @@ const OPERACIONES = {
 // que reembolsar porque nunca existió). Lo que devuelve el precheck viaja al
 // ejecutor, que así no vuelve a leer nada de Firestore.
 const PRECHECKS = {
-  rubrica: precheckInstrumento, cotejo: precheckInstrumento, reactivos: precheckReactivos,
+  rubrica: precheckInstrumento, cotejo: precheckInstrumento,
+  calificar_entregable_ia: precheckCalificarEntregable,
+  reactivos: precheckReactivos,
   analizar_resultados: precheckAnalisisResultados, crear_evaluacion_ia: precheckCrearEvaluacion,
   crear_actividad_ia: precheckCrearActividad,
   diagnostico_contexto: precheckDiagnosticoContexto, diagnostico_conocimientos: precheckDiagnosticoConocimientos,
@@ -760,6 +766,199 @@ async function ejecutarCotejo({ params, modelo, apiKey }) {
     },
     unidadesReales: 1,
     interno,
+  }
+}
+
+// ── OP-11 · Calificar entrega con IA (evidencias contra rúbrica/cotejo) ─────
+// FUNCIÓN CENTRAL de valor de la IA (21-ago-2026, decisión explícita de
+// Kike — NO es secundaria ni opcional). Analiza las evidencias que el
+// estudiante entregó (JPG/PNG/PDF/DOCX, hasta MAX_EVIDENCIAS — ver
+// evidenciasEntrega.js) contra la rúbrica o lista de cotejo YA GUARDADA en
+// la actividad, y PROPONE un nivel por criterio con su justificación.
+//
+// MISMO MOTOR para los tres tipos de evidencia: evidenciasEntrega.js
+// convierte cada archivo en su content block correspondiente y aquí se arma
+// UN solo mensaje multimodal — no hay tres rutas de código por tipo, ni tres
+// prompts distintos. Lo único que cambia entre rúbrica y lista de cotejo es
+// cómo se describen los criterios en el prompt (bloqueCriteriosInstrumento);
+// el esquema de salida es idéntico en ambos casos.
+//
+// La IA NUNCA asigna ni guarda la calificación (regla transversal del
+// proyecto): el resultado entra al MISMO arreglo `rubricaEval` que ya usa la
+// calificación manual (ver ActivityPage.jsx, mismo formato: índice de nivel
+// por criterio, null = sin evidencia suficiente para proponer) — no se crea
+// ninguna estructura de datos nueva en `submissions`. El docente revisa,
+// ajusta y confirma con el botón "Guardar calificación" que ya existía.
+//
+// Tarifa FIJA de 1 crédito por entrega evaluada (config/iaTarifas), sin
+// importar cuántas evidencias trajo (tope MAX_EVIDENCIAS) — decisión
+// explícita de Kike, para que el docente piense en "evaluar una entrega",
+// no en cuántas fotos tomó.
+
+const CALIFICAR_ENTREGABLE_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
+  'docente de bachillerato mexicano. Tu papel es PROPONER: el docente siempre revisa, ajusta y ' +
+  'confirma la calificación — tú nunca la asignas de forma definitiva. ' +
+  'Evalúa EXCLUSIVAMENTE lo que puedas observar en las evidencias adjuntas (fotografías, PDF o ' +
+  'documento Word entregados por el estudiante) contra cada criterio del instrumento de ' +
+  'evaluación. Si una evidencia no permite determinar un criterio con certeza (ilegible, ' +
+  'incompleta, no corresponde a lo pedido, o simplemente no aparece), NO INVENTES ni asumas: ' +
+  'marca ese criterio con sinEvidenciaSuficiente=true y dilo en su evidencia. Nunca completes ' +
+  'con conocimiento general del tema — solo lo que de verdad observaste. Escribe en español, ' +
+  'claro y breve. Responde únicamente con el JSON válido del esquema indicado, sin texto adicional.'
+
+// Espejo mínimo de esCotejo (src/utils/rubrica.js) — no vale la pena meter
+// este archivo entero al mecanismo de _shared/ (scripts/sync-functions-
+// shared.mjs) por una comparación de un campo.
+const esCotejo = (r) => r?.tipo === 'cotejo'
+
+// Describe los criterios del instrumento en el prompt — única diferencia
+// real entre rúbrica y lista de cotejo (ver comentario del bloque arriba).
+function bloqueCriteriosInstrumento(rubrica) {
+  if (esCotejo(rubrica)) {
+    const lista = rubrica.criterios.map((c, i) =>
+      `${i + 1}. "${c.nombre}" — se marca CUMPLE (nivel 0) o NO CUMPLE (nivel null), sin términos intermedios.`
+    ).join('\n')
+    return `LISTA DE COTEJO — indicadores a verificar (cumple/no cumple):\n${lista}`
+  }
+  const niveles = rubrica.niveles.map((n, i) => `${i}=${n.nombre}`).join(', ')
+  const lista = rubrica.criterios.map((c, i) => {
+    const descriptores = c.descriptores
+      .map((d, ni) => `  nivel ${ni} (${rubrica.niveles[ni]?.nombre || ''}): ${d || '(sin descriptor)'}`)
+      .join('\n')
+    return `${i + 1}. "${c.nombre}"\n${descriptores}`
+  }).join('\n\n')
+  return `RÚBRICA — niveles disponibles (${niveles}; 0 es el nivel más alto):\n\n${lista}`
+}
+
+async function precheckCalificarEntregable({ uid, params }) {
+  const db = getFirestore()
+  const actividadId = String(params?.actividadId || '')
+  const submissionId = String(params?.submissionId || '')
+  if (!actividadId || !submissionId) {
+    throw new HttpsError('invalid-argument', 'Falta la actividad o la entrega a calificar')
+  }
+
+  const actSnap = await db.doc(`activities/${actividadId}`).get()
+  if (!actSnap.exists) throw new HttpsError('not-found', 'La actividad no existe')
+  const act = actSnap.data()
+  if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+  if (PADRES_VALIDOS[act.categoria] !== 'entregable') {
+    throw new HttpsError('failed-precondition', 'Solo un entregable con evidencia se puede calificar así.')
+  }
+  const rubrica = act.rubrica
+  if (!rubrica?.criterios?.length) {
+    throw new HttpsError('failed-precondition',
+      'Esta actividad todavía no tiene rúbrica ni lista de cotejo guardada — créala primero. No se descontaron créditos.')
+  }
+
+  const subSnap = await db.doc(`submissions/${submissionId}`).get()
+  if (!subSnap.exists) throw new HttpsError('not-found', 'La entrega no existe')
+  const sub = subSnap.data()
+  if (sub.actividadId !== actividadId) throw new HttpsError('permission-denied', 'Esta entrega no es de esta actividad')
+
+  // Mismo respaldo legacy archivoURL/nombreArchivo que usa submissionFiles()
+  // en el cliente (ActivityPage.jsx) — entregas viejas de un solo archivo.
+  const archivos = Array.isArray(sub.archivos) && sub.archivos.length
+    ? sub.archivos
+    : (sub.archivoURL ? [{ url: sub.archivoURL, nombre: sub.nombreArchivo }] : [])
+
+  const evidencias = await prepararEvidenciasEntrega(archivos)
+  if (!evidencias.bloques.length) {
+    throw new HttpsError('failed-precondition',
+      'Esta entrega no tiene evidencias en un formato que la IA pueda leer todavía (JPG, PNG, PDF o Word). No se descontaron créditos.')
+  }
+
+  return {
+    clase: 'entregable',
+    nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
+    instrucciones: textoPlano(act.instrucciones).slice(0, 4000),
+    rubrica,
+    evidenciasBloques: evidencias.bloques,
+    evidenciasDetalle: evidencias.detalle,
+    ignoradosPorFormato: evidencias.ignoradosPorFormato,
+    ignoradosPorTope: evidencias.ignoradosPorTope,
+  }
+}
+
+async function ejecutarCalificarEntregableIA({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
+  const rubrica = ctx.rubrica
+  const numCriterios = rubrica.criterios.length
+
+  const promptTexto =
+    'Asignatura: bachillerato mexicano.\n' +
+    `ACTIVIDAD ENTREGABLE: "${ctx.nombre}".\n\n` +
+    `INSTRUCCIONES PARA EL ESTUDIANTE:\n"""${ctx.instrucciones}"""\n\n` +
+    `${bloqueCriteriosInstrumento(rubrica)}\n\n` +
+    `A continuación se adjuntan las evidencias que entregó el estudiante (${ctx.evidenciasDetalle.length} archivo(s)). ` +
+    `Analízalas y propón, para CADA UNO de los ${numCriterios} criterios de arriba, el nivel que corresponde según lo que observes.\n\n` +
+    'Responde SOLO con este JSON:\n' +
+    '{\n' +
+    '  "criterios": [\n' +
+    '    {"n": 1, "nivel": <índice de nivel de la lista de arriba, o null si no hay evidencia suficiente>, ' +
+    '"evidencia": "<qué observaste, máx 25 palabras — o por qué no alcanza la evidencia>", "sinEvidenciaSuficiente": <true|false>}\n' +
+    '  ],\n' +
+    '  "retroalimentacionGeneral": "<2-4 frases de retroalimentación para el estudiante>",\n' +
+    '  "confianza": "alta" | "media" | "baja"\n' +
+    '}'
+
+  const content = [{ type: 'text', text: promptTexto }, ...ctx.evidenciasBloques]
+
+  const inicio = Date.now()
+  const msg = await client.messages.create({
+    model: modelo,
+    // Salida corta a propósito (regla del PO, 21-ago-2026): evidencias
+    // concisas por criterio + una retroalimentación breve, nunca un ensayo.
+    // Hasta MAX_CRITERIOS (6) criterios × ~40 tokens + retro ~120 cabe
+    // holgado en 900; se deja margen sin regalar tokens de salida de más.
+    max_tokens: 900,
+    system: CALIFICAR_ENTREGABLE_SISTEMA,
+    messages: [{ role: 'user', content }],
+  })
+  let texto = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
+  if (texto.startsWith('```')) texto = texto.replace(/^```(json)?\n?/, '').replace(/```$/, '').trim()
+  const datos = JSON.parse(texto)
+
+  // EF valida/acota cada campo — la IA nunca es fuente de verdad de la
+  // estructura, y "sin evidencia suficiente" siempre gana sobre un nivel
+  // propuesto: si la IA lo marca, el nivel se descarta aunque haya venido.
+  const porIndice = new Map((Array.isArray(datos.criterios) ? datos.criterios : []).map((c) => [Number(c?.n) - 1, c]))
+  const maxNivel = rubrica.niveles.length - 1
+  const criterios = rubrica.criterios.map((c, i) => {
+    const d = porIndice.get(i) || {}
+    const sinEvidencia = !Number.isInteger(d.nivel) || !!d.sinEvidenciaSuficiente
+    const nivel = sinEvidencia ? null : Math.min(maxNivel, Math.max(0, d.nivel))
+    return {
+      n: i + 1,
+      nivel,
+      evidencia: String(d.evidencia || '').slice(0, 300),
+      sinEvidenciaSuficiente: sinEvidencia,
+    }
+  })
+
+  const CONFIANZA_VALIDAS = new Set(['alta', 'media', 'baja'])
+  const confianza = CONFIANZA_VALIDAS.has(datos.confianza) ? datos.confianza : 'media'
+
+  return {
+    resultado: {
+      criterios, // [{n, nivel, evidencia, sinEvidenciaSuficiente}] — mismo orden que rubrica.criterios
+      retroalimentacionGeneral: String(datos.retroalimentacionGeneral || '').slice(0, 1000),
+      confianza,
+      evidenciasAnalizadas: ctx.evidenciasDetalle,
+      ignoradosPorFormato: ctx.ignoradosPorFormato,
+      ignoradosPorTope: ctx.ignoradosPorTope,
+    },
+    unidadesReales: 1, // tarifa fija por entrega evaluada — nunca por número de evidencias
+    interno: {
+      modelo,
+      tokensEntrada: msg.usage?.input_tokens ?? null,
+      tokensSalida: msg.usage?.output_tokens ?? null,
+      ms: Date.now() - inicio,
+      evidencias: ctx.evidenciasDetalle.length,
+    },
   }
 }
 
@@ -4673,4 +4872,5 @@ exports._pruebas = {
   LIMITE_CHAT_DIARIO,
   verificarSaldoChat, calcularTarifaExamen, precheckChatCrearActividad, precheckChatCrearExamen,
   ACCIONES_ACTIVIDAD,
+  precheckCalificarEntregable, bloqueCriteriosInstrumento,
 }
