@@ -6,8 +6,11 @@ import { cuentaParaCalificacion } from './activityVisibility'
 import { subjectPeriodLabel } from './dateRange'
 import { studentFullName as fullName } from './studentSearch'
 import { savePdfDoc } from './exportGuard'
-// El PDF del QR para instalar la app no es contenido de valor del docente —
-// exento a propósito del candado de descarga en trial, ver exportGuard.js.
+// Exentos a propósito del candado de descarga por saldo de créditos (ver
+// exportGuard.js): el QR de la app no es contenido de valor del docente, y
+// la lista de credenciales de acceso es lo que le permite a sus estudiantes
+// ENTRAR a la plataforma — bloquearla dejaría al docente sin poder dar de
+// alta a su grupo aunque se haya quedado sin créditos.
 import { savePdfDoc as savePdfDocSinCandado } from './nativeSave'
 import { applyPdfWatermarkIfNeeded, addPdfFooter, getLogoDataUrl, drawPdfWatermarkOnPage } from './exportWatermark'
 import { filasDeReactivo, totalRespuestas } from './evaluacionRespuestas'
@@ -683,5 +686,5 @@ export async function exportCredentialsPDF({ subject, students, docenteNombre, m
   doc.text('Cada estudiante entra con su usuario y el código de la clase, y elige su propia contraseña la primera vez.', 14, y)
 
   if (watermark) addPdfFooter(doc)
-  await savePdfDoc(doc, `lista_acceso_${safeFile(subject)}.pdf`)
+  await savePdfDocSinCandado(doc, `lista_acceso_${safeFile(subject)}.pdf`)
 }
