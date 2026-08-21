@@ -35,9 +35,6 @@ import { exportEvaluacionResultadosPDF, exportAnalisisResultadosPDF } from '../u
 import { descargaSoloWeb } from '../utils/descargaSoloWeb'
 import { membreteDe } from '../utils/membrete'
 import { useAuth } from '../context/AuthContext'
-import { useSubscription } from '../hooks/useSubscription'
-import { hasCleanExports } from '../utils/creditosHelpers'
-import ConfirmModal from './ConfirmModal'
 import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
 import EvaluacionGraficas from './EvaluacionGraficas'
@@ -179,10 +176,6 @@ function millisDeGeneradoEn(x) {
 export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, onSubmissionUpdated = null, resultadosOnly = false, backState = null, openStudentId = null, onDeleteActivity = null }) {
   const navigate = useNavigate()
   const toast = useToast()
-  // Sin suscripción activa, todo lo que se exporta lleva marca de agua —
-  // mismo criterio que las exportaciones de la asignatura.
-  const { subscription } = useSubscription()
-  const exportsWatermarked = !hasCleanExports(subscription)
   // Créditos de IA — estimación y ejecución del piloto C-02.
   const creditosIA = useCreditosIA()
   // Escuela + docente para encabezar los documentos que se descargan de aquí.
@@ -216,13 +209,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [showGraficas, setShowGraficas] = useState(false)
   // Exportación de los resultados de ESTA evaluación (Excel / PDF). `null`
   // cuando no se está generando nada; 'excel' | 'pdf' mientras corre, para
-  // desactivar solo el botón que se tocó. `pendingExport` es el aviso ÚNICO
-  // de "exportación en periodo de prueba" para TODAS las descargas de esta
-  // pantalla (resultados, Excel/PDF, y los PDF de OP-10) — guarda `{ run }`,
-  // la descarga concreta a ejecutar si el docente continúa; si cancela, no
-  // se genera nada.
+  // desactivar solo el botón que se tocó.
   const [exportingResultados, setExportingResultados] = useState(null)
-  const [pendingExport, setPendingExport] = useState(null)
   const [editingPreguntaId, setEditingPreguntaId] = useState(null)
   const [preguntaEditForm, setPreguntaEditForm] = useState(null)
   const [bancoSearch, setBancoSearch] = useState('')
@@ -1105,7 +1093,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       const { resultado: resultadoConNombres } = resolverNombresAnalisis(entrada.resultado, students)
       await exportAnalisisResultadosPDF({
         activity, subject, membrete,
-        watermark: exportsWatermarked,
         generadoEn: new Date(millisDeGeneradoEn(entrada.generadoEn)).toISOString(),
         resultado: resultadoConNombres,
       })
@@ -1116,12 +1103,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     }
   }
 
-  // Descargar el PDF sigue siendo gratis (no pasa por creditosIA): el único
-  // gate aquí es el mismo aviso de "exportación en periodo de prueba" que
-  // usan el resto de las descargas de esta pantalla — ver `pendingExport`.
+  // Descargar el PDF sigue siendo gratis (no pasa por creditosIA).
   function descargarAnalisisHistoricoPDF(entrada) {
     if (descargaSoloWeb(toast)) return
-    if (exportsWatermarked) { setPendingExport({ run: () => ejecutarDescargaAnalisisHistoricoPDF(entrada) }); return }
     ejecutarDescargaAnalisisHistoricoPDF(entrada)
   }
 
@@ -1204,12 +1188,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       if (kind === 'excel') {
         await exportEvaluacionResultadosExcel({
           activity, subject, students, submissions, preguntas, counts, porAlumno, stats, hasManual,
-          membrete, watermark: exportsWatermarked,
+          membrete,
         })
       } else {
         await exportEvaluacionResultadosPDF({
           activity, subject, preguntas: preguntas.filter(esGraficable), counts,
-          membrete, watermark: exportsWatermarked,
+          membrete,
         })
       }
     } catch (err) {
@@ -1221,7 +1205,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   function handleExportResultados(kind) {
     if (descargaSoloWeb(toast)) return
-    if (exportsWatermarked) { setPendingExport({ run: () => runExportResultados(kind) }); return }
     runExportResultados(kind)
   }
 
@@ -1920,14 +1903,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 activity={activity}
                 subject={subject}
                 membrete={membrete}
-                watermark={exportsWatermarked}
                 generadoEn={analisisGeneradoEn}
                 onClose={() => { setAnalisisResultado(null); setAnalisisGeneradoEn(null); setAnalisisId(null) }}
                 onGuardar={analisisId ? guardarAnalisisEditado : null}
-                onPedirDescarga={(ejecutar) => {
-                  if (exportsWatermarked) { setPendingExport({ run: ejecutar }); return }
-                  ejecutar()
-                }}
               />
             )}
             {/* Descargar los resultados de este cuestionario/examen. Van aquí,
@@ -2552,24 +2530,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           preguntas={preguntasOrdenadas}
           submissions={submissions}
           onClose={() => setShowGraficas(false)}
-        />
-      )}
-
-      {/* Mismo aviso que en el resto de las exportaciones del docente: en
-          periodo de prueba los archivos salen con marca de agua, y se le dice
-          antes de generarlos, no después.
-          `z={90}`: el PDF del análisis de OP-10 se pide desde dentro de
-          AnalisisResultadosIA, que es una pantalla completa a z-[60] — con
-          el z-index por defecto (50) este aviso quedaba TAPADO detrás de esa
-          pantalla, invisible aunque técnicamente estuviera montado. */}
-      {pendingExport && (
-        <ConfirmModal
-          z={90}
-          title="Exportación en periodo de prueba"
-          message="Los documentos generados durante el periodo de prueba incluyen una marca de agua de Evalúa Fácil. Al activar tu suscripción, todas las exportaciones se generarán sin marca de agua."
-          confirmLabel="Continuar"
-          onConfirm={() => { const p = pendingExport; setPendingExport(null); p.run() }}
-          onCancel={() => setPendingExport(null)}
         />
       )}
     </div>

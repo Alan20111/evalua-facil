@@ -8,9 +8,6 @@ import { exportEvaluacionGraficasPDF } from '../utils/pdf'
 import { SLICE_COLORS, esGraficable, cargarRespuestasEvaluacion } from '../utils/evaluacionRespuestas'
 import { membreteDe } from '../utils/membrete'
 import { useAuth } from '../context/AuthContext'
-import { useSubscription } from '../hooks/useSubscription'
-import { hasCleanExports } from '../utils/creditosHelpers'
-import ConfirmModal from './ConfirmModal'
 import Spinner from './Spinner'
 
 function polarPoint(cx, cy, r, angleDeg) {
@@ -72,11 +69,8 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
   useBackHandler(onClose, true)
   useScrollLock(true)
   const toast = useToast()
-  const { subscription } = useSubscription()
-  const exportsWatermarked = !hasCleanExports(subscription)
   const { userProfile } = useAuth()
   const membrete = membreteDe(userProfile)
-  const [showWatermarkNotice, setShowWatermarkNotice] = useState(false)
   const [loading, setLoading] = useState(true)
   const [counts, setCounts] = useState({}) // { [preguntaId]: { [opcionId]: number } }
   const [exportingPdf, setExportingPdf] = useState(false)
@@ -86,20 +80,15 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
   // PDF y el Excel de resultados).
   const graficables = preguntas.filter(esGraficable)
 
-  function handleExportPdfClick() {
-    if (descargaSoloWeb(toast)) return
-    if (exportsWatermarked) setShowWatermarkNotice(true)
-    else handleExportPdf()
-  }
-
   // El PDF de ESTA pantalla lleva las gráficas tal como se ven aquí. El de
   // tablas (opción, respuestas, porcentaje) se descarga desde la pestaña
   // Resultados: son dos documentos distintos a propósito, uno para proyectar
   // y otro para archivar.
   async function handleExportPdf() {
+    if (descargaSoloWeb(toast)) return
     setExportingPdf(true)
     try {
-      await exportEvaluacionGraficasPDF({ activity, subject, preguntas: graficables, counts, membrete, watermark: exportsWatermarked })
+      await exportEvaluacionGraficasPDF({ activity, subject, preguntas: graficables, counts, membrete })
     } catch (err) {
       toast('Error al generar el PDF: ' + err.message, 'error')
     } finally {
@@ -141,7 +130,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
               descargaSoloWeb) en vez de desaparecer sin decir nada. */}
           <button
             type="button"
-            onClick={handleExportPdfClick}
+            onClick={handleExportPdf}
             disabled={exportingPdf}
             data-tooltip="PDF con estas gráficas"
             className="flex items-center gap-1.5 px-3 py-1.5 mt-0.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60 flex-shrink-0"
@@ -231,16 +220,6 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
           )}
         </div>
       </div>
-
-      {showWatermarkNotice && (
-        <ConfirmModal
-          title="Exportación en periodo de prueba"
-          message="Los documentos generados durante el periodo de prueba incluyen una marca de agua de Evalúa Fácil. Al activar tu suscripción, todas las exportaciones se generarán sin marca de agua."
-          confirmLabel="Continuar"
-          onConfirm={() => { setShowWatermarkNotice(false); handleExportPdf() }}
-          onCancel={() => setShowWatermarkNotice(false)}
-        />
-      )}
     </div>
   )
 }
