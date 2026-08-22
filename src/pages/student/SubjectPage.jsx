@@ -34,7 +34,7 @@ import {
   ArrowLeft, ChevronDown, ChevronUp,
   Clock, Star, FolderOpen, BookOpen, Paperclip,
   GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone,
-  CheckCircle2, Circle, Bookmark, ChevronRight, Trash2, LogOut, MoreVertical, RotateCcw,
+  CheckCircle2, Circle, Bookmark, ChevronRight, Trash2, LogOut, MoreVertical, RotateCcw, Sparkles,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
@@ -115,7 +115,7 @@ function buildAttendanceWeeks(fechas) {
 // 'actividad'/'tarea' are legacy categoria values from before they were
 // merged into a single "Entregable" option — still mapped here so old
 // activities keep showing a correct label without needing a data migration.
-const CATEGORIA_LABELS = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable', cuestionario: 'Cuestionario', examen: 'Examen', observacion: 'Observación' }
+const CATEGORIA_LABELS = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable', cuestionario: 'Cuestionario', examen: 'Examen', observacion: 'Observación', juego: 'Juego' }
 
 export default function StudentSubjectPage() {
   const { subjectId } = useParams()
@@ -661,6 +661,7 @@ export default function StudentSubjectPage() {
                       const ActIcon = a.categoria === 'examen' ? GraduationCap
                         : a.categoria === 'cuestionario' ? ListChecks
                         : a.categoria === 'observacion' ? ClipboardCheck
+                        : a.categoria === 'juego' ? Sparkles
                         : FileText
                       return (
                         <button

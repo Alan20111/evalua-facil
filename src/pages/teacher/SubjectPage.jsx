@@ -75,6 +75,7 @@ import EvaluacionEditor from '../../components/EvaluacionEditor'
 import EntregableEditor from '../../components/EntregableEditor'
 import CrearEvaluacionIAModal from '../../components/CrearEvaluacionIAModal'
 import CrearActividadIAModal from '../../components/CrearActividadIAModal'
+import CrearJuegoIAModal from '../../components/juego/CrearJuegoIAModal'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
 import AsistenteIATab from '../../components/subject/AsistenteIATab'
@@ -640,6 +641,8 @@ export default function SubjectPage() {
   const [crearEvalIA, setCrearEvalIA] = useState(null)
   // OP-05 · Entregable/Observación con IA: null | { categoria }
   const [crearActividadIA, setCrearActividadIA] = useState(null)
+  // Crucigrama/Sopa de letras con IA: null | { tipoJuego }
+  const [crearJuegoIA, setCrearJuegoIA] = useState(null)
   // Full-screen evaluación editor (cuestionario / examen)
   const [evalEditor, setEvalEditor] = useState(null) // null | { activityId, categoria, parcial }
   // Full-screen entregable editor
@@ -4195,28 +4198,33 @@ export default function SubjectPage() {
                         const ActIcon = a.categoria === 'examen' ? GraduationCap
                           : a.categoria === 'cuestionario' ? ListChecks
                           : a.categoria === 'observacion' ? ClipboardCheck
+                          : a.categoria === 'juego' ? Sparkles
                           : FileText
+                        // Un juego siempre se edita/revisa en ActivityPage (su propio
+                        // flujo de contenido → construcción → confirmación), nunca en
+                        // el modal de creación de entregable/evaluación.
+                        const esJuego = a.categoria === 'juego'
                         return (
                           <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
                             {/* A draft has nothing to grade — its row opens the editor instead
                                 (igual en web y en la app nativa). */}
                             <button type="button"
                               onClick={() => {
-                                if (isDraftActivity(a)) {
+                                if (isDraftActivity(a) && !esJuego) {
                                   openEdit(a, activityLabelById[a.id])
                                 } else {
                                   navigate(`/activity/${a.id}`)
                                 }
                               }}
-                              data-tooltip-follow={isDraftActivity(a) ? 'Editar borrador' : a.tipo === 'evaluacion' ? 'Evaluación' : 'Evaluar'}
+                              data-tooltip-follow={isDraftActivity(a) && !esJuego ? 'Editar borrador' : a.tipo === 'evaluacion' ? 'Evaluación' : 'Evaluar'}
                               className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
-                              <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
+                              <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : a.categoria === 'juego' ? 'text-accent' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
                                   {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} </span>}
                                   {a.nombre}
                                   <span className={`text-xs font-normal ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>
-                                    {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : 'Entregable'})
+                                    {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : a.categoria === 'juego' ? (a.tipoJuego === 'sopa_letras' ? 'Sopa de letras' : 'Crucigrama') : 'Entregable'})
                                   </span>
                                   {/* Por qué esta actividad no lleva número ni
                                       sale en la tabla de calificaciones. */}
@@ -4275,8 +4283,11 @@ export default function SubjectPage() {
                               )}
                             </button>
                             {/* Visibility toggle. Published → direct show/hide.
-                                Draft (no publishedAt) → confirm first publication. */}
-                            {isHidden ? (
+                                Draft (no publishedAt) → confirm first publication.
+                                Un juego no confirmado (juego.estado !== 'juego_confirmado')
+                                no puede publicarse — firestore.rules lo bloquea del lado
+                                servidor; aquí solo evitamos ofrecer el botón (capa amable). */}
+                            {esJuego && a.juego?.estado !== 'juego_confirmado' ? null : isHidden ? (
                               <button type="button"
                                 onClick={(e) => { e.stopPropagation(); a.publishedAt ? showActivityNow(a) : setPublishDraftConfirm(a) }}
                                 aria-label={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
@@ -4296,8 +4307,10 @@ export default function SubjectPage() {
                               </button>
                             )}
                             {/* El menú ⋮ (Duplicar/Eliminar) sigue solo en la web; el lápiz de
-                                editar ya se muestra también en Android. */}
-                            <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
+                                editar ya se muestra también en Android.
+                                Un juego se edita/revisa siempre dentro de ActivityPage (su
+                                propio flujo), nunca en el modal de creación. */}
+                            <button type="button" onClick={() => esJuego ? navigate(`/activity/${a.id}`) : openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
                               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={16} />
                             </button>
@@ -5610,6 +5623,8 @@ export default function SubjectPage() {
                   { key: 'examen_ia', label: 'Examen con IA', desc: 'Describe qué quieres evaluar y el asistente genera el examen completo con sus reactivos.', Icon: Sparkles, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
                   { key: 'entregable_ia', label: 'Entregable con IA', desc: 'Describe qué quieres que entreguen tus estudiantes y el asistente genera la actividad completa.', Icon: Sparkles, iconColor: 'text-slate-500', iconBg: 'bg-slate-100' },
                   { key: 'observacion_ia', label: 'Observación con IA', desc: 'Describe qué quieres observar y el asistente genera la actividad completa.', Icon: Sparkles, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
+                  { key: 'crucigrama', label: 'Crucigrama', desc: 'Describe el tema y el asistente propone las palabras para armar un crucigrama.', Icon: Sparkles, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
+                  { key: 'sopa_letras', label: 'Sopa de letras', desc: 'Describe el tema y el asistente propone las palabras para armar una sopa de letras.', Icon: Sparkles, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
                 ].map((opt) => (
                   <button key={opt.key} type="button"
                     onClick={() => {
@@ -5620,6 +5635,8 @@ export default function SubjectPage() {
                         setCrearEvalIA({ categoria: opt.key === 'cuestionario_ia' ? 'cuestionario' : 'examen' })
                       } else if (opt.key === 'entregable_ia' || opt.key === 'observacion_ia') {
                         setCrearActividadIA({ categoria: opt.key === 'entregable_ia' ? 'entregable' : 'observacion' })
+                      } else if (opt.key === 'crucigrama' || opt.key === 'sopa_letras') {
+                        setCrearJuegoIA({ tipoJuego: opt.key })
                       } else {
                         setEvalEditor({ activityId: null, categoria: opt.key, parcial: modalParcial, activityLabel: `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.` })
                       }
@@ -7390,6 +7407,24 @@ export default function SubjectPage() {
                 notificarDocente: activity.notificarDocente || false,
               } : null,
             })
+          }}
+        />
+      )}
+
+      {/* ── Crucigrama/Sopa de letras con IA ── */}
+      {crearJuegoIA && (
+        <CrearJuegoIAModal
+          open={!!crearJuegoIA}
+          tipoJuego={crearJuegoIA.tipoJuego}
+          asignaturaId={subjectId}
+          asignaturaNombre={subjectDisplayName(subject)}
+          parcial={modalParcial}
+          docenteId={currentUser?.uid}
+          existingActivitiesCountInParcial={activities.filter((a) => a.parcial === modalParcial).length}
+          onClose={() => setCrearJuegoIA(null)}
+          onCreated={(activityId) => {
+            setCrearJuegoIA(null)
+            navigate(`/activity/${activityId}`)
           }}
         />
       )}

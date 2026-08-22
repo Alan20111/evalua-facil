@@ -1,0 +1,289 @@
+// Crucigrama / Sopa de letras — panel del docente en ActivityPage (22-ago-2026).
+//
+// Vive fuera de EvaluacionManager.jsx a propósito: ese componente está
+// construido alrededor de reactivos (preguntas, banco, orden de preguntas,
+// barajar respuestas) que no aplican a un juego. Lo que SÍ se reutiliza es
+// el modelo de datos (`activity.evaluacion`, mismo shape que
+// EVALUACION_DEFAULTS.juego) y los mismos subcomponentes de configuración
+// (VisibilitySelect, PublicacionScheduler, EFDateTimePicker) para que se
+// vea y se comporte igual que examen/cuestionario.
+//
+// Tres estados de `activity.juego.estado`:
+//   null | 'contenido_generado' | 'contenido_editado' → ContenidoJuegoEditor
+//   'juego_generado'                                  → RevisionJuegoBorrador
+//   'juego_confirmado'                                → configuración + resultados
+//
+// El candado de publicación real vive en firestore.rules (docenteActivo +
+// juego.estado === 'juego_confirmado'); aquí solo evitamos MOSTRAR el
+// control de publicar antes de tiempo (capa amable, igual que
+// firestoreGuard.js).
+
+import { useState } from 'react'
+import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
+import { doc, getDoc } from 'firebase/firestore'
+import { updateDoc } from '../../utils/firestoreGuard'
+import { db } from '../../firebase'
+import { useToast } from '../Toast'
+import Spinner from '../Spinner'
+import VisibilitySelect from '../VisibilitySelect'
+import PublicacionScheduler from '../PublicacionScheduler'
+import EFDateTimePicker from '../EFDateTimePicker'
+import Select from '../ui/Select'
+import { subjectDisplayName } from '../../utils/subjectName'
+import { withDefaultTime } from '../../utils/activityVisibility'
+import { nowIsoLocal } from '../../utils/nowIso'
+import { studentFullName } from '../../utils/studentSearch'
+import { EVALUACION_DEFAULTS } from '../../utils/evaluacionDefaults'
+import ContenidoJuegoEditor from './ContenidoJuegoEditor'
+import RevisionJuegoBorrador from './RevisionJuegoBorrador'
+
+export default function JuegoManager({
+  activity, subject, activityId, activityLabel, students, submissions,
+  onActivityChange, onDeleteActivity, goBack,
+}) {
+  const [regresando, setRegresando] = useState(false)
+  const estado = activity.juego?.estado || null
+  const tipoLabel = activity.tipoJuego === 'sopa_letras' ? 'Sopa de letras' : 'Crucigrama'
+
+  async function refetchActivity() {
+    try {
+      const snap = await getDoc(doc(db, 'activities', activityId))
+      if (snap.exists()) onActivityChange({ id: snap.id, ...snap.data() })
+    } catch { /* la vista sigue con los datos previos */ }
+  }
+
+  async function handleConstruido() {
+    setRegresando(false)
+    await refetchActivity()
+  }
+  async function handleConfirmado() {
+    await refetchActivity()
+  }
+
+  const mostrandoContenido = regresando || estado == null || estado === 'contenido_generado' || estado === 'contenido_editado'
+  const mostrandoRevision = !mostrandoContenido && (estado === 'juego_generado' || estado === 'juego_confirmado')
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-4">
+      <div className="flex items-center gap-2 mb-3">
+        <button type="button" onClick={goBack} aria-label="Volver" className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
+          <ArrowLeft size={22} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent truncate">{tipoLabel}</p>
+          <h1 className="text-xl font-bold text-on-surface truncate">
+            {activityLabel && <span className="text-accent">{activityLabel} </span>}
+            {activity.nombre || tipoLabel}
+          </h1>
+          <p className="text-base font-medium text-muted">Parcial {activity.parcial} · {subjectDisplayName(subject)}</p>
+        </div>
+        {onDeleteActivity && (
+          <button type="button" onClick={onDeleteActivity} aria-label="Eliminar actividad"
+            className="p-2 text-slate-400 hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0">
+            <Trash2 size={18} />
+          </button>
+        )}
+      </div>
+
+      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
+        <div className="px-4 py-3 bg-accent-light border-b border-accent">
+          <h2 className="font-semibold text-accent">
+            {mostrandoContenido ? 'Contenido' : mostrandoRevision ? 'Vista previa' : 'Configuración y resultados'}
+          </h2>
+        </div>
+        <div className="p-4">
+          {mostrandoContenido && (
+            <ContenidoJuegoEditor activity={activity} onConstruido={handleConstruido} />
+          )}
+          {mostrandoRevision && (
+            <RevisionJuegoBorrador
+              activity={activity}
+              onConfirmado={handleConfirmado}
+              onRegresar={() => setRegresando(true)}
+            />
+          )}
+        </div>
+      </div>
+
+      {estado === 'juego_confirmado' && !regresando && (
+        <JuegoConfiguracion
+          activity={activity}
+          activityId={activityId}
+          students={students}
+          submissions={submissions}
+          onActivityChange={onActivityChange}
+        />
+      )}
+    </div>
+  )
+}
+
+function JuegoConfiguracion({ activity, activityId, students, submissions, onActivityChange }) {
+  const toast = useToast()
+  const evalDefaults = EVALUACION_DEFAULTS.juego
+  const [form, setForm] = useState({
+    tiempoLimiteMin: activity.evaluacion?.tiempoLimiteMin ?? evalDefaults.tiempoLimiteMin,
+    intentosPermitidos: activity.evaluacion?.intentosPermitidos ?? evalDefaults.intentosPermitidos,
+    conservar: activity.evaluacion?.conservar ?? evalDefaults.conservar,
+    publicarResultados: activity.evaluacion?.publicarResultados || 'inmediato',
+    publicarResultadosFecha: activity.evaluacion?.publicarResultadosFecha || null,
+    resultadosPublicados: activity.evaluacion?.resultadosPublicados || false,
+  })
+  const [visForm, setVisForm] = useState({
+    visibilidadMode: activity.publishedAt ? 'published' : (activity.publishAt ? 'schedule' : 'hide'),
+    publishAt: activity.publishAt || '',
+    fechaLimite: activity.fechaLimite ? withDefaultTime(activity.fechaLimite, '00:00') : '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [savingVis, setSavingVis] = useState(false)
+
+  async function handleSaveConfig(e) {
+    e.preventDefault()
+    if (form.publicarResultados === 'fecha') {
+      if (!form.publicarResultadosFecha) { toast('Elige la fecha de publicación de resultados', 'error'); return }
+      if (form.publicarResultadosFecha <= nowIsoLocal()) { toast('La fecha debe ser posterior a este momento', 'error'); return }
+    }
+    const toSave = { ...activity.evaluacion, ...form }
+    if (toSave.publicarResultados === 'ahora') toSave.resultadosPublicados = true
+    setSaving(true)
+    try {
+      await updateDoc(doc(db, 'activities', activityId), { evaluacion: toSave })
+      onActivityChange((prev) => ({ ...prev, evaluacion: toSave }))
+      toast('Configuración guardada')
+    } catch (err) {
+      toast(err.message || 'No se pudo guardar', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSaveVisibilidad(e) {
+    e.preventDefault()
+    const mode = visForm.visibilidadMode
+    const nowIso = new Date().toISOString()
+    const payload = {
+      oculta: mode !== 'show' && mode !== 'published',
+      publishAt: mode === 'schedule' ? (visForm.publishAt || null) : null,
+      publishedAt: activity.publishedAt || (mode === 'show' ? nowIso : null),
+      fechaLimite: visForm.fechaLimite || null,
+    }
+    setSavingVis(true)
+    try {
+      await updateDoc(doc(db, 'activities', activityId), payload)
+      onActivityChange((prev) => ({ ...prev, ...payload }))
+      toast('Disponibilidad guardada')
+    } catch (err) {
+      toast(err.message || 'No se pudo guardar', 'error')
+    } finally {
+      setSavingVis(false)
+    }
+  }
+
+  const isDraft = !activity.publishedAt && !activity.publishAt
+
+  return (
+    <div className="mt-4 space-y-4">
+      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
+        <div className="px-4 py-3 bg-accent-light border-b border-accent">
+          <h2 className="font-semibold text-accent">Disponibilidad</h2>
+        </div>
+        <form onSubmit={handleSaveVisibilidad} className="p-4 space-y-3">
+          <VisibilitySelect
+            mode={visForm.visibilidadMode}
+            publishAt={visForm.publishAt}
+            publishedAt={activity.publishedAt}
+            isDraft={isDraft}
+            onModeChange={(mode) => setVisForm((f) => ({ ...f, visibilidadMode: mode }))}
+            onPublishAtChange={(v) => setVisForm((f) => ({ ...f, publishAt: v }))}
+          />
+          <div>
+            <label htmlFor="juego-fecha-limite" className="block text-sm font-medium text-muted mb-1">
+              Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
+            </label>
+            <EFDateTimePicker
+              mode="datetime"
+              headerLabel="Fecha y hora límite"
+              value={visForm.fechaLimite}
+              onChange={(v) => setVisForm((f) => ({ ...f, fechaLimite: v }))}
+              placeholder="Sin fecha límite…"
+              clearable
+            />
+          </div>
+          <button type="submit" disabled={savingVis}
+            className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2">
+            {savingVis ? <Spinner size="sm" /> : <Pencil size={16} />}
+            {savingVis ? 'Guardando…' : 'Guardar disponibilidad'}
+          </button>
+        </form>
+      </div>
+
+      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
+        <div className="px-4 py-3 bg-accent-light border-b border-accent">
+          <h2 className="font-semibold text-accent">Configuración</h2>
+        </div>
+        <form onSubmit={handleSaveConfig} className="p-4 space-y-3">
+          <div>
+            <label htmlFor="juego-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
+            <input id="juego-tiempo" type="number" min="1" value={form.tiempoLimiteMin ?? ''}
+              onChange={(e) => setForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))}
+              placeholder="Sin límite" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+          </div>
+          <div>
+            <label htmlFor="juego-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
+            <input id="juego-intentos" type="number" min="1" value={form.intentosPermitidos ?? ''}
+              onChange={(e) => setForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))}
+              placeholder="Ilimitados" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+          </div>
+          {form.intentosPermitidos !== 1 && (
+            <Select
+              id="juego-conservar"
+              label="Si hay varios intentos, conservar"
+              value={form.conservar}
+              onChange={(v) => setForm((f) => ({ ...f, conservar: v }))}
+              options={[
+                { value: 'primero', label: 'El primer intento' },
+                { value: 'ultimo', label: 'El último intento' },
+                { value: 'mejor', label: 'La calificación más alta' },
+                { value: 'promedio', label: 'El promedio de todos los intentos' },
+              ]}
+            />
+          )}
+          <PublicacionScheduler
+            id="juego-publicar-resultados"
+            label="Publicar resultados (calificación)"
+            mode={form.publicarResultados}
+            fecha={form.publicarResultadosFecha}
+            onModeChange={(v) => setForm((f) => ({ ...f, publicarResultados: v }))}
+            onFechaChange={(v) => setForm((f) => ({ ...f, publicarResultadosFecha: v }))}
+          />
+          <button type="submit" disabled={saving}
+            className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+            {saving ? 'Guardando…' : 'Guardar configuración'}
+          </button>
+        </form>
+      </div>
+
+      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
+        <div className="px-4 py-3 bg-accent-light border-b border-accent">
+          <h2 className="font-semibold text-accent">Resultados</h2>
+        </div>
+        <div className="divide-y divide-outline-variant">
+          {students.length === 0 && (
+            <p className="text-sm text-slate-400 text-center py-6">Sin estudiantes en esta asignatura</p>
+          )}
+          {students.map((st) => {
+            const sub = submissions?.[st.id]
+            return (
+              <div key={st.id} className="flex items-center justify-between px-4 py-2.5">
+                <p className="text-sm text-on-surface truncate">{studentFullName(st)}</p>
+                <p className="text-sm font-semibold text-accent tabular-nums">
+                  {sub?.calificacion != null ? sub.calificacion : '—'}
+                </p>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
