@@ -370,6 +370,52 @@ export default function StudentActivityPage() {
     }
   }
 
+  // Crucigrama / Sopa de letras — mismo patrón que
+  // handleStartOrContinueEvaluacion: reutiliza el mismo documento de
+  // submission/intentos, pero guarda el progreso en `respuestasJuego` (un solo
+  // campo, no una subcolección) en vez de `respuestas`. La calificación la
+  // calcula el servidor (Cloud Function onJuegoFinalizado) — el alumno nunca
+  // escribe `calificacion` (las reglas se lo bloquean).
+  async function handleStartOrContinueJuego() {
+    if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
+    setUploading(true)
+    try {
+      if (submission && submission.estadoEvaluacion === 'en_progreso') {
+        navigate(`/alumno/juego/${activityId}`)
+        return
+      }
+      if (submission) {
+        await updateDoc(doc(db, 'submissions', submission.id), {
+          estadoEvaluacion: 'en_progreso',
+          intentoActual: (submission.intentos?.length || 0) + 1,
+          tiempoInicio: serverTimestamp(),
+          respuestasJuego: null,
+          notificadoEntregaDocente: false,
+        })
+      } else {
+        await setDoc(doc(db, 'submissions', submissionDocId(activityId, student.id)), {
+          alumnoId: student.id,
+          alumnoUid: currentUser.uid,
+          actividadId: activityId,
+          calificacion: null,
+          comentario: '',
+          estado: 'pendiente',
+          historial: [],
+          estadoEvaluacion: 'en_progreso',
+          intentoActual: 1,
+          intentos: [],
+          respuestasJuego: null,
+          tiempoInicio: serverTimestamp(),
+        }, { merge: true })
+      }
+      navigate(`/alumno/juego/${activityId}`)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   if (loading) return (
     <StudentLayout>
       <div className="flex items-center justify-center py-20">
@@ -578,6 +624,115 @@ export default function StudentActivityPage() {
               >
                 {uploading ? <Spinner size="sm" /> : <PlayCircle size={20} />}
                 {uploading ? 'Cargando…' : enProgreso ? 'Continuar evaluación' : finalizado ? 'Nuevo intento' : 'Comenzar'}
+              </button>
+            )}
+          </div>
+        </div>
+      </StudentLayout>
+    )
+  }
+
+  if (activity?.categoria === 'juego') {
+    const ev = activity.evaluacion || {}
+    const intentosUsadosJ = submission?.intentos?.length || 0
+    const enProgresoJ = submission?.estadoEvaluacion === 'en_progreso'
+    const finalizadoJ = submission?.estadoEvaluacion === 'finalizado'
+    const sinIntentosRestantesJ = ev.intentosPermitidos != null && intentosUsadosJ >= ev.intentosPermitidos && !enProgresoJ
+    const extendedDateJ = activity?.fechaLimite ? activity?.extensiones?.[student?.id] : null
+    const deadlineJ = extendedDateJ || activity?.fechaLimite
+    const juegoCerrado = (!!subject?.archived && !enProgresoJ) || (!!deadlineJ && new Date(
+      deadlineJ.includes('T') ? deadlineJ : `${deadlineJ}T23:59:59`
+    ).getTime() < Date.now() && !enProgresoJ)
+    const tipoLabelJ = activity.tipoJuego === 'sopa_letras' ? 'Sopa de letras' : 'Crucigrama'
+    const intentosJ = submission?.intentos || []
+    const ultimoIntentoJ = intentosJ[intentosJ.length - 1] || null
+
+    return (
+      <StudentLayout>
+        <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
+        <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
+          <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
+            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+              <ArrowLeft size={22} />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-on-surface truncate">
+                {activityLabel && <span className="text-accent">{activityLabel} </span>}
+                {activity?.nombre || tipoLabelJ}
+              </h1>
+              <p className="text-slate-400 text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial} · {tipoLabelJ}</p>
+            </div>
+          </header>
+
+          <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER_NARROW}`}>
+            {finalizadoJ && (
+              <div className="bg-surface-card rounded-card p-4 shadow-card">
+                {submission.calificacion != null ? (
+                  <>
+                    <div className="flex items-center gap-3 mb-3">
+                      <Star size={22} className="text-amber-400" />
+                      <h2 className="font-semibold text-on-surface">Tu calificación</h2>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <span className="text-5xl font-bold text-accent">{submission.calificacion}</span>
+                      <span className="text-xl text-slate-400 mb-1">/{activity?.maxCalif}</span>
+                    </div>
+                    {intentosJ.length > 1 && ultimoIntentoJ && (
+                      <div className="mt-3 pt-3 border-t border-outline-variant space-y-1 text-sm text-muted">
+                        <p>
+                          Resultado de tu última oportunidad (intento {ultimoIntentoJ.numero} de {intentosJ.length}):{' '}
+                          <strong className="text-on-surface">{ultimoIntentoJ.calificacion}/{activity?.maxCalif}</strong>
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted flex items-center gap-2"><Clock size={17} /> Calificando…</p>
+                )}
+              </div>
+            )}
+
+            {activity?.instrucciones && (
+              <div className="bg-surface-card rounded-card p-4 shadow-card">
+                <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
+                <div
+                  className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+                />
+              </div>
+            )}
+
+            <div className="bg-surface-card rounded-card p-4 shadow-card space-y-2">
+              <h2 className="font-semibold text-on-surface mb-1">Resumen</h2>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted flex items-center gap-1.5"><Timer size={16} /> Tiempo disponible</span>
+                <span className="font-semibold text-on-surface">{ev.tiempoLimiteMin ? `${ev.tiempoLimiteMin} min` : 'Sin límite'}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted flex items-center gap-1.5"><RotateCcw size={16} /> Intentos</span>
+                <span className="font-semibold text-on-surface">
+                  {ev.intentosPermitidos ? `${intentosUsadosJ}/${ev.intentosPermitidos}` : `${intentosUsadosJ} (ilimitados)`}
+                </span>
+              </div>
+            </div>
+
+            {sinIntentosRestantesJ ? (
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+                Ya usaste todos tus intentos disponibles.
+              </div>
+            ) : juegoCerrado ? (
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+                La fecha límite ya pasó — este juego está cerrado.
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleStartOrContinueJuego}
+                disabled={uploading}
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {uploading ? <Spinner size="sm" /> : <PlayCircle size={20} />}
+                {uploading ? 'Cargando…' : enProgresoJ ? 'Continuar' : finalizadoJ ? 'Nuevo intento' : 'Comenzar'}
               </button>
             )}
           </div>

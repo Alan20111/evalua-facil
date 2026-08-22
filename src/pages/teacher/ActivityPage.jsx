@@ -43,6 +43,7 @@ import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
 import EvaluacionManager from '../../components/EvaluacionManager'
 import EntregableEditor from '../../components/EntregableEditor'
+import JuegoManager from '../../components/juego/JuegoManager'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import RubricaGradeTable from '../../components/rubrica/RubricaGradeTable'
 import CalificarConIAModal from '../../components/rubrica/CalificarConIAModal'
@@ -259,6 +260,9 @@ export default function ActivityPage() {
   // Evaluación (cuestionario/examen): the grade comes from the student's attempt;
   // the grading panel allows a manual override but no prefill/annul/extension.
   const isEvaluacion = activity?.tipo === 'evaluacion'
+  // Crucigrama / Sopa de letras: flujo propio (contenido → construcción →
+  // confirmación) en JuegoManager, ver comentario de esa página.
+  const esJuego = activity?.categoria === 'juego'
   // Rúbrica: solo entregables (nunca observación ni evaluación)
   // La observación también puede llevar rúbrica: no tiene entrega, pero sí
   // criterios que calificar (actitud, exposición, participación). El resto del
@@ -986,7 +990,22 @@ export default function ActivityPage() {
       {/* Evaluaciones render their manager as the page body, but share the
           fullscreen per-student grading overlay below (so a grades-table cell
           opens the SAME panel for every activity type). */}
-      {activity?.tipo === 'evaluacion' ? (
+      {esJuego ? (
+        <>
+        <JuegoManager
+          activity={activity}
+          subject={subject}
+          activityId={activityId}
+          activityLabel={activityLabel}
+          students={students}
+          submissions={submissions}
+          onActivityChange={setActivity}
+          onDeleteActivity={() => setDeleteConfirm(true)}
+          goBack={goBack}
+        />
+        {deleteActivityModal}
+        </>
+      ) : activity?.tipo === 'evaluacion' ? (
         <>
         <EvaluacionManager
           activity={activity}

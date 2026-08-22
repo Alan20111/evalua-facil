@@ -36,6 +36,7 @@ import StudentDashboard from './pages/student/Dashboard'
 import StudentSubjectPage from './pages/student/SubjectPage'
 import StudentActivityPage from './pages/student/ActivityPage'
 import EvaluacionRunner from './pages/student/EvaluacionRunner'
+import JuegoRunner from './pages/student/JuegoRunner'
 import EvaluacionRevision from './pages/student/EvaluacionRevision'
 import NotificationSettings from './pages/student/NotificationSettings'
 import StudentAgenda from './pages/student/Agenda'
@@ -216,6 +217,7 @@ export default function App() {
             <Route path="/alumno/actividad/:activityId" element={<ProtectedStudent><StudentActivityPage /></ProtectedStudent>} />
             <Route path="/alumno/evaluacion/:activityId" element={<ProtectedStudent><EvaluacionRunner /></ProtectedStudent>} />
             <Route path="/alumno/evaluacion/:activityId/revision" element={<ProtectedStudent><EvaluacionRevision /></ProtectedStudent>} />
+            <Route path="/alumno/juego/:activityId" element={<ProtectedStudent><JuegoRunner /></ProtectedStudent>} />
             <Route path="/alumno/notificaciones" element={<ProtectedStudent><NotificationSettings /></ProtectedStudent>} />
             <Route path="/alumno/agenda" element={<ProtectedStudent><StudentAgenda /></ProtectedStudent>} />
             <Route path="/alumno/perfil" element={<ProtectedStudent><StudentProfile /></ProtectedStudent>} />
