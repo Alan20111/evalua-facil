@@ -483,7 +483,11 @@ service cloud.firestore {
         // el docente — mismo criterio que 'juego_confirmado' en
         // ContenidoJuegoEditor.jsx/RevisionJuegoBorrador.jsx. Una actividad
         // que YA no es 'juego' (o que ya estaba publicada) no cae aquí.
-        (resource.data.categoria != 'juego' ||
+        // .get(...) con default: una actividad legacy sin `categoria` no
+        // debe tronar la regla (comparar contra una propiedad ausente lanza
+        // error en Firestore rules, no false) — debe colarse como "no es
+        // juego" y seguir el candado normal de las demás categorías.
+        (resource.data.get('categoria', null) != 'juego' ||
           request.resource.data.oculta != false ||
           resource.data.oculta == false ||
           resource.data.juego.estado == 'juego_confirmado');
