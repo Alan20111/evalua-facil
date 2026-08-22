@@ -116,7 +116,12 @@ export default function SopaDeLetrasBoard({ estructura, encontradas = [], onEnco
       <ul className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-sm">
         {palabras.map((p) => (
           <li key={p.index} className={`px-2 py-1 rounded ${encontradasSet.has(p.index) ? 'line-through text-muted bg-surface-container' : 'text-on-surface'}`}>
-            {p.palabra}{p.descripcion ? ` — ${p.descripcion}` : ''}
+            {/* Modalidad "por descripción": SOLO la pista, nunca la palabra
+                (revelaría la respuesta) — mismo criterio que
+                CrucigramaBoard.jsx. p.descripcion solo existe cuando
+                modalidad === 'descripcion'; si no hay pista (modalidad
+                "palabra"), se muestra la palabra. */}
+            {p.descripcion || p.palabra}
           </li>
         ))}
       </ul>
