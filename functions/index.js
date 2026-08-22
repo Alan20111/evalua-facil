@@ -52,6 +52,13 @@ exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
 const adminChat = require('./adminChat')
 exports.chatAdmin = adminChat.chatAdmin
 
+// Crucigrama / Sopa de letras (22-ago-2026) — construirJuego es su propio
+// onCall, deliberadamente FUERA de ejecutarOperacionIA: es un algoritmo
+// determinista (backtracking), no usa IA y no pasa por el ledger de
+// créditos (ver functions/juego.js).
+const juego = require('./juego')
+exports.construirJuego = juego.construirJuego
+
 // Ajuste manual de saldo de créditos IA — solo admin (renombrado de
 // resetearCreditosIA, 20-ago-2026: en créditos puros no hay "capacidad" a la
 // que resetear, así que la operación es un delta explícito con motivo — ver
@@ -786,6 +793,78 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
       calificacion: calificacionIntento,
       respuestas: snapshotRespuestas,
       creadoEn: FieldValue.serverTimestamp(),
+    })
+  })
+})
+
+// ─── 4.5-bis) Crucigrama / Sopa de letras — calificación automática ────────
+// Mismo patrón que onEvaluacionFinalizada (idempotente por intento, vía
+// `intentos[]`), pero para `categoria: 'juego'` — el alumno NUNCA escribe su
+// propia `calificacion` (las reglas se lo bloquean); este trigger, con Admin
+// SDK, es quien la calcula contra `juego.estructura` (fuente de verdad
+// server-side, normalizada) y la escribe.
+const { normalizeGrade } = require('./_shared/ponderacion.js')
+const { normalizarPalabra } = require('./_shared/normalizarPalabra.js')
+
+function calificarSopaDeLetras(estructura, respuestasJuego) {
+  const total = estructura.palabras.length
+  if (!total) return 0
+  const encontradas = new Set(
+    (Array.isArray(respuestasJuego?.encontradas) ? respuestasJuego.encontradas : [])
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < total)
+  )
+  return encontradas.size / total
+}
+
+function calificarCrucigrama(estructura, respuestasJuego) {
+  const celdasAlumno = respuestasJuego?.celdas || {}
+  let total = 0
+  let correctas = 0
+  for (let r = 0; r < estructura.size; r++) {
+    for (let c = 0; c < estructura.size; c++) {
+      const letraCorrecta = estructura.grid?.[r]?.[c]
+      if (!letraCorrecta) continue
+      total++
+      const respuesta = normalizarPalabra(celdasAlumno[`${r}-${c}`] || '')
+      if (respuesta && respuesta === letraCorrecta) correctas++
+    }
+  }
+  return total ? correctas / total : 0
+}
+
+exports.onJuegoFinalizado = onDocumentWritten('submissions/{submissionId}', async (event) => {
+  const after = event.data?.after
+  if (!after?.exists) return
+  const sub = after.data()
+  if (sub.estadoEvaluacion !== 'finalizado') return
+  const intentoNum = sub.intentoActual || ((sub.intentos?.length || 0) + 1)
+  if ((sub.intentos || []).some((i) => i.numero === intentoNum)) return // ya calificado
+
+  const actSnap = await db.collection('activities').doc(sub.actividadId).get()
+  if (!actSnap.exists || actSnap.data().categoria !== 'juego') return
+  const act = actSnap.data()
+  const estructura = act.juego?.estructura
+  if (!estructura) return // no debería poder entregarse sin estructura, pero por si acaso no truena
+
+  const ratio = estructura.tipo === 'sopa_letras'
+    ? calificarSopaDeLetras(estructura, sub.respuestasJuego)
+    : calificarCrucigrama(estructura, sub.respuestasJuego)
+  const maxCalif = act.maxCalif || 10
+  const calificacionIntento = normalizeGrade(ratio * 10, 10, { base: maxCalif, decimals: 1 })
+
+  await db.runTransaction(async (tx) => {
+    const freshSnap = await tx.get(after.ref)
+    if (!freshSnap.exists) return
+    const fresh = freshSnap.data()
+    if (fresh.estadoEvaluacion !== 'finalizado') return
+    const num = fresh.intentoActual || ((fresh.intentos?.length || 0) + 1)
+    const previos = fresh.intentos || []
+    if (previos.some((i) => i.numero === num)) return
+    tx.update(after.ref, {
+      estado: 'calificado',
+      pendienteRevision: false,
+      intentos: [...previos, { numero: num, calificacion: calificacionIntento }],
+      calificacion: resolverCalificacionFinal(previos, calificacionIntento, act.evaluacion?.conservar),
     })
   })
 })

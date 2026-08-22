@@ -124,6 +124,13 @@ const TARIFAS = {
     analisis_programa: 45,
     planeacion_tronco: 12,
     planeacion_bloque: 8,
+    // Crucigrama / Sopa de letras (22-ago-2026, decisión de producto #2
+    // aprobada): tarifa FIJA 0.5 crédito por ejecución de
+    // generar_contenido_juego, sin importar cantidad de palabras, modalidad
+    // ni si trae documento — cada ejecución cobra igual, sin cortesías. La
+    // construcción de la cuadrícula (construirJuego) es un callable aparte,
+    // gratis, fuera de este ledger.
+    generar_contenido_juego: 0.5,
   },
   // Para el resumen del panel ("Calificación de evidencias: 32", etc.).
   categorias: {
@@ -163,6 +170,7 @@ const TARIFAS = {
     analisis_programa: 'Planeación',
     planeacion_tronco: 'Planeación',
     planeacion_bloque: 'Planeación',
+    generar_contenido_juego: 'Actividades',
   },
   // Modelo PROVISIONAL por operación (M3 sigue abierta: cambiar aquí no toca
   // código). Solo las pilotos conectadas.
@@ -199,6 +207,7 @@ const TARIFAS = {
     // aunque el ejecutor nunca lo use.
     chat_crear_actividad: 'claude-haiku-4-5',
     chat_crear_examen: 'claude-haiku-4-5',
+    generar_contenido_juego: 'claude-haiku-4-5',
   },
   // Créditos puros sin caducidad (20-ago-2026, migración a modelo de
   // créditos puros — ver docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md §12): ya no

@@ -151,6 +151,12 @@ const OPERACIONES = {
   // examen por tramos de 10 reactivos (ver calcularTarifaExamen).
   chat_crear_actividad: ejecutarChatCrearActividad,
   chat_crear_examen: ejecutarChatCrearExamen,
+  // Crucigrama / Sopa de letras (22-ago-2026, decisión de producto #2
+  // aprobada): SOLO genera el contenido (palabras + descripciones), tarifa
+  // fija 0.5 crédito sin importar cantidad/modalidad/documento. La
+  // construcción de la cuadrícula es aparte (functions/juego.js,
+  // construirJuego) y esa NUNCA pasa por aquí ni por el ledger.
+  generar_contenido_juego: ejecutarGenerarContenidoJuego,
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -170,6 +176,7 @@ const PRECHECKS = {
   chat_asistente: precheckChatAsistente,
   chat_crear_actividad: precheckChatCrearActividad,
   chat_crear_examen: precheckChatCrearExamen,
+  generar_contenido_juego: precheckGenerarContenidoJuego,
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
@@ -2238,6 +2245,148 @@ async function ejecutarCrearActividad({ params, modelo, apiKey }) {
     unidadesReales: 1,
     interno,
   }
+}
+
+// ── Crucigrama / Sopa de letras · generar_contenido_juego ─────────────────
+// Decisión de producto #2 (aprobada): SÍ usa IA (claude-haiku-4-5), tarifa
+// FIJA 0.5 crédito por ejecución sin importar cantidad de palabras,
+// modalidad ni si trae documento — se registra igual que las demás
+// operaciones (ledger.reservar/liquidar/reembolsar vía ejecutarOperacionIA).
+// El resultado se guarda en activities/{id}.juego.contenido — el docente lo
+// edita en ContenidoJuegoEditor.jsx antes de confirmar (construirJuego, que
+// es gratis y no usa IA).
+const MIN_PALABRAS_JUEGO = 5
+const MAX_PALABRAS_JUEGO = 20
+const MODALIDADES_JUEGO = ['palabra', 'descripcion']
+const MAX_CONTEXTO_JUEGO = 1500
+
+async function precheckGenerarContenidoJuego({ uid, params }) {
+  const db = getFirestore()
+  const actividadId = String(params?.actividadId || '')
+  if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad')
+  const snap = await db.doc(`activities/${actividadId}`).get()
+  if (!snap.exists) throw new HttpsError('not-found', 'La actividad no existe')
+  const act = snap.data()
+  if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+  if (act.categoria !== 'juego' || !['crucigrama', 'sopa_letras'].includes(act.tipoJuego)) {
+    throw new HttpsError('failed-precondition', 'Esta actividad no es un Crucigrama ni una Sopa de letras')
+  }
+
+  const modalidad = MODALIDADES_JUEGO.includes(params?.modalidad) ? params.modalidad : 'palabra'
+  const cantidad = clampInt(params?.cantidadPalabras, 10, MIN_PALABRAS_JUEGO, MAX_PALABRAS_JUEGO)
+  const contexto = String(params?.contexto || '').trim().slice(0, MAX_CONTEXTO_JUEGO)
+
+  // Documento opcional (máx 1, PDF o .docx — FuentesIAInput ya lo limita en
+  // el cliente; aquí solo se toma el primero por si acaso).
+  const urls = Array.isArray(params?.fuentes) ? params.fuentes.slice(0, 1) : []
+  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes(urls)
+
+  return {
+    tipoJuego: act.tipoJuego,
+    modalidad,
+    cantidad,
+    contexto,
+    bloqueFuentes,
+  }
+}
+
+const CONTENIDO_JUEGO_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un docente de ' +
+  'bachillerato mexicano. Tu papel es PROPONER una lista de palabras para un juego educativo (crucigrama ' +
+  'o sopa de letras) que el docente va a revisar y editar antes de usar. Las palabras deben ser en ' +
+  'español, relacionadas con el tema que describe el docente (y con los documentos de referencia, si se ' +
+  'te dan) — términos, conceptos o nombres propios del tema, sin repetir ninguna. Conserva acentos y la ' +
+  'Ñ donde corresponda (el sistema normaliza por su cuenta para construir la cuadrícula). Responde ' +
+  'únicamente con el JSON válido del esquema indicado, sin texto adicional.'
+
+function promptContenidoJuego(ctx, asignatura) {
+  const conDescripcion = ctx.modalidad === 'descripcion'
+  const fuentesBloque = ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : ''
+  return (
+    `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
+    `Vas a proponer exactamente ${ctx.cantidad} palabras para un ${ctx.tipoJuego === 'crucigrama' ? 'crucigrama' : 'sopa de letras'}.\n` +
+    `TEMA / CONTEXTO QUE DESCRIBE EL DOCENTE:\n"""${ctx.contexto || 'Sin contexto adicional: usa el tema general de la asignatura.'}"""\n` +
+    fuentesBloque +
+    (conDescripcion
+      ? '\nModalidad "descripcion": cada palabra debe venir con una pista/descripción breve (sin decir la palabra), como en un crucigrama.\n'
+      : '\nModalidad "palabra": solo la lista de palabras, sin descripción.\n') +
+    `\nCada palabra: una sola palabra (sin espacios), entre 3 y 15 letras, en español (con acentos/Ñ si aplica).\n\n` +
+    'Responde SOLO con este JSON:\n' +
+    '{\n' +
+    `  "palabras": [\n` +
+    `    { "palabra": "<palabra>"${conDescripcion ? ', "descripcion": "<pista breve, máx 140 caracteres>"' : ''} }\n` +
+    `  ]  // exactamente ${ctx.cantidad} elementos\n` +
+    '}'
+  )
+}
+
+async function ejecutarGenerarContenidoJuego({ params, modelo, apiKey }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto
+  const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
+  const actividadId = String(params?.actividadId || '')
+  if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad')
+
+  async function pedir() {
+    return pedirJSON({
+      client, modelo, maxTokens: 1500, system: CONTENIDO_JUEGO_SISTEMA,
+      prompt: promptContenidoJuego(ctx, asignatura),
+    })
+  }
+
+  let { datos, interno } = await pedir()
+  let palabras = normalizarListaContenidoJuego(datos?.palabras, ctx)
+
+  // Si vino corto, un único reintento (mismo patrón que Planeación/OP-09) —
+  // nunca se cobra dos veces: la tarifa de esta operación es fija por
+  // ejecución completa, no por intento.
+  if (palabras.length < ctx.cantidad) {
+    const segundo = await pedir()
+    interno = segundo.interno
+    const combinadas = normalizarListaContenidoJuego(segundo.datos?.palabras, ctx)
+    if (combinadas.length > palabras.length) palabras = combinadas
+  }
+
+  if (palabras.length < MIN_PALABRAS_JUEGO) {
+    throw new Error('El asistente de IA no generó suficientes palabras utilizables para este juego')
+  }
+
+  const db = getFirestore()
+  await db.doc(`activities/${actividadId}`).update({
+    'juego.contenido': palabras,
+    'juego.estado': 'contenido_generado',
+    'juego.modalidad': ctx.modalidad,
+    'juego.cantidadPalabras': ctx.cantidad,
+  })
+
+  return {
+    resultado: { actividadId, contenido: palabras },
+    unidadesReales: 1,
+    interno,
+  }
+}
+
+// Valida/recorta lo que devolvió el modelo a la forma { palabra, descripcion }
+// esperada, quitando duplicados y palabras inválidas (vacías, con espacios,
+// demasiado cortas/largas) — nunca se confía ciegamente en el JSON del
+// modelo. Se acota a ctx.cantidad como máximo (nunca se guardan de más).
+function normalizarListaContenidoJuego(lista, ctx) {
+  const vistos = new Set()
+  const out = []
+  for (const it of (Array.isArray(lista) ? lista : [])) {
+    const palabra = String(it?.palabra || '').trim().replace(/\s+/g, '')
+    if (palabra.length < 2 || palabra.length > 20) continue
+    const clave = palabra.toUpperCase()
+    if (vistos.has(clave)) continue
+    vistos.add(clave)
+    const descripcion = ctx.modalidad === 'descripcion'
+      ? String(it?.descripcion || '').trim().slice(0, 140) || null
+      : null
+    out.push({ palabra, descripcion })
+    if (out.length >= ctx.cantidad) break
+  }
+  return out
 }
 
 // ── Diagnóstico del grupo (FASE 2-BIS del Plan Maestro de IA, apartado 2 de

@@ -477,7 +477,16 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
       allow update, delete: if isDocente() &&
-        request.auth.uid == resource.data.docenteId;
+        request.auth.uid == resource.data.docenteId &&
+        // Crucigrama / Sopa de letras (22-ago-2026): no se puede publicar
+        // (oculta:false) un juego cuya cuadrícula no ha sido confirmada por
+        // el docente — mismo criterio que 'juego_confirmado' en
+        // ContenidoJuegoEditor.jsx/RevisionJuegoBorrador.jsx. Una actividad
+        // que YA no es 'juego' (o que ya estaba publicada) no cae aquí.
+        (resource.data.categoria != 'juego' ||
+          request.resource.data.oculta != false ||
+          resource.data.oculta == false ||
+          resource.data.juego.estado == 'juego_confirmado');
 
       // Reactivos de una evaluación. Los lee cualquier cuenta autenticada
       // porque el alumno los necesita para contestar; los escribe solo el
