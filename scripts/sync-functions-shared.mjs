@@ -53,6 +53,11 @@ const ARCHIVOS = [
   // vuelve a calcularla aquí desde el número real de reactivos, nunca
   // confía en lo que mostró la tarjeta.
   'tarifaExamen.js',
+  // Crucigrama / Sopa de letras (22-ago-2026): normaliza una palabra
+  // (mayúsculas, sin acentos, Ñ→N) para el motor de construcción de la
+  // cuadrícula y la calificación — el contenido original con acentos/ñ
+  // nunca se toca, esta es solo la versión que usa el motor.
+  'normalizarPalabra.js',
 ]
 
 function fallar(mensaje) {

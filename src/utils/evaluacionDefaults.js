@@ -18,4 +18,10 @@ export const EVALUACION_DEFAULTS = {
     publicarRespuestas: 'inmediato', publicarRespuestasFecha: null, respuestasPublicadas: false,
     mostrarRetroalimentacion: true, mostrarRespuestasCorrectas: false, mostrarPorcentaje: true, barajarRespuestas: false,
   },
+  // categoria: 'juego' (Crucigrama / Sopa de letras) — decisión de producto
+  // #3 aprobada: sin límite de intentos, se conserva la mejor calificación,
+  // 15 minutos de tiempo límite por default.
+  juego: {
+    tiempoLimiteMin: 15, intentosPermitidos: null, conservar: 'mejor',
+  },
 }
