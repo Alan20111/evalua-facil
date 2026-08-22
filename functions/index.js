@@ -822,7 +822,9 @@ function calificarCrucigrama(estructura, respuestasJuego) {
   let correctas = 0
   for (let r = 0; r < estructura.size; r++) {
     for (let c = 0; c < estructura.size; c++) {
-      const letraCorrecta = estructura.grid?.[r]?.[c]
+      // grid[r] es { row: [...] } (envuelto así en functions/juego.js
+      // porque Firestore no admite arrays anidados directamente).
+      const letraCorrecta = estructura.grid?.[r]?.row?.[c]
       if (!letraCorrecta) continue
       total++
       const respuesta = normalizarPalabra(celdasAlumno[`${r}-${c}`] || '')

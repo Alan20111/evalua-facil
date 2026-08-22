@@ -49,7 +49,7 @@ export default function CrucigramaBoard({ estructura, celdas = {}, onCambioCelda
   return (
     <div className="space-y-4">
       <div className="grid aspect-square w-full max-w-md mx-auto" style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}>
-        {grid.map((fila, r) => fila.map((letra, c) => {
+        {grid.map(({ row: fila }, r) => fila.map((letra, c) => {
           if (!letra) return <div key={`${r}-${c}`} className="bg-transparent" />
           const p = palabras.find((pp) => (pp.horizontal ? pp.fila === r && pp.col === c : pp.fila === r && pp.col === c))
           return (
