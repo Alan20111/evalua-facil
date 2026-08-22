@@ -125,10 +125,21 @@ function construirSopaDeLetras(palabrasNormalizadas) {
 // (la más larga) se coloca horizontal al centro; el resto se intenta cruzar
 // con alguna ya colocada, y si no hay cruce posible se intenta como
 // arranque independiente en una zona libre.
+// Tope de pasos de backtracking por intento — sin esto, un intento con
+// palabras que casi no comparten letras puede explorar un árbol
+// combinatorio enorme y colgarse varios minutos (reproducido con 20
+// palabras cortas sin cruces: un solo intento no terminaba en 40s). Al
+// agotar el tope se abandona ESTE intento (return false) y el llamador
+// (intentarSopaEnTamano/construirCrucigrama) reintenta con otra
+// distribución aleatoria o un tamaño mayor — igual que un intento que
+// simplemente no encontró acomodo.
+const TOPE_PASOS_POR_INTENTO = 300
+
 function intentarCrucigramaEnTamano(palabras, size) {
   const orden = palabras.map((p, i) => i).sort((a, b) => palabras[b].length - palabras[a].length)
   const grid = Array.from({ length: size }, () => Array(size).fill(null))
   const posiciones = new Array(palabras.length)
+  let pasos = 0
 
   function cabeCrucigrama(palabra, fila, col, horizontal) {
     const filaFinal = horizontal ? fila : fila + palabra.length - 1
@@ -216,6 +227,7 @@ function intentarCrucigramaEnTamano(palabras, size) {
 
   function colocarDesde(idx) {
     if (idx >= orden.length) return true
+    if (++pasos > TOPE_PASOS_POR_INTENTO) return false
     const i = orden[idx]
     const palabra = palabras[i]
     let candidatos = candidatosPara(idx, palabra)
