@@ -97,10 +97,19 @@ exports.construirJuego = onCall({ timeoutSeconds: 300 }, async (request) => {
   // Cada entrada de estructura.palabras referencia el índice de
   // juego.contenido (palabra ORIGINAL, con acentos, para mostrar) y trae
   // además la versión normalizada (para el motor de calificación).
+  // Firestore NO admite arrays anidados (un array cuyo elemento es otro
+  // array) — 'Property juego contains an invalid nested entity' al
+  // intentar guardar `grid` como array de arrays tal cual lo arma
+  // juegoGenerator.js. Se envuelve cada fila en un objeto `{ row: [...] }`
+  // (array DENTRO de un objeto sí es válido) — mismo dato, forma que
+  // Firestore acepta. Lectores: functions/index.js (calificarCrucigrama) y
+  // los tableros en src/components/juego/ deben leer `fila.row[c]`, no
+  // `fila[c]`.
+  const gridBruto = act.tipoJuego === 'sopa_letras' ? resultado.grid : resultado.celdas
   const estructura = {
     tipo: act.tipoJuego,
     size: resultado.size,
-    grid: act.tipoJuego === 'sopa_letras' ? resultado.grid : resultado.celdas,
+    grid: gridBruto.map((fila) => ({ row: fila })),
     palabras: resultado.palabras.map((p) => ({
       ...p,
       palabra: contenido[p.index]?.palabra ?? null,

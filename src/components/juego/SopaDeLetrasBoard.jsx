@@ -96,7 +96,7 @@ export default function SopaDeLetrasBoard({ estructura, encontradas = [], onEnco
         onTouchMove={(e) => handleMove(e.touches[0].clientX, e.touches[0].clientY)}
         onTouchEnd={handleUp}
       >
-        {grid.map((fila, r) => fila.map((letra, c) => {
+        {grid.map(({ row: fila }, r) => fila.map((letra, c) => {
           const key = `${r}-${c}`
           const sel = seleccion.has(key)
           const enc = celdasEncontradas.has(key)
