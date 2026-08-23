@@ -25,7 +25,7 @@ function umbralAlcanzado(pct) {
   return alcanzado
 }
 
-export default function CreditosBar({ variant = 'sidebar' }) {
+export default function CreditosBar({ variant = 'sidebar', collapsed = false }) {
   const { currentUser } = useAuth()
   const toast = useToast()
   const c = useCreditosIA()
@@ -78,26 +78,37 @@ export default function CreditosBar({ variant = 'sidebar' }) {
     )
   }
 
-  // Variante sidebar (fondo azul del plano del docente).
+  // Variante sidebar (fondo azul del plano del docente). Colapsado: solo el
+  // ícono, centrado, sin la barra ni el texto — mismo criterio que el resto
+  // del riel de íconos.
   return (
     <>
-      <div className="px-2 py-2 border-t border-white/15">
+      <div className={`px-2 py-2 border-t border-white/15 ${collapsed ? 'flex justify-center' : ''}`}>
         <button
           type="button"
           onClick={() => setPanelAbierto(true)}
+          title={collapsed ? `IA · ${c.saldo}/${c.capacidad} créditos` : undefined}
           aria-label={`Créditos de IA: ${c.saldo} de ${c.capacidad} disponibles. Ver detalle`}
-          className="w-full px-3 py-2 rounded text-left hover:bg-white/10 transition-colors"
+          className={collapsed
+            ? 'w-11 h-11 flex items-center justify-center rounded-card hover:bg-white/10 transition-colors'
+            : 'w-full px-3 py-2 rounded text-left hover:bg-white/10 transition-colors'}
         >
-          <div className="flex items-center gap-2 text-body-sm text-white/90">
-            <Sparkles size={15} className="flex-shrink-0" />
-            <span className="flex-1">IA · <span className="font-semibold tabular-nums">{c.saldo}</span> / {c.capacidad} créditos</span>
-          </div>
-          <div className="mt-1.5 h-1.5 rounded-full bg-white/20 overflow-hidden" aria-hidden="true">
-            <div
-              className={`h-full rounded-full transition-all ${critico ? 'bg-red-300' : bajo ? 'bg-amber-300' : 'bg-white'}`}
-              style={{ width: `${c.pct}%` }}
-            />
-          </div>
+          {collapsed ? (
+            <Sparkles size={18} className={critico ? 'text-red-300' : 'text-white/90'} />
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-body-sm text-white/90">
+                <Sparkles size={15} className="flex-shrink-0" />
+                <span className="flex-1">IA · <span className="font-semibold tabular-nums">{c.saldo}</span> / {c.capacidad} créditos</span>
+              </div>
+              <div className="mt-1.5 h-1.5 rounded-full bg-white/20 overflow-hidden" aria-hidden="true">
+                <div
+                  className={`h-full rounded-full transition-all ${critico ? 'bg-red-300' : bajo ? 'bg-amber-300' : 'bg-white'}`}
+                  style={{ width: `${c.pct}%` }}
+                />
+              </div>
+            </>
+          )}
         </button>
       </div>
       {panelAbierto && <CreditosPanel onCerrar={() => setPanelAbierto(false)} />}

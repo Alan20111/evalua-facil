@@ -47,7 +47,7 @@ import {
   diasParaEliminacion,
   fechaEliminacion,
 } from '../../utils/subscriptionHelpers'
-import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
@@ -591,10 +591,13 @@ export default function Profile() {
 
   return (
     <>
-      <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER_NARROW}`}>
+      <div className={`px-4 py-4 grid grid-cols-1 lg:grid-cols-2 gap-4 items-start ${TEACHER_CONTAINER}`}>
 
-        {/* Mi plan */}
-        <div className="bg-surface-card rounded-card shadow-card p-3">
+        {/* Mi plan — a lo ancho completo del grid: es la tarjeta con más
+            información (estado, fechas, historial de pagos, comparación de
+            planes) y se aprovecha mejor en dos columnas internas que angosta
+            en una sola. */}
+        <div className="bg-surface-card rounded-card shadow-card p-3 lg:col-span-2">
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
             <CreditCard size={19} className="text-slate-400" /> Mi plan
           </h2>
@@ -1157,7 +1160,7 @@ export default function Profile() {
         {/* Eliminar cuenta — hasta el fondo y en rojo, la única parte de la
             app que no usa el azul del docente: es lo que la separa de todo lo
             demás que se puede tocar sin miedo. */}
-        <div className="bg-surface-card rounded-card shadow-card p-3">
+        <div className="bg-surface-card rounded-card shadow-card p-3 lg:col-span-2">
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
             <Trash2 size={19} className="text-slate-400" /> Eliminar mi cuenta
           </h2>

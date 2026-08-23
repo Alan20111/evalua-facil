@@ -626,7 +626,7 @@ export default function TeacherDashboard() {
                   <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                     <Smartphone size={21} className="text-accent" />
                   </div>
-                  <p className="flex-1 min-w-0 font-semibold text-on-surface">📱 También puedes usar la app en tu celular</p>
+                  <p className="flex-1 min-w-0 font-semibold text-on-surface">También puedes usar la app en tu celular</p>
                   <ChevronRight size={20} className={`text-slate-300 flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-90' : ''}`} />
                 </button>
                 {showAppInfo && (

@@ -270,7 +270,7 @@ export function AgendaView({
             const [hNum, periodo] = formatHora12(`${String(h).padStart(2, '0')}:00`).split(' ')
             return (
               <div key={h}
-                className={`absolute ${DIA_HOUR_TEXT} text-muted leading-none whitespace-nowrap ${IS_NATIVE_APP ? 'inset-x-0 text-center' : 'right-2 text-right'}`}
+                className={`absolute inset-x-0 text-center ${DIA_HOUR_TEXT} text-muted leading-none whitespace-nowrap`}
                 style={{ top: i * AGENDA_ROW_H + AGENDA_ROW_H / 2, transform: 'translateY(-50%)' }}>
                 <span className="block">{hNum}</span>
                 <span className={`block ${DIA_HOUR_AMPM} opacity-70 -mt-0.5`}>{periodo}</span>
@@ -2005,13 +2005,12 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* Calendar body — en web, Día y 3 días se ven mal a lo ancho de las
-            demás vistas (columnas gigantes); se acotan y centran. Semana y
-            Mes se quedan a ancho completo, como ya estaban. Solo web: en la
-            app esta franja ya es angosta por el propio viewport. */}
-        <div className={`bg-surface-card border border-outline rounded shadow-card overflow-hidden ${
-          IS_NATIVE_APP ? '' : view === 'agenda' ? 'w-1/2 mx-auto' : view === '3dias' ? 'w-3/4 mx-auto' : ''
-        }`}>
+        {/* Calendar body — a ancho completo del contenedor en las 4 vistas
+            (pedido explícito: antes Día/3 días quedaban forzados a la mitad/
+            tres cuartos del ancho, dejando franjas enormes vacías a los
+            lados). El propio grid de horas internamente ya limita qué tan
+            ancha se ve cada columna de eventos. */}
+        <div className="bg-surface-card border border-outline rounded shadow-card overflow-hidden">
           {loading ? (
             <div className="flex justify-center py-16"><Spinner /></div>
           ) : view === 'agenda' ? (

@@ -19,6 +19,7 @@
 import { X, Sparkles, CalendarClock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useCreditosIA from '../hooks/useCreditosIA'
+import InfoDisclosure from './ui/InfoDisclosure'
 
 function fechaCorta(d) {
   if (!d) return '—'
@@ -70,18 +71,22 @@ export default function CreditosPanel({ onCerrar }) {
           <div className={`h-full rounded-full ${c.pct <= 10 ? 'bg-error' : 'bg-accent'}`} style={{ width: `${c.pct}%` }} />
         </div>
 
-        {/* Renovación y plan */}
-        <div className="flex items-center gap-2 text-sm text-on-surface mb-1">
-          <CalendarClock size={16} className="text-muted flex-shrink-0" />
-          {c.esTrial
-            ? <span>Tu periodo de prueba incluye {c.capacidad} créditos (no se renuevan durante la prueba).</span>
-            : <span>Tus créditos se renuevan el <span className="font-medium">{fechaCorta(c.cicloFin)}</span>. Los no utilizados no se acumulan.</span>}
-        </div>
-        <p className="text-sm text-muted mb-4">
-          Plan actual: <span className="font-medium text-on-surface">{c.etiquetaPlan}</span>
-          {!c.esTrial && c.plan !== 'mayor' && infoDocente ? ` · $${infoDocente.precioMXN}/mes` : ''}
-          {c.plan === 'mayor' && infoMayor ? ` · $${infoMayor.precioMXN}/mes` : ''}
-        </p>
+        {/* Renovación y plan — colapsado por omisión, mismo patrón que el
+            resto de la app (InfoDisclosure): los números de arriba ya dicen
+            lo esencial, este detalle es para quien lo pida. */}
+        <InfoDisclosure className="mb-4">
+          <div className="flex items-center gap-2 text-sm text-on-surface mb-1">
+            <CalendarClock size={16} className="text-muted flex-shrink-0" />
+            {c.esTrial
+              ? <span>Tu periodo de prueba incluye {c.capacidad} créditos (no se renuevan durante la prueba).</span>
+              : <span>Tus créditos se renuevan el <span className="font-medium">{fechaCorta(c.cicloFin)}</span>. Los no utilizados no se acumulan.</span>}
+          </div>
+          <p className="text-sm text-muted">
+            Plan actual: <span className="font-medium text-on-surface">{c.etiquetaPlan}</span>
+            {!c.esTrial && c.plan !== 'mayor' && infoDocente ? ` · $${infoDocente.precioMXN}/mes` : ''}
+            {c.plan === 'mayor' && infoMayor ? ` · $${infoMayor.precioMXN}/mes` : ''}
+          </p>
+        </InfoDisclosure>
 
         {/* Agotamiento: SOLO se suspende la IA, el resto sigue */}
         {agotado && (

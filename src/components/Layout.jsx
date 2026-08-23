@@ -13,6 +13,7 @@ import {
   Lock,
   BookOpen,
   Sparkles,
+  ChevronsLeft,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -58,6 +59,14 @@ export default function TeacherLayout({ children }) {
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
+  // Sidebar colapsable (solo escritorio) — pedido explícito: dejar solo los
+  // íconos para recuperar ancho de pantalla. Se recuerda entre sesiones.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem('ef_sidebarCollapsed') === '1'
+  )
+  useEffect(() => {
+    localStorage.setItem('ef_sidebarCollapsed', sidebarCollapsed ? '1' : '0')
+  }, [sidebarCollapsed])
 
   useBackHandler(() => setConfirmLogout(false), confirmLogout)
   useScrollLock(confirmLogout)
@@ -175,53 +184,75 @@ export default function TeacherLayout({ children }) {
       {/* Desktop: sidebar + content */}
       <div className="flex">
         {/* Sidebar — desktop only (solid accent plane) */}
-        <aside className="hidden md:flex flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
-          {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
-          <div className="px-3 pt-2 pb-1">
-            <div className="bg-white rounded-card px-3 py-2.5 shadow-card">
-              <EFLogo className="w-full h-auto" />
+        <aside className={`hidden md:flex flex-col h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20 transition-[width] duration-300 ease-in-out ${sidebarCollapsed ? 'w-20' : 'w-[300px]'}`}>
+          {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar.
+              Se oculta colapsado (no cabe legible en 76px) y se cambia por el ícono
+              de la app solo, mismo criterio que el resto del riel. */}
+          {!sidebarCollapsed && (
+            <div className="px-3 pt-2 pb-1">
+              <div className="bg-white rounded-card px-3 py-2.5 shadow-card">
+                <EFLogo className="w-full h-auto" />
+              </div>
+              {/* La versión ya no se repite aquí — pedido explícito: ese dato
+                  vive solo en Perfil (junto al aviso de privacidad), no en cada
+                  pantalla del sidebar. */}
+              <div className="flex items-center gap-2 pt-1">
+                {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de PortalBadge, no un atributo ARIA */}
+                <PortalBadge role="docente" className="ml-auto" />
+              </div>
             </div>
-            {/* Versión y etiqueta de rol comparten renglón: versión a la izquierda,
-                rol a la derecha. La versión es solo de la web — en la app vive en
-                Perfil, debajo del aviso de privacidad, y la etiqueta se queda sola. */}
-            <div className="flex items-center gap-2 pt-1">
-              {!IS_NATIVE_APP && (
-                <p className="text-metadata text-white/50 pl-1">v.1.0.1</p>
-              )}
-              {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de PortalBadge, no un atributo ARIA */}
-              <PortalBadge role="docente" className="ml-auto" />
-            </div>
-          </div>
+          )}
+
+          {/* Botón para colapsar/expandir — deja solo los íconos y recupera
+              ancho de pantalla (pedido explícito). La flecha gira 180° con la
+              misma transición que el ancho del panel, así se sienten como un
+              solo movimiento. */}
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((v) => !v)}
+            aria-label={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+            title={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+            className={`flex items-center gap-2 mx-2 mt-2 px-3 py-2 rounded-card text-white/70 hover:text-white hover:bg-white/10 transition-colors ${sidebarCollapsed ? 'justify-center' : 'justify-end'}`}
+          >
+            <ChevronsLeft size={18} className={`flex-shrink-0 transition-transform duration-300 ease-in-out ${sidebarCollapsed ? 'rotate-180' : ''}`} />
+          </button>
 
           {/* Profile button — pegado al logo (sin mt-1) para que el nombre y
               la foto suban y no dejen un hueco vacío arriba, pedido explícito
               para aprovechar mejor el espacio del panel. */}
           <NavLink
             to="/profile"
-            className="flex items-center gap-3 px-3 py-2 mx-2 rounded hover:bg-white/10 transition-colors group"
+            className={`flex items-center gap-3 px-3 py-2 mx-2 rounded hover:bg-white/10 transition-colors group ${sidebarCollapsed ? 'justify-center' : ''}`}
           >
-            {/* 65px pedido explícito. */}
-            <div className="w-[65px] h-[65px] rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
+            {/* 65px pedido explícito; más chico colapsado para caber en el
+                riel angosto sin desbordar. */}
+            <div className={`rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0 ${sidebarCollapsed ? 'w-10 h-10' : 'w-[65px] h-[65px]'}`}>
               {userProfile?.photoURL ? (
                 <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-2xl font-bold text-accent">{initials}</span>
+                <span className={`font-bold text-accent ${sidebarCollapsed ? 'text-base' : 'text-2xl'}`}>{initials}</span>
               )}
             </div>
-            <div className="min-w-0 flex-1">
-              {/* 18 / 16 px pedidos explícito. */}
-              <p className="text-[18px] font-semibold text-white truncate">{displayName}</p>
-              <p className="text-[16px] text-white/70 truncate">
-                {userProfile?.schoolName || 'Mi perfil'}
-              </p>
-            </div>
-            <ChevronRight size={16} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
+            {!sidebarCollapsed && (
+              <>
+                <div className="min-w-0 flex-1">
+                  {/* 18 / 16 px pedidos explícito. */}
+                  <p className="text-[18px] font-semibold text-white truncate">{displayName}</p>
+                  <p className="text-[16px] text-white/70 truncate">
+                    {userProfile?.schoolName || 'Mi perfil'}
+                  </p>
+                </div>
+                <ChevronRight size={16} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
+              </>
+            )}
           </NavLink>
 
           {/* Trial status — the day counter is always visible from day 1; an amber
               notice is added only for the last stretch. Never a popup. Clicking
-              goes to /profile, where the real subscription-activation flow lives. */}
-          {trialBanner && (
+              goes to /profile, where el real subscription-activation flow lives.
+              Se oculta colapsado — es texto informativo, no una acción, y no
+              cabe legible en el riel angosto. */}
+          {trialBanner && !sidebarCollapsed && (
             <button
               type="button"
               onClick={() => navigate('/profile')}
@@ -241,11 +272,19 @@ export default function TeacherLayout({ children }) {
             </button>
           )}
 
-          {/* Horario y Agenda */}
+          {/* Horario y Agenda — envuelto en px-2 (no mx-2 en el propio link) para
+              que su ancho se calcule EXACTAMENTE igual que el de las asignaturas
+              de abajo (mismo patrón: contenedor con padding, hijo a w-full). Con
+              mx-2 directo en el link quedaba un pelín más angosto y no alineaba
+              con el resto de los botones del sidebar. */}
+          <div className="px-2">
           <NavLink
             to="/calendario"
+            title="Horario y Agenda"
             className={({ isActive }) =>
-              `flex items-center gap-2.5 mx-2 px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
+              `flex items-center gap-2.5 w-full px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
+                sidebarCollapsed ? 'justify-center' : ''
+              } ${
                 isActive
                   ? 'bg-white text-accent shadow-card'
                   : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
@@ -253,10 +292,38 @@ export default function TeacherLayout({ children }) {
             }
           >
             <CalendarDays size={20} className="flex-shrink-0" />
-            Horario y Agenda
+            {!sidebarCollapsed && 'Horario y Agenda'}
           </NavLink>
+          </div>
+
+          {/* Riel colapsado — solo íconos de acceso rápido, centrados. Sustituye
+              a todo el bloque de abajo (Asignaturas, lista, IA, QR, avisos)
+              mientras el panel está colapsado; se expande con el mismo botón
+              de arriba. */}
+          {sidebarCollapsed && (
+            <div className="flex-1 overflow-y-auto flex flex-col items-center gap-1 px-2 pt-3">
+              <NavLink to="/dashboard" title="Asignaturas"
+                className={({ isActive }) => `w-11 h-11 flex items-center justify-center rounded-card transition-colors ${isActive ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'}`}>
+                <LayoutDashboard size={20} />
+              </NavLink>
+              <NavLink to="/perfil-ia" title="Perfil para IA del docente"
+                className={({ isActive }) => `w-11 h-11 flex items-center justify-center rounded-card transition-colors ${isActive ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10'}`}>
+                <Sparkles size={18} />
+              </NavLink>
+              <AppQRButton className="w-11 h-11 flex items-center justify-center rounded-card text-white/70 hover:bg-white/10 transition-colors disabled:opacity-60" iconSize={18} />
+              <NavLink to="/notificaciones" title="Notificaciones"
+                className={({ isActive }) => `w-11 h-11 flex items-center justify-center rounded-card transition-colors ${isActive ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10'}`}>
+                <Bell size={18} />
+              </NavLink>
+              <NavLink to="/manual" title="Ayuda para comenzar"
+                className={({ isActive }) => `w-11 h-11 flex items-center justify-center rounded-card transition-colors ${isActive ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10'}`}>
+                <BookOpen size={18} />
+              </NavLink>
+            </div>
+          )}
 
           {/* Subjects header → goes to the full subjects list */}
+          {!sidebarCollapsed && (
           <NavLink to="/dashboard" className="mx-2 px-2 pt-3 pb-1 flex items-center justify-between rounded hover:bg-white/10 transition-colors group">
             {/* De ~14 a 22 px (pedido explícito): pasaba desapercibida pese a
                 ser un link a la lista completa. Se quita `uppercase` — en
@@ -268,8 +335,10 @@ export default function TeacherLayout({ children }) {
             </span>
             <ChevronRight size={18} className="text-white/50 group-hover:text-white transition-colors flex-shrink-0" />
           </NavLink>
+          )}
 
           {/* Subject list */}
+          {!sidebarCollapsed && (
           <div className="flex-1 overflow-y-auto px-2 pb-2">
             {loadingSidebar ? (
               <div className="flex justify-center py-3">
@@ -307,6 +376,7 @@ export default function TeacherLayout({ children }) {
               Nueva asignatura…
             </button>
           </div>
+          )}
 
           {/* Notificaciones — reubicada aquí a propósito, deliberadamente menos
               prominente que "Horario y Agenda" (pedido explícito: no darle
@@ -322,6 +392,8 @@ export default function TeacherLayout({ children }) {
               (FASE 2-BIS del Plan Maestro de IA). Contexto general del
               docente, se captura una sola vez y se reutiliza en todas las
               funciones de IA de sus asignaturas. */}
+          {!sidebarCollapsed && (
+          <>
           <div className="px-2 pt-2 border-t border-white/15">
             <NavLink
               to="/perfil-ia"
@@ -409,16 +481,23 @@ export default function TeacherLayout({ children }) {
                 ))}
             </div>
           )}
+          </>
+          )}
 
-          {/* Créditos IA — barra permanente del docente (clic → panel) */}
-          <CreditosBar variant="sidebar" />
+          {/* Créditos IA — barra permanente del docente (clic → panel).
+              Colapsado se sigue mostrando: el gasto de créditos importa
+              aunque el resto del menú esté oculto. */}
+          <CreditosBar variant="sidebar" collapsed={sidebarCollapsed} />
 
           {/* Logout */}
-          <div className="px-2 py-2 border-t border-white/15">
+          <div className={`px-2 py-2 border-t border-white/15 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
             <button
               type="button"
               onClick={requestLogout}
-              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+              title="Cerrar sesión"
+              className={`flex items-center gap-2 rounded text-body-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors ${
+                sidebarCollapsed ? 'w-11 h-11 justify-center' : 'w-full px-3 py-1.5'
+              }`}
             >
               <LogOut size={17} />
               Cerrar sesión

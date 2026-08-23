@@ -670,7 +670,7 @@ export default function SubjectPage() {
   const [editSubjectForm, setEditSubjectForm] = useState({ nombre: '', grupo: '', fechaInicio: '', fechaFin: '', parciales: '3', colorPalette: 'default', icon: 'book' })
   const [editingSubject, setEditingSubject] = useState(false)
   const [showDeleteSubjectConfirm, setShowDeleteSubjectConfirm] = useState(false)
-  const [deleteSubjectConfirmText, setDeleteSubjectConfirmText] = useState('')
+  const [deleteSubjectArmed, setDeleteSubjectArmed] = useState(false)
   const [deletingSubject, setDeletingSubject] = useState(false)
   const [showCopyModal, setShowCopyModal] = useState(false)
   const [copyForm, setCopyForm] = useState({ nombre: '', grupo: '', keepStudents: false, colorPalette: 'default', icon: 'book' })
@@ -689,6 +689,7 @@ export default function SubjectPage() {
   // disyuntiva obligada ("guardar" o "sin guardar") porque las entregas se
   // borraban; ya no se borran, así que dejarla sería preguntar por nada.
   const [archiveConZip, setArchiveConZip] = useState(false)
+  const [archiveInfoOpen, setArchiveInfoOpen] = useState(false)
 
   const [activeTab, setActiveTab] = useState(routerLocation.state?.tab || 'actividades')
 
@@ -867,7 +868,7 @@ export default function SubjectPage() {
   useBackHandler(() => setStudentToDelete(null), !!studentToDelete)
   useBackHandler(() => setShowEditSubjectModal(false), showEditSubjectModal)
   useBackHandler(() => setShowCopyModal(false), showCopyModal)
-  useBackHandler(() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }, showDeleteSubjectConfirm)
+  useBackHandler(() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectArmed(false) }, showDeleteSubjectConfirm)
   useBackHandler(() => !archiving && setShowArchiveModal(false), showArchiveModal)
   useBackHandler(() => setShowUnarchiveModal(false), showUnarchiveModal)
   useBackHandler(() => setShowResourceModal(false), showResourceModal)
@@ -2962,9 +2963,7 @@ export default function SubjectPage() {
   }
 
   async function handleDeleteSubject() {
-    if (deleteSubjectConfirmText !== subject?.nombre) {
-      toast('El nombre no coincide', 'error'); return
-    }
+    if (!deleteSubjectArmed) { setDeleteSubjectArmed(true); return }
     setDeletingSubject(true)
     try {
       await deleteSubjectCascade(subjectId, subject?.docenteId)
@@ -3897,7 +3896,7 @@ export default function SubjectPage() {
         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
         {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
       </button>
-      <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
+      <button type="button" onClick={() => { setDeleteSubjectArmed(false); setShowDeleteSubjectConfirm(true) }}
         aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
         data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)" data-tooltip-pos="left"
         className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
@@ -3977,7 +3976,7 @@ export default function SubjectPage() {
           {/* Aún sin estudiantes: aviso debajo del código de acceso. totalStudents
               se calcula al cargar la materia (no depende de haber visitado la
               pestaña Estudiantes), así que está listo desde el primer render. */}
-          {totalStudents === 0 && (
+          {totalStudents === 0 && activeTab === 'alumnos' && (
             <p className="text-xs text-red-500 mt-1">
               Antes de compartir estos datos, agrega estudiantes manualmente o mediante la
               plantilla de Excel en la pestaña Estudiantes{IS_NATIVE_APP ? ' en la web' : ''}.
@@ -4002,7 +4001,7 @@ export default function SubjectPage() {
               // de la Planeación necesita pantalla ancha para ser usable.
               ).concat(!IS_NATIVE_APP && perfilIACompleto ? ['asistente-ia'] : []).map((t) => (
                 <button type="button" key={t} onClick={() => switchTab(t)}
-                  className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
+                  className={`flex-shrink-0 sm:flex-1 whitespace-nowrap text-center px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                     activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                   }`}>
                   {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Config Asistente IA'}
@@ -6827,32 +6826,28 @@ export default function SubjectPage() {
       {/* ── Delete subject confirm modal ── */}
       {showDeleteSubjectConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectArmed(false) }} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
               <Trash2 size={24} className="text-red-500" />
             </div>
             <h3 className="text-base font-semibold text-on-surface text-center mb-1">¿Eliminar asignatura?</h3>
-            <p className="text-sm text-muted text-center mb-2">
+            <p className="text-sm text-muted text-center mb-3">
               Se borrarán permanentemente todas las actividades, entregas, asistencias y estudiantes de{' '}
               <strong>{subject?.nombre}</strong>. Esta acción <strong>no se puede deshacer</strong>.
             </p>
-            <p className="text-xs text-muted mb-2">Escribe <strong>{subject?.nombre}</strong> para confirmar:</p>
-            <input
-              type="text"
-              value={deleteSubjectConfirmText}
-              onChange={(e) => setDeleteSubjectConfirmText(e.target.value)}
-              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 text-sm bg-surface mb-2"
-              placeholder={subject?.nombre}
-            />
+            {/* Doble clic en vez de escribir el nombre — pedido explícito: el
+                texto libre era fricción sin aportar seguridad real. El botón
+                se "arma" con el primer clic y pide un segundo clic explícito
+                para de verdad borrar. */}
             <div className="flex gap-2">
-              <button type="button" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
+              <button type="button" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectArmed(false) }}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button type="button" onClick={handleDeleteSubject}
-                disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}
+                disabled={deletingSubject}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deletingSubject ? <Spinner size="sm" /> : <Trash2 size={16} />}
-                {deletingSubject ? 'Eliminando…' : 'Eliminar todo'}
+                {deletingSubject ? 'Eliminando…' : deleteSubjectArmed ? '¿Seguro? Confirmar' : 'Eliminar todo'}
               </button>
             </div>
           </div>
@@ -6869,22 +6864,33 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
               <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            <p className="text-sm text-muted mb-3">
-              Archivar solo la saca de tus asignaturas activas. <strong>No se borra nada</strong>:
-              actividades, estudiantes, entregas y calificaciones se quedan completas, y puedes
-              desarchivarla cuando quieras.
+            <p className="text-sm text-muted mb-2">
+              No se borra nada, y puedes desarchivarla cuando quieras.
             </p>
-            {/* Lo que pasa del lado del ESTUDIANTE — el modal antes solo hablaba
-                de lo que veía el docente. Es literal lo que hace el código: su
-                dashboard filtra por `archived` y la manda a la sección
-                "Asignaturas archivadas", desde donde la puede seguir abriendo. */}
-            <div className="rounded border border-outline-variant bg-surface p-3 mb-3">
-              <p className="text-sm font-semibold text-on-surface mb-1">Qué van a ver tus estudiantes</p>
-              <ul className="text-sm text-muted space-y-0.5">
-                <li>• <strong>{subject?.nombre}</strong> sale de sus asignaturas y se va a «Asignaturas archivadas».</li>
-                <li>• Ahí la pueden seguir abriendo, con sus entregas y calificaciones completas.</li>
-              </ul>
-            </div>
+            {/* Detalle largo oculto por omisión — el modal es una acción rápida,
+                no debería obligar a leer un párrafo entero para archivar. Quien
+                quiera el detalle (qué pasa con las calificaciones, qué ve el
+                estudiante) lo despliega con un clic; el resto entra y sale rápido. */}
+            <button type="button" onClick={() => setArchiveInfoOpen((o) => !o)}
+              className="text-sm font-medium text-accent hover:underline mb-3 flex items-center gap-1">
+              ¿Qué es esto?
+              <ChevronRight size={14} className={`transition-transform ${archiveInfoOpen ? 'rotate-90' : ''}`} />
+            </button>
+            {archiveInfoOpen && (
+              <div className="mb-3 space-y-3">
+                <p className="text-sm text-muted">
+                  Archivar solo la saca de tus asignaturas activas. <strong>No se borra nada</strong>:
+                  actividades, estudiantes, entregas y calificaciones se quedan completas.
+                </p>
+                <div className="rounded border border-outline-variant bg-surface p-3">
+                  <p className="text-sm font-semibold text-on-surface mb-1">Qué van a ver tus estudiantes</p>
+                  <ul className="text-sm text-muted space-y-0.5">
+                    <li>• <strong>{subject?.nombre}</strong> sale de sus asignaturas y se va a «Asignaturas archivadas».</li>
+                    <li>• Ahí la pueden seguir abriendo, con sus entregas y calificaciones completas.</li>
+                  </ul>
+                </div>
+              </div>
+            )}
             {/* El respaldo ZIP es solo de la web: bajar un paquete con TODAS
                 las entregas es trabajo de computadora, y ahí el archivo queda
                 donde el docente lo va a encontrar. Archivar sí se puede desde
