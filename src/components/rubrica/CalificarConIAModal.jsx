@@ -217,15 +217,34 @@ export default function CalificarConIAModal({
           {/* Calificación propuesta — pedido explícito de Kike (23-ago-2026):
               debe verse claramente ANTES de aplicar, y como propuesta, nunca
               como calificación ya asignada. En modo consulta se rotula como
-              histórica, no como algo por aplicar. */}
+              histórica, no como algo por aplicar.
+              Regla que NUNCA cambia (24-ago-2026, reafirmada): si falta
+              evidencia en algún criterio, la IA NO inventa ni calcula un
+              total parcial — se queda "pendiente". Lo único que mejora aquí
+              es la claridad: decir QUÉ criterio(s) faltan y por qué, para
+              que el docente sepa exactamente qué revisar. */}
           {(() => {
             const totalPropuesto = calificacionPropuestaDe(resultado)
             const etiqueta = soloLectura ? 'La IA propuso' : 'Calificación propuesta por IA'
+            if (totalPropuesto != null) {
+              return (
+                <p className="text-sm font-semibold text-on-surface mb-3">
+                  {etiqueta}: <span className="text-accent">{totalPropuesto} / {RUBRICA_TOTAL}</span>
+                </p>
+              )
+            }
+            const faltantes = resultado.criterios
+              .map((crit, i) => ({ crit, nombre: rubrica.criterios[i]?.nombre || `Criterio ${i + 1}` }))
+              .filter(({ crit }) => crit.sinEvidenciaSuficiente)
+              .map(({ nombre }) => nombre)
             return (
               <p className="text-sm font-semibold text-on-surface mb-3">
-                {totalPropuesto != null
-                  ? <>{etiqueta}: <span className="text-accent">{totalPropuesto} / {RUBRICA_TOTAL}</span></>
-                  : `${etiqueta}: pendiente — hubo criterios sin evidencia suficiente.`}
+                {etiqueta}: pendiente
+                <span className="block text-xs font-normal text-muted mt-0.5">
+                  {faltantes.length === 1
+                    ? `No se puede calcular una calificación completa: falta evidencia suficiente en "${faltantes[0]}".`
+                    : `No se puede calcular una calificación completa: falta evidencia suficiente en ${faltantes.length} criterios (${faltantes.join(', ')}).`}
+                </span>
               </p>
             )
           })()}
