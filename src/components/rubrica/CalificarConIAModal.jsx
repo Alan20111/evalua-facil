@@ -3,18 +3,22 @@
 // actividad, y PROPONE un nivel por criterio con su justificación
 // (OP-11, 21-ago-2026, decisión de Kike: función central de valor de la IA).
 //
-// La IA NUNCA asigna la calificación: "Aplicar propuesta" solo PRELLENA el
-// mismo `rubricEval`/comentario que ya usa la calificación manual en
-// ActivityPage.jsx — el docente sigue viendo la rúbrica de siempre, puede
-// cambiar cualquier nivel, y el guardado real sigue siendo el botón
-// "Guardar calificación" que ya existía. Sin estructuras de datos nuevas.
+// La IA NUNCA asigna la calificación de forma definitiva: en cuanto la
+// propuesta está lista se PRECARGA sola (vía onAplicar) en el mismo
+// `rubricEval`/calificación/comentario que ya usa la calificación manual en
+// ActivityPage.jsx — el docente la ve y la puede editar ahí mismo, y el
+// guardado real en Firestore sigue siendo el botón "Guardar calificación"
+// que ya existía (23-ago-2026, pedido de Kike: "que ya solo se aplique si
+// se avanza"). "Descartar" revierte ese precargado a lo que había antes de
+// abrir este modal — eso lo hace el padre (ver descartarPropuestaIA en
+// ActivityPage.jsx), aquí solo se distingue onDescartar de onClose.
 //
 // Dos pasos en un solo componente, mismo patrón que ConfirmacionCreditosModal:
 //   1. 'confirmar' — costo (1 crédito fijo) antes de ejecutar.
 //   2. 'revisar'   — la propuesta, editable, con el aviso de IA siempre
 //      visible (regla del proyecto: todo contenido de IA es editable).
 
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { AlertTriangle, CircleHelp } from 'lucide-react'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import { useToast } from '../Toast'
@@ -32,11 +36,15 @@ const CONFIANZA_LABEL = {
 
 export default function CalificarConIAModal({
   open, onClose, actividadId, submissionId, rubrica, onAplicar,
+  // "Descartar" — a diferencia de onClose, le pide al padre que revierta el
+  // precargado a lo que había antes de abrir este modal.
+  onDescartar,
   // Propuesta ya generada y pagada por el lote "Calificar todas con IA"
   // (ver ActivityPage.jsx) — cuando llega, el modal se abre DIRECTO en
-  // 'revisar', sin volver a cobrar. `onAplicado(docId)` marca esa sugerencia
-  // persistida como 'aplicada' cuando el docente confirma.
-  resultadoPersistido = null, onAplicado = null,
+  // 'revisar', sin volver a cobrar, y se precarga igual que una recién
+  // generada. `_docId` viaja a onAplicar para que el padre solo la marque
+  // 'aplicada' cuando el docente de verdad GUARDE la calificación.
+  resultadoPersistido = null,
 }) {
   const c = useCreditosIA()
   const toast = useToast()
@@ -47,15 +55,34 @@ export default function CalificarConIAModal({
   const [retro, setRetro] = useState(resultadoPersistido?.retroalimentacionGeneral || '')
   const [comprarAbierto, setComprarAbierto] = useState(false)
   const [activarAbierto, setActivarAbierto] = useState(false)
+  // Precarga automática UNA sola vez por propuesta mostrada — evita
+  // reaplicar en cada render y evita reaplicar si el docente ya editó
+  // retro/rubricEval a mano después de la precarga inicial.
+  const precargada = useRef(false)
 
   const costo = c.estimar('calificar_entregable_ia') ?? 0.25
   const alcanza = c.saldo >= costo
+
+  useEffect(() => {
+    if (resultadoPersistido && !precargada.current) {
+      precargada.current = true
+      onAplicar(resultadoPersistido.criterios, resultadoPersistido.retroalimentacionGeneral || '', resultadoPersistido._docId || null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function cerrarTodo() {
     setPaso(resultadoPersistido ? 'revisar' : 'confirmar')
     setResultado(resultadoPersistido)
     setRetro(resultadoPersistido?.retroalimentacionGeneral || '')
     onClose()
+  }
+
+  function descartar() {
+    setPaso(resultadoPersistido ? 'revisar' : 'confirmar')
+    setResultado(resultadoPersistido)
+    setRetro(resultadoPersistido?.retroalimentacionGeneral || '')
+    onDescartar()
   }
 
   async function ejecutar() {
@@ -65,18 +92,17 @@ export default function CalificarConIAModal({
       setResultado(data.resultado)
       setRetro(data.resultado.retroalimentacionGeneral || '')
       setPaso('revisar')
+      // Se precarga sola en cuanto está lista — el docente la ve y la puede
+      // ajustar directo en el formulario de calificación; nada se guarda
+      // en Firestore todavía (eso sigue siendo "Guardar calificación").
+      precargada.current = true
+      onAplicar(data.resultado.criterios, data.resultado.retroalimentacionGeneral || '', null)
     } catch (err) {
       toast(err.message || 'No se pudo calificar con IA', 'error')
       cerrarTodo()
     } finally {
       setEjecutando(false)
     }
-  }
-
-  function aplicar() {
-    onAplicar(resultado.criterios, retro)
-    if (resultadoPersistido?._docId) onAplicado?.(resultadoPersistido._docId)
-    cerrarTodo()
   }
 
   const ignorados = (resultado?.ignoradosPorFormato || 0) + (resultado?.ignoradosPorTope || 0)
@@ -143,8 +169,9 @@ export default function CalificarConIAModal({
           <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-card px-3 py-2.5 mb-3 text-sm text-amber-800">
             <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
             <p>
-              Propuesta de la IA — revísala antes de guardar, puede contener errores. Los criterios sin
-              evidencia suficiente se dejan sin marcar para que tú decidas.
+              Propuesta de la IA — ya se cargó en la calificación y el comentario de al lado, para que la
+              revises y la ajustes ahí mismo antes de guardar. Los criterios sin evidencia suficiente se dejan
+              sin marcar para que tú decidas.
             </p>
           </div>
 
@@ -199,7 +226,14 @@ export default function CalificarConIAModal({
           <textarea
             id={retroId}
             value={retro}
-            onChange={(e) => setRetro(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value
+              setRetro(next)
+              // Editar aquí reescribe el mismo comentario ya precargado —
+              // sin esto, un ajuste de último momento se quedaría solo en
+              // el modal y "Guardar calificación" guardaría el texto viejo.
+              onAplicar(resultado.criterios, next, resultadoPersistido?._docId || null)
+            }}
             rows={3}
             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mb-3"
           />
@@ -212,13 +246,13 @@ export default function CalificarConIAModal({
           )}
 
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={cerrarTodo}
+            <button type="button" onClick={descartar}
               className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
-              Descartar
+              Descartar propuesta
             </button>
-            <button type="button" onClick={aplicar}
+            <button type="button" onClick={cerrarTodo}
               className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
-              Aplicar propuesta
+              Listo, seguir calificando
             </button>
           </div>
         </>

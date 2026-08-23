@@ -686,6 +686,18 @@ async function pedirJSON({ client, modelo, maxTokens, prompt, system = INSTRUMEN
   }
 }
 
+const MAX_CONSIDERACIONES_CHARS = 400
+
+// Preferencia libre del docente para generar rúbrica/lista de cotejo (p.ej.
+// "que cada respuesta del ejercicio sea un criterio") — se agrega al prompt
+// como algo A RESPETAR, nunca como reemplazo del contexto real leído de la
+// actividad (ese sigue siendo bloqueContexto). Cadena vacía → sin bloque.
+function bloqueConsideraciones(params) {
+  const texto = String(params?.consideraciones || '').trim().slice(0, MAX_CONSIDERACIONES_CHARS)
+  if (!texto) return ''
+  return `\nCONSIDERACIONES DEL DOCENTE — tómalas en cuenta al proponer los criterios:\n"""${texto}"""\n`
+}
+
 // La propuesta que sale de aquí trae SOLO texto. Los números los pone el
 // cliente con las funciones del modelo de rúbricas (utils/rubrica.js).
 async function ejecutarRubrica({ params, modelo, apiKey }) {
@@ -708,6 +720,7 @@ async function ejecutarRubrica({ params, modelo, apiKey }) {
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 1500,
     prompt: bloqueContexto(ctx, asignatura) +
+      bloqueConsideraciones(params) +
       `\nPropón una RÚBRICA de ${numCriterios} criterios y ${numNiveles} niveles de desempeño ` +
       '(del mejor al peor), con un descriptor por cada criterio en cada nivel.\n' +
       'Los descriptores describen QUÉ se observa en ese nivel, en máximo 20 palabras, ' +
@@ -751,6 +764,7 @@ async function ejecutarCotejo({ params, modelo, apiKey }) {
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 800,
     prompt: bloqueContexto(ctx, asignatura) +
+      bloqueConsideraciones(params) +
       `\nPropón una LISTA DE COTEJO de ${numCriterios} indicadores. Cada indicador se marca ` +
       'cumple / no cumple, así que debe ser VERIFICABLE de un vistazo y sin ' +
       'grados intermedios (nada de "adecuadamente" o "de manera suficiente").\n\n' +

@@ -184,6 +184,14 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
   })
   const [saving, setSaving] = useState(false)
   const [savingVis, setSavingVis] = useState(false)
+  // Línea base para saber si el docente de verdad cambió algo — "Guardar
+  // configuración"/"Guardar disponibilidad" solo se activan si hay una
+  // diferencia real contra lo último guardado (23-ago-2026, pedido de Kike:
+  // no reguardar lo mismo sin que nada haya cambiado).
+  const [formInicial, setFormInicial] = useState(form)
+  const [visFormInicial, setVisFormInicial] = useState(visForm)
+  const formCambio = JSON.stringify(form) !== JSON.stringify(formInicial)
+  const visFormCambio = JSON.stringify(visForm) !== JSON.stringify(visFormInicial)
 
   async function handleSaveConfig(e) {
     e.preventDefault()
@@ -197,6 +205,7 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
     try {
       await updateDoc(doc(db, 'activities', activityId), { evaluacion: toSave })
       onActivityChange((prev) => ({ ...prev, evaluacion: toSave }))
+      setFormInicial(form)
       toast('Configuración guardada')
     } catch (err) {
       toast(err.message || 'No se pudo guardar', 'error')
@@ -219,6 +228,7 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
     try {
       await updateDoc(doc(db, 'activities', activityId), payload)
       onActivityChange((prev) => ({ ...prev, ...payload }))
+      setVisFormInicial(visForm)
       toast('Disponibilidad guardada')
     } catch (err) {
       toast(err.message || 'No se pudo guardar', 'error')
@@ -257,7 +267,7 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
               clearable
             />
           </div>
-          <button type="submit" disabled={savingVis}
+          <button type="submit" disabled={savingVis || !visFormCambio}
             className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2">
             {savingVis ? <Spinner size="sm" /> : <Pencil size={16} />}
             {savingVis ? 'Guardando…' : 'Guardar disponibilidad'}
@@ -304,7 +314,7 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
             onModeChange={(v) => setForm((f) => ({ ...f, publicarResultados: v }))}
             onFechaChange={(v) => setForm((f) => ({ ...f, publicarResultadosFecha: v }))}
           />
-          <button type="submit" disabled={saving}
+          <button type="submit" disabled={saving || !formCambio}
             className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
             {saving ? 'Guardando…' : 'Guardar configuración'}
           </button>

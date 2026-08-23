@@ -206,6 +206,38 @@ export default function ActivityPage() {
   // PRELLENA rubricEval/comentario con la propuesta; el guardado sigue
   // siendo el mismo botón "Guardar calificación" de siempre.
   const [calificarIAAbierto, setCalificarIAAbierto] = useState(false)
+  // Snapshot de rubricEval/gradeForm tomado justo ANTES de abrir "Calificar
+  // con IA" — la propuesta se precarga sola en cuanto llega (ver
+  // aplicarPropuestaIA), así que "Descartar" necesita a qué volver. Solo
+  // vive mientras el modal está abierto.
+  const [previoAntesDeIA, setPrevioAntesDeIA] = useState(null)
+  // Id de la sugerencia de lote (activities/{id}/iaSugerenciasEntregable/{x})
+  // que quedó precargada en el formulario — null si la propuesta vino del
+  // flujo individual (no persistido). Solo se marca 'aplicada' cuando el
+  // docente de verdad GUARDA la calificación (persistGrade), nunca por solo
+  // verla o precargarla — así "Ver propuesta de IA" sigue siendo gratis si
+  // el docente termina sin guardar.
+  const [iaPropuestaDocId, setIaPropuestaDocId] = useState(null)
+  function abrirCalificarIA() {
+    setPrevioAntesDeIA({ rubricEval, gradeForm })
+    setCalificarIAAbierto(true)
+  }
+  function cerrarCalificarIA() {
+    // Cierre "normal" (X, backdrop, Escape, o el botón Cerrar del modal):
+    // la propuesta ya precargada en el formulario se CONSERVA — el docente
+    // pudo haberla editado y seguir queriendo guardarla después.
+    setPrevioAntesDeIA(null)
+    setCalificarIAAbierto(false)
+  }
+  function descartarPropuestaIA() {
+    if (previoAntesDeIA) {
+      setRubricEval(previoAntesDeIA.rubricEval)
+      setGradeForm(previoAntesDeIA.gradeForm)
+    }
+    setIaPropuestaDocId(null)
+    setPrevioAntesDeIA(null)
+    setCalificarIAAbierto(false)
+  }
   const creditosIA = useCreditosIA()
   // "Calificar todas con IA" (lote) — mismo patrón que C-02 en
   // EvaluacionManager.jsx: el servidor persiste cada propuesta en
@@ -374,6 +406,10 @@ export default function ActivityPage() {
   function openGrade(student) {
     const sub = submissions[student.id]
     setSelected({ student, sub })
+    // Cambiar de estudiante deja atrás cualquier propuesta de IA precargada
+    // sin guardar — nunca debe seguir "colgada" y aplicarse sobre otro alumno.
+    setIaPropuestaDocId(null)
+    setPrevioAntesDeIA(null)
     setGradeForm({
       // Delivered but ungraded (or observación, which never has a delivery) →
       // prefill the max grade so paging with Siguiente/Anterior grades with 10
@@ -519,7 +555,7 @@ export default function ActivityPage() {
   // llena selectRubricaNivel a mano. No guarda nada por sí sola: el docente
   // sigue viendo la rúbrica de siempre, puede ajustar cualquier nivel, y el
   // guardado real sigue siendo el botón "Guardar calificación" existente.
-  function aplicarPropuestaIA(criteriosIA, retroalimentacion) {
+  function aplicarPropuestaIA(criteriosIA, retroalimentacion, docId = null) {
     const next = criteriosIA.map((c) => c.nivel)
     setRubricEval(next)
     const total = totalRubrica(activity.rubrica, next)
@@ -528,6 +564,7 @@ export default function ActivityPage() {
       calificacion: total != null ? String(total) : f.calificacion,
       comentario: retroalimentacion || f.comentario,
     }))
+    setIaPropuestaDocId(docId)
   }
 
   // ── "Calificar todas con IA" (lote) — mismo patrón que contarRespuestasIA
@@ -651,6 +688,14 @@ export default function ActivityPage() {
     }
     setSubmissions((prev) => ({ ...prev, [selected.student.id]: updated }))
     setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: updated } : sel))
+    // La calificación que se acaba de guardar venía precargada de una
+    // propuesta de lote — hasta AHORA, con el guardado real ya hecho, se
+    // marca 'aplicada' (nunca antes, para no cobrar de más ni perder la
+    // recuperación gratis de "Ver propuesta de IA" si el docente no guarda).
+    if (iaPropuestaDocId) {
+      updateDoc(doc(db, 'activities', activityId, 'iaSugerenciasEntregable', iaPropuestaDocId), { estado: 'aplicada' }).catch(() => {})
+      setIaPropuestaDocId(null)
+    }
     return true
   }
 
@@ -1646,7 +1691,7 @@ export default function ActivityPage() {
                     {puedeCalificarConIA && (
                       <button
                         type="button"
-                        onClick={() => setCalificarIAAbierto(true)}
+                        onClick={() => abrirCalificarIA()}
                         className="w-full py-2.5 text-sm font-semibold rounded border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
                       >
                         <Sparkles size={17} />
@@ -2201,7 +2246,7 @@ export default function ActivityPage() {
                 {puedeCalificarConIA && (
                   <button
                     type="button"
-                    onClick={() => setCalificarIAAbierto(true)}
+                    onClick={() => abrirCalificarIA()}
                     className="w-full py-2.5 text-sm font-semibold rounded border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
                   >
                     <Sparkles size={17} />
@@ -2556,13 +2601,13 @@ export default function ActivityPage() {
       {calificarIAAbierto && selected?.sub && hasRubrica && (
         <CalificarConIAModal
           open={calificarIAAbierto}
-          onClose={() => setCalificarIAAbierto(false)}
+          onClose={cerrarCalificarIA}
+          onDescartar={descartarPropuestaIA}
           actividadId={activityId}
           submissionId={selected.sub.id}
           rubrica={activity.rubrica}
           onAplicar={aplicarPropuestaIA}
           resultadoPersistido={sugerenciaPersistidaIA}
-          onAplicado={(docId) => updateDoc(doc(db, 'activities', activityId, 'iaSugerenciasEntregable', docId), { estado: 'aplicada' })}
         />
       )}
 

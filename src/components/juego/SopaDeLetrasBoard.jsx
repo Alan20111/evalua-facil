@@ -6,8 +6,9 @@
 // resultante coincide (en cualquiera de las 8 direcciones) con una palabra
 // de `estructura.palabras`, se marca como encontrada.
 //
-// Modo solo-lectura (`readOnly`) se usa en RevisionJuegoBorrador (preview del
-// docente) — ahí no hay alumno, así que no se marca nada como encontrado.
+// `readOnly` queda disponible para un futuro caller que solo necesite ver la
+// forma de la cuadrícula sin juego — RevisionJuegoBorrador (preview jugable
+// del docente) y JuegoRunner (alumno) usan el modo normal.
 
 import { useRef, useState } from 'react'
 
