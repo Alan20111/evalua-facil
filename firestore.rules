@@ -382,20 +382,29 @@ service cloud.firestore {
       // da falso, revienta la evaluación de la regla entera. Las inscripciones
       // dadas de alta por Excel no traen el campo, y así ninguna se quedaba sin
       // poder activarse.
+      //
+      // CORRECCIÓN 23-ago-2026 (regla definitiva de Kike): la incorporación
+      // por código NO debe depender de la escuela — el código de asignatura
+      // + estar en el roster que el docente ya armó es la ÚNICA llave. Antes
+      // se exigía el CORREO COMPLETO (usuario.escuela@evalua.local), lo que
+      // ataba la identidad a la escuela con la que el alumno se activó la
+      // primera vez y bloqueaba el caso legítimo (docente de otra escuela lo
+      // agrega, código correcto, pero su cuenta ya existe con OTRA escuela).
+      // Ahora solo se exige que la parte de USUARIO del correo coincida — la
+      // escuela del correo puede ser cualquiera. Sigue siendo imposible
+      // reclamar el registro de otro alumno: nadie puede tener sesión con un
+      // correo cuyo usuario no sea el suyo (Firebase Auth es la única fuente
+      // de ese dato, nadie lo escribe). `escuelaId` DEL REGISTRO se sigue
+      // congelando abajo (nadie puede reescribirlo) — solo dejó de ser parte
+      // de la prueba de identidad del que reclama.
       allow update: if
         (isDocente() && ownsSubject(resource.data.asignaturaId)) ||
         (
           request.auth != null &&
           request.resource.data.uid == request.auth.uid &&
           (resource.data.get('uid', null) == null || resource.data.uid == request.auth.uid) &&
-          // escuelaId es un ID autogenerado de Firestore (mezcla mayúsculas y
-          // minúsculas), pero Firebase Auth SIEMPRE guarda el correo en
-          // minúsculas — sin este .lower() aquí también, la comparación nunca
-          // coincidía para ninguna escuela con una mayúscula en su ID (casi
-          // todas), y ningún alumno nuevo podía activarse desde el 5-ago-2026
-          // (#989). Bug real en producción, encontrado el 19-ago-2026.
-          request.auth.token.get('email', '') ==
-            resource.data.username.lower() + '.' + resource.data.escuelaId.lower() + '@evalua.local' &&
+          request.auth.token.get('email', '').lower()
+            .matches(resource.data.username.lower() + '\\..+@evalua\\.local') &&
           request.resource.data.username == resource.data.username &&
           request.resource.data.escuelaId == resource.data.escuelaId &&
           request.resource.data.asignaturaId == resource.data.asignaturaId &&
