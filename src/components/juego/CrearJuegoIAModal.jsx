@@ -43,12 +43,11 @@ export default function CrearJuegoIAModal({
 
   async function handleGenerar() {
     setTrabajando(true)
-    let ref = null
     try {
       const urls = await resolverFuentes(archivos)
 
       const orden = existingActivitiesCountInParcial + 1
-      ref = await addDoc(collection(db, 'activities'), {
+      const ref = await addDoc(collection(db, 'activities'), {
         nombre: '',
         categoria: 'juego',
         tipoJuego,
@@ -85,8 +84,15 @@ export default function CrearJuegoIAModal({
     } catch (err) {
       toast(err.message || 'No se pudo generar el contenido', 'error')
       // El cascarón ya se creó (sin contenido) aunque la IA falle — se deja
-      // como borrador oculto, el docente puede reintentar o llenarlo a mano.
-      if (ref) onCreated?.(ref.id)
+      // como borrador oculto, el docente puede reintentar o llenarlo a mano
+      // MÁS TARDE desde su lista de actividades. A propósito NO navegamos
+      // aquí (`onCreated?.(ref.id)`): hacerlo aterrizaba al docente en
+      // ContenidoJuegoEditor (0/20 palabras, "este paso no consume
+      // créditos") con el toast de esta falla todavía visible encima —
+      // parecía que "Confirmar contenido y construir juego" exigiera
+      // créditos, cuando construirJuego nunca los toca. Nos quedamos en
+      // el modal para que el error se lea en el contexto correcto (la
+      // generación con IA, la única operación que sí cuesta 0.5 crédito).
     } finally {
       setTrabajando(false)
     }
