@@ -4532,6 +4532,28 @@ const CHAT_SISTEMA =
 // América/Ciudad de México: es la única zona con la que trabaja la app
 // (docentes SEP en México), y el servidor de Firebase Functions corre en UTC,
 // así que sin esto la fecha podía adelantarse un día en la tarde/noche.
+//
+// CORRECCIÓN 23-ago-2026 (segunda ronda): dar solo el ancla ("hoy es...") no
+// bastó — la prueba de estrés en producción encontró "mañana" y "próximo
+// viernes" calculados mal en algunas corridas, aunque el ancla en sí siempre
+// fue correcta. El problema no es la fecha de hoy, es delegarle al modelo la
+// ARITMÉTICA de calendario — no es 100% determinista de una corrida a otra.
+// Ahora el servidor calcula un pequeño calendario (ayer/mañana/pasado
+// mañana/dentro de 7 y 14 días/próximo lunes..domingo) y se lo entrega YA
+// resuelto: el modelo pasa de "sumar días" a "citar el valor correcto que ya
+// le dieron", que es una tarea mucho más confiable para un LLM.
+//
+// Aritmética segura contra DST/cambio de mes/año/bisiestos: se ancla la
+// fecha civil de CDMX (año/mes/día, sin hora) a mediodía UTC — Date.UTC
+// nunca tiene horario de verano, así que sumar/restar días con
+// `setUTCDate` nunca se ve afectado por un salto de reloj; JS ya maneja
+// correctamente el desborde de mes/año/bisiestos con setUTCDate.
+const DIAS_EN_DOMINGO0 = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+// nombre (sin acentos, para no repetir claves) → índice domingo=0..sábado=6
+const NOMBRE_DIA_A_DOMINGO0 = {
+  domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6,
+}
+
 function bloqueFechaActualChat() {
   const zona = 'America/Mexico_City'
   const ahora = new Date()
@@ -4539,18 +4561,49 @@ function bloqueFechaActualChat() {
     timeZone: zona, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long',
   }).formatToParts(ahora)
   const get = (tipo) => partes.find((p) => p.type === tipo)?.value || ''
+  const anio = Number(get('year'))
+  const mes = Number(get('month'))
+  const dia = Number(get('day'))
+  const idxHoyDomingo0 = DIAS_EN_DOMINGO0.indexOf(get('weekday').toLowerCase())
+  const diaSemanaHoy = idxHoyDomingo0 >= 0 ? DIAS_SEMANA_LARGO[(idxHoyDomingo0 + 6) % 7] : ''
   const fechaIso = `${get('year')}-${get('month')}-${get('day')}`
-  // El weekday en inglés de Intl solo sirve para indexar contra
-  // DIAS_SEMANA_LARGO (lunes=0..domingo=6) sin repetir la lógica de zona horaria.
-  const DIAS_EN = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  const idxEn = DIAS_EN.indexOf(get('weekday').toLowerCase())
-  const diaSemana = idxEn >= 0 ? (DIAS_SEMANA_LARGO[(idxEn + 6) % 7]) : ''
+
+  // Ancla a mediodía UTC de la fecha civil de CDMX — ver comentario arriba.
+  const ancla = new Date(Date.UTC(anio, mes - 1, dia, 12))
+  function fechaOffset(deltaDias) {
+    const d = new Date(ancla)
+    d.setUTCDate(d.getUTCDate() + deltaDias)
+    const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+    const idxDomingo0 = ((idxHoyDomingo0 + deltaDias) % 7 + 7) % 7
+    const diaSemana = DIAS_SEMANA_LARGO[(idxDomingo0 + 6) % 7]
+    return `${diaSemana} ${iso}`
+  }
+  // "próximo <día>" = la SIGUIENTE ocurrencia de ese día posterior a hoy —
+  // si hoy mismo es ese día, es el de la semana que sigue (nunca hoy).
+  function proximoDiaSemana(objetivoDomingo0) {
+    const delta = ((objetivoDomingo0 - idxHoyDomingo0 + 7) % 7) || 7
+    return fechaOffset(delta)
+  }
+
+  const proximos = Object.entries(NOMBRE_DIA_A_DOMINGO0)
+    .map(([nombre, dom0]) => `próximo ${nombre} → ${proximoDiaSemana(dom0)}`)
+    .join('\n')
+
   return (
-    `FECHA Y HORA ACTUAL (dato real del sistema, hora de Ciudad de México — úsalo como ÚNICO punto de partida ` +
-    `para cualquier fecha relativa que te pidan, como "hoy", "mañana", "pasado mañana", "esta semana", ` +
-    `"próxima semana", "en dos semanas" o "el próximo <día>": calcula sumando/restando días exactos desde aquí, ` +
-    `nunca lo adivines): hoy es ${diaSemana ? `${diaSemana} ` : ''}${fechaIso}. Cuando propongas una fechaLimite, ` +
-    `usa siempre el formato YYYY-MM-DD calculado a partir de esta fecha real.`
+    `FECHA Y HORA ACTUAL (dato real del sistema, hora de Ciudad de México): ` +
+    `hoy es ${diaSemanaHoy ? `${diaSemanaHoy} ` : ''}${fechaIso}.\n\n` +
+    `REFERENCIAS DE CALENDARIO YA CALCULADAS por el servidor (úsalas TAL CUAL, nunca las recalcules tú — son ` +
+    `exactas; "próximo <día>" siempre significa la SIGUIENTE ocurrencia de ese día después de hoy, nunca hoy ` +
+    `mismo aunque hoy sea ese día):\n` +
+    `ayer → ${fechaOffset(-1)}\n` +
+    `hoy → ${diaSemanaHoy} ${fechaIso}\n` +
+    `mañana → ${fechaOffset(1)}\n` +
+    `pasado mañana → ${fechaOffset(2)}\n` +
+    `dentro de 7 días / dentro de una semana → ${fechaOffset(7)}\n` +
+    `dentro de 14 días / dentro de dos semanas → ${fechaOffset(14)}\n` +
+    `${proximos}\n\n` +
+    `Para cualquier otra fecha relativa que no esté en esta lista, calcula sumando/restando días exactos a ` +
+    `partir de la fecha de hoy de arriba. Cuando propongas una fechaLimite, usa siempre el formato YYYY-MM-DD.`
   )
 }
 
