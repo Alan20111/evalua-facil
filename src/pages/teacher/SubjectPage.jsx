@@ -63,7 +63,7 @@ import {
   Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
-  AlertTriangle, ArrowUp, ArrowDown, Sparkles,
+  AlertTriangle, ArrowUp, ArrowDown, Sparkles, Gamepad2,
 } from 'lucide-react'
 import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
@@ -637,6 +637,15 @@ export default function SubjectPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   // null = showing the tipo picker, 'entregable'|'cuestionario'|'examen' = form visible
   const [tipoActividad, setTipoActividad] = useState(null)
+  // Navegación del picker "Nueva actividad" (reorganización 23-ago-2026):
+  // null (raíz: 4 categorías) | 'entregable' | 'evaluacion' (2do nivel:
+  // Cuestionario/Examen) | 'cuestionario' | 'examen' | 'observacion' |
+  // 'interactiva' (Crucigrama/Sopa de letras). Puramente de navegación —
+  // las acciones de cada hoja llaman los mismos setters que ya existían
+  // (setEntregableEditor/setCrearActividadIA/setCrearEvalIA/setCrearJuegoIA),
+  // sin tocar el modelo de datos: "con IA" nunca fue un valor guardado en
+  // `categoria`, siempre fue solo la llave de este menú.
+  const [menuPaso, setMenuPaso] = useState(null)
   // OP-03/OP-04 · Examen/Cuestionario con IA: null | { categoria }
   const [crearEvalIA, setCrearEvalIA] = useState(null)
   // OP-05 · Entregable/Observación con IA: null | { categoria }
@@ -2220,6 +2229,28 @@ export default function SubjectPage() {
     })
   }
 
+  // ── Nueva actividad: hoja del picker (reorganización 23-ago-2026) ──
+  // `tipo`: 'entregable'|'cuestionario'|'examen'|'observacion'.
+  // `metodo`: 'manual'|'ia'. Reutiliza EXACTAMENTE los mismos setters que
+  // ya abrían cada modal antes de la reorganización — "con IA" nunca fue
+  // un tipo de actividad guardado, solo decide qué modal de creación abrir.
+  function elegirCreacion(tipo, metodo) {
+    setShowModal(false)
+    if (metodo === 'ia') {
+      if (tipo === 'entregable' || tipo === 'observacion') {
+        setCrearActividadIA({ categoria: tipo })
+      } else {
+        setCrearEvalIA({ categoria: tipo })
+      }
+      return
+    }
+    if (tipo === 'entregable' || tipo === 'observacion') {
+      setEntregableEditor({ activityId: null, parcial: modalParcial, categoria: tipo, activityLabel: null, initialForm: null, initialExistingFiles: null })
+    } else {
+      setEvalEditor({ activityId: null, categoria: tipo, parcial: modalParcial, activityLabel: `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.` })
+    }
+  }
+
   // ── Activity actions ───────────────────────────────────────────────
   function openAdd(parcial) {
     if (!canCreate) {
@@ -2230,6 +2261,7 @@ export default function SubjectPage() {
     setForm(EMPTY_FORM)
     setActivityExistingFiles([]); setActivityNewFiles([])
     setTipoActividad(null)
+    setMenuPaso(null)
     setShowModal(true)
   }
 
@@ -5610,47 +5642,139 @@ export default function SubjectPage() {
               <button type="button" onClick={() => setShowModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
 
-            {/* ── Tipo picker (only on create, before choosing type) ── */}
+            {/* ── Tipo picker (only on create, before choosing type) ──
+                Reorganización 23-ago-2026: 4 categorías de primer nivel
+                (Entregable / Evaluación / Observación / Actividad
+                interactiva); "con IA" ya no es una opción independiente,
+                es un método de creación dentro de cada tipo. Navegación
+                pura vía `menuPaso` — las hojas llaman los mismos setters
+                que ya existían (ver elegirCreacion / setCrearJuegoIA). ── */}
             {modalMode === 'create' && !tipoActividad ? (
               <div className="space-y-2 py-2">
-                <p className="text-sm text-muted mb-3">¿Qué tipo de actividad quieres crear?</p>
-                {[
-                  { key: 'entregable', label: 'Entregable', desc: 'El alumno sube uno o varios archivos.', Icon: FileText, iconColor: 'text-slate-400', iconBg: 'bg-slate-100' },
-                  { key: 'cuestionario', label: 'Cuestionario', desc: 'Preguntas con calificación automática, abiertas o con archivo. Ideal para práctica o aprendizaje.', Icon: ListChecks, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
-                  { key: 'examen', label: 'Examen', desc: 'Preguntas con calificación automática, abiertas o con archivo. Para evaluación formal.', Icon: GraduationCap, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
-                  { key: 'observacion', label: 'Observación', desc: 'Sin entrega del alumno: tú observas y calificas. Ej.: actitud, exposición de tema, realización de ejercicio.', Icon: ClipboardCheck, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
-                  { key: 'cuestionario_ia', label: 'Cuestionario con IA', desc: 'Describe qué quieres evaluar y el asistente genera el cuestionario completo con sus reactivos.', Icon: Sparkles, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
-                  { key: 'examen_ia', label: 'Examen con IA', desc: 'Describe qué quieres evaluar y el asistente genera el examen completo con sus reactivos.', Icon: Sparkles, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
-                  { key: 'entregable_ia', label: 'Entregable con IA', desc: 'Describe qué quieres que entreguen tus estudiantes y el asistente genera la actividad completa.', Icon: Sparkles, iconColor: 'text-slate-500', iconBg: 'bg-slate-100' },
-                  { key: 'observacion_ia', label: 'Observación con IA', desc: 'Describe qué quieres observar y el asistente genera la actividad completa.', Icon: Sparkles, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
-                  { key: 'crucigrama', label: 'Crucigrama', desc: 'Describe el tema y el asistente propone las palabras para armar un crucigrama.', Icon: Sparkles, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
-                  { key: 'sopa_letras', label: 'Sopa de letras', desc: 'Describe el tema y el asistente propone las palabras para armar una sopa de letras.', Icon: Sparkles, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
-                ].map((opt) => (
-                  <button key={opt.key} type="button"
-                    onClick={() => {
-                      setShowModal(false)
-                      if (opt.key === 'entregable' || opt.key === 'observacion') {
-                        setEntregableEditor({ activityId: null, parcial: modalParcial, categoria: opt.key, activityLabel: null, initialForm: null, initialExistingFiles: null })
-                      } else if (opt.key === 'cuestionario_ia' || opt.key === 'examen_ia') {
-                        setCrearEvalIA({ categoria: opt.key === 'cuestionario_ia' ? 'cuestionario' : 'examen' })
-                      } else if (opt.key === 'entregable_ia' || opt.key === 'observacion_ia') {
-                        setCrearActividadIA({ categoria: opt.key === 'entregable_ia' ? 'entregable' : 'observacion' })
-                      } else if (opt.key === 'crucigrama' || opt.key === 'sopa_letras') {
-                        setCrearJuegoIA({ tipoJuego: opt.key })
-                      } else {
-                        setEvalEditor({ activityId: null, categoria: opt.key, parcial: modalParcial, activityLabel: `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.` })
-                      }
-                    }}
-                    className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${opt.iconBg}`}>
-                      <opt.Icon size={20} className={opt.iconColor} />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-on-surface">{opt.label}</p>
-                      <p className="text-xs text-muted mt-0.5">{opt.desc}</p>
-                    </div>
-                  </button>
-                ))}
+                {menuPaso === null && (
+                  <>
+                    <p className="text-sm text-muted mb-3">¿Qué quieres que haga tu estudiante?</p>
+                    {[
+                      { key: 'entregable', label: 'Entregable', desc: 'El estudiante entrega uno o varios archivos.', Icon: FileText, iconColor: 'text-slate-400', iconBg: 'bg-slate-100' },
+                      { key: 'evaluacion', label: 'Evaluación', desc: 'Cuestionarios y exámenes con reactivos y calificación.', Icon: ListChecks, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
+                      { key: 'observacion', label: 'Observación', desc: 'Tú observas y calificas el desempeño del estudiante.', Icon: ClipboardCheck, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
+                      { key: 'interactiva', label: 'Actividad interactiva', desc: 'El estudiante realiza una actividad directamente en Evalúa Fácil.', Icon: Gamepad2, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
+                    ].map((opt) => (
+                      <button key={opt.key} type="button" aria-label={opt.label} onClick={() => setMenuPaso(opt.key)}
+                        className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${opt.iconBg}`}>
+                          <opt.Icon size={20} className={opt.iconColor} />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-on-surface">{opt.label}</p>
+                          <p className="text-xs text-muted mt-0.5">{opt.desc}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                )}
+
+                {(menuPaso === 'entregable' || menuPaso === 'observacion') && (
+                  <>
+                    <button type="button" onClick={() => setMenuPaso(null)} className="text-xs text-accent hover:underline mb-2">← Volver</button>
+                    <p className="text-sm text-muted mb-3">
+                      {menuPaso === 'entregable' ? 'El estudiante entrega uno o varios archivos.' : 'Tú observas y calificas el desempeño del estudiante.'}
+                    </p>
+                    <button type="button" onClick={() => elegirCreacion(menuPaso, 'manual')}
+                      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-slate-100">
+                        <Pencil size={20} className="text-slate-400" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-on-surface">Crear manualmente</p>
+                        <p className="text-xs text-muted mt-0.5">Tú defines instrucciones y configuración.</p>
+                      </div>
+                    </button>
+                    <button type="button" onClick={() => elegirCreacion(menuPaso, 'ia')}
+                      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-[var(--accent-light)]">
+                        <Sparkles size={20} className="text-accent" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-on-surface">Generar con IA</p>
+                        <p className="text-xs text-muted mt-0.5">Describe qué quieres y el asistente genera la actividad completa.</p>
+                      </div>
+                    </button>
+                  </>
+                )}
+
+                {menuPaso === 'evaluacion' && (
+                  <>
+                    <button type="button" onClick={() => setMenuPaso(null)} className="text-xs text-accent hover:underline mb-2">← Volver</button>
+                    <p className="text-sm text-muted mb-3">Cuestionarios y exámenes con reactivos y calificación.</p>
+                    {[
+                      { key: 'cuestionario', label: 'Cuestionario', desc: 'Preguntas con calificación automática, abiertas o con archivo. Ideal para práctica o aprendizaje.', Icon: ListChecks, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
+                      { key: 'examen', label: 'Examen', desc: 'Preguntas con calificación automática, abiertas o con archivo. Para evaluación formal.', Icon: GraduationCap, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
+                    ].map((opt) => (
+                      <button key={opt.key} type="button" aria-label={opt.label} onClick={() => setMenuPaso(opt.key)}
+                        className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${opt.iconBg}`}>
+                          <opt.Icon size={20} className={opt.iconColor} />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-on-surface">{opt.label}</p>
+                          <p className="text-xs text-muted mt-0.5">{opt.desc}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                )}
+
+                {(menuPaso === 'cuestionario' || menuPaso === 'examen') && (
+                  <>
+                    <button type="button" onClick={() => setMenuPaso('evaluacion')} className="text-xs text-accent hover:underline mb-2">← Volver</button>
+                    <p className="text-sm text-muted mb-3">{menuPaso === 'cuestionario' ? 'Cuestionario' : 'Examen'}: reactivos con calificación automática.</p>
+                    <button type="button" onClick={() => elegirCreacion(menuPaso, 'manual')}
+                      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-slate-100">
+                        <Pencil size={20} className="text-slate-400" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-on-surface">Crear manualmente</p>
+                        <p className="text-xs text-muted mt-0.5">Tú agregas los reactivos uno por uno.</p>
+                      </div>
+                    </button>
+                    <button type="button" onClick={() => elegirCreacion(menuPaso, 'ia')}
+                      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-[var(--accent-light)]">
+                        <Sparkles size={20} className="text-accent" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-on-surface">Generar con IA</p>
+                        <p className="text-xs text-muted mt-0.5">Describe qué quieres evaluar y el asistente genera los reactivos.</p>
+                      </div>
+                    </button>
+                  </>
+                )}
+
+                {menuPaso === 'interactiva' && (
+                  <>
+                    <button type="button" onClick={() => setMenuPaso(null)} className="text-xs text-accent hover:underline mb-2">← Volver</button>
+                    <p className="text-sm text-muted mb-3">El estudiante resuelve el juego directamente en Evalúa Fácil.</p>
+                    {[
+                      { key: 'crucigrama', label: 'Crucigrama', desc: 'Describe el tema y el asistente propone las palabras para armar un crucigrama.', Icon: Sparkles, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
+                      { key: 'sopa_letras', label: 'Sopa de letras', desc: 'Describe el tema y el asistente propone las palabras para armar una sopa de letras.', Icon: Sparkles, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
+                    ].map((opt) => (
+                      <button key={opt.key} type="button" aria-label={opt.label}
+                        onClick={() => { setShowModal(false); setCrearJuegoIA({ tipoJuego: opt.key }) }}
+                        className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${opt.iconBg}`}>
+                          <opt.Icon size={20} className={opt.iconColor} />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-on-surface">{opt.label}</p>
+                          <p className="text-xs text-muted mt-0.5">{opt.desc}</p>
+                        </div>
+                      </button>
+                    ))}
+                    <p className="text-xs text-muted text-center pt-2">Próximamente más actividades interactivas</p>
+                  </>
+                )}
               </div>
             ) : (
               <>
