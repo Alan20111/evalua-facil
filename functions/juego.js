@@ -113,6 +113,12 @@ exports.construirJuego = onCall({ timeoutSeconds: 300 }, async (request) => {
     palabras: resultado.palabras.map((p) => ({
       ...p,
       palabra: contenido[p.index]?.palabra ?? null,
+      // Modalidad "por descripción": la pista debe llegar hasta el tablero
+      // del estudiante para que pueda leerla — sin esto, CrucigramaBoard.jsx
+      // y SopaDeLetrasBoard.jsx no tienen forma de mostrarla (encontrado en
+      // E2E real: la sopa de letras mostraba las palabras en vez de las
+      // pistas porque `descripcion` nunca llegaba a `estructura.palabras`).
+      descripcion: contenido[p.index]?.descripcion ?? null,
       normalizada: normalizadas[p.index],
     })),
   }
