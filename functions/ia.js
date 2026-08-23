@@ -4398,7 +4398,16 @@ async function precheckChatAsistente({ uid, params }) {
     // un dato nuevo ni privado frente a él, solo lo hace consultable por
     // chat. Ver detalleAlumnosTexto: nunca se usa en el Asistente General ni
     // en el análisis con IA (OP-10), que se quedan agregados/anónimos.
-    alumnosTexto ? `ALUMNOS DE ESTA ASIGNATURA — DETALLE INDIVIDUAL (con nombre, quién entregó cada actividad y su calificación; SOLO para este chat, el docente ya ve exactamente esto en su panel):\n${alumnosTexto}` : null,
+    alumnosTexto ? `ESTUDIANTES DE ESTA ASIGNATURA — DETALLE INDIVIDUAL (con nombre, quién entregó cada actividad y su calificación; SOLO para este chat, el docente ya ve exactamente esto en su panel):\n${alumnosTexto}` : null,
+    // CORRECCIÓN 23-ago-2026 (prueba de estrés real): este bloque SOLO se
+    // incluía en precheckAsistenteGeneral — el chat dentro de una
+    // asignatura no tenía acceso a él y por eso respondía vago/remitía al
+    // administrador ante preguntas de créditos/pagos/uso de la plataforma,
+    // contradiciendo la instrucción explícita de CHAT_SISTEMA de "nunca
+    // remitir a otro lugar" en esos temas. Es la MISMA función (sin
+    // duplicar contenido, ya lee tarifas/paquetes en vivo), solo que ahora
+    // también se agrega aquí.
+    await bloqueAyudaPlataforma(),
   ].filter(Boolean)
 
   // Igual que en precheckAsistenteGeneral: la reserva de la interacción va al
@@ -4497,8 +4506,8 @@ const CHAT_SISTEMA =
   'qué puede hacer al respecto; ahí sí sugiere qué le falta generar/configurar o a dónde más puede consultarlo ' +
   '(la sección "Ayuda para comenzar" del menú, o el administrador). ' +
   'Nunca inventes calificaciones, nombres de estudiantes ni resultados que no estén en el contexto. Si tu ' +
-  'contexto trae el bloque "ALUMNOS DE ESTA ASIGNATURA — DETALLE INDIVIDUAL", SÍ puedes (y debes, cuando te lo ' +
-  'pidan) nombrar alumnos específicos, decir quién entregó o no cada actividad y su calificación — no es un dato ' +
+  'contexto trae el bloque "ESTUDIANTES DE ESTA ASIGNATURA — DETALLE INDIVIDUAL", SÍ puedes (y debes, cuando te ' +
+  'lo pidan) nombrar estudiantes específicos, decir quién entregó o no cada actividad y su calificación — no es un dato ' +
   'privado frente al propio docente, es exactamente lo que él ya ve en su panel; nunca lo compartas con nadie ' +
   'más que él. Cuando un diagnóstico (contexto o conocimientos) SÍ está en tu contexto, apóyate en TODO lo que ' +
   'aplique de él (características, condiciones, intereses, necesidades, patrones, recomendaciones) para dar un ' +
@@ -4511,6 +4520,40 @@ const CHAT_SISTEMA =
   'para entender preguntas de seguimiento (p. ej. "¿y qué actividad?" se refiere a tu respuesta anterior). Nunca ' +
   'escribas que fuiste generado por IA o por un asistente — eres una herramienta del docente, él es quien decide.'
 
+// CORRECCIÓN 23-ago-2026 (prueba de estrés real): "próximo viernes" preguntado
+// en domingo se calculó como sábado — el modelo estaba adivinando la fecha de
+// hoy y haciendo aritmética de calendario él solo, sin ningún ancla real. La
+// fecha/hora del servidor SÍ es un dato confiable (no depende de lo que diga
+// el docente ni de lo que "recuerde" el modelo), así que el cálculo
+// determinista lo hace el código — el modelo solo tiene que sumar/restar días
+// a partir de un punto de partida ya correcto, no adivinarlo. Reutiliza
+// DIAS_SEMANA_LARGO (mismo texto que ya se usa para sesiones/parciales) para
+// no inventar una segunda lista de nombres de días. Zona horaria fija
+// América/Ciudad de México: es la única zona con la que trabaja la app
+// (docentes SEP en México), y el servidor de Firebase Functions corre en UTC,
+// así que sin esto la fecha podía adelantarse un día en la tarde/noche.
+function bloqueFechaActualChat() {
+  const zona = 'America/Mexico_City'
+  const ahora = new Date()
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: zona, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long',
+  }).formatToParts(ahora)
+  const get = (tipo) => partes.find((p) => p.type === tipo)?.value || ''
+  const fechaIso = `${get('year')}-${get('month')}-${get('day')}`
+  // El weekday en inglés de Intl solo sirve para indexar contra
+  // DIAS_SEMANA_LARGO (lunes=0..domingo=6) sin repetir la lógica de zona horaria.
+  const DIAS_EN = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  const idxEn = DIAS_EN.indexOf(get('weekday').toLowerCase())
+  const diaSemana = idxEn >= 0 ? (DIAS_SEMANA_LARGO[(idxEn + 6) % 7]) : ''
+  return (
+    `FECHA Y HORA ACTUAL (dato real del sistema, hora de Ciudad de México — úsalo como ÚNICO punto de partida ` +
+    `para cualquier fecha relativa que te pidan, como "hoy", "mañana", "pasado mañana", "esta semana", ` +
+    `"próxima semana", "en dos semanas" o "el próximo <día>": calcula sumando/restando días exactos desde aquí, ` +
+    `nunca lo adivines): hoy es ${diaSemana ? `${diaSemana} ` : ''}${fechaIso}. Cuando propongas una fechaLimite, ` +
+    `usa siempre el formato YYYY-MM-DD calculado a partir de esta fecha real.`
+  )
+}
+
 // Instrucción de Chat con Acciones, agregada SOLO cuando ctx.permitirAcciones
 // (nunca en el Asistente General). Fuerza al modelo a responder siempre con
 // el mismo JSON {respuesta, propuesta} — un solo formato de salida, nunca
@@ -4521,7 +4564,14 @@ const INSTRUCCION_ACCIONES_CHAT =
   'instrucciones; para examen, además los reactivos) — incluye una propuesta. Si NO tienes info suficiente ' +
   '(falta el tema, o pidió examen sin decir cuántos reactivos ni de qué trata), NO propongas nada todavía: ' +
   'pregunta lo que falta. Si solo está conversando o pidiendo ideas sin pedir crear, tampoco propongas nada. ' +
-  'NUNCA propongas una acción que el docente no pidió crear.\n\n' +
+  'NUNCA propongas una acción que el docente no pidió crear. CORRECCIÓN 23-ago-2026 (prueba de estrés real): si el ' +
+  'docente responde con algo elíptico que depende de tu ÚLTIMA propuesta o respuesta ("haz otra", "haz otra ' +
+  'versión", "cambia esta", "otra igual pero más sencilla/difícil", "modifica la anterior", "esa no me convence", ' +
+  'y similares), por default interprétalo como referido a esa última propuesta/respuesta — no como pedir algo ' +
+  'nuevo sin relación — y arma la propuesta corregida o alternativa a partir de ella. Solo pregunta en vez de ' +
+  'asumir cuando de verdad sea ambiguo a qué se refiere (p. ej. si hay más de una propuesta reciente distinta, o ' +
+  'el mensaje también podría leerse como un tema nuevo); si no hay ambigüedad real, no le devuelvas la pregunta ' +
+  'solo por precaución.\n\n' +
   'Responde SIEMPRE con este JSON exacto, sin bloques de código ni ```, nada de texto fuera de él:\n' +
   '{"respuesta": "<tu respuesta conversacional en español>", "propuesta": null}\n' +
   'o, solo cuando corresponda proponer:\n' +
@@ -4685,6 +4735,7 @@ async function ejecutarChatAsistente({ params, modelo, apiKey }) {
   const messages = [...historialPrevio, { role: 'user', content: ctx.mensaje }]
   const systemTexto = CHAT_SISTEMA +
     (ctx.permitirAcciones ? INSTRUCCION_ACCIONES_CHAT : INSTRUCCION_FORMATO_SIN_ACCIONES) +
+    '\n\n' + bloqueFechaActualChat() +
     '\n\n' + ctx.contextoSistema
   const system = bloqueConCache(systemTexto)
 
@@ -4959,10 +5010,64 @@ function idOpcionExamenChat() {
   return `o${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
 }
 
-async function ejecutarChatCrearExamen({ params }) {
+// CORRECCIÓN 23-ago-2026 (prueba de estrés real, "LA CORRECCIÓN MÁS
+// IMPORTANTE" — Kike): la prueba encontró 2 de 5 claves verdadero/falso
+// objetivamente incorrectas en un examen generado en vivo. No existe una
+// regla lingüística determinista confiable para decidir si un enunciado es
+// verdadero o falso (depende del CONTENIDO, no de la forma de la frase), así
+// que la validación real solo puede venir de una segunda revisión de IA,
+// ciega a lo que propuso la primera (para no arrastrar el mismo sesgo/error):
+// se le da SOLO el enunciado, nunca la clave propuesta, y se compara. Si no
+// coincide, se corrige la clave en memoria ANTES de escribirla a Firestore —
+// nunca se publica una clave ya identificada como incorrecta. Si la
+// verificación misma falla (red, JSON inválido), se conserva la clave
+// original: no es peor que el comportamiento previo a esta corrección, y no
+// hay forma honesta de "corregir" sin una respuesta válida del verificador.
+// No agrega costo al docente: mismo modelo que ya se usa para
+// chat_crear_examen (tarifas/modeloPorOperacion sin cambios), sin unidad de
+// cobro adicional — el costo de esta llamada lo absorbe el margen de la
+// tarifa por examen, igual que cualquier otro costo interno de calidad.
+async function validarClavesVerdaderoFalso({ reactivos, client, modelo }) {
+  const objetivo = reactivos.filter((r) => r.tipo === 'verdadero_falso' && r.enunciado)
+  if (!objetivo.length) return
+
+  const lista = objetivo.map((r, idx) => `${idx + 1}. ${r.enunciado}`).join('\n')
+  const system =
+    'Eres un verificador factual estricto. Para cada enunciado numerado, decide si es VERDADERO o FALSO ' +
+    'como afirmación objetiva, sin ningún contexto adicional más que el propio enunciado. No te importa quién ' +
+    'lo escribió ni para qué se usará — solo si el enunciado, tomado literalmente, es cierto o no. Responde ' +
+    'ÚNICAMENTE un JSON: {"veredictos": ["v"|"f", ...]} en el MISMO orden y con la MISMA cantidad de elementos ' +
+    'que los enunciados recibidos.'
+  const prompt = `Enunciados a verificar:\n${lista}`
+
+  let datos
+  try {
+    ;({ datos } = await pedirJSON({ client, modelo, maxTokens: 600, system, prompt }))
+  } catch {
+    return // verificación no disponible: se conserva la clave original, sin marcarla como incorrecta
+  }
+  const veredictos = Array.isArray(datos?.veredictos) ? datos.veredictos : null
+  if (!veredictos || veredictos.length !== objetivo.length) return // respuesta no confiable: no se corrige a ciegas
+
+  objetivo.forEach((r, idx) => {
+    const veredicto = veredictos[idx] === 'f' ? 'f' : veredictos[idx] === 'v' ? 'v' : null
+    if (veredicto && veredicto !== r.correcta) {
+      logger.warn(`V/F corregido por segunda verificación: "${r.enunciado.slice(0, 80)}" ${r.correcta} → ${veredicto}`)
+      r.correcta = veredicto
+    }
+  })
+}
+
+async function ejecutarChatCrearExamen({ params, modelo, apiKey }) {
   const ctx = params.__contexto
   const db = getFirestore()
   const p = ctx.propuesta
+
+  if (p.reactivos.some((r) => r.tipo === 'verdadero_falso')) {
+    const Anthropic = require('@anthropic-ai/sdk')
+    const client = new Anthropic({ apiKey })
+    await validarClavesVerdaderoFalso({ reactivos: p.reactivos, client, modelo })
+  }
   const resolved = resolveVisibilidad({
     visibilidadMode: 'show', publishedAt: '', publishAt: '', fechaLimite: p.fechaLimite, asDraft: false,
   })
@@ -5202,4 +5307,5 @@ exports._pruebas = {
   verificarSaldoChat, calcularTarifaExamen, precheckChatCrearActividad, precheckChatCrearExamen,
   ACCIONES_ACTIVIDAD,
   precheckCalificarEntregable, bloqueCriteriosInstrumento, precheckCalificarEntregableLote,
+  validarClavesVerdaderoFalso, bloqueFechaActualChat,
 }
