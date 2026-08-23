@@ -1336,6 +1336,7 @@ export default function ActivityPage() {
               type="button"
               onClick={handleZipDownload}
               disabled={zipDownloading}
+              data-tooltip="Descarga todas las evidencias entregadas en un archivo ZIP."
               className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
             >
               {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
@@ -1346,45 +1347,51 @@ export default function ActivityPage() {
           </div>
         )}
 
-        {/* "Calificar todas con IA" — lote sobre las entregas pendientes de
-            esta actividad, mismo instrumento (rúbrica/cotejo) para todas. */}
-        {hasRubrica && (
-          <div className="px-4 pt-3 space-y-2">
-            <button
-              type="button"
-              onClick={contarEntregasIA}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
-            >
-              <Sparkles size={18} />
-              Calificar todas con IA
-            </button>
-            {/* "Recalificar todas con IA" — para cuando el docente cambió la
-                rúbrica/lista de cotejo y quiere propuestas nuevas con el
-                instrumento actual. Regenera propuestas, nunca calificaciones
-                ya aplicadas ni entregas. */}
-            <button
-              type="button"
-              onClick={contarRecalificarIA}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface-container transition-colors disabled:opacity-60"
-            >
-              <Sparkles size={18} />
-              Recalificar todas con IA
-            </button>
-            {/* "Aplicar calificaciones de IA a todas" (Modo 1) — NUNCA genera
-                IA nueva ni cobra: solo aplica las propuestas 'pendiente' que
-                ya existen. Ícono distinto (CheckCheck, no Sparkles) para que
-                se distinga a simple vista de las dos acciones de arriba, que
-                sí generan y sí cobran. */}
-            <button
-              type="button"
-              onClick={contarAplicarTodasIA}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60"
-            >
-              <CheckCheck size={18} />
-              Aplicar calificaciones de IA a todas
-            </button>
-          </div>
-        )}
+        {/* Las 3 acciones de IA sobre el lote de entregas, agrupadas en una
+            sola tarjeta compacta (23-ago-2026, pedido de Kike: la barra se
+            sentía saturada con 3 botones largos sueltos) — mismas funciones
+            de siempre (contarEntregasIA/contarRecalificarIA/
+            contarAplicarTodasIA), solo reorganización visual. "Aplicar
+            propuestas" solo aparece si hay algo pendiente que aplicar. */}
+        {hasRubrica && (() => {
+          const pendientesIA = Object.values(sugerenciasLoteIA).filter((s) => s._estado === 'pendiente').length
+          return (
+            <div className="mx-4 mt-3 rounded-card border border-outline-variant">
+              <p className="px-3 pt-2 text-[11px] text-muted">La IA propone; tú decides.</p>
+              <div className="p-2 pt-1.5 space-y-1.5">
+                <button
+                  type="button"
+                  onClick={contarEntregasIA}
+                  data-tooltip="Genera propuestas de calificación con IA para las entregas pendientes."
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+                >
+                  <Sparkles size={16} />
+                  Calificar con IA
+                </button>
+                <button
+                  type="button"
+                  onClick={contarRecalificarIA}
+                  data-tooltip="Vuelve a evaluar las entregas con la rúbrica o lista de cotejo actual. Genera una nueva propuesta y consume créditos."
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface-container transition-colors disabled:opacity-60"
+                >
+                  <Sparkles size={16} />
+                  Recalificar con IA
+                </button>
+                {pendientesIA > 0 && (
+                  <button
+                    type="button"
+                    onClick={contarAplicarTodasIA}
+                    data-tooltip="Aplica las propuestas de IA pendientes como calificación definitiva. No consume créditos."
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60"
+                  >
+                    <CheckCheck size={16} />
+                    Aplicar propuestas ({pendientesIA})
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })()}
 
           {/* Filter tabs — they belong to the Entregas list, so they live inside
               its container; clicking one scrolls the list into full view */}
