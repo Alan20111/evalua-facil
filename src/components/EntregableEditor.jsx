@@ -86,6 +86,10 @@ export default function EntregableEditor({
     oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
     cerrarEntregasEnFecha: true,
     rubrica: null, rubricaId: null,
+    // Comportamiento previo a este campo (23-ago-2026): el estudiante SIEMPRE
+    // veía la rúbrica — default true para no cambiar nada en actividades ya
+    // existentes que nunca guardaron este campo.
+    rubricaVisibleAlumno: true,
     notificarDocente: false,
   })
   const [existingFiles, setExistingFiles] = useState(initialExistingFiles || [])
@@ -262,6 +266,7 @@ export default function EntregableEditor({
         // borrar la del banco después no afecta esta actividad ni sus calificaciones.
         rubrica: form.rubrica || null,
         rubricaId: form.rubricaId || null,
+        rubricaVisibleAlumno: form.rubricaVisibleAlumno !== false,
         notificarDocente: !!form.notificarDocente,
       }
       const tipo = isObservacion ? 'observacion' : 'archivo'
@@ -566,6 +571,19 @@ export default function EntregableEditor({
                     </button>
                   </div>
                   {rubricaPreview && <RubricaTable rubrica={form.rubrica} compact={!IS_NATIVE_APP} />}
+                  {/* Visibilidad para el estudiante (23-ago-2026, pedido de
+                      Kike) — SOLO decide si el alumno la ve en su pantalla;
+                      el docente y la IA la siguen usando igual para calificar
+                      en cualquier caso, esto no las oculta ni las desactiva. */}
+                  <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.rubricaVisibleAlumno !== false}
+                      onChange={(e) => setForm((f) => ({ ...f, rubricaVisibleAlumno: e.target.checked }))}
+                      className="w-4 h-4 rounded border-outline-variant text-accent focus:ring-accent"
+                    />
+                    Permitir que los estudiantes vean {esCotejo(form.rubrica) ? 'la lista de cotejo' : 'la rúbrica'}
+                  </label>
                 </>
               ) : (
                 <div className="space-y-2">

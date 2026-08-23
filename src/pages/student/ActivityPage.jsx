@@ -901,8 +901,12 @@ export default function StudentActivityPage() {
 
         {/* Rúbrica de evaluación: visible desde antes de entregar (así el
             estudiante sabe cómo será evaluado); ya calificado, las celdas que
-            el docente eligió aparecen resaltadas. */}
-        {activity?.rubrica?.criterios?.length > 0 && (
+            el docente eligió aparecen resaltadas. Ocultable por el docente
+            (23-ago-2026, `rubricaVisibleAlumno`) — SOLO afecta esta vista;
+            el docente y la IA la siguen usando igual para calificar.
+            `!== false` porque las actividades de antes de este campo nunca
+            lo guardaron y deben seguir viéndose, igual que siempre. */}
+        {activity?.rubrica?.criterios?.length > 0 && activity.rubricaVisibleAlumno !== false && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <div className="flex items-center gap-2 mb-1">
               <ClipboardList size={18} className="text-accent flex-shrink-0" />
