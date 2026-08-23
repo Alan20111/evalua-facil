@@ -40,7 +40,7 @@ export default function CrearJuegoIAModal({
   if (!open) return null
 
   const tipoLabel = tipoJuego === 'sopa_letras' ? 'Sopa de letras' : 'Crucigrama'
-  const costo = creditosIA.estimar('generar_contenido_juego') ?? 6
+  const costo = creditosIA.estimar('generar_contenido_juego') ?? 3
 
   async function handleGenerar() {
     setTrabajando(true)
