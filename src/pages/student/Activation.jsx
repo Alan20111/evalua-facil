@@ -155,10 +155,14 @@ export default function StudentActivation() {
       // agregue.
       if (found.length === 0) { setStep('not_enrolled'); return }
       const data = { id: found[0].id, ...found[0].data() }
-      // Mismo username mismo NÚMERO no basta — students de escuelas distintas
-      // podrían coincidir en username. La cuenta ya autenticada es de UNA
-      // escuela (userProfile.escuelaId); si no coincide, no es su asignatura.
-      if (data.escuelaId !== userProfile.escuelaId) { setStep('session_blocked'); return }
+      // CORRECCIÓN 23-ago-2026 (regla definitiva de Kike): el código de
+      // asignatura es la ÚNICA llave para incorporarse — antes se bloqueaba
+      // aquí si `escuelaId` no coincidía con la cuenta ya autenticada, lo
+      // que rechazaba incorporaciones legítimas (código correcto, escuela
+      // distinta). El hallazgo de arriba (por `uid`, o por `username` ya
+      // acotado a `asignaturaId == subject.id`) ya identifica sin ambigüedad
+      // al alumno correcto de ESTE roster — no hace falta ni se debe volver
+      // a filtrar por escuela.
       if (data.activado) {
         // Salió de esta asignatura por su cuenta (ocultaPorAlumno) — pedido
         // explícito: NO se reactiva sola con el código, para que un alumno no
