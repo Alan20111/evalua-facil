@@ -664,14 +664,18 @@ function bloqueContexto(ctx, asignatura) {
   return t
 }
 
-// Llamada + lectura del JSON, común a rúbrica/cotejo/reactivos.
-async function pedirJSON({ client, modelo, maxTokens, prompt, system = INSTRUMENTO_SISTEMA }) {
+// Llamada + lectura del JSON, común a rúbrica/cotejo/reactivos. `bloques`
+// (opcional) son content blocks adicionales — imagen/PDF nativo o texto de
+// Word ya preparados por evidenciasEntrega.js — que se agregan DESPUÉS del
+// prompt de texto, mismo patrón que evaluarEntregaConIA en "Calificar con IA".
+async function pedirJSON({ client, modelo, maxTokens, prompt, system = INSTRUMENTO_SISTEMA, bloques = [] }) {
   const inicio = Date.now()
+  const content = bloques.length ? [{ type: 'text', text: prompt }, ...bloques] : prompt
   const msg = await client.messages.create({
     model: modelo,
     max_tokens: maxTokens,
     system,
-    messages: [{ role: 'user', content: prompt }],
+    messages: [{ role: 'user', content }],
   })
   let texto = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
   if (texto.startsWith('```')) texto = texto.replace(/^```(json)?\n?/, '').replace(/```$/, '').trim()
@@ -698,6 +702,24 @@ function bloqueConsideraciones(params) {
   return `\nCONSIDERACIONES DEL DOCENTE — tómalas en cuenta al proponer los criterios:\n"""${texto}"""\n`
 }
 
+// Evidencia opcional que el docente adjunta al generar rúbrica/lista de
+// cotejo (23-ago-2026, pedido de Kike: "si subo las hojas en PDF de los
+// ejercicios los considere") — hasta 5 imágenes, o 1 PDF, o 1 Word. Mismo
+// motor que "Calificar con IA" (evidenciasEntrega.js): imagen/PDF nativo,
+// Word como texto extraído. `params.archivos` = [{url, nombre}], igual que
+// una entrega de estudiante.
+async function evidenciaInstrumento(params) {
+  const archivos = Array.isArray(params?.archivos) ? params.archivos : []
+  if (!archivos.length) return { bloques: [], textoIntro: '' }
+  const { bloques, detalle } = await prepararEvidenciasEntrega(archivos)
+  if (!bloques.length) return { bloques: [], textoIntro: '' }
+  return {
+    bloques,
+    textoIntro: `\nEl docente adjuntó ${detalle.length} archivo(s) como evidencia (por ejemplo, las hojas del ` +
+      'ejercicio) — considéralos junto con las instrucciones de arriba al proponer los criterios.\n',
+  }
+}
+
 // La propuesta que sale de aquí trae SOLO texto. Los números los pone el
 // cliente con las funciones del modelo de rúbricas (utils/rubrica.js).
 async function ejecutarRubrica({ params, modelo, apiKey }) {
@@ -716,11 +738,13 @@ async function ejecutarRubrica({ params, modelo, apiKey }) {
     return '"<...>"'
   }).join(', ')
   const descriptoresEjemplo = Array.from({ length: numNiveles }, (_, i) => `"<nivel ${i + 1}>"`).join(', ')
+  const evidencia = await evidenciaInstrumento(params)
 
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 1500,
     prompt: bloqueContexto(ctx, asignatura) +
       bloqueConsideraciones(params) +
+      evidencia.textoIntro +
       `\nPropón una RÚBRICA de ${numCriterios} criterios y ${numNiveles} niveles de desempeño ` +
       '(del mejor al peor), con un descriptor por cada criterio en cada nivel.\n' +
       'Los descriptores describen QUÉ se observa en ese nivel, en máximo 20 palabras, ' +
@@ -734,6 +758,7 @@ async function ejecutarRubrica({ params, modelo, apiKey }) {
       `    {"nombre": "<criterio, máx 8 palabras>", "descriptores": [${descriptoresEjemplo}]}\n` +
       '  ]\n' +
       '}',
+    bloques: evidencia.bloques,
   })
 
   return {
@@ -760,11 +785,13 @@ async function ejecutarCotejo({ params, modelo, apiKey }) {
   const ctx = params.__contexto
   const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
   const numCriterios = clampInt(params?.numCriterios, MIN_CRITERIOS, MIN_CRITERIOS, MAX_CRITERIOS)
+  const evidencia = await evidenciaInstrumento(params)
 
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 800,
     prompt: bloqueContexto(ctx, asignatura) +
       bloqueConsideraciones(params) +
+      evidencia.textoIntro +
       `\nPropón una LISTA DE COTEJO de ${numCriterios} indicadores. Cada indicador se marca ` +
       'cumple / no cumple, así que debe ser VERIFICABLE de un vistazo y sin ' +
       'grados intermedios (nada de "adecuadamente" o "de manera suficiente").\n\n' +
@@ -774,6 +801,7 @@ async function ejecutarCotejo({ params, modelo, apiKey }) {
       '  "descripcion": "<una frase sobre qué verifica>",\n' +
       '  "criterios": [{"nombre": "<indicador verificable, máx 12 palabras>"}]\n' +
       '}',
+    bloques: evidencia.bloques,
   })
 
   return {
