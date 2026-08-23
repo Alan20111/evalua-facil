@@ -5658,7 +5658,7 @@ export default function SubjectPage() {
                       { key: 'entregable', label: 'Entregable', desc: 'El estudiante entrega uno o varios archivos.', Icon: FileText, iconColor: 'text-slate-400', iconBg: 'bg-slate-100' },
                       { key: 'evaluacion', label: 'Evaluación', desc: 'Cuestionarios y exámenes con reactivos y calificación.', Icon: ListChecks, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
                       { key: 'observacion', label: 'Observación', desc: 'Tú observas y calificas el desempeño del estudiante.', Icon: ClipboardCheck, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
-                      { key: 'interactiva', label: 'Actividad interactiva', desc: 'El estudiante realiza una actividad directamente en Evalúa Fácil.', Icon: Gamepad2, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
+                      { key: 'interactiva', label: 'Actividad interactiva', desc: 'El estudiante realiza una actividad directamente en Evalúa Fácil, generada con IA.', Icon: Gamepad2, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
                     ].map((opt) => (
                       <button key={opt.key} type="button" aria-label={opt.label} onClick={() => setMenuPaso(opt.key)}
                         className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
