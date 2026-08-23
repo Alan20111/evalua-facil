@@ -13,7 +13,8 @@ import {
 // Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
 import { updateDoc, setDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
-import { db } from '../../firebase'
+import { httpsCallable } from 'firebase/functions'
+import { db, functions } from '../../firebase'
 import { submissionDocId } from '../../utils/submissionId'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -23,6 +24,7 @@ import {
   ArrowLeft, Clock,
   Download, Star, CalendarDays,
   ChevronLeft, ChevronRight, FolderDown, Pencil, Trash2, ExternalLink,
+  CheckCheck,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import ZoomableImage from '../../components/ZoomableImage'
@@ -48,6 +50,7 @@ import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import RubricaGradeTable from '../../components/rubrica/RubricaGradeTable'
 import CalificarConIAModal from '../../components/rubrica/CalificarConIAModal'
 import ConfirmacionCreditosModal from '../../components/ConfirmacionCreditosModal'
+import ConfirmModal from '../../components/ConfirmModal'
 import { ClipboardList, ListChecks, X, Sparkles } from 'lucide-react'
 import { totalRubrica, RUBRICA_TOTAL, esCotejo, instrumentoColors } from '../../utils/rubrica'
 import useCreditosIA from '../../hooks/useCreditosIA'
@@ -218,6 +221,10 @@ export default function ActivityPage() {
   // verla o precargarla — así "Ver propuesta de IA" sigue siendo gratis si
   // el docente termina sin guardar.
   const [iaPropuestaDocId, setIaPropuestaDocId] = useState(null)
+  // Resultado completo de una evaluación INDIVIDUAL (sin doc persistido
+  // todavía) — persistGrade() lo usa para crear el registro en
+  // iaSugerenciasEntregable recién cuando el docente guarda de verdad.
+  const [iaResultadoAplicado, setIaResultadoAplicado] = useState(null)
   function abrirCalificarIA() {
     setPrevioAntesDeIA({ rubricEval, gradeForm })
     setCalificarIAAbierto(true)
@@ -235,6 +242,7 @@ export default function ActivityPage() {
       setGradeForm(previoAntesDeIA.gradeForm)
     }
     setIaPropuestaDocId(null)
+    setIaResultadoAplicado(null)
     setPrevioAntesDeIA(null)
     setCalificarIAAbierto(false)
   }
@@ -314,14 +322,22 @@ export default function ActivityPage() {
   // legítimo antes de tiempo.
   useEffect(() => { if (currentUser) loadAll() }, [activityId, currentUser])
 
-  // Propuestas del lote "Calificar todas con IA" persistidas por el servidor
-  // — mismo patrón que iaSugerencias de C-02 (EvaluacionManager.jsx).
+  // Evaluaciones de IA persistidas por el servidor — tanto 'pendiente' (de
+  // un lote sin aplicar todavía) como 'aplicada' (23-ago-2026, pedido de
+  // Kike: "toda evaluación realizada por IA debe quedar consultable
+  // posteriormente sin volver a cobrar" — ya no se pierden de la interfaz
+  // una vez aplicadas). `_estado` decide la etiqueta del botón: 'pendiente'
+  // → "Ver propuesta de IA", 'aplicada' → "Ver evaluación de IA". Mismo
+  // patrón que iaSugerencias de C-02 (EvaluacionManager.jsx).
   useEffect(() => {
     if (!activityId) return undefined
-    const q = query(collection(db, 'activities', activityId, 'iaSugerenciasEntregable'), where('estado', '==', 'pendiente'))
+    const q = query(
+      collection(db, 'activities', activityId, 'iaSugerenciasEntregable'),
+      where('estado', 'in', ['pendiente', 'aplicada']),
+    )
     const unsub = onSnapshot(q, (snap) => {
       const mapa = {}
-      snap.docs.forEach((d) => { mapa[d.data().sub] = { ...d.data().sugerencia, _docId: d.id } })
+      snap.docs.forEach((d) => { mapa[d.data().sub] = { ...d.data().sugerencia, _docId: d.id, _estado: d.data().estado } })
       setSugerenciasLoteIA(mapa)
     }, () => { /* sin permiso u offline: sin sugerencias que recuperar */ })
     return unsub
@@ -409,6 +425,7 @@ export default function ActivityPage() {
     // Cambiar de estudiante deja atrás cualquier propuesta de IA precargada
     // sin guardar — nunca debe seguir "colgada" y aplicarse sobre otro alumno.
     setIaPropuestaDocId(null)
+    setIaResultadoAplicado(null)
     setPrevioAntesDeIA(null)
     setGradeForm({
       // Delivered but ungraded (or observación, which never has a delivery) →
@@ -555,16 +572,22 @@ export default function ActivityPage() {
   // llena selectRubricaNivel a mano. No guarda nada por sí sola: el docente
   // sigue viendo la rúbrica de siempre, puede ajustar cualquier nivel, y el
   // guardado real sigue siendo el botón "Guardar calificación" existente.
-  function aplicarPropuestaIA(criteriosIA, retroalimentacion, docId = null) {
-    const next = criteriosIA.map((c) => c.nivel)
+  function aplicarPropuestaIA(resultado, docId = null) {
+    const next = resultado.criterios.map((c) => c.nivel)
     setRubricEval(next)
     const total = totalRubrica(activity.rubrica, next)
     setGradeForm((f) => ({
       ...f,
       calificacion: total != null ? String(total) : f.calificacion,
-      comentario: retroalimentacion || f.comentario,
+      comentario: resultado.retroalimentacionGeneral || f.comentario,
     }))
     setIaPropuestaDocId(docId)
+    // Sin docId: viene del flujo INDIVIDUAL, que nunca queda persistido solo
+    // — se guarda el resultado completo para que persistGrade() lo escriba
+    // en iaSugerenciasEntregable recién cuando el docente de verdad guarde
+    // (23-ago-2026: "toda evaluación de IA debe quedar consultable sin
+    // volver a cobrar", también para "Calificar con IA" individual).
+    setIaResultadoAplicado(docId ? null : resultado)
   }
 
   // ── "Calificar todas con IA" (lote) — mismo patrón que contarRespuestasIA
@@ -661,6 +684,51 @@ export default function ActivityPage() {
     }
   }
 
+  // ── "Aplicar calificaciones de IA a todas" (Modo 1, 23-ago-2026) ───────────
+  // Trabaja SOLO con sugerencias que YA EXISTEN y están 'pendiente' — nunca
+  // llama a Anthropic, nunca pasa por ejecutarOperacionIA ni por el ledger de
+  // créditos. Útil cuando el docente ya afinó la rúbrica y confía en que la
+  // IA está evaluando bien: en vez de abrir entrega por entrega, aplica todas
+  // las propuestas pendientes de un solo golpe. Distinto de "Recalificar
+  // todas con IA", que sí genera evaluaciones NUEVAS y sí cobra.
+  const [aplicarTodasConteo, setAplicarTodasConteo] = useState(null) // { entregas } → confirmación sin costo
+  const [aplicarTodasTrabajando, setAplicarTodasTrabajando] = useState(false)
+
+  function contarAplicarTodasIA() {
+    const pendientes = Object.values(sugerenciasLoteIA).filter((s) => s._estado === 'pendiente')
+    if (!pendientes.length) {
+      toast('No hay propuestas de IA pendientes por aplicar', 'error')
+      return
+    }
+    setAplicarTodasConteo({ entregas: pendientes.length })
+  }
+
+  async function ejecutarAplicarTodasIA() {
+    setAplicarTodasTrabajando(true)
+    try {
+      const aplicar = httpsCallable(functions, 'aplicarEvaluacionesIAPendientes', { timeout: 120000 })
+      const { data } = await aplicar({ actividadId: activityId })
+      setAplicarTodasConteo(null)
+      const aplicadas = data?.aplicadas || 0
+      const noAplicadas = data?.noAplicadas || 0
+      if (aplicadas > 0) {
+        const subsSnap = await getDocs(query(collection(db, 'submissions'), where('actividadId', '==', activityId)))
+        const subsMap = {}
+        subsSnap.docs.forEach((d) => { subsMap[d.data().alumnoId] = { id: d.id, ...d.data() } })
+        setSubmissions(subsMap)
+        setSelected((sel) => (sel?.sub && subsMap[sel.student.id]) ? { ...sel, sub: subsMap[sel.student.id] } : sel)
+      }
+      toast(
+        `${aplicadas} calificación${aplicadas !== 1 ? 'es' : ''} aplicada${aplicadas !== 1 ? 's' : ''}` +
+        `${noAplicadas ? ` — ${noAplicadas} no se pudo${noAplicadas !== 1 ? 'ieron' : ''} aplicar` : ''}`,
+      )
+    } catch (err) {
+      toast('No se pudo completar: ' + err.message, 'error')
+    } finally {
+      setAplicarTodasTrabajando(false)
+    }
+  }
+
   // Single save path shared by the Guardar button and Anterior/Siguiente.
   // Updates local state in place (no reload) so navigation stays fluid.
   // For observación, the first grade CREATES the submission doc (there is no
@@ -714,6 +782,18 @@ export default function ActivityPage() {
     if (iaPropuestaDocId) {
       updateDoc(doc(db, 'activities', activityId, 'iaSugerenciasEntregable', iaPropuestaDocId), { estado: 'aplicada' }).catch(() => {})
       setIaPropuestaDocId(null)
+    } else if (iaResultadoAplicado) {
+      // Flujo INDIVIDUAL: no había ningún doc que marcar — se crea aquí,
+      // recién con la calificación ya guardada, para que "Ver evaluación de
+      // IA" pueda consultarla después sin volver a cobrar (23-ago-2026).
+      // Un fallo aquí no debe tumbar el guardado de la calificación, que ya
+      // se hizo — solo se pierde el registro histórico, no la nota.
+      httpsCallable(functions, 'guardarEvaluacionIndividualAplicada')({
+        actividadId: activityId,
+        submissionId: updated.id,
+        sugerencia: iaResultadoAplicado,
+      }).catch((err) => console.error('guardarEvaluacionIndividualAplicada falló:', err))
+      setIaResultadoAplicado(null)
     }
     return true
   }
@@ -947,6 +1027,11 @@ export default function ActivityPage() {
     !!sugerenciaPersistidaIA ||
     (creditosIA.saldoPositivo && selFiles.some((f) => isEvidenciaSoportada(f.nombre, f.url)))
   )
+  // Tres estados, tres etiquetas — nunca cobra ver algo que ya se generó
+  // (pendiente o aplicada), solo generar algo nuevo cobra.
+  const labelCalificarConIA = !sugerenciaPersistidaIA
+    ? 'Calificar con IA'
+    : sugerenciaPersistidaIA._estado === 'aplicada' ? 'Ver evaluación de IA' : 'Ver propuesta de IA'
   // Clamp while typing: never above maxCalif, never below 0, at most 1 decimal.
   // Partial input like "9." is left alone so decimals can still be typed.
   function onCalifChange(e) {
@@ -1284,6 +1369,19 @@ export default function ActivityPage() {
             >
               <Sparkles size={18} />
               Recalificar todas con IA
+            </button>
+            {/* "Aplicar calificaciones de IA a todas" (Modo 1) — NUNCA genera
+                IA nueva ni cobra: solo aplica las propuestas 'pendiente' que
+                ya existen. Ícono distinto (CheckCheck, no Sparkles) para que
+                se distinga a simple vista de las dos acciones de arriba, que
+                sí generan y sí cobran. */}
+            <button
+              type="button"
+              onClick={contarAplicarTodasIA}
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60"
+            >
+              <CheckCheck size={18} />
+              Aplicar calificaciones de IA a todas
             </button>
           </div>
         )}
@@ -1714,7 +1812,7 @@ export default function ActivityPage() {
                         className="w-full py-2.5 text-sm font-semibold rounded border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
                       >
                         <Sparkles size={17} />
-                        {sugerenciaPersistidaIA ? 'Ver propuesta de IA' : 'Calificar con IA'}
+                        {labelCalificarConIA}
                       </button>
                     )}
 
@@ -2640,6 +2738,22 @@ export default function ActivityPage() {
           ejecutando={loteIATrabajando}
           onCancelar={() => { if (!loteIATrabajando) setLoteIAConteo(null) }}
           onContinuar={ejecutarLoteIA}
+        />
+      )}
+
+      {/* "Aplicar calificaciones de IA a todas" (Modo 1) — confirmación SIN
+          costo, deliberadamente distinta de ConfirmacionCreditosModal (que
+          siempre habla de créditos): esta acción no genera IA nueva, así que
+          no debe insinuar ningún cobro. */}
+      {aplicarTodasConteo && (
+        <ConfirmModal
+          title="Aplicar calificaciones de IA a todas"
+          message={`Se aplicará la calificación propuesta por la IA a ${aplicarTodasConteo.entregas} entrega${aplicarTodasConteo.entregas !== 1 ? 's' : ''} que ya tienen una propuesta pendiente. No se hará ninguna evaluación nueva con IA y no se consumirán créditos.`}
+          confirmLabel="Aplicar a todas"
+          confirmingLabel="Aplicando…"
+          busy={aplicarTodasTrabajando}
+          onConfirm={ejecutarAplicarTodasIA}
+          onCancel={() => { if (!aplicarTodasTrabajando) setAplicarTodasConteo(null) }}
         />
       )}
 
