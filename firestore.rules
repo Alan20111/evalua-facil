@@ -45,15 +45,20 @@ service cloud.firestore {
     // ── Tarifa oficial de un paquete de créditos (créditos puros, 20-ago-2026) ──
     // Espejo de config/iaTarifas.paquetesCreditos (seeds-db/seed-ia-tarifas.js)
     // — misma razón que montoOficialPago arriba: el servidor no confía en el
-    // precio que declara el cliente. 6 paquetes definitivos, con descuento por
-    // volumen creciente (reemplazan al modelo lineal de $0.50/crédito).
+    // precio que declara el cliente. 6 paquetes definitivos.
+    //
+    // Conversión de unidad 23-ago-2026 (decisión PO): 1 crédito = $1 MXN.
+    // Los precios monetarios NO cambiaron, solo la cantidad nominal de
+    // créditos por paquete — si este espejo y seed-ia-tarifas.js.paquetesCreditos
+    // dejan de coincidir, las compras se rechazan con "Missing or insufficient
+    // permissions" (mismo mecanismo que montoOficialPago).
     function montoOficialCredito(creditos) {
-      return creditos == 50 ? 100 :
-        creditos == 100 ? 175 :
-        creditos == 200 ? 350 :
-        creditos == 400 ? 700 :
-        creditos == 800 ? 1400 :
-        creditos == 1600 ? 2800 : null;
+      return creditos == 100 ? 100 :
+        creditos == 175 ? 175 :
+        creditos == 350 ? 350 :
+        creditos == 700 ? 700 :
+        creditos == 1400 ? 1400 :
+        creditos == 2800 ? 2800 : null;
     }
 
     // ── Modelo de créditos puros (20-ago-2026) ──────────────────────────────

@@ -7,7 +7,7 @@ import Spinner from '../Spinner'
 import InfoDisclosure from '../ui/InfoDisclosure'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark, GripVertical, RotateCcw, Sparkles } from 'lucide-react'
+import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark, GripVertical, RotateCcw } from 'lucide-react'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import { PLANTILLAS_SEED, EMOJI_PALETTE, avisoEmoji, formatAvisoFecha, avisosDesde } from '../../utils/avisos'
@@ -571,11 +571,6 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label htmlFor="aviso-mensaje" className="block text-sm font-medium text-on-surface">Mensaje <span className="font-normal text-muted">(opcional)</span></label>
-                    <button type="button" onClick={() => setIaConfirmando(true)} disabled={iaTrabajando}
-                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-60">
-                      <Sparkles size={14} />
-                      {iaTrabajando ? 'Redactando…' : 'Redactar con IA'}
-                    </button>
                   </div>
                   <textarea id="aviso-mensaje" value={form.mensaje} onChange={(e) => setForm((f) => ({ ...f, mensaje: e.target.value }))}
                     rows={5} placeholder="Deja este campo vacío si el título ya lo dice todo"
