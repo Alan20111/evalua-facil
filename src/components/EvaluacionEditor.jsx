@@ -761,7 +761,7 @@ export default function EvaluacionEditor({
         cantidad: iaCantidad,
         tipoSolicitado: iaTipoSolicitado,
         fuentes: urls,
-      })
+      }, iaCantidad)
       // El servidor ya forzó la cantidad y el tipo exacto de cada reactivo
       // (ver functions/ia.js); aquí solo se le da forma al editor de revisión.
       const propuesta = reactivosDesdePropuesta(r?.resultado, iaCantidad)

@@ -2,7 +2,8 @@
 //
 // Mismo patrón que CrearActividadIAModal (OP-05): la actividad nace oculta
 // (borrador) con un cascarón vacío; la IA solo propone `juego.contenido`
-// (generar_contenido_juego, tarifa fija 0.5 crédito). La construcción de la
+// (generar_contenido_juego, tarifa fija — cubre la actividad interactiva
+// completa, ver config/iaTarifas). La construcción de la
 // cuadrícula (construirJuego) es un paso APARTE, gratis, que el docente
 // dispara desde ContenidoJuegoEditor una vez que revisa/edita el contenido.
 //
@@ -39,7 +40,7 @@ export default function CrearJuegoIAModal({
   if (!open) return null
 
   const tipoLabel = tipoJuego === 'sopa_letras' ? 'Sopa de letras' : 'Crucigrama'
-  const costo = creditosIA.estimar('generar_contenido_juego') ?? 0.5
+  const costo = creditosIA.estimar('generar_contenido_juego') ?? 6
 
   async function handleGenerar() {
     setTrabajando(true)
@@ -92,7 +93,7 @@ export default function CrearJuegoIAModal({
       // parecía que "Confirmar contenido y construir juego" exigiera
       // créditos, cuando construirJuego nunca los toca. Nos quedamos en
       // el modal para que el error se lea en el contexto correcto (la
-      // generación con IA, la única operación que sí cuesta 0.5 crédito).
+      // generación con IA, la única operación que sí cuesta créditos).
     } finally {
       setTrabajando(false)
     }

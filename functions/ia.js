@@ -1320,16 +1320,18 @@ async function ejecutarReactivos({ params, modelo, apiKey }) {
     prompt: promptReactivos(ctx, asignatura),
   })
 
-  const reactivos = normalizarReactivos(datos, ctx)
-  // Regla de no invención (T.7): si el modelo no devolvió nada aprovechable,
-  // esto NO se cobra — cae al catch del callable, que reembolsa la reserva.
-  if (!reactivos.some((r) => r.enunciado)) {
+  // Tarifa comercial (decisión PO, 23-ago-2026): 0.5 crédito por reactivo
+  // REALMENTE generado — mismo criterio que crear_evaluacion_ia, ya no es
+  // una tarifa fija por llamada. Se descarta lo no aprovechable (regla de
+  // no invención, T.7) ANTES de contar, para no cobrar por reactivos vacíos.
+  const reactivos = normalizarReactivos(datos, ctx).filter((r) => r.enunciado)
+  if (!reactivos.length) {
     throw new Error('El asistente de IA no generó reactivos utilizables')
   }
 
   return {
     resultado: { reactivos, clase: ctx.clase },
-    unidadesReales: 1,
+    unidadesReales: reactivos.length,
     interno,
   }
 }
