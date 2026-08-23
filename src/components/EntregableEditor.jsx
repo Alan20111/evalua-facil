@@ -115,6 +115,11 @@ export default function EntregableEditor({
   // aunque la IA regrese de más o de menos. Default = el mínimo permitido.
   const [iaNumCriterios, setIaNumCriterios] = useState(MIN_CRITERIOS)
   const [iaNumNiveles, setIaNumNiveles] = useState(MIN_NIVELES)
+  // Texto libre opcional del docente ("que cada respuesta sea un criterio",
+  // etc.) — viaja tal cual al servidor, que lo mete al prompt como una
+  // preferencia a respetar, nunca como una instrucción que reemplace el
+  // contexto real de la actividad.
+  const [iaConsideraciones, setIaConsideraciones] = useState('')
   // Datos de la generación, para dejar la traza (T.8) en la copia que guarda
   // la actividad. No viajan al banco de rúbricas.
   const [iaOrigen, setIaOrigen] = useState(null)          // { clase, generadoEn }
@@ -322,6 +327,7 @@ export default function EntregableEditor({
         asignaturaNombre: contextLine || '',
         numCriterios: iaNumCriterios,
         ...(iaTipo === 'rubrica' ? { numNiveles: iaNumNiveles } : {}),
+        consideraciones: iaConsideraciones.trim(),
       })
       // La IA propuso solo el contenido pedagógico; los números los pone EF
       // aquí, con el mismo reparto del editor, forzando el número EXACTO que
@@ -822,6 +828,21 @@ export default function EntregableEditor({
                 </select>
               </div>
             )}
+            <div>
+              <label htmlFor="ia-consideraciones" className="text-sm text-on-surface block mb-1">
+                Consideraciones (opcional)
+              </label>
+              <textarea
+                id="ia-consideraciones"
+                value={iaConsideraciones}
+                disabled={iaTrabajando}
+                onChange={(e) => setIaConsideraciones(e.target.value)}
+                placeholder="Por ejemplo: que cada respuesta del ejercicio sea un criterio de evaluación"
+                rows={2}
+                maxLength={400}
+                className="w-full px-2 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none"
+              />
+            </div>
           </div>
         </ConfirmacionCreditosModal>
       )}

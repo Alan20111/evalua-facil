@@ -6,8 +6,9 @@
 // son <input> nativos). Las pistas se listan debajo, agrupadas
 // Horizontales/Verticales por numeración estándar.
 //
-// Modo solo-lectura (`readOnly`) se usa en RevisionJuegoBorrador — ahí solo
-// se ve la forma de la cuadrícula, sin captura de respuestas.
+// `readOnly` queda disponible para un futuro caller que solo necesite ver la
+// forma de la cuadrícula sin captura de respuestas — RevisionJuegoBorrador
+// (preview jugable del docente) y JuegoRunner (alumno) usan el modo normal.
 
 import { useRef } from 'react'
 
