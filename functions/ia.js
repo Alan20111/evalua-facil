@@ -1224,8 +1224,20 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
         // null y esa entrega se deja como propuesta pendiente en vez de
         // escribir una calificación inventada — la regla de "nunca inventar"
         // sigue ganando en ese caso puntual.
+        // calificacionPropuesta se calcula y persiste SIEMPRE (no solo al
+        // recalificar) — 23-ago-2026, pedido de Kike: "Ver evaluación de IA"
+        // debe seguir mostrando la calificación que la IA propuso originalmente
+        // aunque después el docente cambie la calificación a mano o incluso
+        // cambie la rúbrica; sin este número fijo, reconstruirlo más tarde
+        // recalculando contra la rúbrica ACTUAL daría un valor distinto.
         const niveles = sugerencia.criterios.map((c) => c.nivel)
-        const total = ctx.recalificar ? totalInstrumento(ctx.rubrica, niveles) : null
+        const total = totalInstrumento(ctx.rubrica, niveles)
+        const sugerenciaCompleta = {
+          ...sugerencia,
+          ignoradosPorFormato: item.evidencias.ignoradosPorFormato,
+          ignoradosPorTope: item.evidencias.ignoradosPorTope,
+          calificacionPropuesta: total,
+        }
         if (ctx.recalificar && total != null) {
           await db.doc(`submissions/${item.submissionId}`).update({
             calificacion: total,
@@ -1236,11 +1248,7 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
           await item.ref.set({
             estado: 'aplicada',
             aplicadaAutomaticamente: true,
-            sugerencia: {
-              ...sugerencia,
-              ignoradosPorFormato: item.evidencias.ignoradosPorFormato,
-              ignoradosPorTope: item.evidencias.ignoradosPorTope,
-            },
+            sugerencia: sugerenciaCompleta,
             actualizadoEn: FieldValue.serverTimestamp(),
           }, { merge: true })
           aplicadasAuto++
@@ -1249,11 +1257,7 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
           // falla, la entrega cae al catch (candado liberado, sin cobro).
           await item.ref.set({
             estado: 'pendiente',
-            sugerencia: {
-              ...sugerencia,
-              ignoradosPorFormato: item.evidencias.ignoradosPorFormato,
-              ignoradosPorTope: item.evidencias.ignoradosPorTope,
-            },
+            sugerencia: sugerenciaCompleta,
             actualizadoEn: FieldValue.serverTimestamp(),
           }, { merge: true })
         }
