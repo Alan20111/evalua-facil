@@ -549,7 +549,28 @@ export default function ActivityPage() {
         : 'No hay entregas pendientes con evidencia en un formato legible (JPG, PNG, PDF o Word)', 'error')
       return
     }
-    setLoteIAConteo({ entregas: elegibles.length })
+    setLoteIAConteo({ entregas: elegibles.length, recalificar: false })
+  }
+
+  // "Recalificar todas con IA" — para cuando el docente YA cambió la
+  // rúbrica/lista de cotejo y quiere propuestas nuevas con el instrumento
+  // actual. A diferencia de "Calificar todas con IA", cuenta TODA entrega
+  // con evidencia legible sin importar si ya tiene calificación o propuesta
+  // — el servidor regenera cada propuesta desde cero (ver recalificar=true
+  // en precheckCalificarEntregableLote/ejecutarCalificarEntregableIALote).
+  // No crea entregas nuevas, no toca archivos ni calificaciones existentes:
+  // solo dEJA LISTAS propuestas nuevas para que el docente las revise.
+  function contarRecalificarIA() {
+    const elegibles = students.filter((s) => {
+      const sub = submissions[s.id]
+      if (!sub) return false
+      return submissionFiles(sub).some((f) => isEvidenciaSoportada(f.nombre, f.url))
+    })
+    if (!elegibles.length) {
+      toast('No hay entregas con evidencia en un formato legible (JPG, PNG, PDF o Word)', 'error')
+      return
+    }
+    setLoteIAConteo({ entregas: elegibles.length, recalificar: true })
   }
 
   // Ejecuta el lote tras la confirmación del docente. El servidor relee todo
@@ -558,13 +579,25 @@ export default function ActivityPage() {
   // calificación (regla O3): el snapshot de arriba las entrega y el docente
   // las aplica una por una si le convencen.
   async function ejecutarLoteIA() {
+    const recalificar = loteIAConteo?.recalificar === true
     setLoteIATrabajando(true)
     try {
-      const data = await creditosIA.ejecutar('calificar_entregable_ia_lote', { actividadId: activityId }, loteIAConteo.entregas, { timeoutMs: 300000 })
+      const data = await creditosIA.ejecutar(
+        'calificar_entregable_ia_lote',
+        { actividadId: activityId, recalificar },
+        loteIAConteo.entregas,
+        { timeoutMs: 300000 },
+      )
       setLoteIAConteo(null)
       const n = data?.resultado?.generadas || 0
       const previas = data?.resultado?.yaProcesadas || 0
-      toast(`${n} propuesta${n !== 1 ? 's' : ''} de IA lista${n !== 1 ? 's' : ''}${previas ? ` (${previas} ya existían y no se cobraron)` : ''} — revísalas al calificar a cada estudiante. Tú decides.`)
+      const fallidas = data?.resultado?.fallidas || 0
+      toast(
+        `${n} propuesta${n !== 1 ? 's' : ''} de IA lista${n !== 1 ? 's' : ''}` +
+        `${previas ? ` (${previas} ya existían y no se cobraron)` : ''}` +
+        `${fallidas ? ` — ${fallidas} no se pudo${fallidas !== 1 ? 'ieron' : ''} procesar` : ''}` +
+        ' — revísalas al calificar a cada estudiante. Tú decides.',
+      )
     } catch (err) {
       toast(err.codigo === 'SALDO_INSUFICIENTE' ? 'No tienes créditos suficientes para este lote' : 'No se pudo completar: ' + err.message, 'error')
     } finally {
@@ -1167,7 +1200,7 @@ export default function ActivityPage() {
         {/* "Calificar todas con IA" — lote sobre las entregas pendientes de
             esta actividad, mismo instrumento (rúbrica/cotejo) para todas. */}
         {hasRubrica && (
-          <div className="px-4 pt-3">
+          <div className="px-4 pt-3 space-y-2">
             <button
               type="button"
               onClick={contarEntregasIA}
@@ -1175,6 +1208,18 @@ export default function ActivityPage() {
             >
               <Sparkles size={18} />
               Calificar todas con IA
+            </button>
+            {/* "Recalificar todas con IA" — para cuando el docente cambió la
+                rúbrica/lista de cotejo y quiere propuestas nuevas con el
+                instrumento actual. Regenera propuestas, nunca calificaciones
+                ya aplicadas ni entregas. */}
+            <button
+              type="button"
+              onClick={contarRecalificarIA}
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface-container transition-colors disabled:opacity-60"
+            >
+              <Sparkles size={18} />
+              Recalificar todas con IA
             </button>
           </div>
         )}
@@ -2523,8 +2568,10 @@ export default function ActivityPage() {
 
       {loteIAConteo && (
         <ConfirmacionCreditosModal
-          titulo="Calificar todas con IA"
-          descripcion={`Se generará una propuesta de calificación para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} pendiente${loteIAConteo.entregas !== 1 ? 's' : ''}. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`}
+          titulo={loteIAConteo.recalificar ? 'Recalificar todas con IA' : 'Calificar todas con IA'}
+          descripcion={loteIAConteo.recalificar
+            ? `Se generará una propuesta NUEVA de calificación (con la rúbrica/lista de cotejo actual) para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} con evidencia. No se toca ninguna calificación, entrega ni archivo existente — la IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`
+            : `Se generará una propuesta de calificación para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} pendiente${loteIAConteo.entregas !== 1 ? 's' : ''}. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`}
           costoMin={creditosIA.estimar('calificar_entregable_ia_lote', loteIAConteo.entregas) ?? loteIAConteo.entregas * 0.5}
           ejecutando={loteIATrabajando}
           onCancelar={() => { if (!loteIATrabajando) setLoteIAConteo(null) }}

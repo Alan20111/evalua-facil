@@ -814,7 +814,20 @@ const CALIFICAR_ENTREGABLE_SISTEMA =
   'incompleta, no corresponde a lo pedido, o simplemente no aparece), NO INVENTES ni asumas: ' +
   'marca ese criterio con sinEvidenciaSuficiente=true y dilo en su evidencia. Nunca completes ' +
   'con conocimiento general del tema — solo lo que de verdad observaste. Escribe en español, ' +
-  'claro y breve. Responde únicamente con el JSON válido del esquema indicado, sin texto adicional.'
+  'claro y breve. Responde únicamente con el JSON válido del esquema indicado, sin texto adicional.\n\n' +
+  // CORRECCIÓN 23-ago-2026 (pedido explícito de Kike): la retroalimentación
+  // comenta el trabajo YA ENTREGADO — nunca insinúa que existe una segunda
+  // oportunidad dentro de esta misma actividad. Si el docente quiere que el
+  // estudiante rehaga el trabajo, el mecanismo correcto es crear una nueva
+  // actividad entregable — eso lo decide él, no la IA.
+  'REGLA ESTRICTA para "retroalimentacionGeneral": evalúa y comenta la evidencia tal como está — ' +
+  'nunca sugieras, insinúes ni des a entender que el estudiante puede corregir, modificar, volver a ' +
+  'entregar, subir una nueva versión o tener una segunda oportunidad en esta actividad. Prohibido ' +
+  'usar frases como "corrige...", "vuelve a entregar...", "puedes mejorar y volver a subir...", ' +
+  '"reentrega...", "sube una nueva versión...", "haz los cambios y entrega nuevamente..." o ' +
+  'cualquier variante que implique una reentrega. En vez de eso, describe lo que falta u observas ' +
+  'como una observación sobre el trabajo ya realizado — por ejemplo "Faltó incluir X y Y." o "El ' +
+  'trabajo cumple con A y B; sin embargo, no se observa C." — nunca "Agrega C y vuelve a entregar."'
 
 // Espejo mínimo de esCotejo (src/utils/rubrica.js) — no vale la pena meter
 // este archivo entero al mecanismo de _shared/ (scripts/sync-functions-
@@ -1022,12 +1035,20 @@ async function precheckCalificarEntregableLote({ uid, params }) {
 
   // Solo entregas PENDIENTES (sin calificar) — mismo criterio que la
   // pestaña "Pendientes" del docente, nunca pisa una calificación ya dada.
+  // EXCEPCIÓN (23-ago-2026, pedido de Kike): "Recalificar todas con IA" se
+  // dispara cuando el docente YA CAMBIÓ la rúbrica/lista de cotejo y quiere
+  // propuestas nuevas con el instrumento actual — ahí sí interesan también
+  // las que ya tienen calificación, porque esa calificación fue puesta con
+  // el instrumento VIEJO. Solo genera PROPUESTAS nuevas; nunca toca
+  // `submissions.calificacion` directamente (eso lo sigue aplicando el
+  // docente a mano, igual que el lote normal).
+  const recalificar = params?.recalificar === true
   const subsSnap = await db.collection('submissions').where('actividadId', '==', actividadId).get()
-  const pendientes = subsSnap.docs.filter((d) => d.data().calificacion == null)
+  const candidatas = recalificar ? subsSnap.docs : subsSnap.docs.filter((d) => d.data().calificacion == null)
 
   const items = []
   let sinEvidencia = 0
-  for (const subDoc of pendientes) {
+  for (const subDoc of candidatas) {
     const sub = subDoc.data()
     const archivos = Array.isArray(sub.archivos) && sub.archivos.length
       ? sub.archivos
@@ -1049,6 +1070,7 @@ async function precheckCalificarEntregableLote({ uid, params }) {
     rubrica,
     items,
     sinEvidencia,
+    recalificar,
   }
 }
 
@@ -1067,10 +1089,21 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
   // ── Candado por entrega: adquirir el derecho a procesarla (mismo patrón
   // que C-02) — un create() atómico es el único que puede ganarlo; ya
   // 'pendiente'/'aplicada' → ya tiene sugerencia, se recupera gratis.
+  // EXCEPCIÓN recalificar=true: la sugerencia existente quedó calculada con
+  // la rúbrica/lista de cotejo VIEJA — hay que REGENERARLA, no saltarla como
+  // "ya procesada" (eso dejaría al docente viendo una propuesta obsoleta).
   const adquiridos = []
   let yaProcesadas = 0
   for (const item of ctx.items) {
     const ref = db.doc(`activities/${actividadId}/iaSugerenciasEntregable/${item.submissionId}`)
+    if (ctx.recalificar) {
+      await ref.set({
+        estado: 'procesando', actividadId, sub: item.submissionId,
+        consumoKey: params.__idempotencyKey || null, creadoEn: FieldValue.serverTimestamp(),
+      })
+      adquiridos.push({ ...item, ref })
+      continue
+    }
     try {
       await ref.create({
         estado: 'procesando', actividadId, sub: item.submissionId,
@@ -5476,4 +5509,5 @@ exports._pruebas = {
   ACCIONES_ACTIVIDAD,
   precheckCalificarEntregable, bloqueCriteriosInstrumento, precheckCalificarEntregableLote,
   validarClavesVerdaderoFalso, bloqueFechaActualChat, extraerJsonVeredictos,
+  CALIFICAR_ENTREGABLE_SISTEMA,
 }
