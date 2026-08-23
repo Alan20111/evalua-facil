@@ -1110,7 +1110,21 @@ async function precheckCalificarEntregableLote({ uid, params }) {
   // docente a mano, igual que el lote normal).
   const recalificar = params?.recalificar === true
   const subsSnap = await db.collection('submissions').where('actividadId', '==', actividadId).get()
-  const candidatas = recalificar ? subsSnap.docs : subsSnap.docs.filter((d) => d.data().calificacion == null)
+  let candidatas = recalificar ? subsSnap.docs : subsSnap.docs.filter((d) => d.data().calificacion == null)
+
+  // Sin recalificar: excluir las que YA tienen una propuesta 'pendiente' —
+  // mismo filtro que ya aplica el cliente al contar (contarEntregasIA en
+  // ActivityPage.jsx) para no volver a cobrarlas ni recontarlas. Sin este
+  // filtro aquí, el conteo del servidor podía salir MAYOR que la estimación
+  // que ya vio y aceptó el docente (24-ago-2026, bug real reportado por
+  // Kike: "Hay 3 entregas... pero la estimación fue de 2"). Recalificar SÍ
+  // las quiere todas, por diseño — no se toca ese caso.
+  if (!recalificar) {
+    const pendSnap = await db.collection(`activities/${actividadId}/iaSugerenciasEntregable`)
+      .where('estado', '==', 'pendiente').get()
+    const yaConPropuesta = new Set(pendSnap.docs.map((d) => d.data().sub || d.id))
+    candidatas = candidatas.filter((d) => !yaConPropuesta.has(d.id))
+  }
 
   const items = []
   let sinEvidencia = 0
