@@ -21,11 +21,12 @@ import { datosDeCompraCreditos, formatCurrency, validarComprobante } from '../ut
 const inputCls =
   'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
 
-// Precio de referencia sin descuento ($2 MXN/crédito, plan técnico §12) —
-// solo para mostrar "Ahorras $X" por paquete; el precio real que se cobra
-// SIEMPRE sale de config/iaTarifas.paquetesCreditos (paquetes ya trae el
-// precio con descuento aplicado), nunca de esta constante.
-const PRECIO_REFERENCIA_MXN = 2
+// Precio de referencia sin descuento — 1 crédito = $1 MXN (regla de
+// consumo del entorno, corrección del PO 23-ago-2026) — solo para mostrar
+// "Ahorras $X" por paquete; el precio real que se cobra SIEMPRE sale de
+// config/iaTarifas.paquetesCreditos (paquetes ya trae el precio con
+// descuento aplicado), nunca de esta constante.
+const PRECIO_REFERENCIA_MXN = 1
 
 export default function ComprarCreditosModal({ open, onClose, onSuccess }) {
   const { currentUser } = useAuth()
@@ -107,13 +108,12 @@ export default function ComprarCreditosModal({ open, onClose, onSuccess }) {
             </p>
             <div>
               <p className="text-xs font-medium text-muted mb-1.5">Elige un paquete</p>
-              {/* 6 paquetes definitivos (20-ago-2026, modelo de créditos
-                  puros — ver docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md), en 2
-                  filas de 3 para que quepan cómodos incluso en pantallas
-                  angostas. El ahorro se calcula aquí mismo contra la
-                  referencia de $2 MXN/crédito — nunca hardcodeado por
-                  paquete, así que sigue siendo correcto si config/iaTarifas
-                  cambia. */}
+              {/* 6 paquetes definitivos (corrección del PO, 23-ago-2026), en
+                  2 filas de 3 (50|100|200 / 400|800|1600) para que quepan
+                  cómodos incluso en pantallas angostas. El ahorro se calcula
+                  aquí mismo contra la referencia de $1 MXN/crédito — nunca
+                  hardcodeado por paquete, así que sigue siendo correcto si
+                  config/iaTarifas cambia. */}
               <div className="grid grid-cols-3 gap-1">
                 {paquetes.map((p, i) => {
                   const ahorro = p.creditos * PRECIO_REFERENCIA_MXN - p.precioMXN
