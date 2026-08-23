@@ -487,7 +487,16 @@ service cloud.firestore {
         // debe tronar la regla (comparar contra una propiedad ausente lanza
         // error en Firestore rules, no false) — debe colarse como "no es
         // juego" y seguir el candado normal de las demás categorías.
-        (resource.data.get('categoria', null) != 'juego' ||
+        // request.method == 'delete' PRIMERO y de corto circuito: en un
+        // delete no existe `request.resource` (no hay documento resultante)
+        // — referenciar request.resource.data.oculta ahí revienta la regla
+        // con un error de evaluación, que el cliente ve como "Missing or
+        // insufficient permissions" (encontrado 23-ago-2026 al intentar
+        // borrar un borrador de juego sin confirmar). Borrar una actividad
+        // propia siempre debe poder hacerse sin importar el estado del
+        // candado de publicación.
+        (request.method == 'delete' ||
+          resource.data.get('categoria', null) != 'juego' ||
           request.resource.data.oculta != false ||
           resource.data.oculta == false ||
           resource.data.juego.estado == 'juego_confirmado');
