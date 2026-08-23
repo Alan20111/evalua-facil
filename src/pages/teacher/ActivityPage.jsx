@@ -2800,6 +2800,7 @@ export default function ActivityPage() {
             cerrarEntregasEnFecha: !activity.recibirTarde,
             rubrica: activity.rubrica || null,
             rubricaId: activity.rubricaId || null,
+            rubricaVisibleAlumno: activity.rubricaVisibleAlumno !== false,
             notificarDocente: activity.notificarDocente || false,
           }}
           initialExistingFiles={activity.archivosAdjuntos || []}
