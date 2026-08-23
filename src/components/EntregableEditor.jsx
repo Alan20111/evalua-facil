@@ -11,7 +11,7 @@ import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, htmlToPlainText, toRichHtml, richTextContentClass } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts, fileTypesInstructions } from '../config/fileTypes'
-import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen, ChevronRight, Trash2, Sparkles } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen, ChevronRight, Trash2, Sparkles, Paperclip } from 'lucide-react'
 import InfoDisclosure from './ui/InfoDisclosure'
 import ConfirmModal from './ConfirmModal'
 import RubricaPicker from './rubrica/RubricaPicker'
@@ -120,6 +120,14 @@ export default function EntregableEditor({
   // preferencia a respetar, nunca como una instrucción que reemplace el
   // contexto real de la actividad.
   const [iaConsideraciones, setIaConsideraciones] = useState('')
+  // Evidencia opcional para que la IA la considere al construir los
+  // criterios (23-ago-2026, pedido de Kike: "si subo las hojas en PDF de
+  // los ejercicios los considere") — hasta 5 imágenes, o 1 PDF, o 1 Word;
+  // mismo tope y mismos formatos que ya acepta "Calificar con IA"
+  // (functions/evidenciasEntrega.js). Se sube a Cloudinary recién al
+  // confirmar, nunca antes — cancelar aquí no sube nada.
+  const [iaEvidenciaArchivos, setIaEvidenciaArchivos] = useState([])
+  const [iaSubiendoEvidencia, setIaSubiendoEvidencia] = useState(false)
   // Datos de la generación, para dejar la traza (T.8) en la copia que guarda
   // la actividad. No viajan al banco de rúbricas.
   const [iaOrigen, setIaOrigen] = useState(null)          // { clase, generadoEn }
@@ -300,8 +308,40 @@ export default function EntregableEditor({
     if (!effectiveActivityId) { setIaGuardarPrimero(tipo); return }
     setIaNumCriterios(MIN_CRITERIOS)
     setIaNumNiveles(MIN_NIVELES)
+    setIaEvidenciaArchivos([])
     setIaTipo(tipo)
     setIaConfirmando(true)
+  }
+
+  // Evidencia opcional para "Generar rúbrica/lista de cotejo con IA" — hasta
+  // 5 imágenes O 1 PDF O 1 Word (categorías excluyentes, mismo criterio que
+  // "Archivos aceptados" del entregable). Rechaza mezclar tipos o exceder el
+  // tope en vez de recortar en silencio, para que el docente sepa por qué.
+  const EVIDENCIA_IMG_EXTS = ['jpg', 'jpeg', 'png']
+  function extensionArchivo(file) {
+    return file.name.split('.').pop().toLowerCase()
+  }
+  function addEvidenciaIA(files) {
+    const lista = Array.from(files)
+    const tooBig = lista.find((f) => f.size > MAX_ATTACH)
+    if (tooBig) { toast(`"${tooBig.name}" supera el máximo de 15 MB`, 'error'); return }
+    const noSoportado = lista.find((f) => {
+      const ext = extensionArchivo(f)
+      return !EVIDENCIA_IMG_EXTS.includes(ext) && ext !== 'pdf' && ext !== 'docx'
+    })
+    if (noSoportado) { toast(`"${noSoportado.name}" no es un formato soportado (JPG, PNG, PDF o Word)`, 'error'); return }
+    const nuevos = [...iaEvidenciaArchivos, ...lista]
+    const soloImagenes = nuevos.every((f) => EVIDENCIA_IMG_EXTS.includes(extensionArchivo(f)))
+    if (!soloImagenes && nuevos.length > 1) {
+      toast('Un PDF o un Word van solos — o hasta 5 imágenes, pero no mezclados', 'error'); return
+    }
+    if (soloImagenes && nuevos.length > 5) {
+      toast('Hasta 5 imágenes por evidencia', 'error'); return
+    }
+    setIaEvidenciaArchivos(nuevos)
+  }
+  function removeEvidenciaIA(index) {
+    setIaEvidenciaArchivos((prev) => prev.filter((_, i) => i !== index))
   }
 
   async function guardarBorradorYSeguir(tipo) {
@@ -317,6 +357,25 @@ export default function EntregableEditor({
   async function generarConIA() {
     setIaTrabajando(true)
     try {
+      // Evidencia (si el docente adjuntó algo) se sube a Cloudinary AQUÍ,
+      // recién al confirmar — nunca antes, para no dejar archivos huérfanos
+      // si cancela. El servidor la lee con el mismo motor que "Calificar con
+      // IA" (evidenciasEntrega.js) y la agrega al mensaje como imagen/PDF
+      // nativo o texto extraído (Word).
+      let archivosEvidencia = []
+      if (iaEvidenciaArchivos.length) {
+        setIaSubiendoEvidencia(true)
+        try {
+          archivosEvidencia = await Promise.all(
+            iaEvidenciaArchivos.map(async (file) => ({
+              url: await uploadToCloudinary(file, 'evalua-facil/ia-rubrica-evidencia'),
+              nombre: file.name,
+            }))
+          )
+        } finally {
+          setIaSubiendoEvidencia(false)
+        }
+      }
       const r = await creditosIA.ejecutar(iaTipo, {
         // El id + cuántos criterios/niveles pidió el docente (elegido ANTES de
         // esta llamada, que es la que reserva créditos). El servidor lee la
@@ -328,6 +387,7 @@ export default function EntregableEditor({
         numCriterios: iaNumCriterios,
         ...(iaTipo === 'rubrica' ? { numNiveles: iaNumNiveles } : {}),
         consideraciones: iaConsideraciones.trim(),
+        archivos: archivosEvidencia,
       })
       // La IA propuso solo el contenido pedagógico; los números los pone EF
       // aquí, con el mismo reparto del editor, forzando el número EXACTO que
@@ -842,6 +902,38 @@ export default function EntregableEditor({
                 maxLength={400}
                 className="w-full px-2 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none"
               />
+            </div>
+            <div>
+              <span className="text-sm text-on-surface block mb-1">Evidencia (opcional)</span>
+              <p className="text-xs text-muted mb-1.5">
+                Por ejemplo las hojas del ejercicio en PDF — la IA las considera al proponer los criterios.
+                Hasta 5 imágenes, o 1 PDF, o 1 Word.
+              </p>
+              {iaEvidenciaArchivos.length > 0 && (
+                <ul className="space-y-1 mb-1.5">
+                  {iaEvidenciaArchivos.map((file, i) => (
+                    <li key={`${file.name}-${i}`} className="flex items-center justify-between gap-2 px-2 py-1 bg-surface-container rounded text-xs text-on-surface">
+                      <span className="truncate">{file.name}</span>
+                      <button type="button" onClick={() => removeEvidenciaIA(i)} disabled={iaTrabajando}
+                        className="flex-shrink-0 text-muted hover:text-error disabled:opacity-60">
+                        <X size={14} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <label className={`flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-dashed border-outline-variant rounded cursor-pointer hover:bg-surface-container transition-colors ${iaTrabajando ? 'opacity-60 pointer-events-none' : ''}`}>
+                <Paperclip size={14} /> Adjuntar archivo
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.pdf,.docx"
+                  multiple
+                  disabled={iaTrabajando}
+                  onChange={(e) => { if (e.target.files.length) addEvidenciaIA(e.target.files); e.target.value = '' }}
+                  className="hidden"
+                />
+              </label>
+              {iaSubiendoEvidencia && <p className="text-xs text-muted mt-1">Subiendo evidencia…</p>}
             </div>
           </div>
         </ConfirmacionCreditosModal>
