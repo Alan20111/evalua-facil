@@ -56,8 +56,15 @@ exports.chatAdmin = adminChat.chatAdmin
 // onCall, deliberadamente FUERA de ejecutarOperacionIA: es un algoritmo
 // determinista (backtracking), no usa IA y no pasa por el ledger de
 // créditos (ver functions/juego.js).
+//
+// confirmarJuego/cancelarBorradorJuego (23-ago-2026, flujo de vista previa/
+// edición/regeneración): el crédito de generar_contenido_juego se reserva en
+// ejecutarOperacionIA pero se liquida/libera aquí — al confirmar o cancelar
+// el borrador, no al generar el contenido.
 const juego = require('./juego')
 exports.construirJuego = juego.construirJuego
+exports.confirmarJuego = juego.confirmarJuego
+exports.cancelarBorradorJuego = juego.cancelarBorradorJuego
 
 // Ajuste manual de saldo de créditos IA — solo admin (renombrado de
 // resetearCreditosIA, 20-ago-2026: en créditos puros no hay "capacidad" a la

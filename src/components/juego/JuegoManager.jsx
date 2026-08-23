@@ -19,10 +19,11 @@
 // firestoreGuard.js).
 
 import { useState } from 'react'
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2, XCircle } from 'lucide-react'
 import { doc, getDoc } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
 import { updateDoc } from '../../utils/firestoreGuard'
-import { db } from '../../firebase'
+import { db, functions } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import VisibilitySelect from '../VisibilitySelect'
@@ -42,8 +43,17 @@ export default function JuegoManager({
   onActivityChange, onDeleteActivity, goBack,
 }) {
   const [regresando, setRegresando] = useState(false)
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
+  const [cancelando, setCancelando] = useState(false)
+  const toast = useToast()
   const estado = activity.juego?.estado || null
   const tipoLabel = activity.tipoJuego === 'sopa_letras' ? 'Sopa de letras' : 'Crucigrama'
+  // Antes de 'juego_confirmado' esto sigue siendo un borrador — puede tener
+  // una reserva de créditos viva (generar_contenido_juego) que hay que
+  // liberar al cancelar, no solo borrar el documento (ver
+  // cancelarBorradorJuego, functions/juego.js). Ya confirmado, cancelar ya
+  // no aplica — se elimina como cualquier otra actividad (onDeleteActivity).
+  const esBorrador = estado !== 'juego_confirmado'
 
   async function refetchActivity() {
     try {
@@ -58,6 +68,20 @@ export default function JuegoManager({
   }
   async function handleConfirmado() {
     await refetchActivity()
+  }
+
+  async function handleCancelarBorrador() {
+    setCancelando(true)
+    try {
+      const cancelarBorradorJuego = httpsCallable(functions, 'cancelarBorradorJuego')
+      await cancelarBorradorJuego({ actividadId: activityId })
+      toast('Borrador cancelado — se liberaron los créditos reservados')
+      goBack?.()
+    } catch (err) {
+      toast(err.message || 'No se pudo cancelar el borrador', 'error')
+      setCancelando(false)
+      setConfirmandoCancelar(false)
+    }
   }
 
   const mostrandoContenido = regresando || estado == null || estado === 'contenido_generado' || estado === 'contenido_editado'
@@ -77,13 +101,37 @@ export default function JuegoManager({
           </h1>
           <p className="text-base font-medium text-muted">Parcial {activity.parcial} · {subjectDisplayName(subject)}</p>
         </div>
-        {onDeleteActivity && (
+        {esBorrador && (
+          <button type="button" onClick={() => setConfirmandoCancelar(true)} aria-label="Cancelar borrador"
+            className="p-2 text-slate-400 hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0">
+            <XCircle size={18} />
+          </button>
+        )}
+        {!esBorrador && onDeleteActivity && (
           <button type="button" onClick={onDeleteActivity} aria-label="Eliminar actividad"
             className="p-2 text-slate-400 hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0">
             <Trash2 size={18} />
           </button>
         )}
       </div>
+
+      {confirmandoCancelar && (
+        <div className="mb-3 p-3 rounded-card bg-red-50 border border-red-200 flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
+          <p className="text-sm text-error">
+            ¿Cancelar este borrador? Se liberan los créditos reservados y no podrás recuperarlo.
+          </p>
+          <div className="flex gap-2 flex-shrink-0">
+            <button type="button" onClick={() => setConfirmandoCancelar(false)} disabled={cancelando}
+              className="px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors disabled:opacity-60">
+              No, seguir editando
+            </button>
+            <button type="button" onClick={handleCancelarBorrador} disabled={cancelando}
+              className="px-3 py-1.5 bg-error text-white text-sm font-medium rounded hover:opacity-90 transition-colors disabled:opacity-60">
+              {cancelando ? 'Cancelando…' : 'Sí, cancelar borrador'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
         <div className="px-4 py-3 bg-accent-light border-b border-accent">

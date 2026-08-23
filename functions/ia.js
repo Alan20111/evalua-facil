@@ -2329,6 +2329,7 @@ async function ejecutarGenerarContenidoJuego({ params, modelo, apiKey }) {
   const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad')
+  const idempotencyKey = String(params?.__idempotencyKey || '')
 
   async function pedir() {
     return pedirJSON({
@@ -2360,12 +2361,25 @@ async function ejecutarGenerarContenidoJuego({ params, modelo, apiKey }) {
     'juego.estado': 'contenido_generado',
     'juego.modalidad': ctx.modalidad,
     'juego.cantidadPalabras': ctx.cantidad,
+    // CORRECCIÓN 23-ago-2026 (flujo de vista previa/edición/regeneración,
+    // decisión de Kike): el crédito de esta generación se RESERVA aquí pero
+    // ya NO se liquida en esta misma llamada (ver `diferirLiquidacion` más
+    // abajo) — se guarda la clave de la reserva en la propia actividad para
+    // que `confirmarJuego`/`cancelarBorradorJuego` (functions/juego.js) la
+    // recuperen cuando el docente confirme o cancele el borrador, sin
+    // depender de que el cliente la reenvíe (no se puede confiar en eso).
+    'juego.idempotencyKeyReserva': idempotencyKey || null,
   })
 
   return {
     resultado: { actividadId, contenido: palabras },
     unidadesReales: 1,
     interno,
+    // El ejecutor genérico (ejecutarOperacionIA) NO debe liquidar esta
+    // reserva — se liquida hasta que el docente confirme el juego terminado
+    // (functions/juego.js → confirmarJuego). Ninguna otra operación usa este
+    // campo, así que el resto del ledger queda exactamente igual.
+    diferirLiquidacion: true,
   }
 }
 
@@ -5372,6 +5386,19 @@ exports.ejecutarOperacionIA = onCall(
       .set({ uid, operacion, ...salida.interno, createdAt: FieldValue.serverTimestamp() })
       .catch((err) => logger.error('iaConsumosInterno:', err))
 
+    // CORRECCIÓN 23-ago-2026 (Crucigrama/Sopa de letras, decisión de Kike):
+    // si el ejecutor pide diferir la liquidación (hoy solo
+    // generar_contenido_juego), la reserva se queda EN 'reservado' —
+    // ninguna otra operación toca este camino. El docente ya vio descontado
+    // su saldo (reservar() ya lo restó), pero el cobro definitivo espera a
+    // que confirme el juego terminado (functions/juego.js → confirmarJuego)
+    // o se libera si cancela/expira. Sin esto, cada regeneración de
+    // contenido tendría que cobrar de nuevo para poder "deshacer" un cobro
+    // ya liquidado — con la reserva viva, no hace falta deshacer nada.
+    if (salida.diferirLiquidacion) {
+      return { resultado: salida.resultado, reservado: true, idempotencyKey }
+    }
+
     // Consumo REAL: unidades procesadas × tarifa — lo calcula el código,
     // jamás la IA.
     const porUso = tarifas.tarifas[operacion]
@@ -5401,7 +5428,15 @@ exports.ejecutarOperacionIA = onCall(
 // (proceso que murió entre reservar() y liquidar()/reembolsar()).
 exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
   try {
-    const lim = await ledger.limpiarReservasHuerfanas({ minutos: 15 })
+    // generar_contenido_juego (23-ago-2026): su reserva queda abierta
+    // mientras el docente edita/reconstruye el tablero (Crucigrama/Sopa de
+    // letras) — un ciclo de minutos u horas reales, no segundos como el
+    // resto. 2 horas le da margen de sobra sin tener que crear un segundo
+    // scheduled job.
+    const lim = await ledger.limpiarReservasHuerfanas({
+      minutos: 15,
+      minutosPorOperacion: { generar_contenido_juego: 120 },
+    })
     logger.info(`mantenimientoCreditosIA: ${lim.recuperadas} reserva(s) recuperada(s)`)
   } catch (e) {
     logger.error('mantenimientoCreditosIA:', e)
