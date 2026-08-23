@@ -5027,35 +5027,111 @@ function idOpcionExamenChat() {
 // chat_crear_examen (tarifas/modeloPorOperacion sin cambios), sin unidad de
 // cobro adicional — el costo de esta llamada lo absorbe el margen de la
 // tarifa por examen, igual que cualquier otro costo interno de calidad.
+//
+// CORRECCIÓN 23-ago-2026 (segunda ronda, con logging ya instrumentado): el
+// diagnóstico anterior encontró la causa exacta con evidencia real —
+// Anthropic a veces antepone/agrega texto fuera del JSON ("Claro, aquí
+// está: {...}"), y `JSON.parse()` estricto de `pedirJSON` truena con eso,
+// cayendo al catch (silencioso antes, ahora logueado) que conserva la
+// clave original — el bug NO es de lógica, es de tolerancia de parsing.
+// `extraerJsonVeredictos` intenta el parse estricto primero (caso normal) y
+// SOLO si falla, recorta el primer '{' al último '}' de la respuesta e
+// intenta de nuevo — nunca interpreta texto libre ni adivina veredictos por
+// fuera de un objeto JSON real. Esta función usa su PROPIA llamada a
+// Anthropic (no pedirJSON) precisamente para tener el texto crudo
+// disponible en caso de que el parse estricto falle — pedirJSON descarta el
+// texto en cuanto JSON.parse truena, así que reusarlo aquí habría requerido
+// tocar una función compartida por todas las demás operaciones de IA, fuera
+// del alcance de esta corrección.
+function extraerJsonVeredictos(texto) {
+  try {
+    return { datos: JSON.parse(texto), tolerante: false }
+  } catch {
+    // sigue abajo con el intento tolerante
+  }
+  const inicio = texto.indexOf('{')
+  const fin = texto.lastIndexOf('}')
+  if (inicio === -1 || fin === -1 || fin <= inicio) return { datos: null, tolerante: true }
+  try {
+    return { datos: JSON.parse(texto.slice(inicio, fin + 1)), tolerante: true }
+  } catch {
+    return { datos: null, tolerante: true }
+  }
+}
+
 async function validarClavesVerdaderoFalso({ reactivos, client, modelo }) {
   const objetivo = reactivos.filter((r) => r.tipo === 'verdadero_falso' && r.enunciado)
-  if (!objetivo.length) return
+  // DIAGNÓSTICO temporal (23-ago-2026, prueba de estrés post-deploy): el
+  // catch de abajo era completamente silencioso — sin esto no había forma
+  // de saber si la segunda verificación de claves V/F no se llamaba, fallaba
+  // la llamada a Anthropic, fallaba el JSON, o la estructura de veredictos
+  // no cuadraba. Nunca registra prompt/respuesta completos ni el secreto —
+  // solo conteos y el tipo/código de error. Quitar una vez diagnosticada la
+  // causa raíz.
+  if (!objetivo.length) {
+    logger.info('validarClavesVerdaderoFalso: sin reactivos V/F, no se verifica nada')
+    return
+  }
+  logger.info(`validarClavesVerdaderoFalso: verificando ${objetivo.length} reactivo(s) V/F`)
 
   const lista = objetivo.map((r, idx) => `${idx + 1}. ${r.enunciado}`).join('\n')
   const system =
     'Eres un verificador factual estricto. Para cada enunciado numerado, decide si es VERDADERO o FALSO ' +
     'como afirmación objetiva, sin ningún contexto adicional más que el propio enunciado. No te importa quién ' +
     'lo escribió ni para qué se usará — solo si el enunciado, tomado literalmente, es cierto o no. Responde ' +
-    'ÚNICAMENTE un JSON: {"veredictos": ["v"|"f", ...]} en el MISMO orden y con la MISMA cantidad de elementos ' +
-    'que los enunciados recibidos.'
+    'ÚNICAMENTE con el objeto JSON pedido, nada de texto antes o después: ' +
+    '{"veredictos": ["v"|"f", ...]} en el MISMO orden y con la MISMA cantidad de elementos que los enunciados ' +
+    'recibidos.'
   const prompt = `Enunciados a verificar:\n${lista}`
 
-  let datos
+  let texto
   try {
-    ;({ datos } = await pedirJSON({ client, modelo, maxTokens: 600, system, prompt }))
-  } catch {
+    const msg = await client.messages.create({
+      model: modelo, max_tokens: 600, system, messages: [{ role: 'user', content: prompt }],
+    })
+    texto = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
+    if (texto.startsWith('```')) texto = texto.replace(/^```(json)?\n?/, '').replace(/```$/, '').trim()
+  } catch (e) {
+    // Error real de la llamada a Anthropic (trae .status, típico de
+    // @anthropic-ai/sdk) — nunca el mensaje completo del SDK (puede traer
+    // fragmentos del prompt/respuesta), solo nombre/status/código.
+    logger.warn('validarClavesVerdaderoFalso: la llamada a Anthropic falló, se conserva la clave original', {
+      tipoError: e?.name || typeof e,
+      status: e?.status ?? null,
+    })
     return // verificación no disponible: se conserva la clave original, sin marcarla como incorrecta
   }
-  const veredictos = Array.isArray(datos?.veredictos) ? datos.veredictos : null
-  if (!veredictos || veredictos.length !== objetivo.length) return // respuesta no confiable: no se corrige a ciegas
 
+  const { datos, tolerante } = extraerJsonVeredictos(texto)
+  if (datos === null) {
+    logger.warn('validarClavesVerdaderoFalso: la respuesta no contiene un JSON válido, se conservan las claves originales')
+    return
+  }
+  if (tolerante) logger.info('validarClavesVerdaderoFalso: el parseo estricto falló pero el parseo tolerante extrajo un JSON válido')
+
+  const veredictos = Array.isArray(datos?.veredictos) ? datos.veredictos : null
+  const veredictosValidos = veredictos?.length === objetivo.length
+    && veredictos.every((v) => v === 'v' || v === 'f')
+  if (!veredictosValidos) {
+    logger.warn('validarClavesVerdaderoFalso: respuesta con estructura inesperada, se conservan las claves originales', {
+      recibioArray: Array.isArray(veredictos),
+      cantidadEsperada: objetivo.length,
+      cantidadRecibida: Array.isArray(veredictos) ? veredictos.length : null,
+      valoresValidos: Array.isArray(veredictos) ? veredictos.every((v) => v === 'v' || v === 'f') : null,
+    })
+    return // respuesta no confiable (longitud distinta o algún valor fuera de 'v'/'f'): no se corrige a ciegas
+  }
+
+  let corregidos = 0
   objetivo.forEach((r, idx) => {
-    const veredicto = veredictos[idx] === 'f' ? 'f' : veredictos[idx] === 'v' ? 'v' : null
-    if (veredicto && veredicto !== r.correcta) {
+    const veredicto = veredictos[idx]
+    if (veredicto !== r.correcta) {
       logger.warn(`V/F corregido por segunda verificación: "${r.enunciado.slice(0, 80)}" ${r.correcta} → ${veredicto}`)
       r.correcta = veredicto
+      corregidos += 1
     }
   })
+  logger.info(`validarClavesVerdaderoFalso: verificación completada, ${corregidos}/${objetivo.length} clave(s) corregida(s)`)
 }
 
 async function ejecutarChatCrearExamen({ params, modelo, apiKey }) {
@@ -5064,6 +5140,10 @@ async function ejecutarChatCrearExamen({ params, modelo, apiKey }) {
   const p = ctx.propuesta
 
   if (p.reactivos.some((r) => r.tipo === 'verdadero_falso')) {
+    // DIAGNÓSTICO temporal (23-ago-2026) — ver comentario en
+    // validarClavesVerdaderoFalso: confirma que la llamada realmente se
+    // hizo desde aquí, para descartar que el guard nunca entre.
+    logger.info('ejecutarChatCrearExamen: invocando validarClavesVerdaderoFalso')
     const Anthropic = require('@anthropic-ai/sdk')
     const client = new Anthropic({ apiKey })
     await validarClavesVerdaderoFalso({ reactivos: p.reactivos, client, modelo })
@@ -5307,5 +5387,5 @@ exports._pruebas = {
   verificarSaldoChat, calcularTarifaExamen, precheckChatCrearActividad, precheckChatCrearExamen,
   ACCIONES_ACTIVIDAD,
   precheckCalificarEntregable, bloqueCriteriosInstrumento, precheckCalificarEntregableLote,
-  validarClavesVerdaderoFalso, bloqueFechaActualChat,
+  validarClavesVerdaderoFalso, bloqueFechaActualChat, extraerJsonVeredictos,
 }
