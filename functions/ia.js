@@ -876,6 +876,30 @@ const CALIFICAR_ENTREGABLE_SISTEMA =
 // shared.mjs) por una comparación de un campo.
 const esCotejo = (r) => r?.tipo === 'cotejo'
 
+// Espejo mínimo de totalRubrica (src/utils/rubrica.js) — SOLO lo usa
+// "Recalificar todas con IA" para escribir la calificación real (ver
+// ejecutarCalificarEntregableIALote). null = no se puede calcular un total
+// definitivo (algún criterio sin evidencia suficiente); en ese caso NO se
+// sobrescribe nada, la regla de "nunca inventar" gana sobre "recalificar
+// sobrescribe" — el docente revisa esa entrega a mano, como antes.
+function totalInstrumento(rubrica, seleccion) {
+  if (!rubrica?.criterios?.length || !Array.isArray(seleccion)) return null
+  if (esCotejo(rubrica)) {
+    let total = 0
+    for (let i = 0; i < rubrica.criterios.length; i++) {
+      if (seleccion[i] === 0) total += rubrica.criterios[i].puntos?.[0] ?? 0
+    }
+    return Math.round(total * 10) / 10
+  }
+  let total = 0
+  for (let i = 0; i < rubrica.criterios.length; i++) {
+    const nivel = seleccion[i]
+    if (nivel == null) return null
+    total += rubrica.criterios[i].puntos?.[nivel] ?? 0
+  }
+  return Math.round(total * 10) / 10
+}
+
 // Describe los criterios del instrumento en el prompt — única diferencia
 // real entre rúbrica y lista de cotejo (ver comentario del bloque arriba).
 function bloqueCriteriosInstrumento(rubrica) {
@@ -1178,6 +1202,7 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
   let tokensSalida = 0
   let fallidas = 0
   let generadas = 0
+  let aplicadasAuto = 0
 
   let cursor = 0
   async function trabajador() {
@@ -1190,17 +1215,48 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
         })
         tokensEntrada += te || 0
         tokensSalida += ts || 0
-        // Persistir ANTES de contar como cobrable — si esta escritura falla,
-        // la entrega cae al catch (candado liberado, sin cobro).
-        await item.ref.set({
-          estado: 'pendiente',
-          sugerencia: {
-            ...sugerencia,
-            ignoradosPorFormato: item.evidencias.ignoradosPorFormato,
-            ignoradosPorTope: item.evidencias.ignoradosPorTope,
-          },
-          actualizadoEn: FieldValue.serverTimestamp(),
-        }, { merge: true })
+        // Recalificar todas con IA (23-ago-2026, pedido explícito de Kike:
+        // "si se deben de cambiar las ya revisadas, por supuesto que sí") —
+        // a diferencia del lote normal (solo propone), aquí la calificación
+        // real SÍ se sobrescribe sola con la propuesta, sin que el docente
+        // tenga que entrar entrega por entrega. Único freno: si algún
+        // criterio quedó sin evidencia suficiente, totalInstrumento regresa
+        // null y esa entrega se deja como propuesta pendiente en vez de
+        // escribir una calificación inventada — la regla de "nunca inventar"
+        // sigue ganando en ese caso puntual.
+        const niveles = sugerencia.criterios.map((c) => c.nivel)
+        const total = ctx.recalificar ? totalInstrumento(ctx.rubrica, niveles) : null
+        if (ctx.recalificar && total != null) {
+          await db.doc(`submissions/${item.submissionId}`).update({
+            calificacion: total,
+            comentario: sugerencia.retroalimentacionGeneral || '',
+            rubricaEval: niveles.some((v) => v != null) ? niveles : null,
+            estado: 'calificado',
+          })
+          await item.ref.set({
+            estado: 'aplicada',
+            aplicadaAutomaticamente: true,
+            sugerencia: {
+              ...sugerencia,
+              ignoradosPorFormato: item.evidencias.ignoradosPorFormato,
+              ignoradosPorTope: item.evidencias.ignoradosPorTope,
+            },
+            actualizadoEn: FieldValue.serverTimestamp(),
+          }, { merge: true })
+          aplicadasAuto++
+        } else {
+          // Persistir ANTES de contar como cobrable — si esta escritura
+          // falla, la entrega cae al catch (candado liberado, sin cobro).
+          await item.ref.set({
+            estado: 'pendiente',
+            sugerencia: {
+              ...sugerencia,
+              ignoradosPorFormato: item.evidencias.ignoradosPorFormato,
+              ignoradosPorTope: item.evidencias.ignoradosPorTope,
+            },
+            actualizadoEn: FieldValue.serverTimestamp(),
+          }, { merge: true })
+        }
         generadas++
       } catch (e) {
         fallidas++
@@ -1216,9 +1272,9 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
   }
 
   return {
-    resultado: { generadas, fallidas, yaProcesadas, sinEvidencia: ctx.sinEvidencia },
+    resultado: { generadas, fallidas, yaProcesadas, sinEvidencia: ctx.sinEvidencia, aplicadasAuto },
     unidadesReales: generadas, // 1 crédito por entrega REALMENTE evaluada
-    interno: { modelo, tokensEntrada, tokensSalida, entregas: generadas, fallidas, yaProcesadas },
+    interno: { modelo, tokensEntrada, tokensSalida, entregas: generadas, fallidas, yaProcesadas, aplicadasAuto },
   }
 }
 
