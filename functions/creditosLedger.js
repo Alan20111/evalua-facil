@@ -238,12 +238,20 @@ async function reembolsar({ uid, idempotencyKey, motivo = 'fallo', estadoFinal =
 // quedarse comiendo saldo para siempre. Cualquier 'reservado' más viejo que
 // el límite se reembolsa como 'expirado'. La transacción por documento
 // re-verifica el estado: si mientras tanto se liquidó, no toca nada.
-async function limpiarReservasHuerfanas({ minutos = 15, ahora = new Date() } = {}) {
-  const limite = new Date(ahora.getTime() - minutos * 60 * 1000)
+//
+// `minutosPorOperacion` (23-ago-2026, Crucigrama/Sopa de letras): la mayoría
+// de las reservas viven segundos (reservar→ejecutar→liquidar en el mismo
+// request) y 15 min ya es generoso. `generar_contenido_juego` es distinta a
+// propósito — la reserva queda abierta mientras el docente edita/reconstruye
+// el tablero, un ciclo que puede tomarle minutos u horas reales — así que
+// esa operación usa su propio umbral, más largo, sin tocar el de las demás.
+async function limpiarReservasHuerfanas({ minutos = 15, minutosPorOperacion = {}, ahora = new Date() } = {}) {
   const snap = await db().collection('iaConsumos').where('estado', '==', 'reservado').get()
   let recuperadas = 0
   for (const d of snap.docs) {
     const c = d.data()
+    const umbral = minutosPorOperacion[c.operacion] ?? minutos
+    const limite = new Date(ahora.getTime() - umbral * 60 * 1000)
     const creada = c.createdAt?.toDate?.()
     if (!creada || creada > limite) continue
     const r = await reembolsar({ uid: c.uid, idempotencyKey: d.id, motivo: 'reserva expirada', estadoFinal: 'expirado' })
