@@ -629,11 +629,30 @@ export default function ActivityPage() {
       const n = data?.resultado?.generadas || 0
       const previas = data?.resultado?.yaProcesadas || 0
       const fallidas = data?.resultado?.fallidas || 0
-      toast(
-        `${n} propuesta${n !== 1 ? 's' : ''} de IA lista${n !== 1 ? 's' : ''}` +
-        `${previas ? ` (${previas} ya existían y no se cobraron)` : ''}` +
-        `${fallidas ? ` — ${fallidas} no se pudo${fallidas !== 1 ? 'ieron' : ''} procesar` : ''}` +
-        ' — revísalas al calificar a cada estudiante. Tú decides.',
+      const aplicadas = data?.resultado?.aplicadasAuto || 0
+      // Recalificar reescribe `submissions.calificacion` directo en el
+      // servidor — sin esto el docente seguiría viendo las calificaciones
+      // viejas hasta recargar la página. Solo submissions (no loadAll
+      // completo): no queremos el parpadeo de "cargando" ni perder dónde
+      // estaba parado el docente en la lista.
+      if (recalificar && aplicadas > 0) {
+        const subsSnap = await getDocs(query(collection(db, 'submissions'), where('actividadId', '==', activityId)))
+        const subsMap = {}
+        subsSnap.docs.forEach((d) => { subsMap[d.data().alumnoId] = { id: d.id, ...d.data() } })
+        setSubmissions(subsMap)
+        setSelected((sel) => (sel?.sub && subsMap[sel.student.id]) ? { ...sel, sub: subsMap[sel.student.id] } : sel)
+      }
+      toast(recalificar
+        // Recalificar SÍ sobrescribe sola la calificación real (23-ago-2026,
+        // pedido de Kike) — salvo la entrega puntual que quedó sin evidencia
+        // suficiente para un total, esa sí se deja como propuesta a revisar.
+        ? `${aplicadas} calificación${aplicadas !== 1 ? 'es' : ''} actualizada${aplicadas !== 1 ? 's' : ''} con la IA` +
+          `${n - aplicadas > 0 ? ` (${n - aplicadas} quedaron como propuesta — revísalas a mano, falta evidencia clara en algún criterio)` : ''}` +
+          `${fallidas ? ` — ${fallidas} no se pudo${fallidas !== 1 ? 'ieron' : ''} procesar` : ''}`
+        : `${n} propuesta${n !== 1 ? 's' : ''} de IA lista${n !== 1 ? 's' : ''}` +
+          `${previas ? ` (${previas} ya existían y no se cobraron)` : ''}` +
+          `${fallidas ? ` — ${fallidas} no se pudo${fallidas !== 1 ? 'ieron' : ''} procesar` : ''}` +
+          ' — revísalas al calificar a cada estudiante. Tú decides.',
       )
     } catch (err) {
       toast(err.codigo === 'SALDO_INSUFICIENTE' ? 'No tienes créditos suficientes para este lote' : 'No se pudo completar: ' + err.message, 'error')
