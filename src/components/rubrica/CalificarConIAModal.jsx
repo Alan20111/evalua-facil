@@ -22,7 +22,7 @@ import Spinner from '../Spinner'
 import Modal from '../ui/Modal'
 import ComprarCreditosModal from '../ComprarCreditosModal'
 import ActivarCreditosModal from '../ActivarCreditosModal'
-import { esCotejo } from '../../utils/rubrica'
+import { esCotejo, totalRubrica, RUBRICA_TOTAL } from '../../utils/rubrica'
 
 const CONFIANZA_LABEL = {
   alta: { texto: 'Confianza alta', cls: 'bg-emerald-100 text-emerald-700' },
@@ -48,7 +48,7 @@ export default function CalificarConIAModal({
   const [comprarAbierto, setComprarAbierto] = useState(false)
   const [activarAbierto, setActivarAbierto] = useState(false)
 
-  const costo = c.estimar('calificar_entregable_ia') ?? 0.5
+  const costo = c.estimar('calificar_entregable_ia') ?? 0.25
   const alcanza = c.saldo >= costo
 
   function cerrarTodo() {
@@ -149,10 +149,25 @@ export default function CalificarConIAModal({
           </div>
 
           {resultado.confianza && (
-            <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mb-3 ${CONFIANZA_LABEL[resultado.confianza]?.cls || CONFIANZA_LABEL.media.cls}`}>
+            <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mb-3 mr-2 ${CONFIANZA_LABEL[resultado.confianza]?.cls || CONFIANZA_LABEL.media.cls}`}>
               {CONFIANZA_LABEL[resultado.confianza]?.texto || 'Confianza media'}
             </span>
           )}
+
+          {/* Calificación propuesta — pedido explícito de Kike (23-ago-2026):
+              debe verse claramente ANTES de aplicar, y como propuesta, nunca
+              como calificación ya asignada. */}
+          {(() => {
+            const niveles = resultado.criterios.map((c) => c.nivel)
+            const totalPropuesto = totalRubrica(rubrica, niveles)
+            return (
+              <p className="text-sm font-semibold text-on-surface mb-3">
+                {totalPropuesto != null
+                  ? <>Calificación propuesta por IA: <span className="text-accent">{totalPropuesto} / {RUBRICA_TOTAL}</span></>
+                  : 'Calificación propuesta por IA: pendiente — hay criterios sin evidencia suficiente, complétalos antes de guardar.'}
+              </p>
+            )
+          })()}
 
           <ul className="space-y-2 mb-4">
             {resultado.criterios.map((crit, i) => {
