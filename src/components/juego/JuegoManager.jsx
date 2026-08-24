@@ -37,6 +37,7 @@ import { studentFullName } from '../../utils/studentSearch'
 import { EVALUACION_DEFAULTS } from '../../utils/evaluacionDefaults'
 import ContenidoJuegoEditor from './ContenidoJuegoEditor'
 import RevisionJuegoBorrador from './RevisionJuegoBorrador'
+import ResolucionJuegoModal from './ResolucionJuegoModal'
 
 export default function JuegoManager({
   activity, subject, activityId, activityLabel, students, submissions,
@@ -184,6 +185,9 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
   })
   const [saving, setSaving] = useState(false)
   const [savingVis, setSavingVis] = useState(false)
+  // Resolución de un estudiante (26-ago-2026) — solo lectura, ver
+  // ResolucionJuegoModal. null = cerrada; si no, { nombre, sub }.
+  const [resolucionAbierta, setResolucionAbierta] = useState(null)
   // Línea base para saber si el docente de verdad cambió algo — "Guardar
   // configuración"/"Guardar disponibilidad" solo se activan si hay una
   // diferencia real contra lo último guardado (23-ago-2026, pedido de Kike:
@@ -331,9 +335,26 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
           )}
           {students.map((st) => {
             const sub = submissions?.[st.id]
-            return (
+            // Solo hay resolución que consultar cuando el intento ya fue
+            // calificado por el servidor (onJuegoFinalizado) — un intento
+            // 'en_progreso' o sin entregar nunca llega a este estado, así
+            // que se mantiene igual que antes (fila no interactiva).
+            const consultable = sub?.estado === 'calificado'
+            const nombre = studentFullName(st)
+            return consultable ? (
+              <button
+                key={st.id}
+                type="button"
+                onClick={() => setResolucionAbierta({ nombre, sub })}
+                data-tooltip="Ver la resolución de este estudiante"
+                className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-[var(--accent-tint)] transition-colors"
+              >
+                <p className="text-sm text-accent underline decoration-dotted truncate">{nombre}</p>
+                <p className="text-sm font-semibold text-accent tabular-nums">{sub.calificacion}</p>
+              </button>
+            ) : (
               <div key={st.id} className="flex items-center justify-between px-4 py-2.5">
-                <p className="text-sm text-on-surface truncate">{studentFullName(st)}</p>
+                <p className="text-sm text-on-surface truncate">{nombre}</p>
                 <p className="text-sm font-semibold text-accent tabular-nums">
                   {sub?.calificacion != null ? sub.calificacion : '—'}
                 </p>
@@ -342,6 +363,16 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
           })}
         </div>
       </div>
+
+      {resolucionAbierta && (
+        <ResolucionJuegoModal
+          open
+          onClose={() => setResolucionAbierta(null)}
+          estudianteNombre={resolucionAbierta.nombre}
+          estructura={activity.juego?.estructura}
+          submission={resolucionAbierta.sub}
+        />
+      )}
     </div>
   )
 }
