@@ -32,13 +32,17 @@
 // re-corriendo el seed) cuando Anthropic cambie precios, sin tocar ni
 // redesplegar este archivo. `calcularCostoUSD` (más abajo) es la única
 // función que hace esa cuenta, y las herramientas `consumo_ia`,
-// `costo_por_docente` y `rentabilidad_plan` la usan — ninguna otra parte
+// `costo_por_docente` y `rentabilidad_creditos` la usan — ninguna otra parte
 // del código calcula esto por su cuenta.
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { defineSecret } = require('firebase-functions/params')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { logger } = require('firebase-functions')
+// Solo por CREDITOS_BIENVENIDA (el tamaño del regalo de bienvenida) — misma
+// razón que el resto de este archivo repite constantes de negocio: no puede
+// importar src/, y este SÍ puede importar otro módulo de functions/.
+const { CREDITOS_BIENVENIDA } = require('./creditosLedger')
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 const MODELO = 'claude-haiku-4-5'
@@ -46,20 +50,25 @@ const MAX_TOKENS = 4096
 const MAX_VUELTAS_HERRAMIENTAS = 6 // tope duro contra un loop descontrolado de tool-use
 
 // ── Reglas de negocio fijas (conocimiento del PRODUCTO, no datos actuales) ──
-// Mismos números que subscriptionHelpers.js (precios) y
-// seed-ia-tarifas.js/creditosLedger.js (créditos, límites de Chat) — no se
-// duplican como fuente de verdad para el CLIENTE, pero este es un archivo de
-// Cloud Functions que no puede importar src/, así que se repiten aquí a
-// propósito, con el mismo valor. Si esos números cambian, hay que
+// CORREGIDO 26-ago-2026: hasta esa fecha este bloque describía un modelo de
+// planes de pago mensuales ($99/$199/$299, créditos por mes, límite de Chat
+// por plan) que YA NO EXISTE — Evalúa Fácil es GRATUITA y el único ingreso
+// son créditos de IA prepagados. La versión vieja hizo que este mismo Chat
+// le diera al administrador cifras de "ingreso mensual estimado" y "margen"
+// calculadas sobre precios de planes fantasma (ver `plans/*` en Firestore y
+// `PRECIOS_PLAN`, ambos código muerto — [[project_modelo_precios_ia_complemento]]).
+//
+// Estos números SÍ son reales y estables (no se duplican para el CLIENTE,
+// pero este archivo de Cloud Functions no puede importar src/, así que se
+// repiten aquí a propósito). Si cambian en config/iaTarifas, hay que
 // actualizarlos aquí también.
 const CONOCIMIENTO_PRODUCTO = `
-Estructura de planes de pago de Evalúa Fácil (esto es una REGLA DE NEGOCIO fija, no un dato que cambie — nunca la confundas con una métrica actual):
-- Básico ($99 MXN/mes): plataforma completa (calificaciones, actividades, asistencia) SIN IA.
-- Asistente IA ($199 MXN/mes): todo lo del Básico + IA. 350 créditos de IA/mes + Chat con Asistente hasta 50 interacciones/día.
-- Asistente IA Pro ($299 MXN/mes): todo lo del Asistente IA + 1,000 créditos de IA/mes (mismo límite de Chat: 50 interacciones/día).
-- Periodo de prueba (trial, gratis): 50 créditos de IA + 10 interacciones de Chat TOTALES durante todo el periodo (no por día). Al terminar, el docente elige un plan o se queda en Básico sin IA.
-1 interacción de Chat = 1 mensaje enviado por el docente. El límite de interacciones es CONJUNTO entre el Chat General y el Chat de cada asignatura — no se reinicia al cambiar de conversación.
-El Chat con Asistente NO cobra créditos por mensaje — solo las operaciones de IA con tarifa (calificar, generar cuestionarios, planeación, etc.) consumen créditos, con su propia tarifa fija en config/iaTarifas.
+Modelo de negocio de Evalúa Fácil (esto es una REGLA DE NEGOCIO fija, no un dato que cambie — nunca la confundas con una métrica actual):
+- La plataforma es GRATUITA. No hay planes, ni suscripción, ni mensualidad de ningún monto. Asignaturas, estudiantes, actividades, calificaciones, asistencia y descargas son gratis para cualquier docente, sin límite.
+- El ÚNICO ingreso son créditos de IA PREPAGADOS: 1 crédito = $1 MXN de referencia, en paquetes de 50 a 1,600 créditos con descuento por volumen (hasta $0.90/crédito). Los créditos no caducan.
+- Los créditos cubren ÚNICAMENTE operaciones de IA (calificar, generar cuestionarios, planeación, Chat con Asistente, etc. — cada una con su tarifa en config/iaTarifas). NO cubren asistencias, descargas ni actividades interactivas: esas nunca han consumido créditos.
+- Toda cuenta nueva recibe 50 créditos de bienvenida (activación voluntaria del docente, no automática) — es el único costo de adquisición que existe hoy, y se puede consultar con \`rentabilidad_creditos\`.
+- Existen registros HISTÓRICOS de un modelo de suscripción anterior (colecciones \`subscriptions\`, \`payments\`, \`plans/*\`) que YA NO GATEA nada ni genera ingreso — si una herramienta los muestra, es información heredada, nunca facturación actual.
 `.trim()
 
 const SYSTEM_PROMPT = `Eres el Chat de Inteligencia de Evalúa Fácil, para uso EXCLUSIVO del equipo administrador — no eres el Chat con Asistente que usan los docentes, y el administrador con el que hablas no es un docente.
@@ -73,7 +82,7 @@ REGLAS ABSOLUTAS:
    - DATO REAL: viene directo de una herramienta (ej. "Dato registrado: 127 docentes").
    - ESTIMACIÓN: un cálculo tuyo a partir de datos reales (ej. usuarios × precio = ingreso potencial). Dilo explícitamente como estimación y aclara qué NO incluye.
    - No hay una tercera categoría "inferencia" separada de estimación — si no es un dato directo de una herramienta, es una estimación y se marca como tal.
-4. FACTURACIÓN (usuarios × precio) NO es lo mismo que GANANCIA. El sistema SÍ tiene configurado el costo real de Anthropic (USD por millón de tokens, en config/iaTarifas) y las herramientas de consumo/costo lo usan para calcular el costo REAL en USD y MXN — pero eso sigue sin ser toda la operación: NO incluye Firebase, Vercel, Cloudinary ni la pasarela de pago (ninguno de esos está disponible como dato en el sistema). Si te preguntan "¿cuánto ganamos?" o "margen neto", usa el costo real de Anthropic que sí tienes, pero deja explícito que es "margen sobre el costo de IA únicamente" — NUNCA lo llames "ganancia neta" ni "utilidad real" sin esa aclaración.
+4. INGRESO REAL (créditos vendidos, herramienta \`compras_creditos\` o \`rentabilidad_creditos\`) NO es lo mismo que GANANCIA. El sistema SÍ tiene configurado el costo real de Anthropic (USD por millón de tokens, en config/iaTarifas) y las herramientas de consumo/costo/rentabilidad lo usan para calcular el costo REAL en USD y MXN — pero eso sigue sin ser toda la operación: NO incluye Firebase, Vercel, Cloudinary ni la pasarela de pago (ninguno de esos está disponible como dato en el sistema). Si te preguntan "¿cuánto ganamos?" o "margen neto", usa el ingreso real de créditos y el costo real de Anthropic que sí tienes, pero deja explícito que es "margen sobre el costo de IA únicamente" — NUNCA lo llames "ganancia neta" ni "utilidad real" sin esa aclaración.
 5. Esta es la PRIMERA VERSIÓN del Chat de Administración y es SOLO DE CONSULTA. No existe ninguna herramienta que modifique datos. Si el administrador pide una acción (borrar, cambiar, cancelar, modificar algo), responde que este chat todavía es solo de consulta y no puede ejecutar esa acción.
 6. No existe ningún registro de errores de la plataforma consultable desde aquí — si te preguntan por errores o "algo raro", dilo explícitamente en vez de adivinar.
 7. Responde en español, ejecutivo y directo — como para alguien que dirige el negocio, no un reporte técnico. Cuando haya varios puntos, usa viñetas ("- punto"), cada una en su propio renglón. Cuando una comparación se entienda mejor como tabla, usa una tabla Markdown simple — no abuses de las tablas. NUNCA muestres JSON crudo, ni encabezados Markdown (#, ##, ###) sin razón, ni el texto "{"respuesta"" en tu respuesta — texto limpio, directo.
@@ -129,12 +138,16 @@ function rangoOCorriente({ desde, hasta }) {
   return { desde: d, hasta: h }
 }
 
-// Compartido entre `distribucion_planes` y `rentabilidad_plan` — un solo
-// lugar para "a qué plan pertenece hoy este docente", para no repetir la
-// clasificación en dos herramientas y que puedan desalinearse.
-const PRECIOS_PLAN = { basico: 99, pro: 199, anual: 199, mayor: 299 }
-const NOMBRES_PLAN = {
-  basico: 'Básico ($99)', pro: 'Asistente IA ($199)', anual: 'Asistente IA ($199, prepago)', mayor: 'Asistente IA Pro ($299)',
+// Clasificación por ESTADO DE SUSCRIPCIÓN HEREDADO — la colección
+// `subscriptions` sigue existiendo (dato histórico del modelo anterior,
+// nunca se borró) pero desde el 20-ago-2026 no gatea nada: cualquier
+// docente autenticado usa toda la plataforma gratis, tenga el estado que
+// tenga aquí. `PRECIOS_PLAN` se retiró (26-ago-2026): esos precios no
+// existen — es lo que alimentaba `rentabilidad_plan`, retirada por lo
+// mismo, ver `rentabilidad_creditos` más abajo — así que `distribucion_planes`
+// ya no reporta ingreso, solo el conteo por estado.
+const NOMBRES_ESTADO_SUSCRIPCION = {
+  basico: 'Básico (heredado)', pro: 'Asistente IA (heredado)', anual: 'Asistente IA (heredado, prepago)', mayor: 'Asistente IA Pro (heredado)',
   cortesia: 'Cortesía', trial: 'Periodo de prueba', cancelada_o_vencida: 'Cancelada o vencida',
 }
 async function mapaPlanPorDocente(db) {
@@ -183,21 +196,16 @@ const HERRAMIENTAS = [
   },
   {
     name: 'distribucion_planes',
-    description: 'Cuenta docentes por plan actual (trial, básico $99, asistente IA $199, asistente IA pro $299, cortesía, cancelada) y calcula el ingreso mensual ESTIMADO (usuarios × precio de lista — no es facturación real cobrada). Úsala para "¿cuántos tienen el plan de $X?", "¿cómo se distribuyen por plan?", "¿cuánto facturaríamos con la base actual?".',
+    description: 'Cuenta docentes por ESTADO DE SUSCRIPCIÓN HEREDADO (trial, cortesía, cancelada/vencida, o el nombre del plan de pago que tenían asignado). Es información histórica: desde el 20-ago-2026 la plataforma es gratuita y ningún estado de estos gatea nada ni genera ingreso — para eso usa `compras_creditos` o `rentabilidad_creditos`. Úsala solo para "¿cuántos siguen con un estado heredado de X?" o preguntas de archivo, nunca para facturación.',
     input_schema: { type: 'object', properties: {} },
     async run(db) {
       const { planPorDocente, docentesTotal } = await mapaPlanPorDocente(db)
       const conteo = {}
-      let ingresoEstimadoMensual = 0
-      planPorDocente.forEach((clave) => {
-        conteo[clave] = (conteo[clave] || 0) + 1
-        if (PRECIOS_PLAN[clave]) ingresoEstimadoMensual += PRECIOS_PLAN[clave]
-      })
+      planPorDocente.forEach((clave) => { conteo[clave] = (conteo[clave] || 0) + 1 })
       return {
         docentesTotal,
-        distribucion: Object.fromEntries(Object.entries(conteo).map(([k, v]) => [NOMBRES_PLAN[k] || k, v])),
-        ingresoMensualEstimadoMXN: ingresoEstimadoMensual,
-        nota: 'ingresoMensualEstimadoMXN es usuarios × precio de lista actual, NO facturación real cobrada (usa ingresos_pagos para eso).',
+        distribucionEstadoHeredado: Object.fromEntries(Object.entries(conteo).map(([k, v]) => [NOMBRES_ESTADO_SUSCRIPCION[k] || k, v])),
+        nota: 'Esto es un estado HEREDADO de `subscriptions`, un modelo de negocio retirado el 20-ago-2026 — no representa ningún ingreso ni gatea ninguna función hoy. La plataforma es gratuita para todo docente autenticado; el único ingreso real son los créditos de IA (ver compras_creditos / rentabilidad_creditos).',
       }
     },
   },
@@ -374,8 +382,8 @@ const HERRAMIENTAS = [
     },
   },
   {
-    name: 'rentabilidad_plan',
-    description: 'Compara, por plan (trial, básico, asistente IA, asistente IA pro), el ingreso ESTIMADO (docentes activos × precio de lista) contra el costo REAL de Anthropic atribuido a esos mismos docentes en un rango de fechas — para responder "¿el plan de $199 es rentable?", "¿cuál plan deja más margen?". El margen resultante NO es ganancia neta: no incluye Firebase, Vercel, Cloudinary ni pasarela de pago. Parámetros opcionales desde/hasta (YYYY-MM-DD); sin parámetros usa el mes actual.',
+    name: 'rentabilidad_creditos',
+    description: 'Rentabilidad REAL del unico negocio que existe hoy: creditos de IA prepagados. Cruza el ingreso real (creditPurchases completadas) contra el costo real de Anthropic (iaConsumosInterno) en un rango de fechas, calcula el margen POR CREDITO, desglosa el margen por OPERACION, y reporta el costo de adquisicion (creditos de bienvenida activados). Usala para "el credito que vendemos cubre lo que cuesta?", "que operacion de IA deja mas margen?", "cuanto nos cuesta regalar creditos de bienvenida?". Parametros opcionales desde/hasta (YYYY-MM-DD); sin parametros usa el mes actual.',
     input_schema: {
       type: 'object',
       properties: {
@@ -385,41 +393,113 @@ const HERRAMIENTAS = [
     },
     async run(db, args, costos) {
       const { desde, hasta } = rangoOCorriente(args || {})
-      const [{ planPorDocente }, consumoSnap] = await Promise.all([
-        mapaPlanPorDocente(db),
+
+      const [comprasSnap, consumoSnap, bienvenidaSnap, tarifasSnap] = await Promise.all([
+        db.collection('creditPurchases').where('status', '==', 'completado')
+          .where('createdAt', '>=', desde).where('createdAt', '<=', hasta).get(),
         db.collection('iaConsumosInterno').where('createdAt', '>=', desde).where('createdAt', '<=', hasta).get(),
+        // iaTrialRegistro no tiene indice por activadaEn - se filtra en
+        // memoria (mismo patron que interacciones_chat mas abajo); a esta
+        // escala (un doc por docente que alguna vez tuvo la cuenta) es barato.
+        db.collection('iaTrialRegistro').where('bienvenidaActivada', '==', true).get(),
+        db.doc('config/iaTarifas').get(),
       ])
-      const costoPorPlan = {}
-      let sinTarifa = 0
+
+      // -- Ingreso real: lo que de verdad se cobro por creditos --------------
+      const ingresoRealMXN = comprasSnap.docs.reduce((a, d) => a + (d.data().montoMXN || 0), 0)
+      const creditosVendidos = comprasSnap.docs.reduce((a, d) => a + (d.data().creditos || 0), 0)
+      // Precio EFECTIVO del credito en este rango (no el de lista): distintos
+      // paquetes tienen distinto descuento, asi que esto es un promedio
+      // ponderado real, no una constante.
+      const precioEfectivoPorCreditoMXN = creditosVendidos > 0 ? Number((ingresoRealMXN / creditosVendidos).toFixed(4)) : null
+
+      // -- Costo real de Anthropic, total y por operacion ---------------------
+      const tc = costos?.tipoCambioUsdMxn
+      let costoTotalUSD = 0
+      let creditosConsumidosTotal = 0
+      let llamadasSinCreditosReales = 0
+      const porOperacion = {}
       consumoSnap.docs.forEach((d) => {
         const c = d.data()
-        const plan = planPorDocente.get(c.uid) || 'desconocido'
+        const k = c.operacion || 'desconocida'
+        if (!porOperacion[k]) porOperacion[k] = { llamadas: 0, costoUSD: 0, creditosCobrados: 0, llamadasSinCreditosReales: 0 }
+        const o = porOperacion[k]
+        o.llamadas++
         const costo = calcularCostoUSD(c, costos?.costosPorModelo)
-        if (costo == null) { sinTarifa++; return }
-        costoPorPlan[plan] = (costoPorPlan[plan] || 0) + costo
-      })
-      const conteoPorPlan = {}
-      planPorDocente.forEach((clave) => { conteoPorPlan[clave] = (conteoPorPlan[clave] || 0) + 1 })
-      const tc = costos?.tipoCambioUsdMxn
-      const porPlan = Object.keys(conteoPorPlan).map((clave) => {
-        const docentes = conteoPorPlan[clave]
-        const ingresoEstimadoMXN = (PRECIOS_PLAN[clave] || 0) * docentes
-        const costoUSD = Number((costoPorPlan[clave] || 0).toFixed(4))
-        const costoMXN = tc != null ? Number((costoUSD * tc).toFixed(2)) : null
-        return {
-          plan: NOMBRES_PLAN[clave] || clave,
-          docentes,
-          ingresoMensualEstimadoMXN: ingresoEstimadoMXN,
-          costoRealAnthropicUSD: costoUSD,
-          costoRealAnthropicMXN: costoMXN,
-          margenEstimadoMXN: costoMXN != null ? Number((ingresoEstimadoMXN - costoMXN).toFixed(2)) : null,
+        if (costo != null) { o.costoUSD += costo; costoTotalUSD += costo }
+        // `creditosReales` existe desde el 26-ago-2026 (ver ejecutarOperacionIA
+        // en functions/ia.js) - registros anteriores, o del camino diferido
+        // de generar_contenido_juego mientras no se confirma/cancela, no lo
+        // tienen. Se cuentan aparte para que el margen no se calcule sobre
+        // una cobertura parcial sin decirlo.
+        if (typeof c.creditosReales === 'number') {
+          o.creditosCobrados += c.creditosReales
+          creditosConsumidosTotal += c.creditosReales
+        } else {
+          o.llamadasSinCreditosReales++
+          llamadasSinCreditosReales++
         }
       })
+
+      const costoTotalMXN = tc != null ? Number((costoTotalUSD * tc).toFixed(2)) : null
+      const costoPorCreditoConsumidoMXN = tc != null && creditosConsumidosTotal > 0
+        ? Number((costoTotalMXN / creditosConsumidosTotal).toFixed(4))
+        : null
+      const margenPorCreditoMXN = precioEfectivoPorCreditoMXN != null && costoPorCreditoConsumidoMXN != null
+        ? Number((precioEfectivoPorCreditoMXN - costoPorCreditoConsumidoMXN).toFixed(4))
+        : null
+      const margenPorCreditoPct = margenPorCreditoMXN != null && precioEfectivoPorCreditoMXN
+        ? Number((100 * margenPorCreditoMXN / precioEfectivoPorCreditoMXN).toFixed(1))
+        : null
+
+      // Margen por operacion: creditos cobrados en ESTA operacion, valorados
+      // al mismo precio efectivo del credito de arriba (no hay un precio de
+      // venta "por operacion" - el credito es fungible), contra su costo real.
+      const porOperacionArr = Object.entries(porOperacion).map(([operacion, o]) => {
+        const costoUSD = Number(o.costoUSD.toFixed(4))
+        const costoMXN = tc != null ? Number((costoUSD * tc).toFixed(2)) : null
+        const ingresoAtribuidoMXN = precioEfectivoPorCreditoMXN != null
+          ? Number((o.creditosCobrados * precioEfectivoPorCreditoMXN).toFixed(2))
+          : null
+        const margenMXN = ingresoAtribuidoMXN != null && costoMXN != null ? Number((ingresoAtribuidoMXN - costoMXN).toFixed(2)) : null
+        return {
+          operacion, llamadas: o.llamadas,
+          creditosCobrados: Number(o.creditosCobrados.toFixed(2)),
+          costoRealUSD: costoUSD, costoRealMXN: costoMXN,
+          ingresoAtribuidoMXN, margenMXN,
+          margenPct: margenMXN != null && ingresoAtribuidoMXN ? Number((100 * margenMXN / ingresoAtribuidoMXN).toFixed(1)) : null,
+          llamadasSinCreditosReales: o.llamadasSinCreditosReales || undefined,
+        }
+      }).sort((a, b) => (b.costoRealMXN || 0) - (a.costoRealMXN || 0))
+
+      // -- Costo de adquisicion: creditos de bienvenida activados en el rango --
+      const bienvenidasEnRango = bienvenidaSnap.docs.filter((d) => {
+        const t = d.data().activadaEn?.toDate?.()
+        return t && t >= desde && t <= hasta
+      })
+      const creditosRegalados = bienvenidasEnRango.length * CREDITOS_BIENVENIDA
+      // Valorados al precio de LISTA (el paquete mas chico, sin descuento -
+      // mismo criterio que PRECIO_REFERENCIA_MXN en ComprarCreditosModal.jsx),
+      // leido en vivo de config/iaTarifas - nunca hardcodeado.
+      const paquetes = tarifasSnap.data()?.paquetesCreditos || []
+      const paqueteMasChico = paquetes.reduce((a, p) => (!a || p.creditos < a.creditos ? p : a), null)
+      const precioListaMXN = paqueteMasChico ? paqueteMasChico.precioMXN / paqueteMasChico.creditos : null
+      const valorDeListaCreditosRegaladosMXN = precioListaMXN != null ? Number((creditosRegalados * precioListaMXN).toFixed(2)) : null
+
       return {
         desde: desde.toISOString().slice(0, 10), hasta: hasta.toISOString().slice(0, 10),
-        porPlan,
-        llamadasSinTarifaConfigurada: sinTarifa || undefined,
-        nota: 'ingresoMensualEstimadoMXN es usuarios × precio de lista (NO facturación real cobrada — usa ingresos_pagos para eso). costoRealAnthropic* es el costo REAL de IA de los docentes que HOY están en ese plan, en el rango de fechas pedido. margenEstimadoMXN = ingreso estimado − costo real de Anthropic ÚNICAMENTE — NO es ganancia neta: no incluye Firebase, Vercel, Cloudinary ni pasarela de pago.',
+        ingresoRealMXN, creditosVendidos, comprasCompletadas: comprasSnap.size, precioEfectivoPorCreditoMXN,
+        costoTotalAnthropicUSD: Number(costoTotalUSD.toFixed(4)), costoTotalAnthropicMXN: costoTotalMXN,
+        creditosConsumidosConDato: Number(creditosConsumidosTotal.toFixed(2)), costoPorCreditoConsumidoMXN,
+        margenPorCreditoMXN, margenPorCreditoPct,
+        porOperacion: porOperacionArr,
+        llamadasSinCreditosReales: llamadasSinCreditosReales || undefined,
+        costoAdquisicion: {
+          bienvenidasActivadas: bienvenidasEnRango.length,
+          creditosRegalados,
+          valorDeListaMXN: valorDeListaCreditosRegaladosMXN,
+        },
+        nota: 'ingresoRealMXN/creditosVendidos son de creditPurchases (status completado) - dinero que de verdad entro. precioEfectivoPorCreditoMXN es el promedio ponderado REAL del rango (paquetes con descuento incluidos), no el precio de lista. costoTotalAnthropicMXN es el costo REAL pagado a Anthropic - NO incluye Firebase, Vercel, Cloudinary ni pasarela de pago, asi que margenPorCreditoMXN es margen sobre el costo de IA UNICAMENTE, nunca "ganancia neta". creditosConsumidosConDato puede ser menor al consumo real: llamadasSinCreditosReales cuenta cuantos registros de iaConsumosInterno no tienen ese campo (anteriores al 26-ago-2026, o del camino diferido de generar_contenido_juego mientras no se confirma/cancela) - el margen se calcula SOLO sobre lo que si tiene dato, nunca extrapolado. porOperacion.ingresoAtribuidoMXN es una atribucion (creditos cobrados x precio efectivo del credito), no un precio de venta propio de cada operacion - el credito es fungible. costoAdquisicion.valorDeListaMXN es lo que esos creditos hubieran costado al precio de lista - una estimacion del costo de adquisicion, no dinero que salio de una cuenta.',
       }
     },
   },
@@ -449,28 +529,34 @@ const HERRAMIENTAS = [
   },
   {
     name: 'consumo_creditos_docentes',
-    description: 'Consulta saldos y consumo REAL de créditos de IA de todos los docentes: saldo total disponible, capacidad total asignada, y los docentes con menor saldo restante (mayor consumo relativo). Úsala para "¿cuántos créditos se han consumido?", "¿quién usa más créditos?".',
+    description: 'Consulta saldos y consumo REAL de créditos de IA de todos los docentes: saldo total disponible, consumido acumulado total, y los docentes que más créditos han consumido. Úsala para "¿cuántos créditos se han consumido?", "¿quién usa más créditos?".',
     input_schema: { type: 'object', properties: {} },
     async run(db) {
       const snap = await db.collection('iaCreditos').get()
       let saldoTotal = 0
-      let capacidadTotal = 0
+      let consumidoTotal = 0
+      // CORREGIDO 26-ago-2026: esta herramienta seguía leyendo `plan` y
+      // `capacidad`, campos del modelo de créditos POR MES que se retiró el
+      // 20-ago-2026 (ver creditosLedger.js: "Sin capacidad, sin plan, sin
+      // ciclo mensual, sin reseteo"). En créditos puros esos campos nunca
+      // existen, así que `capacidadTotal` siempre daba 0 y `masConsumido`
+      // siempre salía vacío — rota en silencio desde que se migró el modelo.
+      // `consumidoTotal` (acumulado real, ver creditosLedger.js) es el campo
+      // correcto.
       const docs = snap.docs.map((d) => {
         const c = d.data()
         saldoTotal += c.saldo || 0
-        capacidadTotal += c.capacidad || 0
-        return { docenteId: d.id, plan: c.plan || null, saldo: c.saldo || 0, capacidad: c.capacidad || 0 }
+        consumidoTotal += c.consumidoTotal || 0
+        return { docenteId: d.id, saldo: c.saldo || 0, consumidoTotal: c.consumidoTotal || 0 }
       })
       const masConsumido = docs
-        .filter((d) => d.capacidad > 0)
-        .sort((a, b) => (a.saldo / a.capacidad) - (b.saldo / b.capacidad))
+        .filter((d) => d.consumidoTotal > 0)
+        .sort((a, b) => b.consumidoTotal - a.consumidoTotal)
         .slice(0, 5)
-        .map((d) => ({ docenteId: d.docenteId, plan: d.plan, saldoRestante: d.saldo, capacidad: d.capacidad, porcentajeConsumido: Math.round((1 - d.saldo / d.capacidad) * 100) }))
       return {
         docentesConCreditos: snap.size,
         saldoTotalDisponible: saldoTotal,
-        capacidadTotalAsignada: capacidadTotal,
-        consumidoTotal: capacidadTotal - saldoTotal,
+        consumidoTotal,
         docentesConMayorConsumo: masConsumido,
       }
     },

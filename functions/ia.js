@@ -5733,9 +5733,64 @@ exports.ejecutarOperacionIA = onCall(
       throw new HttpsError('unavailable', 'El asistente de IA no está disponible en este momento. No se descontaron créditos.')
     }
 
-    // Métricas internas (tokens, modelo): fuera del alcance del cliente.
+    // Consumo REAL: unidades procesadas × tarifa — lo calcula el código,
+    // jamás la IA.
+    //
+    // Se computa AQUÍ, antes de la métrica interna (26-ago-2026): antes vivía
+    // después del `.set()`, así que `iaConsumosInterno` guardaba tokens pero
+    // NO cuántas unidades se procesaron ni cuántos créditos se cobraron. Sin
+    // esos tres campos no se puede calcular el margen de las operaciones que
+    // cobran POR UNIDAD (`reactivos` y `crear_evaluacion_ia` cobran por
+    // reactivo generado; `calificar_entregable_ia_lote`, por entrega) — el
+    // registro decía cuánto costó, pero no cuánto se cobró por ello. Es
+    // también lo que necesita `rentabilidad_creditos` en adminChat.js para
+    // sacar el costo por crédito.
+    const porUso = tarifas.tarifas[operacion]
+    // Defensivo: hoy TODOS los ejecutores devuelven `unidadesReales` (ver
+    // OPERACIONES arriba). Si uno nuevo lo olvidara, `unidadesRealesMetrica`
+    // se registra como null (dato ausente, que las herramientas saben
+    // excluir) — pero el COBRO nunca puede caer en ese hueco: `Math.max(null,
+    // 0)` se evalúa a 0 en JS, así que pasar null a ledger.liquidar cobraría
+    // 0 créditos EN SILENCIO por una operación que sí se ejecutó (peor que un
+    // NaN visible, que era el comportamiento anterior). Por eso el cobro usa
+    // `unidadesParaCobro`, que cae a `n` (el tope ya reservado) en vez de a
+    // cero — el docente paga lo que reservó, nunca menos por un defecto.
+    const unidadesRealesMetrica = Number.isFinite(salida.unidadesReales) ? salida.unidadesReales : null
+    if (unidadesRealesMetrica == null) {
+      logger.error(`ejecutarOperacionIA(${operacion}): el ejecutor no devolvió unidadesReales — se cobra el tope reservado (${n})`)
+    }
+    const unidadesParaCobro = unidadesRealesMetrica ?? n
+    const creditosReales = Math.min(unidadesParaCobro, n) * porUso
+
+    // Métricas internas (tokens, modelo, unidades y créditos): fuera del
+    // alcance del cliente.
     db.doc(`iaConsumosInterno/${idempotencyKey}`)
-      .set({ uid, operacion, ...salida.interno, createdAt: FieldValue.serverTimestamp() })
+      .set({
+        uid, operacion, ...salida.interno,
+        // Lo que de verdad se procesó (reactivos generados, entregas
+        // evaluadas, respuestas sugeridas…). Es el denominador del costo
+        // unitario real. null si el ejecutor no lo reportó (ver arriba) —
+        // nunca se rellena con el tope reservado aquí, a diferencia del cobro.
+        unidadesReales: unidadesRealesMetrica,
+        // El tope que se reservó. `n` puede ser mayor que `unidadesReales`
+        // (se reserva la estimación máxima y se liquida lo real), así que
+        // guardar ambos deja ver cuánto se sobre-reserva por operación.
+        unidadesCobradas: n,
+        // Lo que se cobró en créditos. En el camino diferido todavía no se
+        // sabe: lo liquida `confirmarJuego` (functions/juego.js), que
+        // completa este mismo documento al hacerlo.
+        // Se completa en functions/juego.js: `creditosReales` real cuando el
+        // docente confirma (confirmarJuego), o 0 si cancela el borrador
+        // (cancelarBorradorJuego). HUECO CONOCIDO: si la reserva expira SOLA
+        // (limpiarReservasHuerfanas en creditosLedger.js, sin que el docente
+        // confirme ni cancele) este registro se queda en null para siempre —
+        // no se tocó esa limpieza porque es infraestructura compartida por
+        // TODAS las operaciones, no solo el juego, y expandirla ahí es un
+        // cambio aparte.
+        creditosReales: salida.diferirLiquidacion ? null : creditosReales,
+        liquidacionDiferida: !!salida.diferirLiquidacion,
+        createdAt: FieldValue.serverTimestamp(),
+      })
       .catch((err) => logger.error('iaConsumosInterno:', err))
 
     // CORRECCIÓN 23-ago-2026 (Crucigrama/Sopa de letras, decisión de Kike):
@@ -5750,11 +5805,6 @@ exports.ejecutarOperacionIA = onCall(
     if (salida.diferirLiquidacion) {
       return { resultado: salida.resultado, reservado: true, idempotencyKey }
     }
-
-    // Consumo REAL: unidades procesadas × tarifa — lo calcula el código,
-    // jamás la IA.
-    const porUso = tarifas.tarifas[operacion]
-    const creditosReales = Math.min(salida.unidadesReales, n) * porUso
 
     let liquidacion
     try {

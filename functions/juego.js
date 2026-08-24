@@ -10,7 +10,7 @@
 // (ContenidoJuegoEditor.jsx, estado 'contenido_editado').
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
-const { getFirestore } = require('firebase-admin/firestore')
+const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { logger } = require('firebase-functions')
 const { normalizarPalabra } = require('./_shared/normalizarPalabra.js')
 const { construirSopaDeLetras, construirCrucigrama } = require('./juegoGenerator')
@@ -223,6 +223,17 @@ async function confirmarJuegoImpl(request) {
     throw new HttpsError('internal', 'No se pudo confirmar el cobro de créditos. Intenta de nuevo.')
   }
 
+  // Completa el registro que `ejecutarOperacionIA` dejó con `creditosReales:
+  // null, liquidacionDiferida: true` (functions/ia.js) — aquí, y solo aquí,
+  // se sabe el cobro definitivo de `generar_contenido_juego`. Best-effort:
+  // si esto falla, el crédito ya se cobró correctamente (arriba); solo se
+  // pierde la métrica de margen, no el dinero.
+  if (!liquidacion.repetida) {
+    db.doc(`iaConsumosInterno/${idempotencyKey}`)
+      .set({ creditosReales: consumo.creditosReservados, liquidacionDiferida: false, liquidadoEn: FieldValue.serverTimestamp() }, { merge: true })
+      .catch((err) => logger.error(`confirmarJuego: no se pudo completar iaConsumosInterno(${idempotencyKey}):`, err))
+  }
+
   await ref.update({ 'juego.estado': 'juego_confirmado' })
   return { ok: true, creditosReales: liquidacion.repetida ? liquidacion.consumo.creditosReales : liquidacion.creditosReales, saldo: liquidacion.repetida ? null : liquidacion.saldo }
 }
@@ -251,6 +262,17 @@ async function cancelarBorradorJuegoImpl(request) {
   if (idempotencyKey) {
     await ledger.reembolsar({ uid, idempotencyKey, motivo: 'borrador cancelado por el docente', estadoFinal: 'cancelado' })
       .catch((e) => logger.error(`cancelarBorradorJuego: reembolsar(${idempotencyKey}) falló:`, e))
+    // Completa el registro que quedó con `creditosReales: null,
+    // liquidacionDiferida: true` (ver ejecutarOperacionIA en functions/ia.js):
+    // se canceló, así que el cobro real es 0 — aunque el contenido SÍ se
+    // generó con IA y sí costó tokens reales (interno ya está escrito). Es
+    // justo el caso que `rentabilidad_creditos` necesita distinguir: costo
+    // real con ingreso cero, no un registro a medias. Best-effort: el
+    // reembolso de arriba ya es lo que de verdad protege el saldo del
+    // docente; esto es solo la métrica.
+    db.doc(`iaConsumosInterno/${idempotencyKey}`)
+      .set({ creditosReales: 0, liquidacionDiferida: false, canceladoEn: FieldValue.serverTimestamp() }, { merge: true })
+      .catch((e) => logger.error(`cancelarBorradorJuego: no se pudo completar iaConsumosInterno(${idempotencyKey}):`, e))
   }
 
   await ref.delete()
