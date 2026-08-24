@@ -39,10 +39,10 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore()
   await setDoc(doc(db, 'users', T1), { role: 'docente', escuelaId: 'E1' })
   await setDoc(doc(db, 'users', T2), { role: 'docente', escuelaId: 'E2' })
-  // Modelo de créditos puros (20-ago-2026): Asistencia exige saldo>0 — T1
-  // necesita este doc para que sus pruebas normales de asistencia (abajo)
-  // sigan pasando; T2 se deja SIN doc a propósito para las pruebas de
-  // saldoIAPositivo más abajo (doc ausente = bloqueado).
+  // Saldo de créditos IA de T1. Desde el 26-ago-2026 ya no gatea Asistencia
+  // (que es gratuita), pero se conserva: las pruebas de abajo comparan
+  // explícitamente un docente CON saldo contra uno SIN saldo para verificar
+  // que la asistencia funciona igual en ambos casos.
   await setDoc(doc(db, 'iaCreditos', T1), { saldo: 50, consumidoTotal: 0, consumoPorCategoria: {} })
   await setDoc(doc(db, 'users', U_MALLORY), { role: 'docente', escuelaId: 'E1' }) // even a docente can't cross tenants
   await setDoc(doc(db, 'subjects', 'S1'), { docenteId: T1, escuelaId: 'E1', accessCode: 'abc' })
@@ -320,6 +320,10 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore()
   await setDoc(doc(db, 'users', T_VENCIDO), { role: 'docente', escuelaId: 'E3', suscripcionHasta: AYER })
   await setDoc(doc(db, 'users', T_SIN_CAMPO), { role: 'docente', escuelaId: 'E4' })
+  // Asignatura PROPIA de T_SIN_CAMPO — la prueba de asistencia sin doc de
+  // créditos necesita una suya: `S_VENC` es de T_VENCIDO, y escribir ahí
+  // fallaría por propiedad (ownsSubject), no por lo que se quiere probar.
+  await setDoc(doc(db, 'subjects', 'S_SIN_CAMPO'), { docenteId: T_SIN_CAMPO, escuelaId: 'E4', accessCode: 'snc' })
   await setDoc(doc(db, 'subjects', 'S_VENC'), { docenteId: T_VENCIDO, escuelaId: 'E3', accessCode: 'ven' })
   await setDoc(doc(db, 'activities', 'A_VENC'), { docenteId: T_VENCIDO, asignaturaId: 'S_VENC', tipo: 'archivo' })
   await setDoc(doc(db, 'submissions', 'SUB_VENC'), { alumnoId: 'ST_JUAN', actividadId: 'A_VENC' })
@@ -368,10 +372,13 @@ await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_VENC_ST_JUAN_VENC'), {
   alumnoId: 'ST_JUAN_VENC', actividadId: 'A_VENC', archivoURL: 'x',
 })); ok('student of a teacher with an expired suscripcionHasta CAN still submit')
 
-// ── Asistencia: candado por saldo de créditos IA (saldoIAPositivo) ──────────
-// No consume créditos, pero exige saldo>0 — la ÚNICA función no-IA con este
-// requisito. Doc ausente = bloqueado (a diferencia de suscripcionHasta,
-// donde ausente dejaba pasar) — ver plan §9.
+// ── Asistencia: GRATUITA, sin candado de saldo (26-ago-2026) ────────────────
+// Estas tres pruebas están INVERTIDAS a propósito: antes verificaban que
+// `saldoIAPositivo` bloqueara a quien no tuviera créditos. Ese candado se
+// retiró — la plataforma es gratuita y pasar lista no consume créditos, así
+// que tampoco puede exigirlos. Se conservan (en vez de borrarse) porque son
+// justo la prueba de que la asistencia quedó libre de verdad: si alguien
+// vuelve a meter un candado por saldo, estas tres truenan.
 await testEnv.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore()
   await setDoc(doc(db, 'users', 'teacher_saldo0'), { role: 'docente', escuelaId: 'E1' })
@@ -384,13 +391,68 @@ await assertSucceeds(setDoc(doc(asT1, 'attendance', 'AT_SALDO_POS'), {
   asignaturaId: 'S1', docenteId: T1, fecha: '2026-08-06', slot: 1, parcial: 1, presentes: {},
 })); ok('teacher with saldo>0 CAN take attendance')
 
-await assertFails(setDoc(doc(asSaldo0, 'attendance', 'AT_SALDO_0'), {
+await assertSucceeds(setDoc(doc(asSaldo0, 'attendance', 'AT_SALDO_0'), {
   asignaturaId: 'S_SALDO0', docenteId: 'teacher_saldo0', fecha: '2026-08-06', slot: 1, parcial: 1, presentes: {},
-})); ok('teacher with saldo==0 CANNOT take attendance')
+})); ok('teacher with saldo==0 CAN take attendance (asistencia es gratuita)')
 
-await assertFails(setDoc(doc(asSinCampo, 'attendance', 'AT_SIN_DOC'), {
+await assertSucceeds(setDoc(doc(asSinCampo, 'attendance', 'AT_SIN_DOC'), {
+  asignaturaId: 'S_SIN_CAMPO', docenteId: T_SIN_CAMPO, fecha: '2026-08-06', slot: 1, parcial: 1, presentes: {},
+})); ok('teacher with NO iaCreditos doc CAN take attendance (cuenta recién creada, sin regalo de bienvenida todavía)')
+
+// La propiedad de la asignatura SIGUE siendo obligatoria — quitar el candado
+// de saldo no abrió la asistencia de otros docentes.
+await assertFails(setDoc(doc(asSinCampo, 'attendance', 'AT_AJENA'), {
   asignaturaId: 'S_VENC', docenteId: T_SIN_CAMPO, fecha: '2026-08-06', slot: 1, parcial: 1, presentes: {},
-})); ok('teacher with NO iaCreditos doc CANNOT take attendance (absent = blocked, unlike suscripcionHasta)')
+})); ok('teacher CANNOT take attendance on a subject that is not theirs (ownsSubject sigue vigente)')
+
+// ── Compra de créditos: montoOficialCredito espeja los 6 paquetes vivos ──────
+// NUEVO (26-ago-2026). No había NINGUNA prueba de creditPurchases, y por eso
+// nadie notó que `montoOficialCredito` en firestore.rules se quedó con los
+// paquetes viejos (100/175/350/700/1400/2800) cuando se sembró la tabla v3 con
+// los nuevos: las SEIS compras que ofrece ComprarCreditosModal.jsx se
+// rechazaban con "Missing or insufficient permissions", en silencio, dejando
+// caído el único camino de ingreso del negocio.
+//
+// Estos pares deben coincidir EXACTAMENTE con config/iaTarifas.paquetesCreditos
+// (seeds-db/seed-ia-tarifas.js). Si alguien cambia los paquetes sin actualizar
+// las reglas, estas seis pruebas truenan ANTES de llegar a producción — que es
+// justo lo que faltaba.
+const PAQUETES_OFICIALES = [
+  { creditos: 50, montoMXN: 50 },
+  { creditos: 100, montoMXN: 90 },
+  { creditos: 200, montoMXN: 180 },
+  { creditos: 400, montoMXN: 360 },
+  { creditos: 800, montoMXN: 720 },
+  { creditos: 1600, montoMXN: 1440 },
+]
+const compraBase = (p) => ({
+  docenteId: T1, creditos: p.creditos, montoMXN: p.montoMXN,
+  metodo: 'transferencia', status: 'pendiente', origen: 'creditos_adicionales',
+  createdAt: serverTimestamp(),
+})
+for (const p of PAQUETES_OFICIALES) {
+  await assertSucceeds(setDoc(doc(asT1, 'creditPurchases', `CP_${p.creditos}`), compraBase(p)))
+  ok(`teacher CAN buy the ${p.creditos}-credit package for $${p.montoMXN}`)
+}
+
+// El precio NO se le cree al cliente: mismo paquete, monto manipulado.
+await assertFails(setDoc(doc(asT1, 'creditPurchases', 'CP_BARATO'), {
+  ...compraBase({ creditos: 1600, montoMXN: 1 }),
+})); ok('teacher CANNOT declare a cheaper montoMXN than the official one')
+
+// Una cantidad de créditos que no corresponde a ningún paquete.
+await assertFails(setDoc(doc(asT1, 'creditPurchases', 'CP_INVENTADO'), {
+  ...compraBase({ creditos: 175, montoMXN: 175 }),
+})); ok('teacher CANNOT buy a package that is not in the official table (175 was the OLD table)')
+
+// No se puede comprar a nombre de otro docente.
+await assertFails(setDoc(doc(asT2, 'creditPurchases', 'CP_AJENO'), {
+  ...compraBase({ creditos: 50, montoMXN: 50 }),
+})); ok('teacher CANNOT create a purchase attributed to another teacher')
+
+// Ni auto-aprobarse la compra (solo admin pasa a 'completado').
+await assertFails(updateDoc(doc(asT1, 'creditPurchases', 'CP_50'), { status: 'completado' }))
+ok('teacher CANNOT approve their own credit purchase')
 
 // ── Suscripciones: el candado no se puede abrir desde el cliente ─────────────
 // Los dos ataques que la auditoría encontró abiertos: reescribir las fechas al

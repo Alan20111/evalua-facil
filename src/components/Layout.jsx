@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -23,7 +23,6 @@ import {
 import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import Spinner from './Spinner'
-import useCreditosIA from '../hooks/useCreditosIA'
 import { configurarBloqueoExportacion } from '../utils/exportGuard'
 import { subjectDisplayName } from '../utils/subjectName'
 import { teacherDisplayName } from '../utils/studentSearch'
@@ -35,8 +34,6 @@ import AppQRButton from './AppQRButton'
 import ConfirmModal from './ConfirmModal'
 import SkipLink from './SkipLink'
 import CreditosBar from './CreditosBar'
-import ActivarCreditosModal from './ActivarCreditosModal'
-import ComprarCreditosModal from './ComprarCreditosModal'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
@@ -89,36 +86,24 @@ export default function TeacherLayout({ children }) {
   const activeSubjects = subjects.filter((s) => !s.archived)
   const archivedSubjects = subjects.filter((s) => s.archived)
 
-  // Modelo de créditos puros (20-ago-2026): ya no hay candado de suscripción
-  // ni de plan — todo lo no-IA (incluido el Chat con Asistente) es gratis
-  // para cualquier docente, sin importar su historial de pago. El único
-  // candado que sigue vivo es el de Asistencia por saldo, ver CreditosBar/
-  // useCreditosIA y firestore.rules (saldoIAPositivo).
+  // Modelo de créditos puros: ya no hay candado de suscripción, de plan ni de
+  // saldo — toda la plataforma que no es IA (asignaturas, estudiantes,
+  // actividades, asistencia, descargas) es gratis para cualquier docente
+  // autenticado. Los créditos cubren ÚNICAMENTE operaciones de IA.
 
-  const creditosIA = useCreditosIA()
-  const [activarCreditosAbierto, setActivarCreditosAbierto] = useState(false)
-  const [comprarCreditosAbierto, setComprarCreditosAbierto] = useState(false)
-
-  // Candado de DESCARGA (utils/exportGuard.js) — bonus asociado a tener
-  // créditos IA activos (21-ago-2026, decisión de Kike): reemplaza al
-  // candado anterior por "nunca pagó" (planId ausente). Descargar NO
-  // consume créditos; solo se exige saldo > 0. Antes de que el saldo
-  // termine de cargar no se bloquea (evita un falso bloqueo en el primer
-  // instante de la sesión).
-  const sinCreditosRef = useRef(false)
-  const mostrarCTAActivarRef = useRef(false)
+  // Descargas: GRATUITAS (26-ago-2026). Hasta hoy exportGuard.js las
+  // bloqueaba con saldo 0 — eran un "bonus asociado a tener créditos IA
+  // activos" (21-ago-2026). Ese modelo se descartó: la plataforma es gratuita
+  // y los créditos cubren ÚNICAMENTE operaciones de IA, no descargas,
+  // asistencias ni actividades interactivas.
+  //
+  // Se pasa `bloqueado: () => false` en vez de borrar exportGuard.js porque
+  // decenas de pantallas importan saveWorkbook/savePdfDoc/saveBlob desde ahí:
+  // el módulo queda como punto único de paso, inerte, exactamente igual que
+  // firestoreGuard.js cuando se retiró el candado de suscripción. Si algún día
+  // hace falta un candado de descargas, el cable ya está puesto.
   useEffect(() => {
-    sinCreditosRef.current = creditosIA.listo && !creditosIA.saldoPositivo
-    mostrarCTAActivarRef.current = creditosIA.mostrarCTAActivarBienvenida
-  }, [creditosIA.listo, creditosIA.saldoPositivo, creditosIA.mostrarCTAActivarBienvenida])
-
-  useEffect(() => {
-    configurarBloqueoExportacion({
-      bloqueado: () => sinCreditosRef.current,
-      // El QR de la App (AppQRButton) no pasa por este candado — ver
-      // exportGuard.js — así que no necesita excepción aquí.
-      onIntento: () => (mostrarCTAActivarRef.current ? setActivarCreditosAbierto(true) : setComprarCreditosAbierto(true)),
-    })
+    configurarBloqueoExportacion({ bloqueado: () => false })
     return () => configurarBloqueoExportacion({ bloqueado: () => false })
   }, [])
 
@@ -512,8 +497,6 @@ export default function TeacherLayout({ children }) {
 
       {/* CTA del candado de descarga (exportGuard.js): se abre solo, sin que
           el docente tenga que ir a buscar el botón de créditos. */}
-      <ActivarCreditosModal open={activarCreditosAbierto} onClose={() => setActivarCreditosAbierto(false)} />
-      <ComprarCreditosModal open={comprarCreditosAbierto} onClose={() => setComprarCreditosAbierto(false)} />
 
     </div>
   )
