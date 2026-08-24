@@ -1,18 +1,21 @@
 import { saveWorkbook as _saveWorkbook, savePdfDoc as _savePdfDoc, saveBlob as _saveBlob } from './nativeSave'
 
-// Punto ÚNICO de control para bloquear la descarga de archivos GENERADOS por
-// la plataforma (calificaciones, asistencias, Planeación Inicial, análisis
-// con IA…). Modelo de créditos puros (21-ago-2026, decisión de Kike): las
-// descargas son un BONUS asociado a tener créditos IA activos, sin relación
-// con suscripción/plan/pago histórico —
-//   · saldo > 0  → descargas permitidas (descargar NO consume créditos)
-//   · saldo = 0  → descargas bloqueadas, con CTA para activar la bienvenida
-//     o comprar más créditos
-// Reemplaza al candado anterior por "trial sin pagar" (13-ago-2026), que
-// dependía de subscription.planId — ese modelo ya no existe (ver
-// docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md). Distinto del candado de
-// ESCRITURA (firestoreGuard.js), que sigue siendo por vencida, no por
-// créditos.
+// Punto ÚNICO de paso para la descarga de archivos GENERADOS por la
+// plataforma (calificaciones, asistencias, Planeación Inicial, análisis con
+// IA…).
+//
+// HOY NO BLOQUEA NADA (26-ago-2026). Las descargas son gratuitas: la
+// plataforma es gratuita y los créditos cubren ÚNICAMENTE operaciones de IA
+// — no descargas, no asistencias, no actividades interactivas. El candado
+// anterior las trataba como un "bonus asociado a tener créditos IA activos"
+// (21-ago-2026), que a su vez había reemplazado a uno por "trial sin pagar"
+// (13-ago-2026); ninguno de los dos modelos existe ya.
+//
+// El módulo se conserva —igual que firestoreGuard.js, que quedó inerte
+// cuando se retiró el candado de suscripción— porque decenas de pantallas
+// importan saveWorkbook/savePdfDoc/saveBlob desde aquí (mismos nombres,
+// misma firma). Layout.jsx lo cablea con `bloqueado: () => false`. Si algún
+// día hace falta un candado de descargas, el cable ya está puesto.
 //
 // Mismo patrón que firestoreGuard.js: las pantallas del docente importan
 // saveWorkbook/savePdfDoc/saveBlob DESDE AQUÍ (mismos nombres, misma firma)

@@ -47,40 +47,51 @@ service cloud.firestore {
     // — misma razón que montoOficialPago arriba: el servidor no confía en el
     // precio que declara el cliente. 6 paquetes definitivos.
     //
-    // Conversión de unidad 23-ago-2026 (decisión PO): 1 crédito = $1 MXN.
-    // Los precios monetarios NO cambiaron, solo la cantidad nominal de
-    // créditos por paquete — si este espejo y seed-ia-tarifas.js.paquetesCreditos
-    // dejan de coincidir, las compras se rechazan con "Missing or insufficient
-    // permissions" (mismo mecanismo que montoOficialPago).
+    // ⚠️ SI ESTE ESPEJO Y config/iaTarifas.paquetesCreditos DEJAN DE
+    // COINCIDIR, TODAS LAS COMPRAS SE RECHAZAN con "Missing or insufficient
+    // permissions" — y en silencio: el docente ve un error genérico, nadie
+    // recibe una alerta, y el único ingreso del negocio queda caído sin que
+    // se note. Ya pasó (26-ago-2026): se sembró la tabla v3 con los 6
+    // paquetes nuevos y estas reglas se quedaron con los viejos
+    // (100/175/350/700/1400/2800), así que los 6 paquetes que ofrecía
+    // ComprarCreditosModal.jsx eran rechazados uno por uno.
+    //
+    // LAS REGLAS NO SE DESPLIEGAN SOLAS. Todo cambio en
+    // seeds-db/seed-ia-tarifas.js → paquetesCreditos obliga a actualizar esta
+    // función Y a correr `firebase deploy --only firestore:rules`.
+    //
+    // Valores tomados de config/iaTarifas.paquetesCreditos (leído en vivo el
+    // 26-ago-2026), con descuento por volumen: el paquete de 50 es el único
+    // sin descuento ($1.00/crédito); los otros cinco van a $0.90/crédito.
     function montoOficialCredito(creditos) {
-      return creditos == 100 ? 100 :
-        creditos == 175 ? 175 :
-        creditos == 350 ? 350 :
-        creditos == 700 ? 700 :
-        creditos == 1400 ? 1400 :
-        creditos == 2800 ? 2800 : null;
+      return creditos == 50 ? 50 :
+        creditos == 100 ? 90 :
+        creditos == 200 ? 180 :
+        creditos == 400 ? 360 :
+        creditos == 800 ? 720 :
+        creditos == 1600 ? 1440 : null;
     }
 
-    // ── Modelo de créditos puros (20-ago-2026) ──────────────────────────────
-    // Se retira el candado por tiempo de suscripción (`isDocente()`/
-    // `suscripcionHasta()` ya NO existen): todo lo que no es IA queda abierto
-    // para cualquier docente autenticado — `isDocente()` es suficiente en toda
-    // escritura de docente que no sea Asistencia (ver `saldoIAPositivo` abajo).
+    // ── Modelo de créditos puros ────────────────────────────────────────────
+    // Se retiró el candado por tiempo de suscripción el 20-ago-2026
+    // (`isDocente()`/`suscripcionHasta()` ya NO existen): todo lo que no es IA
+    // queda abierto para cualquier docente autenticado.
     // `users/{uid}.suscripcionHasta` puede seguir existiendo como dato
     // histórico; simplemente ya no lo lee ninguna regla.
     //
-    // Excepción: Asistencia (`attendance`/`attendanceSummaries`) NO consume
-    // créditos, pero exige saldo positivo para estar habilitada — se
-    // rehabilita sola en cuanto el saldo vuelve a ser mayor a cero (compra
-    // aprobada). A diferencia del patrón anterior de `suscripcionHasta()`
-    // (campo ausente = se deja pasar), aquí la AUSENCIA del doc de créditos
-    // significa saldo 0: se BLOQUEA. Esto es intencional (§9 del plan
-    // técnico) — antes de que `onDocenteCreado` otorgue el regalo de
-    // bienvenida, la cuenta no debe poder escribir asistencia.
-    function saldoIAPositivo(uid) {
-      return exists(/databases/$(database)/documents/iaCreditos/$(uid)) &&
-        get(/databases/$(database)/documents/iaCreditos/$(uid)).data.get('saldo', 0) > 0;
-    }
+    // 26-ago-2026 — se retira también `saldoIAPositivo`, que era lo último que
+    // bloqueaba a alguien: exigía saldo > 0 para escribir Asistencia. La
+    // plataforma es GRATUITA y el único ingreso son los créditos de IA
+    // prepagados; pasar lista no consume créditos y por lo tanto no puede
+    // exigirlos (decisión de Kike: "pasar lista NO debe requerir saldo, es
+    // gratuita de verdad"). Era además el peor caso posible: la AUSENCIA del
+    // doc `iaCreditos` contaba como saldo 0, así que una cuenta recién creada
+    // no podía pasar lista hasta que `onDocenteCreado` le otorgara el regalo
+    // de bienvenida.
+    //
+    // Lo mismo del lado del cliente: el banner y los modales de Asistencia
+    // (SubjectPage.jsx) y el candado de descargas (src/utils/exportGuard.js,
+    // cableado en Layout.jsx) se desactivaron en el mismo cambio.
 
     // ── Ownership helpers (cross-document) ──────────────────────────────────
     // Students have NO docenteId of their own; ownership is indirect via the
@@ -603,14 +614,15 @@ service cloud.firestore {
       // podía listar los pases de lista de toda la plataforma. El alumno ve su
       // propio resumen vía attendanceSummaries (ver más abajo).
       allow read: if isDocente() || isAdmin();
-      // Asistencia NO consume créditos, pero exige saldo positivo (§9 del
-      // plan de créditos puros) — no `isDocente()`/suscripción, sino
-      // `saldoIAPositivo`: se bloquea en saldo==0 y se rehabilita sola en
-      // saldo>0, sin depender de historial de compras.
-      allow create: if isDocente() && saldoIAPositivo(request.auth.uid) &&
+      // Asistencia es GRATUITA (26-ago-2026): no consume créditos y tampoco
+      // los exige. Lo único que se comprueba es identidad y propiedad — que
+      // seas docente, que el registro sea tuyo y que la asignatura también.
+      // El candado anterior por `saldoIAPositivo` se retiró: ver el comentario
+      // del modelo de créditos puros arriba.
+      allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
-      allow update, delete: if isDocente() && saldoIAPositivo(request.auth.uid) &&
+      allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
     }
 
