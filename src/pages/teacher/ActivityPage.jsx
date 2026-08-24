@@ -194,7 +194,15 @@ export default function ActivityPage() {
   // teacher is just browsing and only the explicit Guardar button saves.
   // Remembered across sessions so it's a one-time choice.
   const [autoSaveOnNav, setAutoSaveOnNav] = useState(() => localStorage.getItem('ef-autosave-nav') === '1')
-  const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '' })
+  const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '', comentarioVisibleAlumno: true })
+  // GLOBAL = default, INDIVIDUAL = excepción, la individual gana (26-ago-2026,
+  // corrección explícita de Kike). true mientras el docente no haya tocado el
+  // checkbox de ESTE estudiante y la entrega no traiga ya un valor propio
+  // guardado — en ese caso, al guardar NO se escribe el campo en la
+  // submission (sigue heredando el default de la actividad, incluso si
+  // cambia después). En cuanto se toca, o si la entrega ya traía una
+  // excepción propia, se guarda el valor explícito siempre.
+  const comentarioVisibleEsExcepcionRef = useRef(false)
   // Nivel elegido por criterio cuando la actividad tiene rúbrica (null = sin elegir)
   const [rubricEval, setRubricEval] = useState(null)
   // "Ver rúbrica": ventana flotante sobrepuesta que abre abajo del botón,
@@ -438,7 +446,18 @@ export default function ActivityPage() {
         ? String(sub.calificacion)
         : (!IS_NATIVE_APP && ((sub && !isEvaluacion) || isObservacion)) ? String(activity?.maxCalif ?? 10) : '',
       comentario: sub?.comentario || '',
+      // Individual (excepción, si esta entrega ya tiene una) o si no, el
+      // default/global de la actividad — nunca al revés. Se recarga aquí
+      // cada vez que se abre a un estudiante distinto, para no arrastrar por
+      // accidente el valor del alumno anterior (26-ago-2026).
+      comentarioVisibleAlumno: sub?.comentarioVisibleAlumno !== undefined
+        ? sub.comentarioVisibleAlumno !== false
+        : activity?.comentarioVisibleAlumno !== false,
     })
+    // Ya tiene su propia excepción → se re-guarda igual aunque no se toque.
+    // Si no, empieza heredando el global — solo se vuelve excepción si el
+    // docente toca el checkbox (ver su onChange, más abajo).
+    comentarioVisibleEsExcepcionRef.current = sub?.comentarioVisibleAlumno !== undefined
     // Con rúbrica: cargar la evaluación guardada; si aún no hay calificación,
     // prellenar todo en el nivel máximo (equivale al prellenado de 10 de arriba
     // — el docente solo ajusta las excepciones).
@@ -550,7 +569,14 @@ export default function ActivityPage() {
     const comChanged = gradeForm.comentario.trim() !== (selected.sub.comentario || '')
     const rubChanged = hasRubrica &&
       JSON.stringify(normRubricaEval(rubricEval)) !== JSON.stringify(normRubricaEval(selected.sub.rubricaEval))
-    return calChanged || comChanged || rubChanged
+    // Mismo criterio individual-o-global que openGrade — comparar contra el
+    // valor RAW del sub (undefined ≠ true) reportaría "cambiado" a diario
+    // cuando el global es false y el checkbox simplemente lo refleja.
+    const comentarioVisibleResuelto = selected.sub.comentarioVisibleAlumno !== undefined
+      ? selected.sub.comentarioVisibleAlumno !== false
+      : activity?.comentarioVisibleAlumno !== false
+    const visChanged = (gradeForm.comentarioVisibleAlumno !== false) !== comentarioVisibleResuelto
+    return calChanged || comChanged || rubChanged || visChanged
   }
 
   // Tocar un nivel en la rúbrica: guarda la elección y, cuando todos los
@@ -747,6 +773,15 @@ export default function ActivityPage() {
     const cal = parseFloat(gradeForm.calificacion)
     if (isNaN(cal) || cal < 0 || cal > (activity?.maxCalif ?? 10)) return false
     const comentario = gradeForm.comentario.trim()
+    // Solo se escribe el campo en la submission si esta entrega YA tenía su
+    // propia excepción o si el docente tocó el checkbox ahora (ver su
+    // onChange) — GLOBAL = default, INDIVIDUAL = excepción, la individual
+    // gana; si nunca hubo excepción, no se copia el valor global a la
+    // entrega, para que ese estudiante siga heredando cualquier cambio
+    // futuro del default de la actividad (26-ago-2026).
+    const comentarioVisiblePayload = comentarioVisibleEsExcepcionRef.current
+      ? { comentarioVisibleAlumno: gradeForm.comentarioVisibleAlumno !== false }
+      : {}
     // La rúbrica evaluada viaja junto con la calificación (null si no se tocó)
     const rubricaEvalPayload = hasRubrica ? { rubricaEval: normRubricaEval(rubricEval) } : {}
     let updated
@@ -755,9 +790,10 @@ export default function ActivityPage() {
         calificacion: cal,
         comentario,
         estado: 'calificado',
+        ...comentarioVisiblePayload,
         ...rubricaEvalPayload,
       })
-      updated = { ...selected.sub, calificacion: cal, comentario, estado: 'calificado', ...rubricaEvalPayload }
+      updated = { ...selected.sub, calificacion: cal, comentario, estado: 'calificado', ...comentarioVisiblePayload, ...rubricaEvalPayload }
     } else {
       const data = {
         actividadId: activityId,
@@ -767,6 +803,7 @@ export default function ActivityPage() {
         estado: 'calificado',
         sinEntrega: true,
         fechaEntrega: serverTimestamp(),
+        ...comentarioVisiblePayload,
         ...rubricaEvalPayload,
       }
       // Id determinista (A12 · H5 · R22) — merge:true por la misma razón que
@@ -1961,6 +1998,26 @@ export default function ActivityPage() {
                         placeholder="Retroalimentación para el estudiante…"
                       />
                     </div>
+                    {/* Empieza mostrando el default/global de la actividad
+                        (o la excepción propia, si esta entrega ya tiene una)
+                        — tocarlo la convierte en excepción individual, que
+                        gana sobre el global aunque este cambie después (ver
+                        comentarioVisibleEsExcepcionRef y persistGrade). Se
+                        guarda junto con "Guardar calificación", mismo
+                        mecanismo de siempre. */}
+                    <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={gradeForm.comentarioVisibleAlumno !== false}
+                        onChange={(e) => {
+                          comentarioVisibleEsExcepcionRef.current = true
+                          setGradeForm((f) => ({ ...f, comentarioVisibleAlumno: e.target.checked }))
+                        }}
+                        disabled={parcialCerrado}
+                        className="w-4 h-4 rounded border-outline-variant text-accent focus:ring-accent"
+                      />
+                      Permitir que el estudiante vea este comentario
+                    </label>
                     {!canCreate && (
                       <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
                         Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
