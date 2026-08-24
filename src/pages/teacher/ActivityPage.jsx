@@ -2819,6 +2819,7 @@ export default function ActivityPage() {
             rubrica: activity.rubrica || null,
             rubricaId: activity.rubricaId || null,
             rubricaVisibleAlumno: activity.rubricaVisibleAlumno !== false,
+            comentarioVisibleAlumno: activity.comentarioVisibleAlumno !== false,
             notificarDocente: activity.notificarDocente || false,
           }}
           initialExistingFiles={activity.archivosAdjuntos || []}
