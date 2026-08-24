@@ -1,25 +1,24 @@
-// Aplicar evaluaciones de IA YA GENERADAS — callables SEPARADOS de
+// Aplicar evaluaciones de IA YA GENERADAS — callable SEPARADO de
 // ejecutarOperacionIA a propósito (23-ago-2026, pedido explícito de Kike):
-// estas dos funciones nunca llaman a Anthropic ni tocan functions/
-// creditosLedger.js — no declaran `secrets`, no reservan, no liquidan. Igual
-// que juego.js con construirJuego/confirmarJuego, separar el archivo hace
-// imposible que un cambio futuro en el flujo de IA "arrastre" un cobro aquí
-// por accidente.
+// esta función nunca llama a Anthropic ni toca functions/creditosLedger.js —
+// no declara `secrets`, no reserva, no liquida. Igual que juego.js con
+// construirJuego/confirmarJuego, separar el archivo hace imposible que un
+// cambio futuro en el flujo de IA "arrastre" un cobro aquí por accidente.
 //
-// Dos acciones, una regla en común — NUNCA modifican una calificación
-// definitiva sin que el docente haya pedido explícitamente esa acción:
-//   guardarEvaluacionIndividualAplicada — el docente ya generó UNA evaluación
-//     con "Calificar con IA" (esa sí cobró, vía ejecutarOperacionIA) y la
-//     acaba de aplicar/guardar; esto solo persiste el registro histórico en
-//     iaSugerenciasEntregable para poder consultarlo después ("Ver
-//     evaluación de IA"). NO toca `submissions` — esa escritura la hace el
-//     cliente en el mismo persistGrade() de siempre.
-//   aplicarEvaluacionesIAPendientes — "Aplicar calificaciones de IA a
-//     todas": toma las sugerencias YA GENERADAS con estado 'pendiente' (de
-//     un lote de "Calificar/Recalificar todas con IA" previo) y sí escribe
-//     la calificación real en cada `submissions`, exactamente el mismo
-//     conjunto de campos que la aplicación individual — pero sin generar
-//     nada nuevo, así que no hay nada que cobrar.
+// aplicarEvaluacionesIAPendientes ("Aplicar calificaciones de IA a todas",
+// Modo 1) — toma las sugerencias YA GENERADAS con estado 'pendiente' (de un
+// lote de "Calificar/Recalificar todas con IA", o de "Calificar con IA"
+// individual — desde 24-ago-2026 ambos flujos persisten en el mismo lugar,
+// ver ejecutarCalificarEntregableIA en ia.js) y escribe la calificación real
+// en cada `submissions` — pero sin generar nada nuevo, así que no hay nada
+// que cobrar.
+//
+// (El registro histórico de "Ver evaluación de IA" para el flujo individual
+// ya no necesita un callable aparte: ejecutarCalificarEntregableIA en ia.js
+// persiste la propuesta EN CUANTO se genera, en el mismo doc que usa el
+// lote — así que persistGrade() en ActivityPage.jsx solo necesita marcarla
+// 'aplicada' con un updateDoc directo del cliente, igual que ya hacía para
+// el flujo por lote.)
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
@@ -55,66 +54,6 @@ async function verificarActividadDocente(db, uid, actividadId) {
   if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
   return act
 }
-
-// Recorta/valida lo mínimo del objeto que manda el cliente — el docente ya
-// controla por completo la calificación de sus propios alumnos (la escribe
-// directo en el formulario si quiere), así que esto no es una barrera de
-// seguridad nueva: es solo higiene de datos para que el registro histórico
-// no crezca sin límite ni rompa el mismo parseo que ya usa CalificarConIAModal.
-function sanearSugerencia(sugerencia) {
-  const criterios = Array.isArray(sugerencia?.criterios) ? sugerencia.criterios : []
-  return {
-    criterios: criterios.slice(0, 20).map((c) => ({
-      n: Number.isInteger(c?.n) ? c.n : null,
-      nivel: Number.isInteger(c?.nivel) ? c.nivel : null,
-      evidencia: String(c?.evidencia || '').slice(0, 300),
-      sinEvidenciaSuficiente: !!c?.sinEvidenciaSuficiente,
-    })),
-    retroalimentacionGeneral: String(sugerencia?.retroalimentacionGeneral || '').slice(0, 1000),
-    confianza: ['alta', 'media', 'baja'].includes(sugerencia?.confianza) ? sugerencia.confianza : 'media',
-    evidenciasAnalizadas: Array.isArray(sugerencia?.evidenciasAnalizadas) ? sugerencia.evidenciasAnalizadas.slice(0, 5) : [],
-    ignoradosPorFormato: Number.isInteger(sugerencia?.ignoradosPorFormato) ? sugerencia.ignoradosPorFormato : 0,
-    ignoradosPorTope: Number.isInteger(sugerencia?.ignoradosPorTope) ? sugerencia.ignoradosPorTope : 0,
-    calificacionPropuesta: typeof sugerencia?.calificacionPropuesta === 'number' ? sugerencia.calificacionPropuesta : null,
-  }
-}
-
-// ── "Calificar con IA" individual, ya aplicada — persiste el registro ──────
-// El docente ya vio la propuesta y ya guardó la calificación (persistGrade,
-// ActivityPage.jsx) ANTES de llamar aquí — esta función nunca escribe
-// `submissions`, solo dEJA el registro para "Ver evaluación de IA".
-async function guardarEvaluacionIndividualAplicadaImpl(request) {
-  const uid = request.auth?.uid
-  if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar esta función')
-
-  const db = getFirestore()
-  const actividadId = String(request.data?.actividadId || '')
-  const submissionId = String(request.data?.submissionId || '')
-  if (!submissionId) throw new HttpsError('invalid-argument', 'Falta la entrega')
-
-  await verificarActividadDocente(db, uid, actividadId)
-
-  const subSnap = await db.doc(`submissions/${submissionId}`).get()
-  if (!subSnap.exists || subSnap.data().actividadId !== actividadId) {
-    throw new HttpsError('failed-precondition', 'Esta entrega no pertenece a esta actividad')
-  }
-
-  const ref = db.doc(`activities/${actividadId}/iaSugerenciasEntregable/${submissionId}`)
-  await ref.set({
-    estado: 'aplicada',
-    actividadId,
-    sub: submissionId,
-    sugerencia: sanearSugerencia(request.data?.sugerencia),
-    actualizadoEn: FieldValue.serverTimestamp(),
-  }, { merge: true })
-  // `creadoEn` solo si el doc no existía todavía (no pisar la fecha real de
-  // una sugerencia de lote que este mismo submissionId ya tuviera).
-  const snap = await ref.get()
-  if (!snap.data()?.creadoEn) await ref.set({ creadoEn: FieldValue.serverTimestamp() }, { merge: true })
-
-  return { ok: true }
-}
-exports.guardarEvaluacionIndividualAplicada = onCall({ timeoutSeconds: 60 }, guardarEvaluacionIndividualAplicadaImpl)
 
 // ── "Aplicar calificaciones de IA a todas" (Modo 1) ─────────────────────────
 // Solo trabaja con sugerencias YA GENERADAS y 'pendiente' — nunca llama a
@@ -209,6 +148,6 @@ async function aplicarEvaluacionesIAPendientesImpl(request) {
 exports.aplicarEvaluacionesIAPendientes = onCall({ timeoutSeconds: 120 }, aplicarEvaluacionesIAPendientesImpl)
 
 exports._pruebas = {
-  verificarActividadDocente, sanearSugerencia, totalInstrumento, esCotejo,
-  guardarEvaluacionIndividualAplicadaImpl, aplicarEvaluacionesIAPendientesImpl,
+  verificarActividadDocente, totalInstrumento, esCotejo,
+  aplicarEvaluacionesIAPendientesImpl,
 }

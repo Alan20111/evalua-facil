@@ -67,10 +67,9 @@ exports.confirmarJuego = juego.confirmarJuego
 exports.cancelarBorradorJuego = juego.cancelarBorradorJuego
 
 // Aplicar evaluaciones de IA ya generadas (23-ago-2026) — igual que juego.js,
-// callables SEPARADOS de ejecutarOperacionIA: nunca llaman a Anthropic ni
-// tocan el ledger de créditos (ver functions/calificarAplicar.js).
+// callable SEPARADO de ejecutarOperacionIA: nunca llama a Anthropic ni
+// toca el ledger de créditos (ver functions/calificarAplicar.js).
 const calificarAplicar = require('./calificarAplicar')
-exports.guardarEvaluacionIndividualAplicada = calificarAplicar.guardarEvaluacionIndividualAplicada
 exports.aplicarEvaluacionesIAPendientes = calificarAplicar.aplicarEvaluacionesIAPendientes
 
 // Ajuste manual de saldo de créditos IA — solo admin (renombrado de

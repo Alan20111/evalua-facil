@@ -309,6 +309,35 @@ export function trazaIA({ operacion, actividadPadreId, clase, propuesta, guardad
   }
 }
 
+// ── Versión del instrumento usada por una evaluación de IA ──────────────────
+// "Recalificar con IA" solo debe verse cuando la rúbrica/lista de cotejo
+// ACTUAL de la actividad ya no es la misma que se usó para generar las
+// evaluaciones de IA existentes (25-ago-2026, pedido explícito de Kike: evitar
+// que el docente vea la opción de recalificar — y pague de nuevo — cuando no
+// hay ningún cambio real). Solo lo que AFECTA la evaluación entra en la huella
+// (tipo, niveles, criterios con sus puntos y descriptores) — título/
+// descripción de la actividad, instrucciones, fechas, etc. quedan FUERA a
+// propósito, igual que instrucciones/archivos/configuración nunca deben
+// disparar el botón. Espejo server-side en functions/ia.js (misma huella, no
+// se puede importar este archivo del cliente en Cloud Functions).
+export function rubricaFirma(rubrica) {
+  if (!rubrica) return ''
+  const huella = JSON.stringify({
+    tipo: rubrica.tipo || 'rubrica',
+    niveles: (rubrica.niveles || []).map((n) => ({ nombre: n?.nombre || '', porcentaje: n?.porcentaje ?? null })),
+    criterios: (rubrica.criterios || []).map((c) => ({
+      nombre: c?.nombre || '',
+      puntos: (c?.puntos || []).map((p) => round1(parseFloat(p) || 0)),
+      descriptores: (c?.descriptores || []).map((d) => d || ''),
+    })),
+  })
+  // Hash corto (djb2) — solo hace falta poder comparar "misma versión sí/no",
+  // no reconstruir la rúbrica a partir de la huella.
+  let h = 5381
+  for (let i = 0; i < huella.length; i++) h = ((h * 33) ^ huella.charCodeAt(i)) >>> 0
+  return h.toString(36)
+}
+
 // Copia limpia para guardar dentro de la actividad (sin campos del banco).
 export function snapshotRubrica(r) {
   return {
