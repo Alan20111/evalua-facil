@@ -35,32 +35,36 @@ const db = admin.firestore()
 const dryRun = process.argv.includes('--dry-run')
 
 const TARIFAS = {
-  version: 2,
+  version: 3,
   actualizadoEl: '2026-08-23',
-  // Créditos por uso (conversión de unidad 23-ago-2026, decisión PO: 1
-  // crédito = $1 MXN; antes la referencia comercial era ~$2 MXN/crédito —
-  // ver docs/ia/PLAN_MAESTRO_IA_EVALUA_FACIL.md y el hilo de auditoría de
-  // esa fecha). El valor MONETARIO de cada operación se conserva exacto;
-  // solo cambia el número nominal de créditos. 'aviso' se deja congelada
-  // (sin convertir) porque dejó de ofrecerse en la UI ese mismo día — ver
+  // Créditos por uso — tabla comercial DEFINITIVA (corrección del PO,
+  // 23-ago-2026, sobre una tabla anterior del mismo día que quedó
+  // descartada). El crédito representa USO DEL ENTORNO Evalúa Fácil, NO se
+  // deriva del costo técnico de la IA ni de ninguna conversión histórica de
+  // unidad — 1 crédito = $1 MXN, y estos son los valores finales. 'aviso'
+  // se deja congelada (sin tocar) porque dejó de ofrecerse en la UI — ver
   // AvisosTab.jsx, botón "Redactar con IA" retirado.
   //
-  // Huérfanas retiradas en esta conversión (nunca tuvieron ejecutor
-  // conectado en functions/ia.js — confirmado por auditoría 23-ago-2026):
+  // Huérfanas retiradas (nunca tuvieron ejecutor conectado en
+  // functions/ia.js — confirmado por auditoría 23-ago-2026):
   // guia_observacion (la actividad de Observación con IA vive dentro de
   // crear_actividad_ia) y modificar_planeacion (no usa IA hoy). Las demás
   // tarifas "reservadas para cuando se conecten" (retroalimentacion,
   // actividad, reactivos_lote, instrucciones, mejorar_instrucciones,
   // plan_clase, interpretar_resultados, resumen_alumno, resumen_grupo,
   // examen, cuestionario, analisis_apoyo, analisis_programa,
-  // planeacion_tronco, planeacion_bloque) NO se tocan en esta conversión —
+  // planeacion_tronco, planeacion_bloque) NO se tocan en esta corrección —
   // no fueron parte de la auditoría de esta ronda, se quedan como estaban.
   tarifas: {
     aviso: 1,
-    calificar_abierta: 0.5,
+    // Tabla comercial DEFINITIVA (23-ago-2026, corrección del PO sobre la
+    // tabla anterior del mismo día): el crédito representa USO DEL ENTORNO,
+    // NO se deriva del costo técnico de la IA ni de ninguna conversión
+    // histórica de unidad — estos son los valores finales, punto.
+    calificar_abierta: 0.25,
     retroalimentacion: 1,
     actividad: 1,
-    cotejo: 1,
+    cotejo: 0.5,
     reactivos_lote: 1,
     instrucciones: 1,
     mejorar_instrucciones: 1,
@@ -68,41 +72,39 @@ const TARIFAS = {
     interpretar_resultados: 1,
     resumen_alumno: 1,
     resumen_grupo: 1,
-    rubrica: 4,
+    rubrica: 2,
     // Generar reactivos (banco de un cuestionario/examen ya guardado) —
-    // 23-ago-2026: pasa de tarifa fija por llamada a 0.5 crédito por
-    // REACTIVO realmente generado (unidadesReales en ejecutarReactivos,
-    // functions/ia.js) — mismo criterio unitario que crear_evaluacion_ia.
-    reactivos: 0.5,
-    // OP-11 (21-ago-2026): calificar una entrega con IA contra su
-    // rúbrica/lista de cotejo a partir de las evidencias (JPG, PNG, PDF o
-    // Word), sin importar cuántas evidencias trajo (tope de 5, ver
-    // evidenciasEntrega.js). 0.5 crédito por entrega — valor monetario sin
-    // cambio en la conversión de unidad (0.5 × $1 = $0.5, igual que antes).
-    // Costo real verificado en docs/ia/COSTO_CALIFICAR_ENTREGABLE_IA.md.
-    calificar_entregable_ia: 0.5,
+    // 0.25 crédito por REACTIVO realmente generado (unidadesReales en
+    // ejecutarReactivos, functions/ia.js) — mismo criterio unitario que
+    // crear_evaluacion_ia.
+    reactivos: 0.25,
+    // OP-11: calificar una entrega con IA contra su rúbrica/lista de
+    // cotejo a partir de las evidencias (JPG, PNG, PDF o Word), sin
+    // importar cuántas evidencias trajo (tope de 5, ver
+    // evidenciasEntrega.js). 0.25 crédito por entrega.
+    calificar_entregable_ia: 0.25,
     // Lote "Calificar todas con IA" — MISMA tarifa por entrega realmente
     // evaluada, sin importar si se pidió una por una o en lote. NUNCA una
     // tarifa fija por pulsar "Calificar todas".
-    calificar_entregable_ia_lote: 0.5,
-    // Crear examen/cuestionario completo con IA — 23-ago-2026: 0.5 crédito
-    // por REACTIVO realmente generado (unidadesReales), misma tarifa
+    calificar_entregable_ia_lote: 0.25,
+    // Crear examen/cuestionario completo con IA — 0.25 crédito por
+    // REACTIVO realmente generado (unidadesReales), misma tarifa
     // comercial por unidad que 'reactivos'. Sin cobro adicional por
     // instrucciones/configuración del examen — eso va incluido.
-    crear_evaluacion_ia: 0.5,
+    crear_evaluacion_ia: 0.25,
     // Crear entregable/observación completa con IA — incluye la actividad
     // de Observación con IA (no existe "guía de observación" aparte).
-    crear_actividad_ia: 2,
-    analizar_resultados: 10,
+    crear_actividad_ia: 1,
+    analizar_resultados: 5,
     // Diagnóstico del grupo — tarifa FIJA por generación (no por reactivo),
     // sin importar cuántos reactivos salgan en el de conocimientos.
-    diagnostico_contexto: 6,
-    diagnostico_conocimientos: 10,
+    diagnostico_contexto: 3,
+    diagnostico_conocimientos: 5,
     // Planeación Didáctica Inicial — tarifa FIJA por generación, cubre
     // TODOS los parciales reales de la asignatura en una sola operación.
     // Cada regeneración que pida el docente vuelve a cobrar completo — no
     // existe regeneración gratuita.
-    planeacion_didactica_inicial: 40,
+    planeacion_didactica_inicial: 20,
     // Chat con Asistente — la conversación NO cobra por mensaje; el único
     // candado contra abuso es el límite diario de interacciones
     // (functions/ia.js, LIMITE_CHAT_DIARIO = 50), no créditos. Lo que SÍ
@@ -115,11 +117,10 @@ const TARIFAS = {
     // a Anthropic (la propuesta ya se generó gratis dentro de
     // chat_asistente) — solo escribe Firestore; el callable comprueba que
     // la actividad quede realmente creada antes de dar el cobro por bueno.
-    chat_crear_actividad: 8,
+    chat_crear_actividad: 4,
     // Examen creado/confirmado desde el chat — tarifa por TRAMOS de 10
-    // reactivos, escala duplicada en la conversión de unidad (mismo valor
-    // monetario: 16→$16, 20→$20, 24→$24, 28→$28, 32→$32). Aquí el valor es
-    // la UNIDAD base — el número real de créditos lo fija
+    // reactivos: 1–10→8, 11–20→10, 21–30→12, 31–40→14, 41–50→16 créditos.
+    // Aquí el valor es la UNIDAD base — el número real de créditos lo fija
     // `unidadesMinimas` en precheckChatCrearExamen (functions/ia.js,
     // calcularTarifaExamen, src/utils/tarifaExamen.js), a partir de los
     // reactivos reales de la propuesta ya saneada — el cliente nunca puede
@@ -131,13 +132,13 @@ const TARIFAS = {
     analisis_programa: 45,
     planeacion_tronco: 12,
     planeacion_bloque: 8,
-    // Crucigrama / Sopa de letras — 23-ago-2026: tarifa FIJA que cubre la
-    // ACTIVIDAD INTERACTIVA COMPLETA (generación del contenido con IA +
-    // construcción algorítmica de la cuadrícula), sin importar cantidad de
-    // palabras, modalidad ni si trae documento. La construcción
-    // (construirJuego) sigue siendo un callable aparte, gratis, fuera de
+    // Crucigrama / Sopa de letras — tarifa FIJA que cubre la ACTIVIDAD
+    // INTERACTIVA COMPLETA (generación del contenido con IA + construcción
+    // algorítmica de la cuadrícula), sin importar cantidad de palabras,
+    // modalidad ni si trae documento. La construcción (construirJuego)
+    // sigue siendo un callable aparte, gratis, fuera de
     // este ledger — NO se cobra por separado.
-    generar_contenido_juego: 6,
+    generar_contenido_juego: 3,
   },
   // Para el resumen del panel ("Calificación de evidencias: 32", etc.).
   categorias: {
@@ -221,21 +222,23 @@ const TARIFAS = {
   // (useCreditosIA/ComprarCreditosModal) y por firestore.rules
   // (montoOficialCredito).
   //
-  // Conversión de unidad 23-ago-2026 (decisión PO): 1 crédito = $1 MXN.
-  // Los precios monetarios NO cambiaron — solo la cantidad nominal de
-  // créditos, para que créditos × $1 = mismo precio de siempre (antes la
-  // referencia era ~$1.75–$2.00 MXN/crédito según el paquete). Cero
-  // reducción de ingreso: $100→100cr, $175→175cr, $350→350cr, $700→700cr,
-  // $1400→1400cr, $2800→2800cr. montoOficialCredito() en firestore.rules
+  // Tabla comercial DEFINITIVA de paquetes (corrección del PO, 23-ago-2026,
+  // sobre una tabla anterior del mismo día que quedó descartada). Descuento
+  // por volumen creciente contra la referencia de $1 MXN/crédito (1 crédito
+  // = $1 MXN de uso del entorno — esa regla es sobre el CONSUMO, no implica
+  // que todos los paquetes cuesten exactamente créditos×$1; el paquete de
+  // 50 es el único sin descuento). montoOficialCredito() en firestore.rules
   // debe espejar estos mismos 6 pares (creditos, precioMXN) — si cambian
-  // aquí, cambian ahí también.
+  // aquí, cambian ahí también. El "Ahorras $X" que muestra
+  // ComprarCreditosModal.jsx se calcula en el cliente contra
+  // PRECIO_REFERENCIA_MXN = 1 (creditos×1 − precioMXN), no se guarda aquí.
   paquetesCreditos: [
-    { creditos: 100, precioMXN: 100 },
-    { creditos: 175, precioMXN: 175 },
-    { creditos: 350, precioMXN: 350 },
-    { creditos: 700, precioMXN: 700 },
-    { creditos: 1400, precioMXN: 1400 },
-    { creditos: 2800, precioMXN: 2800 },
+    { creditos: 50, precioMXN: 50 },
+    { creditos: 100, precioMXN: 90 },
+    { creditos: 200, precioMXN: 180 },
+    { creditos: 400, precioMXN: 360 },
+    { creditos: 800, precioMXN: 720 },
+    { creditos: 1600, precioMXN: 1440 },
   ],
   // Tarifa REAL de Anthropic (19-ago-2026, pedido explícito de Kike) — USD
   // por millón de tokens, confirmada contra la documentación oficial
