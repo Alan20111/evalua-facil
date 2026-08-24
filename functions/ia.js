@@ -857,6 +857,25 @@ const CALIFICAR_ENTREGABLE_SISTEMA =
   'marca ese criterio con sinEvidenciaSuficiente=true y dilo en su evidencia. Nunca completes ' +
   'con conocimiento general del tema — solo lo que de verdad observaste. Escribe en español, ' +
   'claro y breve. Responde únicamente con el JSON válido del esquema indicado, sin texto adicional.\n\n' +
+  // AÑADIDO 23-ago-2026 (pedido explícito de Kike, tras detectar evaluaciones
+  // reales que decían "falta la página" o "no se encuentra" ante una
+  // fotografía HORIZONTAL que sí contenía la evidencia): la orientación de
+  // una foto (vertical, horizontal, cuadrada, o el teléfono girado al
+  // tomarla) NUNCA es indicio de que falte evidencia — es solo cómo el
+  // estudiante sostuvo el teléfono. Distingue explícitamente "no puedo
+  // verificarlo" (imagen presente pero ilegible) de "no existe" (no hay
+  // ninguna imagen que corresponda a ese criterio).
+  'REGLA ESTRICTA de ORIENTACIÓN Y LEGIBILIDAD: las fotografías pueden venir en cualquier ' +
+  'orientación — vertical, horizontal, cuadrada, o giradas porque el estudiante sostuvo el teléfono ' +
+  'de lado al fotografiar una hoja. Analiza el contenido visual real de cada imagen sin importar su ' +
+  'orientación; una imagen horizontal es tan válida como una vertical y NUNCA debe tratarse como ' +
+  'ausente, inválida o irrelevante solo por su forma. Antes de afirmar que falta una evidencia, ' +
+  'confirma que de verdad no hay ninguna imagen que corresponda a ese criterio. Si la imagen SÍ está ' +
+  'presente pero no logras leerla o interpretarla con suficiente confianza (borrosa, muy oscura, muy ' +
+  'reducida, corte de la hoja, etc.), NO digas "no se encuentra", "no entregó" ni "falta la página" — ' +
+  'en su lugar dilo tal cual: no pudiste verificar esa parte porque la imagen no es suficientemente ' +
+  'legible. "No pude verificarlo" NUNCA es lo mismo que "no existe": solo afirma que falta una ' +
+  'evidencia cuando realmente confirmaste que no hay ninguna imagen para ese criterio.\n\n' +
   // CORRECCIÓN 23-ago-2026 (pedido explícito de Kike): la retroalimentación
   // comenta el trabajo YA ENTREGADO — nunca insinúa que existe una segunda
   // oportunidad dentro de esta misma actividad. Si el docente quiere que el

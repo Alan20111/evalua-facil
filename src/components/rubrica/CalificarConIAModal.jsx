@@ -23,15 +23,69 @@
 //      actual, pueda haber cambiado a mano desde entonces) y el único botón
 //      es "Cerrar" — nada que aplicar ni que descartar.
 
-import { useEffect, useId, useRef, useState } from 'react'
-import { AlertTriangle, CircleHelp, Lock } from 'lucide-react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { AlertTriangle, CircleHelp, Lock, X } from 'lucide-react'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import Modal from '../ui/Modal'
 import ComprarCreditosModal from '../ComprarCreditosModal'
 import ActivarCreditosModal from '../ActivarCreditosModal'
 import { esCotejo, totalRubrica, RUBRICA_TOTAL } from '../../utils/rubrica'
+
+// Panel flotante, NO modal centrado (26-ago-2026, pedido explícito de Kike:
+// "la evidencia del estudiante es el objeto principal de revisión, la IA es
+// el asistente" — EVIDENCIA > PROPUESTA DE IA). Mismo patrón que la ventana
+// flotante de la rúbrica en ActivityPage.jsx: `fixed`, sin backdrop, la
+// entrega sigue visible y con zoom disponible detrás. UN SOLO scroll
+// principal para todo el contenido — nada de scrolls anidados por sección.
+// `inline`: se usa DENTRO de la columna de calificación de escritorio (ver
+// ActivityPage.jsx) — sin wrapper `fixed`, deja que el scroll de esa columna
+// sea el único scroll. Sin `inline` (app nativa, pantalla completa sin
+// columnas) se conserva el panel flotante `fixed`.
+function Marco({ inline, titulo, onClose, children }) {
+  if (inline) {
+    return (
+      <div className="p-4">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <p className="text-sm font-bold text-on-surface">{titulo}</p>
+          <button type="button" onClick={onClose} aria-label="Cerrar" data-tooltip="Cerrar"
+            className="p-1.5 text-slate-400 hover:text-accent rounded flex-shrink-0">
+            <X size={16} />
+          </button>
+        </div>
+        {children}
+      </div>
+    )
+  }
+  return <PanelFlotante titulo={titulo} onClose={onClose}>{children}</PanelFlotante>
+}
+
+function PanelFlotante({ titulo, onClose, children, footer }) {
+  return (
+    <div
+      className="fixed left-2 right-2 md:left-auto md:right-4 md:w-full md:max-w-md z-50 bg-surface-card border border-outline-variant rounded-card shadow-2xl flex flex-col overflow-hidden"
+      style={{ top: 88, maxHeight: 'calc(100vh - 98px)' }}
+      aria-label={titulo}
+    >
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-outline-variant flex-shrink-0 bg-surface-container">
+        <p className="flex-1 min-w-0 text-sm font-bold text-on-surface truncate">{titulo}</p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          data-tooltip="Cerrar"
+          className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0"
+        >
+          <X size={17} />
+        </button>
+      </div>
+      <div className="flex-1 min-h-0 overflow-auto p-3">
+        {children}
+      </div>
+      {footer && <div className="p-2 border-t border-outline-variant flex-shrink-0">{footer}</div>}
+    </div>
+  )
+}
 
 const CONFIANZA_LABEL = {
   alta: { texto: 'Confianza alta', cls: 'bg-emerald-100 text-emerald-700' },
@@ -51,6 +105,14 @@ export default function CalificarConIAModal({
   // cobrar. `_docId` viaja a onAplicar para que el padre marque 'aplicada'
   // solo cuando el docente de verdad GUARDE la calificación.
   resultadoPersistido = null,
+  // Desktop (26-ago-2026): esta vista se renderiza DENTRO de la columna real
+  // del panel de calificación (ver ActivityPage.jsx) en vez de como overlay
+  // flotante — así la evidencia de la izquierda queda siempre visible, sin
+  // superposición. `inline=true` omite el encabezado/wrapper de PanelFlotante
+  // y deja que el contenido fluya con el scroll de esa columna (un solo
+  // scroll principal, el de la columna). En la app nativa (pantalla completa,
+  // sin columnas) se sigue usando PanelFlotante tal cual.
+  inline = false,
 }) {
   const c = useCreditosIA()
   const toast = useToast()
@@ -134,8 +196,21 @@ export default function CalificarConIAModal({
   const ignorados = (resultado?.ignoradosPorFormato || 0) + (resultado?.ignoradosPorTope || 0)
   const titulo = paso === 'consultar' ? 'Evaluación de IA' : 'Calificar con IA'
 
+  // Retroalimentación SIN scroll interno (26-ago-2026, pedido explícito de
+  // Kike: "es primordial que la retroalimentación no tenga scroll, que se
+  // vea completa") — crece con el contenido en vez de usar `rows` fijo.
+  const retroRef = useRef(null)
+  useLayoutEffect(() => {
+    const el = retroRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [retro, paso])
+
+  if (!open) return null
+
   return (
-    <Modal open={open} onClose={cerrarTodo} title={titulo} variant="centered" size="md" busy={ejecutando}>
+    <Marco inline={inline} titulo={titulo} onClose={cerrarTodo}>
       {paso === 'confirmar' && (
         alcanza ? (
           <>
@@ -213,6 +288,41 @@ export default function CalificarConIAModal({
             </div>
           )}
 
+          {/* Retroalimentación para el estudiante — PRIMER elemento de
+              contenido de la revisión (26-ago-2026, pedido explícito de
+              Kike: "es uno de los primeros elementos que ve el docente al
+              abrir Calificar con IA"). Altura automática al contenido, SIN
+              overflow-y ni rows fijos — nunca debe tener scroll propio. */}
+          <label htmlFor={retroId} className="block text-xs font-semibold text-muted uppercase tracking-wide mb-1">
+            Retroalimentación para el estudiante
+          </label>
+          {soloLectura ? (
+            <p id={retroId} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container text-on-surface mb-3 whitespace-pre-wrap">
+              {retro || '—'}
+            </p>
+          ) : (
+            <textarea
+              ref={retroRef}
+              id={retroId}
+              value={retro}
+              onChange={(e) => {
+                const next = e.target.value
+                setRetro(next)
+                // Editar aquí reescribe el mismo comentario ya precargado —
+                // sin esto, un ajuste de último momento se quedaría solo en
+                // el modal y "Guardar calificación" guardaría el texto viejo.
+                // El docId es siempre submissionId para cualquier propuesta
+                // que vino de la IA (lote o individual) — el servidor ya la
+                // persistió con ese mismo id en cuanto se generó, así que no
+                // depende de `resultadoPersistido` (que es null en una
+                // propuesta recién generada, antes de cerrar/reabrir).
+                onAplicar({ ...resultado, retroalimentacionGeneral: next, calificacionPropuesta: calificacionPropuestaDe(resultado) }, resultadoPersistido?._docId || submissionId)
+              }}
+              rows={2}
+              className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mb-3 resize-none overflow-hidden"
+            />
+          )}
+
           {resultado.confianza && (
             <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mb-3 mr-2 ${CONFIANZA_LABEL[resultado.confianza]?.cls || CONFIANZA_LABEL.media.cls}`}>
               {CONFIANZA_LABEL[resultado.confianza]?.texto || 'Confianza media'}
@@ -278,35 +388,6 @@ export default function CalificarConIAModal({
             })}
           </ul>
 
-          <label htmlFor={retroId} className="block text-xs font-semibold text-muted uppercase tracking-wide mb-1">
-            Retroalimentación para el estudiante
-          </label>
-          {soloLectura ? (
-            <p id={retroId} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container text-on-surface mb-3 whitespace-pre-wrap">
-              {retro || '—'}
-            </p>
-          ) : (
-            <textarea
-              id={retroId}
-              value={retro}
-              onChange={(e) => {
-                const next = e.target.value
-                setRetro(next)
-                // Editar aquí reescribe el mismo comentario ya precargado —
-                // sin esto, un ajuste de último momento se quedaría solo en
-                // el modal y "Guardar calificación" guardaría el texto viejo.
-                // El docId es siempre submissionId para cualquier propuesta
-                // que vino de la IA (lote o individual) — el servidor ya la
-                // persistió con ese mismo id en cuanto se generó, así que no
-                // depende de `resultadoPersistido` (que es null en una
-                // propuesta recién generada, antes de cerrar/reabrir).
-                onAplicar({ ...resultado, retroalimentacionGeneral: next, calificacionPropuesta: calificacionPropuestaDe(resultado) }, resultadoPersistido?._docId || submissionId)
-              }}
-              rows={3}
-              className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mb-3"
-            />
-          )}
-
           {ignorados > 0 && (
             <p className="text-xs text-muted mb-3">
               {ignorados} archivo{ignorados !== 1 ? 's' : ''} de la entrega no se analizó (formato no soportado
@@ -338,6 +419,6 @@ export default function CalificarConIAModal({
 
       <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />
       <ActivarCreditosModal open={activarAbierto} onClose={() => setActivarAbierto(false)} />
-    </Modal>
+    </Marco>
   )
 }
