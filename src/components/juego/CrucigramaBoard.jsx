@@ -9,10 +9,15 @@
 // `readOnly` queda disponible para un futuro caller que solo necesite ver la
 // forma de la cuadrícula sin captura de respuestas — RevisionJuegoBorrador
 // (preview jugable del docente) y JuegoRunner (alumno) usan el modo normal.
+//
+// `estadoCorrecto` (26-ago-2026) — mapa opcional `{ "r-c": true|false }` que
+// solo usa la vista de resolución del docente (ResolucionJuegoModal): tiñe
+// cada celda ya resuelta en verde/rojo. Ningún otro caller lo pasa, así que
+// el resto del tablero (borrador, juego del alumno) no cambia de apariencia.
 
 import { useRef } from 'react'
 
-export default function CrucigramaBoard({ estructura, celdas = {}, onCambioCelda, readOnly = false }) {
+export default function CrucigramaBoard({ estructura, celdas = {}, onCambioCelda, readOnly = false, estadoCorrecto = null }) {
   const { size, grid, palabras } = estructura
   const refs = useRef({})
 
@@ -53,8 +58,10 @@ export default function CrucigramaBoard({ estructura, celdas = {}, onCambioCelda
         {grid.map(({ row: fila }, r) => fila.map((letra, c) => {
           if (!letra) return <div key={`${r}-${c}`} className="bg-transparent" />
           const p = palabras.find((pp) => (pp.horizontal ? pp.fila === r && pp.col === c : pp.fila === r && pp.col === c))
+          const correcto = estadoCorrecto?.[`${r}-${c}`]
+          const bgCelda = correcto === true ? 'bg-emerald-100' : correcto === false ? 'bg-red-100' : 'bg-surface'
           return (
-            <div key={`${r}-${c}`} className="relative border border-outline-variant bg-surface">
+            <div key={`${r}-${c}`} className={`relative border border-outline-variant ${bgCelda}`}>
               {p?.numero && <span className="absolute top-0 left-0.5 text-[7px] sm:text-[9px] text-muted leading-none">{p.numero}</span>}
               <input
                 ref={(el) => { refs.current[`${r}-${c}`] = el }}
