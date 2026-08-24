@@ -52,7 +52,7 @@ import CalificarConIAModal from '../../components/rubrica/CalificarConIAModal'
 import ConfirmacionCreditosModal from '../../components/ConfirmacionCreditosModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import { ClipboardList, ListChecks, X, Sparkles } from 'lucide-react'
-import { totalRubrica, RUBRICA_TOTAL, esCotejo, instrumentoColors } from '../../utils/rubrica'
+import { totalRubrica, RUBRICA_TOTAL, esCotejo, instrumentoColors, rubricaFirma } from '../../utils/rubrica'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -215,16 +215,17 @@ export default function ActivityPage() {
   // vive mientras el modal está abierto.
   const [previoAntesDeIA, setPrevioAntesDeIA] = useState(null)
   // Id de la sugerencia de lote (activities/{id}/iaSugerenciasEntregable/{x})
-  // que quedó precargada en el formulario — null si la propuesta vino del
-  // flujo individual (no persistido). Solo se marca 'aplicada' cuando el
-  // docente de verdad GUARDA la calificación (persistGrade), nunca por solo
-  // verla o precargarla — así "Ver propuesta de IA" sigue siendo gratis si
-  // el docente termina sin guardar.
+  // que quedó precargada en el formulario. 24-ago-2026 (pedido de Kike, tras
+  // un reporte real): el flujo individual ahora persiste su propuesta EN EL
+  // SERVIDOR en cuanto se genera (mismo doc, mismo id = submissionId, que ya
+  // usa el lote) — así que este id nunca es null para una propuesta recién
+  // generada, solo para el estado inicial antes de calificar. Se marca
+  // 'aplicada' cuando el docente de verdad GUARDA la calificación
+  // (persistGrade), nunca por solo verla o precargarla — así "Ver propuesta
+  // de IA" sigue siendo gratis si el docente termina sin guardar, y NO
+  // depende de "Guardar calificación al avanzar o al retroceder" (esa
+  // casilla solo controla la calificación DEFINITIVA).
   const [iaPropuestaDocId, setIaPropuestaDocId] = useState(null)
-  // Resultado completo de una evaluación INDIVIDUAL (sin doc persistido
-  // todavía) — persistGrade() lo usa para crear el registro en
-  // iaSugerenciasEntregable recién cuando el docente guarda de verdad.
-  const [iaResultadoAplicado, setIaResultadoAplicado] = useState(null)
   function abrirCalificarIA() {
     setPrevioAntesDeIA({ rubricEval, gradeForm })
     setCalificarIAAbierto(true)
@@ -242,7 +243,6 @@ export default function ActivityPage() {
       setGradeForm(previoAntesDeIA.gradeForm)
     }
     setIaPropuestaDocId(null)
-    setIaResultadoAplicado(null)
     setPrevioAntesDeIA(null)
     setCalificarIAAbierto(false)
   }
@@ -337,7 +337,7 @@ export default function ActivityPage() {
     )
     const unsub = onSnapshot(q, (snap) => {
       const mapa = {}
-      snap.docs.forEach((d) => { mapa[d.data().sub] = { ...d.data().sugerencia, _docId: d.id, _estado: d.data().estado } })
+      snap.docs.forEach((d) => { mapa[d.data().sub] = { ...d.data().sugerencia, _docId: d.id, _estado: d.data().estado, _rubricaFirma: d.data().rubricaFirma || '' } })
       setSugerenciasLoteIA(mapa)
     }, () => { /* sin permiso u offline: sin sugerencias que recuperar */ })
     return unsub
@@ -425,7 +425,6 @@ export default function ActivityPage() {
     // Cambiar de estudiante deja atrás cualquier propuesta de IA precargada
     // sin guardar — nunca debe seguir "colgada" y aplicarse sobre otro alumno.
     setIaPropuestaDocId(null)
-    setIaResultadoAplicado(null)
     setPrevioAntesDeIA(null)
     setGradeForm({
       // Delivered but ungraded (or observación, which never has a delivery) →
@@ -581,13 +580,10 @@ export default function ActivityPage() {
       calificacion: total != null ? String(total) : f.calificacion,
       comentario: resultado.retroalimentacionGeneral || f.comentario,
     }))
+    // docId = submissionId siempre que la propuesta viene de IA (individual
+    // o lote) — el servidor ya la persistió con ese mismo id en cuanto se
+    // generó. persistGrade() la marca 'aplicada' cuando el docente guarde.
     setIaPropuestaDocId(docId)
-    // Sin docId: viene del flujo INDIVIDUAL, que nunca queda persistido solo
-    // — se guarda el resultado completo para que persistGrade() lo escriba
-    // en iaSugerenciasEntregable recién cuando el docente de verdad guarde
-    // (23-ago-2026: "toda evaluación de IA debe quedar consultable sin
-    // volver a cobrar", también para "Calificar con IA" individual).
-    setIaResultadoAplicado(docId ? null : resultado)
   }
 
   // ── "Calificar todas con IA" (lote) — mismo patrón que contarRespuestasIA
@@ -596,6 +592,13 @@ export default function ActivityPage() {
   // TODAVÍA no tienen propuesta persistida — esas se recuperan gratis, sin
   // volver a contarlas ni cobrarlas.
   function contarEntregasIA() {
+    // "Por calificar" (la pestaña) sigue contando TODA entrega sin
+    // calificación — el docente la puede calificar a mano aunque no sea
+    // elegible para IA. `totalPorCalificar` es solo para que el modal
+    // explique la diferencia si la hay (25-ago-2026, reporte de Kike: el
+    // modal decía "3" mientras la pestaña decía "Por calificar (4)" sin
+    // explicación — el número de cobro/proceso no cambia, solo el texto).
+    const totalPorCalificar = students.filter((s) => getStatus(s.id) === 'entregado').length
     const elegibles = students.filter((s) => {
       const sub = submissions[s.id]
       if (!sub || sub.calificacion != null) return false
@@ -609,7 +612,7 @@ export default function ActivityPage() {
         : 'No hay entregas pendientes con evidencia en un formato legible (JPG, PNG, PDF o Word)', 'error')
       return
     }
-    setLoteIAConteo({ entregas: elegibles.length, recalificar: false })
+    setLoteIAConteo({ entregas: elegibles.length, totalPorCalificar, recalificar: false })
   }
 
   // "Recalificar todas con IA" — para cuando el docente YA cambió la
@@ -782,18 +785,6 @@ export default function ActivityPage() {
     if (iaPropuestaDocId) {
       updateDoc(doc(db, 'activities', activityId, 'iaSugerenciasEntregable', iaPropuestaDocId), { estado: 'aplicada' }).catch(() => {})
       setIaPropuestaDocId(null)
-    } else if (iaResultadoAplicado) {
-      // Flujo INDIVIDUAL: no había ningún doc que marcar — se crea aquí,
-      // recién con la calificación ya guardada, para que "Ver evaluación de
-      // IA" pueda consultarla después sin volver a cobrar (23-ago-2026).
-      // Un fallo aquí no debe tumbar el guardado de la calificación, que ya
-      // se hizo — solo se pierde el registro histórico, no la nota.
-      httpsCallable(functions, 'guardarEvaluacionIndividualAplicada')({
-        actividadId: activityId,
-        submissionId: updated.id,
-        sugerencia: iaResultadoAplicado,
-      }).catch((err) => console.error('guardarEvaluacionIndividualAplicada falló:', err))
-      setIaResultadoAplicado(null)
     }
     return true
   }
@@ -1355,6 +1346,18 @@ export default function ActivityPage() {
             propuestas" solo aparece si hay algo pendiente que aplicar. */}
         {hasRubrica && (() => {
           const pendientesIA = Object.values(sugerenciasLoteIA).filter((s) => s._estado === 'pendiente').length
+          // "Recalificar con IA" solo se muestra cuando podemos CONFIRMAR que
+          // el instrumento actual ya no es el que se usó para generar alguna
+          // evaluación existente (25-ago-2026, pedido de Kike: evitar que el
+          // docente vea — y use — una opción de recalificar que cobraría de
+          // nuevo sin que exista ningún cambio real). Evaluaciones de antes de
+          // este cambio no traen `_rubricaFirma` (huella desconocida): se
+          // ignoran para esta comparación en vez de forzar el botón a
+          // aparecer o desaparecer a ciegas — se resuelven solas en cuanto el
+          // docente vuelva a usar "Calificar/Recalificar todas con IA".
+          const firmaActual = rubricaFirma(activity.rubrica)
+          const hayVersionDistinta = Object.values(sugerenciasLoteIA)
+            .some((s) => s._rubricaFirma && s._rubricaFirma !== firmaActual)
           return (
             <div className="mx-4 mt-3 rounded-card border border-outline-variant">
               <p className="px-3 pt-2 text-[11px] text-muted">La IA propone; tú decides.</p>
@@ -1368,15 +1371,17 @@ export default function ActivityPage() {
                   <Sparkles size={16} />
                   Calificar con IA
                 </button>
-                <button
-                  type="button"
-                  onClick={contarRecalificarIA}
-                  data-tooltip="Vuelve a evaluar las entregas con la rúbrica o lista de cotejo actual. Genera una nueva propuesta y consume créditos."
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface-container transition-colors disabled:opacity-60"
-                >
-                  <Sparkles size={16} />
-                  Recalificar con IA
-                </button>
+                {hayVersionDistinta && (
+                  <button
+                    type="button"
+                    onClick={contarRecalificarIA}
+                    data-tooltip="La rúbrica o lista de cotejo cambió desde la última evaluación con IA. Genera una nueva propuesta con la versión actual y consume créditos."
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface-container transition-colors disabled:opacity-60"
+                  >
+                    <Sparkles size={16} />
+                    Recalificar con IA
+                  </button>
+                )}
                 {pendientesIA > 0 && (
                   <button
                     type="button"
@@ -2740,12 +2745,25 @@ export default function ActivityPage() {
           titulo={loteIAConteo.recalificar ? 'Recalificar todas con IA' : 'Calificar todas con IA'}
           descripcion={loteIAConteo.recalificar
             ? `Se generará una propuesta NUEVA de calificación (con la rúbrica/lista de cotejo actual) para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} con evidencia. No se toca ninguna calificación, entrega ni archivo existente — la IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`
-            : `Se generará una propuesta de calificación para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} pendiente${loteIAConteo.entregas !== 1 ? 's' : ''}. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`}
+            : (loteIAConteo.totalPorCalificar > loteIAConteo.entregas
+                ? `Se generará una propuesta de calificación con IA para ${loteIAConteo.entregas} de las ${loteIAConteo.totalPorCalificar} entregas por calificar. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`
+                : `Se generará una propuesta de calificación para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} pendiente${loteIAConteo.entregas !== 1 ? 's' : ''}. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`)}
           costoMin={creditosIA.estimar('calificar_entregable_ia_lote', loteIAConteo.entregas) ?? loteIAConteo.entregas * 0.5}
           ejecutando={loteIATrabajando}
           onCancelar={() => { if (!loteIATrabajando) setLoteIAConteo(null) }}
           onContinuar={ejecutarLoteIA}
-        />
+        >
+          {!loteIAConteo.recalificar && loteIAConteo.totalPorCalificar > loteIAConteo.entregas && (
+            <p
+              className="text-xs text-muted"
+              data-tooltip="Puede quedar fuera porque ya tiene una propuesta de IA pendiente, o porque no tiene evidencia en un formato compatible (JPG, PNG, PDF o Word)."
+            >
+              {loteIAConteo.totalPorCalificar - loteIAConteo.entregas === 1
+                ? '1 entrega no es elegible para IA en este momento.'
+                : `${loteIAConteo.totalPorCalificar - loteIAConteo.entregas} entregas no son elegibles para IA en este momento.`}
+            </p>
+          )}
+        </ConfirmacionCreditosModal>
       )}
 
       {/* "Aplicar calificaciones de IA a todas" (Modo 1) — confirmación SIN

@@ -869,7 +869,47 @@ const CALIFICAR_ENTREGABLE_SISTEMA =
   '"reentrega...", "sube una nueva versión...", "haz los cambios y entrega nuevamente..." o ' +
   'cualquier variante que implique una reentrega. En vez de eso, describe lo que falta u observas ' +
   'como una observación sobre el trabajo ya realizado — por ejemplo "Faltó incluir X y Y." o "El ' +
-  'trabajo cumple con A y B; sin embargo, no se observa C." — nunca "Agrega C y vuelve a entregar."'
+  'trabajo cumple con A y B; sin embargo, no se observa C." — nunca "Agrega C y vuelve a entregar."\n\n' +
+  // CORRECCIÓN 25-ago-2026 (pedido explícito de Kike, tras un ejemplo real de
+  // retroalimentación que sonaba a reporte de auditoría, no a un docente
+  // hablándole a su estudiante — reescrita con la especificación completa
+  // que dio Kike, con su mismo ejemplo de referencia).
+  'REGLA ESTRICTA de VOZ y TONO para "retroalimentacionGeneral": debe sentirse como un comentario que ' +
+  'REALMENTE escribiría el docente después de revisar el trabajo — nunca como un reporte técnico, un ' +
+  'análisis de evidencias o un texto generado por IA.\n' +
+  'PRIORIDAD DE ESTILO (por encima de cualquier otra consideración de forma): BREVE + HUMANA + ' +
+  'CONCRETA + ÚTIL. Si 2-3 frases comunican con claridad lo importante, NO agregues más — no busques ' +
+  'llenar espacio ni resumir todo el trabajo. Menciona solo los 1-3 aspectos más relevantes que el ' +
+  'estudiante necesita conocer; si una idea no le aporta directamente, elimínala. Evita párrafos ' +
+  'largos — una retroalimentación corta, clara y humana es preferible a una extensa.\n' +
+  '- Habla directamente al estudiante, en segunda persona, con un tono natural, humano y docente.\n' +
+  '- Usa su nombre de pila (viene en el prompt como "Nombre del estudiante") SOLO cuando resulte ' +
+  'natural — no en cada frase, no como fórmula fija.\n' +
+  '- Sé breve, clara y concreta; la extensión depende de cuántos aspectos realmente importantes ' +
+  'encontraste — no la alargues artificialmente ni le pongas relleno.\n' +
+  '- Reconoce primero lo positivo y después señala qué necesita mejorar.\n' +
+  '- Prioriza lo más importante para el aprendizaje y ligado a los criterios de evaluación — no ' +
+  'intentes mencionar todos los criterios de la rúbrica ni describir sistemáticamente todo lo que hay ' +
+  'en las imágenes o archivos. No enumeres características de los archivos (formato, número de ' +
+  'páginas, en cuántas hojas aparece el nombre, etc.) salvo que sea necesario para explicar una ' +
+  'observación puntual.\n' +
+  '- Prohibido el lenguaje de informe: nunca "el estudiante entregó...", "se observa que...", "las ' +
+  'evidencias muestran...", "el estudiante presenta...", "los cálculos son mayoritariamente ' +
+  'correctos..." ni ninguna variante en tercera persona o de auditoría.\n' +
+  '- Nunca menciones a la IA, la revisión automática ni cómo se obtuvo la calificación.\n' +
+  '- No inventes información ni afirmes algo que no esté respaldado por el trabajo revisado.\n' +
+  'Ejemplo de lo que SÍ se espera (mismo caso, dos formas de decirlo):\n' +
+  'MAL: "El estudiante Damneli Álvara Andrade entregó 5 imágenes resueltas de forma legible y ' +
+  'organizada; sin embargo, falta la página 6 completa con sus ejercicios resueltos. El nombre ' +
+  'completo aparece únicamente en una página cuando debería estar en todas. Los cálculos matemáticos ' +
+  'son mayoritariamente correctos, incluyendo operaciones con signos y totales en tablas de ' +
+  'presupuesto y deudas. Las respuestas a preguntas reflexivas existen pero resultan breves."\n' +
+  'BIEN: "Damneli, tu trabajo está bien organizado y la mayoría de los ejercicios están correctamente ' +
+  'resueltos. Te faltó completar la página 6 y sería importante que coloques tu nombre completo en ' +
+  'todas las hojas. También revisa con más detalle las respuestas reflexivas, ya que algunas podrían ' +
+  'estar mejor desarrolladas. Vas bien; solo necesitas cuidar esos aspectos."\n' +
+  'LA IA DEBE PROPONER UNA RETROALIMENTACIÓN QUE PAREZCA ESCRITA POR EL DOCENTE PARA SU ESTUDIANTE, ' +
+  'NO UNA DESCRIPCIÓN DE LO QUE LA IA ENCONTRÓ EN LAS EVIDENCIAS.'
 
 // Espejo mínimo de esCotejo (src/utils/rubrica.js) — no vale la pena meter
 // este archivo entero al mecanismo de _shared/ (scripts/sync-functions-
@@ -900,6 +940,28 @@ function totalInstrumento(rubrica, seleccion) {
   return Math.round(total * 10) / 10
 }
 
+// Espejo mínimo de rubricaFirma (src/utils/rubrica.js) — huella de la
+// versión del instrumento usada para generar una evaluación de IA. Solo lo
+// que AFECTA la evaluación entra (tipo, niveles, criterios con puntos y
+// descriptores); título/descripción de la actividad quedan fuera a propósito
+// (25-ago-2026, "Recalificar con IA" solo debe aparecer si el instrumento
+// realmente cambió, nunca por instrucciones/fechas/configuración).
+function rubricaFirma(rubrica) {
+  if (!rubrica) return ''
+  const huella = JSON.stringify({
+    tipo: rubrica.tipo || 'rubrica',
+    niveles: (rubrica.niveles || []).map((n) => ({ nombre: n?.nombre || '', porcentaje: n?.porcentaje ?? null })),
+    criterios: (rubrica.criterios || []).map((c) => ({
+      nombre: c?.nombre || '',
+      puntos: (c?.puntos || []).map((p) => Math.round((parseFloat(p) || 0) * 10) / 10),
+      descriptores: (c?.descriptores || []).map((d) => d || ''),
+    })),
+  })
+  let h = 5381
+  for (let i = 0; i < huella.length; i++) h = ((h * 33) ^ huella.charCodeAt(i)) >>> 0
+  return h.toString(36)
+}
+
 // Describe los criterios del instrumento en el prompt — única diferencia
 // real entre rúbrica y lista de cotejo (ver comentario del bloque arriba).
 function bloqueCriteriosInstrumento(rubrica) {
@@ -917,6 +979,27 @@ function bloqueCriteriosInstrumento(rubrica) {
     return `${i + 1}. "${c.nombre}"\n${descriptores}`
   }).join('\n\n')
   return `RÚBRICA — niveles disponibles (${niveles}; 0 es el nivel más alto):\n\n${lista}`
+}
+
+// Solo el nombre de pila, capitalizado — para que la retroalimentación de
+// la IA pueda usarlo con naturalidad ("Damneli, tu trabajo...") sin exponer
+// apellidos que no aportan calidez al comentario. Espejo mínimo de
+// capitalizarNombre (src/utils/nombres.js): mismo criterio "todo MAYÚSCULA
+// o todo minúscula se corrige; una mezcla ya decidida se respeta tal cual".
+function capitalizarPila(texto) {
+  const limpio = String(texto ?? '').trim().replace(/\s+/g, ' ')
+  if (!limpio) return ''
+  if (/\p{Lu}/u.test(limpio) && /\p{Ll}/u.test(limpio)) return limpio
+  return limpio.toLocaleLowerCase('es').replace(/(^|[\s\-'’])(\p{L})/gu, (_, sep, letra) => sep + letra.toLocaleUpperCase('es'))
+}
+async function nombrePilaDeEstudiante(db, alumnoId) {
+  if (!alumnoId) return ''
+  try {
+    const snap = await db.doc(`students/${alumnoId}`).get()
+    return capitalizarPila(snap.data()?.nombre)
+  } catch {
+    return ''
+  }
 }
 
 async function precheckCalificarEntregable({ uid, params }) {
@@ -957,11 +1040,14 @@ async function precheckCalificarEntregable({ uid, params }) {
       'Esta entrega no tiene evidencias en un formato que la IA pueda leer todavía (JPG, PNG, PDF o Word). No se descontaron créditos.')
   }
 
+  const nombreEstudiante = await nombrePilaDeEstudiante(db, sub.alumnoId)
+
   return {
     clase: 'entregable',
     nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
     instrucciones: textoPlano(act.instrucciones).slice(0, 4000),
     rubrica,
+    nombreEstudiante,
     evidenciasBloques: evidencias.bloques,
     evidenciasDetalle: evidencias.detalle,
     ignoradosPorFormato: evidencias.ignoradosPorFormato,
@@ -974,11 +1060,12 @@ async function precheckCalificarEntregable({ uid, params }) {
 // (ejecutarCalificarEntregableIALote). Un solo prompt, un solo parseo, un
 // solo esquema de salida — nada de tres rutas de código por tipo de
 // evidencia ni por individual/lote.
-async function evaluarEntregaConIA({ client, modelo, rubrica, nombre, instrucciones, evidenciasBloques, evidenciasDetalle }) {
+async function evaluarEntregaConIA({ client, modelo, rubrica, nombre, instrucciones, nombreEstudiante, evidenciasBloques, evidenciasDetalle }) {
   const numCriterios = rubrica.criterios.length
   const promptTexto =
     'Asignatura: bachillerato mexicano.\n' +
-    `ACTIVIDAD ENTREGABLE: "${nombre}".\n\n` +
+    `ACTIVIDAD ENTREGABLE: "${nombre}".\n` +
+    `Nombre del estudiante: "${nombreEstudiante || 'sin nombre registrado'}".\n\n` +
     `INSTRUCCIONES PARA EL ESTUDIANTE:\n"""${instrucciones}"""\n\n` +
     `${bloqueCriteriosInstrumento(rubrica)}\n\n` +
     `A continuación se adjuntan las evidencias que entregó el estudiante (${evidenciasDetalle.length} archivo(s)). ` +
@@ -989,7 +1076,7 @@ async function evaluarEntregaConIA({ client, modelo, rubrica, nombre, instruccio
     '    {"n": 1, "nivel": <índice de nivel de la lista de arriba, o null si no hay evidencia suficiente>, ' +
     '"evidencia": "<qué observaste, máx 25 palabras — o por qué no alcanza la evidencia>", "sinEvidenciaSuficiente": <true|false>}\n' +
     '  ],\n' +
-    '  "retroalimentacionGeneral": "<2-4 frases de retroalimentación para el estudiante>",\n' +
+    '  "retroalimentacionGeneral": "<retroalimentación breve para el estudiante — ver REGLA ESTRICTA de VOZ y TONO>",\n' +
     '  "confianza": "alta" | "media" | "baja"\n' +
     '}'
 
@@ -1050,15 +1137,42 @@ async function ejecutarCalificarEntregableIA({ params, modelo, apiKey }) {
 
   const { sugerencia, tokensEntrada, tokensSalida, ms } = await evaluarEntregaConIA({
     client, modelo, rubrica: ctx.rubrica, nombre: ctx.nombre, instrucciones: ctx.instrucciones,
+    nombreEstudiante: ctx.nombreEstudiante,
     evidenciasBloques: ctx.evidenciasBloques, evidenciasDetalle: ctx.evidenciasDetalle,
   })
 
+  const resultado = {
+    ...sugerencia,
+    ignoradosPorFormato: ctx.ignoradosPorFormato,
+    ignoradosPorTope: ctx.ignoradosPorTope,
+    calificacionPropuesta: totalInstrumento(ctx.rubrica, sugerencia.criterios.map((c) => c.nivel)),
+  }
+
+  // Persistir como 'pendiente' EN CUANTO se genera — mismo mecanismo y
+  // misma colección que ya usa "Calificar todas con IA" (nunca un sistema
+  // de almacenamiento aparte). 24-ago-2026, pedido explícito de Kike: la
+  // propuesta no debe depender de que el docente guarde la calificación
+  // definitiva para sobrevivir — si sale de la entrega sin aplicarla, debe
+  // seguir disponible como "Ver propuesta de IA", sin volver a cobrar. Esto
+  // NUNCA toca `submissions.calificacion` — la IA propone, el docente
+  // dispone; aplicar sigue siendo un paso aparte y explícito.
+  const actividadId = String(params?.actividadId || '')
+  const submissionId = String(params?.submissionId || '')
+  await getFirestore().doc(`activities/${actividadId}/iaSugerenciasEntregable/${submissionId}`).set({
+    estado: 'pendiente',
+    actividadId, sub: submissionId,
+    sugerencia: resultado,
+    // Huella de la rúbrica/lista de cotejo usada AHORA para generar esta
+    // propuesta — es lo que permite decidir después si "Recalificar con IA"
+    // debe aparecer (25-ago-2026): se compara contra la huella de la rúbrica
+    // ACTUAL de la actividad, nunca contra el estado local del navegador.
+    rubricaFirma: rubricaFirma(ctx.rubrica),
+    creadoEn: FieldValue.serverTimestamp(),
+    actualizadoEn: FieldValue.serverTimestamp(),
+  })
+
   return {
-    resultado: {
-      ...sugerencia,
-      ignoradosPorFormato: ctx.ignoradosPorFormato,
-      ignoradosPorTope: ctx.ignoradosPorTope,
-    },
+    resultado,
     unidadesReales: 1, // tarifa fija por entrega evaluada — nunca por número de evidencias
     interno: { modelo, tokensEntrada, tokensSalida, ms, evidencias: ctx.evidenciasDetalle.length },
   }
@@ -1135,7 +1249,8 @@ async function precheckCalificarEntregableLote({ uid, params }) {
       : (sub.archivoURL ? [{ url: sub.archivoURL, nombre: sub.nombreArchivo }] : [])
     const evidencias = await prepararEvidenciasEntrega(archivos)
     if (!evidencias.bloques.length) { sinEvidencia++; continue }
-    items.push({ submissionId: subDoc.id, evidencias })
+    const nombreEstudiante = await nombrePilaDeEstudiante(db, sub.alumnoId)
+    items.push({ submissionId: subDoc.id, evidencias, nombreEstudiante })
   }
 
   if (!items.length) {
@@ -1225,6 +1340,7 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
       try {
         const { sugerencia, tokensEntrada: te, tokensSalida: ts } = await evaluarEntregaConIA({
           client, modelo, rubrica: ctx.rubrica, nombre: ctx.nombre, instrucciones: ctx.instrucciones,
+          nombreEstudiante: item.nombreEstudiante,
           evidenciasBloques: item.evidencias.bloques, evidenciasDetalle: item.evidencias.detalle,
         })
         tokensEntrada += te || 0
@@ -1252,6 +1368,11 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
           ignoradosPorTope: item.evidencias.ignoradosPorTope,
           calificacionPropuesta: total,
         }
+        // Misma huella que el flujo individual (25-ago-2026) — con esto
+        // "Recalificar con IA" desaparece justo después de completar, porque
+        // ya no hay ninguna propuesta generada con una rúbrica distinta a la
+        // actual.
+        const firmaGeneracion = rubricaFirma(ctx.rubrica)
         if (ctx.recalificar && total != null) {
           await db.doc(`submissions/${item.submissionId}`).update({
             calificacion: total,
@@ -1263,6 +1384,7 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
             estado: 'aplicada',
             aplicadaAutomaticamente: true,
             sugerencia: sugerenciaCompleta,
+            rubricaFirma: firmaGeneracion,
             actualizadoEn: FieldValue.serverTimestamp(),
           }, { merge: true })
           aplicadasAuto++
@@ -1272,6 +1394,7 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
           await item.ref.set({
             estado: 'pendiente',
             sugerencia: sugerenciaCompleta,
+            rubricaFirma: firmaGeneracion,
             actualizadoEn: FieldValue.serverTimestamp(),
           }, { merge: true })
         }
@@ -5623,7 +5746,7 @@ exports._pruebas = {
   LIMITE_CHAT_DIARIO,
   verificarSaldoChat, calcularTarifaExamen, precheckChatCrearActividad, precheckChatCrearExamen,
   ACCIONES_ACTIVIDAD,
-  precheckCalificarEntregable, bloqueCriteriosInstrumento, precheckCalificarEntregableLote,
+  precheckCalificarEntregable, bloqueCriteriosInstrumento, precheckCalificarEntregableLote, rubricaFirma,
   validarClavesVerdaderoFalso, bloqueFechaActualChat, extraerJsonVeredictos,
   CALIFICAR_ENTREGABLE_SISTEMA,
 }

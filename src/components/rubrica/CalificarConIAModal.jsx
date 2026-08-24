@@ -114,10 +114,14 @@ export default function CalificarConIAModal({
       setRetro(res.retroalimentacionGeneral || '')
       setPaso('revisar')
       // Se precarga sola en cuanto está lista — el docente la ve y la puede
-      // ajustar directo en el formulario de calificación; nada se guarda
-      // en Firestore todavía (eso sigue siendo "Guardar calificación").
+      // ajustar directo en el formulario de calificación; la CALIFICACIÓN
+      // DEFINITIVA no se guarda todavía (eso sigue siendo "Guardar
+      // calificación"). La propuesta en sí YA quedó persistida por el
+      // servidor como 'pendiente' en cuanto se generó (mismo doc,
+      // id = submissionId, que ya usa el lote) — 24-ago-2026, pedido de
+      // Kike: no debe perderse solo porque el docente no guardó todavía.
       precargada.current = true
-      onAplicar({ ...res, calificacionPropuesta: calificacionPropuestaDe(res) }, null)
+      onAplicar({ ...res, calificacionPropuesta: calificacionPropuestaDe(res) }, submissionId)
     } catch (err) {
       toast(err.message || 'No se pudo calificar con IA', 'error')
       cerrarTodo()
@@ -290,7 +294,12 @@ export default function CalificarConIAModal({
                 // Editar aquí reescribe el mismo comentario ya precargado —
                 // sin esto, un ajuste de último momento se quedaría solo en
                 // el modal y "Guardar calificación" guardaría el texto viejo.
-                onAplicar({ ...resultado, retroalimentacionGeneral: next, calificacionPropuesta: calificacionPropuestaDe(resultado) }, resultadoPersistido?._docId || null)
+                // El docId es siempre submissionId para cualquier propuesta
+                // que vino de la IA (lote o individual) — el servidor ya la
+                // persistió con ese mismo id en cuanto se generó, así que no
+                // depende de `resultadoPersistido` (que es null en una
+                // propuesta recién generada, antes de cerrar/reabrir).
+                onAplicar({ ...resultado, retroalimentacionGeneral: next, calificacionPropuesta: calificacionPropuestaDe(resultado) }, resultadoPersistido?._docId || submissionId)
               }}
               rows={3}
               className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mb-3"
