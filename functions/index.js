@@ -71,6 +71,9 @@ exports.cancelarBorradorJuego = juego.cancelarBorradorJuego
 // toca el ledger de créditos (ver functions/calificarAplicar.js).
 const calificarAplicar = require('./calificarAplicar')
 exports.aplicarEvaluacionesIAPendientes = calificarAplicar.aplicarEvaluacionesIAPendientes
+// Confirmar la propuesta del Asistente "Aplicar evaluaciones de IA
+// pendientes" (26-ago-2026) — mismo aislamiento del ledger que la de arriba.
+exports.confirmarChatAplicarEvaluacionesIA = calificarAplicar.confirmarChatAplicarEvaluacionesIA
 
 // Ajuste manual de saldo de créditos IA — solo admin (renombrado de
 // resetearCreditosIA, 20-ago-2026: en créditos puros no hay "capacidad" a la

@@ -31,7 +31,8 @@
 // (últimos 10 turnos, por costo) — la vista hacia atrás no tiene ese límite.
 import { useEffect, useRef, useState } from 'react'
 import { collection, query, where, onSnapshot, addDoc, writeBatch, doc, serverTimestamp } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { httpsCallable } from 'firebase/functions'
+import { db, functions } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import { useCreditosIA } from '../../hooks/useCreditosIA'
@@ -48,15 +49,20 @@ const ETIQUETA_ACCION = {
   CREAR_ACTIVIDAD_ENTREGABLE: 'Actividad entregable',
   CREAR_ACTIVIDAD_OBSERVACION: 'Actividad de observación',
   CREAR_EXAMEN: 'Examen',
+  APLICAR_EVALUACIONES_IA_PENDIENTES: 'Aplicar evaluaciones de IA',
 }
 const TEXTO_BOTON_ACCION = {
   CREAR_ACTIVIDAD_ENTREGABLE: 'Crear actividad',
   CREAR_ACTIVIDAD_OBSERVACION: 'Crear actividad',
   CREAR_EXAMEN: 'Crear examen',
+  APLICAR_EVALUACIONES_IA_PENDIENTES: 'Aplicar calificaciones',
 }
 // Operación de créditos (functions/ia.js) que cobra cada acción — entregable
 // y observación comparten una sola operación (misma tarifa fija, 4
 // créditos); el examen tiene la suya propia por su tarifa variable.
+// APLICAR_EVALUACIONES_IA_PENDIENTES a propósito NO está aquí: no pasa por
+// creditosIA.ejecutar en absoluto — es gratis, se confirma directo contra
+// confirmarChatAplicarEvaluacionesIA (ver confirmarPropuesta más abajo).
 const OPERACION_PARA_ACCION = {
   CREAR_ACTIVIDAD_ENTREGABLE: 'chat_crear_actividad',
   CREAR_ACTIVIDAD_OBSERVACION: 'chat_crear_actividad',
@@ -72,6 +78,7 @@ const TEXTO_TARJETA_CREADA = {
   CREAR_ACTIVIDAD_ENTREGABLE: 'Actividad entregable creada',
   CREAR_ACTIVIDAD_OBSERVACION: 'Actividad de observación creada',
   CREAR_EXAMEN: 'Examen creado',
+  APLICAR_EVALUACIONES_IA_PENDIENTES: 'Calificaciones aplicadas',
 }
 
 const GENERAL = '__general__'
@@ -255,14 +262,26 @@ function MensajeFormateado({ texto: textoOriginal }) {
 // pedido explícito ("no quiero que la propuesta sea solamente texto libre").
 // Puramente presentacional: toda la decisión de qué se puede confirmar vive
 // en confirmarPropuesta (arriba), no aquí.
-function TarjetaPropuesta({ propuesta, contextoVigente, esLaVigente, ejecutando, bloqueado, onConfirmar, costoAccion }) {
+function TarjetaPropuesta({ propuesta, contextoVigente, esLaVigente, ejecutando, bloqueado, onConfirmar, costoAccion, descartada, onCancelar }) {
   const esExamen = propuesta.accion === 'CREAR_EXAMEN'
+  const esAplicarIA = propuesta.accion === 'APLICAR_EVALUACIONES_IA_PENDIENTES'
   return (
     <div className="max-w-[85%] w-full rounded-card border border-outline-variant bg-surface-card p-3 text-sm space-y-2">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-accent uppercase tracking-wide">
         <ClipboardList size={14} /> {ETIQUETA_ACCION[propuesta.accion] || 'Actividad propuesta'}
       </div>
-      <p className="font-semibold text-on-surface">{propuesta.nombre}</p>
+      {/* Sin nombre/instrucciones propios — la propuesta no crea nada nuevo,
+          solo aplica lo que ya existe (ver sanearPropuestaAccionChat). La
+          cantidad exacta se recalcula al confirmar, así que aquí no se
+          muestra ningún número que pueda quedar desactualizado. */}
+      {esAplicarIA ? (
+        <p className="text-on-surface">
+          Se aplicarán como calificación real todas las evaluaciones de IA que sigan pendientes en esta
+          asignatura. <span className="font-semibold">No consume créditos.</span>
+        </p>
+      ) : (
+        <p className="font-semibold text-on-surface">{propuesta.nombre}</p>
+      )}
       {propuesta.instrucciones && <p className="text-muted whitespace-pre-wrap">{propuesta.instrucciones}</p>}
       {propuesta.fechaLimite && <p className="text-xs text-muted">Fecha límite: {formatDeadline(propuesta.fechaLimite)}</p>}
       {esExamen && <p className="text-xs text-muted">Reactivos: {propuesta.reactivos?.length ?? 0}</p>}
@@ -278,17 +297,36 @@ function TarjetaPropuesta({ propuesta, contextoVigente, esLaVigente, ejecutando,
         <p className="text-xs text-muted italic">Versión anterior — ya no disponible, revisa la propuesta más reciente.</p>
       ) : !contextoVigente ? (
         <p className="text-xs text-error">Cambiaste de asignatura — vuelve a esta asignatura para crearla.</p>
+      ) : descartada ? (
+        <p className="text-xs text-muted italic">Cancelado — no se aplicó ninguna calificación.</p>
       ) : (
-        <button
-          type="button"
-          onClick={onConfirmar}
-          disabled={ejecutando || bloqueado}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-white font-semibold text-xs rounded transition-colors disabled:opacity-60"
-        >
-          {ejecutando && <Spinner size="sm" />}
-          {TEXTO_BOTON_ACCION[propuesta.accion] || 'Crear'}
-          {costoAccion != null && ` — ${costoAccion} ${costoAccion === 1 ? 'crédito' : 'créditos'}`}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onConfirmar}
+            disabled={ejecutando || bloqueado}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-white font-semibold text-xs rounded transition-colors disabled:opacity-60"
+          >
+            {ejecutando && <Spinner size="sm" />}
+            {TEXTO_BOTON_ACCION[propuesta.accion] || 'Crear'}
+            {costoAccion != null && ` — ${costoAccion} ${costoAccion === 1 ? 'crédito' : 'créditos'}`}
+          </button>
+          {/* Solo esta acción tiene "Cancelar" explícito (pedido del flujo) —
+              las demás nunca lo tuvieron porque no hacer nada YA es
+              cancelar; aquí es puramente visual (no toca Firestore, no llama
+              a ninguna función) — "confirmar" sigue siendo el único gesto
+              que de verdad ejecuta algo. */}
+          {esAplicarIA && (
+            <button
+              type="button"
+              onClick={onCancelar}
+              disabled={ejecutando || bloqueado}
+              className="px-3 py-1.5 text-xs font-medium text-muted hover:bg-surface-container rounded transition-colors disabled:opacity-60"
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
@@ -343,6 +381,10 @@ export default function ChatAsistente() {
   // await.
   const [ejecutandoId, setEjecutandoId] = useState(null)
   const ejecutandoRef = useRef(null)
+  // Solo para "Cancelar" de APLICAR_EVALUACIONES_IA_PENDIENTES — puramente
+  // local/visual (ver TarjetaPropuesta), nunca se guarda en Firestore ni
+  // afecta si la propuesta sigue siendo la vigente para el servidor.
+  const [descartadas, setDescartadas] = useState(new Set())
   const finRef = useRef(null)
 
   // Alto real del header sticky móvil ("DOCENTE") + la barra inferior de
@@ -541,23 +583,41 @@ export default function ChatAsistente() {
     }
 
     try {
-      // Único punto de cobro real: el servidor lee la propuesta DIRECTO de
-      // Firestore por mensajeId (nunca confía en una copia que mande el
-      // cliente), comprueba que sea la más reciente sin ejecutar de esta
-      // conversación (rechaza cualquier versión vieja, aunque se le pida
-      // explícitamente), calcula parcial/orden, hace la creación con el
-      // Admin SDK y marca la propuesta como ejecutada — todo en la misma
-      // operación atómica del ledger (un fallo reembolsa la reserva sola).
-      const operacion = OPERACION_PARA_ACCION[propuesta.accion] || 'chat_crear_actividad'
-      await creditosIA.ejecutar(operacion, { subjectId: propuesta.subjectId, mensajeId: msg.id }, 1, { timeoutMs: 60000 })
-      // eslint-disable-next-line react-hooks/purity -- ver comentario arriba
-      await guardarMensaje('assistant', TEXTO_CREADA_ACCION[propuesta.accion] || 'Listo, se creó correctamente.', Date.now())
+      if (propuesta.accion === 'APLICAR_EVALUACIONES_IA_PENDIENTES') {
+        // Gratis a propósito — nunca pasa por creditosIA.ejecutar ni por el
+        // ledger (ver confirmarChatAplicarEvaluacionesIA en
+        // functions/calificarAplicar.js). El servidor vuelve a leer la
+        // propuesta de Firestore, revalida todo, y recalcula desde cero
+        // cuántas siguen pendientes en ESTE momento — nunca confía en lo que
+        // se haya mencionado en la conversación.
+        const confirmar = httpsCallable(functions, 'confirmarChatAplicarEvaluacionesIA', { timeout: 120000 })
+        const { data: resultado } = await confirmar({ subjectId: propuesta.subjectId, mensajeId: msg.id })
+        const texto = resultado.aplicadas === 0 && resultado.noAplicadas === 0
+          ? 'No había evaluaciones de IA pendientes por aplicar.'
+          : `Se aplicaron ${resultado.aplicadas} calificación${resultado.aplicadas === 1 ? '' : 'es'} de IA` +
+            (resultado.noAplicadas > 0 ? ` (${resultado.noAplicadas} no se pudieron aplicar).` : '.')
+        // eslint-disable-next-line react-hooks/purity -- ver comentario arriba
+        await guardarMensaje('assistant', texto, Date.now())
+      } else {
+        // Único punto de cobro real: el servidor lee la propuesta DIRECTO de
+        // Firestore por mensajeId (nunca confía en una copia que mande el
+        // cliente), comprueba que sea la más reciente sin ejecutar de esta
+        // conversación (rechaza cualquier versión vieja, aunque se le pida
+        // explícitamente), calcula parcial/orden, hace la creación con el
+        // Admin SDK y marca la propuesta como ejecutada — todo en la misma
+        // operación atómica del ledger (un fallo reembolsa la reserva sola).
+        const operacion = OPERACION_PARA_ACCION[propuesta.accion] || 'chat_crear_actividad'
+        await creditosIA.ejecutar(operacion, { subjectId: propuesta.subjectId, mensajeId: msg.id }, 1, { timeoutMs: 60000 })
+        // eslint-disable-next-line react-hooks/purity -- ver comentario arriba
+        await guardarMensaje('assistant', TEXTO_CREADA_ACCION[propuesta.accion] || 'Listo, se creó correctamente.', Date.now())
+      }
     } catch (err) {
-      if (err.codigo === 'SALDO_INSUFICIENTE') {
+      const codigo = err.codigo || err?.details?.codigo
+      if (codigo === 'SALDO_INSUFICIENTE') {
         toast(`No tienes suficientes créditos para crear esto — necesitas ${err.costo} y tienes ${err.saldo}.`, 'error')
-      } else if (err.codigo === 'PROPUESTA_SUPERADA') {
+      } else if (codigo === 'PROPUESTA_SUPERADA') {
         toast('Esta propuesta ya no está vigente — revisa la más reciente.', 'error')
-      } else if (err.codigo === 'PROPUESTA_YA_EJECUTADA') {
+      } else if (codigo === 'PROPUESTA_YA_EJECUTADA') {
         toast('Esta propuesta ya fue creada.', 'error')
       } else {
         toast('No se pudo crear: ' + (err.message || 'intenta de nuevo'), 'error')
@@ -724,9 +784,14 @@ export default function ChatAsistente() {
                   onConfirmar={() => confirmarPropuesta(h)}
                   // Solo informativo — el servidor vuelve a calcular y a
                   // cobrar esto por su cuenta, nunca confía en este número.
-                  costoAccion={h.propuesta.accion === 'CREAR_EXAMEN'
-                    ? calcularTarifaExamen(h.propuesta.reactivos?.length)
-                    : creditosIA.estimar('chat_crear_actividad')}
+                  // APLICAR_EVALUACIONES_IA_PENDIENTES es gratis — null, para
+                  // que el botón nunca muestre ningún costo.
+                  costoAccion={h.propuesta.accion === 'APLICAR_EVALUACIONES_IA_PENDIENTES' ? null
+                    : h.propuesta.accion === 'CREAR_EXAMEN'
+                      ? calcularTarifaExamen(h.propuesta.reactivos?.length)
+                      : creditosIA.estimar('chat_crear_actividad')}
+                  descartada={descartadas.has(h.id)}
+                  onCancelar={() => setDescartadas((prev) => new Set(prev).add(h.id))}
                 />
               )}
             </div>

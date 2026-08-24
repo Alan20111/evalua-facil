@@ -3334,6 +3334,35 @@ async function detalleAlumnosTexto(db, subjectId) {
     `:\n${lineasActividades.join('\n\n')}`
 }
 
+// CONSULTA para el Asistente con Acciones (26-ago-2026, MVP): cuántas
+// evaluaciones de IA YA GENERADAS siguen 'pendiente' de aplicarse como
+// calificación real — el mismo dato que ya calcula "Aplicar calificaciones
+// de IA a todas" en el panel de la actividad, aquí resumido por asignatura
+// para que el Asistente pueda RESPONDER la pregunta sin proponer nada
+// todavía (proponer ejecutar viene después, solo si el docente lo pide — ver
+// INSTRUCCION_ACCIONES_CHAT). Nunca se usa este texto para decidir qué se
+// aplica al confirmar — eso se recalcula desde cero en
+// confirmarChatAplicarEvaluacionesIA, contra Firestore, en ese momento.
+async function pendientesEvaluacionesIATexto(db, subjectId) {
+  const actsSnap = await db.collection('activities')
+    .where('asignaturaId', '==', subjectId).where('categoria', '==', 'entregable').get()
+  if (actsSnap.empty) return 'No hay evaluaciones de IA pendientes de aplicar en esta asignatura.'
+  // Mismo tope que detalleAlumnosTexto — mismo orden de magnitud de
+  // actividades por asignatura, mismo criterio de costo aceptado ahí.
+  const actividades = actsSnap.docs.slice(0, MAX_ACTIVIDADES_DETALLE_ALUMNO)
+  const porActividad = await Promise.all(actividades.map(async (d) => {
+    const pendSnap = await db.collection(`activities/${d.id}/iaSugerenciasEntregable`)
+      .where('estado', '==', 'pendiente').get()
+    return { nombre: String(d.data().nombre || '').trim() || '(sin nombre)', cantidad: pendSnap.size }
+  }))
+  const conPendientes = porActividad.filter((a) => a.cantidad > 0)
+  const total = conPendientes.reduce((s, a) => s + a.cantidad, 0)
+  if (!total) return 'No hay evaluaciones de IA pendientes de aplicar en esta asignatura.'
+  return `Evaluaciones de IA ya generadas y pendientes de aplicar como calificación real (${total} en total, ` +
+    `esto es SOLO información — la cantidad exacta se recalcula al confirmar): ` +
+    conPendientes.map((a) => `"${a.nombre}" — ${a.cantidad}`).join('; ') + '.'
+}
+
 // Cuántas Secuencias Didácticas puede pedir el docente explícitamente antes
 // de generar (ver PlaneacionInicialSection.jsx) — un tope razonable para no
 // disparar el gasto de tokens ni pedirle a la IA algo absurdo.
@@ -4668,11 +4697,12 @@ async function precheckChatAsistente({ uid, params }) {
   }
   const parciales = construirParcialesCtx(subj, { diasAsueto, sesionesCanceladas })
 
-  const [resultadoContexto, resultadoConocimientos, examenesRecientes, alumnosTexto] = await Promise.all([
+  const [resultadoContexto, resultadoConocimientos, examenesRecientes, alumnosTexto, pendientesIATexto] = await Promise.all([
     analisisDiagnosticoMasReciente(db, subjectId, 'contexto'),
     analisisDiagnosticoMasReciente(db, subjectId, 'conocimientos'),
     analisisExamenesRecientes(db, subjectId),
     detalleAlumnosTexto(db, subjectId),
+    pendientesEvaluacionesIATexto(db, subjectId),
   ])
 
   const bloques = [
@@ -4704,6 +4734,7 @@ async function precheckChatAsistente({ uid, params }) {
     // chat. Ver detalleAlumnosTexto: nunca se usa en el Asistente General ni
     // en el análisis con IA (OP-10), que se quedan agregados/anónimos.
     alumnosTexto ? `ESTUDIANTES DE ESTA ASIGNATURA — DETALLE INDIVIDUAL (con nombre, quién entregó cada actividad y su calificación; SOLO para este chat, el docente ya ve exactamente esto en su panel):\n${alumnosTexto}` : null,
+    `EVALUACIONES DE IA PENDIENTES DE APLICAR:\n${pendientesIATexto}`,
     // CORRECCIÓN 23-ago-2026 (prueba de estrés real): este bloque SOLO se
     // incluía en precheckAsistenteGeneral — el chat dentro de una
     // asignatura no tenía acceso a él y por eso respondía vago/remitía al
@@ -4743,7 +4774,17 @@ async function precheckChatAsistente({ uid, params }) {
 // creación real la hace el CLIENTE, con la función existente de creación de
 // actividades/exámenes, usando el subjectId que YA validó el precheck de
 // este turno — nunca uno que la IA haya podido mencionar en el texto.
-const ACCIONES_CHAT_PERMITIDAS = ['CREAR_ACTIVIDAD_ENTREGABLE', 'CREAR_ACTIVIDAD_OBSERVACION', 'CREAR_EXAMEN']
+// APLICAR_EVALUACIONES_IA_PENDIENTES (26-ago-2026, MVP del Asistente con
+// acciones) — a propósito NO está en OPERACIONES/PRECHECKS de arriba: esta
+// acción nunca debe reservar ni liquidar créditos, ni siquiera a tarifa 0
+// (eso seguiría siendo "una reserva"). Se confirma con un callable APARTE,
+// fuera del ledger — ver confirmarChatAplicarEvaluacionesIA en
+// functions/calificarAplicar.js, mismo patrón de aislamiento que ya usa esa
+// función para el botón "Aplicar calificaciones de IA a todas".
+const ACCIONES_CHAT_PERMITIDAS = [
+  'CREAR_ACTIVIDAD_ENTREGABLE', 'CREAR_ACTIVIDAD_OBSERVACION', 'CREAR_EXAMEN',
+  'APLICAR_EVALUACIONES_IA_PENDIENTES',
+]
 
 function sanearReactivoPropuestaChat(r) {
   const tipo = TIPOS_REACTIVO.includes(r?.tipo) ? r.tipo : 'opcion_multiple'
@@ -4769,6 +4810,13 @@ function sanearPropuestaAccionChat(propuesta, { permitirAcciones }) {
   if (!permitirAcciones || !propuesta || typeof propuesta !== 'object') return null
   const accion = ACCIONES_CHAT_PERMITIDAS.includes(propuesta.accion) ? propuesta.accion : null
   if (!accion) return null
+
+  // Sin campos propios — a propósito. Cuántas entregas se van a aplicar y
+  // cuáles NUNCA se decide con nada que haya dicho el modelo; se recalcula
+  // desde cero en confirmarChatAplicarEvaluacionesIA (calificarAplicar.js)
+  // en el momento de confirmar, directo contra Firestore.
+  if (accion === 'APLICAR_EVALUACIONES_IA_PENDIENTES') return { accion }
+
   const nombre = String(propuesta.nombre || '').trim().slice(0, 120)
   if (!nombre) return null
   const instrucciones = String(propuesta.instrucciones || '').trim().slice(0, 3000)
@@ -4922,7 +4970,18 @@ const INSTRUCCION_ACCIONES_CHAT =
   'instrucciones; para examen, además los reactivos) — incluye una propuesta. Si NO tienes info suficiente ' +
   '(falta el tema, o pidió examen sin decir cuántos reactivos ni de qué trata), NO propongas nada todavía: ' +
   'pregunta lo que falta. Si solo está conversando o pidiendo ideas sin pedir crear, tampoco propongas nada. ' +
-  'NUNCA propongas una acción que el docente no pidió crear. CORRECCIÓN 23-ago-2026 (prueba de estrés real): si el ' +
+  'NUNCA propongas una acción que el docente no pidió crear. ' +
+  // MVP 26-ago-2026: la única acción que no crea nada nuevo, solo aplica
+  // evaluaciones de IA YA GENERADAS como calificación real. Se apoya en el
+  // bloque "EVALUACIONES DE IA PENDIENTES DE APLICAR" de tu contexto — ese
+  // número es solo para que sepas si hay algo que ofrecer aplicar, la
+  // cantidad EXACTA que en verdad se aplique la calcula el servidor al
+  // confirmar, nunca la calcules tú ni la repitas como si fuera definitiva.
+  'Si el docente pregunta si hay evaluaciones de IA pendientes de aplicar, respóndele con el número real de tu ' +
+  'contexto (o que no hay, si no hay). SOLO propón APLICAR_EVALUACIONES_IA_PENDIENTES cuando el docente pida ' +
+  'explícitamente aplicarlas/confirmarlas y tu contexto muestre que SÍ hay al menos una pendiente — nunca la ' +
+  'propongas si el contexto dice que no hay ninguna, ni la propongas solo porque preguntó cuántas hay. ' +
+  'CORRECCIÓN 23-ago-2026 (prueba de estrés real): si el ' +
   'docente responde con algo elíptico que depende de tu ÚLTIMA propuesta o respuesta ("haz otra", "haz otra ' +
   'versión", "cambia esta", "otra igual pero más sencilla/difícil", "modifica la anterior", "esa no me convence", ' +
   'y similares), por default interprétalo como referido a esa última propuesta/respuesta — no como pedir algo ' +
@@ -4934,11 +4993,13 @@ const INSTRUCCION_ACCIONES_CHAT =
   '{"respuesta": "<tu respuesta conversacional en español>", "propuesta": null}\n' +
   'o, solo cuando corresponda proponer:\n' +
   '{"respuesta": "<mensaje breve confirmando qué vas a proponer, invitando a revisar la tarjeta>", ' +
-  '"propuesta": {"accion": "CREAR_ACTIVIDAD_ENTREGABLE" | "CREAR_ACTIVIDAD_OBSERVACION" | "CREAR_EXAMEN", ' +
-  '"nombre": "<máx 120 caracteres>", "instrucciones": "<qué debe hacer o qué vas a observar>", ' +
+  '"propuesta": {"accion": "CREAR_ACTIVIDAD_ENTREGABLE" | "CREAR_ACTIVIDAD_OBSERVACION" | "CREAR_EXAMEN" | "APLICAR_EVALUACIONES_IA_PENDIENTES", ' +
+  '"nombre": "<máx 120 caracteres — OMITIR para APLICAR_EVALUACIONES_IA_PENDIENTES>", ' +
+  '"instrucciones": "<qué debe hacer o qué vas a observar — OMITIR para APLICAR_EVALUACIONES_IA_PENDIENTES>", ' +
   '"fechaLimite": "YYYY-MM-DD" | null, ' +
   '"reactivos": [ /* SOLO para examen, entre 2 y 10 */ {"tipo": "opcion_multiple"|"verdadero_falso"|"respuesta_corta"|"subir_archivo", ' +
-  '"enunciado": "...", "opciones": ["...","...","...","..."], "correcta": 0, "respuestaEsperada": "..."} ]}}'
+  '"enunciado": "...", "opciones": ["...","...","...","..."], "correcta": 0, "respuestaEsperada": "..."} ]}}\n' +
+  'Para APLICAR_EVALUACIONES_IA_PENDIENTES, la propuesta es solo {"accion": "APLICAR_EVALUACIONES_IA_PENDIENTES"} — sin ningún otro campo.'
 
 // Instrucción de formato para el Asistente General (sin acciones) — igual
 // necesita responder JSON, para que el parseo del lado del servidor sea uno
@@ -5766,6 +5827,7 @@ exports._pruebas = {
   verificarSaldoChat, calcularTarifaExamen, precheckChatCrearActividad, precheckChatCrearExamen,
   ACCIONES_ACTIVIDAD,
   precheckCalificarEntregable, bloqueCriteriosInstrumento, precheckCalificarEntregableLote, rubricaFirma,
+  pendientesEvaluacionesIATexto,
   validarClavesVerdaderoFalso, bloqueFechaActualChat, extraerJsonVeredictos,
   CALIFICAR_ENTREGABLE_SISTEMA,
 }
