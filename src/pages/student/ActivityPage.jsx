@@ -878,7 +878,11 @@ export default function StudentActivityPage() {
               <span className="text-5xl font-bold text-accent">{submission.calificacion}</span>
               <span className="text-xl text-slate-400 mb-1">/{activity?.maxCalif}</span>
             </div>
-            {submission.comentario && activity?.comentarioVisibleAlumno !== false && (
+            {submission.comentario && (
+              submission.comentarioVisibleAlumno !== undefined
+                ? submission.comentarioVisibleAlumno !== false
+                : activity?.comentarioVisibleAlumno !== false
+            ) && (
               <div className="bg-surface rounded p-3 flex gap-2">
                 <MessageSquare size={17} className="text-slate-400 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-muted italic">&ldquo;{submission.comentario}&rdquo;</p>
