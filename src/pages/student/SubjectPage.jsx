@@ -694,7 +694,7 @@ export default function StudentSubjectPage() {
                                 )}
                               </div>
                             )}
-                            {sub?.comentario && (
+                            {sub?.comentario && a.comentarioVisibleAlumno !== false && (
                               <p className="text-sm text-slate-500 leading-tight truncate mt-0.5">&ldquo;{sub.comentario}&rdquo;</p>
                             )}
                           </div>

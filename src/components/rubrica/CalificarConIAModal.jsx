@@ -1,6 +1,7 @@
-// "Calificar con IA" — analiza las evidencias de una entrega (JPG/PNG/PDF/
-// Word, hasta 5) contra la rúbrica o lista de cotejo YA guardada en la
-// actividad, y PROPONE un nivel por criterio con su justificación
+// "Calificar con IA" — analiza las evidencias de una entrega (hasta 5 fotos,
+// o 1 PDF, o 1 Word — una entrega es siempre UN solo tipo, nunca mezcla, ver
+// src/config/fileTypes.js) contra la rúbrica o lista de cotejo YA guardada en
+// la actividad, y PROPONE un nivel por criterio con su justificación
 // (OP-11, 21-ago-2026, decisión de Kike: función central de valor de la IA).
 //
 // La IA NUNCA asigna la calificación de forma definitiva: en cuanto la
@@ -139,7 +140,7 @@ export default function CalificarConIAModal({
         alcanza ? (
           <>
             <p className="text-sm text-on-surface mb-1">
-              La IA analiza las evidencias que entregó el estudiante (fotos, PDF o Word — hasta 5) contra
+              La IA analiza las evidencias que entregó el estudiante (hasta 5 fotos, o 1 PDF, o 1 Word) contra
               {esCotejo(rubrica) ? ' la lista de cotejo' : ' la rúbrica'} de esta actividad, y te propone un
               nivel por criterio con su justificación. Tú revisas, ajustas y confirmas — la IA nunca guarda la
               calificación.

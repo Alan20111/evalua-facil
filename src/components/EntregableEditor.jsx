@@ -90,6 +90,9 @@ export default function EntregableEditor({
     // veía la rúbrica — default true para no cambiar nada en actividades ya
     // existentes que nunca guardaron este campo.
     rubricaVisibleAlumno: true,
+    // Mismo criterio (25-ago-2026): el comentario siempre se veía antes de
+    // este campo — default true para no cambiar nada en actividades viejas.
+    comentarioVisibleAlumno: true,
     notificarDocente: false,
   })
   const [existingFiles, setExistingFiles] = useState(initialExistingFiles || [])
@@ -267,6 +270,7 @@ export default function EntregableEditor({
         rubrica: form.rubrica || null,
         rubricaId: form.rubricaId || null,
         rubricaVisibleAlumno: form.rubricaVisibleAlumno !== false,
+        comentarioVisibleAlumno: form.comentarioVisibleAlumno !== false,
         notificarDocente: !!form.notificarDocente,
       }
       const tipo = isObservacion ? 'observacion' : 'archivo'
@@ -486,6 +490,22 @@ export default function EntregableEditor({
                 )}
               </div>
             </div>
+
+            {/* Visibilidad del comentario para el estudiante (25-ago-2026,
+                pedido de Kike) — default true (igual que rubricaVisibleAlumno):
+                actividades ya existentes se comportan igual que antes, donde
+                el comentario siempre se veía. Solo afecta lo que el ESTUDIANTE
+                ve en su pantalla — el docente sigue escribiendo y guardando el
+                comentario igual, con o sin esta casilla activada. */}
+            <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.comentarioVisibleAlumno !== false}
+                onChange={(e) => setForm((f) => ({ ...f, comentarioVisibleAlumno: e.target.checked }))}
+                className="w-4 h-4 rounded border-outline-variant text-accent focus:ring-accent"
+              />
+              Permitir que los estudiantes vean el comentario de la calificación
+            </label>
 
             <div>
               <label className="block text-sm font-medium text-muted mb-1">
