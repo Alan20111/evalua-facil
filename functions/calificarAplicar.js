@@ -19,6 +19,14 @@
 // lote — así que persistGrade() en ActivityPage.jsx solo necesita marcarla
 // 'aplicada' con un updateDoc directo del cliente, igual que ya hacía para
 // el flujo por lote.)
+//
+// confirmarChatAplicarEvaluacionesIA (26-ago-2026) — el MVP del Asistente de
+// IA con acciones: confirma la propuesta "Aplicar evaluaciones de IA
+// pendientes" que el chat pudo haber ofrecido (ver ACCIONES_CHAT_PERMITIDAS
+// en ia.js), y por dentro solo llama a aplicarEvaluacionesIAPendientesImpl
+// de arriba, una vez por cada actividad de la asignatura que tenga algo
+// pendiente. Vive en este mismo archivo, no en ia.js, por la MISMA razón de
+// aislamiento del párrafo de arriba.
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
@@ -146,8 +154,127 @@ async function aplicarEvaluacionesIAPendientesImpl(request) {
   return { aplicadas, noAplicadas: motivos.length, motivos }
 }
 exports.aplicarEvaluacionesIAPendientes = onCall({ timeoutSeconds: 120 }, aplicarEvaluacionesIAPendientesImpl)
+// Export real (no solo _pruebas) — confirmarChatAplicarEvaluacionesIA, más
+// abajo, la reutiliza TAL CUAL para cada actividad con pendientes; nunca se
+// reimplementa la lógica de aplicar.
+exports.aplicarEvaluacionesIAPendientesImpl = aplicarEvaluacionesIAPendientesImpl
+
+// ── Confirmar la propuesta del Asistente: "Aplicar evaluaciones de IA
+// pendientes" (26-ago-2026, MVP del Asistente con acciones) ────────────────
+// Mismo patrón CONSULTA → PROPUESTA → CONFIRMACIÓN → EJECUCIÓN que ya usan
+// chat_crear_actividad/chat_crear_examen (functions/ia.js), y MISMA regla de
+// revalidación (identidad, propiedad de la asignatura, la propuesta releída
+// de Firestore por mensajeId, que sea la más reciente sin ejecutar) — pero
+// espejada aquí en vez de importada de ia.js A PROPÓSITO: ia.js requiere el
+// SDK de Anthropic y el ledger de créditos, y este archivo existe
+// precisamente para que eso sea IMPOSIBLE de arrastrar por accidente (mismo
+// principio que ya protege a aplicarEvaluacionesIAPendientes, arriba). Esta
+// acción NUNCA pasa por ejecutarOperacionIA ni por creditosLedger — ni
+// siquiera a tarifa 0 — así que no hay ninguna reserva de créditos que
+// pueda aparecer. Tampoco llama a Anthropic en ningún punto: solo relee
+// Firestore y aplica sugerencias YA GENERADAS, exactamente como el botón
+// "Aplicar calificaciones de IA a todas".
+async function verificarSubjectDocente(db, uid, subjectId) {
+  if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura de esta acción.')
+  const snap = await db.doc(`subjects/${subjectId}`).get()
+  if (!snap.exists) throw new HttpsError('not-found', 'La asignatura no existe')
+  const subj = snap.data()
+  if (subj.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta asignatura no es tuya')
+  return subj
+}
+
+// Espejo mínimo de precheckAccionChat (functions/ia.js) — mismas reglas,
+// acotadas a esta única acción (que no trae contenido generado por la IA
+// que resanear, a diferencia de crear actividad/examen).
+async function revalidarPropuestaAplicarIA(db, uid, subjectId, mensajeId) {
+  await verificarSubjectDocente(db, uid, subjectId)
+  if (!mensajeId) throw new HttpsError('invalid-argument', 'Falta la propuesta a confirmar.')
+
+  const msgSnap = await db.doc(`chatMensajes/${mensajeId}`).get()
+  if (!msgSnap.exists) throw new HttpsError('not-found', 'Esta propuesta ya no existe.')
+  const msgData = msgSnap.data()
+  if (msgData.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta propuesta no es tuya.')
+  if (msgData.subjectId !== subjectId) {
+    throw new HttpsError('invalid-argument', 'Esta propuesta pertenece a otra asignatura.')
+  }
+  if (!msgData.propuesta || msgData.propuesta.accion !== 'APLICAR_EVALUACIONES_IA_PENDIENTES') {
+    throw new HttpsError('invalid-argument', 'Este mensaje no tiene esta propuesta.')
+  }
+  if (msgData.propuesta.ejecutada) {
+    throw new HttpsError('failed-precondition', 'Esta propuesta ya fue aplicada.', { codigo: 'PROPUESTA_YA_EJECUTADA' })
+  }
+
+  // Solo equality en la consulta (regla del proyecto) — el orden se decide
+  // en memoria con `creadoEn`, igual que precheckAccionChat.
+  const pendientesSnap = await db.collection('chatMensajes')
+    .where('docenteId', '==', uid).where('subjectId', '==', subjectId).where('role', '==', 'assistant').get()
+  const pendientes = pendientesSnap.docs
+    .map((d) => ({ id: d.id, ms: d.data().creadoEn?.toMillis?.() || 0, propuesta: d.data().propuesta }))
+    .filter((m) => m.propuesta && !m.propuesta.ejecutada)
+    .sort((a, b) => a.ms - b.ms)
+  const masReciente = pendientes[pendientes.length - 1]
+  if (!masReciente || masReciente.id !== mensajeId) {
+    throw new HttpsError('failed-precondition',
+      'Esta propuesta ya no está vigente — hay una más reciente en la conversación.',
+      { codigo: 'PROPUESTA_SUPERADA' })
+  }
+}
+
+async function confirmarChatAplicarEvaluacionesIAImpl(request) {
+  const uid = request.auth?.uid
+  if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar esta función')
+
+  const db = getFirestore()
+  const subjectId = String(request.data?.subjectId || '').trim()
+  const mensajeId = String(request.data?.mensajeId || '').trim()
+  // Nunca se confía en nada que mande el cliente más allá de estos dos IDs —
+  // ni cantidades, ni actividades, ni nombres.
+  await revalidarPropuestaAplicarIA(db, uid, subjectId, mensajeId)
+
+  // Recalcular desde cero, AHORA — no lo que decía el contexto cuando se
+  // propuso (regla 5 del pedido: si cambió el número de pendientes entre la
+  // propuesta y la confirmación, se aplica lo que de verdad sigue pendiente
+  // en este momento, nunca lo que se mencionó antes).
+  const actsSnap = await db.collection('activities')
+    .where('asignaturaId', '==', subjectId).where('categoria', '==', 'entregable').get()
+
+  let aplicadas = 0
+  let noAplicadas = 0
+  const motivos = []
+  const actividadesAfectadas = []
+
+  for (const actDoc of actsSnap.docs) {
+    const pendSnap = await db.collection(`activities/${actDoc.id}/iaSugerenciasEntregable`)
+      .where('estado', '==', 'pendiente').get()
+    if (pendSnap.empty) continue // nada pendiente en esta actividad — no se toca
+
+    // Reutiliza TAL CUAL la función existente, con la misma forma de
+    // `request` que ya espera (uid + actividadId) — mismos candados de
+    // propiedad, mismo WriteBatch atómico, mismo "nunca inventar" si falta
+    // evidencia suficiente.
+    const resultado = await aplicarEvaluacionesIAPendientesImpl({
+      auth: { uid }, data: { actividadId: actDoc.id },
+    })
+    aplicadas += resultado.aplicadas
+    noAplicadas += resultado.noAplicadas
+    motivos.push(...resultado.motivos)
+    if (resultado.aplicadas > 0) {
+      actividadesAfectadas.push({ actividadId: actDoc.id, nombre: actDoc.data().nombre || '(sin nombre)', aplicadas: resultado.aplicadas })
+    }
+  }
+
+  // Se marca ejecutada SIEMPRE que se llegó hasta aquí (aunque hayan sido 0
+  // aplicadas porque ya no quedaba nada pendiente) — evita que el docente
+  // pueda confirmar la misma tarjeta dos veces esperando algo distinto; el
+  // resultado real ya se le devuelve para que sepa exactamente qué pasó.
+  await db.doc(`chatMensajes/${mensajeId}`).update({ 'propuesta.ejecutada': true })
+
+  return { aplicadas, noAplicadas, motivos, actividadesAfectadas }
+}
+exports.confirmarChatAplicarEvaluacionesIA = onCall({ timeoutSeconds: 120 }, confirmarChatAplicarEvaluacionesIAImpl)
 
 exports._pruebas = {
   verificarActividadDocente, totalInstrumento, esCotejo,
-  aplicarEvaluacionesIAPendientesImpl,
+  aplicarEvaluacionesIAPendientesImpl, confirmarChatAplicarEvaluacionesIAImpl,
+  verificarSubjectDocente, revalidarPropuestaAplicarIA,
 }
