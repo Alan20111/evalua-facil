@@ -1715,8 +1715,27 @@ export default function ActivityPage() {
               )}
             </div>
 
-            {/* Right: grading panel */}
+            {/* Right: grading panel — cuando "Calificar con IA" está abierto,
+                esta MISMA columna (espacio real de layout, no un overlay)
+                muestra la revisión de IA en vez del formulario normal de
+                calificación (26-ago-2026, pedido explícito de Kike: "EVIDENCIA
+                > PROPUESTA DE IA", dos columnas reales, nunca una superpuesta
+                encima de la otra — la columna de evidencia de la izquierda
+                queda intacta y visible en todo momento). */}
             <div className="flex-1 md:flex-none w-full md:w-[380px] bg-surface-card border-t md:border-t-0 md:border-l border-outline-variant overflow-y-auto">
+              {calificarIAAbierto && selected?.sub && hasRubrica ? (
+                <CalificarConIAModal
+                  inline
+                  open={calificarIAAbierto}
+                  onClose={cerrarCalificarIA}
+                  onDescartar={descartarPropuestaIA}
+                  actividadId={activityId}
+                  submissionId={selected.sub.id}
+                  rubrica={activity.rubrica}
+                  onAplicar={aplicarPropuestaIA}
+                  resultadoPersistido={sugerenciaPersistidaIA}
+                />
+              ) : (
               <div className="p-4 space-y-3">
 
                 {/* Filter tabs — same sets as the list; switching re-freezes navigation */}
@@ -2231,9 +2250,25 @@ export default function ActivityPage() {
 
                 <div className="h-2 safe-bottom" />
               </div>
+              )}
             </div>
           </div>
         </div>
+      )}
+
+      {/* App nativa: sin columnas (pantalla completa), se conserva el panel
+          flotante de CalificarConIAModal tal cual (sin `inline`). */}
+      {calificarIAAbierto && IS_NATIVE_APP && selected?.sub && hasRubrica && (
+        <CalificarConIAModal
+          open={calificarIAAbierto}
+          onClose={cerrarCalificarIA}
+          onDescartar={descartarPropuestaIA}
+          actividadId={activityId}
+          submissionId={selected.sub.id}
+          rubrica={activity.rubrica}
+          onAplicar={aplicarPropuestaIA}
+          resultadoPersistido={sugerenciaPersistidaIA}
+        />
       )}
 
       {/* Vista de evaluar en Android — compacta, pensada para que quepa
@@ -2784,18 +2819,6 @@ export default function ActivityPage() {
         )
       })()}
 
-      {calificarIAAbierto && selected?.sub && hasRubrica && (
-        <CalificarConIAModal
-          open={calificarIAAbierto}
-          onClose={cerrarCalificarIA}
-          onDescartar={descartarPropuestaIA}
-          actividadId={activityId}
-          submissionId={selected.sub.id}
-          rubrica={activity.rubrica}
-          onAplicar={aplicarPropuestaIA}
-          resultadoPersistido={sugerenciaPersistidaIA}
-        />
-      )}
 
       {loteIAConteo && (
         <ConfirmacionCreditosModal
