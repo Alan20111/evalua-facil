@@ -1,12 +1,6 @@
 import { GraduationCap, Users, ClipboardList, UserCheck, ArrowRight } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
-// PENDIENTE: agregar capturas reales de la interfaz. Cada `step` que deba
-// llevar imagen tiene un comentario "// CAPTURA:" arriba indicando qué
-// pantalla mostrar y, si aplica, sobre qué botón poner el cursor. Cuando
-// haya capturas, guárdalas en public/ayuda-comenzar/ y agrega
-// `image: '/ayuda-comenzar/archivo.png'` a ese step.
-
 // Ayuda para comenzar: NO es el manual completo (eso quedó archivado en
 // docs/manual-anterior/). Son 4 ejemplos concretos elegidos para que, al
 // hacerlos, el docente descubra cómo se organiza toda la plataforma —
@@ -52,7 +46,12 @@ const GUIDES = [
         image: '/ayuda-comenzar/04-modal-agregar-estudiante.png',
       },
       {
-        text: 'Si es todo un grupo de una vez, usa "Plantilla Excel" en la misma pestaña: descargas la plantilla, la llenas y la subes.',
+        text: 'Si es todo un grupo de una vez, usa "Plantilla Excel" en la misma pestaña. Verás tres pasos: descarga la plantilla, súbela ya llena y genera el PDF con los códigos de acceso para tus estudiantes.',
+        image: '/ayuda-comenzar/04b-plantilla-excel-ui.png',
+      },
+      {
+        text: 'La plantilla tiene una sola columna: el nombre completo en formato "Apellido Paterno  Apellido Materno  Nombre(s)". Llena una fila por estudiante y guarda el archivo — así se importan de golpe.',
+        image: '/ayuda-comenzar/04c-plantilla-excel-archivo.png',
       },
       {
         text: 'El estudiante agregado aparece en la lista de esa pestaña con su usuario ya generado — ahí compruebas quién quedó dado de alta y ahí mismo lo editas después.',
