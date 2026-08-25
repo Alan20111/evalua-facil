@@ -65,8 +65,8 @@ export default function CreditosPanel({ onCerrar }) {
             <p className="text-muted">
               Todas las funciones de Evalúa Fácil son totalmente gratuitas, excepto las de IA.{' '}
               {c.mostrarCTAActivarBienvenida
-                ? 'Adquiere créditos para usar las funciones de IA, así como el manejo de Asistencias y la descarga de documentos, o disfruta de tus 50 créditos de IA de regalo activándolos para que conozcas como funciona la IA en Evalúa Fácil.'
-                : 'Adquiere créditos para usar las funciones de IA, así como el manejo de Asistencias y la descarga de documentos.'}
+                ? 'Adquiere créditos para usar las funciones de IA, o disfruta de tus 50 créditos de IA de regalo activándolos para que conozcas como funciona la IA en Evalúa Fácil.'
+                : 'Adquiere créditos para usar las funciones de IA.'}
             </p>
             <button type="button" onClick={() => setComprarAbierto(true)}
               className="mt-2 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">

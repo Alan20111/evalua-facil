@@ -164,7 +164,7 @@ export default function TeacherDashboard() {
 
   function openSubjectModal() {
     if (!canCreate) {
-      toast('Activa tu suscripción mensual para crear nuevas asignaturas — toda tu información sigue disponible')
+      toast('Necesitas Créditos IA para crear nuevas asignaturas — toda tu información sigue disponible')
       return
     }
     setShowSubjectModal(true)
@@ -270,7 +270,7 @@ export default function TeacherDashboard() {
     e.preventDefault()
     if (!newSubjectName.trim() || !newSubjectGrupo.trim() || !newSubjectFechaInicio || !newSubjectFechaFin) return
     if (!canCreate) {
-      toast('Activa tu suscripción mensual para crear nuevas asignaturas — toda tu información sigue disponible')
+      toast('Necesitas Créditos IA para crear nuevas asignaturas — toda tu información sigue disponible')
       return
     }
     setCreatingSubject(true)
