@@ -35,7 +35,7 @@ const db = admin.firestore()
 const dryRun = process.argv.includes('--dry-run')
 
 const TARIFAS = {
-  version: 5,
+  version: 6,
   actualizadoEl: '2026-08-25',
   // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
   // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
@@ -111,13 +111,13 @@ const TARIFAS = {
     // Cada regeneración que pida el docente vuelve a cobrar completo — no
     // existe regeneración gratuita.
     planeacion_didactica_inicial: 20,
-    // Chat con Asistente — la conversación NO cobra por mensaje; el único
-    // candado contra abuso es el límite diario de interacciones
-    // (functions/ia.js, LIMITE_CHAT_DIARIO = 50), no créditos. Lo que SÍ
-    // cobra es confirmar una acción (chat_crear_actividad/chat_crear_examen
-    // abajo) — un único cobro que ya representa toda la conversación que
-    // llevó a ella.
-    chat_asistente: 0,
+    // Chat con Asistente — 0.5 créditos por mensaje (25-ago-2026, decisión
+    // de Kike: el chat ya está desactivado vía chatAsistenteActivo=false, pero
+    // la tarifa queda definida para cuando se reactive sin necesitar otro seed).
+    // El candado adicional contra abuso es el límite diario de interacciones
+    // (functions/ia.js, LIMITE_CHAT_DIARIO = 50). Lo que cobra la confirmación
+    // de una acción es aparte (chat_crear_actividad / chat_crear_examen abajo).
+    chat_asistente: 0.5,
     // Actividad Entregable u Observación creada/confirmada desde el chat —
     // tarifa fija (misma para ambas categorías). Esta confirmación NO llama
     // a Anthropic (la propuesta ya se generó gratis dentro de
