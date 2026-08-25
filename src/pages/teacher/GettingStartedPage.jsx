@@ -66,6 +66,7 @@ const GUIDES = [
     steps: [
       {
         text: 'Entra a tu asignatura. En la parte superior verás el código de acceso de la clase.',
+        image: '/ayuda-comenzar/acceso-codigo.png',
       },
       {
         text: 'Comparte ese código con tus alumnos por el medio que prefieras (WhatsApp, en clase, etc.).',
