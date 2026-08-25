@@ -1071,6 +1071,11 @@ async function precheckCalificarEntregable({ uid, params }) {
     evidenciasDetalle: evidencias.detalle,
     ignoradosPorFormato: evidencias.ignoradosPorFormato,
     ignoradosPorTope: evidencias.ignoradosPorTope,
+    // Determina la clave de tarifa efectiva: si algún archivo analizado es
+    // imagen usa la tarifa de imágenes (0.5 cr), si son solo docs usa la
+    // de documentos (0.25 cr). El orquestador lo lee para elegir la clave
+    // de config/iaTarifas y para registrarlo en iaConsumosInterno.
+    tipoEvidenciaTarifa: evidencias.detalle.some((d) => d.tipo === 'imagen') ? 'imagenes' : 'documentos',
   }
 }
 
@@ -1277,6 +1282,14 @@ async function precheckCalificarEntregableLote({ uid, params }) {
       'No hay entregas pendientes con evidencia en un formato legible (JPG, PNG, PDF o Word). No se descontaron créditos.')
   }
 
+  // Tipo de evidencia según tiposArchivo de la actividad — mismo criterio que
+  // el cliente (normalizeFileTypeKeys en fileTypes.js). Si la actividad acepta
+  // imágenes o "todos", se aplica la tarifa de imágenes (0.5 cr/entrega);
+  // de lo contrario, la de documentos (0.25 cr/entrega).
+  const tiposArr = Array.isArray(act.tiposArchivo) ? act.tiposArchivo
+    : ({ imagenes: ['imagenes'], imagenes_pdf: ['imagenes', 'pdf'], todos: ['todos'] }[act.tiposArchivo] || [act.tiposArchivo || ''])
+  const tipoEvidenciaTarifa = tiposArr.some((t) => t === 'imagenes' || t === 'todos') ? 'imagenes' : 'documentos'
+
   return {
     clase: 'entregable',
     nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
@@ -1285,6 +1298,7 @@ async function precheckCalificarEntregableLote({ uid, params }) {
     items,
     sinEvidencia,
     recalificar,
+    tipoEvidenciaTarifa,
   }
 }
 
@@ -5703,11 +5717,25 @@ exports.ejecutarOperacionIA = onCall(
       : 0
     const n = Math.max(unidadesCliente, unidadesMinimas)
 
+    // Clave de tarifa efectiva para operaciones con tarifa diferenciada:
+    // calificar_entregable_ia y su variante _lote cobran distinto según si
+    // la actividad es de imágenes (0.5 cr) o de documentos (0.25 cr). El
+    // precheck devuelve tipoEvidenciaTarifa; si no existe (otras operaciones),
+    // se usa la clave de operación original.
+    const operacionEfectiva = (() => {
+      if (!precontexto?.tipoEvidenciaTarifa) return operacion
+      if (operacion === 'calificar_entregable_ia' && precontexto.tipoEvidenciaTarifa === 'imagenes')
+        return 'calificar_entregable_ia_imagenes'
+      if (operacion === 'calificar_entregable_ia_lote' && precontexto.tipoEvidenciaTarifa === 'imagenes')
+        return 'calificar_entregable_ia_lote_imagenes'
+      return operacion
+    })()
+
     let tarifas
     let reserva
     try {
       tarifas = await ledger.cargarTarifas()
-      reserva = await ledger.reservar({ uid, operacion, idempotencyKey, unidades: n, asignaturaId: params.asignaturaId || null, tarifas })
+      reserva = await ledger.reservar({ uid, operacion: operacionEfectiva, idempotencyKey, unidades: n, asignaturaId: params.asignaturaId || null, tarifas })
     } catch (e) {
       throw comoHttpsError(e)
     }
@@ -5758,7 +5786,7 @@ exports.ejecutarOperacionIA = onCall(
     // registro decía cuánto costó, pero no cuánto se cobró por ello. Es
     // también lo que necesita `rentabilidad_creditos` en adminChat.js para
     // sacar el costo por crédito.
-    const porUso = tarifas.tarifas[operacion]
+    const porUso = tarifas.tarifas[operacionEfectiva]
     // Defensivo: hoy TODOS los ejecutores devuelven `unidadesReales` (ver
     // OPERACIONES arriba). Si uno nuevo lo olvidara, `unidadesRealesMetrica`
     // se registra como null (dato ausente, que las herramientas saben
@@ -5779,7 +5807,9 @@ exports.ejecutarOperacionIA = onCall(
     // alcance del cliente.
     db.doc(`iaConsumosInterno/${idempotencyKey}`)
       .set({
-        uid, operacion, ...salida.interno,
+        uid, operacion, operacionEfectiva: operacionEfectiva !== operacion ? operacionEfectiva : undefined,
+        tipoEvidenciaTarifa: precontexto?.tipoEvidenciaTarifa || undefined,
+        ...salida.interno,
         // Lo que de verdad se procesó (reactivos generados, entregas
         // evaluadas, respuestas sugeridas…). Es el denominador del costo
         // unitario real. null si el ejecutor no lo reportó (ver arriba) —

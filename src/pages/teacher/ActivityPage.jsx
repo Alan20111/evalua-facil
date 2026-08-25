@@ -672,7 +672,7 @@ export default function ActivityPage() {
     setLoteIATrabajando(true)
     try {
       const data = await creditosIA.ejecutar(
-        'calificar_entregable_ia_lote',
+        claveOperacionLote,
         { actividadId: activityId, recalificar },
         loteIAConteo.entregas,
         { timeoutMs: 300000 },
@@ -1051,7 +1051,16 @@ export default function ActivityPage() {
   // "Calificar con IA": visible si hay rúbrica/cotejo guardado, y (a) ya hay
   // una propuesta persistida esperando (no cuesta nada verla), o (b) al
   // menos una evidencia en formato soportado y saldo de créditos.
-  const puedeCalificarConIA = hasRubrica && (
+  // Se oculta también si la actividad solo acepta tipos que la IA no soporta
+  // todavía (ZIP, Excel, PowerPoint, personalizado sin jpg/png/pdf/docx).
+  const actividadAdmiteIA = normalizeFileTypeKeys(activity?.tiposArchivo)
+    .some((k) => ['imagenes', 'pdf', 'word', 'todos'].includes(k))
+  // Operación efectiva según el tipo de la actividad — determina la tarifa
+  // que ve el docente en el modal y que usa el servidor al cobrar.
+  const claveOperacionLote = normalizeFileTypeKeys(activity?.tiposArchivo).includes('imagenes')
+    ? 'calificar_entregable_ia_lote_imagenes'
+    : 'calificar_entregable_ia_lote'
+  const puedeCalificarConIA = hasRubrica && actividadAdmiteIA && (
     !!sugerenciaPersistidaIA ||
     (creditosIA.saldoPositivo && selFiles.some((f) => isEvidenciaSoportada(f.nombre, f.url)))
   )
@@ -1734,6 +1743,7 @@ export default function ActivityPage() {
                   rubrica={activity.rubrica}
                   onAplicar={aplicarPropuestaIA}
                   resultadoPersistido={sugerenciaPersistidaIA}
+                  tiposArchivo={activity?.tiposArchivo}
                 />
               ) : (
               <div className="p-4 space-y-3">
@@ -2268,6 +2278,7 @@ export default function ActivityPage() {
           rubrica={activity.rubrica}
           onAplicar={aplicarPropuestaIA}
           resultadoPersistido={sugerenciaPersistidaIA}
+          tiposArchivo={activity?.tiposArchivo}
         />
       )}
 
@@ -2828,7 +2839,7 @@ export default function ActivityPage() {
             : (loteIAConteo.totalPorCalificar > loteIAConteo.entregas
                 ? `Se generará una propuesta de calificación con IA para ${loteIAConteo.entregas} de las ${loteIAConteo.totalPorCalificar} entregas por calificar. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`
                 : `Se generará una propuesta de calificación para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} pendiente${loteIAConteo.entregas !== 1 ? 's' : ''}. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`)}
-          costoMin={creditosIA.estimar('calificar_entregable_ia_lote', loteIAConteo.entregas) ?? loteIAConteo.entregas * 0.5}
+          costoMin={creditosIA.estimar(claveOperacionLote, loteIAConteo.entregas) ?? loteIAConteo.entregas * 0.5}
           ejecutando={loteIATrabajando}
           onCancelar={() => { if (!loteIATrabajando) setLoteIAConteo(null) }}
           onContinuar={ejecutarLoteIA}
