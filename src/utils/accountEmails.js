@@ -90,24 +90,6 @@ async function enviar(email, html, subject) {
   await sendEmail({ to: email, subject, html })
 }
 
-// Confirmación de cancelación. Lo importante que tiene que quedar claro:
-// no se borró nada y puede seguir trabajando hasta la fecha que ya pagó.
-export function sendSubscriptionCancelledEmail({ email, accesoHasta, eraTrial }) {
-  const cuerpo = [
-    parrafo('Cancelamos tu <strong>suscripción mensual</strong> a Evalúa Fácil, tal como lo pediste desde tu perfil.'),
-    accesoHasta
-      ? parrafo(`Puedes seguir usando tu cuenta con normalidad hasta el <strong>${accesoHasta}</strong>${eraTrial ? ', cuando termina tu período de prueba' : ', el último día que ya tenías cubierto'}. Después de esa fecha tu cuenta pasará a "Suscripción cancelada".`)
-      : parrafo('Tu cuenta pasará a "Suscripción cancelada".'),
-    parrafo('<strong>Tus grupos, estudiantes, actividades y calificaciones siguen ahí.</strong> Cancelar no borra nada — si vuelves a activar la suscripción, encuentras todo tal como lo dejaste.'),
-  ].join('')
-
-  return enviar(email, armarCorreo({
-    titulo: 'Tu suscripción fue cancelada',
-    cuerpo,
-    accion: boton('Volver a activarla →', SITIO),
-  }), 'Tu suscripción fue cancelada')
-}
-
 // Confirmación de eliminación. Se manda antes de borrar, así que se redacta
 // en pasado a propósito: para cuando llegue al buzón, ya no hay cuenta.
 export function sendAccountDeletedEmail({ email }) {
