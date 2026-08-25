@@ -37,7 +37,7 @@ function ProgressoLectura({ leidos, total }) {
   )
 }
 
-export default function AvisosTab({ subjectId, docenteId, canCreate = true, blockedTooltip = 'Activa tu suscripción mensual para publicar avisos', onBlockedCreate }) {
+export default function AvisosTab({ subjectId, docenteId, canCreate = true, blockedTooltip = 'Necesitas Créditos IA para publicar avisos', onBlockedCreate }) {
   const toast = useToast()
   const [avisos, setAvisos] = useState([])
   const [avisosLoaded, setAvisosLoaded] = useState(false)

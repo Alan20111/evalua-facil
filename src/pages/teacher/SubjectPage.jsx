@@ -1005,7 +1005,7 @@ export default function SubjectPage() {
       return
     }
     if (!sub && !canCreate) {
-      toast('Activa tu suscripción mensual para registrar calificaciones — toda tu información sigue disponible')
+      toast('Necesitas Créditos IA para registrar calificaciones — toda tu información sigue disponible')
       return
     }
     const popW = 200, popH = 130
@@ -2248,7 +2248,7 @@ export default function SubjectPage() {
   // ── Activity actions ───────────────────────────────────────────────
   function openAdd(parcial) {
     if (!canCreate) {
-      toast('Activa tu suscripción mensual para crear nuevas actividades — toda tu información sigue disponible')
+      toast('Necesitas Créditos IA para crear nuevas actividades — toda tu información sigue disponible')
       return
     }
     setModalMode('create'); setModalParcial(parcial); setEditActivityId(null)
@@ -2262,7 +2262,7 @@ export default function SubjectPage() {
   // ── Traer actividad de otra asignatura ─────────────────────────────
   async function openImport(parcial) {
     if (!canCreate) {
-      toast('Activa tu suscripción mensual para crear nuevas actividades — toda tu información sigue disponible')
+      toast('Necesitas Créditos IA para crear nuevas actividades — toda tu información sigue disponible')
       return
     }
     setImportFor(parcial)
@@ -2421,7 +2421,7 @@ export default function SubjectPage() {
   async function handleSaveActivity(e, asDraft = false) {
     e.preventDefault()
     if (modalMode === 'create' && !canCreate) {
-      toast('Activa tu suscripción mensual para crear nuevas actividades — toda tu información sigue disponible')
+      toast('Necesitas Créditos IA para crear nuevas actividades — toda tu información sigue disponible')
       return
     }
     const tiposArchivo = normalizeFileTypeKeys(form.tiposArchivo)
@@ -2560,7 +2560,7 @@ export default function SubjectPage() {
   // as activities so the "show now / hide / schedule" behavior is identical.
   function openAddMaterial(parcial) {
     if (!canCreate) {
-      toast('Activa tu suscripción mensual para crear nuevo material de apoyo — toda tu información sigue disponible')
+      toast('Necesitas Créditos IA para crear nuevo material de apoyo — toda tu información sigue disponible')
       return
     }
     setMaterialModalMode('create'); setMaterialParcial(parcial); setEditMaterialId(null)
@@ -2608,7 +2608,7 @@ export default function SubjectPage() {
   async function handleSaveMaterial(e) {
     e.preventDefault()
     if (materialModalMode === 'create' && !canCreate) {
-      toast('Activa tu suscripción mensual para crear nuevo material de apoyo — toda tu información sigue disponible')
+      toast('Necesitas Créditos IA para crear nuevo material de apoyo — toda tu información sigue disponible')
       return
     }
     if (!materialForm.nombre.trim()) { toast('Escribe un nombre para el material', 'error'); return }
@@ -3074,7 +3074,7 @@ export default function SubjectPage() {
 
   function openCopyModal() {
     if (!canCreate) {
-      toast('Activa tu suscripción mensual para crear nuevas asignaturas — toda tu información sigue disponible')
+      toast('Necesitas Créditos IA para crear nuevas asignaturas — toda tu información sigue disponible')
       return
     }
     setCopyForm({ nombre: subject?.nombre || '', grupo: subject?.grupo || '', keepStudents: false, colorPalette: subject?.colorPalette || 'default', icon: subject?.icon || 'book' })
@@ -4403,14 +4403,14 @@ export default function SubjectPage() {
                       )}
 
                       <button type="button" onClick={() => openAdd(p)}
-                        data-tooltip={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevas actividades'}
+                        data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevas actividades'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Plus size={17} /> Agregar actividad
                       </button>
                       <button type="button" onClick={() => openAddMaterial(p)}
-                        data-tooltip={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevo material de apoyo'}
+                        data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevo material de apoyo'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
                         }`}>
@@ -5558,10 +5558,10 @@ export default function SubjectPage() {
             subjectId={subjectId}
             docenteId={currentUser.uid}
             canCreate={canCreate && totalStudents > 0}
-            blockedTooltip={!canCreate ? 'Activa tu suscripción mensual para publicar avisos' : 'Necesitas al menos un estudiante inscrito para publicar un aviso'}
+            blockedTooltip={!canCreate ? 'Necesitas Créditos IA para publicar avisos' : 'Necesitas al menos un estudiante inscrito para publicar un aviso'}
             onBlockedCreate={() => toast(
               !canCreate
-                ? 'Activa tu suscripción mensual para publicar avisos'
+                ? 'Necesitas Créditos IA para publicar avisos'
                 : 'Necesitas al menos un estudiante inscrito para publicar un aviso',
               'error'
             )}

@@ -834,7 +834,7 @@ export default function ActivityPage() {
       return
     }
     if (!canCreate) {
-      toast('Activa tu suscripción mensual para registrar calificaciones — toda tu información sigue disponible')
+      toast('Necesitas Créditos IA para registrar calificaciones — toda tu información sigue disponible')
       return
     }
     setSaving(true)
@@ -911,7 +911,7 @@ export default function ActivityPage() {
       return
     }
     if (!canCreate) {
-      toast('Activa tu suscripción mensual para registrar calificaciones — toda tu información sigue disponible')
+      toast('Necesitas Créditos IA para registrar calificaciones — toda tu información sigue disponible')
       return
     }
     const cal = parseFloat(sinEntregaGrade)
@@ -2049,7 +2049,7 @@ export default function ActivityPage() {
                     </label>
                     {!canCreate && (
                       <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
-                        Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
+                        Necesitas Créditos IA para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
                       </p>
                     )}
                     {/* With autosave on, Siguiente/Anterior already save — showing
@@ -2602,7 +2602,7 @@ export default function ActivityPage() {
 
                 {!canCreate && (
                   <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
-                    Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
+                    Necesitas Créditos IA para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
                   </p>
                 )}
 

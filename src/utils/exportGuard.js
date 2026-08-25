@@ -46,7 +46,7 @@ export function configurarBloqueoExportacion({ bloqueado, onIntento }) {
 
 export class DescargaBloqueadaSinCreditosError extends Error {
   constructor() {
-    super('El bonus de descargas está disponible mientras tengas créditos IA activos.')
+    super('Las descargas son gratuitas y no requieren créditos IA.')
     this.name = 'DescargaBloqueadaSinCreditosError'
     this.code = 'creditos/sin-descargas'
   }

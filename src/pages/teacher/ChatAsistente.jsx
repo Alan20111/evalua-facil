@@ -100,7 +100,7 @@ const SUGERENCIAS_ASIGNATURA = [
 const SUGERENCIAS_GENERAL_POR_CATEGORIA = [
   { categoria: 'Trabajo docente', preguntas: ['¿Qué debería atender primero?', '¿Qué tengo pendiente?'] },
   { categoria: 'Uso de Evalúa Fácil', preguntas: ['¿Cómo hago una planeación?', '¿Cómo creo un examen?'] },
-  { categoria: 'Planes, créditos y pagos', preguntas: ['¿Qué incluye mi plan?', '¿Cómo compro más créditos?'] },
+  { categoria: 'Créditos IA', preguntas: ['¿Qué incluyen mis Créditos IA?', '¿Cómo compro más créditos?'] },
 ]
 const SUGERENCIAS_GENERAL = SUGERENCIAS_GENERAL_POR_CATEGORIA.flatMap((c) => c.preguntas)
 

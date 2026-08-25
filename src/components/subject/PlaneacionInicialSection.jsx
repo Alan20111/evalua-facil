@@ -1075,7 +1075,7 @@ function Planeacion({
       {confirmarAceptar && (
         <ConfirmModal
           title="¿Aceptar esta Planeación Didáctica Inicial?"
-          message="Se guarda con las correcciones que hayas hecho, en TODOS los parciales. Cuando la aceptes queda fija como tu Planeación Inicial, con la fecha de hoy, en modo de solo lectura — ya no podrás editarla directamente. Podrás verla y descargarla las veces que quieras (si tu suscripción está pagada), o generar una nueva si necesitas cambiarla."
+          message="Se guarda con las correcciones que hayas hecho, en TODOS los parciales. Cuando la aceptes queda fija como tu Planeación Inicial, con la fecha de hoy, en modo de solo lectura — ya no podrás editarla directamente. Podrás verla y descargarla las veces que quieras, o generar una nueva si necesitas cambiarla."
           confirmLabel="Aceptar"
           confirmingLabel="Aceptando…"
           busy={aceptando}
