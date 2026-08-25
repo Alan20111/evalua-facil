@@ -394,9 +394,17 @@ const HERRAMIENTAS = [
     async run(db, args, costos) {
       const { desde, hasta } = rangoOCorriente(args || {})
 
-      const [comprasSnap, consumoSnap, bienvenidaSnap, tarifasSnap] = await Promise.all([
-        db.collection('creditPurchases').where('status', '==', 'completado')
-          .where('createdAt', '>=', desde).where('createdAt', '<=', hasta).get(),
+      const [comprasSnapCompleto, consumoSnap, bienvenidaSnap, tarifasSnap] = await Promise.all([
+        // Solo la igualdad va a Firestore — combinarla con el rango de fecha
+        // en la MISMA consulta exige un índice compuesto que no existe (regla
+        // del proyecto, CLAUDE.md: "Only single-field equality queries...
+        // Sort results in memory"). Mismo patrón exacto que `compras_creditos`,
+        // sin tocar, un poco más arriba en este archivo — el bug real
+        // (26-ago-2026): esta consulta SÍ combinaba equality+rango, tiraba
+        // FAILED_PRECONDITION en producción, y el catch de correrConversacion
+        // lo convertía en "no se pudo consultar este dato ahora mismo" — la
+        // herramienta parecía "no disponible" cuando en realidad reventaba.
+        db.collection('creditPurchases').where('status', '==', 'completado').get(),
         db.collection('iaConsumosInterno').where('createdAt', '>=', desde).where('createdAt', '<=', hasta).get(),
         // iaTrialRegistro no tiene indice por activadaEn - se filtra en
         // memoria (mismo patron que interacciones_chat mas abajo); a esta
@@ -406,8 +414,15 @@ const HERRAMIENTAS = [
       ])
 
       // -- Ingreso real: lo que de verdad se cobro por creditos --------------
-      const ingresoRealMXN = comprasSnap.docs.reduce((a, d) => a + (d.data().montoMXN || 0), 0)
-      const creditosVendidos = comprasSnap.docs.reduce((a, d) => a + (d.data().creditos || 0), 0)
+      // Rango de fecha filtrado en MEMORIA (mismo patrón que compras_creditos,
+      // ver comentario de arriba) — comprasSnapCompleto ya trae SOLO las
+      // completadas, filtradas por status en Firestore.
+      const comprasSnap = comprasSnapCompleto.docs.filter((d) => {
+        const t = d.data().createdAt?.toDate?.()
+        return t && t >= desde && t <= hasta
+      })
+      const ingresoRealMXN = comprasSnap.reduce((a, d) => a + (d.data().montoMXN || 0), 0)
+      const creditosVendidos = comprasSnap.reduce((a, d) => a + (d.data().creditos || 0), 0)
       // Precio EFECTIVO del credito en este rango (no el de lista): distintos
       // paquetes tienen distinto descuento, asi que esto es un promedio
       // ponderado real, no una constante.
@@ -488,7 +503,7 @@ const HERRAMIENTAS = [
 
       return {
         desde: desde.toISOString().slice(0, 10), hasta: hasta.toISOString().slice(0, 10),
-        ingresoRealMXN, creditosVendidos, comprasCompletadas: comprasSnap.size, precioEfectivoPorCreditoMXN,
+        ingresoRealMXN, creditosVendidos, comprasCompletadas: comprasSnap.length, precioEfectivoPorCreditoMXN,
         costoTotalAnthropicUSD: Number(costoTotalUSD.toFixed(4)), costoTotalAnthropicMXN: costoTotalMXN,
         creditosConsumidosConDato: Number(creditosConsumidosTotal.toFixed(2)), costoPorCreditoConsumidoMXN,
         margenPorCreditoMXN, margenPorCreditoPct,
