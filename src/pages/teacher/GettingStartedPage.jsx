@@ -1,4 +1,4 @@
-import { GraduationCap, Users, ClipboardList, UserCheck, ArrowRight } from 'lucide-react'
+import { GraduationCap, Users, QrCode, ClipboardList, UserCheck, ArrowRight } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
 // Ayuda para comenzar: NO es el manual completo (eso quedó archivado en
@@ -60,8 +60,29 @@ const GUIDES = [
     transfer: 'La idea es la misma: lo que le pertenece a una asignatura (estudiantes, actividades, asistencia) se administra en su propia pestaña, dentro de esa asignatura.',
   },
   {
+    id: 'acceso',
+    title: '3. Compartir el acceso a la clase',
+    icon: QrCode,
+    steps: [
+      {
+        text: 'Entra a tu asignatura y ve a la pestaña Estudiantes.',
+      },
+      {
+        text: 'Ahí encontrarás el código de acceso y un código QR únicos de tu clase.',
+        image: '/ayuda-comenzar/acceso-codigo.png',
+      },
+      {
+        text: 'Comparte el código o muestra el QR a tus alumnos. Con cualquiera de los dos pueden activar su cuenta.',
+      },
+      {
+        text: 'El alumno entra a la plataforma, escribe el código (o escanea el QR) y elige su contraseña. Listo.',
+      },
+    ],
+    transfer: 'Una vez activados, tus alumnos ya pueden ver las actividades que publiques →',
+  },
+  {
     id: 'actividad',
-    title: '3. Crear tu primera actividad entregable',
+    title: '4. Crear tu primera actividad entregable',
     icon: ClipboardList,
     description: 'Ejemplo: pedir fotos del cuaderno.',
     steps: [
@@ -88,7 +109,7 @@ const GUIDES = [
   },
   {
     id: 'asistencia',
-    title: '4. Pasar lista con tu móvil',
+    title: '5. Pasar lista con tu móvil',
     icon: UserCheck,
     description: 'Este flujo es para cuando estás en el aula con tu teléfono.',
     steps: [
