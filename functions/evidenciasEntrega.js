@@ -28,7 +28,7 @@ const docExtract = require('./docExtract')
 // Tope de evidencias analizadas por entrega — acota costo/latencia de la
 // llamada multimodal. Aplica al TOTAL de archivos elegibles (imagen + PDF +
 // Word juntos), no por tipo.
-const MAX_EVIDENCIAS = 5
+const MAX_EVIDENCIAS = 3
 
 // Tope de páginas de un PDF que se manda como documento nativo (visión +
 // texto). Un PDF más largo que esto casi seguro no es "la tarea de un
@@ -50,9 +50,8 @@ function extension(url, nombre) {
 // transformación (mismo mecanismo que ya usa downloadUrl/pdfPageImageUrl en
 // src/utils/cloudinary.js). Claude cobra tokens de imagen ≈ (ancho×alto)/750
 // (fórmula documentada por Anthropic) — 1568px de lado largo (su tope de
-// reescalado interno) todavía sale caro para 5 fotos dentro del objetivo de
-// ~$0.25 MXN/evaluación; 1200px deja el texto de un cuaderno perfectamente
-// legible y baja el costo por debajo del objetivo con margen (ver
+// reescalado interno) resulta en ~1,920 tok/imagen; 1200px deja el texto de
+// un cuaderno perfectamente legible y baja el costo con margen (ver
 // docs/ia/COSTO_CALIFICAR_ENTREGABLE_IA.md). Si la URL no es de Cloudinary
 // (`/upload/` ausente), se manda tal cual.
 function limitarResolucionImagen(url) {

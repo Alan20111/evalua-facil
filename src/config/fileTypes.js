@@ -3,7 +3,7 @@
 export const FILE_TYPE_BASE_OPTIONS = [
   {
     key: 'imagenes',
-    label: 'Imágenes (JPG, PNG) — el estudiante puede subir hasta 5 fotos o imágenes, cada una de menos de 5 MB',
+    label: 'Imágenes (JPG, PNG) — el estudiante puede subir hasta 3 fotos o imágenes, cada una de menos de 5 MB',
     mimes: ['image/jpeg', 'image/jpg', 'image/png'],
     exts: ['jpg', 'jpeg', 'png'],
   },
@@ -55,7 +55,7 @@ export const FILE_TYPE_BASE_OPTIONS = [
 
 // How many files a single submission may contain for the given selection:
 // images allow up to 5 (photos from a phone); everything else is 1 file.
-export const MAX_IMAGES_PER_SUBMISSION = 5
+export const MAX_IMAGES_PER_SUBMISSION = 3
 export function allowsMultipleFiles(value) {
   const keys = normalizeFileTypeKeys(value)
   return keys.includes('imagenes') || keys.includes(ALL_FILES_KEY)

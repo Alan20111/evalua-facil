@@ -31,6 +31,7 @@ import Spinner from '../Spinner'
 import ComprarCreditosModal from '../ComprarCreditosModal'
 import ActivarCreditosModal from '../ActivarCreditosModal'
 import { esCotejo, totalRubrica, RUBRICA_TOTAL } from '../../utils/rubrica'
+import { normalizeFileTypeKeys } from '../../config/fileTypes'
 
 // Panel flotante, NO modal centrado (26-ago-2026, pedido explícito de Kike:
 // "la evidencia del estudiante es el objeto principal de revisión, la IA es
@@ -113,6 +114,9 @@ export default function CalificarConIAModal({
   // scroll principal, el de la columna). En la app nativa (pantalla completa,
   // sin columnas) se sigue usando PanelFlotante tal cual.
   inline = false,
+  // Tipo de archivos que acepta la actividad — determina la tarifa:
+  // imagenes = 0.5 cr, documentos (PDF/Word) = 0.25 cr.
+  tiposArchivo = null,
 }) {
   const c = useCreditosIA()
   const toast = useToast()
@@ -132,7 +136,11 @@ export default function CalificarConIAModal({
   // solo-lectura nunca se marca (nunca se llama a onAplicar).
   const precargada = useRef(false)
 
-  const costo = c.estimar('calificar_entregable_ia') ?? 0.25
+  // Operación efectiva según el tipo de evidencia de la actividad:
+  // imágenes cobran 0.5 cr, documentos (PDF/Word) cobran 0.25 cr.
+  const esImagenes = normalizeFileTypeKeys(tiposArchivo).includes('imagenes')
+  const claveOperacion = esImagenes ? 'calificar_entregable_ia_imagenes' : 'calificar_entregable_ia'
+  const costo = c.estimar(claveOperacion) ?? (esImagenes ? 0.5 : 0.25)
   const alcanza = c.saldo >= costo
 
   // Calificación propuesta: preferir el valor YA CALCULADO y persistido en
@@ -171,7 +179,7 @@ export default function CalificarConIAModal({
   async function ejecutar() {
     setEjecutando(true)
     try {
-      const data = await c.ejecutar('calificar_entregable_ia', { actividadId, submissionId }, 1)
+      const data = await c.ejecutar(claveOperacion, { actividadId, submissionId }, 1)
       const res = data.resultado
       setResultado(res)
       setRetro(res.retroalimentacionGeneral || '')
@@ -215,7 +223,7 @@ export default function CalificarConIAModal({
         alcanza ? (
           <>
             <p className="text-sm text-on-surface mb-1">
-              La IA analiza las evidencias que entregó el estudiante (hasta 5 fotos, o 1 PDF, o 1 Word) contra
+              La IA analiza las evidencias que entregó el estudiante (hasta 3 fotos, o 1 PDF, o 1 Word) contra
               {esCotejo(rubrica) ? ' la lista de cotejo' : ' la rúbrica'} de esta actividad, y te propone un
               nivel por criterio con su justificación. Tú revisas, ajustas y confirmas — la IA nunca guarda la
               calificación.

@@ -35,7 +35,7 @@ const db = admin.firestore()
 const dryRun = process.argv.includes('--dry-run')
 
 const TARIFAS = {
-  version: 4,
+  version: 5,
   actualizadoEl: '2026-08-25',
   // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
   // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
@@ -81,15 +81,18 @@ const TARIFAS = {
     // ejecutarReactivos, functions/ia.js) — mismo criterio unitario que
     // crear_evaluacion_ia.
     reactivos: 0.25,
-    // OP-11: calificar una entrega con IA contra su rúbrica/lista de
-    // cotejo a partir de las evidencias (JPG, PNG, PDF o Word), sin
-    // importar cuántas evidencias trajo (tope de 5, ver
-    // evidenciasEntrega.js). 0.25 crédito por entrega.
-    calificar_entregable_ia: 0.5,
-    // Lote "Calificar todas con IA" — MISMA tarifa por entrega realmente
-    // evaluada, sin importar si se pidió una por una o en lote. NUNCA una
-    // tarifa fija por pulsar "Calificar todas".
-    calificar_entregable_ia_lote: 0.5,
+    // OP-11: calificar una entrega con IA. Tarifa diferenciada por tipo de
+    // evidencia (tope 3 archivos, ver evidenciasEntrega.js):
+    //   · Documentos (PDF o Word): 0.25 créditos
+    //   · Imágenes (JPG/PNG):      0.5 créditos
+    // La clave efectiva la determina el servidor en precheckCalificarEntregable
+    // según tipoEvidenciaTarifa; el cliente la elige por tiposArchivo.
+    calificar_entregable_ia: 0.25,
+    calificar_entregable_ia_imagenes: 0.5,
+    // Lote "Calificar todas con IA" — misma bifurcación que el individual.
+    // La clave efectiva la determina el servidor en precheckCalificarEntregableLote.
+    calificar_entregable_ia_lote: 0.25,
+    calificar_entregable_ia_lote_imagenes: 0.5,
     // Crear examen/cuestionario completo con IA — 0.25 crédito por
     // REACTIVO realmente generado (unidadesReales), misma tarifa
     // comercial por unidad que 'reactivos'. Sin cobro adicional por
