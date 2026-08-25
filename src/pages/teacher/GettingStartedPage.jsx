@@ -65,17 +65,13 @@ const GUIDES = [
     icon: QrCode,
     steps: [
       {
-        text: 'Entra a tu asignatura y ve a la pestaña Estudiantes.',
+        text: 'Entra a tu asignatura. En la parte superior verás el código de acceso de la clase.',
       },
       {
-        text: 'Ahí encontrarás el código de acceso y un código QR únicos de tu clase.',
-        image: '/ayuda-comenzar/acceso-codigo.png',
+        text: 'Comparte ese código con tus alumnos por el medio que prefieras (WhatsApp, en clase, etc.).',
       },
       {
-        text: 'Comparte el código o muestra el QR a tus alumnos. Con cualquiera de los dos pueden activar su cuenta.',
-      },
-      {
-        text: 'El alumno entra a la plataforma, escribe el código (o escanea el QR) y elige su contraseña. Listo.',
+        text: 'El alumno entra a la plataforma, escribe el código y elige su contraseña. Listo, queda activado.',
       },
     ],
     transfer: 'Una vez activados, tus alumnos ya pueden ver las actividades que publiques →',
