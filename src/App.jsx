@@ -22,7 +22,6 @@ import SubjectPage from './pages/teacher/SubjectPage'
 import ActivityPage from './pages/teacher/ActivityPage'
 import Profile from './pages/teacher/Profile'
 import PerfilIA from './pages/teacher/PerfilIA'
-import ChatAsistente from './pages/teacher/ChatAsistente'
 import CalendarPage from './pages/teacher/CalendarPage'
 import VerifyEmail from './pages/teacher/VerifyEmail'
 import Privacidad from './pages/Privacidad'
@@ -205,7 +204,6 @@ export default function App() {
               <Route path="/activity/:activityId" element={<ActivityPage />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/perfil-ia" element={<PerfilIA />} />
-              <Route path="/chat-asistente" element={<ChatAsistente />} />
               <Route path="/calendario" element={<CalendarPage />} />
               <Route path="/notificaciones" element={<TeacherNotificationSettings />} />
               <Route path="/manual" element={<GettingStartedPage />} />

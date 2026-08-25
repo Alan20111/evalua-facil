@@ -4633,6 +4633,19 @@ async function precheckAsistenteGeneral({ uid, params }) {
 // error: es la forma en que el cliente pide el contexto transversal.
 async function precheckChatAsistente({ uid, params }) {
   const db = getFirestore()
+  // Guard del flag de sistema — PRIMERO, antes de verificar saldo ni reservar
+  // interacción. Si chatAsistenteActivo === false en config/iaTarifas, el
+  // endpoint rechaza aquí: cero tokens gastados, cero reservas, aunque
+  // alguien llame directo al endpoint. Cubre tanto el chat de asignatura como
+  // el Asistente General (este precheck los gestiona a ambos).
+  const tarifasSnap = await db.doc('config/iaTarifas').get()
+  if (tarifasSnap.data()?.chatAsistenteActivo === false) {
+    throw new HttpsError(
+      'failed-precondition',
+      'El Chat con Asistente no está disponible por el momento.',
+      { codigo: 'CHAT_DESACTIVADO' }
+    )
+  }
   const subjectId = String(params?.subjectId || '').trim()
   if (!subjectId) return precheckAsistenteGeneral({ uid, params })
   const mensaje = String(params?.mensaje || '').trim().slice(0, MAX_LARGO_MENSAJE)

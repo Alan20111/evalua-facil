@@ -35,8 +35,11 @@ const db = admin.firestore()
 const dryRun = process.argv.includes('--dry-run')
 
 const TARIFAS = {
-  version: 3,
-  actualizadoEl: '2026-08-23',
+  version: 4,
+  actualizadoEl: '2026-08-25',
+  // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
+  // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
+  chatAsistenteActivo: false,
   // Créditos por uso — tabla comercial DEFINITIVA (corrección del PO,
   // 23-ago-2026, sobre una tabla anterior del mismo día que quedó
   // descartada). El crédito representa USO DEL ENTORNO Evalúa Fácil, NO se
@@ -82,11 +85,11 @@ const TARIFAS = {
     // cotejo a partir de las evidencias (JPG, PNG, PDF o Word), sin
     // importar cuántas evidencias trajo (tope de 5, ver
     // evidenciasEntrega.js). 0.25 crédito por entrega.
-    calificar_entregable_ia: 0.25,
+    calificar_entregable_ia: 0.5,
     // Lote "Calificar todas con IA" — MISMA tarifa por entrega realmente
     // evaluada, sin importar si se pidió una por una o en lote. NUNCA una
     // tarifa fija por pulsar "Calificar todas".
-    calificar_entregable_ia_lote: 0.25,
+    calificar_entregable_ia_lote: 0.5,
     // Crear examen/cuestionario completo con IA — 0.25 crédito por
     // REACTIVO realmente generado (unidadesReales), misma tarifa
     // comercial por unidad que 'reactivos'. Sin cobro adicional por
