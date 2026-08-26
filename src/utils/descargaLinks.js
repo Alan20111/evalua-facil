@@ -1,4 +1,4 @@
-import { doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, collection } from 'firebase/firestore'
+import { doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, collection, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 
 // Links de descarga del APK de Android.
@@ -42,6 +42,24 @@ export async function obtenerLink(slug) {
   if (slug === LINK_LEGADO.slug) return LINK_LEGADO
   const snap = await getDoc(doc(db, COL, slug))
   return snap.exists() ? { slug, ...snap.data() } : null
+}
+
+// La versión de producción vigente, para la ruta fija /descargar (la que se
+// enlaza desde el login del docente). Devuelve el enlace marcado como
+// producción más reciente, así al publicar una versión nueva desde el panel
+// el enlace del login apunta solo — sin tocar código.
+//
+// Un solo where('==') a propósito: `activo` se filtra en memoria porque dos
+// igualdades exigirían un índice compuesto (ver la restricción de Firestore
+// en CLAUDE.md), y esta colección tiene un puñado de documentos.
+export async function obtenerLinkProduccion() {
+  const snap = await getDocs(query(collection(db, COL), where('produccion', '==', true)))
+  const links = snap.docs
+    .map((d) => ({ slug: d.id, ...d.data() }))
+    .filter((l) => l.activo !== false)
+  if (links.length === 0) return null
+  links.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+  return links[0]
 }
 
 // Historial completo para el panel, más reciente primero. Se ordena en memoria

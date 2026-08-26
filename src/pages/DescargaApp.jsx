@@ -3,13 +3,19 @@ import { useParams } from 'react-router-dom'
 import { Download, Smartphone, Link2Off, BadgeCheck } from 'lucide-react'
 import EFLogo from '../components/EFLogo'
 import Spinner from '../components/Spinner'
-import { obtenerLink } from '../utils/descargaLinks'
+import { obtenerLink, obtenerLinkProduccion } from '../utils/descargaLinks'
 import { downloadUrl } from '../utils/cloudinary'
 
-// Página pública de descarga del APK de Android — ruta NO listada.
-// El slug viene de la URL y se resuelve contra `downloadLinks`; los links se
-// generan desde el panel de admin → pestaña Descargas. No aparece en ningún
-// menú ni nav, y va con noindex para que no la indexen los buscadores.
+// Página pública de descarga del APK de Android. Dos formas de llegar:
+//
+//   · /descarga/:slug  — enlace NO listado, para repartir a mano. El slug es
+//     impredecible y se genera desde el panel de admin → pestaña Descargas.
+//   · /descargar       — ruta FIJA, enlazada desde el login del docente.
+//     Resuelve sola a la versión de producción vigente, así que publicar una
+//     versión nueva desde el panel actualiza este enlace sin tocar código.
+//
+// Va con noindex en ambos casos: la descarga directa no debe competir en
+// buscadores con la ficha de Google Play.
 
 function Marco({ children }) {
   return (
@@ -45,7 +51,10 @@ export default function DescargaApp() {
 
   useEffect(() => {
     let vivo = true
-    obtenerLink(slug)
+    // Sin slug en la URL estamos en /descargar: toca resolver cuál es la
+    // versión de producción vigente.
+    const pedir = slug ? obtenerLink(slug) : obtenerLinkProduccion()
+    pedir
       .then((res) => { if (vivo) setLink(res) })
       .catch(() => { if (vivo) setLink(null) })
       .finally(() => { if (vivo) setCargando(false) })
