@@ -1,6 +1,10 @@
 name: Deploy Cloud Functions
 
 on:
+  # Disparador manual: permite redesplegar sin tener que tocar un archivo
+  # solo para provocar el push (y verificar el workflow tras cambiarlo).
+  workflow_dispatch:
+
   push:
     branches: [main]
     paths:
