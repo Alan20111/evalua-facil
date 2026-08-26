@@ -86,9 +86,8 @@ export default function CreditPurchasesTable({ stats, onRefresh }) {
     },
     { key: 'monto', header: 'Importe', render: (p) => <span className="tabular-nums">{formatCurrency(p.montoMXN)}</span> },
     { key: 'folio', header: 'Folio', render: (p) => <span className="font-mono text-xs text-muted">{p.referencia || '—'}</span> },
-    { key: 'estado', header: 'Estado', render: (p) => <StatusBadge status={p.status} /> },
+    { key: 'estado', header: 'Situación del pago', render: (p) => <StatusBadge status={p.status} /> },
     { key: 'fecha', header: 'Fecha', render: (p) => <span className="text-muted whitespace-nowrap">{formatDateTime(p.createdAt)}</span> },
-    { key: 'id', header: 'Id', render: (p) => <span className="font-mono text-xs text-slate-400">{p.id}</span> },
     {
       key: 'acciones',
       header: 'Acciones',

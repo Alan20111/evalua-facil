@@ -47,7 +47,7 @@ const PAGE = 100
 // desplaza con los encabezados fijos arriba.
 const ALTO_TABLA = 'calc(100vh - 290px)'
 
-const WIDTHS_KEY = 'admin-suscripciones-cols-v3'
+const WIDTHS_KEY = 'admin-suscripciones-cols-v4'
 
 // Columnas. `filtro` = tipo de caja bajo el título:
 //   'texto' → se escribe y filtra, con sugerencias de los valores que todavía
@@ -93,15 +93,11 @@ const COLS = [
     ayuda: 'Cuándo empezó esta suscripción (su fecha de inicio).',
   },
   {
-    // Antes se llamaba "Estado", que ahora es la entidad federativa del
-    // docente (columna Estado más abajo). Esta es la columna del plan de la
-    // suscripción, de ahí "Plan": dos columnas "Estado" no se podían
-    // distinguir.
-    key: 'situacion',
-    label: 'Plan',
-    filtro: 'lista',
-    w: 155,
-    ayuda: 'CÓMO está hoy esa suscripción: en prueba, con un plan de pago vigente (1 a 6 meses), en cortesía, o cancelada (por fin de prueba, por el usuario, o por fin de pago). Un pago en revisión se ve en Pagos → Verificación, no aquí.',
+    key: 'creditos',
+    label: 'Créditos',
+    w: 110,
+    align: 'right',
+    ayuda: 'Saldo actual de créditos de IA del docente (leído de iaCreditos en tiempo de carga). Un guion indica que el docente aún no tiene registro de créditos.',
   },
   {
     key: 'vencimiento',
@@ -129,7 +125,7 @@ const COLS = [
 ]
 
 const CAMPOS_TEXTO = ['codigoPostal', 'estado', 'ciudad', 'escuela']
-const CAMPOS_LISTA = ['situacion']
+const CAMPOS_LISTA = []
 const CAMPOS_FILTRO = COLS.filter((c) => c.filtro).map((c) => c.key)
 const SIN_FILTROS = Object.fromEntries(CAMPOS_FILTRO.map((k) => [k, '']))
 
@@ -334,6 +330,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   // metadata de OTRO usuario. Si falla, la columna se queda en guion: es un
   // dato de apoyo, no debe tumbar la tabla.
   const [accesos, setAccesos] = useState({})
+  const [creditosMap, setCreditosMap] = useState({})
   const teachers = useMemo(() => stats?.teachers || [], [stats?.teachers])
   const plans = useMemo(() => stats?.plans || [], [stats?.plans])
   const teachersMap = useMemo(() => Object.fromEntries(teachers.map((t) => [t.id, t])), [teachers])
@@ -368,6 +365,18 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       .catch(() => {})
     return () => { cancelado = true }
   }, [currentUser, teachers])
+
+  // Saldo de créditos IA por docente — se carga una vez por sesión del panel.
+  useEffect(() => {
+    if (!teachers.length) return
+    getDocs(collection(db, 'iaCreditos'))
+      .then((snap) => {
+        const m = {}
+        snap.forEach((d) => { m[d.id] = d.data().saldo ?? 0 })
+        setCreditosMap(m)
+      })
+      .catch(() => {})
+  }, [teachers])
 
   // Cada suscripción se "aplana" una sola vez a las columnas visibles: así el
   // filtro trabaja sobre texto ya resuelto en vez de volver a cruzar docente,
@@ -463,6 +472,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         // Días completos desde el último inicio de sesión. null = nunca ha
         // entrado o su cuenta ya no está en Auth (una baja, por ejemplo).
         sinAcceder: diasSinAccesar(accesos[teacher?.id]),
+        uid: teacher?.id || null,
       }
     }
 
@@ -792,7 +802,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             )}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            Una suscripción por docente. <strong>Plan</strong> es cómo está hoy.
+            Una suscripción por docente. <strong>Créditos</strong> es el saldo actual de IA.
           </p>
         </div>
 
@@ -914,8 +924,10 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate" title={r.ciudad}>{r.ciudad}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
-                  <td className="px-3 py-2">
-                    <StatusBadge situacion={r.situacion} />
+                  <td className="px-3 py-2 text-right tabular-nums text-on-surface">
+                    {r.uid && !r.sub?.cuentaEliminada && creditosMap[r.uid] !== undefined
+                      ? creditosMap[r.uid].toLocaleString('es-MX')
+                      : '—'}
                   </td>
                   <td className="px-3 py-2 text-muted truncate">{r.vencimiento}</td>
                   {/* Los días ya vencidos van en rojo: es lo que se busca al
