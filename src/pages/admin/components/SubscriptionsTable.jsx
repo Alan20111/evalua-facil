@@ -2,20 +2,12 @@ import { useState, useMemo, useEffect } from 'react'
 import {
   collection,
   doc,
-  addDoc,
-  updateDoc,
   deleteDoc,
   getDocs,
-  query,
-  where,
-  serverTimestamp,
-  Timestamp,
 } from 'firebase/firestore'
-import { Plus, Pencil, Ban, Trash2, X, RotateCcw, Zap } from 'lucide-react'
+import { Trash2, X, RotateCcw, Zap } from 'lucide-react'
 import { httpsCallable } from 'firebase/functions'
-import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import SearchInput from '../../../components/SearchInput'
-import StatusBadge from './StatusBadge'
 import { db, functions } from '../../../firebase'
 import { useAuth } from '../../../context/AuthContext'
 import { apiUrl } from '../../../utils/apiBase'
@@ -26,11 +18,8 @@ import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import { normalizeName } from '../../../utils/schoolSelection'
 import { capitalizarNombre } from '../../../utils/nombres'
-import { planDe, PLANES, CLAVES_CANCELADA } from '../../../utils/situacionSuscripcion'
 import {
   calcDaysRemaining,
-  calcTrialEnd,
-  calcVencimiento,
   effectiveVencimiento,
   formatCurrency,
   formatDate,
@@ -125,7 +114,6 @@ const COLS = [
 ]
 
 const CAMPOS_TEXTO = ['codigoPostal', 'estado', 'ciudad', 'escuela']
-const CAMPOS_LISTA = []
 const CAMPOS_FILTRO = COLS.filter((c) => c.filtro).map((c) => c.key)
 const SIN_FILTROS = Object.fromEntries(CAMPOS_FILTRO.map((k) => [k, '']))
 
@@ -148,84 +136,6 @@ function teacherName(teacher) {
   return capitalizarNombre(teacher?.nombreMostrar || teacher?.nombre) || teacher?.username || ''
 }
 
-// Etiqueta del docente en la lista desplegable. Se arma con las partes que
-// EXISTEN y sin repetir ninguna: antes era `{username || email} — {email}`, así
-// que a quien no tiene usuario le salía el correo dos veces.
-function etiquetaDocente(t) {
-  const partes = []
-  const nombre = capitalizarNombre(t?.nombreMostrar || t?.nombre)
-  if (nombre) partes.push(nombre)
-  if (t?.username && t.username !== nombre) partes.push(t.username)
-  if (t?.email && !partes.includes(t.email)) partes.push(t.email)
-  return partes.join(' — ') || '(docente sin datos)'
-}
-
-// "Cortesía" no es un documento de `plans`: es un plan sin cobro que el
-// administrador otorga por un número de días. Se guarda como este valor
-// literal en `planId`, junto con `cortesiaDias`.
-const PLAN_CORTESIA = 'cortesia'
-
-// Tope de créditos IA que un administrador puede otorgar en una cortesía: el
-// máximo que da cualquier plan de pago (mayor / "Asistente IA Pro", $199).
-// Espeja config/iaTarifas.capacidadPorPlan.mayor (seeds-db/seed-ia-tarifas.js)
-// — si ese valor cambia allá, hay que actualizarlo aquí también.
-const CORTESIA_CREDITOS_MAX = 1750
-
-// Fecha en que termina una cortesía. Los días se cuentan desde el inicio, o
-// desde el vencimiento vigente cuando se pide extender — así extender no
-// regala de más ni recorta lo que al docente le quedaba.
-// El mediodía evita que "2026-07-25" se corra un día por zona horaria.
-function calcFinCortesia(form, vencimientoActual) {
-  if (form.cortesiaIndefinida) return null   // sin fecha de fin
-  const dias = parseInt(form.cortesiaDias, 10)
-  if (!Number.isFinite(dias) || dias <= 0) return null
-  const base = form.extender && vencimientoActual
-    ? new Date(vencimientoActual)
-    : (form.fechaInicio ? new Date(`${form.fechaInicio}T12:00:00`) : null)
-  if (!base || Number.isNaN(base.getTime())) return null
-  const fin = new Date(base)
-  fin.setDate(fin.getDate() + dias)
-  return fin
-}
-
-// La situación NO la elige el administrador: es consecuencia. Prueba la
-// determina el registro del docente, Activa el tener plan o cortesía, y
-// Vencida el calendario. Lo único que sí es decisión suya es CANCELAR.
-//
-// "— Prueba —" es literal: quitarle el plan a alguien SIEMPRE lo manda a
-// Prueba, sin excepción — antes conservaba el status anterior (p. ej.
-// seguía "activa" sin ningún plan asignado), lo que contradecía la propia
-// opción del desplegable y hacía que la vista previa mostrara "Mes pagado"
-// para algo marcado como Prueba. (`'trial'` es solo el valor interno que se
-// guarda en Firestore — de cara al admin y al docente siempre es "Prueba".)
-function situacionCalculada(form) {
-  if (form.cancelada) return 'cancelada'
-  if (form.planId) return 'activa'
-  return 'trial'
-}
-
-// Cómo quedaría la suscripción con lo que hay escrito ahora en el formulario,
-// para pintar la insignia de vista previa con la misma regla que la tabla.
-function previsualizarSuscripcion(modal) {
-  const status = situacionCalculada(modal.form)
-  const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
-  return {
-    status,
-    planId: modal.form.planId,
-    cortesiaIndefinida: modal.form.cortesiaIndefinida === true,
-    fechaVencimiento: modal.form.planId === PLAN_CORTESIA
-      ? fin
-      : (modal.form.fechaVencimiento ? new Date(`${modal.form.fechaVencimiento}T12:00:00`) : null),
-    fechaInicio: modal.form.fechaInicio ? new Date(`${modal.form.fechaInicio}T12:00:00`) : null,
-  }
-}
-
-function vencimientoCortesia(modal) {
-  if (modal.form.cortesiaIndefinida) return 'sin fecha de fin'
-  const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
-  return fin ? formatDate(fin) : null
-}
-
 // ¿Esta fila pasa los filtros? `excepto` deja fuera un campo a propósito, para
 // calcular qué sugerir en ESA columna sin que su propio texto a medio escribir
 // recorte la lista.
@@ -237,7 +147,6 @@ function pasaFiltros(r, filtros, search, excepto) {
   if (t('escuela') && !r.buscarEscuela.includes(t('escuela'))) return false
   if (excepto !== 'alta' && filtros.alta && r.altaISO !== filtros.alta) return false
   if (excepto !== 'vencimiento' && filtros.vencimiento && r.vencimientoISO !== filtros.vencimiento) return false
-  if (excepto !== 'situacion' && filtros.situacion && r.situacionLabel !== filtros.situacion) return false
   // La caja de arriba busca en TODO el renglón (docente, usuario, correo,
   // ciudad, escuela, plan, situación, fechas…), no solo en el nombre:
   // quien escribe "guanajuato" o "vencida" ahí espera encontrarlo.
@@ -312,16 +221,15 @@ function CeldaFiltro({ col, valor, onChange, sugerencias }) {
 export default function SubscriptionsTable({ stats, onRefresh }) {
   const toast = useToast()
   const { currentUser } = useAuth()
-  const [modal, setModal] = useState(null)
-  const [saving, setSaving] = useState(false)
+  const [ajusteModal, setAjusteModal] = useState(null)
   const [search, setSearch] = useState('')
   const [filtros, setFiltros] = useState(SIN_FILTROS)
   const [limit, setLimit] = useState(PAGE)
   const { containerRef, widths, total, dragKey, startResize, resetWidths, resetColumn, esRedimensionable } =
     useColumnWidths(WIDTHS_KEY, COLS)
 
-  useBackHandler(() => setModal(null), !!modal)
-  useScrollLock(!!modal)
+  useBackHandler(() => setAjusteModal(null), !!ajusteModal)
+  useScrollLock(!!ajusteModal)
 
   // Memoizados aunque parezcan triviales: el `|| []` crea un arreglo nuevo en
   // cada render y eso invalidaría los useMemo que dependen de ellos.
@@ -332,22 +240,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   const [accesos, setAccesos] = useState({})
   const [creditosMap, setCreditosMap] = useState({})
   const teachers = useMemo(() => stats?.teachers || [], [stats?.teachers])
-  const plans = useMemo(() => stats?.plans || [], [stats?.plans])
   const teachersMap = useMemo(() => Object.fromEntries(teachers.map((t) => [t.id, t])), [teachers])
-  const plansMap = useMemo(() => Object.fromEntries(plans.map((p) => [p.id, p])), [plans])
-
-  // Quién ya tiene una suscripción (de cualquier status, hasta cancelada):
-  // "Nueva" es solo para el caso raro de alguien sin ninguna — a quien ya
-  // tiene se le EDITA la suya. Sin esto, elegir aquí a alguien con
-  // suscripción le duplicaba el registro (caso real, 2026-08-04).
-  const docentesConSuscripcion = useMemo(
-    () => new Set((stats?.subscriptions || []).map((s) => s.docenteId)),
-    [stats?.subscriptions]
-  )
-  const teachersSinSuscripcion = useMemo(
-    () => teachers.filter((t) => !docentesConSuscripcion.has(t.id)),
-    [teachers, docentesConSuscripcion]
-  )
 
   // Se pide con los uid que ya están en pantalla; el endpoint responde un mapa
   // { uid: fecha ISO del último acceso }.
@@ -400,7 +293,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     // habrían desaparecido del panel, que es justo lo que no debe pasar.
     const construir = (sub, teacher) => {
       const school = schoolsMap[teacher?.escuelaId]
-      const plan = sub ? plansMap[sub.planId] : null
       // El alta de la suscripción es su fecha de inicio; los documentos que no
       // la traen caen a cuándo se creó el registro.
       const altaValor = sub ? (sub.fechaInicio || sub.createdAt) : null
@@ -425,13 +317,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       const estadoUbicacion = teacher?.estado || school?.estado || '—'
       const ciudad = teacher?.ciudad || teacher?.municipio || school?.municipio || '—'
       const escuela = school?.shortName || school?.nombre || school?.claveSEP || sub?.schoolName || '—'
-      const planNombre = !sub
-        ? '—'
-        : sub.planId === PLAN_CORTESIA
-          ? `Cortesía${sub.cortesiaIndefinida ? ' (sin vencimiento)' : sub.cortesiaDias ? ` (${sub.cortesiaDias} días)` : ''}`
-          : (plan?.nombre || (sub.status === 'trial' ? 'Prueba' : '—'))
-      const situacion = planDe(sub)
-      const situacionLabel = situacion.etiqueta
       const altaTexto = sub ? formatDate(altaValor) : '—'
       const vencTexto = sub ? formatDate(vencValor) : '—'
       return {
@@ -459,13 +344,11 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         // arriba, que busca por cualquier motivo (ciudad, escuela, nombre…).
         buscarTodo: normalizeName(
           [docente, usuario, correo, codigoPostal, estadoUbicacion, ciudad, escuela,
-            altaTexto, planNombre, situacionLabel, vencTexto, ultimoPago].join(' ')
+            altaTexto, vencTexto, ultimoPago].join(' ')
         ),
         alta: altaTexto,
         altaISO: alta ? isoLocal(alta) : '',
         altaMs: alta ? alta.getTime() : 0,
-        situacion,
-        situacionLabel,
         vencimiento: vencTexto,
         vencimientoISO: venc ? isoLocal(venc) : '',
         dias: sub ? calcDaysRemaining(vencValor) : null,
@@ -491,7 +374,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       )
     )
     return [...conSuscripcion, ...sinSuscripcion, ...bajas]
-  }, [stats, teachers, teachersMap, plansMap, accesos])
+  }, [stats, teachers, teachersMap, accesos])
 
   // Orden fijo: la suscripción más reciente hasta arriba; dentro del mismo día
   // desempata el nombre del docente.
@@ -507,19 +390,13 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   // ya está filtrado, no el catálogo completo.
   const sugerencias = useMemo(() => {
     const res = {}
-    ;[...CAMPOS_TEXTO, ...CAMPOS_LISTA].forEach((campo) => {
+    CAMPOS_TEXTO.forEach((campo) => {
       const set = new Set()
       rows.forEach((r) => {
         if (!pasaFiltros(r, filtros, search, campo)) return
-        set.add(campo === 'situacion' ? r.situacionLabel : r[campo])
+        set.add(r[campo])
       })
-      res[campo] = campo === 'situacion'
-        // Catálogo completo y en su orden natural (de prueba a baja), no solo
-        // los planes que hoy existen en los datos — así se puede filtrar por
-        // "6 meses" aunque hoy nadie tenga ese plan, en vez de que la opción
-        // simplemente no aparezca.
-        ? PLANES
-        : [...set].filter((v) => v && v !== '—').sort((a, b) => a.localeCompare(b, 'es'))
+      res[campo] = [...set].filter((v) => v && v !== '—').sort((a, b) => a.localeCompare(b, 'es'))
     })
     return res
   }, [rows, filtros, search])
@@ -536,206 +413,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     setFiltros(SIN_FILTROS)
     setSearch('')
     setLimit(PAGE)
-  }
-
-  function openCreate() {
-    setModal({
-      mode: 'create',
-      form: {
-        docenteId: teachersSinSuscripcion[0]?.id || '',
-        // Prueba por default: un docente normal ya tiene su propia
-        // suscripción de prueba creada sola al registrarse — "Nueva" aquí es
-        // para el caso raro de alguien sin ninguna (fila "Sin suscripción"),
-        // y no debe arrancar ya "activa" con un plan de pago sin que el
-        // administrador lo haya elegido a propósito.
-        planId: '',
-        cancelada: false,
-        fechaInicio: new Date().toISOString().slice(0, 10),
-        fechaVencimiento: '',
-        cortesiaDias: '30',
-        cortesiaIndefinida: false,
-        cortesiaCreditos: '',
-        extender: false,
-      },
-    })
-  }
-
-  function openEdit(sub) {
-    const fi = sub.fechaInicio?.toDate?.()
-    const fv = sub.fechaVencimiento?.toDate?.()
-    const planId = sub.planId || ''
-    // Documentos viejos o incompletos (guardados antes de que esto se
-    // autocompletara solo) pueden no traer vencimiento: se calcula aquí
-    // mismo para que el modal ya abra con algo, en vez de "Seleccionar
-    // fecha…" en blanco — misma regla que effectiveVencimiento().
-    const fvCalculado =
-      fv || (fi && planId !== PLAN_CORTESIA ? (planId ? calcVencimiento(fi, plansMap[planId]?.periodicidad || 'mensual') : calcTrialEnd(fi)) : null)
-    const form = {
-      docenteId: sub.docenteId,
-      planId,
-      cancelada: sub.status === 'cancelada',
-      fechaInicio: fi ? fi.toISOString().slice(0, 10) : '',
-      fechaVencimiento: fvCalculado ? fvCalculado.toISOString().slice(0, 10) : '',
-      cortesiaDias: sub.cortesiaDias ? String(sub.cortesiaDias) : '30',
-      cortesiaIndefinida: sub.cortesiaIndefinida === true,
-      cortesiaCreditos: sub.cortesiaCreditos ? String(sub.cortesiaCreditos) : '',
-      extender: false,
-    }
-    setModal({
-      mode: 'edit',
-      id: sub.id,
-      // El vencimiento vigente se guarda aparte del formulario: es la base
-      // sobre la que se extiende una cortesía, y no debe cambiar mientras el
-      // administrador teclea.
-      vencimientoActual: effectiveVencimiento(sub) ? toDate(effectiveVencimiento(sub)) : null,
-      form,
-      // Copia congelada de `form` tal como se abrió — el botón Guardar se
-      // apaga mientras `form` siga siendo idéntico a esto. `extender` entra
-      // en la comparación como cualquier otro campo: al abrir siempre vale
-      // false y nunca sale de un doc guardado, así que marcarlo YA cuenta
-      // como cambio aunque ningún otro campo se haya tocado (mueve el
-      // vencimiento calculado igual que si se hubiera editado una fecha).
-      originalForm: form,
-    })
-  }
-
-  // "Guardar" se apaga sin cambios, solo en modo edit (crear siempre debe
-  // poder enviarse). Compara campo por campo contra `modal.originalForm`, la
-  // copia que openEdit() congeló al abrir.
-  const subscriptionChanged = modal?.mode === 'create' || (!!modal && (
-    modal.form.docenteId !== modal.originalForm.docenteId ||
-    modal.form.planId !== modal.originalForm.planId ||
-    modal.form.cancelada !== modal.originalForm.cancelada ||
-    modal.form.fechaInicio !== modal.originalForm.fechaInicio ||
-    modal.form.fechaVencimiento !== modal.originalForm.fechaVencimiento ||
-    modal.form.cortesiaDias !== modal.originalForm.cortesiaDias ||
-    modal.form.cortesiaIndefinida !== modal.originalForm.cortesiaIndefinida ||
-    modal.form.cortesiaCreditos !== modal.originalForm.cortesiaCreditos ||
-    modal.form.extender !== modal.originalForm.extender
-  ))
-
-  async function handleSave(e) {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      const teacher = teachersMap[modal.form.docenteId]
-      const school = stats.schoolsMap[teacher?.escuelaId]
-      const data = {
-        docenteId: modal.form.docenteId,
-        planId: modal.form.planId,
-        escuelaId: teacher?.escuelaId || '',
-        schoolName: school?.nombre || teacher?.schoolName || '',
-        status: situacionCalculada(modal.form),
-        updatedAt: serverTimestamp(),
-      }
-      const toTimestamp = (val) => {
-        if (!val) return null
-        const d = new Date(val)
-        return Number.isNaN(d.getTime()) ? null : Timestamp.fromDate(d)
-      }
-      const tsInicio = toTimestamp(modal.form.fechaInicio)
-      if (tsInicio) data.fechaInicio = tsInicio
-
-      if (modal.form.planId === PLAN_CORTESIA) {
-        // En cortesía el vencimiento SIEMPRE sale de los días concedidos: no
-        // se toma la fecha tecleada, que podría no cuadrar con esos días.
-        data.cortesiaIndefinida = modal.form.cortesiaIndefinida === true
-        if (data.cortesiaIndefinida) {
-          // Sin fecha de fin: se borra el vencimiento para que nada lo
-          // interprete como vencida (ver effectiveVencimiento).
-          data.fechaVencimiento = null
-          data.cortesiaDias = null
-        } else {
-          const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
-          if (!fin) {
-            toast('Indica cuántos días de cortesía', 'error')
-            return
-          }
-          data.fechaVencimiento = Timestamp.fromDate(fin)
-          data.cortesiaDias = parseInt(modal.form.cortesiaDias, 10)
-        }
-        // Créditos de IA de la cortesía: el administrador elige el monto,
-        // tope el máximo del plan mayor (1750). En blanco = sin créditos de
-        // IA (la cortesía sigue dando acceso a calificar/pasar lista igual).
-        data.cortesiaCreditos = modal.form.cortesiaCreditos
-          ? Math.min(parseInt(modal.form.cortesiaCreditos, 10), CORTESIA_CREDITOS_MAX)
-          : null
-      } else {
-        const tsVencimiento = toTimestamp(modal.form.fechaVencimiento)
-        if (tsVencimiento) data.fechaVencimiento = tsVencimiento
-      }
-
-      // Una vigencia que termina antes de empezar no es un dato raro: es un
-      // candado mal puesto. `onSuscripcionEscrita` espeja `fechaVencimiento` a
-      // users/{uid}.suscripcionHasta, y las reglas comparan ese campo contra
-      // request.time — así que un año mal tecleado aquí deja al docente sin
-      // poder calificar ni pasar lista, en silencio y desde el propio panel.
-      // El modal no avisaba de nada: guardaba el rango invertido tal cual.
-      if (data.fechaInicio && data.fechaVencimiento &&
-          data.fechaVencimiento.toMillis() < data.fechaInicio.toMillis()) {
-        toast('El vencimiento no puede ser anterior al inicio — revisa las fechas', 'error')
-        return
-      }
-
-      if (modal.mode === 'create') {
-        // Revalida contra Firestore (no contra `stats`, que puede llevar un
-        // rato sin refrescar) justo antes de crear: si en ese momento ya
-        // existe una suscripción para este docente, no se duplica.
-        const yaExiste = await getDocs(
-          query(collection(db, 'subscriptions'), where('docenteId', '==', modal.form.docenteId))
-        )
-        if (!yaExiste.empty) {
-          toast('Este docente ya tiene una suscripción — edítala con el lápiz de su fila', 'error')
-          return
-        }
-        await addDoc(collection(db, 'subscriptions'), { ...data, createdAt: serverTimestamp() })
-        toast('Suscripción creada')
-      } else {
-        await updateDoc(doc(db, 'subscriptions', modal.id), data)
-        toast('Suscripción actualizada')
-      }
-      setModal(null)
-      onRefresh?.()
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleCancel(sub) {
-    if (!confirm('¿Cancelar esta suscripción?')) return
-    try {
-      await updateDoc(doc(db, 'subscriptions', sub.id), {
-        status: 'cancelada',
-        updatedAt: serverTimestamp(),
-      })
-      toast('Suscripción cancelada')
-      onRefresh?.()
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    }
-  }
-
-  async function handleDelete(sub) {
-    // Guarda de más (19-ago-2026): un `sub` sin `.id` (p. ej. la constancia
-    // de una baja) no tiene documento real que borrar — sin esto,
-    // `doc(db, 'subscriptions', undefined)` tronaba dentro del SDK de
-    // Firestore con un error críptico ("Cannot read properties of undefined
-    // (reading 'indexOf')") que no decía nada de la causa real, y la fila
-    // parecía "no borrarse nunca" sin importar cuántas veces se intentara.
-    if (!sub?.id) {
-      toast('Esta fila no tiene una suscripción que eliminar.', 'error')
-      return
-    }
-    if (!confirm('¿Eliminar esta suscripción? No se puede deshacer.')) return
-    try {
-      await deleteDoc(doc(db, 'subscriptions', sub.id))
-      toast('Suscripción eliminada')
-      onRefresh?.()
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    }
   }
 
   // Borra la CONSTANCIA de una cuenta eliminada (colección `bajas`, doc id =
@@ -758,29 +435,26 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     }
   }
 
-  // Ajuste manual de saldo de créditos IA (modelo de créditos puros,
-  // 20-ago-2026 — reemplaza al reseteo a capacidad, que ya no existe sin
-  // capacidad/plan). Pide un delta explícito (positivo o negativo) y un
-  // motivo, vía creditosLedger.ajustarSaldoManual.
-  const [reseteandoCreditos, setReseteandoCreditos] = useState(null)
-  async function handleResetCreditos(sub) {
-    const deltaTexto = prompt('¿Cuántos créditos ajustar? Usa un número negativo para restar.', '50')
-    if (deltaTexto === null) return
-    const delta = parseInt(deltaTexto, 10)
+  function openAjuste(sub, docente) {
+    setAjusteModal({ docenteId: sub.docenteId, subId: sub.id, docente, cantidad: '', motivo: '', saving: false })
+  }
+
+  async function handleAjusteSubmit(e) {
+    e.preventDefault()
+    const delta = parseInt(ajusteModal.cantidad, 10)
     if (!Number.isFinite(delta) || delta === 0) {
       toast('Ingresa un número distinto de cero', 'error')
       return
     }
-    const motivo = prompt('Motivo del ajuste (para el registro interno):', 'Ajuste manual — cuenta de prueba') || null
-    setReseteandoCreditos(sub.id)
+    setAjusteModal((m) => ({ ...m, saving: true }))
     try {
       const ajustar = httpsCallable(functions, 'ajustarSaldoCreditosIA')
-      const { data } = await ajustar({ docenteId: sub.docenteId, delta, motivo })
+      const { data } = await ajustar({ docenteId: ajusteModal.docenteId, delta, motivo: ajusteModal.motivo || null })
       toast(`Saldo ajustado: ${data.saldo} créditos`)
+      setAjusteModal(null)
     } catch (err) {
       toast('Error: ' + err.message, 'error')
-    } finally {
-      setReseteandoCreditos(null)
+      setAjusteModal((m) => ({ ...m, saving: false }))
     }
   }
 
@@ -820,19 +494,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-accent text-accent hover:bg-[var(--accent-tint)]"
             >
               <X size={15} /> Quitar todos los filtros
-            </button>
-            <button
-              type="button"
-              onClick={openCreate}
-              disabled={teachersSinSuscripcion.length === 0}
-              title={
-                teachersSinSuscripcion.length === 0
-                  ? 'Todos los docentes ya tienen una suscripción — usa el lápiz de su fila para editarla'
-                  : undefined
-              }
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Plus size={16} /> Nueva
             </button>
           </div>
         </div>
@@ -948,16 +609,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     {r.sinAcceder === null ? '—' : r.sinAcceder}
                   </td>
                   <td className="px-3 py-2 text-muted truncate" title={r.ultimoPago}>{r.ultimoPago}</td>
-                  {/* Sin suscripción no hay nada que editar, cancelar ni
-                      eliminar: a ese docente se le crea una con "Nueva". Una
-                      BAJA (cuentaEliminada) solo tiene "Eliminar" — Editar,
-                      Cancelar y Resetear créditos no aplican a una
-                      constancia, pero SÍ debe poderse borrar la constancia
-                      misma (bug real, 19-ago-2026: el botón intentaba borrar
-                      de `subscriptions` con un id que nunca existió ahí —
-                      truena en el SDK de Firestore y la fila no
-                      desaparecía; ahora `handleDeleteBaja` borra el
-                      documento correcto, `bajas/{docenteId}`). */}
                   <td className="px-3 py-2">
                     {!r.sub ? (
                       <span className="text-xs text-slate-400">—</span>
@@ -972,47 +623,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                         <Trash2 size={16} />
                       </button>
                     ) : (
-                    <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => openEdit(r.sub)}
-                        className="p-2 text-slate-400 hover:text-accent rounded"
-                        data-tooltip="Editar"
-                        aria-label="Editar"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      {!CLAVES_CANCELADA.includes(r.situacion.clave) && (
-                        <button
-                          type="button"
-                          onClick={() => handleCancel(r.sub)}
-                          className="p-2 text-slate-400 hover:text-amber-600 rounded"
-                          data-tooltip="Cancelar"
-                          aria-label="Cancelar"
-                        >
-                          <Ban size={16} />
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleResetCreditos(r.sub)}
-                        disabled={reseteandoCreditos === r.sub.id}
+                        onClick={() => openAjuste(r.sub, r.docente)}
+                        disabled={ajusteModal?.subId === r.sub.id && ajusteModal?.saving}
                         className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"
-                        data-tooltip="Ajustar saldo de créditos de IA"
-                        aria-label="Ajustar saldo de créditos de IA"
+                        data-tooltip="Ajustar créditos de IA"
+                        aria-label="Ajustar créditos de IA"
                       >
                         <Zap size={16} />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(r.sub)}
-                        className="p-2 text-slate-400 hover:text-red-600 rounded"
-                        data-tooltip="Eliminar"
-                        aria-label="Eliminar"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
                     )}
                   </td>
                 </tr>
@@ -1044,262 +664,57 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         )}
       </div>
 
-      {modal && (
-        // Es el FONDO el que se desplaza (overflow-y-auto + items-start), no la
-        // tarjeta: con la tarjeta centrada y de alto limitado, en pantallas
-        // bajas el final del formulario quedaba fuera de alcance. Así siempre
-        // se llega al botón Guardar, por largo que sea el contenido.
-        <div className="fixed inset-0 z-50 bg-black/40 overflow-y-auto flex items-start justify-center px-4 py-6">
-          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-md shadow-xl my-auto">
+      {ajusteModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-xl">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-on-surface">
-                {modal.mode === 'create' ? 'Nueva suscripción' : 'Editar suscripción'}
-              </h3>
-              <button type="button" onClick={() => setModal(null)} aria-label="Cerrar">
+              <h3 className="font-bold text-on-surface">Ajustar créditos de IA</h3>
+              <button type="button" onClick={() => setAjusteModal(null)} aria-label="Cerrar">
                 <X size={20} className="text-slate-400" />
               </button>
             </div>
-            <form onSubmit={handleSave} className="space-y-4">
-              {/* La ventana va en cuatro tramos, en el orden en que se piensa:
-                  a quién, qué se le da, desde cuándo y cómo queda. */}
-              {/* Al EDITAR el docente se muestra, no se elige: ya se entró
-                  desde SU renglón, y poder cambiarlo aquí solo servía para
-                  reasignarle la suscripción a otra persona por error. Al crear
-                  sí hay que escogerlo. */}
+            <p className="text-sm text-muted mb-4 truncate" title={ajusteModal.docente}>
+              Docente: <strong className="text-on-surface">{ajusteModal.docente}</strong>
+            </p>
+            <form onSubmit={handleAjusteSubmit} className="space-y-4">
               <div>
-                <span className="block text-xs font-medium text-muted mb-1">Docente</span>
-                {modal.mode === 'edit' ? (
-                  <p className="px-3 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface">
-                    {etiquetaDocente(teachersMap[modal.form.docenteId])}
-                  </p>
-                ) : (
-                  <select
-                    id="sub-docente"
-                    value={modal.form.docenteId}
-                    onChange={(e) =>
-                      setModal({ ...modal, form: { ...modal.form, docenteId: e.target.value } })
-                    }
-                    required
-                    className={inputCls}
-                  >
-                    {teachersSinSuscripcion.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {etiquetaDocente(t)}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div className="border-t border-outline-variant pt-3 space-y-3">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-accent">Qué se le otorga</p>
-                <div>
-                  <label htmlFor="sub-plan" className="block text-xs font-medium text-muted mb-1">
-                    Plan a asignar
-                  </label>
-                  <select
-                    id="sub-plan"
-                    value={modal.form.planId}
-                    onChange={(e) => {
-                      const nuevoPlanId = e.target.value
-                      // Elegir una situación (incluida "Prueba") es
-                      // decisión de que la suscripción ya no está cancelada:
-                      // si el checkbox seguía marcado de antes, se destilda solo.
-                      const form = { ...modal.form, planId: nuevoPlanId, cancelada: false }
-                      // El campo Vencimiento de Vigencia se autocompleta solo,
-                      // para que no quede desalineado con lo que se ve arriba:
-                      // cortesía calcula el suyo aparte (por días, más abajo);
-                      // un plan pagado, inicio + su periodicidad real (mensual
-                      // o anual — ver plansMap); Prueba, inicio + 30 días
-                      // (mismos 30 días que ve el docente, ver TRIAL_DURATION_DAYS).
-                      if (nuevoPlanId !== PLAN_CORTESIA && form.fechaInicio) {
-                        const inicio = new Date(`${form.fechaInicio}T12:00:00`)
-                        const vence = nuevoPlanId ? calcVencimiento(inicio, plansMap[nuevoPlanId]?.periodicidad || 'mensual') : calcTrialEnd(inicio)
-                        form.fechaVencimiento = isoLocal(vence)
-                      }
-                      setModal({ ...modal, form })
-                    }}
-                    className={inputCls}
-                  >
-                    <option value="">&mdash; Prueba &mdash;</option>
-                    <option value={PLAN_CORTESIA}>Cortesía (sin cobro)</option>
-                    {plans.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre}
-                      </option>
-                    ))}
-                  </select>
-                  {/* No es cortesía (esa trae su propio vencimiento calculado
-                      más abajo): tanto Prueba como un plan pagado ya
-                      autocompletaron solos el Vencimiento de Vigencia — se
-                      repite aquí para que se vea sin bajar hasta esa sección. */}
-                  {modal.form.planId !== PLAN_CORTESIA && modal.form.fechaVencimiento && (
-                    <p className="text-xs text-accent font-semibold mt-1">
-                      Vence el {formatDate(new Date(`${modal.form.fechaVencimiento}T12:00:00`))}
-                    </p>
-                  )}
-                </div>
-              {/* Cortesía: se otorga por días, no por una fecha suelta. El
-                  vencimiento se calcula solo, así que no hay forma de teclear
-                  una fecha que no corresponda con los días concedidos. */}
-              {modal.form.planId === PLAN_CORTESIA && (
-                <div className="rounded border border-accent bg-[var(--accent-tint)] p-3 space-y-2">
-                  <label className="flex items-start gap-2 text-sm text-on-surface cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={modal.form.cortesiaIndefinida}
-                      onChange={(e) =>
-                        setModal({ ...modal, form: { ...modal.form, cortesiaIndefinida: e.target.checked } })
-                      }
-                      className="mt-1"
-                    />
-                    <span>
-                      Sin fecha de finalización
-                      <span className="block text-xs text-slate-500">
-                        No vence nunca. Para cuentas propias de prueba.
-                      </span>
-                    </span>
-                  </label>
-                  <div className={modal.form.cortesiaIndefinida ? 'hidden' : ''}>
-                    <label htmlFor="sub-cortesia-dias" className="block text-xs font-medium text-muted mb-1">
-                      Días de cortesía
-                    </label>
-                    <input
-                      id="sub-cortesia-dias"
-                      type="number"
-                      min="1"
-                      max="3650"
-                      value={modal.form.cortesiaDias}
-                      onChange={(e) =>
-                        setModal({ ...modal, form: { ...modal.form, cortesiaDias: e.target.value } })
-                      }
-                      required={!modal.form.cortesiaIndefinida}
-                      className={inputCls}
-                    />
-                  </div>
-                  {/* Solo tiene sentido al editar algo que ya tiene vencimiento:
-                      extender suma los días a la fecha que ya vencía, sin
-                      regalar de más ni recortar lo que le quedaba. */}
-                  {!modal.form.cortesiaIndefinida && modal.mode === 'edit' && modal.vencimientoActual && (
-                    <label className="flex items-start gap-2 text-xs text-on-surface cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={modal.form.extender}
-                        onChange={(e) =>
-                          setModal({ ...modal, form: { ...modal.form, extender: e.target.checked } })
-                        }
-                        className="mt-0.5"
-                      />
-                      <span>
-                        Extender el plazo actual (vence el {formatDate(modal.vencimientoActual)})
-                        en lugar de contar desde el inicio
-                      </span>
-                    </label>
-                  )}
-                  <p className="text-xs text-accent font-semibold">
-                    Nuevo vencimiento: {vencimientoCortesia(modal) || '—'}
-                  </p>
-                  <div className="border-t border-outline-variant pt-2">
-                    <label htmlFor="sub-cortesia-creditos" className="block text-xs font-medium text-muted mb-1">
-                      Créditos de IA por mes (máximo {CORTESIA_CREDITOS_MAX})
-                    </label>
-                    <input
-                      id="sub-cortesia-creditos"
-                      type="number"
-                      min="0"
-                      max={CORTESIA_CREDITOS_MAX}
-                      placeholder="Sin créditos de IA"
-                      value={modal.form.cortesiaCreditos}
-                      onChange={(e) =>
-                        setModal({ ...modal, form: { ...modal.form, cortesiaCreditos: e.target.value } })
-                      }
-                      className={inputCls}
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      En blanco: la cortesía deja calificar y pasar lista, pero sin acceso a la IA.
-                    </p>
-                  </div>
-                </div>
-              )}
-              </div>
-
-              <div className="border-t border-outline-variant pt-3 space-y-3">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-accent">Vigencia</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <span className="block text-xs font-medium text-muted mb-1">Fecha de inicio</span>
-                    <EFDateTimePicker
-                      mode="date"
-                      value={modal.form.fechaInicio}
-                      onChange={(v) => {
-                        const form = { ...modal.form, fechaInicio: v }
-                        // Mismo recálculo que al elegir la situación: mover el
-                        // inicio mueve también el vencimiento (su periodicidad
-                        // real o 30 días de prueba, según lo que ya estaba
-                        // elegido), para que ambos campos sigan de acuerdo.
-                        if (form.planId !== PLAN_CORTESIA && v) {
-                          const inicio = new Date(`${v}T12:00:00`)
-                          form.fechaVencimiento = isoLocal(
-                            form.planId ? calcVencimiento(inicio, plansMap[form.planId]?.periodicidad || 'mensual') : calcTrialEnd(inicio)
-                          )
-                        }
-                        setModal({ ...modal, form })
-                      }}
-                    />
-                  </div>
-                  {modal.form.planId !== PLAN_CORTESIA && (
-                    <div>
-                      <span className="block text-xs font-medium text-muted mb-1">Vencimiento</span>
-                      <EFDateTimePicker
-                        mode="date"
-                        value={modal.form.fechaVencimiento}
-                        onChange={v => setModal({ ...modal, form: { ...modal.form, fechaVencimiento: v } })}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Plan: se MUESTRA, no se elige. Antes era una lista libre y
-                  permitía dejar contradicciones (marcar "Activa" algo ya vencido,
-                  o "Prueba" a quien tiene plan). */}
-              <div className="border-t border-outline-variant pt-3 space-y-2">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-accent">Plan</p>
-                <div className="flex items-center gap-2">
-                  <StatusBadge situacion={planDe(previsualizarSuscripcion(modal))} />
-                  <span className="text-xs text-slate-400">se calcula solo</span>
-                </div>
-                <p className="text-xs text-slate-400 leading-snug">
-                  Depende del docente y del calendario: Prueba al registrarse; el número
-                  de meses pagados al tener un plan de pago vigente; Cortesía si se la das;
-                  Cancelada (por fin de prueba, por el usuario, o por fin de pago) al
-                  vencer o al cancelarla.
-                </p>
-                <label className="flex items-start gap-2 text-sm text-on-surface cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={modal.form.cancelada}
-                    onChange={(e) =>
-                      setModal({ ...modal, form: { ...modal.form, cancelada: e.target.checked } })
-                    }
-                    className="mt-1"
-                  />
-                  <span>
-                    Cancelar esta suscripción
-                    <span className="block text-xs text-slate-400">
-                      Por ejemplo, si diste una cortesía y no la están usando.
-                    </span>
-                  </span>
+                <label htmlFor="ajuste-cantidad" className="block text-xs font-medium text-muted mb-1">
+                  Cantidad de créditos
                 </label>
+                <input
+                  id="ajuste-cantidad"
+                  type="number"
+                  value={ajusteModal.cantidad}
+                  onChange={(e) => setAjusteModal((m) => ({ ...m, cantidad: e.target.value }))}
+                  required
+                  placeholder="Ej. 50 para agregar, -20 para descontar"
+                  className={inputCls}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Número <strong>positivo</strong> para agregar créditos. Número <strong>negativo</strong> para descontarlos.
+                </p>
               </div>
-
+              <div>
+                <label htmlFor="ajuste-motivo" className="block text-xs font-medium text-muted mb-1">
+                  Motivo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="ajuste-motivo"
+                  type="text"
+                  value={ajusteModal.motivo}
+                  onChange={(e) => setAjusteModal((m) => ({ ...m, motivo: e.target.value }))}
+                  required
+                  placeholder="Ej. Cuenta de prueba, bonificación por falla…"
+                  className={inputCls}
+                />
+              </div>
               <button
                 type="submit"
-                disabled={saving || !subscriptionChanged}
+                disabled={ajusteModal.saving || !ajusteModal.cantidad || !ajusteModal.motivo.trim()}
                 className="w-full py-2 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {saving ? <Spinner size="sm" /> : null}
-                Guardar
+                {ajusteModal.saving ? <Spinner size="sm" /> : null}
+                Aplicar ajuste
               </button>
             </form>
           </div>
