@@ -59,7 +59,7 @@ export function useCreditosIA() {
   }, [currentUser, esDocente])
 
   // Bienvenida voluntaria (20-ago-2026): iaTrialRegistro/{uid} dice si hay
-  // 50 créditos por activar. Doc ausente (cuenta creada antes de este
+  // 30 créditos por activar. Doc ausente (cuenta creada antes de este
   // cambio, o carrera muy breve con onDocenteCreado) = sin bienvenida que
   // ofrecer, no se inventa un CTA de la nada.
   useEffect(() => {
@@ -93,13 +93,13 @@ export function useCreditosIA() {
       consumidoTotal: creditos?.consumidoTotal ?? 0,
       consumoPorCategoria: creditos?.consumoPorCategoria || {},
 
-      // Bienvenida voluntaria: el CTA "Activa tus 50 créditos IA de regalo"
+      // Bienvenida voluntaria: el CTA "Activa tus 30 créditos IA de regalo"
       // se muestra cuando hay bienvenida disponible y AÚN no se activó.
       bienvenidaDisponible: !!bienvenida?.bienvenidaDisponible,
       bienvenidaActivada: !!bienvenida?.bienvenidaActivada,
       mostrarCTAActivarBienvenida: !!bienvenida?.bienvenidaDisponible && !bienvenida?.bienvenidaActivada,
 
-      // Activa los 50 créditos de bienvenida — una sola vez, server-side
+      // Activa los 30 créditos de bienvenida — una sola vez, server-side
       // (functions/index.js → activarCreditosBienvenida). El propio ledger
       // rechaza una segunda activación sin que el cliente tenga que evitarlo.
       async activarBienvenida() {

@@ -25,7 +25,7 @@ Los pagos son 100% por transferencia (`payments` para suscripción, `creditPurch
 
 **CONSERVAR:**
 - `iaConsumos/{idempotencyKey}` — sin cambios (idempotencia, `estado`, `creditosReservados/Reales`). Campo `plan` se deja `null` o se retira.
-- `iaConsumosInterno`, `iaTrialRegistro` — se conservan para telemetría; `iaTrialRegistro` pasa a registrar el regalo inicial de 50 créditos.
+- `iaConsumosInterno`, `iaTrialRegistro` — se conservan para telemetría; `iaTrialRegistro` pasa a registrar el regalo inicial de 30 créditos.
 - `creditPurchases/{id}` — mismo esquema, cambia la tabla de precios oficiales validada por `montoOficialCredito()`.
 - `config/iaTarifas` — mismo doc, cambian subcampos (§12).
 
@@ -57,7 +57,7 @@ Los pagos son 100% por transferencia (`payments` para suscripción, `creditPurch
 | `resetearAhora()` | Reset admin a capacidad total. | Reemplazar por `ajustarSaldoManual({uid, delta, motivo, adminUid})`. | MEDIO |
 | `acreditarCompraCreditos()` | Incrementa `saldo` + buckets de adicionales. | Solo incrementa `saldo`; se mantiene idempotencia. | BAJO |
 | `capacidadTrialPara()`, `camposRenovados()`, `unMesDespues()`, `nivelDeSuscripcion()` | Lógica de ciclo/plan. | **Eliminar.** | BAJO |
-| Nueva: `otorgarCreditosBienvenida({uid, ahora})` | No existe. | Acredita una sola vez (idempotente) 50 créditos al activarse la cuenta, disparado desde `onDocenteCreado`. | MEDIO |
+| Nueva: `otorgarCreditosBienvenida({uid, ahora})` | No existe. | Acredita una sola vez (idempotente) 30 créditos al activarse la cuenta, disparado desde `onDocenteCreado`. | MEDIO |
 
 ### `functions/index.js`
 
@@ -111,7 +111,7 @@ Se encontró lógica de plan/suscripción que debe eliminarse o reescribirse:
 **Actualizado — no hay docentes reales ni clientes pagadores todavía.** No se diseña estrategia de migración/compensación de usuarios. El modelo de suscripciones mensuales queda descartado como modelo operativo por completo, sin caso especial que preservar:
 
 - "Suscripción" deja de ser candado. Todo lo no-IA queda abierto para cualquier docente autenticado, desde ya.
-- El trial de 30 días desaparece como ventana de tiempo; se reemplaza por el regalo único de 50 créditos sin caducidad.
+- El trial de 30 días desaparece como ventana de tiempo; se reemplaza por el regalo único de 30 créditos sin caducidad.
 - No existen suscripciones de pago reales que compensar — cualquier registro de `subscriptions`/`payments` existente es dato técnico de prueba de desarrollo, no una obligación comercial. Se puede limpiar libremente o dejar como esté; no bloquea el diseño.
 - No se requiere comunicación a docentes por el cambio de modelo (no hay a quién comunicarle todavía).
 - `subscriptions`, `payments` y `plans` se conservan como colecciones (útiles como histórico/infraestructura futura) pero **dejan de controlar acceso** a partir de esta implementación — se retiran de rules y de todo candado funcional.
@@ -122,7 +122,7 @@ Se encontró lógica de plan/suscripción que debe eliminarse o reescribirse:
 
 - Reseedar/limpiar `iaCreditos` de cualquier dato de prueba de desarrollo (no son saldos que deban preservarse por obligación).
 - El trial legado de 350 créditos queda descartado por completo — no existe ya en el modelo nuevo, ni como concepto ni como código (`capacidadTrialPara`, `cap.trial`, etc. se eliminan, no se migran).
-- El nuevo trial es de 50 créditos, otorgados una sola vez por cuenta (`otorgarCreditosBienvenida`), sin caducidad. Se aplica a toda cuenta nueva desde la implementación; no hace falta decidir qué pasa con quien "ya usó" el trial legado porque ese trial deja de existir junto con el modelo que lo definía.
+- El nuevo trial es de 30 créditos, otorgados una sola vez por cuenta (`otorgarCreditosBienvenida`), sin caducidad. Se aplica a toda cuenta nueva desde la implementación; no hace falta decidir qué pasa con quien "ya usó" el trial legado porque ese trial deja de existir junto con el modelo que lo definía.
 - Paquetes: reemplazar los 5 actuales ($0.50/crédito lineal) por los 6 definitivos en `config/iaTarifas.paquetesCreditos`. No hay compras pendientes reales que reconciliar contra precios viejos — se reseedea directo.
 - Se elimina la lógica de "capacidad por plan" y "capacidad cortesía" sin reemplazo de compatibilidad; el ajuste manual admin (`ajustarSaldoCreditosIA`) cubre cualquier caso de cortesía futuro.
 
@@ -130,7 +130,7 @@ Se encontró lógica de plan/suscripción que debe eliminarse o reescribirse:
 
 - Nueva función de rules `saldoIAPositivo()`: lee `iaCreditos/{uid}.saldo`, compara `> 0`. Doc ausente = bloqueado (a diferencia de `suscripcionHasta()`).
 - No depende de compra histórica, solo del saldo actual.
-- El otorgamiento de 50 créditos de bienvenida debe ocurrir antes o en el mismo instante que el docente pueda usar Asistencia, para evitar bloqueo por carrera de escritura en cuentas nuevas.
+- El otorgamiento de 30 créditos de bienvenida debe ocurrir antes o en el mismo instante que el docente pueda usar Asistencia, para evitar bloqueo por carrera de escritura en cuentas nuevas.
 - Frontend: tab/ruta de Asistencia refleja el estado en tiempo real vía `onSnapshot` de `useCreditosIA()`; se re-habilita automáticamente sin recargar tras una compra aprobada.
 - El candado real está en rules (server-side); la UI es solo la capa amable.
 
@@ -209,7 +209,7 @@ Se eliminan `capacidadPorPlan`, `trialLegado`, `planes` de `config/iaTarifas`. S
 
 ## 14. Riesgos
 
-**ALTO**: orden de despliegue incorrecto (rules antes de backfill/seed de `iaCreditos`) bloquearía Asistencia para todos. Carrera entre creación de cuenta y primer acceso a Asistencia si el otorgamiento de 50 créditos no es síncrono con la creación del docente.
+**ALTO**: orden de despliegue incorrecto (rules antes de backfill/seed de `iaCreditos`) bloquearía Asistencia para todos. Carrera entre creación de cuenta y primer acceso a Asistencia si el otorgamiento de 30 créditos no es síncrono con la creación del docente.
 
 **MEDIO**: reportes de consumo por categoría dependían de reseteo mensual — pasan a ser históricos totales (aceptable, sin usuarios reales que pierdan histórico real). Eliminar componentes de suscripción sin verificar enlaces internos rotos (menús, imports). Tope de reactivos por plan (§4) requiere que Kike confirme el valor único a usar.
 
@@ -219,7 +219,7 @@ Se eliminan `capacidadPorPlan`, `trialLegado`, `planes` de `config/iaTarifas`. S
 
 1. `test/ia-creditos.test.mjs`: reescribir bloques de ciclo/plan/trial legado; añadir casos de no-reseteo, idempotencia del regalo de bienvenida, idempotencia de aprobación de compra.
 2. `test/firestore-rules.test.mjs`: eliminar bloques de `docenteActivo()` para colecciones ya no gateadas; añadir bloque de `saldoIAPositivo()` sobre `attendance` (saldo>0 permite, saldo=0 bloquea, doc ausente bloquea); cubrir `creditPurchases` con tabla de precios nueva.
-3. E2E manual: cuenta nueva → 50 créditos automáticos → gastar hasta 0 → Asistencia bloqueada → comprar → aprobar como admin → saldo y Asistencia se actualizan en vivo.
+3. E2E manual: cuenta nueva → 30 créditos automáticos → gastar hasta 0 → Asistencia bloqueada → comprar → aprobar como admin → saldo y Asistencia se actualizan en vivo.
 4. Regresión: docente con `basico` histórico puede usar IA con solo comprar créditos.
 5. Prueba de orden de despliegue en staging: functions → backfill → rules, sin bloqueo intermedio.
 
@@ -277,7 +277,7 @@ _Simplificado: sin usuarios reales, no hace falta ventana de migración cuidados
 ## 19. Criterios de aceptación
 
 - [ ] Docente sin créditos puede usar todo lo no-IA (incluida Asistencia con saldo>0) sin candado de suscripción.
-- [ ] Cuenta nueva recibe 50 créditos automáticos, una sola vez, sin caducidad.
+- [ ] Cuenta nueva recibe 30 créditos automáticos, una sola vez, sin caducidad.
 - [ ] El saldo nunca disminuye por el paso del tiempo.
 - [ ] Cada operación de IA descuenta exactamente el costo configurado, nunca más ni menos.
 - [ ] Nunca se ejecuta IA con saldo insuficiente; nunca hay saldo negativo.
