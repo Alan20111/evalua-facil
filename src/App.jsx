@@ -189,6 +189,10 @@ export default function App() {
                 no la enlaces desde ningún menú ni la publiques. Si el link se filtra,
                 basta con cambiar el slug de aquí abajo para invalidarlo. */}
             <Route path="/descarga/:slug" element={<DescargaApp />} />
+            {/* Ruta FIJA que resuelve sola a la versión de producción vigente.
+                Es la que se enlaza desde el login del docente, para no tener que
+                editar código cada vez que se publica una versión nueva. */}
+            <Route path="/descargar" element={<DescargaApp />} />
 
             {/* Admin protected */}
             <Route path="/Admin" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />
