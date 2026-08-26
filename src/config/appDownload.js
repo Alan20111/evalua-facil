@@ -12,6 +12,6 @@
 // Temporal mientras se aprueba en Play Store: apunta a la página de descarga
 // directa del APK (ruta no listada). Cambiar por la URL de la tienda en
 // cuanto esté disponible.
-export const APP_DOWNLOAD_URL = 'https://evalua-facil.vercel.app/descarga/p47hj9m8lk'
+export const APP_DOWNLOAD_URL = 'https://www.evaluafacil.mx/descarga/2mjkpndgrv'
 
 export const APP_DOWNLOAD_READY = APP_DOWNLOAD_URL.length > 0
