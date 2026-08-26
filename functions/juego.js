@@ -77,10 +77,12 @@ exports.construirJuego = onCall({ timeoutSeconds: 300 }, async (request) => {
     vistos.add(n)
   }
 
+  const tamanoSopa = act.tipoJuego === 'sopa_letras' ? (act.juego?.tamanoSopa || null) : null
+
   let resultado
   try {
     resultado = act.tipoJuego === 'sopa_letras'
-      ? construirSopaDeLetras(normalizadas)
+      ? construirSopaDeLetras(normalizadas, tamanoSopa)
       : construirCrucigrama(normalizadas)
   } catch (e) {
     logger.error(`construirJuego(${actividadId}) reventó:`, e)
