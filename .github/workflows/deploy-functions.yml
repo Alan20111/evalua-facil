@@ -20,7 +20,11 @@ jobs:
           node-version: '20'
 
       - name: Install firebase-tools
-        run: npm install -g firebase-tools@11.13.0
+      # Pin al MAJOR, no a un parche: la 11.13.0 que estaba aquí solo conoce
+      # runtimes hasta Node 16 y rechazaba el deploy con "engines field which
+      # is unsupported" (functions/package.json declara Node 20). La 15 es la
+      # misma línea que genera los tokens de `firebase login:ci` hoy.
+        run: npm install -g firebase-tools@15
 
       - name: Install functions dependencies
         run: npm ci
