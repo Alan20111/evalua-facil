@@ -45,7 +45,7 @@ function db() {
 // Créditos de bienvenida, una sola vez por cuenta, sin caducidad (decisión
 // del PO — plan §7-8). No vive en config/iaTarifas porque no es un precio
 // pagado por el docente, es un regalo fijo del producto.
-const CREDITOS_BIENVENIDA = 50
+const CREDITOS_BIENVENIDA = 30
 
 // Fracciones de crédito (21-ago-2026, decisión de Kike: calificar_entregable_ia
 // cuesta 0.5 — UN SOLO tipo de crédito de IA, sin moneda especial). Firestore
@@ -291,15 +291,15 @@ async function ajustarSaldoManual({ uid, delta, motivo, adminUid }) {
 }
 
 // ── BIENVENIDA VOLUNTARIA (20-ago-2026, decisión del PO) ───────────────────
-// Los 50 créditos de bienvenida ya NO se acreditan automáticamente al crear
+// Los 30 créditos de bienvenida ya NO se acreditan automáticamente al crear
 // la cuenta — el docente los activa cuando quiere. Dos pasos separados:
 //
 //   1. marcarBienvenidaDisponible(uid) — se dispara desde onDocenteCreado,
 //      síncrono con la creación de la cuenta. NO toca `saldo` en absoluto:
-//      solo dice "este docente tiene 50 créditos esperando". Idempotente
+//      solo dice "este docente tiene 30 créditos esperando". Idempotente
 //      (no reescribe si ya existe el registro).
 //   2. activarCreditosBienvenida(uid) — la llama el propio docente (callable
-//      autenticado) al confirmar "Activar mis 50 créditos". Solo entonces
+//      autenticado) al confirmar "Activar mis 30 créditos". Solo entonces
 //      se acreditan. Idempotente vía `bienvenidaActivada`: una segunda
 //      llamada (doble clic, dos pestañas) no vuelve a sumar.
 //

@@ -67,7 +67,7 @@ Modelo de negocio de Evalúa Fácil (esto es una REGLA DE NEGOCIO fija, no un da
 - La plataforma es GRATUITA. No hay planes, ni suscripción, ni mensualidad de ningún monto. Asignaturas, estudiantes, actividades, calificaciones, asistencia y descargas son gratis para cualquier docente, sin límite.
 - El ÚNICO ingreso son créditos de IA PREPAGADOS: 1 crédito = $1 MXN de referencia, en paquetes de 50 a 1,600 créditos con descuento por volumen (hasta $0.90/crédito). Los créditos no caducan.
 - Los créditos cubren ÚNICAMENTE operaciones de IA (calificar, generar cuestionarios, planeación, Chat con Asistente, etc. — cada una con su tarifa en config/iaTarifas). NO cubren asistencias, descargas ni actividades interactivas: esas nunca han consumido créditos.
-- Toda cuenta nueva recibe 50 créditos de bienvenida (activación voluntaria del docente, no automática) — es el único costo de adquisición que existe hoy, y se puede consultar con \`rentabilidad_creditos\`.
+- Toda cuenta nueva recibe 30 créditos de bienvenida (activación voluntaria del docente, no automática) — es el único costo de adquisición que existe hoy, y se puede consultar con \`rentabilidad_creditos\`.
 - Existen registros HISTÓRICOS de un modelo de suscripción anterior (colecciones \`subscriptions\`, \`payments\`, \`plans/*\`) que YA NO GATEA nada ni genera ingreso — si una herramienta los muestra, es información heredada, nunca facturación actual.
 `.trim()
 

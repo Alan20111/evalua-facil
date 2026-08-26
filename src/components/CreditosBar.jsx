@@ -68,7 +68,7 @@ export default function CreditosBar({ variant = 'sidebar' }) {
         <button
           type="button"
           onClick={() => (c.mostrarCTAActivarBienvenida ? setActivarAbierto(true) : setPanelAbierto(true))}
-          aria-label={c.mostrarCTAActivarBienvenida ? 'Activa tus 50 créditos IA de regalo' : `Créditos de IA: ${c.saldo} disponibles`}
+          aria-label={c.mostrarCTAActivarBienvenida ? 'Activa tus 30 créditos IA de regalo' : `Créditos de IA: ${c.saldo} disponibles`}
           className="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-surface-container transition-colors"
         >
           {c.mostrarCTAActivarBienvenida ? (
@@ -93,7 +93,7 @@ export default function CreditosBar({ variant = 'sidebar' }) {
         <button
           type="button"
           onClick={() => (c.mostrarCTAActivarBienvenida ? setActivarAbierto(true) : setPanelAbierto(true))}
-          aria-label={c.mostrarCTAActivarBienvenida ? 'Activa tus 50 créditos IA de regalo' : `Créditos de IA: ${c.saldo} disponibles. Ver detalle`}
+          aria-label={c.mostrarCTAActivarBienvenida ? 'Activa tus 30 créditos IA de regalo' : `Créditos de IA: ${c.saldo} disponibles. Ver detalle`}
           className={
             c.mostrarCTAActivarBienvenida
               ? 'w-full px-3 py-2 rounded-lg text-left bg-white text-accent font-semibold shadow-md hover:bg-white/90 transition-colors'
@@ -103,7 +103,7 @@ export default function CreditosBar({ variant = 'sidebar' }) {
           {c.mostrarCTAActivarBienvenida ? (
             <div className="flex items-center gap-2 text-body-sm">
               <Gift size={16} className="flex-shrink-0" />
-              <span className="flex-1">Activa tus 50 créditos IA de regalo</span>
+              <span className="flex-1">Activa tus 30 créditos IA de regalo</span>
             </div>
           ) : (
             <div className="flex items-center gap-2 text-body-sm text-white/90">

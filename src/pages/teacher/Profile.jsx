@@ -412,7 +412,7 @@ export default function Profile() {
               {creditosIA.saldo === 0 && (
                 <p className="text-sm text-red-600">
                   {creditosIA.mostrarCTAActivarBienvenida
-                    ? 'Adquiere créditos para usar las funciones de IA, o disfruta de tus 50 créditos de IA de regalo activándolos para que conozcas como funciona la IA en Evalúa Fácil.'
+                    ? 'Adquiere créditos para usar las funciones de IA, o disfruta de tus 30 créditos de IA de regalo activándolos para que conozcas como funciona la IA en Evalúa Fácil.'
                     : 'Adquiere créditos para usar las funciones de IA.'}
                 </p>
               )}
@@ -424,7 +424,7 @@ export default function Profile() {
               onClick={() => setShowActivarCreditos(true)}
               className="mt-2 w-full py-2 border border-accent text-accent font-semibold rounded text-sm hover:bg-[var(--accent-tint)] transition-colors"
             >
-              Activar tus 50 créditos IA de regalo
+              Activar tus 30 créditos IA de regalo
             </button>
           )}
           <button
