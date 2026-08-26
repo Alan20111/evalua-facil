@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   LogOut,
+  Smartphone,
   User,
   Plus,
   Archive,
@@ -28,6 +29,7 @@ import { teacherDisplayName } from '../utils/studentSearch'
 import { IS_NATIVE_APP } from '../utils/platform'
 import SubjectIcon from './SubjectIcon'
 import PortalBadge from './PortalBadge'
+import { Capacitor } from '@capacitor/core'
 import EFLogo from './EFLogo'
 import AppQRButton from './AppQRButton'
 import ConfirmModal from './ConfirmModal'
@@ -47,6 +49,8 @@ function navIconPillCls(isActive) {
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
   const navigate = useNavigate()
+  // Dentro del APK no tiene sentido ofrecer descargar el APK.
+  const enNavegador = !Capacitor.isNativePlatform()
 
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
@@ -128,6 +132,17 @@ export default function TeacherLayout({ children }) {
         <div className="flex items-center gap-1">
           {/* Créditos IA — visibles sin entrar a ninguna sección (chip compacto) */}
           <CreditosBar variant="movil" />
+          {enNavegador && (
+            <a
+              href="/descargar"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Descargar la app de Android"
+              className="p-2 text-muted hover:text-accent rounded transition-colors"
+            >
+              <Smartphone size={20} />
+            </a>
+          )}
           <NavLink
             to="/manual"
             aria-label="Ayuda para comenzar"
@@ -366,8 +381,26 @@ export default function TeacherLayout({ children }) {
           {/* Créditos IA — barra permanente del docente (clic → panel) */}
           <CreditosBar variant="sidebar" />
 
+          {/* Descargar la app de Android — /descargar es una ruta fija que
+              resuelve sola a la versión de producción vigente, así que publicar
+              una versión nueva desde el panel de admin actualiza este enlace sin
+              tocar código. Ver src/pages/DescargaApp.jsx. */}
+          {enNavegador && (
+            <div className="px-2 pt-2 border-t border-white/15">
+              <a
+                href="/descargar"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <Smartphone size={17} />
+                Descargar app Android
+              </a>
+            </div>
+          )}
+
           {/* Logout */}
-          <div className="px-2 py-2 border-t border-white/15">
+          <div className="px-2 py-2">
             <button
               type="button"
               onClick={requestLogout}

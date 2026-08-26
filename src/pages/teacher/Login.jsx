@@ -153,13 +153,6 @@ export default function TeacherLogin() {
           ¿Eres estudiante?{' '}
           <Link to="/alumno" className="text-accent font-semibold hover:underline">Entra aquí</Link>
         </p>
-        <p className="text-center text-sm text-muted mt-2">
-          ¿Usas Android?{' '}
-          {/* Ruta fija: resuelve sola a la versión de producción vigente, así que
-              publicar una versión nueva desde el panel de admin actualiza este
-              enlace sin tocar código. Ver src/pages/DescargaApp.jsx. */}
-          <Link to="/descargar" className="text-accent font-semibold hover:underline">Descarga la app</Link>
-        </p>
         <p className="text-center text-xs text-slate-400 mt-4">
           Para una mejor experiencia recomendamos utilizar Evalúa Fácil Docente desde una laptop o computadora de escritorio.
         </p>
