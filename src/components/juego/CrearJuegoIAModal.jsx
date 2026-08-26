@@ -34,6 +34,7 @@ export default function CrearJuegoIAModal({
   const [archivos, setArchivos] = useState([])
   const [modalidad, setModalidad] = useState('palabra')
   const [cantidad, setCantidad] = useState(10)
+  const [tamanoSopa, setTamanoSopa] = useState(10)
   const [trabajando, setTrabajando] = useState(false)
   const fuentesGuardadas = useFuentesAsignatura(asignaturaId, docenteId)
 
@@ -62,6 +63,7 @@ export default function CrearJuegoIAModal({
         juego: {
           modalidad,
           cantidadPalabras: cantidad,
+          ...(tipoJuego === 'sopa_letras' && { tamanoSopa }),
           contenido: [],
           estado: null,
           estructura: null,
@@ -134,6 +136,17 @@ export default function CrearJuegoIAModal({
                 onChange={(e) => setCantidad(Math.min(MAX_CANTIDAD, Math.max(MIN_CANTIDAD, Number(e.target.value) || MIN_CANTIDAD)))}
                 className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
             </div>
+            {tipoJuego === 'sopa_letras' && (
+              <div className="w-28">
+                <label htmlFor="ia-juego-tamano" className="block text-sm text-on-surface mb-1">Tamaño</label>
+                <select id="ia-juego-tamano" value={tamanoSopa} disabled={trabajando}
+                  onChange={(e) => setTamanoSopa(Number(e.target.value))}
+                  className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                  <option value={8}>8 × 8</option>
+                  <option value={10}>10 × 10</option>
+                </select>
+              </div>
+            )}
           </div>
 
           <FuentesIAInput files={archivos} onChange={setArchivos} disabled={trabajando} fuentesGuardadas={fuentesGuardadas} />

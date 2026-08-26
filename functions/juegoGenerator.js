@@ -97,12 +97,23 @@ function intentarSopaEnTamano(palabras, size) {
 }
 
 // palabrasNormalizadas: string[] ya normalizados (sin duplicados esperados).
+// tamano: tamaño preferido por el docente (8 o 10). Si no se pasa, el
+// algoritmo elige automáticamente entre 8 y 20.
 // Devuelve { size, grid, palabras: [{ index, fila, col, dirFila, dirCol, longitud }] }
-function construirSopaDeLetras(palabrasNormalizadas) {
+function construirSopaDeLetras(palabrasNormalizadas, tamano) {
   const maxLongitud = Math.max(...palabrasNormalizadas.map((p) => p.length))
-  let size = Math.max(maxLongitud, Math.ceil(Math.sqrt(palabrasNormalizadas.reduce((s, p) => s + p.length, 0) * 1.8)))
-  size = Math.max(size, 8)
-  const TOPE_SIZE = 20
+  let size
+  let TOPE_SIZE
+  if (tamano) {
+    // El docente eligió tamaño: arrancamos desde ahí (sin bajar de la
+    // palabra más larga) y damos un margen de +2 antes de fallar.
+    size = Math.max(tamano, maxLongitud)
+    TOPE_SIZE = Math.max(tamano + 2, maxLongitud + 1)
+  } else {
+    size = Math.max(maxLongitud, Math.ceil(Math.sqrt(palabrasNormalizadas.reduce((s, p) => s + p.length, 0) * 1.8)))
+    size = Math.max(size, 8)
+    TOPE_SIZE = 20
+  }
 
   while (size <= TOPE_SIZE) {
     for (let intento = 0; intento < MAX_INTENTOS_POR_TAMANO; intento++) {
