@@ -46,6 +46,19 @@ function colocar(grid, palabra, fila, col, dr, dc) {
 // cuadrícula de `size`x`size`. Devuelve { ok, grid, posiciones } — posiciones
 // en el mismo orden que `palabras`, o ok:false si no logró colocarlas todas
 // tras agotar los intentos de backtracking.
+//
+// Estrategia de dirección: intercalado round-robin.
+// El sesgo original era geométrico: H/V tienen N×(N-L+1) posiciones válidas
+// por dirección y las diagonales solo (N-L+1)², que en grids cuadrados puede
+// ser 3-5× menos. El shuffle plano sobre todos los candidatos convertía esa
+// diferencia de posiciones en una diferencia de probabilidad de dirección.
+//
+// Solución: agrupar por dirección, mezclar posiciones dentro de cada una, y
+// luego intercalar en round-robin (un slot por dirección, en orden de
+// dirección aleatorio). Así el primer candidato de cada dirección compite en
+// igualdad — las colas más largas de H/V solo persisten como fallback.
+// El conjunto total de candidatos probados es el mismo de antes; nada se
+// descarta. La aleatoriedad se mantiene (distinto shuffle cada intento).
 function intentarSopaEnTamano(palabras, size) {
   const orden = palabras.map((p, i) => i).sort((a, b) => palabras[b].length - palabras[a].length)
   const grid = Array.from({ length: size }, () => Array(size).fill(null))
@@ -55,33 +68,54 @@ function intentarSopaEnTamano(palabras, size) {
     if (idx >= orden.length) return true
     const i = orden[idx]
     const palabra = palabras[i]
-    const candidatos = []
+
+    // Recopilar candidatos agrupados por dirección; mezclar dentro de cada una.
+    const porDir = DIRECCIONES.map(() => [])
     for (let fila = 0; fila < size; fila++) {
       for (let col = 0; col < size; col++) {
-        for (const [dr, dc] of DIRECCIONES) {
-          if (cabeEn(grid, size, palabra, fila, col, dr, dc)) candidatos.push([fila, col, dr, dc])
+        for (let d = 0; d < DIRECCIONES.length; d++) {
+          const [dr, dc] = DIRECCIONES[d]
+          if (cabeEn(grid, size, palabra, fila, col, dr, dc)) porDir[d].push([fila, col])
         }
       }
     }
-    // Aleatoriza para que reintentos sucesivos exploren rutas distintas.
-    for (let k = candidatos.length - 1; k > 0; k--) {
-      const j = Math.floor(Math.random() * (k + 1));
-      [candidatos[k], candidatos[j]] = [candidatos[j], candidatos[k]]
+    for (const cands of porDir) {
+      for (let k = cands.length - 1; k > 0; k--) {
+        const j = Math.floor(Math.random() * (k + 1));
+        [cands[k], cands[j]] = [cands[j], cands[k]]
+      }
     }
-    for (const [fila, col, dr, dc] of candidatos) {
-      const respaldo = []
-      for (let n = 0; n < palabra.length; n++) {
-        const r = fila + dr * n, c = col + dc * n
-        respaldo.push(grid[r][c])
+
+    // Orden de dirección aleatorio para este intento.
+    const dirOrden = DIRECCIONES.map((_, d) => d)
+    for (let k = dirOrden.length - 1; k > 0; k--) {
+      const j = Math.floor(Math.random() * (k + 1));
+      [dirOrden[k], dirOrden[j]] = [dirOrden[j], dirOrden[k]]
+    }
+
+    // Intercalar: round-robin — un candidato por dirección por vuelta.
+    // Cada vuelta los candidatos de cada dirección compiten en igualdad;
+    // H/V simplemente tienen más vueltas (porque tienen más candidatos).
+    const maxSlots = Math.max(...porDir.map((c) => c.length), 0)
+    for (let slot = 0; slot < maxSlots; slot++) {
+      for (const d of dirOrden) {
+        if (slot >= porDir[d].length) continue
+        const [fila, col] = porDir[d][slot]
+        const [dr, dc] = DIRECCIONES[d]
+        const respaldo = []
+        for (let n = 0; n < palabra.length; n++) {
+          const r = fila + dr * n, c = col + dc * n
+          respaldo.push(grid[r][c])
+        }
+        colocar(grid, palabra, fila, col, dr, dc)
+        posiciones[i] = { fila, col, dirFila: dr, dirCol: dc, longitud: palabra.length }
+        if (colocarDesde(idx + 1)) return true
+        for (let n = 0; n < palabra.length; n++) {
+          const r = fila + dr * n, c = col + dc * n
+          grid[r][c] = respaldo[n]
+        }
+        posiciones[i] = null
       }
-      colocar(grid, palabra, fila, col, dr, dc)
-      posiciones[i] = { fila, col, dirFila: dr, dirCol: dc, longitud: palabra.length }
-      if (colocarDesde(idx + 1)) return true
-      for (let n = 0; n < palabra.length; n++) {
-        const r = fila + dr * n, c = col + dc * n
-        grid[r][c] = respaldo[n]
-      }
-      posiciones[i] = null
     }
     return false
   }
