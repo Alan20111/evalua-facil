@@ -385,23 +385,6 @@ export default function TeacherLayout({ children }) {
           {/* Créditos IA — barra permanente del docente (clic → panel) */}
           <CreditosBar variant="sidebar" />
 
-          {/* Descargar la app de Android — /descargar es una ruta fija que
-              resuelve sola a la versión de producción vigente, así que publicar
-              una versión nueva desde el panel de admin actualiza este enlace sin
-              tocar código. Ver src/pages/DescargaApp.jsx. */}
-          {enNavegador && (
-            <div className="px-2 pt-2 border-t border-white/15">
-              <a
-                href="/descargar"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
-              >
-                <Smartphone size={17} />
-                Descargar app Android
-              </a>
-            </div>
-          )}
 
           {/* Logout */}
           <div className="px-2 py-2">
