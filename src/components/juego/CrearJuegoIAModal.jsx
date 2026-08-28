@@ -78,6 +78,7 @@ export default function CrearJuegoIAModal({
         asignaturaNombre: asignaturaNombre || '',
         modalidad,
         cantidadPalabras: cantidad,
+        ...(tipoJuego === 'sopa_letras' && { tamanoSopa }),
         contexto,
         fuentes: urls,
       }, 1)

@@ -79,6 +79,19 @@ exports.construirJuego = onCall({ timeoutSeconds: 300 }, async (request) => {
 
   const tamanoSopa = act.tipoJuego === 'sopa_letras' ? (act.juego?.tamanoSopa || null) : null
 
+  // Sopa de letras: rechazar antes del backtracking toda palabra que físicamente
+  // no pueda caber en el tablero elegido por el docente (longitud > tamano).
+  // El generador usa el tamaño exacto y sin expandir (ver juegoGenerator.js),
+  // así que si se intentara colocar una palabra más larga que el grid se
+  // fallaría silenciosamente tras MAX_INTENTOS_POR_TAMANO pasadas.
+  if (tamanoSopa) {
+    const demasiada = normalizadas.findIndex((n) => n.length > tamanoSopa)
+    if (demasiada !== -1) {
+      throw new HttpsError('failed-precondition',
+        `La palabra "${contenido[demasiada]?.palabra || ''}" (${normalizadas[demasiada].length} letras) no cabe en un tablero ${tamanoSopa} × ${tamanoSopa}. Edítala, quítala o elige un tablero más grande.`)
+    }
+  }
+
   let resultado
   try {
     resultado = act.tipoJuego === 'sopa_letras'
