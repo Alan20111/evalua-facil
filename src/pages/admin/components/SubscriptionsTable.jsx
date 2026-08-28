@@ -616,8 +616,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-on-surface">
-                    {r.uid && !r.sub?.cuentaEliminada
-                      ? (creditosMap[r.uid] ?? 0).toLocaleString('es-MX')
+                    {r.uid && !r.sub?.cuentaEliminada && creditosMap[r.uid] !== undefined
+                      ? creditosMap[r.uid].toLocaleString('es-MX')
                       : '—'}
                   </td>
                   {/* Mismo criterio de lectura rápida que la columna Días:
