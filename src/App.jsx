@@ -51,20 +51,44 @@ function ProtectedAdmin({ children }) {
   return children
 }
 
+// Shown when the user is authenticated but their Firestore profile could not be
+// loaded (e.g. a network error hit the getDoc in AuthContext). Gives a recovery
+// path without a blank screen, a redirect loop, or a forced logout.
+function ProfileErrorScreen() {
+  return (
+    <div className="min-h-[100dvh] flex items-center justify-center bg-surface px-4">
+      <div className="bg-surface-card rounded-card shadow-card p-8 max-w-sm w-full text-center">
+        <p className="text-on-surface font-semibold mb-2">Error al cargar tu perfil</p>
+        <p className="text-muted text-sm mb-5">
+          No pudimos conectar con el servidor.<br />
+          Revisa tu conexión e intenta de nuevo.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors"
+        >
+          Recargar
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ProtectedTeacher({ children }) {
   const { currentUser, userProfile, loading } = useAuth()
   if (loading) return null
   if (!currentUser) return <Navigate to="/" replace />
   if (userProfile?.role === 'admin') return <Navigate to="/Admin" replace />
   if (userProfile && userProfile.role !== 'docente') return <Navigate to="/alumno" replace />
+  if (!userProfile) return <ProfileErrorScreen />
   if (
-    userProfile?.role === 'docente' &&
     needsPasswordSetup(currentUser) &&
     sessionStorage.getItem('protectAccountSkipped') !== '1'
   ) {
     return <Navigate to="/protect-account" replace />
   }
-  if (userProfile?.role === 'docente' && userProfile.profileComplete === false) {
+  if (userProfile.profileComplete === false) {
     return <Navigate to="/onboarding" replace />
   }
   return children
@@ -78,6 +102,7 @@ function ProtectedTeacherOnboarding({ children }) {
   if (!currentUser) return <Navigate to="/" replace />
   if (userProfile?.role === 'admin') return <Navigate to="/Admin" replace />
   if (userProfile && userProfile.role !== 'docente') return <Navigate to="/alumno" replace />
+  if (!userProfile) return <ProfileErrorScreen />
   return children
 }
 
@@ -89,6 +114,7 @@ function ProtectedTeacherProtectAccount({ children }) {
   if (!currentUser) return <Navigate to="/" replace />
   if (userProfile?.role === 'admin') return <Navigate to="/Admin" replace />
   if (userProfile && userProfile.role !== 'docente') return <Navigate to="/alumno" replace />
+  if (!userProfile) return <ProfileErrorScreen />
   return children
 }
 
@@ -123,7 +149,7 @@ function RootRedirect({ guest = <TeacherLogin /> }) {
   if (userProfile?.role === 'docente') return <Navigate to="/dashboard" replace />
   if (!userProfile) {
     if (currentUser.email?.endsWith('@evalua.local')) return <Navigate to="/alumno/dashboard" replace />
-    return null
+    return <ProfileErrorScreen />
   }
   return <Navigate to="/alumno/dashboard" replace />
 }
