@@ -1217,7 +1217,7 @@ service cloud.firestore {
     // El cliente solo LEE lo suyo (la barra y el panel viven de eso). Sin
     // escrituras de cliente no existe camino para manipular el saldo.
     match /iaCreditos/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if (request.auth != null && request.auth.uid == uid) || isAdmin();
       allow write: if false;
     }
 
