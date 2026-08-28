@@ -122,8 +122,11 @@ export default function TeacherLayout({ children }) {
   return (
     <div className="min-h-screen bg-surface">
       <SkipLink />
-      {/* Mobile top bar */}
-      <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top">
+      {/* Mobile top bar — en la app nativa siempre visible; en la web se oculta
+          en escritorio (md:hidden). El WebView de Android a veces reporta un
+          viewport ≥768px activando el breakpoint md: de Tailwind, lo que
+          mostraría el sidebar en lugar de la navegación móvil. */}
+      <header className={`${IS_NATIVE_APP ? '' : 'md:hidden'} sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top`}>
         <div className="flex items-center gap-2 min-w-0">
           <EFLogo subtitle={false} className="h-8 w-auto flex-shrink-0" />
           {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de PortalBadge, no un atributo ARIA */}
@@ -163,8 +166,9 @@ export default function TeacherLayout({ children }) {
 
       {/* Desktop: sidebar + content */}
       <div className="flex">
-        {/* Sidebar — desktop only (solid accent plane) */}
-        <aside className="hidden md:flex flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
+        {/* Sidebar — en la app nativa siempre oculto (el WebView puede reportar
+            viewport ≥768px activando md:flex); en la web solo en escritorio. */}
+        <aside className={`${IS_NATIVE_APP ? 'hidden' : 'hidden md:flex'} flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20`}>
           {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
           <div className="px-3 pt-2 pb-1">
             <div className="bg-white rounded-card px-3 py-2.5 shadow-card">
@@ -415,18 +419,21 @@ export default function TeacherLayout({ children }) {
         {/* Main content — pb reserva el alto de la barra inferior (5rem) MÁS el
             inset de seguridad de Android que ya se le suma a esa barra
             (.safe-bottom en <nav> abajo); si no, el último contenido de cada
-            página queda tapado detrás de la barra, que ahora es más alta. */}
+            página queda tapado detrás de la barra, que ahora es más alta.
+            En la app nativa siempre se reserva ese padding (el sidebar nunca
+            aparece), en la web solo en móvil (md:pb-0 lo cancela). */}
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0 focus:outline-none"
+          className={`flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] ${IS_NATIVE_APP ? '' : 'md:pb-0'} focus:outline-none`}
         >
           {children}
         </main>
       </div>
 
-      {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom">
+      {/* Mobile bottom nav — en la app nativa siempre visible; en la web se
+          oculta en escritorio (md:hidden). Misma razón que el <header>. */}
+      <nav className={`${IS_NATIVE_APP ? '' : 'md:hidden'} fixed bottom-0 left-0 right-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}>
         <div className="flex">
           <NavLink
             to="/dashboard"
