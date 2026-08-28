@@ -79,14 +79,14 @@ const COLS = [
     label: 'Fecha de alta',
     filtro: 'fecha',
     w: 135,
-    ayuda: 'Cuándo empezó esta suscripción (su fecha de inicio).',
+    ayuda: 'Cuándo se registró el docente. Si tiene suscripción, se usa la fecha de inicio de ésta; si no, la fecha de creación de su cuenta.',
   },
   {
     key: 'creditos',
     label: 'Créditos',
     w: 110,
     align: 'right',
-    ayuda: 'Saldo actual de créditos de IA del docente (leído de iaCreditos en tiempo de carga). Un guion indica que el docente aún no tiene registro de créditos.',
+    ayuda: 'Saldo actual de créditos de IA del docente (leído de iaCreditos en tiempo de carga). Muestra 0 si no tiene doc en iaCreditos; guion solo en cuentas eliminadas.',
   },
   {
     key: 'sinAcceder',
@@ -286,9 +286,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     // habrían desaparecido del panel, que es justo lo que no debe pasar.
     const construir = (sub, teacher) => {
       const school = schoolsMap[teacher?.escuelaId]
-      // El alta de la suscripción es su fecha de inicio; los documentos que no
-      // la traen caen a cuándo se creó el registro.
-      const altaValor = sub ? (sub.fechaInicio || sub.createdAt) : null
+      // Alta: si hay suscripción, es su fecha de inicio. Si no, es cuándo se
+      // creó la cuenta del docente (users/{uid}.createdAt).
+      const altaValor = sub ? (sub.fechaInicio || sub.createdAt) : teacher?.createdAt || null
       const alta = toDate(altaValor)
       // Vencimiento REAL: en las pruebas se recalcula desde el inicio (ver
       // effectiveVencimiento) en vez de confiar en el campo guardado.
@@ -310,7 +310,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       const estadoUbicacion = teacher?.estado || school?.estado || '—'
       const ciudad = teacher?.ciudad || teacher?.municipio || school?.municipio || '—'
       const escuela = school?.shortName || school?.nombre || school?.claveSEP || sub?.schoolName || '—'
-      const altaTexto = sub ? formatDate(altaValor) : '—'
+      const altaTexto = alta ? formatDate(altaValor) : '—'
       const vencTexto = sub ? formatDate(vencValor) : '—'
       return {
         // Bug real (19-ago-2026): las bajas arman un `sub` de constancia SIN
@@ -616,8 +616,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-on-surface">
-                    {r.uid && !r.sub?.cuentaEliminada && creditosMap[r.uid] !== undefined
-                      ? creditosMap[r.uid].toLocaleString('es-MX')
+                    {r.uid && !r.sub?.cuentaEliminada
+                      ? (creditosMap[r.uid] ?? 0).toLocaleString('es-MX')
                       : '—'}
                   </td>
                   {/* Mismo criterio de lectura rápida que la columna Días:
