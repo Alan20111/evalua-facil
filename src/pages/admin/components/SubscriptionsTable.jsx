@@ -5,7 +5,7 @@ import {
   deleteDoc,
   getDocs,
 } from 'firebase/firestore'
-import { Trash2, X, RotateCcw, Zap } from 'lucide-react'
+import { Trash2, X, RotateCcw, Zap, UserX } from 'lucide-react'
 import { httpsCallable } from 'firebase/functions'
 import SearchInput from '../../../components/SearchInput'
 import { db, functions } from '../../../firebase'
@@ -36,7 +36,7 @@ const PAGE = 100
 // desplaza con los encabezados fijos arriba.
 const ALTO_TABLA = 'calc(100vh - 290px)'
 
-const WIDTHS_KEY = 'admin-suscripciones-cols-v4'
+const WIDTHS_KEY = 'admin-suscripciones-cols-v5'
 
 // Columnas. `filtro` = tipo de caja bajo el título:
 //   'texto' → se escribe y filtra, con sugerencias de los valores que todavía
@@ -45,7 +45,7 @@ const WIDTHS_KEY = 'admin-suscripciones-cols-v4'
 //   'lista' → desplegable con los valores posibles (pocos y fijos)
 // Orden fijo: del alta más nueva a la más antigua, igual que Estudiantes.
 const COLS = [
-  { key: 'num', label: 'Resultado del filtro', w: 145, align: 'right', wrap: true },
+  { key: 'num', label: 'No.', w: 65, align: 'right' },
   { key: 'docente', label: 'Nombre del docente', w: 185 },
   { key: 'usuario', label: 'Usuario', w: 130 },
   { key: 'correo', label: 'Correo electrónico', w: 200 },
@@ -88,14 +88,6 @@ const COLS = [
     align: 'right',
     ayuda: 'Saldo actual de créditos de IA del docente (leído de iaCreditos en tiempo de carga). Un guion indica que el docente aún no tiene registro de créditos.',
   },
-  {
-    key: 'vencimiento',
-    label: 'Vencimiento',
-    filtro: 'fecha',
-    w: 135,
-    ayuda: 'En las pruebas es siempre inicio + 30 días, se calcula al vuelo (no se lee de la fecha guardada, que en registros viejos trae ventanas de antes).',
-  },
-  { key: 'dias', label: 'Días', w: 95, align: 'right' },
   {
     key: 'sinAcceder',
     label: 'Días sin accesar',
@@ -146,7 +138,6 @@ function pasaFiltros(r, filtros, search, excepto) {
   if (t('ciudad') && !r.buscarCiudad.includes(t('ciudad'))) return false
   if (t('escuela') && !r.buscarEscuela.includes(t('escuela'))) return false
   if (excepto !== 'alta' && filtros.alta && r.altaISO !== filtros.alta) return false
-  if (excepto !== 'vencimiento' && filtros.vencimiento && r.vencimientoISO !== filtros.vencimiento) return false
   // La caja de arriba busca en TODO el renglón (docente, usuario, correo,
   // ciudad, escuela, plan, situación, fechas…), no solo en el nombre:
   // quien escribe "guanajuato" o "vencida" ahí espera encontrarlo.
@@ -222,6 +213,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   const toast = useToast()
   const { currentUser } = useAuth()
   const [ajusteModal, setAjusteModal] = useState(null)
+  const [deleteModal, setDeleteModal] = useState(null)
   const [search, setSearch] = useState('')
   const [filtros, setFiltros] = useState(SIN_FILTROS)
   const [limit, setLimit] = useState(PAGE)
@@ -229,7 +221,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     useColumnWidths(WIDTHS_KEY, COLS)
 
   useBackHandler(() => setAjusteModal(null), !!ajusteModal)
-  useScrollLock(!!ajusteModal)
+  useBackHandler(() => setDeleteModal(null), !!deleteModal)
+  useScrollLock(!!ajusteModal || !!deleteModal)
 
   // Memoizados aunque parezcan triviales: el `|| []` crea un arreglo nuevo en
   // cada render y eso invalidaría los useMemo que dependen de ellos.
@@ -356,24 +349,38 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         // entrado o su cuenta ya no está en Auth (una baja, por ejemplo).
         sinAcceder: diasSinAccesar(accesos[teacher?.id]),
         uid: teacher?.id || null,
+        // Fecha de creación de la cuenta: se usa para la numeración cronológica
+        // (#1 = más antigua, #N = más nueva) que no cambia al filtrar.
+        // Prioridad: createdAt del doc users/{uid} > fecha de inicio de suscripción.
+        // Las bajas no conservan createdAt (el doc users ya fue borrado); se
+        // usa fechaBaja como aproximación para que queden ordenadas razonablemente.
+        cuentaMs: (() => {
+          const ct = teacher?.createdAt
+          if (ct) {
+            if (typeof ct.toMillis === 'function') return ct.toMillis()
+            if (ct?.seconds) return ct.seconds * 1000
+          }
+          return alta ? alta.getTime() : 0
+        })(),
       }
     }
 
     const conSuscripcion = subscriptions.map((sub) => construir(sub, teachersMap[sub.docenteId]))
     const conSub = new Set(subscriptions.map((s) => s.docenteId))
     const sinSuscripcion = teachers.filter((t) => !conSub.has(t.id)).map((t) => construir(null, t))
-    // Cuentas dadas de baja: su docente ya no existe, así que se arma el
-    // renglón con la constancia. Van al final por su fecha de baja.
     const bajas = (stats.bajas || []).map((b) =>
       construir(
-        // `docenteId` (19-ago-2026): hace falta para poder borrar la
-        // CONSTANCIA (`bajas/{docenteId}`) — sin esto `handleDeleteBaja` no
-        // tenía de dónde sacar el id del documento a borrar.
         { cuentaEliminada: true, fechaInicio: b.fechaBaja, status: 'eliminada', docenteId: b.docenteId },
         { id: b.docenteId, nombre: b.nombre, email: b.email }
       )
     )
-    return [...conSuscripcion, ...sinSuscripcion, ...bajas]
+
+    // Asignar rank cronológico global: #1 = cuenta más antigua, #N = más nueva.
+    // El rank es fijo e independiente de los filtros: no cambia al buscar.
+    const todasLasFilas = [...conSuscripcion, ...sinSuscripcion, ...bajas]
+    const porFechaAsc = [...todasLasFilas].sort((a, b) => (a.cuentaMs || 0) - (b.cuentaMs || 0))
+    const rankMap = new Map(porFechaAsc.map((r, i) => [r.id, i + 1]))
+    return todasLasFilas.map((r) => ({ ...r, rank: rankMap.get(r.id) || 0 }))
   }, [stats, teachers, teachersMap, accesos])
 
   // Orden fijo: la suscripción más reciente hasta arriba; dentro del mismo día
@@ -382,7 +389,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     () =>
       rows
         .filter((r) => pasaFiltros(r, filtros, search, null))
-        .sort((a, b) => b.altaMs - a.altaMs || a.docente.localeCompare(b.docente, 'es')),
+        .sort((a, b) => b.rank - a.rank || a.docente.localeCompare(b.docente, 'es')),
     [rows, filtros, search]
   )
 
@@ -432,6 +439,31 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       onRefresh?.()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  function openDeleteModal(uid, docente, correo) {
+    setDeleteModal({ uid, docente, correo, saving: false })
+  }
+
+  async function handleDeleteAccount() {
+    if (!deleteModal) return
+    setDeleteModal((m) => ({ ...m, saving: true }))
+    try {
+      const token = await currentUser.getIdToken()
+      const res = await fetch(apiUrl('/api/admin/delete-account'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ targetUid: deleteModal.uid }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Error al eliminar la cuenta')
+      toast('Cuenta eliminada')
+      setDeleteModal(null)
+      onRefresh?.()
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+      setDeleteModal((m) => ({ ...m, saving: false }))
     }
   }
 
@@ -570,12 +602,10 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 </td>
               </tr>
             ) : (
-              visible.map((r, i) => (
+              visible.map((r) => (
                 <tr key={r.id} className="hover:bg-[var(--accent-tint)]">
-                  {/* Cuenta de lo que se está viendo, de mayor a menor: arriba
-                      el total de las que cumplen y abajo el 1. */}
                   <td className="px-3 py-2 text-right text-slate-400 tabular-nums">
-                    {filtered.length - i}
+                    {r.rank}
                   </td>
                   <td className="px-3 py-2 font-medium text-on-surface truncate" title={r.docente}>{r.docente}</td>
                   <td className="px-3 py-2 font-mono text-xs font-semibold text-on-surface truncate">{r.usuario}</td>
@@ -589,12 +619,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     {r.uid && !r.sub?.cuentaEliminada && creditosMap[r.uid] !== undefined
                       ? creditosMap[r.uid].toLocaleString('es-MX')
                       : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-muted truncate">{r.vencimiento}</td>
-                  {/* Los días ya vencidos van en rojo: es lo que se busca al
-                      barrer la tabla con la vista. */}
-                  <td className={`px-3 py-2 text-right tabular-nums ${r.dias !== null && r.dias < 0 ? 'text-red-600 font-semibold' : 'text-muted'}`}>
-                    {r.dias !== null ? r.dias : '—'}
                   </td>
                   {/* Mismo criterio de lectura rápida que la columna Días:
                       lo que hay que cazar de un vistazo va en color. A los 60
@@ -610,29 +634,42 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   </td>
                   <td className="px-3 py-2 text-muted truncate" title={r.ultimoPago}>{r.ultimoPago}</td>
                   <td className="px-3 py-2">
-                    {!r.sub ? (
-                      <span className="text-xs text-slate-400">—</span>
-                    ) : r.sub.cuentaEliminada ? (
+                    {r.sub?.cuentaEliminada ? (
                       <button
                         type="button"
                         onClick={() => handleDeleteBaja(r.sub.docenteId)}
                         className="p-2 text-slate-400 hover:text-red-600 rounded"
-                        data-tooltip="Eliminar constancia"
                         aria-label="Eliminar constancia"
+                        title="Eliminar constancia"
                       >
                         <Trash2 size={16} />
                       </button>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => openAjuste(r.sub, r.docente)}
-                        disabled={ajusteModal?.subId === r.sub.id && ajusteModal?.saving}
-                        className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"
-                        data-tooltip="Ajustar créditos de IA"
-                        aria-label="Ajustar créditos de IA"
-                      >
-                        <Zap size={16} />
-                      </button>
+                      <div className="flex items-center gap-0.5">
+                        {r.sub && (
+                          <button
+                            type="button"
+                            onClick={() => openAjuste(r.sub, r.docente)}
+                            disabled={ajusteModal?.subId === r.sub.id && ajusteModal?.saving}
+                            className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"
+                            aria-label="Ajustar créditos de IA"
+                            title="Ajustar créditos de IA"
+                          >
+                            <Zap size={16} />
+                          </button>
+                        )}
+                        {r.uid && (
+                          <button
+                            type="button"
+                            onClick={() => openDeleteModal(r.uid, r.docente, r.correo)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 rounded"
+                            aria-label="Eliminar cuenta"
+                            title="Eliminar cuenta del docente"
+                          >
+                            <UserX size={16} />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -663,6 +700,51 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
           </div>
         )}
       </div>
+
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-xl">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-on-surface">Eliminar cuenta</h3>
+              <button type="button" onClick={() => !deleteModal.saving && setDeleteModal(null)} aria-label="Cerrar">
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+            <p className="text-sm text-muted mb-0.5">
+              Docente: <strong className="text-on-surface">{deleteModal.docente}</strong>
+            </p>
+            <p className="text-sm text-muted mb-4 truncate">{deleteModal.correo}</p>
+            <div className="text-sm bg-red-50 border border-red-200 rounded p-3 mb-5 space-y-1.5">
+              <p className="font-semibold text-red-700">Esta acción es permanente e irreversible:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-red-600">
+                <li>Se elimina la cuenta de Firebase Auth</li>
+                <li>Se borran todos sus datos de Firestore</li>
+                <li>Se eliminan sus archivos en Cloudinary</li>
+                <li>Sus alumnos sin otras clases también se eliminan</li>
+              </ul>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => !deleteModal.saving && setDeleteModal(null)}
+                disabled={deleteModal.saving}
+                className="flex-1 py-2 border border-outline-variant text-muted font-semibold rounded text-sm disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleteModal.saving}
+                className="flex-1 py-2 bg-red-600 text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {deleteModal.saving ? <Spinner size="sm" /> : null}
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {ajusteModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">

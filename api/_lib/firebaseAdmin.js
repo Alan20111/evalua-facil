@@ -47,8 +47,13 @@ export async function verifyRequest(req) {
   // no traer token: 401. Sin este catch, el error de Firebase salía tal cual
   // con status 500 — que además de ser el código equivocado, le devolvía a
   // quien lo intentara el mensaje interno de la librería.
+  // checkRevoked: true hace un roundtrip a Firebase Auth para verificar que los
+  // refresh tokens del usuario siguen vigentes y que la cuenta no fue eliminada.
+  // Sin esto, un ID token emitido antes de revokeRefreshTokens/deleteUser sigue
+  // pasando la validación hasta que expira (hasta 1 h) — cualquier cuenta
+  // eliminada podría seguir llegando a los endpoints durante esa ventana.
   try {
-    return await getAuth().verifyIdToken(token)
+    return await getAuth().verifyIdToken(token, true)
   } catch {
     const err = new Error('Sesión no válida')
     err.status = 401
