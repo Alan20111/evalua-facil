@@ -231,6 +231,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   // metadata de OTRO usuario. Si falla, la columna se queda en guion: es un
   // dato de apoyo, no debe tumbar la tabla.
   const [accesos, setAccesos] = useState({})
+  const [creadoEnMap, setCreadoEnMap] = useState({})
   const [creditosMap, setCreditosMap] = useState({})
   const teachers = useMemo(() => stats?.teachers || [], [stats?.teachers])
   const teachersMap = useMemo(() => Object.fromEntries(teachers.map((t) => [t.id, t])), [teachers])
@@ -247,7 +248,10 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         body: JSON.stringify({ uids: teachers.map((t) => t.id) }),
       }))
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (!cancelado && data?.accesos) setAccesos(data.accesos) })
+      .then((data) => {
+        if (!cancelado && data?.accesos) setAccesos(data.accesos)
+        if (!cancelado && data?.creadoEn) setCreadoEnMap(data.creadoEn)
+      })
       .catch(() => {})
     return () => { cancelado = true }
   }, [currentUser, teachers])
@@ -286,10 +290,15 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     // habrían desaparecido del panel, que es justo lo que no debe pasar.
     const construir = (sub, teacher) => {
       const school = schoolsMap[teacher?.escuelaId]
-      // Alta: si hay suscripción, es su fecha de inicio. Si no, es cuándo se
-      // creó la cuenta del docente (users/{uid}.createdAt).
-      const altaValor = sub ? (sub.fechaInicio || sub.createdAt) : teacher?.createdAt || null
-      const alta = toDate(altaValor)
+      // Alta: cadena de fallback:
+      //   1. fechaInicio de la suscripción (si la hay)
+      //   2. createdAt del doc users/{uid} (si se guardó al registrar)
+      //   3. creationTime de Firebase Auth (devuelto por el endpoint last-access)
+      let alta = sub
+        ? toDate(sub.fechaInicio || sub.createdAt)
+        : toDate(teacher?.createdAt)
+      if (!alta && creadoEnMap[teacher?.id]) alta = new Date(creadoEnMap[teacher?.id])
+      const altaValor = alta
       // Vencimiento REAL: en las pruebas se recalcula desde el inicio (ver
       // effectiveVencimiento) en vez de confiar en el campo guardado.
       const vencValor = sub ? effectiveVencimiento(sub) : null
@@ -381,7 +390,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     const porFechaAsc = [...todasLasFilas].sort((a, b) => (a.cuentaMs || 0) - (b.cuentaMs || 0))
     const rankMap = new Map(porFechaAsc.map((r, i) => [r.id, i + 1]))
     return todasLasFilas.map((r) => ({ ...r, rank: rankMap.get(r.id) || 0 }))
-  }, [stats, teachers, teachersMap, accesos])
+  }, [stats, teachers, teachersMap, accesos, creadoEnMap])
 
   // Orden fijo: la suscripción más reciente hasta arriba; dentro del mismo día
   // desempata el nombre del docente.
@@ -616,8 +625,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-on-surface">
-                    {r.uid && !r.sub?.cuentaEliminada && creditosMap[r.uid] !== undefined
-                      ? creditosMap[r.uid].toLocaleString('es-MX')
+                    {r.uid && !r.sub?.cuentaEliminada
+                      ? (creditosMap[r.uid] ?? 0).toLocaleString('es-MX')
                       : '—'}
                   </td>
                   {/* Mismo criterio de lectura rápida que la columna Días:

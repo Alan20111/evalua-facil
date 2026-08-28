@@ -84,12 +84,16 @@ async function handleLastAccess(req, res) {
 
   const auth = getAuth()
   const accesos = {}
+  const creadoEn = {}
   for (let i = 0; i < uids.length; i += 100) {
     const lote = uids.slice(i, i + 100).map((id) => ({ uid: id }))
     const { users } = await auth.getUsers(lote)
-    users.forEach((u) => { accesos[u.uid] = u.metadata?.lastSignInTime || null })
+    users.forEach((u) => {
+      accesos[u.uid] = u.metadata?.lastSignInTime || null
+      creadoEn[u.uid] = u.metadata?.creationTime || null
+    })
   }
-  return res.status(200).json({ accesos })
+  return res.status(200).json({ accesos, creadoEn })
 }
 
 async function handleDeleteAccount(req, res) {
