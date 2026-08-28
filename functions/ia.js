@@ -5805,36 +5805,54 @@ exports.ejecutarOperacionIA = onCall(
 
     // Métricas internas (tokens, modelo, unidades y créditos): fuera del
     // alcance del cliente.
-    db.doc(`iaConsumosInterno/${idempotencyKey}`)
-      .set({
-        uid, operacion, operacionEfectiva: operacionEfectiva !== operacion ? operacionEfectiva : undefined,
-        tipoEvidenciaTarifa: precontexto?.tipoEvidenciaTarifa || undefined,
-        ...salida.interno,
-        // Lo que de verdad se procesó (reactivos generados, entregas
-        // evaluadas, respuestas sugeridas…). Es el denominador del costo
-        // unitario real. null si el ejecutor no lo reportó (ver arriba) —
-        // nunca se rellena con el tope reservado aquí, a diferencia del cobro.
-        unidadesReales: unidadesRealesMetrica,
-        // El tope que se reservó. `n` puede ser mayor que `unidadesReales`
-        // (se reserva la estimación máxima y se liquida lo real), así que
-        // guardar ambos deja ver cuánto se sobre-reserva por operación.
-        unidadesCobradas: n,
-        // Lo que se cobró en créditos. En el camino diferido todavía no se
-        // sabe: lo liquida `confirmarJuego` (functions/juego.js), que
-        // completa este mismo documento al hacerlo.
-        // Se completa en functions/juego.js: `creditosReales` real cuando el
-        // docente confirma (confirmarJuego), o 0 si cancela el borrador
-        // (cancelarBorradorJuego). HUECO CONOCIDO: si la reserva expira SOLA
-        // (limpiarReservasHuerfanas en creditosLedger.js, sin que el docente
-        // confirme ni cancele) este registro se queda en null para siempre —
-        // no se tocó esa limpieza porque es infraestructura compartida por
-        // TODAS las operaciones, no solo el juego, y expandirla ahí es un
-        // cambio aparte.
-        creditosReales: salida.diferirLiquidacion ? null : creditosReales,
-        liquidacionDiferida: !!salida.diferirLiquidacion,
-        createdAt: FieldValue.serverTimestamp(),
-      })
-      .catch((err) => logger.error('iaConsumosInterno:', err))
+    //
+    // CORRECCIÓN 28-ago-2026: los campos `operacionEfectiva` y
+    // `tipoEvidenciaTarifa` solo existen en operaciones con tarifa
+    // diferenciada (calificar_entregable_ia con imágenes). Para todas las
+    // demás el valor era `undefined`, que Firestore rechaza síncronamente
+    // en `WriteBatch.set()` ANTES de devolver la Promise — el `.catch()`
+    // nunca llegaba a interceptarlo, el throw síncrono propagaba por el
+    // handler y Cloud Functions devolvía INTERNAL al cliente en TODAS las
+    // operaciones de IA. Fix: spread condicional omite el campo cuando no
+    // aplica (Firestore solo almacena los campos presentes).
+    try {
+      db.doc(`iaConsumosInterno/${idempotencyKey}`)
+        .set({
+          uid, operacion,
+          ...(operacionEfectiva !== operacion && { operacionEfectiva }),
+          ...(precontexto?.tipoEvidenciaTarifa && { tipoEvidenciaTarifa: precontexto.tipoEvidenciaTarifa }),
+          ...salida.interno,
+          // Lo que de verdad se procesó (reactivos generados, entregas
+          // evaluadas, respuestas sugeridas…). Es el denominador del costo
+          // unitario real. null si el ejecutor no lo reportó (ver arriba) —
+          // nunca se rellena con el tope reservado aquí, a diferencia del cobro.
+          unidadesReales: unidadesRealesMetrica,
+          // El tope que se reservó. `n` puede ser mayor que `unidadesReales`
+          // (se reserva la estimación máxima y se liquida lo real), así que
+          // guardar ambos deja ver cuánto se sobre-reserva por operación.
+          unidadesCobradas: n,
+          // Lo que se cobró en créditos. En el camino diferido todavía no se
+          // sabe: lo liquida `confirmarJuego` (functions/juego.js), que
+          // completa este mismo documento al hacerlo.
+          // Se completa en functions/juego.js: `creditosReales` real cuando el
+          // docente confirma (confirmarJuego), o 0 si cancela el borrador
+          // (cancelarBorradorJuego). HUECO CONOCIDO: si la reserva expira SOLA
+          // (limpiarReservasHuerfanas en creditosLedger.js, sin que el docente
+          // confirme ni cancele) este registro se queda en null para siempre —
+          // no se tocó esa limpieza porque es infraestructura compartida por
+          // TODAS las operaciones, no solo el juego, y expandirla ahí es un
+          // cambio aparte.
+          creditosReales: salida.diferirLiquidacion ? null : creditosReales,
+          liquidacionDiferida: !!salida.diferirLiquidacion,
+          createdAt: FieldValue.serverTimestamp(),
+        })
+        .catch((err) => logger.error('iaConsumosInterno (async):', err))
+    } catch (err) {
+      // Protección defensiva: si el SDK lanza síncronamente (p. ej. un campo
+      // inválido que escapó la validación previa), solo se pierde la métrica
+      // — la operación de IA ya completó y el crédito se liquida igualmente.
+      logger.error('iaConsumosInterno (sync throw):', err)
+    }
 
     // CORRECCIÓN 23-ago-2026 (Crucigrama/Sopa de letras, decisión de Kike):
     // si el ejecutor pide diferir la liquidación (hoy solo
