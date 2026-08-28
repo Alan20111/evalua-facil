@@ -105,10 +105,10 @@ function construirSopaDeLetras(palabrasNormalizadas, tamano) {
   let size
   let TOPE_SIZE
   if (tamano) {
-    // El docente eligió tamaño: arrancamos desde ahí (sin bajar de la
-    // palabra más larga) y damos un margen de +2 antes de fallar.
-    size = Math.max(tamano, maxLongitud)
-    TOPE_SIZE = Math.max(tamano + 2, maxLongitud + 1)
+    // Tamaño exacto del docente — autoridad absoluta, sin expandir nunca.
+    // juego.js ya rechazó palabras más largas que tamano antes de llegar aquí.
+    size = tamano
+    TOPE_SIZE = tamano
   } else {
     size = Math.max(maxLongitud, Math.ceil(Math.sqrt(palabrasNormalizadas.reduce((s, p) => s + p.length, 0) * 1.8)))
     size = Math.max(size, 8)
