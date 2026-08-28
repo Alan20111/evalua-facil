@@ -5671,7 +5671,7 @@ function comoHttpsError(e) {
     return new HttpsError(codigos[e.codigo] || 'failed-precondition', e.message, { codigo: e.codigo, ...e.datos })
   }
   logger.error('ejecutarOperacionIA: error inesperado', e)
-  return new HttpsError('internal', 'No se pudo completar la operación. No se descontaron créditos.')
+  return new HttpsError('unavailable', 'No se pudo completar la operación. No se descontaron créditos.')
 }
 
 // timeoutSeconds 300: los lotes de C-02 (p. ej. 50 estudiantes × 3 abiertas)
