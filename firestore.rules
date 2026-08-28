@@ -333,7 +333,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if true;
+      allow read: if request.auth != null;
       // El perfil se crea UNA sola vez y lo escribe su propio dueño, así que es
       // la única escritura donde nadie estaba mirando: el `update` de abajo
       // congela `suscripcionHasta`, pero al crear se podía traer puesto. Un
@@ -1032,10 +1032,11 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Public payment configuration (display data only: public keys, bank info).
-    // Secrets (access tokens / client secrets) live in server env vars, never here.
+    // App configuration: IA rates, payment settings, etc.
+    // Only authenticated users read this; secrets never land here (those live in
+    // server env vars), but payment config (CLABE) warrants authentication anyway.
     match /config/{docId} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if isAdmin();
     }
 
