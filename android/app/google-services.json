@@ -51,6 +51,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "398556067679-ach8uggnpumeu9vv43nqiig35mrjrtt0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "mx.evaluafacil.app",
+            "certificate_hash": "a7dcde188ab59d961bebc3e97ec6b9e4f8588c85"
+          }
+        },
+        {
+          "client_id": "398556067679-i9kep7j8ge6ktb4djtj1e36t21vcmkd2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "mx.evaluafacil.app",
+            "certificate_hash": "16b140386e16cee0add328be56dc8ba2e57e9fff"
+          }
+        },
+        {
           "client_id": "398556067679-pstbut6adanaaprlal5jls99mp8l7rtm.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
