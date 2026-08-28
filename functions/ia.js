@@ -2582,6 +2582,11 @@ async function precheckGenerarContenidoJuego({ uid, params }) {
   const modalidad = MODALIDADES_JUEGO.includes(params?.modalidad) ? params.modalidad : 'palabra'
   const cantidad = clampInt(params?.cantidadPalabras, 10, MIN_PALABRAS_JUEGO, MAX_PALABRAS_JUEGO)
   const contexto = String(params?.contexto || '').trim().slice(0, MAX_CONTEXTO_JUEGO)
+  // Solo sopa de letras: el docente eligió el tamaño del tablero; la IA debe
+  // generar palabras que quepan dentro de ese número de letras.
+  const tamanoSopa = act.tipoJuego === 'sopa_letras'
+    ? clampInt(params?.tamanoSopa, 10, 8, 20)
+    : null
 
   // Documento opcional (máx 1, PDF o .docx — FuentesIAInput ya lo limita en
   // el cliente; aquí solo se toma el primero por si acaso).
@@ -2594,6 +2599,7 @@ async function precheckGenerarContenidoJuego({ uid, params }) {
     cantidad,
     contexto,
     bloqueFuentes,
+    tamanoSopa,
   }
 }
 
@@ -2617,7 +2623,7 @@ function promptContenidoJuego(ctx, asignatura) {
     (conDescripcion
       ? '\nModalidad "descripcion": cada palabra debe venir con una pista/descripción breve (sin decir la palabra), como en un crucigrama.\n'
       : '\nModalidad "palabra": solo la lista de palabras, sin descripción.\n') +
-    `\nCada palabra: una sola palabra (sin espacios), entre 3 y 15 letras, en español (con acentos/Ñ si aplica).\n\n` +
+    `\nCada palabra: una sola palabra (sin espacios), entre 3 y ${ctx.tamanoSopa || 15} letras, en español (con acentos/Ñ si aplica).${ctx.tamanoSopa ? ` IMPORTANTE: ninguna palabra puede tener más de ${ctx.tamanoSopa} letras porque el tablero es de ${ctx.tamanoSopa} × ${ctx.tamanoSopa}.` : ''}\n\n` +
     'Responde SOLO con este JSON:\n' +
     '{\n' +
     `  "palabras": [\n` +
@@ -2697,7 +2703,8 @@ function normalizarListaContenidoJuego(lista, ctx) {
   const out = []
   for (const it of (Array.isArray(lista) ? lista : [])) {
     const palabra = String(it?.palabra || '').trim().replace(/\s+/g, '')
-    if (palabra.length < 2 || palabra.length > 20) continue
+    const maxLen = ctx.tamanoSopa || 20
+    if (palabra.length < 2 || palabra.length > maxLen) continue
     const clave = palabra.toUpperCase()
     if (vistos.has(clave)) continue
     vistos.add(clave)
