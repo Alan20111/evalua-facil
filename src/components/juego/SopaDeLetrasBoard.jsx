@@ -106,7 +106,8 @@ export default function SopaDeLetrasBoard({ estructura, encontradas = [], onEnco
               onMouseDown={() => handleDown(r, c)}
               onMouseEnter={() => { if (inicio) setActual({ r, c }) }}
               onTouchStart={() => handleDown(r, c)}
-              className={`flex items-center justify-center text-[10px] sm:text-sm font-semibold border border-outline-variant
+              style={{ fontSize: `calc(min(100vw, 28rem) / ${size} * 0.52)` }}
+              className={`flex items-center justify-center font-semibold border border-outline-variant
                 ${enc ? 'bg-accent text-white' : sel ? 'bg-[var(--accent-tint)] text-accent' : 'bg-surface text-on-surface'}`}>
               {letra}
             </button>
