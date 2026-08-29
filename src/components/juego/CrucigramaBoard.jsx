@@ -1,4 +1,4 @@
-// Crucigrama — tablero interactivo (28-ago-2026).
+// Crucigrama — tablero interactivo (29-ago-2026).
 //
 // DOCENTE vs ESTUDIANTE:
 //   modoDocente=true  → pistas muestran `descripcion || palabra` (el docente
@@ -19,8 +19,13 @@
 // `readOnly` — modo solo lectura (revisión del docente sobre la entrega del alumno).
 // `estadoCorrecto` — mapa { "r-c": true|false } para pintar verde/rojo
 //   (solo lo usa ResolucionJuegoModal; ningún otro caller lo pasa).
+//
+// DIAGNÓSTICO TEMPORAL (Backspace Android):
+//   Los console.log con prefijo [EF-crucigrama] están aquí para detectar qué
+//   evento real llega desde el teclado virtual de Android/Capacitor WebView.
+//   Se eliminan una vez confirmado el fix en dispositivo físico.
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect, useLayoutEffect } from 'react'
 import { resolverBackspace } from '../../utils/crucigramaBackspace.js'
 
 export default function CrucigramaBoard({
@@ -37,6 +42,30 @@ export default function CrucigramaBoard({
   const [activaIdx, setActivaIdx] = useState(null)
 
   const palabraActiva = activaIdx != null ? palabras[activaIdx] : null
+
+  // ─── Anti-stale-closure para listeners nativos ────────────────────────────
+  // Los listeners nativos (añadidos vía addEventListener en useEffect) se
+  // crean UNA SOLA VEZ por elemento y quedan en memoria. Sin este ref,
+  // capturarían la versión de `celdas`/`palabraActiva` del primer render y
+  // nunca se actualizarían. useLayoutEffect actualiza el ref síncronamente
+  // después de cada commit, antes de que el usuario pueda interactuar.
+  const liveRef = useRef({ celdas: {}, palabraActiva: null, onCambioCelda: null })
+  useLayoutEffect(() => {
+    liveRef.current.celdas = celdas
+    liveRef.current.palabraActiva = palabraActiva
+    liveRef.current.onCambioCelda = onCambioCelda
+  })
+
+  // Timestamp para detectar si el Backspace ya fue procesado en este ciclo de
+  // eventos. Múltiples caminos (keydown, beforeinput, input, onChange) pueden
+  // disparar para el mismo Backspace físico; solo el primero actúa.
+  const backspaceAtRef = useRef(0)
+  const markHandled = () => { backspaceAtRef.current = performance.now() }
+  const wasHandled = () => (performance.now() - backspaceAtRef.current) < 80
+
+  // WeakMap que rastrea qué elementos ya tienen listeners nativos para no
+  // añadirlos dos veces si el componente re-renderiza con el mismo DOM.
+  const boundRef = useRef(new WeakMap())
 
   const horizontales = palabras.filter((p) => p.horizontal).sort((a, b) => (a.numero || 0) - (b.numero || 0))
   const verticales = palabras.filter((p) => !p.horizontal).sort((a, b) => (a.numero || 0) - (b.numero || 0))
@@ -70,6 +99,92 @@ export default function CrucigramaBoard({
     return p.horizontal ? { r, c: c + 1 } : { r: r + 1, c }
   }
 
+  // Aplica la lógica de Backspace usando SIEMPRE el estado más reciente
+  // (liveRef). Se invoca tanto desde listeners nativos como desde handlers
+  // de React; en ambos casos `liveRef.current` tiene el snapshot actual.
+  function aplicarBackspace(r, c) {
+    const { celdas: lc, palabraActiva: lp, onCambioCelda: loc } = liveRef.current
+    const { borrar, foco } = resolverBackspace(r, c, lc, lp)
+    if (borrar) loc?.(borrar.r, borrar.c, '')
+    if (foco) refs.current[`${foco.r}-${foco.c}`]?.focus()
+  }
+
+  // ─── Listeners nativos — bypass de la delegación de eventos de React ──────
+  // React 17+ delega eventos en la raíz del árbol. En Capacitor/Android
+  // WebView el navegador puede procesar la eliminación de texto (IME
+  // deleteSurroundingText) ANTES de que el evento burbujee hasta React, por
+  // lo que e.preventDefault() en onBeforeInput de React llega demasiado tarde.
+  // Añadir el listener directamente en el elemento (captura en origen) evita
+  // ese retraso y garantiza que preventDefault actúe antes del cambio en el DOM.
+  useEffect(() => {
+    if (readOnly) return
+
+    Object.entries(refs.current).forEach(([key, el]) => {
+      if (!el || boundRef.current.has(el)) return
+
+      const [r, c] = key.split('-').map(Number)
+
+      // ── 1. keydown: teclado físico y Android con teclado hardware ──────────
+      const onKeyDown = (e) => {
+        console.log(
+          `[EF-crucigrama keydown] key="${e.key}" code="${e.code}" keyCode=${e.keyCode} which=${e.which}`
+        )
+        if (e.key === 'Backspace') {
+          e.preventDefault()
+          markHandled()
+          aplicarBackspace(r, c)
+        }
+      }
+
+      // ── 2. beforeinput: teclado virtual Android (debe llegar ANTES del DOM) ─
+      // inputType posibles en Android:
+      //   deleteContentBackward  → Backspace estándar
+      //   deleteCompositionText  → Backspace durante composición IME (Samsung KB)
+      //   deleteSoftLineBackward → Backspace larga pulsación en algunos teclados
+      const BACKWARD_TYPES = new Set([
+        'deleteContentBackward',
+        'deleteCompositionText',
+        'deleteSoftLineBackward',
+      ])
+      const onBeforeInput = (e) => {
+        console.log(
+          `[EF-crucigrama beforeinput] inputType="${e.inputType}" data="${e.data}"`
+        )
+        if (BACKWARD_TYPES.has(e.inputType)) {
+          e.preventDefault()
+          if (!wasHandled()) {
+            markHandled()
+            aplicarBackspace(r, c)
+          }
+        }
+      }
+
+      // ── 3. input: fallback cuando beforeinput no cancela el DOM change ─────
+      // En algunos WebViews el DOM ya fue modificado antes de que llegue
+      // beforeinput. El evento `input` (nativo, no React) llega después del
+      // cambio y aún contiene inputType con la causa real.
+      const onInput = (e) => {
+        console.log(
+          `[EF-crucigrama input] inputType="${e.inputType}" value="${el.value}"`
+        )
+        if (BACKWARD_TYPES.has(e.inputType) && !wasHandled()) {
+          markHandled()
+          aplicarBackspace(r, c)
+        }
+      }
+
+      el.addEventListener('keydown', onKeyDown)
+      el.addEventListener('beforeinput', onBeforeInput)
+      el.addEventListener('input', onInput)
+
+      boundRef.current.set(el, { onKeyDown, onBeforeInput, onInput })
+    })
+    // Sin cleanup por elemento: los listeners se eliminan automáticamente
+    // cuando el DOM element es desmontado (WeakMap lo permite GC).
+    // El cleanup del componente entero no es necesario porque los elementos
+    // se destruyen con él.
+  }) // Sin dependency array: se ejecuta tras cada render para capturar celdas nuevas
+
   function handleClickCelda(r, c) {
     if (readOnly) return
     const enCelda = palabrasEnCelda(r, c)
@@ -91,8 +206,33 @@ export default function CrucigramaBoard({
     refs.current[`${r}-${c}`]?.focus()
   }
 
-  function handleChange(r, c, valor) {
+  // ─── onChange: último fallback para Android WebView ────────────────────────
+  // Recibe el evento completo (no solo e.target.value) para poder leer
+  // e.nativeEvent.inputType. En WebViews donde ni keydown ni beforeinput
+  // funcionan, el onChange aún llega con el inputType correcto.
+  function handleChange(r, c, e) {
     if (readOnly) return
+
+    const nativeType = e?.nativeEvent?.inputType || ''
+    console.log(
+      `[EF-crucigrama React onChange] nativeInputType="${nativeType}" value="${e?.target?.value}"`
+    )
+
+    // Backspace detectado vía onChange (DOM ya fue modificado)
+    if (
+      nativeType === 'deleteContentBackward' ||
+      nativeType === 'deleteCompositionText' ||
+      nativeType === 'deleteSoftLineBackward'
+    ) {
+      if (!wasHandled()) {
+        markHandled()
+        aplicarBackspace(r, c)
+      }
+      // Siempre return: aunque wasHandled, no procesar como letra
+      return
+    }
+
+    const valor = e?.target?.value || ''
     const letra = valor.slice(-1).toUpperCase()
     onCambioCelda?.(r, c, letra)
     if (letra) {
@@ -101,36 +241,29 @@ export default function CrucigramaBoard({
     }
   }
 
-  // Aplica la lógica de Backspace: borra la celda indicada y mueve el foco.
-  // Centralizado aquí para que tanto onKeyDown como onBeforeInput usen el
-  // mismo comportamiento.
-  function aplicarBackspace(r, c) {
-    const { borrar, foco } = resolverBackspace(r, c, celdas, palabraActiva)
-    if (borrar) onCambioCelda?.(borrar.r, borrar.c, '')
-    if (foco) refs.current[`${foco.r}-${foco.c}`]?.focus()
-  }
-
-  // Teclado físico (desktop y Android con teclado hardware): keydown entrega
-  // key='Backspace'. e.preventDefault() evita la edición nativa del input Y,
-  // según la spec del navegador, también suprime el evento beforeinput
-  // subsecuente — sin doble procesamiento.
+  // React-level keydown: backup del listener nativo (llega después, wasHandled
+  // lo detecta y lo descarta si el nativo ya actuó).
   function handleKeyDown(r, c, e) {
     if (readOnly) return
     if (e.key === 'Backspace') {
       e.preventDefault()
-      aplicarBackspace(r, c)
+      if (!wasHandled()) {
+        markHandled()
+        aplicarBackspace(r, c)
+      }
     }
   }
 
-  // Teclado virtual Android: keydown dispara con key='Unidentified' (nunca
-  // 'Backspace'), pero beforeinput sí llega con inputType='deleteContentBackward'.
-  // Solo se activa cuando keydown NO suprimió el beforeinput (es decir, solo
-  // en el caso del teclado virtual que el keydown no alcanzó a manejar).
+  // React-level beforeinput: backup del listener nativo.
   function handleBeforeInput(r, c, e) {
     if (readOnly) return
-    if (e.inputType === 'deleteContentBackward') {
+    const BACKWARD_TYPES = ['deleteContentBackward', 'deleteCompositionText', 'deleteSoftLineBackward']
+    if (BACKWARD_TYPES.includes(e.inputType)) {
       e.preventDefault()
-      aplicarBackspace(r, c)
+      if (!wasHandled()) {
+        markHandled()
+        aplicarBackspace(r, c)
+      }
     }
   }
 
@@ -142,8 +275,6 @@ export default function CrucigramaBoard({
 
   function textoClue(p) {
     if (modoDocente) return p.descripcion || p.palabra || ''
-    // En modo estudiante NUNCA revelar la palabra. Si no hay pista, es un error
-    // de datos (el editor ya lo bloquea): mostrar advertencia en lugar de la respuesta.
     return p.descripcion || '⚠ sin pista'
   }
 
@@ -157,7 +288,6 @@ export default function CrucigramaBoard({
         {grid.map(({ row: fila = [] } = {}, r) =>
           fila.map((letra, c) => {
             if (!letra) return <div key={`${r}-${c}`} className="bg-transparent" />
-            // Celda que inicia una palabra (para mostrar su número)
             const inicioP = palabras.find((pp) => pp.fila === r && pp.col === c)
             const correcto = estadoCorrecto?.[`${r}-${c}`]
             const enActiva = !readOnly && esEnActiva(r, c)
@@ -186,7 +316,12 @@ export default function CrucigramaBoard({
                   value={celdas[`${r}-${c}`] || ''}
                   disabled={readOnly}
                   maxLength={1}
-                  onChange={(e) => handleChange(r, c, e.target.value)}
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  autoComplete="off"
+                  spellCheck={false}
+                  enterKeyHint="next"
+                  onChange={(e) => handleChange(r, c, e)}
                   onKeyDown={(e) => handleKeyDown(r, c, e)}
                   onBeforeInput={(e) => handleBeforeInput(r, c, e)}
                   onFocus={() => {
