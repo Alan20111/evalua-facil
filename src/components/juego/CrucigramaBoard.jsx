@@ -21,6 +21,7 @@
 //   (solo lo usa ResolucionJuegoModal; ningún otro caller lo pasa).
 
 import { useRef, useState } from 'react'
+import { resolverBackspace } from '../../utils/crucigramaBackspace.js'
 
 export default function CrucigramaBoard({
   estructura,
@@ -69,15 +70,6 @@ export default function CrucigramaBoard({
     return p.horizontal ? { r, c: c + 1 } : { r: r + 1, c }
   }
 
-  // Celda anterior en la palabra activa desde (r, c)
-  function anterior(r, c) {
-    if (!palabraActiva) return null
-    const p = palabraActiva
-    const i = p.horizontal ? c - p.col : r - p.fila
-    if (i <= 0) return null
-    return p.horizontal ? { r, c: c - 1 } : { r: r - 1, c }
-  }
-
   function handleClickCelda(r, c) {
     if (readOnly) return
     const enCelda = palabrasEnCelda(r, c)
@@ -109,21 +101,36 @@ export default function CrucigramaBoard({
     }
   }
 
+  // Aplica la lógica de Backspace: borra la celda indicada y mueve el foco.
+  // Centralizado aquí para que tanto onKeyDown como onBeforeInput usen el
+  // mismo comportamiento.
+  function aplicarBackspace(r, c) {
+    const { borrar, foco } = resolverBackspace(r, c, celdas, palabraActiva)
+    if (borrar) onCambioCelda?.(borrar.r, borrar.c, '')
+    if (foco) refs.current[`${foco.r}-${foco.c}`]?.focus()
+  }
+
+  // Teclado físico (desktop y Android con teclado hardware): keydown entrega
+  // key='Backspace'. e.preventDefault() evita la edición nativa del input Y,
+  // según la spec del navegador, también suprime el evento beforeinput
+  // subsecuente — sin doble procesamiento.
   function handleKeyDown(r, c, e) {
     if (readOnly) return
     if (e.key === 'Backspace') {
       e.preventDefault()
-      const tieneletra = !!celdas[`${r}-${c}`]
-      if (tieneletra) {
-        // Borrar letra actual y retroceder
-        onCambioCelda?.(r, c, '')
-        const prev = anterior(r, c)
-        if (prev) refs.current[`${prev.r}-${prev.c}`]?.focus()
-      } else {
-        // Celda vacía: solo retroceder (sin borrar la anterior)
-        const prev = anterior(r, c)
-        if (prev) refs.current[`${prev.r}-${prev.c}`]?.focus()
-      }
+      aplicarBackspace(r, c)
+    }
+  }
+
+  // Teclado virtual Android: keydown dispara con key='Unidentified' (nunca
+  // 'Backspace'), pero beforeinput sí llega con inputType='deleteContentBackward'.
+  // Solo se activa cuando keydown NO suprimió el beforeinput (es decir, solo
+  // en el caso del teclado virtual que el keydown no alcanzó a manejar).
+  function handleBeforeInput(r, c, e) {
+    if (readOnly) return
+    if (e.inputType === 'deleteContentBackward') {
+      e.preventDefault()
+      aplicarBackspace(r, c)
     }
   }
 
@@ -181,6 +188,7 @@ export default function CrucigramaBoard({
                   maxLength={1}
                   onChange={(e) => handleChange(r, c, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(r, c, e)}
+                  onBeforeInput={(e) => handleBeforeInput(r, c, e)}
                   onFocus={() => {
                     if (readOnly || activaIdx != null) return
                     const enCelda = palabrasEnCelda(r, c)

@@ -26,6 +26,7 @@ import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
+import { resolverBackspace } from '../src/utils/crucigramaBackspace.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -1950,6 +1951,177 @@ caso('LIMITE_CHAT_DIARIO es 50, igual para todo docente (modelo de créditos pur
 
 caso('ACCIONES_ACTIVIDAD cubre entregable y observación, no examen (examen tiene su propia operación de cobro)', () => {
   assert.deepStrictEqual(FIA.ACCIONES_ACTIVIDAD, ['CREAR_ACTIVIDAD_ENTREGABLE', 'CREAR_ACTIVIDAD_OBSERVACION'])
+})
+
+// ═══ Crucigrama — Backspace (resolverBackspace) ═══════════════════════════════
+//
+// resolverBackspace es la función PURA que decide qué celda borrar y a dónde
+// mover el foco cuando el estudiante presiona Backspace.
+//
+// En CrucigramaBoard.jsx, esta misma función es invocada desde DOS manejadores:
+//   • onKeyDown  → teclado físico (desktop, Android con teclado hardware)
+//                  condición: e.key === 'Backspace'
+//   • onBeforeInput → teclado virtual Android (Gboard, Samsung Keyboard, etc.)
+//                     condición: e.inputType === 'deleteContentBackward'
+//
+// El contrato de "deleteContentBackward" (teclado virtual Android) no se puede
+// verificar con Node.js puro — requeriría un entorno JSDOM/Capacitor real. Los
+// casos aquí prueban la lógica de decisión que AMBOS manejadores comparten.
+
+grupo('Crucigrama — Backspace (resolverBackspace)')
+
+// Fixtures mínimos de palabraActiva
+const HORIZONTAL = { horizontal: true, fila: 0, col: 0, longitud: 4, index: 0 }
+const VERTICAL   = { horizontal: false, fila: 0, col: 0, longitud: 4, index: 1 }
+// Palabra que empieza en (2, 2) horizontal — para intersecciones
+const HORIZ_MID  = { horizontal: true, fila: 2, col: 2, longitud: 4, index: 2 }
+
+// ─── Caso 1: Backspace sobre casilla con letra ────────────────────────────────
+caso('1. Backspace con letra: borra ESTA celda y mueve foco a la anterior', () => {
+  const celdas = { '0-0': 'A', '0-1': 'B', '0-2': 'C' }
+  const { borrar, foco } = resolverBackspace(0, 2, celdas, HORIZONTAL)
+  assert.deepStrictEqual(borrar, { r: 0, c: 2 }, 'debe borrar la celda actual')
+  assert.deepStrictEqual(foco,   { r: 0, c: 1 }, 'debe mover foco a la anterior')
+})
+
+// ─── Caso 2: Backspace sobre casilla vacía ────────────────────────────────────
+caso('2. Backspace casilla vacía: mueve foco a la anterior Y borra su letra', () => {
+  const celdas = { '0-0': 'A', '0-1': 'B' } // casilla 0-2 vacía
+  const { borrar, foco } = resolverBackspace(0, 2, celdas, HORIZONTAL)
+  assert.deepStrictEqual(borrar, { r: 0, c: 1 }, 'debe borrar la celda anterior (tiene letra)')
+  assert.deepStrictEqual(foco,   { r: 0, c: 1 }, 'debe mover foco a la anterior')
+})
+
+caso('2b. Backspace casilla vacía, anterior también vacía: mueve foco pero no borra nada', () => {
+  const celdas = { '0-0': 'A' } // casillas 0-1 y 0-2 vacías
+  const { borrar, foco } = resolverBackspace(0, 2, celdas, HORIZONTAL)
+  assert.strictEqual(borrar, null, 'la anterior está vacía: no borrar')
+  assert.deepStrictEqual(foco, { r: 0, c: 1 })
+})
+
+// ─── Caso 3: Inicio de palabra ────────────────────────────────────────────────
+caso('3. Backspace al inicio de la palabra: no hace nada (null, null)', () => {
+  const celdas = { '0-0': 'A', '0-1': 'B', '0-2': 'C' }
+  const { borrar, foco } = resolverBackspace(0, 0, celdas, HORIZONTAL)
+  assert.strictEqual(borrar, null, 'no debe borrar — es la primera casilla')
+  assert.strictEqual(foco,  null, 'no debe mover foco fuera de la palabra')
+})
+
+caso('3b. Inicio sin palabra activa: tampoco hace nada', () => {
+  const { borrar, foco } = resolverBackspace(0, 0, {}, null)
+  assert.strictEqual(borrar, null)
+  assert.strictEqual(foco,  null)
+})
+
+// ─── Caso 4: Horizontal ───────────────────────────────────────────────────────
+caso('4. Backspace horizontal: retrocede en columna, no cambia fila', () => {
+  const celdas = { '0-0': 'A', '0-1': 'B', '0-2': 'C', '0-3': 'D' }
+  const { borrar, foco } = resolverBackspace(0, 3, celdas, HORIZONTAL)
+  assert.deepStrictEqual(borrar, { r: 0, c: 3 })
+  assert.deepStrictEqual(foco,   { r: 0, c: 2 })
+  // La fila no debe cambiar
+  assert.strictEqual(foco.r, 0)
+})
+
+// ─── Caso 5: Vertical ─────────────────────────────────────────────────────────
+caso('5. Backspace vertical: retrocede en fila, no cambia columna', () => {
+  const celdas = { '0-0': 'A', '1-0': 'B', '2-0': 'C', '3-0': 'D' }
+  const { borrar, foco } = resolverBackspace(3, 0, celdas, VERTICAL)
+  assert.deepStrictEqual(borrar, { r: 3, c: 0 })
+  assert.deepStrictEqual(foco,   { r: 2, c: 0 })
+  // La columna no debe cambiar
+  assert.strictEqual(foco.c, 0)
+})
+
+caso('5b. Backspace vertical, inicio de la palabra vertical: no hace nada', () => {
+  const celdas = { '0-0': 'A' }
+  const { borrar, foco } = resolverBackspace(0, 0, celdas, VERTICAL)
+  assert.strictEqual(borrar, null)
+  assert.strictEqual(foco,  null)
+})
+
+// ─── Caso 6: Intersección ─────────────────────────────────────────────────────
+caso('6. Backspace en intersección respeta la dirección activa (horizontal)', () => {
+  // Celda (2, 3) pertenece a la palabra horizontal HORIZ_MID (fila 2, col 2..5)
+  // y supongamos también a una vertical. El resultado debe respetar HORIZ_MID.
+  const celdas = { '2-2': 'A', '2-3': 'B', '2-4': 'C' }
+  const { borrar, foco } = resolverBackspace(2, 3, celdas, HORIZ_MID)
+  assert.deepStrictEqual(borrar, { r: 2, c: 3 }, 'borra la celda actual (H)')
+  assert.deepStrictEqual(foco,   { r: 2, c: 2 }, 'retrocede en la misma fila (H)')
+})
+
+caso('6b. Backspace en intersección respeta la dirección activa (vertical)', () => {
+  // Celda (1, 0) pertenece a la palabra vertical VERTICAL (fila 0..3, col 0)
+  const celdas = { '0-0': 'A', '1-0': 'B' }
+  const { borrar, foco } = resolverBackspace(1, 0, celdas, VERTICAL)
+  assert.deepStrictEqual(borrar, { r: 1, c: 0 }, 'borra la celda actual (V)')
+  assert.deepStrictEqual(foco,   { r: 0, c: 0 }, 'retrocede en la misma columna (V)')
+})
+
+// ─── Caso 7: Dos Backspace consecutivos ───────────────────────────────────────
+caso('7. Dos Backspace consecutivos (simulados): A B C D → A B C _ → A B _ _', () => {
+  let celdas = { '0-0': 'A', '0-1': 'B', '0-2': 'C', '0-3': 'D' }
+  // Primer Backspace desde (0,3) con letra
+  let res = resolverBackspace(0, 3, celdas, HORIZONTAL)
+  assert.deepStrictEqual(res.borrar, { r: 0, c: 3 })
+  assert.deepStrictEqual(res.foco,   { r: 0, c: 2 })
+  // Aplicamos el borrado
+  celdas = { ...celdas, '0-3': '' }
+
+  // Segundo Backspace desde (0,2) — todavía tiene 'C'
+  res = resolverBackspace(0, 2, celdas, HORIZONTAL)
+  assert.deepStrictEqual(res.borrar, { r: 0, c: 2 })
+  assert.deepStrictEqual(res.foco,   { r: 0, c: 1 })
+})
+
+// ─── Caso 8: Tres Backspace consecutivos ──────────────────────────────────────
+caso('8. Tres Backspace consecutivos: A B C _ → A B _ _ → A _ _ _ → _ _ _ _ (cursor en 0,0)', () => {
+  let celdas = { '0-0': 'A', '0-1': 'B', '0-2': 'C' } // 0-3 vacío
+
+  // Desde (0,3) vacío: borra anterior (0,2)='C', foco a (0,2)
+  let res = resolverBackspace(0, 3, celdas, HORIZONTAL)
+  assert.deepStrictEqual(res.borrar, { r: 0, c: 2 })
+  celdas = { ...celdas, '0-2': '' }
+
+  // Desde (0,2) vacío: borra anterior (0,1)='B', foco a (0,1)
+  res = resolverBackspace(0, 2, celdas, HORIZONTAL)
+  assert.deepStrictEqual(res.borrar, { r: 0, c: 1 })
+  celdas = { ...celdas, '0-1': '' }
+
+  // Desde (0,1) vacío: borra anterior (0,0)='A', foco a (0,0)
+  res = resolverBackspace(0, 1, celdas, HORIZONTAL)
+  assert.deepStrictEqual(res.borrar, { r: 0, c: 0 })
+  assert.deepStrictEqual(res.foco,   { r: 0, c: 0 })
+})
+
+// ─── Caso 9: Escritura después de Backspace ───────────────────────────────────
+caso('9. Después de Backspace, la celda queda vacía y permite nueva escritura', () => {
+  const celdas = { '0-0': 'A', '0-1': 'B', '0-2': 'C' }
+  const { borrar } = resolverBackspace(0, 2, celdas, HORIZONTAL)
+  // Después de borrar, el estado sería '0-2': ''
+  const celdasDespues = { ...celdas, [`${borrar.r}-${borrar.c}`]: '' }
+  assert.strictEqual(celdasDespues['0-2'], '')
+  // La función no decide qué letra escribir — eso lo hace onChange. Solo
+  // verificamos que la celda queda vacía y el contrato de borrar es correcto.
+  assert.deepStrictEqual(borrar, { r: 0, c: 2 })
+})
+
+// ─── Caso 10: Cambio H/V después de Backspace ────────────────────────────────
+caso('10. Backspace H luego V: cada dirección usa su propia lógica de anterior', () => {
+  // Horizontal: en (0,2) con letra
+  const celdas = { '0-0': 'A', '0-1': 'B', '0-2': 'C' }
+  const resH = resolverBackspace(0, 2, celdas, HORIZONTAL)
+  assert.deepStrictEqual(resH.borrar, { r: 0, c: 2 })
+  assert.deepStrictEqual(resH.foco,   { r: 0, c: 1 })
+
+  // Vertical desde misma posición (0,2) pero con palabra vertical
+  const VERT2 = { horizontal: false, fila: 0, col: 2, longitud: 4, index: 3 }
+  const celdasV = { '0-2': 'C', '1-2': 'D', '2-2': 'E' }
+  const resV = resolverBackspace(2, 2, celdasV, VERT2)
+  assert.deepStrictEqual(resV.borrar, { r: 2, c: 2 })
+  assert.deepStrictEqual(resV.foco,   { r: 1, c: 2 })
+  // La columna debe ser la misma en ambos focos de V
+  assert.strictEqual(resV.foco.c, 2)
 })
 
 console.log(`\n${'─'.repeat(60)}`)
