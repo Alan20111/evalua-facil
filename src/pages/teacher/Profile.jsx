@@ -402,18 +402,14 @@ export default function Profile() {
           {!creditosIA.listo ? (
             <div className="flex justify-center py-2"><Spinner /></div>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="text-2xl font-bold text-accent tabular-nums">{creditosIA.saldo}</p>
               <p className="text-sm text-muted">
-                Los Créditos que adquieras no caducan ni se resetean. Todas las funciones de Evalúa Fácil son
-                totalmente gratuitas — asistencias, descargas y actividades incluidas. Los créditos se usan
-                únicamente para funciones de Inteligencia Artificial.
+                Usa tus créditos para las funciones de Inteligencia Artificial. Los créditos adquiridos no caducan ni se resetean.
               </p>
-              {creditosIA.saldo === 0 && (
-                <p className="text-sm text-red-600">
-                  {creditosIA.mostrarCTAActivarBienvenida
-                    ? 'Adquiere créditos para usar las funciones de IA, o disfruta de tus 30 créditos de IA de regalo activándolos para que conozcas como funciona la IA en Evalúa Fácil.'
-                    : 'Adquiere créditos para usar las funciones de IA.'}
+              {creditosIA.mostrarCTAActivarBienvenida && (
+                <p className="text-sm text-accent font-medium">
+                  🎁 Tienes 30 créditos de IA de regalo disponibles.
                 </p>
               )}
             </div>
@@ -422,15 +418,19 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => setShowActivarCreditos(true)}
-              className="mt-2 w-full py-2 border border-accent text-accent font-semibold rounded text-sm hover:bg-[var(--accent-tint)] transition-colors"
+              className="mt-3 w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors"
             >
-              Activar tus 30 créditos IA de regalo
+              Activar mis 30 créditos de regalo
             </button>
           )}
           <button
             type="button"
             onClick={() => setShowComprarCreditos(true)}
-            className="mt-2 w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors"
+            className={`mt-2 w-full py-2 font-semibold rounded text-sm transition-colors ${
+              creditosIA.mostrarCTAActivarBienvenida
+                ? 'border border-outline-variant text-muted hover:bg-surface'
+                : 'bg-accent hover:bg-accent-hover text-white'
+            }`}
           >
             Comprar créditos
           </button>
