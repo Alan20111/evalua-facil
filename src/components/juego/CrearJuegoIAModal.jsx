@@ -32,7 +32,8 @@ export default function CrearJuegoIAModal({
   const creditosIA = useCreditosIA()
   const [contexto, setContexto] = useState('')
   const [archivos, setArchivos] = useState([])
-  const [modalidad, setModalidad] = useState('palabra')
+  // Crucigrama requiere pistas — 'palabra' solo es válido para sopa de letras.
+  const [modalidad, setModalidad] = useState(tipoJuego === 'crucigrama' ? 'descripcion' : 'palabra')
   const [cantidad, setCantidad] = useState(10)
   const [tamanoSopa, setTamanoSopa] = useState(10)
   const [trabajando, setTrabajando] = useState(false)
@@ -123,10 +124,10 @@ export default function CrearJuegoIAModal({
           <div className="flex gap-3">
             <div className="flex-1">
               <label htmlFor="ia-juego-modalidad" className="block text-sm text-on-surface mb-1">Modalidad</label>
-              <select id="ia-juego-modalidad" value={modalidad} disabled={trabajando}
+              <select id="ia-juego-modalidad" value={modalidad} disabled={trabajando || tipoJuego === 'crucigrama'}
                 onChange={(e) => setModalidad(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                <option value="palabra">Solo palabra</option>
+                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60">
+                {tipoJuego !== 'crucigrama' && <option value="palabra">Solo palabra</option>}
                 <option value="descripcion">Palabra + pista</option>
               </select>
             </div>

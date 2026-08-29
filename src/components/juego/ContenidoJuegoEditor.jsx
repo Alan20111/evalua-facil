@@ -19,6 +19,9 @@ const MAX_PALABRAS = 20
 export default function ContenidoJuegoEditor({ activity, onConstruido }) {
   const toast = useToast()
   const modalidad = activity.juego?.modalidad || 'palabra'
+  // Crucigrama siempre requiere pistas aunque la modalidad guardada sea 'palabra'
+  // (actividades antiguas o creadas antes de esta restricción).
+  const mostrarDescripcion = modalidad === 'descripcion' || activity.tipoJuego === 'crucigrama'
   const [contenido, setContenido] = useState(
     (activity.juego?.contenido || []).map((it) => ({ palabra: it.palabra || '', descripcion: it.descripcion || '' }))
   )
@@ -63,6 +66,16 @@ export default function ContenidoJuegoEditor({ activity, onConstruido }) {
       vistos.add(clave)
     }
 
+    // Para crucigrama: toda palabra DEBE tener pista (el estudiante nunca ve la palabra).
+    if (activity.tipoJuego === 'crucigrama') {
+      const sinPista = limpio.filter((it) => !it.descripcion)
+      if (sinPista.length > 0) {
+        const faltantes = sinPista.map((it) => `"${it.palabra}"`).join(', ')
+        toast(`Escribe la pista para: ${faltantes}`, 'error')
+        return
+      }
+    }
+
     setConstruyendo(true)
     try {
       await guardarContenido(limpio)
@@ -82,8 +95,9 @@ export default function ContenidoJuegoEditor({ activity, onConstruido }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted">
-        Revisa y edita las palabras {modalidad === 'descripcion' ? 'y sus pistas' : ''} antes de construir
+        Revisa y edita las palabras {mostrarDescripcion ? 'y sus pistas' : ''} antes de construir
         el juego ({contenido.length}/{MAX_PALABRAS}, mínimo {MIN_PALABRAS}).
+        {activity.tipoJuego === 'crucigrama' && <span className="ml-1 text-amber-700">Todas las palabras del crucigrama deben tener pista.</span>}
       </p>
 
       <div className="space-y-2">
@@ -93,10 +107,10 @@ export default function ContenidoJuegoEditor({ activity, onConstruido }) {
               onChange={(e) => actualizar(i, 'palabra', e.target.value)}
               placeholder="Palabra"
               className="w-32 sm:w-40 px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
-            {modalidad === 'descripcion' && (
+            {mostrarDescripcion && (
               <input value={it.descripcion} disabled={trabajando}
                 onChange={(e) => actualizar(i, 'descripcion', e.target.value)}
-                placeholder="Pista / descripción"
+                placeholder={activity.tipoJuego === 'crucigrama' ? 'Pista (obligatoria)' : 'Pista / descripción'}
                 className="flex-1 px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
             )}
             <button type="button" onClick={() => eliminar(i)} disabled={trabajando}
