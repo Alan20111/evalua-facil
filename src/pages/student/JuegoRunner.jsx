@@ -26,6 +26,7 @@ import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { studentFullName } from '../../utils/studentSearch'
+import { formatTiempo } from '../../utils/formatTiempo'
 import CrucigramaBoard from '../../components/juego/CrucigramaBoard'
 import SopaDeLetrasBoard from '../../components/juego/SopaDeLetrasBoard'
 
@@ -45,6 +46,10 @@ export default function JuegoRunner() {
   const [finishing, setFinishing] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [showExitModal, setShowExitModal] = useState(false)
+  // Cronómetro ascendente: inicioMs viene de tiempoInicio del servidor →
+  // sobrevive recarga porque se lee de Firestore, no de estado local.
+  const [inicioMs, setInicioMs] = useState(null)
+  const [tiempoDisplay, setTiempoDisplay] = useState('00:00')
   const finishedRef = useRef(false)
   const saveTimer = useRef(null)
 
@@ -87,6 +92,11 @@ export default function JuegoRunner() {
         const limitMs = actData.evaluacion.tiempoLimiteMin * 60 * 1000
         const elapsedMs = Date.now() - subData.tiempoInicio.seconds * 1000
         setSecondsLeft(Math.max(0, Math.floor((limitMs - elapsedMs) / 1000)))
+      }
+      // Cronómetro: tiempoInicio es un Timestamp de servidor (escrito por
+      // handleStartOrContinueJuego). Se carga aquí para sobrevivir recargas.
+      if (subData.tiempoInicio?.seconds) {
+        setInicioMs(subData.tiempoInicio.seconds * 1000)
       }
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -158,6 +168,19 @@ export default function JuegoRunner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secondsLeft])
 
+  // Cronómetro ascendente — actualiza cada segundo el texto del display;
+  // setTiempoDisplay es suficientemente barato para no causar renders pesados.
+  useEffect(() => {
+    if (inicioMs == null) return
+    const tick = () => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - inicioMs) / 1000))
+      setTiempoDisplay(formatTiempo(elapsed) || '00:00')
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [inicioMs])
+
   if (loading || !activity) return (
     <div className="fixed inset-0 z-50 bg-surface flex items-center justify-center">
       <Spinner size="lg" />
@@ -181,6 +204,11 @@ export default function JuegoRunner() {
             {secondsLeft != null && (
               <span className={`flex items-center gap-1 text-sm font-semibold ${secondsLeft < 60 ? 'text-red-200' : 'text-white/90'}`}>
                 <Timer size={16} /> {mm}:{String(ss).padStart(2, '0')}
+              </span>
+            )}
+            {inicioMs != null && secondsLeft == null && (
+              <span className="flex items-center gap-1 text-xs text-white/70 tabular-nums">
+                <Timer size={13} /> {tiempoDisplay}
               </span>
             )}
             <button type="button" onClick={() => setShowExitModal(true)}

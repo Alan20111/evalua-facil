@@ -35,6 +35,7 @@ import { withDefaultTime } from '../../utils/activityVisibility'
 import { nowIsoLocal } from '../../utils/nowIso'
 import { studentFullName } from '../../utils/studentSearch'
 import { EVALUACION_DEFAULTS } from '../../utils/evaluacionDefaults'
+import { formatTiempo } from '../../utils/formatTiempo'
 import ContenidoJuegoEditor from './ContenidoJuegoEditor'
 import RevisionJuegoBorrador from './RevisionJuegoBorrador'
 import ResolucionJuegoModal from './ResolucionJuegoModal'
@@ -350,7 +351,12 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
                 className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-[var(--accent-tint)] transition-colors"
               >
                 <p className="text-sm text-accent underline decoration-dotted truncate">{nombre}</p>
-                <p className="text-sm font-semibold text-accent tabular-nums">{sub.calificacion}</p>
+                <span className="flex items-center gap-3 flex-shrink-0">
+                  {sub.tiempoSegundos != null && (
+                    <span className="text-xs text-muted tabular-nums">⏱ {formatTiempo(sub.tiempoSegundos)}</span>
+                  )}
+                  <span className="text-sm font-semibold text-accent tabular-nums">{sub.calificacion}</span>
+                </span>
               </button>
             ) : (
               <div key={st.id} className="flex items-center justify-between px-4 py-2.5">
