@@ -3,7 +3,7 @@
 Documento único de referencia. Escrito para que alguien (o algo) que no ha
 visto el repo pueda razonar sobre él y revisar cambios con criterio.
 
-Actualizado: 5-ago-2026.
+Actualizado: 28-ago-2026.
 
 Complemento: [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) para colores, tipografía y
 componentes visuales.
@@ -17,19 +17,20 @@ componentes visuales.
 3. [Colecciones de Firestore](#3-colecciones-de-firestore)
 4. [Actividades: el corazón](#4-actividades-el-corazón)
 5. [Evaluaciones: cuestionarios y exámenes](#5-evaluaciones-cuestionarios-y-exámenes)
-6. [Asistencia](#6-asistencia)
-7. [Calendario y horario](#7-calendario-y-horario)
-8. [Avisos](#8-avisos)
-9. [Notificaciones](#9-notificaciones)
-10. [Suscripciones y el candado](#10-suscripciones-y-el-candado)
-11. [Exportaciones](#11-exportaciones)
-12. [Panel de administración](#12-panel-de-administración)
-13. [La app Android](#13-la-app-android)
-14. [Seguridad: invariantes](#14-seguridad--invariantes-que-no-se-negocian)
-15. [Convenciones](#15-convenciones-del-proyecto)
-16. [Lógica duplicada a propósito](#16-lógica-duplicada-a-propósito-y-peligrosa)
-17. [Despliegue](#17-despliegue)
-18. [Por dónde empezar a leer](#18-por-dónde-empezar-a-leer)
+6. [Actividades interactivas: crucigrama y sopa de letras](#6-actividades-interactivas-crucigrama-y-sopa-de-letras)
+7. [Asistencia](#7-asistencia)
+8. [Calendario y horario](#8-calendario-y-horario)
+9. [Avisos](#9-avisos)
+10. [Notificaciones](#10-notificaciones)
+11. [Suscripciones y el candado](#11-suscripciones-y-el-candado)
+12. [Exportaciones](#12-exportaciones)
+13. [Panel de administración](#13-panel-de-administración)
+14. [La app Android](#14-la-app-android)
+15. [Seguridad: invariantes](#15-seguridad--invariantes-que-no-se-negocian)
+16. [Convenciones](#16-convenciones-del-proyecto)
+17. [Lógica duplicada a propósito](#17-lógica-duplicada-a-propósito-y-peligrosa)
+18. [Despliegue](#18-despliegue)
+19. [Por dónde empezar a leer](#19-por-dónde-empezar-a-leer)
 
 ---
 
@@ -350,7 +351,125 @@ No confundir:
 
 ---
 
-## 6. Asistencia
+## 6. Actividades interactivas: crucigrama y sopa de letras
+
+Una actividad interactiva es una actividad con `tipo: 'juego'` y
+`categoria: 'crucigrama' | 'sopa_letras'`. El contenido (palabras y pistas)
+se genera con IA y el tablero se construye en el servidor mediante la Cloud
+Function `construirJuego`. La calificación también ocurre en el servidor
+(`onJuegoFinalizado`), nunca en el cliente.
+
+### 6.1 Datos
+
+```
+activities/{id}.juego = {
+  tipo:      'crucigrama' | 'sopa_letras',
+  estado:    'generando' | 'borrador' | 'juego_confirmado',
+  estructura: {
+    tipo:     'crucigrama' | 'sopa_letras',
+    size:     N,                        // lado del tablero (8 o 10)
+    grid:     [{ row: string[] }, …],  // N filas; Firestore prohíbe arrays anidados
+    palabras: [{ index, fila, col, horizontal, longitud, numero, palabra,
+                 descripcion, normalizada }]
+  }
+}
+
+submissions/{id}
+  alumnoId, actividadId
+  estado: 'entregado' | 'calificado'
+  calificacion                         // 0–maxCalif, un decimal
+  intentos: [{ numero, calificacion }]
+  respuestasJuego:
+    // crucigrama → { celdas: { "r-c": "LETRA" } }
+    // sopa_letras → { encontradas: [índice, …] }
+```
+
+> **Nota de formato:** `grid` almacena cada fila como `{ row: string[] }` porque
+> Firestore rechaza `Array<Array>`. El cliente y el servidor deben leer
+> `grid[r].row[c]`, no `grid[r][c]`.
+
+### 6.2 Criterios de calificación
+
+#### Crucigrama — unidad: celda/letra
+
+Cada celda con letra correcta aporta proporcionalmente al total de celdas con
+letra del tablero. Las intersecciones (celdas compartidas por dos palabras) se
+cuentan **una sola vez** porque representan una sola posición en el grid.
+
+```
+ratio        = celdas_correctas / total_celdas_con_letra
+calificacion = parseFloat((ratio * maxCalif).toFixed(1))
+```
+
+- Se permite crédito parcial: una palabra parcialmente correcta recibe
+  crédito proporcional según sus letras acertadas.
+- Cada letra se normaliza antes de comparar (`normalizarPalabra`:
+  mayúsculas, sin tildes, Ñ → N, solo A–Z).
+
+Ejemplo: 90 de 100 celdas correctas → 90 % → **9.0 / 10**.
+
+#### Sopa de letras — unidad: palabra encontrada
+
+Solo cuenta si el estudiante marcó la trayectoria completa de la palabra. No
+existe crédito parcial.
+
+```
+ratio        = palabras_encontradas / total_palabras
+calificacion = parseFloat((ratio * maxCalif).toFixed(1))
+```
+
+- Una palabra encontrada en sentido inverso es válida (la mecánica del tablero
+  la acepta).
+- Las palabras no encontradas valen 0; no hay estado intermedio.
+
+Ejemplo: 8 de 10 palabras encontradas → 80 % → **8.0 / 10**.
+
+#### Pipeline de conversión (común a ambas actividades)
+
+```js
+// functions/_shared/ponderacion.js
+normalizeGrade(ratio * 10, 10, { base: maxCalif, decimals: 1 })
+// → parseFloat(((ratio * 10 / 10) * maxCalif).toFixed(1))
+// → parseFloat((ratio * maxCalif).toFixed(1))
+```
+
+La escala máxima (`maxCalif`) la fija el docente al crear la actividad. El
+redondeo es siempre a **un decimal**.
+
+### 6.3 Principio de diseño — por qué los criterios difieren
+
+**No es un error que Crucigrama y Sopa de letras usen unidades de evaluación
+distintas.** El criterio de calificación sigue la mecánica de cada juego:
+
+| Juego | Interacción atómica | Criterio correcto |
+|---|---|---|
+| Crucigrama | El estudiante escribe una letra por celda | Por celda/letra (crédito parcial) |
+| Sopa de letras | El estudiante arrastra sobre una palabra completa | Por palabra (binario) |
+
+Forzar criterio por-palabra en el Crucigrama penalizaría un error mínimo
+(una sola letra incorrecta) igual que la ignorancia total, lo que no mide
+aprendizaje. Forzar criterio por-letra en la Sopa de letras es técnicamente
+imposible sin rediseñar la mecánica: no existe estado "encontré 3 de 4 letras
+de una palabra".
+
+Ambas actividades usan el mismo pipeline final de calificación y la misma
+escala, pero la **unidad de evaluación difiere por diseño**.
+
+### 6.4 Dónde vive el código
+
+| Componente | Archivo |
+|---|---|
+| Grading server-side | `functions/index.js` → `calificarCrucigrama()`, `calificarSopaDeLetras()` |
+| Normalización de letra | `functions/_shared/normalizarPalabra.js` |
+| Conversión de escala | `functions/_shared/ponderacion.js` → `normalizeGrade()` |
+| Política de reintentos | `functions/calificacionIntentos.js` → `resolverCalificacionFinal()` |
+| Tablero interactivo (alumno) | `src/components/juego/CrucigramaBoard.jsx`, `SopaDeLetrasBoard.jsx` |
+| Runner (alumno) | `src/pages/student/JuegoRunner.jsx` |
+| Vista docente (revisión) | `src/components/juego/ResolucionJuegoModal.jsx` |
+
+---
+
+## 7. Asistencia
 
 Un documento de `attendance` es **una columna compartida por todo el grupo**:
 una fecha + una hora de clase, con `presentes{alumnoId: bool}`,
@@ -366,7 +485,7 @@ Las columnas pueden generarse solas desde el horario del docente
 
 ---
 
-## 7. Calendario y horario
+## 8. Calendario y horario
 
 - `horarioBloques` — cada clase **materializada por fecha**, para poder mover o
   cancelar una sola sin tocar el patrón.
@@ -380,7 +499,7 @@ vista (Día / 3 días / Semana / Mes) y los helpers de `calendarEvents.js`.
 
 ---
 
-## 8. Avisos
+## 9. Avisos
 
 Comunicados del docente a todo el grupo. **No es un chat**: sin respuestas,
 comentarios ni reacciones.
@@ -397,7 +516,7 @@ docente ve el avance de lectura contando solo a esos destinatarios reales.
 
 ---
 
-## 9. Notificaciones
+## 10. Notificaciones
 
 Push por FCM, con la app instalada. Todo lo enviado queda en `notificationLog`,
 que alimenta la **Bitácora** de docente y alumno (misma tabla, distinto
@@ -425,7 +544,7 @@ del teléfono (`localReminders.js`), no push del servidor.
 
 ---
 
-## 10. Suscripciones y el candado
+## 11. Suscripciones y el candado
 
 Un solo plan mensual. En la versión 1.0.1 el único método es **transferencia**
 (Mercado Pago y PayPal están pausados; su código vive en `api/_pausado/`).
@@ -475,7 +594,7 @@ a mano desde el panel, apoyándose en la columna "Días sin accesar".
 
 ---
 
-## 11. Exportaciones
+## 12. Exportaciones
 
 Todo con membrete (escuela + docente + periodo) y marca de agua si aplica.
 **Solo desde la web**: en la app los botones se quedan a la vista y explican
@@ -495,7 +614,7 @@ dos trazos. Ya pasó una vez que salía impreso como una comilla suelta.
 
 ---
 
-## 12. Panel de administración
+## 13. Panel de administración
 
 `/admin`, solo para `role: 'admin'`. Pestañas: **Resumen** (tarjetas y
 gráficas), **Suscripciones** (una fila por docente, con plan, vencimiento,
@@ -509,7 +628,7 @@ por login y trae historia de todas las cuentas.
 
 ---
 
-## 13. La app Android
+## 14. La app Android
 
 Capacitor empaqueta `dist/`. **No descarga nada del servidor**: para ver un
 cambio hay que `npm run build && npx cap sync android` y volver a instalar.
@@ -523,7 +642,7 @@ elemento. Ponerlo dos veces abre dos huecos — ya pasó.
 
 ---
 
-## 14. Seguridad — invariantes que no se negocian
+## 15. Seguridad — invariantes que no se negocian
 
 1. Un docente solo escribe lo suyo (`ownsSubject`, `ownsActivity`).
 2. Un alumno solo escribe lo suyo (`ownsStudentDoc`), y **nunca** su
@@ -542,7 +661,7 @@ npm run test:rules      # 37 casos; requiere JDK 21+
 
 ---
 
-## 15. Convenciones del proyecto
+## 16. Convenciones del proyecto
 
 - **Azul** para docente y alumno; **guinda** en admin; **naranja** en las
   pantallas de autenticación. Cada asignatura puede reteñir su zona con
@@ -556,7 +675,7 @@ npm run test:rules      # 37 casos; requiere JDK 21+
 
 ---
 
-## 16. Lógica duplicada a propósito (y peligrosa)
+## 17. Lógica duplicada a propósito (y peligrosa)
 
 No se puede importar entre paquetes, así que estos cálculos viven en dos o tres
 lugares. **Si cambias uno, cambia los otros:**
@@ -578,7 +697,7 @@ lo viejo sigue duplicado. Un cambio al formulario hay que hacerlo en los dos.
 
 ---
 
-## 17. Despliegue
+## 18. Despliegue
 
 | Qué | Cómo | Automático |
 |---|---|---|
@@ -597,13 +716,14 @@ curl -s https://evalua-facil.vercel.app/version.json   # responde el commit desp
 
 ---
 
-## 18. Por dónde empezar a leer
+## 19. Por dónde empezar a leer
 
 | Si te toca… | Empieza por |
 |---|---|
 | Actividades y visibilidad | `src/utils/activityVisibility.js` |
 | Calificaciones | `src/utils/ponderacion.js` + pestaña Calificaciones de `teacher/SubjectPage.jsx` |
 | Evaluaciones | `src/utils/evaluacionGrading.js`, `evaluacionRespuestas.js`, `secciones.js` |
+| Juegos (crucigrama / sopa) | `functions/index.js` → `calificarCrucigrama()`, `calificarSopaDeLetras()`; §6 de este doc |
 | Asistencia | `src/utils/attendance.js`, `attendanceAuto.js` |
 | Avisos | `src/utils/avisos.js`, `src/components/AvisosGate.jsx` |
 | Notificaciones | `functions/index.js`, `src/utils/pushNotifications.js` |
