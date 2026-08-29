@@ -11,26 +11,11 @@
 // (normalizarPalabra, comparación celda por celda) pero SOLO para pintar la
 // cuadrícula; no produce ningún valor que se guarde en ningún lado.
 
-import { normalizarPalabra } from '../../utils/normalizarPalabra'
 import { formatTiempo } from '../../utils/formatTiempo'
+import { correccionesCrucigrama } from '../../utils/correccionesJuego'
 import Modal from '../ui/Modal'
 import CrucigramaBoard from './CrucigramaBoard'
 import SopaDeLetrasBoard from './SopaDeLetrasBoard'
-
-// Espejo de calificarCrucigrama (functions/index.js) — aquí solo para pintar
-// verde/rojo cada celda, nunca para escribir una calificación.
-function correccionesCrucigrama(estructura, celdasAlumno) {
-  const mapa = {}
-  for (let r = 0; r < estructura.size; r++) {
-    for (let c = 0; c < estructura.size; c++) {
-      const letraCorrecta = estructura.grid?.[r]?.row?.[c]
-      if (!letraCorrecta) continue
-      const respuesta = normalizarPalabra(celdasAlumno[`${r}-${c}`] || '')
-      mapa[`${r}-${c}`] = !!respuesta && respuesta === letraCorrecta
-    }
-  }
-  return mapa
-}
 
 export default function ResolucionJuegoModal({ open, onClose, estudianteNombre, estructura, submission }) {
   const respuestas = submission?.respuestasJuego || {}

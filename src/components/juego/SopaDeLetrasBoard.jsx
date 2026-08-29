@@ -12,7 +12,16 @@
 
 import { useRef, useState } from 'react'
 
-export default function SopaDeLetrasBoard({ estructura, encontradas = [], onEncontrada, readOnly = false }) {
+// mostrarSolucion: activar SOLO después de que el alumno haya finalizado el
+// intento. Muestra las palabras no encontradas en verde esmeralda para
+// retroalimentación; nunca durante la resolución activa.
+export default function SopaDeLetrasBoard({
+  estructura,
+  encontradas = [],
+  onEncontrada,
+  readOnly = false,
+  mostrarSolucion = false,
+}) {
   const { size, grid, palabras } = estructura
   const [inicio, setInicio] = useState(null)
   const [actual, setActual] = useState(null)
@@ -81,6 +90,17 @@ export default function SopaDeLetrasBoard({ estructura, encontradas = [], onEnco
     for (let i = 0; i < p.longitud; i++) celdasEncontradas.add(`${p.fila + p.dirFila * i}-${p.col + p.dirCol * i}`)
   })
 
+  // Celdas que el alumno NO encontró pero sí están en la solución correcta.
+  // Solo se calculan cuando mostrarSolucion=true (post-entrega). Durante la
+  // resolución activa este Set siempre está vacío.
+  const celdasSolucion = new Set()
+  if (mostrarSolucion) {
+    palabras.forEach((p) => {
+      if (encontradasSet.has(p.index)) return
+      for (let i = 0; i < p.longitud; i++) celdasSolucion.add(`${p.fila + p.dirFila * i}-${p.col + p.dirCol * i}`)
+    })
+  }
+
   return (
     <div className="space-y-4">
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions --
@@ -101,6 +121,7 @@ export default function SopaDeLetrasBoard({ estructura, encontradas = [], onEnco
           const key = `${r}-${c}`
           const sel = seleccion.has(key)
           const enc = celdasEncontradas.has(key)
+          const sol = celdasSolucion.has(key)
           return (
             <button key={key} type="button" data-r={r} data-c={c} tabIndex={-1}
               onMouseDown={() => handleDown(r, c)}
@@ -108,7 +129,7 @@ export default function SopaDeLetrasBoard({ estructura, encontradas = [], onEnco
               onTouchStart={() => handleDown(r, c)}
               style={{ fontSize: `calc(min(100vw, 28rem) / ${size} * 0.52)` }}
               className={`flex items-center justify-center font-semibold border border-outline-variant
-                ${enc ? 'bg-accent text-white' : sel ? 'bg-[var(--accent-tint)] text-accent' : 'bg-surface text-on-surface'}`}>
+                ${enc ? 'bg-accent text-white' : sol ? 'bg-emerald-500 text-white' : sel ? 'bg-[var(--accent-tint)] text-accent' : 'bg-surface text-on-surface'}`}>
               {letra}
             </button>
           )
@@ -116,16 +137,37 @@ export default function SopaDeLetrasBoard({ estructura, encontradas = [], onEnco
       </div>
 
       <ul className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-sm">
-        {palabras.map((p) => (
-          <li key={p.index} className={`px-2 py-1 rounded ${encontradasSet.has(p.index) ? 'line-through text-muted bg-surface-container' : 'text-on-surface'}`}>
-            {/* Modalidad "por descripción": SOLO la pista, nunca la palabra
-                (revelaría la respuesta) — mismo criterio que
-                CrucigramaBoard.jsx. p.descripcion solo existe cuando
-                modalidad === 'descripcion'; si no hay pista (modalidad
-                "palabra"), se muestra la palabra. */}
-            {p.descripcion || p.palabra}
-          </li>
-        ))}
+        {palabras.map((p) => {
+          const hallada = encontradasSet.has(p.index)
+          return (
+            <li
+              key={p.index}
+              className={`px-2 py-1 rounded flex items-start gap-1 ${
+                hallada
+                  ? 'line-through text-muted bg-surface-container'
+                  : mostrarSolucion
+                  ? 'text-emerald-700 bg-emerald-50'
+                  : 'text-on-surface'
+              }`}
+            >
+              {mostrarSolucion && (
+                <span className="flex-shrink-0 not-italic no-underline">
+                  {hallada ? '✅' : '❌'}
+                </span>
+              )}
+              <span>
+                {/* Modalidad "por descripción": SOLO la pista durante el juego,
+                    nunca la palabra (revelaría la respuesta). En modo solución
+                    (post-entrega) se muestra también la respuesta correcta. */}
+                {p.descripcion
+                  ? mostrarSolucion
+                    ? `${p.descripcion} → ${p.palabra}`
+                    : p.descripcion
+                  : p.palabra}
+              </span>
+            </li>
+          )
+        })}
       </ul>
     </div>
   )
