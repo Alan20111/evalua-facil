@@ -30,7 +30,7 @@ export default function CrucigramaBoard({
   estadoCorrecto = null,
   modoDocente = false,
 }) {
-  const { size, celdas: grid, palabras } = estructura
+  const { size = 0, grid = [], palabras = [] } = estructura || {}
   const refs = useRef({})
   // activaIdx: índice en `palabras` de la palabra seleccionada (null = ninguna)
   const [activaIdx, setActivaIdx] = useState(null)
@@ -147,7 +147,7 @@ export default function CrucigramaBoard({
         className="grid w-full max-w-md mx-auto"
         style={{ gridTemplateColumns: `repeat(${size}, 1fr)`, aspectRatio: '1 / 1' }}
       >
-        {grid.map((fila, r) =>
+        {grid.map(({ row: fila = [] } = {}, r) =>
           fila.map((letra, c) => {
             if (!letra) return <div key={`${r}-${c}`} className="bg-transparent" />
             // Celda que inicia una palabra (para mostrar su número)
