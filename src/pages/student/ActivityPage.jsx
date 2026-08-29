@@ -36,7 +36,8 @@ import StudentLayout from '../../components/StudentLayout'
 import Fireworks from '../../components/Fireworks'
 import RubricaTable from '../../components/rubrica/RubricaTable'
 import { ClipboardList } from 'lucide-react'
-import { PlayCircle, ListChecks, Timer, RotateCcw } from 'lucide-react'
+import { PlayCircle, ListChecks, Timer, RotateCcw, BookOpen } from 'lucide-react'
+import SolucionJuegoModal from '../../components/juego/SolucionJuegoModal'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { formatHora12FromDate } from '../../utils/formatHora'
@@ -83,6 +84,7 @@ export default function StudentActivityPage() {
   // maestro "¿ya le llegó mi trabajo?" — se le pregunta "¿te salieron fuegos
   // artificiales?" en su lugar.
   const [showFireworks, setShowFireworks] = useState(false)
+  const [solucionJuegoAbierta, setSolucionJuegoAbierta] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
@@ -690,6 +692,26 @@ export default function StudentActivityPage() {
                   <p className="text-sm text-muted flex items-center gap-2"><Clock size={17} /> Calificando…</p>
                 )}
               </div>
+            )}
+
+            {/* ── Botón Ver solución — solo post-entrega ────────────────── */}
+            {finalizadoJ && activity.juego?.estructura && (
+              <>
+                <SolucionJuegoModal
+                  open={solucionJuegoAbierta}
+                  onClose={() => setSolucionJuegoAbierta(false)}
+                  estructura={activity.juego.estructura}
+                  submission={submission}
+                />
+                <button
+                  type="button"
+                  onClick={() => setSolucionJuegoAbierta(true)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-accent text-accent font-medium rounded hover:bg-accent-light transition-colors"
+                >
+                  <BookOpen size={18} />
+                  Ver solución
+                </button>
+              </>
             )}
 
             {activity?.instrucciones && (

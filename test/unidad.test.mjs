@@ -27,6 +27,7 @@ import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
 import { resolverBackspace } from '../src/utils/crucigramaBackspace.js'
+import { correccionesCrucigrama } from '../src/utils/correccionesJuego.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -2122,6 +2123,83 @@ caso('10. Backspace H luego V: cada dirección usa su propia lógica de anterior
   assert.deepStrictEqual(resV.foco,   { r: 1, c: 2 })
   // La columna debe ser la misma en ambos focos de V
   assert.strictEqual(resV.foco.c, 2)
+})
+
+// ─── Solución post-entrega: correccionesCrucigrama ───────────────────────────
+grupo('Solución post-entrega — correccionesCrucigrama')
+
+// Crucigrama mínimo 2×2 con la palabra "GO" horizontal y "AL" vertical.
+// grid[r].row[c] = letra correcta (ya normalizada: sin acentos, mayúscula).
+const ESTRUCTURA_MIN = {
+  size: 2,
+  tipo: 'crucigrama',
+  grid: [
+    { row: ['G', 'O'] },
+    { row: ['A', null] },
+  ],
+  palabras: [
+    { horizontal: true,  fila: 0, col: 0, longitud: 2, palabra: 'GO', index: 0 },
+    { horizontal: false, fila: 0, col: 0, longitud: 2, palabra: 'GA', index: 1 },
+  ],
+}
+
+caso('CJ-01: celda correcta → true', () => {
+  const mapa = correccionesCrucigrama(ESTRUCTURA_MIN, { '0-0': 'G', '0-1': 'O', '1-0': 'A' })
+  assert.strictEqual(mapa['0-0'], true)
+  assert.strictEqual(mapa['0-1'], true)
+  assert.strictEqual(mapa['1-0'], true)
+})
+
+caso('CJ-02: celda incorrecta → false', () => {
+  const mapa = correccionesCrucigrama(ESTRUCTURA_MIN, { '0-0': 'X', '0-1': 'O', '1-0': 'A' })
+  assert.strictEqual(mapa['0-0'], false)
+  assert.strictEqual(mapa['0-1'], true)
+})
+
+caso('CJ-03: celda vacía → false', () => {
+  const mapa = correccionesCrucigrama(ESTRUCTURA_MIN, {})
+  assert.strictEqual(mapa['0-0'], false)
+  assert.strictEqual(mapa['0-1'], false)
+})
+
+caso('CJ-04: celda null en grid (fuera del crucigrama) → no aparece en mapa', () => {
+  const mapa = correccionesCrucigrama(ESTRUCTURA_MIN, {})
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(mapa, '1-1'), false)
+})
+
+caso('CJ-05: normalización — minúscula con acento equivale a la letra correcta', () => {
+  // El alumno escribe 'á' → normalizarPalabra → 'A'
+  const mapa = correccionesCrucigrama(ESTRUCTURA_MIN, { '1-0': 'á' })
+  assert.strictEqual(mapa['1-0'], true)
+})
+
+caso('CJ-06: normalización — Ñ se trata como N', () => {
+  const e = {
+    size: 1, tipo: 'crucigrama',
+    grid: [{ row: ['N'] }],
+    palabras: [],
+  }
+  const mapa = correccionesCrucigrama(e, { '0-0': 'Ñ' })
+  assert.strictEqual(mapa['0-0'], true)
+})
+
+caso('CJ-07: celdas del alumno que no corresponden a ninguna letra del grid se ignoran', () => {
+  const mapa = correccionesCrucigrama(ESTRUCTURA_MIN, { '9-9': 'Z' })
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(mapa, '9-9'), false)
+})
+
+caso('CJ-08: todas correctas — conteo', () => {
+  const mapa = correccionesCrucigrama(ESTRUCTURA_MIN, { '0-0': 'G', '0-1': 'O', '1-0': 'A' })
+  const correctas = Object.values(mapa).filter(Boolean).length
+  const total = Object.keys(mapa).length
+  assert.strictEqual(correctas, 3)
+  assert.strictEqual(total, 3)
+})
+
+caso('CJ-09: ver solución NO produce efecto secundario en la estructura original', () => {
+  const copia = JSON.parse(JSON.stringify(ESTRUCTURA_MIN))
+  correccionesCrucigrama(ESTRUCTURA_MIN, { '0-0': 'G' })
+  assert.deepStrictEqual(ESTRUCTURA_MIN, copia)
 })
 
 console.log(`\n${'─'.repeat(60)}`)
