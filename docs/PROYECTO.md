@@ -378,7 +378,10 @@ submissions/{id}
   alumnoId, actividadId
   estado: 'entregado' | 'calificado'
   calificacion                         // 0–maxCalif, un decimal
-  intentos: [{ numero, calificacion }]
+  tiempoInicio                         // Timestamp — cuando el alumno inició el intento actual
+  fechaEntrega                         // Timestamp — cuando el alumno finalizó
+  tiempoSegundos                       // number | null — duración del último intento (calculado por CF)
+  intentos: [{ numero, calificacion, tiempoSegundos }]
   respuestasJuego:
     // crucigrama → { celdas: { "r-c": "LETRA" } }
     // sopa_letras → { encontradas: [índice, …] }
@@ -455,17 +458,45 @@ de una palabra".
 Ambas actividades usan el mismo pipeline final de calificación y la misma
 escala, pero la **unidad de evaluación difiere por diseño**.
 
-### 6.4 Dónde vive el código
+### 6.4 Tiempo de resolución
+
+Cada actividad interactiva registra cuánto tardó el estudiante en resolver **cada intento**.
+El tiempo es **informativo** y nunca afecta la calificación.
+
+| Campo | Quién escribe | Significado |
+|---|---|---|
+| `tiempoInicio` | Cliente (alumno, `serverTimestamp()`) | Momento en que se abrió el intento |
+| `fechaEntrega` | Cliente (alumno, `serverTimestamp()`) | Momento en que se finalizó |
+| `tiempoSegundos` | Servidor (Cloud Function) | `fechaEntrega − tiempoInicio` en segundos |
+| `intentos[i].tiempoSegundos` | Servidor (Cloud Function) | Tiempo del intento `i` |
+
+**Cálculo**: la Cloud Function `onJuegoFinalizado` calcula `tiempoSegundos` a partir de los
+timestamps de Firestore — nunca confía en un valor enviado por el cliente. Aunque el alumno
+escribiera un `tiempoSegundos` falso, la transacción del servidor lo sobreescribiría.
+
+**Persistencia de recarga**: `tiempoInicio` se escribe en Firestore al iniciar cada intento.
+El cronómetro del cliente lee ese timestamp al arrancar `JuegoRunner`, por lo que una recarga
+de página muestra el tiempo correcto acumulado en lugar de reiniciar desde cero.
+
+**Múltiples intentos**: cada entrada de `intentos[]` conserva su propio `tiempoSegundos`.
+No se sobrescriben los tiempos anteriores.
+
+**Actividades históricas**: los intentos creados antes de esta funcionalidad no tienen
+`tiempoSegundos`. La UI muestra `—` en esos casos y sigue funcionando sin errores.
+
+### 6.5 Dónde vive el código
 
 | Componente | Archivo |
 |---|---|
-| Grading server-side | `functions/index.js` → `calificarCrucigrama()`, `calificarSopaDeLetras()` |
+| Grading + tiempo server-side | `functions/index.js` → `onJuegoFinalizado` |
 | Normalización de letra | `functions/_shared/normalizarPalabra.js` |
 | Conversión de escala | `functions/_shared/ponderacion.js` → `normalizeGrade()` |
 | Política de reintentos | `functions/calificacionIntentos.js` → `resolverCalificacionFinal()` |
+| Formato de tiempo (MM:SS / HH:MM:SS) | `src/utils/formatTiempo.js` |
 | Tablero interactivo (alumno) | `src/components/juego/CrucigramaBoard.jsx`, `SopaDeLetrasBoard.jsx` |
-| Runner (alumno) | `src/pages/student/JuegoRunner.jsx` |
-| Vista docente (revisión) | `src/components/juego/ResolucionJuegoModal.jsx` |
+| Runner (alumno) + cronómetro | `src/pages/student/JuegoRunner.jsx` |
+| Vista docente (resultados) | `src/components/juego/JuegoManager.jsx` |
+| Vista docente (resolución por alumno) | `src/components/juego/ResolucionJuegoModal.jsx` |
 
 ---
 

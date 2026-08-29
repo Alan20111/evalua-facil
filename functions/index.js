@@ -878,11 +878,20 @@ exports.onJuegoFinalizado = onDocumentWritten('submissions/{submissionId}', asyn
     const num = fresh.intentoActual || ((fresh.intentos?.length || 0) + 1)
     const previos = fresh.intentos || []
     if (previos.some((i) => i.numero === num)) return
+    // Duración calculada SERVIDOR: tiempoInicio (cuando el alumno inició este
+    // intento) y fechaEntrega (timestamp del updateDoc que disparó la CF).
+    // Nunca se confía en un valor enviado por el cliente — el alumno no escribe
+    // tiempoSegundos; si lo intentara, la transacción lo sobreescribiría igual.
+    const tiempoSegundos =
+      fresh.fechaEntrega && fresh.tiempoInicio
+        ? Math.max(0, Math.round(fresh.fechaEntrega.seconds - fresh.tiempoInicio.seconds))
+        : null
     tx.update(after.ref, {
       estado: 'calificado',
       pendienteRevision: false,
-      intentos: [...previos, { numero: num, calificacion: calificacionIntento }],
+      intentos: [...previos, { numero: num, calificacion: calificacionIntento, tiempoSegundos }],
       calificacion: resolverCalificacionFinal(previos, calificacionIntento, act.evaluacion?.conservar),
+      tiempoSegundos,
     })
   })
 })
