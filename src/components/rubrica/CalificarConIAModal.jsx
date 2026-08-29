@@ -151,6 +151,10 @@ export default function CalificarConIAModal({
   function calificacionPropuestaDe(res) {
     if (!res) return null
     if (typeof res.calificacionPropuesta === 'number') return res.calificacionPropuesta
+    if (!Array.isArray(res.criterios)) {
+      console.warn('[CalificarConIAModal] criterios no es Array:', typeof res.criterios)
+      return null
+    }
     return totalRubrica(rubrica, res.criterios.map((c2) => c2.nivel))
   }
 
@@ -356,6 +360,7 @@ export default function CalificarConIAModal({
                 </p>
               )
             }
+            if (!Array.isArray(resultado.criterios)) return null
             const faltantes = resultado.criterios
               .map((crit, i) => ({ crit, nombre: rubrica.criterios[i]?.nombre || `Criterio ${i + 1}` }))
               .filter(({ crit }) => crit.sinEvidenciaSuficiente)
@@ -372,29 +377,33 @@ export default function CalificarConIAModal({
             )
           })()}
 
-          <ul className="space-y-2 mb-4">
-            {resultado.criterios.map((crit, i) => {
-              const nombreCriterio = rubrica.criterios[i]?.nombre || `Criterio ${i + 1}`
-              const nombreNivel = crit.nivel != null ? rubrica.niveles[crit.nivel]?.nombre : null
-              return (
-                <li key={i} className="border border-outline-variant rounded-card px-3 py-2">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="text-sm font-semibold text-on-surface">{nombreCriterio}</p>
-                    {crit.sinEvidenciaSuficiente ? (
-                      <span className="flex items-center gap-1 text-xs font-medium text-amber-700 flex-shrink-0">
-                        <CircleHelp size={13} /> Sin evidencia suficiente
-                      </span>
-                    ) : (
-                      <span className="text-xs font-semibold text-accent flex-shrink-0">
-                        {esCotejo(rubrica) ? 'Cumple' : nombreNivel}
-                      </span>
-                    )}
-                  </div>
-                  {crit.evidencia && <p className="text-xs text-muted">{crit.evidencia}</p>}
-                </li>
-              )
-            })}
-          </ul>
+          {Array.isArray(resultado.criterios) ? (
+            <ul className="space-y-2 mb-4">
+              {resultado.criterios.map((crit, i) => {
+                const nombreCriterio = rubrica.criterios[i]?.nombre || `Criterio ${i + 1}`
+                const nombreNivel = crit.nivel != null ? rubrica.niveles[crit.nivel]?.nombre : null
+                return (
+                  <li key={i} className="border border-outline-variant rounded-card px-3 py-2">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="text-sm font-semibold text-on-surface">{nombreCriterio}</p>
+                      {crit.sinEvidenciaSuficiente ? (
+                        <span className="flex items-center gap-1 text-xs font-medium text-amber-700 flex-shrink-0">
+                          <CircleHelp size={13} /> Sin evidencia suficiente
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold text-accent flex-shrink-0">
+                          {esCotejo(rubrica) ? 'Cumple' : nombreNivel}
+                        </span>
+                      )}
+                    </div>
+                    {crit.evidencia && <p className="text-xs text-muted">{crit.evidencia}</p>}
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted mb-4">No se pudieron mostrar los criterios de la evaluación.</p>
+          )}
 
           {ignorados > 0 && (
             <p className="text-xs text-muted mb-3">

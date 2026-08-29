@@ -66,16 +66,18 @@ function bloquesDeTexto(texto) {
 export default function AdminChatMensaje({ texto }) {
   return bloquesDeTexto(texto).map((b, i) => {
     if (b.tipo === 'ul') {
+      const items = Array.isArray(b.items) ? b.items : []
       return (
         <ul key={i} className="list-disc pl-5 space-y-0.5 my-1 first:mt-0 last:mb-0">
-          {b.items.map((it, j) => <li key={j}>{formatearNegritas(it, `${i}-${j}`)}</li>)}
+          {items.map((it, j) => <li key={j}>{formatearNegritas(it, `${i}-${j}`)}</li>)}
         </ul>
       )
     }
     if (b.tipo === 'ol') {
+      const items = Array.isArray(b.items) ? b.items : []
       return (
         <ol key={i} className="list-decimal pl-5 space-y-0.5 my-1 first:mt-0 last:mb-0">
-          {b.items.map((it, j) => <li key={j}>{formatearNegritas(it, `${i}-${j}`)}</li>)}
+          {items.map((it, j) => <li key={j}>{formatearNegritas(it, `${i}-${j}`)}</li>)}
         </ol>
       )
     }
