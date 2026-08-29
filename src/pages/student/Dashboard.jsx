@@ -422,7 +422,7 @@ export default function StudentDashboard() {
             barra superior). Ya NO navega al perfil: la barra inferior tiene su
             propio botón "Perfil" — dos caminos al mismo destino desde la misma
             pantalla era la redundancia que Don't Make Me Think prohíbe. */}
-        <div className="md:hidden bg-surface-card rounded-card shadow-card overflow-hidden mb-4">
+        <div className={`${IS_NATIVE_APP ? '' : 'md:hidden'} bg-surface-card rounded-card shadow-card overflow-hidden mb-4`}>
           <div className="w-full flex items-center gap-3 px-4 py-4">
             {/* Pedido explícito: en la App se puede tocar la foto para
                 cambiarla al vuelo, sin entrar al perfil (en la web sigue

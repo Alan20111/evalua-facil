@@ -24,7 +24,7 @@ const NAV_TABS = [
 
 export default function StudentBottomNav() {
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom">
+    <nav className={`${IS_NATIVE_APP ? '' : 'md:hidden'} fixed bottom-0 left-0 right-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}>
       <div className="flex">
         {NAV_TABS.map(({ to, label, Icon }) => (
           <NavLink

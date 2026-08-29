@@ -126,7 +126,10 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
       <PushPermissionPrimer />
       <AvisosGate />
       {/* Mobile top bar */}
-      <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top">
+      {/* IS_NATIVE_APP: el WebView de Android a veces reporta viewport ≥768px
+          activando md:hidden — con IS_NATIVE_APP forzamos el comportamiento
+          móvil en la app nativa igual que en Layout.jsx del docente. */}
+      <header className={`${IS_NATIVE_APP ? '' : 'md:hidden'} sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top`}>
         <button
           type="button"
           onClick={() => setShowFullLogo((v) => !v)}
@@ -153,7 +156,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             blue regardless of the parent's data-role="alumno" accent override. */}
         <aside
           data-role="docente"
-          className="hidden md:flex flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20"
+          className={`${IS_NATIVE_APP ? 'hidden' : 'hidden md:flex'} flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20`}
         >
           {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
           <div className="px-3 pt-2 pb-1">
@@ -346,7 +349,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0 focus:outline-none"
+          className={`flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] ${IS_NATIVE_APP ? '' : 'md:pb-0'} focus:outline-none`}
         >
           {children}
         </main>
