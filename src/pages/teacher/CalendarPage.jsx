@@ -1768,7 +1768,7 @@ export default function CalendarPage() {
           setPickerMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
           setShowDatePicker(v => !v)
         }}
-        className="text-sm font-semibold text-on-surface px-3 min-w-[180px] text-center select-none rounded hover:bg-accent-tint transition-colors py-0.5"
+        className={`text-sm font-semibold text-on-surface px-3 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[180px] max-w-[240px]'} truncate text-center select-none rounded hover:bg-accent-tint transition-colors py-0.5`}
         data-tooltip="Ir a otra fecha"
         data-tooltip-pos="bottom"
       >
@@ -1946,7 +1946,7 @@ export default function CalendarPage() {
             <div className="flex items-center gap-2 mb-2">
               {dateNav}
             </div>
-            <div className="flex flex-nowrap items-center gap-1.5 mb-2">
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
               {hoyBtn}
               {eventoBtn}
               {hourRangeBtn}
