@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection,
@@ -162,6 +163,22 @@ const FILTER_LABELS = {
   pendiente: 'Pendientes',
   calificado: 'Calificados',
   entregado: 'Por calificar',
+}
+
+// Mientras el overlay de evaluar está abierto en nativo, el viewport background
+// (el área fuera del layout viewport) coincide con el fondo del overlay (blanco),
+// así la franja a la derecha en dispositivos Samsung queda invisible.
+function NativeEvalBgFix() {
+  useEffect(() => {
+    const prev = document.documentElement.style.backgroundColor
+    document.documentElement.style.backgroundColor = 'white'
+    document.body.style.backgroundColor = 'white'
+    return () => {
+      document.documentElement.style.backgroundColor = prev
+      document.body.style.backgroundColor = ''
+    }
+  }, [])
+  return null
 }
 
 export default function ActivityPage() {
@@ -1249,7 +1266,7 @@ export default function ActivityPage() {
         {deleteActivityModal}
         </>
       ) : (
-      <div className={TEACHER_CONTAINER_NARROW}>
+      <div className={IS_NATIVE_APP ? '' : TEACHER_CONTAINER_NARROW}>
         {/* Header */}
         {/* Header on the page background — the Instrucciones card floats like Entregas below.
             overflow-hidden: el botón "Editar actividad" (con su tooltip CSS absolute,
@@ -2295,8 +2312,16 @@ export default function ActivityPage() {
           abren ventanas flotantes, no empujan el contenido → Guardar
           calificación → historial. Sin comentarios ni "Evaluar sin
           entrega". */}
-      {selected && IS_NATIVE_APP && (
-        <div className="fixed inset-0 z-40 flex flex-col bg-surface">
+      {selected && IS_NATIVE_APP && createPortal(
+        <>
+          <NativeEvalBgFix />
+          {/* Anclado arriba/abajo/izquierda y con el ancho REAL de la pantalla
+              (--layout-w, ver src/utils/viewportWidth.js). NO se usa 100vw:
+              vw resuelve contra el layout viewport, que en el WebView de
+              Samsung puede ser más ancho que la pantalla — el overlay se salía
+              y dejaba la franja vacía a la derecha. */}
+          <div className="fixed top-0 bottom-0 left-0 z-40 flex flex-col bg-white overflow-hidden"
+            style={{ width: 'var(--layout-w, 100%)' }}>
           <div className="flex items-center gap-2 px-3 py-2 bg-surface-card border-b border-outline-variant flex-shrink-0 safe-top">
             <button
               type="button"
@@ -2318,23 +2343,20 @@ export default function ActivityPage() {
               entrega queda lo más alta posible sin dejar nada fuera de
               pantalla. overflow-y-auto es solo un respaldo por si algo no
               cupiera en una pantalla muy pequeña. */}
-          <div className="flex-1 min-h-0 flex flex-col overflow-y-auto p-3 gap-2">
+          {/* Sin padding horizontal: la imagen va edge-to-edge dentro del overlay
+              para no dejar franja azul a los lados. El px-3 va en cada hijo
+              que lo necesite (texto, nombre, botones, formulario). */}
+          <div className="flex-1 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden py-2 gap-2">
 
-            {/* Aviso solo cuando hay al menos una imagen entre los archivos
-                entregados — el PDF ya pellizca directo, sin tocar primero
-                (ver PinchZoomImage), así que este aviso no le aplica. */}
             {selFiles.some((f) => isImageFile(f.nombre, f.url)) && (
-              <p className="text-xs text-muted text-center flex-shrink-0">
+              <p className="text-xs text-muted text-center flex-shrink-0 px-3">
                 Presiona la imagen para luego hacer zoom
               </p>
             )}
 
-            {/* Entrega: alto = todo lo que sobra, mismo tamaño haya o no
-                archivos. Varias imágenes/archivos se apilan y se navegan
-                hacia abajo DENTRO de esta misma zona (scroll interno). */}
-            <div className="flex-1 min-h-0 rounded-card overflow-hidden bg-surface-container">
+            <div className="flex-1 min-h-0 overflow-hidden bg-surface-container">
               {selFiles.length > 0 ? (
-                <div className="h-full overflow-y-auto p-2 space-y-2">
+                <div className="h-full overflow-y-auto overflow-x-hidden py-2 space-y-2">
                   {selFiles.map((f, i) => (
                     <div key={`${f.url}-${i}`}>
                       {isImageFile(f.nombre, f.url) ? (
@@ -2373,10 +2395,7 @@ export default function ActivityPage() {
               )}
             </div>
 
-            {/* Número y nombre del estudiante, mismo renglón — sin la
-                descripción del archivo entregado debajo ni la etiqueta de
-                estatus (Entregado/Pendiente/etc.) */}
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 px-3">
               <h4 className="text-[0.9rem] font-semibold text-on-surface truncate">
                 {selected.student.orden != null && <span className="text-on-surface">{selected.student.orden}. </span>}
                 {studentFullName(selected.student)}
@@ -2399,7 +2418,7 @@ export default function ActivityPage() {
                 tamaño) cuando no hay a dónde navegar. Sin botón en medio —
                 Todos/Por calificar ahora viven junto a la calificación
                 (ver más abajo). */}
-            <div className="space-y-1.5 flex-shrink-0">
+            <div className="space-y-1.5 flex-shrink-0 px-3">
               <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica || !isEvaluacion) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
                 <input
                   type="checkbox"
@@ -2435,7 +2454,7 @@ export default function ActivityPage() {
                 mostraba con entrega, observación o rúbrica, como en la
                 web). */}
             {(selected.sub || isObservacion || hasRubrica || !isEvaluacion) ? (
-              <form onSubmit={saveGrade} className="space-y-2 flex-shrink-0">
+              <form onSubmit={saveGrade} className="space-y-2 flex-shrink-0 px-3">
                 {parcialCerrado && (
                   <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
                     <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
@@ -2626,13 +2645,13 @@ export default function ActivityPage() {
                 )}
               </form>
             ) : (
-              <p className="text-sm text-slate-400 text-center py-2 flex-shrink-0">
+              <p className="text-sm text-slate-400 text-center py-2 flex-shrink-0 px-3">
                 El estudiante aún no ha entregado esta tarea.
               </p>
             )}
 
             {selected.sub?.historial?.length > 0 && (
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0 px-3">
                 <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
                 <div className="space-y-1.5">
                   {[...selected.sub.historial].reverse().map((v, i) => (
@@ -2661,6 +2680,8 @@ export default function ActivityPage() {
             <div className="h-1 safe-bottom flex-shrink-0" />
           </div>
         </div>
+        </>,
+        document.body,
       )}
 
       {/* Anular entrega / Modificar fecha — ventanas flotantes centradas

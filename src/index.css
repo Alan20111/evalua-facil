@@ -19,6 +19,18 @@
        se sentía como si la ventana se moviera. */
     overscroll-behavior-x: none;
   }
+  /* Samsung S23 + Capacitor: el layout viewport del WebView puede no coincidir
+     con la pantalla. En CSS, `vw` y `width:100%` resuelven contra el layout
+     viewport, así que cuando no coinciden queda una franja del fondo visible.
+     src/utils/viewportWidth.js mide el ancho real (visualViewport, corregido
+     por scale), lo fija en <html> —para que el contenido normal de las páginas
+     ocupe la pantalla completa— y lo publica en --layout-w, que consumen los
+     elementos `fixed` (nav inferior, Toast, overlay de evaluar).
+     overflow-x:hidden es el seguro: si el layout viewport quedara más angosto
+     que ese ancho, se recorta en vez de generar scroll horizontal. */
+  html.is-native-app {
+    overflow-x: hidden;
+  }
   body {
     @apply bg-surface text-on-surface font-sans antialiased;
     /* Quita el resaltado azul translúcido al tocar botones/enlaces en

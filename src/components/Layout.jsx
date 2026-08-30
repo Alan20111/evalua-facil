@@ -163,8 +163,12 @@ export default function TeacherLayout({ children }) {
         </div>
       </header>
 
-      {/* Desktop: sidebar + content */}
-      <div className="flex">
+      {/* Desktop: sidebar + content.
+          En App nativa NO usamos flex row: el sidebar no existe y el flex
+          container puede reportar un ancho menor que el visual viewport del
+          S23, dejando la franja azul a la derecha. Con un div block normal
+          <main> ocupa el 100% real de la pantalla. */}
+      <div className={IS_NATIVE_APP ? '' : 'flex'}>
         {/* Sidebar — en la app nativa siempre oculto (el WebView puede reportar
             viewport ≥768px activando md:flex); en la web solo en escritorio. */}
         <aside className={`${IS_NATIVE_APP ? 'hidden' : 'hidden md:flex'} flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20`}>
@@ -407,7 +411,7 @@ export default function TeacherLayout({ children }) {
         <main
           id="main-content"
           tabIndex={-1}
-          className={`flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] ${IS_NATIVE_APP ? '' : 'md:pb-0'} focus:outline-none`}
+          className={`${IS_NATIVE_APP ? 'w-full overflow-x-hidden' : 'flex-1 min-w-0'} min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] ${IS_NATIVE_APP ? '' : 'md:pb-0'} focus:outline-none`}
         >
           {children}
         </main>

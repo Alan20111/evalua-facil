@@ -150,8 +150,9 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
         </button>
       </header>
 
-      {/* Desktop: sidebar + content */}
-      <div className="flex">
+      {/* Desktop: sidebar + content.
+          App nativa: sin flex row (causa franja derecha en Samsung S23). */}
+      <div className={IS_NATIVE_APP ? '' : 'flex'}>
         {/* Sidebar — desktop only. data-role="docente" forces the institutional
             blue regardless of the parent's data-role="alumno" accent override. */}
         <aside
@@ -349,7 +350,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
         <main
           id="main-content"
           tabIndex={-1}
-          className={`flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] ${IS_NATIVE_APP ? '' : 'md:pb-0'} focus:outline-none`}
+          className={`${IS_NATIVE_APP ? 'w-full overflow-x-hidden' : 'flex-1 min-w-0'} min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] ${IS_NATIVE_APP ? '' : 'md:pb-0'} focus:outline-none`}
         >
           {children}
         </main>
