@@ -5,6 +5,8 @@ import './index.css'
 import App from './App.jsx'
 import { initStatusBar } from './utils/nativeInit.js'
 import { lockPortrait } from './utils/orientation.js'
+import { IS_NATIVE_APP } from './utils/platform.js'
+import { watchViewportWidth } from './utils/viewportWidth.js'
 
 initStatusBar()
 // La app arranca (y se mantiene) en vertical; solo la pestaña Asistencias la
@@ -12,14 +14,12 @@ initStatusBar()
 // permitir la rotación en runtime vía plugin.
 lockPortrait()
 
-// En Samsung S23 + Capacitor, `position:fixed; width:100%` resuelve al
-// VISUAL viewport en vez del LAYOUT viewport (device-width). Guardamos el
-// layout viewport real en --layout-w para que nav y Toast usen este valor
-// en lugar de `100%` (que puede ser mayor en ciertos WebViews de Android).
-document.documentElement.style.setProperty(
-  '--layout-w',
-  document.documentElement.clientWidth + 'px'
-)
+// Samsung S23 y similares: el layout viewport del WebView puede no coincidir
+// con la pantalla, y entonces `100%`/`100vw`/`fixed inset-0` dejan una franja
+// del fondo a la derecha. watchViewportWidth mide el ancho real (visualViewport)
+// y lo publica en --layout-w y en <html>. Ver src/utils/viewportWidth.js.
+watchViewportWidth(IS_NATIVE_APP)
+if (IS_NATIVE_APP) document.documentElement.classList.add('is-native-app')
 
 const root = createRoot(document.getElementById('root'))
 
