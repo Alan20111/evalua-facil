@@ -2,14 +2,6 @@ import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, CalendarDays, Bell, User } from 'lucide-react'
 import { IS_NATIVE_APP } from '../utils/platform'
 
-// Barra inferior del estudiante — mismo estándar que la del docente
-// (Layout.jsx): siempre visible en móvil, con las 4 secciones principales.
-// Vive en su propio componente porque no todas las pantallas usan
-// StudentLayout (Agenda y Notificaciones son de pantalla completa) y la barra
-// debe estar en TODAS.
-//
-// Indicador de pestaña activa: pastilla rellena detrás del ícono — solo en la
-// App; en la web móvil solo cambia de color (igual que el docente).
 function navIconPillCls(isActive) {
   if (!IS_NATIVE_APP) return ''
   return `px-5 py-1 rounded-full transition-colors ${isActive ? 'bg-[var(--accent-light)]' : ''}`
@@ -24,7 +16,12 @@ const NAV_TABS = [
 
 export default function StudentBottomNav() {
   return (
-    <nav className={`${IS_NATIVE_APP ? '' : 'md:hidden'} fixed bottom-0 left-0 right-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}>
+    // style width usa --layout-w (layout viewport real, 360px) en lugar de 100% (que en
+    // Samsung S23 Capacitor resuelve al visual viewport de ~410px, causando el hueco).
+    <nav
+      style={IS_NATIVE_APP ? { width: 'var(--layout-w)' } : undefined}
+      className={`${IS_NATIVE_APP ? '' : 'md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}
+    >
       <div className="flex">
         {NAV_TABS.map(({ to, label, Icon }) => (
           <NavLink

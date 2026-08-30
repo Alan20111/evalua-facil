@@ -570,7 +570,7 @@ export default function Agenda() {
         <button type="button" onClick={prev} aria-label="Anterior" className="p-2 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors flex-shrink-0">
           <ChevronLeft size={navIcon} />
         </button>
-        <p className={`${navText} font-semibold text-on-surface truncate`}>{navLabel()}</p>
+        <p className={`${navText} font-semibold text-on-surface truncate min-w-0`}>{navLabel()}</p>
         <button type="button" onClick={next} aria-label="Siguiente" className="p-2 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors flex-shrink-0">
           <ChevronRight size={navIcon} />
         </button>

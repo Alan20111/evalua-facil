@@ -12,6 +12,15 @@ initStatusBar()
 // permitir la rotación en runtime vía plugin.
 lockPortrait()
 
+// En Samsung S23 + Capacitor, `position:fixed; width:100%` resuelve al
+// VISUAL viewport en vez del LAYOUT viewport (device-width). Guardamos el
+// layout viewport real en --layout-w para que nav y Toast usen este valor
+// en lugar de `100%` (que puede ser mayor en ciertos WebViews de Android).
+document.documentElement.style.setProperty(
+  '--layout-w',
+  document.documentElement.clientWidth + 'px'
+)
+
 const root = createRoot(document.getElementById('root'))
 
 root.render(

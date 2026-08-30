@@ -56,7 +56,6 @@ export default function TeacherLayout({ children }) {
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
-
   useBackHandler(() => setConfirmLogout(false), confirmLogout)
   useScrollLock(confirmLogout)
 
@@ -416,7 +415,10 @@ export default function TeacherLayout({ children }) {
 
       {/* Mobile bottom nav — en la app nativa siempre visible; en la web se
           oculta en escritorio (md:hidden). Misma razón que el <header>. */}
-      <nav className={`${IS_NATIVE_APP ? '' : 'md:hidden'} fixed bottom-0 left-0 right-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}>
+      <nav
+        style={IS_NATIVE_APP ? { width: 'var(--layout-w)' } : undefined}
+        className={`${IS_NATIVE_APP ? '' : 'md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}
+      >
         <div className="flex">
           <NavLink
             to="/dashboard"
