@@ -36,7 +36,7 @@ const PAGE = 100
 // desplaza con los encabezados fijos arriba.
 const ALTO_TABLA = 'calc(100vh - 290px)'
 
-const WIDTHS_KEY = 'admin-suscripciones-cols-v5'
+const WIDTHS_KEY = 'admin-suscripciones-cols-v6'
 
 // Columnas. `filtro` = tipo de caja bajo el título:
 //   'texto' → se escribe y filtra, con sugerencias de los valores que todavía
@@ -74,6 +74,14 @@ const COLS = [
     ayuda: 'Ciudad del docente; si no capturó su código postal, se toma el municipio de su escuela.',
   },
   { key: 'escuela', label: 'Escuela', filtro: 'texto', w: 150 },
+  {
+    key: 'estudiantes',
+    label: 'Estudiantes',
+    w: 105,
+    align: 'right',
+    wrap: true,
+    ayuda: 'Cuántas PERSONAS distintas tiene inscritas el docente. Quien está en varias de sus asignaturas cuenta una sola vez, así que no es el número de inscripciones. Sale de las asignaturas del docente y de los alumnos inscritos en ellas.',
+  },
   {
     key: 'alta',
     label: 'Fecha de alta',
@@ -116,6 +124,40 @@ function diasSinAccesar(fechaISO) {
   const d = new Date(fechaISO)
   if (Number.isNaN(d.getTime())) return null
   return Math.max(0, Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24)))
+}
+
+// Personas distintas inscritas con cada docente, en UNA sola pasada sobre el
+// padrón que el panel ya tiene cargado (stats.students y stats.subjectsMap):
+// ni una consulta más a Firestore, y menos aún una por renglón.
+//
+// Dos reglas prestadas, no reinventadas:
+//   · Quién es el docente de un alumno: `students` no guarda docenteId, sale de
+//     su asignatura (el campo suelto solo sobrevive en documentos viejos y se
+//     usa de respaldo cuando la asignatura ya no existe). Es exactamente lo que
+//     hace la tabla de Estudiantes — ver StudentsTable.jsx.
+//   · Quién es "la misma persona": usuario + escuela, que es la identidad de su
+//     cuenta (de ahí sale su correo de Auth — ver studentEmail en
+//     utils/generate.js, y findStudentIdentity en utils/studentIdentity.js).
+//     Cada inscripción es un documento aparte, uno por asignatura, y todas las
+//     del mismo alumno comparten ese usuario: por eso quien está en tres
+//     asignaturas del mismo docente cuenta UNA vez, no tres.
+function contarEstudiantesPorDocente(students, subjectsMap) {
+  const porDocente = new Map()
+  students.forEach((s) => {
+    const docenteId = subjectsMap[s.asignaturaId]?.docenteId || s.docenteId
+    if (!docenteId) return
+    // Sin usuario (inscripción a medio crear) se cae al id del documento: se
+    // cuenta como una persona en vez de fundir a todos los que no lo tengan.
+    const persona = s.username
+      ? `${String(s.username).toLowerCase()}|${String(s.escuelaId || '').toLowerCase()}`
+      : `doc:${s.id}`
+    let set = porDocente.get(docenteId)
+    if (!set) porDocente.set(docenteId, (set = new Set()))
+    set.add(persona)
+  })
+  const res = {}
+  porDocente.forEach((set, docenteId) => { res[docenteId] = set.size })
+  return res
 }
 
 const isoLocal = (d) =>
@@ -268,6 +310,13 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       .catch(() => {})
   }, [teachers])
 
+  // Una sola pasada por todo el padrón de alumnos, y solo cuando cambia:
+  // el conteo NO se rehace al escribir en los filtros ni al pintar cada fila.
+  const estudiantesPorDocente = useMemo(
+    () => contarEstudiantesPorDocente(stats?.students || [], stats?.subjectsMap || {}),
+    [stats?.students, stats?.subjectsMap]
+  )
+
   // Cada suscripción se "aplana" una sola vez a las columnas visibles: así el
   // filtro trabaja sobre texto ya resuelto en vez de volver a cruzar docente,
   // escuela y ubicación en cada tecla.
@@ -319,6 +368,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       const estadoUbicacion = teacher?.estado || school?.estado || '—'
       const ciudad = teacher?.ciudad || teacher?.municipio || school?.municipio || '—'
       const escuela = school?.shortName || school?.nombre || school?.claveSEP || sub?.schoolName || '—'
+      // Siempre un número: un docente sin alumnos tiene 0 alumnos, y eso se
+      // dice con un cero, no con un guion.
+      const estudiantes = estudiantesPorDocente[teacher?.id] || 0
       const altaTexto = alta ? formatDate(altaValor) : '—'
       const vencTexto = sub ? formatDate(vencValor) : '—'
       return {
@@ -337,6 +389,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         estado: estadoUbicacion,
         ciudad,
         escuela,
+        estudiantes,
         ultimoPago,
         buscarCodigoPostal: normalizeName(codigoPostal),
         buscarEstado: normalizeName(estadoUbicacion),
@@ -346,7 +399,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         // arriba, que busca por cualquier motivo (ciudad, escuela, nombre…).
         buscarTodo: normalizeName(
           [docente, usuario, correo, codigoPostal, estadoUbicacion, ciudad, escuela,
-            altaTexto, vencTexto, ultimoPago].join(' ')
+            String(estudiantes), altaTexto, vencTexto, ultimoPago].join(' ')
         ),
         alta: altaTexto,
         altaISO: alta ? isoLocal(alta) : '',
@@ -390,7 +443,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     const porFechaAsc = [...todasLasFilas].sort((a, b) => (a.cuentaMs || 0) - (b.cuentaMs || 0))
     const rankMap = new Map(porFechaAsc.map((r, i) => [r.id, i + 1]))
     return todasLasFilas.map((r) => ({ ...r, rank: rankMap.get(r.id) || 0 }))
-  }, [stats, teachers, teachersMap, accesos, creadoEnMap])
+  }, [stats, teachers, teachersMap, accesos, creadoEnMap, estudiantesPorDocente])
 
   // Orden fijo: la suscripción más reciente hasta arriba; dentro del mismo día
   // desempata el nombre del docente.
@@ -623,6 +676,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate" title={r.estado}>{r.estado}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.ciudad}>{r.ciudad}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-on-surface">
+                    {r.estudiantes.toLocaleString('es-MX')}
+                  </td>
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-on-surface">
                     {r.uid && !r.sub?.cuentaEliminada
