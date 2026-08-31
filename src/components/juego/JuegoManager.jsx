@@ -178,6 +178,12 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
     publicarResultados: activity.evaluacion?.publicarResultados || 'inmediato',
     publicarResultadosFecha: activity.evaluacion?.publicarResultadosFecha || null,
     resultadosPublicados: activity.evaluacion?.resultadosPublicados || false,
+    // Publicar solución — independiente de la calificación: el docente decide
+    // CUÁNDO se libera el juego resuelto. El alumno solo la ve si además ya
+    // agotó todos sus intentos (ver ActivityPage del alumno).
+    publicarSolucion: activity.evaluacion?.publicarSolucion || 'inmediato',
+    publicarSolucionFecha: activity.evaluacion?.publicarSolucionFecha || null,
+    solucionPublicada: activity.evaluacion?.solucionPublicada || false,
   })
   const [visForm, setVisForm] = useState({
     visibilidadMode: activity.publishedAt ? 'published' : (activity.publishAt ? 'schedule' : 'hide'),
@@ -204,8 +210,13 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
       if (!form.publicarResultadosFecha) { toast('Elige la fecha de publicación de resultados', 'error'); return }
       if (form.publicarResultadosFecha <= nowIsoLocal()) { toast('La fecha debe ser posterior a este momento', 'error'); return }
     }
+    if (form.publicarSolucion === 'fecha') {
+      if (!form.publicarSolucionFecha) { toast('Elige la fecha de publicación de la solución', 'error'); return }
+      if (form.publicarSolucionFecha <= nowIsoLocal()) { toast('La fecha debe ser posterior a este momento', 'error'); return }
+    }
     const toSave = { ...activity.evaluacion, ...form }
     if (toSave.publicarResultados === 'ahora') toSave.resultadosPublicados = true
+    if (toSave.publicarSolucion === 'ahora') toSave.solucionPublicada = true
     setSaving(true)
     try {
       await updateDoc(doc(db, 'activities', activityId), { evaluacion: toSave })
@@ -318,6 +329,15 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
             fecha={form.publicarResultadosFecha}
             onModeChange={(v) => setForm((f) => ({ ...f, publicarResultados: v }))}
             onFechaChange={(v) => setForm((f) => ({ ...f, publicarResultadosFecha: v }))}
+          />
+          <PublicacionScheduler
+            id="juego-publicar-solucion"
+            label="Publicar solución"
+            hint="El alumno solo puede verla cuando ya agotó todos sus intentos."
+            mode={form.publicarSolucion}
+            fecha={form.publicarSolucionFecha}
+            onModeChange={(v) => setForm((f) => ({ ...f, publicarSolucion: v }))}
+            onFechaChange={(v) => setForm((f) => ({ ...f, publicarSolucionFecha: v }))}
           />
           <button type="submit" disabled={saving || !formCambio}
             className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">

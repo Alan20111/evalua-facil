@@ -332,7 +332,7 @@ export default function CrucigramaBoard({
                       setActivaIdx(preferH.index)
                     }
                   }}
-                  className="w-full h-full text-center text-xs sm:text-sm font-semibold uppercase bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
+                  className="w-full h-full text-center text-xs sm:text-sm font-semibold uppercase bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer disabled:opacity-100 disabled:text-on-surface disabled:[-webkit-text-fill-color:currentColor]"
                 />
               </div>
             )

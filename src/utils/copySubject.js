@@ -105,7 +105,7 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
       // estado del ciclo anterior, no configuración: se reinician para que el
       // grupo nuevo no vea calificaciones ni respuestas correctas de entrada.
       ...(a.evaluacion ? {
-        evaluacion: { ...a.evaluacion, resultadosPublicados: false, respuestasPublicadas: false },
+        evaluacion: { ...a.evaluacion, resultadosPublicados: false, respuestasPublicadas: false, solucionPublicada: false },
       } : {}),
       parcial: a.parcial,
       orden: ordenPorParcial[a.parcial],
