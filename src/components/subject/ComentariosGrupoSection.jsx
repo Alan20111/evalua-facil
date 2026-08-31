@@ -64,7 +64,7 @@ export default function ComentariosGrupoSection({ subjectId, docenteId }) {
         docenteId,
         comentariosGrupo: comentarios.trim(),
         actualizadoEn: serverTimestamp(),
-      })
+      }, { merge: true })
       setGuardado(comentarios.trim())
       toast('Comentarios guardados')
     } catch (err) {
