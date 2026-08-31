@@ -16,28 +16,44 @@ import { PREFIJOS } from '../../utils/prefijos'
 import Select from '../../components/ui/Select'
 import ConfirmModal from '../../components/ConfirmModal'
 import { apiUrl } from '../../utils/apiBase'
+import SchoolPicker from '../../components/SchoolPicker'
+import { resolveSchoolSelection } from '../../utils/schoolSelection'
+import { escuelaValida } from '../../utils/escuela'
+import { School } from 'lucide-react'
 
 // Ventana para el "presiona de nuevo" de abajo — la misma que usa
 // AndroidBackButton para salir de la app desde la pantalla raíz.
 const SALIR_PRESS_WINDOW_MS = 2000
 
 export default function Onboarding() {
-  const { currentUser, setUserProfile } = useAuth()
+  const { currentUser, userProfile, setUserProfile } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
 
-  const [realNombre, setRealNombre] = useState('')
-  const [apellidoPaterno, setApellidoPaterno] = useState('')
-  const [apellidoMaterno, setApellidoMaterno] = useState('')
-  const [nombre, setNombre] = useState('')
+  // Los campos arrancan con lo que el perfil YA tenga. Esta pantalla dejó de
+  // ser solo el último paso de "Continuar con Google": también es a donde
+  // llega un docente de antes (cuenta completa, pero sin escuela real) a
+  // elegirla — y a ese no se le puede pedir que vuelva a capturar su nombre y
+  // su código postal desde cero.
+  const [realNombre, setRealNombre] = useState(userProfile?.nombre || '')
+  const [apellidoPaterno, setApellidoPaterno] = useState(userProfile?.apellidoPaterno || '')
+  const [apellidoMaterno, setApellidoMaterno] = useState(userProfile?.apellidoMaterno || '')
+  const [nombre, setNombre] = useState(userProfile?.nombreMostrar || '')
   // Prefijo del nombre visible (opcional) — mismo patrón que Profile.jsx:
   // el <select> guarda uno de los valores predefinidos, '' (sin prefijo) o
   // '__otro__' (texto libre en prefijoCustom).
-  const [prefijoOption, setPrefijoOption] = useState('')
+  const [prefijoOption, setPrefijoOption] = useState(userProfile?.prefijo && PREFIJOS.includes(userProfile.prefijo) ? userProfile.prefijo : '')
   const [prefijoCustom, setPrefijoCustom] = useState('')
-  const [codigoPostal, setCodigoPostal] = useState('')
+  const [codigoPostal, setCodigoPostal] = useState(userProfile?.codigoPostal || '')
   const { ubicacion, buscando } = useUbicacionCP(codigoPostal)
   const [saving, setSaving] = useState(false)
+  // Escuela — OBLIGATORIA (ver utils/escuela.js). `plantel` es lo elegido en
+  // el selector; se resuelve a un doc de `schools` al guardar. Un perfil que
+  // YA tiene escuela real no vuelve a pasar por aquí (el guard de rutas solo
+  // manda a los que les falta), así que arranca siempre vacío.
+  const [plantel, setPlantel] = useState(null)
+  const [showSchoolPicker, setShowSchoolPicker] = useState(false)
+  const plantelLabel = plantel ? (plantel.short || plantel.nombre || '') : ''
   const ultimaSalidaRef = useRef(0)
 
   // "No continuar" — pedido explícito: hasta este paso la cuenta ya existe en
@@ -102,13 +118,22 @@ export default function Onboarding() {
     e.preventDefault()
     if (!realNombre.trim() || !apellidoPaterno.trim()) { toast('Escribe tu nombre y apellido paterno', 'error'); return }
     if (!nombre.trim()) { toast('Escribe cómo quieres que te vean tus estudiantes', 'error'); return }
+    // Escuela obligatoria: ni con una elección previa inválida (el centinela
+    // histórico) se deja pasar — a esta pantalla solo llega quien no tiene una
+    // escuela real, así que aquí SIEMPRE hay que elegirla.
+    if (!plantel && !escuelaValida(userProfile?.escuelaId)) { toast('Elige tu escuela para continuar', 'error'); return }
     if (buscando) { toast('Espera un momento, estamos buscando tu código postal', 'warning'); return }
     const errorCP = errorCodigoPostal(codigoPostal, ubicacion)
     if (errorCP) { toast(errorCP, 'error'); return }
     setSaving(true)
     try {
       const prefijo = prefijoOption === '__otro__' ? prefijoCustom.trim() : prefijoOption
+      // La escuela se resuelve (o se da de alta) ANTES de marcar el perfil
+      // como completo: así nunca queda un docente operativo sin escuela, ni
+      // siquiera por un instante ni por una escritura a medias.
+      const escuela = plantel ? await resolveSchoolSelection(plantel, currentUser.uid) : null
       const updates = {
+        ...(escuela ? { escuelaId: escuela.escuelaId, schoolName: escuela.schoolName } : {}),
         nombre: realNombre.trim(),
         apellidoPaterno: apellidoPaterno.trim(),
         apellidoMaterno: apellidoMaterno.trim(),
@@ -139,8 +164,14 @@ export default function Onboarding() {
           <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-on-surface">Un último paso</h1>
-          <p className="text-muted text-sm mt-1">Cuéntanos quién eres</p>
+          <h1 className="text-2xl font-bold text-on-surface">
+            {userProfile?.nombre ? 'Falta tu escuela' : 'Un último paso'}
+          </h1>
+          <p className="text-muted text-sm mt-1">
+            {userProfile?.nombre
+              ? 'Evalúa Fácil necesita saber en qué escuela trabajas para que tú y tus compañeros de plantel compartan a los mismos estudiantes.'
+              : 'Cuéntanos quién eres y en qué escuela trabajas'}
+          </p>
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-5">
@@ -237,9 +268,29 @@ export default function Onboarding() {
               <p className="text-sm text-muted mt-1">Puede ser distinto a tu nombre real — un apodo, un título, como prefieras.</p>
             </div>
 
+            {/* Escuela: obligatoria. No hay opción de seguir sin una — si la
+                suya no está en el catálogo, la da de alta desde el mismo
+                selector, sin necesidad de saberse la Clave del Centro de
+                Trabajo. */}
+            <div>
+              <span className="block text-sm font-medium text-muted mb-1">Tu escuela</span>
+              <button
+                type="button"
+                onClick={() => setShowSchoolPicker(true)}
+                disabled={saving}
+                className="w-full flex items-center gap-2 px-4 py-2.5 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-60"
+              >
+                <School size={17} className="text-accent flex-shrink-0" />
+                <span className={`text-sm truncate flex-1 ${plantelLabel ? 'text-on-surface font-medium' : 'text-slate-500'}`}>
+                  {plantelLabel || 'Elige tu escuela'}
+                </span>
+                <span className="text-xs text-accent font-semibold flex-shrink-0">{plantelLabel ? 'Cambiar' : 'Buscar'}</span>
+              </button>
+            </div>
+
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || (!plantel && !escuelaValida(userProfile?.escuelaId))}
               className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {saving ? <Spinner size="sm" /> : null}
@@ -257,6 +308,14 @@ export default function Onboarding() {
           No continuar
         </button>
       </div>
+
+      {showSchoolPicker && (
+        <SchoolPicker
+          titulo="Busca tu escuela por nombre, municipio o CCT."
+          onSelect={(p) => { setPlantel(p); setShowSchoolPicker(false) }}
+          onClose={() => setShowSchoolPicker(false)}
+        />
+      )}
 
       {showNoContinuar && (
         <ConfirmModal

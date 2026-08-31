@@ -98,6 +98,36 @@ service cloud.firestore {
     // subject the enrollment belongs to. Guard every get() with exists() so a
     // dangling reference denies gracefully instead of erroring the whole request.
 
+    // ── Escuela obligatoria (30-ago-2026) ────────────────────────────────
+    // TODO DOCENTE PERTENECE A UNA ESCUELA. La pantalla ya lo exige, pero la
+    // validación visual no es una defensa: sin esto, un `updateDoc` desde la
+    // consola del navegador deja un perfil operativo sin plantel, y de ahí
+    // salen asignaturas y alumnos que ningún compañero de escuela encuentra.
+    //
+    // 'sin-escuela' era un documento centinela COMPARTIDO por todos los
+    // docentes que no elegían plantel — no es una escuela, así que aquí
+    // cuenta como no tener ninguna.
+    function escuelaReal(valor) {
+      return valor is string && valor != '' && valor != 'sin-escuela';
+    }
+
+    // Un perfil de docente puede existir a medio llenar (se crea antes de
+    // resolver la escuela, ver Register.jsx), pero NO puede quedar marcado
+    // como completo —es decir, operativo— sin una escuela real.
+    function perfilDocenteConEscuela(data) {
+      return data.get('profileComplete', false) != true ||
+        escuelaReal(data.get('escuelaId', ''));
+    }
+
+    // Para inscripciones y asignaturas basta con que el campo venga y no esté
+    // vacío: la escuela sale del docente (que ya pasó por escuelaReal) o, al
+    // reinscribir a alguien que ya existía, de sus inscripciones hermanas —
+    // que pueden ser viejas y traer todavía el centinela. Exigirles
+    // escuelaReal aquí rompería re-inscribir a un alumno de antes.
+    function traeEscuela(data) {
+      return data.get('escuelaId', '') is string && data.get('escuelaId', '') != '';
+    }
+
     // True when the signed-in user owns the subject `asigId` (is its docente).
     function ownsSubject(asigId) {
       return exists(/databases/$(database)/documents/subjects/$(asigId)) &&
@@ -347,7 +377,8 @@ service cloud.firestore {
       // pasa por estas reglas.
       allow create: if request.auth.uid == userId &&
         request.resource.data.role == 'docente' &&
-        !request.resource.data.keys().hasAny(['suscripcionHasta']);
+        !request.resource.data.keys().hasAny(['suscripcionHasta']) &&
+        perfilDocenteConEscuela(request.resource.data);
       // `suscripcionHasta` ya no gatea nada (modelo de créditos puros,
       // 20-ago-2026) pero se congela igual como dato histórico: solo lo
       // escribe la Cloud Function con el Admin SDK, que no pasa por estas
@@ -356,7 +387,8 @@ service cloud.firestore {
       allow update: if isAdmin() ||
         (request.auth.uid == userId &&
          request.resource.data.role == resource.data.role &&
-         request.resource.data.get('suscripcionHasta', null) == resource.data.get('suscripcionHasta', null));
+         request.resource.data.get('suscripcionHasta', null) == resource.data.get('suscripcionHasta', null) &&
+         perfilDocenteConEscuela(request.resource.data));
       allow delete: if isAdmin();
     }
 
@@ -367,7 +399,11 @@ service cloud.firestore {
 
       // Only the owning teacher (docente of the target subject) creates/deletes
       // enrollments. Students never create or delete their own record.
-      allow create: if isDocente() && ownsSubject(request.resource.data.asignaturaId);
+      // Ningún estudiante puede nacer sin escuela (ver traeEscuela arriba):
+      // su cuenta ES `usuario.escuela@evalua.local`, así que una inscripción
+      // sin escuela no puede ni activarse.
+      allow create: if isDocente() && ownsSubject(request.resource.data.asignaturaId) &&
+        traeEscuela(request.resource.data);
       allow delete: if isDocente() && ownsSubject(resource.data.asignaturaId);
 
       // Two legitimate updaters:
@@ -432,9 +468,11 @@ service cloud.firestore {
 
     match /subjects/{subjectId} {
       allow read: if true;
-      // Only teachers create subjects, always attributed to themselves.
+      // Only teachers create subjects, always attributed to themselves — y
+      // siempre con la escuela del docente puesta (ver traeEscuela arriba).
       allow create: if isDocente() &&
-        request.auth.uid == request.resource.data.docenteId;
+        request.auth.uid == request.resource.data.docenteId &&
+        traeEscuela(request.resource.data);
       allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId;
 
