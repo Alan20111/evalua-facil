@@ -16,21 +16,20 @@ export function normalizeName(name) {
     .replace(/\s+/g, ' ')
 }
 
-// Resolves a plantel (from the catalog, a custom name, or null for "sin escuela")
-// to a `schools/{id}` doc, creating it if it doesn't exist yet. Shared by Profile.jsx
-// and Onboarding.jsx so the school-picker logic isn't duplicated across both.
+// Resolves a plantel (from the catalog or a custom name) to a `schools/{id}`
+// doc, creating it if it doesn't exist yet. Shared by SchoolPicker's three
+// callers (Register, Onboarding, Profile) so the logic isn't duplicated.
 // `createdBy` (the teacher's uid) is recorded only when a brand-new custom
 // school doc is created — not shown to anyone, just there so a bad/junk entry
 // can be traced back if it ever needs reviewing.
+//
+// Ya NO existe el caso `plantel = null` ("sin escuela"). Todo docente pertenece
+// a una escuela (ver utils/escuela.js): si la suya no está en el catálogo, la
+// da de alta — no se le ofrece seguir sin ninguna. Llegar aquí sin plantel es
+// un error de programación, no una opción del docente, y por eso truena en vez
+// de inventar un centinela.
 export async function resolveSchoolSelection(plantel, createdBy) {
-  if (!plantel) {
-    await setDoc(
-      doc(db, 'schools', 'sin-escuela'),
-      { nombre: 'Sin escuela', shortName: 'EF', sinEscuela: true },
-      { merge: true }
-    )
-    return { escuelaId: 'sin-escuela', schoolName: 'Sin escuela' }
-  }
+  if (!plantel) throw new Error('Elige tu escuela para continuar')
 
   // Re-selecting a custom school already shown in the suggestion list (its
   // Firestore id is already known) — skip matching entirely, it IS that school.

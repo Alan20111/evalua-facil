@@ -279,7 +279,9 @@ export default function TeacherDashboard() {
         nombre: newSubjectName.trim(),
         grupo: newSubjectGrupo.trim(),
         docenteId: currentUser.uid,
-        escuelaId: userProfile.escuelaId || 'sin-escuela',
+        // Sin `|| 'sin-escuela'`: la escuela es obligatoria y el guard de
+        // rutas no deja llegar hasta aquí sin una real (ver utils/escuela.js).
+        escuelaId: userProfile.escuelaId,
         parciales: newSubjectParciales,
         // Al crearla ningún parcial tiene contenido todavía — el primero
         // queda visible para el estudiante desde el inicio, los demás

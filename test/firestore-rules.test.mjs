@@ -1689,5 +1689,95 @@ ok('Config Asistente IA · enrolled student CANNOT read the comentarios (privado
 await assertFails(deleteDoc(doc(asT1, 'subjects', 'S1', 'asistenteIA', 'config')))
 ok('Config Asistente IA · NOBODY, not even the owner, can delete the comentarios doc')
 
+// ── Escuela obligatoria del docente (30-ago-2026) ───────────────────────────
+// "TODO DOCENTE PERTENECE A UNA ESCUELA": la pantalla ya lo exige, pero el
+// candado de verdad es este. Y de él cuelga lo demás — la cuenta del alumno ES
+// `usuario.escuela@evalua.local`, así que sin escuela no hay identidad posible.
+const T_ESC_NUEVO = 'teacher_nuevo'
+const asEscNuevo = testEnv.authenticatedContext(T_ESC_NUEVO).firestore()
+
+await assertFails(setDoc(doc(asEscNuevo, 'users', T_ESC_NUEVO), {
+  role: 'docente', email: 'nuevo@x.mx', profileComplete: true,
+})); ok('Escuela obligatoria · NO se puede crear un docente operativo SIN escuelaId')
+
+await assertFails(setDoc(doc(asEscNuevo, 'users', T_ESC_NUEVO), {
+  role: 'docente', email: 'nuevo@x.mx', escuelaId: '', profileComplete: true,
+})); ok('Escuela obligatoria · NO se puede crear un docente operativo con escuelaId vacío')
+
+await assertFails(setDoc(doc(asEscNuevo, 'users', T_ESC_NUEVO), {
+  role: 'docente', email: 'nuevo@x.mx', escuelaId: 'sin-escuela', profileComplete: true,
+})); ok('Escuela obligatoria · el centinela "sin-escuela" NO cuenta como escuela')
+
+// El perfil A MEDIO LLENAR sí puede existir: Register lo crea antes de poder
+// resolver la escuela (las reglas de `schools` exigen ser docente ya
+// registrado). Lo que no puede es quedarse así y operar — de eso se encarga
+// el guard de rutas del cliente, y de que no se marque completo, la regla.
+await assertSucceeds(setDoc(doc(asEscNuevo, 'users', T_ESC_NUEVO), {
+  role: 'docente', email: 'nuevo@x.mx', profileComplete: false,
+})); ok('Escuela obligatoria · un perfil INCOMPLETO sí puede existir sin escuela todavía')
+
+await assertFails(updateDoc(doc(asEscNuevo, 'users', T_ESC_NUEVO), { profileComplete: true }))
+ok('Escuela obligatoria · NO se puede marcar completo un perfil sin escuela')
+
+await assertSucceeds(updateDoc(doc(asEscNuevo, 'users', T_ESC_NUEVO), {
+  escuelaId: 'E1', schoolName: 'CBTIS 255', profileComplete: true,
+})); ok('Escuela obligatoria · SÍ se completa el perfil al elegir una escuela real')
+
+// Un docente de antes, atorado en el centinela, tampoco puede seguir así.
+const T_ESC_VIEJO = 'teacher_viejo'
+const asEscViejo = testEnv.authenticatedContext(T_ESC_VIEJO).firestore()
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'users', T_ESC_VIEJO), {
+    role: 'docente', escuelaId: 'sin-escuela', profileComplete: true,
+  })
+})
+await assertFails(updateDoc(doc(asEscViejo, 'users', T_ESC_VIEJO), { nombreMostrar: 'Profe Ana' }))
+ok('Escuela obligatoria · un docente en el centinela no puede seguir editando su perfil sin elegir escuela')
+
+await assertSucceeds(updateDoc(doc(asEscViejo, 'users', T_ESC_VIEJO), {
+  escuelaId: 'E1', schoolName: 'CBTIS 255',
+})); ok('Escuela obligatoria · sí puede SALIR del centinela eligiendo una escuela real')
+
+// ── Ningún estudiante ni asignatura sin escuela ─────────────────────────────
+await assertFails(setDoc(doc(asT1, 'students', 'ST_SIN_ESC'), {
+  asignaturaId: 'S1', username: 'SINESC', uid: null, activado: false,
+})); ok('Escuela obligatoria · NO se puede crear una inscripción SIN escuelaId')
+
+await assertFails(setDoc(doc(asT1, 'students', 'ST_ESC_VACIA'), {
+  asignaturaId: 'S1', escuelaId: '', username: 'VACIA', uid: null, activado: false,
+})); ok('Escuela obligatoria · NO se puede crear una inscripción con escuelaId vacío')
+
+// Reinscribir a un alumno VIEJO (que arrastra el centinela en sus
+// inscripciones hermanas) tiene que seguir funcionando: si no, el docente no
+// podría agregarlo a otra asignatura sin fabricarle una segunda cuenta.
+await assertSucceeds(setDoc(doc(asT1, 'students', 'ST_LEGACY'), {
+  asignaturaId: 'S1', escuelaId: 'sin-escuela', username: 'legacy.juan', uid: null, activado: false,
+})); ok('Escuela obligatoria · reinscribir a un alumno viejo del centinela SIGUE permitido')
+
+await assertFails(setDoc(doc(asT1, 'subjects', 'S_SIN_ESC'), {
+  docenteId: T1, accessCode: 'nope',
+})); ok('Escuela obligatoria · NO se puede crear una asignatura SIN escuelaId')
+
+await assertSucceeds(setDoc(doc(asT1, 'subjects', 'S_CON_ESC'), {
+  docenteId: T1, escuelaId: 'E1', accessCode: 'sip',
+})); ok('Escuela obligatoria · sí se crea una asignatura con la escuela puesta')
+
+// ── La regla del 23-ago-2026 sigue vigente (candado de no-regresión) ─────────
+// El código de asignatura + estar en el roster son la ÚNICA llave: la escuela
+// del correo NO forma parte de la prueba de identidad. Sin esto, un alumno con
+// cuenta en otra escuela no podría activarse aunque su maestro lo haya
+// agregado. Decisión explícita de Kike — si esta prueba se pone en rojo, es
+// que alguien revirtió esa regla sin querer.
+const U_OTRA_ESC = 'authuid_otra_escuela'
+const asOtraEsc = testEnv.authenticatedContext(U_OTRA_ESC, { email: 'cruza.otraescuela@evalua.local' }).firestore()
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'students', 'ST_CRUZA'), {
+    asignaturaId: 'S1', escuelaId: 'E1', username: 'cruza', uid: null, activado: false,
+  })
+})
+await assertSucceeds(updateDoc(doc(asOtraEsc, 'students', 'ST_CRUZA'), {
+  uid: U_OTRA_ESC, activado: true, resetPassword: null,
+})); ok('Regla 23-ago · un alumno cuya cuenta nació en OTRA escuela SÍ puede activar la inscripción que su docente le creó')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

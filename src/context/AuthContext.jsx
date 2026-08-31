@@ -7,6 +7,7 @@ import { usernameCandidates } from '../utils/generate'
 import { initPushNotifications, clearPushToken } from '../utils/pushNotifications'
 import { initWebPush, clearWebPushToken } from '../utils/webPush'
 import { createTeacherAccount } from '../utils/teacherAccount'
+import { escuelaValida } from '../utils/escuela'
 import { refreshTeacherReminders, installReminderResumeListener, installReminderDeliveryListener } from '../utils/localReminders'
 
 const AuthContext = createContext(null)
@@ -56,27 +57,26 @@ export function AuthProvider({ children }) {
               // best-effort
             }
           }
-          // Some legacy accounts never got an escuelaId at all — not even the
-          // "sin-escuela" sentinel — because they predate that convention. School
-          // is optional, so self-heal them to the sentinel instead of leaving
-          // escuelaId undefined (which Firestore rejects when writing new docs
-          // like subjects/students that store it).
-          if (profile.role === 'docente' && !profile.escuelaId) {
-            profile.escuelaId = 'sin-escuela'
-            profile.schoolName = profile.schoolName || 'Sin escuela'
-            updateDoc(doc(db, 'users', user.uid), {
-              escuelaId: 'sin-escuela',
-              schoolName: profile.schoolName,
-            }).catch(() => {})
-          }
+          // Aquí se rellenaba el escuelaId ausente con el centinela compartido
+          // `sin-escuela`. Se quitó (30-ago-2026): la escuela es obligatoria y
+          // NO se puede inventar — el centinela metía en un mismo "plantel" a
+          // docentes que no tienen nada que ver, y con él se rompía la
+          // identidad del alumno (su cuenta ES `usuario.escuela@evalua.local`)
+          // y el que dos docentes del mismo plantel se encuentren al mismo
+          // estudiante. Un perfil sin escuela real no se repara solo: el guard
+          // de ProtectedTeacher (docenteSinEscuela, ver utils/escuela.js) lo
+          // manda a /onboarding a elegirla, que es el único que la sabe.
 
           // Accounts created before the onboarding wizard existed never went through
-          // it, but they did go through the old registration flow (which always set
-          // an escuelaId, even the "sin-escuela" sentinel). Treat those as complete
-          // so they're never sent to /onboarding; only brand-new accounts (created
-          // without an escuelaId) start as incomplete.
+          // it, but they did go through the old registration flow. Se dan por
+          // completas para no mandarlas a /onboarding por gusto — pero solo si
+          // tienen una escuela REAL: marcar completo un perfil sin plantel es
+          // justo lo que las reglas ahora rechazan, así que ni se intenta (si
+          // no, cada inicio de sesión de esas cuentas dejaba un error de
+          // permisos en la consola). Sin escuela real se quedan incompletas y
+          // el guard las lleva a elegirla.
           if (profile.role === 'docente' && profile.profileComplete === undefined) {
-            const complete = Boolean(profile.escuelaId)
+            const complete = escuelaValida(profile.escuelaId)
             updateDoc(doc(db, 'users', user.uid), { profileComplete: complete }).catch(() => {})
             profile.profileComplete = complete
           }

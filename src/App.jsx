@@ -42,6 +42,7 @@ import StudentAgenda from './pages/student/Agenda'
 import StudentProfile from './pages/student/Profile'
 
 import AdminDashboard from './pages/admin/Dashboard'
+import { docenteSinEscuela } from './utils/escuela'
 
 function ProtectedAdmin({ children }) {
   const { currentUser, userProfile, loading } = useAuth()
@@ -89,6 +90,15 @@ function ProtectedTeacher({ children }) {
     return <Navigate to="/protect-account" replace />
   }
   if (userProfile.profileComplete === false) {
+    return <Navigate to="/onboarding" replace />
+  }
+  // TODO DOCENTE PERTENECE A UNA ESCUELA (regla de negocio, 30-ago-2026 — ver
+  // utils/escuela.js). Las cuentas de antes pudieron quedarse sin escuela real
+  // (el centinela compartido `sin-escuela`, o sin el campo siquiera), y de ahí
+  // salían asignaturas y estudiantes que ningún compañero de plantel podía
+  // encontrar. No se les adivina la escuela ni se les toca el dato: se les
+  // pide, una sola vez, en la misma pantalla del alta.
+  if (docenteSinEscuela(userProfile)) {
     return <Navigate to="/onboarding" replace />
   }
   return children

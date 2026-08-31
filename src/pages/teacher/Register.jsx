@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '../../firebase'
+import { doc, updateDoc } from 'firebase/firestore'
+import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import { createTeacherAccount } from '../../utils/teacherAccount'
 import { createTeacherAccountIfNew, signInWithGoogle, googleErrorInfo } from '../../utils/googleAuth'
@@ -17,6 +18,9 @@ import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
 import { PREFIJOS } from '../../utils/prefijos'
+import SchoolPicker from '../../components/SchoolPicker'
+import { resolveSchoolSelection } from '../../utils/schoolSelection'
+import { School } from 'lucide-react'
 
 // Registro en dos pasos, SIN crear ninguna cuenta hasta el paso final.
 //
@@ -53,6 +57,13 @@ export default function Register() {
   const [codigoPostal, setCodigoPostal] = useState('')
   const { ubicacion, buscando } = useUbicacionCP(codigoPostal)
   const [saving, setSaving] = useState(false)
+  // Escuela — OBLIGATORIA (ver utils/escuela.js). Aquí solo se guarda lo
+  // ELEGIDO, sin tocar Firestore todavía: en este paso la cuenta aún no
+  // existe, y las reglas de `schools` solo dejan escribir a un docente ya
+  // registrado. Se resuelve al final de finish(), con la sesión ya creada.
+  const [plantel, setPlantel] = useState(null)
+  const [showSchoolPicker, setShowSchoolPicker] = useState(false)
+  const plantelLabel = plantel ? (plantel.short || plantel.nombre || '') : ''
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -86,6 +97,7 @@ export default function Register() {
     e.preventDefault()
     if (!realNombre.trim() || !apellidoPaterno.trim()) { toast('Escribe tu nombre y apellido paterno', 'error'); return }
     if (!nombre.trim()) { toast('Escribe cómo quieres que te vean tus estudiantes', 'error'); return }
+    if (!plantel) { toast('Elige tu escuela para continuar', 'error'); return }
     if (buscando) { toast('Espera un momento, estamos buscando tu código postal', 'warning'); return }
     const errorCP = errorCodigoPostal(codigoPostal, ubicacion)
     if (errorCP) { toast(errorCP, 'error'); return }
@@ -93,6 +105,12 @@ export default function Register() {
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password)
       const prefijo = prefijoOption === '__otro__' ? prefijoCustom.trim() : prefijoOption
+      // Dos escrituras, no una, y en este orden a propósito: `schools` solo
+      // acepta escrituras de un docente YA registrado (ver firestore.rules),
+      // así que el perfil tiene que existir antes de poder resolver o dar de
+      // alta la escuela. Nace incompleto para que, si la segunda escritura no
+      // aterriza (red caída), el guard de rutas lo mande a /onboarding a
+      // terminar de elegirla — nunca a operar sin escuela.
       await createTeacherAccount(cred.user.uid, email, null, 'password', true, {
         nombre: realNombre.trim(),
         apellidoPaterno: apellidoPaterno.trim(),
@@ -103,8 +121,10 @@ export default function Register() {
         estado: ubicacion.estado,
         municipio: ubicacion.municipio,
         ciudad: ubicacion.ciudad,
-        profileComplete: true,
+        profileComplete: false,
       })
+      const { escuelaId, schoolName } = await resolveSchoolSelection(plantel, cred.user.uid)
+      await updateDoc(doc(db, 'users', cred.user.uid), { escuelaId, schoolName, profileComplete: true })
       navigate('/dashboard')
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
@@ -219,9 +239,29 @@ export default function Register() {
                 <p className="text-sm text-muted mt-1">Puede ser distinto a tu nombre real — un apodo, un título, como prefieras.</p>
               </div>
 
+              {/* Escuela: obligatoria. No hay opción de seguir sin una — si la
+                  suya no está en el catálogo, la da de alta desde el mismo
+                  selector, sin necesidad de saberse la Clave del Centro de
+                  Trabajo. */}
+              <div>
+                <span className="block text-sm font-medium text-muted mb-1">Tu escuela</span>
+                <button
+                  type="button"
+                  onClick={() => setShowSchoolPicker(true)}
+                  disabled={saving}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-60"
+                >
+                  <School size={17} className="text-accent flex-shrink-0" />
+                  <span className={`text-sm truncate flex-1 ${plantelLabel ? 'text-on-surface font-medium' : 'text-slate-500'}`}>
+                    {plantelLabel || 'Elige tu escuela'}
+                  </span>
+                  <span className="text-xs text-accent font-semibold flex-shrink-0">{plantelLabel ? 'Cambiar' : 'Buscar'}</span>
+                </button>
+              </div>
+
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || !plantel}
                 className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : null}
@@ -239,6 +279,14 @@ export default function Register() {
             ← Atrás
           </button>
         </div>
+
+        {showSchoolPicker && (
+          <SchoolPicker
+            titulo="Busca tu escuela por nombre, municipio o CCT."
+            onSelect={(p) => { setPlantel(p); setShowSchoolPicker(false) }}
+            onClose={() => setShowSchoolPicker(false)}
+          />
+        )}
       </div>
     )
   }

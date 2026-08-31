@@ -1,21 +1,20 @@
-import { useState, useRef, useMemo, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth'
-import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore'
+import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import ConfirmModal from '../../components/ConfirmModal'
 import PasswordInput from '../../components/PasswordInput'
-import { usePlanteles } from '../../data/usePlanteles'
-import { resolveSchoolSelection, normalizeName, findSimilarSchools } from '../../utils/schoolSelection'
-import { Camera, Lock, User, X, Sparkles, School, ChevronDown, Plus, Trash2 } from 'lucide-react'
-import SearchInput from '../../components/SearchInput'
+import { resolveSchoolSelection } from '../../utils/schoolSelection'
+import { Camera, Lock, User, Sparkles, School, Trash2 } from 'lucide-react'
+import SchoolPicker from '../../components/SchoolPicker'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import ComprarCreditosModal from '../../components/ComprarCreditosModal'
 import ActivarCreditosModal from '../../components/ActivarCreditosModal'
@@ -91,127 +90,12 @@ export default function Profile() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const [cropFile, setCropFile] = useState(null) // File recién elegido, pendiente de recortar
 
-  // School
+  // School — el selector completo (catálogo, escuelas parecidas, alta manual)
+  // vive en components/SchoolPicker.jsx: es el MISMO que usan el registro y el
+  // onboarding, para no mantener tres copias del mismo flujo. Ya no ofrece
+  // "Sin escuela": todo docente pertenece a una escuela (ver utils/escuela.js).
   const [showSchoolPicker, setShowSchoolPicker] = useState(false)
-  useBackHandler(() => setShowSchoolPicker(false), showSchoolPicker)
-  useScrollLock(showSchoolPicker)
-  const [schoolSearch, setSchoolSearch] = useState('')
   const [savingSchool, setSavingSchool] = useState(false)
-  const [addingCustomSchool, setAddingCustomSchool] = useState(false)
-  // 'form' (typing the data) → 'similar' (possible matches found, asking if
-  // it's one of them) → 'confirm' (final review before actually saving).
-  const [customSchoolStep, setCustomSchoolStep] = useState('form')
-  const [similarSchools, setSimilarSchools] = useState([])
-  const [customSchoolName, setCustomSchoolName] = useState('')
-  const [customSchoolCCT, setCustomSchoolCCT] = useState('')
-  const [customSchoolCity, setCustomSchoolCity] = useState('')
-  const [customSchoolState, setCustomSchoolState] = useState('')
-  const [customSchools, setCustomSchools] = useState([])
-  const [customSchoolsLoaded, setCustomSchoolsLoaded] = useState(false)
-  const { planteles, loading: catalogLoading } = usePlanteles()
-
-  // Schools added by hand (not in the static catalog) live in Firestore — load
-  // them once the picker opens so they're searchable too, not just the catalog.
-  useEffect(() => {
-    if (!showSchoolPicker || customSchoolsLoaded) return
-    getDocs(query(collection(db, 'schools'), where('custom', '==', true)))
-      .then((snap) => setCustomSchools(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
-      .catch(() => {})
-      .finally(() => setCustomSchoolsLoaded(true))
-  }, [showSchoolPicker, customSchoolsLoaded])
-
-  const filteredPlanteles = useMemo(() => {
-    const q = normalizeName(schoolSearch)
-    if (!q) return []
-    return planteles.filter((p) =>
-      normalizeName(p.nombre || '').includes(q) || normalizeName(p.short || '').includes(q) ||
-      normalizeName(p.cct || '').includes(q) || normalizeName(p.mun || '').includes(q)
-    ).slice(0, 80)
-  }, [planteles, schoolSearch])
-
-  const filteredCustomSchools = useMemo(() => {
-    const q = normalizeName(schoolSearch)
-    if (!q) return []
-    return customSchools.filter((s) => normalizeName(s.nombre || '').includes(q))
-  }, [customSchools, schoolSearch])
-
-  function openCustomSchoolForm() {
-    setCustomSchoolName(schoolSearch.trim())
-    setCustomSchoolCCT('')
-    setCustomSchoolCity('')
-    setCustomSchoolState('')
-    setCustomSchoolStep('form')
-    setSimilarSchools([])
-    setAddingCustomSchool(true)
-  }
-
-  // Catches obvious junk (empty, too short, no letters at all) without
-  // blocking real names the static catalog wouldn't recognize — it can't
-  // verify the school is real, just that what was typed looks like a name.
-  function looksLikeText(value, minLen) {
-    const v = value.trim()
-    return v.length >= minLen && /[a-zA-ZÀ-ÖØ-öø-ÿ]/.test(v)
-  }
-
-  function reviewCustomSchool(e) {
-    e.preventDefault()
-    if (!looksLikeText(customSchoolName, 4)) {
-      toast('Escribe el nombre completo de la escuela', 'error')
-      return
-    }
-    if (!looksLikeText(customSchoolCity, 2)) {
-      toast('Escribe la ciudad o municipio', 'error')
-      return
-    }
-    if (!looksLikeText(customSchoolState, 2)) {
-      toast('Escribe el estado', 'error')
-      return
-    }
-    if (customSchoolCCT.trim() && !/^[a-zA-Z0-9]+$/.test(customSchoolCCT.trim())) {
-      toast('La clave del centro de trabajo solo debe tener letras y números', 'error')
-      return
-    }
-
-    const name = customSchoolName.trim()
-    const mun = customSchoolCity.trim()
-    const edo = customSchoolState.trim()
-    const candidates = [
-      ...customSchools.map((s) => ({
-        kind: 'custom', id: s.id, nombre: s.nombre, municipio: s.municipio, estado: s.estado, claveSEP: s.claveSEP,
-      })),
-      ...planteles.map((p) => ({
-        kind: 'catalog', plantel: p, nombre: p.nombre || p.short, municipio: p.mun, estado: p.edo, claveSEP: p.cct,
-      })),
-    ]
-    const matches = findSimilarSchools(name, mun, edo, candidates)
-    if (matches.length) {
-      setSimilarSchools(matches.slice(0, 5))
-      setCustomSchoolStep('similar')
-    } else {
-      setCustomSchoolStep('confirm')
-    }
-  }
-
-  async function chooseSimilarSchool(candidate) {
-    if (candidate.kind === 'custom') {
-      await updateSchool({ existingId: candidate.id, nombre: candidate.nombre })
-    } else {
-      await updateSchool(candidate.plantel)
-    }
-    setAddingCustomSchool(false)
-  }
-
-  async function submitCustomSchool() {
-    await updateSchool({
-      custom: true,
-      nombre: customSchoolName.trim(),
-      short: customSchoolName.trim(),
-      cct: customSchoolCCT.trim(),
-      mun: customSchoolCity.trim(),
-      edo: customSchoolState.trim(),
-    })
-    setAddingCustomSchool(false)
-  }
 
   async function updateSchool(plantel) {
     setSavingSchool(true)
@@ -647,7 +531,7 @@ export default function Profile() {
                 <p className="text-sm text-slate-500">Los docentes de la misma escuela comparten el mismo registro — pero cada quien da de alta a sus propios alumnos por separado.</p>
               </InfoDisclosure>
             </div>
-            <button type="button" onClick={() => { setSchoolSearch(''); setAddingCustomSchool(false); setCustomSchoolStep('form'); setShowSchoolPicker(true) }}
+            <button type="button" onClick={() => setShowSchoolPicker(true)}
               className="text-accent text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
           </div>
         </div>
@@ -697,191 +581,13 @@ export default function Profile() {
         />
       )}
 
-      {/* School picker overlay */}
+      {/* Selector de escuela — componente compartido con Register/Onboarding */}
       {showSchoolPicker && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !savingSchool && setShowSchoolPicker(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-sm rounded-card shadow-2xl flex flex-col max-h-[80vh]">
-            <div className="flex items-center gap-2 p-3 border-b border-outline-variant">
-              <div className="flex-1">
-                <SearchInput
-                  value={schoolSearch}
-                  onChange={setSchoolSearch}
-                  placeholder="Nombre, CCT o municipio…"
-                />
-              </div>
-              <button type="button" onClick={() => setShowSchoolPicker(false)} aria-label="Cerrar" className="p-2 text-slate-400 hover:text-muted rounded"><X size={19} /></button>
-            </div>
-            {addingCustomSchool && customSchoolStep === 'similar' ? (
-              <div className="p-3 space-y-2 overflow-y-auto">
-                <p className="text-sm text-muted">
-                  Encontramos escuelas parecidas — ¿es alguna de estas la misma que quieres agregar?
-                </p>
-                <ul className="space-y-2">
-                  {similarSchools.map((c, i) => (
-                    <li key={`${c.claveSEP || c.nombre}-${i}`}>
-                      <button type="button" onClick={() => chooseSimilarSchool(c)} disabled={savingSchool}
-                        className="w-full text-left px-3 py-2 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-                        <p className="text-sm font-medium text-on-surface leading-tight">{c.nombre}</p>
-                        <p className="text-sm text-slate-500 mt-0.5">
-                          {[c.claveSEP, [c.municipio, c.estado].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
-                        </p>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setCustomSchoolStep('form')} disabled={savingSchool}
-                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-                    Volver
-                  </button>
-                  <button type="button" onClick={() => setCustomSchoolStep('confirm')} disabled={savingSchool}
-                    className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60">
-                    Ninguna, es nueva
-                  </button>
-                </div>
-              </div>
-            ) : addingCustomSchool && customSchoolStep === 'confirm' ? (
-              <div className="p-3 space-y-2">
-                <p className="text-sm text-muted">¿Confirmas que la escuela a agregar es esta?</p>
-                <div className="bg-surface rounded p-3 border border-outline-variant space-y-1">
-                  <p className="text-sm font-semibold text-on-surface">{customSchoolName.trim()}</p>
-                  {customSchoolCCT.trim() && <p className="text-sm text-slate-500">CCT: {customSchoolCCT.trim()}</p>}
-                  <p className="text-sm text-slate-500">{customSchoolCity.trim()}, {customSchoolState.trim()}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setCustomSchoolStep(similarSchools.length ? 'similar' : 'form')} disabled={savingSchool}
-                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-                    Volver
-                  </button>
-                  <button type="button" onClick={submitCustomSchool} disabled={savingSchool}
-                    className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                    {savingSchool ? <Spinner size="sm" /> : null}
-                    {savingSchool ? 'Guardando…' : 'Confirmar y agregar'}
-                  </button>
-                </div>
-              </div>
-            ) : addingCustomSchool ? (
-              <form onSubmit={reviewCustomSchool} className="p-3 space-y-2 overflow-y-auto">
-                <div>
-                  <label htmlFor="prof-escuela-nombre" className="block text-sm font-medium text-muted mb-1">Nombre oficial de la escuela</label>
-                  <input
-                    id="prof-escuela-nombre"
-                    type="text"
-                    value={customSchoolName}
-                    onChange={(e) => setCustomSchoolName(e.target.value)}
-                    required
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Ej. Escuela Secundaria Técnica N.° 12"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="prof-escuela-cct" className="block text-sm font-medium text-muted mb-1">
-                    Clave del centro de trabajo (CCT) <span className="text-slate-500 font-normal text-xs">(opcional)</span>
-                  </label>
-                  <input
-                    id="prof-escuela-cct"
-                    type="text"
-                    value={customSchoolCCT}
-                    onChange={(e) => setCustomSchoolCCT(e.target.value)}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Ej. 15ECT0001H"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <label htmlFor="prof-escuela-ciudad" className="block text-sm font-medium text-muted mb-1">Ciudad / municipio</label>
-                    <input
-                      id="prof-escuela-ciudad"
-                      type="text"
-                      value={customSchoolCity}
-                      onChange={(e) => setCustomSchoolCity(e.target.value)}
-                      required
-                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                      placeholder="Ej. Celaya"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label htmlFor="prof-escuela-estado" className="block text-sm font-medium text-muted mb-1">Estado</label>
-                    <input
-                      id="prof-escuela-estado"
-                      type="text"
-                      value={customSchoolState}
-                      onChange={(e) => setCustomSchoolState(e.target.value)}
-                      required
-                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                      placeholder="Ej. Guanajuato"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setAddingCustomSchool(false)} disabled={savingSchool}
-                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-                    Cancelar
-                  </button>
-                  <button type="submit" disabled={savingSchool}
-                    className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                    Continuar
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <>
-                <button type="button" onClick={() => updateSchool(null)} disabled={savingSchool}
-                  className="flex items-center gap-2 px-4 py-2 text-left border-b border-outline-variant hover:bg-[var(--accent-tint)] disabled:opacity-60">
-                  <ChevronDown size={17} className="text-slate-400 rotate-0" />
-                  <span className="text-sm font-medium text-muted">Sin escuela</span>
-                </button>
-                {schoolSearch.trim() && (
-                  catalogLoading ? (
-                    <div className="flex justify-center py-10"><Spinner /></div>
-                  ) : (
-                    <ul className="overflow-y-auto flex-1 divide-y divide-slate-100">
-                      {filteredPlanteles.length === 0 && filteredCustomSchools.length === 0 && (
-                        <li className="text-center text-slate-500 text-sm py-10">Sin resultados</li>
-                      )}
-                      {filteredCustomSchools.map((s) => (
-                        <li key={s.id}>
-                          <button type="button" onClick={() => updateSchool({ existingId: s.id, nombre: s.nombre })} disabled={savingSchool}
-                            className="w-full text-left px-4 py-2 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-                            <p className="text-sm font-medium text-on-surface leading-tight">{s.nombre}</p>
-                            {(s.claveSEP || s.municipio || s.estado) && (
-                              <p className="text-sm text-slate-500 mt-0.5">
-                                {[s.claveSEP, [s.municipio, s.estado].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
-                              </p>
-                            )}
-                          </button>
-                        </li>
-                      ))}
-                      {filteredPlanteles.map((p) => (
-                        <li key={p.cct}>
-                          <button type="button" onClick={() => updateSchool(p)} disabled={savingSchool}
-                            className="w-full text-left px-4 py-2 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-                            <p className="text-sm font-medium text-on-surface leading-tight">{p.short || p.nombre}</p>
-                            <p className="text-sm text-slate-500 mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )
-                )}
-                {schoolSearch.trim() && (
-                  <div className="border-t border-outline-variant p-2">
-                    <button
-                      type="button"
-                      disabled={savingSchool}
-                      onClick={openCustomSchoolForm}
-                      className="w-full flex items-center gap-2 px-4 py-2 rounded text-sm font-medium text-accent hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
-                    >
-                      <Plus size={18} className="flex-shrink-0" />
-                      <span className="truncate">¿No la encuentras? Agregar «{schoolSearch.trim()}»</span>
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
+        <SchoolPicker
+          saving={savingSchool}
+          onSelect={updateSchool}
+          onClose={() => !savingSchool && setShowSchoolPicker(false)}
+        />
       )}
     </>
   )

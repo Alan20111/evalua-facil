@@ -23,6 +23,7 @@ import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttDateLong, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay, enrolledFromDate } from '../../utils/attendance'
 import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana, parcialForDate } from '../../utils/attendanceAuto'
 import { diaSemanaLunes, DIAS_SEMANA, derivarPatrones, tramosFaltantes, generarBloques } from '../../utils/horarioBloques'
+import { escuelaValida } from '../../utils/escuela'
 import { buildAsuetoMap, esAsuetoPara } from '../../utils/asuetos'
 import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacaciones'
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
@@ -1750,27 +1751,43 @@ export default function SubjectPage() {
   // All `students` docs of the school (every enrollment of every person). Used both to
   // dedupe usernames for brand-new people and to detect existing identities (same person
   // re-enrolled) so we can reuse their username/uid instead of forking a second account.
-  // Bug real reproducido en producción: esto buscaba por escuelaId del
-  // DOCENTE — pero cambiar de escuela en Profile.jsx dice explícitamente
-  // "solo aplica a asignaturas y estudiantes nuevos" (no migra lo ya
-  // existente). Un docente que dio de alta alumnos ANTES de elegir su
-  // escuela (escuelaId caía en el 'sin-escuela' de abajo) y luego sí la
-  // eligió, dejaba esos alumnos viejos invisibles para este detector de
-  // identidad — al volver a inscribir a la MISMA persona, no se
-  // encontraba coincidencia y se le creaba una cuenta nueva en paralelo
-  // (mismo alumno con dos cuentas de Firebase Auth, una huérfana). El
-  // docenteId nunca cambia, así que buscar por TODAS sus asignaturas es
-  // estable ante cualquier cambio de escuela.
+  // La UNIÓN de dos búsquedas, y las dos hacen falta:
+  //
+  //  (a) TODA la escuela del docente. El alumno existe a nivel de ESCUELA, no
+  //      de docente: si el maestro de Historia da de alta a alguien que el de
+  //      Cultura Digital ya tenía, tiene que encontrarlo para reutilizar su
+  //      cuenta en vez de forjarle una segunda. Sin esto, que no se duplicara
+  //      dependía de que `generateUsername` (apellido.nombre) coincidiera por
+  //      casualidad — y en cuanto hacía falta un sufijo por colisión, o el
+  //      nombre venía escrito distinto, salía una cuenta paralela. Pasó de
+  //      verdad en producción (mendez.enrique / mendez.enrique01).
+  //
+  //  (b) Sus PROPIAS asignaturas, aunque la escuela ya no coincida. Cambiar de
+  //      escuela en Profile.jsx "solo aplica a asignaturas y estudiantes
+  //      nuevos": los alumnos dados de alta antes conservan la escuela vieja y
+  //      (a) no los alcanzaría. El docenteId nunca cambia, así que este lado
+  //      es estable ante cualquier cambio de escuela.
+  //
+  // Encontrar a alguien aquí NO fusiona nada por su cuenta: solo habilita la
+  // pregunta "¿es el mismo estudiante?" que decide el docente (ver
+  // resolveLinkCandidate). Dos personas distintas con el mismo nombre siguen
+  // pudiendo tener cuentas separadas.
   async function fetchSchoolStudents() {
+    const escuelaId = userProfile?.escuelaId
     const subjSnap = await getDocs(query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid)))
     const subjectIds = subjSnap.docs.map((d) => d.id)
-    if (!subjectIds.length) return []
     const chunks = []
     for (let i = 0; i < subjectIds.length; i += 30) chunks.push(subjectIds.slice(i, i + 30))
-    const snaps = await Promise.all(chunks.map((ids) =>
-      getDocs(query(collection(db, 'students'), where('asignaturaId', 'in', ids)))
-    ))
-    return snaps.flatMap((s) => s.docs).map((d) => ({ id: d.id, ...d.data() }))
+    const snaps = await Promise.all([
+      escuelaValida(escuelaId)
+        ? getDocs(query(collection(db, 'students'), where('escuelaId', '==', escuelaId)))
+        : Promise.resolve({ docs: [] }),
+      ...chunks.map((ids) => getDocs(query(collection(db, 'students'), where('asignaturaId', 'in', ids)))),
+    ])
+    // Un mismo doc puede venir por los dos lados — se deduplica por id.
+    const porId = new Map()
+    snaps.forEach((snap) => snap.docs.forEach((d) => porId.set(d.id, { id: d.id, ...d.data() })))
+    return [...porId.values()]
   }
 
   function uniqueFrom(person, schoolDocs) {
@@ -1849,7 +1866,10 @@ export default function SubjectPage() {
       resetPassword: null,
       // Identidad ya conocida → su MISMA escuela (ver identity.escuelaId en
       // studentIdentity.js), no la escuela actual del docente.
-      escuelaId: identity ? identity.escuelaId : (userProfile.escuelaId || 'sin-escuela'),
+      // Identidad ya conocida → su MISMA escuela; si es alguien nuevo, la del
+      // docente, que SIEMPRE es una escuela real (el guard de rutas no deja
+      // operar sin ella — ver utils/escuela.js). Nunca un centinela.
+      escuelaId: identity ? identity.escuelaId : userProfile.escuelaId,
       asignaturaId: subjectId,
       activado: identity ? identity.activado : false,
       uid: identity ? (identity.uid || null) : null,
@@ -2002,7 +2022,7 @@ export default function SubjectPage() {
         if (item.status === 'skip') { skipped++; continue }
         if (item.status === 'duplicate') { duplicated++; continue }
         const row = item.row
-        let username, uid = null, activado = false, escuelaId = userProfile.escuelaId || 'sin-escuela'
+        let username, uid = null, activado = false, escuelaId = userProfile.escuelaId
         if (item.status === 'link' && item.decision === 'link') {
           // Same person elsewhere, y el docente lo confirmó en la vista previa
           // (o lo dejó tal cual, que es la propuesta por default) → se vincula
@@ -3105,7 +3125,7 @@ export default function SubjectPage() {
         icon: copyForm.icon || 'book',
         keepStudents: copyForm.keepStudents,
         docenteId: currentUser.uid,
-        escuelaId: userProfile?.escuelaId || 'sin-escuela',
+        escuelaId: userProfile.escuelaId,
       })
       toast('Asignatura duplicada')
       setShowCopyModal(false)
