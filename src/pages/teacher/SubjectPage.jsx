@@ -3011,6 +3011,9 @@ export default function SubjectPage() {
   // rellena huecos, igual que "Faltan clases" en el calendario, pero sin que
   // el docente tenga que ir a buscarlo.
   async function sincronizarBloquesConFechas(fechaInicio, fechaFin) {
+    // Una asignatura archivada está fuera del horario vigente: cambiarle las
+    // fechas no debe materializarle clases nuevas.
+    if (subject?.archived) return
     try {
       const bloquesSnap = await getDocs(query(
         collection(db, 'horarioBloques'),
@@ -3018,9 +3021,10 @@ export default function SubjectPage() {
         where('asignaturaId', '==', subjectId),
       ))
       const bloquesAsignatura = bloquesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-      const tramos = tramosFaltantes(bloquesAsignatura, fechaInicio, fechaFin)
-      if (tramos.length === 0) return
-      const patrones = derivarPatrones(bloquesAsignatura)
+      // Días de clase reales de ESTA asignatura (patrón guardado o, en cursos
+      // viejos, el derivado de sus bloques). Nunca se supone lunes a viernes.
+      const patronesGuardados = subject?.horarioPatron
+      const patrones = patronesGuardados?.length ? patronesGuardados : derivarPatrones(bloquesAsignatura)
       if (patrones.length === 0) return
 
       const [asuetosSnap, vacacionesSnap] = await Promise.all([
@@ -3031,6 +3035,10 @@ export default function SubjectPage() {
         ...asuetosSnap.docs.map(d => d.data()).filter(a => a.clases).map(a => a.fecha),
         ...fechasVacacionParaClases(vacacionesSnap.docs.map(d => d.data())),
       ]
+      // El tramo se mide contra esos días: si al alargar el curso no cae
+      // ninguna clase de la asignatura, no hay nada que extender.
+      const tramos = tramosFaltantes(bloquesAsignatura, fechaInicio, fechaFin, { patrones, diasAsueto })
+      if (tramos.length === 0) return
       const nuevos = tramos.flatMap(t => generarBloques({
         fechaInicio: t.desde,
         fechaFin: t.hasta,

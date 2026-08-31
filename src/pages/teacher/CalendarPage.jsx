@@ -960,7 +960,9 @@ export default function CalendarPage() {
   const [subjects, setSubjects] = useState({})
   const [activities, setActivities] = useState([])
   const [personalEvents, setPersonalEvents] = useState([])
-  const [bloques, setBloques] = useState([])
+  // Horario tal como viene de Firestore. El que consume la página es `bloques`
+  // (derivado más abajo), que deja fuera a las asignaturas archivadas.
+  const [bloquesRaw, setBloquesRaw] = useState([])
   const [loading, setLoading] = useState(true)
 
   const [asuetos, setAsuetos] = useState([])
@@ -1031,7 +1033,7 @@ export default function CalendarPage() {
     )
     const unsubH = onSnapshot(
       query(collection(db, 'horarioBloques'), where('docenteId', '==', currentUser.uid)),
-      snap => { setBloques(snap.docs.map(d => ({ id: d.id, ...d.data() }))); finish() },
+      snap => { setBloquesRaw(snap.docs.map(d => ({ id: d.id, ...d.data() }))); finish() },
       () => { toast('No se pudo cargar tu horario', 'error'); finish() }
     )
     const unsubA = onSnapshot(
@@ -1075,8 +1077,7 @@ export default function CalendarPage() {
       const subj = subjects[a.asignaturaId]
       // Asignatura archivada = ciclo cerrado: sus fechas límite dejan de ser
       // pendientes y salen del calendario, igual que de la agenda del alumno.
-      // (Los bloques del horario NO se tocan: el calendario sigue siendo el
-      // registro de lo que se programó; lo que se apagó son los avisos.)
+      // (Sus bloques de horario salen por su lado, al derivar `bloques`.)
       if (subj?.archived) return
       // Actividad no visible (oculta, borrador o programada a futuro) — igual
       // que en la agenda del alumno, no debe aparecer en la agenda del
@@ -1157,6 +1158,25 @@ export default function CalendarPage() {
   const asuetoMap = useMemo(() => buildAsuetoMap(asuetos), [asuetos])
   // Índice de días de vacaciones por fecha (cada periodo expandido día a día).
   const vacacionMap = useMemo(() => buildVacacionMap(vacaciones), [vacaciones])
+  // Días en los que no hay clase para nadie (asueto que bloquea clases +
+  // vacaciones). Es la MISMA lista con la que se materializan los bloques, así
+  // que detectar "faltan clases" y generarlas siempre coinciden.
+  const diasAsuetoClases = useMemo(() => [
+    ...asuetos.filter(a => a.clases).map(a => a.fecha),
+    ...fechasVacacionParaClases(vacaciones),
+  ], [asuetos, vacaciones])
+
+  // El horario VIGENTE, que es el que usa toda esta página. Una asignatura
+  // archivada = ciclo cerrado: sale del contexto de trabajo de "Bloques" y sus
+  // bloques dejan de contar para nada — no se pintan en el calendario, no
+  // suenan sus alarmas, no estorban al acomodar el horario nuevo en la zona
+  // semanal, y no generan avisos de faltantes / fuera de rango / asueto. Sus
+  // documentos NO se borran: archivar ≠ borrar historial, y al desarchivar la
+  // asignatura su horario reaparece tal cual estaba.
+  const bloques = useMemo(
+    () => bloquesRaw.filter(b => !subjects[b.asignaturaId]?.archived),
+    [bloquesRaw, subjects],
+  )
 
   // Alarmas de los bloques (suenan con la app abierta + notificación).
   useAlarmas(bloques, subjects, currentUser?.uid)
@@ -1471,7 +1491,18 @@ export default function CalendarPage() {
     const subj = subjects[asignaturaId]
     if (!subj?.fechaInicio || !subj?.fechaFin) return []
     const bloquesAsignatura = bloques.filter(b => b.asignaturaId === asignaturaId)
-    return tramosFaltantesDe(bloquesAsignatura, subj.fechaInicio, subj.fechaFin)
+    // Qué días son "de clase" lo dice el horario REAL de esta asignatura (su
+    // patrón guardado o, en cursos viejos, el derivado de sus propios
+    // bloques), nunca una semana genérica de lunes a viernes: si la asignatura
+    // es de miércoles y viernes, un lunes sin bloque no es una clase que
+    // falte. Mismos patrones y mismos asuetos que usa generarBloquesFaltantes,
+    // para que lo que se avisa sea exactamente lo que se va a generar.
+    const patronesGuardados = subj.horarioPatron
+    const patrones = patronesGuardados?.length ? patronesGuardados : derivarPatrones(asignaturaId)
+    return tramosFaltantesDe(bloquesAsignatura, subj.fechaInicio, subj.fechaFin, {
+      patrones,
+      diasAsueto: diasAsuetoClases,
+    })
   }
 
   // Extiende el patrón semanal vigente a los tramos que faltan. NO borra ni
@@ -1485,14 +1516,10 @@ export default function CalendarPage() {
     const patronesGuardados = subjects[asignaturaId]?.horarioPatron
     const patrones = patronesGuardados?.length ? patronesGuardados : derivarPatrones(asignaturaId)
     if (patrones.length === 0) { toast('No se pudo deducir el horario semanal de esa asignatura', 'error'); return }
-    const diasAsueto = [
-      ...asuetos.filter(a => a.clases).map(a => a.fecha),
-      ...fechasVacacionParaClases(vacaciones),
-    ]
     const nuevos = tramos.flatMap(t => generarBloques({
       fechaInicio: t.desde,
       fechaFin: t.hasta,
-      diasAsueto,
+      diasAsueto: diasAsuetoClases,
       duracionMin: patrones[0].duracionMin || 60,
       patrones,
       color: patrones[0].color,
@@ -1548,14 +1575,16 @@ export default function CalendarPage() {
   }
 
   // Asignaturas que YA tienen programación (solo se pueden modificar, no volver
-  // a programar hasta que se borre su programación completa).
+  // a programar hasta que se borre su programación completa). En las dos listas
+  // participan únicamente las asignaturas ACTIVAS: una archivada ya no se
+  // programa ni se modifica desde aquí (su historial se conserva intacto).
   const programmedIds = useMemo(() => new Set(bloques.map(b => b.asignaturaId)), [bloques])
   const subjectsConBloques = useMemo(() =>
-    Object.values(subjects).filter(s => programmedIds.has(s.id))
+    Object.values(subjects).filter(s => !s.archived && programmedIds.has(s.id))
       .sort((a, b) => subjectDisplayName(a).localeCompare(subjectDisplayName(b))),
   [subjects, programmedIds])
   const subjectsSinProgramar = useMemo(() =>
-    Object.values(subjects).filter(s => !programmedIds.has(s.id))
+    Object.values(subjects).filter(s => !s.archived && !programmedIds.has(s.id))
       .sort((a, b) => subjectDisplayName(a).localeCompare(subjectDisplayName(b))),
   [subjects, programmedIds])
   // Total para el badge del botón "Modificar bloques" — así se nota desde el
@@ -1591,7 +1620,7 @@ export default function CalendarPage() {
     const nuevaHoraFin = addMinutesToTime(nuevaHora, durMin)
     const diaSemana = (new Date(nuevaFecha + 'T12:00:00').getDay() + 6) % 7
     // Actualización optimista para que se vea al instante (onSnapshot confirma).
-    setBloques(prev => prev.map(x => x.id === b.id
+    setBloquesRaw(prev => prev.map(x => x.id === b.id
       ? { ...x, fecha: nuevaFecha, horaInicio: nuevaHora, horaFin: nuevaHoraFin, diaSemana, movido: true }
       : x))
     try {
@@ -2225,6 +2254,7 @@ export default function CalendarPage() {
                   const fuera = bloquesFueraDeRango(s.id)
                   const enAsueto = bloquesEnAsueto(s.id)
                   const faltan = tramosFaltantes(s.id)
+                  const faltanClases = faltan.reduce((acc, t) => acc + t.clases, 0)
                   return (
                     <div className="rounded-card border overflow-hidden" key={s.id} style={{ borderColor: pal.text + '55' }}>
                       {/* El renglón entero va del color de la asignatura, sin
@@ -2265,7 +2295,9 @@ export default function CalendarPage() {
                         confirmGenerarFaltantes === s.id ? (
                           <div className="flex items-center gap-2 px-3 py-2 bg-accent-tint border-t border-accent/30">
                             <span className="text-xs text-accent flex-1">
-                              ¿Generar las clases que faltan {faltan.map(t => `del ${formatLongDate(t.desde)} al ${formatLongDate(t.hasta)}`).join(' y ')}?
+                              ¿Generar las clases que faltan {faltan.map(t => t.desde === t.hasta
+                                ? `el ${formatLongDate(t.desde)}`
+                                : `del ${formatLongDate(t.desde)} al ${formatLongDate(t.hasta)}`).join(' y ')}?
                             </span>
                             <button type="button" onClick={() => setConfirmGenerarFaltantes(null)} className="text-xs text-muted px-2 py-1">Cancelar</button>
                             <button type="button" onClick={() => generarBloquesFaltantes(s.id)} className="text-xs bg-accent text-white rounded px-2.5 py-1 font-medium">Generar</button>
@@ -2277,7 +2309,12 @@ export default function CalendarPage() {
                             className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-accent-tint border-t border-accent/30 text-xs text-accent hover:brightness-95 transition-[filter] text-left"
                           >
                             <CalendarClock size={12} className="flex-shrink-0" />
-                            Faltan clases desde el {formatLongDate(faltan[faltan.length - 1].desde)} — tócalo para generarlas
+                            {/* El conteo son clases REALES de esta asignatura
+                                (sus días de horario, sin asuetos), no días
+                                hábiles sueltos del calendario. */}
+                            {faltanClases === 1
+                              ? `Falta 1 clase el ${formatLongDate(faltan[0].desde)}`
+                              : `Faltan ${faltanClases} clases desde el ${formatLongDate(faltan[0].desde)}`} — tócalo para generarlas
                           </button>
                         )
                       )}

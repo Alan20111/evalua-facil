@@ -177,19 +177,57 @@ export function derivarPatrones(bloquesAsignatura) {
     .map(({ muestras, ...p }) => ({ ...p, ...comboMasFrecuente(muestras) }))
 }
 
+// Días del rango [desde, hasta] en los que ESTA asignatura sí tiene clase:
+// los que caen en un día de la semana de su propio patrón y no son asueto ni
+// vacaciones. Nunca "de lunes a viernes" — una asignatura puede ser solo
+// miércoles y viernes, solo martes, o cualquier otra combinación.
+function diasDeClaseEnRango(desde, hasta, diasClase, asueto) {
+  const dias = []
+  if (!desde || !hasta || hasta < desde) return dias
+  const cur = new Date(desde + 'T12:00:00')
+  const fin = new Date(hasta + 'T12:00:00')
+  let guard = 0
+  while (cur <= fin && guard < 2000) {
+    guard++
+    const fecha = toDateStr(cur)
+    if (diasClase.has(diaSemanaLunes(cur)) && !asueto.has(fecha)) dias.push(fecha)
+    cur.setDate(cur.getDate() + 1)
+  }
+  return dias
+}
+
 // Tramos de [fechaInicio, fechaFin] que quedan SIN bloques respecto a los que
 // ya existen — el mismo cálculo que hace CalendarPage para el aviso "Faltan
 // clases", expuesto aquí para poder llamarlo también al editar la asignatura.
-export function tramosFaltantes(bloquesAsignatura, fechaInicio, fechaFin) {
+//
+// La fuente de verdad es el HORARIO REAL de la asignatura, no la semana
+// escolar genérica: el tramo se recorta a sus días de clase de verdad
+// (`opts.patrones` — el `horarioPatron` guardado o, si no lo hay, el derivado
+// de sus propios bloques) descontando asuetos/vacaciones (`opts.diasAsueto`).
+// Si en el hueco no cae ni una sola clase de esa asignatura, NO hay nada que
+// falte y no se devuelve tramo: un lunes sin bloque en una asignatura de
+// miércoles y viernes nunca es una clase faltante. Así `desde`/`hasta` son
+// siempre fechas en las que esa asignatura realmente da clase, que es lo que
+// se le muestra al docente y lo que se le pasa a generarBloques().
+export function tramosFaltantes(bloquesAsignatura, fechaInicio, fechaFin, opts = {}) {
   if (!fechaInicio || !fechaFin) return []
   const fechas = bloquesAsignatura.map(b => b.fecha).sort()
   if (fechas.length === 0) return []
+  const patrones = opts.patrones?.length ? opts.patrones : derivarPatrones(bloquesAsignatura)
+  const diasClase = new Set(patrones.map(p => p.diaSemana))
+  if (diasClase.size === 0) return []
+  const asueto = new Set(opts.diasAsueto || [])
   const correr = (f, dias) => toDateStr(addDaysStr(f, dias))
   const primero = fechas[0]
   const ultimo = fechas[fechas.length - 1]
   const tramos = []
-  if (fechaInicio < primero) tramos.push({ desde: fechaInicio, hasta: correr(primero, -1) })
-  if (fechaFin > ultimo) tramos.push({ desde: correr(ultimo, 1), hasta: fechaFin })
+  const agregar = (desde, hasta) => {
+    const dias = diasDeClaseEnRango(desde, hasta, diasClase, asueto)
+    if (dias.length === 0) return
+    tramos.push({ desde: dias[0], hasta: dias[dias.length - 1], clases: dias.length })
+  }
+  if (fechaInicio < primero) agregar(fechaInicio, correr(primero, -1))
+  if (fechaFin > ultimo) agregar(correr(ultimo, 1), fechaFin)
   return tramos
 }
 
