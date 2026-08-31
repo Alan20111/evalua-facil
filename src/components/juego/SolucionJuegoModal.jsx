@@ -1,16 +1,22 @@
-// Modal de retroalimentación POST-ENTREGA — solo para el alumno.
+// Modal de solución POST-ENTREGA — solo para el alumno.
 //
-// Solo se monta cuando estadoEvaluacion === 'finalizado'. Nunca se muestra
-// durante la resolución activa (en_progreso) ni antes del primer intento.
+// Solo se monta cuando el alumno YA AGOTÓ todos sus intentos (lo decide
+// ActivityPage: estadoEvaluacion === 'finalizado' + sin intentos restantes).
+// Nunca se muestra durante la resolución activa (en_progreso) ni mientras al
+// alumno le quede una oportunidad.
 //
-// Crucigrama: muestra las respuestas del alumno con verde (correcto) / rojo
-//   (incorrecto) por celda, más el nombre correcto en cada pista.
+// Crucigrama: es LA MISMA cuadrícula del juego, rellenada con todas las
+//   letras correctas (solucionCrucigrama, leída de `estructura.grid` — la
+//   misma fuente de verdad que usa el servidor para calificar). No se
+//   reconstruye desde lo que escribió el alumno ni se pinta correcto/
+//   incorrecto: es el crucigrama resuelto. Va con `readOnly`, así que las
+//   casillas están deshabilitadas — no se puede escribir ni generar intento.
 // Sopa de letras: muestra la cuadrícula completa con palabras encontradas
 //   en azul (accent) y palabras no encontradas en verde esmeralda para que
 //   el alumno vea dónde estaban ocultas.
 
 import { formatTiempo } from '../../utils/formatTiempo'
-import { correccionesCrucigrama } from '../../utils/correccionesJuego'
+import { solucionCrucigrama } from '../../utils/correccionesJuego'
 import Modal from '../ui/Modal'
 import CrucigramaBoard from './CrucigramaBoard'
 import SopaDeLetrasBoard from './SopaDeLetrasBoard'
@@ -46,7 +52,7 @@ export default function SolucionJuegoModal({ open, onClose, estructura, submissi
         )}
       </div>
 
-      {/* ─── Tablero ─────────────────────────────────────────────────────── */}
+      {/* ─── Tablero resuelto ────────────────────────────────────────────── */}
       {esSopa ? (
         <SopaDeLetrasBoard
           estructura={estructura}
@@ -57,8 +63,7 @@ export default function SolucionJuegoModal({ open, onClose, estructura, submissi
       ) : (
         <CrucigramaBoard
           estructura={estructura}
-          celdas={respuestas.celdas || {}}
-          estadoCorrecto={correccionesCrucigrama(estructura, respuestas.celdas || {})}
+          celdas={solucionCrucigrama(estructura)}
           readOnly
           modoDocente
         />

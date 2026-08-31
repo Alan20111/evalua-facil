@@ -640,6 +640,14 @@ export default function StudentActivityPage() {
     const enProgresoJ = submission?.estadoEvaluacion === 'en_progreso'
     const finalizadoJ = submission?.estadoEvaluacion === 'finalizado'
     const sinIntentosRestantesJ = ev.intentosPermitidos != null && intentosUsadosJ >= ev.intentosPermitidos && !enProgresoJ
+    // Ver solución exige DOS condiciones independientes:
+    //   1. el alumno ya agotó TODAS sus oportunidades (sinIntentosRestantesJ);
+    //   2. el docente ya autorizó la publicación de la solución
+    //      ("Publicar solución" en la configuración del juego).
+    // Que la calificación esté publicada NO libera la solución, ni al revés.
+    const solucionVisibleJ = finalizadoJ && sinIntentosRestantesJ && publicacionVisible(
+      ev.publicarSolucion || 'inmediato', ev.publicarSolucionFecha, ev.solucionPublicada, new Date().toISOString()
+    )
     const extendedDateJ = activity?.fechaLimite ? activity?.extensiones?.[student?.id] : null
     const deadlineJ = extendedDateJ || activity?.fechaLimite
     const juegoCerrado = (!!subject?.archived && !enProgresoJ) || (!!deadlineJ && new Date(
@@ -694,8 +702,12 @@ export default function StudentActivityPage() {
               </div>
             )}
 
-            {/* ── Botón Ver solución — solo post-entrega ────────────────── */}
-            {finalizadoJ && activity.juego?.estructura && (
+            {/* ── Botón Ver solución — solo con los intentos agotados ────────────────── */}
+            {/* Mientras al alumno le quede una oportunidad (o los intentos sean */}
+            {/* ilimitados) no debe existir forma de consultar la solución, y   */}
+            {/* aun agotados los intentos hace falta que el docente la haya     */}
+            {/* publicado — las dos cosas viven en solucionVisibleJ.            */}
+            {solucionVisibleJ && activity.juego?.estructura && (
               <>
                 <SolucionJuegoModal
                   open={solucionJuegoAbierta}
