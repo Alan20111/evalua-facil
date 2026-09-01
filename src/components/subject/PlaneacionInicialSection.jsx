@@ -456,14 +456,14 @@ function SelectorDeCamino({ perfilIACompleto, generando, subiendoArchivo, onEleg
             Que Evalúa Fácil la genere
           </span>
           <span className="text-xs text-muted">
-            La redacta con tu programa de estudios y lo que sepas de tu grupo. La revisas y la corriges antes de
-            aceptarla. Consume créditos de IA.
+            La genera con tu programa de estudios y la información de tu grupo. Puedes revisarla antes de
+            aceptarla como tu planeación vigente. Consume créditos de IA.
           </span>
         </button>
         <SelectorArchivoPlaneacion
           variante="tarjeta"
           label="Ya tengo mi planeación"
-          descripcion="Súbela en PDF o Word y queda como la planeación de esta asignatura. Es gratis, no se analiza y no necesita tu Perfil para IA."
+          descripcion="Súbela en PDF o Word y quedará como la planeación de esta asignatura. Es gratis, no se analiza y no necesita tu Perfil para IA."
           ocupado={subiendoArchivo}
           onElegido={onElegirArchivo}
           onInvalido={onArchivoInvalido}
@@ -539,8 +539,8 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
       </p>
 
       <p className="text-xs text-muted mb-2">
-        💡 Es una guía de trabajo, no un guion. Puedes adaptarla, cambiar o sustituir actividades según las
-        necesidades de tu grupo.
+        💡 Es una guía de trabajo, no un guion. Puedes adaptar tus actividades según las necesidades de tu
+        grupo.
       </p>
 
       {!habilitado && (
