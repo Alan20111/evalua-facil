@@ -8,6 +8,7 @@ import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import PdfCanvasPreview from './PdfCanvasPreview'
 import PinchZoomImage from './PinchZoomImage'
+import BotonDescargarArchivo from './BotonDescargarArchivo'
 
 const PDF_EXTS = ['pdf']
 // Word y PowerPoint SÍ se ven bien con Google Docs Viewer — confirmado por
@@ -202,7 +203,6 @@ export function FilePreviewModal({ url, nombre, onClose }) {
   // Same reasoning: only mounted while open, so the scroll lock is unconditional.
   useScrollLock(true)
   if (!url) return null
-  const downloadHref = downloadUrl(url, nombre)
   // Image-delivered PDFs can't be opened directly (raw URL blocked) → open the
   // first page as an image instead.
   const openInTabUrl = isImageDeliveredPdf(url) ? pdfPageImageUrl(url, 1) : url
@@ -216,10 +216,19 @@ export function FilePreviewModal({ url, nombre, onClose }) {
             className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
             <ExternalLink size={18} />
           </a>
-          <a href={downloadHref} download={nombre} rel="noreferrer" data-tooltip="Descargar" aria-label="Descargar"
-            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-            <Download size={18} />
-          </a>
+          {/* El <a download> de antes era inerte dentro del WebView de la app:
+              no descargaba, no fallaba, no avisaba (1-sep-2026). Este botón
+              hace lo mismo de siempre en la web y, en la app, baja el archivo
+              y lo entrega por el panel Compartir de Android. El archivo que se
+              entrega es el original, igual que antes. */}
+          <BotonDescargarArchivo
+            url={url}
+            nombre={nombre}
+            etiqueta=""
+            iconSize={18}
+            title="Descargar"
+            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 disabled:opacity-60"
+          />
           <button type="button" onClick={onClose} data-tooltip="Cerrar" aria-label="Cerrar"
             className="p-2 text-slate-400 hover:text-on-surface hover:bg-surface rounded transition-colors flex-shrink-0">
             <X size={18} />

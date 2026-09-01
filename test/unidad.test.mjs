@@ -1827,6 +1827,16 @@ caso('validarArchivoPlaneacion: acepta PDF y DOCX, rechaza todo lo demás con un
   assert.match(validarArchivoPlaneacion(null), /Elige un archivo/)
 })
 
+// El programa de estudios (Fuente Principal) acepta PDF y DOCX desde el
+// 1-sep-2026 y reutiliza ESTA MISMA validación — no una copia con las mismas
+// reglas escritas dos veces. Lo único que cambia es el sujeto de la frase.
+caso('validarArchivoPlaneacion: la misma validación sirve para el programa de estudios, con su propia etiqueta', () => {
+  assert.strictEqual(validarArchivoPlaneacion({ name: 'programa.docx', size: 1000 }, 'El programa de estudios'), null)
+  assert.strictEqual(validarArchivoPlaneacion({ name: 'programa.pdf', size: 1000 }, 'El programa de estudios'), null)
+  assert.match(validarArchivoPlaneacion({ name: 'programa.xlsx', size: 1000 }, 'El programa de estudios'), /^El programa de estudios debe ser PDF o Word/)
+  assert.match(validarArchivoPlaneacion({ name: 'programa.pdf', size: 20 * 1024 * 1024 }, 'El programa de estudios'), /15 MB/)
+})
+
 caso('extensionPlaneacion: saca la extensión aunque el nombre traiga puntos o query', () => {
   assert.strictEqual(extensionPlaneacion('Planeación 2026.v2.DOCX'), 'docx')
   assert.strictEqual(extensionPlaneacion('sin-extension'), '')
