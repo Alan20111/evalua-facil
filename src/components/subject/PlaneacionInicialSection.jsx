@@ -142,7 +142,7 @@ function InsumosOpcionales({
     <fieldset className="mb-2 p-2.5 rounded border border-outline-variant">
       <legend className="text-sm text-on-surface px-1">Insumos a incluir</legend>
       <p className="text-xs text-muted mb-1.5">
-        Tu Perfil IA y la Fuente Principal (programa de estudios) siempre se usan. Los demás se marcan más abajo,
+        Tu Perfil IA y el programa de estudios siempre se usan. Los demás se marcan más abajo,
         en &ldquo;Información adicional para generar con IA&rdquo;, en la tarjeta de cada uno — entre más insumos incluyas y
         tengas listos, mejor planeación obtendrás.
       </p>
@@ -554,7 +554,7 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
 
       {!habilitado && (
         <ul className="space-y-1 mb-1">
-          <RequisitoItem ok={hayFuentesGenerales} texto="Fuente Principal (programa de estudios)" />
+          <RequisitoItem ok={hayFuentesGenerales} texto="Programa de estudios" />
         </ul>
       )}
 
@@ -744,7 +744,7 @@ function Planeacion({
       setConfirmando(false)
       if (err.codigo === 'SALDO_INSUFICIENTE') toast('No tienes suficientes créditos de IA para esta acción', 'error')
       else if (err.codigo === 'PERFIL_IA_INCOMPLETO') toast('Marcaste incluir tu Perfil IA, pero todavía no lo completas — complétalo o desmarca esa casilla', 'error')
-      else if (err.codigo === 'SIN_PROGRAMA_ESTUDIOS') toast('Sube primero la Fuente Principal (programa de estudios)', 'error')
+      else if (err.codigo === 'SIN_PROGRAMA_ESTUDIOS') toast('Sube primero el programa de estudios', 'error')
       else if (err.codigo === 'SIN_DIAGNOSTICO_CONTEXTO') toast('Marcaste incluir el Diagnóstico de contexto, pero todavía no tiene resultados analizados — genera y analiza el instrumento, o desmarca esa casilla', 'error')
       else if (err.codigo === 'SIN_DIAGNOSTICO_CONOCIMIENTOS') toast('Marcaste incluir el Diagnóstico de conocimientos, pero todavía no tiene resultados analizados — genera y analiza el cuestionario, o desmarca esa casilla', 'error')
       else toast(err.message || 'El asistente de IA no está disponible en este momento', 'error')

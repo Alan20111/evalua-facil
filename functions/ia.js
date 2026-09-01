@@ -2956,8 +2956,8 @@ async function requerirProgramaEstudios(db, subjectId, configSnap) {
   const programaEstudios = config?.programaEstudios
   if (!programaEstudios?.url) {
     throw new HttpsError('failed-precondition',
-      'Sube primero la Fuente Principal en PDF (arriba, en Fuente Principal / programa de estudios) — nada ' +
-      'pesa más que ella en todo lo que hace el Asistente IA. No se descontaron créditos.',
+      'Sube primero el programa de estudios (arriba, en Documentos de la Asignatura) — nada ' +
+      'pesa más que él en todo lo que hace el Asistente IA. No se descontaron créditos.',
       { codigo: 'SIN_PROGRAMA_ESTUDIOS' })
   }
   return programaEstudios

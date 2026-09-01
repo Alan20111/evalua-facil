@@ -8,15 +8,27 @@
 //
 // El orden es la regla de negocio hecha pantalla:
 //
-//   1. Fuente Principal (programa de estudios) — OBLIGATORIA, sin ella no se
-//      muestra nada más. Es el único requisito común a los dos caminos.
+//   1. "Documentos de la Asignatura" — el programa de estudios (OBLIGATORIO,
+//      sin él no se muestra nada más) y el material complementario del curso.
+//      Los dos son documentos GLOBALES de la asignatura, privados del docente
+//      y solo para la IA: por eso viven juntos. El material complementario
+//      estaba hasta el 1-sep-2026 dentro de los insumos de IA, donde se leía
+//      como una tarea de la planeación cuando en realidad no lo es.
 //   2. Planeación Didáctica — la bifurcación: generarla con IA o subir la
 //      propia. Va aquí, inmediatamente después de lo obligatorio, para que
 //      quien solo quiere subir su archivo no tenga que atravesar nada más.
-//   3. "Información adicional para generar con IA" — Fuentes del curso,
-//      Comentarios, Autoanálisis, Consideraciones y Diagnóstico del grupo.
-//      Son INSUMOS del camino de IA, nunca requisitos del docente: antes
-//      vivían ARRIBA de la Planeación y se leían como una lista de deberes.
+//   3. "Información adicional para generar con IA" — Comentarios,
+//      Autoanálisis, Consideraciones y Diagnóstico del grupo. Son INSUMOS del
+//      camino de IA, nunca requisitos del docente.
+//
+// El material complementario NO se movió de colección ni cambió de forma:
+// sigue siendo `fuentesAsignatura` con `ubicacion:'general'`, y las cinco
+// operaciones que lo consumen (crear actividad, crear examen/cuestionario,
+// reactivos, planeación y diagnósticos) lo siguen leyendo EN VIVO en cada
+// ejecución — no hay copia ni caché en ningún lado, así que agregar o quitar
+// un documento hoy cambia lo que la IA usará mañana, sin regenerar nada.
+// Los materiales de un parcial concreto siguen siendo otra cosa: `materials`
+// con su `parcial`, en Actividades.
 //
 // El Perfil IA ya no hace falta para entrar aquí (ver SubjectPage): es
 // requisito solo de las operaciones que de verdad usan IA, que lo avisan en
@@ -27,7 +39,9 @@ import { addDoc } from '../../utils/firestoreGuard'
 import { auth, db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { Paperclip, Trash2, FileText } from 'lucide-react'
+import { Paperclip, Trash2, FileText, Eye } from 'lucide-react'
+import { FilePreviewModal } from '../AttachmentList'
+import BotonDescargarArchivo from '../BotonDescargarArchivo'
 import { MAX_FUENTES, MAX_FUENTE_BYTES, FUENTES_ACCEPT, subirFuentes } from '../../utils/fuentesIA'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO } from '../../utils/fuentesAsignatura'
 import { apiUrl } from '../../utils/apiBase'
@@ -47,7 +61,7 @@ import ProgramaEstudiosSection from './ProgramaEstudiosSection'
 // Actividades → por parcial, `materials` en Firestore), que ya es donde el
 // docente sube documentos específicos de cada parcial — la IA lee de ahí
 // (ver bloqueFuentesPermanentes en functions/ia.js), sin duplicar el lugar.
-function GrupoFuentes({ titulo, descripcion, fuentes, onAgregar, onEliminar, subiendo, eliminandoId }) {
+function GrupoFuentes({ titulo, descripcion, fuentes, onAgregar, onEliminar, onVer, subiendo, eliminandoId }) {
   return (
     <div className="bg-surface-card rounded-card shadow-card p-3">
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -84,10 +98,30 @@ function GrupoFuentes({ titulo, descripcion, fuentes, onAgregar, onEliminar, sub
           {fuentes.map((f) => (
             <div key={f.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded border border-outline-variant bg-surface text-sm">
               <FileText size={14} className="text-muted flex-shrink-0" />
-              <a href={f.url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 truncate hover:underline">
-                {f.nombre}
-              </a>
+              <span className="flex-1 min-w-0 truncate">{f.nombre}</span>
               <span className="text-xs text-muted uppercase flex-shrink-0">{f.tipo}</span>
+              {/* Ver y Descargar (1-sep-2026): hasta hoy el nombre era un
+                  enlace crudo a Cloudinary — en la app abría el navegador del
+                  sistema y en la web no forzaba la descarga. Ahora usa el
+                  mismo visor (FilePreviewModal, PDF y Word) y el mismo botón
+                  de descarga (web + panel Compartir de Android) que el
+                  programa de estudios y la planeación propia. */}
+              <button
+                type="button"
+                onClick={() => onVer(f)}
+                data-tooltip="Ver"
+                aria-label={`Ver ${f.nombre}`}
+                className="p-0.5 text-muted hover:text-accent flex-shrink-0"
+              >
+                <Eye size={14} />
+              </button>
+              <BotonDescargarArchivo
+                url={f.url}
+                nombre={f.nombre}
+                etiqueta=""
+                title="Descargar"
+                className="p-0.5 text-muted hover:text-accent flex-shrink-0 disabled:opacity-60"
+              />
               <button
                 type="button"
                 onClick={() => onEliminar(f.id)}
@@ -121,6 +155,10 @@ export default function PlaneacionDidacticaTab({ subjectId, docenteId, asignatur
   // sabe). Decide si los insumos de IA se montan — no hay ningún dato nuevo
   // en Firestore detrás de esto.
   const [camino, setCamino] = useState(undefined)
+  // Material complementario que el docente está viendo en el visor compartido
+  // (null = ninguno). Mismo FilePreviewModal que usan materiales, recursos,
+  // entregas, el programa de estudios y la planeación propia.
+  const [fuenteVista, setFuenteVista] = useState(null)
 
   useEffect(() => {
     // Las reglas de fuentesAsignatura filtran por `docenteId` (privada del
@@ -230,17 +268,38 @@ export default function PlaneacionDidacticaTab({ subjectId, docenteId, asignatur
 
   return (
     <div className="space-y-4">
+      {/* 1. DOCUMENTOS DE LA ASIGNATURA — el programa (obligatorio) y el
+          material complementario del curso. Los dos son documentos globales
+          de la asignatura, privados del docente y solo para la IA. */}
+      <div className="px-1">
+        <h2 className="font-bold text-on-surface">Documentos de la Asignatura</h2>
+      </div>
+
       <ProgramaEstudiosSection subjectId={subjectId} docenteId={docenteId} onEstadoCargado={setProgramaListo} />
 
       {programaListo === null ? (
         <div className="flex justify-center py-6"><Spinner size="sm" /></div>
       ) : !programaListo ? (
         <p className="text-sm text-muted px-1">
-          Sube primero la Fuente Principal (programa de estudios, arriba). Con ella podrás continuar con tu
+          Sube primero el programa de estudios (arriba). Con él podrás continuar con tu
           Planeación Didáctica: generarla con Evalúa Fácil o subir la que ya tienes.
         </p>
       ) : (
         <>
+          {/* El material complementario vive AQUÍ, no entre los insumos de
+              IA: es un documento de la asignatura, no una tarea de la
+              planeación. La colección y su forma no cambiaron. */}
+          <GrupoFuentes
+            titulo="Material complementario del curso"
+            descripcion={`Material complementario del curso (manuales, guías) — opcional, aparte del programa de estudios. La IA lo usa al proponerte actividades, exámenes y reactivos, y al generar tu planeación y tus diagnósticos. Para material de un parcial concreto, súbelo en Actividades → ese parcial → Material de apoyo. PDF o Word, hasta ${MAX_FUENTES} por carga y ${MAX_FUENTES_POR_GRUPO} en total.`}
+            fuentes={generales}
+            subiendo={subiendo}
+            eliminandoId={eliminandoId}
+            onAgregar={agregarFuentes}
+            onEliminar={eliminarFuente}
+            onVer={setFuenteVista}
+          />
+
           {/* 2. La Planeación Didáctica, justo después de lo obligatorio: es
               a lo que el docente viene, y desde aquí elige su camino sin
               tener que recorrer antes ningún insumo de IA. */}
@@ -270,8 +329,9 @@ export default function PlaneacionDidacticaTab({ subjectId, docenteId, asignatur
               contra 'ia' y no una negación.
 
               Ninguno de estos componentes cambió por dentro: siguen guardando
-              donde siempre, y las Fuentes del curso siguen alimentando
-              exámenes, cuestionarios y reactivos aunque aquí no se vean. */}
+              donde siempre. El material complementario ya NO está aquí: subió
+              a "Documentos de la Asignatura", porque es un documento del curso
+              y no un insumo exclusivo de la generación con IA. */}
           {camino === 'ia' && (
             <>
               <div className="pt-3 border-t border-outline-variant">
@@ -280,16 +340,6 @@ export default function PlaneacionDidacticaTab({ subjectId, docenteId, asignatur
                   Entre más le des, mejor será la planeación que genere Evalúa Fácil.
                 </p>
               </div>
-
-              <GrupoFuentes
-                titulo="Fuentes del curso"
-                descripcion={`Material complementario (manuales, guías) — opcional, aparte de la Fuente Principal. Se reutiliza en todas las funciones de IA. PDF o Word, hasta ${MAX_FUENTES} por carga y ${MAX_FUENTES_POR_GRUPO} en total.`}
-                fuentes={generales}
-                subiendo={subiendo}
-                eliminandoId={eliminandoId}
-                onAgregar={agregarFuentes}
-                onEliminar={eliminarFuente}
-              />
 
               <div>
                 <ComentariosGrupoSection subjectId={subjectId} docenteId={docenteId} />
@@ -316,6 +366,14 @@ export default function PlaneacionDidacticaTab({ subjectId, docenteId, asignatur
             </>
           )}
         </>
+      )}
+
+      {fuenteVista && (
+        <FilePreviewModal
+          url={fuenteVista.url}
+          nombre={fuenteVista.nombre}
+          onClose={() => setFuenteVista(null)}
+        />
       )}
     </div>
   )
