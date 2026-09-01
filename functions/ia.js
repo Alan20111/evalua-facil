@@ -27,6 +27,7 @@ const { logger } = require('firebase-functions')
 const ledger = require('./creditosLedger')
 const { resolverIntentoGanador, respuestasVivasSonDelIntentoGanador } = require('./calificacionIntentos')
 const fuentesIA = require('./fuentesIA')
+const docExtract = require('./docExtract')
 const { dividirEnFragmentos } = require('./docChunking')
 const { prepararEvidenciasEntrega } = require('./evidenciasEntrega')
 // Lógica PURA de calendario/sesiones, compartida con el cliente — ver
@@ -115,6 +116,112 @@ async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual
     permanentes.texto,
     await fuentesIA.prepararBloqueFuentes(manualSinDuplicar)
   )
+}
+
+// ── Planeación Didáctica VIGENTE como contexto de la IA ───────────────────
+// (1-sep-2026, autorizado por Kike)
+//
+// REGLA: toda operación de IA que genere contenido educativo y necesite la
+// planeación usa SIEMPRE la ÚNICA planeación vigente de la asignatura —
+// nunca una generación anterior, nunca una pendiente de aceptar, nunca la
+// bitácora `planeacionesIA` (que es histórico técnico, no una planeación
+// disponible para trabajar).
+//
+// El ORIGEN decide de dónde sale el texto, NO cuál planeación se usa:
+//   · 'ia'      → el contenido estructurado que ya está guardado en el
+//                 propio campo; se resume con planeacionAceptadaATexto, la
+//                 misma función de siempre, sin tocarla.
+//   · 'archivo' → el PDF/DOCX que subió el docente, leído con la MISMA
+//                 infraestructura de extracción que ya usan las fuentes
+//                 (docExtract). Ahí no hay IA de por medio: se abre el
+//                 archivo y se lee el texto, igual que con el programa de
+//                 estudios. Subir la planeación sigue sin consumir créditos;
+//                 el contenido solo se obtiene cuando una operación de IA de
+//                 verdad lo necesita.
+//
+// La ausencia de `origen` significa 'ia': todo lo guardado antes del
+// 1-sep-2026 viene del único flujo que existía entonces. Misma regla que
+// src/utils/planeacionVigente.js — se duplica a propósito, son runtimes
+// distintos sin módulo compartido (mismo criterio que CAMPOS_VALIDACION).
+const PLANEACION_ETIQUETA = 'PLANEACIÓN DIDÁCTICA VIGENTE DE LA ASIGNATURA'
+
+/** Normaliza el campo guardado a "la planeación vigente", o null. Pura. */
+function planeacionVigenteDe(subjData) {
+  const guardada = subjData?.planeacionAceptada
+  if (!guardada) return null
+  // Sin URL no hay archivo que leer: se trata como si no hubiera planeación,
+  // en vez de intentar descargar `undefined`.
+  if (guardada.origen === 'archivo') return guardada.archivo?.url ? guardada : null
+  return guardada
+}
+
+/**
+ * Arma el bloque de prompt de la planeación vigente. Función PURA (sin red,
+ * sin Firestore) a propósito: es lo que permite comprobar con un assert que
+ * una operación recibió el contenido REAL de la planeación del docente y no
+ * el de una generación de IA anterior.
+ *
+ * `parcial` acota el resumen al parcial de la operación cuando el origen es
+ * 'ia' (el contenido ya viene separado por parcial). Un archivo del docente
+ * no trae esa separación, así que va completo — nunca truncado: el tamaño de
+ * un documento no debe provocar pérdida silenciosa de contenido (misma regla
+ * de oro que docExtract.js).
+ */
+function textoPlaneacionParaPrompt(vigente, textoArchivo, parcial) {
+  if (!vigente) return null
+
+  if (vigente.origen === 'archivo') {
+    const texto = String(textoArchivo || '').trim()
+    if (!texto) return null
+    const formato = vigente.archivo?.tipo === 'docx' ? 'Word' : 'PDF'
+    return (
+      `${PLANEACION_ETIQUETA} — es la planeación PROPIA del docente, que él mismo subió en ${formato} ` +
+      `("${vigente.archivo?.nombre || 'sin nombre'}"). Es la ÚNICA planeación de esta asignatura: no existe ` +
+      `ninguna otra vigente, ni generada por Evalúa Fácil ni de ningún otro tipo.\n"""\n${texto}\n"""`
+    )
+  }
+
+  const porParcial = Array.isArray(vigente.porParcial) ? vigente.porParcial : []
+  const soloEste = parcial ? porParcial.filter((p) => Number(p.numero) === Number(parcial)) : []
+  const texto = planeacionAceptadaATexto({ porParcial: soloEste.length ? soloEste : porParcial })
+  if (!texto) return null
+  return (
+    `${PLANEACION_ETIQUETA} — la generó Evalúa Fácil y el docente la aceptó` +
+    `${soloEste.length ? ` (parcial ${parcial})` : ''}. Es la ÚNICA planeación de esta asignatura:\n${texto}`
+  )
+}
+
+/**
+ * Obtiene el bloque de la planeación vigente para una operación. Se llama
+ * desde los PRECHECKS, que corren ANTES de reservar créditos (ver el callable
+ * ejecutarOperacionIA): si el archivo del docente no se puede leer, la
+ * operación se detiene sin cobrar nada.
+ *
+ * Que no se pueda leer DETIENE la operación a propósito (no la deja seguir
+ * sin la planeación): generar en silencio una actividad que ignora la
+ * planeación vigente del docente es exactamente el fallo que esta regla
+ * existe para impedir. Mismo criterio que fuentesIA.prepararBloqueFuentes con
+ * los documentos que el docente adjunta a mano.
+ */
+async function bloquePlaneacionVigente(db, asignaturaId, parcial = null) {
+  if (!asignaturaId) return null
+  const snap = await db.doc(`subjects/${asignaturaId}`).get()
+  const vigente = planeacionVigenteDe(snap.data())
+  if (!vigente) return null
+  if (vigente.origen !== 'archivo') return textoPlaneacionParaPrompt(vigente, null, parcial)
+
+  let texto
+  try {
+    texto = await docExtract.extraerTextoDocumento(vigente.archivo.url)
+  } catch (e) {
+    throw new HttpsError('failed-precondition',
+      `No se pudo leer tu planeación ("${vigente.archivo.nombre || 'archivo'}"): ${e.message} ` +
+      'La IA no puede proponer contenido basado en una planeación que no logra leer, así que la operación se ' +
+      'detuvo antes de gastar nada. No se descontaron créditos. Sube tu planeación como un PDF con texto real ' +
+      '(no una foto ni un escaneo) o como Word (.docx).',
+      { codigo: 'PLANEACION_ILEGIBLE' })
+  }
+  return textoPlaneacionParaPrompt(vigente, texto, parcial)
 }
 
 // Operaciones conectadas por autorización del PO:
@@ -2411,6 +2518,13 @@ async function precheckCrearActividad({ uid, params }) {
   // nunca las de otro parcial) + hasta 3 que el docente adjuntó a mano aquí.
   const bloqueFuentes = await bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual: params?.fuentes })
 
+  // La planeación VIGENTE de la asignatura (1-sep-2026, autorizado por Kike):
+  // una actividad generada con IA tiene que apoyarse en lo que el docente
+  // planeó de verdad, venga esa planeación de Evalúa Fácil o sea el PDF/Word
+  // que él mismo subió. Va aquí, en el precheck, porque esto corre antes de
+  // reservar créditos: si su archivo no se puede leer, no se le cobra nada.
+  const bloquePlaneacion = await bloquePlaneacionVigente(db, asignaturaId, parcial)
+
   return {
     categoria,
     asignaturaId,
@@ -2419,6 +2533,7 @@ async function precheckCrearActividad({ uid, params }) {
     nombresExistentes,
     pesoRestante,
     bloqueFuentes,
+    bloquePlaneacion,
   }
 }
 
@@ -2458,10 +2573,20 @@ function promptCrearActividad(ctx, asignatura) {
     ? `\nActividades que YA existen en este parcial (no propongas un nombre igual o muy parecido):\n- ${ctx.nombresExistentes.join('\n- ')}\n`
     : ''
   const fuentesBloque = ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : ''
+  // La planeación vigente va ANTES que las fuentes y que la petición: es el
+  // marco de lo que el docente ya decidió trabajar, no un material de apoyo
+  // más. Cuando la asignatura no tiene planeación vigente, el bloque
+  // desaparece por completo y el prompt queda exactamente como antes.
+  const planeacionBloque = ctx.bloquePlaneacion
+    ? `\n${ctx.bloquePlaneacion}\n\nLa actividad que propongas debe ser CONGRUENTE con esa planeación: apóyate en sus `
+      + 'contenidos, sus momentos y las evidencias que ahí se esperan. Si lo que el docente pide no aparece en la '
+      + 'planeación, propón la actividad de todos modos, pero no afirmes que la planeación lo cubre.\n'
+    : ''
   return (
     `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
     `Vas a proponer ${esObs ? 'una ACTIVIDAD DE OBSERVACIÓN (sin entrega de archivos: el docente observa y califica en clase, ej. actitud, exposición, participación)' : 'un ENTREGABLE (el estudiante sube uno o varios archivos)'}.\n` +
     nombresBloque +
+    planeacionBloque +
     `\nQUÉ QUIERE TRABAJAR EL DOCENTE:\n"""${ctx.peticion}"""\n` +
     fuentesBloque +
     `\nEl peso de calificación que propongas ("pesoSugerido") debe ser un número entre 0 y ${ctx.pesoRestante} ` +
@@ -5931,6 +6056,7 @@ exports._pruebas = {
   analisisDiagnosticoMasReciente,
   comentariosGrupoATexto, autoanalisisDocenteATexto,
   bloqueFuentesPermanentes, bloqueFuentesOperacion, excluirUrlsPermanentes,
+  planeacionVigenteDe, textoPlaneacionParaPrompt, promptCrearActividad, PLANEACION_ETIQUETA,
   promptSecuenciasParcial, CAMPOS_IDENTIDAD_SECUENCIA, CAMPOS_MOMENTO,
   sumaPonderacionesParcial, normalizarPonderacionesParcial, promptCorreccionPonderaciones, PONDERACION_TOTAL,
   coberturaIncompleta, promptCorreccionCobertura,
