@@ -116,6 +116,11 @@ export default function PlaneacionDidacticaTab({ subjectId, docenteId, asignatur
   // = todavía sin saber (ProgramaEstudiosSection no ha reportado su
   // estado); true/false = ya se sabe.
   const [programaListo, setProgramaListo] = useState(null)
+  // Camino de trabajo que reporta PlaneacionInicialSection (ver la derivación
+  // ahí): 'ia' | 'propio' | null (no ha elegido) | undefined (todavía no se
+  // sabe). Decide si los insumos de IA se montan — no hay ningún dato nuevo
+  // en Firestore detrás de esto.
+  const [camino, setCamino] = useState(undefined)
 
   useEffect(() => {
     // Las reglas de fuentesAsignatura filtran por `docenteId` (privada del
@@ -247,53 +252,69 @@ export default function PlaneacionDidacticaTab({ subjectId, docenteId, asignatur
               asignaturaNombre={asignaturaNombre}
               hayFuentesGenerales
               perfilIACompleto={perfilIACompleto}
+              onCaminoCambiado={setCamino}
               watermark={watermark}
             />
           </div>
 
-          {/* 3. Insumos del camino de IA. Van DESPUÉS y bajo un encabezado
-              que dice para qué sirven: son opcionales para quien sube su
-              propia planeación, y ninguno cambió de funcionamiento. */}
-          <div className="pt-3 border-t border-outline-variant">
-            <h2 className="font-bold text-on-surface">Información adicional para generar con IA</h2>
-            <p className="text-sm text-muted mt-0.5">
-              Entre más le des, mejor será la planeación que genere Evalúa Fácil. Si vas a usar tu propia
-              planeación, no necesitas nada de esto.
-            </p>
-          </div>
+          {/* 3. Insumos del CAMINO DE IA. No se renderizan en ningún otro
+              camino — y es montaje real, no `hidden` por CSS: en el camino de
+              la planeación propia estos componentes ni se montan, así que sus
+              onSnapshot sobre asistenteIA/config, fuentesAsignatura y los
+              diagnósticos tampoco se abren.
 
-          <GrupoFuentes
-            titulo="Fuentes del curso"
-            descripcion={`Material complementario (manuales, guías) — opcional, aparte de la Fuente Principal. Se reutiliza en todas las funciones de IA. PDF o Word, hasta ${MAX_FUENTES} por carga y ${MAX_FUENTES_POR_GRUPO} en total.`}
-            fuentes={generales}
-            subiendo={subiendo}
-            eliminandoId={eliminandoId}
-            onAgregar={agregarFuentes}
-            onEliminar={eliminarFuente}
-          />
+              `camino === undefined` significa "todavía no se sabe" (la
+              Planeación aún está cargando su historial): tratarlo como
+              "ninguno" haría parpadear estos bloques ante el docente que va
+              por su propia planeación. Por eso la comparación es estricta
+              contra 'ia' y no una negación.
 
-          <div>
-            <ComentariosGrupoSection subjectId={subjectId} docenteId={docenteId} />
-          </div>
+              Ninguno de estos componentes cambió por dentro: siguen guardando
+              donde siempre, y las Fuentes del curso siguen alimentando
+              exámenes, cuestionarios y reactivos aunque aquí no se vean. */}
+          {camino === 'ia' && (
+            <>
+              <div className="pt-3 border-t border-outline-variant">
+                <h2 className="font-bold text-on-surface">Información adicional para generar con IA</h2>
+                <p className="text-sm text-muted mt-0.5">
+                  Entre más le des, mejor será la planeación que genere Evalúa Fácil.
+                </p>
+              </div>
 
-          <div>
-            <AutoanalisisDocenteSection subjectId={subjectId} docenteId={docenteId} />
-          </div>
+              <GrupoFuentes
+                titulo="Fuentes del curso"
+                descripcion={`Material complementario (manuales, guías) — opcional, aparte de la Fuente Principal. Se reutiliza en todas las funciones de IA. PDF o Word, hasta ${MAX_FUENTES} por carga y ${MAX_FUENTES_POR_GRUPO} en total.`}
+                fuentes={generales}
+                subiendo={subiendo}
+                eliminandoId={eliminandoId}
+                onAgregar={agregarFuentes}
+                onEliminar={eliminarFuente}
+              />
 
-          <div>
-            <ConsideracionesSection subjectId={subjectId} docenteId={docenteId} />
-          </div>
+              <div>
+                <ComentariosGrupoSection subjectId={subjectId} docenteId={docenteId} />
+              </div>
 
-          <div>
-            <DiagnosticoGrupoSection
-              subjectId={subjectId}
-              docenteId={docenteId}
-              asignaturaNombre={asignaturaNombre}
-              habilitado
-              perfilIACompleto={perfilIACompleto}
-              existingActivitiesCountP1={existingActivitiesCountP1}
-            />
-          </div>
+              <div>
+                <AutoanalisisDocenteSection subjectId={subjectId} docenteId={docenteId} />
+              </div>
+
+              <div>
+                <ConsideracionesSection subjectId={subjectId} docenteId={docenteId} />
+              </div>
+
+              <div>
+                <DiagnosticoGrupoSection
+                  subjectId={subjectId}
+                  docenteId={docenteId}
+                  asignaturaNombre={asignaturaNombre}
+                  habilitado
+                  perfilIACompleto={perfilIACompleto}
+                  existingActivitiesCountP1={existingActivitiesCountP1}
+                />
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

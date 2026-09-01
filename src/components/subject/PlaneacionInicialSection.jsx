@@ -37,6 +37,7 @@ import PlaneacionPropiaCard, { SelectorArchivoPlaneacion } from './PlaneacionPro
 import AvisoPerfilIA from './AvisoPerfilIA'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { apiUrl } from '../../utils/apiBase'
+import { saveBlob } from '../../utils/exportGuard'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 
 const CLAVES_MOMENTO = MOMENTOS.map((m) => m.clave)
@@ -429,7 +430,50 @@ function SelectorParcial({ porParcial, activo, onCambiar }) {
   )
 }
 
-export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, hayFuentesGenerales, perfilIACompleto = false }) {
+// El selector de camino — la primera y única pregunta cuando la asignatura
+// todavía no tiene planeación. Dos alternativas, no dos pasos: el docente que
+// ya trae la suya no debe atravesar nada del camino de IA para subirla.
+function SelectorDeCamino({ perfilIACompleto, generando, subiendoArchivo, onElegirIA, onElegirArchivo, onArchivoInvalido }) {
+  return (
+    <>
+      <p className="text-sm text-on-surface mb-1">
+        <span className="font-medium">¿Cómo quieres obtener tu Planeación?</span>
+      </p>
+      <p className="text-xs text-muted mb-2">
+        Elige uno de los dos caminos — esta asignatura tendrá una sola planeación. Puedes cambiar de camino
+        después.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={onElegirIA}
+          disabled={generando || !perfilIACompleto}
+          title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar con Evalúa Fácil' : undefined}
+          className="flex flex-col items-start gap-1 p-3 rounded border border-dashed border-outline-variant text-left hover:bg-[var(--accent-tint)] disabled:opacity-60"
+        >
+          <span className="flex items-center gap-1.5 font-medium text-accent">
+            {generando ? <Spinner size="sm" /> : <Sparkles size={16} />}
+            Que Evalúa Fácil la genere
+          </span>
+          <span className="text-xs text-muted">
+            La redacta con tu programa de estudios y lo que sepas de tu grupo. La revisas y la corriges antes de
+            aceptarla. Consume créditos de IA.
+          </span>
+        </button>
+        <SelectorArchivoPlaneacion
+          variante="tarjeta"
+          label="Ya tengo mi planeación"
+          descripcion="Súbela en PDF o Word y queda como la planeación de esta asignatura. Es gratis, no se analiza y no necesita tu Perfil para IA."
+          ocupado={subiendoArchivo}
+          onElegido={onElegirArchivo}
+          onInvalido={onArchivoInvalido}
+        />
+      </div>
+    </>
+  )
+}
+
+export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, hayFuentesGenerales, perfilIACompleto = false, onCaminoCambiado }) {
   const toast = useToast()
   const creditosIA = useCreditosIA()
   // Modelo de créditos puros (20-ago-2026): generar/descargar Planeación ya
@@ -517,6 +561,7 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
           nuncaAprobado={nuncaAprobado}
           onPago={() => {}}
           perfilIACompleto={perfilIACompleto}
+          onCaminoCambiado={onCaminoCambiado}
           subjectPlaneacion={subjectPlaneacion}
           incluirInsumos={incluirInsumos}
           hayContexto={hayContexto}
@@ -533,7 +578,7 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
 // La Planeación Didáctica Inicial — generar, revisar/editar por parcial,
 // guardar avance, aceptar, ver y descargar.
 function Planeacion({
-  subjectId, asignaturaNombre, isDesktop, nuncaAprobado, onPago, perfilIACompleto,
+  subjectId, asignaturaNombre, isDesktop, nuncaAprobado, onPago, perfilIACompleto, onCaminoCambiado,
   subjectPlaneacion, incluirInsumos, hayContexto, hayConocimientos, creditosIA, toast,
 }) {
   const [historial, setHistorial] = useState([])
@@ -558,6 +603,15 @@ function Planeacion({
   // bandera de "subiendo".
   const [archivoPorConfirmar, setArchivoPorConfirmar] = useState(null)
   const [subiendoArchivo, setSubiendoArchivo] = useState(false)
+  // Camino de trabajo elegido a mano, mientras todavía no hay ningún dato que
+  // lo determine (1-sep-2026). NO se persiste a propósito: sería una segunda
+  // fuente de verdad capaz de contradecir a `planeacionAceptada.origen`. Solo
+  // hace falta para el camino de IA, que tiene una fase de preparación (llenar
+  // los insumos) durante la cual los datos son idénticos a "todavía no elijo".
+  // El camino propio no lo necesita: subir el archivo YA deja el dato escrito.
+  // Recargar antes de generar devuelve al selector, y no se pierde nada — cada
+  // insumo se guarda solo en Firestore en cuanto el docente lo guarda.
+  const [caminoElegido, setCaminoElegido] = useState(null)
   const [descargandoParcial, setDescargandoParcial] = useState(null)
   const [verRevision, setVerRevision] = useState(false)
   const [cargandoVistaPrevia, setCargandoVistaPrevia] = useState(false)
@@ -598,6 +652,27 @@ function Planeacion({
   // puede mostrarse ni usarse como planeación de la asignatura. Sigue
   // guardada en la bitácora, no se pierde — pero no es "otra planeación".
   const pendiente = vigente ? null : (historial[0] || null)
+
+  // ── El CAMINO de trabajo ───────────────────────────────────────────────
+  // Prioridad, de mayor a menor (regla de Kike, 1-sep-2026):
+  //   1. planeacionAceptada.origen  — el dato persistido manda siempre
+  //   2. generación IA pendiente    — ya generó, aunque no haya aceptado
+  //   3. caminoElegido              — un clic, solo mientras no hay dato
+  //   4. null                       — todavía no elige
+  // Que el dato vaya primero es lo que impide que el estado local llegue a
+  // contradecirlo: en cuanto existe una planeación vigente, el clic anterior
+  // deja de importar.
+  const caminoDerivado = vigenteArchivo ? 'propio' : (vigenteIA || pendiente) ? 'ia' : null
+  const camino = caminoDerivado ?? caminoElegido
+
+  // El padre (PlaneacionDidacticaTab) monta o no los insumos de IA según
+  // esto. Mientras el historial no ha cargado el camino es DESCONOCIDO, no
+  // "ninguno": informar null ahí haría parpadear los insumos un instante ante
+  // el docente que va por su propia planeación. Mismo patrón de aviso al
+  // padre que ya usa ProgramaEstudiosSection con onEstadoCargado.
+  useEffect(() => {
+    onCaminoCambiado?.(histLoaded ? camino : undefined)
+  }, [camino, histLoaded, onCaminoCambiado])
 
   // Contenido de la vigente cuando es de IA. Los registros más viejos
   // guardaban solo el puntero, sin el contenido: ahí se cae al documento de
@@ -779,6 +854,11 @@ function Planeacion({
         planeacionBorrador: null,
         planeacionArchivoPorBorrar: anterior || null,
       })
+      // Cambiar de camino propio → IA aterriza EN el camino de IA, con sus
+      // insumos a la vista, no de vuelta en el selector: el docente ya dijo
+      // qué quiere. Con una planeación de IA no hace falta (su generación
+      // sigue en la bitácora y `pendiente` deriva el camino sola).
+      if (anterior) setCaminoElegido('ia')
       toast(anterior
         ? 'Tu archivo se quitó — ya puedes generar la planeación con Evalúa Fácil'
         : 'Planeación eliminada — ya puedes generar una nueva')
@@ -834,15 +914,13 @@ function Planeacion({
         contenidoAceptado?.datosIdentificacion, secuenciasDeParcial(numero, porParcialAceptado),
         contenidoAceptado?.fuentesInformacion, titulo, contenidoAceptado?.validacion,
       )
-      const nombreSalida = `Planeación Didáctica Inicial - Parcial ${numero}.docx`
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = nombreSalida
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      const nombreSalida = `Planeación Didáctica - Parcial ${numero}.docx`
+      // saveBlob (vía exportGuard, el punto único de las descargas que genera
+      // la plataforma) en vez de un <a download> a mano: en la web hace lo
+      // mismo de siempre, y dentro de la app de Android escribe el archivo y
+      // abre el panel Compartir — un WebView no descarga por su cuenta, así
+      // que el enlace anterior no habría hecho nada ahí.
+      await saveBlob(blob, nombreSalida)
       toast('Descargado — es una propuesta de IA revisada por ti, pero vuelve a checarla antes de usarla.', 'info')
     } catch (err) {
       toast('No se pudo generar el archivo: ' + err.message, 'error')
@@ -1027,17 +1105,29 @@ function Planeacion({
 
   return (
     <div>
-      {/* Una sola planeación vigente, siempre: lo que se muestra depende de
-          su ORIGEN, y los dos bloques son excluyentes — nunca se ven dos
-          planeaciones como alternativas activas. */}
-      {vigenteArchivo ? (
+      {/* DOS CAMINOS EXCLUYENTES, no una pantalla con todo visible. Lo que se
+          renderiza depende del camino (ver la derivación arriba): el docente
+          que va por su propia planeación NUNCA ve el flujo de IA, y quien va
+          por IA no ve la tarjeta del archivo. Una sola planeación vigente,
+          siempre. */}
+      {camino === 'propio' ? (
         <PlaneacionPropiaCard
           archivo={vigente.archivo}
           aceptadaEn={vigente.aceptadaEn}
           subiendo={subiendoArchivo}
           onElegirReemplazo={elegirArchivo}
           onArchivoInvalido={(mensaje) => toast(mensaje, 'error')}
+          onError={(mensaje) => toast(mensaje, 'error')}
           onGenerarIA={() => setConfirmarReiniciar(true)}
+        />
+      ) : camino === null ? (
+        <SelectorDeCamino
+          perfilIACompleto={perfilIACompleto}
+          generando={generando}
+          subiendoArchivo={subiendoArchivo}
+          onElegirIA={() => setCaminoElegido('ia')}
+          onElegirArchivo={elegirArchivo}
+          onArchivoInvalido={(mensaje) => toast(mensaje, 'error')}
         />
       ) : (
         <>
@@ -1048,8 +1138,11 @@ function Planeacion({
             </p>
           ) : !pendiente ? (
             <p className="text-sm text-on-surface mb-2">
-              <span className="font-medium">¿Cómo quieres trabajar tu planeación?</span>{' '}
-              <span className="text-muted">Elige una de las dos — esta asignatura tendrá una sola planeación.</span>
+              <span className="font-medium">Generación con Evalúa Fácil.</span>{' '}
+              <span className="text-muted">
+                Llena abajo lo que quieras aportar y genera cuando estés listo. Si prefieres usar la planeación
+                que ya tienes, súbela aquí mismo.
+              </span>
             </p>
           ) : (
             <p className="text-xs text-muted mb-2">
@@ -1074,14 +1167,13 @@ function Planeacion({
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
                 {generando ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : pendiente ? <RotateCcw size={14} /> : <Sparkles size={14} />}
-                {pendiente ? 'Generar de nuevo (con IA)' : 'Que Evalúa Fácil la genere'}
+                {pendiente ? 'Generar de nuevo (con IA)' : 'Generar mi planeación'}
               </button>
             )}
-            {/* Subir la planeación propia: siempre disponible mientras la
-                vigente no sea ya un archivo (ese caso lo cubre
-                PlaneacionPropiaCard con "Reemplazar archivo"). */}
+            {/* La salida hacia el otro camino: subir la propia deja el dato
+                escrito y, con él, los insumos de IA dejan de montarse. */}
             <SelectorArchivoPlaneacion
-              label={vigenteIA || pendiente ? 'Usar mi propia planeación' : 'Ya tengo mi planeación'}
+              label="Ya tengo mi planeación"
               ocupado={subiendoArchivo}
               onElegido={elegirArchivo}
               onInvalido={(mensaje) => toast(mensaje, 'error')}
@@ -1122,13 +1214,6 @@ function Planeacion({
             <div className="mt-2">
               <AvisoPerfilIA que="generar la planeación con Evalúa Fácil" />
             </div>
-          )}
-
-          {!vigente && !pendiente && (
-            <p className="text-xs text-muted mt-2">
-              Generarla con Evalúa Fácil consume créditos de IA. Subir la tuya es gratis: se guarda tal como está,
-              no se analiza y no necesita tu Perfil para IA.
-            </p>
           )}
 
           {vigenteIA && (

@@ -19,6 +19,8 @@ import { Upload, Eye, Download, FileText, Sparkles, RefreshCw } from 'lucide-rea
 import { FilePreviewModal } from '../AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
 import { formatFileSize } from '../../utils/formatBytes'
+import { IS_NATIVE_APP } from '../../utils/platform'
+import { abrirArchivoNativo } from '../../utils/nativeSave'
 import Spinner from '../Spinner'
 import { PLANEACION_ACCEPT, validarArchivoPlaneacion } from '../../utils/planeacionVigente'
 
@@ -26,7 +28,10 @@ import { PLANEACION_ACCEPT, validarArchivoPlaneacion } from '../../utils/planeac
 // devolver el archivo, así que el componente padre solo recibe archivos que
 // ya pasaron formato, tamaño y "no está vacío" — nunca sube algo inválido ni
 // abre una confirmación que después tendría que cancelar.
-export function SelectorArchivoPlaneacion({ label, icono = 'upload', disabled, ocupado, onElegido, onInvalido }) {
+export function SelectorArchivoPlaneacion({
+  label, icono = 'upload', disabled, ocupado, onElegido, onInvalido,
+  variante = 'boton', descripcion = null,
+}) {
   const inputRef = useRef(null)
   const Icono = icono === 'refresh' ? RefreshCw : Upload
 
@@ -39,6 +44,11 @@ export function SelectorArchivoPlaneacion({ label, icono = 'upload', disabled, o
     onElegido(file)
   }
 
+  // `tarjeta` es la variante del selector de camino: mismo peso visual que la
+  // opción de generar con IA, para que se lean como dos alternativas y no
+  // como una principal y una secundaria.
+  const esTarjeta = variante === 'tarjeta'
+
   return (
     <>
       <input ref={inputRef} type="file" accept={PLANEACION_ACCEPT} className="hidden" onChange={alCambiar} />
@@ -46,10 +56,15 @@ export function SelectorArchivoPlaneacion({ label, icono = 'upload', disabled, o
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={disabled || ocupado}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
+        className={esTarjeta
+          ? 'flex flex-col items-start gap-1 p-3 rounded border border-dashed border-outline-variant text-left hover:bg-[var(--accent-tint)] disabled:opacity-60'
+          : 'flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60'}
       >
-        {ocupado ? <Spinner size="sm" /> : <Icono size={14} />}
-        {label}
+        <span className={esTarjeta ? 'flex items-center gap-1.5 font-medium text-accent' : 'flex items-center gap-1.5'}>
+          {ocupado ? <Spinner size="sm" /> : <Icono size={esTarjeta ? 16 : 14} />}
+          {label}
+        </span>
+        {esTarjeta && descripcion && <span className="text-xs text-muted">{descripcion}</span>}
       </button>
     </>
   )
@@ -58,10 +73,22 @@ export function SelectorArchivoPlaneacion({ label, icono = 'upload', disabled, o
 // La planeación propia vigente. Muestra SOLO esta: mientras exista, no hay
 // ninguna otra planeación que el docente pueda ver o usar.
 export default function PlaneacionPropiaCard({
-  archivo, aceptadaEn, subiendo, onElegirReemplazo, onArchivoInvalido, onGenerarIA,
+  archivo, aceptadaEn, subiendo, onElegirReemplazo, onArchivoInvalido, onGenerarIA, onError,
 }) {
   const [verArchivo, setVerArchivo] = useState(false)
+  const [descargando, setDescargando] = useState(false)
   const fecha = aceptadaEn?.toDate ? aceptadaEn.toDate() : (archivo?.subidoEn?.toDate ? archivo.subidoEn.toDate() : null)
+
+  async function descargarEnApp() {
+    setDescargando(true)
+    try {
+      await abrirArchivoNativo(archivo.url, archivo.nombre)
+    } catch (err) {
+      onError?.('No se pudo descargar el archivo: ' + err.message)
+    } finally {
+      setDescargando(false)
+    }
+  }
 
   return (
     <div>
@@ -89,15 +116,32 @@ export default function PlaneacionPropiaCard({
           <Eye size={14} />
           Ver
         </button>
-        <a
-          href={downloadUrl(archivo?.url, archivo?.nombre)}
-          download={archivo?.nombre}
-          rel="noreferrer"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
-        >
-          <Download size={14} />
-          Descargar
-        </a>
+        {/* En la web basta el <a download>. Dentro de la app de Android eso
+            es inerte —un WebView no descarga por sí solo—, así que ahí se
+            baja el archivo y se entrega por el panel Compartir, que en
+            Android también es el "abrir con" (mismo camino que ya usa
+            ActivityPage con las entregas de los alumnos). */}
+        {IS_NATIVE_APP ? (
+          <button
+            type="button"
+            onClick={descargarEnApp}
+            disabled={descargando}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
+          >
+            {descargando ? <Spinner size="sm" /> : <Download size={14} />}
+            Descargar
+          </button>
+        ) : (
+          <a
+            href={downloadUrl(archivo?.url, archivo?.nombre)}
+            download={archivo?.nombre}
+            rel="noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
+          >
+            <Download size={14} />
+            Descargar
+          </a>
+        )}
         <SelectorArchivoPlaneacion
           label="Reemplazar archivo"
           icono="refresh"
