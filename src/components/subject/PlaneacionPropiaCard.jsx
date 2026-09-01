@@ -103,7 +103,7 @@ export default function PlaneacionPropiaCard({
           <Eye size={14} />
           Ver
         </button>
-        {/* Mismo botón que usa la Fuente Principal y el visor compartido: la
+        {/* Mismo botón que usa el programa de estudios y el visor compartido: la
             diferencia web/app vive en un solo lugar (BotonDescargarArchivo),
             no repetida en cada tarjeta. */}
         <BotonDescargarArchivo

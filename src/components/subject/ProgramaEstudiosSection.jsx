@@ -98,11 +98,11 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
 
   return (
     <div className="bg-surface-card rounded-card shadow-card p-3">
-      <h2 className="font-bold text-on-surface">Fuente Principal (programa de estudios)</h2>
+      <h2 className="font-bold text-on-surface">Programa de estudios</h2>
       <p className="text-sm text-muted mt-0.5 mb-2">
-        Sube el programa de estudios oficial de esta asignatura, en PDF o Word — es la Fuente Principal, y es
-        obligatoria tanto si quieres que Evalúa Fácil genere tu planeación como si vas a subir la tuya. Sin
-        ella, el resto de esta pestaña queda bloqueado. Podrás verlo y descargarlo cuando quieras.
+        Sube el programa de estudios oficial de esta asignatura, en PDF o Word — es obligatorio tanto si quieres
+        que Evalúa Fácil genere tu planeación como si vas a subir la tuya. Sin él, el resto de esta pestaña
+        queda bloqueado. Podrás verlo y descargarlo cuando quieras.
       </p>
 
       {programaEstudios ? (
@@ -160,14 +160,14 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
             className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
           >
             {subiendo ? <Spinner size="sm" /> : <Upload size={14} />}
-            Subir Fuente Principal (PDF o Word)
+            Subir programa de estudios (PDF o Word)
           </button>
         </>
       )}
 
       {confirmarQuitar && (
         <ConfirmModal
-          title="¿Quitar la Fuente Principal?"
+          title="¿Quitar el programa de estudios?"
           message="El resto de esta pestaña (tu Planeación Didáctica, las fuentes y el diagnóstico) se oculta hasta que subas uno de nuevo. Puedes volver a subirlo cuando quieras."
           confirmLabel="Quitar"
           confirmingLabel="Quitando…"

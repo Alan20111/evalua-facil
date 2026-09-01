@@ -163,7 +163,7 @@ function DiagnosticoActividadBloque({
       } else if (err.codigo === 'PERFIL_IA_INCOMPLETO') {
         toast('Completa primero tu Perfil para IA del docente', 'error')
       } else if (err.codigo === 'SIN_PROGRAMA_ESTUDIOS') {
-        toast('Sube primero la Fuente Principal (programa de estudios)', 'error')
+        toast('Sube primero el programa de estudios', 'error')
       } else {
         toast(err.message || 'El asistente de IA no está disponible en este momento', 'error')
       }

@@ -36,7 +36,7 @@
 // prometer algo que el resto del sistema no puede cumplir después.
 export const PLANEACION_EXTS = ['pdf', 'docx']
 export const PLANEACION_ACCEPT = '.pdf,.docx'
-// Mismo criterio que la Fuente Principal (ProgramaEstudiosSection) y las
+// Mismo criterio que el programa de estudios (ProgramaEstudiosSection) y las
 // Fuentes del curso (utils/fuentesIA) — un solo número para todo el módulo.
 export const PLANEACION_MAX_BYTES = 15 * 1024 * 1024
 export const PLANEACION_CARPETA = 'evalua-facil/planeaciones-docente'
