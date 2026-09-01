@@ -22,36 +22,64 @@ export const EVENT_COLORS = [
   { id: 'teal',   bg: '#ccfbf1', text: '#0d9488', label: 'Teal' },
 ]
 
+// Contenido de UN tipo de evento. Personal y académico son tipos distintos, no
+// dos etiquetas del mismo borrador: cada uno guarda su propio título,
+// descripción y notas, y solo el académico tiene `asignaturaId` — así un evento
+// personal no puede arrastrar una asignatura ni siquiera en memoria.
+function nuevoBorrador(tipo, ev) {
+  const base = {
+    titulo: ev?.titulo || '',
+    descripcion: ev?.descripcion || '',
+    notas: ev?.notas || '',
+  }
+  return tipo === 'academico' ? { ...base, asignaturaId: ev?.asignaturaId || '' } : base
+}
+
 export default function EventEditor({ event, defaultDate, subjects = [], onClose, onSaved, onDeleted }) {
   const { currentUser } = useAuth()
   const toast = useToast()
   const isNew = !event?.id
+  const tipoOriginal = event?.tipo || 'personal'
 
-  const [form, setForm] = useState({
-    titulo: event?.titulo || '',
-    descripcion: event?.descripcion || '',
-    notas: event?.notas || '',
+  const [tipo, setTipo] = useState(tipoOriginal)
+
+  // Un borrador por tipo, independientes entre sí. Solo se precarga el del tipo
+  // que el evento tiene guardado; el otro nace vacío, así cambiar de pestaña no
+  // copia, conserva ni reutiliza nada del otro tipo. Volver a un tipo ya editado
+  // devuelve su contenido tal como se dejó (es su borrador, no una copia).
+  const [borradores, setBorradores] = useState(() => ({
+    personal:  nuevoBorrador('personal',  tipoOriginal === 'personal'  ? event : null),
+    academico: nuevoBorrador('academico', tipoOriginal === 'academico' ? event : null),
+  }))
+
+  // Compartidos entre ambos tipos a propósito: la fecha/hora es la ranura que
+  // el docente eligió al abrir el modal (perderla al cambiar de pestaña sería
+  // una regresión) y el color es una elección visual, no información del evento.
+  const [fechas, setFechas] = useState({
     inicio: event?.inicio || defaultDate || '',
     fin: event?.fin || '',
-    color: event?.color || 'blue',
-    tipo: event?.tipo || 'personal',
-    asignaturaId: event?.asignaturaId || '',
   })
+  const [color, setColor] = useState(event?.color || 'blue')
+
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
+  // Lo que ve y edita la pantalla: SIEMPRE el borrador del tipo activo.
+  const contenido = borradores[tipo]
+  const patchContenido = (patch) => setBorradores(b => ({ ...b, [tipo]: { ...b[tipo], ...patch } }))
+
   // "Guardar cambios" se apaga sin cambios — compara contra `event`, que no
   // cambia mientras el modal sigue montado (lo abre/cierra el padre). Crear
-  // siempre debe poder enviarse.
-  const eventChanged = isNew || (
-    form.titulo.trim() !== (event?.titulo || '') ||
-    form.descripcion.trim() !== (event?.descripcion || '') ||
-    form.notas.trim() !== (event?.notas || '') ||
-    form.inicio !== (event?.inicio || '') ||
-    form.fin !== (event?.fin || '') ||
-    form.color !== (event?.color || 'blue') ||
-    form.tipo !== (event?.tipo || 'personal') ||
-    form.asignaturaId !== (event?.asignaturaId || '')
+  // siempre debe poder enviarse, y cambiar de tipo ya es un cambio de por sí
+  // (el evento se mueve de colección).
+  const eventChanged = isNew || tipo !== tipoOriginal || (
+    contenido.titulo.trim() !== (event?.titulo || '') ||
+    contenido.descripcion.trim() !== (event?.descripcion || '') ||
+    contenido.notas.trim() !== (event?.notas || '') ||
+    (contenido.asignaturaId || '') !== (event?.asignaturaId || '') ||
+    fechas.inicio !== (event?.inicio || '') ||
+    fechas.fin !== (event?.fin || '') ||
+    color !== (event?.color || 'blue')
   )
 
   // Botón atrás físico (Android): si está pidiendo confirmación de borrado,
@@ -66,28 +94,40 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
   // campo `tipo` dentro de `events`: Firestore no puede autorizar un `list`
   // por asignaturaId si la regla depende de otro campo (docenteId/tipo) que
   // no es parte del filtro de la consulta.
-  const collectionFor = (tipo) => (tipo === 'academico' ? 'academicEvents' : 'events')
-  const originalCollection = event ? collectionFor(event.tipo || 'personal') : null
+  const collectionFor = (t) => (t === 'academico' ? 'academicEvents' : 'events')
+  const originalCollection = event ? collectionFor(tipoOriginal) : null
+
+  // Solo viaja a Firestore el borrador del tipo activo: el del otro tipo se
+  // queda en pantalla y nunca se escribe.
+  function construirPayload() {
+    return {
+      titulo: contenido.titulo.trim(),
+      descripcion: contenido.descripcion.trim(),
+      notas: contenido.notas.trim(),
+      inicio: fechas.inicio,
+      fin: fechas.fin || fechas.inicio,
+      color,
+      docenteId: currentUser.uid,
+      tipo,
+      asignaturaId: tipo === 'academico' ? contenido.asignaturaId : null,
+    }
+  }
+
+  // Título e inicio son obligatorios; la asignatura solo en el tipo académico.
+  function faltaAlgo() {
+    if (!contenido.titulo.trim()) { toast('Escribe un título', 'error'); return true }
+    if (!fechas.inicio) { toast('Selecciona la fecha de inicio', 'error'); return true }
+    if (tipo === 'academico' && !contenido.asignaturaId) { toast('Elige la asignatura para el evento académico', 'error'); return true }
+    return false
+  }
 
   async function handleSave(e) {
     e.preventDefault()
-    if (!form.titulo.trim()) { toast('Escribe un título', 'error'); return }
-    if (!form.inicio) { toast('Selecciona la fecha de inicio', 'error'); return }
-    if (form.tipo === 'academico' && !form.asignaturaId) { toast('Elige la materia para el evento académico', 'error'); return }
+    if (faltaAlgo()) return
     setSaving(true)
     try {
-      const payload = {
-        titulo: form.titulo.trim(),
-        descripcion: form.descripcion.trim(),
-        notas: form.notas.trim(),
-        inicio: form.inicio,
-        fin: form.fin || form.inicio,
-        color: form.color,
-        docenteId: currentUser.uid,
-        tipo: form.tipo,
-        asignaturaId: form.tipo === 'academico' ? form.asignaturaId : null,
-      }
-      const targetCollection = collectionFor(form.tipo)
+      const payload = construirPayload()
+      const targetCollection = collectionFor(tipo)
       if (isNew) {
         const ref = await addDoc(collection(db, targetCollection), { ...payload, createdAt: serverTimestamp() })
         onSaved?.({ id: ref.id, ...payload })
@@ -135,20 +175,11 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
   // Duplicar: crea una copia con lo que está en pantalla (mismo horario) —
   // el docente después la arrastra o la edita para acomodarla.
   async function handleDuplicate() {
-    if (!form.titulo.trim() || !form.inicio) { toast('Completa el título y el inicio para duplicar', 'error'); return }
-    if (form.tipo === 'academico' && !form.asignaturaId) { toast('Elige la materia para el evento académico', 'error'); return }
+    if (faltaAlgo()) return
     setSaving(true)
     try {
-      await addDoc(collection(db, collectionFor(form.tipo)), {
-        titulo: form.titulo.trim(),
-        descripcion: form.descripcion.trim(),
-        notas: form.notas.trim(),
-        inicio: form.inicio,
-        fin: form.fin || form.inicio,
-        color: form.color,
-        docenteId: currentUser.uid,
-        tipo: form.tipo,
-        asignaturaId: form.tipo === 'academico' ? form.asignaturaId : null,
+      await addDoc(collection(db, collectionFor(tipo)), {
+        ...construirPayload(),
         createdAt: serverTimestamp(),
       })
       toast('Evento duplicado — arrástralo o edítalo para cambiar su horario')
@@ -189,8 +220,8 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               <button
                 key={c.id}
                 type="button"
-                onClick={() => setForm(f => ({ ...f, color: c.id }))}
-                className={`w-6 h-6 rounded-full border-2 transition-all ${form.color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
+                onClick={() => setColor(c.id)}
+                className={`w-6 h-6 rounded-full border-2 transition-all ${color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
                 style={{ background: c.bg }}
                 data-tooltip={c.label}
                 aria-label={c.label}
@@ -203,31 +234,31 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             <div className="flex gap-1 bg-surface-container p-1 rounded-full">
               <button
                 type="button"
-                onClick={() => setForm(f => ({ ...f, tipo: 'personal' }))}
+                onClick={() => setTipo('personal')}
                 className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors ${
-                  form.tipo === 'personal' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-accent-tint'
+                  tipo === 'personal' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-accent-tint'
                 }`}
               >
                 Personal
               </button>
               <button
                 type="button"
-                onClick={() => setForm(f => ({ ...f, tipo: 'academico' }))}
+                onClick={() => setTipo('academico')}
                 className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors ${
-                  form.tipo === 'academico' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-accent-tint'
+                  tipo === 'academico' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-accent-tint'
                 }`}
               >
                 Académico
               </button>
             </div>
-            {form.tipo === 'academico' && (
+            {tipo === 'academico' && (
               <>
-                <p className="text-xs text-muted">Los alumnos de esta materia lo verán en su Agenda.</p>
+                <p className="text-xs text-muted">Los estudiantes de esta asignatura lo verán en su Agenda.</p>
                 <Select
-                  value={form.asignaturaId}
-                  onChange={(v) => setForm(f => ({ ...f, asignaturaId: v }))}
+                  value={contenido.asignaturaId}
+                  onChange={(v) => patchContenido({ asignaturaId: v })}
                   options={[
-                    { value: '', label: 'Elige una materia…' },
+                    { value: '', label: 'Elige una asignatura…' },
                     ...subjects.map(s => ({ value: s.id, label: subjectDisplayName(s) })),
                   ]}
                 />
@@ -237,8 +268,8 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
 
           <input
             type="text"
-            value={form.titulo}
-            onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
+            value={contenido.titulo}
+            onChange={e => patchContenido({ titulo: e.target.value })}
             placeholder="Título del evento"
             /* Sin autoFocus: en Android (edge-to-edge) enfocar un input y abrir
                el teclado justo al montar el modal deja el WebView con un
@@ -251,8 +282,8 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
           />
 
           <textarea
-            value={form.descripcion}
-            onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+            value={contenido.descripcion}
+            onChange={e => patchContenido({ descripcion: e.target.value })}
             placeholder="Descripción (opcional)"
             rows={2}
             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
@@ -262,8 +293,8 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             <label htmlFor="event-notas" className="text-xs text-muted font-medium">Notas</label>
             <textarea
               id="event-notas"
-              value={form.notas}
-              onChange={e => setForm(f => ({ ...f, notas: e.target.value }))}
+              value={contenido.notas}
+              onChange={e => patchContenido({ notas: e.target.value })}
               placeholder="Escribe aquí tus notas del evento; se quedan guardadas"
               rows={3}
               className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
@@ -274,8 +305,8 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             <p className="text-xs text-muted font-medium">Inicio</p>
             <EFDateTimePicker
               mode="datetime"
-              value={form.inicio}
-              onChange={v => setForm(f => ({ ...f, inicio: v, fin: f.fin && f.fin < v ? v : f.fin }))}
+              value={fechas.inicio}
+              onChange={v => setFechas(f => ({ ...f, inicio: v, fin: f.fin && f.fin < v ? v : f.fin }))}
               placeholder="Fecha y hora de inicio"
               clearable={false}
             />
@@ -285,8 +316,8 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             <p className="text-xs text-muted font-medium">Fin (opcional)</p>
             <EFDateTimePicker
               mode="datetime"
-              value={form.fin}
-              onChange={v => setForm(f => ({ ...f, fin: v }))}
+              value={fechas.fin}
+              onChange={v => setFechas(f => ({ ...f, fin: v }))}
               placeholder="Fecha y hora de fin (opcional)"
               clearable
             />
