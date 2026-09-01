@@ -608,7 +608,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
   // text-right`), para que las tres vistas se lean igual. La app va aparte:
   // ahí la canaleta es angosta a propósito, porque la pantalla no da para más.
   const gutterComoDia = !IS_NATIVE_APP
-  const gridCols = `${gutterComoDia ? '5rem' : '3.5rem'} repeat(${numDays}, 1fr)`
+  const gridCols = `${gutterComoDia ? '5rem' : '3.5rem'} repeat(${numDays}, minmax(0, 1fr))`
 
   const colRefs = useRef([])
 
