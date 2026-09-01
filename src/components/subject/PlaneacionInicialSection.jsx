@@ -433,7 +433,17 @@ function SelectorParcial({ porParcial, activo, onCambiar }) {
 // El selector de camino — la primera y única pregunta cuando la asignatura
 // todavía no tiene planeación. Dos alternativas, no dos pasos: el docente que
 // ya trae la suya no debe atravesar nada del camino de IA para subirla.
-function SelectorDeCamino({ perfilIACompleto, generando, subiendoArchivo, onElegirIA, onElegirArchivo, onArchivoInvalido }) {
+//
+// NINGUNA de las dos opciones pide Perfil IA (1-sep-2026). ELEGIR un camino no
+// es EJECUTAR una operación de IA: solo abre la sección de insumos. Antes, el
+// botón de IA llegaba deshabilitado sin Perfil, y el docente veía una tarjeta
+// apagada cuya única explicación era un `title` al pasar el cursor — un
+// callejón sin salida. Ahora entra al camino, ve de qué se trata, y se topa
+// con el candado donde de verdad corresponde: el botón "Generar mi
+// planeación", que conserva su `disabled` y va acompañado de AvisoPerfilIA
+// con el enlace al Perfil IA GENERAL (/perfil-ia). La protección real nunca
+// estuvo aquí, sino en precheckPlaneacionInicial (PERFIL_IA_INCOMPLETO).
+function SelectorDeCamino({ generando, subiendoArchivo, onElegirIA, onElegirArchivo, onArchivoInvalido }) {
   return (
     <>
       <p className="text-sm text-on-surface mb-1">
@@ -447,8 +457,7 @@ function SelectorDeCamino({ perfilIACompleto, generando, subiendoArchivo, onEleg
         <button
           type="button"
           onClick={onElegirIA}
-          disabled={generando || !perfilIACompleto}
-          title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar con Evalúa Fácil' : undefined}
+          disabled={generando}
           className="flex flex-col items-start gap-1 p-3 rounded border border-dashed border-outline-variant text-left hover:bg-[var(--accent-tint)] disabled:opacity-60"
         >
           <span className="flex items-center gap-1.5 font-medium text-accent">
@@ -1122,7 +1131,6 @@ function Planeacion({
         />
       ) : camino === null ? (
         <SelectorDeCamino
-          perfilIACompleto={perfilIACompleto}
           generando={generando}
           subiendoArchivo={subiendoArchivo}
           onElegirIA={() => setCaminoElegido('ia')}
