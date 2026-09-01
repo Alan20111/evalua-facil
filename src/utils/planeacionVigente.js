@@ -48,17 +48,25 @@ export function extensionPlaneacion(nombre) {
 }
 
 /**
- * Valida el archivo que el docente eligió como su planeación. Devuelve el
- * mensaje de error para el docente, o null si el archivo es válido.
+ * Valida un documento que el docente sube como PDF o Word (.docx): la
+ * planeación propia y, desde el 1-sep-2026, también el programa de estudios.
+ * Devuelve el mensaje de error para el docente, o null si el archivo sirve.
+ *
+ * Las reglas son idénticas para los dos (mismo formato, mismos 15 MB, mismo
+ * rechazo del .doc antiguo que el servidor tampoco puede leer), así que se
+ * validan aquí una sola vez en vez de repetirse en cada sección. `etiqueta`
+ * es solo el sujeto de la frase de error, para que el docente lea "La
+ * planeación debe ser…" o "El programa de estudios debe ser…" según dónde
+ * esté.
  */
-export function validarArchivoPlaneacion(file) {
+export function validarArchivoPlaneacion(file, etiqueta = 'La planeación') {
   if (!file) return 'Elige un archivo.'
   const ext = extensionPlaneacion(file.name)
   if (ext === 'doc') {
     return 'No podemos leer los archivos .doc antiguos. Guárdalo como .docx o PDF y vuelve a subirlo.'
   }
   if (!PLANEACION_EXTS.includes(ext)) {
-    return 'La planeación debe ser PDF o Word (.docx).'
+    return `${etiqueta} debe ser PDF o Word (.docx).`
   }
   if (!file.size) return 'El archivo está vacío (0 bytes).'
   if (file.size > PLANEACION_MAX_BYTES) return 'El archivo pesa más de 15 MB.'

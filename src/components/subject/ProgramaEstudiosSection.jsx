@@ -14,9 +14,10 @@ import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import ConfirmModal from '../ConfirmModal'
 import { uploadToCloudinary } from '../../utils/cloudinary'
-import { Upload, Trash2, FileText, CheckCircle2 } from 'lucide-react'
-
-const MAX_BYTES = 15 * 1024 * 1024
+import { FilePreviewModal } from '../AttachmentList'
+import BotonDescargarArchivo from '../BotonDescargarArchivo'
+import { PLANEACION_ACCEPT, extensionPlaneacion, validarArchivoPlaneacion } from '../../utils/planeacionVigente'
+import { Upload, Trash2, FileText, CheckCircle2, Eye } from 'lucide-react'
 
 export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstadoCargado }) {
   const toast = useToast()
@@ -25,6 +26,7 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
   const inputRef = useRef(null)
   const [subiendo, setSubiendo] = useState(false)
   const [confirmarQuitar, setConfirmarQuitar] = useState(false)
+  const [verArchivo, setVerArchivo] = useState(false)
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), (snap) => {
@@ -45,13 +47,15 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    const esPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
-    if (!esPdf) {
-      toast('El programa de estudios debe ser un PDF', 'error')
-      return
-    }
-    if (file.size > MAX_BYTES) {
-      toast('El archivo pesa más de 15 MB', 'error')
+    // Mismas reglas que la planeación propia — PDF o Word (.docx), 15 MB, sin
+    // archivos vacíos ni .doc antiguo — validadas por la MISMA función, no por
+    // una copia (ver utils/planeacionVigente.js). Word se aceptó el
+    // 1-sep-2026: el servidor ya lo leía sin cambios, porque todos los
+    // consumidores del programa pasan por docExtract, que soporta pdf y docx
+    // y decide por la extensión de la URL, no por el `tipo` guardado.
+    const error = validarArchivoPlaneacion(file, 'El programa de estudios')
+    if (error) {
+      toast(error, 'error')
       return
     }
     setSubiendo(true)
@@ -59,7 +63,9 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
       const url = await uploadToCloudinary(file, 'evalua-facil/programas-estudio')
       await setDoc(doc(db, 'subjects', subjectId, 'asistenteIA', 'config'), {
         docenteId,
-        programaEstudios: { nombre: file.name, tipo: 'pdf', url, subidoEn: serverTimestamp() },
+        // `tipo` deja de estar fijo en 'pdf' y guarda el formato REAL, para
+        // que la vista previa y la descarga respeten el archivo original.
+        programaEstudios: { nombre: file.name, tipo: extensionPlaneacion(file.name), url, subidoEn: serverTimestamp() },
       }, { merge: true })
       toast('Programa de estudios guardado — ya puedes continuar con tu Planeación Didáctica')
     } catch (err) {
@@ -94,29 +100,59 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
     <div className="bg-surface-card rounded-card shadow-card p-3">
       <h2 className="font-bold text-on-surface">Fuente Principal (programa de estudios)</h2>
       <p className="text-sm text-muted mt-0.5 mb-2">
-        Sube el programa de estudios oficial de esta asignatura, en PDF — es la Fuente Principal, y es
+        Sube el programa de estudios oficial de esta asignatura, en PDF o Word — es la Fuente Principal, y es
         obligatoria tanto si quieres que Evalúa Fácil genere tu planeación como si vas a subir la tuya. Sin
-        ella, el resto de esta pestaña queda bloqueado.
+        ella, el resto de esta pestaña queda bloqueado. Podrás verlo y descargarlo cuando quieras.
       </p>
 
       {programaEstudios ? (
-        <div className="flex items-center justify-between gap-2 p-2 rounded border border-green-200 bg-green-50 text-sm">
-          <span className="flex items-center gap-1.5 text-on-surface min-w-0">
+        <>
+          <div className="flex items-center gap-1.5 p-2 rounded border border-green-200 bg-green-50 text-sm">
             <CheckCircle2 size={14} className="text-green-600 flex-shrink-0" />
             <FileText size={14} className="text-muted flex-shrink-0" />
-            <strong className="truncate">{programaEstudios.nombre}</strong>
-          </span>
-          <button
-            type="button"
-            onClick={() => setConfirmarQuitar(true)}
-            className="flex items-center gap-1 text-xs text-red-600 hover:underline flex-shrink-0"
-          >
-            <Trash2 size={12} /> Quitar
-          </button>
-        </div>
+            <strong className="truncate min-w-0 flex-1">{programaEstudios.nombre}</strong>
+            <span className="text-xs text-muted uppercase flex-shrink-0">{programaEstudios.tipo}</span>
+          </div>
+          {/* Ver y Descargar (1-sep-2026): con el tiempo el docente ya no
+              recuerda cuál documento subió, y hasta hoy solo veía el nombre.
+              Se reutiliza el mismo visor de materiales, recursos y entregas
+              (FilePreviewModal elige solo entre PDF y Word) y el mismo botón
+              de descarga que la planeación propia — nada nuevo, y así las dos
+              secciones se comportan igual. */}
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => setVerArchivo(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
+            >
+              <Eye size={14} />
+              Ver
+            </button>
+            <BotonDescargarArchivo
+              url={programaEstudios.url}
+              nombre={programaEstudios.nombre}
+              onError={(mensaje) => toast(mensaje, 'error')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
+            />
+            <button
+              type="button"
+              onClick={() => setConfirmarQuitar(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-red-300 text-red-700 text-sm hover:bg-red-50"
+            >
+              <Trash2 size={14} /> Quitar
+            </button>
+          </div>
+          {verArchivo && (
+            <FilePreviewModal
+              url={programaEstudios.url}
+              nombre={programaEstudios.nombre}
+              onClose={() => setVerArchivo(false)}
+            />
+          )}
+        </>
       ) : (
         <>
-          <input ref={inputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={onArchivoSeleccionado} />
+          <input ref={inputRef} type="file" accept={PLANEACION_ACCEPT} className="hidden" onChange={onArchivoSeleccionado} />
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
@@ -124,7 +160,7 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
             className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
           >
             {subiendo ? <Spinner size="sm" /> : <Upload size={14} />}
-            Subir Fuente Principal (PDF)
+            Subir Fuente Principal (PDF o Word)
           </button>
         </>
       )}

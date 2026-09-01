@@ -12,15 +12,14 @@
 // planeación propia es almacenamiento, no una operación de IA.
 //
 // Reutiliza los visores que ya existen (FilePreviewModal: PDF página a
-// página, Word con el visor de Google Docs) y el forzado de descarga de
-// Cloudinary (downloadUrl) — no se construye ningún visor ni descargador nuevo.
+// página, Word con el visor de Google Docs) y el botón de descarga compartido
+// (BotonDescargarArchivo, que resuelve web y app en un solo lugar) — no se
+// construye ningún visor ni descargador nuevo.
 import { useRef, useState } from 'react'
-import { Upload, Eye, Download, FileText, Sparkles, RefreshCw } from 'lucide-react'
+import { Upload, Eye, FileText, Sparkles, RefreshCw } from 'lucide-react'
 import { FilePreviewModal } from '../AttachmentList'
-import { downloadUrl } from '../../utils/cloudinary'
+import BotonDescargarArchivo from '../BotonDescargarArchivo'
 import { formatFileSize } from '../../utils/formatBytes'
-import { IS_NATIVE_APP } from '../../utils/platform'
-import { abrirArchivoNativo } from '../../utils/nativeSave'
 import Spinner from '../Spinner'
 import { PLANEACION_ACCEPT, validarArchivoPlaneacion } from '../../utils/planeacionVigente'
 
@@ -76,19 +75,7 @@ export default function PlaneacionPropiaCard({
   archivo, aceptadaEn, subiendo, onElegirReemplazo, onArchivoInvalido, onGenerarIA, onError,
 }) {
   const [verArchivo, setVerArchivo] = useState(false)
-  const [descargando, setDescargando] = useState(false)
   const fecha = aceptadaEn?.toDate ? aceptadaEn.toDate() : (archivo?.subidoEn?.toDate ? archivo.subidoEn.toDate() : null)
-
-  async function descargarEnApp() {
-    setDescargando(true)
-    try {
-      await abrirArchivoNativo(archivo.url, archivo.nombre)
-    } catch (err) {
-      onError?.('No se pudo descargar el archivo: ' + err.message)
-    } finally {
-      setDescargando(false)
-    }
-  }
 
   return (
     <div>
@@ -116,32 +103,15 @@ export default function PlaneacionPropiaCard({
           <Eye size={14} />
           Ver
         </button>
-        {/* En la web basta el <a download>. Dentro de la app de Android eso
-            es inerte —un WebView no descarga por sí solo—, así que ahí se
-            baja el archivo y se entrega por el panel Compartir, que en
-            Android también es el "abrir con" (mismo camino que ya usa
-            ActivityPage con las entregas de los alumnos). */}
-        {IS_NATIVE_APP ? (
-          <button
-            type="button"
-            onClick={descargarEnApp}
-            disabled={descargando}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
-          >
-            {descargando ? <Spinner size="sm" /> : <Download size={14} />}
-            Descargar
-          </button>
-        ) : (
-          <a
-            href={downloadUrl(archivo?.url, archivo?.nombre)}
-            download={archivo?.nombre}
-            rel="noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
-          >
-            <Download size={14} />
-            Descargar
-          </a>
-        )}
+        {/* Mismo botón que usa la Fuente Principal y el visor compartido: la
+            diferencia web/app vive en un solo lugar (BotonDescargarArchivo),
+            no repetida en cada tarjeta. */}
+        <BotonDescargarArchivo
+          url={archivo?.url}
+          nombre={archivo?.nombre}
+          onError={onError}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
+        />
         <SelectorArchivoPlaneacion
           label="Reemplazar archivo"
           icono="refresh"
