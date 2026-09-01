@@ -26,6 +26,7 @@ import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
+import { planeacionVigente, validarArchivoPlaneacion, extensionPlaneacion } from '../src/utils/planeacionVigente.js'
 import { resolverBackspace } from '../src/utils/crucigramaBackspace.js'
 import { correccionesCrucigrama } from '../src/utils/correccionesJuego.js'
 
@@ -1780,6 +1781,137 @@ caso('planeacionAceptadaATexto: con Planeación aceptada, arma texto por parcial
   assert.ok(texto.includes('Parcial 1'))
   assert.ok(texto.includes('Presupuesto'))
   assert.ok(texto.includes('números enteros'))
+})
+
+// ── Planeación Didáctica vigente (1-sep-2026) ──────────────────────────────
+// UNA sola planeación vigente por asignatura, con dos orígenes posibles: la
+// que genera Evalúa Fácil ('ia') y el PDF/DOCX que sube el docente
+// ('archivo'). Lo que se prueba aquí es el contrato del que dependen las dos
+// cosas que pueden salir mal de verdad: que nunca haya dos vigentes, y que
+// una operación de IA reciba SIEMPRE el contenido de la vigente — nunca el de
+// una generación anterior.
+
+caso('planeacionVigente: sin nada guardado, no hay planeación vigente', () => {
+  assert.strictEqual(planeacionVigente(null), null)
+  assert.strictEqual(planeacionVigente({}), null)
+  assert.strictEqual(planeacionVigente({ planeacionAceptada: null }), null)
+})
+
+caso('planeacionVigente: sin `origen` se interpreta como IA (registros anteriores al 1-sep-2026, sin migración)', () => {
+  const v = planeacionVigente({ planeacionAceptada: { planeacionId: 'G1', porParcial: [{ numero: 1, secuencias: [] }] } })
+  assert.strictEqual(v.origen, 'ia')
+  assert.strictEqual(v.planeacionId, 'G1')
+})
+
+caso('planeacionVigente: un archivo sin URL no deja una tarjeta rota — se trata como si no hubiera planeación', () => {
+  assert.strictEqual(planeacionVigente({ planeacionAceptada: { origen: 'archivo', archivo: { nombre: 'x.pdf' } } }), null)
+})
+
+caso('planeacionVigente: el archivo del docente es la vigente y trae sus datos', () => {
+  const v = planeacionVigente({
+    planeacionAceptada: { origen: 'archivo', archivo: { nombre: 'Mi planeación.pdf', tipo: 'pdf', url: 'https://res.cloudinary.com/x/image/upload/v1/p/mi.pdf' } },
+  })
+  assert.strictEqual(v.origen, 'archivo')
+  assert.strictEqual(v.archivo.nombre, 'Mi planeación.pdf')
+})
+
+caso('validarArchivoPlaneacion: acepta PDF y DOCX, rechaza todo lo demás con un motivo entendible', () => {
+  assert.strictEqual(validarArchivoPlaneacion({ name: 'plan.pdf', size: 1000 }), null)
+  assert.strictEqual(validarArchivoPlaneacion({ name: 'plan.docx', size: 1000 }), null)
+  assert.match(validarArchivoPlaneacion({ name: 'plan.doc', size: 1000 }), /\.doc antiguos/)
+  assert.match(validarArchivoPlaneacion({ name: 'plan.xlsx', size: 1000 }), /PDF o Word/)
+  assert.match(validarArchivoPlaneacion({ name: 'plan.pptx', size: 1000 }), /PDF o Word/)
+  assert.match(validarArchivoPlaneacion({ name: 'foto.jpg', size: 1000 }), /PDF o Word/)
+  assert.match(validarArchivoPlaneacion({ name: 'plan.pdf', size: 0 }), /vacío/)
+  assert.match(validarArchivoPlaneacion({ name: 'plan.pdf', size: 16 * 1024 * 1024 }), /15 MB/)
+  assert.match(validarArchivoPlaneacion(null), /Elige un archivo/)
+})
+
+caso('extensionPlaneacion: saca la extensión aunque el nombre traiga puntos o query', () => {
+  assert.strictEqual(extensionPlaneacion('Planeación 2026.v2.DOCX'), 'docx')
+  assert.strictEqual(extensionPlaneacion('sin-extension'), '')
+})
+
+// El servidor tiene su propia copia de la regla (runtimes distintos, sin
+// módulo compartido): tiene que decidir EXACTAMENTE lo mismo que el cliente.
+caso('planeacionVigenteDe (servidor): decide igual que el resolver del cliente', () => {
+  assert.strictEqual(FIA.planeacionVigenteDe({}), null)
+  assert.strictEqual(FIA.planeacionVigenteDe({ planeacionAceptada: { origen: 'archivo', archivo: {} } }), null)
+  assert.strictEqual(FIA.planeacionVigenteDe({ planeacionAceptada: { porParcial: [] } }).origen, undefined)
+})
+
+caso('textoPlaneacionParaPrompt: sin planeación vigente, no hay bloque (el prompt queda como antes)', () => {
+  assert.strictEqual(FIA.textoPlaneacionParaPrompt(null, null, 1), null)
+})
+
+caso('textoPlaneacionParaPrompt: origen IA, resume SOLO el parcial de la operación', () => {
+  const vigente = {
+    origen: 'ia',
+    porParcial: [
+      { numero: 1, secuencias: [{ nombre: 'SECUENCIA-DEL-UNO', sesiones: '1 a 3', contenidosRelacionados: 'enteros' }] },
+      { numero: 2, secuencias: [{ nombre: 'SECUENCIA-DEL-DOS', sesiones: '4 a 6', contenidosRelacionados: 'fracciones' }] },
+    ],
+  }
+  const bloque = FIA.textoPlaneacionParaPrompt(vigente, null, 2)
+  assert.ok(bloque.includes(FIA.PLANEACION_ETIQUETA))
+  assert.ok(bloque.includes('SECUENCIA-DEL-DOS'))
+  assert.ok(!bloque.includes('SECUENCIA-DEL-UNO'))
+})
+
+caso('textoPlaneacionParaPrompt: origen archivo, el bloque lleva el CONTENIDO real del documento, no su nombre ni su URL', () => {
+  const vigente = {
+    origen: 'archivo',
+    archivo: { nombre: 'Mi planeación.pdf', tipo: 'pdf', url: 'https://res.cloudinary.com/x/image/upload/v1/p/mi.pdf' },
+  }
+  const bloque = FIA.textoPlaneacionParaPrompt(vigente, 'TEXTO-REAL-DE-LA-PLANEACION-DEL-DOCENTE', 1)
+  assert.ok(bloque.includes('TEXTO-REAL-DE-LA-PLANEACION-DEL-DOCENTE'))
+  // Sin contenido extraíble no se manda un bloque vacío que el modelo pudiera
+  // rellenar por su cuenta.
+  assert.strictEqual(FIA.textoPlaneacionParaPrompt(vigente, '   ', 1), null)
+})
+
+// ── CONDICIÓN DE ACEPTACIÓN (Kike, 1-sep-2026) ─────────────────────────────
+// "Si el docente sube su propia planeación y esa es la planeación vigente,
+// cuando genere una actividad con IA, la IA debe utilizar el CONTENIDO REAL
+// de esa planeación. No debe utilizar una planeación IA anterior."
+caso('ACEPTACIÓN · con planeación propia vigente, el prompt de Crear actividad lleva SU contenido y NO el de la generación IA anterior', () => {
+  const CONTENIDO_DEL_DOCENTE = 'PLANEACION-PROPIA-DEL-DOCENTE-XYZ: proyecto integrador de robótica'
+  const CONTENIDO_IA_VIEJO = 'SECUENCIA-IA-ANTERIOR-QUE-YA-NO-ESTA-VIGENTE'
+
+  // La asignatura tiene AMBAS cosas guardadas: la bitácora `planeacionesIA`
+  // conserva la generación anterior (es inmutable por regla), pero la vigente
+  // es el archivo del docente. Solo el archivo puede llegar al prompt.
+  const vigente = FIA.planeacionVigenteDe({
+    planeacionAceptada: {
+      origen: 'archivo',
+      archivo: { nombre: 'Planeación Mate 1A.pdf', tipo: 'pdf', url: 'https://res.cloudinary.com/x/image/upload/v1/p/plan.pdf' },
+    },
+    // Restos del ciclo anterior, que NO deben influir en nada:
+    planeacionBorrador: { porParcial: [{ numero: 1, secuencias: [{ nombre: CONTENIDO_IA_VIEJO }] }] },
+  })
+  assert.strictEqual(vigente.origen, 'archivo')
+
+  const prompt = FIA.promptCrearActividad({
+    categoria: 'entregable',
+    nombresExistentes: [],
+    peticion: 'Algo para reforzar lo que sigue en el temario',
+    pesoRestante: 3,
+    bloqueFuentes: null,
+    bloquePlaneacion: FIA.textoPlaneacionParaPrompt(vigente, CONTENIDO_DEL_DOCENTE, 1),
+  }, 'Matemáticas I')
+
+  assert.ok(prompt.includes(CONTENIDO_DEL_DOCENTE), 'el prompt debe llevar el contenido real de la planeación del docente')
+  assert.ok(!prompt.includes(CONTENIDO_IA_VIEJO), 'el prompt NUNCA debe llevar una planeación IA anterior')
+  assert.ok(prompt.includes('CONGRUENTE con esa planeación'), 'el prompt debe pedir congruencia con la planeación vigente')
+})
+
+caso('ACEPTACIÓN · sin planeación vigente, el prompt de Crear actividad no menciona ninguna planeación (no inventa uso)', () => {
+  const prompt = FIA.promptCrearActividad({
+    categoria: 'entregable', nombresExistentes: [], peticion: 'Lo que sea', pesoRestante: 3,
+    bloqueFuentes: null, bloquePlaneacion: null,
+  }, 'Matemáticas I')
+  assert.ok(!prompt.includes(FIA.PLANEACION_ETIQUETA))
+  assert.ok(!prompt.includes('CONGRUENTE con esa planeación'))
 })
 
 caso('analisisExamenesATexto: sin exámenes analizados, null', () => {

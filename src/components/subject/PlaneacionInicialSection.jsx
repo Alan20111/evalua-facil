@@ -19,7 +19,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { collection, doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { updateDoc } from '../../utils/firestoreGuard'
-import { db } from '../../firebase'
+import { auth, db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import ConfirmModal from '../ConfirmModal'
@@ -32,6 +32,10 @@ import {
 } from '../../utils/planeacionDocx'
 import { renderAsync as renderDocxAsync } from 'docx-preview'
 import useIsDesktop from '../../hooks/useIsDesktop'
+import { planeacionVigente, PLANEACION_CARPETA, extensionPlaneacion } from '../../utils/planeacionVigente'
+import PlaneacionPropiaCard, { SelectorArchivoPlaneacion } from './PlaneacionPropiaCard'
+import { uploadToCloudinary } from '../../utils/cloudinary'
+import { apiUrl } from '../../utils/apiBase'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 
 const CLAVES_MOMENTO = MOMENTOS.map((m) => m.clave)
@@ -474,24 +478,17 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
   return (
     <div className="bg-surface-card rounded-card shadow-card p-3">
       <div className="flex items-start justify-between gap-2">
-        <h2 className="font-bold text-on-surface">Planeación Didáctica Inicial</h2>
+        <h2 className="font-bold text-on-surface">Planeación Didáctica</h2>
         <EstadoPlaneacionBadge lista={hayFuentesGenerales} />
       </div>
       <p className="text-sm text-muted mt-0.5 mb-2">
-        La IA ha generado una propuesta de planeación para cada parcial de la asignatura.
+        Cada asignatura tiene una sola planeación vigente: la que genera Evalúa Fácil, o la tuya en PDF o Word.
       </p>
 
       <p className="text-xs text-muted mb-2">
         💡 Es una guía de trabajo, no un guion. Puedes adaptarla, cambiar o sustituir actividades según las
-        necesidades de tu grupo. La IA la tomará como base para proponerte actividades congruentes con tu
-        planeación.
+        necesidades de tu grupo.
       </p>
-
-      {subjectPlaneacionLoaded && !subjectPlaneacion?.planeacionAceptada && (
-        <p className="text-sm font-semibold text-red-600 mb-2">
-          Revísala y acéptala para continuar.
-        </p>
-      )}
 
       {!habilitado && (
         <ul className="space-y-1 mb-1">
@@ -546,6 +543,11 @@ function Planeacion({
   const [confirmarAceptar, setConfirmarAceptar] = useState(false)
   const [confirmarReiniciar, setConfirmarReiniciar] = useState(false)
   const [reiniciando, setReiniciando] = useState(false)
+  // Planeación propia del docente: el archivo ya validado que espera
+  // confirmación (nunca se sube antes de que el docente confirme) y la
+  // bandera de "subiendo".
+  const [archivoPorConfirmar, setArchivoPorConfirmar] = useState(null)
+  const [subiendoArchivo, setSubiendoArchivo] = useState(false)
   const [descargandoParcial, setDescargandoParcial] = useState(null)
   const [verRevision, setVerRevision] = useState(false)
   const [cargandoVistaPrevia, setCargandoVistaPrevia] = useState(false)
@@ -568,39 +570,60 @@ function Planeacion({
     return unsub
   }, [subjectId])
 
-  // Solo la generación MÁS RECIENTE es "la" Planeación Inicial, desde la
-  // perspectiva del docente — regla permanente de Kike: en todo momento
-  // debe existir una sola Planeación Inicial vigente, nunca un historial de
-  // generaciones visible. `planeacionesIA` sigue siendo append-only por
-  // dentro (bitácora técnica), pero solo `historial[0]` se muestra.
-  const actual = historial[0] || null
-  const aceptada = !!actual && subjectPlaneacion?.planeacionAceptada?.planeacionId === actual.id
-  const fechaAceptada = aceptada ? subjectPlaneacion.planeacionAceptada.aceptadaEn : null
-  const contenidoAceptado = aceptada
-    ? (subjectPlaneacion.planeacionAceptada.porParcial?.length
-      ? extraerContenido(subjectPlaneacion.planeacionAceptada) : extraerContenido(actual))
+  // ── Planeación VIGENTE vs GENERACIÓN IA PENDIENTE ─────────────────────
+  // Dos conceptos distintos (1-sep-2026, ver src/utils/planeacionVigente.js).
+  // La vigencia sale ÚNICAMENTE del resolver: `planeacionesIA` ya no decide
+  // cuál es la planeación de la asignatura, solo si quedó una generación de
+  // IA esperando revisión. Antes de hoy la vigencia se derivaba comparando
+  // `planeacionAceptada.planeacionId` contra `historial[0].id`, lo que ataba
+  // la existencia de una planeación a haber venido de la IA — con la
+  // planeación propia del docente eso ya no se sostiene.
+  const vigente = planeacionVigente(subjectPlaneacion)
+  const vigenteIA = vigente?.origen === 'ia'
+  const vigenteArchivo = vigente?.origen === 'archivo'
+  const fechaAceptada = vigente?.aceptadaEn || null
+
+  // La generación IA pendiente de aceptación SOLO cuenta mientras no haya
+  // planeación vigente: en cuanto hay una (venga de donde venga), nada más
+  // puede mostrarse ni usarse como planeación de la asignatura. Sigue
+  // guardada en la bitácora, no se pierde — pero no es "otra planeación".
+  const pendiente = vigente ? null : (historial[0] || null)
+
+  // Contenido de la vigente cuando es de IA. Los registros más viejos
+  // guardaban solo el puntero, sin el contenido: ahí se cae al documento de
+  // la bitácora que ese puntero señala (antes se usaba historial[0], que era
+  // lo mismo porque solo se podía aceptar la generación más reciente).
+  const generacionVigente = vigenteIA
+    ? (historial.find((h) => h.id === vigente.planeacionId) || null)
+    : null
+  const contenidoAceptado = vigenteIA
+    ? (vigente.porParcial?.length ? extraerContenido(vigente) : extraerContenido(generacionVigente))
     : null
   const porParcialAceptado = contenidoAceptado?.porParcial || null
 
   // Inicializa/reinicia la copia editable cuando aparece una generación
-  // nueva (o al recargar la página) — nunca pisa ediciones en curso del
-  // mismo `actual.id`. A partir de lo último guardado como borrador si
-  // existe (pedido de Kike, 15-ago-2026: el docente entra varias veces a
-  // corregir antes de aceptar, así que el avance debe sobrevivir a cerrar
-  // la pestaña).
-  const actualIdParaEdicion = actual?.id || null
-  if (actualIdParaEdicion !== edicionDeId) {
-    const borrador = subjectPlaneacion?.planeacionBorrador?.planeacionId === actualIdParaEdicion
+  // pendiente nueva (o al recargar la página) — nunca pisa ediciones en
+  // curso de la misma generación. A partir de lo último guardado como
+  // borrador si existe (pedido de Kike, 15-ago-2026: el docente entra varias
+  // veces a corregir antes de aceptar, así que el avance debe sobrevivir a
+  // cerrar la pestaña). La clave incluye la planeación vigente para que al
+  // cambiar de origen la copia editable se descarte, en vez de quedarse
+  // colgando de un estado que ya no existe.
+  const claveEdicion = vigente
+    ? `vigente:${vigente.origen}:${vigente.planeacionId || vigente.archivo?.url || ''}`
+    : (pendiente?.id || null)
+  if (claveEdicion !== edicionDeId) {
+    const borrador = pendiente && subjectPlaneacion?.planeacionBorrador?.planeacionId === pendiente.id
       ? extraerContenido(subjectPlaneacion.planeacionBorrador) : null
-    setEdicion(actualIdParaEdicion ? (borrador?.porParcial?.length ? borrador : extraerContenido(actual)) : null)
-    setEdicionDeId(actualIdParaEdicion)
-    setParcialActivo(actual?.porParcial?.[0]?.numero || 1)
+    setEdicion(pendiente ? (borrador?.porParcial?.length ? borrador : extraerContenido(pendiente)) : null)
+    setEdicionDeId(claveEdicion)
+    setParcialActivo((contenidoAceptado?.porParcial || pendiente?.porParcial)?.[0]?.numero || 1)
   }
 
-  const guardadoRaw = !!actual && subjectPlaneacion?.planeacionBorrador?.planeacionId === actual.id
+  const guardadoRaw = !!pendiente && subjectPlaneacion?.planeacionBorrador?.planeacionId === pendiente.id
     ? extraerContenido(subjectPlaneacion.planeacionBorrador) : null
-  const guardado = guardadoRaw?.porParcial?.length ? guardadoRaw : (actual ? extraerContenido(actual) : null)
-  const sinGuardar = !!actual && JSON.stringify(edicion) !== JSON.stringify(guardado)
+  const guardado = guardadoRaw?.porParcial?.length ? guardadoRaw : (pendiente ? extraerContenido(pendiente) : null)
+  const sinGuardar = !!pendiente && JSON.stringify(edicion) !== JSON.stringify(guardado)
 
   async function generar() {
     if (nuncaAprobado) { onPago(); return }
@@ -640,7 +663,7 @@ function Planeacion({
     setGuardando(true)
     try {
       await updateDoc(doc(db, 'subjects', subjectId), {
-        planeacionBorrador: { planeacionId: actual.id, ...edicion, actualizadoEn: serverTimestamp() },
+        planeacionBorrador: { planeacionId: pendiente.id, ...edicion, actualizadoEn: serverTimestamp() },
       })
       toast('Cambios guardados')
     } catch (err) {
@@ -654,10 +677,15 @@ function Planeacion({
     setAceptando(true)
     try {
       await updateDoc(doc(db, 'subjects', subjectId), {
-        planeacionAceptada: { planeacionId: actual.id, aceptadaEn: serverTimestamp(), ...(edicion || extraerContenido(actual)) },
+        planeacionAceptada: {
+          ...(edicion || extraerContenido(pendiente)),
+          origen: 'ia',
+          planeacionId: pendiente.id,
+          aceptadaEn: serverTimestamp(),
+        },
         planeacionBorrador: null,
       })
-      toast('Planeación Inicial aceptada — ya puedes verla y descargarla')
+      toast('Planeación aceptada — ya puedes verla y descargarla')
     } catch (err) {
       toast('No se pudo aceptar: ' + err.message, 'error')
     } finally {
@@ -666,24 +694,120 @@ function Planeacion({
     }
   }
 
-  // Quita la aceptación y sus borradores — irreversible: no hay forma de
-  // recuperar cuál era la aceptada una vez hecho esto (pedido de Kike,
-  // 15-ago-2026). No borra la bitácora (planeacionesIA es inmutable por
-  // regla, a propósito).
-  async function reiniciar() {
+  // Pide al servidor que borre de Cloudinary el archivo que quedó marcado
+  // como "por borrar" en la propia asignatura (ver sustituirPorArchivo /
+  // quitarPlaneacion). Nunca revierte la planeación vigente si falla: la
+  // prioridad es que la vigente quede correcta — un archivo huérfano se
+  // registra y se puede limpiar después, una planeación equivocada no.
+  async function limpiarArchivoAnterior() {
+    try {
+      const token = await auth.currentUser.getIdToken()
+      const res = await fetch(apiUrl('/api/subject/delete-planeacion-archivo'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subjectId }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `HTTP ${res.status}`)
+      }
+    } catch (err) {
+      console.warn(`[planeación ${subjectId}] no se pudo borrar el archivo anterior de Cloudinary:`, err.message)
+    }
+  }
+
+  // La planeación propia del docente pasa a ser la ÚNICA vigente. El orden
+  // importa: primero se sube el archivo nuevo (si eso falla no se toca nada),
+  // después una sola escritura atómica que deja la vigente y marca la
+  // anterior para borrar, y hasta el final el borrado en Cloudinary. En
+  // ningún instante hay dos planeaciones vigentes.
+  async function sustituirPorArchivo(file) {
+    setSubiendoArchivo(true)
+    try {
+      const url = await uploadToCloudinary(file, PLANEACION_CARPETA)
+      const anterior = vigenteArchivo ? vigente.archivo : null
+      await updateDoc(doc(db, 'subjects', subjectId), {
+        planeacionAceptada: {
+          origen: 'archivo',
+          aceptadaEn: serverTimestamp(),
+          archivo: {
+            nombre: file.name,
+            tipo: extensionPlaneacion(file.name),
+            url,
+            tamano: file.size,
+            subidoEn: serverTimestamp(),
+          },
+        },
+        // La copia editable de una generación de IA deja de tener sentido en
+        // cuanto la vigente es un archivo del docente.
+        planeacionBorrador: null,
+        // Tumba para el recolector: el servidor lee de AQUÍ la URL real que
+        // debe borrar, nunca de lo que mande el cliente. No es una segunda
+        // planeación — el resolver ni la mira.
+        planeacionArchivoPorBorrar: anterior || null,
+      })
+      setArchivoPorConfirmar(null)
+      toast('Ya es tu planeación vigente')
+      if (anterior) limpiarArchivoAnterior()
+    } catch (err) {
+      toast('No se pudo subir la planeación: ' + err.message, 'error')
+    } finally {
+      setSubiendoArchivo(false)
+    }
+  }
+
+  // Quita la planeación vigente y sus borradores — sea de IA o un archivo
+  // propio. Irreversible desde aquí: no hay forma de recuperar cuál era
+  // (pedido de Kike, 15-ago-2026). No borra la bitácora `planeacionesIA`,
+  // que es inmutable por regla, a propósito.
+  async function quitarPlaneacion() {
     setReiniciando(true)
     try {
+      const anterior = vigenteArchivo ? vigente.archivo : null
       await updateDoc(doc(db, 'subjects', subjectId), {
         planeacionAceptada: null,
         planeacionBorrador: null,
+        planeacionArchivoPorBorrar: anterior || null,
       })
-      toast('Planeación Inicial eliminada — ya puedes generar una nueva')
+      toast(anterior
+        ? 'Tu archivo se quitó — ya puedes generar la planeación con Evalúa Fácil'
+        : 'Planeación eliminada — ya puedes generar una nueva')
+      if (anterior) limpiarArchivoAnterior()
     } catch (err) {
       toast('No se pudo eliminar: ' + err.message, 'error')
     } finally {
       setReiniciando(false)
       setConfirmarReiniciar(false)
     }
+  }
+
+  // El archivo ya viene validado (formato, tamaño, no vacío) desde
+  // SelectorArchivoPlaneacion. Solo se pide confirmación cuando hay algo que
+  // sustituir: si la asignatura no tiene nada, subirlo es la acción misma y
+  // un modal de más solo estorbaría.
+  function elegirArchivo(file) {
+    if (vigente || pendiente) setArchivoPorConfirmar(file)
+    else sustituirPorArchivo(file)
+  }
+
+  // Qué se pierde exactamente al sustituir. Se dice con precisión: la
+  // bitácora `planeacionesIA` es inmutable y NO se borra, así que no se
+  // afirma que "se elimina" lo que en realidad sigue guardado — lo que sí se
+  // pierde son las correcciones que el docente hizo al aceptar.
+  function mensajeConfirmarArchivo() {
+    const nuevo = `"${archivoPorConfirmar?.name}"`
+    if (vigenteArchivo) {
+      return `El archivo "${vigente.archivo?.nombre}" dejará de ser tu planeación y se eliminará de Evalúa Fácil. `
+        + `En su lugar, ${nuevo} quedará como la única planeación vigente de esta asignatura.`
+    }
+    if (vigenteIA) {
+      return `${nuevo} pasará a ser la única planeación vigente de esta asignatura. La planeación que generó `
+        + 'Evalúa Fácil dejará de estar vigente y no se usará en ningún otro flujo; las correcciones que le hiciste '
+        + 'al aceptarla se pierden y no se pueden recuperar. Subir tu archivo no consume créditos.'
+    }
+    return `${nuevo} pasará a ser la única planeación vigente de esta asignatura. La planeación que Evalúa Fácil `
+      + 'generó y que está pendiente de tu revisión dejará de mostrarse mientras tu archivo sea la vigente. '
+      + 'No se te vuelven a cobrar créditos por esto.'
   }
 
   function secuenciasDeParcial(numero, porParcial) {
@@ -717,18 +841,18 @@ function Planeacion({
     }
   }
 
-  // Una vez aceptada, la Planeación queda BLOQUEADA — de solo lectura,
+  // Una vez vigente, la Planeación queda BLOQUEADA — de solo lectura,
   // nunca editable (regla permanente de Kike). Por eso ya no hay una copia
-  // "editable de la aceptada": la vista de solo lectura usa directamente
+  // "editable de la vigente": la vista de solo lectura usa directamente
   // `contenidoAceptado`.
-  const contenidoActivo = aceptada ? contenidoAceptado : edicion
+  const contenidoActivo = vigenteIA ? contenidoAceptado : edicion
   const secuenciasActivo = secuenciasDeParcial(parcialActivo, contenidoActivo?.porParcial)
   const sumaParcialActivo = sumaPonderacionesParcial(secuenciasActivo)
   // Antes de aceptar, TODOS los parciales deben sumar exactamente 100% —
   // no solo el que se esté viendo en ese momento (Kike, 16-ago-2026: "no
   // permitir aceptar una Planeación cuya suma de ponderaciones no sea
   // exactamente 100%").
-  const parcialesConPonderacionMal = !aceptada
+  const parcialesConPonderacionMal = !vigente
     ? (edicion?.porParcial || []).filter((p) => Math.abs(sumaPonderacionesParcial(p.secuencias) - 100) > 0.5)
     : []
   // El efecto de render (más abajo) corre en un callback async — para
@@ -813,12 +937,12 @@ function Planeacion({
   // actuales (sin fetch, sin plantilla) y lo renderiza; el efecto de abajo
   // activa la edición directa en cuanto termina de pintarse.
   async function abrirVistaPrevia(numeroParcial) {
-    if (!actual) return
+    if (!vigenteIA && !pendiente) return
     setCargandoVistaPrevia(true)
     setVerRevision(true)
     try {
       const numero = numeroParcial ?? parcialActivo
-      const contenido = aceptada ? contenidoAceptado : (edicion || extraerContenido(actual))
+      const contenido = vigenteIA ? contenidoAceptado : (edicion || extraerContenido(pendiente))
       const secuencias = secuenciasDeParcial(numero, contenido?.porParcial)
       const p = (contenido?.porParcial || []).find((x) => x.numero === numero)
       const titulo = `Planeación Didáctica Inicial — Parcial ${numero}${p?.periodo ? ` (${p.periodo})` : ''}`
@@ -832,17 +956,17 @@ function Planeacion({
     }
   }
 
-  // Se llama en cuanto `actual` de verdad refleja la generación recién
+  // Se llama en cuanto `pendiente` de verdad refleja la generación recién
   // hecha (ver `generar()` — no se puede abrir en el mismo instante porque
   // el listener de Firestore todavía trae los datos del ciclo anterior).
   useEffect(() => {
-    if (abrirTrasGenerar && actual) {
+    if (abrirTrasGenerar && pendiente) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- solo apaga la bandera que disparó este mismo efecto, no encadena renders externos
       setAbrirTrasGenerar(false)
       abrirVistaPrevia()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- abrirVistaPrevia se redefine cada render, no es una dependencia real
-  }, [abrirTrasGenerar, actual])
+  }, [abrirTrasGenerar, pendiente])
 
   // Tras agregar/eliminar/mover una Secuencia Didáctica (ver
   // cambiarGrupoSecuencias) — el estado y esta bandera se actualizan en el
@@ -862,11 +986,11 @@ function Planeacion({
     vistaPreviaRef.current.innerHTML = ''
     renderDocxAsync(blobVistaPrevia, vistaPreviaRef.current, undefined, { inWrapper: true })
       .then(() => {
-        // La edición NUNCA se activa una vez aceptada (queda bloqueada, de
-        // solo lectura) — y solo se activa en escritorio mientras no se ha
-        // aceptado (en celular la Vista previa se deja de solo lectura, ver
-        // AvisoRevisionDesktop).
-        if (aceptada || !isDesktop || !vistaPreviaRef.current) return
+        // La edición NUNCA se activa una vez que la planeación es vigente
+        // (queda bloqueada, de solo lectura) — y solo se activa en escritorio
+        // mientras no se ha aceptado (en celular la Vista previa se deja de
+        // solo lectura, ver AvisoRevisionDesktop).
+        if (vigente || !isDesktop || !vistaPreviaRef.current) return
         const { datosIdentificacion, fuentesInformacion, validacion, secuencias } = fuenteActivaRef.current
         activarEdicionDocumento(
           vistaPreviaRef.current, datosIdentificacion, secuencias, fuentesInformacion, validacion,
@@ -893,97 +1017,133 @@ function Planeacion({
 
   return (
     <div>
-      {aceptada ? (
-        <p className="text-xs text-muted mb-2">
-          Estado: <span className="font-medium text-green-700">Aceptada — es tu Planeación Inicial, la usa la IA para todo lo demás</span>
-          {fechaAceptada?.toDate && ` · ${fechaAceptada.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
-        </p>
-      ) : !actual ? (
-        <p className="text-xs text-muted mb-2">Estado: <span className="font-medium">No generada</span></p>
+      {/* Una sola planeación vigente, siempre: lo que se muestra depende de
+          su ORIGEN, y los dos bloques son excluyentes — nunca se ven dos
+          planeaciones como alternativas activas. */}
+      {vigenteArchivo ? (
+        <PlaneacionPropiaCard
+          archivo={vigente.archivo}
+          aceptadaEn={vigente.aceptadaEn}
+          subiendo={subiendoArchivo}
+          onElegirReemplazo={elegirArchivo}
+          onArchivoInvalido={(mensaje) => toast(mensaje, 'error')}
+          onGenerarIA={() => setConfirmarReiniciar(true)}
+        />
       ) : (
-        <p className="text-xs text-muted mb-2">
-          Estado: <span className="font-medium text-amber-700">Generada, sin aceptar todavía</span>
-          {actual.generadoEn?.toDate && ` · ${actual.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
-          . No podrás descargarla hasta aceptarla.
-        </p>
+        <>
+          {vigenteIA ? (
+            <p className="text-xs text-muted mb-2">
+              Estado: <span className="font-medium text-green-700">Vigente: generada por Evalúa Fácil — la usa la IA para todo lo demás</span>
+              {fechaAceptada?.toDate && ` · ${fechaAceptada.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
+            </p>
+          ) : !pendiente ? (
+            <p className="text-sm text-on-surface mb-2">
+              <span className="font-medium">¿Cómo quieres trabajar tu planeación?</span>{' '}
+              <span className="text-muted">Elige una de las dos — esta asignatura tendrá una sola planeación.</span>
+            </p>
+          ) : (
+            <p className="text-xs text-muted mb-2">
+              Estado: <span className="font-medium text-amber-700">Generada, sin aceptar todavía</span>
+              {pendiente.generadoEn?.toDate && ` · ${pendiente.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
+              . No podrás descargarla hasta aceptarla.
+              <span className="block font-semibold text-red-600 mt-1">Revísala y acéptala para continuar.</span>
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            {!vigenteIA && (
+              <button
+                type="button"
+                onClick={() => (nuncaAprobado ? onPago() : setConfirmando(true))}
+                disabled={generando}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
+              >
+                {generando ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : pendiente ? <RotateCcw size={14} /> : <Sparkles size={14} />}
+                {pendiente ? 'Generar de nuevo (con IA)' : 'Que Evalúa Fácil la genere'}
+              </button>
+            )}
+            {/* Subir la planeación propia: siempre disponible mientras la
+                vigente no sea ya un archivo (ese caso lo cubre
+                PlaneacionPropiaCard con "Reemplazar archivo"). */}
+            <SelectorArchivoPlaneacion
+              label={vigenteIA || pendiente ? 'Usar mi propia planeación' : 'Ya tengo mi planeación'}
+              ocupado={subiendoArchivo}
+              onElegido={elegirArchivo}
+              onInvalido={(mensaje) => toast(mensaje, 'error')}
+            />
+            {pendiente && isDesktop && (
+              <button
+                type="button"
+                onClick={() => abrirVistaPrevia()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50"
+              >
+                <ThumbsUp size={14} />
+                Vista previa y edición
+              </button>
+            )}
+            {vigenteIA && (
+              <button
+                type="button"
+                onClick={() => abrirVistaPrevia()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
+              >
+                <Eye size={14} />
+                Vista previa
+              </button>
+            )}
+            {vigenteIA && (
+              <button
+                type="button"
+                onClick={() => setConfirmarReiniciar(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-red-300 text-red-700 text-sm hover:bg-red-50"
+              >
+                <AlertTriangle size={14} />
+                Generar de nuevo
+              </button>
+            )}
+          </div>
+
+          {!vigente && !pendiente && (
+            <p className="text-xs text-muted mt-2">
+              Generarla con Evalúa Fácil consume créditos de IA. Subir la tuya es gratis: se guarda tal como está y no
+              se analiza.
+            </p>
+          )}
+
+          {vigenteIA && (
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <span className="text-xs text-muted">Descargar por parcial:</span>
+              {(porParcialAceptado || []).map((p) => (
+                <button
+                  key={p.numero}
+                  type="button"
+                  onClick={() => descargarParcial(p.numero)}
+                  disabled={descargandoParcial === p.numero}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-accent text-white text-xs hover:bg-accent-hover disabled:opacity-60"
+                >
+                  {descargandoParcial === p.numero ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={12} /> : <Download size={12} />}
+                  Parcial {p.numero}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Sin aceptar, "Revisar y aceptar" y "Vista previa" son la MISMA
+              pantalla — se edita directo sobre el documento Word real
+              renderizado. Solo en escritorio (celular no tiene espacio para
+              esto). */}
+          {pendiente && !isDesktop && <AvisoRevisionDesktop />}
+        </>
       )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        {!aceptada && (
-          <button
-            type="button"
-            onClick={() => (nuncaAprobado ? onPago() : setConfirmando(true))}
-            disabled={generando}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
-          >
-            {generando ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : actual ? <RotateCcw size={14} /> : <Sparkles size={14} />}
-            {actual ? 'Generar de nuevo (con IA)' : 'Generar planeación (con IA)'}
-          </button>
-        )}
-        {actual && !aceptada && isDesktop && (
-          <button
-            type="button"
-            onClick={() => abrirVistaPrevia()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50"
-          >
-            <ThumbsUp size={14} />
-            Vista previa y edición
-          </button>
-        )}
-        {actual && aceptada && (
-          <button
-            type="button"
-            onClick={() => abrirVistaPrevia()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
-          >
-            <Eye size={14} />
-            Vista previa
-          </button>
-        )}
-        {aceptada && (
-          <button
-            type="button"
-            onClick={() => setConfirmarReiniciar(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-red-300 text-red-700 text-sm hover:bg-red-50"
-          >
-            <AlertTriangle size={14} />
-            Generar de nuevo
-          </button>
-        )}
-      </div>
-
-      {aceptada && (
-        <div className="flex flex-wrap items-center gap-2 mt-2">
-          <span className="text-xs text-muted">Descargar por parcial:</span>
-          {(porParcialAceptado || []).map((p) => (
-            <button
-              key={p.numero}
-              type="button"
-              onClick={() => descargarParcial(p.numero)}
-              disabled={descargandoParcial === p.numero}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-accent text-white text-xs hover:bg-accent-hover disabled:opacity-60"
-            >
-              {descargandoParcial === p.numero ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={12} /> : <Download size={12} />}
-              Parcial {p.numero}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Sin aceptar, "Revisar y aceptar" y "Vista previa" son la MISMA
-          pantalla — se edita directo sobre el documento Word real
-          renderizado. Solo en escritorio (celular no tiene espacio para
-          esto). */}
-      {actual && !aceptada && !isDesktop && <AvisoRevisionDesktop />}
-      {verRevision && (isDesktop || aceptada) && (
+      {verRevision && (isDesktop || vigenteIA) && (
         <RevisionPantallaCompleta
-          titulo={`Planeación Inicial — ${asignaturaNombre}${aceptada ? ' (aceptada, solo lectura)' : ''}`}
+          titulo={`Planeación — ${asignaturaNombre}${vigenteIA ? ' (vigente, solo lectura)' : ''}`}
           onCerrar={cerrarRevision}
-          cerrarTexto={!aceptada ? 'Salir y aceptar luego' : null}
+          cerrarTexto={!vigente ? 'Salir y aceptar luego' : null}
           tabs={(
             <>
-              <SelectorParcial porParcial={actual?.porParcial} activo={parcialActivo} onCambiar={cambiarParcialRevision} />
-              {!aceptada && (
+              <SelectorParcial porParcial={contenidoActivo?.porParcial} activo={parcialActivo} onCambiar={cambiarParcialRevision} />
+              {!vigente && (
                 <span
                   className={`ml-auto flex-shrink-0 text-xs font-medium px-2 py-1 rounded ${
                     Math.abs(sumaParcialActivo - 100) <= 0.5 ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'
@@ -994,7 +1154,7 @@ function Planeacion({
               )}
             </>
           )}
-          acciones={isDesktop && !aceptada && (
+          acciones={isDesktop && !vigente && (
             <>
               <button
                 type="button"
@@ -1028,7 +1188,7 @@ function Planeacion({
                 }`}
               >
                 {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
-                Aceptar esta planeación como mi Planeación Inicial
+                Aceptar esta planeación como la de mi asignatura
               </button>
             </>
           )}
@@ -1074,8 +1234,8 @@ function Planeacion({
 
       {confirmarAceptar && (
         <ConfirmModal
-          title="¿Aceptar esta Planeación Didáctica Inicial?"
-          message="Se guarda con las correcciones que hayas hecho, en TODOS los parciales. Cuando la aceptes queda fija como tu Planeación Inicial, con la fecha de hoy, en modo de solo lectura — ya no podrás editarla directamente. Podrás verla y descargarla las veces que quieras, o generar una nueva si necesitas cambiarla."
+          title="¿Aceptar esta Planeación Didáctica?"
+          message="Se guarda con las correcciones que hayas hecho, en TODOS los parciales. Cuando la aceptes queda fija como la planeación de esta asignatura, con la fecha de hoy, en modo de solo lectura — ya no podrás editarla directamente. Podrás verla y descargarla las veces que quieras, generar una nueva, o sustituirla por tu propio archivo si prefieres."
           confirmLabel="Aceptar"
           confirmingLabel="Aceptando…"
           busy={aceptando}
@@ -1084,14 +1244,31 @@ function Planeacion({
         />
       )}
 
+      {/* Sustituir la planeación vigente por el archivo del docente. El
+          archivo TODAVÍA no se ha subido: primero confirma, después se sube y
+          hasta entonces se escribe la vigente (ver sustituirPorArchivo). */}
+      {archivoPorConfirmar && (
+        <ConfirmModal
+          title={vigenteArchivo ? '¿Reemplazar tu planeación?' : '¿Usar tu propia planeación?'}
+          message={mensajeConfirmarArchivo()}
+          confirmLabel={vigenteArchivo ? 'Reemplazar' : 'Sí, usar la mía'}
+          confirmingLabel="Subiendo…"
+          busy={subiendoArchivo}
+          onConfirm={() => sustituirPorArchivo(archivoPorConfirmar)}
+          onCancel={() => { if (!subiendoArchivo) setArchivoPorConfirmar(null) }}
+        />
+      )}
+
       {confirmarReiniciar && (
         <ConfirmModal
-          title="¿Generar una Planeación Inicial nueva?"
-          message="Tu Planeación Inicial aceptada se eliminará de forma automática e irreversible — no se puede recuperar después. En su lugar podrás generar y editar una completamente nueva."
-          confirmLabel="Eliminar y empezar de nuevo"
-          confirmingLabel="Eliminando…"
+          title={vigenteArchivo ? '¿Quitar tu planeación y generar una con Evalúa Fácil?' : '¿Generar una planeación nueva?'}
+          message={vigenteArchivo
+            ? `Tu archivo "${vigente.archivo?.nombre}" dejará de ser la planeación vigente y se eliminará de Evalúa Fácil — asegúrate de tenerlo guardado en tu computadora, porque desde aquí no se puede recuperar. Después podrás generar la planeación con Evalúa Fácil, que sí consume créditos de IA.`
+            : 'La planeación vigente de esta asignatura dejará de serlo de forma irreversible — no podrás volver a ella desde aquí. En su lugar podrás generar y editar una completamente nueva.'}
+          confirmLabel={vigenteArchivo ? 'Quitar mi archivo' : 'Eliminar y empezar de nuevo'}
+          confirmingLabel="Quitando…"
           busy={reiniciando}
-          onConfirm={reiniciar}
+          onConfirm={quitarPlaneacion}
           onCancel={() => { if (!reiniciando) setConfirmarReiniciar(false) }}
         />
       )}
