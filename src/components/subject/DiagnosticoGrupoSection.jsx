@@ -25,6 +25,7 @@ import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import ConfirmModal from '../ConfirmModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
+import AvisoPerfilIA from './AvisoPerfilIA'
 import { Sparkles, ClipboardList, ExternalLink, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 
 function millisDe(ts) {
@@ -80,7 +81,7 @@ function DiagnosticoActividadBloque({
   subjectId, docenteId, asignaturaNombre, existingActivitiesCountP1,
   diagnosticoTipo, titulo, descripcion, operacion, ponderarReactivos,
   mostrarCantidad, mostrarPeticion, placeholderPeticion, costoDefault, descripcionModal,
-  configKey,
+  configKey, perfilIACompleto = false,
 }) {
   const toast = useToast()
   const navigate = useNavigate()
@@ -229,7 +230,8 @@ function DiagnosticoActividadBloque({
             <button
               type="button"
               onClick={() => setConfirmando(true)}
-              disabled={generando}
+              disabled={generando || !perfilIACompleto}
+              title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar los diagnósticos' : undefined}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
             >
               {generando ? <Spinner size="sm" /> : <Sparkles size={14} />}
@@ -386,7 +388,7 @@ function DiagnosticosLegadoBloque({ subjectId }) {
   )
 }
 
-export default function DiagnosticoGrupoSection({ subjectId, docenteId, asignaturaNombre, habilitado, existingActivitiesCountP1 = 0 }) {
+export default function DiagnosticoGrupoSection({ subjectId, docenteId, asignaturaNombre, habilitado, perfilIACompleto = false, existingActivitiesCountP1 = 0 }) {
   if (!habilitado) {
     return (
       <div className="bg-surface-card rounded-card shadow-card p-3">
@@ -407,12 +409,22 @@ export default function DiagnosticoGrupoSection({ subjectId, docenteId, asignatu
           Cada cuestionario lo contestan tus estudiantes de verdad — no cuenta para su calificación.
           Cuando tengas al menos 3 respuestas, analízalo con IA desde la propia actividad.
         </p>
+        {/* Los dos diagnósticos se generan con IA, así que aquí sí hace falta
+            el Perfil IA (el servidor lo revalida en precheckDiagnosticoBase).
+            Antes esto lo cubría el candado de la pestaña entera; ahora vive
+            junto a lo que de verdad lo necesita. */}
+        {!perfilIACompleto && (
+          <div className="mt-2">
+            <AvisoPerfilIA que="generar los diagnósticos con Evalúa Fácil" />
+          </div>
+        )}
       </div>
       <DiagnosticoActividadBloque
         subjectId={subjectId} docenteId={docenteId} asignaturaNombre={asignaturaNombre}
         existingActivitiesCountP1={existingActivitiesCountP1}
         diagnosticoTipo="contexto"
         configKey="diagContexto"
+        perfilIACompleto={perfilIACompleto}
         titulo="Diagnóstico de contexto"
         descripcion="Un cuestionario real (opción múltiple y respuesta breve) que investiga el contexto, intereses y necesidades de tus estudiantes — sin puntos, es una encuesta."
         descripcionModal="La IA usa tu Perfil, tus fuentes y tus comentarios del grupo para diseñar el instrumento — las respuestas de tus estudiantes son las que después arman el diagnóstico real."
@@ -428,6 +440,7 @@ export default function DiagnosticoGrupoSection({ subjectId, docenteId, asignatu
         existingActivitiesCountP1={existingActivitiesCountP1}
         diagnosticoTipo="conocimientos"
         configKey="diagConocimientos"
+        perfilIACompleto={perfilIACompleto}
         titulo="Diagnóstico de conocimientos"
         descripcion="Un cuestionario real que tus estudiantes contestan — no cuenta para su calificación, pero te deja ver qué conocimientos previos ya tienen."
         descripcionModal="La IA usa tu Perfil para IA y tus fuentes iniciales generales ya guardadas para armar un cuestionario real. Lo revisas y publicas cuando quieras."

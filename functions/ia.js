@@ -59,7 +59,7 @@ const EXTENSIONES_LEGIBLES = /\.(pdf|docx?|pptx?|xlsx?)$/i
 // de 3 (ese tope solo aplica a lo que el docente adjunta a mano en la
 // operación puntual) y sin que el docente tenga que volver a adjuntarlas
 // aquí. Son dos grupos, con dueños distintos a propósito:
-//   · TODAS las fuentes GENERALES guardadas en Config Asistente IA → Fuentes
+//   · TODAS las fuentes GENERALES guardadas en la pestaña Planeación Didáctica → Fuentes
 //     (`fuentesAsignatura`, ubicacion:'general' — programa oficial y
 //     documentos del curso completo, PDF/Word únicamente).
 //   · Los archivos de "Material de apoyo" (`materials`, tab Actividades por
@@ -3623,7 +3623,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
   if (countContexto > 1) {
     throw new HttpsError('failed-precondition',
       `Tienes ${countContexto} Diagnósticos de contexto generados. Elimina los que no vayas a usar y deja ` +
-      'solo uno antes de generar la Planeación Didáctica Inicial (Config Asistente IA → Diagnóstico del ' +
+      'solo uno antes de generar la Planeación Didáctica Inicial (pestaña Planeación Didáctica → Diagnóstico del ' +
       'grupo). No se descontaron créditos.',
       { codigo: 'MULTIPLES_DIAGNOSTICO_CONTEXTO' })
   }
@@ -3633,7 +3633,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
     if (!resultadoContexto) {
       throw new HttpsError('failed-precondition',
         'Marcaste incluir el Diagnóstico de contexto, pero todavía no tiene resultados analizados — genera ' +
-        'el instrumento, publícalo y analízalo con IA (Config Asistente IA → Diagnóstico del grupo), o ' +
+        'el instrumento, publícalo y analízalo con IA (pestaña Planeación Didáctica → Diagnóstico del grupo), o ' +
         'desmarca esa casilla. No se descontaron créditos.',
         { codigo: 'SIN_DIAGNOSTICO_CONTEXTO' })
     }
@@ -3647,7 +3647,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
   if (countConocimientos > 1) {
     throw new HttpsError('failed-precondition',
       `Tienes ${countConocimientos} Diagnósticos de conocimientos generados. Elimina los que no vayas a usar ` +
-      'y deja solo uno antes de generar la Planeación Didáctica Inicial (Config Asistente IA → Diagnóstico ' +
+      'y deja solo uno antes de generar la Planeación Didáctica Inicial (pestaña Planeación Didáctica → Diagnóstico ' +
       'del grupo). No se descontaron créditos.',
       { codigo: 'MULTIPLES_DIAGNOSTICO_CONOCIMIENTOS' })
   }
@@ -3657,7 +3657,7 @@ async function precheckPlaneacionInicial({ uid, params }) {
     if (!resultadoConocimientos) {
       throw new HttpsError('failed-precondition',
         'Marcaste incluir el Diagnóstico de conocimientos, pero todavía no tiene resultados analizados — ' +
-        'genera el cuestionario, publícalo y analízalo con IA (Config Asistente IA → Diagnóstico del grupo), ' +
+        'genera el cuestionario, publícalo y analízalo con IA (pestaña Planeación Didáctica → Diagnóstico del grupo), ' +
         'o desmarca esa casilla. No se descontaron créditos.',
         { codigo: 'SIN_DIAGNOSTICO_CONOCIMIENTOS' })
     }

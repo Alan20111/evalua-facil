@@ -1,6 +1,26 @@
-// Pestaña "Asistente IA" de la Asignatura (FASE 2-BIS del Plan Maestro de
-// IA). Apartados implementados: Fuentes y Diagnóstico del grupo —
-// Planeación Didáctica Inicial se agrega después.
+// Pestaña "Planeación Didáctica" de la Asignatura.
+//
+// Se llamaba "Config Asistente IA" hasta el 1-sep-2026. Cambió de nombre y de
+// orden porque el nombre viejo mentía: desde que el docente puede subir su
+// propia planeación en PDF/Word, la IA es UNO de los dos caminos, no el
+// único. Un docente que ya trae su planeación hecha no tiene por qué entrar a
+// "configurar un asistente de IA" ni recorrer sus insumos.
+//
+// El orden es la regla de negocio hecha pantalla:
+//
+//   1. Fuente Principal (programa de estudios) — OBLIGATORIA, sin ella no se
+//      muestra nada más. Es el único requisito común a los dos caminos.
+//   2. Planeación Didáctica — la bifurcación: generarla con IA o subir la
+//      propia. Va aquí, inmediatamente después de lo obligatorio, para que
+//      quien solo quiere subir su archivo no tenga que atravesar nada más.
+//   3. "Información adicional para generar con IA" — Fuentes del curso,
+//      Comentarios, Autoanálisis, Consideraciones y Diagnóstico del grupo.
+//      Son INSUMOS del camino de IA, nunca requisitos del docente: antes
+//      vivían ARRIBA de la Planeación y se leían como una lista de deberes.
+//
+// El Perfil IA ya no hace falta para entrar aquí (ver SubjectPage): es
+// requisito solo de las operaciones que de verdad usan IA, que lo avisan en
+// su propio botón y que el servidor revalida.
 import { useEffect, useState } from 'react'
 import { collection, query, where, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { addDoc } from '../../utils/firestoreGuard'
@@ -85,7 +105,7 @@ function GrupoFuentes({ titulo, descripcion, fuentes, onAgregar, onEliminar, sub
   )
 }
 
-export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre = '', subject = null, watermark = false, existingActivitiesCountP1 = 0 }) {
+export default function PlaneacionDidacticaTab({ subjectId, docenteId, asignaturaNombre = '', subject = null, watermark = false, perfilIACompleto = false, existingActivitiesCountP1 = 0 }) {
   const toast = useToast()
   const [fuentes, setFuentes] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -211,11 +231,37 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
         <div className="flex justify-center py-6"><Spinner size="sm" /></div>
       ) : !programaListo ? (
         <p className="text-sm text-muted px-1">
-          Sube primero la Fuente Principal (programa de estudios, arriba) para ver Fuentes, Diagnóstico del
-          grupo y Planeación Inicial.
+          Sube primero la Fuente Principal (programa de estudios, arriba). Con ella podrás continuar con tu
+          Planeación Didáctica: generarla con Evalúa Fácil o subir la que ya tienes.
         </p>
       ) : (
         <>
+          {/* 2. La Planeación Didáctica, justo después de lo obligatorio: es
+              a lo que el docente viene, y desde aquí elige su camino sin
+              tener que recorrer antes ningún insumo de IA. */}
+          <div>
+            <PlaneacionInicialSection
+              subjectId={subjectId}
+              docenteId={docenteId}
+              subject={subject}
+              asignaturaNombre={asignaturaNombre}
+              hayFuentesGenerales
+              perfilIACompleto={perfilIACompleto}
+              watermark={watermark}
+            />
+          </div>
+
+          {/* 3. Insumos del camino de IA. Van DESPUÉS y bajo un encabezado
+              que dice para qué sirven: son opcionales para quien sube su
+              propia planeación, y ninguno cambió de funcionamiento. */}
+          <div className="pt-3 border-t border-outline-variant">
+            <h2 className="font-bold text-on-surface">Información adicional para generar con IA</h2>
+            <p className="text-sm text-muted mt-0.5">
+              Entre más le des, mejor será la planeación que genere Evalúa Fácil. Si vas a usar tu propia
+              planeación, no necesitas nada de esto.
+            </p>
+          </div>
+
           <GrupoFuentes
             titulo="Fuentes del curso"
             descripcion={`Material complementario (manuales, guías) — opcional, aparte de la Fuente Principal. Se reutiliza en todas las funciones de IA. PDF o Word, hasta ${MAX_FUENTES} por carga y ${MAX_FUENTES_POR_GRUPO} en total.`}
@@ -226,7 +272,7 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
             onEliminar={eliminarFuente}
           />
 
-          <div className="pt-2 border-t border-outline-variant">
+          <div>
             <ComentariosGrupoSection subjectId={subjectId} docenteId={docenteId} />
           </div>
 
@@ -244,18 +290,8 @@ export default function AsistenteIATab({ subjectId, docenteId, asignaturaNombre 
               docenteId={docenteId}
               asignaturaNombre={asignaturaNombre}
               habilitado
+              perfilIACompleto={perfilIACompleto}
               existingActivitiesCountP1={existingActivitiesCountP1}
-            />
-          </div>
-
-          <div>
-            <PlaneacionInicialSection
-              subjectId={subjectId}
-              docenteId={docenteId}
-              subject={subject}
-              asignaturaNombre={asignaturaNombre}
-              hayFuentesGenerales
-              watermark={watermark}
             />
           </div>
         </>

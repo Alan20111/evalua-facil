@@ -51,7 +51,7 @@ async function prepararBloqueFuentes(urls) {
 }
 
 /**
- * Fuentes GENERALES guardadas en Config Asistente IA → Fuentes → "Fuentes
+ * Fuentes GENERALES guardadas en la pestaña Planeación Didáctica → Fuentes → "Fuentes
  * para todo el curso" (12-ago-2026, decisión de Kike: se incluyen SIEMPRE
  * como contexto de OP-03/04/05/09, sin que el docente tenga que volver a
  * adjuntarlas). A diferencia de prepararBloqueFuentes: SIN el tope de 3 (ese
@@ -67,7 +67,7 @@ async function prepararBloqueFuentesGenerales(urls) {
   if (!textos.length) return null
 
   const cuerpo = textos.map(({ i, texto }) => `"""[Fuente general ${i + 1}]\n${texto}\n"""`).join('\n\n')
-  return 'Fuentes generales de la asignatura, guardadas en Config Asistente IA (úsalas como base cuando sean relevantes):\n' + cuerpo
+  return 'Fuentes generales de la asignatura, guardadas por el docente en la pestaña Planeación Didáctica (úsalas como base cuando sean relevantes):\n' + cuerpo
 }
 
 /** Une los bloques que sí llegaron (alguno puede ser null) en un solo texto para el prompt. */

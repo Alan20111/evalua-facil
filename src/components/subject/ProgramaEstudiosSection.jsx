@@ -61,7 +61,7 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
         docenteId,
         programaEstudios: { nombre: file.name, tipo: 'pdf', url, subidoEn: serverTimestamp() },
       }, { merge: true })
-      toast('Programa de estudios guardado — ya puedes usar el resto del Asistente IA')
+      toast('Programa de estudios guardado — ya puedes continuar con tu Planeación Didáctica')
     } catch (err) {
       toast('No se pudo subir el programa: ' + err.message, 'error')
     } finally {
@@ -94,9 +94,9 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
     <div className="bg-surface-card rounded-card shadow-card p-3">
       <h2 className="font-bold text-on-surface">Fuente Principal (programa de estudios)</h2>
       <p className="text-sm text-muted mt-0.5 mb-2">
-        Sube el programa de estudios oficial de esta asignatura, en PDF — es la Fuente Principal: nada pesa
-        más que ella al diseñar con el Asistente IA los temas, los tiempos, el diagnóstico del grupo y la
-        Planeación. Sin ella, el resto de esta pestaña queda bloqueado.
+        Sube el programa de estudios oficial de esta asignatura, en PDF — es la Fuente Principal, y es
+        obligatoria tanto si quieres que Evalúa Fácil genere tu planeación como si vas a subir la tuya. Sin
+        ella, el resto de esta pestaña queda bloqueado.
       </p>
 
       {programaEstudios ? (
@@ -132,7 +132,7 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
       {confirmarQuitar && (
         <ConfirmModal
           title="¿Quitar la Fuente Principal?"
-          message="El resto de esta pestaña (Fuentes, Diagnóstico, Planeación...) se oculta hasta que subas uno de nuevo. Puedes volver a subirlo cuando quieras."
+          message="El resto de esta pestaña (tu Planeación Didáctica, las fuentes y el diagnóstico) se oculta hasta que subas uno de nuevo. Puedes volver a subirlo cuando quieras."
           confirmLabel="Quitar"
           confirmingLabel="Quitando…"
           busy={subiendo}

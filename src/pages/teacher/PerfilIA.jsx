@@ -117,7 +117,7 @@ export default function PerfilIA() {
         {completo ? <CheckCircle2 size={16} /> : <Sparkles size={16} />}
         {completo
           ? 'Tu perfil está completo.'
-          : 'Tu perfil está incompleto. Complétalo para poder usar el Asistente IA en tus asignaturas.'}
+          : 'Tu perfil está incompleto. Complétalo para poder generar planeación, diagnósticos y demás contenido con IA en tus asignaturas. No hace falta para subir tu propia planeación.'}
       </div>
 
       <form onSubmit={handleSave} className="bg-surface-card rounded-card shadow-card p-4 space-y-4">
