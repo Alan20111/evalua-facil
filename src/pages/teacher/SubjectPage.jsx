@@ -4133,11 +4133,17 @@ export default function SubjectPage() {
           <div className="relative">
             <div ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded overflow-x-auto">
               {(IS_NATIVE_APP
-                ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
-                : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos']
-              // "Planeación Didáctica" nunca en la app nativa (pedido de Kike,
-              // 15-ago-2026, mismo criterio que Calificaciones): la revisión
-              // de la Planeación necesita pantalla ancha para ser usable.
+                ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos', 'asistente-ia']
+                : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos', 'asistente-ia']
+              // "Planeación Didáctica" YA TAMBIÉN en la app (1-sep-2026): se
+              // excluía porque la revisión del Word necesita pantalla ancha
+              // (Kike, 15-ago-2026), pero eso solo aplica a UN paso del camino
+              // de IA. El camino de la planeación propia —subir, ver,
+              // descargar, reemplazar— cabe perfectamente en un celular, y
+              // dejarlo fuera de la app era negarle ese camino entero al
+              // docente que solo usa el teléfono. El candado de ancho sigue
+              // vivo donde corresponde: useIsDesktop deja la revisión/edición
+              // del documento solo en escritorio, con su aviso.
               //
               // YA NO exige tener el Perfil IA completo (1-sep-2026): la
               // Planeación tiene DOS caminos y solo uno usa IA. Obligar a
@@ -4147,7 +4153,7 @@ export default function SubjectPage() {
               // Perfil sigue siendo requisito de las OPERACIONES de IA, donde
               // el servidor lo revalida (precheckPlaneacionInicial,
               // precheckDiagnosticoBase) y la UI lo avisa antes de intentarlo.
-              ).concat(!IS_NATIVE_APP ? ['asistente-ia'] : []).map((t) => (
+              ).map((t) => (
                 <button type="button" key={t} onClick={() => switchTab(t)}
                   className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                     activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
@@ -5612,7 +5618,7 @@ export default function SubjectPage() {
           La clave interna sigue siendo 'asistente-ia': renombrarla no
           aportaría nada y sí rompería cualquier enlace guardado.
       ══════════════════════════════════════════════════════════ */}
-      {activeTab === 'asistente-ia' && !IS_NATIVE_APP && (
+      {activeTab === 'asistente-ia' && (
         <div className={TEACHER_CONTAINER_NARROW}>
           <PlaneacionDidacticaTab
             subjectId={subjectId}
