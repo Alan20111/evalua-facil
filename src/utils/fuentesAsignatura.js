@@ -16,7 +16,7 @@ export function tipoFuentePermitido(nombre) {
 
 // Criterio para saber si un File que el docente va a adjuntar en una
 // operación puntual (OP-03/04/05/09, FuentesIAInput) YA es una fuente
-// guardada en Config Asistente IA — nombre + tamaño en bytes no bastan por
+// guardada en la pestaña Planeación Didáctica — nombre + tamaño en bytes no bastan por
 // separado (dos archivos distintos pueden compartir nombre, o el mismo
 // nombre puede reeditarse con otro contenido), así que exige los tres:
 // nombre + tamaño exacto + tipo. No hay hash de contenido disponible: ni

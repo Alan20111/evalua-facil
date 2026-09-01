@@ -96,9 +96,9 @@ El docente puede registrar un **horario de clases** con un patrón semanal (día
 
 | Subcolección | Cuelga de | Qué guarda |
 |---|---|---|
-| `subjects/{id}/planeacionesIA` | `subjects` | Planeaciones didácticas generadas por IA. Inmutables: `Update: false`. |
+| `subjects/{id}/planeacionesIA` | `subjects` | Bitácora de generaciones de IA. Inmutables: `Update: false`. **No es la planeación vigente** (esa vive en `subjects/{id}.planeacionAceptada`) y nunca guarda el archivo propio del docente. |
 | `subjects/{id}/diagnosticosIA` | `subjects` | Diagnósticos de contexto y conocimientos. Inmutables. |
-| `subjects/{id}/asistenteIA` | `subjects` | Configuración y estado del asistente IA de la asignatura. |
+| `subjects/{id}/asistenteIA` | `subjects` | Config de la pestaña Planeación Didáctica: programa de estudios, comentarios, autoanálisis, consideraciones. El nombre de la subcolección **no se renombró** con la pestaña: está en `firestore.rules` y en datos de producción. |
 | `activities/{id}/preguntas` | `activities` | Reactivos de cuestionarios/exámenes. |
 | `activities/{id}/clave` | `activities` | Clave de respuestas (solo lectura del docente dueño). |
 | `activities/{id}/iaSugerencias` | `activities` | Sugerencias de calificación generadas por IA para entregas de entregables. Solo el servidor puede crear; el docente puede actualizar (aceptar/rechazar) y borrar. |
@@ -194,22 +194,37 @@ El docente puede resetear la contraseña de un alumno: pone una temporal y marca
 6. Las preguntas de respuesta abierta (`respuesta_corta`) requieren que el docente use la operación `calificar_abierta` o califique manualmente.
 7. El docente puede pedir un análisis de los resultados del grupo (`analizar_resultados`), que genera un informe pedagógico.
 
-### 5.5 Planeación didáctica con IA
+### 5.5 Planeación didáctica
 
-El flujo de Asistente IA tiene tres etapas secuenciales obligatorias por parcial:
+Vive en la pestaña **"Planeación Didáctica"** de la asignatura (`PlaneacionDidacticaTab.jsx`; se llamó "Config Asistente IA" hasta el 1-sep-2026). Solo en la web: nunca en la app nativa, porque la revisión del documento Word necesita pantalla ancha.
 
-1. **Perfil para IA del docente** (global, ruta `/perfil-ia`): descripción de su estilo pedagógico, nivel del grupo, contexto. Sin esto, la pestaña de IA no aparece en ninguna asignatura. Es un prerequisito global.
+**Regla de negocio (1-sep-2026):**
 
-2. **Fuentes**: el docente sube el programa oficial y material de apoyo. Hay dos tipos:
-   - Fuentes **generales** (`ubicacion: 'general'`): contexto base del curso, siempre incluidas en las operaciones OP-03/04/05/09.
-   - Fuentes **por parcial**: alimentan planeación inicial y análisis de ese parcial.
+```
+PROGRAMA DE ESTUDIOS  (obligatorio, común a los dos caminos)
+            ↓
+     PLANEACIÓN DIDÁCTICA
+   ┌────────────┴────────────┐
+Crear con IA          Subir mi propia
+· pide Perfil IA      · sin Perfil IA
+· consume créditos    · sin créditos
+   └────────────┬────────────┘
+                ↓
+        PLANEACIÓN VIGENTE
+    una sola · origen 'ia' | 'archivo'
+```
 
-3. **Diagnóstico**: dos operaciones secuenciales que deben ejecutarse en orden:
-   - `diagnostico_contexto`: quiénes son los alumnos, situación del grupo.
-   - `diagnostico_conocimientos`: qué domina el grupo sobre la materia.
-   - Ambos son inmutables una vez generados.
+1. **Fuente Principal (programa de estudios)**: PDF obligatorio, en `subjects/{id}/asistenteIA/config.programaEstudios`. Sin él, el resto de la pestaña se oculta. Es el único requisito común a los dos caminos.
 
-4. **Planeación didáctica inicial**: solo disponible después de ambos diagnósticos. Genera una planeación por sesiones en formato estructurado (actividades en viñetas separadas por sesión, con ciclos Apertura–Desarrollo–Cierre completos por sesión). Produce un documento Word descargable. Existe una sola planeación vigente por asignatura/parcial; aceptarla la bloquea para edición (inmutable).
+2. **Planeación Didáctica** — la bifurcación, inmediatamente después de lo obligatorio:
+   - **Camino IA** (`planeacion_didactica_inicial`): genera una planeación por parcial (Apertura–Desarrollo–Cierre por sesión, actividades en viñetas), editable sobre el Word real renderizado hasta que se acepta. Exige **Perfil para IA del docente** (`/perfil-ia`) y consume créditos.
+   - **Camino archivo**: el docente sube su propia planeación en **PDF o DOCX** (≤ 15 MB) a Cloudinary. **No exige Perfil IA, no consume créditos, no se analiza con IA al subirla.**
+
+3. **Información adicional para generar con IA** — insumos del camino de IA, nunca requisitos: Fuentes del curso (`fuentesAsignatura`, `ubicacion:'general'`), Comentarios del grupo, Autoanálisis docente, Consideraciones y Diagnóstico del grupo (`diagnostico_contexto` / `diagnostico_conocimientos`, inmutables una vez generados). **Ninguno es obligatorio** para obtener una planeación.
+
+**Una sola planeación vigente por asignatura.** Vive en `subjects/{id}.planeacionAceptada`, con un discriminador `origen: 'ia' | 'archivo'` **dentro del mismo campo** — no hay estructura donde quepan dos. Un registro sin `origen` se interpreta como `'ia'` (retrocompatibilidad, sin migración). El resolver es `src/utils/planeacionVigente.js` en el cliente y `planeacionVigenteDe` en `functions/ia.js`: **nadie decide vigencia mirando `planeacionesIA`**, que es bitácora inmutable de generaciones de IA y nunca contiene el archivo del docente. Aceptar una planeación IA la bloquea para edición.
+
+**Consumo posterior.** `crear_actividad_ia` usa **siempre** el contenido real de la planeación vigente: si `origen:'ia'`, el contenido guardado del parcial; si `origen:'archivo'`, el texto extraído del PDF/DOCX con `functions/docExtract.js`, dentro del precheck (antes de reservar créditos, así que un archivo ilegible detiene la operación sin cobrar).
 
 ### 5.6 Asistencia
 
@@ -361,7 +376,7 @@ El modal de compra de créditos está pausado en UI. Cuando se reactive, el fluj
 - Calificación con IA de respuestas abiertas.
 - Exportación de actas (Word/Excel).
 - Asistencia y resumenes de asistencia.
-- Planeación didáctica con IA (diagnósticos + planeación inicial).
+- Planeación didáctica, por sus dos caminos: generada con IA o subida por el docente en PDF/DOCX (ver §5.5).
 - Avisos con notificaciones push.
 - Horario y agenda (calendario de clases).
 - Sistema de créditos con ledger, bienvenida y compra por transferencia.

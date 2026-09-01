@@ -298,7 +298,7 @@ export default function TeacherLayout({ children }) {
           <div className="px-2 pt-2 border-t border-white/15">
             <NavLink
               to="/perfil-ia"
-              title="Desbloquea Config Asistente IA por asignatura"
+              title="Necesario para generar planeación y diagnósticos con IA"
               className={({ isActive }) =>
                 `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
                   isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'

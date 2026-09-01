@@ -34,6 +34,7 @@ import { renderAsync as renderDocxAsync } from 'docx-preview'
 import useIsDesktop from '../../hooks/useIsDesktop'
 import { planeacionVigente, PLANEACION_CARPETA, extensionPlaneacion } from '../../utils/planeacionVigente'
 import PlaneacionPropiaCard, { SelectorArchivoPlaneacion } from './PlaneacionPropiaCard'
+import AvisoPerfilIA from './AvisoPerfilIA'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { apiUrl } from '../../utils/apiBase'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
@@ -96,22 +97,29 @@ function RequisitoItem({ ok, texto }) {
   )
 }
 
-// Señal visual del estado real de Planeación — discreta, junto al título.
-// "Lista" exige los dos diagnósticos con análisis real (mismo criterio que
-// habilita el botón, sin contar fuentes — ver spec de Kike, 13-ago-2026).
-function EstadoPlaneacionBadge({ lista }) {
-  const className = lista
-    ? 'bg-green-50 text-green-700 border-green-200'
-    : 'bg-amber-50 text-amber-700 border-amber-200'
+// Señal visual del estado REAL de la Planeación — discreta, junto al título.
+//
+// Antes del 1-sep-2026 recibía `hayFuentesGenerales`, que le llegaba como el
+// literal `true`, así que siempre decía "Lista para generar": encuadraba la
+// sección como si el único camino fuera la IA. Ahora dice cuál es la
+// planeación vigente y de dónde salió, que es lo que el docente necesita
+// saber de un vistazo.
+function EstadoPlaneacionBadge({ vigente }) {
+  const { texto, className } = !vigente
+    ? { texto: 'Sin planeación', className: 'bg-amber-50 text-amber-700 border-amber-200' }
+    : vigente.origen === 'archivo'
+      ? { texto: 'Vigente: tu planeación', className: 'bg-green-50 text-green-700 border-green-200' }
+      : { texto: 'Vigente: generada por Evalúa Fácil', className: 'bg-green-50 text-green-700 border-green-200' }
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${className}`}>
-      {lista ? 'Lista para generar' : 'Falta la Fuente Principal'}
+      {texto}
     </span>
   )
 }
 
 // Resumen de insumos a incluir, de solo lectura — cada uno se marca en SU
-// PROPIA tarjeta arriba (Comentarios, Autoanálisis, Consideraciones,
+// PROPIA tarjeta, más abajo en la pestaña, bajo "Información adicional para
+// generar con IA" (Comentarios, Autoanálisis, Consideraciones,
 // Diagnóstico de contexto, Diagnóstico de conocimientos), decisión de
 // Kike, 14-ago-2026: no duplicar el control aquí, solo mostrar lo que ya
 // se marcó ahí para que el docente confirme antes de generar. El Perfil IA
@@ -133,8 +141,9 @@ function InsumosOpcionales({
     <fieldset className="mb-2 p-2.5 rounded border border-outline-variant">
       <legend className="text-sm text-on-surface px-1">Insumos a incluir</legend>
       <p className="text-xs text-muted mb-1.5">
-        Tu Perfil IA y la Fuente Principal (programa de estudios) siempre se usan. Los demás se marcan arriba, en la
-        tarjeta de cada uno — entre más insumos incluyas y tengas listos, mejor planeación obtendrás.
+        Tu Perfil IA y la Fuente Principal (programa de estudios) siempre se usan. Los demás se marcan más abajo,
+        en &ldquo;Información adicional para generar con IA&rdquo;, en la tarjeta de cada uno — entre más insumos incluyas y
+        tengas listos, mejor planeación obtendrás.
       </p>
       {resumen.map(([texto, checked]) => (
         <div key={texto} className="flex items-center gap-2 py-0.5 text-sm text-on-surface">
@@ -420,7 +429,7 @@ function SelectorParcial({ porParcial, activo, onCambiar }) {
   )
 }
 
-export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, hayFuentesGenerales }) {
+export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, hayFuentesGenerales, perfilIACompleto = false }) {
   const toast = useToast()
   const creditosIA = useCreditosIA()
   // Modelo de créditos puros (20-ago-2026): generar/descargar Planeación ya
@@ -479,7 +488,7 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
     <div className="bg-surface-card rounded-card shadow-card p-3">
       <div className="flex items-start justify-between gap-2">
         <h2 className="font-bold text-on-surface">Planeación Didáctica</h2>
-        <EstadoPlaneacionBadge lista={hayFuentesGenerales} />
+        <EstadoPlaneacionBadge vigente={planeacionVigente(subjectPlaneacion)} />
       </div>
       <p className="text-sm text-muted mt-0.5 mb-2">
         Cada asignatura tiene una sola planeación vigente: la que genera Evalúa Fácil, o la tuya en PDF o Word.
@@ -507,6 +516,7 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
           isDesktop={isDesktop}
           nuncaAprobado={nuncaAprobado}
           onPago={() => {}}
+          perfilIACompleto={perfilIACompleto}
           subjectPlaneacion={subjectPlaneacion}
           incluirInsumos={incluirInsumos}
           hayContexto={hayContexto}
@@ -523,7 +533,7 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
 // La Planeación Didáctica Inicial — generar, revisar/editar por parcial,
 // guardar avance, aceptar, ver y descargar.
 function Planeacion({
-  subjectId, asignaturaNombre, isDesktop, nuncaAprobado, onPago,
+  subjectId, asignaturaNombre, isDesktop, nuncaAprobado, onPago, perfilIACompleto,
   subjectPlaneacion, incluirInsumos, hayContexto, hayConocimientos, creditosIA, toast,
 }) {
   const [historial, setHistorial] = useState([])
@@ -1051,11 +1061,16 @@ function Planeacion({
           )}
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* El camino de IA es el ÚNICO que pide Perfil IA. Sin él el
+                botón se deshabilita y el aviso de abajo dice por qué — antes
+                esto escondía la pestaña entera, y con ella el camino de subir
+                la planeación propia, que no usa IA para nada. */}
             {!vigenteIA && (
               <button
                 type="button"
                 onClick={() => (nuncaAprobado ? onPago() : setConfirmando(true))}
-                disabled={generando}
+                disabled={generando || !perfilIACompleto}
+                title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar con Evalúa Fácil' : undefined}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
                 {generando ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : pendiente ? <RotateCcw size={14} /> : <Sparkles size={14} />}
@@ -1103,10 +1118,16 @@ function Planeacion({
             )}
           </div>
 
+          {!vigenteIA && !perfilIACompleto && (
+            <div className="mt-2">
+              <AvisoPerfilIA que="generar la planeación con Evalúa Fácil" />
+            </div>
+          )}
+
           {!vigente && !pendiente && (
             <p className="text-xs text-muted mt-2">
-              Generarla con Evalúa Fácil consume créditos de IA. Subir la tuya es gratis: se guarda tal como está y no
-              se analiza.
+              Generarla con Evalúa Fácil consume créditos de IA. Subir la tuya es gratis: se guarda tal como está,
+              no se analiza y no necesita tu Perfil para IA.
             </p>
           )}
 

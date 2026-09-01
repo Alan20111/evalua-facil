@@ -1,5 +1,5 @@
 // Estado REAL de un diagnóstico (contexto|conocimientos) de una asignatura —
-// para las señales visuales de Config Asistente IA (DiagnosticoGrupoSection,
+// para las señales visuales de la pestaña Planeación Didáctica (DiagnosticoGrupoSection,
 // PlaneacionInicialSection). Reutiliza exactamente los mismos datos que el
 // servidor: `activities` (asignaturaId + diagnosticoTipo) y su subcolección
 // `analisisIA` (ver analisisDiagnosticoMasReciente en functions/ia.js), más

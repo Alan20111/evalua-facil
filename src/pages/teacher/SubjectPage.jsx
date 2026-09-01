@@ -79,7 +79,7 @@ import CrearActividadIAModal from '../../components/CrearActividadIAModal'
 import CrearJuegoIAModal from '../../components/juego/CrearJuegoIAModal'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
-import AsistenteIATab from '../../components/subject/AsistenteIATab'
+import PlaneacionDidacticaTab from '../../components/subject/PlaneacionDidacticaTab'
 import { isPerfilIACompleto } from '../../utils/perfilIA'
 
 async function fetchSubmissionsForActivities(actIds) {
@@ -4135,15 +4135,24 @@ export default function SubjectPage() {
               {(IS_NATIVE_APP
                 ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
                 : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos']
-              // Config Asistente IA nunca en la app nativa (pedido de Kike,
+              // "Planeación Didáctica" nunca en la app nativa (pedido de Kike,
               // 15-ago-2026, mismo criterio que Calificaciones): la revisión
               // de la Planeación necesita pantalla ancha para ser usable.
-              ).concat(!IS_NATIVE_APP && perfilIACompleto ? ['asistente-ia'] : []).map((t) => (
+              //
+              // YA NO exige tener el Perfil IA completo (1-sep-2026): la
+              // Planeación tiene DOS caminos y solo uno usa IA. Obligar a
+              // escribir el Perfil para poder subir un PDF propio dejaba fuera
+              // al docente que ya trae su planeación hecha — que es
+              // exactamente a quien esta pestaña debe servir primero. El
+              // Perfil sigue siendo requisito de las OPERACIONES de IA, donde
+              // el servidor lo revalida (precheckPlaneacionInicial,
+              // precheckDiagnosticoBase) y la UI lo avisa antes de intentarlo.
+              ).concat(!IS_NATIVE_APP ? ['asistente-ia'] : []).map((t) => (
                 <button type="button" key={t} onClick={() => switchTab(t)}
                   className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                     activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                   }`}>
-                  {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Config Asistente IA'}
+                  {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Planeación Didáctica'}
                 </button>
               ))}
             </div>
@@ -5598,16 +5607,19 @@ export default function SubjectPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════
-          TAB: ASISTENTE IA — solo Fuentes en esta etapa (FASE 2-BIS)
+          TAB: PLANEACIÓN DIDÁCTICA — programa de estudios (obligatorio),
+          la planeación vigente con sus dos caminos, y los insumos de IA.
+          La clave interna sigue siendo 'asistente-ia': renombrarla no
+          aportaría nada y sí rompería cualquier enlace guardado.
       ══════════════════════════════════════════════════════════ */}
-      {activeTab === 'asistente-ia' && perfilIACompleto && !IS_NATIVE_APP && (
+      {activeTab === 'asistente-ia' && !IS_NATIVE_APP && (
         <div className={TEACHER_CONTAINER_NARROW}>
-          <AsistenteIATab
+          <PlaneacionDidacticaTab
             subjectId={subjectId}
             docenteId={currentUser.uid}
             asignaturaNombre={subject?.nombre || ''}
             subject={subject}
-            
+            perfilIACompleto={perfilIACompleto}
             existingActivitiesCountP1={activities.filter((a) => a.parcial === 1).length}
           />
         </div>
