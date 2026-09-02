@@ -19,10 +19,10 @@
 // firestoreGuard.js).
 
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Pencil, Trash2, XCircle } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2, XCircle, CalendarClock, FileCheck2, CheckCircle, Timer, Ban } from 'lucide-react'
 import { doc, getDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { updateDoc } from '../../utils/firestoreGuard'
+import { updateDoc, deleteDoc } from '../../utils/firestoreGuard'
 import { db, functions } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
@@ -30,10 +30,13 @@ import VisibilitySelect from '../VisibilitySelect'
 import PublicacionScheduler from '../PublicacionScheduler'
 import EFDateTimePicker from '../EFDateTimePicker'
 import Select from '../ui/Select'
+import Modal from '../ui/Modal'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { etiquetaJuego } from '../../utils/copiaActividad'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import { withDefaultTime } from '../../utils/activityVisibility'
+import { fechaLimiteTimestamp } from '../../utils/deadline'
+import NuevaFechaEntregaModal from '../NuevaFechaEntregaModal'
 import { nowIsoLocal } from '../../utils/nowIso'
 import { studentFullName } from '../../utils/studentSearch'
 import { EVALUACION_DEFAULTS } from '../../utils/evaluacionDefaults'
@@ -46,6 +49,7 @@ import ResolucionJuegoModal from './ResolucionJuegoModal'
 export default function JuegoManager({
   activity, subject, activityId, activityLabel, students, submissions,
   onActivityChange, onDeleteActivity, goBack,
+  parcialCerrado = false, onSubmissionRemoved,
 }) {
   const [regresando, setRegresando] = useState(false)
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
@@ -241,6 +245,8 @@ export default function JuegoManager({
           students={students}
           submissions={submissions}
           onActivityChange={onActivityChange}
+          parcialCerrado={parcialCerrado}
+          onSubmissionRemoved={onSubmissionRemoved}
         />
       )}
     </div>
@@ -307,7 +313,10 @@ function NombreJuego({ activity, activityId, tipoLabel, onActivityChange }) {
   )
 }
 
-function JuegoConfiguracion({ activity, activityId, estructura, students, submissions, onActivityChange }) {
+function JuegoConfiguracion({
+  activity, activityId, estructura, students, submissions, onActivityChange,
+  parcialCerrado = false, onSubmissionRemoved,
+}) {
   const toast = useToast()
   const evalDefaults = EVALUACION_DEFAULTS.juego
   const [form, setForm] = useState({
@@ -338,6 +347,13 @@ function JuegoConfiguracion({ activity, activityId, estructura, students, submis
   // Resolución de un estudiante (26-ago-2026) — solo lectura, ver
   // ResolucionJuegoModal. null = cerrada; si no, { nombre, sub }.
   const [resolucionAbierta, setResolucionAbierta] = useState(null)
+  // Nueva fecha de entrega — el MISMO modal de entregables y evaluaciones.
+  // null = cerrado; { preselect } lo abre con ese estudiante ya marcado, que
+  // es la vía de "modificar la fecha para este estudiante" desde su fila.
+  const [nuevaFecha, setNuevaFecha] = useState(null)
+  // Anular la entrega de un estudiante — { student, sub } mientras se confirma.
+  const [anularConfirm, setAnularConfirm] = useState(null)
+  const [anulando, setAnulando] = useState(false)
   // Línea base para saber si el docente de verdad cambió algo — "Guardar
   // configuración"/"Guardar disponibilidad" solo se activan si hay una
   // diferencia real contra lo último guardado (23-ago-2026, pedido de Kike:
@@ -382,6 +398,12 @@ function JuegoConfiguracion({ activity, activityId, estructura, students, submis
       publishAt: mode === 'schedule' ? (visForm.publishAt || null) : null,
       publishedAt: activity.publishedAt || (mode === 'show' ? nowIso : null),
       fechaLimite: visForm.fechaLimite || null,
+      // El espejo en Timestamp es lo ÚNICO que mira firestore.rules
+      // (actividadVencidaParaAlumno). Hasta ahora un juego guardaba solo el
+      // string, así que su fecha límite existía nada más en el navegador: el
+      // servidor no la aplicaba. Mismo helper y misma pareja de campos que
+      // usan las demás actividades — ver src/utils/deadline.js.
+      fechaLimiteTS: fechaLimiteTimestamp(visForm.fechaLimite || null),
     }
     setSavingVis(true)
     try {
@@ -395,6 +417,64 @@ function JuegoConfiguracion({ activity, activityId, estructura, students, submis
       setSavingVis(false)
     }
   }
+
+  // Resultado de NuevaFechaEntregaModal — el modal ya escribió en Firestore
+  // (las tres parejas de campos, espejo en Timestamp incluido); aquí solo se
+  // refleja en memoria. Misma forma que applyNewDateResult de
+  // teacher/ActivityPage.jsx, más el refresco de la línea base del formulario
+  // de disponibilidad: sin eso, "Guardar disponibilidad" se quedaría comparando
+  // contra la fecha vieja y se activaría solo, o pisaría la recién puesta.
+  function applyNewDateResult(result) {
+    if (result.mode === 'todos') {
+      onActivityChange((prev) => ({ ...prev, fechaLimite: result.date, cerradaManual: false }))
+      const nextVis = { ...visForm, fechaLimite: result.date }
+      setVisForm(nextVis)
+      setVisFormInicial(nextVis)
+      return
+    }
+    onActivityChange((prev) => {
+      const ext = { ...(prev.extensiones || {}) }
+      const mot = { ...(prev.extensionesMotivo || {}) }
+      result.ids.forEach((id) => { ext[id] = result.date; mot[id] = result.motivo })
+      return { ...prev, extensiones: ext, extensionesMotivo: mot }
+    })
+  }
+
+  // Anular la entrega actual de UN estudiante: se borra su documento de
+  // entrega y vuelve a "Pendiente", con sus intentos a cero. Mismo mecanismo
+  // que en entregables y evaluaciones (un deleteDoc), y por tanto también el
+  // mismo alcance: se va con él la calificación, los intentos y las respuestas
+  // del juego. Los juegos no tienen subcolección `respuestas` —eso es de
+  // evaluaciones—, así que no hay nada más que barrer.
+  async function handleAnular() {
+    if (!anularConfirm) return
+    if (parcialCerrado) {
+      toast('El parcial está cerrado. Primero revierte el cierre del parcial.', 'error')
+      return
+    }
+    setAnulando(true)
+    try {
+      await deleteDoc(doc(db, 'submissions', anularConfirm.sub.id))
+      onSubmissionRemoved?.(anularConfirm.student.id)
+      setAnularConfirm(null)
+      toast('Entrega anulada — el estudiante queda en Pendiente y puede volver a jugar')
+    } catch (err) {
+      toast('Error al anular: ' + err.message, 'error')
+    } finally {
+      setAnulando(false)
+    }
+  }
+
+  // Conteo de entregas — MISMO criterio que la lista de actividades de la
+  // asignatura (SubjectPage.jsx): entregada es toda la que ya salió de
+  // 'pendiente', calificada es la que tiene número. Un intento en curso nace
+  // con estado 'pendiente', así que no cuenta hasta que el alumno termina.
+  const totalEstudiantes = students.length
+  const entregados = students.filter((st) => {
+    const sub = submissions?.[st.id]
+    return !!sub && sub.estado !== 'pendiente'
+  }).length
+  const calificados = students.filter((st) => submissions?.[st.id]?.calificacion != null).length
 
   const isDraft = !activity.publishedAt && !activity.publishAt
 
@@ -431,6 +511,17 @@ function JuegoConfiguracion({ activity, activityId, estructura, students, submis
             {savingVis ? <Spinner size="sm" /> : <Pencil size={16} />}
             {savingVis ? 'Guardando…' : 'Guardar disponibilidad'}
           </button>
+          {/* Prórroga — mismo criterio que en el entregable: se ofrece una vez
+              publicado el juego, que es cuando un estudiante puede quedarse
+              atrás del grupo y necesitar su propia fecha. El modal es el mismo
+              de todas las actividades y escribe él solo en Firestore. */}
+          {!isDraft && (
+            <button type="button" onClick={() => setNuevaFecha({ preselect: null })}
+              className="w-full py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2">
+              <CalendarClock size={16} />
+              Nueva fecha de entrega
+            </button>
+          )}
         </form>
       </div>
 
@@ -490,8 +581,28 @@ function JuegoConfiguracion({ activity, activityId, estructura, students, submis
       </div>
 
       <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
-        <div className="px-4 py-3 bg-accent-light border-b border-accent">
+        <div className="px-4 py-3 bg-accent-light border-b border-accent flex items-center justify-between gap-2 flex-wrap">
           <h2 className="font-semibold text-accent">Resultados</h2>
+          {/* Mismas tres píldoras y mismo criterio que la lista de actividades
+              de la asignatura, para que el número diga lo mismo en los dos
+              lados. Se recalculan del `submissions` que ya llega por props, así
+              que se mueven solas al entregar, reintentar o anular. */}
+          {totalEstudiantes > 0 && (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span data-tooltip="Entregados"
+                className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                <FileCheck2 size={11} /> {entregados}/{totalEstudiantes}
+              </span>
+              <span data-tooltip="Calificados"
+                className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                <CheckCircle size={11} /> {calificados}/{entregados}
+              </span>
+              <span data-tooltip="Pendientes"
+                className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                <Timer size={11} /> {totalEstudiantes - entregados}
+              </span>
+            </div>
+          )}
         </div>
         <div className="divide-y divide-outline-variant">
           {students.length === 0 && (
@@ -505,28 +616,63 @@ function JuegoConfiguracion({ activity, activityId, estructura, students, submis
             // que se mantiene igual que antes (fila no interactiva).
             const consultable = sub?.estado === 'calificado'
             const nombre = studentFullName(st)
-            return consultable ? (
-              <button
-                key={st.id}
-                type="button"
-                onClick={() => setResolucionAbierta({ nombre, sub })}
-                data-tooltip="Ver la resolución de este estudiante"
-                className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-[var(--accent-tint)] transition-colors"
-              >
-                <p className="text-sm text-accent underline decoration-dotted truncate">{nombre}</p>
+            const tieneEntrega = !!sub
+            const prorroga = activity.extensiones?.[st.id] || null
+            // La fila deja de ser un botón entero: las acciones de la derecha
+            // son botones propios y no pueden anidarse dentro de otro. El
+            // nombre conserva su papel de abrir la resolución cuando la hay.
+            return (
+              <div key={st.id} className="flex items-center gap-2 px-4 py-2.5">
+                {consultable ? (
+                  <button
+                    type="button"
+                    onClick={() => setResolucionAbierta({ nombre, sub })}
+                    data-tooltip="Ver la resolución de este estudiante"
+                    className="flex-1 min-w-0 text-left rounded hover:bg-[var(--accent-tint)] transition-colors"
+                  >
+                    <p className="text-sm text-accent underline decoration-dotted truncate">{nombre}</p>
+                  </button>
+                ) : (
+                  <p className="flex-1 min-w-0 text-sm text-on-surface truncate">{nombre}</p>
+                )}
+
                 <span className="flex items-center gap-3 flex-shrink-0">
-                  {sub.tiempoSegundos != null && (
+                  {prorroga && (
+                    <span data-tooltip={`Fecha propia: ${prorroga.replace('T', ' ')}`}
+                      className="text-xs text-accent flex items-center gap-0.5">
+                      <CalendarClock size={12} />
+                    </span>
+                  )}
+                  {sub?.tiempoSegundos != null && (
                     <span className="text-xs text-muted tabular-nums">⏱ {formatTiempo(sub.tiempoSegundos)}</span>
                   )}
-                  <span className="text-sm font-semibold text-accent tabular-nums">{sub.calificacion}</span>
+                  <span className="text-sm font-semibold text-accent tabular-nums">
+                    {sub?.calificacion != null ? sub.calificacion : '—'}
+                  </span>
                 </span>
-              </button>
-            ) : (
-              <div key={st.id} className="flex items-center justify-between px-4 py-2.5">
-                <p className="text-sm text-on-surface truncate">{nombre}</p>
-                <p className="text-sm font-semibold text-accent tabular-nums">
-                  {sub?.calificacion != null ? sub.calificacion : '—'}
-                </p>
+
+                {/* Fecha propia para ESTE estudiante — abre el mismo modal de
+                    siempre, ya en "Para algunos" y con él marcado. */}
+                <button type="button" onClick={() => setNuevaFecha({ preselect: st.id })}
+                  aria-label={`Modificar la fecha de entrega de ${nombre}`}
+                  data-tooltip="Modificar la fecha de entrega para este estudiante"
+                  className="p-1.5 rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] flex-shrink-0">
+                  <CalendarClock size={16} />
+                </button>
+
+                {/* Anular — reserva su espacio aunque no haya entrega, para que
+                    las columnas de todas las filas queden alineadas. */}
+                {tieneEntrega ? (
+                  <button type="button" onClick={() => setAnularConfirm({ student: st, sub })}
+                    disabled={parcialCerrado}
+                    aria-label={`Anular la entrega de ${nombre}`}
+                    data-tooltip={parcialCerrado ? 'El parcial está cerrado' : 'Anular la entrega actual'}
+                    className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
+                    <Ban size={16} />
+                  </button>
+                ) : (
+                  <span className="p-1.5 flex-shrink-0" aria-hidden="true"><Ban size={16} className="invisible" /></span>
+                )}
               </div>
             )
           })}
@@ -542,6 +688,52 @@ function JuegoConfiguracion({ activity, activityId, estructura, students, submis
           submission={resolucionAbierta.sub}
         />
       )}
+
+      {/* Nueva fecha de entrega — el modal de siempre, sin envoltorio propio.
+          Él escribe en Firestore (fechaLimite + fechaLimiteTS para el grupo, o
+          extensiones + extensionesTS + motivo por estudiante); aquí solo se
+          refleja el resultado en memoria. */}
+      {nuevaFecha && (
+        <NuevaFechaEntregaModal
+          activityId={activityId}
+          students={students}
+          preselectId={nuevaFecha.preselect}
+          onClose={() => setNuevaFecha(null)}
+          onSaved={applyNewDateResult}
+        />
+      )}
+
+      {/* Anular entrega — confirmación explícita. Usa el Modal canónico
+          (DESIGN_SYSTEM §6.7) en vez de reimplementar el patrón a mano. */}
+      <Modal
+        open={!!anularConfirm}
+        onClose={() => setAnularConfirm(null)}
+        title="¿Anular la entrega?"
+        variant="centered"
+        z={60}
+        busy={anulando}
+        footer={(
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setAnularConfirm(null)} disabled={anulando}
+              className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
+              Cancelar
+            </button>
+            <button type="button" onClick={handleAnular} disabled={anulando}
+              className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+              {anulando ? <Spinner size="sm" /> : <Ban size={16} />}
+              {anulando ? 'Anulando…' : 'Sí, anular entrega'}
+            </button>
+          </div>
+        )}
+      >
+        {anularConfirm && (
+          <p className="text-sm text-muted">
+            Se borrará la entrega de <strong>{studentFullName(anularConfirm.student)}</strong> en este
+            juego, con su calificación y sus intentos. Vuelve a quedar en Pendiente y podrá jugar de
+            nuevo. No afecta a nadie más.
+          </p>
+        )}
+      </Modal>
     </div>
   )
 }

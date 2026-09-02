@@ -1244,6 +1244,14 @@ export default function ActivityPage() {
           students={students}
           submissions={submissions}
           onActivityChange={setActivity}
+          // Mismo candado que el resto de la página: con el parcial cerrado no
+          // se anula una entrega (borrarla borraría su calificación).
+          parcialCerrado={parcialCerrado}
+          onSubmissionRemoved={(studentId) => setSubmissions((prev) => {
+            const next = { ...prev }
+            delete next[studentId]
+            return next
+          })}
           onDeleteActivity={() => setDeleteConfirm(true)}
           goBack={goBack}
         />
