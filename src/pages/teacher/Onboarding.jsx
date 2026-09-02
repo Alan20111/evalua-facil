@@ -14,6 +14,7 @@ import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
 import { PREFIJOS } from '../../utils/prefijos'
 import Select from '../../components/ui/Select'
+import Input from '../../components/ui/Input'
 import ConfirmModal from '../../components/ConfirmModal'
 import { apiUrl } from '../../utils/apiBase'
 import SchoolPicker from '../../components/SchoolPicker'
@@ -164,57 +165,55 @@ export default function Onboarding() {
           <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-on-surface">
-            {userProfile?.nombre ? 'Falta tu escuela' : 'Un último paso'}
-          </h1>
-          <p className="text-muted text-sm mt-1">
-            {userProfile?.nombre
-              ? 'Evalúa Fácil necesita saber en qué escuela trabajas para que tú y tus compañeros de plantel compartan a los mismos estudiantes.'
-              : 'Cuéntanos quién eres y en qué escuela trabajas'}
-          </p>
+          {/* Un solo título para los dos casos (perfil nuevo o cuenta vieja a
+              la que le falta la escuela): el formulario es el mismo y los
+              campos ya dicen qué se pide. El párrafo que explicaba por qué se
+              necesita la escuela se quitó — nadie lo lee y empujaba el
+              formulario fuera de pantalla en móvil. */}
+          <h1 className="text-2xl font-bold text-on-surface">Completa tu perfil</h1>
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-5">
-          <form onSubmit={finish} className="space-y-3">
-            <div>
-              <label htmlFor="onboarding-real-nombre" className="block text-sm font-medium text-muted mb-1">Nombre(s)</label>
-              <input
-                id="onboarding-real-nombre"
-                type="text"
-                value={realNombre}
-                onChange={(e) => setRealNombre(e.target.value)}
-                required
-                /* autofocus: primer campo de este paso final del onboarding, el docente llega con intención directa de escribir */
-                autoFocus
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                placeholder="Ej. Laura"
-              />
-            </div>
+          {/* space-y-4: un solo ritmo vertical para todo el formulario. Antes
+              era space-y-3 y algunos campos añadían su propio <p> debajo, así
+              que la separación real cambiaba de campo a campo. */}
+          <form onSubmit={finish} className="space-y-4">
+            <Input
+              id="onboarding-real-nombre"
+              label="Nombre(s)"
+              type="text"
+              value={realNombre}
+              onChange={(e) => setRealNombre(e.target.value)}
+              required
+              // Primer campo del último paso del alta: el docente llega con la
+              // intención de escribir, no de explorar la pantalla. Es el caso
+              // que la propia regla admite como excepción razonable.
+              // eslint-disable-next-line jsx-a11y/no-autofocus
+              autoFocus
+              placeholder="Ej. Laura"
+            />
             <div className="flex gap-2">
-              <div className="flex-1">
-                <label htmlFor="onboarding-apellido-paterno" className="block text-sm font-medium text-muted mb-1">Apellido paterno</label>
-                <input
-                  id="onboarding-apellido-paterno"
-                  type="text"
-                  value={apellidoPaterno}
-                  onChange={(e) => setApellidoPaterno(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej. García"
-                />
-              </div>
-              <div className="flex-1">
-                <label htmlFor="onboarding-apellido-materno" className="block text-sm font-medium text-muted mb-1">Apellido materno</label>
-                <input
-                  id="onboarding-apellido-materno"
-                  type="text"
-                  value={apellidoMaterno}
-                  onChange={(e) => setApellidoMaterno(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej. Pérez"
-                />
-                <p className="text-xs text-slate-400 mt-1">(opcional)</p>
-              </div>
+              <Input
+                id="onboarding-apellido-paterno"
+                label="Apellido paterno"
+                type="text"
+                value={apellidoPaterno}
+                onChange={(e) => setApellidoPaterno(e.target.value)}
+                required
+                placeholder="Ej. García"
+                wrapperClassName="flex-1"
+              />
+              {/* "(opcional)" va en la etiqueta, no en un párrafo debajo: ahí
+                  se lee antes de escribir y no desalinea la fila. */}
+              <Input
+                id="onboarding-apellido-materno"
+                label="Apellido materno (opcional)"
+                type="text"
+                value={apellidoMaterno}
+                onChange={(e) => setApellidoMaterno(e.target.value)}
+                placeholder="Ej. Pérez"
+                wrapperClassName="flex-1"
+              />
             </div>
             {/* Sin marca de "obligatorio": se pide igual que los demás datos y
                 simplemente no se avanza sin él (validado en finish()). */}
@@ -226,14 +225,18 @@ export default function Onboarding() {
               inputClassName="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
             />
 
+            {/* El párrafo que explicaba que este nombre puede ser un apodo se
+                quitó: el ejemplo del placeholder ya lo dice, y ocupaba tres
+                renglones a media pantalla. Las etiquetas de los dos campos
+                usan la misma escala (text-sm del Input/Select), no una text-xs
+                suelta como antes. */}
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">¿Cómo quieres que te vean tus estudiantes?</label>
+              <p className="block text-sm font-medium text-muted mb-2">¿Cómo quieres que te vean tus estudiantes?</p>
               <div className="flex gap-2 items-start">
                 <div className="w-32 sm:w-36 flex-shrink-0">
                   <Select
                     id="onboarding-prefijo"
                     label="Prefijo"
-                    hint="(opcional)"
                     value={prefijoOption}
                     onChange={setPrefijoOption}
                     options={[
@@ -243,29 +246,26 @@ export default function Onboarding() {
                     ]}
                   />
                   {prefijoOption === '__otro__' && (
-                    <input
+                    <Input
                       type="text"
                       value={prefijoCustom}
                       onChange={(e) => setPrefijoCustom(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mt-2"
                       placeholder="Escribe el prefijo"
+                      wrapperClassName="mt-2"
                     />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <label htmlFor="onboarding-nombre" className="block text-xs font-medium text-muted mb-1">Nombre</label>
-                  <input
-                    id="onboarding-nombre"
-                    type="text"
-                    value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
-                    required
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Ej. Laura García"
-                  />
-                </div>
+                <Input
+                  id="onboarding-nombre"
+                  label="Nombre"
+                  type="text"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  required
+                  placeholder="Ej. Profa. Laura"
+                  wrapperClassName="flex-1 min-w-0"
+                />
               </div>
-              <p className="text-sm text-muted mt-1">Puede ser distinto a tu nombre real — un apodo, un título, como prefieras.</p>
             </div>
 
             {/* Escuela: obligatoria. No hay opción de seguir sin una — si la
