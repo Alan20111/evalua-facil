@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Lock, LockOpen, Bell } from 'lucide-react'
 import { assignLanes } from '../../utils/calendarEvents'
 import { timeToMinutes, bloqueColor, toDateStr } from '../../utils/horarioBloques'
@@ -6,26 +6,45 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { formatHora12 } from '../../utils/formatHora'
 import { isToday } from '../../utils/calendarGrid'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import { usePointerDrag } from '../../hooks/usePointerDrag'
 
 // Altura fija por hora — igual que AGENDA_ROW_H en CalendarPage.jsx.
 const ROW_H = 64
 
+// Los eventos se sueltan alineados a 15 min, igual que en las vistas del
+// docente. Ahí estos dos ayudantes son locales de CalendarPage.jsx; aquí se
+// repiten a propósito para no arrastrar a esta vista una dependencia de la
+// página del docente (son cinco líneas puras, sin estado).
+const SNAP_MIN = 15
+function minutesToTimeStr(mins) {
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
 // ─── DayView ──────────────────────────────────────────────────────────────────
 //
-// Vista de día que reemplaza a AgendaView en la Agenda del estudiante (Fase 1).
+// Vista de día que reemplaza a AgendaView en la Agenda del estudiante.
 // Arquitectura deliberadamente sin position:fixed, sticky, overflow en el
 // contenedor raíz, touchAction global ni listeners en window — el scroll lo
 // maneja el ancestro scrollable (la página o el body); DayView solo renderiza
 // su contenido a altura determinística en px y deja que el flujo normal haga
-// el resto. El drag de eventos personales se añadirá en Fase 2.
+// el resto. La única excepción es el fantasma del arrastre, que va `fixed`
+// fuera de la rejilla (mismo patrón que AgendaView).
+//
+// Arrastre: solo los eventos personales del estudiante (`ev.editable`) se
+// pueden mover, y solo de hora dentro del mismo día — cambiar de día se hace
+// desde Semana o Mes, igual que en AgendaView. Los bloques de clase y las
+// fechas límite nunca se arrastran. Toda la mecánica (umbral de 5 px en web,
+// long press de 450 ms en la app, y la cancelación por scroll a los 8 px)
+// vive en usePointerDrag, no aquí.
 export default function DayView({
   date, events, bloques, subjects,
   dayStart, dayEnd,
-  onEventClick, onSlotClick,
-  // editableBloques — declarada pero todavía sin usar en el cuerpo; se
-  // conectará junto con el drag, en la misma Fase 2 que onMoveEvent. Se deja
-  // documentada en vez de destructurada para no dejar el lint en rojo.
-  // onMoveEvent — se conectará en Fase 2 (drag de eventos personales)
+  onEventClick, onSlotClick, onMoveEvent,
+  // editableBloques — la recibe la Agenda del estudiante siempre en false (sus
+  // clases no se mueven) y aquí ni siquiera hace falta leerla: el arrastre se
+  // limita a los eventos con `editable`. Se deja documentada, sin destructurar.
 }) {
   const dateStr = toDateStr(date)
   const hours = Array.from({ length: dayEnd - dayStart }, (_, i) => i + dayStart)
@@ -71,6 +90,39 @@ export default function DayView({
 
   // Ancho del gutter — constante en px, no porcentaje ni viewport.
   const gutterW = IS_NATIVE_APP ? 44 : 80
+
+  // Solo los eventos personales del estudiante se mueven. Los bloques de clase
+  // y las actividades (deadline/publicacion) llegan con `editable` ausente.
+  const isMovable = it => it.kind === 'event' && !!it.ev.editable
+
+  const gridRef = useRef(null)
+
+  const { drag, startDrag: startDragRaw } = usePointerDrag((d, e) => {
+    const { item } = d
+    if (!d.moved) {
+      // Tap (y, en la app, cualquier toque que no llegó a long press):
+      // abrir el editor del evento, que es lo que hacía el onClick.
+      onEventClick?.(item.ev)
+      return
+    }
+    // ¿Soltó sobre la rejilla? → nueva hora, mismo día. Cambiar de día se hace
+    // desde Semana o Mes, donde sí se puede soltar sobre otra columna/celda.
+    const g = gridRef.current?.getBoundingClientRect()
+    if (g && e.clientX >= g.left && e.clientX < g.right) {
+      // Se usa el borde SUPERIOR del bloque (no el dedo), para que el evento
+      // caiga donde el usuario lo ve, no donde lo agarró.
+      const blockTop = e.clientY - d.grabDY
+      let mins = Math.round(((blockTop - g.top) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
+      mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
+      const hora = minutesToTimeStr(mins)
+      if (hora !== item.ev.timeStr) onMoveEvent?.(item.ev.rawEvent, dateStr, hora)
+    }
+  })
+
+  function startDrag(e, it) {
+    if (!isMovable(it)) return
+    startDragRaw(e, { item: it })
+  }
 
   return (
     <div>
@@ -136,6 +188,7 @@ export default function DayView({
             cuando algún texto interno es largo — sin él, el grid puede empujar
             el gutter fuera de pantalla y generar overflow horizontal. */}
         <div
+          ref={gridRef}
           style={{
             flex: 1,
             minWidth: 0,
@@ -189,6 +242,8 @@ export default function DayView({
             const colLeft = lane * w
 
             const isCancelada = it.kind === 'bloque' && it.b.cancelada
+            const movable    = isMovable(it)
+            const isDragging = drag?.moved && drag.item.id === it.id
             let bg, fg, titulo, sub, horaIni, horaFin
 
             if (it.kind === 'bloque') {
@@ -213,13 +268,17 @@ export default function DayView({
               <button
                 key={it.id}
                 type="button"
-                onClick={e => {
-                  // stopPropagation en todos los casos: impide que el slot
-                  // transparente debajo capture el tap aunque este botón no
-                  // tenga acción (bloques no editables en la agenda del alumno).
+                onPointerDown={movable ? e => { e.stopPropagation(); startDrag(e, it) } : undefined}
+                // El onClick se instala SOLO en los no movibles. En un evento
+                // movible el editor se abre desde la rama `!d.moved` del
+                // onDrop, para que un arrastre no dispare además el clic.
+                // stopPropagation en todos los casos: impide que el slot
+                // transparente de debajo capture el tap aunque este botón no
+                // tenga acción (bloques no editables en la agenda del alumno).
+                onClick={!movable ? e => {
                   e.stopPropagation()
                   if (it.kind === 'event') onEventClick?.(it.ev)
-                }}
+                } : undefined}
                 style={{
                   position: 'absolute',
                   top, height,
@@ -229,13 +288,14 @@ export default function DayView({
                   borderRadius: 6,
                   boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
                   padding: 0, textAlign: 'left', display: 'block',
-                  cursor: it.kind === 'event' ? 'pointer' : 'default',
-                  opacity: isCancelada ? 0.55 : 1,
+                  cursor: movable ? 'grab' : (it.kind === 'event' ? 'pointer' : 'default'),
+                  opacity: isDragging ? 0.3 : (isCancelada ? 0.55 : 1),
                   zIndex: 1,
                   overflow: 'hidden',
-                  // Sin touchAction — el navegador maneja scroll libremente
-                  // sobre estos elementos. El drag se añadirá en Fase 2 solo
-                  // para eventos personales (ev.editable === true).
+                  // Sobre lo NO movible el navegador maneja el scroll libremente
+                  // en la app; sobre lo movible se le quita el gesto para que el
+                  // arrastre sea nuestro. Misma fórmula que AgendaView.
+                  touchAction: IS_NATIVE_APP && !movable ? 'auto' : 'none',
                 }}
               >
                 <div style={{ display: 'flex', height: '100%' }}>
@@ -309,6 +369,37 @@ export default function DayView({
           })}
         </div>
       </div>
+
+      {/* Fantasma que sigue al dedo/cursor mientras se arrastra. Va `fixed`
+          FUERA de la rejilla —única excepción a la regla de esta vista— para
+          que no lo recorte el overflow de ningún ancestro. Mismo patrón que
+          AgendaView. */}
+      {drag?.moved && (
+        <div
+          style={{
+            position: 'fixed',
+            left: drag.x - drag.grabDX,
+            top:  drag.y - drag.grabDY,
+            width: drag.w, height: drag.h,
+            background: drag.item.ev.bg, color: drag.item.ev.text,
+            borderRadius: 6,
+            padding: '6px 8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+            opacity: 0.9,
+            pointerEvents: 'none',
+            overflow: 'hidden',
+            zIndex: 50,
+          }}
+        >
+          <span style={{
+            display: 'block', fontWeight: 600, lineHeight: 1.3,
+            fontSize: IS_NATIVE_APP ? 10 : 13,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {drag.item.ev.titulo}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
