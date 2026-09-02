@@ -327,7 +327,8 @@ const SECTIONS = [
         items: [
           'Cada aviso muestra una barra con el porcentaje y cuántos estudiantes ya confirmaron "Entendido".',
           'Se actualiza sola conforme confirman, sin que recargues nada.',
-          '"Ver lecturas" (clic en el aviso o desde el menú de tres puntos) te da el detalle: nombre de cada estudiante, si ya leyó o sigue pendiente, y la fecha y hora exacta de su confirmación.',
+          'En la lista, el mensaje se recorta a tres líneas para que quepan varios avisos a la vista — el texto completo no se pierde, solo no cabe ahí.',
+          'Clic en el aviso (o "Ver lecturas" en el menú de tres puntos) abre "Detalle del aviso": arriba, el aviso completo tal como lo enviaste — título y mensaje enteros, con tus saltos de línea — y debajo, en "Lecturas", el nombre de cada estudiante, si ya leyó o sigue pendiente, y la fecha y hora exacta de su confirmación.',
         ],
       },
       {
