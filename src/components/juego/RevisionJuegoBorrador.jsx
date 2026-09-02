@@ -62,7 +62,7 @@ export default function RevisionJuegoBorrador({ activity, onConfirmado, onRegres
 
       {estructura.tipo === 'sopa_letras'
         ? <SopaDeLetrasBoard estructura={estructura} encontradas={encontradas} onEncontrada={(i) => setEncontradas((prev) => (prev.includes(i) ? prev : [...prev, i]))} />
-        : <CrucigramaBoard estructura={estructura} celdas={celdas} modoDocente onCambioCelda={(r, c, letra) => setCeldas((prev) => ({ ...prev, [`${r}-${c}`]: letra }))} />}
+        : <CrucigramaBoard estructura={estructura} celdas={celdas} modoDocente mostrarRespuestaEnPista onCambioCelda={(r, c, letra) => setCeldas((prev) => ({ ...prev, [`${r}-${c}`]: letra }))} />}
 
       <div className="flex justify-end">
         <button type="button" onClick={reiniciarPreview}
