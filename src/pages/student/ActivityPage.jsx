@@ -650,9 +650,23 @@ export default function StudentActivityPage() {
     )
     const extendedDateJ = activity?.fechaLimite ? activity?.extensiones?.[student?.id] : null
     const deadlineJ = extendedDateJ || activity?.fechaLimite
-    const juegoCerrado = (!!subject?.archived && !enProgresoJ) || (!!deadlineJ && new Date(
+    // `deadlineJ` ya trae la prórroga individual resuelta, así que aquí solo
+    // falta lo que el docente decide sobre el cierre: `recibirTarde` (la
+    // casilla "Cerrar entregas" de la disponibilidad) y `cerradaManual`. Sin
+    // esto la casilla era un adorno: el docente la desmarcaba, el servidor
+    // dejaba pasar la entrega y esta pantalla seguía mostrando el juego
+    // cerrado. Mismos dos campos y mismo orden que la rama del entregable
+    // (más abajo, `cerrada`); la diferencia es `enProgresoJ`, que preserva la
+    // regla de siempre de este flujo: un intento ya empezado se puede
+    // terminar, porque dejar a alguien a medio juego sería peor.
+    const plazoVencidoJ = !!deadlineJ && new Date(
       deadlineJ.includes('T') ? deadlineJ : `${deadlineJ}T23:59:59`
-    ).getTime() < Date.now() && !enProgresoJ)
+    ).getTime() < Date.now()
+    const juegoCerrado = !enProgresoJ && (
+      !!subject?.archived ||
+      !!activity?.cerradaManual ||
+      (plazoVencidoJ && !activity?.recibirTarde)
+    )
     const tipoLabelJ = activity.tipoJuego === 'sopa_letras' ? 'Sopa de letras' : 'Crucigrama'
     const intentosJ = submission?.intentos || []
     const ultimoIntentoJ = intentosJ[intentosJ.length - 1] || null

@@ -19,7 +19,7 @@
 // firestoreGuard.js).
 
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Pencil, Trash2, XCircle, CalendarClock, FileCheck2, CheckCircle, Timer, Ban } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2, XCircle, CalendarClock, CalendarDays, ChevronRight, Lock, LockOpen, FileCheck2, CheckCircle, Timer, Ban } from 'lucide-react'
 import { doc, getDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { updateDoc, deleteDoc } from '../../utils/firestoreGuard'
@@ -34,7 +34,8 @@ import Modal from '../ui/Modal'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { etiquetaJuego } from '../../utils/copiaActividad'
 import useCreditosIA from '../../hooks/useCreditosIA'
-import { withDefaultTime } from '../../utils/activityVisibility'
+import { withDefaultTime, formatDeadline } from '../../utils/activityVisibility'
+import { groupExtensions } from '../../utils/extensiones'
 import { fechaLimiteTimestamp } from '../../utils/deadline'
 import NuevaFechaEntregaModal from '../NuevaFechaEntregaModal'
 import { nowIsoLocal } from '../../utils/nowIso'
@@ -341,6 +342,10 @@ function JuegoConfiguracion({
     visibilidadMode: activity.publishedAt ? 'published' : (activity.publishAt ? 'schedule' : 'hide'),
     publishAt: activity.publishAt || '',
     fechaLimite: activity.fechaLimite ? withDefaultTime(activity.fechaLimite, '00:00') : '',
+    // El formulario guarda la forma AFIRMATIVA ("cerrar en la fecha") y el
+    // documento la contraria (`recibirTarde`), igual que en EntregableEditor y
+    // EvaluacionEditor. Se invierte en un solo punto, al guardar.
+    cerrarEntregasEnFecha: !(activity.recibirTarde ?? false),
   })
   const [saving, setSaving] = useState(false)
   const [savingVis, setSavingVis] = useState(false)
@@ -404,6 +409,9 @@ function JuegoConfiguracion({
       // servidor no la aplicaba. Mismo helper y misma pareja de campos que
       // usan las demás actividades — ver src/utils/deadline.js.
       fechaLimiteTS: fechaLimiteTimestamp(visForm.fechaLimite || null),
+      // Sin fecha límite no hay nada que cerrar, así que tampoco hay "tarde":
+      // mismo criterio que EvaluacionEditor (`infoForm.fechaLimite ? … : false`).
+      recibirTarde: visForm.fechaLimite ? !visForm.cerrarEntregasEnFecha : false,
     }
     setSavingVis(true)
     try {
@@ -506,6 +514,29 @@ function JuegoConfiguracion({
               clearable
             />
           </div>
+          {/* Sub-opción de la fecha límite: va pegada al selector para que se
+              lea como parte de esa misma opción, no como una aparte. Copiada
+              tal cual de EntregableEditor para que se vea y se comporte igual
+              en los tres tipos de actividad. */}
+          {visForm.fechaLimite && (
+            <div className="flex items-start gap-3 px-3 py-2.5 ml-4 border-l-2 border-outline-variant">
+              <input
+                type="checkbox"
+                id="juego-cerrar-entregas"
+                checked={visForm.cerrarEntregasEnFecha ?? true}
+                onChange={(e) => setVisForm((f) => ({ ...f, cerrarEntregasEnFecha: e.target.checked }))}
+                className="mt-0.5"
+                data-tooltip="Desactivar para recibir tarde"
+              />
+              <label htmlFor="juego-cerrar-entregas" className="text-sm text-on-surface cursor-pointer">
+                Cerrar entregas.
+                <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas (se marcarán como entregadas tarde).</span>
+              </label>
+              {(visForm.cerrarEntregasEnFecha ?? true)
+                ? <Lock size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />
+                : <LockOpen size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />}
+            </div>
+          )}
           <button type="submit" disabled={savingVis || !visFormCambio}
             className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2">
             {savingVis ? <Spinner size="sm" /> : <Pencil size={16} />}
@@ -515,11 +546,41 @@ function JuegoConfiguracion({
               publicado el juego, que es cuando un estudiante puede quedarse
               atrás del grupo y necesitar su propia fecha. El modal es el mismo
               de todas las actividades y escribe él solo en Firestore. */}
+          {/* Quién tiene hoy una fecha propia, hasta cuándo y por qué. Solo
+              lectura, agrupado con groupExtensions —el mismo mecanismo y la
+              misma presentación que EntregableEditor y EvaluacionEditor—:
+              una sola acción de "Nueva fecha" escribe la misma fecha y motivo
+              a todos los seleccionados, así que agrupar reconstruye el reparto
+              sin guardar historial aparte. Se gestiona desde el modal. */}
+          {(() => {
+            const grupos = groupExtensions(activity.extensiones, activity.extensionesMotivo, students)
+            if (!grupos.length) return null
+            return (
+              <details className="group">
+                <summary className="flex items-center gap-1 text-sm text-accent cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+                  <ChevronRight size={14} className="flex-shrink-0 transition-transform group-open:rotate-90" />
+                  Prórrogas otorgadas ({grupos.length})
+                </summary>
+                <div className="mt-2 space-y-2">
+                  {grupos.map((g, i) => (
+                    <div key={i} className="p-3 bg-amber-50 rounded border border-amber-200 text-sm">
+                      <p className="font-medium text-on-surface flex items-center gap-1.5">
+                        <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
+                        Prórroga hasta {formatDeadline(g.date)}
+                      </p>
+                      <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
+                      {g.motivo && <p className="text-xs text-muted mt-0.5">Motivo: {g.motivo}</p>}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )
+          })()}
           {!isDraft && (
             <button type="button" onClick={() => setNuevaFecha({ preselect: null })}
               className="w-full py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2">
-              <CalendarClock size={16} />
-              Nueva fecha de entrega
+              <CalendarDays size={16} />
+              Nueva fecha para prórroga
             </button>
           )}
         </form>
