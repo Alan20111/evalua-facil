@@ -84,6 +84,18 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
     docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', fechaLimiteTS: HACE_1_DIA,
     extensionesTS: { ST_JUAN: EN_1_DIA },
   })
+  // A25 · el plazo de un JUEGO se aplica igual que el de cualquier actividad.
+  // Hasta que JuegoManager empezó a escribir `fechaLimiteTS`, un juego llegaba
+  // aquí sin espejo y el servidor no aplicaba su fecha: solo el navegador la
+  // respetaba. Estos dos casos fijan que la regla no distingue por categoría.
+  await setDoc(doc(db, 'activities', 'A_JUEGO_VENCIDO'), {
+    docenteId: T1, asignaturaId: 'S1', categoria: 'juego', tipoJuego: 'crucigrama',
+    fechaLimiteTS: HACE_1_DIA,
+  })
+  await setDoc(doc(db, 'activities', 'A_JUEGO_EXTENSION'), {
+    docenteId: T1, asignaturaId: 'S1', categoria: 'juego', tipoJuego: 'sopa_letras',
+    fechaLimiteTS: HACE_1_DIA, extensionesTS: { ST_JUAN: EN_1_DIA },
+  })
 
   // ── A13 · fixtures de asistencia ────────────────────────────────────────────
   await setDoc(doc(db, 'attendance', 'AT_T1_OWN'), {
@@ -270,6 +282,15 @@ await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_SIN_TS_ST_JUAN'), {
 await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_EXTENSION_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A_EXTENSION', archivoURL: 'x',
 })); ok('student WITH a personal extension CAN submit past the group fechaLimite')
+
+// A25 · un juego es una actividad como cualquier otra para el candado de plazo.
+await assertFails(setDoc(doc(asJuan, 'submissions', 'A_JUEGO_VENCIDO_ST_JUAN'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_JUEGO_VENCIDO', estadoEvaluacion: 'en_progreso',
+})); ok('student CANNOT start a juego once its fechaLimiteTS has passed')
+
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_JUEGO_EXTENSION_ST_JUAN'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_JUEGO_EXTENSION', estadoEvaluacion: 'en_progreso',
+})); ok('student WITH a personal extension CAN start a juego past the group fechaLimite')
 
 // El docente dueño sigue pudiendo marcar/crear entregas de una actividad
 // vencida — el candado es solo para el alumno, no para su propio trabajo.
