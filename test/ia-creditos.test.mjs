@@ -1623,15 +1623,25 @@ grupo('Eliminar borrador de juego — qué pasa con el apartado de créditos')
 const JUEGO = require('../functions/juego.js')._pruebas
 const ASIGNATURA = 'asig_juego'
 
-async function sembrarBorradorJuego({ estado = 'juego_generado', idempotencyKeyReserva = null, actividadId = 'act_juego' } = {}) {
+async function sembrarBorradorJuego({
+  estado = 'juego_generado', idempotencyKeyReserva = null, actividadId = 'act_juego',
+  nombre = '', tipoJuego = 'crucigrama',
+} = {}) {
   await db.doc(`subjects/${ASIGNATURA}`).set({ docenteId: DOCENTE, nombre: 'Biología' })
   await db.doc(`activities/${actividadId}`).set({
-    nombre: '', categoria: 'juego', tipoJuego: 'crucigrama',
+    nombre, categoria: 'juego', tipoJuego,
     asignaturaId: ASIGNATURA, docenteId: DOCENTE, parcial: 1, oculta: true,
-    juego: { modalidad: 'descripcion', cantidadPalabras: 5, estado, contenido: [], estructura: null, idempotencyKeyReserva },
+    juego: {
+      modalidad: 'descripcion', cantidadPalabras: 5, estado, contenido: [],
+      estructura: estado === 'juego_generado' || estado === 'juego_confirmado'
+        ? { tipo: tipoJuego, size: 2, grid: [{ row: ['S', 'O'] }], palabras: [{ index: 0, normalizada: 'SO' }] }
+        : null,
+      idempotencyKeyReserva,
+    },
   })
   return actividadId
 }
+const actividadDe = async (id) => (await db.doc(`activities/${id}`).get()).data()
 const eliminarBorrador = (actividadId) =>
   JUEGO.cancelarBorradorJuegoImpl({ auth: { uid: DOCENTE }, data: { actividadId } })
 const existeActividad = async (id) => (await db.doc(`activities/${id}`).get()).exists
@@ -1752,6 +1762,105 @@ await caso('el borrador de otro docente no se puede eliminar', async () => {
     /no es tuya/
   )
   assert.strictEqual(await existeActividad(id), true)
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Nombrar el juego DESDE EL BORRADOR (2-sep-2026)
+//
+// El nombre se guarda con una escritura suelta del cliente sobre el campo
+// `nombre` — sin callable, sin IA. Estas pruebas fijan lo que eso NO debe
+// provocar (mover el saldo, tocar el apartado, cambiar el estado, confirmar el
+// juego) y que el nombre sobreviva a la confirmación, que es el paso que sí
+// cobra. Las reglas de Firestore que permiten esa escritura en un borrador se
+// prueban aparte, en test/firestore-rules.test.mjs.
+grupo('Nombre del juego desde el borrador — no toca créditos ni estado')
+
+// Lo que hace el cliente al guardar el nombre (NombreJuego en
+// src/components/juego/JuegoManager.jsx): un update de un solo campo.
+const guardarNombre = (id, nombre) => db.doc(`activities/${id}`).update({ nombre })
+
+await caso('CRUCIGRAMA: escribir el nombre en el borrador no mueve el saldo ni el apartado', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 30)
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
+  const id = await sembrarBorradorJuego({ estado: 'contenido_generado', idempotencyKeyReserva: k, tipoJuego: 'crucigrama' })
+  const saldoAntes = (await creditosDe()).saldo
+
+  await guardarNombre(id, 'Partes de la célula')
+
+  const act = await actividadDe(id)
+  assert.strictEqual(act.nombre, 'Partes de la célula')
+  assert.strictEqual(act.juego.estado, 'contenido_generado', 'sigue en borrador, no se confirmó')
+  assert.strictEqual((await creditosDe()).saldo, saldoAntes, 'el saldo no se movió')
+  assert.strictEqual((await consumoDe(k)).estado, 'reservado', 'el apartado sigue igual')
+  assert.strictEqual((await creditosDe()).consumidoTotal, 0)
+  assert.strictEqual(act.juego.idempotencyKeyReserva, k, 'la reserva no se tocó')
+})
+
+await caso('SOPA DE LETRAS: mismo comportamiento, y conserva tamanoSopa/tipoJuego', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 30)
+  const id = await sembrarBorradorJuego({ estado: 'contenido_editado', tipoJuego: 'sopa_letras' })
+
+  await guardarNombre(id, 'Sistema solar')
+
+  const act = await actividadDe(id)
+  assert.strictEqual(act.nombre, 'Sistema solar')
+  assert.strictEqual(act.tipoJuego, 'sopa_letras')
+  assert.strictEqual(act.juego.estado, 'contenido_editado')
+  assert.strictEqual((await creditosDe()).saldo, 30)
+})
+
+await caso('cambiar el nombre varias veces antes de confirmar conserva el último', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 30)
+  const id = await sembrarBorradorJuego({ estado: 'contenido_generado' })
+
+  await guardarNombre(id, 'Primero')
+  await guardarNombre(id, 'Segundo')
+  await guardarNombre(id, 'Tercero y definitivo')
+
+  assert.strictEqual((await actividadDe(id)).nombre, 'Tercero y definitivo')
+  assert.strictEqual((await creditosDe()).saldo, 30, 'renombrar N veces sigue sin costar nada')
+})
+
+await caso('el nombre puesto en el borrador SOBREVIVE a confirmar el juego', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 30)
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
+  const id = await sembrarBorradorJuego({ estado: 'juego_generado', idempotencyKeyReserva: k })
+  await guardarNombre(id, 'Nombrado antes de confirmar')
+
+  const r = await JUEGO.confirmarJuegoImpl({ auth: { uid: DOCENTE }, data: { actividadId: id } })
+
+  assert.strictEqual(r.ok, true)
+  const act = await actividadDe(id)
+  assert.strictEqual(act.nombre, 'Nombrado antes de confirmar', 'confirmar no borra el nombre')
+  assert.strictEqual(act.juego.estado, 'juego_confirmado')
+  // Y el cobro de la confirmación es el de siempre — nombrar no lo alteró.
+  assert.strictEqual((await creditosDe()).saldo, 20)
+  assert.strictEqual((await creditosDe()).consumidoTotal, 10)
+})
+
+await caso('un juego sin nombre se confirma igual (el respaldo visual es cosa de la interfaz)', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 30)
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
+  const id = await sembrarBorradorJuego({ estado: 'juego_generado', idempotencyKeyReserva: k, nombre: '' })
+
+  await JUEGO.confirmarJuegoImpl({ auth: { uid: DOCENTE }, data: { actividadId: id } })
+
+  const act = await actividadDe(id)
+  assert.strictEqual(act.nombre, '', 'no se inventa un nombre en la base de datos')
+  assert.strictEqual(act.juego.estado, 'juego_confirmado')
 })
 
 resumen('pruebas del ledger de créditos IA')
