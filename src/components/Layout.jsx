@@ -41,6 +41,16 @@ import { useScrollLock } from '../hooks/useScrollLock'
 // Indicador de pestaña activa en la barra inferior — un rectángulo de
 // esquinas ovaladas relleno de color detrás del ícono (pedido explícito,
 // solo en la App; en la web móvil solo cambia de color como antes).
+// Menú secundario del sidebar (perfil IA, QR, notificaciones, ayuda,
+// archivadas, salir). Una sola clase para todos: antes cada bloque repetía la
+// suya y habían divergido —py-1.5 en unos, py-2 en otros—, así que los
+// renglones no medían igual. gap-2.5 y px-3 son los mismos del menú
+// principal, para que TODO el sidebar alinee su texto en una vertical.
+const ITEM_SECUNDARIO =
+  'flex items-center gap-2.5 w-full px-3 py-2 rounded text-body-sm font-medium transition-colors'
+const ITEM_SEC_INACTIVO = 'text-white/80 hover:bg-white/10 hover:text-white'
+const ITEM_SEC_ACTIVO = 'bg-white/15 text-white'
+
 function navIconPillCls(isActive) {
   if (!IS_NATIVE_APP) return ''
   return `px-5 py-1 rounded-full transition-colors ${isActive ? 'bg-[var(--accent-light)]' : ''}`
@@ -291,70 +301,61 @@ export default function TeacherLayout({ children }) {
           {/* QR de descarga de la app — arriba de Notificaciones. Va aquí y no
               dentro de una asignatura porque es el MISMO para todas: la app es
               una sola y el perfil se elige al abrirla. */}
-          {/* Perfil para IA del docente — arriba del QR, pedido explícito
-              (FASE 2-BIS del Plan Maestro de IA). Contexto general del
-              docente, se captura una sola vez y se reutiliza en todas las
-              funciones de IA de sus asignaturas. */}
-          <div className="px-2 pt-2 border-t border-white/15">
+          {/* Un solo grupo con UNA divisoria arriba. Antes cada enlace vivía
+              en su propio <div> con su propio `border-t`, así que salía una
+              línea entre cada renglón y el menú se leía como cinco cajas
+              apiladas en vez de una lista. */}
+          <div className="mt-2 px-2 py-2 space-y-0.5 border-t border-white/15">
+            {/* Perfil para IA del docente — arriba del QR, pedido explícito
+                (FASE 2-BIS del Plan Maestro de IA). Contexto general del
+                docente, se captura una sola vez y se reutiliza en todas las
+                funciones de IA de sus asignaturas. */}
             <NavLink
               to="/perfil-ia"
               title="Necesario para generar planeación y diagnósticos con IA"
               className={({ isActive }) =>
-                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
-                  isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
-                }`
+                `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
               }
             >
-              <Sparkles size={17} className="flex-shrink-0" />
+              <Sparkles size={18} className="flex-shrink-0" />
               Perfil para IA del docente
             </NavLink>
-          </div>
 
-
-
-          <div className="px-2 pt-2 border-t border-white/15">
-            <AppQRButton
-              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white/80 hover:bg-white/10 transition-colors disabled:opacity-60"
-            >
+            <AppQRButton className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO} disabled:opacity-60`}>
               QR para descargar la app
             </AppQRButton>
-          </div>
 
-          <div className="px-2 pt-2 border-t border-white/15">
             <NavLink
               to="/notificaciones"
               className={({ isActive }) =>
-                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
-                  isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
-                }`
+                `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
               }
             >
-              <Bell size={17} className="flex-shrink-0" />
+              <Bell size={18} className="flex-shrink-0" />
               Notificaciones
             </NavLink>
+
             <NavLink
               to="/manual"
               className={({ isActive }) =>
-                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
-                  isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
-                }`
+                `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
               }
             >
-              <BookOpen size={17} className="flex-shrink-0" />
+              <BookOpen size={18} className="flex-shrink-0" />
               Ayuda para comenzar
             </NavLink>
           </div>
 
           {/* Archivadas — fixed at the bottom, above logout */}
           {archivedSubjects.length > 0 && (
-            <div className="px-2 pt-2 max-h-48 overflow-y-auto">
+            <div className="px-2 pb-2 space-y-0.5 max-h-48 overflow-y-auto">
               <button
                 type="button"
                 onClick={() => setShowArchived((a) => !a)}
                 aria-expanded={showArchived}
-                className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/60 hover:bg-white/10 transition-colors"
+                className={`${ITEM_SECUNDARIO} text-white/60 hover:bg-white/10 hover:text-white`}
               >
-                <Archive size={15} className="flex-shrink-0" />
+                <Archive size={18} className="flex-shrink-0" />
                 <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
                 {/* La flecha va a la DERECHA de la palabra (pedido explícito)
                     y gira al desplegar — mismo lenguaje que un <details>, sin
@@ -390,13 +391,13 @@ export default function TeacherLayout({ children }) {
 
 
           {/* Logout */}
-          <div className="px-2 py-2">
+          <div className="px-2 py-2 border-t border-white/15">
             <button
               type="button"
               onClick={requestLogout}
-              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+              className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}
             >
-              <LogOut size={17} />
+              <LogOut size={18} className="flex-shrink-0" />
               Cerrar sesión
             </button>
           </div>
