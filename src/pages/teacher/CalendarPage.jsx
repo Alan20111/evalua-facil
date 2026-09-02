@@ -356,7 +356,7 @@ export function AgendaView({
                   width: `calc(${w}% - 6px)`,
                   background: bg, color: fg,
                   opacity: isDragging ? 0.3 : (it.kind === 'bloque' && it.b.cancelada ? 0.55 : 1),
-                  touchAction: 'none',
+                  touchAction: IS_NATIVE_APP && !movable ? 'auto' : 'none',
                 }}
                 data-tooltip={
                   it.kind === 'bloque' ? (editableBloques ? 'Usa modificar bloques para editar, o muévelo' : undefined)
@@ -555,7 +555,7 @@ export function MonthView({ year, month, events, bloques, subjects, selectedDate
                       key={it.kind === 'bloque' ? it.b.id : it.ev.id}
                       onPointerDown={movable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev: it.ev }) } : undefined}
                       className={movable ? 'cursor-grab active:cursor-grabbing select-none' : ''}
-                      style={{ touchAction: 'none', opacity: isDraggingThis ? 0.3 : 1 }}
+                      style={{ touchAction: IS_NATIVE_APP && !movable ? 'auto' : 'none', opacity: isDraggingThis ? 0.3 : 1 }}
                     >
                       {pill}
                     </div>
@@ -672,7 +672,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
           hacer scroll horizontal. En escritorio (md+) se mantiene el ancho
           mínimo de siempre para que las columnas no queden demasiado
           angostas para arrastrar bloques/eventos. */}
-      <div className="min-w-0 md:min-w-[620px]">
+      <div className={`min-w-0 ${IS_NATIVE_APP ? '' : 'md:min-w-[620px]'}`}>
         {/* Day headers */}
         <div className="grid border-b border-outline-variant sticky top-0 bg-surface-card z-10" style={{ gridTemplateColumns: gridCols }}>
           <div className="py-2 px-2" />
@@ -785,7 +785,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
                         width: `calc(${w}% - 4px)`,
                         background: pal.bg, color: pal.text,
                         opacity: isDragging ? 0.3 : (b.cancelada ? 0.55 : 1),
-                        touchAction: 'none',
+                        touchAction: IS_NATIVE_APP && !editable ? 'auto' : 'none',
                       }}
                       data-tooltip={b.cancelada ? 'Clase cancelada' : editable ? 'Usa modificar bloques para editar, o muévelo' : undefined}
                     >
@@ -811,7 +811,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
                       onPointerDown={ev.editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev }) } : undefined}
                       onClick={!ev.editable ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
                       className={`absolute right-0.5 rounded px-1 py-0.5 text-left shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                      style={{ top, width: '78%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
+                      style={{ top, width: '78%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: IS_NATIVE_APP && !ev.editable ? 'auto' : 'none' }}
                       data-tooltip={
                         ev.activityId ? 'Clic para editar esta actividad'
                         : [ev.titulo, fmtHour(ev.timeStr), ev.editable && 'arrastra para mover'].filter(Boolean).join(' · ')
@@ -1965,11 +1965,13 @@ export default function CalendarPage() {
 
   return (
     <>
-      <div className={`px-4 py-4 ${TEACHER_CONTAINER}`}>
+      <div className={IS_NATIVE_APP ? '' : `px-4 py-4 ${TEACHER_CONTAINER}`}>
 
         {IS_NATIVE_APP ? (
-          <>
+          <div className="px-3 pt-2 pb-0">
             {/* Nativo: fecha/Hoy/Evento/horas en un renglón; vista debajo.
+                El padding aquí (no en el wrapper) permite que el calendario
+                vaya de borde a borde sin margen lateral sobrante.
                 Días de asueto, Vacaciones, Modificar y Programar bloques se
                 manejan solo en la web. */}
             <div className="flex items-center gap-2 mb-2">
@@ -1980,10 +1982,10 @@ export default function CalendarPage() {
               {eventoBtn}
               {hourRangeBtn}
             </div>
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-3">
               {viewSwitcher}
             </div>
-          </>
+          </div>
         ) : (
           <>
             {/* Top controls — centrados como un solo grupo (antes iban con un
@@ -2073,9 +2075,10 @@ export default function CalendarPage() {
             demás vistas (columnas gigantes); se acotan y centran. Semana y
             Mes se quedan a ancho completo, como ya estaban. Solo web: en la
             app esta franja ya es angosta por el propio viewport. */}
-        <div className={`bg-surface-card border border-outline rounded shadow-card overflow-hidden ${
-          IS_NATIVE_APP ? '' : view === 'agenda' ? 'w-1/2 mx-auto' : view === '3dias' ? 'w-3/4 mx-auto' : ''
-        }`}>
+        <div className={IS_NATIVE_APP
+          ? 'bg-surface-card overflow-x-hidden'
+          : `bg-surface-card border border-outline rounded shadow-card overflow-hidden ${view === 'agenda' ? 'w-1/2 mx-auto' : view === '3dias' ? 'w-3/4 mx-auto' : ''}`
+        }>
           {loading ? (
             <div className="flex justify-center py-16"><Spinner /></div>
           ) : view === 'agenda' ? (
@@ -2105,7 +2108,8 @@ export default function CalendarPage() {
               onDateClick={IS_NATIVE_APP ? undefined : openNewEvent}
               // En la App, Mes es solo informativo: presionar un bloque o
               // evento no hace nada — evita saturar una vista ya de por sí
-              // apretada en pantallas chicas. La web sigue igual.
+              // apretada en pantallas chicas. La web sigue igual. El long
+              // press del arrastre táctil NO cambia esta decisión.
               onEventClick={IS_NATIVE_APP ? undefined : openEditEvent}
               onBlockClick={IS_NATIVE_APP ? undefined : openBloqueSoloBorrar}
               onMoveEvent={IS_NATIVE_APP ? undefined : moveEvent}
@@ -2146,7 +2150,8 @@ export default function CalendarPage() {
               onSlotClick={IS_NATIVE_APP ? undefined : openNewEventAt}
               // En la App, Semana es solo informativa: presionar un bloque o
               // evento no hace nada — evita saturar la vista. La web sigue
-              // igual, y 3 días (arriba) tampoco cambia.
+              // igual, y 3 días (arriba) tampoco cambia. El long press del
+              // arrastre táctil NO cambia esta decisión.
               onEventClick={IS_NATIVE_APP ? undefined : openEditEvent}
               onBlockClick={IS_NATIVE_APP ? undefined : openBloqueAcciones}
               onMoveBloque={IS_NATIVE_APP ? undefined : requestMoveBloque}
