@@ -254,10 +254,23 @@ async function confirmarJuegoImpl(request) {
 }
 exports.confirmarJuego = onCall({ timeoutSeconds: 60 }, confirmarJuegoImpl)
 
-// Cancelar un borrador de Crucigrama/Sopa de letras ANTES de confirmarlo:
-// libera de inmediato la reserva de créditos (si existe) y elimina el
-// borrador para que no pueda confirmarse después — no hace falta esperar a
-// la limpieza automática de 2 horas para recuperar el crédito.
+// Eliminar un borrador de Crucigrama/Sopa de letras ANTES de confirmarlo:
+// cierra de inmediato el apartado de créditos (si sigue vivo) y elimina la
+// actividad para que no pueda confirmarse después — no hace falta esperar a la
+// limpieza automática de 2 horas.
+//
+// Devuelve `reserva` para que el cliente diga la VERDAD de lo que pasó en vez
+// de afirmar siempre lo mismo (corrección 1-sep-2026: el mensaje anterior
+// aseguraba un movimiento de créditos incluso cuando no había ninguno que
+// cerrar). Valores:
+//   'cancelada'   — había un apartado vivo y se cerró: ese cobro no se aplica
+//                   (`creditos` trae cuántos eran, leídos del propio apartado,
+//                   nunca de una constante del cliente).
+//   'sin_reserva' — nunca hubo apartado (p. ej. la IA falló tras crear el
+//                   cascarón y ahí mismo se cerró). No se afirma nada.
+//   'expirada'    — la limpieza automática ya lo había cerrado por tiempo.
+//   'ya_cerrada'  — ya estaba cerrado por otra vía (otra pestaña).
+//   'ya_cobrada'  — el cobro YA se aplicó (liquidado). Hay que decirlo.
 async function cancelarBorradorJuegoImpl(request) {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar esta función')
@@ -267,31 +280,73 @@ async function cancelarBorradorJuegoImpl(request) {
 
   const db = getFirestore()
   const { ref, act } = await verificarDuenoJuego(db, uid, actividadId)
-  if (!act) return { ok: true } // ya no existe — nada que cancelar (idempotente)
+  if (!act) return { ok: true, reserva: 'sin_reserva', creditos: null } // ya no existe (idempotente)
 
   if (act.juego?.estado === 'juego_confirmado') {
-    throw new HttpsError('failed-precondition', 'Esta actividad ya fue confirmada, no se puede cancelar como borrador')
+    throw new HttpsError('failed-precondition', 'Esta actividad ya fue confirmada, no se puede eliminar como borrador')
   }
 
   const idempotencyKey = act.juego?.idempotencyKeyReserva
+  let reserva = 'sin_reserva'
+  let creditos = null
+
   if (idempotencyKey) {
-    await ledger.reembolsar({ uid, idempotencyKey, motivo: 'borrador cancelado por el docente', estadoFinal: 'cancelado' })
-      .catch((e) => logger.error(`cancelarBorradorJuego: reembolsar(${idempotencyKey}) falló:`, e))
+    const consumoSnap = await db.doc(`iaConsumos/${idempotencyKey}`).get()
+    const consumo = consumoSnap.exists ? consumoSnap.data() : null
+
+    if (!consumo) {
+      reserva = 'sin_reserva'
+    } else if (consumo.estado === 'reservado') {
+      let r
+      try {
+        r = await ledger.reembolsar({ uid, idempotencyKey, motivo: 'borrador cancelado por el docente', estadoFinal: 'cancelado' })
+      } catch (e) {
+        // ANTES esto se tragaba con un `.catch` y la actividad se borraba de
+        // todos modos: el apartado se quedaba vivo comiendo saldo hasta la
+        // limpieza diaria, y el docente veía un mensaje de éxito que mentía.
+        // Ahora se aborta ANTES del delete — es preferible un borrador que
+        // sigue ahí a un borrador perdido con el saldo apartado a ciegas.
+        logger.error(`cancelarBorradorJuego: reembolsar(${idempotencyKey}) falló:`, e)
+        throw new HttpsError('internal',
+          'No se pudo cerrar el apartado de créditos de este borrador, así que la actividad NO se eliminó. Vuelve a intentarlo.')
+      }
+      if (r.hecho) {
+        reserva = 'cancelada'
+        creditos = consumo.creditosReservados ?? null
+      } else {
+        // Carrera: cambió de estado entre la lectura de arriba y la
+        // transacción del ledger. Se reporta lo que quedó, nunca un cierre
+        // que no ocurrió.
+        reserva = r.estado === 'ejecutado' ? 'ya_cobrada' : r.estado === 'expirado' ? 'expirada' : 'ya_cerrada'
+      }
+    } else if (consumo.estado === 'ejecutado') {
+      reserva = 'ya_cobrada'
+    } else if (consumo.estado === 'expirado') {
+      reserva = 'expirada'
+    } else {
+      reserva = 'ya_cerrada'
+    }
+
     // Completa el registro que quedó con `creditosReales: null,
     // liquidacionDiferida: true` (ver ejecutarOperacionIA en functions/ia.js):
-    // se canceló, así que el cobro real es 0 — aunque el contenido SÍ se
+    // no se cobró nada, así que el cobro real es 0 — aunque el contenido SÍ se
     // generó con IA y sí costó tokens reales (interno ya está escrito). Es
     // justo el caso que `rentabilidad_creditos` necesita distinguir: costo
-    // real con ingreso cero, no un registro a medias. Best-effort: el
-    // reembolso de arriba ya es lo que de verdad protege el saldo del
-    // docente; esto es solo la métrica.
-    db.doc(`iaConsumosInterno/${idempotencyKey}`)
-      .set({ creditosReales: 0, liquidacionDiferida: false, canceladoEn: FieldValue.serverTimestamp() }, { merge: true })
-      .catch((e) => logger.error(`cancelarBorradorJuego: no se pudo completar iaConsumosInterno(${idempotencyKey}):`, e))
+    // real con ingreso cero, no un registro a medias. Best-effort: lo que de
+    // verdad protege el saldo del docente es el cierre del apartado de
+    // arriba; esto es solo la métrica.
+    //
+    // 'ya_cobrada' queda fuera a propósito: ahí el cobro SÍ se aplicó, y
+    // escribir `creditosReales: 0` falsearía el margen.
+    if (reserva !== 'ya_cobrada') {
+      db.doc(`iaConsumosInterno/${idempotencyKey}`)
+        .set({ creditosReales: 0, liquidacionDiferida: false, canceladoEn: FieldValue.serverTimestamp() }, { merge: true })
+        .catch((e) => logger.error(`cancelarBorradorJuego: no se pudo completar iaConsumosInterno(${idempotencyKey}):`, e))
+    }
   }
 
   await ref.delete()
-  return { ok: true }
+  return { ok: true, reserva, creditos }
 }
 exports.cancelarBorradorJuego = onCall({ timeoutSeconds: 60 }, cancelarBorradorJuegoImpl)
 
