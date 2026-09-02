@@ -2424,6 +2424,139 @@ y probado una vez.
 
 ---
 
+## A25 · Juegos (Crucigrama y Sopa de letras) — EN PROCESO
+
+> **Por qué esta sección nace tarde.** Crucigrama y Sopa de letras se
+> construyeron el 22-ago-2026, después de que se escribiera este inventario y
+> dos semanas después de que A08 cerrara el mismo agujero en las evaluaciones.
+> Nunca tuvieron sección propia, así que nadie los revisó — y reprodujeron el
+> error de A08 al lado, en el mismo archivo de reglas donde el comentario ya lo
+> explicaba.
+
+**Módulos.** El módulo de juegos: `functions/juego.js`, `functions/juegoGenerator.js`,
+`src/components/juego/`, `src/pages/student/JuegoRunner.jsx`.
+
+**Objetivo.** Que la respuesta de un juego no llegue al navegador de quien
+todavía lo está resolviendo, y que la calificación no dependa de un dato que el
+alumno controla.
+
+### El defecto
+
+Las reglas de Firestore no filtran CAMPOS, solo DOCUMENTOS. Mientras las
+respuestas vivieran dentro de `activities/{id}` —que `allow read: if
+request.auth != null` abre a cualquier cuenta con sesión— el alumno las tenía
+descargadas antes de empezar. Tres vectores, verificados sobre un crucigrama
+real de producción:
+
+| Vector | Qué contenía |
+|---|---|
+| `juego.contenido[]` | `{palabra, descripcion}` de cada palabra, en claro |
+| `juego.estructura.palabras[]` | `palabra` y `normalizada` de cada una |
+| `juego.estructura.grid[r].row[c]` | la cuadrícula RESUELTA, letra por letra |
+
+Y llegaba por dos rutas, no una: `JuegoRunner.jsx` al entrar a jugar, y el
+`onSnapshot` de `student/ActivityPage.jsx` **antes incluso de empezar**.
+
+En el crucigrama esto no era solo una fuga de información: `calificarCrucigrama`
+compara celda por celda contra ese mismo `grid`, así que quien lo leyera podía
+transcribirlo y obtener 10. Y las dos condiciones que protegían la solución
+post-entrega —intentos agotados y "Publicar solución"— vivían **solo en el
+navegador**: el grid resuelto ya estaba descargado desde el primer render.
+
+### La corrección — reparto público/privado (calcado de A08)
+
+```
+activities/{id}.juego.estructura   → PÚBLICA: geometría + pistas
+activities/{id}/clave/juego        → PRIVADA: letras, palabra, normalizada
+activities/{id}/clave/contenido    → PRIVADA: el juego.contenido de antes
+```
+
+`clave/{docId}` ya existía desde A08 y solo la abre el docente dueño, así que
+**este reparto no necesita tocar `firestore.rules`**. El servidor vuelve a
+juntar las dos mitades con el Admin SDK, que no pasa por las reglas.
+
+El `grid` público del crucigrama pasa a ser una máscara booleana. No le quita
+información al alumno —las casillas blancas ya estaban implícitas en
+fila+col+longitud+dirección— solo le quita las LETRAS. El tablero únicamente
+evalúa `if (!letra)`, así que un booleano pasa por ahí igual que una letra.
+
+La solución post-entrega deja de armarse en el navegador y pasa a un callable,
+`obtenerSolucionJuego`, que comprueba en el servidor la inscripción, los
+intentos agotados y `publicarSolucion`. Es callable y no una copia dentro de la
+entrega a propósito: `publicarSolucion: 'fecha'` se cumple en el FUTURO y nada
+re-escribe una entrega ya calificada cuando llega ese día.
+
+### La transición — por qué tiene dos puntos y no uno
+
+La app de Android empaqueta su propia copia de `dist` (`capacitor.config.json`
+no tiene `server.url`) y **no hay candado de versión mínima**: `UpdateChecker`
+se apaga en nativo. Un APK instalado ejecuta para siempre el frontend con el que
+se compiló. No existe un momento en que se pueda dar por hecho que ya no queda
+frontend viejo, así que "esperar" no es una estrategia disponible.
+
+De ahí la bandera `config/juegos.compatibilidadLegacy`:
+
+| Valor | Qué hace | Efecto |
+|---|---|---|
+| `true` | escribe en los dos sitios | nada se rompe y **nada se arregla todavía** |
+| `false` | deja de escribir en el público | **aquí aterriza la seguridad**, y aquí el APK viejo empieza a fallar |
+
+El corte es un campo en Firestore, no un despliegue, para que volver atrás sea
+instantáneo. Ausente o ilegible se trata como `true` — un dato que falta no debe
+romperle el trabajo a nadie (mismo criterio que `docenteActivo` con
+`suscripcionHasta`).
+
+### Estado
+
+**Hecho (PR 1 · backend compatible).** El reparto, la calificación desde la
+clave con *fallback* al formato anterior, `obtenerSolucionJuego`, el borrado de
+la clave al cancelar un borrador, la bandera y su script de siembra. 27 casos
+nuevos en `test/servidor.test.mjs`. **La bandera queda en `true`: este
+despliegue no cambia todavía lo que ve nadie.**
+
+**Pendiente.**
+
+1. **Frontend compatible (PR 2).** Debe leer las dos formas: vista previa del
+   docente y su tooltip de respuesta, editor de contenido, revisión de entregas
+   y solución del estudiante. Regla de escritura guiada por el dato — escribir
+   `juego.contenido` **solo si ya existía**— para que la migración no se
+   deshaga sola cuando el docente reedite un juego ya migrado.
+   **Incluye copiar la subcolección `clave`**: `src/utils/copiaActividad.js`
+   copia hoy el objeto `juego` completo, así que tras el reparto una copia sin
+   su clave nacería imposible de calificar.
+2. **Corte y migración (PR 3).** Apagar la bandera y limpiar los crucigramas
+   existentes (4 en producción al 1-sep-2026). El momento lo decide el PO, no un
+   despliegue, porque es cuando el APK viejo empieza a mostrar mal la revisión
+   de entregas y la solución. El alumno puede seguir jugando en cualquier caso.
+3. **Candado de versión mínima para la app nativa.** No salva a los APK ya
+   instalados, pero convierte esta clase de migración en rutina. Sin decidir.
+
+### Sopa de letras — auditoría propia, todavía sin abrir
+
+Comparte la fuga (`palabra`/`normalizada` viajan sin que ninguna pantalla del
+alumno las use), y mover `contenido` a la clave le cierra ese tercio. Pero es
+distinta en dos puntos que exigen su propio trabajo:
+
+1. **Su `grid` con letras es público por naturaleza** — encontrar palabras en la
+   maraña ES el juego. El mapa de la solución no está en el grid, está en
+   `palabras[].fila/col/dirFila/dirCol/longitud`, que `SopaDeLetrasBoard.jsx`
+   usa **en el cliente** para decidir si el trazo acertó.
+2. **Su calificación no verifica nada.** `calificarSopaDeLetras` es
+   `encontradas.size / total`: el servidor confía por completo en la lista de
+   índices que manda el cliente. Un alumno puede escribir `encontradas: [0..n]`
+   en su propia entrega y sacar 10 sin jugar. **Eso no es una fuga, es un fallo
+   de integridad de la calificación, y es independiente de este arreglo.**
+
+Cerrarlo exige mover la detección de coincidencias al servidor (el cliente manda
+trazos, el servidor dicta si acertó), o al menos revalidar cada índice contra la
+clave. Es un rediseño del bucle de juego, no una mudanza de datos.
+
+**Cierre de A25.** Los 4 crucigramas de producción migrados y verificados por id
+(ninguna respuesta dentro de `activities/{id}`) · recorrido completo docente y
+alumno tras el corte · la sopa de letras con su propio expediente.
+
+---
+
 # 8. Bitácora de ejecución
 
 **Estados.** `Pendiente` · `En proceso` · `Completada` · `Bloqueada` (esperando

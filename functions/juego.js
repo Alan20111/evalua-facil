@@ -20,7 +20,156 @@ const MIN_PALABRAS = 5
 const MAX_PALABRAS = 20
 const ESTADOS_PERMITIDOS = ['contenido_generado', 'contenido_editado']
 
-exports.construirJuego = onCall({ timeoutSeconds: 300 }, async (request) => {
+// A25 - La respuesta del juego no viaja en el documento publico.
+//
+// Mismo problema y mismo arreglo que A08 hizo con las evaluaciones. Las
+// reglas de Firestore no filtran CAMPOS, solo DOCUMENTOS, asi que mientras
+// `palabra`, `normalizada` y el `grid` resuelto vivieran dentro de
+// `activities/{id}`, cualquier cuenta con sesion los leia - y no hacia falta
+// un cliente modificado: la pantalla del alumno YA descarga el documento
+// entero (JuegoRunner.jsx y su ActivityPage). Con el crucigrama eso no es
+// solo una fuga: `calificarCrucigrama` compara celda por celda contra ese
+// mismo grid, asi que quien lo leyera podia transcribirlo y sacar 10.
+//
+// El reparto es el arreglo de fondo, calcado de A08:
+//
+//   activities/{id}.juego.estructura   -> PUBLICA: geometria + pistas
+//   activities/{id}/clave/juego        -> PRIVADA: letras, palabra, normalizada
+//   activities/{id}/clave/contenido    -> PRIVADA: el juego.contenido de hoy
+//
+// `clave/{docId}` ya existe en firestore.rules desde A08 y solo la abre el
+// docente dueno, asi que este reparto NO necesita tocar las reglas. El
+// servidor vuelve a juntar las dos mitades con el Admin SDK, que no pasa por
+// ellas (ver estructuraEfectiva mas abajo y onJuegoFinalizado en index.js).
+//
+// Por que existe la bandera de compatibilidad
+// -------------------------------------------
+// La app de Android empaqueta su propia copia de `dist` (capacitor.config.json
+// no tiene `server.url`) y no hay candado de version minima: un APK instalado
+// ejecuta para siempre el frontend con el que se compilo. No existe un momento
+// en que se pueda dar por hecho que ya no queda frontend viejo.
+//
+// Por eso la transicion tiene DOS puntos, no uno:
+//
+//   compatibilidadLegacy: true  -> se escribe en los dos sitios. Nada se rompe
+//                                  y nada se arregla todavia. Es esta fase.
+//   compatibilidadLegacy: false -> se deja de escribir en el publico. AHI
+//                                  aterriza la seguridad, y ahi es donde el APK
+//                                  viejo empieza a mostrar mal la revision y la
+//                                  solucion. Lo decide el PO, no un despliegue.
+//
+// El corte es un campo en Firestore justamente para que volver atras sea
+// instantaneo y no haya que redesplegar functions.
+const CONFIG_JUEGOS = 'config/juegos'
+
+// Ausente o ilegible => COMPATIBLE. Un dato que falta no debe romperle el
+// trabajo a nadie (mismo criterio que `docenteActivo` con `suscripcionHasta`,
+// ver CLAUDE.md), y durante esta fase el modo compatible no empeora nada:
+// la seguridad todavia no habia aterrizado de todos modos.
+async function compatibilidadLegacy(db) {
+  try {
+    const snap = await db.doc(CONFIG_JUEGOS).get()
+    if (!snap.exists) return true
+    return snap.data()?.compatibilidadLegacy !== false
+  } catch (e) {
+    logger.error('compatibilidadLegacy: no se pudo leer config/juegos, se asume compatible:', e)
+    return true
+  }
+}
+
+// De donde sale la lista de palabras del docente.
+//
+// La precedencia SE INVIERTE en el corte, y no es un capricho:
+//   - Compatible: un frontend viejo solo sabe escribir `juego.contenido`, asi
+//     que ese campo es siempre el mas fresco y tiene que ganar.
+//   - Cortado: el frontend nuevo ya solo escribe `clave/contenido`, y el que
+//     puede haber quedado rancio es el viejo - gana la clave.
+async function leerContenidoJuego(actRef, act, compat) {
+  const embebido = Array.isArray(act.juego?.contenido) ? act.juego.contenido : null
+  const snap = await actRef.collection('clave').doc('contenido').get()
+  const privado = Array.isArray(snap.data()?.contenido) ? snap.data().contenido : null
+  const [primero, segundo] = compat ? [embebido, privado] : [privado, embebido]
+  return (primero && primero.length ? primero : segundo) || []
+}
+
+// Parte el resultado del generador en la mitad que puede ver el alumno y la
+// que no.
+//
+// SOPA DE LETRAS: su estructura publica NO se toca nunca, ni con la bandera
+// apagada. Encontrar palabras dentro de una marana de letras ES el juego -
+// enmascarar su `grid` lo destruiria. Su clave privada si se escribe (es
+// aditivo y no cambia nada), pero cerrar de verdad la sopa exige rediseniar
+// su bucle de juego y su calificacion, y eso es una auditoria aparte (A25).
+function partirEstructuraJuego({ tipo, size, gridBruto, palabras, contenido, normalizadas, compat }) {
+  const esCrucigrama = tipo === 'crucigrama'
+  const gridCompleto = gridBruto.map((fila) => ({ row: fila }))
+
+  // La privada SIEMPRE va completa, en las dos fases: es la fuente de verdad
+  // con la que califica el servidor y la que el docente lee para revisar.
+  const clave = {
+    tipo,
+    size,
+    grid: gridCompleto,
+    palabras: palabras.map((p) => ({
+      index: p.index,
+      palabra: contenido[p.index]?.palabra ?? null,
+      normalizada: normalizadas[p.index],
+    })),
+  }
+
+  // La publica lleva SIEMPRE lo que el tablero del alumno necesita de verdad:
+  // geometria (fila/col/longitud/horizontal, que es lo que decide que casilla
+  // es blanca) y la pista. `palabra`/`normalizada` no los usa ni una vez
+  // durante la resolucion.
+  //
+  // El `grid` enmascarado no le quita informacion al alumno: las casillas
+  // blancas ya estan implicitas en fila+col+longitud+direccion. Solo le quita
+  // las LETRAS. Y como CrucigramaBoard unicamente evalua `if (!letra)`, un
+  // booleano pasa por ahi exactamente igual que una letra.
+  const publica = {
+    tipo,
+    size,
+    grid: (esCrucigrama && !compat)
+      ? gridBruto.map((fila) => ({ row: fila.map((celda) => !!celda) }))
+      : gridCompleto,
+    palabras: palabras.map((p) => ({
+      ...p,
+      // Modalidad "por descripcion": la pista debe llegar hasta el tablero
+      // del estudiante para que pueda leerla - sin esto, CrucigramaBoard.jsx
+      // y SopaDeLetrasBoard.jsx no tienen forma de mostrarla (encontrado en
+      // E2E real: la sopa de letras mostraba las palabras en vez de las
+      // pistas porque `descripcion` nunca llegaba a `estructura.palabras`).
+      descripcion: contenido[p.index]?.descripcion ?? null,
+      // Solo mientras haya frontends viejos que las esperen aqui.
+      ...((compat || !esCrucigrama) ? {
+        palabra: contenido[p.index]?.palabra ?? null,
+        normalizada: normalizadas[p.index],
+      } : {}),
+    })),
+  }
+
+  return { publica, clave }
+}
+
+// Vuelve a juntar las dos mitades. Devuelve un objeto con la MISMA forma que
+// tenia `juego.estructura` antes del reparto, para que `calificarCrucigrama` y
+// `calificarSopaDeLetras` (functions/index.js) sigan funcionando sin cambiar
+// una sola linea de su algoritmo.
+//
+// Sin clave (juego heredado todavia sin migrar) devuelve la publica tal cual:
+// ahi las letras siguen dentro, que es justo el caso que el fallback cubre.
+function estructuraEfectiva(publica, clave) {
+  if (!publica) return null
+  if (!clave) return publica
+  const porIndice = new Map((clave.palabras || []).map((p) => [p.index, p]))
+  return {
+    ...publica,
+    grid: clave.grid || publica.grid,
+    palabras: (publica.palabras || []).map((p) => ({ ...p, ...(porIndice.get(p.index) || {}) })),
+  }
+}
+
+async function construirJuegoImpl(request) {
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar esta función')
 
@@ -52,7 +201,8 @@ exports.construirJuego = onCall({ timeoutSeconds: 300 }, async (request) => {
       'El contenido debe generarse (o editarse) antes de construir el juego.')
   }
 
-  const contenido = Array.isArray(act.juego?.contenido) ? act.juego.contenido : []
+  const compat = await compatibilidadLegacy(db)
+  const contenido = await leerContenidoJuego(actSnap.ref, act, compat)
   if (contenido.length < MIN_PALABRAS || contenido.length > MAX_PALABRAS) {
     throw new HttpsError('failed-precondition',
       `El contenido debe tener entre ${MIN_PALABRAS} y ${MAX_PALABRAS} palabras (tiene ${contenido.length}).`)
@@ -110,9 +260,9 @@ exports.construirJuego = onCall({ timeoutSeconds: 300 }, async (request) => {
       'Intenta de nuevo, quita alguna palabra larga o reduce la cantidad.')
   }
 
-  // Cada entrada de estructura.palabras referencia el índice de
-  // juego.contenido (palabra ORIGINAL, con acentos, para mostrar) y trae
-  // además la versión normalizada (para el motor de calificación).
+  // Cada entrada de estructura.palabras referencia el índice del contenido
+  // (palabra ORIGINAL, con acentos, para mostrar) y trae además la versión
+  // normalizada (para el motor de calificación).
   // Firestore NO admite arrays anidados (un array cuyo elemento es otro
   // array) — 'Property juego contains an invalid nested entity' al
   // intentar guardar `grid` como array de arrays tal cual lo arma
@@ -122,30 +272,31 @@ exports.construirJuego = onCall({ timeoutSeconds: 300 }, async (request) => {
   // los tableros en src/components/juego/ deben leer `fila.row[c]`, no
   // `fila[c]`.
   const gridBruto = act.tipoJuego === 'sopa_letras' ? resultado.grid : resultado.celdas
-  const estructura = {
+  const { publica, clave } = partirEstructuraJuego({
     tipo: act.tipoJuego,
     size: resultado.size,
-    grid: gridBruto.map((fila) => ({ row: fila })),
-    palabras: resultado.palabras.map((p) => ({
-      ...p,
-      palabra: contenido[p.index]?.palabra ?? null,
-      // Modalidad "por descripción": la pista debe llegar hasta el tablero
-      // del estudiante para que pueda leerla — sin esto, CrucigramaBoard.jsx
-      // y SopaDeLetrasBoard.jsx no tienen forma de mostrarla (encontrado en
-      // E2E real: la sopa de letras mostraba las palabras en vez de las
-      // pistas porque `descripcion` nunca llegaba a `estructura.palabras`).
-      descripcion: contenido[p.index]?.descripcion ?? null,
-      normalizada: normalizadas[p.index],
-    })),
-  }
+    gridBruto,
+    palabras: resultado.palabras,
+    contenido,
+    normalizadas,
+    compat,
+  })
+
+  // La clave PRIMERO: si fallara a mitad, más vale una clave sin estructura
+  // pública (el juego no avanza a 'juego_generado' y el docente reintenta)
+  // que una estructura pública enmascarada cuya clave no existe — eso sí
+  // dejaría un juego imposible de calificar.
+  await actSnap.ref.collection('clave').doc('juego').set(clave)
+  await actSnap.ref.collection('clave').doc('contenido').set({ contenido })
 
   await actSnap.ref.update({
-    'juego.estructura': estructura,
+    'juego.estructura': publica,
     'juego.estado': 'juego_generado',
   })
 
-  return { ok: true, estructura }
-})
+  return { ok: true, estructura: publica }
+}
+exports.construirJuego = onCall({ timeoutSeconds: 300 }, construirJuegoImpl)
 
 // Ownership compartido por confirmarJuego/cancelarBorradorJuego — mismo
 // criterio que construirJuego arriba (docenteId de la actividad, con
@@ -345,9 +496,142 @@ async function cancelarBorradorJuegoImpl(request) {
     }
   }
 
+  // Borrar el documento padre NO arrastra sus subcolecciones en Firestore: la
+  // clave se quedaría huérfana, con las respuestas dentro, colgando de una
+  // actividad que ya no existe. Se borran POR ID, no la colección entera, para
+  // no tocar nunca la clave de reactivos que A08 guarda en este mismo sitio.
+  //
+  // Best-effort y DESPUÉS del cierre del apartado de créditos: lo que de
+  // verdad hay que proteger es el saldo del docente, y esto solo deja basura
+  // si falla, no dinero.
+  await Promise.all([
+    ref.collection('clave').doc('juego').delete()
+      .catch((e) => logger.error(`cancelarBorradorJuego: no se pudo borrar clave/juego de ${actividadId}:`, e)),
+    ref.collection('clave').doc('contenido').delete()
+      .catch((e) => logger.error(`cancelarBorradorJuego: no se pudo borrar clave/contenido de ${actividadId}:`, e)),
+  ])
+
   await ref.delete()
   return { ok: true, reserva, creditos }
 }
 exports.cancelarBorradorJuego = onCall({ timeoutSeconds: 60 }, cancelarBorradorJuegoImpl)
 
-exports._pruebas = { confirmarJuegoImpl, cancelarBorradorJuegoImpl, verificarDuenoJuego }
+
+// A25 — La solución del juego se pide, no se descarga.
+//
+// Antes de esto la solución la armaba el navegador del alumno desde
+// `estructura.grid` (solucionCrucigrama en src/utils/correccionesJuego.js), y
+// las dos condiciones que la protegían —intentos agotados y "Publicar
+// solución"— vivían SOLO en el cliente (student/ActivityPage.jsx). Una
+// restricción que solo vive en el navegador no existe: el grid resuelto ya
+// estaba descargado desde el primer render.
+//
+// Aquí las dos condiciones se comprueban en el servidor, y la solución sale de
+// la clave privada, que el alumno no puede leer por reglas.
+//
+// Es un callable y no una copia dentro de la entrega A PROPÓSITO.
+// `publicarSolucion: 'fecha'` se cumple en el FUTURO, y nada re-escribe una
+// entrega ya calificada cuando llega ese día (no hay disparador sobre
+// `activities` que lo haga, y revisarProgramados solo manda push). Preguntando
+// en el momento, la respuesta siempre es la correcta.
+async function obtenerSolucionJuegoImpl(request) {
+  const uid = request.auth?.uid
+  if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar esta función')
+
+  const actividadId = String(request.data?.actividadId || '')
+  if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad')
+
+  const db = getFirestore()
+  const actRef = db.doc(`activities/${actividadId}`)
+  const actSnap = await actRef.get()
+  if (!actSnap.exists) throw new HttpsError('not-found', 'La actividad no existe')
+  const act = actSnap.data()
+  if (act.categoria !== 'juego') {
+    throw new HttpsError('failed-precondition', 'Esta actividad no es un juego')
+  }
+
+  // Inscripción: hay un `students` por alumno y por asignatura. Se consulta por
+  // `uid` con UNA sola igualdad y se filtra la asignatura en memoria, para no
+  // necesitar un índice compuesto nuevo (mismo criterio que el resto de la
+  // app, ver CLAUDE.md).
+  const inscSnap = await db.collection('students').where('uid', '==', uid).get()
+  const inscripcion = inscSnap.docs.find((d) => d.data().asignaturaId === act.asignaturaId)
+  if (!inscripcion) {
+    throw new HttpsError('permission-denied', 'No estás inscrito en esta asignatura')
+  }
+
+  // El id de la entrega no es libre desde A12: es `{actividadId}_{alumnoId}`.
+  const subSnap = await db.doc(`submissions/${actividadId}_${inscripcion.id}`).get()
+  const sub = subSnap.exists ? subSnap.data() : null
+  if (!sub || sub.estadoEvaluacion !== 'finalizado') {
+    throw new HttpsError('failed-precondition', 'Todavía no has terminado este juego')
+  }
+
+  // Las MISMAS dos condiciones que hasta hoy decidía el navegador, ahora aquí:
+  //   1. no le queda ninguna oportunidad;
+  //   2. el docente ya autorizó publicar la solución.
+  // Que la calificación esté publicada NO libera la solución, ni al revés.
+  const ev = act.evaluacion || {}
+  const intentosUsados = Array.isArray(sub.intentos) ? sub.intentos.length : 0
+  const sinIntentosRestantes = ev.intentosPermitidos != null && intentosUsados >= ev.intentosPermitidos
+  if (!sinIntentosRestantes) {
+    throw new HttpsError('failed-precondition', 'Todavía te quedan intentos de este juego')
+  }
+  if (!publicacionVisible(ev.publicarSolucion || 'inmediato', ev.publicarSolucionFecha, ev.solucionPublicada)) {
+    throw new HttpsError('failed-precondition', 'El docente todavía no publica la solución de este juego')
+  }
+
+  const claveSnap = await actRef.collection('clave').doc('juego').get()
+  const estructura = estructuraEfectiva(act.juego?.estructura || null, claveSnap.exists ? claveSnap.data() : null)
+  if (!estructura) throw new HttpsError('not-found', 'Este juego no tiene tablero')
+
+  // Se devuelve YA RESUELTO en la forma que espera el tablero (`celdas`), no la
+  // estructura cruda: menos superficie y nada que el cliente deba recomponer.
+  // El filtro `typeof letra === 'string'` es el que impide que una máscara
+  // booleana se cuele como si fuera una letra ("true" en cada casilla).
+  const celdas = {}
+  const size = estructura.size || 0
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const letra = estructura.grid?.[r]?.row?.[c]
+      if (letra && typeof letra === 'string') celdas[`${r}-${c}`] = letra.toUpperCase()
+    }
+  }
+  return {
+    ok: true,
+    tipo: estructura.tipo,
+    celdas,
+    palabras: (estructura.palabras || []).map((p) => ({ index: p.index, palabra: p.palabra ?? null })),
+  }
+}
+exports.obtenerSolucionJuego = onCall({ timeoutSeconds: 60 }, obtenerSolucionJuegoImpl)
+
+// Copia deliberada de `publicacionVisible` (src/utils/evaluacionGrading.js),
+// igual que la que ya vive en functions/index.js: `functions/` es otro paquete
+// y no puede importar de `src/`. Si cambia una, cambian las tres; hay casos de
+// prueba en todas.
+function publicacionVisible(modo, fecha, flag) {
+  if (modo === 'nunca') return false
+  if (modo === 'inmediato') return true
+  if (modo === 'fecha') return !!fecha && new Date().toISOString() >= fecha
+  return !!flag
+}
+
+// Compartidas con functions/index.js (calificación) y functions/ia.js
+// (generación de contenido). Exportadas como API normal del módulo, no a
+// través de `_pruebas`: son parte del contrato, no un atajo de test.
+exports.compatibilidadLegacy = compatibilidadLegacy
+exports.estructuraEfectiva = estructuraEfectiva
+
+exports._pruebas = {
+  construirJuegoImpl,
+  confirmarJuegoImpl,
+  cancelarBorradorJuegoImpl,
+  obtenerSolucionJuegoImpl,
+  verificarDuenoJuego,
+  compatibilidadLegacy,
+  leerContenidoJuego,
+  partirEstructuraJuego,
+  estructuraEfectiva,
+  publicacionVisible,
+}
