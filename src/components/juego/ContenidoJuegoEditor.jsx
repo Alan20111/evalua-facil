@@ -6,12 +6,13 @@
 // Reintentos de construcción (fallo geométrico) tampoco cobran — decisión de
 // producto #5.
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Trash2, Wand2 } from 'lucide-react'
-import { doc, updateDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { db, functions } from '../../firebase'
+import { functions } from '../../firebase'
 import { useToast } from '../Toast'
+import Spinner from '../Spinner'
+import { cargarContenidoJuego, guardarContenidoJuego } from '../../utils/juegoClave'
 
 const MIN_PALABRAS = 5
 const MAX_PALABRAS = 20
@@ -22,11 +23,31 @@ export default function ContenidoJuegoEditor({ activity, onConstruido }) {
   // Crucigrama siempre requiere pistas aunque la modalidad guardada sea 'palabra'
   // (actividades antiguas o creadas antes de esta restricción).
   const mostrarDescripcion = modalidad === 'descripcion' || activity.tipoJuego === 'crucigrama'
+  // A25 — La lista de palabras puede venir de dos sitios: embebida en la
+  // actividad (juego heredado) o de `clave/contenido` (juego migrado o nacido
+  // ya con el reparto). `cargarContenidoJuego` decide cuál mirando el dato, no
+  // una bandera. Se arranca con lo embebido cuando está para que un juego
+  // heredado pinte de inmediato, sin parpadeo.
   const [contenido, setContenido] = useState(
     (activity.juego?.contenido || []).map((it) => ({ palabra: it.palabra || '', descripcion: it.descripcion || '' }))
   )
+  const [cargando, setCargando] = useState(!Array.isArray(activity.juego?.contenido))
   const [guardando, setGuardando] = useState(false)
   const [construyendo, setConstruyendo] = useState(false)
+
+  useEffect(() => {
+    if (Array.isArray(activity.juego?.contenido)) return // ya está en pantalla
+    let vivo = true
+    cargarContenidoJuego(activity.id, activity)
+      .then((lista) => {
+        if (!vivo) return
+        setContenido(lista.map((it) => ({ palabra: it.palabra || '', descripcion: it.descripcion || '' })))
+      })
+      .catch((err) => toast('No se pudo cargar el contenido del juego: ' + err.message, 'error'))
+      .finally(() => { if (vivo) setCargando(false) })
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- por actividad, no por cada cambio de `activity`
+  }, [activity.id])
 
   function actualizar(i, campo, valor) {
     setContenido((prev) => prev.map((it, idx) => (idx === i ? { ...it, [campo]: valor } : it)))
@@ -39,13 +60,14 @@ export default function ContenidoJuegoEditor({ activity, onConstruido }) {
     setContenido((prev) => [...prev, { palabra: '', descripcion: '' }])
   }
 
+  // A25 — `clave/contenido` SIEMPRE; `juego.contenido` solo si ya existía. Esa
+  // segunda mitad es la que blinda la migración: reeditar un juego ya migrado
+  // no le vuelve a plantar las palabras en el documento público. Toda la regla
+  // vive en utils/juegoClave.js, en un solo sitio.
   async function guardarContenido(nuevoContenido) {
     setGuardando(true)
     try {
-      await updateDoc(doc(db, 'activities', activity.id), {
-        'juego.contenido': nuevoContenido,
-        'juego.estado': 'contenido_editado',
-      })
+      await guardarContenidoJuego(activity.id, activity, nuevoContenido)
     } finally {
       setGuardando(false)
     }
@@ -91,6 +113,8 @@ export default function ContenidoJuegoEditor({ activity, onConstruido }) {
   }
 
   const trabajando = guardando || construyendo
+
+  if (cargando) return <Spinner />
 
   return (
     <div className="space-y-3">

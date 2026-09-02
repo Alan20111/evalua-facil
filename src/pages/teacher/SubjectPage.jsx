@@ -15,7 +15,8 @@ import Select from '../../components/ui/Select'
 import InfoDisclosure from '../../components/ui/InfoDisclosure'
 import { exportSubjectGrades, exportParcialGrades, exportRankingExcel, exportSubjectAttendance, exportParcialAttendance, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
 import { importActivitiesToSubject } from '../../utils/importActivities'
-import { camposComunesCopia, nombreParaCopia, esCopiable, etiquetaJuego } from '../../utils/copiaActividad'
+import { camposComunesCopia, nombreParaCopia, esCopiable, etiquetaJuego, esJuego } from '../../utils/copiaActividad'
+import { copiarClaveJuego } from '../../utils/juegoClave'
 import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, exportCredentialsPDF } from '../../utils/pdf'
 import { membreteDe } from '../../utils/membrete'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
@@ -2888,6 +2889,10 @@ export default function SubjectPage() {
         asignaturaId: subjectId, docenteId: currentUser.uid, createdAt: serverTimestamp(),
       }
       const ref = await addDoc(collection(db, 'activities'), copy)
+      // A25 — Las respuestas del juego viven en la subcolección `clave` y no
+      // viajan con los campos: sin esto, la copia de un juego migrado nacería
+      // imposible de calificar (ver utils/juegoClave.js).
+      if (esJuego(src)) await copiarClaveJuego(src.id, ref.id)
       // Evaluaciones: also clone the question bank of this activity
       if (src.tipo === 'evaluacion') {
         const snap = await getDocs(collection(db, 'activities', src.id, 'preguntas'))

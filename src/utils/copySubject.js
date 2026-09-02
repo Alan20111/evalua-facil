@@ -6,7 +6,8 @@ import {
 import { addDoc, setDoc, writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
 import { nowIsoLocal } from './nowIso'
-import { camposComunesCopia, nombreParaCopia, esCopiable } from './copiaActividad'
+import { camposComunesCopia, nombreParaCopia, esCopiable, esJuego } from './copiaActividad'
+import { copiarClaveJuego } from './juegoClave'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -102,10 +103,22 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
       createdAt: serverTimestamp(),
     }
 
-    if (!esEvaluacion) {
+    // A25 — Un juego también tiene subcolección (`clave`, con sus respuestas),
+    // así que necesita el mismo trato que una evaluación: crear la actividad y
+    // CONFIRMARLA antes de escribir debajo. Por el lote no puede irse, porque
+    // la regla de `clave` hace un get() del padre que una escritura del mismo
+    // lote todavía no ve.
+    const esJuegoDeVerdad = esJuego(a)
+    if (!esEvaluacion && !esJuegoDeVerdad) {
       batch.set(ref, data)
       ops++
       if (ops >= LIMIT) await flush()
+      continue
+    }
+
+    if (esJuegoDeVerdad) {
+      await setDoc(ref, data)
+      await copiarClaveJuego(a.id, ref.id)
       continue
     }
 

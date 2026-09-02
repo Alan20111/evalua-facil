@@ -6,22 +6,66 @@
 // alumno le quede una oportunidad.
 //
 // Crucigrama: es LA MISMA cuadrícula del juego, rellenada con todas las
-//   letras correctas (solucionCrucigrama, leída de `estructura.grid` — la
-//   misma fuente de verdad que usa el servidor para calificar). No se
-//   reconstruye desde lo que escribió el alumno ni se pinta correcto/
-//   incorrecto: es el crucigrama resuelto. Va con `readOnly`, así que las
-//   casillas están deshabilitadas — no se puede escribir ni generar intento.
+//   letras correctas. No se reconstruye desde lo que escribió el alumno ni se
+//   pinta correcto/incorrecto: es el crucigrama resuelto. Va con `readOnly`,
+//   así que las casillas están deshabilitadas — no se puede escribir ni
+//   generar intento.
+//
+//   A25 — Esas letras YA NO están en el navegador del alumno: se piden al
+//   callable `obtenerSolucionJuego`, que comprueba EN EL SERVIDOR las dos
+//   condiciones que antes decidía esta pantalla (intentos agotados y
+//   "Publicar solución"). Antes el grid resuelto venía descargado desde el
+//   primer render y estas dos condiciones solo vivían en el navegador, que es
+//   como decir que no existían.
+//
+//   Fallback heredado: un crucigrama todavía sin migrar SÍ trae las letras en
+//   su estructura pública. Ahí se arma en local como siempre, para que la
+//   pantalla no dependa de haber migrado ya. Es transitorio: se retira con el
+//   corte (ver § A25).
 // Sopa de letras: muestra la cuadrícula completa con palabras encontradas
 //   en azul (accent) y palabras no encontradas en verde esmeralda para que
 //   el alumno vea dónde estaban ocultas.
 
+import { useState, useEffect } from 'react'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../../firebase'
 import { formatTiempo } from '../../utils/formatTiempo'
 import { solucionCrucigrama } from '../../utils/correccionesJuego'
+import { esEstructuraHeredada } from '../../utils/juegoClave'
 import Modal from '../ui/Modal'
+import Spinner from '../Spinner'
 import CrucigramaBoard from './CrucigramaBoard'
 import SopaDeLetrasBoard from './SopaDeLetrasBoard'
 
-export default function SolucionJuegoModal({ open, onClose, estructura, submission }) {
+export default function SolucionJuegoModal({ open, onClose, actividadId, estructura, submission }) {
+  // El crucigrama migrado no tiene las letras en el cliente: hay que pedirlas.
+  // La sopa de letras no pasa por aquí — su cuadrícula con letras ES el juego y
+  // siempre fue pública.
+  //
+  // Un solo objeto de estado, escrito ÚNICAMENTE dentro de las promesas: nada
+  // de `setState` síncrono al entrar al efecto (dispara renders en cascada).
+  // `esperando` se deduce de que todavía no ha llegado nada.
+  const [solucion, setSolucion] = useState({ id: null, celdas: null, error: null })
+
+  const esSopaJuego = estructura?.tipo === 'sopa_letras'
+  const heredado = !!estructura && esEstructuraHeredada(estructura)
+  const hayQuePedir = !!open && !!estructura && !esSopaJuego && !heredado && !!actividadId
+  const llegada = solucion.id === actividadId ? solucion : null
+  const esperando = hayQuePedir && !llegada
+
+  useEffect(() => {
+    if (!hayQuePedir) return undefined
+    let vivo = true
+    httpsCallable(functions, 'obtenerSolucionJuego')({ actividadId })
+      .then(({ data }) => {
+        if (vivo) setSolucion({ id: actividadId, celdas: data?.celdas || {}, error: null })
+      })
+      .catch((err) => {
+        if (vivo) setSolucion({ id: actividadId, celdas: null, error: err.message || 'No se pudo obtener la solución' })
+      })
+    return () => { vivo = false }
+  }, [hayQuePedir, actividadId])
+
   if (!open || !estructura || !submission) return null
 
   const respuestas = submission.respuestasJuego || {}
@@ -60,10 +104,14 @@ export default function SolucionJuegoModal({ open, onClose, estructura, submissi
           mostrarSolucion
           readOnly
         />
+      ) : esperando ? (
+        <Spinner />
+      ) : llegada?.error ? (
+        <p className="text-sm text-error py-6 text-center">{llegada.error}</p>
       ) : (
         <CrucigramaBoard
           estructura={estructura}
-          celdas={solucionCrucigrama(estructura)}
+          celdas={heredado ? solucionCrucigrama(estructura) : (llegada?.celdas || {})}
           readOnly
           modoDocente
         />

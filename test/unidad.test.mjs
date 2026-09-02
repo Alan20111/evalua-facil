@@ -30,6 +30,9 @@ import { planeacionVigente, validarArchivoPlaneacion, extensionPlaneacion } from
 import { resolverBackspace } from '../src/utils/crucigramaBackspace.js'
 import { correccionesCrucigrama } from '../src/utils/correccionesJuego.js'
 import {
+  esEstructuraHeredada, estructuraConClave, debeEscribirContenidoEmbebido,
+} from '../src/utils/juegoReparto.js'
+import {
   camposComunesCopia, camposJuegoCopia, esCopiable, nombreParaCopia, etiquetaJuego,
 } from '../src/utils/copiaActividad.js'
 
@@ -2605,6 +2608,160 @@ caso('CP-24: la sopa de letras copiada se califica con las palabras encontradas'
 })
 
 console.log(`\n${'─'.repeat(60)}`)
+
+// ═══ A25 — El reparto público/privado del juego ══════════════════════════════
+//
+// Las reglas de Firestore no filtran CAMPOS, solo DOCUMENTOS, así que las
+// respuestas del crucigrama se mudaron a `activities/{id}/clave/juego`, que
+// solo abre el docente dueño. Estas son las tres decisiones puras de las que
+// depende que el frontend funcione a la vez con las tres formas que conviven:
+//
+//   A) heredado — respuestas dentro de la estructura pública, sin clave
+//   B) migrado  — pública enmascarada + clave privada
+//   C) nuevo con compatibilidadLegacy=true — las dos cosas
+//
+// La app de Android empaqueta su propia copia de dist y no hay candado de
+// versión mínima, así que la forma (A) tiene que seguir funcionando
+// indefinidamente: estas pruebas son el contrato de esa convivencia.
+
+const PUBLICA_HEREDADA = {
+  tipo: 'crucigrama', size: 2,
+  grid: [{ row: ['S', 'I'] }, { row: ['O', null] }],
+  palabras: [
+    { index: 0, fila: 0, col: 0, horizontal: true, longitud: 2, numero: 1, descripcion: 'afirmación', palabra: 'Sí', normalizada: 'SI' },
+    { index: 1, fila: 0, col: 0, horizontal: false, longitud: 2, numero: 1, descripcion: 'sonido', palabra: 'So', normalizada: 'SO' },
+  ],
+}
+
+const PUBLICA_MIGRADA = {
+  tipo: 'crucigrama', size: 2,
+  grid: [{ row: [true, true] }, { row: [true, false] }],
+  palabras: [
+    { index: 0, fila: 0, col: 0, horizontal: true, longitud: 2, numero: 1, descripcion: 'afirmación' },
+    { index: 1, fila: 0, col: 0, horizontal: false, longitud: 2, numero: 1, descripcion: 'sonido' },
+  ],
+}
+
+const CLAVE = {
+  tipo: 'crucigrama', size: 2,
+  grid: [{ row: ['S', 'I'] }, { row: ['O', null] }],
+  palabras: [
+    { index: 0, palabra: 'Sí', normalizada: 'SI' },
+    { index: 1, palabra: 'So', normalizada: 'SO' },
+  ],
+}
+
+grupo('A25 — esEstructuraHeredada: distingue por el DATO, no por una bandera')
+
+caso('JC-01: un grid con letras es heredado', () => {
+  assert.strictEqual(esEstructuraHeredada(PUBLICA_HEREDADA), true)
+})
+
+caso('JC-02: un grid de booleanos NO es heredado — ya está migrado', () => {
+  assert.strictEqual(esEstructuraHeredada(PUBLICA_MIGRADA), false)
+})
+
+caso('JC-03: sin estructura, sin grid o con grid vacío no revienta', () => {
+  assert.strictEqual(esEstructuraHeredada(null), false)
+  assert.strictEqual(esEstructuraHeredada(undefined), false)
+  assert.strictEqual(esEstructuraHeredada({}), false)
+  assert.strictEqual(esEstructuraHeredada({ grid: [] }), false)
+  assert.strictEqual(esEstructuraHeredada({ grid: [{}] }), false)
+})
+
+caso('JC-04: una cadena vacía en el grid no cuenta como letra', () => {
+  assert.strictEqual(esEstructuraHeredada({ grid: [{ row: ['', null] }] }), false)
+})
+
+caso('JC-05: la sopa de letras siempre es "heredada" — su grid con letras ES el juego', () => {
+  // Es justo lo que impide que la solución de la sopa se vaya al callable: su
+  // cuadrícula fue pública desde siempre y sigue siéndolo.
+  assert.strictEqual(esEstructuraHeredada({ tipo: 'sopa_letras', grid: [{ row: ['A', 'B'] }] }), true)
+})
+
+grupo('A25 — estructuraConClave: vuelve a juntar las dos mitades')
+
+caso('JC-06: sin clave devuelve la pública TAL CUAL (juego heredado)', () => {
+  assert.strictEqual(estructuraConClave(PUBLICA_HEREDADA, null), PUBLICA_HEREDADA)
+})
+
+caso('JC-07: con clave, las letras del grid salen de la clave', () => {
+  const e = estructuraConClave(PUBLICA_MIGRADA, CLAVE)
+  assert.deepStrictEqual(e.grid, CLAVE.grid)
+})
+
+caso('JC-08: la palabra y la normalizada salen de la clave, con su acento original', () => {
+  const e = estructuraConClave(PUBLICA_MIGRADA, CLAVE)
+  assert.strictEqual(e.palabras[0].palabra, 'Sí')
+  assert.strictEqual(e.palabras[0].normalizada, 'SI')
+})
+
+caso('JC-09: la pista y la geometría públicas NO se pierden en la fusión', () => {
+  const e = estructuraConClave(PUBLICA_MIGRADA, CLAVE)
+  assert.strictEqual(e.palabras[0].descripcion, 'afirmación')
+  assert.strictEqual(e.palabras[0].fila, 0)
+  assert.strictEqual(e.palabras[0].longitud, 2)
+  assert.strictEqual(e.palabras[0].horizontal, true)
+  assert.strictEqual(e.palabras[1].horizontal, false)
+  assert.strictEqual(e.size, 2)
+  assert.strictEqual(e.tipo, 'crucigrama')
+})
+
+caso('JC-10: la fusión es por `index`, no por posición en el arreglo', () => {
+  const claveDesordenada = { ...CLAVE, palabras: [...CLAVE.palabras].reverse() }
+  const e = estructuraConClave(PUBLICA_MIGRADA, claveDesordenada)
+  assert.strictEqual(e.palabras[0].palabra, 'Sí', 'index 0 sigue emparejado con index 0')
+  assert.strictEqual(e.palabras[1].palabra, 'So')
+})
+
+caso('JC-11: una palabra sin entrada en la clave se queda con lo público, no rompe', () => {
+  const claveCoja = { grid: CLAVE.grid, palabras: [CLAVE.palabras[0]] }
+  const e = estructuraConClave(PUBLICA_MIGRADA, claveCoja)
+  assert.strictEqual(e.palabras[1].palabra, undefined)
+  assert.strictEqual(e.palabras[1].descripcion, 'sonido')
+})
+
+caso('JC-12: sin estructura pública devuelve null en vez de reventar', () => {
+  assert.strictEqual(estructuraConClave(null, CLAVE), null)
+  assert.strictEqual(estructuraConClave(undefined, null), null)
+})
+
+caso('JC-13: espejo exacto de estructuraEfectiva (functions/juego.js)', () => {
+  // Son la misma regla en los dos lados de la red: si divergen, el docente y
+  // el servidor dejarían de ver el mismo tablero.
+  const { estructuraEfectiva } = require('../functions/juego.js')
+  assert.deepStrictEqual(
+    estructuraConClave(PUBLICA_MIGRADA, CLAVE),
+    estructuraEfectiva(PUBLICA_MIGRADA, CLAVE)
+  )
+  assert.deepStrictEqual(
+    estructuraConClave(PUBLICA_HEREDADA, null),
+    estructuraEfectiva(PUBLICA_HEREDADA, null)
+  )
+})
+
+grupo('A25 — debeEscribirContenidoEmbebido: la regla que blinda la migración')
+
+caso('JC-14: juego heredado (el campo existe) → se mantiene sincronizado', () => {
+  assert.strictEqual(debeEscribirContenidoEmbebido({ juego: { contenido: [{ palabra: 'A' }] } }), true)
+})
+
+caso('JC-15: juego MIGRADO (el campo ya no existe) → NO se vuelve a crear', () => {
+  // Es la mitad de la regla que impide que reeditar un juego ya migrado le
+  // re-plante las respuestas en el documento público.
+  assert.strictEqual(debeEscribirContenidoEmbebido({ juego: { estado: 'juego_confirmado' } }), false)
+})
+
+caso('JC-16: un contenido embebido VACÍO sigue contando — el campo existe', () => {
+  assert.strictEqual(debeEscribirContenidoEmbebido({ juego: { contenido: [] } }), true)
+})
+
+caso('JC-17: actividad sin juego, o sin actividad, no rompe', () => {
+  assert.strictEqual(debeEscribirContenidoEmbebido({}), false)
+  assert.strictEqual(debeEscribirContenidoEmbebido(null), false)
+  assert.strictEqual(debeEscribirContenidoEmbebido({ juego: { contenido: 'no es un arreglo' } }), false)
+})
+
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
   fallos.forEach((f) => console.log(`  ✗ ${f.nombre}\n    ${f.e.message}`))

@@ -18,7 +18,7 @@
 // control de publicar antes de tiempo (capa amable, igual que
 // firestoreGuard.js).
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Pencil, Trash2, XCircle } from 'lucide-react'
 import { doc, getDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
@@ -38,6 +38,7 @@ import { nowIsoLocal } from '../../utils/nowIso'
 import { studentFullName } from '../../utils/studentSearch'
 import { EVALUACION_DEFAULTS } from '../../utils/evaluacionDefaults'
 import { formatTiempo } from '../../utils/formatTiempo'
+import { cargarClaveJuego, estructuraConClave, esEstructuraHeredada } from '../../utils/juegoClave'
 import ContenidoJuegoEditor from './ContenidoJuegoEditor'
 import RevisionJuegoBorrador from './RevisionJuegoBorrador'
 import ResolucionJuegoModal from './ResolucionJuegoModal'
@@ -49,6 +50,15 @@ export default function JuegoManager({
   const [regresando, setRegresando] = useState(false)
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
   const [cancelando, setCancelando] = useState(false)
+  // A25 — La estructura del documento ya no trae las respuestas: se piden
+  // aparte a `clave/juego` (que solo abre el docente dueño) y se fusionan. Se
+  // hace UNA vez aquí y se reparte, en vez de que cada pantalla lo pida por su
+  // cuenta.
+  //
+  // La clave se guarda JUNTO CON el id del que vino: así, al cambiar de
+  // actividad, la del juego anterior no se usa ni un render de más y no hace
+  // falta resetear estado dentro del efecto.
+  const [clave, setClave] = useState({ id: null, data: null })
   const toast = useToast()
   const creditosIA = useCreditosIA()
   const estado = activity.juego?.estado || null
@@ -65,6 +75,22 @@ export default function JuegoManager({
   // functions/juego.js). Ya confirmado, esto ya no aplica — se elimina como
   // cualquier otra actividad (onDeleteActivity).
   const esBorrador = estado !== 'juego_confirmado'
+
+  const estructuraPublica = activity.juego?.estructura || null
+  // Un juego heredado ya trae las respuestas dentro: ni se pide la clave.
+  const estructuraDocente = estructuraConClave(
+    estructuraPublica,
+    clave.id === activityId ? clave.data : null
+  )
+
+  useEffect(() => {
+    if (!estructuraPublica || esEstructuraHeredada(estructuraPublica)) return undefined
+    let vivo = true
+    cargarClaveJuego(activityId)
+      .then((data) => { if (vivo) setClave({ id: activityId, data }) })
+      .catch(() => { /* sin clave se sigue con la pública, que es el caso heredado */ })
+    return () => { vivo = false }
+  }, [activityId, estructuraPublica])
 
   async function refetchActivity() {
     try {
@@ -199,6 +225,7 @@ export default function JuegoManager({
           {mostrandoRevision && (
             <RevisionJuegoBorrador
               activity={activity}
+              estructura={estructuraDocente}
               onConfirmado={handleConfirmado}
               onRegresar={() => setRegresando(true)}
             />
@@ -210,6 +237,7 @@ export default function JuegoManager({
         <JuegoConfiguracion
           activity={activity}
           activityId={activityId}
+          estructura={estructuraDocente}
           students={students}
           submissions={submissions}
           onActivityChange={onActivityChange}
@@ -279,7 +307,7 @@ function NombreJuego({ activity, activityId, tipoLabel, onActivityChange }) {
   )
 }
 
-function JuegoConfiguracion({ activity, activityId, students, submissions, onActivityChange }) {
+function JuegoConfiguracion({ activity, activityId, estructura, students, submissions, onActivityChange }) {
   const toast = useToast()
   const evalDefaults = EVALUACION_DEFAULTS.juego
   const [form, setForm] = useState({
@@ -510,7 +538,7 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
           open
           onClose={() => setResolucionAbierta(null)}
           estudianteNombre={resolucionAbierta.nombre}
-          estructura={activity.juego?.estructura}
+          estructura={estructura}
           submission={resolucionAbierta.sub}
         />
       )}
