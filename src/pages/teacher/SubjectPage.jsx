@@ -15,6 +15,7 @@ import Select from '../../components/ui/Select'
 import InfoDisclosure from '../../components/ui/InfoDisclosure'
 import { exportSubjectGrades, exportParcialGrades, exportRankingExcel, exportSubjectAttendance, exportParcialAttendance, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
 import { importActivitiesToSubject } from '../../utils/importActivities'
+import { camposComunesCopia, nombreParaCopia, esCopiable, etiquetaJuego } from '../../utils/copiaActividad'
 import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, exportCredentialsPDF } from '../../utils/pdf'
 import { membreteDe } from '../../utils/membrete'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
@@ -2310,7 +2311,9 @@ export default function SubjectPage() {
       const snap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', sub.id)))
       const acts = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((a) => !isDraftActivity(a))
+        // Un juego sin confirmar no se ofrece: la copia quedaría imposible de
+        // confirmar y de publicar (ver esCopiable en utils/copiaActividad.js).
+        .filter((a) => !isDraftActivity(a) && esCopiable(a))
         .sort((a, b) => (a.parcial - b.parcial) || ((a.orden ?? 0) - (b.orden ?? 0)))
       setImportSrcActs(acts)
     } catch (err) {
@@ -2861,21 +2864,25 @@ export default function SubjectPage() {
     setDuplicating(true)
     try {
       const src = duplicateConfirm
+      // Un juego sin confirmar no se duplica (ver esCopiable): sin la reserva
+      // de créditos del original —que nunca se copia— la copia quedaría
+      // imposible de confirmar y de publicar. El menú ⋮ ya no lo ofrece.
+      if (!esCopiable(src)) {
+        toast('Termina y confirma este juego antes de duplicarlo', 'error')
+        setDuplicateConfirm(null)
+        return
+      }
       const orden = activities.filter((a) => a.parcial === src.parcial).length + 1
       const copy = {
-        nombre: `${src.nombre} (copia)`,
-        categoria: src.categoria || 'entregable',
-        maxCalif: src.maxCalif ?? 10,
-        instrucciones: src.instrucciones || '',
-        archivosAdjuntos: src.archivosAdjuntos || [],
-        fechaLimite: null,
-        tiposArchivo: src.tiposArchivo || [],
-        extensionesCustom: src.extensionesCustom || '',
-        tipo: src.tipo || 'archivo',
-        rubrica: src.rubrica || null,
-        rubricaId: src.rubricaId || null,
-        pesoCalificacion: src.pesoCalificacion ?? null,
-        ...(src.evaluacion ? { evaluacion: src.evaluacion } : {}),
+        nombre: `${nombreParaCopia(src)} (copia)`,
+        // Qué campos viajan (incluidos `tipoJuego` y `juego`): compartido con
+        // los otros dos caminos de copia en utils/copiaActividad.js.
+        ...camposComunesCopia(src),
+        // Un entregable duplicado conserva el vacío que ya tenía aquí (`[]`,
+        // no el 'imagenes' que usan los otros dos caminos) — duplicar dentro
+        // de la misma asignatura no es momento de cambiarle los tipos de
+        // archivo aceptados a una actividad vieja sin el campo.
+        ...(src.categoria === 'juego' ? {} : { tiposArchivo: src.tiposArchivo || [] }),
         oculta: true, publishAt: null, publishedAt: null,
         parcial: src.parcial, orden,
         asignaturaId: subjectId, docenteId: currentUser.uid, createdAt: serverTimestamp(),
@@ -4265,9 +4272,14 @@ export default function SubjectPage() {
                               <div className="flex-1 min-w-0">
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
                                   {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} </span>}
-                                  {a.nombre}
+                                  {/* Un juego creado antes de que se pudiera
+                                      nombrar (JuegoManager) no tiene `nombre`:
+                                      la fila salía en blanco. Mismo respaldo
+                                      que ya usaban JuegoManager y la
+                                      ActivityPage del estudiante. */}
+                                  {esJuego ? (a.nombre || etiquetaJuego(a)) : a.nombre}
                                   <span className={`text-xs font-normal ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>
-                                    {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : a.categoria === 'juego' ? (a.tipoJuego === 'sopa_letras' ? 'Sopa de letras' : 'Crucigrama') : 'Entregable'})
+                                    {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : a.categoria === 'juego' ? etiquetaJuego(a) : 'Entregable'})
                                   </span>
                                   {/* Por qué esta actividad no lleva número ni
                                       sale en la tabla de calificaciones. */}
@@ -6412,9 +6424,14 @@ export default function SubjectPage() {
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-b border-outline-variant disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
               <ArrowDown size={16} className="text-slate-400 flex-shrink-0" /> Bajar un lugar
             </button>
+            {/* Un juego sin confirmar no se puede duplicar: la copia nacería
+                sin la reserva de créditos del original (que nunca se copia) y
+                quedaría imposible de confirmar y de publicar. */}
             <button type="button"
+              disabled={!esCopiable(activityMenu.a)}
+              data-tooltip={!esCopiable(activityMenu.a) ? 'Termina y confirma el juego para poder duplicarlo' : undefined}
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDuplicateConfirm(a) }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left">
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
               <Copy size={16} className="text-slate-400 flex-shrink-0" /> Duplicar como borrador
             </button>
             <button type="button"

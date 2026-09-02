@@ -1609,4 +1609,149 @@ await caso('operación entera junto a fraccionaria en la misma cuenta: cada una 
   assert.strictEqual((await creditosDe()).saldo, 8.5) // 10 - 0.5 - 1
 })
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Eliminar un borrador de Crucigrama / Sopa de letras (1-sep-2026)
+//
+// El apartado de créditos de `generar_contenido_juego` YA descontó el saldo
+// (reservar() lo descuenta en la misma transacción) y se cierra —sin que el
+// cobro llegue a aplicarse— al eliminar el borrador. Estas pruebas fijan que
+// el servidor reporte SIEMPRE lo que de verdad pasó, para que el aviso al
+// docente no afirme un movimiento de créditos que no ocurrió, y que ante un
+// fallo del ledger la actividad NO se pierda.
+grupo('Eliminar borrador de juego — qué pasa con el apartado de créditos')
+
+const JUEGO = require('../functions/juego.js')._pruebas
+const ASIGNATURA = 'asig_juego'
+
+async function sembrarBorradorJuego({ estado = 'juego_generado', idempotencyKeyReserva = null, actividadId = 'act_juego' } = {}) {
+  await db.doc(`subjects/${ASIGNATURA}`).set({ docenteId: DOCENTE, nombre: 'Biología' })
+  await db.doc(`activities/${actividadId}`).set({
+    nombre: '', categoria: 'juego', tipoJuego: 'crucigrama',
+    asignaturaId: ASIGNATURA, docenteId: DOCENTE, parcial: 1, oculta: true,
+    juego: { modalidad: 'descripcion', cantidadPalabras: 5, estado, contenido: [], estructura: null, idempotencyKeyReserva },
+  })
+  return actividadId
+}
+const eliminarBorrador = (actividadId) =>
+  JUEGO.cancelarBorradorJuegoImpl({ auth: { uid: DOCENTE }, data: { actividadId } })
+const existeActividad = async (id) => (await db.doc(`activities/${id}`).get()).exists
+
+await caso('con apartado vivo: el cobro no se aplica, el saldo vuelve y la actividad se elimina', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 30)
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
+  assert.strictEqual((await creditosDe()).saldo, 20, 'reservar YA descontó del saldo visible')
+  const id = await sembrarBorradorJuego({ idempotencyKeyReserva: k })
+
+  const r = await eliminarBorrador(id)
+
+  assert.strictEqual(r.reserva, 'cancelada')
+  assert.strictEqual(r.creditos, 10, 'informa cuántos créditos estaban apartados, leídos del propio apartado')
+  assert.strictEqual((await creditosDe()).saldo, 30, 'el saldo queda como antes de generar')
+  assert.strictEqual((await consumoDe(k)).estado, 'cancelado')
+  assert.strictEqual((await consumoDe(k)).creditosReales, 0, 'no se cobró nada')
+  assert.strictEqual((await creditosDe()).consumidoTotal, 0, 'un borrador eliminado no cuenta como consumo')
+  assert.strictEqual(await existeActividad(id), false)
+})
+
+await caso('sin apartado: se elimina, pero NO se afirma ningún movimiento de créditos', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 30)
+  // Cascarón que quedó cuando la IA falló: nunca hubo clave de reserva.
+  const id = await sembrarBorradorJuego({ estado: null, idempotencyKeyReserva: null })
+
+  const r = await eliminarBorrador(id)
+
+  assert.strictEqual(r.reserva, 'sin_reserva')
+  assert.strictEqual(r.creditos, null)
+  assert.strictEqual((await creditosDe()).saldo, 30)
+  assert.strictEqual(await existeActividad(id), false)
+})
+
+await caso('apartado ya expirado por la limpieza: se elimina, sin afirmar que se recuperó algo ahora', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 30)
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
+  // La limpieza diaria ya lo cerró por tiempo (y ahí mismo devolvió el saldo).
+  await L.limpiarReservasHuerfanas({ minutos: 15, ahora: new Date(Date.now() + 3 * 60 * 60 * 1000) })
+  assert.strictEqual((await consumoDe(k)).estado, 'expirado')
+  const saldoTrasExpirar = (await creditosDe()).saldo
+  const id = await sembrarBorradorJuego({ idempotencyKeyReserva: k })
+
+  const r = await eliminarBorrador(id)
+
+  assert.strictEqual(r.reserva, 'expirada')
+  assert.strictEqual(r.creditos, null, 'no se informa una cifra que no se movió ahora')
+  assert.strictEqual((await creditosDe()).saldo, saldoTrasExpirar, 'no se devuelve dos veces')
+  assert.strictEqual(await existeActividad(id), false)
+})
+
+await caso('apartado ya cobrado (liquidado): se elimina y se dice que el cobro ya se aplicó', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 30)
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 10 })
+  const id = await sembrarBorradorJuego({ idempotencyKeyReserva: k })
+
+  const r = await eliminarBorrador(id)
+
+  assert.strictEqual(r.reserva, 'ya_cobrada')
+  assert.strictEqual((await creditosDe()).saldo, 20, 'un cobro ya aplicado no se deshace')
+  // Y la métrica de margen NO se falsea a 0 cuando el cobro sí ocurrió.
+  const interno = (await db.doc(`iaConsumosInterno/${k}`).get()).data()
+  assert.ok(interno == null || interno.creditosReales !== 0)
+})
+
+await caso('si el ledger falla, la actividad NO se elimina y el apartado sigue intacto', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 30)
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
+  const id = await sembrarBorradorJuego({ idempotencyKeyReserva: k })
+
+  const original = L.reembolsar
+  L.reembolsar = async () => { throw new Error('Firestore no disponible') }
+  let error = null
+  try {
+    await eliminarBorrador(id)
+  } catch (e) {
+    error = e
+  } finally {
+    L.reembolsar = original
+  }
+
+  assert.ok(error, 'debe fallar en vez de continuar y borrar')
+  assert.ok(/NO se eliminó/.test(error.message), `el mensaje debe decir que no se eliminó: ${error.message}`)
+  assert.strictEqual(await existeActividad(id), true, 'no se pierde el borrador')
+  assert.strictEqual((await consumoDe(k)).estado, 'reservado', 'el apartado queda como estaba, para reintentar')
+  assert.strictEqual((await creditosDe()).saldo, 20, 'el saldo no se toca a ciegas')
+})
+
+await caso('un juego ya confirmado no se elimina por esta vía', async () => {
+  await limpiar()
+  await sembrarDocente()
+  const id = await sembrarBorradorJuego({ estado: 'juego_confirmado' })
+  await assert.rejects(() => eliminarBorrador(id), /ya fue confirmada/)
+  assert.strictEqual(await existeActividad(id), true)
+})
+
+await caso('el borrador de otro docente no se puede eliminar', async () => {
+  await limpiar()
+  await sembrarDocente()
+  const id = await sembrarBorradorJuego({})
+  await assert.rejects(
+    () => JUEGO.cancelarBorradorJuegoImpl({ auth: { uid: OTRO_DOCENTE }, data: { actividadId: id } }),
+    /no es tuya/
+  )
+  assert.strictEqual(await existeActividad(id), true)
+})
+
 resumen('pruebas del ledger de créditos IA')

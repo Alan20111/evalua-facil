@@ -29,6 +29,9 @@ import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENT
 import { planeacionVigente, validarArchivoPlaneacion, extensionPlaneacion } from '../src/utils/planeacionVigente.js'
 import { resolverBackspace } from '../src/utils/crucigramaBackspace.js'
 import { correccionesCrucigrama } from '../src/utils/correccionesJuego.js'
+import {
+  camposComunesCopia, camposJuegoCopia, esCopiable, nombreParaCopia, etiquetaJuego,
+} from '../src/utils/copiaActividad.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -2342,6 +2345,249 @@ caso('CJ-09: ver solución NO produce efecto secundario en la estructura origina
   const copia = JSON.parse(JSON.stringify(ESTRUCTURA_MIN))
   correccionesCrucigrama(ESTRUCTURA_MIN, { '0-0': 'G' })
   assert.deepStrictEqual(ESTRUCTURA_MIN, copia)
+})
+
+// ═══ copiaActividad — qué viaja cuando se copia una actividad ════════════════
+//
+// Los tres caminos de copia (traer de otra asignatura, duplicar asignatura
+// completa, duplicar actividad dentro de la misma) comparten este módulo.
+// Antes eran tres listas blancas distintas y NINGUNA copiaba `tipoJuego` ni
+// `juego`: el Crucigrama/Sopa de letras llegaba al destino vacío, sin tablero,
+// pidiendo las palabras otra vez e imposible de publicar.
+grupo('copiaActividad — Crucigrama / Sopa de letras')
+
+const CRUCIGRAMA = {
+  id: 'act_cruci',
+  nombre: 'Célula animal',
+  categoria: 'juego',
+  tipoJuego: 'crucigrama',
+  maxCalif: 10,
+  parcial: 2,
+  evaluacion: { tiempoLimiteMin: 15, intentosPermitidos: 2, resultadosPublicados: true, solucionPublicada: true },
+  juego: {
+    modalidad: 'descripcion',
+    cantidadPalabras: 6,
+    estado: 'juego_confirmado',
+    contenido: [{ palabra: 'núcleo', descripcion: 'Guarda el ADN' }],
+    estructura: {
+      tipo: 'crucigrama', size: 8,
+      grid: [{ row: ['N', 'U'] }],
+      palabras: [{ index: 0, palabra: 'núcleo', normalizada: 'NUCLEO' }],
+    },
+    idempotencyKeyReserva: 'clave-de-la-reserva-del-original',
+  },
+}
+
+const SOPA = {
+  id: 'act_sopa',
+  nombre: '',
+  categoria: 'juego',
+  tipoJuego: 'sopa_letras',
+  maxCalif: 10,
+  parcial: 1,
+  juego: {
+    modalidad: 'palabra',
+    cantidadPalabras: 8,
+    tamanoSopa: 10,
+    estado: 'juego_confirmado',
+    contenido: [{ palabra: 'sol', descripcion: null }],
+    estructura: {
+      tipo: 'sopa_letras', size: 10,
+      grid: [{ row: ['S', 'O', 'L'] }],
+      palabras: [{ index: 0, palabra: 'sol', normalizada: 'SOL' }],
+    },
+    idempotencyKeyReserva: 'otra-clave',
+  },
+}
+
+caso('CP-01: la copia de un crucigrama confirmado conserva tipoJuego', () => {
+  assert.strictEqual(camposComunesCopia(CRUCIGRAMA).tipoJuego, 'crucigrama')
+})
+
+caso('CP-02: conserva el juego entero — modalidad, cantidad, estado, contenido y estructura', () => {
+  const j = camposComunesCopia(CRUCIGRAMA).juego
+  assert.strictEqual(j.modalidad, 'descripcion')
+  assert.strictEqual(j.cantidadPalabras, 6)
+  assert.strictEqual(j.estado, 'juego_confirmado')
+  assert.deepStrictEqual(j.contenido, CRUCIGRAMA.juego.contenido)
+  assert.deepStrictEqual(j.estructura, CRUCIGRAMA.juego.estructura)
+})
+
+caso('CP-03: la copia NUNCA lleva idempotencyKeyReserva (es del original)', () => {
+  const j = camposComunesCopia(CRUCIGRAMA).juego
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(j, 'idempotencyKeyReserva'), false)
+  assert.strictEqual(j.idempotencyKeyReserva, undefined)
+})
+
+caso('CP-04: copiar no le quita la reserva al original (no lo muta)', () => {
+  camposComunesCopia(CRUCIGRAMA)
+  camposJuegoCopia(CRUCIGRAMA)
+  assert.strictEqual(CRUCIGRAMA.juego.idempotencyKeyReserva, 'clave-de-la-reserva-del-original')
+})
+
+caso('CP-05: la sopa de letras confirmada conserva tipoJuego y tamanoSopa', () => {
+  const d = camposComunesCopia(SOPA)
+  assert.strictEqual(d.tipoJuego, 'sopa_letras')
+  assert.strictEqual(d.juego.tamanoSopa, 10)
+  assert.strictEqual(d.juego.estructura.size, 10)
+})
+
+caso('CP-06: a un juego no se le inventan tipo/tiposArchivo/extensionesCustom', () => {
+  const d = camposComunesCopia(CRUCIGRAMA)
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(d, 'tipo'), false)
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(d, 'tiposArchivo'), false)
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(d, 'extensionesCustom'), false)
+})
+
+caso('CP-07: la copia no arrastra resultados ni solución ya publicados', () => {
+  const ev = camposComunesCopia(CRUCIGRAMA).evaluacion
+  assert.strictEqual(ev.resultadosPublicados, false)
+  assert.strictEqual(ev.solucionPublicada, false)
+  assert.strictEqual(ev.respuestasPublicadas, false)
+  assert.strictEqual(ev.tiempoLimiteMin, 15, 'la configuración de verdad sí se conserva')
+})
+
+caso('CP-08: la fecha límite del ciclo anterior nunca viaja', () => {
+  assert.strictEqual(camposComunesCopia({ ...CRUCIGRAMA, fechaLimite: '2026-01-01' }).fechaLimite, null)
+})
+
+grupo('copiaActividad — qué NO se puede copiar')
+
+caso('CP-09: un juego confirmado sí se puede copiar', () => {
+  assert.strictEqual(esCopiable(CRUCIGRAMA), true)
+  assert.strictEqual(esCopiable(SOPA), true)
+})
+
+caso('CP-10: un juego SIN confirmar queda excluido en los cuatro estados previos', () => {
+  for (const estado of [null, 'contenido_generado', 'contenido_editado', 'juego_generado']) {
+    const sinConfirmar = { ...CRUCIGRAMA, juego: { ...CRUCIGRAMA.juego, estado } }
+    assert.strictEqual(esCopiable(sinConfirmar), false, `estado ${estado}`)
+  }
+})
+
+caso('CP-11: una actividad de categoría juego SIN objeto juego tampoco se copia', () => {
+  assert.strictEqual(esCopiable({ categoria: 'juego', tipoJuego: 'crucigrama' }), false)
+})
+
+caso('CP-12: las actividades normales se copian siempre, aunque sean borrador', () => {
+  assert.strictEqual(esCopiable({ categoria: 'entregable', oculta: true }), true)
+  assert.strictEqual(esCopiable({ categoria: 'examen', tipo: 'evaluacion' }), true)
+})
+
+grupo('copiaActividad — nombre del juego')
+
+caso('CP-13: un juego sin nombre se copia con la etiqueta de su tipo, no en blanco', () => {
+  assert.strictEqual(nombreParaCopia(SOPA), 'Sopa de letras')
+  assert.strictEqual(nombreParaCopia({ ...CRUCIGRAMA, nombre: '' }), 'Crucigrama')
+})
+
+caso('CP-14: un juego con nombre conserva el suyo', () => {
+  assert.strictEqual(nombreParaCopia(CRUCIGRAMA), 'Célula animal')
+})
+
+caso('CP-15: etiquetaJuego distingue los dos tipos y cae en Crucigrama sin tipo', () => {
+  assert.strictEqual(etiquetaJuego({ tipoJuego: 'sopa_letras' }), 'Sopa de letras')
+  assert.strictEqual(etiquetaJuego({ tipoJuego: 'crucigrama' }), 'Crucigrama')
+  assert.strictEqual(etiquetaJuego({}), 'Crucigrama')
+})
+
+caso('CP-16: una actividad normal sin nombre no hereda etiqueta de juego', () => {
+  assert.strictEqual(nombreParaCopia({ categoria: 'entregable', nombre: '' }), '')
+})
+
+grupo('copiaActividad — las actividades normales no se rompen')
+
+const ENTREGABLE = {
+  id: 'act_ent', nombre: 'Ensayo', categoria: 'entregable', tipo: 'archivo',
+  maxCalif: 10, instrucciones: '<p>Hazlo</p>', archivosAdjuntos: [{ url: 'u' }],
+  tiposArchivo: 'documentos', extensionesCustom: '.md', rubrica: { niveles: [] },
+  rubricaId: 'r1', pesoCalificacion: 30, fechaLimite: '2025-12-01',
+}
+
+caso('CP-17: el entregable conserva tipo, tiposArchivo, rúbrica y ponderación', () => {
+  const d = camposComunesCopia(ENTREGABLE)
+  assert.strictEqual(d.tipo, 'archivo')
+  assert.strictEqual(d.tiposArchivo, 'documentos')
+  assert.strictEqual(d.extensionesCustom, '.md')
+  assert.deepStrictEqual(d.rubrica, ENTREGABLE.rubrica)
+  assert.strictEqual(d.rubricaId, 'r1')
+  assert.strictEqual(d.pesoCalificacion, 30)
+  assert.strictEqual(d.categoria, 'entregable')
+  assert.deepStrictEqual(d.archivosAdjuntos, ENTREGABLE.archivosAdjuntos)
+})
+
+caso('CP-18: una actividad normal no recibe campos de juego', () => {
+  const d = camposComunesCopia(ENTREGABLE)
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(d, 'juego'), false)
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(d, 'tipoJuego'), false)
+})
+
+caso('CP-19: una actividad legacy sin categoría ni maxCalif recibe valores por omisión válidos', () => {
+  const d = camposComunesCopia({ nombre: 'Vieja' })
+  assert.strictEqual(d.categoria, 'entregable')
+  assert.strictEqual(d.maxCalif, 10)
+  assert.strictEqual(d.tipo, 'archivo')
+  assert.strictEqual(d.tiposArchivo, 'imagenes')
+})
+
+caso('CP-20: copiar es una operación de datos pura — ninguna clave de reserva viaja', () => {
+  const texto = JSON.stringify(camposComunesCopia(CRUCIGRAMA))
+  assert.ok(!texto.includes('idempotency'))
+  assert.ok(!texto.includes('clave-de-la-reserva-del-original'))
+})
+
+// El estudiante resuelve contra `juego.estructura`, y el SERVIDOR califica con
+// esa misma estructura (calificarCrucigrama / calificarSopaDeLetras en
+// functions/index.js). Si la copia no la lleva —el defecto original— no hay
+// nada que resolver ni que calificar. Aquí la estructura YA COPIADA se pasa
+// por el calificador de verdad, no por una imitación.
+grupo('copiaActividad — el juego copiado sigue siendo resoluble y calificable')
+
+const CRUCI_JUGABLE = {
+  categoria: 'juego', tipoJuego: 'crucigrama', nombre: 'Sistema solar',
+  juego: {
+    modalidad: 'descripcion', cantidadPalabras: 5, estado: 'juego_confirmado',
+    contenido: [{ palabra: 'sol', descripcion: 'Estrella del sistema' }],
+    estructura: {
+      tipo: 'crucigrama', size: 2,
+      grid: [{ row: ['S', 'O'] }, { row: [null, 'L'] }],
+      palabras: [{ index: 0, palabra: 'sol', descripcion: 'Estrella del sistema', normalizada: 'SOL' }],
+    },
+    idempotencyKeyReserva: 'no-debe-viajar',
+  },
+}
+
+caso('CP-21: el crucigrama copiado se califica al 100% con todo correcto', () => {
+  const copiado = camposComunesCopia(CRUCI_JUGABLE).juego.estructura
+  assert.strictEqual(F.calificarCrucigrama(copiado, { celdas: { '0-0': 'S', '0-1': 'o', '1-1': 'L' } }), 1)
+})
+
+caso('CP-22: el crucigrama copiado califica parcial cuando falta una letra', () => {
+  const copiado = camposComunesCopia(CRUCI_JUGABLE).juego.estructura
+  const fraccion = F.calificarCrucigrama(copiado, { celdas: { '0-0': 'S', '0-1': 'O' } })
+  assert.ok(Math.abs(fraccion - 2 / 3) < 1e-9, `esperaba 2/3, llegó ${fraccion}`)
+})
+
+caso('CP-23: la pista de cada palabra viaja en la copia (sin ella el alumno no puede resolver)', () => {
+  const copiado = camposComunesCopia(CRUCI_JUGABLE).juego.estructura
+  assert.strictEqual(copiado.palabras[0].descripcion, 'Estrella del sistema')
+  assert.strictEqual(copiado.palabras[0].normalizada, 'SOL')
+})
+
+caso('CP-24: la sopa de letras copiada se califica con las palabras encontradas', () => {
+  const copiada = camposComunesCopia({
+    categoria: 'juego', tipoJuego: 'sopa_letras',
+    juego: {
+      estado: 'juego_confirmado', tamanoSopa: 8,
+      estructura: {
+        tipo: 'sopa_letras', size: 8, grid: [{ row: ['S', 'O', 'L'] }],
+        palabras: [{ index: 0, normalizada: 'SOL' }, { index: 1, normalizada: 'LUNA' }],
+      },
+      idempotencyKeyReserva: 'no-debe-viajar',
+    },
+  }).juego.estructura
+  assert.strictEqual(F.calificarSopaDeLetras(copiada, { encontradas: [0, 1] }), 1)
+  assert.strictEqual(F.calificarSopaDeLetras(copiada, { encontradas: [0] }), 0.5)
 })
 
 console.log(`\n${'─'.repeat(60)}`)

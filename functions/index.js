@@ -1312,6 +1312,13 @@ exports.activarCreditosBienvenida = onCall(async (request) => {
 // despliegue solo recoge exportaciones con `__endpoint`, así que esto no se
 // despliega ni cuenta como función. Hay un caso de prueba que lo comprueba.
 exports._pruebas = {
+  // Calificación de Crucigrama/Sopa de letras: lógica pura, sin Firestore. Se
+  // expone para poder afirmar que un juego COPIADO a otra asignatura sigue
+  // siendo calificable con la estructura que viajó (test/unidad.test.mjs,
+  // grupo copiaActividad) — justo lo que se rompía cuando la copia perdía
+  // `juego.estructura`.
+  calificarCrucigrama,
+  calificarSopaDeLetras,
   calcularPuntosPregunta,
   calcularCalificacion,
   resolverPendienteRevision,

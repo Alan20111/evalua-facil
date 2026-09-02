@@ -4,6 +4,7 @@ import {
 // Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
 import { setDoc, writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
+import { camposComunesCopia, nombreParaCopia, esCopiable } from './copiaActividad'
 
 // Copies selected activities from ANOTHER subject into `targetSubjectId`, as
 // DRAFTS (oculta, never published) inside `targetParcial`. The teacher reviews
@@ -11,7 +12,9 @@ import { db } from '../firebase'
 //
 // Carried over: name, type, category, instructions, attachments, accepted file
 // types, rubric (embedded snapshot + banco reference), grading weight,
-// evaluación config + its `preguntas` subcollection.
+// evaluación config + its `preguntas` subcollection, and — for Crucigrama /
+// Sopa de letras — `tipoJuego` plus the whole `juego` object. Esa lista vive
+// en ./copiaActividad.js, compartida por los tres caminos de copia.
 // NOT carried over: deadline, per-student extensions, submissions/grades.
 //
 // Returns the created activity docs ({ id, ...data }) for optimistic state.
@@ -19,21 +22,14 @@ export async function importActivitiesToSubject({ sourceActivities, targetSubjec
   const created = []
   let orden = startOrden
   for (const src of sourceActivities) {
+    // Un juego sin confirmar no se trae: quedaría imposible de confirmar y,
+    // por tanto, de publicar (ver esCopiable). El selector ya no los ofrece;
+    // esto es el cinturón por si llegara uno de todos modos.
+    if (!esCopiable(src)) continue
     const newRef = doc(collection(db, 'activities'))
     const data = {
-      nombre: src.nombre || '',
-      categoria: src.categoria || 'entregable',
-      maxCalif: src.maxCalif ?? 10,
-      instrucciones: src.instrucciones || '',
-      archivosAdjuntos: src.archivosAdjuntos || [],
-      fechaLimite: null,
-      tiposArchivo: src.tiposArchivo || 'imagenes',
-      extensionesCustom: src.extensionesCustom || '',
-      tipo: src.tipo || 'archivo',
-      rubrica: src.rubrica || null,
-      rubricaId: src.rubricaId || null,
-      pesoCalificacion: src.pesoCalificacion ?? null,
-      ...(src.evaluacion ? { evaluacion: src.evaluacion } : {}),
+      nombre: nombreParaCopia(src),
+      ...camposComunesCopia(src),
       parcial: targetParcial,
       orden: orden++,
       asignaturaId: targetSubjectId,

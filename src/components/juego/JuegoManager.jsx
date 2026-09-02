@@ -31,6 +31,8 @@ import PublicacionScheduler from '../PublicacionScheduler'
 import EFDateTimePicker from '../EFDateTimePicker'
 import Select from '../ui/Select'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { etiquetaJuego } from '../../utils/copiaActividad'
+import useCreditosIA from '../../hooks/useCreditosIA'
 import { withDefaultTime } from '../../utils/activityVisibility'
 import { nowIsoLocal } from '../../utils/nowIso'
 import { studentFullName } from '../../utils/studentSearch'
@@ -48,13 +50,20 @@ export default function JuegoManager({
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
   const [cancelando, setCancelando] = useState(false)
   const toast = useToast()
+  const creditosIA = useCreditosIA()
   const estado = activity.juego?.estado || null
-  const tipoLabel = activity.tipoJuego === 'sopa_letras' ? 'Sopa de letras' : 'Crucigrama'
+  const tipoLabel = etiquetaJuego(activity)
+  // Cuántos créditos se apartan al generar el contenido con IA. Sale de
+  // `config/iaTarifas` (la MISMA fuente que usa el servidor), nunca de una
+  // constante escrita aquí: si la tarifa cambia, este número cambia solo. Si
+  // las tarifas aún no cargaron es `null` y el diálogo simplemente no da una
+  // cifra, en vez de inventarse una.
+  const creditosApartados = creditosIA.estimar('generar_contenido_juego')
   // Antes de 'juego_confirmado' esto sigue siendo un borrador — puede tener
-  // una reserva de créditos viva (generar_contenido_juego) que hay que
-  // liberar al cancelar, no solo borrar el documento (ver
-  // cancelarBorradorJuego, functions/juego.js). Ya confirmado, cancelar ya
-  // no aplica — se elimina como cualquier otra actividad (onDeleteActivity).
+  // un apartado de créditos vivo (generar_contenido_juego) que hay que cerrar
+  // al eliminarlo, no solo borrar el documento (ver cancelarBorradorJuego,
+  // functions/juego.js). Ya confirmado, esto ya no aplica — se elimina como
+  // cualquier otra actividad (onDeleteActivity).
   const esBorrador = estado !== 'juego_confirmado'
 
   async function refetchActivity() {
@@ -72,15 +81,34 @@ export default function JuegoManager({
     await refetchActivity()
   }
 
-  async function handleCancelarBorrador() {
+  // El aviso final dice EXACTAMENTE lo que ocurrió con el apartado de
+  // créditos, según lo que responde el servidor (`reserva`) — no una frase
+  // fija. Antes se afirmaba siempre un movimiento de créditos, incluso cuando
+  // no había ningún apartado que cerrar o ya se había cerrado por tiempo.
+  function mensajeCierre({ reserva, creditos }) {
+    if (reserva === 'cancelada') {
+      return creditos != null
+        ? `Actividad eliminada. Se habían apartado ${creditos} ${creditos === 1 ? 'crédito' : 'créditos'}: el cobro de los créditos apartados no se aplica.`
+        : 'Actividad eliminada. El cobro de los créditos apartados no se aplica.'
+    }
+    if (reserva === 'expirada') return 'Actividad eliminada. El apartado de créditos ya se había cerrado antes por tiempo.'
+    if (reserva === 'ya_cerrada') return 'Actividad eliminada. El apartado de créditos ya estaba cerrado.'
+    if (reserva === 'ya_cobrada') return 'Actividad eliminada. El cobro de esa generación ya se había aplicado.'
+    return 'Actividad eliminada.'
+  }
+
+  async function handleEliminarBorrador() {
     setCancelando(true)
     try {
       const cancelarBorradorJuego = httpsCallable(functions, 'cancelarBorradorJuego')
-      await cancelarBorradorJuego({ actividadId: activityId })
-      toast('Borrador cancelado — se liberaron los créditos reservados')
+      const { data } = await cancelarBorradorJuego({ actividadId: activityId })
+      toast(mensajeCierre(data || {}))
       goBack?.()
     } catch (err) {
-      toast(err.message || 'No se pudo cancelar el borrador', 'error')
+      // Si el servidor no pudo cerrar el apartado de créditos, la actividad
+      // SIGUE ahí (no se borra) — el error se muestra tal cual y la vista se
+      // queda donde está para que el docente pueda reintentar.
+      toast(err.message || 'No se pudo eliminar el borrador', 'error')
       setCancelando(false)
       setConfirmandoCancelar(false)
     }
@@ -104,7 +132,8 @@ export default function JuegoManager({
           <p className="text-base font-medium text-muted">Parcial {activity.parcial} · {subjectDisplayName(subject)}</p>
         </div>
         {esBorrador && (
-          <button type="button" onClick={() => setConfirmandoCancelar(true)} aria-label="Cancelar borrador"
+          <button type="button" onClick={() => setConfirmandoCancelar(true)} aria-label="Eliminar este borrador"
+            data-tooltip="Eliminar este borrador"
             className="p-2 text-slate-400 hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0">
             <XCircle size={18} />
           </button>
@@ -117,19 +146,28 @@ export default function JuegoManager({
         )}
       </div>
 
+      {/* Lo irreversible aquí es que se BORRA la actividad con todo y las
+          palabras generadas — el aviso anterior no lo decía, y en cambio
+          presentaba el cierre del apartado de créditos como si el docente
+          ganara algo. La cifra sale de config/iaTarifas, nunca escrita a mano. */}
       {confirmandoCancelar && (
         <div className="mb-3 p-3 rounded-card bg-red-50 border border-red-200 flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
           <p className="text-sm text-error">
-            ¿Cancelar este borrador? Se liberan los créditos reservados y no podrás recuperarlo.
+            ¿Eliminar este borrador de {tipoLabel.toLowerCase()}? Se eliminan de forma permanente la actividad
+            y las palabras generadas: no se podrán recuperar.{' '}
+            {creditosApartados != null && (
+              <>Al generar el contenido se apartaron {creditosApartados} {creditosApartados === 1 ? 'crédito' : 'créditos'}. </>
+            )}
+            El cobro de los créditos apartados no se aplica.
           </p>
           <div className="flex gap-2 flex-shrink-0">
             <button type="button" onClick={() => setConfirmandoCancelar(false)} disabled={cancelando}
               className="px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors disabled:opacity-60">
               No, seguir editando
             </button>
-            <button type="button" onClick={handleCancelarBorrador} disabled={cancelando}
+            <button type="button" onClick={handleEliminarBorrador} disabled={cancelando}
               className="px-3 py-1.5 bg-error text-white text-sm font-medium rounded hover:opacity-90 transition-colors disabled:opacity-60">
-              {cancelando ? 'Cancelando…' : 'Sí, cancelar borrador'}
+              {cancelando ? 'Eliminando…' : 'Sí, eliminar'}
             </button>
           </div>
         </div>
@@ -172,6 +210,12 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
   const toast = useToast()
   const evalDefaults = EVALUACION_DEFAULTS.juego
   const [form, setForm] = useState({
+    // El nombre vive en el campo NORMAL de la actividad (`activity.nombre`),
+    // el mismo que usan todas las demás — no hay un nombre "de juego" aparte.
+    // Hasta hoy los juegos nacían con `nombre: ''` (CrearJuegoIAModal) y no
+    // existía ninguna pantalla para ponérselo: en la lista de la asignatura
+    // salían como filas sin nombre.
+    nombre: activity.nombre || '',
     tiempoLimiteMin: activity.evaluacion?.tiempoLimiteMin ?? evalDefaults.tiempoLimiteMin,
     intentosPermitidos: activity.evaluacion?.intentosPermitidos ?? evalDefaults.intentosPermitidos,
     conservar: activity.evaluacion?.conservar ?? evalDefaults.conservar,
@@ -214,14 +258,18 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
       if (!form.publicarSolucionFecha) { toast('Elige la fecha de publicación de la solución', 'error'); return }
       if (form.publicarSolucionFecha <= nowIsoLocal()) { toast('La fecha debe ser posterior a este momento', 'error'); return }
     }
-    const toSave = { ...activity.evaluacion, ...form }
+    // `nombre` es un campo de la actividad, no de su configuración de
+    // evaluación: se separa antes de armar `evaluacion` para no meterlo dentro.
+    const { nombre, ...evalForm } = form
+    const toSave = { ...activity.evaluacion, ...evalForm }
     if (toSave.publicarResultados === 'ahora') toSave.resultadosPublicados = true
     if (toSave.publicarSolucion === 'ahora') toSave.solucionPublicada = true
+    const nombreLimpio = nombre.trim()
     setSaving(true)
     try {
-      await updateDoc(doc(db, 'activities', activityId), { evaluacion: toSave })
-      onActivityChange((prev) => ({ ...prev, evaluacion: toSave }))
-      setFormInicial(form)
+      await updateDoc(doc(db, 'activities', activityId), { evaluacion: toSave, nombre: nombreLimpio })
+      onActivityChange((prev) => ({ ...prev, evaluacion: toSave, nombre: nombreLimpio }))
+      setFormInicial({ ...form, nombre: nombreLimpio })
       toast('Configuración guardada')
     } catch (err) {
       toast(err.message || 'No se pudo guardar', 'error')
@@ -296,6 +344,13 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
           <h2 className="font-semibold text-accent">Configuración</h2>
         </div>
         <form onSubmit={handleSaveConfig} className="p-4 space-y-3">
+          <div>
+            <label htmlFor="juego-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
+            <input id="juego-nombre" type="text" maxLength={120} value={form.nombre}
+              onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+              placeholder={`Sin nombre — se mostrará como "${etiquetaJuego(activity)}"`}
+              className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+          </div>
           <div>
             <label htmlFor="juego-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
             <input id="juego-tiempo" type="number" min="1" value={form.tiempoLimiteMin ?? ''}

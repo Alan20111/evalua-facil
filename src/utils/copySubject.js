@@ -6,6 +6,7 @@ import {
 import { addDoc, setDoc, writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
 import { nowIsoLocal } from './nowIso'
+import { camposComunesCopia, nombreParaCopia, esCopiable } from './copiaActividad'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -16,6 +17,8 @@ function generateAccessCode() {
 // Activities are copied as visible (oculta:false), without submissions/grades.
 // Evaluaciones (examen/cuestionario) carry their `evaluacion` config and their
 // `preguntas` subcollection too — sin eso la copia queda como examen vacío.
+// Crucigrama/Sopa de letras llevan `tipoJuego` y su objeto `juego` (ver
+// ./copiaActividad.js); los que aún no están confirmados no se copian.
 // Returns the new subject's Firestore ID.
 export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaInicio = '', fechaFin = '', parciales, colorPalette = 'default', icon = 'book', keepStudents, docenteId, escuelaId }) {
   // 1. Create new subject doc
@@ -68,45 +71,22 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
 
   // 3. Copy activities (visible, no extensions, no submissions)
   for (const a of sourceActs) {
+    // Un juego sin confirmar no se duplica: sin la reserva de créditos del
+    // original (que jamás se copia) la copia no podría confirmarse ni, por
+    // tanto, publicarse. Ver esCopiable en ./copiaActividad.js.
+    if (!esCopiable(a)) continue
     const ref = doc(collection(db, 'activities'))
     ordenPorParcial[a.parcial] = (ordenPorParcial[a.parcial] || 0) + 1
     const esEvaluacion = a.tipo === 'evaluacion'
     const data = {
-      nombre: a.nombre,
-      categoria: a.categoria || 'actividad',
-      maxCalif: a.maxCalif,
-      instrucciones: a.instrucciones || '',
-      archivosAdjuntos: a.archivosAdjuntos || [],
-      // null, NUNCA a.fechaLimite: la asignatura nueva tiene su propio
-      // fechaInicio/fechaFin (el docente los captura arriba, en el modal de
-      // "Duplicar asignatura") — la fecha límite del ciclo anterior es casi
-      // siempre pasado ya, así que la actividad nacía "vencida" en el grupo
-      // nuevo. Mismo criterio que ya usa importActivitiesToSubject.js (traer
-      // actividades sueltas de otra asignatura) y handleDuplicateActivity
-      // (duplicar una actividad dentro de la misma asignatura).
-      fechaLimite: null,
-      tiposArchivo: a.tiposArchivo || 'imagenes',
-      extensionesCustom: a.extensionesCustom || '',
-      tipo: a.tipo || 'archivo',
-      // La rúbrica vive como COPIA embebida en la actividad (rubrica.js:
-      // snapshotRubrica), no como referencia — sin esto la actividad copiada
-      // llegaba "sin rúbrica asignada" y el docente tenía que rehacerla.
-      // rubricaId solo apunta al origen en bancoRubricas para que el picker
-      // marque "Usando ✓"; se conserva igual, sigue siendo el mismo docente.
-      rubrica: a.rubrica || null,
-      rubricaId: a.rubricaId || null,
-      // La ponderación es configuración del docente sobre ESTA actividad, no
-      // estado del ciclo anterior — perderla resetea el parcial a promedio
-      // simple en el grupo nuevo (ver pesoDe en ponderacion.js).
-      pesoCalificacion: a.pesoCalificacion ?? null,
-      // Un examen/cuestionario SIN su config ni su banco de preguntas llega al
-      // grupo nuevo como una evaluación vacía (0 preguntas, sin tiempo límite ni
-      // reglas de intentos). `resultadosPublicados`/`respuestasPublicadas` son
-      // estado del ciclo anterior, no configuración: se reinician para que el
-      // grupo nuevo no vea calificaciones ni respuestas correctas de entrada.
-      ...(a.evaluacion ? {
-        evaluacion: { ...a.evaluacion, resultadosPublicados: false, respuestasPublicadas: false, solucionPublicada: false },
-      } : {}),
+      nombre: nombreParaCopia(a),
+      // Qué campos viajan (incluidos `tipoJuego` y `juego` de Crucigrama/Sopa
+      // de letras, y el reinicio de resultados/respuestas/solución
+      // publicadas): ./copiaActividad.js, compartido con los otros dos
+      // caminos de copia. La fecha límite se pierde a propósito —
+      // `fechaLimite: null` ahí— porque la asignatura nueva tiene su propio
+      // fechaInicio/fechaFin y la del ciclo anterior ya pasó.
+      ...camposComunesCopia(a),
       parcial: a.parcial,
       orden: ordenPorParcial[a.parcial],
       asignaturaId: newSubjectId,
