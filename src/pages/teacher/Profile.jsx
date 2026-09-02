@@ -468,8 +468,6 @@ export default function Profile() {
               id="prof-cp"
               value={codigoPostal}
               onChange={setCodigoPostal}
-              labelClassName="block text-xs font-medium text-muted mb-1"
-              inputClassName={inputCls}
             />
             <button type="submit" disabled={savingDatosPersonales || !datosPersonalesChanged}
               className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">

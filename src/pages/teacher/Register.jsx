@@ -193,8 +193,6 @@ export default function Register() {
                 id="register-cp"
                 value={codigoPostal}
                 onChange={setCodigoPostal}
-                labelClassName="block text-sm font-medium text-muted mb-1"
-                inputClassName="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
               />
 
               <div>

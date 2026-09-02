@@ -1,5 +1,6 @@
 import { useUbicacionCP } from '../data/useCodigoPostal'
 import { estadoPorCodigoPostal, soloDigitosCP, ubicacionTexto } from '../utils/codigoPostal'
+import Input from './ui/Input'
 
 // Campo de código postal: el docente escribe 5 dígitos y debajo aparece su
 // estado y ciudad (o municipio, si el catálogo no trae ciudad) — no se le
@@ -9,7 +10,16 @@ import { estadoPorCodigoPostal, soloDigitosCP, ubicacionTexto } from '../utils/c
 // fragmentos del catálogo están cacheados en memoria, así que resolver el
 // mismo CP dos veces (aquí y en la pantalla que guarda) no cuesta ninguna
 // descarga extra y evita bajar props por toda la pantalla.
-export default function CodigoPostalField({ id, value, onChange, inputClassName, labelClassName }) {
+//
+// Usa ui/Input en vez de pintar su propia etiqueta e <input>. Antes recibía
+// `labelClassName` e `inputClassName` de cada pantalla, y las tres los
+// pasaban distintos: Perfil ponía la etiqueta en text-xs y el campo en py-2,
+// mientras Alta y Onboarding usaban text-sm y py-2.5. Con el componente de la
+// librería el estilo es uno solo y la marca de obligatorio sale sola.
+//
+// `required`: el CP es obligatorio en las tres pantallas — errorCodigoPostal
+// devuelve "Escribe tu código postal" cuando viene vacío.
+export default function CodigoPostalField({ id, value, onChange }) {
   const { ubicacion, buscando, noEncontrado } = useUbicacionCP(value)
   // Los rangos por estado viven en el bundle, así que el estado se puede
   // mostrar en cuanto se escribe el quinto dígito; la ciudad llega un
@@ -18,20 +28,22 @@ export default function CodigoPostalField({ id, value, onChange, inputClassName,
 
   return (
     <div>
-      <label htmlFor={id} className={labelClassName}>Código postal</label>
-      <input
+      <Input
         id={id}
+        label="Código postal"
+        required
         type="text"
         inputMode="numeric"
         maxLength={5}
         value={value}
         onChange={(e) => onChange(soloDigitosCP(e.target.value))}
-        className={inputClassName}
         placeholder="Ej. 38000"
         aria-describedby={`${id}-ubicacion`}
       />
       {/* aria-live: quien usa lector de pantalla también se entera de que el
-          CP se resolvió, sin tener que volver a recorrer el formulario. */}
+          CP se resolvió, sin tener que volver a recorrer el formulario.
+          Va fuera del Input porque su `hint` es texto gris fijo y aquí el
+          mensaje cambia de color según el estado. */}
       <p id={`${id}-ubicacion`} aria-live="polite" className="text-sm mt-1 min-h-[1.25rem]">
         {buscando && <span className="text-slate-400">{estadoInmediato || 'Buscando…'}</span>}
         {ubicacion && <span className="text-muted">{ubicacionTexto(ubicacion)}</span>}
