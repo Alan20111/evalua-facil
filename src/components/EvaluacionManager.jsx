@@ -1239,7 +1239,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           contenedor que el cuerpo de abajo: si no, el título se pega a la
           izquierda mientras el cuerpo se ve centrado. */}
       <div className="px-4 py-2">
-        <div className={TEACHER_CONTAINER_NARROW}>
+        <div className={IS_NATIVE_APP ? '' : TEACHER_CONTAINER_NARROW}>
           <div className="flex items-center gap-2">
             <button type="button" aria-label="Volver" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
               <ArrowLeft size={22} />
@@ -1312,7 +1312,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         </div>
       </div>
 
-      <div className={`p-4 ${TEACHER_CONTAINER_NARROW}`}>
+      <div className={IS_NATIVE_APP ? 'p-4' : `p-4 ${TEACHER_CONTAINER_NARROW}`}>
         {tab === 'preguntas' && (
           <div>
             {!loadingPreguntas && preguntas.length > 0 && (() => {
