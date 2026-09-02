@@ -32,7 +32,7 @@ import { useBackHandler } from '../hooks/useBackHandler'
 // mano (que vive en Firestore y exige estar autenticado) sale vacía y solo se
 // busca en el catálogo estático. No genera duplicados: resolveSchoolSelection
 // reconcilia por CCT y por nombre+municipio al momento de guardar.
-export default function SchoolPicker({ onSelect, onClose, saving = false, titulo }) {
+export default function SchoolPicker({ onSelect, onClose, saving = false }) {
   const toast = useToast()
   const [search, setSearch] = useState('')
   const [addingCustom, setAddingCustom] = useState(false)
@@ -148,12 +148,11 @@ export default function SchoolPicker({ onSelect, onClose, saving = false, titulo
       title="Elige tu escuela"
       variant="centered"
       size="sm"
-      padding="p-0"
       busy={saving}
       closeOnBackdrop={!saving}
     >
       {addingCustom && customStep === 'similar' ? (
-        <div className="p-3 space-y-2 max-h-[70dvh] overflow-y-auto">
+        <div className="space-y-3 max-h-[70dvh] overflow-y-auto">
           <p className="text-sm text-muted">
             Encontramos escuelas parecidas — ¿es alguna de estas la misma que quieres agregar?
           </p>
@@ -179,7 +178,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false, titulo
           </div>
         </div>
       ) : addingCustom && customStep === 'confirm' ? (
-        <div className="p-3 space-y-2">
+        <div className="space-y-3">
           <p className="text-sm text-muted">¿Confirmas que la escuela a agregar es esta?</p>
           <div className="bg-surface rounded p-3 border border-outline-variant space-y-1">
             <p className="text-sm font-semibold text-on-surface">{customName.trim()}</p>
@@ -195,7 +194,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false, titulo
           </div>
         </div>
       ) : addingCustom ? (
-        <form onSubmit={reviewCustom} className="p-3 space-y-2 max-h-[70dvh] overflow-y-auto">
+        <form onSubmit={reviewCustom} className="space-y-3 max-h-[70dvh] overflow-y-auto">
           <div>
             <label htmlFor="escuela-nombre" className="block text-sm font-medium text-muted mb-1">Nombre oficial de la escuela</label>
             <input
@@ -254,25 +253,24 @@ export default function SchoolPicker({ onSelect, onClose, saving = false, titulo
         </form>
       ) : (
         <div className="flex flex-col">
-          <div className="p-3 border-b border-outline-variant">
+          <div className="pb-3 -mx-4 sm:-mx-5 px-4 sm:px-5 border-b border-outline-variant">
             <SearchInput value={search} onChange={setSearch} placeholder="Nombre, CCT o municipio…" />
-            {titulo && <p className="text-sm text-muted mt-2">{titulo}</p>}
           </div>
           {!search.trim() ? (
-            <p className="px-4 py-8 text-center text-sm text-slate-500">
+            <p className="py-8 text-center text-sm text-slate-500">
               Escribe el nombre de tu escuela, su municipio o su clave (CCT) para buscarla.
             </p>
           ) : catalogLoading ? (
             <div className="flex justify-center py-10"><Spinner /></div>
           ) : (
-            <ul className="max-h-[50dvh] overflow-y-auto divide-y divide-slate-100">
+            <ul className="max-h-[50dvh] overflow-y-auto divide-y divide-slate-100 -mx-4 sm:-mx-5">
               {filteredPlanteles.length === 0 && filteredCustomSchools.length === 0 && (
                 <li className="text-center text-slate-500 text-sm py-10">Sin resultados</li>
               )}
               {filteredCustomSchools.map((s) => (
                 <li key={s.id}>
                   <button type="button" onClick={() => onSelect({ existingId: s.id, nombre: s.nombre })} disabled={saving}
-                    className="w-full text-left px-4 py-2 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                    className="w-full text-left px-4 sm:px-5 py-2.5 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                     <p className="text-sm font-medium text-on-surface leading-tight">{s.nombre}</p>
                     {(s.claveSEP || s.municipio || s.estado) && (
                       <p className="text-sm text-slate-500 mt-0.5">
@@ -285,7 +283,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false, titulo
               {filteredPlanteles.map((p) => (
                 <li key={p.cct}>
                   <button type="button" onClick={() => onSelect(p)} disabled={saving}
-                    className="w-full text-left px-4 py-2 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                    className="w-full text-left px-4 sm:px-5 py-2.5 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                     <p className="text-sm font-medium text-on-surface leading-tight">{p.short || p.nombre}</p>
                     <p className="text-sm text-slate-500 mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
                   </button>
@@ -294,7 +292,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false, titulo
             </ul>
           )}
           {search.trim() && (
-            <div className="border-t border-outline-variant p-2">
+            <div className="border-t border-outline-variant pt-2 -mx-4 sm:-mx-5 px-4 sm:px-5">
               <button
                 type="button"
                 disabled={saving}

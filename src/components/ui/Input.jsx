@@ -4,6 +4,10 @@
 //
 // Props:
 //   label   texto del <label> (opcional). Si se pasa `id`, se asocia con htmlFor.
+//   optional  pinta el signo "+" de campo opcional junto a la etiqueta. El
+//             asterisco rojo de obligatorio NO se pide: sale solo cuando el
+//             campo lleva `required`, para que no puedan discrepar la marca
+//             visual y la validación real.
 //   hint    texto de ayuda debajo (text-xs text-slate-400).
 //   error   mensaje de error — pinta el borde en rojo y muestra el texto.
 //   className  se agrega al <input> (no al wrapper).
@@ -11,12 +15,13 @@
 // El resto (type, value, onChange, placeholder, required, autoComplete…) pasa al <input>.
 import { forwardRef } from 'react'
 import { cn } from './cn'
+import FieldMark from './FieldMark'
 
 const BASE =
   'w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
 
 const Input = forwardRef(function Input(
-  { label, hint, error, id, className = '', wrapperClassName = '', ...rest },
+  { label, hint, error, id, optional = false, className = '', wrapperClassName = '', ...rest },
   ref
 ) {
   return (
@@ -24,6 +29,7 @@ const Input = forwardRef(function Input(
       {label && (
         <label htmlFor={id} className="block text-sm font-medium text-muted mb-1">
           {label}
+          <FieldMark tipo={rest.required ? 'obligatorio' : optional ? 'opcional' : null} />
         </label>
       )}
       <input
