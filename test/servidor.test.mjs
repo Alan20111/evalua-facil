@@ -9,6 +9,7 @@
 // LÓGICA, que es donde han estado todos los defectos.
 
 import crypto from 'node:crypto'
+import { createRequire } from 'node:module'
 import {
   db, dbFn, auth, funciones, iaFn, llamar, sesion, pincharCloudinary, urlCloudinary,
   limpiar, caso, grupo, resumen, assert,
@@ -24,8 +25,11 @@ const { default: borrarAlumno } = await import('../api/student/delete.js')
 const { default: quitarFoto } = await import('../api/student/remove-photo.js')
 const { default: borrarRecursosAsignatura } = await import('../api/subject/delete-resources.js')
 
+const require = createRequire(import.meta.url)
 const F = funciones._pruebas
 const FIA = iaFn._pruebas
+// A25 — el reparto público/privado de los juegos vive en su propio módulo.
+const juegoFns = require('../functions/juego.js')
 const DOCENTE = 'docente_uno'
 const OTRO = 'docente_dos'
 
@@ -768,6 +772,374 @@ await caso('15. un intento posterior con peor calificación (no ganador) no filt
 
   const r = await FIA.precheckAnalisisResultados({ uid: DOCENTE, params: { actividadId: ACT1 } })
   assert.strictEqual(r.reactivos[0].pctAciertos, 100, 'el intento 2 (0/10) nunca debió filtrarse al análisis')
+})
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// A25 · Crucigrama — la respuesta no viaja en el documento público
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// El agujero que cierran estas pruebas es el mismo que A08 cerró en las
+// evaluaciones: las reglas de Firestore no filtran CAMPOS, así que mientras
+// `palabra`, `normalizada` y el `grid` resuelto vivieran dentro de
+// `activities/{id}` —que cualquier cuenta con sesión puede leer— el alumno los
+// tenía descargados antes de empezar a jugar. Y en el crucigrama eso ni
+// siquiera es solo una fuga: `calificarCrucigrama` compara contra ese mismo
+// grid, así que transcribirlo daba un 10.
+//
+// La bandera `config/juegos.compatibilidadLegacy` existe porque la app de
+// Android empaqueta su propia copia de `dist` y no hay candado de versión
+// mínima: un APK instalado nunca se actualiza solo. Por eso hay dos fases, y
+// las dos se prueban aquí.
+
+const JF = juegoFns._pruebas
+const ACTJ = 'ACT_JUEGO_A25'
+const SUBJ_J = 'S_JUEGO'
+const AL_J = 'AL_JUEGO'
+const UAL_J = 'UID_AL_JUEGO'
+
+// Palabras con acentos a propósito: `palabra` conserva la escritura original
+// del docente y `normalizada` es la que usa el motor de calificación. Que las
+// dos sobrevivan al reparto es parte del contrato.
+const CONTENIDO_J = [
+  { palabra: 'Célula', descripcion: 'Unidad básica de la vida' },
+  { palabra: 'Núcleo', descripcion: 'Contiene el material genético' },
+  { palabra: 'Membrana', descripcion: 'Delimita a la célula' },
+  { palabra: 'Ácido', descripcion: 'Sustancia de pH bajo' },
+  { palabra: 'Enzima', descripcion: 'Acelera una reacción' },
+]
+
+async function sembrarJuego({ tipoJuego = 'crucigrama', compat = null, contenido = CONTENIDO_J, enClave = false } = {}) {
+  await limpiar()
+  await db.doc(`users/${DOCENTE}`).set({ role: 'docente', nombre: 'Uno', escuelaId: 'E1' })
+  await db.doc(`subjects/${SUBJ_J}`).set({ docenteId: DOCENTE, nombre: 'Biología' })
+  await db.doc(`students/${AL_J}`).set({ uid: UAL_J, asignaturaId: SUBJ_J, nombre: 'Ana', activado: true })
+  if (compat !== null) await db.doc('config/juegos').set({ compatibilidadLegacy: compat })
+  await db.doc(`activities/${ACTJ}`).set({
+    docenteId: DOCENTE, asignaturaId: SUBJ_J, categoria: 'juego', tipoJuego,
+    maxCalif: 10, nombre: '', parcial: 1,
+    juego: {
+      estado: 'contenido_editado',
+      modalidad: 'descripcion',
+      ...(enClave ? {} : { contenido }),
+      ...(tipoJuego === 'sopa_letras' ? { tamanoSopa: 12 } : {}),
+    },
+  })
+  if (enClave) await db.doc(`activities/${ACTJ}`).collection('clave').doc('contenido').set({ contenido })
+}
+
+const construir = () => JF.construirJuegoImpl({ auth: { uid: DOCENTE }, data: { actividadId: ACTJ } })
+const leerActividad = async () => (await db.doc(`activities/${ACTJ}`).get()).data()
+const leerClave = async (id) => {
+  const s = await db.doc(`activities/${ACTJ}`).collection('clave').doc(id).get()
+  return s.exists ? s.data() : null
+}
+const letrasDe = (grid) => (grid || []).flatMap((f) => f.row).filter((x) => typeof x === 'string' && x)
+
+async function correrOnJuegoFinalizado(subId) {
+  const snap = await dbFn.doc(`submissions/${subId}`).get()
+  return funciones.onJuegoFinalizado.run({ data: { after: snap }, params: { submissionId: subId } })
+}
+
+// Rellena el crucigrama con TODAS las letras correctas, leídas de la clave
+// privada — que es exactamente lo que el alumno ya no puede hacer solo.
+async function celdasCorrectas() {
+  const clave = await leerClave('juego')
+  const celdas = {}
+  clave.grid.forEach((f, r) => f.row.forEach((letra, c) => { if (letra) celdas[`${r}-${c}`] = letra }))
+  return celdas
+}
+
+grupo('A25 · construirJuego — el reparto público/privado')
+
+await caso('con la bandera ENCENDIDA la estructura pública NO cambia (el APK viejo sigue funcionando)', async () => {
+  await sembrarJuego({ compat: true })
+  await construir()
+  const publica = (await leerActividad()).juego.estructura
+
+  assert.ok(letrasDe(publica.grid).length > 0, 'el grid público conserva las letras')
+  assert.ok(publica.palabras.every((p) => p.palabra), 'cada palabra pública conserva `palabra`')
+  assert.ok(publica.palabras.every((p) => p.normalizada), 'cada palabra pública conserva `normalizada`')
+  assert.ok(publica.palabras.every((p) => p.descripcion), 'y también la pista')
+})
+
+await caso('la bandera AUSENTE se trata como compatible — un dato que falta no rompe el trabajo de nadie', async () => {
+  await sembrarJuego({ compat: null })
+  assert.strictEqual(await JF.compatibilidadLegacy(dbFn), true)
+  await construir()
+  const publica = (await leerActividad()).juego.estructura
+  assert.ok(letrasDe(publica.grid).length > 0, 'sin bandera se comporta como antes')
+})
+
+await caso('clave/juego se crea SIEMPRE y completa, incluso en modo compatible', async () => {
+  await sembrarJuego({ compat: true })
+  await construir()
+  const clave = await leerClave('juego')
+
+  assert.ok(clave, 'clave/juego existe')
+  assert.ok(letrasDe(clave.grid).length > 0, 'trae la cuadrícula resuelta')
+  assert.strictEqual(clave.palabras.length, CONTENIDO_J.length)
+  const celula = clave.palabras.find((p) => p.normalizada === 'CELULA')
+  assert.strictEqual(celula.palabra, 'Célula', 'conserva la escritura original con acento')
+  assert.strictEqual(celula.normalizada, 'CELULA', 'y la normalizada para calificar')
+})
+
+await caso('clave/contenido se crea con el contenido íntegro del docente', async () => {
+  await sembrarJuego({ compat: true })
+  await construir()
+  const clave = await leerClave('contenido')
+  assert.ok(clave, 'clave/contenido existe')
+  assert.deepStrictEqual(clave.contenido, CONTENIDO_J)
+})
+
+await caso('con la bandera APAGADA la pública se queda sin respuestas y con el grid enmascarado', async () => {
+  await sembrarJuego({ compat: false })
+  await construir()
+  const publica = (await leerActividad()).juego.estructura
+
+  assert.strictEqual(letrasDe(publica.grid).length, 0, 'NINGUNA letra en el grid público')
+  assert.ok(publica.grid.every((f) => f.row.every((c) => typeof c === 'boolean')), 'el grid es una máscara booleana')
+  assert.ok(publica.palabras.every((p) => p.palabra === undefined), 'ninguna `palabra` en el público')
+  assert.ok(publica.palabras.every((p) => p.normalizada === undefined), 'ninguna `normalizada` en el público')
+
+  // Y lo que el alumno SÍ necesita para jugar sigue estando entero.
+  assert.ok(publica.palabras.every((p) => p.descripcion), 'las pistas siguen ahí')
+  assert.ok(publica.palabras.every((p) => Number.isInteger(p.fila) && Number.isInteger(p.col)), 'y la geometría')
+  assert.ok(publica.palabras.every((p) => p.longitud > 0 && typeof p.horizontal === 'boolean'))
+  assert.ok(letrasDe((await leerClave('juego')).grid).length > 0, 'las letras siguen vivas en la clave')
+})
+
+await caso('SOPA DE LETRAS: su estructura pública NO se toca ni con la bandera apagada', async () => {
+  // Encontrar palabras dentro de la maraña de letras ES el juego: enmascarar
+  // su grid lo destruiría. Cerrar la sopa de verdad es otra auditoría.
+  await sembrarJuego({ tipoJuego: 'sopa_letras', compat: false })
+  await construir()
+  const publica = (await leerActividad()).juego.estructura
+
+  assert.strictEqual(publica.tipo, 'sopa_letras')
+  assert.ok(letrasDe(publica.grid).length > 0, 'la sopa conserva TODAS sus letras')
+  assert.ok(publica.palabras.every((p) => p.palabra), 'y sus palabras')
+  assert.ok(await leerClave('juego'), 'su clave privada sí se escribe (aditivo, no cambia nada)')
+})
+
+grupo('A25 · construirJuego — precedencia del contenido durante la transición')
+
+await caso('COMPATIBLE: gana juego.contenido, que es lo único que un frontend viejo sabe escribir', async () => {
+  await sembrarJuego({ compat: true })
+  await db.doc(`activities/${ACTJ}`).collection('clave').doc('contenido')
+    .set({ contenido: [{ palabra: 'Viejo', descripcion: 'no debe ganar' }] })
+  const act = await leerActividad()
+  const leido = await JF.leerContenidoJuego(dbFn.doc(`activities/${ACTJ}`), act, true)
+  assert.strictEqual(leido.length, CONTENIDO_J.length)
+  assert.strictEqual(leido[0].palabra, 'Célula')
+})
+
+await caso('CORTADO: gana clave/contenido, porque el embebido es el que puede haber quedado rancio', async () => {
+  await sembrarJuego({ compat: false })
+  await db.doc(`activities/${ACTJ}`).collection('clave').doc('contenido')
+    .set({ contenido: [{ palabra: 'Nuevo', descripcion: 'sí debe ganar' }] })
+  const act = await leerActividad()
+  const leido = await JF.leerContenidoJuego(dbFn.doc(`activities/${ACTJ}`), act, false)
+  assert.strictEqual(leido[0].palabra, 'Nuevo')
+})
+
+await caso('un juego cuyo contenido SOLO vive en la clave se construye igual', async () => {
+  await sembrarJuego({ compat: false, enClave: true })
+  await construir()
+  assert.strictEqual((await leerActividad()).juego.estado, 'juego_generado')
+  assert.strictEqual((await leerClave('juego')).palabras.length, CONTENIDO_J.length)
+})
+
+grupo('A25 · onJuegoFinalizado — califica contra la clave privada')
+
+async function entregar(celdas) {
+  const subId = `${ACTJ}_${AL_J}`
+  await db.doc(`submissions/${subId}`).set({
+    actividadId: ACTJ, alumnoId: AL_J, alumnoUid: UAL_J,
+    estadoEvaluacion: 'finalizado', intentoActual: 1, intentos: [], calificacion: null,
+    respuestasJuego: { celdas, encontradas: [] },
+  })
+  await correrOnJuegoFinalizado(subId)
+  return (await db.doc(`submissions/${subId}`).get()).data()
+}
+
+await caso('con la pública enmascarada, el servidor sigue calificando 10 desde clave/juego', async () => {
+  await sembrarJuego({ compat: false })
+  await construir()
+  const publica = (await leerActividad()).juego.estructura
+  assert.strictEqual(letrasDe(publica.grid).length, 0, 'precondición: la pública no tiene letras')
+
+  const sub = await entregar(await celdasCorrectas())
+  assert.strictEqual(sub.calificacion, 10, 'sin la clave esto sería 0')
+  assert.strictEqual(sub.estado, 'calificado')
+})
+
+await caso('media entrega, media nota — el algoritmo de siempre, solo cambió de dónde lee', async () => {
+  await sembrarJuego({ compat: false })
+  await construir()
+  const todas = await celdasCorrectas()
+  const claves = Object.keys(todas)
+  const mitad = {}
+  claves.slice(0, Math.floor(claves.length / 2)).forEach((k) => { mitad[k] = todas[k] })
+
+  const sub = await entregar(mitad)
+  assert.ok(sub.calificacion > 0 && sub.calificacion < 10, `esperaba una nota intermedia, llegó ${sub.calificacion}`)
+})
+
+await caso('FALLBACK: un juego heredado (sin clave, con las letras embebidas) se sigue calificando', async () => {
+  // Es el caso de los crucigramas que ya existen en producción el día del
+  // despliegue. Si esto fallara, este PR rompería juegos vivos.
+  await sembrarJuego({ compat: true })
+  await construir()
+  const publica = (await leerActividad()).juego.estructura
+  const celdas = {}
+  publica.grid.forEach((f, r) => f.row.forEach((letra, c) => { if (letra) celdas[`${r}-${c}`] = letra }))
+
+  // Se borra la clave: queda EXACTAMENTE la forma de antes de este PR.
+  await db.doc(`activities/${ACTJ}`).collection('clave').doc('juego').delete()
+  assert.strictEqual(await leerClave('juego'), null)
+
+  const sub = await entregar(celdas)
+  assert.strictEqual(sub.calificacion, 10, 'el juego heredado sigue calificando sin clave')
+})
+
+grupo('A25 · obtenerSolucionJuego — las dos condiciones ahora se comprueban en el servidor')
+
+const pedirSolucion = (uid) => JF.obtenerSolucionJuegoImpl({ auth: uid ? { uid } : null, data: { actividadId: ACTJ } })
+
+async function falla(fn, codigo, mensaje) {
+  try {
+    await fn()
+    assert.fail(`esperaba que fallara: ${mensaje}`)
+  } catch (e) {
+    assert.strictEqual(e.code, codigo, `${mensaje} — código recibido: ${e.code}`)
+  }
+}
+
+async function sembrarJuegoEntregado({ intentosPermitidos = 1, intentos = [{ numero: 1, calificacion: 10 }], publicarSolucion = 'inmediato', publicarSolucionFecha = null, solucionPublicada = false, estadoEvaluacion = 'finalizado' } = {}) {
+  await sembrarJuego({ compat: false })
+  await construir()
+  await db.doc(`activities/${ACTJ}`).update({
+    evaluacion: { intentosPermitidos, publicarSolucion, publicarSolucionFecha, solucionPublicada },
+  })
+  await db.doc(`submissions/${ACTJ}_${AL_J}`).set({
+    actividadId: ACTJ, alumnoId: AL_J, alumnoUid: UAL_J,
+    estadoEvaluacion, intentos, calificacion: 10, respuestasJuego: { celdas: {}, encontradas: [] },
+  })
+}
+
+await caso('sin sesión → unauthenticated', async () => {
+  await sembrarJuegoEntregado()
+  await falla(() => pedirSolucion(null), 'unauthenticated', 'sin sesión')
+})
+
+await caso('una cuenta que no está inscrita en la asignatura → permission-denied', async () => {
+  await sembrarJuegoEntregado()
+  await falla(() => pedirSolucion('UID_INTRUSO'), 'permission-denied', 'alumno de otra asignatura')
+})
+
+await caso('con el juego todavía en progreso → failed-precondition', async () => {
+  await sembrarJuegoEntregado({ estadoEvaluacion: 'en_progreso' })
+  await falla(() => pedirSolucion(UAL_J), 'failed-precondition', 'sin terminar')
+})
+
+await caso('MIENTRAS LE QUEDE UN INTENTO no hay solución — aunque ya haya entregado', async () => {
+  await sembrarJuegoEntregado({ intentosPermitidos: 3, intentos: [{ numero: 1, calificacion: 4 }] })
+  await falla(() => pedirSolucion(UAL_J), 'failed-precondition', 'le quedan intentos')
+})
+
+await caso('intentos ilimitados (intentosPermitidos null) tampoco liberan la solución', async () => {
+  await sembrarJuegoEntregado({ intentosPermitidos: null })
+  await falla(() => pedirSolucion(UAL_J), 'failed-precondition', 'intentos ilimitados')
+})
+
+await caso('con "publicarSolucion: nunca" no hay solución ni con los intentos agotados', async () => {
+  await sembrarJuegoEntregado({ publicarSolucion: 'nunca' })
+  await falla(() => pedirSolucion(UAL_J), 'failed-precondition', 'el docente dijo que nunca')
+})
+
+await caso('con una fecha de publicación futura tampoco', async () => {
+  const futuro = new Date(Date.now() + 86_400_000).toISOString()
+  await sembrarJuegoEntregado({ publicarSolucion: 'fecha', publicarSolucionFecha: futuro })
+  await falla(() => pedirSolucion(UAL_J), 'failed-precondition', 'la fecha aún no llega')
+})
+
+await caso('con "ahora" pendiente de que el docente la publique tampoco', async () => {
+  await sembrarJuegoEntregado({ publicarSolucion: 'ahora', solucionPublicada: false })
+  await falla(() => pedirSolucion(UAL_J), 'failed-precondition', 'el docente no le ha dado publicar')
+})
+
+await caso('cumplidas las dos condiciones sí devuelve la solución, y sale de la CLAVE', async () => {
+  await sembrarJuegoEntregado()
+  const publica = (await leerActividad()).juego.estructura
+  assert.strictEqual(letrasDe(publica.grid).length, 0, 'precondición: la pública está enmascarada')
+
+  const r = await pedirSolucion(UAL_J)
+  assert.strictEqual(r.ok, true)
+  const esperadas = await celdasCorrectas()
+  assert.deepStrictEqual(r.celdas, esperadas, 'las celdas resueltas coinciden con la clave')
+  // La máscara booleana no puede colarse como si fuera una letra.
+  assert.ok(Object.values(r.celdas).every((l) => /^[A-ZÑ0-9]$/.test(l)), 'solo letras reales, nunca "TRUE"')
+  assert.ok(r.palabras.some((p) => p.palabra === 'Célula'), 'y las palabras con su acento original')
+})
+
+await caso('con la fecha ya cumplida se libera', async () => {
+  const pasado = new Date(Date.now() - 86_400_000).toISOString()
+  await sembrarJuegoEntregado({ publicarSolucion: 'fecha', publicarSolucionFecha: pasado })
+  const r = await pedirSolucion(UAL_J)
+  assert.ok(Object.keys(r.celdas).length > 0)
+})
+
+grupo('A25 · cancelarBorradorJuego — no deja la clave huérfana')
+
+await caso('cancelar un borrador borra clave/juego y clave/contenido con la actividad', async () => {
+  // Borrar el documento padre NO arrastra sus subcolecciones en Firestore: sin
+  // este borrado explícito, las respuestas se quedarían colgando de una
+  // actividad que ya no existe.
+  await sembrarJuego({ compat: false })
+  await construir()
+  assert.ok(await leerClave('juego'), 'precondición: la clave existe')
+  assert.ok(await leerClave('contenido'))
+
+  await JF.cancelarBorradorJuegoImpl({ auth: { uid: DOCENTE }, data: { actividadId: ACTJ } })
+
+  assert.strictEqual((await db.doc(`activities/${ACTJ}`).get()).exists, false, 'la actividad se borró')
+  assert.strictEqual(await leerClave('juego'), null, 'clave/juego no quedó huérfana')
+  assert.strictEqual(await leerClave('contenido'), null, 'clave/contenido tampoco')
+})
+
+await caso('un juego YA CONFIRMADO no se puede cancelar como borrador — y su clave sigue intacta', async () => {
+  await sembrarJuego({ compat: false })
+  await construir()
+  await db.doc(`activities/${ACTJ}`).update({ 'juego.estado': 'juego_confirmado' })
+
+  await falla(
+    () => JF.cancelarBorradorJuegoImpl({ auth: { uid: DOCENTE }, data: { actividadId: ACTJ } }),
+    'failed-precondition', 'ya confirmado'
+  )
+  assert.ok(await leerClave('juego'), 'la clave sobrevive al intento de cancelación')
+})
+
+grupo('A25 · estructuraEfectiva — junta las dos mitades sin cambiar la forma')
+
+await caso('sin clave devuelve la pública tal cual (juego heredado)', () => {
+  const publica = { tipo: 'crucigrama', size: 1, grid: [{ row: ['A'] }], palabras: [{ index: 0, fila: 0, col: 0 }] }
+  assert.deepStrictEqual(JF.estructuraEfectiva(publica, null), publica)
+})
+
+await caso('con clave, el grid y las palabras salen de la clave y la pista se conserva', () => {
+  const publica = { tipo: 'crucigrama', size: 1, grid: [{ row: [true] }], palabras: [{ index: 0, fila: 0, col: 0, descripcion: 'pista' }] }
+  const clave = { grid: [{ row: ['A'] }], palabras: [{ index: 0, palabra: 'Á', normalizada: 'A' }] }
+  const e = JF.estructuraEfectiva(publica, clave)
+  assert.strictEqual(e.grid[0].row[0], 'A')
+  assert.strictEqual(e.palabras[0].palabra, 'Á')
+  assert.strictEqual(e.palabras[0].normalizada, 'A')
+  assert.strictEqual(e.palabras[0].descripcion, 'pista', 'la pista pública no se pierde en la fusión')
+  assert.strictEqual(e.palabras[0].fila, 0, 'ni la geometría')
+})
+
+await caso('sin estructura pública devuelve null en vez de reventar', () => {
+  assert.strictEqual(JF.estructuraEfectiva(null, { grid: [] }), null)
 })
 
 await limpiar()

@@ -30,6 +30,9 @@ const fuentesIA = require('./fuentesIA')
 const docExtract = require('./docExtract')
 const { dividirEnFragmentos } = require('./docChunking')
 const { prepararEvidenciasEntrega } = require('./evidenciasEntrega')
+// Solo para la bandera de compatibilidad de A25 (ver functions/juego.js).
+// No hay ciclo: juego.js no requiere ia.js.
+const juegoFns = require('./juego')
 // Lógica PURA de calendario/sesiones, compartida con el cliente — ver
 // src/utils/sesionesReales.js (fuente real) y scripts/sync-functions-shared.mjs
 // (genera esta copia en cada predeploy; también hay que correrlo a mano antes
@@ -2829,8 +2832,23 @@ async function ejecutarGenerarContenidoJuego({ params, modelo, apiKey }) {
   }
 
   const db = getFirestore()
-  await db.doc(`activities/${actividadId}`).update({
-    'juego.contenido': palabras,
+  const actRef = db.doc(`activities/${actividadId}`)
+
+  // A25 — El contenido del juego trae la PALABRA en claro, así que su sitio
+  // definitivo es `activities/{id}/clave/contenido`, que las reglas solo le
+  // abren al docente dueño (ver functions/juego.js para el porqué completo).
+  // Se escribe SIEMPRE, en las dos fases: es la fuente de verdad nueva.
+  await actRef.collection('clave').doc('contenido').set({ contenido: palabras })
+
+  // Mientras `config/juegos.compatibilidadLegacy` siga encendida se mantiene
+  // ADEMÁS la copia embebida, porque el frontend viejo —incluido cualquier APK
+  // ya instalado, que nunca se actualiza solo— la lee de ahí. Al apagar la
+  // bandera este campo deja de escribirse, y la migración borra los que
+  // queden.
+  const compat = await juegoFns.compatibilidadLegacy(db)
+
+  await actRef.update({
+    ...(compat ? { 'juego.contenido': palabras } : {}),
     'juego.estado': 'contenido_generado',
     'juego.modalidad': ctx.modalidad,
     'juego.cantidadPalabras': ctx.cantidad,

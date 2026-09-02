@@ -65,6 +65,7 @@ const juego = require('./juego')
 exports.construirJuego = juego.construirJuego
 exports.confirmarJuego = juego.confirmarJuego
 exports.cancelarBorradorJuego = juego.cancelarBorradorJuego
+exports.obtenerSolucionJuego = juego.obtenerSolucionJuego
 
 // Aplicar evaluaciones de IA ya generadas (23-ago-2026) — igual que juego.js,
 // callable SEPARADO de ejecutarOperacionIA: nunca llama a Anthropic ni
@@ -861,8 +862,21 @@ exports.onJuegoFinalizado = onDocumentWritten('submissions/{submissionId}', asyn
   const actSnap = await db.collection('activities').doc(sub.actividadId).get()
   if (!actSnap.exists || actSnap.data().categoria !== 'juego') return
   const act = actSnap.data()
-  const estructura = act.juego?.estructura
-  if (!estructura) return // no debería poder entregarse sin estructura, pero por si acaso no truena
+  const publica = act.juego?.estructura
+  if (!publica) return // no debería poder entregarse sin estructura, pero por si acaso no truena
+
+  // A25 — Desde el reparto, las letras y las palabras viven en
+  // `activities/{id}/clave/juego`, que el alumno no puede leer. El Admin SDK
+  // no pasa por las reglas, así que aquí se vuelven a juntar las dos mitades
+  // y el resultado tiene la MISMA forma de siempre: `calificarCrucigrama` y
+  // `calificarSopaDeLetras` no cambian ni una línea de su algoritmo.
+  //
+  // Sin clave —un juego heredado todavía sin migrar, o uno copiado cuya clave
+  // aún no viajó— `estructuraEfectiva` devuelve la pública tal cual, que ahí
+  // sigue trayendo las letras dentro. Ese fallback es lo que hace que este
+  // despliegue no rompa ningún juego existente.
+  const claveSnap = await actSnap.ref.collection('clave').doc('juego').get()
+  const estructura = juego.estructuraEfectiva(publica, claveSnap.exists ? claveSnap.data() : null)
 
   const ratio = estructura.tipo === 'sopa_letras'
     ? calificarSopaDeLetras(estructura, sub.respuestasJuego)
