@@ -1779,5 +1779,67 @@ await assertSucceeds(updateDoc(doc(asOtraEsc, 'students', 'ST_CRUZA'), {
   uid: U_OTRA_ESC, activado: true, resetPassword: null,
 })); ok('Regla 23-ago · un alumno cuya cuenta nació en OTRA escuela SÍ puede activar la inscripción que su docente le creó')
 
+// ── Nombrar un Crucigrama / Sopa de letras DESDE EL BORRADOR ────────────────
+// El docente debe poder ponerle nombre a su juego mientras todavía es un
+// borrador sin confirmar. Es una escritura suelta sobre `nombre`: no toca
+// `juego.estado` ni publica nada, así que el candado de publicación (que exige
+// juego.estado == 'juego_confirmado' para poner oculta:false) no debe
+// estorbarle. Lo que ese candado SÍ tiene que seguir impidiendo es publicar un
+// juego sin confirmar — nombrarlo no puede volverse una puerta trasera.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const d = ctx.firestore()
+  await setDoc(doc(d, 'activities', 'A_CRUCI_BORRADOR'), {
+    docenteId: T1, asignaturaId: 'S1', categoria: 'juego', tipoJuego: 'crucigrama',
+    nombre: '', oculta: true, publishAt: null, publishedAt: null,
+    juego: { modalidad: 'descripcion', cantidadPalabras: 5, estado: 'contenido_generado', contenido: [], estructura: null },
+  })
+  await setDoc(doc(d, 'activities', 'A_SOPA_BORRADOR'), {
+    docenteId: T1, asignaturaId: 'S1', categoria: 'juego', tipoJuego: 'sopa_letras',
+    nombre: '', oculta: true, publishAt: null, publishedAt: null,
+    juego: { modalidad: 'palabra', cantidadPalabras: 8, tamanoSopa: 10, estado: 'juego_generado', contenido: [], estructura: null },
+  })
+  await setDoc(doc(d, 'activities', 'A_CRUCI_CONFIRMADO'), {
+    docenteId: T1, asignaturaId: 'S1', categoria: 'juego', tipoJuego: 'crucigrama',
+    nombre: 'Puesto en borrador', oculta: true, publishAt: null, publishedAt: null,
+    juego: { modalidad: 'descripcion', cantidadPalabras: 5, estado: 'juego_confirmado', contenido: [], estructura: { tipo: 'crucigrama', size: 2, grid: [], palabras: [] } },
+  })
+})
+
+await assertSucceeds(updateDoc(doc(asT1, 'activities', 'A_CRUCI_BORRADOR'), {
+  nombre: 'Partes de la célula',
+})); ok('Nombre en borrador · un CRUCIGRAMA sin confirmar sí acepta que le pongan nombre')
+
+await assertSucceeds(updateDoc(doc(asT1, 'activities', 'A_SOPA_BORRADOR'), {
+  nombre: 'Sistema solar',
+})); ok('Nombre en borrador · una SOPA DE LETRAS sin confirmar sí acepta que le pongan nombre')
+
+await assertSucceeds(updateDoc(doc(asT1, 'activities', 'A_CRUCI_BORRADOR'), {
+  nombre: 'Organelos celulares',
+})); ok('Nombre en borrador · se puede CAMBIAR el nombre las veces que haga falta')
+
+await assertSucceeds(updateDoc(doc(asT1, 'activities', 'A_CRUCI_BORRADOR'), {
+  nombre: '',
+})); ok('Nombre en borrador · se puede dejar sin nombre otra vez (vuelve al respaldo visual)')
+
+// Nombrar NO toca el estado: sigue siendo un borrador sin confirmar.
+{
+  const snap = await getDoc(doc(asT1, 'activities', 'A_SOPA_BORRADOR'))
+  assert.strictEqual(snap.data().juego.estado, 'juego_generado')
+  assert.strictEqual(snap.data().nombre, 'Sistema solar')
+  ok('Nombre en borrador · nombrar no cambió juego.estado ni confirmó el juego')
+}
+
+await assertFails(updateDoc(doc(asT1, 'activities', 'A_SOPA_BORRADOR'), {
+  nombre: 'Intento de colarse', oculta: false,
+})); ok('Nombre en borrador · nombrar NO es una puerta trasera para publicar un juego sin confirmar')
+
+await assertFails(updateDoc(doc(testEnv.authenticatedContext(T2).firestore(), 'activities', 'A_CRUCI_BORRADOR'), {
+  nombre: 'De otro docente',
+})); ok('Nombre en borrador · otro docente NO puede renombrar un juego ajeno')
+
+await assertSucceeds(updateDoc(doc(asT1, 'activities', 'A_CRUCI_CONFIRMADO'), {
+  nombre: 'Renombrado ya confirmado',
+})); ok('Nombre en borrador · un juego YA confirmado se renombra por la misma vía y el mismo campo')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

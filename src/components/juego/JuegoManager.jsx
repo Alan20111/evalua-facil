@@ -173,6 +173,19 @@ export default function JuegoManager({
         </div>
       )}
 
+      {/* El nombre se puede poner DESDE EL BORRADOR, no solo cuando el juego
+          ya está confirmado: el docente acaba de crear el crucigrama y quiere
+          identificarlo en su lista desde ese momento. Vive aquí arriba —fuera
+          de las tres etapas— para que esté disponible en todas ellas y para
+          que haya UNA sola casa donde se edita (antes estaba metido en el
+          formulario de Configuración, que solo existe ya confirmado). */}
+      <NombreJuego
+        activity={activity}
+        activityId={activityId}
+        tipoLabel={tipoLabel}
+        onActivityChange={onActivityChange}
+      />
+
       <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
         <div className="px-4 py-3 bg-accent-light border-b border-accent">
           <h2 className="font-semibold text-accent">
@@ -206,16 +219,74 @@ export default function JuegoManager({
   )
 }
 
+// Nombre de la actividad — el campo NORMAL `activity.nombre`, el mismo que
+// usan todas las demás actividades. No hay un nombre "de juego" aparte.
+//
+// Guardarlo es una escritura suelta sobre ese único campo: no toca
+// `juego.estado`, no reconstruye el tablero, no confirma nada y no pasa por
+// ningún callable de IA, así que no mueve créditos ni el apartado de la
+// generación. Por eso puede usarse mientras el juego sigue en borrador.
+function NombreJuego({ activity, activityId, tipoLabel, onActivityChange }) {
+  const toast = useToast()
+  const guardado = activity.nombre || ''
+  const [valor, setValor] = useState(guardado)
+  const [guardando, setGuardando] = useState(false)
+  const cambio = valor.trim() !== guardado
+
+  async function handleGuardar() {
+    const limpio = valor.trim()
+    setGuardando(true)
+    try {
+      await updateDoc(doc(db, 'activities', activityId), { nombre: limpio })
+      onActivityChange((prev) => ({ ...prev, nombre: limpio }))
+      setValor(limpio)
+      toast(limpio ? 'Nombre guardado' : 'Nombre quitado')
+    } catch (err) {
+      toast(err.message || 'No se pudo guardar el nombre', 'error')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="mb-3 rounded-card bg-surface-card shadow-card border border-outline-variant p-3">
+      <label htmlFor="juego-nombre" className="block text-sm font-medium text-muted mb-1">
+        Nombre de la actividad
+      </label>
+      <div className="flex gap-2">
+        <input
+          id="juego-nombre"
+          type="text"
+          maxLength={120}
+          value={valor}
+          disabled={guardando}
+          onChange={(e) => setValor(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && cambio && !guardando) { e.preventDefault(); handleGuardar() } }}
+          placeholder={`Sin nombre — se mostrará como "${tipoLabel}"`}
+          className="flex-1 min-w-0 px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        />
+        {/* Solo aparece cuando de verdad hay algo distinto que guardar, para
+            no invitar a reguardar lo mismo (mismo criterio que los botones de
+            Configuración/Disponibilidad de abajo). */}
+        {cambio && (
+          <button type="button" onClick={handleGuardar} disabled={guardando}
+            className="px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60 flex-shrink-0">
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function JuegoConfiguracion({ activity, activityId, students, submissions, onActivityChange }) {
   const toast = useToast()
   const evalDefaults = EVALUACION_DEFAULTS.juego
   const [form, setForm] = useState({
-    // El nombre vive en el campo NORMAL de la actividad (`activity.nombre`),
-    // el mismo que usan todas las demás — no hay un nombre "de juego" aparte.
-    // Hasta hoy los juegos nacían con `nombre: ''` (CrearJuegoIAModal) y no
-    // existía ninguna pantalla para ponérselo: en la lista de la asignatura
-    // salían como filas sin nombre.
-    nombre: activity.nombre || '',
+    // El nombre NO vive aquí: se edita arriba (NombreJuego), disponible desde
+    // el borrador. Tenerlo también en este formulario significaba dos campos
+    // para el mismo dato, y este —congelado en useState al montar— pisaba con
+    // el valor viejo lo que se acabara de guardar arriba.
     tiempoLimiteMin: activity.evaluacion?.tiempoLimiteMin ?? evalDefaults.tiempoLimiteMin,
     intentosPermitidos: activity.evaluacion?.intentosPermitidos ?? evalDefaults.intentosPermitidos,
     conservar: activity.evaluacion?.conservar ?? evalDefaults.conservar,
@@ -258,18 +329,14 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
       if (!form.publicarSolucionFecha) { toast('Elige la fecha de publicación de la solución', 'error'); return }
       if (form.publicarSolucionFecha <= nowIsoLocal()) { toast('La fecha debe ser posterior a este momento', 'error'); return }
     }
-    // `nombre` es un campo de la actividad, no de su configuración de
-    // evaluación: se separa antes de armar `evaluacion` para no meterlo dentro.
-    const { nombre, ...evalForm } = form
-    const toSave = { ...activity.evaluacion, ...evalForm }
+    const toSave = { ...activity.evaluacion, ...form }
     if (toSave.publicarResultados === 'ahora') toSave.resultadosPublicados = true
     if (toSave.publicarSolucion === 'ahora') toSave.solucionPublicada = true
-    const nombreLimpio = nombre.trim()
     setSaving(true)
     try {
-      await updateDoc(doc(db, 'activities', activityId), { evaluacion: toSave, nombre: nombreLimpio })
-      onActivityChange((prev) => ({ ...prev, evaluacion: toSave, nombre: nombreLimpio }))
-      setFormInicial({ ...form, nombre: nombreLimpio })
+      await updateDoc(doc(db, 'activities', activityId), { evaluacion: toSave })
+      onActivityChange((prev) => ({ ...prev, evaluacion: toSave }))
+      setFormInicial(form)
       toast('Configuración guardada')
     } catch (err) {
       toast(err.message || 'No se pudo guardar', 'error')
@@ -344,13 +411,6 @@ function JuegoConfiguracion({ activity, activityId, students, submissions, onAct
           <h2 className="font-semibold text-accent">Configuración</h2>
         </div>
         <form onSubmit={handleSaveConfig} className="p-4 space-y-3">
-          <div>
-            <label htmlFor="juego-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
-            <input id="juego-nombre" type="text" maxLength={120} value={form.nombre}
-              onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-              placeholder={`Sin nombre — se mostrará como "${etiquetaJuego(activity)}"`}
-              className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
-          </div>
           <div>
             <label htmlFor="juego-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
             <input id="juego-tiempo" type="number" min="1" value={form.tiempoLimiteMin ?? ''}

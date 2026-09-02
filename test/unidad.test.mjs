@@ -2495,6 +2495,20 @@ caso('CP-16: una actividad normal sin nombre no hereda etiqueta de juego', () =>
   assert.strictEqual(nombreParaCopia({ categoria: 'entregable', nombre: '' }), '')
 })
 
+caso('CP-25: el nombre puesto en el borrador viaja en los tres caminos de copia', () => {
+  // Tal como queda el documento tras nombrarlo en borrador y confirmarlo.
+  const nombrado = { ...SOPA, nombre: 'Sistema solar' }
+  // Traer de otra asignatura / duplicar asignatura: el nombre tal cual.
+  assert.strictEqual(nombreParaCopia(nombrado), 'Sistema solar')
+  // Duplicar dentro de la misma asignatura añade el sufijo sobre ese nombre.
+  assert.strictEqual(`${nombreParaCopia(nombrado)} (copia)`, 'Sistema solar (copia)')
+  // Y el juego sigue completo en la copia — el nombre no desplaza nada.
+  const d = camposComunesCopia(nombrado)
+  assert.strictEqual(d.tipoJuego, 'sopa_letras')
+  assert.strictEqual(d.juego.estado, 'juego_confirmado')
+  assert.strictEqual(d.juego.tamanoSopa, 10)
+})
+
 grupo('copiaActividad — las actividades normales no se rompen')
 
 const ENTREGABLE = {
