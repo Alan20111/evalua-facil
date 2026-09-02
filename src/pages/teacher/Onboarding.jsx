@@ -192,6 +192,12 @@ export default function Onboarding() {
               autoFocus
               placeholder="Ej. Laura"
             />
+            {/* Las dos etiquetas tienen que caber en UN renglón para que los
+                dos campos empiecen a la misma altura. En una tarjeta max-w-sm
+                cada columna mide ~180 px: "Apellido materno (opcional)" se
+                parte en dos y baja su campo. Por eso el "(opcional)" va como
+                `hint`, que el componente pinta DEBAJO del campo y por tanto no
+                puede mover nada de la fila. */}
             <div className="flex gap-2">
               <Input
                 id="onboarding-apellido-paterno"
@@ -201,18 +207,17 @@ export default function Onboarding() {
                 onChange={(e) => setApellidoPaterno(e.target.value)}
                 required
                 placeholder="Ej. García"
-                wrapperClassName="flex-1"
+                wrapperClassName="flex-1 min-w-0"
               />
-              {/* "(opcional)" va en la etiqueta, no en un párrafo debajo: ahí
-                  se lee antes de escribir y no desalinea la fila. */}
               <Input
                 id="onboarding-apellido-materno"
-                label="Apellido materno (opcional)"
+                label="Apellido materno"
+                optional
                 type="text"
                 value={apellidoMaterno}
                 onChange={(e) => setApellidoMaterno(e.target.value)}
                 placeholder="Ej. Pérez"
-                wrapperClassName="flex-1"
+                wrapperClassName="flex-1 min-w-0"
               />
             </div>
             {/* Sin marca de "obligatorio": se pide igual que los demás datos y
@@ -237,6 +242,7 @@ export default function Onboarding() {
                   <Select
                     id="onboarding-prefijo"
                     label="Prefijo"
+                    optional
                     value={prefijoOption}
                     onChange={setPrefijoOption}
                     options={[
@@ -311,7 +317,6 @@ export default function Onboarding() {
 
       {showSchoolPicker && (
         <SchoolPicker
-          titulo="Busca tu escuela por nombre, municipio o CCT."
           onSelect={(p) => { setPlantel(p); setShowSchoolPicker(false) }}
           onClose={() => setShowSchoolPicker(false)}
         />

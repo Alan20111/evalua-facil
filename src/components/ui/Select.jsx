@@ -13,12 +13,13 @@ import { ChevronDown, Check, X } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { cn } from './cn'
+import FieldMark from './FieldMark'
 
 const TRIGGER_BASE =
   'w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface text-left'
 
 export default function Select({
-  label, hint, error, id, options = [], value, onChange,
+  label, hint, error, id, options = [], value, onChange, required = false, optional = false,
   placeholder = 'Seleccionar…', className = '', wrapperClassName = '', disabled = false,
 }) {
   const [open, setOpen] = useState(false)
@@ -32,6 +33,7 @@ export default function Select({
       {label && (
         <label htmlFor={id} className="block text-sm font-medium text-muted mb-1">
           {label}
+          <FieldMark tipo={required ? 'obligatorio' : optional ? 'opcional' : null} />
         </label>
       )}
       <button
