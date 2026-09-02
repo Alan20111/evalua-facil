@@ -11,6 +11,7 @@ import Spinner from './Spinner'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../utils/sanitizeHtml'
 import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
 import { nowIsoLocal as toIsoNow } from '../utils/nowIso'
+import { fechaLimiteTimestamp } from '../utils/deadline'
 import { matchesStudentSearch, studentFullName } from '../utils/studentSearch'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { uploadToCloudinary } from '../utils/cloudinary'
@@ -1136,8 +1137,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     setSavingExtension(true)
     try {
       const motivo = extendMotivo.trim()
+      // Ver el mismo comentario en teacher/ActivityPage.jsx: `extensionesTS` es
+      // el espejo en Timestamp que firestore.rules compara contra request.time.
+      // Sin él la prórroga no llegaba al servidor y el alumno seguía sin poder
+      // presentar. Los tres campos viajan siempre juntos.
       await updateDoc(doc(db, 'activities', activityId), {
         [`extensiones.${reviewing.student.id}`]: extendDate,
+        [`extensionesTS.${reviewing.student.id}`]: fechaLimiteTimestamp(extendDate),
         [`extensionesMotivo.${reviewing.student.id}`]: motivo,
       })
       onActivityChange((prev) => ({
