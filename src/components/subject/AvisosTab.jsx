@@ -726,20 +726,41 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
         </div>
       )}
 
-      {/* ── Ver lecturas ── */}
+      {/* ── Detalle del aviso ── */}
       {detailAviso && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDetailAviso(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <span aria-hidden="true">{avisoEmoji(detailAviso)}</span> Lecturas
-              </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Detalle del aviso</h3>
               <button type="button" onClick={() => setDetailAviso(null)} aria-label="Cerrar" className="p-2 text-muted hover:text-accent rounded">
                 <X size={18} />
               </button>
             </div>
-            <p className="text-sm text-on-surface mb-3 line-clamp-2">{detailAviso.mensaje || detailAviso.titulo}</p>
+            {/* El aviso TAL COMO SE ENVIÓ — título y mensaje completos, sin
+                recortar. La tarjeta del listado sí lo resume (line-clamp-3),
+                pero aquí es donde el docente viene a recordar exactamente qué
+                comunicó: un "…" en este lugar dejaba el aviso ilegible y sin
+                ninguna otra pantalla dónde consultarlo. `whitespace-pre-wrap`
+                conserva sus saltos de línea (el estudiante los ve así), y el
+                mensaje lleva su propio scroll para que uno muy largo no deje
+                la lista de lecturas fuera de alcance. El mensaje es opcional:
+                los avisos publicados sin él se explican con su título. */}
+            <div className="flex items-start gap-3 mb-4">
+              <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">{avisoEmoji(detailAviso)}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-slate-400">{formatAvisoFecha(detailAviso.fechaCreacion)}</p>
+                {detailAviso.titulo && (
+                  <p className="font-semibold text-on-surface break-words mt-0.5">{detailAviso.titulo}</p>
+                )}
+                {detailAviso.mensaje && (
+                  <div className="mt-1 max-h-[40vh] overflow-y-auto overflow-x-hidden">
+                    <p className="text-sm text-on-surface whitespace-pre-wrap break-words">{detailAviso.mensaje}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <h4 className="text-sm font-semibold text-on-surface pt-3 border-t border-outline-variant">Lecturas</h4>
             {/* Solo los destinatarios reales del aviso: quien se activó
                 después nunca lo vio, listarlo como "Pendiente" era acusarlo
                 de algo que la app no le pidió. */}
