@@ -15,13 +15,14 @@ import { MESES, DIAS_LARGO, addDays, addMonths, addWeeks, getWeekDays, isToday }
 import { CATEGORIA_LABEL, deadlineEstado } from '../../utils/calendarEvents'
 import { subjectColors } from '../../utils/subjectPalette'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { AgendaView, WeekView, MonthView } from '../teacher/CalendarPage'
+import { WeekView, MonthView } from '../teacher/CalendarPage'
+import DayView from '../../components/calendar/DayView'
 import { EVENT_COLORS } from '../../components/calendar/EventEditor'
 import StudentEventEditor from '../../components/agenda/StudentEventEditor'
 import StudentLayout from '../../components/StudentLayout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { teacherDisplayName } from '../../utils/studentSearch'
-import { STUDENT_CONTAINER_WIDE, TEACHER_CONTAINER } from '../../config/layout'
+// STUDENT_CONTAINER_WIDE / TEACHER_CONTAINER solo son necesarios para Web (WEB_CONTAINER_BY_VIEW).
 import { IS_NATIVE_APP } from '../../utils/platform'
 
 // Rediseño: una sola pantalla "Agenda", misma filosofía/experiencia que el
@@ -401,18 +402,19 @@ export default function Agenda() {
     semana: 'w-full max-w-[900px] mx-auto',
     mes: 'w-full max-w-[1024px] mx-auto',
   }
-  // Anchos de la App — sin cambios respecto a la entrega anterior.
+  // App: sin max-w ni mx-auto — el contenedor de la pantalla ya es full-width
+  // y los breakpoints md:* causan el strip azul en Samsung S23 (WebView ≥768 px).
   const APP_CONTAINER_BY_VIEW = {
-    agenda: STUDENT_CONTAINER_WIDE,
-    '3dias': STUDENT_CONTAINER_WIDE,
-    semana: TEACHER_CONTAINER,
-    mes: STUDENT_CONTAINER_WIDE,
+    agenda: '',
+    '3dias': '',
+    semana: '',
+    mes: '',
   }
   const CONTAINER_BY_VIEW = IS_NATIVE_APP ? APP_CONTAINER_BY_VIEW : WEB_CONTAINER_BY_VIEW
   // En la app, la vista Semana debe aprovechar todo el ancho de pantalla —
   // el padding horizontal de la página le resta espacio a una rejilla de 7
   // columnas que ya de por sí es angosta en un teléfono.
-  const padClass = IS_NATIVE_APP && view === 'semana' ? 'px-1' : 'px-4'
+  const padClass = IS_NATIVE_APP ? '' : 'px-4'
 
   // Botones del encabezado y de la navegación de fecha: en la WEB del
   // estudiante van dos píxeles más grandes (pedido explícito — se veían
@@ -584,9 +586,12 @@ export default function Agenda() {
         <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
       ) : (
         <div className={`${padClass} py-4 flex-1 ${CONTAINER_BY_VIEW[view]}`}>
-          <div className="bg-surface-card rounded-card shadow-card border border-outline-variant overflow-hidden">
+          <div className={IS_NATIVE_APP
+            ? 'bg-surface-card overflow-x-hidden'
+            : 'bg-surface-card rounded-card shadow-card border border-outline-variant overflow-hidden'
+          }>
             {view === 'agenda' && (
-              <AgendaView
+              <DayView
                 date={currentDate}
                 events={events}
                 bloques={bloques}
