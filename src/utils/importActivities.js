@@ -4,7 +4,8 @@ import {
 // Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
 import { setDoc, writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
-import { camposComunesCopia, nombreParaCopia, esCopiable } from './copiaActividad'
+import { camposComunesCopia, nombreParaCopia, esCopiable, esJuego } from './copiaActividad'
+import { copiarClaveJuego } from './juegoClave'
 
 // Copies selected activities from ANOTHER subject into `targetSubjectId`, as
 // DRAFTS (oculta, never published) inside `targetParcial`. The teacher reviews
@@ -43,6 +44,13 @@ export async function importActivitiesToSubject({ sourceActivities, targetSubjec
     // a get() on the parent activity, which must already exist (a same-batch
     // write isn't visible to that get()).
     await setDoc(newRef, data)
+
+    // A25 — Un juego guarda sus respuestas en la subcolección `clave`, que no
+    // viaja con los campos del documento. Sin esto la copia de un juego ya
+    // migrado nacería sin respuestas e imposible de calificar. Un juego
+    // heredado todavía no tiene clave: `copiarClaveJuego` devuelve 0 y no es
+    // un error.
+    if (esJuego(src)) await copiarClaveJuego(src.id, newRef.id)
 
     // Evaluaciones keep their questions in a subcollection — copy them now that
     // the parent activity exists.

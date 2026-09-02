@@ -53,6 +53,13 @@ export function nombreParaCopia(a) {
 // copia la anulara — una actividad rompiendo el cobro de otra. La copia no
 // necesita reserva alguna: nace ya confirmada (esCopiable lo garantiza) y no
 // vuelve a pasar por confirmarJuego.
+// La clave privada del juego (A25) NO viaja aquí: vive en la subcolección
+// `activities/{id}/clave`, y una subcolección no se copia con los campos del
+// documento. La copian los tres caminos con `copiarClaveJuego`
+// (src/utils/juegoClave.js), después de crear la actividad destino — la regla
+// de `clave` hace un get() del padre, que tiene que existir ya. Sin esa copia,
+// un juego ya migrado llegaría con la cuadrícula enmascarada y sin respuestas:
+// imposible de calificar.
 export function camposJuegoCopia(src) {
   if (!esJuego(src) || !src.juego) return {}
   const juego = { ...src.juego }

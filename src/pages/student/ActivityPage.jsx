@@ -712,6 +712,7 @@ export default function StudentActivityPage() {
                 <SolucionJuegoModal
                   open={solucionJuegoAbierta}
                   onClose={() => setSolucionJuegoAbierta(false)}
+                  actividadId={activityId}
                   estructura={activity.juego.estructura}
                   submission={submission}
                 />

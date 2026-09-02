@@ -23,12 +23,17 @@ import { useToast } from '../Toast'
 import CrucigramaBoard from './CrucigramaBoard'
 import SopaDeLetrasBoard from './SopaDeLetrasBoard'
 
-export default function RevisionJuegoBorrador({ activity, onConfirmado, onRegresar }) {
+// `estructura` llega YA FUSIONADA con la clave privada desde JuegoManager
+// (A25). Es lo que hace que la vista previa y su tooltip "Respuesta: …" sigan
+// funcionando igual con un juego migrado que con uno heredado: en el heredado
+// las respuestas vienen dentro de la pública, en el migrado vienen de
+// `clave/juego`, y aquí abajo no se nota la diferencia.
+export default function RevisionJuegoBorrador({ activity, estructura: estructuraProp, onConfirmado, onRegresar }) {
   const toast = useToast()
   const [confirmando, setConfirmando] = useState(false)
   const [celdas, setCeldas] = useState({})
   const [encontradas, setEncontradas] = useState([])
-  const estructura = activity.juego?.estructura
+  const estructura = estructuraProp || activity.juego?.estructura
   const confirmado = activity.juego?.estado === 'juego_confirmado'
 
   if (!estructura) return null
