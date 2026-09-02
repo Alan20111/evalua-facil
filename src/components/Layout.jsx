@@ -183,7 +183,9 @@ export default function TeacherLayout({ children }) {
             viewport ≥768px activando md:flex); en la web solo en escritorio. */}
         <aside className={`${IS_NATIVE_APP ? 'hidden' : 'hidden md:flex'} flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20`}>
           {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
-          <div className="px-3 pt-2 pb-1">
+          {/* px-2 (no px-3): el recuadro blanco tiene que arrancar en la misma
+              vertical que las píldoras de abajo, que van con mx-2. */}
+          <div className="px-2 pt-2 pb-1">
             <div className="bg-white rounded-card px-3 py-2.5 shadow-card">
               <EFLogo className="w-full h-auto" />
             </div>
@@ -192,7 +194,7 @@ export default function TeacherLayout({ children }) {
                 Perfil, debajo del aviso de privacidad, y la etiqueta se queda sola. */}
             <div className="flex items-center gap-2 pt-1">
               {!IS_NATIVE_APP && (
-                <p className="text-metadata text-white/50 pl-1">v.1.0.1</p>
+                <p className="text-metadata text-white/50 pl-3">v.1.0.1</p>
               )}
               {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de PortalBadge, no un atributo ARIA */}
               <PortalBadge role="docente" className="ml-auto" />
@@ -240,7 +242,7 @@ export default function TeacherLayout({ children }) {
           </NavLink>
 
           {/* Subjects header → goes to the full subjects list */}
-          <NavLink to="/dashboard" className="mx-2 px-2 pt-3 pb-1 flex items-center justify-between rounded hover:bg-white/10 transition-colors group">
+          <NavLink to="/dashboard" className="mx-2 px-3 pt-3 pb-1 flex items-center justify-between rounded hover:bg-white/10 transition-colors group">
             {/* De ~14 a 22 px (pedido explícito): pasaba desapercibida pese a
                 ser un link a la lista completa. Se quita `uppercase` — en
                 mayúsculas a este tamaño se lee como un GRITO, no como
@@ -266,7 +268,7 @@ export default function TeacherLayout({ children }) {
                   key={s.id}
                   to={`/subject/${s.id}`}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 px-3 py-2.5 rounded transition-colors ${
+                    `flex items-center gap-2.5 px-3 py-2.5 rounded transition-colors ${
                       isActive ? 'bg-white text-accent font-bold shadow-md' : 'text-white/90 hover:bg-white/15'
                     }`
                   }
@@ -284,9 +286,9 @@ export default function TeacherLayout({ children }) {
             <button
               type="button"
               onClick={() => navigate('/dashboard', { state: { openCreate: true } })}
-              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white hover:bg-white/10 transition-colors mt-1"
+              className="flex items-center gap-2.5 w-full px-3 py-2 rounded text-body-sm font-medium text-white hover:bg-white/10 transition-colors mt-1"
             >
-              <Plus size={17} />
+              <Plus size={20} className="flex-shrink-0" />
               Nueva asignatura…
             </button>
           </div>
@@ -317,7 +319,7 @@ export default function TeacherLayout({ children }) {
                 `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
               }
             >
-              <Sparkles size={18} className="flex-shrink-0" />
+              <Sparkles size={20} className="flex-shrink-0" />
               Perfil para IA del docente
             </NavLink>
 
@@ -331,7 +333,7 @@ export default function TeacherLayout({ children }) {
                 `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
               }
             >
-              <Bell size={18} className="flex-shrink-0" />
+              <Bell size={20} className="flex-shrink-0" />
               Notificaciones
             </NavLink>
 
@@ -341,7 +343,7 @@ export default function TeacherLayout({ children }) {
                 `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
               }
             >
-              <BookOpen size={18} className="flex-shrink-0" />
+              <BookOpen size={20} className="flex-shrink-0" />
               Ayuda para comenzar
             </NavLink>
           </div>
@@ -355,7 +357,7 @@ export default function TeacherLayout({ children }) {
                 aria-expanded={showArchived}
                 className={`${ITEM_SECUNDARIO} text-white/60 hover:bg-white/10 hover:text-white`}
               >
-                <Archive size={18} className="flex-shrink-0" />
+                <Archive size={20} className="flex-shrink-0" />
                 <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
                 {/* La flecha va a la DERECHA de la palabra (pedido explícito)
                     y gira al desplegar — mismo lenguaje que un <details>, sin
@@ -374,12 +376,12 @@ export default function TeacherLayout({ children }) {
                     key={s.id}
                     to={`/subject/${s.id}`}
                     className={({ isActive }) =>
-                      `flex items-center gap-2 pl-10 pr-3 py-2 rounded text-body-sm transition-colors ${
+                      `flex items-center gap-2.5 pl-10 pr-3 py-2 rounded text-body-sm transition-colors ${
                         isActive ? 'bg-white text-accent font-bold shadow-md' : 'text-white/70 hover:bg-white/15'
                       }`
                     }
                   >
-                    <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
+                    <SubjectIcon iconKey={s.icon} size={20} className="flex-shrink-0" />
                     <span className="truncate">{subjectDisplayName(s)}</span>
                   </NavLink>
                 ))}
@@ -397,7 +399,7 @@ export default function TeacherLayout({ children }) {
               onClick={requestLogout}
               className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}
             >
-              <LogOut size={18} className="flex-shrink-0" />
+              <LogOut size={20} className="flex-shrink-0" />
               Cerrar sesión
             </button>
           </div>
