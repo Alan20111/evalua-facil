@@ -282,6 +282,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [analisisId, setAnalisisId] = useState(null) // doc en activities/{id}/analisisIA que se está viendo — null = todavía no persistido
   const [analisisHistorial, setAnalisisHistorial] = useState([]) // bitácora de OP-10: un doc por generación, ver activities/{id}/analisisIA
   const [analisisDescargandoId, setAnalisisDescargandoId] = useState(null)
+  // Consideración OPCIONAL que el docente puede escribir antes de generar el
+  // análisis (ver bloqueConsideracionesAnalisis en functions/ia.js). Vacía =
+  // el análisis de siempre, sin ningún cambio; con texto, orienta el énfasis.
+  // No cuesta créditos aparte: la tarifa de analizar_resultados es fija.
+  const [analisisConsideraciones, setAnalisisConsideraciones] = useState('')
   const [reviewFilter, setReviewFilter] = useState('todos') // review tab: todos|pendiente|calificado|porCalificar
   const [reviewNav, setReviewNav] = useState([])            // frozen student order for Anterior/Siguiente
   // Per-student deadline extension ("Modificar fecha de entrega") — en
@@ -1033,28 +1038,34 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // (agregarResultados), no un conteo aparte.
   async function generarAnalisisIA() {
     setAnalisisTrabajando(true)
+    // Se captura ANTES de la llamada para que sea exactamente el mismo texto
+    // que viajó a la IA el que queda en la bitácora.
+    const consideraciones = analisisConsideraciones.trim()
     try {
       const data = await creditosIA.ejecutar('analizar_resultados', {
         actividadId: activityId || activity.id,
         asignaturaId: activity.asignaturaId,
         asignaturaNombre: subject?.nombre || '',
+        consideraciones,
       })
       const resultado = data?.resultado || null
       setAnalisisResultado(resultado)
       const generadoEnLocal = new Date()
       setAnalisisGeneradoEn(generadoEnLocal.toISOString())
       setAnalisisConfirmando(false)
+      setAnalisisConsideraciones('')
       if (resultado) {
         try {
           const ref = await addDoc(collection(db, 'activities', activityId || activity.id, 'analisisIA'), {
             resultado,
+            consideraciones,
             generadoEn: serverTimestamp(),
             docenteId: auth.currentUser.uid,
             entregasConsideradas: resultado.totalEstudiantes ?? 0,
           })
           setAnalisisId(ref.id)
           setAnalisisHistorial((prev) => [
-            { id: ref.id, resultado, generadoEn: generadoEnLocal, docenteId: auth.currentUser.uid, entregasConsideradas: resultado.totalEstudiantes ?? 0 },
+            { id: ref.id, resultado, consideraciones, generadoEn: generadoEnLocal, docenteId: auth.currentUser.uid, entregasConsideradas: resultado.totalEstudiantes ?? 0 },
             ...prev,
           ])
         } catch (err) {
@@ -1892,9 +1903,29 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 descripcion="El asistente analiza los resultados reales de esta evaluación (aciertos por reactivo, patrones y estudiantes con desempeño bajo) y propone un resumen con recomendaciones. Es una propuesta: tú decides qué hacer con ella."
                 costoMin={creditosIA.estimar('analizar_resultados') ?? 5}
                 ejecutando={analisisTrabajando}
-                onCancelar={() => { if (!analisisTrabajando) setAnalisisConfirmando(false) }}
+                onCancelar={() => { if (!analisisTrabajando) { setAnalisisConfirmando(false); setAnalisisConsideraciones('') } }}
                 onContinuar={generarAnalisisIA}
-              />
+              >
+                {/* Se escribe ANTES de tocar Continuar, que es el que reserva
+                    créditos — cancelar aquí no cuesta nada. Es opcional: en
+                    blanco, el análisis sale exactamente igual que siempre, y
+                    escribirla no cambia lo que cuesta. */}
+                <div>
+                  <label htmlFor="analisis-consideraciones" className="text-sm text-on-surface block mb-1">
+                    Consideraciones para el análisis (opcional)
+                  </label>
+                  <textarea
+                    id="analisis-consideraciones"
+                    value={analisisConsideraciones}
+                    disabled={analisisTrabajando}
+                    onChange={(e) => setAnalisisConsideraciones(e.target.value)}
+                    placeholder="Ejemplo: céntrate en las respuestas a las preguntas abiertas, identifica los errores más frecuentes o propón ejercicios de refuerzo."
+                    rows={3}
+                    maxLength={400}
+                    className="w-full px-2 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none"
+                  />
+                </div>
+              </ConfirmacionCreditosModal>
             )}
             {analisisResultado && (
               <AnalisisResultadosIA
