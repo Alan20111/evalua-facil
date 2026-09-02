@@ -5423,7 +5423,7 @@ export default function SubjectPage() {
           ) : (
             <div className="bg-surface-card rounded-card overflow-y-auto max-h-[65vh] shadow-card">
               <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-1.5 bg-surface-container">
-                {!IS_NATIVE_APP && <span className="w-12 flex-shrink-0" />}
+                {!IS_NATIVE_APP && <span className="w-24 flex-shrink-0" />}
                 {!IS_NATIVE_APP && <span className="w-5 flex-shrink-0" />}
                 {!IS_NATIVE_APP && (
                   <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide">Nombre del estudiante</p>
@@ -5449,7 +5449,7 @@ export default function SubjectPage() {
                   className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''} ${IS_NATIVE_APP ? 'cursor-pointer' : ''}`}
                 >
                   {!IS_NATIVE_APP && (
-                    <div className="w-12 h-12 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0">
+                    <div className="w-24 h-24 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0">
                       {s.photoURL ? (
                         <img src={s.photoURL} alt="" className="w-full h-full object-cover" />
                       ) : (
