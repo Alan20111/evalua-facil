@@ -6,6 +6,15 @@
 //   modoDocente=false → pistas muestran solo `descripcion || "(N letras)"`:
 //                        la respuesta (palabra) NUNCA se revela al estudiante.
 //
+// `mostrarRespuestaEnPista` — tooltip "Respuesta: <palabra>" al pasar el cursor
+//   sobre cada pista (1-sep-2026). Es una bandera APARTE de `modoDocente` a
+//   propósito: `modoDocente` NO significa "es un docente", significa "muestra
+//   la respuesta en el texto de la pista", y SolucionJuegoModal —una pantalla
+//   del ALUMNO— lo pasa. Colgar el tooltip de `modoDocente` lo filtraría ahí.
+//   Solo RevisionJuegoBorrador.jsx (Vista previa del docente) la activa.
+//   Con la bandera en false el atributo `data-tooltip-follow` NO se emite:
+//   en el DOM del estudiante no existe, no queda oculto por CSS.
+//
 // Interacción:
 //   • Click en celda → selecciona la palabra que la contiene.
 //     Si la celda es intersección (H + V) el primer click elige horizontal;
@@ -35,6 +44,7 @@ export default function CrucigramaBoard({
   readOnly = false,
   estadoCorrecto = null,
   modoDocente = false,
+  mostrarRespuestaEnPista = false,
 }) {
   const { size = 0, grid = [], palabras = [] } = estructura || {}
   const refs = useRef({})
@@ -278,6 +288,17 @@ export default function CrucigramaBoard({
     return p.descripcion || '⚠ sin pista'
   }
 
+  // `undefined` hace que React omita el atributo por completo — la pista del
+  // estudiante no lo lleva en el DOM. Se reutiliza el mecanismo global
+  // `data-tooltip-follow` (src/utils/followTooltip.js, instalado desde
+  // App.jsx), pensado para triggers ANCHOS como este botón `w-full`: sigue al
+  // cursor en vez de centrarse sobre toda la línea. Solo hover de mouse real
+  // — en táctil no se instala, y el tap de la pista ya salta a su casilla.
+  function tooltipRespuesta(p) {
+    if (!mostrarRespuestaEnPista || !p.palabra) return undefined
+    return `Respuesta: ${p.palabra}`
+  }
+
   return (
     <div className="space-y-4">
       {/* Cuadrícula */}
@@ -350,6 +371,7 @@ export default function CrucigramaBoard({
                 <button
                   type="button"
                   onClick={() => handleSelectPalabra(p)}
+                  data-tooltip-follow={tooltipRespuesta(p)}
                   className={`w-full text-left cursor-pointer hover:text-accent transition-colors ${
                     !readOnly && palabraActiva?.index === p.index ? 'text-accent font-medium' : ''
                   }`}
@@ -368,6 +390,7 @@ export default function CrucigramaBoard({
                 <button
                   type="button"
                   onClick={() => handleSelectPalabra(p)}
+                  data-tooltip-follow={tooltipRespuesta(p)}
                   className={`w-full text-left cursor-pointer hover:text-accent transition-colors ${
                     !readOnly && palabraActiva?.index === p.index ? 'text-accent font-medium' : ''
                   }`}
