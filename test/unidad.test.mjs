@@ -1810,6 +1810,115 @@ caso('docExtract: ya no trunca — no expone ningún MAX_CHARS (el documento com
   assert.strictEqual(docExtract.MAX_CHARS, undefined)
 })
 
+// ── PDF visual: un PDF sin capa de texto NO es un PDF inválido (3-sep-2026) ──
+// Bug real: un docente adjuntó una infografía de 4 páginas exportada como
+// imagen (0 caracteres extraíbles) y el sistema la rechazó como "PDF o Word
+// no válido", abortando la creación del cuestionario completo. El archivo
+// estaba perfecto; lo que faltaba era mirarlo en vez de intentar leerlo.
+const FUENTES = require('../functions/fuentesIA.js')
+
+caso('tipoPorDensidad: PDF escaneado (0 caracteres, 4 páginas) → "visual", NUNCA inválido', () => {
+  assert.strictEqual(docExtract.tipoPorDensidad('', 4), 'visual')
+})
+
+caso('tipoPorDensidad: PDF con texto denso → "texto" (sigue el camino barato de siempre)', () => {
+  assert.strictEqual(docExtract.tipoPorDensidad('x'.repeat(80000), 60), 'texto')
+})
+
+caso('tipoPorDensidad: PDF mixto — poco texto por página, el contenido está en la imagen', () => {
+  assert.strictEqual(docExtract.tipoPorDensidad('Encabezado suelto', 4), 'mixto')
+})
+
+caso('tipoPorDensidad: el umbral es por PÁGINA, no total — 199 y 200 caracteres en 1 página', () => {
+  assert.strictEqual(docExtract.tipoPorDensidad('x'.repeat(199), 1), 'mixto')
+  assert.strictEqual(docExtract.tipoPorDensidad('x'.repeat(200), 1), 'texto')
+})
+
+caso('tipoPorDensidad: sin páginas no se puede afirmar nada → "invalido"', () => {
+  assert.strictEqual(docExtract.tipoPorDensidad('lo que sea', 0), 'invalido')
+  assert.strictEqual(docExtract.tipoPorDensidad('lo que sea', null), 'invalido')
+})
+
+caso('presupuestoPaginasVisual: escala con el ingreso — una evaluación de 20 reactivos (5 cr) llega al tope', () => {
+  assert.strictEqual(FUENTES.presupuestoPaginasVisual(5), 30)
+})
+
+caso('presupuestoPaginasVisual: una operación de tarifa plana (1 cr) recibe mucho menos', () => {
+  assert.strictEqual(FUENTES.presupuestoPaginasVisual(1), 6)
+})
+
+caso('presupuestoPaginasVisual: nunca baja del piso de 4 páginas (la infografía del bug real cabe siempre)', () => {
+  assert.strictEqual(FUENTES.presupuestoPaginasVisual(0.25), FUENTES.MIN_PAGINAS_VISUAL)
+  assert.strictEqual(FUENTES.presupuestoPaginasVisual(0), FUENTES.MIN_PAGINAS_VISUAL)
+  assert.ok(FUENTES.MIN_PAGINAS_VISUAL >= 4)
+})
+
+caso('presupuestoPaginasVisual: nunca rebasa el tope aunque la operación sea carísima', () => {
+  assert.strictEqual(FUENTES.presupuestoPaginasVisual(1000), FUENTES.MAX_PAGINAS_VISUAL)
+})
+
+caso('MAX_PAGINAS_VISUAL de fuentes NO es el 3 de las entregas (OP-11) — esa regresión es justo lo que se evita', () => {
+  const evidencias = require('../functions/evidenciasEntrega.js')
+  assert.strictEqual(evidencias.MAX_EVIDENCIAS, 3) // OP-11 intacto
+  assert.ok(FUENTES.MAX_PAGINAS_VISUAL > 3)
+  assert.ok(FUENTES.MIN_PAGINAS_VISUAL > 3)
+})
+
+// ── El documento NO se reprocesa en cada lote (cliente falso, sin red) ───────
+// Se comprueba la forma EXACTA del mensaje: el documento va delante del texto
+// que cambia por lote y lleva cache_control, que es lo único que permite que
+// el segundo lote lo lea del caché en vez de volver a pagarlo entero.
+const clienteFalso = (capturar) => ({
+  messages: {
+    create: async (req) => {
+      capturar(req)
+      return { content: [{ type: 'text', text: '{"ok":true}' }], usage: { input_tokens: 1, output_tokens: 1 } }
+    },
+  },
+})
+
+await (async () => {
+  const bloque = { type: 'document', source: { type: 'url', url: 'https://x/y.pdf' } }
+  let req = null
+  await FIA.pedirJSON({
+    client: clienteFalso((r) => { req = r }), modelo: 'm', maxTokens: 10,
+    prompt: 'TEXTO QUE CAMBIA POR LOTE', system: 's', bloquesPrefijo: [bloque],
+  })
+
+  caso('pedirJSON: el documento va ANTES del prompt (prefijo estable = cacheable)', () => {
+    assert.strictEqual(req.messages[0].content[0].type, 'document')
+    assert.strictEqual(req.messages[0].content[1].type, 'text')
+    assert.strictEqual(req.messages[0].content[1].text, 'TEXTO QUE CAMBIA POR LOTE')
+  })
+
+  caso('pedirJSON: el último bloque del prefijo lleva cache_control', () => {
+    assert.deepStrictEqual(req.messages[0].content[0].cache_control, { type: 'ephemeral' })
+  })
+
+  caso('pedirJSON: no muta el bloque original del llamador', () => {
+    assert.strictEqual(bloque.cache_control, undefined)
+  })
+
+  let req2 = null
+  await FIA.pedirJSON({
+    client: clienteFalso((r) => { req2 = r }), modelo: 'm', maxTokens: 10, prompt: 'solo texto', system: 's',
+  })
+  caso('pedirJSON: sin bloques, el contenido sigue siendo el string de siempre (contrato intacto)', () => {
+    assert.strictEqual(req2.messages[0].content, 'solo texto')
+  })
+
+  let req3 = null
+  await FIA.pedirJSON({
+    client: clienteFalso((r) => { req3 = r }), modelo: 'm', maxTokens: 10, prompt: 'p', system: 's',
+    bloques: [{ type: 'image', source: { type: 'url', url: 'https://x/y.png' } }],
+  })
+  caso('pedirJSON: `bloques` (rúbrica/cotejo/OP-11) sigue yendo DESPUÉS del prompt, sin cache_control', () => {
+    assert.strictEqual(req3.messages[0].content[0].type, 'text')
+    assert.strictEqual(req3.messages[0].content[1].type, 'image')
+    assert.strictEqual(req3.messages[0].content[1].cache_control, undefined)
+  })
+})()
+
 // Fragmentación de documentos grandes SIN pérdida de contenido (17-ago-2026)
 const docChunking = require('../functions/docChunking.js')
 

@@ -8,7 +8,10 @@ import { uploadToCloudinary } from './cloudinary'
 
 export const MAX_FUENTES = 3
 export const MAX_FUENTE_BYTES = 15 * 1024 * 1024 // mismo criterio que MAX_ATTACH en EntregableEditor.jsx
-export const FUENTES_ACCEPT = '.pdf,.doc,.docx'
+// `.doc` (Word anterior a 2007) NO está: es un binario que mammoth no lee, así
+// que el servidor lo rechazaba SIEMPRE — ofrecerlo en el selector solo servía
+// para que el docente perdiera el viaje. Se le pide convertir a .docx o PDF.
+export const FUENTES_ACCEPT = '.pdf,.docx'
 
 /** Sube en paralelo y devuelve [{url, nombre, tamano}] — mismo folder que la Fase 1. */
 export async function subirFuentes(files) {
@@ -25,6 +28,22 @@ export async function subirFuentes(files) {
  * guardada en Fuentes de la Asignatura, ver useFuentesAsignatura — no se
  * vuelve a subir una copia a Cloudinary). Devuelve las URLs en el mismo orden.
  */
+/**
+ * Muestra como ADVERTENCIA (no error) los documentos que el servidor no pudo
+ * usar, cuando la operación sí salió adelante con el resto del material.
+ * Antes esto no existía: o se abortaba todo, o el documento se descartaba en
+ * silencio — y ese silencio es lo que mantuvo escondido durante semanas que
+ * un PDF escaneado nunca llegaba al modelo.
+ */
+export function avisarFuentesOmitidas(toast, avisos) {
+  const lista = Array.isArray(avisos) ? avisos : []
+  if (!lista.length) return
+  const cabeza = lista.length === 1
+    ? 'Un documento no se pudo usar'
+    : `${lista.length} documentos no se pudieron usar`
+  toast(`${cabeza}: ${lista[0].motivo}`, 'warning')
+}
+
 export async function resolverFuentes(archivos) {
   const items = archivos || []
   const paraSubir = items.filter((a) => a instanceof File)

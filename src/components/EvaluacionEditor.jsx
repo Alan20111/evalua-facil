@@ -34,7 +34,7 @@ import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ReactivosIAReview from './evaluacion/ReactivosIAReview'
 import FuentesIAInput from './ia/FuentesIAInput'
-import { resolverFuentes } from '../utils/fuentesIA'
+import { resolverFuentes, avisarFuentesOmitidas } from '../utils/fuentesIA'
 import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
 import {
   MIN_REACTIVOS, MAX_REACTIVOS, DEFAULT_REACTIVOS, TIPOS_REACTIVO_IA, reactivosDesdePropuesta,
@@ -767,6 +767,7 @@ export default function EvaluacionEditor({
       const propuesta = reactivosDesdePropuesta(r?.resultado, iaCantidad)
       setIaPropuesta(propuesta)
       setIaConfirmando(false)
+      avisarFuentesOmitidas(toast, r?.resultado?.avisos)
     } catch (err) {
       toast(err.message, 'error')
     } finally {

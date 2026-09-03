@@ -48,15 +48,14 @@ const { calcularTarifaExamen } = require('./_shared/tarifaExamen.js')
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
-// Extensiones que de verdad se pueden leer como texto (mismo criterio que
-// tipoFuentePermitido en src/utils/fuentesAsignatura.js, mas los formatos de
-// Office que también acepta docExtract). "Material de apoyo" no restringe
-// tipo de archivo (puede ser una imagen, un video, un enlace) — filtrar aquí
-// evita gastar una descarga+extracción en algo que nunca iba a servir de
-// contexto de texto; lo que de todos modos no se pueda leer se ignora en
-// silencio más abajo (prepararBloqueFuentesGenerales), así que este filtro
-// es una optimización, no una validación indispensable.
-const EXTENSIONES_LEGIBLES = /\.(pdf|docx?|pptx?|xlsx?)$/i
+// Extensiones que docExtract sabe leer DE VERDAD. Antes esto incluía
+// .doc/.ppt/.pptx/.xls/.xlsx "porque docExtract también los acepta" —
+// no los acepta: solo PDF y .docx (ver functions/docExtract.js). El
+// resultado era descargar un .xlsx en cada operación para tirarlo enseguida.
+// "Material de apoyo" no restringe tipo de archivo (puede ser una imagen, un
+// video, un enlace), así que este filtro evita esas descargas inútiles; lo
+// que aun así no se pueda leer se reporta en `avisos`, ya no en silencio.
+const EXTENSIONES_LEGIBLES = /\.(pdf|docx)$/i
 
 // Fuentes PERMANENTES que se incluyen SIEMPRE en OP-03/04/05/09, sin el tope
 // de 3 (ese tope solo aplica a lo que el docente adjunta a mano en la
@@ -74,8 +73,8 @@ const EXTENSIONES_LEGIBLES = /\.(pdf|docx?|pptx?|xlsx?)$/i
 //     duplicado, esta función ahora lee directo de Material de apoyo.
 // Devuelve también las URLs incluidas (para que el llamador pueda excluirlas
 // de lo que el docente adjuntó a mano y no aparezca duplicado en el prompt).
-async function bloqueFuentesPermanentes(db, asignaturaId, parcial) {
-  if (!asignaturaId) return { texto: null, urls: [] } // actividad de prueba/legacy — no truena la query
+async function urlsFuentesPermanentes(db, asignaturaId, parcial) {
+  if (!asignaturaId) return [] // actividad de prueba/legacy — no truena la query
   const [generalesSnap, materialesSnap] = await Promise.all([
     db.collection('fuentesAsignatura')
       .where('asignaturaId', '==', asignaturaId)
@@ -93,10 +92,27 @@ async function bloqueFuentesPermanentes(db, asignaturaId, parcial) {
     .flatMap((d) => Array.isArray(d.data().archivos) ? d.data().archivos : [])
     .map((a) => a?.url)
     .filter((url) => url && EXTENSIONES_LEGIBLES.test(url))
-  const urls = [...urlsGenerales, ...urlsMateriales]
-  const texto = await fuentesIA.prepararBloqueFuentesGenerales(urls)
-  return { texto, urls }
+  return [...urlsGenerales, ...urlsMateriales]
 }
+
+// Igual que antes para quien solo quiere el bloque permanente ya resuelto
+// (incluidas las pruebas, que leen `urls`). `maxPaginasVisual` permite al
+// llamador reservar parte del presupuesto de páginas visuales para otra cosa.
+async function bloqueFuentesPermanentes(db, asignaturaId, parcial, maxPaginasVisual) {
+  const urls = await urlsFuentesPermanentes(db, asignaturaId, parcial)
+  const r = await fuentesIA.fuentesGenerales(urls, maxPaginasVisual === undefined ? {} : { maxPaginasVisual })
+  return { ...r, urls }
+}
+
+// Créditos que va a cobrar una operación, leídos de config/iaTarifas — jamás
+// escritos a mano aquí. Si faltan (pruebas que llaman al precheck directo),
+// devuelve 0 y el presupuesto de páginas cae a su piso, que es lo seguro.
+const creditosDe = (tarifas, operacion, unidades = 1) => (Number(tarifas?.tarifas?.[operacion]) || 0) * unidades
+
+// ¿Esta operación lleva documentos de referencia? Cuenta tanto el texto
+// extraído como los PDF que viajan como imagen: para el prompt son lo mismo
+// (material fuente), aunque lleguen por caminos distintos.
+const tieneFuentes = (ctx) => !!(ctx?.bloqueFuentes || ctx?.fuentesBloques?.length)
 
 // Quita de lo que el docente adjuntó a mano cualquier URL que ya entró por
 // la biblioteca permanente — evita que la misma fuente aparezca dos veces en
@@ -112,13 +128,44 @@ function excluirUrlsPermanentes(fuentesManual, permanentesUrls) {
 // Arma el bloque final de fuentes de una operación: permanentes (generales +
 // parcial correspondiente) + lo que el docente adjuntó a mano, SIN duplicar
 // una fuente que ya entró por la biblioteca permanente.
-async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual }) {
-  const permanentes = await bloqueFuentesPermanentes(db, asignaturaId, parcial)
-  const manualSinDuplicar = excluirUrlsPermanentes(fuentesManual, permanentes.urls)
-  return fuentesIA.combinarBloquesFuentes(
-    permanentes.texto,
-    await fuentesIA.prepararBloqueFuentes(manualSinDuplicar)
+// Devuelve `{ texto, bloques, avisos }`. `texto` conserva EXACTAMENTE el
+// contrato anterior (string o null) para que nada de lo que ya lo consumía
+// tenga que cambiar; `bloques` son los documentos que viajan como PDF nativo
+// y solo los usan las operaciones que saben mandarlos (crear evaluación y
+// reactivos); `avisos` explica qué documento no se pudo usar y por qué.
+//
+// El presupuesto de páginas visuales se reparte dando PRIORIDAD a lo que el
+// docente acaba de adjuntar a mano: lo eligió para esta operación en
+// concreto, así que no puede quedarse fuera porque la biblioteca permanente
+// ya se haya comido el presupuesto.
+async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual, creditosOperacion = 1 }) {
+  const urlsPermanentes = await urlsFuentesPermanentes(db, asignaturaId, parcial)
+  const manualSinDuplicar = excluirUrlsPermanentes(fuentesManual, urlsPermanentes)
+  const maxPaginasVisual = fuentesIA.presupuestoPaginasVisual(creditosOperacion)
+
+  const manual = await fuentesIA.fuentesManual(manualSinDuplicar, { maxPaginasVisual })
+  // Lo que el docente adjuntó a mano SÍ bloquea si nada de ello sirvió: lo
+  // acaba de elegir y merece enterarse, en vez de que la evaluación salga en
+  // silencio sin el material que él creía haber aportado.
+  if (manualSinDuplicar.length && !manual.texto && !manual.bloques.length) {
+    const motivo = manual.avisos[0]?.motivo || 'No se pudo procesar el documento.'
+    throw new HttpsError('failed-precondition',
+      `No se pudo usar ninguno de los documentos que adjuntaste. ${motivo} Corrígelo o continúa sin adjuntarlos. No se descontaron créditos.`)
+  }
+
+  const permanentes = await bloqueFuentesPermanentes(
+    db, asignaturaId, parcial,
+    Math.max(0, maxPaginasVisual - manual.paginasVisuales)
   )
+
+  return {
+    texto: fuentesIA.combinarBloquesFuentes(permanentes.texto, manual.texto),
+    bloques: [...permanentes.bloques, ...manual.bloques],
+    // Los avisos de lo PERMANENTE también se reportan: que se ignoraran en
+    // silencio es lo que mantuvo escondido durante semanas que un PDF
+    // escaneado nunca llegaba al modelo.
+    avisos: [...permanentes.avisos, ...manual.avisos],
+  }
 }
 
 // ── Planeación Didáctica VIGENTE como contexto de la IA ───────────────────
@@ -778,9 +825,25 @@ function bloqueContexto(ctx, asignatura) {
 // (opcional) son content blocks adicionales — imagen/PDF nativo o texto de
 // Word ya preparados por evidenciasEntrega.js — que se agregan DESPUÉS del
 // prompt de texto, mismo patrón que evaluarEntregaConIA en "Calificar con IA".
-async function pedirJSON({ client, modelo, maxTokens, prompt, system = INSTRUMENTO_SISTEMA, bloques = [] }) {
+async function pedirJSON({ client, modelo, maxTokens, prompt, system = INSTRUMENTO_SISTEMA, bloques = [], bloquesPrefijo = [] }) {
   const inicio = Date.now()
-  const content = bloques.length ? [{ type: 'text', text: prompt }, ...bloques] : prompt
+  // `bloques` va DESPUÉS del prompt (contrato original, no se toca: lo usan
+  // rúbrica, cotejo y OP-11, y moverlos cambiaría sus prompts).
+  //
+  // `bloquesPrefijo` va ANTES, y existe para poder cachearlo: el caché de
+  // Anthropic es por PREFIJO, así que un documento solo se puede reutilizar
+  // entre llamadas si va delante de la parte que cambia. Al marcar
+  // cache_control en el último bloque del prefijo, `system` + documentos
+  // quedan cacheados y los lotes siguientes los leen a 0.1× en vez de
+  // pagarlos completos otra vez. Si el prefijo no alcanza el mínimo
+  // cacheable del modelo (4,096 tokens en claude-haiku-4-5) simplemente no
+  // se cachea: no es un error, y ahí el ahorro era irrelevante de todos modos.
+  const prefijo = bloquesPrefijo.length
+    ? bloquesPrefijo.map((b, i) => (i === bloquesPrefijo.length - 1 ? { ...b, cache_control: { type: 'ephemeral' } } : b))
+    : []
+  const content = (prefijo.length || bloques.length)
+    ? [...prefijo, { type: 'text', text: prompt }, ...bloques]
+    : prompt
   const msg = await client.messages.create({
     model: modelo,
     max_tokens: maxTokens,
@@ -795,6 +858,10 @@ async function pedirJSON({ client, modelo, maxTokens, prompt, system = INSTRUMEN
       modelo,
       tokensEntrada: msg.usage?.input_tokens ?? null,
       tokensSalida: msg.usage?.output_tokens ?? null,
+      // Sirven para comprobar que un documento NO se reprocesó: en el segundo
+      // lote de una evaluación grande, cacheLectura debe venir > 0.
+      cacheEscritura: msg.usage?.cache_creation_input_tokens ?? 0,
+      cacheLectura: msg.usage?.cache_read_input_tokens ?? 0,
       ms: Date.now() - inicio,
     },
   }
@@ -1590,7 +1657,7 @@ function tiposParaLote(tipoSolicitado, cantidad) {
 }
 
 // Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
-async function precheckReactivos({ uid, params }) {
+async function precheckReactivos({ uid, params, tarifas }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) {
@@ -1628,8 +1695,9 @@ async function precheckReactivos({ uid, params }) {
   // adjuntó a mano aquí — mismo mecanismo que crear_evaluacion_ia: fuente
   // ADICIONAL, "qué quiere evaluar" sigue siendo la fuente principal (ver
   // REACTIVOS_SISTEMA/promptReactivos más abajo).
-  const bloqueFuentes = await bloqueFuentesOperacion(db, {
+  const fuentes = await bloqueFuentesOperacion(db, {
     asignaturaId: act.asignaturaId, parcial: act.parcial, fuentesManual: params?.fuentes,
+    creditosOperacion: creditosDe(tarifas, 'reactivos', cantidad),
   })
 
   return {
@@ -1640,7 +1708,9 @@ async function precheckReactivos({ uid, params }) {
     cantidad,
     tipoSolicitado,
     tipos: tiposParaLote(tipoSolicitado, cantidad),
-    bloqueFuentes,
+    bloqueFuentes: fuentes.texto,
+    fuentesBloques: fuentes.bloques,
+    fuentesAvisos: fuentes.avisos,
   }
 }
 
@@ -1682,7 +1752,7 @@ function promptReactivos(ctx, asignatura) {
     `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
     `${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n` +
     (ctx.tema ? `Tema: ${ctx.tema}\n` : '') +
-    `\nQUÉ QUIERE EVALUAR EL DOCENTE (${ctx.bloqueFuentes ? 'fuente principal' : 'única fuente'} del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
+    `\nQUÉ QUIERE EVALUAR EL DOCENTE (${tieneFuentes(ctx) ? 'fuente principal' : 'única fuente'} del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
     (ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : '\n') +
     `Genera EXACTAMENTE ${ctx.cantidad} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
     'Reglas por tipo:\n' +
@@ -1731,8 +1801,10 @@ async function ejecutarReactivos({ params, modelo, apiKey }) {
   const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
 
   const { datos, interno } = await pedirJSON({
-    client, modelo, maxTokens: 2200, system: ctx.bloqueFuentes ? reactivosSistemaConFuentes() : REACTIVOS_SISTEMA,
+    client, modelo, maxTokens: 2200,
+    system: (ctx.bloqueFuentes || ctx.fuentesBloques?.length) ? reactivosSistemaConFuentes() : REACTIVOS_SISTEMA,
     prompt: promptReactivos(ctx, asignatura),
+    bloquesPrefijo: ctx.fuentesBloques || [],
   })
 
   // Tarifa comercial (decisión PO, 23-ago-2026): 0.5 crédito por reactivo
@@ -1745,7 +1817,7 @@ async function ejecutarReactivos({ params, modelo, apiKey }) {
   }
 
   return {
-    resultado: { reactivos, clase: ctx.clase },
+    resultado: { reactivos, clase: ctx.clase, avisos: ctx.fuentesAvisos || [] },
     unidadesReales: reactivos.length,
     interno,
   }
@@ -2299,7 +2371,7 @@ function repartirPonderacion(cantidad) {
 }
 
 // Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
-async function precheckCrearEvaluacion({ uid, params }) {
+async function precheckCrearEvaluacion({ uid, params, tarifas }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) {
@@ -2332,8 +2404,9 @@ async function precheckCrearEvaluacion({ uid, params }) {
   // parcial de esta actividad, nunca las de otro parcial) + hasta 3 que el
   // docente adjuntó a mano aquí — lógica compartida con reactivos (OP-09) y
   // crear_actividad_ia (OP-05): ver fuentesIA.js.
-  const bloqueFuentes = await bloqueFuentesOperacion(db, {
+  const fuentes = await bloqueFuentesOperacion(db, {
     asignaturaId: act.asignaturaId, parcial: act.parcial, fuentesManual: params?.fuentes,
+    creditosOperacion: creditosDe(tarifas, 'crear_evaluacion_ia', cantidad),
   })
 
   return {
@@ -2343,7 +2416,9 @@ async function precheckCrearEvaluacion({ uid, params }) {
     cantidad,
     tipoSolicitado,
     tipos: tiposParaLote(tipoSolicitado, cantidad),
-    bloqueFuentes,
+    bloqueFuentes: fuentes.texto,
+    fuentesBloques: fuentes.bloques,
+    fuentesAvisos: fuentes.avisos,
   }
 }
 
@@ -2424,6 +2499,8 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
   let instruccionesHtml = ''
   let tokensEntrada = 0
   let tokensSalida = 0
+  let cacheEscritura = 0
+  let cacheLectura = 0
   let ms = 0
   let offset = 0
   for (const [i, tiposLote] of lotes.entries()) {
@@ -2433,6 +2510,12 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
       maxTokens: Math.min(8000, 350 * tiposLote.length + 400 + (primerLote ? 400 : 0)),
       system: CREAR_EVAL_SISTEMA,
       prompt: promptCrearEvaluacion(ctx, asignatura, tiposLote, offset, primerLote),
+      // Los documentos visuales van como PREFIJO cacheado: idénticos en todos
+      // los lotes, así que el primero los paga y los siguientes los leen a
+      // 0.1× en vez de reprocesarlos enteros. El modelo ve exactamente el
+      // mismo contenido en cada lote, de modo que la calidad no cambia —
+      // esto es una optimización de costo, no de comportamiento.
+      bloquesPrefijo: ctx.fuentesBloques || [],
     })
     reactivos = reactivos.concat(normalizarReactivos(datos, { tipos: tiposLote }))
     // Instrucciones generales: solo se piden en el primer lote (ver
@@ -2441,6 +2524,8 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
     if (primerLote) instruccionesHtml = sanitizarInstruccionesHtml(datos?.instruccionesHtml)
     tokensEntrada += interno.tokensEntrada || 0
     tokensSalida += interno.tokensSalida || 0
+    cacheEscritura += interno.cacheEscritura || 0
+    cacheLectura += interno.cacheLectura || 0
     ms += interno.ms || 0
     offset += tiposLote.length
   }
@@ -2486,9 +2571,12 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
   await db.doc(`activities/${actividadId}`).set(updateActividad, { merge: true })
 
   return {
-    resultado: { cantidad: reactivos.length, clase: ctx.clase },
+    // `avisos` viaja al cliente para que el docente vea qué documento no se
+    // pudo usar y por qué, SIN que eso convierta en error una generación que
+    // sí salió bien con el resto del material.
+    resultado: { cantidad: reactivos.length, clase: ctx.clase, avisos: ctx.fuentesAvisos || [] },
     unidadesReales: reactivos.length, // 1 crédito por reactivo realmente generado
-    interno: { modelo, tokensEntrada, tokensSalida, ms },
+    interno: { modelo, tokensEntrada, tokensSalida, cacheEscritura, cacheLectura, ms },
   }
 }
 
@@ -2513,7 +2601,7 @@ const MAX_PETICION_ACTIVIDAD = 2000
 const TIPOS_ARCHIVO_VALIDOS = ['imagenes', 'pdf', 'word', 'powerpoint', 'excel', 'zip']
 
 // Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
-async function precheckCrearActividad({ uid, params }) {
+async function precheckCrearActividad({ uid, params, tarifas }) {
   const db = getFirestore()
   const categoria = CATEGORIAS_ACTIVIDAD_IA[params?.categoria] || null
   if (!categoria) {
@@ -2556,7 +2644,10 @@ async function precheckCrearActividad({ uid, params }) {
 
   // Fuentes permanentes (generales + las del parcial de esta actividad,
   // nunca las de otro parcial) + hasta 3 que el docente adjuntó a mano aquí.
-  const bloqueFuentes = await bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual: params?.fuentes })
+  const fuentes = await bloqueFuentesOperacion(db, {
+    asignaturaId, parcial, fuentesManual: params?.fuentes,
+    creditosOperacion: creditosDe(tarifas, 'crear_actividad_ia'),
+  })
 
   // La planeación VIGENTE de la asignatura (1-sep-2026, autorizado por Kike):
   // una actividad generada con IA tiene que apoyarse en lo que el docente
@@ -2572,7 +2663,9 @@ async function precheckCrearActividad({ uid, params }) {
     peticion,
     nombresExistentes,
     pesoRestante,
-    bloqueFuentes,
+    bloqueFuentes: fuentes.texto,
+    fuentesBloques: fuentes.bloques,
+    fuentesAvisos: fuentes.avisos,
     bloquePlaneacion,
   }
 }
@@ -2680,6 +2773,7 @@ async function ejecutarCrearActividad({ params, modelo, apiKey }) {
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 1200, system: CREAR_ACTIVIDAD_SISTEMA,
     prompt: promptCrearActividad(ctx, asignatura),
+    bloquesPrefijo: ctx.fuentesBloques || [],
   })
 
   const nombre = String(datos?.nombre || '').trim().slice(0, 120)
@@ -2713,7 +2807,7 @@ async function ejecutarCrearActividad({ params, modelo, apiKey }) {
   await db.doc(`activities/${actividadId}`).update(update)
 
   return {
-    resultado: { actividadId, categoria: ctx.categoria },
+    resultado: { actividadId, categoria: ctx.categoria, avisos: ctx.fuentesAvisos || [] },
     unidadesReales: 1,
     interno,
   }
@@ -5887,9 +5981,21 @@ exports.ejecutarOperacionIA = onCall(
     // categoría válida y suficiencia del contexto. Si algo de esto falla, el
     // docente se entera sin que se haya reservado ni descontado un crédito
     // (no hay reserva que reembolsar porque nunca llegó a existir).
+    // Las tarifas se cargan ANTES del precheck (3-sep-2026): el presupuesto de
+    // páginas que una operación puede mandar a análisis visual depende de
+    // cuánto cobra esa operación, y ese número vive en config/iaTarifas, no
+    // en el código. Cargarlas es una lectura: no reserva ni cobra nada, así
+    // que la garantía de "el precheck no cuesta créditos" queda intacta.
+    let tarifas
+    try {
+      tarifas = await ledger.cargarTarifas()
+    } catch (e) {
+      throw comoHttpsError(e)
+    }
+
     let precontexto = null
     if (PRECHECKS[operacion]) {
-      precontexto = await PRECHECKS[operacion]({ uid, params })
+      precontexto = await PRECHECKS[operacion]({ uid, params, tarifas })
     }
 
     // El precheck puede saber, ANTES de reservar, que esta operación va a
@@ -5918,10 +6024,8 @@ exports.ejecutarOperacionIA = onCall(
       return operacion
     })()
 
-    let tarifas
     let reserva
     try {
-      tarifas = await ledger.cargarTarifas()
       reserva = await ledger.reservar({ uid, operacion: operacionEfectiva, idempotencyKey, unidades: n, asignaturaId: params.asignaturaId || null, tarifas })
     } catch (e) {
       throw comoHttpsError(e)
@@ -6097,6 +6201,7 @@ exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
 // armado del contexto de la actividad padre y su regla de suficiencia, que es
 // donde vive la decisión de "no alcanza, no se cobra".
 exports._pruebas = {
+  pedirJSON,
   contextoDeActividad, condicionesEntregable, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
   precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MAX_REACTIVOS,
   agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
