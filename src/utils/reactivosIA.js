@@ -17,13 +17,21 @@ export const DEFAULT_REACTIVOS = 5
 // selector con un número que el servidor recortaría.
 export const MAX_REACTIVOS_EVALUACION = 100
 
-export const TIPOS_REACTIVO_IA = [
-  { value: 'mixto', label: 'Mixto' },
+// Checkboxes independientes por tipo — el docente marca los que quiere que
+// genere la IA (al menos uno). Los 4 marcados equivale al viejo "Mixto"
+// (round-robin sobre los 4); marcar 1 = todos de ese tipo; marcar N = reparto
+// round-robin sobre esos N. El servidor es la autoridad real
+// (functions/ia.js `tiposParaLote`), esto solo alimenta el selector.
+export const TIPOS_REACTIVO_IA_CHECKBOXES = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
   { value: 'verdadero_falso', label: 'Verdadero / Falso' },
   { value: 'respuesta_corta', label: 'Respuesta corta' },
   { value: 'subir_archivo', label: 'Subir documento' },
 ]
+
+// Todos marcados por defecto — comportamiento equivalente al "Mixto" previo,
+// para que un docente que solo dé "Generar" siga viendo la mezcla de siempre.
+export const TIPOS_REACTIVO_IA_DEFAULT = TIPOS_REACTIVO_IA_CHECKBOXES.map((t) => t.value)
 
 const limpiar = (v, max) => String(v ?? '').trim().slice(0, max)
 

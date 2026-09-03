@@ -22,6 +22,7 @@ import {
   propuestaFueEditada, trazaIA,
 } from '../src/utils/rubrica.js'
 import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosIA.js'
+import { estaRespondida } from '../src/utils/evaluacionRespondida.js'
 import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
@@ -682,6 +683,93 @@ caso('opción múltiple necesita al menos 2 opciones con texto', () => {
 caso('verdadero_falso y respuesta_corta solo necesitan enunciado', () => {
   assert.strictEqual(reactivoValido({ tipo: 'verdadero_falso', enunciado: 'X', correcta: 'v' }), true)
   assert.strictEqual(reactivoValido({ tipo: 'respuesta_corta', enunciado: 'X' }), true)
+})
+
+
+grupo('estaRespondida — regla global de "toda pregunta se responde"')
+
+const P_ABIERTA = { id: 'p1', tipo: 'respuesta_corta' }
+const P_ARCHIVO = { id: 'p2', tipo: 'subir_archivo' }
+const P_OM = { id: 'p3', tipo: 'opcion_multiple', opciones: [{ id: 'oA' }, { id: 'oB' }, { id: 'oOtra', esOtra: true }] }
+const P_VF = { id: 'p4', tipo: 'verdadero_falso', opciones: [{ id: 'v' }, { id: 'f' }] }
+
+caso('respuesta_corta: undefined, null, "" y solo espacios NUNCA son respuesta válida', () => {
+  assert.strictEqual(estaRespondida(P_ABIERTA, undefined, undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, null, undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, '', undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, '   ', undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, '\t\n', undefined), false)
+})
+
+caso('respuesta_corta: cualquier texto no vacío ES respuesta válida', () => {
+  assert.strictEqual(estaRespondida(P_ABIERTA, 'algo', undefined), true)
+  assert.strictEqual(estaRespondida(P_ABIERTA, ' x ', undefined), true)
+  assert.strictEqual(estaRespondida(P_ABIERTA, '0', undefined), true)
+})
+
+caso('respuesta_corta: valores que no son string (residuo de otro tipo) NO son respuesta', () => {
+  // Regresión del bug real: si por un cambio de tipo el valor cargado es un
+  // id de opción u otro objeto, la abierta debe seguir contando como vacía.
+  assert.strictEqual(estaRespondida(P_ABIERTA, 'oXYZ', undefined), true) // string sí es válido — lo filtra la carga por-tipo
+  assert.strictEqual(estaRespondida(P_ABIERTA, null, undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, { archivoURL: 'x' }, undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, 42, undefined), false)
+})
+
+caso('subir_archivo: sin archivoURL, con "" o sin objeto NO es respuesta', () => {
+  assert.strictEqual(estaRespondida(P_ARCHIVO, undefined, undefined), false)
+  assert.strictEqual(estaRespondida(P_ARCHIVO, null, undefined), false)
+  assert.strictEqual(estaRespondida(P_ARCHIVO, {}, undefined), false)
+  assert.strictEqual(estaRespondida(P_ARCHIVO, { archivoURL: '' }, undefined), false)
+  assert.strictEqual(estaRespondida(P_ARCHIVO, { archivoURL: null }, undefined), false)
+})
+
+caso('subir_archivo: con URL válida SÍ es respuesta', () => {
+  assert.strictEqual(estaRespondida(P_ARCHIVO, { archivoURL: 'https://x' }, undefined), true)
+})
+
+caso('opcion_multiple: sin opcion elegida NO es respuesta', () => {
+  assert.strictEqual(estaRespondida(P_OM, undefined, undefined), false)
+  assert.strictEqual(estaRespondida(P_OM, null, undefined), false)
+  assert.strictEqual(estaRespondida(P_OM, '', undefined), false)
+})
+
+caso('opcion_multiple: opción normal marcada ES respuesta', () => {
+  assert.strictEqual(estaRespondida(P_OM, 'oA', undefined), true)
+  assert.strictEqual(estaRespondida(P_OM, 'oB', undefined), true)
+})
+
+caso('opcion_multiple con "Otra" marcada: sin texto libre NO es respuesta', () => {
+  assert.strictEqual(estaRespondida(P_OM, 'oOtra', undefined), false)
+  assert.strictEqual(estaRespondida(P_OM, 'oOtra', ''), false)
+  assert.strictEqual(estaRespondida(P_OM, 'oOtra', '   '), false)
+})
+
+caso('opcion_multiple con "Otra": el texto libre completa la respuesta', () => {
+  assert.strictEqual(estaRespondida(P_OM, 'oOtra', 'mi respuesta libre'), true)
+})
+
+caso('verdadero_falso: "v" y "f" son respuestas válidas', () => {
+  assert.strictEqual(estaRespondida(P_VF, 'v', undefined), true)
+  assert.strictEqual(estaRespondida(P_VF, 'f', undefined), true)
+})
+
+caso('verdadero_falso: sin opción elegida NO es respuesta', () => {
+  assert.strictEqual(estaRespondida(P_VF, undefined, undefined), false)
+  assert.strictEqual(estaRespondida(P_VF, null, undefined), false)
+})
+
+caso('valores legítimos `false` y `0` en opciones NO se confunden con vacío', () => {
+  // Solo null/undefined/'' cuentan como vacío. `false` o `0` son valores
+  // legítimos que un tipo futuro (o un id numérico) podrían usar.
+  const P_FALSO = { id: 'p', tipo: 'opcion_multiple', opciones: [{ id: false }, { id: 0 }] }
+  assert.strictEqual(estaRespondida(P_FALSO, false, undefined), true)
+  assert.strictEqual(estaRespondida(P_FALSO, 0, undefined), true)
+})
+
+caso('pregunta sin definir → false (defensa contra un arreglo con huecos)', () => {
+  assert.strictEqual(estaRespondida(null, 'x', undefined), false)
+  assert.strictEqual(estaRespondida(undefined, 'x', undefined), false)
 })
 
 

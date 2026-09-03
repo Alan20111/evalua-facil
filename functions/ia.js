@@ -1651,9 +1651,37 @@ const TIPOS_REACTIVO = ['opcion_multiple', 'verdadero_falso', 'respuesta_corta',
 
 // 'Mixto' reparte los tipos EN CÓDIGO, round-robin sobre los 4 disponibles —
 // la IA nunca decide la estructura, ni siquiera cuando el docente pide mezcla.
+//
+// Contrato: si `params.tipos` viene como arreglo (nuevo cliente), reparte
+// round-robin SOLO sobre esos tipos; si viene el string legado `tipoSolicitado`
+// (pestaña vieja en caché, versiones anteriores del cliente), se comporta como
+// antes. Un dato faltante o inválido cae al reparto sobre los 4 tipos (Mixto).
 function tiposParaLote(tipoSolicitado, cantidad) {
+  if (Array.isArray(tipoSolicitado)) {
+    const seleccion = tipoSolicitado.filter((t) => TIPOS_REACTIVO.includes(t))
+    if (seleccion.length === 0) return Array.from({ length: cantidad }, (_, i) => TIPOS_REACTIVO[i % TIPOS_REACTIVO.length])
+    return Array.from({ length: cantidad }, (_, i) => seleccion[i % seleccion.length])
+  }
   if (TIPOS_REACTIVO.includes(tipoSolicitado)) return Array.from({ length: cantidad }, () => tipoSolicitado)
   return Array.from({ length: cantidad }, (_, i) => TIPOS_REACTIVO[i % TIPOS_REACTIVO.length])
+}
+
+// Resuelve la selección del docente en el formato canónico usado por
+// `tiposParaLote` y los prechecks. Prioridad: `params.tipos` (arreglo, nuevo
+// contrato) > `params.tipoSolicitado` (string, legado) > 'mixto'.
+//
+// Los `params.tipos` filtrados a los que realmente conocemos NO puede quedar
+// vacío: si el cliente manda un arreglo pero ninguno es válido, se rechaza en
+// el precheck (invalid-argument) SIN cobrar crédito — no se cae silenciosamente
+// al reparto mixto, que sería lo contrario a lo que pidió el docente.
+function resolverSeleccionTipos(params) {
+  if (Array.isArray(params?.tipos)) {
+    const filtrado = params.tipos.filter((t) => TIPOS_REACTIVO.includes(t))
+    return { modo: 'arreglo', tipos: filtrado, crudo: params.tipos }
+  }
+  const s = params?.tipoSolicitado
+  if (TIPOS_REACTIVO.includes(s)) return { modo: 'legado', tipos: [s] }
+  return { modo: 'mixto', tipos: TIPOS_REACTIVO.slice() }
 }
 
 // Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
@@ -1688,7 +1716,15 @@ async function precheckReactivos({ uid, params, tarifas }) {
   }
 
   const cantidad = clampInt(params?.cantidad, 5, MIN_REACTIVOS, MAX_REACTIVOS)
-  const tipoSolicitado = TIPOS_REACTIVO.includes(params?.tipoSolicitado) ? params.tipoSolicitado : 'mixto'
+  // Cliente nuevo manda `params.tipos: string[]` (checkboxes independientes);
+  // cliente viejo/caché sigue mandando `params.tipoSolicitado` string. Un
+  // arreglo con cero válidos ES un error del cliente: se rechaza sin cobrar.
+  const seleccion = resolverSeleccionTipos(params)
+  if (seleccion.modo === 'arreglo' && seleccion.tipos.length === 0) {
+    throw new HttpsError('invalid-argument',
+      'Selecciona al menos un tipo de reactivo. No se descontaron créditos.',
+      { codigo: 'TIPOS_VACIOS' })
+  }
 
   // Fuentes permanentes de la asignatura (generales + las del parcial de esta
   // actividad, nunca las de otro parcial) + hasta 3 PDF/Word que el docente
@@ -1706,8 +1742,8 @@ async function precheckReactivos({ uid, params, tarifas }) {
     tema: String(params?.tema || '').trim().slice(0, 120),
     quiereEvaluar,
     cantidad,
-    tipoSolicitado,
-    tipos: tiposParaLote(tipoSolicitado, cantidad),
+    tipoSolicitado: seleccion.modo === 'legado' ? seleccion.tipos[0] : (seleccion.modo === 'arreglo' ? seleccion.tipos : 'mixto'),
+    tipos: tiposParaLote(seleccion.modo === 'arreglo' ? seleccion.tipos : (seleccion.modo === 'legado' ? seleccion.tipos[0] : 'mixto'), cantidad),
     bloqueFuentes: fuentes.texto,
     fuentesBloques: fuentes.bloques,
     fuentesAvisos: fuentes.avisos,
@@ -2398,7 +2434,15 @@ async function precheckCrearEvaluacion({ uid, params, tarifas }) {
   }
 
   const cantidad = clampInt(params?.cantidad, 10, MIN_REACTIVOS, MAX_REACTIVOS_EVALUACION)
-  const tipoSolicitado = TIPOS_REACTIVO.includes(params?.tipoSolicitado) ? params.tipoSolicitado : 'mixto'
+  // Contrato dual (idéntico a precheckReactivos): `params.tipos: string[]`
+  // (nuevo cliente, checkboxes) o `params.tipoSolicitado` legado. Arreglo vacío
+  // se rechaza sin cobrar.
+  const seleccion = resolverSeleccionTipos(params)
+  if (seleccion.modo === 'arreglo' && seleccion.tipos.length === 0) {
+    throw new HttpsError('invalid-argument',
+      'Selecciona al menos un tipo de reactivo. No se descontaron créditos.',
+      { codigo: 'TIPOS_VACIOS' })
+  }
 
   // Documentos de referencia: fuentes permanentes (generales + las del
   // parcial de esta actividad, nunca las de otro parcial) + hasta 3 que el
@@ -2414,8 +2458,8 @@ async function precheckCrearEvaluacion({ uid, params, tarifas }) {
     nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
     quiereEvaluar,
     cantidad,
-    tipoSolicitado,
-    tipos: tiposParaLote(tipoSolicitado, cantidad),
+    tipoSolicitado: seleccion.modo === 'legado' ? seleccion.tipos[0] : (seleccion.modo === 'arreglo' ? seleccion.tipos : 'mixto'),
+    tipos: tiposParaLote(seleccion.modo === 'arreglo' ? seleccion.tipos : (seleccion.modo === 'legado' ? seleccion.tipos[0] : 'mixto'), cantidad),
     bloqueFuentes: fuentes.texto,
     fuentesBloques: fuentes.bloques,
     fuentesAvisos: fuentes.avisos,

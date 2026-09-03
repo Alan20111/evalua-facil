@@ -10,6 +10,7 @@ import Spinner from '../../components/Spinner'
 import { ChevronLeft, ChevronRight, Timer, CheckCircle2, LogOut, Upload, FileText } from 'lucide-react'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { esDeIntentoAnterior, tieneRespuestaGuardada, limpiarRespuestas } from '../../utils/respuestasIntento'
+import { estaRespondida as estaRespondidaPura } from '../../utils/evaluacionRespondida'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { seccionesDe, ordenParaEstudiante, mostrarSeccionesAlEstudiante } from '../../utils/secciones'
@@ -171,14 +172,34 @@ export default function EvaluacionRunner() {
           toast('No pudimos borrar del todo tus respuestas anteriores. Recarga la página antes de seguir.', 'error')
         }
       }
+      // Al cargar la respuesta, ELIGE el campo del documento de respuesta que
+      // corresponde AL TIPO ACTUAL de la pregunta — no un fallback ciego. Antes,
+      // si una pregunta cambió de tipo (por ejemplo de opcion_multiple a
+      // respuesta_corta) y el documento de respuesta traía `opcionSeleccionada`
+      // no nula del intento previo con el tipo anterior, esa string se colaba
+      // al textarea y hacía que `estaRespondida` diera true sin que el alumno
+      // hubiera escrito nada.
+      const tipoPorPreguntaId = {}
+      lista.forEach((p) => { tipoPorPreguntaId[p.id] = p.tipo })
       const respMap = {}
       const otraMap = {}
       respSnap.docs.forEach((d) => {
         const data = d.data()
         if (esDeIntentoAnterior(data, subData.tiempoInicio)) return
-        respMap[d.id] = data.opcionSeleccionada
-          ?? data.textoRespuesta
-          ?? (data.archivoURL ? { archivoURL: data.archivoURL, nombreArchivo: data.nombreArchivo || 'Documento' } : null)
+        const tipo = tipoPorPreguntaId[d.id]
+        if (tipo === 'respuesta_corta') {
+          respMap[d.id] = typeof data.textoRespuesta === 'string' ? data.textoRespuesta : ''
+        } else if (tipo === 'subir_archivo') {
+          respMap[d.id] = data.archivoURL
+            ? { archivoURL: data.archivoURL, nombreArchivo: data.nombreArchivo || 'Documento' }
+            : null
+        } else {
+          // opcion_multiple / verdadero_falso: guarda el id de la opción
+          // elegida como string. Si viene null/undefined/'' es "sin responder".
+          respMap[d.id] = (data.opcionSeleccionada === null || data.opcionSeleccionada === undefined || data.opcionSeleccionada === '')
+            ? null
+            : data.opcionSeleccionada
+        }
         if (data.otraTexto) otraMap[d.id] = data.otraTexto
       })
       setRespuestas(respMap)
@@ -279,8 +300,27 @@ export default function EvaluacionRunner() {
     }
   }
 
-  async function handleFinalizar() {
+  // Ruta ÚNICA de finalización de un intento — es la única que escribe
+  // `estadoEvaluacion: 'finalizado'` desde el cliente del estudiante. La
+  // validación de "toda pregunta se responde" vive AQUÍ, dentro de la propia
+  // función: cualquier llamador que se olvide de validar la agarra igual, y
+  // solo el autoenvío por tiempo (que es una política deliberada distinta)
+  // pasa la bandera para permitir blancos.
+  async function handleFinalizar({ permitirBlancos = false } = {}) {
     if (finishedRef.current) return
+    if (!permitirBlancos) {
+      const primeraPendiente = preguntas.findIndex((p) => !estaRespondida(p))
+      if (primeraPendiente >= 0) {
+        // Recuento en vivo (no lee `sinResponder` del render por si esta
+        // función se llamó desde un handler con cierre desactualizado).
+        const faltantes = preguntas.filter((p) => !estaRespondida(p)).length
+        toast(faltantes === 1
+          ? 'Te falta 1 pregunta por responder.'
+          : `Te faltan ${faltantes} preguntas por responder.`, 'warning')
+        setIdx(primeraPendiente)
+        return
+      }
+    }
     finishedRef.current = true
     setFinishing(true)
     try {
@@ -312,7 +352,10 @@ export default function EvaluacionRunner() {
   useEffect(() => {
     if (secondsLeft == null) return
     if (secondsLeft <= 0) {
-      if (!finishedRef.current) handleFinalizar()
+      // Autoenvío por tiempo: es la ÚNICA ruta que puede finalizar con
+      // preguntas en blanco — política deliberada (nadie queda encerrado sin
+      // poder entregar cuando se acaba el cronómetro).
+      if (!finishedRef.current) handleFinalizar({ permitirBlancos: true })
       return
     }
     const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
@@ -344,32 +387,25 @@ export default function EvaluacionRunner() {
   // y por eso vive en el runner y no en el documento de la actividad.
   // Mientras la pregunta en pantalla esté en blanco no se avanza, no se
   // retrocede y no se entrega.
+  //
+  // La lógica pura vive en utils/evaluacionRespondida.js (probada aparte);
+  // aquí solo se le pasa la respuesta y el otraTexto correspondientes.
   function estaRespondida(p) {
-    if (!p) return false
-    const r = respuestas[p.id]
-    if (p.tipo === 'respuesta_corta') return typeof r === 'string' && r.trim() !== ''
-    if (p.tipo === 'subir_archivo') return !!r?.archivoURL
-    if (!r) return false
-    // Con "Otra" elegida, no basta con el radio marcado — también necesita
-    // el texto que el alumno escribió, si no, se podría "responder" sin
-    // decir realmente nada.
-    const opcionElegida = p.opciones?.find((o) => o.id === r)
-    if (opcionElegida?.esOtra) return !!(otraTextos[p.id] || '').trim()
-    return true // opción múltiple / falso-verdadero: guarda el id de la opción
+    return estaRespondidaPura(p, respuestas[p?.id], otraTextos[p?.id])
   }
-  // Para el botón de finalizar se miran TODAS, no solo la de pantalla: un
-  // intento empezado antes de esta regla puede traer huecos de más atrás.
-  const sinResponder = preguntas.filter((p) => !estaRespondida(p)).length
   // El cronómetro NO pasa por aquí: al llegar a cero llama a handleFinalizar()
-  // directo (ver el efecto de la cuenta regresiva). Si se acaba el tiempo con
-  // preguntas en blanco, la evaluación se entrega igual — esta regla es para
-  // que nadie las salte a propósito, no para dejar a nadie encerrado.
+  // con `permitirBlancos: true` (ver el efecto de la cuenta regresiva). Si se
+  // acaba el tiempo con preguntas en blanco, la evaluación se entrega igual —
+  // esta regla es para que nadie las salte a propósito, no para dejar a nadie
+  // encerrado.
   //
   // Los tres botones de abajo (Anterior/Siguiente/Finalizar) se quedan
   // habilitados siempre — pedido explícito: nada de aviso permanente ni de
   // botón apagado con la pregunta en blanco. La regla se hace valer recién
   // AL INTENTAR avanzar/retroceder/entregar: ahí, y solo ahí, aparece el
-  // aviso (ver goAnterior/goSiguiente/handleFinalizarClick más abajo).
+  // aviso. La validación real vive DENTRO de handleFinalizar (defensa en
+  // profundidad): cualquier ruta que llame a esa función sin permitirBlancos
+  // se detiene si hay pendientes y salta a la primera.
   function goAnterior() {
     if (!estaRespondida(pregunta)) { toast('Responde esta pregunta para continuar.', 'warning'); return }
     setIdx((i) => i - 1)
@@ -379,10 +415,6 @@ export default function EvaluacionRunner() {
     setIdx((i) => i + 1)
   }
   function handleFinalizarClick() {
-    if (sinResponder > 0) {
-      toast(sinResponder === 1 ? 'Te falta 1 pregunta por responder.' : `Te faltan ${sinResponder} preguntas por responder.`, 'warning')
-      return
-    }
     handleFinalizar()
   }
   const mm = secondsLeft != null ? Math.floor(secondsLeft / 60) : null

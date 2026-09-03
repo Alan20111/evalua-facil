@@ -37,8 +37,11 @@ import FuentesIAInput from './ia/FuentesIAInput'
 import { resolverFuentes, avisarFuentesOmitidas } from '../utils/fuentesIA'
 import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
 import {
-  MIN_REACTIVOS, MAX_REACTIVOS, DEFAULT_REACTIVOS, TIPOS_REACTIVO_IA, reactivosDesdePropuesta,
+  MIN_REACTIVOS, MAX_REACTIVOS, DEFAULT_REACTIVOS,
+  TIPOS_REACTIVO_IA_CHECKBOXES, TIPOS_REACTIVO_IA_DEFAULT,
+  reactivosDesdePropuesta,
 } from '../utils/reactivosIA'
+import Checkbox from './ui/Checkbox'
 import { EVALUACION_DEFAULTS } from '../utils/evaluacionDefaults'
 import { minDeadline, nowIsoLocal, isoLocalFromDate } from '../utils/nowIso'
 import { isActivityPublished, resolveVisibilidad, isDraftActivity, formatDeadline } from '../utils/activityVisibility'
@@ -259,7 +262,9 @@ export default function EvaluacionEditor({
   const [iaTema, setIaTema] = useState('')
   const [iaQuiereEvaluar, setIaQuiereEvaluar] = useState('')
   const [iaCantidad, setIaCantidad] = useState(DEFAULT_REACTIVOS)
-  const [iaTipoSolicitado, setIaTipoSolicitado] = useState('mixto')
+  // Checkboxes independientes por tipo — al menos uno debe estar marcado para
+  // poder generar. Los 4 marcados equivale al viejo "Mixto".
+  const [iaTiposSeleccionados, setIaTiposSeleccionados] = useState(TIPOS_REACTIVO_IA_DEFAULT)
   // Fuentes opcionales (hasta 3 PDF/Word) — mismo mecanismo que OP-03/OP-04:
   // fuente ADICIONAL a "qué quieres evaluar", nunca la sustituye.
   const [iaArchivos, setIaArchivos] = useState([])
@@ -744,11 +749,17 @@ export default function EvaluacionEditor({
   // ── OP-09 · Generar reactivos con IA ──────────────────────────────────────
   function pedirReactivosIA() {
     if (!currentActivityId) { toast('Guarda la información antes de generar reactivos', 'error'); return }
-    setIaTema(''); setIaQuiereEvaluar(''); setIaCantidad(DEFAULT_REACTIVOS); setIaTipoSolicitado('mixto'); setIaArchivos([])
+    setIaTema(''); setIaQuiereEvaluar(''); setIaCantidad(DEFAULT_REACTIVOS); setIaTiposSeleccionados(TIPOS_REACTIVO_IA_DEFAULT); setIaArchivos([])
     setIaConfirmando(true)
   }
 
   async function generarReactivosConIA() {
+    // Defensa: la validación real vive en el disabled del botón (ver más abajo),
+    // pero si alguna ruta se cuela sin selección, se detiene aquí sin gastar
+    // créditos — el precheck del servidor también la rechaza.
+    if (!iaTiposSeleccionados.length) {
+      toast('Selecciona al menos un tipo de reactivo', 'error'); return
+    }
     setIaTrabajando(true)
     try {
       const urls = iaArchivos.length ? await resolverFuentes(iaArchivos) : []
@@ -759,7 +770,7 @@ export default function EvaluacionEditor({
         tema: iaTema,
         quiereEvaluar: iaQuiereEvaluar,
         cantidad: iaCantidad,
-        tipoSolicitado: iaTipoSolicitado,
+        tipos: iaTiposSeleccionados,
         fuentes: urls,
       }, iaCantidad)
       // El servidor ya forzó la cantidad y el tipo exacto de cada reactivo
@@ -2075,6 +2086,7 @@ export default function EvaluacionEditor({
           descripcion="El asistente redacta los reactivos a partir de lo que describas abajo; tú los revisas, editas y decides cuáles agregar."
           costoMin={creditosIA.estimar('reactivos', iaCantidad) ?? 0.25 * iaCantidad}
           ejecutando={iaTrabajando}
+          continuarDeshabilitado={iaTiposSeleccionados.length === 0}
           onCancelar={() => { if (!iaTrabajando) setIaConfirmando(false) }}
           onContinuar={generarReactivosConIA}
         >
@@ -2103,15 +2115,30 @@ export default function EvaluacionEditor({
                 ))}
               </select>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <label htmlFor="ia-tipo" className="text-sm text-on-surface">¿Qué tipo de reactivos quieres generar?</label>
-              <select id="ia-tipo" value={iaTipoSolicitado} disabled={iaTrabajando}
-                onChange={(e) => setIaTipoSolicitado(e.target.value)}
-                className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                {TIPOS_REACTIVO_IA.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
+            <div>
+              <p className="text-sm text-on-surface mb-1.5">¿Qué tipos de reactivos quieres que genere la IA?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-1">
+                {TIPOS_REACTIVO_IA_CHECKBOXES.map((t) => {
+                  const marcado = iaTiposSeleccionados.includes(t.value)
+                  return (
+                    <Checkbox
+                      key={t.value}
+                      label={t.label}
+                      checked={marcado}
+                      disabled={iaTrabajando}
+                      onChange={(e) => {
+                        const on = e.target.checked
+                        setIaTiposSeleccionados((prev) => on
+                          ? Array.from(new Set([...prev, t.value]))
+                          : prev.filter((v) => v !== t.value))
+                      }}
+                    />
+                  )
+                })}
+              </div>
+              {iaTiposSeleccionados.length === 0 && (
+                <p className="text-xs text-amber-700 mt-1.5">Selecciona al menos un tipo de reactivo.</p>
+              )}
             </div>
             <FuentesIAInput files={iaArchivos} onChange={setIaArchivos} disabled={iaTrabajando} fuentesGuardadas={fuentesGuardadas} />
           </div>
