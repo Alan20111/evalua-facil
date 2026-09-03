@@ -30,14 +30,16 @@
 // (tipoCambioUsdMxn) — es un PARÁMETRO DE SISTEMA en Firestore, no una
 // constante en código: se actualiza ahí (o en seeds-db/seed-ia-tarifas.js y
 // re-corriendo el seed) cuando Anthropic cambie precios, sin tocar ni
-// redesplegar este archivo. `calcularCostoUSD` (más abajo) es la única
-// función que hace esa cuenta, y las herramientas `consumo_ia`,
-// `costo_por_docente` y `rentabilidad_creditos` la usan — ninguna otra parte
-// del código calcula esto por su cuenta.
+// redesplegar este archivo. `calcularCostoUSD` (en _shared/costosIA.js desde
+// el 3-sep-2026) es la única función que hace esa cuenta: la usan las
+// herramientas `consumo_ia`, `costo_por_docente` y `rentabilidad_creditos` de
+// aquí, y también el callable `resumenCostosIA` del apartado "Costos de IA"
+// del panel — ninguna otra parte del código calcula esto por su cuenta.
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { defineSecret } = require('firebase-functions/params')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
+const { calcularCostoUSD } = require('./_shared/costosIA')
 const { logger } = require('firebase-functions')
 // Solo por CREDITOS_BIENVENIDA (el tamaño del regalo de bienvenida) — misma
 // razón que el resto de este archivo repite constantes de negocio: no puede
@@ -112,21 +114,10 @@ async function obtenerConfigCostos(db) {
   }
 }
 
-// Pura — nada de Firestore aquí, para poder probarla aislada. Cache write
-// SIEMPRE se cobra como el breakpoint de 5 minutos: es el ÚNICO que usa
-// Evalúa Fácil (bloqueConCache en functions/ia.js y functions/adminChat.js
-// nunca piden el de 1 hora). Si el modelo de la operación no tiene tarifa
-// configurada, devuelve null — nunca inventa un número ni asume la tarifa
-// de otro modelo.
-function calcularCostoUSD({ modelo, tokensEntrada, tokensSalida, tokensCacheEscritura, tokensCacheLectura }, costosPorModelo) {
-  const t = costosPorModelo?.[modelo]
-  if (!t) return null
-  const entrada = (tokensEntrada || 0) * t.entradaPorMTok / 1e6
-  const salida = (tokensSalida || 0) * t.salidaPorMTok / 1e6
-  const cacheEscritura = (tokensCacheEscritura || 0) * t.cacheEscritura5mPorMTok / 1e6
-  const cacheLectura = (tokensCacheLectura || 0) * t.cacheLecturaPorMTok / 1e6
-  return entrada + salida + cacheEscritura + cacheLectura
-}
+// La fórmula del costo vive en _shared/costosIA.js (3-sep-2026): la comparten
+// esta herramienta y el callable `resumenCostosIA` del apartado "Costos de IA"
+// del panel. Antes era una copia local aquí; se movió sin cambiarle una línea
+// para que los dos no puedan reportar costos distintos del mismo día.
 
 function rangoOCorriente({ desde, hasta }) {
   // Sin fechas explícitas del modelo: el mes calendario actual — el caso más

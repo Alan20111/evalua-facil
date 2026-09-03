@@ -1383,6 +1383,38 @@ ok('IA · admin CANNOT activate a bienvenida from the client either')
 await assertFails(deleteDoc(doc(asAdmin, 'iaTrialRegistro', T1)))
 ok('IA · admin CANNOT delete a bienvenida record from the client')
 
+// ── adminConfig — cifras privadas del negocio (3-sep-2026) ──
+// El saldo que el admin captura a mano de la consola de Anthropic. Va en su
+// propia colección y NO en `config/`, que cualquier autenticado puede leer:
+// cuánto dinero hay con el proveedor no es asunto de ningún docente.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'adminConfig', 'anthropicSaldo'), { saldoMXN: 500 })
+})
+
+await assertSucceeds(getDoc(doc(asAdmin, 'adminConfig', 'anthropicSaldo')))
+ok('adminConfig · admin CAN read the captured provider balance')
+
+await assertSucceeds(setDoc(doc(asAdmin, 'adminConfig', 'anthropicSaldo'), { saldoMXN: 750 }))
+ok('adminConfig · admin CAN capture a new balance (es su configuración)')
+
+await assertFails(getDoc(doc(asT1, 'adminConfig', 'anthropicSaldo')))
+ok('adminConfig · docente CANNOT read the business balance')
+
+await assertFails(setDoc(doc(asT1, 'adminConfig', 'anthropicSaldo'), { saldoMXN: 0 }))
+ok('adminConfig · docente CANNOT overwrite the business balance')
+
+// Y las métricas internas SIGUEN cerradas para todos, admin incluido: el
+// apartado de Costos de IA las lee por un callable con Admin SDK, nunca
+// abriendo esta regla.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'adminChatConsumosInterno', 'AC1'), { uid: ADMIN, tokensEntrada: 10 })
+})
+await assertFails(getDoc(doc(asAdmin, 'iaConsumosInterno', 'CONS_T1')))
+ok('IA · NI SIQUIERA el admin lee iaConsumosInterno desde el cliente (va por callable)')
+
+await assertFails(getDoc(doc(asAdmin, 'adminChatConsumosInterno', 'AC1')))
+ok('IA · tampoco las métricas del Chat de Administración')
+
 await assertSucceeds(getDoc(doc(asT1, 'config', 'iaTarifas')))
 ok('IA · authenticated client CAN read the public tariff config (estimations)')
 

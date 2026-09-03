@@ -28,6 +28,10 @@ import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
 import { planeacionVigente, validarArchivoPlaneacion, extensionPlaneacion } from '../src/utils/planeacionVigente.js'
 import { estadoRegaloIA } from '../src/utils/creditosHelpers.js'
+import {
+  calcularCostoUSD, claveDia, inicioDelDia, clavesDeDias, rangoDeDias,
+  margenSobreCostoIA, costoPromedioDiario, diasEstimadosRestantes, RANGOS_DIAS,
+} from '../src/utils/costosIA.js'
 import { resolverBackspace } from '../src/utils/crucigramaBackspace.js'
 import { correccionesCrucigrama } from '../src/utils/correccionesJuego.js'
 import {
@@ -367,6 +371,125 @@ caso('registro sin creditosBienvenida: activo pero sin "de cuantos"', () => {
 caso('llamada sin argumentos no revienta la tabla', () => {
   assert.strictEqual(estadoRegaloIA().estado, 'sin_registro')
   assert.strictEqual(estadoRegaloIA({}).estado, 'sin_registro')
+})
+
+grupo('Costos de IA \u2014 costo real de Anthropic y serie diaria del panel')
+
+// Las tarifas REALES que hay en config/iaTarifas (claude-haiku-4-5). No se
+// codifican como verdad del sistema: son el insumo del caso, igual que las
+// recibe la funcion en produccion.
+const TARIFAS = {
+  'claude-haiku-4-5': { entradaPorMTok: 1, salidaPorMTok: 5, cacheEscritura5mPorMTok: 1.25, cacheLecturaPorMTok: 0.10 },
+}
+
+caso('costo = entrada + salida + cache escritura + cache lectura, cada una a su tarifa', () => {
+  const c = calcularCostoUSD({
+    modelo: 'claude-haiku-4-5',
+    tokensEntrada: 1_000_000, tokensSalida: 1_000_000,
+    tokensCacheEscritura: 1_000_000, tokensCacheLectura: 1_000_000,
+  }, TARIFAS)
+  assert.strictEqual(c, 1 + 5 + 1.25 + 0.10)
+})
+
+caso('la salida cuesta 5 veces la entrada \u2014 no se confunden los factores', () => {
+  const entrada = calcularCostoUSD({ modelo: 'claude-haiku-4-5', tokensEntrada: 1_000_000 }, TARIFAS)
+  const salida = calcularCostoUSD({ modelo: 'claude-haiku-4-5', tokensSalida: 1_000_000 }, TARIFAS)
+  assert.strictEqual(salida / entrada, 5)
+})
+
+caso('tokens ausentes cuentan como cero, no como NaN', () => {
+  assert.strictEqual(calcularCostoUSD({ modelo: 'claude-haiku-4-5' }, TARIFAS), 0)
+})
+
+caso('modelo sin tarifa devuelve null: nunca se inventa un costo ni se usa la tarifa de otro', () => {
+  assert.strictEqual(calcularCostoUSD({ modelo: 'modelo-que-no-existe', tokensEntrada: 999999 }, TARIFAS), null)
+  assert.strictEqual(calcularCostoUSD({ modelo: 'claude-haiku-4-5', tokensEntrada: 1 }, {}), null)
+})
+
+// El corte del dia es la zona del negocio, no la del servidor (Cloud Functions
+// corre en UTC). Sin esto, todo lo gastado despues de las 18:00 hora de Mexico
+// caeria en el dia siguiente.
+caso('el dia se corta en hora de Mexico, no en UTC', () => {
+  // 2026-09-03 23:30 UTC = 2026-09-03 17:30 en Mexico \u2192 sigue siendo el dia 3.
+  assert.strictEqual(claveDia(new Date('2026-09-03T23:30:00Z')), '2026-09-03')
+  // 2026-09-04 05:00 UTC = 2026-09-03 23:00 en Mexico \u2192 TODAVIA es el dia 3.
+  assert.strictEqual(claveDia(new Date('2026-09-04T05:00:00Z')), '2026-09-03')
+  // 2026-09-04 06:30 UTC = 2026-09-04 00:30 en Mexico \u2192 ya es el dia 4.
+  assert.strictEqual(claveDia(new Date('2026-09-04T06:30:00Z')), '2026-09-04')
+})
+
+caso('inicioDelDia devuelve el instante UTC de la medianoche mexicana', () => {
+  const i = inicioDelDia('2026-09-03')
+  assert.strictEqual(i.toISOString(), '2026-09-03T06:00:00.000Z')
+  // Y es coherente consigo mismo: ese instante pertenece a ese mismo dia.
+  assert.strictEqual(claveDia(i), '2026-09-03')
+})
+
+caso('claveDia con una fecha invalida devuelve null en vez de "Invalid Date"', () => {
+  assert.strictEqual(claveDia(undefined), null)
+  assert.strictEqual(claveDia(new Date('no soy fecha')), null)
+})
+
+caso('la serie trae TODOS los dias del rango, hoy incluido y el mas viejo primero', () => {
+  const c = clavesDeDias(7, new Date('2026-09-03T18:00:00Z'))
+  assert.strictEqual(c.length, 7)
+  assert.strictEqual(c[0], '2026-08-28')
+  assert.strictEqual(c[6], '2026-09-03')
+  assert.deepStrictEqual([...c].sort(), c, 'quedan en orden cronologico')
+})
+
+caso('los tres rangos del panel dan 7, 30 y 90 dias', () => {
+  assert.deepStrictEqual(RANGOS_DIAS, [7, 30, 90])
+  RANGOS_DIAS.forEach((n) => {
+    assert.strictEqual(clavesDeDias(n, new Date('2026-09-03T18:00:00Z')).length, n)
+  })
+})
+
+caso('un dia sin actividad sigue en la serie: un hueco se leeria como "no se midio"', () => {
+  const c = clavesDeDias(30, new Date('2026-09-03T18:00:00Z'))
+  assert.ok(c.includes('2026-08-25'), 'un dia sin consumo no desaparece de la lista')
+})
+
+caso('rangoDeDias acota la consulta desde la medianoche mexicana del dia mas viejo', () => {
+  const ahora = new Date('2026-09-03T18:00:00Z')
+  const r = rangoDeDias(7, ahora)
+  assert.strictEqual(r.claves.length, 7)
+  assert.strictEqual(r.desde.toISOString(), '2026-08-28T06:00:00.000Z')
+  assert.strictEqual(r.hasta.getTime(), ahora.getTime(), 'el limite superior es AHORA, no el fin del dia')
+})
+
+caso('margen = ingresos - costo, y es negativo cuando se gasta mas de lo que entra', () => {
+  assert.strictEqual(margenSobreCostoIA(500, 120.5), 379.5)
+  assert.strictEqual(margenSobreCostoIA(0, 27.74), -27.74)
+  assert.strictEqual(margenSobreCostoIA(0, 0), 0)
+})
+
+caso('el promedio diario divide entre TODOS los dias, no solo los que tuvieron gasto', () => {
+  // 160.70 en 30 dias, aunque solo 21 tuvieran actividad.
+  assert.strictEqual(costoPromedioDiario(160.70, 30), 5.36)
+  assert.strictEqual(costoPromedioDiario(0, 30), 0)
+})
+
+caso('promedio con cero dias no revienta ni divide entre cero', () => {
+  assert.strictEqual(costoPromedioDiario(100, 0), 0)
+})
+
+// Anthropic NO expone el saldo por API: el numero lo captura una persona. La
+// estimacion solo existe cuando hay las dos mitades.
+caso('dias estimados = saldo capturado / costo promedio diario, hacia abajo', () => {
+  assert.strictEqual(diasEstimadosRestantes(500, 5.36), 93)
+  assert.strictEqual(diasEstimadosRestantes(10, 3), 3)
+})
+
+caso('sin saldo capturado NO se estiman dias \u2014 no se inventa un saldo', () => {
+  assert.strictEqual(diasEstimadosRestantes(null, 5), null)
+  assert.strictEqual(diasEstimadosRestantes(undefined, 5), null)
+  assert.strictEqual(diasEstimadosRestantes(0, 5), null)
+})
+
+caso('sin gasto no hay ritmo que proyectar: null, nunca Infinity', () => {
+  assert.strictEqual(diasEstimadosRestantes(500, 0), null)
+  assert.strictEqual(diasEstimadosRestantes(500, null), null)
 })
 
 // ═══ El export de pruebas no se despliega ════════════════════════════════════

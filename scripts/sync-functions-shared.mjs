@@ -58,6 +58,11 @@ const ARCHIVOS = [
   // cuadrícula y la calificación — el contenido original con acentos/ñ
   // nunca se toca, esta es solo la versión que usa el motor.
   'normalizarPalabra.js',
+  // Costo de IA y serie diaria del panel de admin (3-sep-2026): la fórmula de
+  // precios la usan el callable `resumenCostosIA` y la herramienta
+  // `consumo_ia` del Chat de Administración. Compartirla es justo el punto —
+  // dos copias darían dos costos distintos para el mismo día.
+  'costosIA.js',
 ]
 
 function fallar(mensaje) {
