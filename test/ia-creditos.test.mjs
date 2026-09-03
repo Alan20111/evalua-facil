@@ -544,6 +544,32 @@ await caso('mixto: reparte round-robin entre los 4 tipos disponibles — nunca l
   assert.deepStrictEqual(tipos, ['opcion_multiple', 'verdadero_falso', 'respuesta_corta', 'subir_archivo', 'opcion_multiple'])
 })
 
+await caso('checkboxes: un arreglo con un solo tipo reparte ese tipo en todas las posiciones', () => {
+  const tipos = IA.tiposParaLote(['respuesta_corta'], 4)
+  assert.deepStrictEqual(tipos, ['respuesta_corta', 'respuesta_corta', 'respuesta_corta', 'respuesta_corta'])
+})
+
+await caso('checkboxes: dos tipos alternan en round-robin, ninguno de los otros dos entra', () => {
+  const tipos = IA.tiposParaLote(['opcion_multiple', 'verdadero_falso'], 5)
+  assert.deepStrictEqual(tipos, ['opcion_multiple', 'verdadero_falso', 'opcion_multiple', 'verdadero_falso', 'opcion_multiple'])
+})
+
+await caso('checkboxes: los 4 marcados equivalen a "Mixto" (mismo orden round-robin)', () => {
+  const conArreglo = IA.tiposParaLote(['opcion_multiple', 'verdadero_falso', 'respuesta_corta', 'subir_archivo'], 6)
+  const legadoMixto = IA.tiposParaLote('mixto', 6)
+  assert.deepStrictEqual(conArreglo, legadoMixto)
+})
+
+await caso('checkboxes: valores desconocidos dentro del arreglo se ignoran, los válidos mandan', () => {
+  const tipos = IA.tiposParaLote(['foo', 'verdadero_falso', 'bar'], 3)
+  assert.deepStrictEqual(tipos, ['verdadero_falso', 'verdadero_falso', 'verdadero_falso'])
+})
+
+await caso('checkboxes: arreglo vacío cae al reparto mixto (defensa; el precheck lo rechaza antes)', () => {
+  const tipos = IA.tiposParaLote([], 4)
+  assert.deepStrictEqual(tipos, ['opcion_multiple', 'verdadero_falso', 'respuesta_corta', 'subir_archivo'])
+})
+
 await caso('normalizarReactivos: fuerza el tipo/orden de ctx.tipos aunque la IA devuelva otra cosa', () => {
   const ctx = { tipos: ['opcion_multiple', 'verdadero_falso'] }
   const datos = {
@@ -603,6 +629,37 @@ await caso('cantidad y tipo fuera de rango: se acotan en silencio, nunca rechaza
   })
   assert.strictEqual(ctx.cantidad, IA.MAX_REACTIVOS)
   assert.strictEqual(ctx.tipoSolicitado, 'mixto') // valor no reconocido → mixto por default
+})
+
+await caso('checkboxes: params.tipos con dos tipos ARMA el ctx.tipos con solo esos dos', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: {
+      actividadId: 'act_cuestionario', quiereEvaluar: QUIERE_EVALUAR_OK, cantidad: 4,
+      tipos: ['opcion_multiple', 'verdadero_falso'],
+    },
+  })
+  assert.strictEqual(ctx.cantidad, 4)
+  assert.deepStrictEqual(ctx.tipos, ['opcion_multiple', 'verdadero_falso', 'opcion_multiple', 'verdadero_falso'])
+})
+
+await caso('checkboxes: params.tipos vacío es error del cliente y NO cobra crédito', async () => {
+  await assert.rejects(
+    () => IA.precheckReactivos({
+      uid: DOCENTE,
+      params: { actividadId: 'act_cuestionario', quiereEvaluar: QUIERE_EVALUAR_OK, tipos: [] },
+    }),
+    (e) => String(e.code).includes('invalid-argument')
+  )
+})
+
+await caso('retrocompat: params.tipoSolicitado (cliente viejo/caché) sigue mandando cuando no hay params.tipos', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: { actividadId: 'act_cuestionario', quiereEvaluar: QUIERE_EVALUAR_OK, cantidad: 3, tipoSolicitado: 'respuesta_corta' },
+  })
+  assert.strictEqual(ctx.tipoSolicitado, 'respuesta_corta')
+  assert.ok(ctx.tipos.every((t) => t === 'respuesta_corta'))
 })
 
 await caso('cantidad por default es 5 cuando el cliente no manda nada', async () => {

@@ -24,6 +24,7 @@ export default function ConfirmacionCreditosModal({
   costoMin,
   costoMax = null,
   ejecutando = false,
+  continuarDeshabilitado = false,   // deshabilita "Continuar" mientras un control interno (children) esté inválido
   onCancelar,
   onContinuar,
 }) {
@@ -64,7 +65,7 @@ export default function ConfirmacionCreditosModal({
                 className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
                 Cancelar
               </button>
-              <button type="button" onClick={onContinuar} disabled={ejecutando}
+              <button type="button" onClick={onContinuar} disabled={ejecutando || continuarDeshabilitado}
                 className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
                 {ejecutando ? 'Trabajando…' : 'Continuar'}
               </button>
