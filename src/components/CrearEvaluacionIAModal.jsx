@@ -17,7 +17,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
 import useCreditosIA from '../hooks/useCreditosIA'
-import { resolverFuentes } from '../utils/fuentesIA'
+import { resolverFuentes, avisarFuentesOmitidas } from '../utils/fuentesIA'
 import FuentesIAInput from './ia/FuentesIAInput'
 import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
 import { MIN_REACTIVOS, MAX_REACTIVOS_EVALUACION } from '../utils/reactivosIA'
@@ -90,7 +90,7 @@ export default function CrearEvaluacionIAModal({
         createdAt: serverTimestamp(),
       })
 
-      await creditosIA.ejecutar('crear_evaluacion_ia', {
+      const data = await creditosIA.ejecutar('crear_evaluacion_ia', {
         actividadId: ref.id,
         categoria,
         asignaturaId,
@@ -101,6 +101,10 @@ export default function CrearEvaluacionIAModal({
       }, cantidad, { timeoutMs: 240000 })
 
       toast(`${tipoLabel} generado con IA`)
+      // Un documento que no se pudo usar ya NO tumba la generación (los demás
+      // sí sirvieron), pero tampoco se calla: el docente tiene que enterarse
+      // de que el material que creía haber aportado no entró.
+      avisarFuentesOmitidas(toast, data?.resultado?.avisos)
       onCreated?.(ref.id)
     } catch (err) {
       toast(err.message || 'No se pudo generar la evaluación', 'error')

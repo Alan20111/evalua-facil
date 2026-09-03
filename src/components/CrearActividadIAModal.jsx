@@ -16,7 +16,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
 import useCreditosIA from '../hooks/useCreditosIA'
-import { resolverFuentes } from '../utils/fuentesIA'
+import { resolverFuentes, avisarFuentesOmitidas } from '../utils/fuentesIA'
 import FuentesIAInput from './ia/FuentesIAInput'
 import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
 
@@ -65,7 +65,7 @@ export default function CrearActividadIAModal({
         createdAt: serverTimestamp(),
       })
 
-      await creditosIA.ejecutar('crear_actividad_ia', {
+      const data = await creditosIA.ejecutar('crear_actividad_ia', {
         actividadId: ref.id,
         categoria,
         asignaturaId,
@@ -76,6 +76,7 @@ export default function CrearActividadIAModal({
       }, 1)
 
       toast(`${tipoLabel} generado con IA`)
+      avisarFuentesOmitidas(toast, data?.resultado?.avisos)
       onCreated?.(ref.id)
     } catch (err) {
       toast(err.message || 'No se pudo generar la actividad', 'error')

@@ -765,7 +765,14 @@ await caso('MAX_FUENTES sigue en 3 — solo aplica a lo que el docente adjunta a
 
 await caso('bloqueFuentesPermanentes: sin asignaturaId, no truena (actividad de prueba/legacy)', async () => {
   const r = await IA.bloqueFuentesPermanentes(db, null, 1)
-  assert.deepStrictEqual(r, { texto: null, urls: [] })
+  // Desde el 3-sep-2026 el retorno también trae los documentos que viajan
+  // como PDF nativo (`bloques`) y el motivo de los que no se pudieron usar
+  // (`avisos`); `texto` conserva su contrato de siempre.
+  assert.strictEqual(r.texto, null)
+  assert.deepStrictEqual(r.urls, [])
+  assert.deepStrictEqual(r.bloques, [])
+  assert.deepStrictEqual(r.avisos, [])
+  assert.strictEqual(r.paginasVisuales, 0)
 })
 
 // ── Integración: precheckReactivos (OP-09) respeta el parcial de SU actividad ──
