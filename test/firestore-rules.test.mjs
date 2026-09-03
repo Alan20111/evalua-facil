@@ -1360,6 +1360,29 @@ ok('IA · owner CANNOT self-activate bienvenida from the client (server-only)')
 await assertFails(updateDoc(doc(asT1, 'iaTrialRegistro', T1), { creditosBienvenida: 999999 }))
 ok('IA · owner CANNOT forge the welcome-credit amount from the client')
 
+// El histórico del admin lee ESTA colección para poder decir qué pasó con el
+// regalo de cada docente (2-sep-2026). Sin la lectura, la columna solo puede
+// enseñar un saldo suelto, y un "0" ahí no distingue a quien nunca activó su
+// regalo de quien ya lo gastó.
+await assertSucceeds(getDoc(doc(asAdmin, 'iaTrialRegistro', T1)))
+ok('IA · admin CAN read the bienvenida status of a teacher (histórico del panel)')
+
+// El panel no pide uno por uno: barre la colección completa. Una regla que
+// solo permitiera el documento propio dejaría pasar el getDoc de arriba y
+// reprobaría ESTA, que es la que de verdad usa la tabla.
+await assertSucceeds(getDocs(collection(asAdmin, 'iaTrialRegistro')))
+ok('IA · admin CAN list the whole bienvenida collection (as the table does)')
+
+await assertSucceeds(getDocs(collection(asAdmin, 'iaCreditos')))
+ok('IA · admin CAN list credit balances (la columna Saldo IA)')
+
+// Leer sí, tocar no: la acreditación sigue siendo exclusivamente server-side.
+await assertFails(setDoc(doc(asAdmin, 'iaTrialRegistro', T1), { bienvenidaActivada: true }, { merge: true }))
+ok('IA · admin CANNOT activate a bienvenida from the client either')
+
+await assertFails(deleteDoc(doc(asAdmin, 'iaTrialRegistro', T1)))
+ok('IA · admin CANNOT delete a bienvenida record from the client')
+
 await assertSucceeds(getDoc(doc(asT1, 'config', 'iaTarifas')))
 ok('IA · authenticated client CAN read the public tariff config (estimations)')
 
