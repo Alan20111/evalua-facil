@@ -27,6 +27,7 @@ import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
 import { planeacionVigente, validarArchivoPlaneacion, extensionPlaneacion } from '../src/utils/planeacionVigente.js'
+import { estadoRegaloIA } from '../src/utils/creditosHelpers.js'
 import { resolverBackspace } from '../src/utils/crucigramaBackspace.js'
 import { correccionesCrucigrama } from '../src/utils/correccionesJuego.js'
 import {
@@ -234,6 +235,138 @@ caso('la cortesía indefinida no vence', () => {
 caso('sin suscripción no hay vigencia (y no revienta)', () => {
   assert.strictEqual(F.vigenciaDe(null), null)
   assert.strictEqual(F.vigenciaDe({ status: 'trial' }), null)
+})
+
+grupo('Regalo de bienvenida en el historico del admin \u2014 el "0" deja de ser ambiguo')
+
+// El caso que motivo todo esto: un saldo de 0 puede ser "nunca lo activo" o
+// "lo activo y ya lo gasto", y para administracion no son lo mismo.
+const REG = (extra = {}) => ({ bienvenidaDisponible: true, bienvenidaActivada: false, creditosBienvenida: 30, ...extra })
+
+caso('nunca activado: dice cuantos le esperan, no "0"', () => {
+  const r = estadoRegaloIA({ registro: REG(), creditos: undefined })
+  assert.strictEqual(r.estado, 'sin_activar')
+  assert.strictEqual(r.texto, 'Sin activar \u00b7 30')
+  assert.ok(r.determinable)
+})
+
+caso('activado y sin gastar nada', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 30, consumidoTotal: 0 },
+  })
+  assert.strictEqual(r.estado, 'activo')
+  assert.strictEqual(r.texto, 'Activo \u00b7 30 de 30')
+})
+
+caso('activado con saldo parcial', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 12, consumidoTotal: 18 },
+  })
+  assert.strictEqual(r.texto, 'Activo \u00b7 12 de 30')
+  assert.strictEqual(r.consumido, 18)
+  assert.strictEqual(r.restante, 12)
+})
+
+caso('agotado: el 0 se lee como gastado, no como "nunca lo pidio"', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 0, consumidoTotal: 30 },
+  })
+  assert.strictEqual(r.estado, 'agotado')
+  assert.strictEqual(r.texto, 'Agotado \u00b7 0 de 30')
+  assert.ok(/gastado/.test(r.ayuda))
+})
+
+caso('la cantidad NO esta clavada en 30: una cuenta vieja de 50 muestra 50', () => {
+  const sinActivar = estadoRegaloIA({ registro: REG({ creditosBienvenida: 50 }) })
+  assert.strictEqual(sinActivar.texto, 'Sin activar \u00b7 50')
+  const activo = estadoRegaloIA({
+    registro: REG({ creditosBienvenida: 50, bienvenidaActivada: true }),
+    creditos: { saldo: 44, consumidoTotal: 6 },
+  })
+  assert.strictEqual(activo.texto, 'Activo \u00b7 44 de 50')
+})
+
+caso('fracciones de credito (tarifas de 0.5) no se redondean a mentiras', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 27.5, consumidoTotal: 2.5 },
+  })
+  assert.strictEqual(r.texto, 'Activo \u00b7 27.5 de 30')
+})
+
+// Lo que el sistema NO registra: de que bolsa salio cada credito gastado. Se
+// deduce mientras el regalo sea la unica entrada, y cuando deja de serlo hay
+// que DECIRLO, no estimar.
+caso('con ajuste manual del admin NO se afirma un desglose', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 60, consumidoTotal: 0, ultimoAjusteManual: { delta: 30, motivo: 'Prueba' } },
+  })
+  assert.strictEqual(r.estado, 'indeterminable')
+  assert.strictEqual(r.determinable, false)
+  assert.ok(/ajust\u00f3 el saldo a mano/.test(r.ayuda))
+  assert.ok(!/\bde 30\b/.test(r.texto), 'no inventa una cifra de restante')
+})
+
+caso('con compras acreditadas tampoco: el saldo ya mezcla regalo y comprado', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 130, consumidoTotal: 0 },
+    tieneComprasAcreditadas: true,
+  })
+  assert.strictEqual(r.estado, 'indeterminable')
+  assert.ok(/compras de cr\u00e9ditos acreditadas/.test(r.ayuda))
+})
+
+caso('saldo migrado de un plan viejo: se detecta por los campos legado', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 30, consumidoTotal: 0, plan: 'cortesia', capacidad: 1750 },
+  })
+  assert.strictEqual(r.estado, 'indeterminable')
+  assert.ok(/plan anterior migrado/.test(r.ayuda))
+})
+
+caso('red de seguridad: si el saldo no cuadra, no se afirma nada aunque no haya causa conocida', () => {
+  // 50 otorgados y 136.25 consumidos no pueden dejar 23.75 de saldo si el
+  // regalo fuera la unica entrada: entro saldo por una via que nadie registro.
+  const r = estadoRegaloIA({
+    registro: REG({ creditosBienvenida: 50, bienvenidaActivada: true }),
+    creditos: { saldo: 23.75, consumidoTotal: 136.25 },
+  })
+  assert.strictEqual(r.estado, 'indeterminable')
+  assert.ok(/no cuadra/.test(r.ayuda))
+})
+
+caso('el descuadre tolera el ruido de punto flotante, no lo confunde con un hueco', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 0.1 + 0.2 + 29.7, consumidoTotal: 0 },
+  })
+  assert.strictEqual(r.estado, 'activo')
+})
+
+caso('sin documento de registro: se dice, no se asume que no tiene regalo', () => {
+  const r = estadoRegaloIA({ registro: undefined, creditos: { saldo: 0, consumidoTotal: 0 } })
+  assert.strictEqual(r.estado, 'sin_registro')
+  assert.strictEqual(r.determinable, false)
+})
+
+caso('registro sin creditosBienvenida: activo pero sin "de cuantos"', () => {
+  const r = estadoRegaloIA({
+    registro: { bienvenidaDisponible: true, bienvenidaActivada: true },
+    creditos: { saldo: 10, consumidoTotal: 0 },
+  })
+  assert.strictEqual(r.estado, 'indeterminable')
+  assert.ok(!/NaN|undefined/.test(r.texto + r.ayuda))
+})
+
+caso('llamada sin argumentos no revienta la tabla', () => {
+  assert.strictEqual(estadoRegaloIA().estado, 'sin_registro')
+  assert.strictEqual(estadoRegaloIA({}).estado, 'sin_registro')
 })
 
 // ═══ El export de pruebas no se despliega ════════════════════════════════════

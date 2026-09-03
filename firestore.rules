@@ -1278,8 +1278,14 @@ service cloud.firestore {
     // acreditación en sí sigue siendo exclusivamente server-side
     // (activarCreditosBienvenida en functions/index.js), nunca un write
     // directo del cliente.
+    //
+    // El admin también lee (2-sep-2026), mismo patrón que `iaCreditos` aquí
+    // arriba: sin esto, el histórico del panel solo puede enseñar un saldo
+    // suelto, y un "0" ahí no distingue a quien nunca activó su regalo de
+    // quien ya lo gastó — dos situaciones que para administración no son la
+    // misma. La escritura sigue cerrada para TODOS, admin incluido.
     match /iaTrialRegistro/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if (request.auth != null && request.auth.uid == uid) || isAdmin();
       allow write: if false;
     }
 

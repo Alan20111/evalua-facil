@@ -19,8 +19,11 @@ import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import { normalizeName } from '../../../utils/schoolSelection'
 import { capitalizarNombre } from '../../../utils/nombres'
 import {
+  PAYMENT_STATUS,
   calcDaysRemaining,
   effectiveVencimiento,
+  estadoRegaloIA,
+  formatCreditos,
   formatCurrency,
   formatDate,
   toDate,
@@ -90,11 +93,18 @@ const COLS = [
     ayuda: 'Cuándo se registró el docente. Si tiene suscripción, se usa la fecha de inicio de ésta; si no, la fecha de creación de su cuenta.',
   },
   {
+    key: 'regalo',
+    label: 'Regalo IA',
+    w: 165,
+    wrap: true,
+    ayuda: 'Qué pasó con los créditos de IA de regalo de ese docente: si todavía no los activa, cuántos le quedan, o si ya los gastó. La cantidad regalada sale del registro de cada quien (hoy son 30; las cuentas anteriores al 25-ago-2026 recibieron 50). Cuando el reparto entre regalo y créditos comprados no puede afirmarse con certeza, lo dice en vez de estimar.',
+  },
+  {
     key: 'creditos',
-    label: 'Créditos',
+    label: 'Saldo IA',
     w: 110,
     align: 'right',
-    ayuda: 'Saldo actual de créditos de IA del docente (leído de iaCreditos en tiempo de carga). Muestra 0 si no tiene doc en iaCreditos; guion solo en cuentas eliminadas.',
+    ayuda: 'Saldo TOTAL de créditos de IA del docente hoy — regalo, compras y ajustes juntos, no solo el regalo (leído de iaCreditos en tiempo de carga). Muestra 0 si no tiene doc en iaCreditos; guion solo en cuentas eliminadas.',
   },
   {
     key: 'sinAcceder',
@@ -251,6 +261,59 @@ function CeldaFiltro({ col, valor, onChange, sugerencias }) {
   )
 }
 
+// La insignia se PARTE en varios renglones en vez de truncarse. Con quince
+// columnas repartiéndose el ancho del área, "Activo · 12.5 de 30" no cabe de un
+// tirón en una pantalla mediana, y truncada se lee igual que "Activo · sin
+// desglose" — que es justo lo que esta columna existe para distinguir. En un
+// monitor ancho cabe en un solo renglón y no se parte nada.
+const INSIGNIA_REGALO =
+  'inline-block max-w-full whitespace-normal leading-tight px-2 py-0.5 rounded text-xs font-medium cursor-help'
+
+// Colores por estado del regalo, con las mismas parejas que ya usa el resto
+// del panel para las insignias de situación (ver getSubscriptionStatusColor):
+// verde lo que está bien, ámbar lo que pide atención, gris lo que solo informa.
+const TONO_REGALO = {
+  sin_activar: 'bg-amber-100 text-amber-700',
+  activo: 'bg-emerald-100 text-emerald-700',
+  agotado: 'bg-slate-100 text-slate-600',
+  indeterminable: 'bg-surface text-muted border border-outline-variant',
+  sin_registro: 'bg-slate-100 text-slate-500',
+  no_disponible: 'bg-slate-100 text-slate-500',
+}
+
+// Qué pasó con los créditos de regalo de este docente. Toda la decisión vive
+// en estadoRegaloIA (utils/creditosHelpers.js), que es pura y está probada;
+// aquí solo se le pone color y tooltip.
+function CeldaRegalo({ uid, cuentaEliminada, registro, creditos, tieneComprasAcreditadas, sinPermiso }) {
+  // Una cuenta dada de baja ya no tiene nada que contar: sus documentos de
+  // créditos se borraron con ella (ver api/admin/delete-account).
+  if (!uid || cuentaEliminada) return <span className="text-slate-400">&mdash;</span>
+
+  // Las reglas negaron la lectura. Se dice, no se disimula: la alternativa
+  // sería pintar a todo el padrón como "sin registro" y que nadie se entere de
+  // que falta correr `npm run deploy:rules`.
+  if (sinPermiso) {
+    return (
+      <span
+        title="El panel no pudo leer el registro de créditos de regalo. Falta desplegar las reglas de Firestore (npm run deploy:rules) para que el administrador pueda consultarlo."
+        className={`${INSIGNIA_REGALO} bg-amber-100 text-amber-700`}
+      >
+        Sin permiso
+      </span>
+    )
+  }
+
+  const r = estadoRegaloIA({ registro, creditos, tieneComprasAcreditadas })
+  return (
+    <span
+      title={r.ayuda}
+      className={`${INSIGNIA_REGALO} ${TONO_REGALO[r.estado] || TONO_REGALO.sin_registro}`}
+    >
+      {r.texto}
+    </span>
+  )
+}
+
 export default function SubscriptionsTable({ stats, onRefresh }) {
   const toast = useToast()
   const { currentUser } = useAuth()
@@ -275,6 +338,10 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   const [accesos, setAccesos] = useState({})
   const [creadoEnMap, setCreadoEnMap] = useState({})
   const [creditosMap, setCreditosMap] = useState({})
+  const [regaloMap, setRegaloMap] = useState({})
+  // `true` solo cuando las reglas negaron la lectura, para que la columna lo
+  // diga en vez de fingir que nadie tiene regalo.
+  const [regaloSinPermiso, setRegaloSinPermiso] = useState(false)
   const teachers = useMemo(() => stats?.teachers || [], [stats?.teachers])
   const teachersMap = useMemo(() => Object.fromEntries(teachers.map((t) => [t.id, t])), [teachers])
 
@@ -298,17 +365,53 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     return () => { cancelado = true }
   }, [currentUser, teachers])
 
-  // Saldo de créditos IA por docente — se carga una vez por sesión del panel.
+  // Créditos de IA por docente — una lectura por sesión del panel, igual que
+  // el resto de los datos de apoyo de la tabla. Se guarda el documento
+  // COMPLETO, no solo el saldo: el estado del regalo necesita además el
+  // consumo histórico y las señales que delatan un desglose no confiable
+  // (ajustes manuales del admin, saldo migrado de un plan viejo).
   useEffect(() => {
     if (!teachers.length) return
     getDocs(collection(db, 'iaCreditos'))
       .then((snap) => {
         const m = {}
-        snap.forEach((d) => { m[d.id] = d.data().saldo ?? 0 })
+        snap.forEach((d) => { m[d.id] = d.data() })
         setCreditosMap(m)
       })
       .catch(() => {})
   }, [teachers])
+
+  // Estado del regalo de bienvenida por docente (iaTrialRegistro).
+  //
+  // Este fallo NO se traga en silencio, a diferencia del de arriba: la lectura
+  // del admin sobre esta colección depende de un despliegue MANUAL de
+  // firestore.rules (`npm run deploy:rules`). Si se olvida, la columna debe
+  // DECIR que le falta permiso; quedarse en blanco pintaría a todo el padrón
+  // como "sin registro", que es justo la confusión que esta columna existe
+  // para eliminar.
+  useEffect(() => {
+    if (!teachers.length) return
+    getDocs(collection(db, 'iaTrialRegistro'))
+      .then((snap) => {
+        const m = {}
+        snap.forEach((d) => { m[d.id] = d.data() })
+        setRegaloMap(m)
+        setRegaloSinPermiso(false)
+      })
+      .catch(() => setRegaloSinPermiso(true))
+  }, [teachers])
+
+  // Docentes con al menos una compra de créditos ya acreditada: a partir de
+  // ahí su saldo mezcla regalo y compras, y cuánto queda del regalo deja de
+  // poder deducirse. Hoy no hay ninguna, pero el día que la haya la columna
+  // tiene que dejar de afirmar un desglose en vez de empezar a mentir.
+  const comprasAcreditadas = useMemo(() => {
+    const set = new Set()
+    ;(stats?.creditPurchases || []).forEach((c) => {
+      if (c.status === PAYMENT_STATUS.COMPLETADO && c.docenteId) set.add(c.docenteId)
+    })
+    return set
+  }, [stats?.creditPurchases])
 
   // Una sola pasada por todo el padrón de alumnos, y solo cuando cambia:
   // el conteo NO se rehace al escribir en los filtros ni al pintar cada fila.
@@ -570,7 +673,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             )}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            Una suscripción por docente. <strong>Créditos</strong> es el saldo actual de IA.
+            Una suscripción por docente. <strong>Regalo IA</strong> es qué pasó con los
+            créditos de bienvenida; <strong>Saldo IA</strong> es el saldo total de hoy.
           </p>
         </div>
 
@@ -680,9 +784,19 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     {r.estudiantes.toLocaleString('es-MX')}
                   </td>
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
+                  <td className="px-3 py-2">
+                    <CeldaRegalo
+                      uid={r.uid}
+                      cuentaEliminada={!!r.sub?.cuentaEliminada}
+                      registro={regaloMap[r.uid]}
+                      creditos={creditosMap[r.uid]}
+                      tieneComprasAcreditadas={comprasAcreditadas.has(r.uid)}
+                      sinPermiso={regaloSinPermiso}
+                    />
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums text-on-surface">
                     {r.uid && !r.sub?.cuentaEliminada
-                      ? (creditosMap[r.uid] ?? 0).toLocaleString('es-MX')
+                      ? formatCreditos(creditosMap[r.uid]?.saldo ?? 0)
                       : '—'}
                   </td>
                   {/* Mismo criterio de lectura rápida que la columna Días:
