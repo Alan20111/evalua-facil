@@ -9,6 +9,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { ChevronLeft, ChevronRight, Timer, CheckCircle2, LogOut, Upload, FileText } from 'lucide-react'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
+import { esDeIntentoAnterior, tieneRespuestaGuardada, limpiarRespuestas } from '../../utils/respuestasIntento'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { seccionesDe, ordenParaEstudiante, mostrarSeccionesAlEstudiante } from '../../utils/secciones'
@@ -149,10 +150,32 @@ export default function EvaluacionRunner() {
       setPreguntas(lista)
 
       const respSnap = await getDocs(collection(db, 'submissions', subData.id, 'respuestas'))
+      // A26 · Segunda línea de defensa contra las respuestas del intento
+      // anterior. Todos los intentos comparten un documento por pregunta, y lo
+      // que las deja "sin responder" al empezar de nuevo es la limpieza de
+      // ActivityPage. Si esa limpieza no llegó a completarse (red, pestaña
+      // cerrada a media operación), aquí se reconoce lo rezagado por su sello
+      // de tiempo —lo guardado ANTES de que arrancara este intento es del
+      // anterior— y no se muestra.
+      //
+      // Y no basta con ocultarlo: la Cloud Function califica lo que esté vivo
+      // en la subcolección, así que se vuelve a limpiar. Ahora sí puede,
+      // porque el reloj que miran las reglas ya es el de este intento.
+      const rezagadas = respSnap.docs.filter((d) =>
+        esDeIntentoAnterior(d.data(), subData.tiempoInicio) && tieneRespuestaGuardada(d.data())
+      )
+      if (rezagadas.length) {
+        try {
+          await limpiarRespuestas(db, rezagadas.map((d) => d.ref))
+        } catch {
+          toast('No pudimos borrar del todo tus respuestas anteriores. Recarga la página antes de seguir.', 'error')
+        }
+      }
       const respMap = {}
       const otraMap = {}
       respSnap.docs.forEach((d) => {
         const data = d.data()
+        if (esDeIntentoAnterior(data, subData.tiempoInicio)) return
         respMap[d.id] = data.opcionSeleccionada
           ?? data.textoRespuesta
           ?? (data.archivoURL ? { archivoURL: data.archivoURL, nombreArchivo: data.nombreArchivo || 'Documento' } : null)

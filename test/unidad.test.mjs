@@ -34,6 +34,7 @@ import {
 } from '../src/utils/costosIA.js'
 import { resolverBackspace } from '../src/utils/crucigramaBackspace.js'
 import { correccionesCrucigrama } from '../src/utils/correccionesJuego.js'
+import { esDeIntentoAnterior, tieneRespuestaGuardada } from '../src/utils/respuestasIntento.js'
 import {
   esEstructuraHeredada, estructuraConClave, debeEscribirContenidoEmbebido,
 } from '../src/utils/juegoReparto.js'
@@ -3017,6 +3018,107 @@ caso('JC-17: actividad sin juego, o sin actividad, no rompe', () => {
   assert.strictEqual(debeEscribirContenidoEmbebido(null), false)
   assert.strictEqual(debeEscribirContenidoEmbebido({ juego: { contenido: 'no es un arreglo' } }), false)
 })
+
+grupo('A26 — a qué intento pertenece cada respuesta (reintentos de cuestionario)')
+
+// Sellos de tiempo con la forma que devuelve Firestore ({ seconds, nanoseconds })
+// y con la que expone el SDK (.toMillis()). Las dos tienen que dar lo mismo:
+// el Runner lee documentos del SDK, y las pruebas de reglas y los scripts leen
+// objetos planos.
+const ts = (ms) => ({ seconds: Math.floor(ms / 1000), nanoseconds: (ms % 1000) * 1e6 })
+const tsSDK = (ms) => ({ toMillis: () => ms })
+const T0 = Date.UTC(2026, 8, 3, 12, 0, 0)
+
+caso('RI-01: respuesta guardada ANTES de que arrancara este intento → es del anterior', () => {
+  // El caso real: el intento 1 se contestó a las 12:00 y el intento 2 abrió a
+  // las 12:20. Esa respuesta no es de este intento.
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0) }, ts(T0 + 20 * 60 * 1000)), true)
+})
+
+caso('RI-02: respuesta guardada DESPUÉS del arranque → es de este intento', () => {
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0 + 30 * 1000) }, ts(T0)), false)
+})
+
+caso('RI-03: guardada en el mismo instante del arranque → es de este intento', () => {
+  // El empate se resuelve a favor del estudiante: su respuesta no se descarta.
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0) }, ts(T0)), false)
+})
+
+caso('RI-04: sin `tiempoInicio` no se descarta nada (regla 1.2)', () => {
+  // Un dato que falta no deja a nadie fuera: sin reloj contra el que comparar,
+  // se respeta lo que el estudiante escribió.
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0) }, null), false)
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0) }, undefined), false)
+})
+
+caso('RI-05: sin `respondidaEn` tampoco se descarta', () => {
+  // Las respuestas del docente (revisión manual) y del servidor se escriben con
+  // merge y no tocan `respondidaEn`; un documento antiguo podría no tenerlo.
+  assert.strictEqual(esDeIntentoAnterior({ opcionSeleccionada: 'a' }, ts(T0)), false)
+  assert.strictEqual(esDeIntentoAnterior({}, ts(T0)), false)
+  assert.strictEqual(esDeIntentoAnterior(null, ts(T0)), false)
+})
+
+caso('RI-06: da igual la forma del sello — objeto plano, SDK o Date', () => {
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: tsSDK(T0) }, tsSDK(T0 + 1000)), true)
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0) }, tsSDK(T0 + 1000)), true)
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: new Date(T0) }, new Date(T0 + 1000)), true)
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: new Date(T0 + 1000) }, new Date(T0)), false)
+})
+
+caso('RI-07: `tieneRespuestaGuardada` reconoce las cuatro formas de responder', () => {
+  assert.strictEqual(tieneRespuestaGuardada({ opcionSeleccionada: 'op1' }), true)
+  assert.strictEqual(tieneRespuestaGuardada({ textoRespuesta: 'la respuesta' }), true)
+  assert.strictEqual(tieneRespuestaGuardada({ archivoURL: 'https://res.cloudinary.com/x.pdf' }), true)
+  assert.strictEqual(tieneRespuestaGuardada({ otraTexto: 'ninguna de las anteriores' }), true)
+})
+
+caso('RI-08: un documento ya limpio NO tiene respuesta guardada', () => {
+  // Es exactamente lo que deja la limpieza: no hay nada que volver a limpiar.
+  assert.strictEqual(tieneRespuestaGuardada({
+    opcionSeleccionada: null, textoRespuesta: null, otraTexto: null,
+    archivoURL: null, nombreArchivo: null, tamanoArchivo: null,
+  }), false)
+  assert.strictEqual(tieneRespuestaGuardada({}), false)
+  assert.strictEqual(tieneRespuestaGuardada(null), false)
+  // La cadena vacía tampoco es una respuesta (borrar el texto y salirse).
+  assert.strictEqual(tieneRespuestaGuardada({ textoRespuesta: '' }), false)
+})
+
+caso('RI-09: los puntos del servidor no cuentan como respuesta del alumno', () => {
+  // `puntosObtenidos`/`correcta` los escribe la Cloud Function y sobreviven a la
+  // limpieza (el alumno no puede tocarlos). Un documento con solo eso está
+  // limpio: no debe hacer que el Runner crea que hay algo que borrar.
+  assert.strictEqual(tieneRespuestaGuardada({ puntosObtenidos: 1, correcta: true }), false)
+})
+
+caso('RI-10: CASO 2/9 — la falla de limpieza no le muestra el examen pre-llenado', () => {
+  // Reproducción de la protección pedida: la limpieza del intento 2 falló, así
+  // que las respuestas del intento 1 siguen VIVAS en Firestore. El Runner las
+  // reconoce por el sello y no las pinta.
+  const tiempoInicioIntento2 = ts(T0 + 20 * 60 * 1000)
+  const vivasDelIntento1 = [
+    { id: 'Q1', opcionSeleccionada: 'op_b', respondidaEn: ts(T0 + 60 * 1000) },
+    { id: 'Q2', textoRespuesta: 'lo que contesté la vez pasada', respondidaEn: ts(T0 + 120 * 1000) },
+  ]
+  const pintadas = vivasDelIntento1.filter((r) => !esDeIntentoAnterior(r, tiempoInicioIntento2))
+  assert.deepStrictEqual(pintadas, [], 'ninguna respuesta del intento anterior debe llegar a la pantalla')
+  // Y las tres se reconocen como pendientes de limpiar, que es lo que dispara
+  // la autolimpieza del Runner.
+  assert.strictEqual(vivasDelIntento1.every(tieneRespuestaGuardada), true)
+})
+
+caso('RI-11: dentro del MISMO intento, lo contestado sí se conserva al recargar', () => {
+  // No regresión: recargar a media evaluación no puede borrar lo que ya llevas.
+  const tiempoInicio = ts(T0)
+  const misRespuestas = [
+    { id: 'Q1', opcionSeleccionada: 'op_a', respondidaEn: ts(T0 + 15 * 1000) },
+    { id: 'Q2', textoRespuesta: 'voy a la mitad', respondidaEn: ts(T0 + 90 * 1000) },
+  ]
+  const pintadas = misRespuestas.filter((r) => !esDeIntentoAnterior(r, tiempoInicio))
+  assert.strictEqual(pintadas.length, 2)
+})
+
 
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)

@@ -13,7 +13,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, collection, addDoc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { doc, collection, addDoc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore'
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')
 
@@ -872,6 +872,161 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
 })
 await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_SIN_LIMITE', 'respuestas', 'Q1'), { opcionSeleccionada: 'a' }))
 ok('an evaluation with NO time limit still accepts answers (absent field lets you through)')
+
+
+// ── A26 · El reintento de un cuestionario, en el ORDEN REAL del cliente ─────
+//
+// El bug: al pulsar "Nuevo intento", ActivityPage limpiaba las respuestas del
+// intento anterior ANTES de reabrir el intento. Escribir en `respuestas` exige
+// estar dentro del plazo (`dentroDelPlazo`), y el plazo se mide contra
+// `tiempoInicio`, que en ese momento seguía siendo el del intento ANTERIOR —
+// ya vencido. El servidor rechazaba la limpieza, la excepción abortaba la
+// función y el intento 2 nunca llegaba a abrirse: el estudiante veía
+// "Error: Missing or insufficient permissions." con 10 intentos configurados.
+//
+// La prueba que ya había pasaba porque escribía la respuesta DESPUÉS de
+// reiniciar el reloj — es decir, en el orden que el cliente no usaba. Estas
+// pruebas ejecutan la secuencia exacta de la pantalla, en su orden, para que un
+// regreso al orden viejo vuelva a fallar aquí y no en producción.
+const A_RE = 'A_REINTENTO'
+const SUB_RE = 'A_REINTENTO_ST_JUAN'
+const HACE_20_MIN = new Date(Date.now() - 20 * 60 * 1000)
+const HACE_3_MIN = new Date(Date.now() - 3 * 60 * 1000)
+
+async function prepararReintento({
+  actId = A_RE, subId = SUB_RE, tiempoLimiteMin = 15, intentosPermitidos = 10,
+  tiempoInicio = HACE_20_MIN, estadoEvaluacion = 'finalizado', intentoActual = 1,
+  intentos = [{ numero: 1, calificacion: 7 }],
+} = {}) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    const ev = { intentosPermitidos, conservar: 'promedio', navegacion: 'libre' }
+    if (tiempoLimiteMin != null) ev.tiempoLimiteMin = tiempoLimiteMin
+    await setDoc(doc(db, 'activities', actId), {
+      docenteId: T1, asignaturaId: 'S1', tipo: 'evaluacion', maxCalif: 10, evaluacion: ev,
+    })
+    await setDoc(doc(db, 'submissions', subId), {
+      actividadId: actId, alumnoId: 'ST_JUAN', alumnoUid: U_JUAN,
+      estadoEvaluacion, intentoActual, intentos, tiempoInicio,
+    })
+    // Las respuestas del intento anterior, vivas: es lo que hay que limpiar.
+    await setDoc(doc(db, 'submissions', subId, 'respuestas', 'Q1'), {
+      opcionSeleccionada: 'op_a', puntosObtenidos: 1, correcta: true, respondidaEn: tiempoInicio,
+    })
+    await setDoc(doc(db, 'submissions', subId, 'respuestas', 'Q2'), {
+      textoRespuesta: 'lo que contesté la vez pasada', respondidaEn: tiempoInicio,
+    })
+  })
+}
+
+// La secuencia EXACTA de handleStartOrContinueEvaluacion (ActivityPage.jsx),
+// ya corregida: primero se abre el intento —lo que reinicia el reloj—, después
+// se limpian las respuestas del anterior.
+async function nuevoIntentoComoElCliente(subId, numero) {
+  await updateDoc(doc(asJuan, 'submissions', subId), {
+    estadoEvaluacion: 'en_progreso', intentoActual: numero,
+    tiempoInicio: serverTimestamp(), ordenSeed: null, notificadoEntregaDocente: false,
+  })
+  const snap = await getDocs(collection(asJuan, 'submissions', subId, 'respuestas'))
+  const batch = writeBatch(asJuan)
+  snap.docs.forEach((d) => batch.set(d.ref, {
+    opcionSeleccionada: null, textoRespuesta: null, otraTexto: null,
+    archivoURL: null, nombreArchivo: null, tamanoArchivo: null,
+  }, { merge: true }))
+  await batch.commit()
+}
+
+// Lo que hace la Cloud Function al calificar (Admin SDK: no pasa por reglas).
+async function servidorCalificaIntento(subId, numero, calificacion, intentosPrevios) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'submissions', subId), {
+      intentos: [...intentosPrevios, { numero, calificacion }], estado: 'calificado',
+    })
+  })
+}
+
+// CASO 1 — el bug original, con la configuración que lo destapó.
+await prepararReintento({ tiempoLimiteMin: 15, intentosPermitidos: 10, tiempoInicio: HACE_20_MIN })
+await assertSucceeds(nuevoIntentoComoElCliente(SUB_RE, 2))
+ok('CASO 1 · nuevo intento con el anterior YA VENCIDO (límite 15, empezó hace 20) — sin permission-denied')
+
+// CASO 3 — en Firestore, las respuestas viejas quedaron sin reutilizar.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const snap = await getDocs(collection(ctx.firestore(), 'submissions', SUB_RE, 'respuestas'))
+  assert.strictEqual(snap.size, 2, 'los documentos siguen ahí (se limpian, no se borran)')
+  snap.docs.forEach((d) => {
+    const r = d.data()
+    assert.strictEqual(r.opcionSeleccionada, null, d.id + ': la opción del intento anterior sigue puesta')
+    assert.strictEqual(r.textoRespuesta, null, d.id + ': el texto del intento anterior sigue puesto')
+    assert.strictEqual(r.archivoURL, null, d.id + ': el archivo del intento anterior sigue puesto')
+  })
+})
+ok('CASO 3 · las respuestas del intento anterior NO se reutilizan como respuestas del intento 2')
+
+// El orden VIEJO —limpiar antes de reabrir— tiene que seguir fallando: es la
+// prueba que ata el arreglo. Si alguien vuelve a invertirlo, esto se cae.
+await prepararReintento({ tiempoLimiteMin: 15, tiempoInicio: HACE_20_MIN })
+await assertFails((async () => {
+  const snap = await getDocs(collection(asJuan, 'submissions', SUB_RE, 'respuestas'))
+  const batch = writeBatch(asJuan)
+  snap.docs.forEach((d) => batch.set(d.ref, { opcionSeleccionada: null }, { merge: true }))
+  await batch.commit()
+})())
+ok('NO REGRESIÓN · limpiar ANTES de reabrir el intento sigue siendo rechazado (era el bug)')
+
+// CASO 8 — el intento anterior terminó dentro de su tiempo: también funciona.
+await prepararReintento({ tiempoLimiteMin: 15, tiempoInicio: HACE_3_MIN })
+await assertSucceeds(nuevoIntentoComoElCliente(SUB_RE, 2))
+ok('CASO 8 · nuevo intento cuando el anterior aún estaba dentro del tiempo')
+
+// CASO 6 — sin límite de tiempo, con varios intentos.
+await prepararReintento({
+  actId: 'A_RE_SIN_LIMITE', subId: 'A_RE_SIN_LIMITE_ST_JUAN', tiempoLimiteMin: null, tiempoInicio: HACE_20_MIN,
+})
+await assertSucceeds(nuevoIntentoComoElCliente('A_RE_SIN_LIMITE_ST_JUAN', 2))
+ok('CASO 6 · cuestionario SIN límite de tiempo — el reintento sigue funcionando')
+
+// CASO 7 — un solo intento permitido: su comportamiento no cambia.
+await prepararReintento({
+  actId: 'A_RE_UNO', subId: 'A_RE_UNO_ST_JUAN', intentosPermitidos: 1, tiempoInicio: HACE_20_MIN,
+})
+await assertFails(updateDoc(doc(asJuan, 'submissions', 'A_RE_UNO_ST_JUAN'), {
+  estadoEvaluacion: 'en_progreso', intentoActual: 2, tiempoInicio: serverTimestamp(),
+}))
+ok('CASO 7 · cuestionario de UN solo intento — el segundo sigue bloqueado')
+
+// CASO 4 y CASO 5 — la cuenta de intentos se respeta de verdad: se recorren
+// todos los permitidos con la secuencia real y el siguiente queda bloqueado.
+async function agotarIntentos(permitidos, actId, subId) {
+  await prepararReintento({ actId, subId, intentosPermitidos: permitidos, tiempoInicio: HACE_20_MIN })
+  let intentos = [{ numero: 1, calificacion: 7 }]
+  for (let n = 2; n <= permitidos; n++) {
+    await assertSucceeds(nuevoIntentoComoElCliente(subId, n))
+    await assertSucceeds(updateDoc(doc(asJuan, 'submissions', subId), {
+      estadoEvaluacion: 'finalizado', estado: 'entregado', fechaEntrega: serverTimestamp(),
+    }))
+    await servidorCalificaIntento(subId, n, 7, intentos)
+    intentos = [...intentos, { numero: n, calificacion: 7 }]
+  }
+  await assertFails(updateDoc(doc(asJuan, 'submissions', subId), {
+    estadoEvaluacion: 'en_progreso', intentoActual: permitidos + 1, tiempoInicio: serverTimestamp(),
+  }))
+}
+
+await agotarIntentos(3, 'A_RE_TRES', 'A_RE_TRES_ST_JUAN')
+ok('CASO 4 · 3 intentos permitidos: los 3 se completan y el 4º queda bloqueado')
+
+await agotarIntentos(10, 'A_RE_DIEZ', 'A_RE_DIEZ_ST_JUAN')
+ok('CASO 5 · 10 intentos permitidos: los 10 se completan y el 11º queda bloqueado')
+
+// CASO 10 — el candado del cronómetro sigue firme DENTRO del intento en curso.
+await prepararReintento({
+  actId: 'A_RE_VENCIDO', subId: 'A_RE_VENCIDO_ST_JUAN', estadoEvaluacion: 'en_progreso', tiempoInicio: HACE_20_MIN,
+})
+await assertFails(setDoc(doc(asJuan, 'submissions', 'A_RE_VENCIDO_ST_JUAN', 'respuestas', 'Q1'), {
+  opcionSeleccionada: 'op_c', respondidaEn: serverTimestamp(),
+}, { merge: true }))
+ok('CASO 10 · contestar con el cronómetro vencido en el intento ACTUAL sigue rechazado')
 
 // ── A09 · Calificaciones, ponderación y rúbricas ────────────────────────────
 //
