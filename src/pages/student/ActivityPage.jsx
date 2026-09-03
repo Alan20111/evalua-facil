@@ -11,10 +11,10 @@ import {
   doc,
   onSnapshot,
   serverTimestamp,
-  writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { submissionDocId } from '../../utils/submissionId'
+import { limpiarRespuestas } from '../../utils/respuestasIntento'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -309,25 +309,23 @@ export default function StudentActivityPage() {
         return
       }
       if (submission) {
-        // Nuevo intento: el mismo documento de submission se reutiliza (ver
-        // intentos[] más abajo), pero las respuestas de la subcolección son
-        // del intento ANTERIOR — sin limpiarlas, el Runner las encontraba y
-        // arrancaba el intento nuevo con todo pre-llenado, como si el alumno
-        // ya hubiera contestado sin haber tocado nada.
-        // Se limpian (no se borran): las reglas de Firestore permiten
-        // ESCRIBIR esta subcolección (el alumno autoguarda su respuesta),
-        // pero no están pensadas para DELETE — y esas reglas no las puedo
-        // desplegar desde aquí. Dejar los campos en null logra lo mismo:
-        // el Runner ya trata un valor null como "sin responder".
-        const respAnterioresSnap = await getDocs(collection(db, 'submissions', submission.id, 'respuestas'))
-        if (!respAnterioresSnap.empty) {
-          const batch = writeBatch(db)
-          respAnterioresSnap.docs.forEach((d) => batch.set(d.ref, {
-            opcionSeleccionada: null, textoRespuesta: null, otraTexto: null,
-            archivoURL: null, nombreArchivo: null, tamanoArchivo: null,
-          }, { merge: true }))
-          await batch.commit()
-        }
+        // Nuevo intento, en DOS pasos y en este orden — el orden es el arreglo.
+        //
+        // Primero se abre el intento, que además reinicia `tiempoInicio`.
+        // Después se limpian las respuestas del intento anterior: el mismo
+        // documento de submission se reutiliza (ver intentos[] abajo), así que
+        // la subcolección todavía trae lo contestado la vez pasada y sin
+        // limpiarla el Runner arrancaba el intento nuevo pre-llenado.
+        //
+        // Al revés —limpiar primero, como estaba— el examen de más de un
+        // intento se rompía por completo: escribir en `respuestas` exige estar
+        // dentro del plazo (`dentroDelPlazo` en firestore.rules) y el plazo se
+        // mide contra `tiempoInicio`, que en ese momento seguía siendo el del
+        // intento ANTERIOR. Pasados el límite + 1 min de ese intento —es decir,
+        // siempre que el estudiante agotara el cronómetro o volviera más
+        // tarde— el servidor rechazaba la limpieza con permission-denied, el
+        // error subía hasta el catch de aquí abajo y el intento nuevo nunca
+        // llegaba a abrirse: "Error: Missing or insufficient permissions."
         await updateDoc(doc(db, 'submissions', submission.id), {
           estadoEvaluacion: 'en_progreso',
           intentoActual: (submission.intentos?.length || 0) + 1,
@@ -348,6 +346,23 @@ export default function StudentActivityPage() {
           // registrar nada en la Bitácora en los intentos 2, 3, ... N.
           notificadoEntregaDocente: false,
         })
+        // Se limpian (no se borran): las reglas permiten ESCRIBIR esta
+        // subcolección —el alumno autoguarda su respuesta— pero no están
+        // pensadas para DELETE. Dejar los campos en null logra lo mismo: el
+        // Runner ya trata un valor null como "sin responder".
+        //
+        // Si esto falla pese al reintento, NO se entra al examen: se avisa y
+        // el estudiante vuelve a pulsar. El intento ya quedó abierto, así que
+        // reintentarlo lo retoma y lo limpia (el Runner también se autolimpia
+        // al cargar, ver EvaluacionRunner.jsx) — nunca se sigue de largo
+        // dando por buena una limpieza que no ocurrió.
+        const respAnterioresSnap = await getDocs(collection(db, 'submissions', submission.id, 'respuestas'))
+        try {
+          await limpiarRespuestas(db, respAnterioresSnap.docs.map((d) => d.ref))
+        } catch {
+          toast('No pudimos dejar tu examen en blanco para el intento nuevo. Revisa tu conexión y vuelve a pulsar el botón.', 'error')
+          return
+        }
       } else {
         // Mismo id determinista que la entrega de archivo (A12 · H5 · R22).
         await setDoc(doc(db, 'submissions', submissionDocId(activityId, student.id)), {
