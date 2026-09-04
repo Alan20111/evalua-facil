@@ -2647,6 +2647,24 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
 
   const ponderaciones = repartirPonderacion(reactivos.length)
   const db = getFirestore()
+
+  // Borrar preguntas y clave anteriores para que una nueva generación completa
+  // reemplace en lugar de acumular, evitando que totalPonderacion se infle y
+  // la fórmula divida entre un denominador mayor al real.
+  const [viejasPreg, viejasClave] = await Promise.all([
+    db.collection(`activities/${actividadId}/preguntas`).get(),
+    db.collection(`activities/${actividadId}/clave`).get(),
+  ])
+  const refsABorrar = [
+    ...viejasPreg.docs.map((d) => d.ref),
+    ...viejasClave.docs.map((d) => d.ref),
+  ]
+  for (let i = 0; i < refsABorrar.length; i += 400) {
+    const delBatch = db.batch()
+    refsABorrar.slice(i, i + 400).forEach((ref) => delBatch.delete(ref))
+    await delBatch.commit()
+  }
+
   const batch = db.batch()
   reactivos.forEach((r, i) => {
     const pregRef = db.collection(`activities/${actividadId}/preguntas`).doc()

@@ -738,6 +738,11 @@ export default function EvaluacionEditor({
         respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
         imagenUrl: null, orden: orden++, origenBancoId: item.id,
       }))
+      const nuevaPond = lista.reduce((s, r) => s + (parseFloat(r.ponderacion) || 0), 0)
+      if (ponderacionUsada + nuevaPond > 10.001) {
+        toast(`Agregar ${items.length} pregunta${items.length > 1 ? 's' : ''} excedería 10 puntos. Disponible: ${ponderacionRestante}`, 'error')
+        return
+      }
       // Sigue siendo un solo writeBatch (reactivo y clave van juntos dentro).
       const ids = await crearPreguntasEnLote(currentActivityId, lista)
       const nuevas = lista.map((data, i) => ({ id: ids[i], ...data }))
@@ -830,6 +835,11 @@ export default function EvaluacionEditor({
         }
         return { ...base, opciones: null, respuestaCorrecta: null } // subir_archivo
       })
+      const nuevaPond = lista.reduce((s, r) => s + (parseFloat(r.ponderacion) || 0), 0)
+      if (ponderacionUsada + nuevaPond > 10.001) {
+        toast(`Agregar ${items.length} reactivo${items.length > 1 ? 's' : ''} excedería 10 puntos. Disponible: ${ponderacionRestante}`, 'error')
+        return
+      }
       const ids = await crearPreguntasEnLote(currentActivityId, lista)
       const nuevas = lista.map((data, i) => ({ id: ids[i], ...data }))
       const updated = [...preguntas, ...nuevas]
