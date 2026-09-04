@@ -1,5 +1,6 @@
 import { Check, X } from 'lucide-react'
 import { valorNivel, esCotejo, COTEJO_NIVEL, RUBRICA_TOTAL } from '../../utils/rubrica'
+import ScrollHintX from '../ui/ScrollHintX'
 
 // Tabla presentacional de una LISTA DE COTEJO — 3 columnas (Num, Criterio,
 // Nivel de desempeño con sus puntos). Si viene `seleccion` (ya calificado),
@@ -7,14 +8,14 @@ import { valorNivel, esCotejo, COTEJO_NIVEL, RUBRICA_TOTAL } from '../../utils/r
 function CotejoTable({ rubrica, seleccion, compact = false }) {
   const graded = Array.isArray(seleccion)
   return (
-    <div className="overflow-x-auto">
+    <ScrollHintX>
       {/* `compact` (web del docente): las otras columnas son de ancho fijo, así
           que Criterio se queda con TODO el sobrante — en un panel ancho acaba
           desproporcionada. Topar la tabla es lo que la encoge, porque el
           sobrante es justo lo que se reparte. El alumno y la app no lo pasan:
           ahí la pantalla es angosta y estirarse es lo correcto. */}
       <table className="w-full border-collapse text-sm"
-        style={{ minWidth: '340px', ...(compact ? { maxWidth: '540px' } : null) }}>
+        style={{ minWidth: '280px', ...(compact ? { maxWidth: '540px' } : null) }}>
         <thead>
           <tr>
             <th className="w-9 px-1 py-2 border border-outline-variant bg-surface-container text-xs font-semibold text-muted align-bottom">Num</th>
@@ -49,7 +50,7 @@ function CotejoTable({ rubrica, seleccion, compact = false }) {
           })}
         </tbody>
       </table>
-    </div>
+    </ScrollHintX>
   )
 }
 
@@ -63,7 +64,7 @@ export default function RubricaTable({ rubrica, seleccion = null, onSelect = nul
   const { niveles, criterios } = rubrica
 
   return (
-    <div className="overflow-x-auto">
+    <ScrollHintX>
       <table className="w-full border-collapse text-sm" style={{ minWidth: `${44 + 140 + niveles.length * 130}px` }}>
         <thead>
           <tr>
@@ -125,6 +126,6 @@ export default function RubricaTable({ rubrica, seleccion = null, onSelect = nul
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollHintX>
   )
 }

@@ -87,7 +87,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
           {paquetes.length === 0 ? (
             <p className="text-sm text-muted">Cargando paquetes…</p>
           ) : (
-            <ul className="grid grid-cols-3 gap-1.5">
+            <ul className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               {paquetes.map((p) => {
                 const ahorro = p.creditos * PRECIO_REFERENCIA_MXN - p.precioMXN
                 const seleccionado = paquete?.creditos === p.creditos
