@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { Download, Smartphone, Link2Off, BadgeCheck } from 'lucide-react'
 import EFLogo from '../components/EFLogo'
 import Spinner from '../components/Spinner'
-import { obtenerLink, obtenerLinkProduccion } from '../utils/descargaLinks'
+import { obtenerLink, obtenerLinkProduccion, fechaCorta } from '../utils/descargaLinks'
 import { downloadUrl } from '../utils/cloudinary'
 
 // Página pública de descarga del APK de Android. Dos formas de llegar:
@@ -101,7 +101,7 @@ export default function DescargaApp() {
           Android · Versión {link.version}
         </span>
         <p className="mt-4 text-3xl font-bold text-on-surface leading-tight">
-          {link.fecha}
+          {link.fecha || fechaCorta(link.createdAt)}
         </p>
 
         {link.produccion && (
