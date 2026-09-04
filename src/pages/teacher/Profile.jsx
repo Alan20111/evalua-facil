@@ -540,7 +540,7 @@ export default function Profile() {
           <Link to="/privacidad" className="text-sm text-accent font-semibold hover:underline">
             Aviso de privacidad
           </Link>
-          <p className="text-xs text-muted mt-1">v.1.0.1</p>
+          {IS_NATIVE_APP && <p className="text-xs text-muted mt-1">v.1.0.1</p>}
         </div>
 
         {/* Versiones */}
