@@ -37,6 +37,20 @@ export function urlPublica(slug) {
   return `${window.location.origin}/descarga/${slug}`
 }
 
+// Devuelve una fecha corta legible en español a partir del createdAt ISO que
+// guardan los documentos nuevos (p. ej. "4 sep 2026"). Fallback a cadena vacía
+// si el dato no está o no es parseable.
+export function fechaCorta(createdAt) {
+  if (!createdAt) return ''
+  try {
+    return new Date(createdAt).toLocaleDateString('es-MX', {
+      day: 'numeric', month: 'short', year: 'numeric',
+    })
+  } catch {
+    return ''
+  }
+}
+
 // Resuelve un slug para la página pública. Devuelve null si no existe.
 export async function obtenerLink(slug) {
   if (slug === LINK_LEGADO.slug) return LINK_LEGADO
@@ -71,14 +85,20 @@ export async function listarLinks() {
   return links
 }
 
-export async function crearLink({ slug, version, fecha, url, fileName, produccion, createdBy }) {
+// Crea un nuevo enlace de descarga. Si produccion es true, primero quita el
+// flag produccion de todos los documentos existentes para que haya exactamente
+// uno vigente en todo momento.
+export async function crearLink({ slug, version, url, fileName, produccion, createdBy }) {
+  if (produccion) {
+    const snap = await getDocs(query(collection(db, COL), where('produccion', '==', true)))
+    await Promise.all(
+      snap.docs.map((d) => updateDoc(doc(db, COL, d.id), { produccion: false }))
+    )
+  }
   const data = {
     version,
-    fecha,
     url,
     fileName: fileName || null,
-    // Marca la versión que se envió al canal de Producción de Play. Solo
-    // cambia lo que se muestra en la página pública; no afecta la descarga.
     produccion: !!produccion,
     activo: true,
     createdBy: createdBy || null,
@@ -86,6 +106,19 @@ export async function crearLink({ slug, version, fecha, url, fileName, produccio
   }
   await setDoc(doc(db, COL, slug), data)
   return { slug, ...data }
+}
+
+// Marca un enlace como vigente (produccion: true) y quita el flag del resto.
+// También reactiva el enlace si estaba desactivado. No es atómico, pero es
+// seguro para un panel de un solo administrador a la vez.
+export async function usarComoVigente(slug) {
+  const snap = await getDocs(query(collection(db, COL), where('produccion', '==', true)))
+  await Promise.all(
+    snap.docs
+      .filter((d) => d.id !== slug)
+      .map((d) => updateDoc(doc(db, COL, d.id), { produccion: false }))
+  )
+  await updateDoc(doc(db, COL, slug), { produccion: true, activo: true })
 }
 
 export async function cambiarActivo(slug, activo) {

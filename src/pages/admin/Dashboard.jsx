@@ -22,7 +22,7 @@ const TAB_TITLES = {
   zonas: 'Ventas por zona',
   cobros: 'Configuración de cobros',
   estudiantes: 'Estudiantes',
-  descargas: 'Enlaces de descarga del APK',
+  descargas: 'Descarga de la app',
 }
 
 export default function AdminDashboard() {
