@@ -16,7 +16,6 @@ import { useToast } from './Toast'
 import Spinner from './Spinner'
 import ConfirmModal from './ConfirmModal'
 import { History, ChevronUp, ChevronDown, Trash2 } from 'lucide-react'
-import { IS_NATIVE_APP } from '../utils/platform'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { formatHora12FromDate } from '../utils/formatHora'
@@ -169,19 +168,19 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
             ) : !logEntries?.length ? (
               <p className="text-center text-muted text-sm py-6">{emptyLabel}</p>
             ) : (
-              // Toda la bitácora vive en UNA caja con scroll, en formato tabla,
-              // la notificación más nueva hasta arriba. El formato compacto
-              // (Fecha apilada en una sola columna, texto más chico, sin scroll
-              // horizontal) es SOLO para la app nativa — en la web se queda
-              // Día semana/Fecha/Hora por separado.
-              IS_NATIVE_APP ? (
+              // Bitácora unificada: table-fixed + w-full = la tabla NUNCA
+              // supera el ancho de su contenedor, eliminando el zoom-out
+              // automático que los navegadores móviles aplicaban cuando el
+              // branch web anterior forzaba min-w-[640px]. La fecha (día /
+              // DD/MM/AA / hora) se apila en una sola columna — misma
+              // información, mejor uso del espacio en cualquier ancho.
               <div className="max-h-[28rem] overflow-y-auto">
-                <table className="w-full table-fixed text-[10.2px] border-collapse">
+                <table className="w-full table-fixed text-xs border-collapse">
                   <thead>
                     <tr>
-                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1 py-1.5 font-semibold text-accent w-[24%]">Fecha</th>
-                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent text-left w-[38%]">Notificación</th>
-                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent text-left w-[28%]">Detalles</th>
+                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent w-[22%]">Fecha</th>
+                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-1.5 font-semibold text-accent text-left w-[38%]">Notificación</th>
+                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-1.5 font-semibold text-accent text-left w-[30%]">Detalles</th>
                       <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light w-[10%]" aria-label="Borrar" />
                     </tr>
                   </thead>
@@ -189,23 +188,23 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
                     {logEntries.map((e, i) => {
                       const d = entryDate(e)
                       const { notificacion, detalles } = describeEntry(e, navigate)
-                      // logEntries ya viene ordenado con la más nueva primero — el
-                      // renglón 0 es la última notificación recibida. Se resalta en
-                      // verde para identificar de inmediato cuál acaba de sonar.
                       const esUltima = i === 0
                       const tocado = e.id === tappedEntryId
                       const filaClase = tocado ? 'bg-accent-light' : esUltima ? 'bg-green-100' : i % 2 === 0 ? 'bg-surface' : 'bg-surface-card'
                       return (
-                        <tr key={e.id} onClick={() => setTappedEntryId(e.id)} className={`${filaClase} transition-colors`}>
-                          <td className="border border-outline-variant px-1 py-1.5 text-center align-top text-on-surface break-words">
+                        <tr key={e.id} onClick={() => setTappedEntryId(e.id)}
+                          className={`${filaClase} hover:bg-accent-light transition-colors`}>
+                          <td className="border border-outline-variant px-1.5 py-1.5 text-center align-top text-on-surface break-words">
                             <div>{d ? DIAS_SEMANA[d.getDay()] : '—'}</div>
                             <div>{d ? fmtDDMMAA(d) : '—'}</div>
                             <div>{d ? formatHora12FromDate(d) : '—'}</div>
                           </td>
-                          <td className="border border-outline-variant px-1.5 py-1.5 align-top text-on-surface break-words">{notificacion}</td>
-                          <td className="border border-outline-variant px-1.5 py-1.5 align-top text-on-surface break-words">{detalles}</td>
+                          <td className="border border-outline-variant px-2 py-1.5 align-top text-on-surface break-words">{notificacion}</td>
+                          <td className="border border-outline-variant px-2 py-1.5 align-top text-on-surface break-words">{detalles}</td>
                           <td className="border border-outline-variant text-center align-top">
-                            <button type="button" onClick={() => setEntryToDelete(e)} aria-label="Borrar notificación"
+                            <button type="button"
+                              onClick={(ev) => { ev.stopPropagation(); setEntryToDelete(e) }}
+                              aria-label="Borrar notificación" data-tooltip="Borrar"
                               className="p-2 text-muted hover:text-error rounded transition-colors">
                               <Trash2 size={13} />
                             </button>
@@ -216,44 +215,6 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
                   </tbody>
                 </table>
               </div>
-              ) : (
-              <div className="max-h-[28rem] overflow-y-auto overflow-x-auto">
-                <table className="w-full min-w-[640px] text-xs border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Día semana</th>
-                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Fecha</th>
-                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Hora</th>
-                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">Notificación</th>
-                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">Detalles</th>
-                      <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2" aria-label="Borrar" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logEntries.map((e, i) => {
-                      const d = entryDate(e)
-                      const { notificacion, detalles } = describeEntry(e, navigate)
-                      const esUltima = i === 0
-                      return (
-                        <tr key={e.id} className={`${esUltima ? 'bg-green-100' : i % 2 === 0 ? 'bg-surface' : 'bg-surface-card'} hover:bg-accent-light transition-colors`}>
-                          <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? DIAS_SEMANA[d.getDay()] : '—'}</td>
-                          <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtDDMMAA(d) : '—'}</td>
-                          <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? formatHora12FromDate(d) : '—'}</td>
-                          <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{notificacion}</td>
-                          <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{detalles}</td>
-                          <td className="border border-outline-variant px-2 py-1.5 text-center">
-                            <button type="button" onClick={() => setEntryToDelete(e)} aria-label="Borrar notificación" data-tooltip="Borrar"
-                              className="p-2 text-muted hover:text-error rounded transition-colors">
-                              <Trash2 size={15} />
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              )
             )}
           </div>
         )}

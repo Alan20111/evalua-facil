@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react'
 import { valorNivel, totalRubrica, esCotejo, RUBRICA_TOTAL } from '../../utils/rubrica'
+import ScrollHintX from '../ui/ScrollHintX'
 
 // Calificar una LISTA DE COTEJO: cada criterio es una casilla. Marcada (cumple)
 // suma sus puntos; vacía (no cumple) suma 0. onSelect(ci, 0) marca, onSelect(ci,
@@ -8,11 +9,11 @@ function CotejoGradeTable({ rubrica, seleccion, onSelect, disabled, compact = fa
   const { criterios } = rubrica
   const total = totalRubrica(rubrica, seleccion) ?? 0
   return (
-    <div className="overflow-x-auto">
+    <ScrollHintX>
       {/* Ver la nota de `compact` en RubricaTable: Num/¿Cumple?/PUNTOS son de
           ancho fijo, así que topar la tabla es lo que angosta Criterio. */}
       <table className="w-full border-collapse text-sm"
-        style={{ minWidth: '360px', ...(compact ? { maxWidth: '580px' } : null) }}>
+        style={{ minWidth: '300px', ...(compact ? { maxWidth: '580px' } : null) }}>
         <thead>
           <tr>
             <th className="w-9 px-1 py-2 border border-outline-variant bg-surface-container text-xs font-semibold text-muted align-bottom">Num</th>
@@ -56,7 +57,7 @@ function CotejoGradeTable({ rubrica, seleccion, onSelect, disabled, compact = fa
           </tr>
         </tbody>
       </table>
-    </div>
+    </ScrollHintX>
   )
 }
 
@@ -72,7 +73,7 @@ export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect,
   const faltan = criterios.filter((_, i) => seleccion?.[i] == null).length
 
   return (
-    <div className="overflow-x-auto">
+    <ScrollHintX>
       <table className="w-full border-collapse text-sm" style={{ minWidth: `${44 + 150 + niveles.length * 130 + 110}px` }}>
         <thead>
           <tr>
@@ -148,6 +149,6 @@ export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect,
           </tr>
         </tbody>
       </table>
-    </div>
+    </ScrollHintX>
   )
 }

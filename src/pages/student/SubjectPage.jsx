@@ -40,6 +40,7 @@ import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
+import ScrollHintX from '../../components/ui/ScrollHintX'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde } from '../../utils/avisos'
 
@@ -855,7 +856,8 @@ export default function StudentSubjectPage() {
                       necesitan más ancho que un día. Cada celda fija su columna
                       con gridColumn para que el auto-flow no la desalinee en
                       los renglones de mes (que solo ocupan la zona de días). */}
-                  <div className="p-3 overflow-x-auto">
+                  <div className="p-3">
+                    <ScrollHintX>
                     <div className="grid gap-1.5 min-w-[420px]" style={{ gridTemplateColumns: '2.5rem repeat(7, 1fr) 4.5rem 4.5rem' }}>
                       <span className="text-[9px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: 1 }}>Semana</span>
                       {DIAS_SEMANA.map((d, i) => (
@@ -936,6 +938,7 @@ export default function StudentSubjectPage() {
                         {stat.inasist}
                       </span>
                     </div>
+                    </ScrollHintX>
                   </div>
                 </div>
               )
