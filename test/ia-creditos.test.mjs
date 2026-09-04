@@ -734,7 +734,7 @@ await caso('mismo tema: el tema del docente se ignora (no se envía al prompt)',
   assert.strictEqual(ctx.tema, '')
 })
 
-await caso('promptReactivos con mismoTema: incluye bloque REACTIVOS YA EXISTENTES y NO incluye "QUÉ QUIERE EVALUAR"', () => {
+await caso('promptReactivos con mismoTema: incluye CONCEPTOS YA CUBIERTOS y NO incluye "QUÉ QUIERE EVALUAR"', () => {
   const ctx = {
     clase: 'cuestionario', nombre: 'Algoritmos', tipos: ['opcion_multiple', 'respuesta_corta'],
     cantidad: 2, mismoTema: true,
@@ -745,10 +745,12 @@ await caso('promptReactivos con mismoTema: incluye bloque REACTIVOS YA EXISTENTE
     quiereEvaluar: '', tema: '', bloqueFuentes: '',
   }
   const prompt = IA.promptReactivos(ctx, 'Informática')
-  assert.ok(prompt.includes('REACTIVOS YA EXISTENTES'), 'debe mencionar los reactivos existentes')
+  assert.ok(prompt.includes('CONCEPTOS YA CUBIERTOS'), 'usa el encuadre de territorio ya cubierto')
   assert.ok(prompt.includes('¿Qué es un algoritmo?'), 'incluye el enunciado literal')
-  assert.ok(prompt.includes('MISMO tema/contenido'), 'pide MISMO tema')
+  assert.ok(prompt.includes('DOMINIO TEMÁTICO'), 'pide mismo dominio, no misma pregunta')
+  assert.ok(prompt.includes('ASPECTOS'), 'exige aspectos distintos')
   assert.ok(!prompt.includes('QUÉ QUIERE EVALUAR EL DOCENTE'), 'NO usa el bloque de quiereEvaluar')
+  assert.ok(!prompt.includes('REACTIVOS YA EXISTENTES'), 'el encuadre antiguo ya no aparece')
 })
 
 await caso('promptReactivos SIN mismoTema: bloque QUÉ QUIERE EVALUAR intacto (regresión cero)', () => {
@@ -761,7 +763,24 @@ await caso('promptReactivos SIN mismoTema: bloque QUÉ QUIERE EVALUAR intacto (r
   const prompt = IA.promptReactivos(ctx, 'Matemáticas')
   assert.ok(prompt.includes('QUÉ QUIERE EVALUAR EL DOCENTE'), 'usa el bloque de quiereEvaluar')
   assert.ok(prompt.includes('Ecuaciones lineales'), 'incluye la descripción del docente')
-  assert.ok(!prompt.includes('REACTIVOS YA EXISTENTES'), 'no menciona reactivos existentes')
+  assert.ok(!prompt.includes('CONCEPTOS YA CUBIERTOS'), 'no menciona conceptos cubiertos')
+})
+
+await caso('promptReactivos: instrucción de diversidad presente en ambos flujos', () => {
+  const ctxMismo = {
+    clase: 'cuestionario', nombre: 'Test', tipos: ['opcion_multiple'],
+    cantidad: 1, mismoTema: true,
+    reactivosExistentes: [{ tipo: 'opcion_multiple', enunciado: '¿Qué es X?' }],
+    quiereEvaluar: '', tema: '', bloqueFuentes: '',
+  }
+  const ctxNormal = {
+    clase: 'cuestionario', nombre: 'Test', tipos: ['opcion_multiple'],
+    cantidad: 1, mismoTema: false, reactivosExistentes: [],
+    quiereEvaluar: 'Estructuras de datos básicas en programación',
+    tema: '', bloqueFuentes: '',
+  }
+  assert.ok(IA.promptReactivos(ctxMismo, 'Info').includes('aspecto distinto'), 'mismoTema tiene instrucción de diversidad')
+  assert.ok(IA.promptReactivos(ctxNormal, 'Info').includes('aspecto distinto'), 'flujo normal tiene instrucción de diversidad')
 })
 
 await caso('cantidad por default es 5 cuando el cliente no manda nada', async () => {
@@ -1001,6 +1020,33 @@ await caso('promptCrearEvaluacion: el primer lote SÍ pide instruccionesHtml en 
 await caso('promptCrearEvaluacion: un lote posterior NO vuelve a pedir instrucciones (evita versiones contradictorias)', () => {
   const p = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['verdadero_falso'], 1, false)
   assert.ok(!p.includes('instruccionesHtml'), 'un lote que no es el primero no debe pedirlas de nuevo')
+})
+
+await caso('promptCrearEvaluacion: instrucción de diversidad presente en todo lote', () => {
+  const p1 = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['opcion_multiple'], 0, true)
+  const p2 = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['verdadero_falso'], 1, false)
+  assert.ok(p1.includes('aspecto distinto'), 'primer lote lleva instrucción de diversidad')
+  assert.ok(p2.includes('aspecto distinto'), 'lote posterior también lleva instrucción de diversidad')
+})
+
+await caso('promptCrearEvaluacion: sin yaGenerados el bloque de exclusión no aparece', () => {
+  const p = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['opcion_multiple'], 0, true)
+  assert.ok(!p.includes('YA GENERADOS'), 'primer lote sin yaGenerados no incluye el bloque')
+})
+
+await caso('promptCrearEvaluacion: con yaGenerados el bloque aparece en lotes posteriores', () => {
+  const previos = ['¿Qué es una ecuación?', 'Calcula 2x + 3 = 7']
+  const p = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['verdadero_falso'], 2, false, previos)
+  assert.ok(p.includes('YA GENERADOS'), 'incluye el bloque de reactivos ya generados')
+  assert.ok(p.includes('¿Qué es una ecuación?'), 'incluye el primer enunciado previo')
+  assert.ok(p.includes('Calcula 2x + 3 = 7'), 'incluye el segundo enunciado previo')
+  assert.ok(p.includes('no repitas el mismo concepto'), 'incluye la instrucción de evitar repetición')
+})
+
+await caso('promptCrearEvaluacion: yaGenerados vacío es equivalente a no pasar el parámetro', () => {
+  const pSin = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['opcion_multiple'], 0, false)
+  const pVacio = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['opcion_multiple'], 0, false, [])
+  assert.strictEqual(pSin, pVacio, 'array vacío debe producir prompt idéntico al caso por omisión')
 })
 
 // La regla (ficha aprobada, 11-ago-2026): la IA solo redacta interpretación y

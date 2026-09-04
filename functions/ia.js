@@ -1786,6 +1786,9 @@ const REACTIVOS_SISTEMA_BASE =
   'evaluar"{fuentesClausula} — no agregues conceptos, temas ni aprendizajes que no haya mencionado{fuentesClausula2}, y no completes ' +
   'con conocimiento general más allá de lo que pidió. La cantidad y el tipo de cada reactivo los fija ' +
   'Evalúa Fácil: genera EXACTAMENTE los reactivos pedidos, uno por cada tipo indicado y en ese orden. ' +
+  'Cuando generes varios reactivos, cada uno debe medir un ASPECTO o HABILIDAD DIFERENTE del contenido: ' +
+  'varía entre definición, comprensión, aplicación, análisis, comparación e identificación de ejemplos. ' +
+  'Dos preguntas que evalúan el mismo conocimiento con distinta redacción cuentan como repetición. ' +
   'Escribe en español, claro y breve. Responde únicamente con el JSON válido del esquema indicado, ' +
   'sin texto adicional.'
 
@@ -1803,9 +1806,11 @@ function reactivosSistemaConFuentes() {
 // anteriores": la referencia del tema son los reactivos existentes, y hay que
 // producir NUEVOS enunciados sobre el mismo dominio, no copiar ni parafrasear.
 const REACTIVOS_MISMO_TEMA_CLAUSULA =
-  ' Además, en este caso los reactivos ya existentes que se te muestran son la referencia del tema: ' +
-  'genera reactivos NUEVOS sobre el MISMO dominio de conocimiento, con enunciados y enfoques distintos ' +
-  'a los ya presentes. No los copies, no los parafrasees ni repitas su contenido.'
+  ' Además, en este caso los reactivos marcados como CONCEPTOS YA CUBIERTOS delimitan el territorio ' +
+  'que debes EVITAR: no generes reactivos que evalúen el mismo conocimiento, habilidad o procedimiento ' +
+  'que ya está cubierto, aunque lo redactes diferente. Los nuevos reactivos deben pertenecer al mismo ' +
+  'dominio temático pero cubrir ASPECTOS que los existentes NO cubren: distintos procedimientos, ' +
+  'distintas aplicaciones, distintos niveles de razonamiento. MISMO TEMA ≠ MISMA PREGUNTA.'
 function reactivosSistemaConMismoTema(hayFuentes) {
   return (hayFuentes ? reactivosSistemaConFuentes() : REACTIVOS_SISTEMA) + REACTIVOS_MISMO_TEMA_CLAUSULA
 }
@@ -1822,7 +1827,9 @@ const ETIQUETA_TIPO_REACTIVO = {
 // para no invitar a copiarla; las opciones alargarían el prompt sin aportar).
 function bloqueReactivosExistentes(lista) {
   return (
-    'REACTIVOS YA EXISTENTES EN ESTA EVALUACIÓN (referencia del tema/contenido que están cubriendo; NO los copies, NO los parafrasees, NO repitas su contenido):\n' +
+    'CONCEPTOS YA CUBIERTOS EN ESTA EVALUACIÓN (NO generes reactivos sobre estos mismos conocimientos, ' +
+    'habilidades o procedimientos — aunque los redactes diferente. Los nuevos reactivos deben pertenecer ' +
+    'al mismo dominio pero evaluar ASPECTOS DISTINTOS que los siguientes NO cubren):\n' +
     lista.map((r, i) => `${i + 1}. [${ETIQUETA_TIPO_REACTIVO[r.tipo] || r.tipo}] "${r.enunciado}"`).join('\n')
   )
 }
@@ -1842,13 +1849,17 @@ function promptReactivos(ctx, asignatura) {
     ? (
         `\n${bloqueReactivosExistentes(ctx.reactivosExistentes)}\n` +
         (ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : '\n') +
-        `Genera EXACTAMENTE ${ctx.cantidad} reactivos NUEVOS sobre el MISMO tema/contenido que cubren esos reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n`
+        `Genera EXACTAMENTE ${ctx.cantidad} reactivos NUEVOS dentro del mismo DOMINIO TEMÁTICO, ` +
+        `pero que evalúen ASPECTOS, HABILIDADES o PROCEDIMIENTOS que los conceptos ya cubiertos NO contemplan. ` +
+        `Uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
+        `IMPORTANTE: cada reactivo debe cubrir un aspecto distinto — no repitas el mismo conocimiento aunque lo redactes de otra forma.\n\n`
       )
     : (
         (ctx.tema ? `Tema: ${ctx.tema}\n` : '') +
         `\nQUÉ QUIERE EVALUAR EL DOCENTE (${tieneFuentes(ctx) ? 'fuente principal' : 'única fuente'} del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
         (ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : '\n') +
-        `Genera EXACTAMENTE ${ctx.cantidad} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n`
+        `Genera EXACTAMENTE ${ctx.cantidad} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
+        `IMPORTANTE: cada reactivo debe cubrir un aspecto distinto del contenido — no repitas el mismo concepto aunque lo redactes de otra forma.\n\n`
       )
 
   return (
@@ -2539,6 +2550,9 @@ const CREAR_EVAL_SISTEMA =
   'que no estén ahí, y no completes con conocimiento general más allá de eso. La cantidad y el tipo de ' +
   'cada reactivo los fija Evalúa Fácil: genera EXACTAMENTE los reactivos pedidos, uno por cada tipo ' +
   'indicado y en ese orden. No repartas puntos ni calcules ponderaciones: Evalúa Fácil las calcula. ' +
+  'Cuando generes varios reactivos, cada uno debe medir un ASPECTO o HABILIDAD DIFERENTE del contenido: ' +
+  'varía entre definición, comprensión, aplicación, análisis, comparación e identificación de ejemplos. ' +
+  'Dos preguntas que evalúan el mismo conocimiento con distinta redacción cuentan como repetición. ' +
   'Escribe en español, claro y breve. Responde únicamente con el JSON válido del esquema indicado, ' +
   'sin texto adicional.'
 
@@ -2552,15 +2566,21 @@ const CREAR_EVAL_SISTEMA =
 // (lo que ve el estudiante antes de responder) se piden UNA sola vez, en el
 // primer lote — pedirlas en cada lote generaría varias versiones distintas
 // que se pisarían entre sí sin ganar nada.
-function promptCrearEvaluacion(ctx, asignatura, tiposLote, offset, pedirInstrucciones) {
+function promptCrearEvaluacion(ctx, asignatura, tiposLote, offset, pedirInstrucciones, yaGenerados = []) {
   const listaTipos = tiposLote.map((t, i) => `${offset + i + 1}. ${ETIQUETA_TIPO_REACTIVO[t] || t}`).join('\n')
   const fuentesBloque = ctx.bloqueFuentes ? `\n\n${ctx.bloqueFuentes}\n` : ''
+  const bloqueYaGenerados = yaGenerados.length > 0
+    ? `\nREACTIVOS YA GENERADOS EN ESTE ${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'} — NO repitas el mismo concepto, aunque lo redactes de otra forma:\n` +
+      yaGenerados.map((e, i) => `${i + 1}. "${e}"`).join('\n') + '\n'
+    : ''
   return (
     `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
     `${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n` +
     `\nQUÉ QUIERE EVALUAR EL DOCENTE (fuente principal del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
     fuentesBloque +
+    bloqueYaGenerados +
     `\nGenera EXACTAMENTE ${tiposLote.length} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
+    `IMPORTANTE: cada reactivo debe cubrir un aspecto distinto del contenido — no repitas el mismo concepto aunque lo redactes de otra forma.\n\n` +
     'Reglas por tipo:\n' +
     '- opcion_multiple: enunciado + 4 opciones + el índice (0-3) de la opción correcta.\n' +
     '- verdadero_falso: un enunciado afirmativo evaluable + "v" o "f".\n' +
@@ -2612,13 +2632,17 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
   let cacheLectura = 0
   let ms = 0
   let offset = 0
+  // Enunciados ya generados: se pasan a cada lote posterior para que el modelo
+  // no repita conceptos entre lotes. Solo enunciados (sin opciones ni clave)
+  // para mantener el tamaño del prompt bajo control.
+  let yaGenerados = []
   for (const [i, tiposLote] of lotes.entries()) {
     const primerLote = i === 0
     const { datos, interno } = await pedirJSON({
       client, modelo,
       maxTokens: Math.min(8000, 350 * tiposLote.length + 400 + (primerLote ? 400 : 0)),
       system: CREAR_EVAL_SISTEMA,
-      prompt: promptCrearEvaluacion(ctx, asignatura, tiposLote, offset, primerLote),
+      prompt: promptCrearEvaluacion(ctx, asignatura, tiposLote, offset, primerLote, yaGenerados),
       // Los documentos visuales van como PREFIJO cacheado: idénticos en todos
       // los lotes, así que el primero los paga y los siguientes los leen a
       // 0.1× en vez de reprocesarlos enteros. El modelo ve exactamente el
@@ -2626,7 +2650,9 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
       // esto es una optimización de costo, no de comportamiento.
       bloquesPrefijo: ctx.fuentesBloques || [],
     })
-    reactivos = reactivos.concat(normalizarReactivos(datos, { tipos: tiposLote }))
+    const loteNorm = normalizarReactivos(datos, { tipos: tiposLote })
+    reactivos = reactivos.concat(loteNorm)
+    yaGenerados = yaGenerados.concat(loteNorm.filter((r) => r.enunciado).map((r) => r.enunciado))
     // Instrucciones generales: solo se piden en el primer lote (ver
     // promptCrearEvaluacion) — si la IA no las trae, la actividad se queda
     // sin instrucciones en vez de inventarlas (regla de no invención, T.7).
