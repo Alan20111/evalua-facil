@@ -1,5 +1,7 @@
 // Student username format: APELLIDO_PATERNO.PRIMER_NOMBRE (e.g. MENDEZ.ENRIQUE)
-// - accents stripped and n with tilde becomes n (NFD + combining-marks removal)
+// - accents stripped and ñ/Ñ converted explicitly to n before removing non-alpha
+//   (NFD + \p{Diacritic} covers á/é/í/ó/ú/ü; ñ is handled by the explicit step
+//   because the older combining-mark regex did not reliably strip it)
 // - anything non-alphabetic removed, so "Del Rio" with spaces -> DELRIO
 // - stored in lowercase; lookups query both lower/upper variants
 //   (usernameCandidates) so matching is case-insensitive and legacy
@@ -9,7 +11,8 @@ export function generateUsername(apPaterno, apMaterno, nombre) {
   const clean = (s) =>
     (s || '')
       .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
+      .replace(/\p{Diacritic}/gu, '') // quita acentos (á→a, é→e, ü→u, etc.)
+      .replace(/[ñÑ]/g, 'n')          // ñ→n explícito: NFD no la descompone con el regex anterior
       .replace(/[^a-zA-Z]/g, '')
       .toLowerCase()
   const paterno = clean(apPaterno)
@@ -19,9 +22,20 @@ export function generateUsername(apPaterno, apMaterno, nombre) {
 
 // Firestore can't compare case-insensitively: legacy codes are UPPERCASE,
 // new ones lowercase — look up both variants of whatever the student typed.
+// A third normalized candidate (diacritics stripped, ñ→n) lets a student who
+// types "muñoz.enrique" find an account stored as "munoz.enrique".
+// NOTE: this cannot bridge the gap for accounts created with the old bug
+// (stored as "muoz.enrique") when the student types "munoz.enrique" —
+// those are structurally different strings and require knowing their exact username.
 export function usernameCandidates(input) {
   const raw = (input || '').trim()
-  return [...new Set([raw.toLowerCase(), raw.toUpperCase()])].filter(Boolean)
+  const norm = raw
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[ñÑ]/g, 'n')
+    .replace(/[^a-zA-Z0-9.]/g, '')
+    .toLowerCase()
+  return [...new Set([raw.toLowerCase(), raw.toUpperCase(), norm])].filter(Boolean)
 }
 
 // El correo de Auth de un estudiante, derivado de su usuario y su escuela. Es
