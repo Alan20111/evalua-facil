@@ -409,11 +409,14 @@ async function ejecutarAviso({ params, modelo, apiKey }) {
 //   · requiere_revision_humana lo fija EF por código, siempre true;
 //   · solo sugiere: JAMÁS escribe la calificación (O3) — el cliente la
 //     muestra y el docente decide;
-//   · lote: 1 crédito por respuesta REALMENTE sugerida; vacías, de archivo o
-//     fallidas no se cobran (la liquidación devuelve la diferencia).
-// El servidor lee las respuestas de Firestore por ID (el cliente no manda
-// textos): verifica que la actividad sea del docente y solo procesa
-// respuestas de texto pendientes de calificar.
+//   · 0.25 créditos por respuesta REALMENTE sugerida; vacías, sin archivo,
+//     en formato no soportado o fallidas no se cobran.
+// El servidor lee las respuestas de Firestore por ID. Cubre dos tipos:
+//   · respuesta_corta: texto libre del alumno;
+//   · subir_archivo: documento adjunto (JPG/PNG/PDF/DOCX) — procesado con
+//     el mismo mecanismo de visión que usa OP-11 (evidenciasEntrega.js).
+// Modo individual: cuando se pasan submissionId + preguntaId solo se procesa
+// esa respuesta (botón "Sugerir con IA" por pregunta en la revisión).
 //
 // CANDADO POR RESPUESTA + PERSISTENCIA (endurecimiento del PO, 9-ago-2026):
 // cada sugerencia vive en activities/{id}/iaSugerencias/{subId_pregId}. El
@@ -440,16 +443,8 @@ const C02_MAX_CHARS = 40000
 // ~2 min sin rozar los límites de peticiones/minuto del proveedor.
 const C02_CONCURRENCIA = 4
 
-function c02Prompt({ asignatura, categoria, titulo, enunciado, ponderacion, texto }) {
+function c02EsquemaJSON(ponderacion) {
   return (
-    `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
-    `Actividad: ${categoria} "${titulo}", pregunta de respuesta corta. Puntos posibles: ${ponderacion}.\n\n` +
-    `PREGUNTA:\n${enunciado}\n\n` +
-    `CRITERIOS DE EVALUACIÓN (los puntos suman ${ponderacion}):\n` +
-    `1. Responde correcta y completamente lo planteado en la pregunta (${ponderacion} pts).\n\n` +
-    `RESPUESTA DEL ALUMNO:\n"""${texto}"""\n\n` +
-    'Evalúa la respuesta contra los criterios. NO calcules ni incluyas el total: Evalúa Fácil lo suma.\n' +
-    'Sé compacto: evidencias de máximo 12 palabras, máximo 3 fortalezas y máximo 4 errores (los más importantes).\n\n' +
     'Responde SOLO con este JSON:\n' +
     '{\n' +
     `  "criterios": [\n    {"n": 1, "puntos": <0-${ponderacion}, un decimal>, "evidencia": "<máx 12 palabras>"}\n  ],\n` +
@@ -458,6 +453,43 @@ function c02Prompt({ asignatura, categoria, titulo, enunciado, ponderacion, text
     '  "retroalimentacion": "<2-3 frases breves al alumno>",\n' +
     '  "requiere_revision_humana": true\n' +
     '}'
+  )
+}
+
+function c02BloqueEsperado(respuestaEsperada) {
+  const s = String(respuestaEsperada || '').trim()
+  return s ? `\nCONTENIDO ESPERADO (guía para la evaluación):\n${s.slice(0, 1000)}\n` : ''
+}
+
+function c02Prompt({ asignatura, categoria, titulo, enunciado, ponderacion, texto, respuestaEsperada = '' }) {
+  return (
+    `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
+    `Actividad: ${categoria} "${titulo}", pregunta de respuesta corta. Puntos posibles: ${ponderacion}.\n\n` +
+    `PREGUNTA:\n${enunciado}\n\n` +
+    `CRITERIOS DE EVALUACIÓN (los puntos suman ${ponderacion}):\n` +
+    `1. Responde correcta y completamente lo planteado en la pregunta (${ponderacion} pts).` +
+    c02BloqueEsperado(respuestaEsperada) + '\n\n' +
+    `RESPUESTA DEL ALUMNO:\n"""${texto}"""\n\n` +
+    'Evalúa la respuesta contra los criterios. NO calcules ni incluyas el total: Evalúa Fácil lo suma.\n' +
+    'Sé compacto: evidencias de máximo 12 palabras, máximo 3 fortalezas y máximo 4 errores (los más importantes).\n\n' +
+    c02EsquemaJSON(ponderacion)
+  )
+}
+
+// Prompt para preguntas de tipo subir_archivo. El texto del documento viaja
+// como bloques adicionales en el content del mensaje (no como texto plano).
+function c02PromptArchivo({ asignatura, categoria, titulo, enunciado, ponderacion, respuestaEsperada = '' }) {
+  return (
+    `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
+    `Actividad: ${categoria} "${titulo}", pregunta de entrega de documento. Puntos posibles: ${ponderacion}.\n\n` +
+    `PREGUNTA / TAREA SOLICITADA:\n${enunciado}\n\n` +
+    `CRITERIOS DE EVALUACIÓN (los puntos suman ${ponderacion}):\n` +
+    `1. El documento entregado responde correcta y completamente lo planteado (${ponderacion} pts).` +
+    c02BloqueEsperado(respuestaEsperada) + '\n\n' +
+    'El estudiante entregó el documento adjunto. Analiza su contenido y evalúa si cumple lo solicitado.\n' +
+    'NO calcules ni incluyas el total: Evalúa Fácil lo suma.\n' +
+    'Sé compacto: evidencias de máximo 12 palabras, máximo 3 fortalezas y máximo 4 errores.\n\n' +
+    c02EsquemaJSON(ponderacion)
   )
 }
 
@@ -470,6 +502,11 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad a calificar')
 
+  // Modo individual (botón "Sugerir con IA" por pregunta): solo una respuesta.
+  const soloSubId = String(params?.submissionId || '')
+  const soloPregId = String(params?.preguntaId || '')
+  const modoIndividual = !!(soloSubId && soloPregId)
+
   const actSnap = await db.doc(`activities/${actividadId}`).get()
   if (!actSnap.exists) throw new HttpsError('not-found', 'La actividad no existe')
   const act = actSnap.data()
@@ -479,52 +516,98 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   const titulo = String(act.titulo || act.nombre || 'evaluación').slice(0, 120)
   const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
 
-  // Preguntas de respuesta corta del instrumento (el enunciado y su
-  // ponderación son la base del criterio único).
+  // Preguntas abiertas del instrumento: respuesta_corta y subir_archivo.
   const pregSnap = await db.collection(`activities/${actividadId}/preguntas`).get()
   const abiertas = new Map()
   pregSnap.docs.forEach((d) => {
     const p = d.data()
-    if (p.tipo === 'respuesta_corta') abiertas.set(d.id, p)
+    if (p.tipo === 'respuesta_corta' || p.tipo === 'subir_archivo') abiertas.set(d.id, p)
   })
-  if (!abiertas.size) throw new HttpsError('failed-precondition', 'Esta evaluación no tiene preguntas de respuesta corta')
+  if (!abiertas.size) throw new HttpsError('failed-precondition', 'Esta evaluación no tiene preguntas de respuesta abierta o de documento')
 
-  // Entregas finalizadas pendientes de revisión → respuestas de texto sin
-  // calificar. (Consulta de UNA igualdad + filtros en memoria, regla del
-  // proyecto sobre índices.)
-  const subsSnap = await db.collection('submissions').where('actividadId', '==', actividadId).get()
-  const pendientes = subsSnap.docs.filter((d) => {
-    const s = d.data()
-    return s.estadoEvaluacion === 'finalizado' && s.pendienteRevision === true
-  })
+  // respuestaEsperada de la subcol clave (opcional, mejor esfuerzo — si falta
+  // se evalúa solo con el enunciado, sin error).
+  const claves = new Map()
+  await Promise.all([...abiertas.keys()].map(async (pregId) => {
+    try {
+      const c = await db.doc(`activities/${actividadId}/clave/${pregId}`).get()
+      if (c.exists && c.data().respuestaEsperada) claves.set(pregId, String(c.data().respuestaEsperada))
+    } catch { /* sin clave: se evalúa solo con el enunciado */ }
+  }))
 
+  // Entregas a revisar: en modo individual, solo la pedida (validada aquí);
+  // en lote, todas las finalizadas con revisión pendiente. (UNA igualdad +
+  // filtros en memoria — regla del proyecto sobre índices.)
+  let subDocs
+  if (modoIndividual) {
+    const s = await db.doc(`submissions/${soloSubId}`).get()
+    if (!s.exists) throw new HttpsError('not-found', 'La entrega no existe')
+    if (s.data().actividadId !== actividadId) throw new HttpsError('permission-denied', 'Esta entrega no pertenece a esta actividad')
+    subDocs = [s]
+  } else {
+    const snap = await db.collection('submissions').where('actividadId', '==', actividadId).get()
+    subDocs = snap.docs.filter((d) => {
+      const s = d.data()
+      return s.estadoEvaluacion === 'finalizado' && s.pendienteRevision === true
+    })
+  }
+
+  // Construir la lista de ítems procesables (RC y SA), omitiendo vacíos,
+  // ya calificados y archivos en formato no soportado o demasiado grandes.
   const items = []
   let omitidas = 0
-  for (const subDoc of pendientes) {
-    const respSnap = await db.collection(`submissions/${subDoc.id}/respuestas`).get()
-    for (const r of respSnap.docs) {
-      const preg = abiertas.get(r.id)
+  for (const subDoc of subDocs) {
+    const subId = subDoc.id
+    let respDocs
+    if (modoIndividual) {
+      const r = await db.doc(`submissions/${subId}/respuestas/${soloPregId}`).get()
+      respDocs = r.exists ? [r] : []
+    } else {
+      const snap = await db.collection(`submissions/${subId}/respuestas`).get()
+      respDocs = snap.docs
+    }
+    for (const r of respDocs) {
+      const pregId = r.id
+      const preg = abiertas.get(pregId)
       if (!preg) continue
       const resp = r.data()
       if (resp.puntosObtenidos != null) continue // ya calificada por el docente
-      const texto = String(resp.textoRespuesta || '').trim()
-      if (!texto) { omitidas++; continue } // sin respuesta: no hay nada que evaluar ni cobrar
-      if (texto.length > C02_MAX_CHARS) { omitidas++; continue } // fuera del rango validado
-      items.push({ sub: subDoc.id, preg: r.id, pregunta: preg, texto })
+      const respuestaEsperada = claves.get(pregId) || ''
+
+      if (preg.tipo === 'respuesta_corta') {
+        const texto = String(resp.textoRespuesta || '').trim()
+        if (!texto) { omitidas++; continue }
+        if (texto.length > C02_MAX_CHARS) { omitidas++; continue }
+        items.push({ sub: subId, preg: pregId, pregunta: preg, tipo: 'rc', texto, respuestaEsperada })
+      } else if (preg.tipo === 'subir_archivo') {
+        const archivoURL = String(resp.archivoURL || '').trim()
+        if (!archivoURL) { omitidas++; continue }
+        // prepararEvidenciasEntrega detecta formato no soportado y PDFs largos
+        // (misma lógica que OP-11). Si no quedan bloques, la respuesta se omite
+        // sin cobrar — el docente la califica a mano.
+        const evidencias = await prepararEvidenciasEntrega([{ url: archivoURL, nombre: String(resp.nombreArchivo || '') }])
+        if (!evidencias.bloques.length) { omitidas++; continue }
+        items.push({ sub: subId, preg: pregId, pregunta: preg, tipo: 'sa', evidenciasBloques: evidencias.bloques, respuestaEsperada })
+      }
     }
   }
 
-  if (!items.length) throw new HttpsError('failed-precondition', 'No hay respuestas de texto pendientes de calificar')
+  if (!items.length) {
+    const msg = modoIndividual
+      ? 'Esta respuesta no puede revisarse con IA (vacía, ya calificada o en formato no soportado). No se descontaron créditos.'
+      : 'No hay respuestas abiertas pendientes que puedan revisarse con IA. No se descontaron créditos.'
+    throw new HttpsError('failed-precondition', msg)
+  }
   if (items.length > unidades) {
     throw new HttpsError('failed-precondition',
       `Hay ${items.length} respuestas pendientes pero la estimación fue de ${unidades}. Vuelve a intentarlo para re-estimar.`)
   }
 
   // ── Candado por respuesta: adquirir el derecho a procesar cada una ────────
-  // create() atómico: solo UN lote puede crear el documento de una respuesta.
-  // Si ya existe: 'pendiente'/'aplicada' → ya fue procesada y cobrada antes
-  // (no se cobra ni se llama a Haiku de nuevo); 'procesando' → otro lote la
-  // tiene en este momento (se le deja), salvo que sea un huérfano viejo.
+  // create() atómico: solo UN invocación puede crear el documento de una
+  // respuesta. Si ya existe: 'pendiente'/'aplicada' → ya fue procesada y
+  // cobrada (no se vuelve a cobrar ni a llamar a Haiku); 'procesando' → otro
+  // lote la tiene ahora (se deja), salvo que sea un huérfano de > 10 min.
   const adquiridos = []
   let yaProcesadas = 0
   for (const item of items) {
@@ -540,7 +623,7 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
       // mismo huérfano a la vez).
       const tomado = await db.runTransaction(async (tx) => {
         const s = await tx.get(ref)
-        if (!s.exists) return false // borrado en el intervalo: raro; se deja
+        if (!s.exists) return false
         const d = s.data()
         const edadMs = d.creadoEn?.toDate ? Date.now() - d.creadoEn.toDate().getTime() : 0
         if (d.estado === 'procesando' && edadMs > 10 * 60 * 1000) {
@@ -555,8 +638,6 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   }
 
   if (!adquiridos.length) {
-    // Todo el lote ya tiene sugerencia (o está en manos de otro lote): no se
-    // cobra nada — el callable reembolsa la reserva completa.
     throw new HttpsError('failed-precondition',
       'Estas respuestas ya tienen sugerencia de IA o se están procesando en este momento. No se descontaron créditos.')
   }
@@ -567,25 +648,39 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   let fallidas = 0
   const sugerencias = []
 
-  // Cola con concurrencia limitada — sin dependencias externas.
+  // Cola con concurrencia limitada. RC: mensaje de texto puro. SA: texto del
+  // prompt + bloques del archivo (mismo patrón multimodal que OP-11).
   let cursor = 0
   async function trabajador() {
     while (cursor < adquiridos.length) {
       const item = adquiridos[cursor++]
       const max = Number(item.pregunta.ponderacion) || 0
       try {
+        let content
+        if (item.tipo === 'rc') {
+          content = c02Prompt({
+            asignatura, categoria, titulo,
+            enunciado: String(item.pregunta.enunciado || '').slice(0, 2000),
+            ponderacion: max, texto: item.texto,
+            respuestaEsperada: item.respuestaEsperada,
+          })
+        } else {
+          // SA: texto del prompt + bloques del archivo adjunto.
+          content = [
+            { type: 'text', text: c02PromptArchivo({
+              asignatura, categoria, titulo,
+              enunciado: String(item.pregunta.enunciado || '').slice(0, 2000),
+              ponderacion: max,
+              respuestaEsperada: item.respuestaEsperada,
+            })},
+            ...item.evidenciasBloques,
+          ]
+        }
         const msg = await client.messages.create({
           model: modelo,
           max_tokens: 800,
           system: C02_SISTEMA,
-          messages: [{
-            role: 'user',
-            content: c02Prompt({
-              asignatura, categoria, titulo,
-              enunciado: String(item.pregunta.enunciado || '').slice(0, 2000),
-              ponderacion: max, texto: item.texto,
-            }),
-          }],
+          messages: [{ role: 'user', content }],
         })
         tokensEntrada += msg.usage?.input_tokens || 0
         tokensSalida += msg.usage?.output_tokens || 0
@@ -631,13 +726,12 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   await Promise.all(Array.from({ length: Math.min(C02_CONCURRENCIA, adquiridos.length) }, trabajador))
 
   if (!sugerencias.length) {
-    // Nada utilizable: el callable reembolsa la reserva completa.
     throw new HttpsError('unavailable', 'El asistente de IA no pudo calificar ninguna respuesta. No se descontaron créditos.')
   }
 
   return {
     resultado: { sugerencias, omitidas, fallidas, yaProcesadas },
-    unidadesReales: sugerencias.length, // 1 crédito por respuesta realmente sugerida
+    unidadesReales: sugerencias.length, // 0.25 créditos por respuesta realmente sugerida
     interno: {
       modelo,
       tokensEntrada,

@@ -273,8 +273,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     return unsub
   }, [activityId, activity?.id])
   const [iaContando, setIaContando] = useState(false)
-  const [iaConteo, setIaConteo] = useState(null)         // { estudiantes, respuestas } → abre el modal
+  const [iaConteo, setIaConteo] = useState(null)         // { estudiantes, respuestas } → abre el modal lote
   const [iaTrabajando, setIaTrabajando] = useState(false)
+  // C-02 modo individual (botón por pregunta en la revisión de un alumno).
+  const [iaIndividualConteo, setIaIndividualConteo] = useState(null) // { subId, pregId } → abre el modal individual
+  const [iaIndividualTrabajando, setIaIndividualTrabajando] = useState(null) // 'subId_pregId' mientras procesa
   // ── OP-10 · Analizar resultados con IA ──────────────────────────────────
   const [analisisConfirmando, setAnalisisConfirmando] = useState(false)
   const [analisisTrabajando, setAnalisisTrabajando] = useState(false)
@@ -946,15 +949,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     }
   }
 
-  // ── C-02 · Sugerir calificación de respuestas abiertas (piloto IA) ─────────
+  // ── C-02 · Sugerir calificación de respuestas abiertas ──────────────────────
   // Cuenta EXACTAMENTE las respuestas que el lote va a calificar (regla del
-  // PO: la estimación debe reflejar la cantidad real). Lee las respuestas de
-  // los estudiantes pendientes — las mismas lecturas que abrir su revisión.
-  // Solo texto (respuesta_corta); documentos y respuestas vacías no cuentan.
+  // PO: la estimación refleja la cantidad real). Cubre respuesta_corta (texto
+  // no vacío) y subir_archivo (con archivoURL). OM/VF se ignoran siempre.
   async function contarRespuestasIA() {
     setIaContando(true)
     try {
-      const abiertas = preguntas.filter((p) => p.tipo === 'respuesta_corta')
+      const abiertas = preguntas.filter((p) => TIPOS_REVISION_MANUAL.includes(p.tipo))
       const pendientes = students.filter((s) => {
         const sub = submissions[s.id]
         return sub?.estadoEvaluacion === 'finalizado' && sub.pendienteRevision
@@ -969,11 +971,17 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         for (const p of abiertas) {
           const r = porId[p.id]
           if (!r || r.puntosObtenidos != null) continue
-          // Con sugerencia persistida pendiente: recuperable gratis, no se
-          // vuelve a cobrar ni a pedir.
+          // Con sugerencia persistida pendiente: recuperable gratis, no se cobra.
           if (iaSugerencias[submissions[s.id].id]?.[p.id]) continue
-          const texto = (r.textoRespuesta || '').trim()
-          if (!texto || texto.length > 40000) continue
+          if (p.tipo === 'respuesta_corta') {
+            const texto = (r.textoRespuesta || '').trim()
+            if (!texto || texto.length > 40000) continue
+          } else if (p.tipo === 'subir_archivo') {
+            if (!(r.archivoURL || '').trim()) continue
+            // Nota: no verificamos el formato aquí (requeriría descargar el
+            // archivo). El servidor omitirá los no soportados sin cobrarlos y
+            // el reembolso de la diferencia cubre la discrepancia ≤ 1 unidad.
+          }
           deEste++
         }
         if (deEste) { estudiantes++; respuestas += deEste }
@@ -982,7 +990,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         const pendientesIA = Object.values(iaSugerencias).reduce((n, m) => n + Object.keys(m).length, 0)
         toast(pendientesIA
           ? 'Todas las respuestas pendientes ya tienen sugerencia de IA — ábrelas al calificar, sin costo adicional'
-          : 'No hay respuestas de texto pendientes de calificar', 'error')
+          : 'No hay respuestas abiertas pendientes de calificar', 'error')
         return
       }
       setIaConteo({ estudiantes, respuestas })
@@ -1018,6 +1026,34 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         : 'No se pudo completar: ' + err.message, 'error')
     } finally {
       setIaTrabajando(false)
+    }
+  }
+
+  // C-02 modo individual: procesa únicamente la respuesta de un estudiante
+  // para una pregunta específica. Misma operación 'calificar_abierta', misma
+  // colección iaSugerencias, mismo snapshot — el resultado aparece
+  // automáticamente en el panel de revisión sin ninguna recarga.
+  async function ejecutarSugerenciaIndividual() {
+    if (!iaIndividualConteo) return
+    const { subId, pregId } = iaIndividualConteo
+    const key = `${subId}_${pregId}`
+    setIaIndividualConteo(null)
+    setIaIndividualTrabajando(key)
+    try {
+      await creditosIA.ejecutar('calificar_abierta', {
+        actividadId: activityId || activity.id,
+        asignaturaId: activity.asignaturaId,
+        asignaturaNombre: subject?.nombre || '',
+        submissionId: subId,
+        preguntaId: pregId,
+      }, 1, { timeoutMs: 300000 })
+      toast('Sugerencia de IA lista — revísala antes de guardar. Tú decides.')
+    } catch (err) {
+      toast(err.codigo === 'SALDO_INSUFICIENTE'
+        ? 'No tienes créditos suficientes para esta sugerencia'
+        : 'No se pudo generar la sugerencia: ' + err.message, 'error')
+    } finally {
+      setIaIndividualTrabajando(null)
     }
   }
 
@@ -2004,9 +2040,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     })()}
                   </span>
                   {/* C-02: sugerencias de calificación por IA para TODOS los
-                      pendientes con respuestas de texto. Estimación previa
-                      obligatoria; la IA solo sugiere, el docente decide. */}
-                  {preguntas.some((p) => p.tipo === 'respuesta_corta') && (
+                      pendientes con respuesta_corta o subir_archivo.
+                      Estimación previa obligatoria; la IA solo sugiere. */}
+                  {preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo)) && (
                     <button
                       type="button"
                       onClick={contarRespuestasIA}
@@ -2032,11 +2068,21 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               {iaConteo && (
                 <ConfirmacionCreditosModal
                   titulo="Sugerir calificaciones con IA"
-                  descripcion={`Se sugerirá calificación para ${iaConteo.respuestas} respuesta${iaConteo.respuestas !== 1 ? 's' : ''} de texto de ${iaConteo.estudiantes} estudiante${iaConteo.estudiantes !== 1 ? 's' : ''}. La IA solo sugiere: tú revisas y decides cada calificación.`}
+                  descripcion={`Se sugerirá calificación para ${iaConteo.respuestas} respuesta${iaConteo.respuestas !== 1 ? 's' : ''} abiertas (textos y/o documentos) de ${iaConteo.estudiantes} estudiante${iaConteo.estudiantes !== 1 ? 's' : ''}. La IA solo sugiere: tú revisas y decides cada calificación.`}
                   costoMin={creditosIA.estimar('calificar_abierta', iaConteo.respuestas) ?? iaConteo.respuestas}
                   ejecutando={iaTrabajando}
                   onCancelar={() => { if (!iaTrabajando) setIaConteo(null) }}
                   onContinuar={ejecutarSugerenciasIA}
+                />
+              )}
+              {iaIndividualConteo && (
+                <ConfirmacionCreditosModal
+                  titulo="Sugerir calificación con IA"
+                  descripcion="La IA revisará esta respuesta y propondrá una calificación. Tú revisas y decides antes de guardar."
+                  costoMin={creditosIA.estimar('calificar_abierta', 1) ?? 0.25}
+                  ejecutando={false}
+                  onCancelar={() => setIaIndividualConteo(null)}
+                  onContinuar={ejecutarSugerenciaIndividual}
                 />
               )}
             <div className="rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
@@ -2247,8 +2293,24 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       // corrió el lote en esta sesión). Solo se muestra — nada
                       // se guarda hasta que él la aplique y presione Guardar.
                       const sug = iaSugerencias[reviewing.submission?.id]?.[p.id]
+                      const iaKey = `${reviewing.submission?.id}_${p.id}`
                       return (
                         <div className="mt-1 p-3 rounded border border-accent/40 bg-[var(--accent-tint)] space-y-2">
+                          {/* Botón individual: solo cuando no hay sugerencia y
+                              la respuesta está pendiente de calificar. */}
+                          {!sug && respuesta.puntosObtenidos == null && (
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => setIaIndividualConteo({ subId: reviewing.submission.id, pregId: p.id })}
+                                disabled={iaIndividualTrabajando === iaKey}
+                                className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-accent border border-accent rounded hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+                              >
+                                <Sparkles size={12} />
+                                {iaIndividualTrabajando === iaKey ? 'Generando…' : 'Sugerir con IA'}
+                              </button>
+                            </div>
+                          )}
                           {sug && (
                             <div className="p-2.5 rounded border border-accent/40 bg-surface-card space-y-1.5">
                               <div className="flex items-center gap-1.5">
