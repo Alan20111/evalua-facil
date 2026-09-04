@@ -662,6 +662,108 @@ await caso('retrocompat: params.tipoSolicitado (cliente viejo/caché) sigue mand
   assert.ok(ctx.tipos.every((t) => t === 'respuesta_corta'))
 })
 
+// ── "Mismo tema que los reactivos anteriores" ──────────────────────────────
+
+await caso('sanitizarReactivosExistentes: descarta enunciados vacíos y recorta a máximo', () => {
+  const salida = IA.sanitizarReactivosExistentes([
+    { tipo: 'opcion_multiple', enunciado: '¿Qué es un algoritmo?' },
+    { tipo: 'respuesta_corta', enunciado: '' },
+    { tipo: 'respuesta_corta', enunciado: '   ' },
+    { tipo: 'tipo_desconocido', enunciado: 'Se acepta pero se marca como OM' },
+  ])
+  assert.strictEqual(salida.length, 2)
+  assert.strictEqual(salida[0].enunciado, '¿Qué es un algoritmo?')
+  assert.strictEqual(salida[1].tipo, 'opcion_multiple') // fallback
+})
+
+await caso('sanitizarReactivosExistentes: entrada basura no revienta', () => {
+  assert.deepStrictEqual(IA.sanitizarReactivosExistentes(null), [])
+  assert.deepStrictEqual(IA.sanitizarReactivosExistentes(undefined), [])
+  assert.deepStrictEqual(IA.sanitizarReactivosExistentes('nope'), [])
+  assert.deepStrictEqual(IA.sanitizarReactivosExistentes([{}, { tipo: 'opcion_multiple' }]), [])
+})
+
+await caso('mismo tema + reactivos previos: NO exige quiereEvaluar de 40 chars', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: {
+      actividadId: 'act_cuestionario', cantidad: 3, tipos: ['opcion_multiple'],
+      mismoTema: true,
+      reactivosExistentes: [
+        { tipo: 'opcion_multiple', enunciado: '¿Qué es un algoritmo?' },
+        { tipo: 'respuesta_corta', enunciado: 'Describe la estructura Si…Entonces.' },
+      ],
+      // quiereEvaluar deliberadamente ausente
+    },
+  })
+  assert.strictEqual(ctx.mismoTema, true)
+  assert.strictEqual(ctx.reactivosExistentes.length, 2)
+  assert.strictEqual(ctx.reactivosExistentes[0].enunciado, '¿Qué es un algoritmo?')
+})
+
+await caso('mismo tema pero reactivosExistentes vacío: degrada al flujo normal (exige quiereEvaluar)', async () => {
+  await assert.rejects(
+    () => IA.precheckReactivos({
+      uid: DOCENTE,
+      params: { actividadId: 'act_cuestionario', cantidad: 3, mismoTema: true, reactivosExistentes: [] },
+    }),
+    (e) => String(e.code).includes('failed-precondition')
+  )
+})
+
+await caso('SIN mismo tema: comportamiento actual, exige quiereEvaluar de 40 chars', async () => {
+  await assert.rejects(
+    () => IA.precheckReactivos({
+      uid: DOCENTE,
+      params: { actividadId: 'act_cuestionario', cantidad: 3, quiereEvaluar: 'muy corto', mismoTema: false },
+    }),
+    (e) => String(e.code).includes('failed-precondition')
+  )
+})
+
+await caso('mismo tema: el tema del docente se ignora (no se envía al prompt)', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: {
+      actividadId: 'act_cuestionario', cantidad: 2, tipos: ['opcion_multiple'],
+      mismoTema: true,
+      reactivosExistentes: [{ tipo: 'opcion_multiple', enunciado: 'X' }],
+      tema: 'Este tema debe ignorarse porque marcó Mismo tema',
+    },
+  })
+  assert.strictEqual(ctx.tema, '')
+})
+
+await caso('promptReactivos con mismoTema: incluye bloque REACTIVOS YA EXISTENTES y NO incluye "QUÉ QUIERE EVALUAR"', () => {
+  const ctx = {
+    clase: 'cuestionario', nombre: 'Algoritmos', tipos: ['opcion_multiple', 'respuesta_corta'],
+    cantidad: 2, mismoTema: true,
+    reactivosExistentes: [
+      { tipo: 'opcion_multiple', enunciado: '¿Qué es un algoritmo?' },
+      { tipo: 'respuesta_corta', enunciado: 'Explica la iteración con while.' },
+    ],
+    quiereEvaluar: '', tema: '', bloqueFuentes: '',
+  }
+  const prompt = IA.promptReactivos(ctx, 'Informática')
+  assert.ok(prompt.includes('REACTIVOS YA EXISTENTES'), 'debe mencionar los reactivos existentes')
+  assert.ok(prompt.includes('¿Qué es un algoritmo?'), 'incluye el enunciado literal')
+  assert.ok(prompt.includes('MISMO tema/contenido'), 'pide MISMO tema')
+  assert.ok(!prompt.includes('QUÉ QUIERE EVALUAR EL DOCENTE'), 'NO usa el bloque de quiereEvaluar')
+})
+
+await caso('promptReactivos SIN mismoTema: bloque QUÉ QUIERE EVALUAR intacto (regresión cero)', () => {
+  const ctx = {
+    clase: 'cuestionario', nombre: 'Álgebra', tipos: ['opcion_multiple'],
+    cantidad: 3, mismoTema: false, reactivosExistentes: [],
+    quiereEvaluar: 'Ecuaciones lineales con una variable y sus aplicaciones prácticas',
+    tema: 'Álgebra', bloqueFuentes: '',
+  }
+  const prompt = IA.promptReactivos(ctx, 'Matemáticas')
+  assert.ok(prompt.includes('QUÉ QUIERE EVALUAR EL DOCENTE'), 'usa el bloque de quiereEvaluar')
+  assert.ok(prompt.includes('Ecuaciones lineales'), 'incluye la descripción del docente')
+  assert.ok(!prompt.includes('REACTIVOS YA EXISTENTES'), 'no menciona reactivos existentes')
+})
+
 await caso('cantidad por default es 5 cuando el cliente no manda nada', async () => {
   const ctx = await IA.precheckReactivos({ uid: DOCENTE, params: { actividadId: 'act_cuestionario', quiereEvaluar: QUIERE_EVALUAR_OK } })
   assert.strictEqual(ctx.cantidad, 5)

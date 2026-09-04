@@ -1704,12 +1704,18 @@ async function precheckReactivos({ uid, params, tarifas }) {
       'Solo un cuestionario o un examen pueden generar reactivos con IA.')
   }
 
-  // La fuente del contenido es lo que escribió el docente AQUÍ, no algo que
-  // el precheck tenga que ir a leer — pero si no alcanza, se detiene igual
-  // que la regla de contexto insuficiente de rúbrica/cotejo: ni reserva ni
-  // llamada al modelo.
+  // "Mismo tema que los reactivos anteriores": cuando el docente marca esa
+  // opción y sí hay reactivos previos, la IA infiere el tema de los enunciados
+  // existentes en vez de exigirle al docente que lo vuelva a escribir. En ese
+  // caso `quiereEvaluar` deja de ser obligatorio — los reactivos existentes son
+  // la fuente principal del tema. Si viene marcado PERO la lista llega vacía o
+  // no aprovechable (todos los enunciados sin texto), se degrada al flujo
+  // normal y se vuelve a exigir la descripción.
+  const reactivosExistentes = sanitizarReactivosExistentes(params?.reactivosExistentes)
+  const mismoTema = params?.mismoTema === true && reactivosExistentes.length > 0
+
   const quiereEvaluar = String(params?.quiereEvaluar || '').trim().slice(0, MAX_QUIERE_EVALUAR)
-  if (quiereEvaluar.length < MIN_QUIERE_EVALUAR) {
+  if (!mismoTema && quiereEvaluar.length < MIN_QUIERE_EVALUAR) {
     throw new HttpsError('failed-precondition',
       `Describe con más detalle qué quieres evaluar (mínimo ${MIN_QUIERE_EVALUAR} caracteres) para que la IA pueda generar reactivos fundamentados. No se descontaron créditos.`,
       { codigo: 'CONTEXTO_INSUFICIENTE' })
@@ -1739,8 +1745,10 @@ async function precheckReactivos({ uid, params, tarifas }) {
   return {
     clase,
     nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
-    tema: String(params?.tema || '').trim().slice(0, 120),
+    tema: mismoTema ? '' : String(params?.tema || '').trim().slice(0, 120),
     quiereEvaluar,
+    mismoTema,
+    reactivosExistentes: mismoTema ? reactivosExistentes : [],
     cantidad,
     tipoSolicitado: seleccion.modo === 'legado' ? seleccion.tipos[0] : (seleccion.modo === 'arreglo' ? seleccion.tipos : 'mixto'),
     tipos: tiposParaLote(seleccion.modo === 'arreglo' ? seleccion.tipos : (seleccion.modo === 'legado' ? seleccion.tipos[0] : 'mixto'), cantidad),
@@ -1748,6 +1756,22 @@ async function precheckReactivos({ uid, params, tarifas }) {
     fuentesBloques: fuentes.bloques,
     fuentesAvisos: fuentes.avisos,
   }
+}
+
+// Sanea la lista de reactivos previos que manda el cliente para armar el
+// bloque de "MISMO TEMA": tipo válido + enunciado no vacío, con tope de
+// longitud y cantidad para no inflar el prompt más de la cuenta.
+const MAX_REACTIVOS_EXISTENTES_REF = 100
+const MAX_ENUNCIADO_REF = 400
+function sanitizarReactivosExistentes(lista) {
+  if (!Array.isArray(lista)) return []
+  return lista
+    .slice(0, MAX_REACTIVOS_EXISTENTES_REF)
+    .map((r) => ({
+      tipo: TIPOS_REACTIVO.includes(r?.tipo) ? r.tipo : 'opcion_multiple',
+      enunciado: String(r?.enunciado || '').trim().slice(0, MAX_ENUNCIADO_REF),
+    }))
+    .filter((r) => r.enunciado.length > 0)
 }
 
 // El texto base NO menciona fuentes (caso normal, sin adjuntos): se mantiene
@@ -1775,6 +1799,17 @@ function reactivosSistemaConFuentes() {
     .replace('{fuentesClausula2}', ' ni estén en esos documentos')
 }
 
+// Cláusula que se suma cuando el docente pidió "mismo tema que los reactivos
+// anteriores": la referencia del tema son los reactivos existentes, y hay que
+// producir NUEVOS enunciados sobre el mismo dominio, no copiar ni parafrasear.
+const REACTIVOS_MISMO_TEMA_CLAUSULA =
+  ' Además, en este caso los reactivos ya existentes que se te muestran son la referencia del tema: ' +
+  'genera reactivos NUEVOS sobre el MISMO dominio de conocimiento, con enunciados y enfoques distintos ' +
+  'a los ya presentes. No los copies, no los parafrasees ni repitas su contenido.'
+function reactivosSistemaConMismoTema(hayFuentes) {
+  return (hayFuentes ? reactivosSistemaConFuentes() : REACTIVOS_SISTEMA) + REACTIVOS_MISMO_TEMA_CLAUSULA
+}
+
 const ETIQUETA_TIPO_REACTIVO = {
   opcion_multiple: 'opción múltiple',
   verdadero_falso: 'verdadero/falso',
@@ -1782,15 +1817,42 @@ const ETIQUETA_TIPO_REACTIVO = {
   subir_archivo: 'subir archivo (el alumno entrega un documento; sin respuesta correcta)',
 }
 
+// Bloque de "reactivos ya existentes" cuando el docente pidió "mismo tema":
+// solo tipo + enunciado, sin opciones ni clave (la clave nunca va al modelo
+// para no invitar a copiarla; las opciones alargarían el prompt sin aportar).
+function bloqueReactivosExistentes(lista) {
+  return (
+    'REACTIVOS YA EXISTENTES EN ESTA EVALUACIÓN (referencia del tema/contenido que están cubriendo; NO los copies, NO los parafrasees, NO repitas su contenido):\n' +
+    lista.map((r, i) => `${i + 1}. [${ETIQUETA_TIPO_REACTIVO[r.tipo] || r.tipo}] "${r.enunciado}"`).join('\n')
+  )
+}
+
 function promptReactivos(ctx, asignatura) {
   const listaTipos = ctx.tipos.map((t, i) => `${i + 1}. ${ETIQUETA_TIPO_REACTIVO[t] || t}`).join('\n')
-  return (
+  const cabecera =
     `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
-    `${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n` +
-    (ctx.tema ? `Tema: ${ctx.tema}\n` : '') +
-    `\nQUÉ QUIERE EVALUAR EL DOCENTE (${tieneFuentes(ctx) ? 'fuente principal' : 'única fuente'} del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
-    (ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : '\n') +
-    `Genera EXACTAMENTE ${ctx.cantidad} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
+    `${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n`
+
+  // Rama "mismo tema": los reactivos existentes son la referencia del tema, y
+  // se le pide explícitamente al modelo cubrir el MISMO dominio con enunciados
+  // distintos. Cuando NO hay mismo tema, se conserva EXACTAMENTE el bloque
+  // que había antes (quiereEvaluar como fuente principal/única) — regresión
+  // cero para todos los flujos que no marquen la casilla.
+  const bloqueContenido = ctx.mismoTema
+    ? (
+        `\n${bloqueReactivosExistentes(ctx.reactivosExistentes)}\n` +
+        (ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : '\n') +
+        `Genera EXACTAMENTE ${ctx.cantidad} reactivos NUEVOS sobre el MISMO tema/contenido que cubren esos reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n`
+      )
+    : (
+        (ctx.tema ? `Tema: ${ctx.tema}\n` : '') +
+        `\nQUÉ QUIERE EVALUAR EL DOCENTE (${tieneFuentes(ctx) ? 'fuente principal' : 'única fuente'} del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
+        (ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : '\n') +
+        `Genera EXACTAMENTE ${ctx.cantidad} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n`
+      )
+
+  return (
+    cabecera + bloqueContenido +
     'Reglas por tipo:\n' +
     '- opcion_multiple: enunciado + 4 opciones + el índice (0-3) de la opción correcta.\n' +
     '- verdadero_falso: un enunciado afirmativo evaluable + "v" o "f".\n' +
@@ -1836,9 +1898,12 @@ async function ejecutarReactivos({ params, modelo, apiKey }) {
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
   const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
 
+  const hayFuentes = !!(ctx.bloqueFuentes || ctx.fuentesBloques?.length)
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 2200,
-    system: (ctx.bloqueFuentes || ctx.fuentesBloques?.length) ? reactivosSistemaConFuentes() : REACTIVOS_SISTEMA,
+    system: ctx.mismoTema
+      ? reactivosSistemaConMismoTema(hayFuentes)
+      : (hayFuentes ? reactivosSistemaConFuentes() : REACTIVOS_SISTEMA),
     prompt: promptReactivos(ctx, asignatura),
     bloquesPrefijo: ctx.fuentesBloques || [],
   })
@@ -6248,6 +6313,7 @@ exports._pruebas = {
   pedirJSON,
   contextoDeActividad, condicionesEntregable, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
   precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MAX_REACTIVOS,
+  promptReactivos, sanitizarReactivosExistentes,
   agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
   agregarResultadosEncuesta, normalizarAnalisisEncuestaContexto, promptAnalisisEncuestaContexto, ENCUESTA_CONTEXTO_SISTEMA,
   promptAnalisis, ANALISIS_SISTEMA, bloqueConsideracionesAnalisis, MAX_CONSIDERACIONES_ANALISIS_CHARS,
