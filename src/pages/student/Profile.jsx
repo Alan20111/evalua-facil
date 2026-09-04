@@ -21,6 +21,7 @@ import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModa
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { apiUrl } from '../../utils/apiBase'
 import { capitalizarNombre } from '../../utils/nombres'
+import AppVersionInfo from '../../components/AppVersionInfo'
 
 // El espacio para subir la foto mide distinto en la web y en la app — pedido
 // explícito, y por eso esta pantalla (que es la misma en las dos) tiene que
@@ -400,7 +401,9 @@ export default function StudentProfile() {
           </div>
         )}
 
-        <p className="text-xs text-muted text-center mt-2">v.1.0.1</p>
+        <div className="mt-3 text-center flex flex-col items-center">
+          <AppVersionInfo />
+        </div>
       </div>
 
       {confirm && (
