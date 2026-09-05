@@ -109,7 +109,11 @@ jobs:
       # producción, así que los docentes no reciben una URL nueva.
       - name: Registrar el enlace de descarga
         env:
+          # Cualquiera de las dos sirve; el script prefiere la cuenta de
+          # servicio y si no está usa el token, que ya estaba configurado para
+          # desplegar functions y reglas.
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: node scripts/registrar-enlace-descarga.mjs "${{ steps.version.outputs.versionName }}" "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.versionName }}/evalua-facil-v${{ steps.version.outputs.versionName }}.apk"
 
       - name: Guardar el bump de versión en main
