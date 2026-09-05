@@ -1125,9 +1125,9 @@ export default function SubjectPage() {
         if (extMs > now) return false
       }
       const sub = gradeSubMap[`${s.id}-${activity.id}`]
-      // Pendiente: sin documento de submission, o documento creado por el docente sin calificación.
-      // calificacion == null cubre tanto null como campo ausente; calificacion: 0 es válida (== null → false).
-      return !sub || (sub.sinEntrega === true && sub.calificacion == null)
+      // Pendiente: sin doc, o doc con calificacion ausente/null (incluso en_progreso).
+      // calificacion == null abarca null y campo ausente; calificacion:0 es válida (0 == null → false).
+      return !sub || sub.calificacion == null
     }).length
 
     const popW = 280
@@ -1176,7 +1176,7 @@ export default function SubjectPage() {
         }
         const data = freshSubByStudent.get(s.id)
         if (!data) return true
-        return data.sinEntrega === true && data.calificacion == null
+        return data.calificacion == null
       })
 
       if (pendientes.length === 0) {
