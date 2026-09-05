@@ -231,6 +231,67 @@ async function handleDeleteAccount(req, res) {
 
 // ── Dispatcher ───────────────────────────────────────────────────────────────
 
+
+// ── Publicar una versión nueva del APK ──────────────────────────────────────
+// Dispara el workflow "Publicar APK" de GitHub Actions, que compila el APK
+// firmado, lo publica como release y registra el enlace marcado como
+// producción. El docente no recibe una URL nueva: /descargar resuelve solo a
+// la más reciente.
+//
+// El token de GitHub vive SOLO aquí, en el servidor. Ponerlo en el cliente
+// significaría repartirle a cualquiera que abra las herramientas del
+// navegador permiso de escritura sobre el repo.
+async function handleReleaseApk(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' })
+  const { uid } = await verifyRequest(req)
+  const db = getDb()
+  const perfil = await db.collection('users').doc(uid).get()
+  if (perfil.data()?.role !== 'admin') return res.status(403).json({ error: 'Solo para administradores' })
+
+  const token = process.env.GITHUB_DISPATCH_TOKEN
+  const repo = process.env.GITHUB_REPO || 'Alan20111/evalua-facil'
+  if (!token) {
+    return res.status(503).json({
+      error: 'Falta GITHUB_DISPATCH_TOKEN en las variables de entorno de Vercel.',
+    })
+  }
+
+  const versionName = typeof req.body?.versionName === 'string' ? req.body.versionName.trim() : ''
+  if (versionName && !/^\d+\.\d+\.\d+$/.test(versionName)) {
+    return res.status(400).json({ error: 'La versión debe tener la forma 1.2.3' })
+  }
+  const notas = typeof req.body?.notas === 'string' ? req.body.notas.trim().slice(0, 2000) : ''
+
+  const r = await fetch(
+    `https://api.github.com/repos/${repo}/actions/workflows/release-apk.yml/dispatches`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ref: 'main', inputs: { versionName, notas } }),
+    }
+  )
+
+  // GitHub responde 204 sin cuerpo cuando acepta el disparo.
+  if (r.status !== 204) {
+    const detalle = await r.text()
+    return res.status(502).json({
+      error: 'GitHub rechazó el disparo del workflow.',
+      detalle: detalle.slice(0, 500),
+    })
+  }
+
+  return res.status(200).json({
+    ok: true,
+    // La compilación tarda varios minutos; el panel manda a seguirla aquí.
+    seguimiento: `https://github.com/${repo}/actions/workflows/release-apk.yml`,
+  })
+}
+
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return
   const action = req.query.action
@@ -238,6 +299,7 @@ export default async function handler(req, res) {
     if (action === 'cloudinary-status') return await handleCloudinaryStatus(req, res)
     if (action === 'last-access') return await handleLastAccess(req, res)
     if (action === 'delete-account') return await handleDeleteAccount(req, res)
+    if (action === 'release-apk') return await handleReleaseApk(req, res)
     return res.status(404).json({ error: 'Acción no encontrada.' })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message || 'Error interno.' })
