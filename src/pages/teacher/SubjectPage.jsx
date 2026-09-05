@@ -1073,6 +1073,27 @@ export default function SubjectPage() {
     }
   }
 
+  async function clearGradeQuickEdit() {
+    if (!gradeQuickEdit?.subId) return
+    const { subId, activityId, studentId } = gradeQuickEdit
+    setSavingQuickGrade(true)
+    try {
+      await updateDoc(doc(db, 'submissions', subId), { calificacion: deleteField() })
+      const key = `${studentId}-${activityId}`
+      setGradeSubMap((prev) => {
+        const updated = { ...prev[key] }
+        delete updated.calificacion
+        return { ...prev, [key]: updated }
+      })
+      toast('Calificación eliminada')
+      setGradeQuickEdit(null)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingQuickGrade(false)
+    }
+  }
+
   // ── Calificación masiva de no entregadas por actividad ──────────────────────
   // Clic derecho sobre el <th> de una actividad en la tabla de calificaciones.
   // Abre un menú contextual con la opción de asignar una nota a todos los
@@ -6593,6 +6614,17 @@ export default function SubjectPage() {
                 {savingQuickGrade ? <Spinner size="sm" /> : <CheckIcon size={13} />} Guardar
               </button>
             </div>
+            {gradeQuickEdit.subId && gradeQuickEdit.value !== '' && (
+              <button
+                type="button"
+                onClick={clearGradeQuickEdit}
+                disabled={savingQuickGrade}
+                className="w-full py-1.5 rounded border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-1"
+              >
+                <Trash2 size={12} />
+                Quitar calificación
+              </button>
+            )}
           </div>
         </>
       )}
