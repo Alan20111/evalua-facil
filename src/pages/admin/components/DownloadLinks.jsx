@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   Copy, Check, Trash2, Upload, Link2, Link2Off, Smartphone,
-  Download, ChevronDown, ChevronUp, QrCode, RotateCcw, AlertTriangle,
+  Download, ChevronDown, ChevronUp, QrCode, RotateCcw, AlertTriangle, Cog, ExternalLink,
 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useToast } from '../../../components/Toast'
@@ -9,6 +9,8 @@ import Spinner from '../../../components/Spinner'
 import { Button, Input, Checkbox } from '../../../components/ui'
 import { uploadToCloudinary } from '../../../utils/cloudinary'
 import { exportAppQRPDF } from '../../../utils/pdf'
+import { apiUrl } from '../../../utils/apiBase'
+import { auth } from '../../../firebase'
 import { APP_DOWNLOAD_URL } from '../../../config/appDownload'
 import {
   listarLinks, crearLink, borrarLink, cambiarActivo,
@@ -107,6 +109,10 @@ export default function DownloadLinks() {
   const [urlManual, setUrlManual] = useState('')
   const [creando, setCreando] = useState(false)
 
+  // Compilación automática desde GitHub Actions.
+  const [compilando, setCompilando] = useState(false)
+  const [versionAuto, setVersionAuto] = useState('')
+
   // Estados de acciones en el historial
   const [accionando, setAccionando] = useState(null)
   const [pendingVigente, setPendingVigente] = useState(null)
@@ -134,6 +140,31 @@ export default function DownloadLinks() {
     }).catch(() => {})
     return () => { cancelado = true }
   }, [])
+
+
+  // Pide a GitHub Actions que compile y publique una versión nueva. El panel
+  // no espera a que termine: la compilación tarda varios minutos y dejar la
+  // pestaña bloqueada no aporta nada — se manda al registro de Actions.
+  async function handleCompilar() {
+    setCompilando(true)
+    try {
+      const token = await auth.currentUser.getIdToken()
+      const res = await fetch(apiUrl('/api/admin/release-apk'), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ versionName: versionAuto.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'No se pudo iniciar la compilación')
+      toast('Compilación iniciada — tarda unos minutos', 'success')
+      setVersionAuto('')
+      if (data.seguimiento) window.open(data.seguimiento, '_blank', 'noopener')
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setCompilando(false)
+    }
+  }
 
   async function handlePublicar(e) {
     e.preventDefault()
@@ -327,6 +358,41 @@ export default function DownloadLinks() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── Generar una versión automáticamente ── */}
+      <div className="bg-surface-card rounded-card shadow-card p-5">
+        <h2 className="flex items-center gap-2 text-base font-bold text-on-surface">
+          <Cog size={18} className="text-accent" />
+          Generar versión automáticamente
+        </h2>
+        <p className="text-sm text-muted mt-1">
+          Compila el APK desde el código de <code>main</code>, lo publica y deja el
+          enlace de descarga apuntando a él. No hay que subir ningún archivo.
+        </p>
+
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-3">
+          <Input
+            id="dl-version-auto"
+            label="Versión"
+            optional
+            value={versionAuto}
+            onChange={(e) => setVersionAuto(e.target.value)}
+            placeholder="1.0.7"
+            hint="Vacío = sube sola el último dígito"
+            wrapperClassName="flex-1 min-w-0"
+          />
+          <Button onClick={handleCompilar} busy={compilando} disabled={compilando}>
+            <Cog size={17} />
+            {compilando ? 'Iniciando…' : 'Compilar y publicar'}
+          </Button>
+        </div>
+
+        <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-400">
+          <ExternalLink size={13} className="flex-shrink-0 mt-0.5" />
+          Tarda unos minutos. Al iniciar se abre el registro de la compilación en
+          otra pestaña; el enlace de descarga cambia solo cuando termina.
+        </p>
       </div>
 
       {/* ── Publicar nueva versión ── */}

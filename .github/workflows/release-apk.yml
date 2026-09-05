@@ -1,0 +1,121 @@
+name: Publicar APK
+
+# Compila el APK firmado, lo publica como release y registra el enlace de
+# descarga marcado como producción. Con eso, /descargar empieza a servir la
+# versión nueva sin que nadie toque código ni Firestore a mano.
+#
+# Se dispara desde el panel de admin (api/admin/release-apk.js) o a mano desde
+# la pestaña Actions.
+
+on:
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: 'Versión visible (ej. 1.0.7). Vacío = sube el último dígito de la actual.'
+        required: false
+        type: string
+      notas:
+        description: 'Notas del release'
+        required: false
+        type: string
+
+concurrency:
+  # Dos publicaciones a la vez se pisarían el versionCode.
+  group: release-apk
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # crear el release y empujar el bump de versión
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - run: npm ci
+
+      # El versionCode SIEMPRE sube: Play rechaza uno repetido y Android no
+      # deja instalar encima una versión con código menor.
+      - name: Subir versionCode y versionName
+        id: version
+        run: node scripts/bump-android-version.mjs "${{ inputs.versionName }}"
+
+      - name: Compilar el sitio
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+          VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
+          VITE_EMAILJS_SERVICE_ID: ${{ secrets.VITE_EMAILJS_SERVICE_ID }}
+          VITE_EMAILJS_TEMPLATE_ID: ${{ secrets.VITE_EMAILJS_TEMPLATE_ID }}
+          VITE_EMAILJS_PUBLIC_KEY: ${{ secrets.VITE_EMAILJS_PUBLIC_KEY }}
+
+      - run: npx cap sync android
+
+      # La llave de firma llega como base64 en un secret. Se escribe fuera del
+      # repo y el job se muere si el secret falta: un APK sin firmar no se
+      # puede instalar encima del anterior.
+      - name: Restaurar la llave de firma
+        run: |
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "::error::Falta el secret ANDROID_KEYSTORE_BASE64"; exit 1
+          fi
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          cat > android/keystore.properties <<EOF
+          storeFile=$RUNNER_TEMP/upload.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
+      - name: Compilar el APK firmado
+        run: ./gradlew assembleRelease --no-daemon
+        working-directory: android
+
+      - name: Comprobar que salió firmado y con la versión esperada
+        run: node scripts/verificar-apk.mjs android/app/build/outputs/apk/release/app-release.apk "${{ steps.version.outputs.versionCode }}" "${{ steps.version.outputs.versionName }}"
+
+      - name: Renombrar
+        run: cp android/app/build/outputs/apk/release/app-release.apk "evalua-facil-v${{ steps.version.outputs.versionName }}.apk"
+
+      - name: Publicar el release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NOTAS="${{ inputs.notas }}"
+          [ -z "$NOTAS" ] && NOTAS="APK de la versión ${{ steps.version.outputs.versionName }}, compilado desde main."
+          gh release create "v${{ steps.version.outputs.versionName }}" \
+            "evalua-facil-v${{ steps.version.outputs.versionName }}.apk" \
+            --title "Evalúa Fácil ${{ steps.version.outputs.versionName }} (Android)" \
+            --notes "$NOTAS"
+
+      # Deja el enlace listo: /descargar lo toma solo por estar marcado como
+      # producción, así que los docentes no reciben una URL nueva.
+      - name: Registrar el enlace de descarga
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/registrar-enlace-descarga.mjs "${{ steps.version.outputs.versionName }}" "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.versionName }}/evalua-facil-v${{ steps.version.outputs.versionName }}.apk"
+
+      - name: Guardar el bump de versión en main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add android/app/build.gradle
+          git commit -m "chore(android): versionCode ${{ steps.version.outputs.versionCode }} / ${{ steps.version.outputs.versionName }} [skip ci]"
+          git push origin HEAD:main
