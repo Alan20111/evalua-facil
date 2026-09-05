@@ -350,16 +350,26 @@ function JuegoConfiguracion({
   })
   const [saving, setSaving] = useState(false)
   const [savingVis, setSavingVis] = useState(false)
-  // Resolución de un estudiante (26-ago-2026) — solo lectura, ver
-  // ResolucionJuegoModal. null = cerrada; si no, { nombre, sub }.
-  // Si llega openStudentId (clic desde la tabla de Calificaciones) y el
-  // alumno ya tiene resultado calificado, se abre directamente.
+  // Resolución de un estudiante — solo lectura, ver ResolucionJuegoModal.
+  // null = cerrada; si no, { student, sub }. La lista frozen resolucionNav
+  // habilita Anterior/Siguiente (mismo patrón que EvaluacionManager).
+  // Si llega openStudentId desde Calificaciones y el alumno está calificado,
+  // ambos estados se inicializan directamente (lazy useState sincrónico).
   const [resolucionAbierta, setResolucionAbierta] = useState(() => {
     if (!openStudentId) return null
     const st = students.find((s) => s.id === openStudentId)
     if (!st) return null
     const sub = submissions?.[st.id]
-    return sub?.estado === 'calificado' ? { nombre: studentFullName(st), sub } : null
+    return sub?.estado === 'calificado' ? { student: st, sub } : null
+  })
+  const [resolucionNav, setResolucionNav] = useState(() => {
+    if (!openStudentId) return []
+    const st = students.find((s) => s.id === openStudentId)
+    if (!st) return []
+    const sub = submissions?.[st.id]
+    if (sub?.estado !== 'calificado') return []
+    const nav = students.filter((s) => submissions?.[s.id]?.estado === 'calificado')
+    return nav.length ? nav : [st]
   })
   // Nueva fecha de entrega — el MISMO modal de entregables y evaluaciones.
   // null = cerrado; { preselect } lo abre con ese estudiante ya marcado, que
@@ -376,6 +386,21 @@ function JuegoConfiguracion({
   const [visFormInicial, setVisFormInicial] = useState(visForm)
   const formCambio = JSON.stringify(form) !== JSON.stringify(formInicial)
   const visFormCambio = JSON.stringify(visForm) !== JSON.stringify(visFormInicial)
+
+  function openResolucion(student) {
+    const sub = submissions?.[student.id]
+    const nav = students.filter((s) => submissions?.[s.id]?.estado === 'calificado')
+    setResolucionNav(nav.length ? nav : [student])
+    setResolucionAbierta({ student, sub })
+  }
+
+  function goResolucion(offset) {
+    if (!resolucionAbierta || resolucionNav.length < 2) return
+    const idx = resolucionNav.findIndex((s) => s.id === resolucionAbierta.student.id)
+    if (idx < 0) return
+    const next = resolucionNav[(idx + offset + resolucionNav.length) % resolucionNav.length]
+    if (next) setResolucionAbierta({ student: next, sub: submissions?.[next.id] })
+  }
 
   async function handleSaveConfig(e) {
     e.preventDefault()
@@ -696,7 +721,7 @@ function JuegoConfiguracion({
                 {consultable ? (
                   <button
                     type="button"
-                    onClick={() => setResolucionAbierta({ nombre, sub })}
+                    onClick={() => openResolucion(st)}
                     data-tooltip="Ver la resolución de este estudiante"
                     className="flex-1 min-w-0 text-left rounded hover:bg-[var(--accent-tint)] transition-colors"
                   >
@@ -752,10 +777,13 @@ function JuegoConfiguracion({
       {resolucionAbierta && (
         <ResolucionJuegoModal
           open
-          onClose={() => setResolucionAbierta(null)}
-          estudianteNombre={resolucionAbierta.nombre}
+          onClose={() => { setResolucionAbierta(null); setResolucionNav([]) }}
+          estudianteNombre={studentFullName(resolucionAbierta.student)}
           estructura={estructura}
           submission={resolucionAbierta.sub}
+          navCount={resolucionNav.length}
+          onAnterior={() => goResolucion(-1)}
+          onSiguiente={() => goResolucion(1)}
         />
       )}
 
