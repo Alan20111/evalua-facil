@@ -27,6 +27,7 @@ export default function StudentLogin() {
   const [recoverStep, setRecoverStep] = useState('username') // 'username' | 'password'
   const [recoverUsername, setRecoverUsername] = useState('')
   const [recoverStudent, setRecoverStudent] = useState(null)
+  const [resetToken, setResetToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmNewPassword, setConfirmNewPassword] = useState('')
   const [recoverError, setRecoverError] = useState('')
@@ -113,6 +114,7 @@ export default function StudentLogin() {
     setRecoverStep('username')
     setRecoverUsername(username.trim())
     setRecoverStudent(null)
+    setResetToken('')
     setNewPassword('')
     setConfirmNewPassword('')
     setRecoverError('')
@@ -120,6 +122,7 @@ export default function StudentLogin() {
 
   function backToLogin() {
     setMode('login')
+    setResetToken('')
     setRecoverError('')
   }
 
@@ -159,6 +162,7 @@ export default function StudentLogin() {
   const handleRecoverSetPassword = async (e) => {
     e.preventDefault()
     setRecoverError('')
+    if (!resetToken.trim()) { setRecoverError('Escribe el código de recuperación que te dio tu maestro.'); return }
     if (newPassword.length < 6) { setRecoverError('La contraseña debe tener al menos 6 caracteres.'); return }
     if (newPassword !== confirmNewPassword) { setRecoverError('Las contraseñas no coinciden.'); return }
     setLoading(true)
@@ -171,6 +175,7 @@ export default function StudentLogin() {
           username: recoverStudent.username,
           escuelaId: recoverStudent.escuelaId,
           newPassword,
+          resetToken,
         }),
       })
       if (!resp.ok) {
@@ -271,15 +276,29 @@ export default function StudentLogin() {
                   </div>
                 </div>
                 <div>
+                  <label htmlFor="recover-token" className="block text-sm font-medium text-muted mb-1">Código de recuperación</label>
+                  <input
+                    id="recover-token"
+                    type="text"
+                    value={resetToken}
+                    onChange={(e) => { setResetToken(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, '')); setRecoverError('') }}
+                    required
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    maxLength={8}
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
+                    placeholder="Tu maestro te lo dio"
+                  />
+                </div>
+                <div>
                   <label htmlFor="recover-nueva-password" className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
                   <PasswordInput
                     id="recover-nueva-password"
                     value={newPassword}
                     onChange={(e) => { setNewPassword(e.target.value); setRecoverError('') }}
                     required
-                    // autoFocus intencional: primer campo de este paso (elegir nueva contraseña),
-                    // se muestra una sola vez por sesión — no es un modal reabrible.
-                    autoFocus
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder="Mínimo 6 caracteres"
                   />

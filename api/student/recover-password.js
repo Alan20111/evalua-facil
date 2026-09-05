@@ -23,7 +23,6 @@ async function setAuthPassword(email, newPassword) {
   } catch (e) {
     // Only "no existe" means we should create it; any other error must surface.
     if (e.code !== 'auth/user-not-found') throw e
-    user = null
   }
   if (user) {
     await auth.updateUser(user.uid, { password: newPassword })
@@ -41,9 +40,9 @@ export default async function handler(req, res) {
   try {
     // Vercel usually parses JSON bodies, but be defensive if it arrives as a string.
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
-    const { username, escuelaId, newPassword } = body
-    if (!username || !String(username).trim() || !newPassword) {
-      return res.status(400).json({ error: 'Faltan datos (usuario y nueva contraseña).' })
+    const { username, escuelaId, newPassword, resetToken } = body
+    if (!username || !String(username).trim() || !newPassword || !resetToken) {
+      return res.status(400).json({ error: 'Faltan datos (usuario, código de recuperación y nueva contraseña).' })
     }
     // escuelaId is required so a username can never be resolved across schools.
     if (!escuelaId) {
@@ -78,6 +77,21 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'La recuperación de contraseña no está habilitada. Pídele a tu maestro que la habilite.' })
     }
 
+    // Validate the one-time token against the private collection (inaccessible to clients).
+    // This prevents unauthenticated attackers from taking over accounts even when
+    // the public `students` collection exposes the resetPassword flag.
+    const tokenDoc = await db.collection('studentResetTokens').doc(enabled.id).get()
+    if (!tokenDoc.exists) {
+      return res.status(403).json({ error: 'Código de recuperación no válido. Pídele a tu maestro que genere uno nuevo.' })
+    }
+    const tokenData = tokenDoc.data()
+    if (tokenData.token !== String(resetToken).toUpperCase().trim()) {
+      return res.status(403).json({ error: 'Código de recuperación incorrecto.' })
+    }
+    if (tokenData.expiresAt < Date.now()) {
+      return res.status(403).json({ error: 'El código de recuperación expiró (válido 24 h). Pídele a tu maestro que genere uno nuevo.' })
+    }
+
     // Aquí había una guarda que rechazaba a los estudiantes con correo
     // verificado, porque su email de Auth había dejado de ser el
     // @evalua.local y este flujo habría bifurcado la cuenta en dos. Se fue con
@@ -97,6 +111,15 @@ export default async function handler(req, res) {
         resetPassword: null,
       }))
     await batch.commit()
+
+    // Invalidate the one-time token so it cannot be reused.
+    // This runs after the password change succeeds — a failure here is non-critical
+    // (the token expires in 24 h regardless) but logged for observability.
+    try {
+      await db.collection('studentResetTokens').doc(enabled.id).delete()
+    } catch (deleteErr) {
+      console.error('[recover-password] no se pudo limpiar studentResetTokens:', deleteErr.message)
+    }
 
     return res.status(200).json({ ok: true })
   } catch (err) {
