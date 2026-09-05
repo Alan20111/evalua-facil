@@ -1107,9 +1107,29 @@ export default function SubjectPage() {
     }
     // Guard: actividad que no genera calificación (diagnóstico, encuesta).
     if (!cuentaParaCalificacion(activity)) return
-    const missingCount = groupStudents.filter(
-      (s) => !gradeSubMap[`${s.id}-${activity.id}`]
-    ).length
+
+    // Guard: solo tiene sentido asignar masivamente si la fecha límite ya venció.
+    const fechaLimite = activity.fechaLimite
+    if (!fechaLimite) return
+    const deadlineMs = new Date(
+      fechaLimite.includes('T') ? fechaLimite : `${fechaLimite}T23:59:59`
+    ).getTime()
+    if (Date.now() < deadlineMs) return
+
+    const now = Date.now()
+    const missingCount = groupStudents.filter((s) => {
+      // Excluir estudiantes con prórroga individual vigente.
+      const extDate = activity.extensiones?.[s.id]
+      if (extDate) {
+        const extMs = new Date(extDate.includes('T') ? extDate : `${extDate}T23:59:59`).getTime()
+        if (extMs > now) return false
+      }
+      const sub = gradeSubMap[`${s.id}-${activity.id}`]
+      // Pendiente: sin documento de submission, o documento creado por el docente sin calificación.
+      // calificacion == null cubre tanto null como campo ausente; calificacion: 0 es válida (== null → false).
+      return !sub || (sub.sinEntrega === true && sub.calificacion == null)
+    }).length
+
     const popW = 280
     setActivityContextMenu({
       x: Math.min(e.clientX, window.innerWidth - popW - 8),
@@ -1145,8 +1165,19 @@ export default function SubjectPage() {
       // Reverificación FRESCA contra Firestore para capturar entregas que
       // llegaron mientras el modal estaba abierto.
       const freshDocs = await fetchSubmissionsForActivities([activity.id])
-      const conSubmission = new Set(freshDocs.map((d) => d.data().alumnoId))
-      const pendientes = groupStudents.filter((s) => !conSubmission.has(s.id))
+      const freshSubByStudent = new Map(freshDocs.map((d) => [d.data().alumnoId, d.data()]))
+      const now = Date.now()
+      const pendientes = groupStudents.filter((s) => {
+        // Excluir estudiantes con prórroga vigente al momento de confirmar.
+        const extDate = activity.extensiones?.[s.id]
+        if (extDate) {
+          const extMs = new Date(extDate.includes('T') ? extDate : `${extDate}T23:59:59`).getTime()
+          if (extMs > now) return false
+        }
+        const data = freshSubByStudent.get(s.id)
+        if (!data) return true
+        return data.sinEntrega === true && data.calificacion == null
+      })
 
       if (pendientes.length === 0) {
         toast('Ya no hay estudiantes sin entrega para esta actividad')
