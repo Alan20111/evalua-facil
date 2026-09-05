@@ -4950,7 +4950,7 @@ export default function SubjectPage() {
                               data-col={colIndexByKey[`act-${a.id}`]}
                               onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { returnTo: 'calificaciones' } })}
                               onContextMenu={(e) => openActivityContextMenu(e, a)}
-                              onMouseEnter={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActTip({ text: a.nombre, x: r.left + r.width / 2, y: r.top }) }}
+                              onMouseEnter={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActTip({ text: a.nombre, hint: 'Clic derecho para asignar calificación a quienes no entregaron', x: r.left + r.width / 2, y: r.top }) }}
                               onMouseLeave={() => setActTip(null)}
                               className={`w-9 px-0.5 py-1.5 font-semibold text-on-surface text-center border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
                               {/* Tooltip is a fixed-positioned element (below), so the
@@ -6534,10 +6534,11 @@ export default function SubjectPage() {
       {/* ── Activity-name tooltip ABOVE the number header (fixed → never clipped) ── */}
       {actTip && (
         <div
-          className="fixed z-[9999] -translate-x-1/2 -translate-y-full px-2 py-1 rounded border border-[#c0c0c0] bg-[#f5f5f5] text-[#111] text-[11px] whitespace-nowrap shadow pointer-events-none"
+          className="fixed z-[9999] -translate-x-1/2 -translate-y-full px-2 py-1 rounded border border-[#c0c0c0] bg-[#f5f5f5] text-[#111] text-[11px] max-w-xs shadow pointer-events-none"
           style={{ left: actTip.x, top: actTip.y - 6 }}
         >
-          {actTip.text}
+          <div className="font-medium">{actTip.text}</div>
+          <div className="text-[10px] text-[#555] mt-0.5">{actTip.hint}</div>
         </div>
       )}
 
