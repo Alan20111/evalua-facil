@@ -1317,5 +1317,16 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // ── Tokens de recuperación de contraseña de alumnos ──
+    // Colección privada: ningún cliente puede leer ni escribir.
+    // Solo el Admin SDK (endpoints de Vercel) tiene acceso.
+    // Cada doc vive como máximo 24 h — el endpoint de recuperación lo borra
+    // después del primer uso exitoso (one-shot). Esto es lo que convierte el
+    // flag público `resetPassword` en un gate que no puede ser explotado
+    // desde la API REST pública de Firestore.
+    match /studentResetTokens/{studentId} {
+      allow read, write: if false;
+    }
   }
 }
