@@ -116,10 +116,25 @@ jobs:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: node scripts/registrar-enlace-descarga.mjs "${{ steps.version.outputs.versionName }}" "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.versionName }}/evalua-facil-v${{ steps.version.outputs.versionName }}.apk"
 
+      # Se ejecuta aunque algo anterior fallara a medias: si el release ya
+      # salió, main TIENE que enterarse del versionCode gastado. Si no, la
+      # siguiente publicación calcula el mismo número y choca con el tag que
+      # ya existe.
       - name: Guardar el bump de versión en main
+        if: always() && steps.version.outputs.versionCode != ''
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add android/app/build.gradle
           git commit -m "chore(android): versionCode ${{ steps.version.outputs.versionCode }} / ${{ steps.version.outputs.versionName }} [skip ci]"
-          git push origin HEAD:main
+          # La compilación tarda varios minutos y main se mueve mientras tanto:
+          # el push directo falla por no ser fast-forward. Se reintenta sobre
+          # la punta actual — el commit solo toca build.gradle, así que un
+          # rebase aquí no puede chocar con nada más.
+          for intento in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            echo "Reintento $intento…"
+            sleep 5
+          done
+          echo "::error::No se pudo guardar el bump en main. El release SÍ se publicó — sube versionCode a mano antes de la próxima."
+          exit 1
