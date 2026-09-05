@@ -50,7 +50,7 @@ import ResolucionJuegoModal from './ResolucionJuegoModal'
 export default function JuegoManager({
   activity, subject, activityId, activityLabel, students, submissions,
   onActivityChange, onDeleteActivity, goBack,
-  parcialCerrado = false, onSubmissionRemoved,
+  parcialCerrado = false, onSubmissionRemoved, openStudentId = null,
 }) {
   const [regresando, setRegresando] = useState(false)
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
@@ -248,6 +248,7 @@ export default function JuegoManager({
           onActivityChange={onActivityChange}
           parcialCerrado={parcialCerrado}
           onSubmissionRemoved={onSubmissionRemoved}
+          openStudentId={openStudentId}
         />
       )}
     </div>
@@ -316,7 +317,7 @@ function NombreJuego({ activity, activityId, tipoLabel, onActivityChange }) {
 
 function JuegoConfiguracion({
   activity, activityId, estructura, students, submissions, onActivityChange,
-  parcialCerrado = false, onSubmissionRemoved,
+  parcialCerrado = false, onSubmissionRemoved, openStudentId = null,
 }) {
   const toast = useToast()
   const evalDefaults = EVALUACION_DEFAULTS.juego
@@ -351,7 +352,15 @@ function JuegoConfiguracion({
   const [savingVis, setSavingVis] = useState(false)
   // Resolución de un estudiante (26-ago-2026) — solo lectura, ver
   // ResolucionJuegoModal. null = cerrada; si no, { nombre, sub }.
-  const [resolucionAbierta, setResolucionAbierta] = useState(null)
+  // Si llega openStudentId (clic desde la tabla de Calificaciones) y el
+  // alumno ya tiene resultado calificado, se abre directamente.
+  const [resolucionAbierta, setResolucionAbierta] = useState(() => {
+    if (!openStudentId) return null
+    const st = students.find((s) => s.id === openStudentId)
+    if (!st) return null
+    const sub = submissions?.[st.id]
+    return sub?.estado === 'calificado' ? { nombre: studentFullName(st), sub } : null
+  })
   // Nueva fecha de entrega — el MISMO modal de entregables y evaluaciones.
   // null = cerrado; { preselect } lo abre con ese estudiante ya marcado, que
   // es la vía de "modificar la fecha para este estudiante" desde su fila.
