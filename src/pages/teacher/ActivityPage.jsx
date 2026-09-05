@@ -384,7 +384,7 @@ export default function ActivityPage() {
     // Clear it in the same commit that opens the grading view, so pendingOpenId
     // turning false and `selected` turning true happen together (no list flash).
     setPendingOpenId(null)
-    if (st && !isEvaluacion) {
+    if (st && !isEvaluacion && !esJuego) {
       setNavList(students)
       openGrade(st)
     }
@@ -1254,6 +1254,7 @@ export default function ActivityPage() {
           })}
           onDeleteActivity={() => setDeleteConfirm(true)}
           goBack={goBack}
+          openStudentId={location.state?.openStudentId || null}
         />
         {deleteActivityModal}
         </>
