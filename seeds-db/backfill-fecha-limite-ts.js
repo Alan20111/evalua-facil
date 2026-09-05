@@ -55,7 +55,15 @@ async function main() {
   for (const d of snap.docs) {
     const act = d.data()
     const necesitaFecha = !!act.fechaLimite && act.fechaLimiteTS == null
-    const extensionesFaltantes = Object.entries(act.extensiones || {})
+    // Una prórroga solo cuenta si hay plazo de grupo que ampliar. Es el mismo
+    // criterio que ya aplica el cliente —`activity.fechaLimite ?
+    // activity.extensiones[alumnoId] : null` en src/pages/student/ActivityPage.jsx—
+    // y sin él el servidor y la app se contradicen: en una actividad SIN
+    // fechaLimite, la app la muestra abierta (no hay plazo que vencer) mientras
+    // la regla usaría `extensionesTS[alumnoId]` y rechazaría la entrega. Medido
+    // en producción el 2-sep-2026: 3 actividades con prórroga y sin fecha de
+    // grupo, una de ellas con un alumno al que esto habría bloqueado.
+    const extensionesFaltantes = !act.fechaLimite ? [] : Object.entries(act.extensiones || {})
       .filter(([id]) => act.extensionesTS?.[id] == null)
 
     if (!necesitaFecha && extensionesFaltantes.length === 0) {

@@ -17,10 +17,14 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
 import useCreditosIA from '../hooks/useCreditosIA'
-import { resolverFuentes } from '../utils/fuentesIA'
+import { resolverFuentes, avisarFuentesOmitidas } from '../utils/fuentesIA'
 import FuentesIAInput from './ia/FuentesIAInput'
 import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
-import { MIN_REACTIVOS, MAX_REACTIVOS_EVALUACION } from '../utils/reactivosIA'
+import {
+  MIN_REACTIVOS, MAX_REACTIVOS_EVALUACION,
+  TIPOS_REACTIVO_IA_CHECKBOXES, TIPOS_REACTIVO_IA_DEFAULT,
+} from '../utils/reactivosIA'
+import Checkbox from './ui/Checkbox'
 
 const MIN_QUIERE_EVALUAR = 40
 
@@ -53,6 +57,9 @@ export default function CrearEvaluacionIAModal({
   const [quiereEvaluar, setQuiereEvaluar] = useState('')
   const tope = MAX_REACTIVOS_EVALUACION
   const [cantidad, setCantidad] = useState(10)
+  // Checkboxes independientes por tipo — igual que en el editor (OP-09). Los
+  // 4 marcados por defecto conservan el reparto "Mixto" que era el implícito.
+  const [tiposSeleccionados, setTiposSeleccionados] = useState(TIPOS_REACTIVO_IA_DEFAULT)
   const [archivos, setArchivos] = useState([])
   const [trabajando, setTrabajando] = useState(false)
   const fuentesGuardadas = useFuentesAsignatura(asignaturaId, docenteId)
@@ -65,6 +72,9 @@ export default function CrearEvaluacionIAModal({
     if (!nombre.trim()) { toast('Escribe el nombre de la evaluación', 'error'); return }
     if (quiereEvaluar.trim().length < MIN_QUIERE_EVALUAR) {
       toast(`Describe con más detalle qué quieres evaluar (mínimo ${MIN_QUIERE_EVALUAR} caracteres)`, 'error'); return
+    }
+    if (!tiposSeleccionados.length) {
+      toast('Selecciona al menos un tipo de reactivo', 'error'); return
     }
     setTrabajando(true)
     let ref = null
@@ -90,17 +100,22 @@ export default function CrearEvaluacionIAModal({
         createdAt: serverTimestamp(),
       })
 
-      await creditosIA.ejecutar('crear_evaluacion_ia', {
+      const data = await creditosIA.ejecutar('crear_evaluacion_ia', {
         actividadId: ref.id,
         categoria,
         asignaturaId,
         asignaturaNombre: asignaturaNombre || '',
         quiereEvaluar,
         cantidad,
+        tipos: tiposSeleccionados,
         fuentes: urls,
       }, cantidad, { timeoutMs: 240000 })
 
       toast(`${tipoLabel} generado con IA`)
+      // Un documento que no se pudo usar ya NO tumba la generación (los demás
+      // sí sirvieron), pero tampoco se calla: el docente tiene que enterarse
+      // de que el material que creía haber aportado no entró.
+      avisarFuentesOmitidas(toast, data?.resultado?.avisos)
       onCreated?.(ref.id)
     } catch (err) {
       toast(err.message || 'No se pudo generar la evaluación', 'error')
@@ -154,6 +169,32 @@ export default function CrearEvaluacionIAModal({
             </select>
           </div>
 
+          <div>
+            <p className="text-sm text-on-surface mb-1.5">¿Qué tipos de reactivos quieres que genere la IA?</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-1">
+              {TIPOS_REACTIVO_IA_CHECKBOXES.map((t) => {
+                const marcado = tiposSeleccionados.includes(t.value)
+                return (
+                  <Checkbox
+                    key={t.value}
+                    label={t.label}
+                    checked={marcado}
+                    disabled={trabajando}
+                    onChange={(e) => {
+                      const on = e.target.checked
+                      setTiposSeleccionados((prev) => on
+                        ? Array.from(new Set([...prev, t.value]))
+                        : prev.filter((v) => v !== t.value))
+                    }}
+                  />
+                )
+              })}
+            </div>
+            {tiposSeleccionados.length === 0 && (
+              <p className="text-xs text-amber-700 mt-1.5">Selecciona al menos un tipo de reactivo.</p>
+            )}
+          </div>
+
           <FuentesIAInput files={archivos} onChange={setArchivos} disabled={trabajando} fuentesGuardadas={fuentesGuardadas} />
         </div>
 
@@ -169,7 +210,7 @@ export default function CrearEvaluacionIAModal({
             className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
             Cancelar
           </button>
-          <button type="button" onClick={handleGenerar} disabled={trabajando}
+          <button type="button" onClick={handleGenerar} disabled={trabajando || tiposSeleccionados.length === 0}
             className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
             {trabajando ? 'Generando…' : 'Generar con IA'}
           </button>

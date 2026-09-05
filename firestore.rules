@@ -1278,9 +1278,28 @@ service cloud.firestore {
     // acreditación en sí sigue siendo exclusivamente server-side
     // (activarCreditosBienvenida en functions/index.js), nunca un write
     // directo del cliente.
+    //
+    // El admin también lee (2-sep-2026), mismo patrón que `iaCreditos` aquí
+    // arriba: sin esto, el histórico del panel solo puede enseñar un saldo
+    // suelto, y un "0" ahí no distingue a quien nunca activó su regalo de
+    // quien ya lo gastó — dos situaciones que para administración no son la
+    // misma. La escritura sigue cerrada para TODOS, admin incluido.
     match /iaTrialRegistro/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if (request.auth != null && request.auth.uid == uid) || isAdmin();
       allow write: if false;
+    }
+
+    // Configuración privada del negocio (3-sep-2026). Distinta de `config/`,
+    // que cualquier autenticado puede LEER (ahí viven tarifas y datos de
+    // cobro que el docente necesita): aquí van cifras que solo le importan a
+    // administración y que ningún docente tiene por qué ver.
+    //
+    // Hoy guarda `anthropicSaldo`: el saldo que el admin CAPTURÓ A MANO de la
+    // consola de Anthropic, con su fecha. No es un saldo consultado —
+    // Anthropic no expone ningún endpoint de saldo disponible — y por eso se
+    // escribe desde el panel, no desde un servidor que lo averigua.
+    match /adminConfig/{docId} {
+      allow read, write: if isAdmin();
     }
 
     // ── Enlaces de descarga del APK de Android ──

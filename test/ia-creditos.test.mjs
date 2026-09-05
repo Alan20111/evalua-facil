@@ -544,6 +544,32 @@ await caso('mixto: reparte round-robin entre los 4 tipos disponibles — nunca l
   assert.deepStrictEqual(tipos, ['opcion_multiple', 'verdadero_falso', 'respuesta_corta', 'subir_archivo', 'opcion_multiple'])
 })
 
+await caso('checkboxes: un arreglo con un solo tipo reparte ese tipo en todas las posiciones', () => {
+  const tipos = IA.tiposParaLote(['respuesta_corta'], 4)
+  assert.deepStrictEqual(tipos, ['respuesta_corta', 'respuesta_corta', 'respuesta_corta', 'respuesta_corta'])
+})
+
+await caso('checkboxes: dos tipos alternan en round-robin, ninguno de los otros dos entra', () => {
+  const tipos = IA.tiposParaLote(['opcion_multiple', 'verdadero_falso'], 5)
+  assert.deepStrictEqual(tipos, ['opcion_multiple', 'verdadero_falso', 'opcion_multiple', 'verdadero_falso', 'opcion_multiple'])
+})
+
+await caso('checkboxes: los 4 marcados equivalen a "Mixto" (mismo orden round-robin)', () => {
+  const conArreglo = IA.tiposParaLote(['opcion_multiple', 'verdadero_falso', 'respuesta_corta', 'subir_archivo'], 6)
+  const legadoMixto = IA.tiposParaLote('mixto', 6)
+  assert.deepStrictEqual(conArreglo, legadoMixto)
+})
+
+await caso('checkboxes: valores desconocidos dentro del arreglo se ignoran, los válidos mandan', () => {
+  const tipos = IA.tiposParaLote(['foo', 'verdadero_falso', 'bar'], 3)
+  assert.deepStrictEqual(tipos, ['verdadero_falso', 'verdadero_falso', 'verdadero_falso'])
+})
+
+await caso('checkboxes: arreglo vacío cae al reparto mixto (defensa; el precheck lo rechaza antes)', () => {
+  const tipos = IA.tiposParaLote([], 4)
+  assert.deepStrictEqual(tipos, ['opcion_multiple', 'verdadero_falso', 'respuesta_corta', 'subir_archivo'])
+})
+
 await caso('normalizarReactivos: fuerza el tipo/orden de ctx.tipos aunque la IA devuelva otra cosa', () => {
   const ctx = { tipos: ['opcion_multiple', 'verdadero_falso'] }
   const datos = {
@@ -603,6 +629,158 @@ await caso('cantidad y tipo fuera de rango: se acotan en silencio, nunca rechaza
   })
   assert.strictEqual(ctx.cantidad, IA.MAX_REACTIVOS)
   assert.strictEqual(ctx.tipoSolicitado, 'mixto') // valor no reconocido → mixto por default
+})
+
+await caso('checkboxes: params.tipos con dos tipos ARMA el ctx.tipos con solo esos dos', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: {
+      actividadId: 'act_cuestionario', quiereEvaluar: QUIERE_EVALUAR_OK, cantidad: 4,
+      tipos: ['opcion_multiple', 'verdadero_falso'],
+    },
+  })
+  assert.strictEqual(ctx.cantidad, 4)
+  assert.deepStrictEqual(ctx.tipos, ['opcion_multiple', 'verdadero_falso', 'opcion_multiple', 'verdadero_falso'])
+})
+
+await caso('checkboxes: params.tipos vacío es error del cliente y NO cobra crédito', async () => {
+  await assert.rejects(
+    () => IA.precheckReactivos({
+      uid: DOCENTE,
+      params: { actividadId: 'act_cuestionario', quiereEvaluar: QUIERE_EVALUAR_OK, tipos: [] },
+    }),
+    (e) => String(e.code).includes('invalid-argument')
+  )
+})
+
+await caso('retrocompat: params.tipoSolicitado (cliente viejo/caché) sigue mandando cuando no hay params.tipos', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: { actividadId: 'act_cuestionario', quiereEvaluar: QUIERE_EVALUAR_OK, cantidad: 3, tipoSolicitado: 'respuesta_corta' },
+  })
+  assert.strictEqual(ctx.tipoSolicitado, 'respuesta_corta')
+  assert.ok(ctx.tipos.every((t) => t === 'respuesta_corta'))
+})
+
+// ── "Mismo tema que los reactivos anteriores" ──────────────────────────────
+
+await caso('sanitizarReactivosExistentes: descarta enunciados vacíos y recorta a máximo', () => {
+  const salida = IA.sanitizarReactivosExistentes([
+    { tipo: 'opcion_multiple', enunciado: '¿Qué es un algoritmo?' },
+    { tipo: 'respuesta_corta', enunciado: '' },
+    { tipo: 'respuesta_corta', enunciado: '   ' },
+    { tipo: 'tipo_desconocido', enunciado: 'Se acepta pero se marca como OM' },
+  ])
+  assert.strictEqual(salida.length, 2)
+  assert.strictEqual(salida[0].enunciado, '¿Qué es un algoritmo?')
+  assert.strictEqual(salida[1].tipo, 'opcion_multiple') // fallback
+})
+
+await caso('sanitizarReactivosExistentes: entrada basura no revienta', () => {
+  assert.deepStrictEqual(IA.sanitizarReactivosExistentes(null), [])
+  assert.deepStrictEqual(IA.sanitizarReactivosExistentes(undefined), [])
+  assert.deepStrictEqual(IA.sanitizarReactivosExistentes('nope'), [])
+  assert.deepStrictEqual(IA.sanitizarReactivosExistentes([{}, { tipo: 'opcion_multiple' }]), [])
+})
+
+await caso('mismo tema + reactivos previos: NO exige quiereEvaluar de 40 chars', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: {
+      actividadId: 'act_cuestionario', cantidad: 3, tipos: ['opcion_multiple'],
+      mismoTema: true,
+      reactivosExistentes: [
+        { tipo: 'opcion_multiple', enunciado: '¿Qué es un algoritmo?' },
+        { tipo: 'respuesta_corta', enunciado: 'Describe la estructura Si…Entonces.' },
+      ],
+      // quiereEvaluar deliberadamente ausente
+    },
+  })
+  assert.strictEqual(ctx.mismoTema, true)
+  assert.strictEqual(ctx.reactivosExistentes.length, 2)
+  assert.strictEqual(ctx.reactivosExistentes[0].enunciado, '¿Qué es un algoritmo?')
+})
+
+await caso('mismo tema pero reactivosExistentes vacío: degrada al flujo normal (exige quiereEvaluar)', async () => {
+  await assert.rejects(
+    () => IA.precheckReactivos({
+      uid: DOCENTE,
+      params: { actividadId: 'act_cuestionario', cantidad: 3, mismoTema: true, reactivosExistentes: [] },
+    }),
+    (e) => String(e.code).includes('failed-precondition')
+  )
+})
+
+await caso('SIN mismo tema: comportamiento actual, exige quiereEvaluar de 40 chars', async () => {
+  await assert.rejects(
+    () => IA.precheckReactivos({
+      uid: DOCENTE,
+      params: { actividadId: 'act_cuestionario', cantidad: 3, quiereEvaluar: 'muy corto', mismoTema: false },
+    }),
+    (e) => String(e.code).includes('failed-precondition')
+  )
+})
+
+await caso('mismo tema: el tema del docente se ignora (no se envía al prompt)', async () => {
+  const ctx = await IA.precheckReactivos({
+    uid: DOCENTE,
+    params: {
+      actividadId: 'act_cuestionario', cantidad: 2, tipos: ['opcion_multiple'],
+      mismoTema: true,
+      reactivosExistentes: [{ tipo: 'opcion_multiple', enunciado: 'X' }],
+      tema: 'Este tema debe ignorarse porque marcó Mismo tema',
+    },
+  })
+  assert.strictEqual(ctx.tema, '')
+})
+
+await caso('promptReactivos con mismoTema: incluye CONCEPTOS YA CUBIERTOS y NO incluye "QUÉ QUIERE EVALUAR"', () => {
+  const ctx = {
+    clase: 'cuestionario', nombre: 'Algoritmos', tipos: ['opcion_multiple', 'respuesta_corta'],
+    cantidad: 2, mismoTema: true,
+    reactivosExistentes: [
+      { tipo: 'opcion_multiple', enunciado: '¿Qué es un algoritmo?' },
+      { tipo: 'respuesta_corta', enunciado: 'Explica la iteración con while.' },
+    ],
+    quiereEvaluar: '', tema: '', bloqueFuentes: '',
+  }
+  const prompt = IA.promptReactivos(ctx, 'Informática')
+  assert.ok(prompt.includes('CONCEPTOS YA CUBIERTOS'), 'usa el encuadre de territorio ya cubierto')
+  assert.ok(prompt.includes('¿Qué es un algoritmo?'), 'incluye el enunciado literal')
+  assert.ok(prompt.includes('DOMINIO TEMÁTICO'), 'pide mismo dominio, no misma pregunta')
+  assert.ok(prompt.includes('ASPECTOS'), 'exige aspectos distintos')
+  assert.ok(!prompt.includes('QUÉ QUIERE EVALUAR EL DOCENTE'), 'NO usa el bloque de quiereEvaluar')
+  assert.ok(!prompt.includes('REACTIVOS YA EXISTENTES'), 'el encuadre antiguo ya no aparece')
+})
+
+await caso('promptReactivos SIN mismoTema: bloque QUÉ QUIERE EVALUAR intacto (regresión cero)', () => {
+  const ctx = {
+    clase: 'cuestionario', nombre: 'Álgebra', tipos: ['opcion_multiple'],
+    cantidad: 3, mismoTema: false, reactivosExistentes: [],
+    quiereEvaluar: 'Ecuaciones lineales con una variable y sus aplicaciones prácticas',
+    tema: 'Álgebra', bloqueFuentes: '',
+  }
+  const prompt = IA.promptReactivos(ctx, 'Matemáticas')
+  assert.ok(prompt.includes('QUÉ QUIERE EVALUAR EL DOCENTE'), 'usa el bloque de quiereEvaluar')
+  assert.ok(prompt.includes('Ecuaciones lineales'), 'incluye la descripción del docente')
+  assert.ok(!prompt.includes('CONCEPTOS YA CUBIERTOS'), 'no menciona conceptos cubiertos')
+})
+
+await caso('promptReactivos: instrucción de diversidad presente en ambos flujos', () => {
+  const ctxMismo = {
+    clase: 'cuestionario', nombre: 'Test', tipos: ['opcion_multiple'],
+    cantidad: 1, mismoTema: true,
+    reactivosExistentes: [{ tipo: 'opcion_multiple', enunciado: '¿Qué es X?' }],
+    quiereEvaluar: '', tema: '', bloqueFuentes: '',
+  }
+  const ctxNormal = {
+    clase: 'cuestionario', nombre: 'Test', tipos: ['opcion_multiple'],
+    cantidad: 1, mismoTema: false, reactivosExistentes: [],
+    quiereEvaluar: 'Estructuras de datos básicas en programación',
+    tema: '', bloqueFuentes: '',
+  }
+  assert.ok(IA.promptReactivos(ctxMismo, 'Info').includes('aspecto distinto'), 'mismoTema tiene instrucción de diversidad')
+  assert.ok(IA.promptReactivos(ctxNormal, 'Info').includes('aspecto distinto'), 'flujo normal tiene instrucción de diversidad')
 })
 
 await caso('cantidad por default es 5 cuando el cliente no manda nada', async () => {
@@ -765,7 +943,14 @@ await caso('MAX_FUENTES sigue en 3 — solo aplica a lo que el docente adjunta a
 
 await caso('bloqueFuentesPermanentes: sin asignaturaId, no truena (actividad de prueba/legacy)', async () => {
   const r = await IA.bloqueFuentesPermanentes(db, null, 1)
-  assert.deepStrictEqual(r, { texto: null, urls: [] })
+  // Desde el 3-sep-2026 el retorno también trae los documentos que viajan
+  // como PDF nativo (`bloques`) y el motivo de los que no se pudieron usar
+  // (`avisos`); `texto` conserva su contrato de siempre.
+  assert.strictEqual(r.texto, null)
+  assert.deepStrictEqual(r.urls, [])
+  assert.deepStrictEqual(r.bloques, [])
+  assert.deepStrictEqual(r.avisos, [])
+  assert.strictEqual(r.paginasVisuales, 0)
 })
 
 // ── Integración: precheckReactivos (OP-09) respeta el parcial de SU actividad ──
@@ -835,6 +1020,33 @@ await caso('promptCrearEvaluacion: el primer lote SÍ pide instruccionesHtml en 
 await caso('promptCrearEvaluacion: un lote posterior NO vuelve a pedir instrucciones (evita versiones contradictorias)', () => {
   const p = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['verdadero_falso'], 1, false)
   assert.ok(!p.includes('instruccionesHtml'), 'un lote que no es el primero no debe pedirlas de nuevo')
+})
+
+await caso('promptCrearEvaluacion: instrucción de diversidad presente en todo lote', () => {
+  const p1 = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['opcion_multiple'], 0, true)
+  const p2 = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['verdadero_falso'], 1, false)
+  assert.ok(p1.includes('aspecto distinto'), 'primer lote lleva instrucción de diversidad')
+  assert.ok(p2.includes('aspecto distinto'), 'lote posterior también lleva instrucción de diversidad')
+})
+
+await caso('promptCrearEvaluacion: sin yaGenerados el bloque de exclusión no aparece', () => {
+  const p = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['opcion_multiple'], 0, true)
+  assert.ok(!p.includes('YA GENERADOS'), 'primer lote sin yaGenerados no incluye el bloque')
+})
+
+await caso('promptCrearEvaluacion: con yaGenerados el bloque aparece en lotes posteriores', () => {
+  const previos = ['¿Qué es una ecuación?', 'Calcula 2x + 3 = 7']
+  const p = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['verdadero_falso'], 2, false, previos)
+  assert.ok(p.includes('YA GENERADOS'), 'incluye el bloque de reactivos ya generados')
+  assert.ok(p.includes('¿Qué es una ecuación?'), 'incluye el primer enunciado previo')
+  assert.ok(p.includes('Calcula 2x + 3 = 7'), 'incluye el segundo enunciado previo')
+  assert.ok(p.includes('no repitas el mismo concepto'), 'incluye la instrucción de evitar repetición')
+})
+
+await caso('promptCrearEvaluacion: yaGenerados vacío es equivalente a no pasar el parámetro', () => {
+  const pSin = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['opcion_multiple'], 0, false)
+  const pVacio = IA.promptCrearEvaluacion(CTX_EVAL_BASE, 'Matemáticas', ['opcion_multiple'], 0, false, [])
+  assert.strictEqual(pSin, pVacio, 'array vacío debe producir prompt idéntico al caso por omisión')
 })
 
 // La regla (ficha aprobada, 11-ago-2026): la IA solo redacta interpretación y

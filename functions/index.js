@@ -52,6 +52,12 @@ exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
 const adminChat = require('./adminChat')
 exports.chatAdmin = adminChat.chatAdmin
 
+// Resumen diario de costo de IA vs. ingresos por venta de créditos, para el
+// apartado "Costos de IA" del panel (3-sep-2026). Callable y no lectura del
+// cliente porque `iaConsumosInterno` sigue cerrado a TODO cliente y porque la
+// agregación pertenece al servidor — ver functions/resumenCostosIA.js.
+exports.resumenCostosIA = require('./resumenCostosIA').resumenCostosIA
+
 // Crucigrama / Sopa de letras (22-ago-2026) — construirJuego es su propio
 // onCall, deliberadamente FUERA de ejecutarOperacionIA: es un algoritmo
 // determinista (backtracking), no usa IA y no pasa por el ledger de

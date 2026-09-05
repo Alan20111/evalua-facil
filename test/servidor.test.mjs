@@ -30,6 +30,7 @@ const F = funciones._pruebas
 const FIA = iaFn._pruebas
 // A25 — el reparto público/privado de los juegos vive en su propio módulo.
 const juegoFns = require('../functions/juego.js')
+const { Timestamp } = require('firebase-admin/firestore')
 const DOCENTE = 'docente_uno'
 const OTRO = 'docente_dos'
 
@@ -185,6 +186,7 @@ const EXENTAS = {
   schools: 'la escuela es compartida entre docentes — borrarla sería el defecto',
   bajas: 'la constancia de baja es intencional: sobrevive a propósito',
   studentEvents: 'agenda del propio estudiante — correctamente fuera del borrado de cuenta del docente; limpieza al dar de baja una inscripción pendiente (R13)',
+  adminConfig: 'configuración privada de administración (saldo capturado de Anthropic) — no pertenece a ningún docente, así que su cuenta no se la lleva al borrarse',
   attendanceSummaries: 'la limpia la Cloud Function recalcularResumenAsistencia, no el endpoint — verificado contra producción en A17; aquí no corre porque el emulador de Functions queda fuera de alcance',
 }
 
@@ -1140,6 +1142,169 @@ await caso('con clave, el grid y las palabras salen de la clave y la pista se co
 
 await caso('sin estructura pública devuelve null en vez de reventar', () => {
   assert.strictEqual(JF.estructuraEfectiva(null, { grid: [] }), null)
+})
+
+grupo('Costos de IA · resumenDiario — la serie que ve el panel de admin')
+
+const RC = require('../functions/resumenCostosIA.js').__test
+const AHORA = new Date('2026-09-03T18:00:00Z') // 12:00 en México
+const T = (iso) => Timestamp.fromDate(new Date(iso))
+const filaDe = (r, fecha) => r.dias.find((d) => d.fecha === fecha)
+
+await limpiar()
+// Las tarifas viven en Firestore, no en el código: el resumen las lee de
+// ahí igual que en producción.
+await db.doc('config/iaTarifas').set({
+  costosAnthropicUSD: {
+    'claude-haiku-4-5': { entradaPorMTok: 1, salidaPorMTok: 5, cacheEscritura5mPorMTok: 1.25, cacheLecturaPorMTok: 0.10 },
+  },
+  tipoCambioUsdMxn: 20,
+})
+
+// Día con costo de DOCENTE y sin ingresos.
+await db.doc('iaConsumosInterno/c1').set({
+  uid: 'docente_uno', operacion: 'rubrica', modelo: 'claude-haiku-4-5',
+  tokensEntrada: 1000000, tokensSalida: 200000, createdAt: T('2026-09-01T20:00:00Z'),
+})
+// MISMO día, costo del CHAT DE ADMIN: la otra fuente que también se paga.
+await db.doc('adminChatConsumosInterno/a1').set({
+  uid: 'admin_uno', modelo: 'claude-haiku-4-5',
+  tokensEntrada: 1000000, tokensSalida: 0, createdAt: T('2026-09-01T21:00:00Z'),
+})
+// Día con INGRESO y sin costo.
+await db.doc('creditPurchases/p1').set({
+  docenteId: 'docente_uno', creditos: 200, montoMXN: 180, status: 'completado',
+  createdAt: T('2026-08-30T10:00:00Z'), resueltoEn: T('2026-09-02T17:00:00Z'),
+})
+// Compras que NO son ingreso.
+await db.doc('creditPurchases/p2').set({
+  docenteId: 'docente_uno', creditos: 50, montoMXN: 50, status: 'rechazado',
+  createdAt: T('2026-09-02T10:00:00Z'), resueltoEn: T('2026-09-02T18:00:00Z'),
+})
+await db.doc('creditPurchases/p3').set({
+  docenteId: 'docente_uno', creditos: 100, montoMXN: 90, status: 'pendiente',
+  createdAt: T('2026-09-02T11:00:00Z'),
+})
+
+const r7 = await RC.resumenDiario({ db, dias: 7, ahora: AHORA })
+
+await caso('la serie trae un renglón por día del rango, también los días sin nada', () => {
+  assert.strictEqual(r7.dias.length, 7)
+  assert.strictEqual(r7.totales.diasDelPeriodo, 7)
+  const vacio = filaDe(r7, '2026-08-29')
+  assert.strictEqual(vacio.llamadas, 0)
+  assert.strictEqual(vacio.costoIAMXN, 0)
+  assert.strictEqual(vacio.ingresosMXN, 0)
+  assert.strictEqual(vacio.margenMXN, 0)
+})
+
+await caso('un día con costo y sin ingresos deja margen NEGATIVO', () => {
+  const d = filaDe(r7, '2026-09-01')
+  // Docente: 1 MTok entrada ($1) + 0.2 MTok salida ($1) = $2 USD
+  // Chat de admin: 1 MTok entrada = $1 USD  -> total $3 USD x 20 = $60 MXN
+  assert.strictEqual(d.costoIAUSD, 3)
+  assert.strictEqual(d.costoIAMXN, 60)
+  assert.strictEqual(d.ingresosMXN, 0)
+  assert.strictEqual(d.margenMXN, -60)
+})
+
+await caso('el costo suma las DOS fuentes: consumo de docentes y Chat de Administración', () => {
+  const d = filaDe(r7, '2026-09-01')
+  assert.strictEqual(d.llamadas, 2, 'una llamada de cada colección')
+  assert.strictEqual(d.tokensEntrada, 2000000)
+  assert.strictEqual(d.tokensSalida, 200000)
+})
+
+await caso('un día con ingresos y sin costo deja margen POSITIVO', () => {
+  const d = filaDe(r7, '2026-09-02')
+  assert.strictEqual(d.costoIAMXN, 0)
+  assert.strictEqual(d.ingresosMXN, 180)
+  assert.strictEqual(d.margenMXN, 180)
+  assert.strictEqual(d.comprasCompletadas, 1)
+  assert.strictEqual(d.creditosVendidos, 200)
+})
+
+await caso('solo entran las compras completadas: rechazadas y pendientes NO son ingreso', () => {
+  const d = filaDe(r7, '2026-09-02')
+  assert.strictEqual(d.ingresosMXN, 180, 'los 50 rechazados y los 90 pendientes no se suman')
+  assert.strictEqual(r7.totales.ingresosMXN, 180)
+})
+
+await caso('el ingreso se fecha cuando se APROBÓ (resueltoEn), no cuando se subió el comprobante', () => {
+  assert.strictEqual(filaDe(r7, '2026-08-30').ingresosMXN, 0, 'createdAt fue el 30, pero no es el día del ingreso')
+  assert.strictEqual(filaDe(r7, '2026-09-02').ingresosMXN, 180)
+})
+
+await caso('los totales y el promedio diario cuadran con la suma de los renglones', () => {
+  const sumaCosto = r7.dias.reduce((a, d) => a + d.costoIAMXN, 0)
+  assert.strictEqual(r7.totales.costoIAMXN, sumaCosto)
+  assert.strictEqual(r7.totales.margenMXN, 180 - 60)
+  // 60 MXN entre los 7 días del periodo, no entre el único día con gasto.
+  assert.strictEqual(r7.totales.costoPromedioDiarioMXN, Math.round((60 / 7) * 100) / 100)
+})
+
+await caso('la respuesta NO lleva uid ni ningún dato personal', () => {
+  const texto = JSON.stringify(r7)
+  assert.ok(!texto.includes('docente_uno'), 'ningún uid de docente')
+  assert.ok(!texto.includes('admin_uno'), 'ni el del admin')
+  assert.ok(!/\buid\b/.test(texto), 'ni la palabra uid como campo')
+  const campos = Object.keys(r7.dias[0]).sort()
+  assert.deepStrictEqual(campos, [
+    'comprasCompletadas', 'costoIAMXN', 'costoIAUSD', 'creditosVendidos', 'fecha',
+    'ingresosMXN', 'llamadas', 'llamadasSinTarifa', 'margenMXN', 'tokensEntrada', 'tokensSalida',
+  ])
+})
+
+await caso('un modelo sin tarifa se cuenta aparte y NO se suma como cero al costo', async () => {
+  await db.doc('iaConsumosInterno/c2').set({
+    uid: 'docente_uno', operacion: 'rubrica', modelo: 'un-modelo-nuevo-sin-tarifa',
+    tokensEntrada: 9000000, tokensSalida: 9000000, createdAt: T('2026-09-01T22:00:00Z'),
+  })
+  const r = await RC.resumenDiario({ db, dias: 7, ahora: AHORA })
+  const d = filaDe(r, '2026-09-01')
+  assert.strictEqual(d.llamadasSinTarifa, 1)
+  assert.strictEqual(d.llamadas, 3, 'la llamada sí se cuenta')
+  assert.strictEqual(d.costoIAMXN, 60, 'pero su costo no se inventa')
+  await db.doc('iaConsumosInterno/c2').delete()
+})
+
+await caso('los tres rangos del panel devuelven 7, 30 y 90 renglones', async () => {
+  for (const n of [7, 30, 90]) {
+    const r = await RC.resumenDiario({ db, dias: n, ahora: AHORA })
+    assert.strictEqual(r.dias.length, n)
+    assert.strictEqual(r.totales.diasDelPeriodo, n)
+  }
+})
+
+await caso('un consumo FUERA del rango no entra en la serie', async () => {
+  await db.doc('iaConsumosInterno/viejo').set({
+    uid: 'docente_uno', operacion: 'rubrica', modelo: 'claude-haiku-4-5',
+    tokensEntrada: 5000000, tokensSalida: 0, createdAt: T('2026-06-01T12:00:00Z'),
+  })
+  const r = await RC.resumenDiario({ db, dias: 7, ahora: AHORA })
+  assert.strictEqual(r.totales.costoIAMXN, 60, 'lo de junio no contamina la ventana de 7 días')
+  await db.doc('iaConsumosInterno/viejo').delete()
+})
+
+await caso('un registro sin createdAt no se fuerza a ningún día', async () => {
+  await db.doc('iaConsumosInterno/sinfecha').set({
+    uid: 'docente_uno', operacion: 'rubrica', modelo: 'claude-haiku-4-5', tokensEntrada: 1000000,
+  })
+  const r = await RC.resumenDiario({ db, dias: 7, ahora: AHORA })
+  assert.strictEqual(r.totales.costoIAMXN, 60, 'no se cuela por la puerta de atrás')
+  await db.doc('iaConsumosInterno/sinfecha').delete()
+})
+
+await caso('sin tipo de cambio configurado, los MXN son null — nunca un cero engañoso', async () => {
+  await db.doc('config/iaTarifas').set({
+    costosAnthropicUSD: { 'claude-haiku-4-5': { entradaPorMTok: 1, salidaPorMTok: 5, cacheEscritura5mPorMTok: 1.25, cacheLecturaPorMTok: 0.10 } },
+  })
+  const r = await RC.resumenDiario({ db, dias: 7, ahora: AHORA })
+  assert.strictEqual(r.tipoCambioUsdMxnUsado, null)
+  assert.strictEqual(r.totales.costoIAMXN, null)
+  assert.strictEqual(filaDe(r, '2026-09-01').costoIAMXN, null)
+  assert.strictEqual(filaDe(r, '2026-09-01').margenMXN, null)
+  assert.ok(r.totales.costoIAUSD > 0, 'el costo en USD sí se calcula')
 })
 
 await limpiar()

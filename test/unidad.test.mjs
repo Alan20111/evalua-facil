@@ -22,13 +22,20 @@ import {
   propuestaFueEditada, trazaIA,
 } from '../src/utils/rubrica.js'
 import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosIA.js'
+import { estaRespondida } from '../src/utils/evaluacionRespondida.js'
 import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
 import { planeacionVigente, validarArchivoPlaneacion, extensionPlaneacion } from '../src/utils/planeacionVigente.js'
+import { estadoRegaloIA } from '../src/utils/creditosHelpers.js'
+import {
+  calcularCostoUSD, claveDia, inicioDelDia, clavesDeDias, rangoDeDias,
+  margenSobreCostoIA, costoPromedioDiario, diasEstimadosRestantes, RANGOS_DIAS,
+} from '../src/utils/costosIA.js'
 import { resolverBackspace } from '../src/utils/crucigramaBackspace.js'
 import { correccionesCrucigrama } from '../src/utils/correccionesJuego.js'
+import { esDeIntentoAnterior, tieneRespuestaGuardada } from '../src/utils/respuestasIntento.js'
 import {
   esEstructuraHeredada, estructuraConClave, debeEscribirContenidoEmbebido,
 } from '../src/utils/juegoReparto.js'
@@ -236,6 +243,257 @@ caso('sin suscripción no hay vigencia (y no revienta)', () => {
   assert.strictEqual(F.vigenciaDe({ status: 'trial' }), null)
 })
 
+grupo('Regalo de bienvenida en el historico del admin \u2014 el "0" deja de ser ambiguo')
+
+// El caso que motivo todo esto: un saldo de 0 puede ser "nunca lo activo" o
+// "lo activo y ya lo gasto", y para administracion no son lo mismo.
+const REG = (extra = {}) => ({ bienvenidaDisponible: true, bienvenidaActivada: false, creditosBienvenida: 30, ...extra })
+
+caso('nunca activado: dice cuantos le esperan, no "0"', () => {
+  const r = estadoRegaloIA({ registro: REG(), creditos: undefined })
+  assert.strictEqual(r.estado, 'sin_activar')
+  assert.strictEqual(r.texto, 'Sin activar \u00b7 30')
+  assert.ok(r.determinable)
+})
+
+caso('activado y sin gastar nada', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 30, consumidoTotal: 0 },
+  })
+  assert.strictEqual(r.estado, 'activo')
+  assert.strictEqual(r.texto, 'Activo \u00b7 30 de 30')
+})
+
+caso('activado con saldo parcial', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 12, consumidoTotal: 18 },
+  })
+  assert.strictEqual(r.texto, 'Activo \u00b7 12 de 30')
+  assert.strictEqual(r.consumido, 18)
+  assert.strictEqual(r.restante, 12)
+})
+
+caso('agotado: el 0 se lee como gastado, no como "nunca lo pidio"', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 0, consumidoTotal: 30 },
+  })
+  assert.strictEqual(r.estado, 'agotado')
+  assert.strictEqual(r.texto, 'Agotado \u00b7 0 de 30')
+  assert.ok(/gastado/.test(r.ayuda))
+})
+
+caso('la cantidad NO esta clavada en 30: una cuenta vieja de 50 muestra 50', () => {
+  const sinActivar = estadoRegaloIA({ registro: REG({ creditosBienvenida: 50 }) })
+  assert.strictEqual(sinActivar.texto, 'Sin activar \u00b7 50')
+  const activo = estadoRegaloIA({
+    registro: REG({ creditosBienvenida: 50, bienvenidaActivada: true }),
+    creditos: { saldo: 44, consumidoTotal: 6 },
+  })
+  assert.strictEqual(activo.texto, 'Activo \u00b7 44 de 50')
+})
+
+caso('fracciones de credito (tarifas de 0.5) no se redondean a mentiras', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 27.5, consumidoTotal: 2.5 },
+  })
+  assert.strictEqual(r.texto, 'Activo \u00b7 27.5 de 30')
+})
+
+// Lo que el sistema NO registra: de que bolsa salio cada credito gastado. Se
+// deduce mientras el regalo sea la unica entrada, y cuando deja de serlo hay
+// que DECIRLO, no estimar.
+caso('con ajuste manual del admin NO se afirma un desglose', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 60, consumidoTotal: 0, ultimoAjusteManual: { delta: 30, motivo: 'Prueba' } },
+  })
+  assert.strictEqual(r.estado, 'indeterminable')
+  assert.strictEqual(r.determinable, false)
+  assert.ok(/ajust\u00f3 el saldo a mano/.test(r.ayuda))
+  assert.ok(!/\bde 30\b/.test(r.texto), 'no inventa una cifra de restante')
+})
+
+caso('con compras acreditadas tampoco: el saldo ya mezcla regalo y comprado', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 130, consumidoTotal: 0 },
+    tieneComprasAcreditadas: true,
+  })
+  assert.strictEqual(r.estado, 'indeterminable')
+  assert.ok(/compras de cr\u00e9ditos acreditadas/.test(r.ayuda))
+})
+
+caso('saldo migrado de un plan viejo: se detecta por los campos legado', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 30, consumidoTotal: 0, plan: 'cortesia', capacidad: 1750 },
+  })
+  assert.strictEqual(r.estado, 'indeterminable')
+  assert.ok(/plan anterior migrado/.test(r.ayuda))
+})
+
+caso('red de seguridad: si el saldo no cuadra, no se afirma nada aunque no haya causa conocida', () => {
+  // 50 otorgados y 136.25 consumidos no pueden dejar 23.75 de saldo si el
+  // regalo fuera la unica entrada: entro saldo por una via que nadie registro.
+  const r = estadoRegaloIA({
+    registro: REG({ creditosBienvenida: 50, bienvenidaActivada: true }),
+    creditos: { saldo: 23.75, consumidoTotal: 136.25 },
+  })
+  assert.strictEqual(r.estado, 'indeterminable')
+  assert.ok(/no cuadra/.test(r.ayuda))
+})
+
+caso('el descuadre tolera el ruido de punto flotante, no lo confunde con un hueco', () => {
+  const r = estadoRegaloIA({
+    registro: REG({ bienvenidaActivada: true }),
+    creditos: { saldo: 0.1 + 0.2 + 29.7, consumidoTotal: 0 },
+  })
+  assert.strictEqual(r.estado, 'activo')
+})
+
+caso('sin documento de registro: se dice, no se asume que no tiene regalo', () => {
+  const r = estadoRegaloIA({ registro: undefined, creditos: { saldo: 0, consumidoTotal: 0 } })
+  assert.strictEqual(r.estado, 'sin_registro')
+  assert.strictEqual(r.determinable, false)
+})
+
+caso('registro sin creditosBienvenida: activo pero sin "de cuantos"', () => {
+  const r = estadoRegaloIA({
+    registro: { bienvenidaDisponible: true, bienvenidaActivada: true },
+    creditos: { saldo: 10, consumidoTotal: 0 },
+  })
+  assert.strictEqual(r.estado, 'indeterminable')
+  assert.ok(!/NaN|undefined/.test(r.texto + r.ayuda))
+})
+
+caso('llamada sin argumentos no revienta la tabla', () => {
+  assert.strictEqual(estadoRegaloIA().estado, 'sin_registro')
+  assert.strictEqual(estadoRegaloIA({}).estado, 'sin_registro')
+})
+
+grupo('Costos de IA \u2014 costo real de Anthropic y serie diaria del panel')
+
+// Las tarifas REALES que hay en config/iaTarifas (claude-haiku-4-5). No se
+// codifican como verdad del sistema: son el insumo del caso, igual que las
+// recibe la funcion en produccion.
+const TARIFAS = {
+  'claude-haiku-4-5': { entradaPorMTok: 1, salidaPorMTok: 5, cacheEscritura5mPorMTok: 1.25, cacheLecturaPorMTok: 0.10 },
+}
+
+caso('costo = entrada + salida + cache escritura + cache lectura, cada una a su tarifa', () => {
+  const c = calcularCostoUSD({
+    modelo: 'claude-haiku-4-5',
+    tokensEntrada: 1_000_000, tokensSalida: 1_000_000,
+    tokensCacheEscritura: 1_000_000, tokensCacheLectura: 1_000_000,
+  }, TARIFAS)
+  assert.strictEqual(c, 1 + 5 + 1.25 + 0.10)
+})
+
+caso('la salida cuesta 5 veces la entrada \u2014 no se confunden los factores', () => {
+  const entrada = calcularCostoUSD({ modelo: 'claude-haiku-4-5', tokensEntrada: 1_000_000 }, TARIFAS)
+  const salida = calcularCostoUSD({ modelo: 'claude-haiku-4-5', tokensSalida: 1_000_000 }, TARIFAS)
+  assert.strictEqual(salida / entrada, 5)
+})
+
+caso('tokens ausentes cuentan como cero, no como NaN', () => {
+  assert.strictEqual(calcularCostoUSD({ modelo: 'claude-haiku-4-5' }, TARIFAS), 0)
+})
+
+caso('modelo sin tarifa devuelve null: nunca se inventa un costo ni se usa la tarifa de otro', () => {
+  assert.strictEqual(calcularCostoUSD({ modelo: 'modelo-que-no-existe', tokensEntrada: 999999 }, TARIFAS), null)
+  assert.strictEqual(calcularCostoUSD({ modelo: 'claude-haiku-4-5', tokensEntrada: 1 }, {}), null)
+})
+
+// El corte del dia es la zona del negocio, no la del servidor (Cloud Functions
+// corre en UTC). Sin esto, todo lo gastado despues de las 18:00 hora de Mexico
+// caeria en el dia siguiente.
+caso('el dia se corta en hora de Mexico, no en UTC', () => {
+  // 2026-09-03 23:30 UTC = 2026-09-03 17:30 en Mexico \u2192 sigue siendo el dia 3.
+  assert.strictEqual(claveDia(new Date('2026-09-03T23:30:00Z')), '2026-09-03')
+  // 2026-09-04 05:00 UTC = 2026-09-03 23:00 en Mexico \u2192 TODAVIA es el dia 3.
+  assert.strictEqual(claveDia(new Date('2026-09-04T05:00:00Z')), '2026-09-03')
+  // 2026-09-04 06:30 UTC = 2026-09-04 00:30 en Mexico \u2192 ya es el dia 4.
+  assert.strictEqual(claveDia(new Date('2026-09-04T06:30:00Z')), '2026-09-04')
+})
+
+caso('inicioDelDia devuelve el instante UTC de la medianoche mexicana', () => {
+  const i = inicioDelDia('2026-09-03')
+  assert.strictEqual(i.toISOString(), '2026-09-03T06:00:00.000Z')
+  // Y es coherente consigo mismo: ese instante pertenece a ese mismo dia.
+  assert.strictEqual(claveDia(i), '2026-09-03')
+})
+
+caso('claveDia con una fecha invalida devuelve null en vez de "Invalid Date"', () => {
+  assert.strictEqual(claveDia(undefined), null)
+  assert.strictEqual(claveDia(new Date('no soy fecha')), null)
+})
+
+caso('la serie trae TODOS los dias del rango, hoy incluido y el mas viejo primero', () => {
+  const c = clavesDeDias(7, new Date('2026-09-03T18:00:00Z'))
+  assert.strictEqual(c.length, 7)
+  assert.strictEqual(c[0], '2026-08-28')
+  assert.strictEqual(c[6], '2026-09-03')
+  assert.deepStrictEqual([...c].sort(), c, 'quedan en orden cronologico')
+})
+
+caso('los tres rangos del panel dan 7, 30 y 90 dias', () => {
+  assert.deepStrictEqual(RANGOS_DIAS, [7, 30, 90])
+  RANGOS_DIAS.forEach((n) => {
+    assert.strictEqual(clavesDeDias(n, new Date('2026-09-03T18:00:00Z')).length, n)
+  })
+})
+
+caso('un dia sin actividad sigue en la serie: un hueco se leeria como "no se midio"', () => {
+  const c = clavesDeDias(30, new Date('2026-09-03T18:00:00Z'))
+  assert.ok(c.includes('2026-08-25'), 'un dia sin consumo no desaparece de la lista')
+})
+
+caso('rangoDeDias acota la consulta desde la medianoche mexicana del dia mas viejo', () => {
+  const ahora = new Date('2026-09-03T18:00:00Z')
+  const r = rangoDeDias(7, ahora)
+  assert.strictEqual(r.claves.length, 7)
+  assert.strictEqual(r.desde.toISOString(), '2026-08-28T06:00:00.000Z')
+  assert.strictEqual(r.hasta.getTime(), ahora.getTime(), 'el limite superior es AHORA, no el fin del dia')
+})
+
+caso('margen = ingresos - costo, y es negativo cuando se gasta mas de lo que entra', () => {
+  assert.strictEqual(margenSobreCostoIA(500, 120.5), 379.5)
+  assert.strictEqual(margenSobreCostoIA(0, 27.74), -27.74)
+  assert.strictEqual(margenSobreCostoIA(0, 0), 0)
+})
+
+caso('el promedio diario divide entre TODOS los dias, no solo los que tuvieron gasto', () => {
+  // 160.70 en 30 dias, aunque solo 21 tuvieran actividad.
+  assert.strictEqual(costoPromedioDiario(160.70, 30), 5.36)
+  assert.strictEqual(costoPromedioDiario(0, 30), 0)
+})
+
+caso('promedio con cero dias no revienta ni divide entre cero', () => {
+  assert.strictEqual(costoPromedioDiario(100, 0), 0)
+})
+
+// Anthropic NO expone el saldo por API: el numero lo captura una persona. La
+// estimacion solo existe cuando hay las dos mitades.
+caso('dias estimados = saldo capturado / costo promedio diario, hacia abajo', () => {
+  assert.strictEqual(diasEstimadosRestantes(500, 5.36), 93)
+  assert.strictEqual(diasEstimadosRestantes(10, 3), 3)
+})
+
+caso('sin saldo capturado NO se estiman dias \u2014 no se inventa un saldo', () => {
+  assert.strictEqual(diasEstimadosRestantes(null, 5), null)
+  assert.strictEqual(diasEstimadosRestantes(undefined, 5), null)
+  assert.strictEqual(diasEstimadosRestantes(0, 5), null)
+})
+
+caso('sin gasto no hay ritmo que proyectar: null, nunca Infinity', () => {
+  assert.strictEqual(diasEstimadosRestantes(500, 0), null)
+  assert.strictEqual(diasEstimadosRestantes(500, null), null)
+})
+
 // ═══ El export de pruebas no se despliega ════════════════════════════════════
 grupo('Propuesta de IA → instrumento válido (los números los pone EF)')
 
@@ -425,6 +683,93 @@ caso('opción múltiple necesita al menos 2 opciones con texto', () => {
 caso('verdadero_falso y respuesta_corta solo necesitan enunciado', () => {
   assert.strictEqual(reactivoValido({ tipo: 'verdadero_falso', enunciado: 'X', correcta: 'v' }), true)
   assert.strictEqual(reactivoValido({ tipo: 'respuesta_corta', enunciado: 'X' }), true)
+})
+
+
+grupo('estaRespondida — regla global de "toda pregunta se responde"')
+
+const P_ABIERTA = { id: 'p1', tipo: 'respuesta_corta' }
+const P_ARCHIVO = { id: 'p2', tipo: 'subir_archivo' }
+const P_OM = { id: 'p3', tipo: 'opcion_multiple', opciones: [{ id: 'oA' }, { id: 'oB' }, { id: 'oOtra', esOtra: true }] }
+const P_VF = { id: 'p4', tipo: 'verdadero_falso', opciones: [{ id: 'v' }, { id: 'f' }] }
+
+caso('respuesta_corta: undefined, null, "" y solo espacios NUNCA son respuesta válida', () => {
+  assert.strictEqual(estaRespondida(P_ABIERTA, undefined, undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, null, undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, '', undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, '   ', undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, '\t\n', undefined), false)
+})
+
+caso('respuesta_corta: cualquier texto no vacío ES respuesta válida', () => {
+  assert.strictEqual(estaRespondida(P_ABIERTA, 'algo', undefined), true)
+  assert.strictEqual(estaRespondida(P_ABIERTA, ' x ', undefined), true)
+  assert.strictEqual(estaRespondida(P_ABIERTA, '0', undefined), true)
+})
+
+caso('respuesta_corta: valores que no son string (residuo de otro tipo) NO son respuesta', () => {
+  // Regresión del bug real: si por un cambio de tipo el valor cargado es un
+  // id de opción u otro objeto, la abierta debe seguir contando como vacía.
+  assert.strictEqual(estaRespondida(P_ABIERTA, 'oXYZ', undefined), true) // string sí es válido — lo filtra la carga por-tipo
+  assert.strictEqual(estaRespondida(P_ABIERTA, null, undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, { archivoURL: 'x' }, undefined), false)
+  assert.strictEqual(estaRespondida(P_ABIERTA, 42, undefined), false)
+})
+
+caso('subir_archivo: sin archivoURL, con "" o sin objeto NO es respuesta', () => {
+  assert.strictEqual(estaRespondida(P_ARCHIVO, undefined, undefined), false)
+  assert.strictEqual(estaRespondida(P_ARCHIVO, null, undefined), false)
+  assert.strictEqual(estaRespondida(P_ARCHIVO, {}, undefined), false)
+  assert.strictEqual(estaRespondida(P_ARCHIVO, { archivoURL: '' }, undefined), false)
+  assert.strictEqual(estaRespondida(P_ARCHIVO, { archivoURL: null }, undefined), false)
+})
+
+caso('subir_archivo: con URL válida SÍ es respuesta', () => {
+  assert.strictEqual(estaRespondida(P_ARCHIVO, { archivoURL: 'https://x' }, undefined), true)
+})
+
+caso('opcion_multiple: sin opcion elegida NO es respuesta', () => {
+  assert.strictEqual(estaRespondida(P_OM, undefined, undefined), false)
+  assert.strictEqual(estaRespondida(P_OM, null, undefined), false)
+  assert.strictEqual(estaRespondida(P_OM, '', undefined), false)
+})
+
+caso('opcion_multiple: opción normal marcada ES respuesta', () => {
+  assert.strictEqual(estaRespondida(P_OM, 'oA', undefined), true)
+  assert.strictEqual(estaRespondida(P_OM, 'oB', undefined), true)
+})
+
+caso('opcion_multiple con "Otra" marcada: sin texto libre NO es respuesta', () => {
+  assert.strictEqual(estaRespondida(P_OM, 'oOtra', undefined), false)
+  assert.strictEqual(estaRespondida(P_OM, 'oOtra', ''), false)
+  assert.strictEqual(estaRespondida(P_OM, 'oOtra', '   '), false)
+})
+
+caso('opcion_multiple con "Otra": el texto libre completa la respuesta', () => {
+  assert.strictEqual(estaRespondida(P_OM, 'oOtra', 'mi respuesta libre'), true)
+})
+
+caso('verdadero_falso: "v" y "f" son respuestas válidas', () => {
+  assert.strictEqual(estaRespondida(P_VF, 'v', undefined), true)
+  assert.strictEqual(estaRespondida(P_VF, 'f', undefined), true)
+})
+
+caso('verdadero_falso: sin opción elegida NO es respuesta', () => {
+  assert.strictEqual(estaRespondida(P_VF, undefined, undefined), false)
+  assert.strictEqual(estaRespondida(P_VF, null, undefined), false)
+})
+
+caso('valores legítimos `false` y `0` en opciones NO se confunden con vacío', () => {
+  // Solo null/undefined/'' cuentan como vacío. `false` o `0` son valores
+  // legítimos que un tipo futuro (o un id numérico) podrían usar.
+  const P_FALSO = { id: 'p', tipo: 'opcion_multiple', opciones: [{ id: false }, { id: 0 }] }
+  assert.strictEqual(estaRespondida(P_FALSO, false, undefined), true)
+  assert.strictEqual(estaRespondida(P_FALSO, 0, undefined), true)
+})
+
+caso('pregunta sin definir → false (defensa contra un arreglo con huecos)', () => {
+  assert.strictEqual(estaRespondida(null, 'x', undefined), false)
+  assert.strictEqual(estaRespondida(undefined, 'x', undefined), false)
 })
 
 
@@ -1553,6 +1898,115 @@ caso('docExtract: ya no trunca — no expone ningún MAX_CHARS (el documento com
   assert.strictEqual(docExtract.MAX_CHARS, undefined)
 })
 
+// ── PDF visual: un PDF sin capa de texto NO es un PDF inválido (3-sep-2026) ──
+// Bug real: un docente adjuntó una infografía de 4 páginas exportada como
+// imagen (0 caracteres extraíbles) y el sistema la rechazó como "PDF o Word
+// no válido", abortando la creación del cuestionario completo. El archivo
+// estaba perfecto; lo que faltaba era mirarlo en vez de intentar leerlo.
+const FUENTES = require('../functions/fuentesIA.js')
+
+caso('tipoPorDensidad: PDF escaneado (0 caracteres, 4 páginas) → "visual", NUNCA inválido', () => {
+  assert.strictEqual(docExtract.tipoPorDensidad('', 4), 'visual')
+})
+
+caso('tipoPorDensidad: PDF con texto denso → "texto" (sigue el camino barato de siempre)', () => {
+  assert.strictEqual(docExtract.tipoPorDensidad('x'.repeat(80000), 60), 'texto')
+})
+
+caso('tipoPorDensidad: PDF mixto — poco texto por página, el contenido está en la imagen', () => {
+  assert.strictEqual(docExtract.tipoPorDensidad('Encabezado suelto', 4), 'mixto')
+})
+
+caso('tipoPorDensidad: el umbral es por PÁGINA, no total — 199 y 200 caracteres en 1 página', () => {
+  assert.strictEqual(docExtract.tipoPorDensidad('x'.repeat(199), 1), 'mixto')
+  assert.strictEqual(docExtract.tipoPorDensidad('x'.repeat(200), 1), 'texto')
+})
+
+caso('tipoPorDensidad: sin páginas no se puede afirmar nada → "invalido"', () => {
+  assert.strictEqual(docExtract.tipoPorDensidad('lo que sea', 0), 'invalido')
+  assert.strictEqual(docExtract.tipoPorDensidad('lo que sea', null), 'invalido')
+})
+
+caso('presupuestoPaginasVisual: escala con el ingreso — una evaluación de 20 reactivos (5 cr) llega al tope', () => {
+  assert.strictEqual(FUENTES.presupuestoPaginasVisual(5), 30)
+})
+
+caso('presupuestoPaginasVisual: una operación de tarifa plana (1 cr) recibe mucho menos', () => {
+  assert.strictEqual(FUENTES.presupuestoPaginasVisual(1), 6)
+})
+
+caso('presupuestoPaginasVisual: nunca baja del piso de 4 páginas (la infografía del bug real cabe siempre)', () => {
+  assert.strictEqual(FUENTES.presupuestoPaginasVisual(0.25), FUENTES.MIN_PAGINAS_VISUAL)
+  assert.strictEqual(FUENTES.presupuestoPaginasVisual(0), FUENTES.MIN_PAGINAS_VISUAL)
+  assert.ok(FUENTES.MIN_PAGINAS_VISUAL >= 4)
+})
+
+caso('presupuestoPaginasVisual: nunca rebasa el tope aunque la operación sea carísima', () => {
+  assert.strictEqual(FUENTES.presupuestoPaginasVisual(1000), FUENTES.MAX_PAGINAS_VISUAL)
+})
+
+caso('MAX_PAGINAS_VISUAL de fuentes NO es el 3 de las entregas (OP-11) — esa regresión es justo lo que se evita', () => {
+  const evidencias = require('../functions/evidenciasEntrega.js')
+  assert.strictEqual(evidencias.MAX_EVIDENCIAS, 3) // OP-11 intacto
+  assert.ok(FUENTES.MAX_PAGINAS_VISUAL > 3)
+  assert.ok(FUENTES.MIN_PAGINAS_VISUAL > 3)
+})
+
+// ── El documento NO se reprocesa en cada lote (cliente falso, sin red) ───────
+// Se comprueba la forma EXACTA del mensaje: el documento va delante del texto
+// que cambia por lote y lleva cache_control, que es lo único que permite que
+// el segundo lote lo lea del caché en vez de volver a pagarlo entero.
+const clienteFalso = (capturar) => ({
+  messages: {
+    create: async (req) => {
+      capturar(req)
+      return { content: [{ type: 'text', text: '{"ok":true}' }], usage: { input_tokens: 1, output_tokens: 1 } }
+    },
+  },
+})
+
+await (async () => {
+  const bloque = { type: 'document', source: { type: 'url', url: 'https://x/y.pdf' } }
+  let req = null
+  await FIA.pedirJSON({
+    client: clienteFalso((r) => { req = r }), modelo: 'm', maxTokens: 10,
+    prompt: 'TEXTO QUE CAMBIA POR LOTE', system: 's', bloquesPrefijo: [bloque],
+  })
+
+  caso('pedirJSON: el documento va ANTES del prompt (prefijo estable = cacheable)', () => {
+    assert.strictEqual(req.messages[0].content[0].type, 'document')
+    assert.strictEqual(req.messages[0].content[1].type, 'text')
+    assert.strictEqual(req.messages[0].content[1].text, 'TEXTO QUE CAMBIA POR LOTE')
+  })
+
+  caso('pedirJSON: el último bloque del prefijo lleva cache_control', () => {
+    assert.deepStrictEqual(req.messages[0].content[0].cache_control, { type: 'ephemeral' })
+  })
+
+  caso('pedirJSON: no muta el bloque original del llamador', () => {
+    assert.strictEqual(bloque.cache_control, undefined)
+  })
+
+  let req2 = null
+  await FIA.pedirJSON({
+    client: clienteFalso((r) => { req2 = r }), modelo: 'm', maxTokens: 10, prompt: 'solo texto', system: 's',
+  })
+  caso('pedirJSON: sin bloques, el contenido sigue siendo el string de siempre (contrato intacto)', () => {
+    assert.strictEqual(req2.messages[0].content, 'solo texto')
+  })
+
+  let req3 = null
+  await FIA.pedirJSON({
+    client: clienteFalso((r) => { req3 = r }), modelo: 'm', maxTokens: 10, prompt: 'p', system: 's',
+    bloques: [{ type: 'image', source: { type: 'url', url: 'https://x/y.png' } }],
+  })
+  caso('pedirJSON: `bloques` (rúbrica/cotejo/OP-11) sigue yendo DESPUÉS del prompt, sin cache_control', () => {
+    assert.strictEqual(req3.messages[0].content[0].type, 'text')
+    assert.strictEqual(req3.messages[0].content[1].type, 'image')
+    assert.strictEqual(req3.messages[0].content[1].cache_control, undefined)
+  })
+})()
+
 // Fragmentación de documentos grandes SIN pérdida de contenido (17-ago-2026)
 const docChunking = require('../functions/docChunking.js')
 
@@ -2149,14 +2603,23 @@ caso('2b. Backspace casilla vacía, anterior también vacía: mueve foco pero no
 })
 
 // ─── Caso 3: Inicio de palabra ────────────────────────────────────────────────
-caso('3. Backspace al inicio de la palabra: no hace nada (null, null)', () => {
+caso('3. Backspace inicio con letra: borra en sitio, foco se queda aquí', () => {
+  // Fix bug: antes devolvía {null,null} dejando la letra trabada.
   const celdas = { '0-0': 'A', '0-1': 'B', '0-2': 'C' }
   const { borrar, foco } = resolverBackspace(0, 0, celdas, HORIZONTAL)
-  assert.strictEqual(borrar, null, 'no debe borrar — es la primera casilla')
-  assert.strictEqual(foco,  null, 'no debe mover foco fuera de la palabra')
+  assert.deepStrictEqual(borrar, { r: 0, c: 0 }, 'debe borrar la primera celda')
+  assert.strictEqual(foco, null, 'el foco permanece en la misma celda (sin navegar atrás)')
 })
 
-caso('3b. Inicio sin palabra activa: tampoco hace nada', () => {
+caso('3b. Backspace inicio sin letra: no hace nada (evita navegación nativa atrás)', () => {
+  // Primera celda vacía: no borra, no mueve foco.
+  const celdas = { '0-1': 'B', '0-2': 'C' } // '0-0' ausente → vacía
+  const { borrar, foco } = resolverBackspace(0, 0, celdas, HORIZONTAL)
+  assert.strictEqual(borrar, null, 'sin letra: no borrar')
+  assert.strictEqual(foco,  null, 'sin letra: no mover foco fuera de la palabra')
+})
+
+caso('3c. Inicio sin palabra activa: tampoco hace nada', () => {
   const { borrar, foco } = resolverBackspace(0, 0, {}, null)
   assert.strictEqual(borrar, null)
   assert.strictEqual(foco,  null)
@@ -2182,8 +2645,15 @@ caso('5. Backspace vertical: retrocede en fila, no cambia columna', () => {
   assert.strictEqual(foco.c, 0)
 })
 
-caso('5b. Backspace vertical, inicio de la palabra vertical: no hace nada', () => {
-  const celdas = { '0-0': 'A' }
+caso('5b. Backspace vertical inicio con letra: borra en sitio, foco permanece', () => {
+  const celdas = { '0-0': 'A', '1-0': 'B' }
+  const { borrar, foco } = resolverBackspace(0, 0, celdas, VERTICAL)
+  assert.deepStrictEqual(borrar, { r: 0, c: 0 }, 'borra la primera celda vertical')
+  assert.strictEqual(foco, null, 'el foco no sale de la palabra')
+})
+
+caso('5c. Backspace vertical inicio sin letra: no hace nada', () => {
+  const celdas = { '1-0': 'B' } // '0-0' vacía
   const { borrar, foco } = resolverBackspace(0, 0, celdas, VERTICAL)
   assert.strictEqual(borrar, null)
   assert.strictEqual(foco,  null)
@@ -2205,6 +2675,38 @@ caso('6b. Backspace en intersección respeta la dirección activa (vertical)', (
   const { borrar, foco } = resolverBackspace(1, 0, celdas, VERTICAL)
   assert.deepStrictEqual(borrar, { r: 1, c: 0 }, 'borra la celda actual (V)')
   assert.deepStrictEqual(foco,   { r: 0, c: 0 }, 'retrocede en la misma columna (V)')
+})
+
+// ─── Caso 6c: Intersección en primera celda (bug de letra trabada) ────────────
+// Reproduces exactamente el bug reportado: la celda (r,c) es la primera de la
+// palabra activa Y tiene una letra de intersección con otra palabra ya resuelta.
+// Antes devolvía {null,null} y la letra quedaba trabada.
+caso('6c. Intersección en primera celda con letra: borra en sitio, foco permanece', () => {
+  // HORIZ_MID: horizontal, fila=2, col=2, longitud=4
+  // La celda (2,2) es índice 0 de HORIZ_MID y ya tiene 'X' de una intersección.
+  const celdas = { '2-2': 'X', '2-3': 'B', '2-4': 'C' }
+  const { borrar, foco } = resolverBackspace(2, 2, celdas, HORIZ_MID)
+  assert.deepStrictEqual(borrar, { r: 2, c: 2 }, 'debe borrar la letra de intersección')
+  assert.strictEqual(foco, null, 'el foco no sale de la palabra — permanece en (2,2)')
+})
+
+caso('6d. Intersección en primera celda vacía: no hace nada', () => {
+  // Misma situación pero la celda ya está vacía (estudiante ya la borró antes).
+  const celdas = { '2-3': 'B', '2-4': 'C' } // '2-2' ausente
+  const { borrar, foco } = resolverBackspace(2, 2, celdas, HORIZ_MID)
+  assert.strictEqual(borrar, null)
+  assert.strictEqual(foco,  null)
+})
+
+caso('6e. Borrar primera celda y confirmar que permite nueva escritura', () => {
+  // Simula el flujo completo: borrar → celda vacía → onCambioCelda(r,c,'') es viable
+  const celdas = { '0-0': 'A', '0-1': 'B' }
+  const { borrar, foco } = resolverBackspace(0, 0, celdas, HORIZONTAL)
+  assert.deepStrictEqual(borrar, { r: 0, c: 0 }, 'borrar devuelve la propia celda')
+  // CrucigramaBoard llama onCambioCelda(borrar.r, borrar.c, '') → el mapa queda:
+  const celdasDespues = { ...celdas, [`${borrar.r}-${borrar.c}`]: '' }
+  assert.strictEqual(celdasDespues['0-0'], '', 'la celda queda vacía para escritura nueva')
+  assert.strictEqual(foco, null, 'el foco permanece en la misma celda')
 })
 
 // ─── Caso 7: Dos Backspace consecutivos ───────────────────────────────────────
@@ -2761,6 +3263,107 @@ caso('JC-17: actividad sin juego, o sin actividad, no rompe', () => {
   assert.strictEqual(debeEscribirContenidoEmbebido(null), false)
   assert.strictEqual(debeEscribirContenidoEmbebido({ juego: { contenido: 'no es un arreglo' } }), false)
 })
+
+grupo('A26 — a qué intento pertenece cada respuesta (reintentos de cuestionario)')
+
+// Sellos de tiempo con la forma que devuelve Firestore ({ seconds, nanoseconds })
+// y con la que expone el SDK (.toMillis()). Las dos tienen que dar lo mismo:
+// el Runner lee documentos del SDK, y las pruebas de reglas y los scripts leen
+// objetos planos.
+const ts = (ms) => ({ seconds: Math.floor(ms / 1000), nanoseconds: (ms % 1000) * 1e6 })
+const tsSDK = (ms) => ({ toMillis: () => ms })
+const T0 = Date.UTC(2026, 8, 3, 12, 0, 0)
+
+caso('RI-01: respuesta guardada ANTES de que arrancara este intento → es del anterior', () => {
+  // El caso real: el intento 1 se contestó a las 12:00 y el intento 2 abrió a
+  // las 12:20. Esa respuesta no es de este intento.
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0) }, ts(T0 + 20 * 60 * 1000)), true)
+})
+
+caso('RI-02: respuesta guardada DESPUÉS del arranque → es de este intento', () => {
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0 + 30 * 1000) }, ts(T0)), false)
+})
+
+caso('RI-03: guardada en el mismo instante del arranque → es de este intento', () => {
+  // El empate se resuelve a favor del estudiante: su respuesta no se descarta.
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0) }, ts(T0)), false)
+})
+
+caso('RI-04: sin `tiempoInicio` no se descarta nada (regla 1.2)', () => {
+  // Un dato que falta no deja a nadie fuera: sin reloj contra el que comparar,
+  // se respeta lo que el estudiante escribió.
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0) }, null), false)
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0) }, undefined), false)
+})
+
+caso('RI-05: sin `respondidaEn` tampoco se descarta', () => {
+  // Las respuestas del docente (revisión manual) y del servidor se escriben con
+  // merge y no tocan `respondidaEn`; un documento antiguo podría no tenerlo.
+  assert.strictEqual(esDeIntentoAnterior({ opcionSeleccionada: 'a' }, ts(T0)), false)
+  assert.strictEqual(esDeIntentoAnterior({}, ts(T0)), false)
+  assert.strictEqual(esDeIntentoAnterior(null, ts(T0)), false)
+})
+
+caso('RI-06: da igual la forma del sello — objeto plano, SDK o Date', () => {
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: tsSDK(T0) }, tsSDK(T0 + 1000)), true)
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: ts(T0) }, tsSDK(T0 + 1000)), true)
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: new Date(T0) }, new Date(T0 + 1000)), true)
+  assert.strictEqual(esDeIntentoAnterior({ respondidaEn: new Date(T0 + 1000) }, new Date(T0)), false)
+})
+
+caso('RI-07: `tieneRespuestaGuardada` reconoce las cuatro formas de responder', () => {
+  assert.strictEqual(tieneRespuestaGuardada({ opcionSeleccionada: 'op1' }), true)
+  assert.strictEqual(tieneRespuestaGuardada({ textoRespuesta: 'la respuesta' }), true)
+  assert.strictEqual(tieneRespuestaGuardada({ archivoURL: 'https://res.cloudinary.com/x.pdf' }), true)
+  assert.strictEqual(tieneRespuestaGuardada({ otraTexto: 'ninguna de las anteriores' }), true)
+})
+
+caso('RI-08: un documento ya limpio NO tiene respuesta guardada', () => {
+  // Es exactamente lo que deja la limpieza: no hay nada que volver a limpiar.
+  assert.strictEqual(tieneRespuestaGuardada({
+    opcionSeleccionada: null, textoRespuesta: null, otraTexto: null,
+    archivoURL: null, nombreArchivo: null, tamanoArchivo: null,
+  }), false)
+  assert.strictEqual(tieneRespuestaGuardada({}), false)
+  assert.strictEqual(tieneRespuestaGuardada(null), false)
+  // La cadena vacía tampoco es una respuesta (borrar el texto y salirse).
+  assert.strictEqual(tieneRespuestaGuardada({ textoRespuesta: '' }), false)
+})
+
+caso('RI-09: los puntos del servidor no cuentan como respuesta del alumno', () => {
+  // `puntosObtenidos`/`correcta` los escribe la Cloud Function y sobreviven a la
+  // limpieza (el alumno no puede tocarlos). Un documento con solo eso está
+  // limpio: no debe hacer que el Runner crea que hay algo que borrar.
+  assert.strictEqual(tieneRespuestaGuardada({ puntosObtenidos: 1, correcta: true }), false)
+})
+
+caso('RI-10: CASO 2/9 — la falla de limpieza no le muestra el examen pre-llenado', () => {
+  // Reproducción de la protección pedida: la limpieza del intento 2 falló, así
+  // que las respuestas del intento 1 siguen VIVAS en Firestore. El Runner las
+  // reconoce por el sello y no las pinta.
+  const tiempoInicioIntento2 = ts(T0 + 20 * 60 * 1000)
+  const vivasDelIntento1 = [
+    { id: 'Q1', opcionSeleccionada: 'op_b', respondidaEn: ts(T0 + 60 * 1000) },
+    { id: 'Q2', textoRespuesta: 'lo que contesté la vez pasada', respondidaEn: ts(T0 + 120 * 1000) },
+  ]
+  const pintadas = vivasDelIntento1.filter((r) => !esDeIntentoAnterior(r, tiempoInicioIntento2))
+  assert.deepStrictEqual(pintadas, [], 'ninguna respuesta del intento anterior debe llegar a la pantalla')
+  // Y las tres se reconocen como pendientes de limpiar, que es lo que dispara
+  // la autolimpieza del Runner.
+  assert.strictEqual(vivasDelIntento1.every(tieneRespuestaGuardada), true)
+})
+
+caso('RI-11: dentro del MISMO intento, lo contestado sí se conserva al recargar', () => {
+  // No regresión: recargar a media evaluación no puede borrar lo que ya llevas.
+  const tiempoInicio = ts(T0)
+  const misRespuestas = [
+    { id: 'Q1', opcionSeleccionada: 'op_a', respondidaEn: ts(T0 + 15 * 1000) },
+    { id: 'Q2', textoRespuesta: 'voy a la mitad', respondidaEn: ts(T0 + 90 * 1000) },
+  ]
+  const pintadas = misRespuestas.filter((r) => !esDeIntentoAnterior(r, tiempoInicio))
+  assert.strictEqual(pintadas.length, 2)
+})
+
 
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)

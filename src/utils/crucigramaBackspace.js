@@ -25,10 +25,11 @@ function calcAnterior(r, c, palabraActiva) {
  * resolverBackspace — determina qué celda borrar y a dónde mover el foco
  * cuando se presiona Backspace sobre la celda (r, c).
  *
- * Reglas (especificación del PO):
- *   1. Celda con letra:  borra ESTA celda → mueve foco a la anterior.
- *   2. Celda vacía:      mueve foco a la anterior → si tiene letra, la borra.
- *   3. Inicio de palabra: no hay anterior → no hace nada (no navega fuera).
+ * Reglas:
+ *   1. Inicio de palabra + letra:  borra ESTA celda → foco se queda aquí.
+ *   2. Inicio de palabra + vacía:  no hace nada (evita navegación nativa "atrás").
+ *   3. Celda interior con letra:   borra ESTA celda → mueve foco a la anterior.
+ *   4. Celda interior vacía:       mueve foco a la anterior → si tiene letra, la borra.
  *
  * Parámetros:
  *   r, c          — posición de la celda actualmente enfocada
@@ -42,19 +43,25 @@ function calcAnterior(r, c, palabraActiva) {
 export function resolverBackspace(r, c, celdas, palabraActiva) {
   const prev = calcAnterior(r, c, palabraActiva)
 
-  // Inicio de palabra (sin celda anterior): no hace nada.
-  // Evita que el teclado virtual de Android dispare la navegación nativa
-  // "atrás" cuando no hay adónde retroceder dentro del crucigrama.
-  if (!prev) return { borrar: null, foco: null }
+  // Inicio de palabra (sin celda anterior).
+  if (!prev) {
+    // Con letra: borrar en sitio y quedarse. El foco permanece en esta misma
+    // celda para que el estudiante pueda escribir una letra nueva de inmediato.
+    // Sin letra: no hacer nada — evita que el teclado virtual de Android
+    // dispare la navegación nativa "atrás" al no haber adónde retroceder.
+    return celdas[`${r}-${c}`]
+      ? { borrar: { r, c }, foco: null }
+      : { borrar: null, foco: null }
+  }
 
   const tieneletra = !!celdas[`${r}-${c}`]
 
   if (tieneletra) {
-    // Celda con letra: borra la actual y mueve foco a la anterior.
+    // Celda interior con letra: borra la actual y mueve foco a la anterior.
     return { borrar: { r, c }, foco: prev }
   }
 
-  // Celda vacía: mueve foco a la anterior y, si tiene letra, la borra.
+  // Celda interior vacía: mueve foco a la anterior y, si tiene letra, la borra.
   if (celdas[`${prev.r}-${prev.c}`]) {
     return { borrar: prev, foco: prev }
   }

@@ -14,13 +14,16 @@ import { useScrollLock } from '../hooks/useScrollLock'
 // extends a group's deadline, or gives specific students their own extension.
 // onSaved receives { mode: 'todos', date } or { mode: 'algunos', date, motivo, ids }
 // so each caller can merge the result into its own activity/activities state.
-export default function NuevaFechaEntregaModal({ activityId, students, onClose, onSaved }) {
+// `preselectId` (opcional) abre el modal ya en "Para algunos" con ese
+// estudiante marcado — es la vía de "modificar la fecha para este estudiante"
+// desde su fila. Sin la prop, el modal arranca exactamente como siempre.
+export default function NuevaFechaEntregaModal({ activityId, students, onClose, onSaved, preselectId = null }) {
   const toast = useToast()
-  const [mode, setMode] = useState('todos')
+  const [mode, setMode] = useState(preselectId ? 'algunos' : 'todos')
   const [date, setDate] = useState('')
   const [motivo, setMotivo] = useState('')
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState(() => new Set())
+  const [selected, setSelected] = useState(() => new Set(preselectId ? [preselectId] : []))
   const [saving, setSaving] = useState(false)
 
   // Physical Android back button: this modal is only mounted while its parent

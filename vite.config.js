@@ -8,14 +8,23 @@ import { writeFileSync } from 'fs'
 // build — cualquiera de los dos cambia en cada deploy real.
 const buildId = process.env.VERCEL_GIT_COMMIT_SHA || String(Date.now())
 
-// Escribe dist/version.json con el mismo buildId embebido en el bundle, para
-// que UpdateChecker (src/components/UpdateChecker.jsx) pueda comparar "con
-// qué versión cargué" vs "qué hay en el servidor ahora mismo".
+// Información de build para mostrar en la UI de versiones (Perfil y sidebar).
+// builtAt: siempre es la fecha/hora real del build (ISO 8601 UTC).
+// commit: el SHA corto del commit de Vercel, o cadena vacía en builds locales.
+const buildTimestamp = new Date().toISOString()
+const buildCommit = (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7)
+
+// Escribe dist/version.json (para UpdateChecker) y dist/build-info.json (para
+// la UI de versiones). Ambos se generan en cada build automáticamente.
 function versionFilePlugin() {
   return {
     name: 'version-file',
     writeBundle(options) {
       writeFileSync(`${options.dir}/version.json`, JSON.stringify({ buildId }))
+      writeFileSync(
+        `${options.dir}/build-info.json`,
+        JSON.stringify({ builtAt: buildTimestamp, commit: buildCommit }),
+      )
     },
   }
 }
@@ -25,5 +34,7 @@ export default defineConfig({
   plugins: [react(), versionFilePlugin()],
   define: {
     __BUILD_ID__: JSON.stringify(buildId),
+    __BUILD_TIMESTAMP__: JSON.stringify(buildTimestamp),
+    __BUILD_COMMIT__: JSON.stringify(buildCommit),
   },
 })

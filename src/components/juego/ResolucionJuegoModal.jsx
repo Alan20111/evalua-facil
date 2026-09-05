@@ -17,10 +17,11 @@ import Modal from '../ui/Modal'
 import CrucigramaBoard from './CrucigramaBoard'
 import SopaDeLetrasBoard from './SopaDeLetrasBoard'
 
-export default function ResolucionJuegoModal({ open, onClose, estudianteNombre, estructura, submission }) {
+export default function ResolucionJuegoModal({ open, onClose, estudianteNombre, estructura, submission, navCount = 0, onAnterior, onSiguiente }) {
   const respuestas = submission?.respuestasJuego || {}
   const calificacion = submission?.calificacion
   const intentos = Array.isArray(submission?.intentos) ? submission.intentos : []
+  const sinRealizacion = submission?.sinEntrega === true && !submission?.respuestasJuego
 
   return (
     <Modal open={open} onClose={onClose} title={`Resolución de ${estudianteNombre}`} variant="centered" size="lg">
@@ -59,7 +60,11 @@ export default function ResolucionJuegoModal({ open, onClose, estudianteNombre, 
         </p>
       )}
 
-      {estructura.tipo === 'sopa_letras' ? (
+      {sinRealizacion ? (
+        <p className="text-sm text-muted text-center py-4">
+          Sin realización — la calificación fue asignada manualmente por el docente.
+        </p>
+      ) : estructura.tipo === 'sopa_letras' ? (
         <SopaDeLetrasBoard
           estructura={estructura}
           encontradas={Array.isArray(respuestas.encontradas) ? respuestas.encontradas : []}
@@ -74,7 +79,19 @@ export default function ResolucionJuegoModal({ open, onClose, estudianteNombre, 
         />
       )}
 
-      <div className="flex justify-end mt-4">
+      <div className="flex items-center justify-between mt-4">
+        {navCount > 1 ? (
+          <div className="flex gap-2">
+            <button type="button" onClick={onAnterior}
+              className="px-3 py-2 text-sm font-medium text-muted border border-outline-variant hover:bg-surface-container rounded transition-colors">
+              ← Anterior
+            </button>
+            <button type="button" onClick={onSiguiente}
+              className="px-3 py-2 text-sm font-medium text-muted border border-outline-variant hover:bg-surface-container rounded transition-colors">
+              Siguiente →
+            </button>
+          </div>
+        ) : <div />}
         <button type="button" onClick={onClose}
           className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
           Cerrar

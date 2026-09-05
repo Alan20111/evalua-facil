@@ -40,6 +40,7 @@ import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sani
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
 import { nowIsoLocal } from '../../utils/nowIso'
+import { fechaLimiteTimestamp } from '../../utils/deadline'
 import { formatDeadline, formatPublishAt, parseFechaLimite, withDefaultTime, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import AttachmentList from '../../components/AttachmentList'
@@ -383,7 +384,7 @@ export default function ActivityPage() {
     // Clear it in the same commit that opens the grading view, so pendingOpenId
     // turning false and `selected` turning true happen together (no list flash).
     setPendingOpenId(null)
-    if (st && !isEvaluacion) {
+    if (st && !isEvaluacion && !esJuego) {
       setNavList(students)
       openGrade(st)
     }
@@ -977,8 +978,15 @@ export default function ActivityPage() {
     setSavingExtension(true)
     try {
       const motivo = extendMotivo.trim()
+      // `extensionesTS` es el espejo en Timestamp y es lo ÚNICO que
+      // firestore.rules mira (actividadVencidaParaAlumno). Sin él la prórroga
+      // era decorativa: la UI y el alumno mostraban la fecha nueva, pero el
+      // servidor seguía comparando contra `fechaLimiteTS` y rechazaba la
+      // entrega — justo al rezagado para quien existe la prórroga. Los tres
+      // campos se escriben SIEMPRE juntos, igual que en NuevaFechaEntregaModal.
       await updateDoc(doc(db, 'activities', activityId), {
         [`extensiones.${selected.student.id}`]: extendDate,
+        [`extensionesTS.${selected.student.id}`]: fechaLimiteTimestamp(extendDate),
         [`extensionesMotivo.${selected.student.id}`]: motivo,
       })
       setActivity((prev) => ({
@@ -1236,8 +1244,17 @@ export default function ActivityPage() {
           students={students}
           submissions={submissions}
           onActivityChange={setActivity}
+          // Mismo candado que el resto de la página: con el parcial cerrado no
+          // se anula una entrega (borrarla borraría su calificación).
+          parcialCerrado={parcialCerrado}
+          onSubmissionRemoved={(studentId) => setSubmissions((prev) => {
+            const next = { ...prev }
+            delete next[studentId]
+            return next
+          })}
           onDeleteActivity={() => setDeleteConfirm(true)}
           goBack={goBack}
+          openStudentId={location.state?.openStudentId || null}
         />
         {deleteActivityModal}
         </>

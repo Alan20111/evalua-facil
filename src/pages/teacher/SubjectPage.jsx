@@ -858,6 +858,13 @@ export default function SubjectPage() {
   // entrega). { x, y, subId, activityId, studentId, maxCalif, value }
   const [gradeQuickEdit, setGradeQuickEdit] = useState(null)
   const [savingQuickGrade, setSavingQuickGrade] = useState(false)
+  // Calificación masiva de no entregadas por actividad (clic derecho en <th>).
+  // activityContextMenu: { x, y, activity, missingCount }
+  // bulkGradeModal: { activity, missingCount }
+  const [activityContextMenu, setActivityContextMenu] = useState(null)
+  const [bulkGradeModal, setBulkGradeModal] = useState(null)
+  const [bulkGradeValue, setBulkGradeValue] = useState('')
+  const [savingBulkGrade, setSavingBulkGrade] = useState(false)
   // Calificaciones view state persists across the round-trip to a student's
   // activity/review (which fully navigates away and remounts this page). Saved
   // to sessionStorage on navigate-away, restored here so search + scroll survive.
@@ -1063,6 +1070,132 @@ export default function SubjectPage() {
       toast('Error: ' + err.message, 'error')
     } finally {
       setSavingQuickGrade(false)
+    }
+  }
+
+  async function clearGradeQuickEdit() {
+    if (!gradeQuickEdit?.subId) return
+    const { subId, activityId, studentId } = gradeQuickEdit
+    setSavingQuickGrade(true)
+    try {
+      await updateDoc(doc(db, 'submissions', subId), { calificacion: deleteField() })
+      const key = `${studentId}-${activityId}`
+      setGradeSubMap((prev) => {
+        const updated = { ...prev[key] }
+        delete updated.calificacion
+        return { ...prev, [key]: updated }
+      })
+      toast('Calificación eliminada')
+      setGradeQuickEdit(null)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingQuickGrade(false)
+    }
+  }
+
+  // ── Calificación masiva de no entregadas por actividad ──────────────────────
+  // Clic derecho sobre el <th> de una actividad en la tabla de calificaciones.
+  // Abre un menú contextual con la opción de asignar una nota a todos los
+  // estudiantes que no tienen ningún submission para esa actividad.
+  function openActivityContextMenu(e, activity) {
+    e.preventDefault()
+    // Guard: parcial cerrado — misma lógica que openGradeQuickEdit.
+    if (subject?.parcialesCerrados?.[activity.parcial]) {
+      toast('El parcial está cerrado — revierte el cierre para editar calificaciones', 'error')
+      return
+    }
+    // Guard: actividad que no genera calificación (diagnóstico, encuesta).
+    if (!cuentaParaCalificacion(activity)) return
+    const missingCount = groupStudents.filter(
+      (s) => !gradeSubMap[`${s.id}-${activity.id}`]
+    ).length
+    const popW = 280
+    setActivityContextMenu({
+      x: Math.min(e.clientX, window.innerWidth - popW - 8),
+      y: Math.min(e.clientY, window.innerHeight - 80),
+      activity,
+      missingCount,
+    })
+  }
+
+  async function confirmBulkGradeNoEntregadas() {
+    if (!bulkGradeModal) return
+    const { activity } = bulkGradeModal
+    const maxCalif = activity.maxCalif ?? 10
+
+    // Validación: número presente, en rango y múltiplo de 0.5.
+    const n = parseFloat(bulkGradeValue)
+    if (bulkGradeValue === '' || isNaN(n)) {
+      toast('Escribe una calificación válida', 'error')
+      return
+    }
+    if (n < 0 || n > maxCalif) {
+      toast(`La calificación debe estar entre 0 y ${maxCalif}`, 'error')
+      return
+    }
+    // Verificar múltiplo de 0.5: Math.round(n*2)/2 === n.
+    if (Math.round(n * 2) / 2 !== n) {
+      toast('La calificación debe ser múltiplo de 0.5 (ej. 7, 7.5, 8…)', 'error')
+      return
+    }
+
+    setSavingBulkGrade(true)
+    try {
+      // Reverificación FRESCA contra Firestore para capturar entregas que
+      // llegaron mientras el modal estaba abierto.
+      const freshDocs = await fetchSubmissionsForActivities([activity.id])
+      const conSubmission = new Set(freshDocs.map((d) => d.data().alumnoId))
+      const pendientes = groupStudents.filter((s) => !conSubmission.has(s.id))
+
+      if (pendientes.length === 0) {
+        toast('Ya no hay estudiantes sin entrega para esta actividad')
+        setBulkGradeModal(null)
+        setBulkGradeValue('')
+        return
+      }
+
+      const data = {
+        actividadId: activity.id,
+        // alumnoId se rellena individualmente en el loop
+        calificacion: n,
+        comentario: '',
+        motivoSinEntrega: '',
+        estado: 'calificado',
+        sinEntrega: true,
+        // Previene notificación falsa al docente de "alumno entregó"
+        // cuando en realidad es el docente quien asignó la nota.
+        notificadoEntregaDocente: true,
+        fechaEntrega: serverTimestamp(),
+      }
+
+      const newSubs = []
+      let savedCount = 0
+      for (let i = 0; i < pendientes.length; i += 400) {
+        const batch = writeBatch(db)
+        pendientes.slice(i, i + 400).forEach((s) => {
+          const id = submissionDocId(activity.id, s.id)
+          const ref = doc(db, 'submissions', id)
+          batch.set(ref, { ...data, alumnoId: s.id })
+          newSubs.push({ key: `${s.id}-${activity.id}`, data: { id, ...data, alumnoId: s.id } })
+        })
+        await batch.commit()
+        savedCount += Math.min(400, pendientes.length - i)
+      }
+
+      // Actualizar el estado local para que la tabla refleje las nuevas notas.
+      setGradeSubMap((prev) => {
+        const next = { ...prev }
+        newSubs.forEach(({ key, data: d }) => { next[key] = d })
+        return next
+      })
+      toast(`${savedCount} calificación${savedCount !== 1 ? 'es' : ''} guardada${savedCount !== 1 ? 's' : ''}`)
+      setBulkGradeModal(null)
+      setBulkGradeValue('')
+    } catch (err) {
+      toast(`Error al guardar: ${err.message}`, 'error')
+    } finally {
+      setSavingBulkGrade(false)
     }
   }
 
@@ -4816,7 +4949,8 @@ export default function SubjectPage() {
                               key={a.id}
                               data-col={colIndexByKey[`act-${a.id}`]}
                               onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { returnTo: 'calificaciones' } })}
-                              onMouseEnter={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActTip({ text: a.nombre, x: r.left + r.width / 2, y: r.top }) }}
+                              onContextMenu={(e) => openActivityContextMenu(e, a)}
+                              onMouseEnter={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActTip({ text: a.nombre, hint: 'Clic derecho para asignar calificación a quienes no entregaron', x: r.left + r.width / 2, y: r.top }) }}
                               onMouseLeave={() => setActTip(null)}
                               className={`w-9 px-0.5 py-1.5 font-semibold text-on-surface text-center border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
                               {/* Tooltip is a fixed-positioned element (below), so the
@@ -6400,10 +6534,11 @@ export default function SubjectPage() {
       {/* ── Activity-name tooltip ABOVE the number header (fixed → never clipped) ── */}
       {actTip && (
         <div
-          className="fixed z-[9999] -translate-x-1/2 -translate-y-full px-2 py-1 rounded border border-[#c0c0c0] bg-[#f5f5f5] text-[#111] text-[11px] whitespace-nowrap shadow pointer-events-none"
+          className="fixed z-[9999] -translate-x-1/2 -translate-y-full px-2 py-1 rounded border border-[#c0c0c0] bg-[#f5f5f5] text-[#111] text-[11px] max-w-xs shadow pointer-events-none"
           style={{ left: actTip.x, top: actTip.y - 6 }}
         >
-          {actTip.text}
+          <div className="font-medium">{actTip.text}</div>
+          <div className="text-[10px] text-[#555] mt-0.5">{actTip.hint}</div>
         </div>
       )}
 
@@ -6480,8 +6615,130 @@ export default function SubjectPage() {
                 {savingQuickGrade ? <Spinner size="sm" /> : <CheckIcon size={13} />} Guardar
               </button>
             </div>
+            {gradeQuickEdit.subId && gradeQuickEdit.value !== '' && (
+              <button
+                type="button"
+                onClick={clearGradeQuickEdit}
+                disabled={savingQuickGrade}
+                className="w-full py-1.5 rounded border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-1"
+              >
+                <Trash2 size={12} />
+                Quitar calificación
+              </button>
+            )}
           </div>
         </>
+      )}
+
+      {/* ── Menú contextual: clic derecho en encabezado de actividad ─────────
+          Mismo patrón que el menú ⋮ de actividades: backdrop invisible que
+          cierra al hacer clic fuera + tarjeta fija pegada al cursor.         */}
+      {activityContextMenu && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 border-none cursor-default bg-transparent"
+            onClick={() => setActivityContextMenu(null)}
+            aria-label="Cerrar menú"
+          />
+          <div
+            className="fixed z-50 bg-surface-card border border-outline-variant rounded-card shadow-2xl py-1 min-w-52"
+            style={{ top: activityContextMenu.y, left: activityContextMenu.x }}
+          >
+            {activityContextMenu.missingCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkGradeModal({
+                    activity: activityContextMenu.activity,
+                    missingCount: activityContextMenu.missingCount,
+                  })
+                  setBulkGradeValue('')
+                  setActivityContextMenu(null)
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left"
+              >
+                <ClipboardCheck size={15} className="text-slate-400 flex-shrink-0" />
+                Asignar calificación a no entregadas ({activityContextMenu.missingCount})
+              </button>
+            ) : (
+              <p className="px-3 py-2.5 text-sm text-muted">
+                Todos tienen entrega o calificación
+              </p>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── Modal: asignar calificación masiva a no entregadas ───────────────
+          Se abre desde el menú contextual del encabezado de actividad.
+          NO incluye cierreParcial:true — es una calificación manual autónoma
+          que el "Revertir parcial" no toca.                                  */}
+      {bulkGradeModal && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 border-none cursor-default"
+            onClick={() => { if (!savingBulkGrade) { setBulkGradeModal(null); setBulkGradeValue('') } }}
+            aria-label="Cerrar"
+          />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl">
+            <h3 className="text-base font-semibold text-on-surface">Asignar calificación a no entregadas</h3>
+            <p className="text-sm text-muted mt-1 truncate">
+              Actividad: <strong>{bulkGradeModal.activity.nombre}</strong>
+            </p>
+            <p className="text-sm text-muted mt-1">
+              <strong>{bulkGradeModal.missingCount}</strong> estudiante{bulkGradeModal.missingCount !== 1 ? 's' : ''} no {bulkGradeModal.missingCount !== 1 ? 'han' : 'ha'} entregado esta actividad.
+            </p>
+            <p className="text-xs text-muted mt-2">
+              Solo se afectarán los que sigan sin entrega al confirmar. Los que ya entregaron o ya tienen calificación <strong>no se tocan</strong>.
+            </p>
+
+            <div className="mt-4">
+              <label htmlFor="bulk-grade-input" className="block text-sm font-medium text-muted mb-1">
+                Calificación a asignar
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="bulk-grade-input"
+                  type="number"
+                  min="0"
+                  max={bulkGradeModal.activity.maxCalif ?? 10}
+                  step="0.5"
+                  value={bulkGradeValue}
+                  onChange={(e) => setBulkGradeValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') confirmBulkGradeNoEntregadas() }}
+                  disabled={savingBulkGrade}
+                  ref={(el) => el?.focus()}
+                  className="w-24 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                />
+                <span className="text-sm text-muted">/ {bulkGradeModal.activity.maxCalif ?? 10}</span>
+              </div>
+              <p className="text-xs text-muted mt-1">Incrementos de 0.5 (ej. 0, 0.5, 1, 1.5…)</p>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => { setBulkGradeModal(null); setBulkGradeValue('') }}
+                disabled={savingBulkGrade}
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmBulkGradeNoEntregadas}
+                disabled={savingBulkGrade || bulkGradeValue === ''}
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-1"
+              >
+                {savingBulkGrade
+                  ? <><Spinner size="sm" /> Guardando…</>
+                  : `Asignar a ${bulkGradeModal.missingCount} estudiante${bulkGradeModal.missingCount !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Traer actividad de otra asignatura ── */}

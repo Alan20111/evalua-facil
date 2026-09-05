@@ -27,6 +27,7 @@ import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
 import EliminarCuentaModal from '../../components/EliminarCuentaModal'
+import AppVersionInfo from '../../components/AppVersionInfo'
 import { PREFIJOS } from '../../utils/prefijos'
 import { capitalizarNombre } from '../../utils/nombres'
 import Select from '../../components/ui/Select'
@@ -539,7 +540,11 @@ export default function Profile() {
           <Link to="/privacidad" className="text-sm text-accent font-semibold hover:underline">
             Aviso de privacidad
           </Link>
-          <p className="text-xs text-muted mt-1">v.1.0.1</p>
+        </div>
+
+        {/* Versiones */}
+        <div className="bg-surface-card rounded-card shadow-card p-3">
+          <AppVersionInfo />
         </div>
 
         {/* Eliminar cuenta — hasta el fondo y en rojo, la única parte de la

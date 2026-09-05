@@ -34,11 +34,14 @@ import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ReactivosIAReview from './evaluacion/ReactivosIAReview'
 import FuentesIAInput from './ia/FuentesIAInput'
-import { resolverFuentes } from '../utils/fuentesIA'
+import { resolverFuentes, avisarFuentesOmitidas } from '../utils/fuentesIA'
 import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
 import {
-  MIN_REACTIVOS, MAX_REACTIVOS, DEFAULT_REACTIVOS, TIPOS_REACTIVO_IA, reactivosDesdePropuesta,
+  MIN_REACTIVOS, MAX_REACTIVOS, DEFAULT_REACTIVOS,
+  TIPOS_REACTIVO_IA_CHECKBOXES, TIPOS_REACTIVO_IA_DEFAULT,
+  reactivosDesdePropuesta,
 } from '../utils/reactivosIA'
+import Checkbox from './ui/Checkbox'
 import { EVALUACION_DEFAULTS } from '../utils/evaluacionDefaults'
 import { minDeadline, nowIsoLocal, isoLocalFromDate } from '../utils/nowIso'
 import { isActivityPublished, resolveVisibilidad, isDraftActivity, formatDeadline } from '../utils/activityVisibility'
@@ -259,7 +262,13 @@ export default function EvaluacionEditor({
   const [iaTema, setIaTema] = useState('')
   const [iaQuiereEvaluar, setIaQuiereEvaluar] = useState('')
   const [iaCantidad, setIaCantidad] = useState(DEFAULT_REACTIVOS)
-  const [iaTipoSolicitado, setIaTipoSolicitado] = useState('mixto')
+  // Checkboxes independientes por tipo — al menos uno debe estar marcado para
+  // poder generar. Los 4 marcados equivale al viejo "Mixto".
+  const [iaTiposSeleccionados, setIaTiposSeleccionados] = useState(TIPOS_REACTIVO_IA_DEFAULT)
+  // "Mismo tema que los reactivos anteriores" — solo aplica si YA hay
+  // reactivos. Marcado por default en ese caso: usar la evaluación en curso
+  // como referencia de tema es el gesto natural cuando ya hay contenido.
+  const [iaMismoTema, setIaMismoTema] = useState(true)
   // Fuentes opcionales (hasta 3 PDF/Word) — mismo mecanismo que OP-03/OP-04:
   // fuente ADICIONAL a "qué quieres evaluar", nunca la sustituye.
   const [iaArchivos, setIaArchivos] = useState([])
@@ -729,6 +738,11 @@ export default function EvaluacionEditor({
         respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
         imagenUrl: null, orden: orden++, origenBancoId: item.id,
       }))
+      const nuevaPond = lista.reduce((s, r) => s + (parseFloat(r.ponderacion) || 0), 0)
+      if (ponderacionUsada + nuevaPond > 10.001) {
+        toast(`Agregar ${items.length} pregunta${items.length > 1 ? 's' : ''} excedería 10 puntos. Disponible: ${ponderacionRestante}`, 'error')
+        return
+      }
       // Sigue siendo un solo writeBatch (reactivo y clave van juntos dentro).
       const ids = await crearPreguntasEnLote(currentActivityId, lista)
       const nuevas = lista.map((data, i) => ({ id: ids[i], ...data }))
@@ -744,29 +758,51 @@ export default function EvaluacionEditor({
   // ── OP-09 · Generar reactivos con IA ──────────────────────────────────────
   function pedirReactivosIA() {
     if (!currentActivityId) { toast('Guarda la información antes de generar reactivos', 'error'); return }
-    setIaTema(''); setIaQuiereEvaluar(''); setIaCantidad(DEFAULT_REACTIVOS); setIaTipoSolicitado('mixto'); setIaArchivos([])
+    setIaTema(''); setIaQuiereEvaluar(''); setIaCantidad(DEFAULT_REACTIVOS); setIaTiposSeleccionados(TIPOS_REACTIVO_IA_DEFAULT); setIaArchivos([])
+    // Si hay reactivos previos, "mismo tema" arranca marcado (comportamiento
+    // por defecto pedido). Si no los hay, el checkbox no se muestra y su
+    // valor da igual — se resetea a true para dejar el estado consistente.
+    setIaMismoTema(true)
     setIaConfirmando(true)
   }
 
   async function generarReactivosConIA() {
+    // Defensa: la validación real vive en el disabled del botón (ver más abajo),
+    // pero si alguna ruta se cuela sin selección, se detiene aquí sin gastar
+    // créditos — el precheck del servidor también la rechaza.
+    if (!iaTiposSeleccionados.length) {
+      toast('Selecciona al menos un tipo de reactivo', 'error'); return
+    }
     setIaTrabajando(true)
     try {
       const urls = iaArchivos.length ? await resolverFuentes(iaArchivos) : []
+      // "Mismo tema": solo aplica si de verdad hay reactivos previos. Se manda
+      // la lista mínima (tipo + enunciado) — sin opciones, sin clave — como
+      // referencia del tema para el servidor. Cuando NO está activo, el
+      // payload es EXACTAMENTE el mismo de antes (regresión cero para el
+      // flujo estándar y para pestañas viejas en caché, cuyo servidor ignora
+      // los campos desconocidos y sigue el flujo normal).
+      const usarMismoTema = iaMismoTema && preguntas.length > 0
       const r = await creditosIA.ejecutar('reactivos', {
         actividadId: currentActivityId,
         asignaturaId: subjectId,
         asignaturaNombre: contextLine || '',
-        tema: iaTema,
-        quiereEvaluar: iaQuiereEvaluar,
+        tema: usarMismoTema ? '' : iaTema,
+        quiereEvaluar: usarMismoTema ? '' : iaQuiereEvaluar,
         cantidad: iaCantidad,
-        tipoSolicitado: iaTipoSolicitado,
+        tipos: iaTiposSeleccionados,
         fuentes: urls,
+        mismoTema: usarMismoTema,
+        reactivosExistentes: usarMismoTema
+          ? preguntas.map((p) => ({ tipo: p.tipo, enunciado: p.enunciado }))
+          : [],
       }, iaCantidad)
       // El servidor ya forzó la cantidad y el tipo exacto de cada reactivo
       // (ver functions/ia.js); aquí solo se le da forma al editor de revisión.
       const propuesta = reactivosDesdePropuesta(r?.resultado, iaCantidad)
       setIaPropuesta(propuesta)
       setIaConfirmando(false)
+      avisarFuentesOmitidas(toast, r?.resultado?.avisos)
     } catch (err) {
       toast(err.message, 'error')
     } finally {
@@ -799,6 +835,11 @@ export default function EvaluacionEditor({
         }
         return { ...base, opciones: null, respuestaCorrecta: null } // subir_archivo
       })
+      const nuevaPond = lista.reduce((s, r) => s + (parseFloat(r.ponderacion) || 0), 0)
+      if (ponderacionUsada + nuevaPond > 10.001) {
+        toast(`Agregar ${items.length} reactivo${items.length > 1 ? 's' : ''} excedería 10 puntos. Disponible: ${ponderacionRestante}`, 'error')
+        return
+      }
       const ids = await crearPreguntasEnLote(currentActivityId, lista)
       const nuevas = lista.map((data, i) => ({ id: ids[i], ...data }))
       const updated = [...preguntas, ...nuevas]
@@ -2074,24 +2115,50 @@ export default function EvaluacionEditor({
           descripcion="El asistente redacta los reactivos a partir de lo que describas abajo; tú los revisas, editas y decides cuáles agregar."
           costoMin={creditosIA.estimar('reactivos', iaCantidad) ?? 0.25 * iaCantidad}
           ejecutando={iaTrabajando}
+          continuarDeshabilitado={iaTiposSeleccionados.length === 0}
           onCancelar={() => { if (!iaTrabajando) setIaConfirmando(false) }}
           onContinuar={generarReactivosConIA}
         >
           <div className="space-y-2.5">
-            <div>
-              <label htmlFor="ia-tema" className="block text-sm text-on-surface mb-1">Tema (opcional)</label>
-              <input id="ia-tema" type="text" value={iaTema} disabled={iaTrabajando}
-                onChange={(e) => setIaTema(e.target.value)}
-                placeholder="Ej: Algoritmos y estructuras condicionales"
-                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
-            </div>
-            <div>
-              <label htmlFor="ia-quiere-evaluar" className="block text-sm text-on-surface mb-1">¿Qué quieres evaluar?</label>
-              <textarea id="ia-quiere-evaluar" value={iaQuiereEvaluar} disabled={iaTrabajando} rows={4}
-                onChange={(e) => setIaQuiereEvaluar(e.target.value)}
-                placeholder="Describe con el mayor detalle posible el tema, contenidos, conceptos, procedimientos, habilidades, conocimientos o aspectos que quieres evaluar. Entre más información proporciones, mejor podrá el Asistente IA generar los reactivos."
-                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
-            </div>
+            {/* "Mismo tema que los reactivos anteriores": SOLO aparece si ya
+                hay reactivos en la evaluación (manuales, generados por IA o
+                mezcla — no distingue). Marcado por defecto. Cuando está
+                marcado, se ocultan Tema y "¿Qué quieres evaluar?" y la IA
+                infiere el dominio de los enunciados existentes. */}
+            {preguntas.length > 0 && (
+              <div>
+                <Checkbox
+                  label="Mismo tema que los reactivos anteriores"
+                  checked={iaMismoTema}
+                  disabled={iaTrabajando}
+                  onChange={(e) => setIaMismoTema(e.target.checked)}
+                />
+                {iaMismoTema && (
+                  <p className="text-xs text-muted mt-1 pl-6">
+                    El asistente usará los {preguntas.length} reactivo{preguntas.length !== 1 ? 's' : ''} existente{preguntas.length !== 1 ? 's' : ''} como referencia y generará reactivos NUEVOS sobre el mismo tema, con enunciados distintos.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!(iaMismoTema && preguntas.length > 0) && (
+              <>
+                <div>
+                  <label htmlFor="ia-tema" className="block text-sm text-on-surface mb-1">Tema (opcional)</label>
+                  <input id="ia-tema" type="text" value={iaTema} disabled={iaTrabajando}
+                    onChange={(e) => setIaTema(e.target.value)}
+                    placeholder="Ej: Algoritmos y estructuras condicionales"
+                    className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+                </div>
+                <div>
+                  <label htmlFor="ia-quiere-evaluar" className="block text-sm text-on-surface mb-1">¿Qué quieres evaluar?</label>
+                  <textarea id="ia-quiere-evaluar" value={iaQuiereEvaluar} disabled={iaTrabajando} rows={4}
+                    onChange={(e) => setIaQuiereEvaluar(e.target.value)}
+                    placeholder="Describe con el mayor detalle posible el tema, contenidos, conceptos, procedimientos, habilidades, conocimientos o aspectos que quieres evaluar. Entre más información proporciones, mejor podrá el Asistente IA generar los reactivos."
+                    className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+                </div>
+              </>
+            )}
             <div className="flex items-center justify-between gap-3">
               <label htmlFor="ia-cantidad" className="text-sm text-on-surface">¿Cuántos reactivos quieres generar?</label>
               <select id="ia-cantidad" value={iaCantidad} disabled={iaTrabajando}
@@ -2102,15 +2169,30 @@ export default function EvaluacionEditor({
                 ))}
               </select>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <label htmlFor="ia-tipo" className="text-sm text-on-surface">¿Qué tipo de reactivos quieres generar?</label>
-              <select id="ia-tipo" value={iaTipoSolicitado} disabled={iaTrabajando}
-                onChange={(e) => setIaTipoSolicitado(e.target.value)}
-                className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                {TIPOS_REACTIVO_IA.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
+            <div>
+              <p className="text-sm text-on-surface mb-1.5">¿Qué tipos de reactivos quieres que genere la IA?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-1">
+                {TIPOS_REACTIVO_IA_CHECKBOXES.map((t) => {
+                  const marcado = iaTiposSeleccionados.includes(t.value)
+                  return (
+                    <Checkbox
+                      key={t.value}
+                      label={t.label}
+                      checked={marcado}
+                      disabled={iaTrabajando}
+                      onChange={(e) => {
+                        const on = e.target.checked
+                        setIaTiposSeleccionados((prev) => on
+                          ? Array.from(new Set([...prev, t.value]))
+                          : prev.filter((v) => v !== t.value))
+                      }}
+                    />
+                  )
+                })}
+              </div>
+              {iaTiposSeleccionados.length === 0 && (
+                <p className="text-xs text-amber-700 mt-1.5">Selecciona al menos un tipo de reactivo.</p>
+              )}
             </div>
             <FuentesIAInput files={iaArchivos} onChange={setIaArchivos} disabled={iaTrabajando} fuentesGuardadas={fuentesGuardadas} />
           </div>

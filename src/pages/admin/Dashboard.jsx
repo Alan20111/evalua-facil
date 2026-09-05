@@ -6,6 +6,7 @@ import { useAdminStats } from '../../hooks/useAdminStats'
 import StatsCards, { ResumenCharts } from './components/StatsCards'
 import SubscriptionsTable from './components/SubscriptionsTable'
 import CreditPurchasesTable from './components/CreditPurchasesTable'
+import CostosIAPanel from './components/CostosIAPanel'
 import PaymentConfig from './components/PaymentConfig'
 import StudentsTable from './components/StudentsTable'
 import VentasPorZona from './components/VentasPorZona'
@@ -17,10 +18,11 @@ const TAB_TITLES = {
   resumen: 'Resumen',
   suscripciones: 'Suscripciones (histórico)',
   creditos: 'Compras de créditos',
+  costosIA: 'Costos de IA',
   zonas: 'Ventas por zona',
   cobros: 'Configuración de cobros',
   estudiantes: 'Estudiantes',
-  descargas: 'Enlaces de descarga del APK',
+  descargas: 'Descarga de la app',
 }
 
 export default function AdminDashboard() {
@@ -74,6 +76,9 @@ export default function AdminDashboard() {
             <SubscriptionsTable stats={stats} onRefresh={refresh} />
           )}
           {activeTab === 'creditos' && <CreditPurchasesTable stats={stats} onRefresh={refresh} />}
+          {/* Carga sus propios datos del callable `resumenCostosIA`: no
+              usa `stats`, que no incluye métricas internas de tokens. */}
+          {activeTab === 'costosIA' && <CostosIAPanel />}
           {activeTab === 'zonas' && <VentasPorZona stats={stats} />}
           {activeTab === 'cobros' && <PaymentConfig />}
           {activeTab === 'estudiantes' && <StudentsTable stats={stats} />}

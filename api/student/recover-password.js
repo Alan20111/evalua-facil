@@ -54,11 +54,18 @@ export default async function handler(req, res) {
     }
 
     const db = getDb()
-    const snap = await db
-      .collection('students')
-      .where('username', '==', String(username).trim().toUpperCase())
-      .get()
-    const docs = snap.docs
+    // Search both lowercase (new format) and UPPERCASE (legacy 4-char codes).
+    // The old code only queried .toUpperCase(), which silently missed every
+    // new-format username stored in lowercase ("munoz.enrique" ≠ "MUNOZ.ENRIQUE").
+    const raw = String(username).trim()
+    const variants = [...new Set([raw.toLowerCase(), raw.toUpperCase()])]
+    const snaps = await Promise.all(
+      variants.map((u) => db.collection('students').where('username', '==', u).get())
+    )
+    const seenIds = new Set()
+    const docs = snaps
+      .flatMap((s) => s.docs)
+      .filter((d) => { if (seenIds.has(d.id)) return false; seenIds.add(d.id); return true })
       .map((d) => ({ id: d.id, ...d.data() }))
       .filter((d) => d.escuelaId === escuelaId)
     if (!docs.length) {

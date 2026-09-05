@@ -3,6 +3,7 @@
   "appName": "Evalúa Fácil",
   "webDir": "dist",
   "server": {
+    "url": "https://evalua-facil.vercel.app",
     "allowNavigation": [
       "evalua-facil.vercel.app",
       "*.mercadopago.com",

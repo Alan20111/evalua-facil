@@ -48,15 +48,14 @@ const { calcularTarifaExamen } = require('./_shared/tarifaExamen.js')
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
-// Extensiones que de verdad se pueden leer como texto (mismo criterio que
-// tipoFuentePermitido en src/utils/fuentesAsignatura.js, mas los formatos de
-// Office que también acepta docExtract). "Material de apoyo" no restringe
-// tipo de archivo (puede ser una imagen, un video, un enlace) — filtrar aquí
-// evita gastar una descarga+extracción en algo que nunca iba a servir de
-// contexto de texto; lo que de todos modos no se pueda leer se ignora en
-// silencio más abajo (prepararBloqueFuentesGenerales), así que este filtro
-// es una optimización, no una validación indispensable.
-const EXTENSIONES_LEGIBLES = /\.(pdf|docx?|pptx?|xlsx?)$/i
+// Extensiones que docExtract sabe leer DE VERDAD. Antes esto incluía
+// .doc/.ppt/.pptx/.xls/.xlsx "porque docExtract también los acepta" —
+// no los acepta: solo PDF y .docx (ver functions/docExtract.js). El
+// resultado era descargar un .xlsx en cada operación para tirarlo enseguida.
+// "Material de apoyo" no restringe tipo de archivo (puede ser una imagen, un
+// video, un enlace), así que este filtro evita esas descargas inútiles; lo
+// que aun así no se pueda leer se reporta en `avisos`, ya no en silencio.
+const EXTENSIONES_LEGIBLES = /\.(pdf|docx)$/i
 
 // Fuentes PERMANENTES que se incluyen SIEMPRE en OP-03/04/05/09, sin el tope
 // de 3 (ese tope solo aplica a lo que el docente adjunta a mano en la
@@ -74,8 +73,8 @@ const EXTENSIONES_LEGIBLES = /\.(pdf|docx?|pptx?|xlsx?)$/i
 //     duplicado, esta función ahora lee directo de Material de apoyo.
 // Devuelve también las URLs incluidas (para que el llamador pueda excluirlas
 // de lo que el docente adjuntó a mano y no aparezca duplicado en el prompt).
-async function bloqueFuentesPermanentes(db, asignaturaId, parcial) {
-  if (!asignaturaId) return { texto: null, urls: [] } // actividad de prueba/legacy — no truena la query
+async function urlsFuentesPermanentes(db, asignaturaId, parcial) {
+  if (!asignaturaId) return [] // actividad de prueba/legacy — no truena la query
   const [generalesSnap, materialesSnap] = await Promise.all([
     db.collection('fuentesAsignatura')
       .where('asignaturaId', '==', asignaturaId)
@@ -93,10 +92,27 @@ async function bloqueFuentesPermanentes(db, asignaturaId, parcial) {
     .flatMap((d) => Array.isArray(d.data().archivos) ? d.data().archivos : [])
     .map((a) => a?.url)
     .filter((url) => url && EXTENSIONES_LEGIBLES.test(url))
-  const urls = [...urlsGenerales, ...urlsMateriales]
-  const texto = await fuentesIA.prepararBloqueFuentesGenerales(urls)
-  return { texto, urls }
+  return [...urlsGenerales, ...urlsMateriales]
 }
+
+// Igual que antes para quien solo quiere el bloque permanente ya resuelto
+// (incluidas las pruebas, que leen `urls`). `maxPaginasVisual` permite al
+// llamador reservar parte del presupuesto de páginas visuales para otra cosa.
+async function bloqueFuentesPermanentes(db, asignaturaId, parcial, maxPaginasVisual) {
+  const urls = await urlsFuentesPermanentes(db, asignaturaId, parcial)
+  const r = await fuentesIA.fuentesGenerales(urls, maxPaginasVisual === undefined ? {} : { maxPaginasVisual })
+  return { ...r, urls }
+}
+
+// Créditos que va a cobrar una operación, leídos de config/iaTarifas — jamás
+// escritos a mano aquí. Si faltan (pruebas que llaman al precheck directo),
+// devuelve 0 y el presupuesto de páginas cae a su piso, que es lo seguro.
+const creditosDe = (tarifas, operacion, unidades = 1) => (Number(tarifas?.tarifas?.[operacion]) || 0) * unidades
+
+// ¿Esta operación lleva documentos de referencia? Cuenta tanto el texto
+// extraído como los PDF que viajan como imagen: para el prompt son lo mismo
+// (material fuente), aunque lleguen por caminos distintos.
+const tieneFuentes = (ctx) => !!(ctx?.bloqueFuentes || ctx?.fuentesBloques?.length)
 
 // Quita de lo que el docente adjuntó a mano cualquier URL que ya entró por
 // la biblioteca permanente — evita que la misma fuente aparezca dos veces en
@@ -112,13 +128,44 @@ function excluirUrlsPermanentes(fuentesManual, permanentesUrls) {
 // Arma el bloque final de fuentes de una operación: permanentes (generales +
 // parcial correspondiente) + lo que el docente adjuntó a mano, SIN duplicar
 // una fuente que ya entró por la biblioteca permanente.
-async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual }) {
-  const permanentes = await bloqueFuentesPermanentes(db, asignaturaId, parcial)
-  const manualSinDuplicar = excluirUrlsPermanentes(fuentesManual, permanentes.urls)
-  return fuentesIA.combinarBloquesFuentes(
-    permanentes.texto,
-    await fuentesIA.prepararBloqueFuentes(manualSinDuplicar)
+// Devuelve `{ texto, bloques, avisos }`. `texto` conserva EXACTAMENTE el
+// contrato anterior (string o null) para que nada de lo que ya lo consumía
+// tenga que cambiar; `bloques` son los documentos que viajan como PDF nativo
+// y solo los usan las operaciones que saben mandarlos (crear evaluación y
+// reactivos); `avisos` explica qué documento no se pudo usar y por qué.
+//
+// El presupuesto de páginas visuales se reparte dando PRIORIDAD a lo que el
+// docente acaba de adjuntar a mano: lo eligió para esta operación en
+// concreto, así que no puede quedarse fuera porque la biblioteca permanente
+// ya se haya comido el presupuesto.
+async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual, creditosOperacion = 1 }) {
+  const urlsPermanentes = await urlsFuentesPermanentes(db, asignaturaId, parcial)
+  const manualSinDuplicar = excluirUrlsPermanentes(fuentesManual, urlsPermanentes)
+  const maxPaginasVisual = fuentesIA.presupuestoPaginasVisual(creditosOperacion)
+
+  const manual = await fuentesIA.fuentesManual(manualSinDuplicar, { maxPaginasVisual })
+  // Lo que el docente adjuntó a mano SÍ bloquea si nada de ello sirvió: lo
+  // acaba de elegir y merece enterarse, en vez de que la evaluación salga en
+  // silencio sin el material que él creía haber aportado.
+  if (manualSinDuplicar.length && !manual.texto && !manual.bloques.length) {
+    const motivo = manual.avisos[0]?.motivo || 'No se pudo procesar el documento.'
+    throw new HttpsError('failed-precondition',
+      `No se pudo usar ninguno de los documentos que adjuntaste. ${motivo} Corrígelo o continúa sin adjuntarlos. No se descontaron créditos.`)
+  }
+
+  const permanentes = await bloqueFuentesPermanentes(
+    db, asignaturaId, parcial,
+    Math.max(0, maxPaginasVisual - manual.paginasVisuales)
   )
+
+  return {
+    texto: fuentesIA.combinarBloquesFuentes(permanentes.texto, manual.texto),
+    bloques: [...permanentes.bloques, ...manual.bloques],
+    // Los avisos de lo PERMANENTE también se reportan: que se ignoraran en
+    // silencio es lo que mantuvo escondido durante semanas que un PDF
+    // escaneado nunca llegaba al modelo.
+    avisos: [...permanentes.avisos, ...manual.avisos],
+  }
 }
 
 // ── Planeación Didáctica VIGENTE como contexto de la IA ───────────────────
@@ -362,11 +409,14 @@ async function ejecutarAviso({ params, modelo, apiKey }) {
 //   · requiere_revision_humana lo fija EF por código, siempre true;
 //   · solo sugiere: JAMÁS escribe la calificación (O3) — el cliente la
 //     muestra y el docente decide;
-//   · lote: 1 crédito por respuesta REALMENTE sugerida; vacías, de archivo o
-//     fallidas no se cobran (la liquidación devuelve la diferencia).
-// El servidor lee las respuestas de Firestore por ID (el cliente no manda
-// textos): verifica que la actividad sea del docente y solo procesa
-// respuestas de texto pendientes de calificar.
+//   · 0.25 créditos por respuesta REALMENTE sugerida; vacías, sin archivo,
+//     en formato no soportado o fallidas no se cobran.
+// El servidor lee las respuestas de Firestore por ID. Cubre dos tipos:
+//   · respuesta_corta: texto libre del alumno;
+//   · subir_archivo: documento adjunto (JPG/PNG/PDF/DOCX) — procesado con
+//     el mismo mecanismo de visión que usa OP-11 (evidenciasEntrega.js).
+// Modo individual: cuando se pasan submissionId + preguntaId solo se procesa
+// esa respuesta (botón "Sugerir con IA" por pregunta en la revisión).
 //
 // CANDADO POR RESPUESTA + PERSISTENCIA (endurecimiento del PO, 9-ago-2026):
 // cada sugerencia vive en activities/{id}/iaSugerencias/{subId_pregId}. El
@@ -393,16 +443,8 @@ const C02_MAX_CHARS = 40000
 // ~2 min sin rozar los límites de peticiones/minuto del proveedor.
 const C02_CONCURRENCIA = 4
 
-function c02Prompt({ asignatura, categoria, titulo, enunciado, ponderacion, texto }) {
+function c02EsquemaJSON(ponderacion) {
   return (
-    `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
-    `Actividad: ${categoria} "${titulo}", pregunta de respuesta corta. Puntos posibles: ${ponderacion}.\n\n` +
-    `PREGUNTA:\n${enunciado}\n\n` +
-    `CRITERIOS DE EVALUACIÓN (los puntos suman ${ponderacion}):\n` +
-    `1. Responde correcta y completamente lo planteado en la pregunta (${ponderacion} pts).\n\n` +
-    `RESPUESTA DEL ALUMNO:\n"""${texto}"""\n\n` +
-    'Evalúa la respuesta contra los criterios. NO calcules ni incluyas el total: Evalúa Fácil lo suma.\n' +
-    'Sé compacto: evidencias de máximo 12 palabras, máximo 3 fortalezas y máximo 4 errores (los más importantes).\n\n' +
     'Responde SOLO con este JSON:\n' +
     '{\n' +
     `  "criterios": [\n    {"n": 1, "puntos": <0-${ponderacion}, un decimal>, "evidencia": "<máx 12 palabras>"}\n  ],\n` +
@@ -411,6 +453,43 @@ function c02Prompt({ asignatura, categoria, titulo, enunciado, ponderacion, text
     '  "retroalimentacion": "<2-3 frases breves al alumno>",\n' +
     '  "requiere_revision_humana": true\n' +
     '}'
+  )
+}
+
+function c02BloqueEsperado(respuestaEsperada) {
+  const s = String(respuestaEsperada || '').trim()
+  return s ? `\nCONTENIDO ESPERADO (guía para la evaluación):\n${s.slice(0, 1000)}\n` : ''
+}
+
+function c02Prompt({ asignatura, categoria, titulo, enunciado, ponderacion, texto, respuestaEsperada = '' }) {
+  return (
+    `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
+    `Actividad: ${categoria} "${titulo}", pregunta de respuesta corta. Puntos posibles: ${ponderacion}.\n\n` +
+    `PREGUNTA:\n${enunciado}\n\n` +
+    `CRITERIOS DE EVALUACIÓN (los puntos suman ${ponderacion}):\n` +
+    `1. Responde correcta y completamente lo planteado en la pregunta (${ponderacion} pts).` +
+    c02BloqueEsperado(respuestaEsperada) + '\n\n' +
+    `RESPUESTA DEL ALUMNO:\n"""${texto}"""\n\n` +
+    'Evalúa la respuesta contra los criterios. NO calcules ni incluyas el total: Evalúa Fácil lo suma.\n' +
+    'Sé compacto: evidencias de máximo 12 palabras, máximo 3 fortalezas y máximo 4 errores (los más importantes).\n\n' +
+    c02EsquemaJSON(ponderacion)
+  )
+}
+
+// Prompt para preguntas de tipo subir_archivo. El texto del documento viaja
+// como bloques adicionales en el content del mensaje (no como texto plano).
+function c02PromptArchivo({ asignatura, categoria, titulo, enunciado, ponderacion, respuestaEsperada = '' }) {
+  return (
+    `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
+    `Actividad: ${categoria} "${titulo}", pregunta de entrega de documento. Puntos posibles: ${ponderacion}.\n\n` +
+    `PREGUNTA / TAREA SOLICITADA:\n${enunciado}\n\n` +
+    `CRITERIOS DE EVALUACIÓN (los puntos suman ${ponderacion}):\n` +
+    `1. El documento entregado responde correcta y completamente lo planteado (${ponderacion} pts).` +
+    c02BloqueEsperado(respuestaEsperada) + '\n\n' +
+    'El estudiante entregó el documento adjunto. Analiza su contenido y evalúa si cumple lo solicitado.\n' +
+    'NO calcules ni incluyas el total: Evalúa Fácil lo suma.\n' +
+    'Sé compacto: evidencias de máximo 12 palabras, máximo 3 fortalezas y máximo 4 errores.\n\n' +
+    c02EsquemaJSON(ponderacion)
   )
 }
 
@@ -423,6 +502,11 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad a calificar')
 
+  // Modo individual (botón "Sugerir con IA" por pregunta): solo una respuesta.
+  const soloSubId = String(params?.submissionId || '')
+  const soloPregId = String(params?.preguntaId || '')
+  const modoIndividual = !!(soloSubId && soloPregId)
+
   const actSnap = await db.doc(`activities/${actividadId}`).get()
   if (!actSnap.exists) throw new HttpsError('not-found', 'La actividad no existe')
   const act = actSnap.data()
@@ -432,52 +516,98 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   const titulo = String(act.titulo || act.nombre || 'evaluación').slice(0, 120)
   const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
 
-  // Preguntas de respuesta corta del instrumento (el enunciado y su
-  // ponderación son la base del criterio único).
+  // Preguntas abiertas del instrumento: respuesta_corta y subir_archivo.
   const pregSnap = await db.collection(`activities/${actividadId}/preguntas`).get()
   const abiertas = new Map()
   pregSnap.docs.forEach((d) => {
     const p = d.data()
-    if (p.tipo === 'respuesta_corta') abiertas.set(d.id, p)
+    if (p.tipo === 'respuesta_corta' || p.tipo === 'subir_archivo') abiertas.set(d.id, p)
   })
-  if (!abiertas.size) throw new HttpsError('failed-precondition', 'Esta evaluación no tiene preguntas de respuesta corta')
+  if (!abiertas.size) throw new HttpsError('failed-precondition', 'Esta evaluación no tiene preguntas de respuesta abierta o de documento')
 
-  // Entregas finalizadas pendientes de revisión → respuestas de texto sin
-  // calificar. (Consulta de UNA igualdad + filtros en memoria, regla del
-  // proyecto sobre índices.)
-  const subsSnap = await db.collection('submissions').where('actividadId', '==', actividadId).get()
-  const pendientes = subsSnap.docs.filter((d) => {
-    const s = d.data()
-    return s.estadoEvaluacion === 'finalizado' && s.pendienteRevision === true
-  })
+  // respuestaEsperada de la subcol clave (opcional, mejor esfuerzo — si falta
+  // se evalúa solo con el enunciado, sin error).
+  const claves = new Map()
+  await Promise.all([...abiertas.keys()].map(async (pregId) => {
+    try {
+      const c = await db.doc(`activities/${actividadId}/clave/${pregId}`).get()
+      if (c.exists && c.data().respuestaEsperada) claves.set(pregId, String(c.data().respuestaEsperada))
+    } catch { /* sin clave: se evalúa solo con el enunciado */ }
+  }))
 
+  // Entregas a revisar: en modo individual, solo la pedida (validada aquí);
+  // en lote, todas las finalizadas con revisión pendiente. (UNA igualdad +
+  // filtros en memoria — regla del proyecto sobre índices.)
+  let subDocs
+  if (modoIndividual) {
+    const s = await db.doc(`submissions/${soloSubId}`).get()
+    if (!s.exists) throw new HttpsError('not-found', 'La entrega no existe')
+    if (s.data().actividadId !== actividadId) throw new HttpsError('permission-denied', 'Esta entrega no pertenece a esta actividad')
+    subDocs = [s]
+  } else {
+    const snap = await db.collection('submissions').where('actividadId', '==', actividadId).get()
+    subDocs = snap.docs.filter((d) => {
+      const s = d.data()
+      return s.estadoEvaluacion === 'finalizado' && s.pendienteRevision === true
+    })
+  }
+
+  // Construir la lista de ítems procesables (RC y SA), omitiendo vacíos,
+  // ya calificados y archivos en formato no soportado o demasiado grandes.
   const items = []
   let omitidas = 0
-  for (const subDoc of pendientes) {
-    const respSnap = await db.collection(`submissions/${subDoc.id}/respuestas`).get()
-    for (const r of respSnap.docs) {
-      const preg = abiertas.get(r.id)
+  for (const subDoc of subDocs) {
+    const subId = subDoc.id
+    let respDocs
+    if (modoIndividual) {
+      const r = await db.doc(`submissions/${subId}/respuestas/${soloPregId}`).get()
+      respDocs = r.exists ? [r] : []
+    } else {
+      const snap = await db.collection(`submissions/${subId}/respuestas`).get()
+      respDocs = snap.docs
+    }
+    for (const r of respDocs) {
+      const pregId = r.id
+      const preg = abiertas.get(pregId)
       if (!preg) continue
       const resp = r.data()
       if (resp.puntosObtenidos != null) continue // ya calificada por el docente
-      const texto = String(resp.textoRespuesta || '').trim()
-      if (!texto) { omitidas++; continue } // sin respuesta: no hay nada que evaluar ni cobrar
-      if (texto.length > C02_MAX_CHARS) { omitidas++; continue } // fuera del rango validado
-      items.push({ sub: subDoc.id, preg: r.id, pregunta: preg, texto })
+      const respuestaEsperada = claves.get(pregId) || ''
+
+      if (preg.tipo === 'respuesta_corta') {
+        const texto = String(resp.textoRespuesta || '').trim()
+        if (!texto) { omitidas++; continue }
+        if (texto.length > C02_MAX_CHARS) { omitidas++; continue }
+        items.push({ sub: subId, preg: pregId, pregunta: preg, tipo: 'rc', texto, respuestaEsperada })
+      } else if (preg.tipo === 'subir_archivo') {
+        const archivoURL = String(resp.archivoURL || '').trim()
+        if (!archivoURL) { omitidas++; continue }
+        // prepararEvidenciasEntrega detecta formato no soportado y PDFs largos
+        // (misma lógica que OP-11). Si no quedan bloques, la respuesta se omite
+        // sin cobrar — el docente la califica a mano.
+        const evidencias = await prepararEvidenciasEntrega([{ url: archivoURL, nombre: String(resp.nombreArchivo || '') }])
+        if (!evidencias.bloques.length) { omitidas++; continue }
+        items.push({ sub: subId, preg: pregId, pregunta: preg, tipo: 'sa', evidenciasBloques: evidencias.bloques, respuestaEsperada })
+      }
     }
   }
 
-  if (!items.length) throw new HttpsError('failed-precondition', 'No hay respuestas de texto pendientes de calificar')
+  if (!items.length) {
+    const msg = modoIndividual
+      ? 'Esta respuesta no puede revisarse con IA (vacía, ya calificada o en formato no soportado). No se descontaron créditos.'
+      : 'No hay respuestas abiertas pendientes que puedan revisarse con IA. No se descontaron créditos.'
+    throw new HttpsError('failed-precondition', msg)
+  }
   if (items.length > unidades) {
     throw new HttpsError('failed-precondition',
       `Hay ${items.length} respuestas pendientes pero la estimación fue de ${unidades}. Vuelve a intentarlo para re-estimar.`)
   }
 
   // ── Candado por respuesta: adquirir el derecho a procesar cada una ────────
-  // create() atómico: solo UN lote puede crear el documento de una respuesta.
-  // Si ya existe: 'pendiente'/'aplicada' → ya fue procesada y cobrada antes
-  // (no se cobra ni se llama a Haiku de nuevo); 'procesando' → otro lote la
-  // tiene en este momento (se le deja), salvo que sea un huérfano viejo.
+  // create() atómico: solo UN invocación puede crear el documento de una
+  // respuesta. Si ya existe: 'pendiente'/'aplicada' → ya fue procesada y
+  // cobrada (no se vuelve a cobrar ni a llamar a Haiku); 'procesando' → otro
+  // lote la tiene ahora (se deja), salvo que sea un huérfano de > 10 min.
   const adquiridos = []
   let yaProcesadas = 0
   for (const item of items) {
@@ -493,7 +623,7 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
       // mismo huérfano a la vez).
       const tomado = await db.runTransaction(async (tx) => {
         const s = await tx.get(ref)
-        if (!s.exists) return false // borrado en el intervalo: raro; se deja
+        if (!s.exists) return false
         const d = s.data()
         const edadMs = d.creadoEn?.toDate ? Date.now() - d.creadoEn.toDate().getTime() : 0
         if (d.estado === 'procesando' && edadMs > 10 * 60 * 1000) {
@@ -508,8 +638,6 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   }
 
   if (!adquiridos.length) {
-    // Todo el lote ya tiene sugerencia (o está en manos de otro lote): no se
-    // cobra nada — el callable reembolsa la reserva completa.
     throw new HttpsError('failed-precondition',
       'Estas respuestas ya tienen sugerencia de IA o se están procesando en este momento. No se descontaron créditos.')
   }
@@ -520,25 +648,39 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   let fallidas = 0
   const sugerencias = []
 
-  // Cola con concurrencia limitada — sin dependencias externas.
+  // Cola con concurrencia limitada. RC: mensaje de texto puro. SA: texto del
+  // prompt + bloques del archivo (mismo patrón multimodal que OP-11).
   let cursor = 0
   async function trabajador() {
     while (cursor < adquiridos.length) {
       const item = adquiridos[cursor++]
       const max = Number(item.pregunta.ponderacion) || 0
       try {
+        let content
+        if (item.tipo === 'rc') {
+          content = c02Prompt({
+            asignatura, categoria, titulo,
+            enunciado: String(item.pregunta.enunciado || '').slice(0, 2000),
+            ponderacion: max, texto: item.texto,
+            respuestaEsperada: item.respuestaEsperada,
+          })
+        } else {
+          // SA: texto del prompt + bloques del archivo adjunto.
+          content = [
+            { type: 'text', text: c02PromptArchivo({
+              asignatura, categoria, titulo,
+              enunciado: String(item.pregunta.enunciado || '').slice(0, 2000),
+              ponderacion: max,
+              respuestaEsperada: item.respuestaEsperada,
+            })},
+            ...item.evidenciasBloques,
+          ]
+        }
         const msg = await client.messages.create({
           model: modelo,
           max_tokens: 800,
           system: C02_SISTEMA,
-          messages: [{
-            role: 'user',
-            content: c02Prompt({
-              asignatura, categoria, titulo,
-              enunciado: String(item.pregunta.enunciado || '').slice(0, 2000),
-              ponderacion: max, texto: item.texto,
-            }),
-          }],
+          messages: [{ role: 'user', content }],
         })
         tokensEntrada += msg.usage?.input_tokens || 0
         tokensSalida += msg.usage?.output_tokens || 0
@@ -584,13 +726,12 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   await Promise.all(Array.from({ length: Math.min(C02_CONCURRENCIA, adquiridos.length) }, trabajador))
 
   if (!sugerencias.length) {
-    // Nada utilizable: el callable reembolsa la reserva completa.
     throw new HttpsError('unavailable', 'El asistente de IA no pudo calificar ninguna respuesta. No se descontaron créditos.')
   }
 
   return {
     resultado: { sugerencias, omitidas, fallidas, yaProcesadas },
-    unidadesReales: sugerencias.length, // 1 crédito por respuesta realmente sugerida
+    unidadesReales: sugerencias.length, // 0.25 créditos por respuesta realmente sugerida
     interno: {
       modelo,
       tokensEntrada,
@@ -778,9 +919,25 @@ function bloqueContexto(ctx, asignatura) {
 // (opcional) son content blocks adicionales — imagen/PDF nativo o texto de
 // Word ya preparados por evidenciasEntrega.js — que se agregan DESPUÉS del
 // prompt de texto, mismo patrón que evaluarEntregaConIA en "Calificar con IA".
-async function pedirJSON({ client, modelo, maxTokens, prompt, system = INSTRUMENTO_SISTEMA, bloques = [] }) {
+async function pedirJSON({ client, modelo, maxTokens, prompt, system = INSTRUMENTO_SISTEMA, bloques = [], bloquesPrefijo = [] }) {
   const inicio = Date.now()
-  const content = bloques.length ? [{ type: 'text', text: prompt }, ...bloques] : prompt
+  // `bloques` va DESPUÉS del prompt (contrato original, no se toca: lo usan
+  // rúbrica, cotejo y OP-11, y moverlos cambiaría sus prompts).
+  //
+  // `bloquesPrefijo` va ANTES, y existe para poder cachearlo: el caché de
+  // Anthropic es por PREFIJO, así que un documento solo se puede reutilizar
+  // entre llamadas si va delante de la parte que cambia. Al marcar
+  // cache_control en el último bloque del prefijo, `system` + documentos
+  // quedan cacheados y los lotes siguientes los leen a 0.1× en vez de
+  // pagarlos completos otra vez. Si el prefijo no alcanza el mínimo
+  // cacheable del modelo (4,096 tokens en claude-haiku-4-5) simplemente no
+  // se cachea: no es un error, y ahí el ahorro era irrelevante de todos modos.
+  const prefijo = bloquesPrefijo.length
+    ? bloquesPrefijo.map((b, i) => (i === bloquesPrefijo.length - 1 ? { ...b, cache_control: { type: 'ephemeral' } } : b))
+    : []
+  const content = (prefijo.length || bloques.length)
+    ? [...prefijo, { type: 'text', text: prompt }, ...bloques]
+    : prompt
   const msg = await client.messages.create({
     model: modelo,
     max_tokens: maxTokens,
@@ -795,6 +952,10 @@ async function pedirJSON({ client, modelo, maxTokens, prompt, system = INSTRUMEN
       modelo,
       tokensEntrada: msg.usage?.input_tokens ?? null,
       tokensSalida: msg.usage?.output_tokens ?? null,
+      // Sirven para comprobar que un documento NO se reprocesó: en el segundo
+      // lote de una evaluación grande, cacheLectura debe venir > 0.
+      cacheEscritura: msg.usage?.cache_creation_input_tokens ?? 0,
+      cacheLectura: msg.usage?.cache_read_input_tokens ?? 0,
       ms: Date.now() - inicio,
     },
   }
@@ -1584,13 +1745,41 @@ const TIPOS_REACTIVO = ['opcion_multiple', 'verdadero_falso', 'respuesta_corta',
 
 // 'Mixto' reparte los tipos EN CÓDIGO, round-robin sobre los 4 disponibles —
 // la IA nunca decide la estructura, ni siquiera cuando el docente pide mezcla.
+//
+// Contrato: si `params.tipos` viene como arreglo (nuevo cliente), reparte
+// round-robin SOLO sobre esos tipos; si viene el string legado `tipoSolicitado`
+// (pestaña vieja en caché, versiones anteriores del cliente), se comporta como
+// antes. Un dato faltante o inválido cae al reparto sobre los 4 tipos (Mixto).
 function tiposParaLote(tipoSolicitado, cantidad) {
+  if (Array.isArray(tipoSolicitado)) {
+    const seleccion = tipoSolicitado.filter((t) => TIPOS_REACTIVO.includes(t))
+    if (seleccion.length === 0) return Array.from({ length: cantidad }, (_, i) => TIPOS_REACTIVO[i % TIPOS_REACTIVO.length])
+    return Array.from({ length: cantidad }, (_, i) => seleccion[i % seleccion.length])
+  }
   if (TIPOS_REACTIVO.includes(tipoSolicitado)) return Array.from({ length: cantidad }, () => tipoSolicitado)
   return Array.from({ length: cantidad }, (_, i) => TIPOS_REACTIVO[i % TIPOS_REACTIVO.length])
 }
 
+// Resuelve la selección del docente en el formato canónico usado por
+// `tiposParaLote` y los prechecks. Prioridad: `params.tipos` (arreglo, nuevo
+// contrato) > `params.tipoSolicitado` (string, legado) > 'mixto'.
+//
+// Los `params.tipos` filtrados a los que realmente conocemos NO puede quedar
+// vacío: si el cliente manda un arreglo pero ninguno es válido, se rechaza en
+// el precheck (invalid-argument) SIN cobrar crédito — no se cae silenciosamente
+// al reparto mixto, que sería lo contrario a lo que pidió el docente.
+function resolverSeleccionTipos(params) {
+  if (Array.isArray(params?.tipos)) {
+    const filtrado = params.tipos.filter((t) => TIPOS_REACTIVO.includes(t))
+    return { modo: 'arreglo', tipos: filtrado, crudo: params.tipos }
+  }
+  const s = params?.tipoSolicitado
+  if (TIPOS_REACTIVO.includes(s)) return { modo: 'legado', tipos: [s] }
+  return { modo: 'mixto', tipos: TIPOS_REACTIVO.slice() }
+}
+
 // Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
-async function precheckReactivos({ uid, params }) {
+async function precheckReactivos({ uid, params, tarifas }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) {
@@ -1609,39 +1798,74 @@ async function precheckReactivos({ uid, params }) {
       'Solo un cuestionario o un examen pueden generar reactivos con IA.')
   }
 
-  // La fuente del contenido es lo que escribió el docente AQUÍ, no algo que
-  // el precheck tenga que ir a leer — pero si no alcanza, se detiene igual
-  // que la regla de contexto insuficiente de rúbrica/cotejo: ni reserva ni
-  // llamada al modelo.
+  // "Mismo tema que los reactivos anteriores": cuando el docente marca esa
+  // opción y sí hay reactivos previos, la IA infiere el tema de los enunciados
+  // existentes en vez de exigirle al docente que lo vuelva a escribir. En ese
+  // caso `quiereEvaluar` deja de ser obligatorio — los reactivos existentes son
+  // la fuente principal del tema. Si viene marcado PERO la lista llega vacía o
+  // no aprovechable (todos los enunciados sin texto), se degrada al flujo
+  // normal y se vuelve a exigir la descripción.
+  const reactivosExistentes = sanitizarReactivosExistentes(params?.reactivosExistentes)
+  const mismoTema = params?.mismoTema === true && reactivosExistentes.length > 0
+
   const quiereEvaluar = String(params?.quiereEvaluar || '').trim().slice(0, MAX_QUIERE_EVALUAR)
-  if (quiereEvaluar.length < MIN_QUIERE_EVALUAR) {
+  if (!mismoTema && quiereEvaluar.length < MIN_QUIERE_EVALUAR) {
     throw new HttpsError('failed-precondition',
       `Describe con más detalle qué quieres evaluar (mínimo ${MIN_QUIERE_EVALUAR} caracteres) para que la IA pueda generar reactivos fundamentados. No se descontaron créditos.`,
       { codigo: 'CONTEXTO_INSUFICIENTE' })
   }
 
   const cantidad = clampInt(params?.cantidad, 5, MIN_REACTIVOS, MAX_REACTIVOS)
-  const tipoSolicitado = TIPOS_REACTIVO.includes(params?.tipoSolicitado) ? params.tipoSolicitado : 'mixto'
+  // Cliente nuevo manda `params.tipos: string[]` (checkboxes independientes);
+  // cliente viejo/caché sigue mandando `params.tipoSolicitado` string. Un
+  // arreglo con cero válidos ES un error del cliente: se rechaza sin cobrar.
+  const seleccion = resolverSeleccionTipos(params)
+  if (seleccion.modo === 'arreglo' && seleccion.tipos.length === 0) {
+    throw new HttpsError('invalid-argument',
+      'Selecciona al menos un tipo de reactivo. No se descontaron créditos.',
+      { codigo: 'TIPOS_VACIOS' })
+  }
 
   // Fuentes permanentes de la asignatura (generales + las del parcial de esta
   // actividad, nunca las de otro parcial) + hasta 3 PDF/Word que el docente
   // adjuntó a mano aquí — mismo mecanismo que crear_evaluacion_ia: fuente
   // ADICIONAL, "qué quiere evaluar" sigue siendo la fuente principal (ver
   // REACTIVOS_SISTEMA/promptReactivos más abajo).
-  const bloqueFuentes = await bloqueFuentesOperacion(db, {
+  const fuentes = await bloqueFuentesOperacion(db, {
     asignaturaId: act.asignaturaId, parcial: act.parcial, fuentesManual: params?.fuentes,
+    creditosOperacion: creditosDe(tarifas, 'reactivos', cantidad),
   })
 
   return {
     clase,
     nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
-    tema: String(params?.tema || '').trim().slice(0, 120),
+    tema: mismoTema ? '' : String(params?.tema || '').trim().slice(0, 120),
     quiereEvaluar,
+    mismoTema,
+    reactivosExistentes: mismoTema ? reactivosExistentes : [],
     cantidad,
-    tipoSolicitado,
-    tipos: tiposParaLote(tipoSolicitado, cantidad),
-    bloqueFuentes,
+    tipoSolicitado: seleccion.modo === 'legado' ? seleccion.tipos[0] : (seleccion.modo === 'arreglo' ? seleccion.tipos : 'mixto'),
+    tipos: tiposParaLote(seleccion.modo === 'arreglo' ? seleccion.tipos : (seleccion.modo === 'legado' ? seleccion.tipos[0] : 'mixto'), cantidad),
+    bloqueFuentes: fuentes.texto,
+    fuentesBloques: fuentes.bloques,
+    fuentesAvisos: fuentes.avisos,
   }
+}
+
+// Sanea la lista de reactivos previos que manda el cliente para armar el
+// bloque de "MISMO TEMA": tipo válido + enunciado no vacío, con tope de
+// longitud y cantidad para no inflar el prompt más de la cuenta.
+const MAX_REACTIVOS_EXISTENTES_REF = 100
+const MAX_ENUNCIADO_REF = 400
+function sanitizarReactivosExistentes(lista) {
+  if (!Array.isArray(lista)) return []
+  return lista
+    .slice(0, MAX_REACTIVOS_EXISTENTES_REF)
+    .map((r) => ({
+      tipo: TIPOS_REACTIVO.includes(r?.tipo) ? r.tipo : 'opcion_multiple',
+      enunciado: String(r?.enunciado || '').trim().slice(0, MAX_ENUNCIADO_REF),
+    }))
+    .filter((r) => r.enunciado.length > 0)
 }
 
 // El texto base NO menciona fuentes (caso normal, sin adjuntos): se mantiene
@@ -1656,6 +1880,9 @@ const REACTIVOS_SISTEMA_BASE =
   'evaluar"{fuentesClausula} — no agregues conceptos, temas ni aprendizajes que no haya mencionado{fuentesClausula2}, y no completes ' +
   'con conocimiento general más allá de lo que pidió. La cantidad y el tipo de cada reactivo los fija ' +
   'Evalúa Fácil: genera EXACTAMENTE los reactivos pedidos, uno por cada tipo indicado y en ese orden. ' +
+  'Cuando generes varios reactivos, cada uno debe medir un ASPECTO o HABILIDAD DIFERENTE del contenido: ' +
+  'varía entre definición, comprensión, aplicación, análisis, comparación e identificación de ejemplos. ' +
+  'Dos preguntas que evalúan el mismo conocimiento con distinta redacción cuentan como repetición. ' +
   'Escribe en español, claro y breve. Responde únicamente con el JSON válido del esquema indicado, ' +
   'sin texto adicional.'
 
@@ -1669,6 +1896,19 @@ function reactivosSistemaConFuentes() {
     .replace('{fuentesClausula2}', ' ni estén en esos documentos')
 }
 
+// Cláusula que se suma cuando el docente pidió "mismo tema que los reactivos
+// anteriores": la referencia del tema son los reactivos existentes, y hay que
+// producir NUEVOS enunciados sobre el mismo dominio, no copiar ni parafrasear.
+const REACTIVOS_MISMO_TEMA_CLAUSULA =
+  ' Además, en este caso los reactivos marcados como CONCEPTOS YA CUBIERTOS delimitan el territorio ' +
+  'que debes EVITAR: no generes reactivos que evalúen el mismo conocimiento, habilidad o procedimiento ' +
+  'que ya está cubierto, aunque lo redactes diferente. Los nuevos reactivos deben pertenecer al mismo ' +
+  'dominio temático pero cubrir ASPECTOS que los existentes NO cubren: distintos procedimientos, ' +
+  'distintas aplicaciones, distintos niveles de razonamiento. MISMO TEMA ≠ MISMA PREGUNTA.'
+function reactivosSistemaConMismoTema(hayFuentes) {
+  return (hayFuentes ? reactivosSistemaConFuentes() : REACTIVOS_SISTEMA) + REACTIVOS_MISMO_TEMA_CLAUSULA
+}
+
 const ETIQUETA_TIPO_REACTIVO = {
   opcion_multiple: 'opción múltiple',
   verdadero_falso: 'verdadero/falso',
@@ -1676,15 +1916,48 @@ const ETIQUETA_TIPO_REACTIVO = {
   subir_archivo: 'subir archivo (el alumno entrega un documento; sin respuesta correcta)',
 }
 
+// Bloque de "reactivos ya existentes" cuando el docente pidió "mismo tema":
+// solo tipo + enunciado, sin opciones ni clave (la clave nunca va al modelo
+// para no invitar a copiarla; las opciones alargarían el prompt sin aportar).
+function bloqueReactivosExistentes(lista) {
+  return (
+    'CONCEPTOS YA CUBIERTOS EN ESTA EVALUACIÓN (NO generes reactivos sobre estos mismos conocimientos, ' +
+    'habilidades o procedimientos — aunque los redactes diferente. Los nuevos reactivos deben pertenecer ' +
+    'al mismo dominio pero evaluar ASPECTOS DISTINTOS que los siguientes NO cubren):\n' +
+    lista.map((r, i) => `${i + 1}. [${ETIQUETA_TIPO_REACTIVO[r.tipo] || r.tipo}] "${r.enunciado}"`).join('\n')
+  )
+}
+
 function promptReactivos(ctx, asignatura) {
   const listaTipos = ctx.tipos.map((t, i) => `${i + 1}. ${ETIQUETA_TIPO_REACTIVO[t] || t}`).join('\n')
-  return (
+  const cabecera =
     `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
-    `${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n` +
-    (ctx.tema ? `Tema: ${ctx.tema}\n` : '') +
-    `\nQUÉ QUIERE EVALUAR EL DOCENTE (${ctx.bloqueFuentes ? 'fuente principal' : 'única fuente'} del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
-    (ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : '\n') +
-    `Genera EXACTAMENTE ${ctx.cantidad} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
+    `${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n`
+
+  // Rama "mismo tema": los reactivos existentes son la referencia del tema, y
+  // se le pide explícitamente al modelo cubrir el MISMO dominio con enunciados
+  // distintos. Cuando NO hay mismo tema, se conserva EXACTAMENTE el bloque
+  // que había antes (quiereEvaluar como fuente principal/única) — regresión
+  // cero para todos los flujos que no marquen la casilla.
+  const bloqueContenido = ctx.mismoTema
+    ? (
+        `\n${bloqueReactivosExistentes(ctx.reactivosExistentes)}\n` +
+        (ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : '\n') +
+        `Genera EXACTAMENTE ${ctx.cantidad} reactivos NUEVOS dentro del mismo DOMINIO TEMÁTICO, ` +
+        `pero que evalúen ASPECTOS, HABILIDADES o PROCEDIMIENTOS que los conceptos ya cubiertos NO contemplan. ` +
+        `Uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
+        `IMPORTANTE: cada reactivo debe cubrir un aspecto distinto — no repitas el mismo conocimiento aunque lo redactes de otra forma.\n\n`
+      )
+    : (
+        (ctx.tema ? `Tema: ${ctx.tema}\n` : '') +
+        `\nQUÉ QUIERE EVALUAR EL DOCENTE (${tieneFuentes(ctx) ? 'fuente principal' : 'única fuente'} del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
+        (ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : '\n') +
+        `Genera EXACTAMENTE ${ctx.cantidad} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
+        `IMPORTANTE: cada reactivo debe cubrir un aspecto distinto del contenido — no repitas el mismo concepto aunque lo redactes de otra forma.\n\n`
+      )
+
+  return (
+    cabecera + bloqueContenido +
     'Reglas por tipo:\n' +
     '- opcion_multiple: enunciado + 4 opciones + el índice (0-3) de la opción correcta.\n' +
     '- verdadero_falso: un enunciado afirmativo evaluable + "v" o "f".\n' +
@@ -1730,9 +2003,14 @@ async function ejecutarReactivos({ params, modelo, apiKey }) {
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
   const asignatura = String(params?.asignaturaNombre || '').slice(0, 120)
 
+  const hayFuentes = !!(ctx.bloqueFuentes || ctx.fuentesBloques?.length)
   const { datos, interno } = await pedirJSON({
-    client, modelo, maxTokens: 2200, system: ctx.bloqueFuentes ? reactivosSistemaConFuentes() : REACTIVOS_SISTEMA,
+    client, modelo, maxTokens: 2200,
+    system: ctx.mismoTema
+      ? reactivosSistemaConMismoTema(hayFuentes)
+      : (hayFuentes ? reactivosSistemaConFuentes() : REACTIVOS_SISTEMA),
     prompt: promptReactivos(ctx, asignatura),
+    bloquesPrefijo: ctx.fuentesBloques || [],
   })
 
   // Tarifa comercial (decisión PO, 23-ago-2026): 0.5 crédito por reactivo
@@ -1745,7 +2023,7 @@ async function ejecutarReactivos({ params, modelo, apiKey }) {
   }
 
   return {
-    resultado: { reactivos, clase: ctx.clase },
+    resultado: { reactivos, clase: ctx.clase, avisos: ctx.fuentesAvisos || [] },
     unidadesReales: reactivos.length,
     interno,
   }
@@ -2299,7 +2577,7 @@ function repartirPonderacion(cantidad) {
 }
 
 // Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
-async function precheckCrearEvaluacion({ uid, params }) {
+async function precheckCrearEvaluacion({ uid, params, tarifas }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) {
@@ -2326,14 +2604,23 @@ async function precheckCrearEvaluacion({ uid, params }) {
   }
 
   const cantidad = clampInt(params?.cantidad, 10, MIN_REACTIVOS, MAX_REACTIVOS_EVALUACION)
-  const tipoSolicitado = TIPOS_REACTIVO.includes(params?.tipoSolicitado) ? params.tipoSolicitado : 'mixto'
+  // Contrato dual (idéntico a precheckReactivos): `params.tipos: string[]`
+  // (nuevo cliente, checkboxes) o `params.tipoSolicitado` legado. Arreglo vacío
+  // se rechaza sin cobrar.
+  const seleccion = resolverSeleccionTipos(params)
+  if (seleccion.modo === 'arreglo' && seleccion.tipos.length === 0) {
+    throw new HttpsError('invalid-argument',
+      'Selecciona al menos un tipo de reactivo. No se descontaron créditos.',
+      { codigo: 'TIPOS_VACIOS' })
+  }
 
   // Documentos de referencia: fuentes permanentes (generales + las del
   // parcial de esta actividad, nunca las de otro parcial) + hasta 3 que el
   // docente adjuntó a mano aquí — lógica compartida con reactivos (OP-09) y
   // crear_actividad_ia (OP-05): ver fuentesIA.js.
-  const bloqueFuentes = await bloqueFuentesOperacion(db, {
+  const fuentes = await bloqueFuentesOperacion(db, {
     asignaturaId: act.asignaturaId, parcial: act.parcial, fuentesManual: params?.fuentes,
+    creditosOperacion: creditosDe(tarifas, 'crear_evaluacion_ia', cantidad),
   })
 
   return {
@@ -2341,9 +2628,11 @@ async function precheckCrearEvaluacion({ uid, params }) {
     nombre: String(act.nombre || act.titulo || '').trim().slice(0, 200),
     quiereEvaluar,
     cantidad,
-    tipoSolicitado,
-    tipos: tiposParaLote(tipoSolicitado, cantidad),
-    bloqueFuentes,
+    tipoSolicitado: seleccion.modo === 'legado' ? seleccion.tipos[0] : (seleccion.modo === 'arreglo' ? seleccion.tipos : 'mixto'),
+    tipos: tiposParaLote(seleccion.modo === 'arreglo' ? seleccion.tipos : (seleccion.modo === 'legado' ? seleccion.tipos[0] : 'mixto'), cantidad),
+    bloqueFuentes: fuentes.texto,
+    fuentesBloques: fuentes.bloques,
+    fuentesAvisos: fuentes.avisos,
   }
 }
 
@@ -2355,6 +2644,9 @@ const CREAR_EVAL_SISTEMA =
   'que no estén ahí, y no completes con conocimiento general más allá de eso. La cantidad y el tipo de ' +
   'cada reactivo los fija Evalúa Fácil: genera EXACTAMENTE los reactivos pedidos, uno por cada tipo ' +
   'indicado y en ese orden. No repartas puntos ni calcules ponderaciones: Evalúa Fácil las calcula. ' +
+  'Cuando generes varios reactivos, cada uno debe medir un ASPECTO o HABILIDAD DIFERENTE del contenido: ' +
+  'varía entre definición, comprensión, aplicación, análisis, comparación e identificación de ejemplos. ' +
+  'Dos preguntas que evalúan el mismo conocimiento con distinta redacción cuentan como repetición. ' +
   'Escribe en español, claro y breve. Responde únicamente con el JSON válido del esquema indicado, ' +
   'sin texto adicional.'
 
@@ -2368,15 +2660,21 @@ const CREAR_EVAL_SISTEMA =
 // (lo que ve el estudiante antes de responder) se piden UNA sola vez, en el
 // primer lote — pedirlas en cada lote generaría varias versiones distintas
 // que se pisarían entre sí sin ganar nada.
-function promptCrearEvaluacion(ctx, asignatura, tiposLote, offset, pedirInstrucciones) {
+function promptCrearEvaluacion(ctx, asignatura, tiposLote, offset, pedirInstrucciones, yaGenerados = []) {
   const listaTipos = tiposLote.map((t, i) => `${offset + i + 1}. ${ETIQUETA_TIPO_REACTIVO[t] || t}`).join('\n')
   const fuentesBloque = ctx.bloqueFuentes ? `\n\n${ctx.bloqueFuentes}\n` : ''
+  const bloqueYaGenerados = yaGenerados.length > 0
+    ? `\nREACTIVOS YA GENERADOS EN ESTE ${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'} — NO repitas el mismo concepto, aunque lo redactes de otra forma:\n` +
+      yaGenerados.map((e, i) => `${i + 1}. "${e}"`).join('\n') + '\n'
+    : ''
   return (
     `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
     `${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n` +
     `\nQUÉ QUIERE EVALUAR EL DOCENTE (fuente principal del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
     fuentesBloque +
+    bloqueYaGenerados +
     `\nGenera EXACTAMENTE ${tiposLote.length} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
+    `IMPORTANTE: cada reactivo debe cubrir un aspecto distinto del contenido — no repitas el mismo concepto aunque lo redactes de otra forma.\n\n` +
     'Reglas por tipo:\n' +
     '- opcion_multiple: enunciado + 4 opciones + el índice (0-3) de la opción correcta.\n' +
     '- verdadero_falso: un enunciado afirmativo evaluable + "v" o "f".\n' +
@@ -2424,23 +2722,39 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
   let instruccionesHtml = ''
   let tokensEntrada = 0
   let tokensSalida = 0
+  let cacheEscritura = 0
+  let cacheLectura = 0
   let ms = 0
   let offset = 0
+  // Enunciados ya generados: se pasan a cada lote posterior para que el modelo
+  // no repita conceptos entre lotes. Solo enunciados (sin opciones ni clave)
+  // para mantener el tamaño del prompt bajo control.
+  let yaGenerados = []
   for (const [i, tiposLote] of lotes.entries()) {
     const primerLote = i === 0
     const { datos, interno } = await pedirJSON({
       client, modelo,
       maxTokens: Math.min(8000, 350 * tiposLote.length + 400 + (primerLote ? 400 : 0)),
       system: CREAR_EVAL_SISTEMA,
-      prompt: promptCrearEvaluacion(ctx, asignatura, tiposLote, offset, primerLote),
+      prompt: promptCrearEvaluacion(ctx, asignatura, tiposLote, offset, primerLote, yaGenerados),
+      // Los documentos visuales van como PREFIJO cacheado: idénticos en todos
+      // los lotes, así que el primero los paga y los siguientes los leen a
+      // 0.1× en vez de reprocesarlos enteros. El modelo ve exactamente el
+      // mismo contenido en cada lote, de modo que la calidad no cambia —
+      // esto es una optimización de costo, no de comportamiento.
+      bloquesPrefijo: ctx.fuentesBloques || [],
     })
-    reactivos = reactivos.concat(normalizarReactivos(datos, { tipos: tiposLote }))
+    const loteNorm = normalizarReactivos(datos, { tipos: tiposLote })
+    reactivos = reactivos.concat(loteNorm)
+    yaGenerados = yaGenerados.concat(loteNorm.filter((r) => r.enunciado).map((r) => r.enunciado))
     // Instrucciones generales: solo se piden en el primer lote (ver
     // promptCrearEvaluacion) — si la IA no las trae, la actividad se queda
     // sin instrucciones en vez de inventarlas (regla de no invención, T.7).
     if (primerLote) instruccionesHtml = sanitizarInstruccionesHtml(datos?.instruccionesHtml)
     tokensEntrada += interno.tokensEntrada || 0
     tokensSalida += interno.tokensSalida || 0
+    cacheEscritura += interno.cacheEscritura || 0
+    cacheLectura += interno.cacheLectura || 0
     ms += interno.ms || 0
     offset += tiposLote.length
   }
@@ -2453,6 +2767,24 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
 
   const ponderaciones = repartirPonderacion(reactivos.length)
   const db = getFirestore()
+
+  // Borrar preguntas y clave anteriores para que una nueva generación completa
+  // reemplace en lugar de acumular, evitando que totalPonderacion se infle y
+  // la fórmula divida entre un denominador mayor al real.
+  const [viejasPreg, viejasClave] = await Promise.all([
+    db.collection(`activities/${actividadId}/preguntas`).get(),
+    db.collection(`activities/${actividadId}/clave`).get(),
+  ])
+  const refsABorrar = [
+    ...viejasPreg.docs.map((d) => d.ref),
+    ...viejasClave.docs.map((d) => d.ref),
+  ]
+  for (let i = 0; i < refsABorrar.length; i += 400) {
+    const delBatch = db.batch()
+    refsABorrar.slice(i, i + 400).forEach((ref) => delBatch.delete(ref))
+    await delBatch.commit()
+  }
+
   const batch = db.batch()
   reactivos.forEach((r, i) => {
     const pregRef = db.collection(`activities/${actividadId}/preguntas`).doc()
@@ -2486,9 +2818,12 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
   await db.doc(`activities/${actividadId}`).set(updateActividad, { merge: true })
 
   return {
-    resultado: { cantidad: reactivos.length, clase: ctx.clase },
+    // `avisos` viaja al cliente para que el docente vea qué documento no se
+    // pudo usar y por qué, SIN que eso convierta en error una generación que
+    // sí salió bien con el resto del material.
+    resultado: { cantidad: reactivos.length, clase: ctx.clase, avisos: ctx.fuentesAvisos || [] },
     unidadesReales: reactivos.length, // 1 crédito por reactivo realmente generado
-    interno: { modelo, tokensEntrada, tokensSalida, ms },
+    interno: { modelo, tokensEntrada, tokensSalida, cacheEscritura, cacheLectura, ms },
   }
 }
 
@@ -2513,7 +2848,7 @@ const MAX_PETICION_ACTIVIDAD = 2000
 const TIPOS_ARCHIVO_VALIDOS = ['imagenes', 'pdf', 'word', 'powerpoint', 'excel', 'zip']
 
 // Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
-async function precheckCrearActividad({ uid, params }) {
+async function precheckCrearActividad({ uid, params, tarifas }) {
   const db = getFirestore()
   const categoria = CATEGORIAS_ACTIVIDAD_IA[params?.categoria] || null
   if (!categoria) {
@@ -2556,7 +2891,10 @@ async function precheckCrearActividad({ uid, params }) {
 
   // Fuentes permanentes (generales + las del parcial de esta actividad,
   // nunca las de otro parcial) + hasta 3 que el docente adjuntó a mano aquí.
-  const bloqueFuentes = await bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual: params?.fuentes })
+  const fuentes = await bloqueFuentesOperacion(db, {
+    asignaturaId, parcial, fuentesManual: params?.fuentes,
+    creditosOperacion: creditosDe(tarifas, 'crear_actividad_ia'),
+  })
 
   // La planeación VIGENTE de la asignatura (1-sep-2026, autorizado por Kike):
   // una actividad generada con IA tiene que apoyarse en lo que el docente
@@ -2572,7 +2910,9 @@ async function precheckCrearActividad({ uid, params }) {
     peticion,
     nombresExistentes,
     pesoRestante,
-    bloqueFuentes,
+    bloqueFuentes: fuentes.texto,
+    fuentesBloques: fuentes.bloques,
+    fuentesAvisos: fuentes.avisos,
     bloquePlaneacion,
   }
 }
@@ -2680,6 +3020,7 @@ async function ejecutarCrearActividad({ params, modelo, apiKey }) {
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 1200, system: CREAR_ACTIVIDAD_SISTEMA,
     prompt: promptCrearActividad(ctx, asignatura),
+    bloquesPrefijo: ctx.fuentesBloques || [],
   })
 
   const nombre = String(datos?.nombre || '').trim().slice(0, 120)
@@ -2713,7 +3054,7 @@ async function ejecutarCrearActividad({ params, modelo, apiKey }) {
   await db.doc(`activities/${actividadId}`).update(update)
 
   return {
-    resultado: { actividadId, categoria: ctx.categoria },
+    resultado: { actividadId, categoria: ctx.categoria, avisos: ctx.fuentesAvisos || [] },
     unidadesReales: 1,
     interno,
   }
@@ -5887,9 +6228,21 @@ exports.ejecutarOperacionIA = onCall(
     // categoría válida y suficiencia del contexto. Si algo de esto falla, el
     // docente se entera sin que se haya reservado ni descontado un crédito
     // (no hay reserva que reembolsar porque nunca llegó a existir).
+    // Las tarifas se cargan ANTES del precheck (3-sep-2026): el presupuesto de
+    // páginas que una operación puede mandar a análisis visual depende de
+    // cuánto cobra esa operación, y ese número vive en config/iaTarifas, no
+    // en el código. Cargarlas es una lectura: no reserva ni cobra nada, así
+    // que la garantía de "el precheck no cuesta créditos" queda intacta.
+    let tarifas
+    try {
+      tarifas = await ledger.cargarTarifas()
+    } catch (e) {
+      throw comoHttpsError(e)
+    }
+
     let precontexto = null
     if (PRECHECKS[operacion]) {
-      precontexto = await PRECHECKS[operacion]({ uid, params })
+      precontexto = await PRECHECKS[operacion]({ uid, params, tarifas })
     }
 
     // El precheck puede saber, ANTES de reservar, que esta operación va a
@@ -5918,10 +6271,8 @@ exports.ejecutarOperacionIA = onCall(
       return operacion
     })()
 
-    let tarifas
     let reserva
     try {
-      tarifas = await ledger.cargarTarifas()
       reserva = await ledger.reservar({ uid, operacion: operacionEfectiva, idempotencyKey, unidades: n, asignaturaId: params.asignaturaId || null, tarifas })
     } catch (e) {
       throw comoHttpsError(e)
@@ -6097,8 +6448,10 @@ exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
 // armado del contexto de la actividad padre y su regla de suficiencia, que es
 // donde vive la decisión de "no alcanza, no se cobra".
 exports._pruebas = {
+  pedirJSON,
   contextoDeActividad, condicionesEntregable, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
   precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MAX_REACTIVOS,
+  promptReactivos, sanitizarReactivosExistentes,
   agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
   agregarResultadosEncuesta, normalizarAnalisisEncuestaContexto, promptAnalisisEncuestaContexto, ENCUESTA_CONTEXTO_SISTEMA,
   promptAnalisis, ANALISIS_SISTEMA, bloqueConsideracionesAnalisis, MAX_CONSIDERACIONES_ANALISIS_CHARS,

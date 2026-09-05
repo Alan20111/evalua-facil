@@ -42,9 +42,15 @@ export default defineConfig([
       betterTailwindcss.configs['correctness-warn'],
     ],
     languageOptions: {
-      // __BUILD_ID__: inyectado por vite.config.js (define) en build time —
-      // ver src/components/UpdateChecker.jsx.
-      globals: { ...globals.browser, __BUILD_ID__: 'readonly' },
+      // Globals inyectados por vite.config.js (define) en build time.
+      // __BUILD_ID__: para UpdateChecker — ver src/components/UpdateChecker.jsx.
+      // __BUILD_TIMESTAMP__ / __BUILD_COMMIT__: para AppVersionInfo y sidebars.
+      globals: {
+        ...globals.browser,
+        __BUILD_ID__: 'readonly',
+        __BUILD_TIMESTAMP__: 'readonly',
+        __BUILD_COMMIT__: 'readonly',
+      },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
     settings: {

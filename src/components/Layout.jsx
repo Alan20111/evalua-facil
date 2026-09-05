@@ -191,10 +191,12 @@ export default function TeacherLayout({ children }) {
             </div>
             {/* Versión y etiqueta de rol comparten renglón: versión a la izquierda,
                 rol a la derecha. La versión es solo de la web — en la app vive en
-                Perfil, debajo del aviso de privacidad, y la etiqueta se queda sola. */}
+                Perfil, y la etiqueta se queda sola. */}
             <div className="flex items-center gap-2 pt-1">
               {!IS_NATIVE_APP && (
-                <p className="text-metadata text-white/50 pl-3">v.1.0.1</p>
+                <p className="text-metadata text-white/50 pl-3">
+                  {new Date(__BUILD_TIMESTAMP__).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </p>
               )}
               {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de PortalBadge, no un atributo ARIA */}
               <PortalBadge role="docente" className="ml-auto" />
