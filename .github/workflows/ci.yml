@@ -36,5 +36,10 @@ jobs:
       - name: Candado de diseño y accesibilidad (check-ui-standards.sh)
         run: npm run check:design
 
+      # Un YAML roto en .github/workflows/ no lo marca nadie: el archivo sigue
+      # ahí y GitHub simplemente deja de reconocer el workflow.
+      - name: Workflows válidos
+        run: node scripts/validar-workflows.mjs
+
       - name: Build
         run: npm run build
