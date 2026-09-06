@@ -15,6 +15,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { studentEmail, usernameCandidates } from '../../utils/generate'
+import { apiUrl } from '../../utils/apiBase'
 import { GraduationCap, Check } from 'lucide-react'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
@@ -73,14 +74,15 @@ export default function StudentActivation() {
     if (!pre || !subject || currentUser) return
     async function autoFind() {
       try {
-        const q = query(
-          collection(db, 'students'),
-          where('asignaturaId', '==', subject.id),
-          where('username', '==', pre)
-        )
-        const snap = await getDocs(q)
-        if (!snap.empty) {
-          setStudent({ id: snap.docs[0].id, ...snap.docs[0].data() })
+        const resp = await fetch(apiUrl('/api/student/lookup'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subjectCode: accessCode, username: pre }),
+        })
+        if (!resp.ok) return
+        const data = await resp.json()
+        if (data.ok && data.student) {
+          setStudent(data.student)
           setStep('password')
         }
       } catch {
@@ -206,65 +208,36 @@ export default function StudentActivation() {
     }
   }
 
-  // ¿Este alumno ya tiene cuenta de Firebase Auth? Se responde mirando sus OTRAS
-  // inscripciones: la cuenta es una sola por `username` + `escuelaId` (el correo
-  // falso @evalua.local se arma con esos dos datos), así que basta con que
-  // cualquiera de ellas esté activada. Dos filtros de igualdad, sin rangos ni
-  // orderBy — el mismo patrón que ya usa finishActivation.
-  // Ante cualquier fallo devuelve false: el camino de "elige contraseña" ya
-  // sabe recuperarse solo si la cuenta resulta existir (auth/email-already-in-use).
-  async function studentAlreadyHasAccount(data) {
-    try {
-      const snap = await getDocs(query(
-        collection(db, 'students'),
-        where('username', '==', data.username),
-        where('escuelaId', '==', data.escuelaId),
-      ))
-      return snap.docs.some((d) => {
-        const s = d.data()
-        return s.activado === true || !!s.uid
-      })
-    } catch {
-      return false
-    }
-  }
-
   async function handleFindStudent(e) {
     e.preventDefault()
     if (!subject) return
     setLoading(true)
     try {
-      // Legacy codes are UPPERCASE, new ones lowercase — search both
-      const snaps = await Promise.all(usernameCandidates(username).map((u) =>
-        getDocs(query(
-          collection(db, 'students'),
-          where('asignaturaId', '==', subject.id),
-          where('username', '==', u)
-        ))
-      ))
-      const found = snaps.flatMap((s) => s.docs)
-      if (found.length === 0) {
-        toast('Username no encontrado en esta asignatura', 'error')
+      const resp = await fetch(apiUrl('/api/student/lookup'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjectCode: accessCode, username }),
+      })
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}))
+        toast(errData.error || 'Usuario no encontrado en esta asignatura', 'error')
         return
       }
-      const data = { id: found[0].id, ...found[0].data() }
-      if (data.activado) {
+      const data = await resp.json()
+      if (!data.ok || !data.student) {
+        toast('Usuario no encontrado en esta asignatura', 'error')
+        return
+      }
+      const found = data.student
+      if (found.activado) {
         toast('Esta asignatura ya está en tu cuenta. Inicia sesión.')
         navigate('/alumno')
         return
       }
-      setStudent(data)
+      setStudent(found)
       setPasswordError('')
-      // ¿Ya tiene cuenta? `activado` de ESTA inscripción no lo dice: es false en
-      // toda asignatura a la que aún no se une, aunque la cuenta exista desde
-      // hace meses. La contraseña no es de la asignatura, es del alumno (una por
-      // username + escuela), así que hay que preguntarle a TODAS sus
-      // inscripciones. Sin esto, a un alumno con cuenta se le pedía "Elige tu
-      // contraseña" —con su confirmación y todo, como si fuera a crear una— y
-      // solo al enviarla el código descubría que ya existía.
-      const yaTieneCuenta = await studentAlreadyHasAccount(data)
       setLinkFromPassword(false)
-      setStep(yaTieneCuenta ? 'link_existing' : 'password')
+      setStep(data.alreadyHasAccount ? 'link_existing' : 'password')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {

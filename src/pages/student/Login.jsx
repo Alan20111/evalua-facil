@@ -1,10 +1,9 @@
 import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { signInWithEmailAndPassword } from 'firebase/auth'
-import { collection, query, where, getDocs } from 'firebase/firestore'
-import { auth, db } from '../../firebase'
+import { auth } from '../../firebase'
 import Spinner from '../../components/Spinner'
-import { studentEmail, usernameCandidates } from '../../utils/generate'
+import { studentEmail } from '../../utils/generate'
 import { Hash, ChevronDown, ArrowLeft, KeyRound } from 'lucide-react'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
@@ -55,22 +54,27 @@ export default function StudentLogin() {
         setError('Tu usuario no es un correo. Es el que te dio tu maestro (por ejemplo ABCD). Tu correo solo sirve para recuperar tu contraseña.')
         return
       }
-      // Legacy codes are UPPERCASE, new ones lowercase — search both
-      const snaps = await Promise.all(usernameCandidates(username).map((u) =>
-        getDocs(query(collection(db, 'students'), where('username', '==', u)))
-      ))
-      const stuDocs = snaps.flatMap((s) => s.docs)
+      const resp = await fetch(apiUrl('/api/student/lookup'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      })
+      if (!resp.ok) {
+        setError('Error al verificar el usuario. Intenta de nuevo.')
+        return
+      }
+      const lookupData = await resp.json()
+      const stuDocs = lookupData.students || []
       if (stuDocs.length === 0) {
         setError('Usuario no encontrado. Verifica tu username, o usa "¿Primera vez? Activa tu cuenta" más abajo.')
         return
       }
-      const docs = stuDocs.map((d) => ({ id: d.id, ...d.data() }))
-      const uname = docs[0].username // stored canonical form
+      const uname = stuDocs[0].username
 
       // A username can repeat across schools, so each school is a different account/email.
       // For already-activated accounts, try sign-in against each school's email — the correct
       // password authenticates exactly one of them.
-      const activatedSchools = [...new Set(docs.filter((d) => d.activado).map((d) => d.escuelaId))]
+      const activatedSchools = [...new Set(stuDocs.filter((d) => d.activado).map((d) => d.escuelaId))]
       if (activatedSchools.length > 0) {
         for (const esc of activatedSchools) {
           try {
@@ -133,16 +137,22 @@ export default function StudentLogin() {
     setLoading(true)
     try {
       if (!recoverUsername.trim()) return
-      const snaps = await Promise.all(usernameCandidates(recoverUsername).map((u) =>
-        getDocs(query(collection(db, 'students'), where('username', '==', u)))
-      ))
-      const found = snaps.flatMap((s) => s.docs)
+      const resp = await fetch(apiUrl('/api/student/lookup'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: recoverUsername }),
+      })
+      if (!resp.ok) {
+        setRecoverError('Ocurrió un error. Intenta de nuevo.')
+        return
+      }
+      const lookupData = await resp.json()
+      const found = lookupData.students || []
       if (found.length === 0) {
         setRecoverError('Usuario no encontrado. Verifica tu username con tu maestro.')
         return
       }
-      const docs = found.map((d) => ({ id: d.id, ...d.data() }))
-      const enabled = docs.find((d) => d.resetPassword)
+      const enabled = found.find((d) => d.resetPassword)
       if (!enabled) {
         setRecoverError('La recuperación de contraseña está inhabilitada. Pídele a tu maestro que la habilite desde su panel y vuelve a intentar.')
         return

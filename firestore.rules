@@ -393,9 +393,12 @@ service cloud.firestore {
     }
 
     match /students/{studentId} {
-      // Public read stays: the QR/code activation flow looks up students before
-      // the account exists.
-      allow read: if true;
+      // F-02 (2026-09-05): lectura requiere autenticación. Los flujos de
+      // activación y login pre-autenticación usan /api/student/lookup
+      // (Admin SDK, devuelve solo campos mínimos) en lugar de leer Firestore
+      // directamente. Usuarios autenticados (docentes, alumnos, admin) mantienen
+      // acceso completo.
+      allow read: if request.auth != null;
 
       // Only the owning teacher (docente of the target subject) creates/deletes
       // enrollments. Students never create or delete their own record.

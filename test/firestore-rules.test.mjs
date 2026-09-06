@@ -2105,5 +2105,31 @@ await assertSucceeds(updateDoc(doc(asT1, 'activities', 'A_CRUCI_CONFIRMADO'), {
   nombre: 'Renombrado ya confirmado',
 })); ok('Nombre en borrador · un juego YA confirmado se renombra por la misma vía y el mismo campo')
 
+// ── F-02 · La colección students ya NO es de lectura pública ───────────────
+// El ataque original tenía dos pasos:
+//  1. Leer students sin autenticación → obtener usernames + escuelaIds
+//  2. Crear cuenta Firebase con un correo @evalua.local válido → hijack
+// Con `allow read: if request.auth != null` el paso 1 queda bloqueado.
+// Los flujos legítimos pre-autenticación usan /api/student/lookup (Admin SDK).
+const asAnon = testEnv.unauthenticatedContext().firestore()
+
+await assertFails(getDoc(doc(asAnon, 'students', 'ST_JUAN')))
+ok('F-02 · unauthenticated user CANNOT read a student document by ID')
+
+await assertFails(getDocs(query(collection(asAnon, 'students'), where('username', '==', 'JUAN'))))
+ok('F-02 · unauthenticated user CANNOT query the students collection')
+
+await assertFails(getDocs(collection(asAnon, 'students')))
+ok('F-02 · unauthenticated attacker CANNOT enumerate all students (hijack chain broken)')
+
+await assertSucceeds(getDoc(doc(asJuan, 'students', 'ST_JUAN')))
+ok('F-02 · authenticated student CAN read their own enrollment doc')
+
+await assertSucceeds(getDocs(query(collection(asT1, 'students'), where('asignaturaId', '==', 'S1'))))
+ok('F-02 · authenticated teacher CAN list students in their subject')
+
+await assertSucceeds(getDoc(doc(asT2, 'students', 'ST_JUAN')))
+ok('F-02 · any authenticated user CAN read student docs (auth required, not owner-only)')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

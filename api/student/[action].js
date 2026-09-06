@@ -342,10 +342,103 @@ async function handleRemovePhoto(req, res) {
   }
 }
 
+// ── /api/student/lookup ────────────────────────────────────────────
+// Endpoint público (pre-autenticación) para los flujos de activación y login.
+// NO requiere token porque se llama antes de que el alumno tenga cuenta.
+// Solo devuelve los campos mínimos necesarios; nunca expone uid ni metadata.
+//
+// Modo activación: { subjectCode, username } → student + alreadyHasAccount
+// Modo login/recuperación: { username } → students[]
+
+const SAFE_FIELDS = ['username', 'escuelaId', 'activado', 'resetPassword', 'nombre', 'apellidoPaterno', 'apellidoMaterno']
+
+function pickSafeFields(data) {
+  const obj = {}
+  SAFE_FIELDS.forEach((k) => { if (k in data) obj[k] = data[k] })
+  return obj
+}
+
+async function handleLookup(req, res) {
+  if (aplicarCors(req, res)) return
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' })
+  let body
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
+  } catch {
+    return res.status(400).json({ error: 'Body inválido.' })
+  }
+  const { subjectCode, username } = body
+  if (!username || typeof username !== 'string' || !username.trim() || username.length > 60) {
+    return res.status(400).json({ error: 'Falta o es inválido el username.' })
+  }
+  const u = String(username).trim()
+  const variants = [...new Set([u.toLowerCase(), u.toUpperCase()])]
+  const db = getDb()
+
+  // Activation mode: subjectCode + username
+  if (subjectCode !== undefined && subjectCode !== null) {
+    if (typeof subjectCode !== 'string' || !subjectCode.trim() || subjectCode.length > 20) {
+      return res.status(400).json({ error: 'Código de asignatura inválido.' })
+    }
+    const code = String(subjectCode).trim().toUpperCase()
+    const subSnap = await db.collection('subjects').where('accessCode', '==', code).limit(1).get()
+    if (subSnap.empty) return res.status(404).json({ error: 'Asignatura no encontrada.' })
+    const subjectId = subSnap.docs[0].id
+    const snaps = await Promise.all(
+      variants.map((v) => db.collection('students')
+        .where('asignaturaId', '==', subjectId)
+        .where('username', '==', v)
+        .limit(1).get())
+    )
+    const seenIds = new Set()
+    const unique = snaps.flatMap((s) => s.docs)
+      .filter((d) => { if (seenIds.has(d.id)) return false; seenIds.add(d.id); return true })
+    if (unique.length === 0) return res.status(404).json({ error: 'Usuario no encontrado en esta asignatura.' })
+    const raw = unique[0].data()
+    const studentId = unique[0].id
+    // ¿Ya tiene cuenta? `activado` de ESTA inscripción puede ser false aunque la
+    // cuenta exista en otra asignatura de la misma escuela. Se consultan todas
+    // las inscripciones del alumno (mismo username + escuela) para saberlo.
+    let alreadyHasAccount = raw.activado === true || !!raw.uid
+    if (!alreadyHasAccount && raw.escuelaId) {
+      const crossVariants = [...new Set([raw.username?.toLowerCase(), raw.username?.toUpperCase()].filter(Boolean))]
+      const crossSnaps = await Promise.all(
+        crossVariants.map((v) => db.collection('students')
+          .where('username', '==', v)
+          .where('escuelaId', '==', raw.escuelaId)
+          .get())
+      )
+      const seenIds2 = new Set()
+      const allEnrollments = crossSnaps.flatMap((s) => s.docs)
+        .filter((d) => { if (seenIds2.has(d.id)) return false; seenIds2.add(d.id); return true })
+      alreadyHasAccount = allEnrollments.some((d) => {
+        const s = d.data()
+        return s.activado === true || !!s.uid
+      })
+    }
+    return res.status(200).json({
+      ok: true,
+      student: { id: studentId, ...pickSafeFields(raw) },
+      alreadyHasAccount,
+    })
+  }
+
+  // Login mode: username only (global search across all schools)
+  const snaps = await Promise.all(
+    variants.map((v) => db.collection('students').where('username', '==', v).get())
+  )
+  const seenIds = new Set()
+  const docs = snaps.flatMap((s) => s.docs)
+    .filter((d) => { if (seenIds.has(d.id)) return false; seenIds.add(d.id); return true })
+  const students = docs.map((d) => ({ id: d.id, ...pickSafeFields(d.data()) }))
+  return res.status(200).json({ ok: true, students })
+}
+
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return
   const { action } = req.query
   try {
+    if (action === 'lookup') return await handleLookup(req, res)
     if (action === 'delete') return await handleDelete(req, res)
     if (action === 'enable-recovery') return await handleEnableRecovery(req, res)
     if (action === 'recover-password') return await handleRecoverPassword(req, res)
