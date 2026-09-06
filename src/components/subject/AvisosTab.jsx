@@ -118,7 +118,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
   // conforme los estudiantes confirman, sin que el docente recargue nada.
   useEffect(() => {
     const unsub = onSnapshot(
-      query(collection(db, 'avisos'), where('asignaturaId', '==', subjectId)),
+      query(collection(db, 'avisos'), where('asignaturaId', '==', subjectId), where('docenteId', '==', docenteId)),
       (snap) => {
         setAvisos(
           snap.docs.map((d) => ({ id: d.id, ...d.data() }))

@@ -238,6 +238,22 @@ ok('F-09 · student CANNOT read activity directly (must use /api/subject/content
 await assertFails(getDoc(doc(asT2, 'activities', 'A1')))
 ok('F-09 · foreign teacher CANNOT read another teacher\'s activity')
 
+// F-09-LIST · Firestore rechaza una query de colección si la regla no puede
+// probarse a partir de los filtros. La regla exige docenteId == uid; sin ese
+// filtro en la query, la lista entera es denegada aunque todos los documentos
+// pertenezcan al docente. El patrón correcto incluye AMBOS filtros.
+await assertFails(getDocs(query(collection(asT1, 'activities'), where('asignaturaId', '==', 'S1'))))
+ok('F-09-LIST · teacher query by asignaturaId alone FAILS (rule needs docenteId filter too)')
+
+await assertSucceeds(getDocs(query(collection(asT1, 'activities'), where('asignaturaId', '==', 'S1'), where('docenteId', '==', T1))))
+ok('F-09-LIST · teacher query by asignaturaId + docenteId SUCCEEDS (correct pattern after fix)')
+
+await assertFails(getDocs(query(collection(asJuan, 'activities'), where('asignaturaId', '==', 'S1'), where('docenteId', '==', T1))))
+ok('F-09-LIST · student CANNOT query activities even with docenteId filter (must use API)')
+
+await assertFails(getDocs(query(collection(asT2, 'activities'), where('asignaturaId', '==', 'S1'), where('docenteId', '==', T1))))
+ok('F-09-LIST · foreign teacher CANNOT query another teacher\'s activities by spoofing docenteId filter')
+
 await assertSucceeds(getDoc(doc(asT1, 'resources', 'R_NEW')))
 ok('F-09 · owner teacher CAN read own resource directly')
 
@@ -247,6 +263,12 @@ ok('F-09 · student CANNOT read resource directly (must use /api/subject/content
 await assertFails(getDoc(doc(asT2, 'resources', 'R_NEW')))
 ok('F-09 · foreign teacher CANNOT read another teacher\'s resource')
 
+await assertSucceeds(getDocs(query(collection(asT1, 'resources'), where('asignaturaId', '==', 'S1'), where('docenteId', '==', T1))))
+ok('F-09-LIST · teacher query resources by asignaturaId + docenteId SUCCEEDS')
+
+await assertFails(getDocs(query(collection(asT1, 'resources'), where('asignaturaId', '==', 'S1'))))
+ok('F-09-LIST · teacher query resources by asignaturaId alone FAILS (rule needs docenteId filter)')
+
 await assertSucceeds(getDoc(doc(asT1, 'materials', 'M_NEW')))
 ok('F-09 · owner teacher CAN read own material directly')
 
@@ -255,6 +277,12 @@ ok('F-09 · student CANNOT read material directly (must use /api/subject/content
 
 await assertFails(getDoc(doc(asT2, 'materials', 'M_NEW')))
 ok('F-09 · foreign teacher CANNOT read another teacher\'s material')
+
+await assertSucceeds(getDocs(query(collection(asT1, 'materials'), where('asignaturaId', '==', 'S1'), where('docenteId', '==', T1))))
+ok('F-09-LIST · teacher query materials by asignaturaId + docenteId SUCCEEDS')
+
+await assertFails(getDocs(query(collection(asT1, 'materials'), where('asignaturaId', '==', 'S1'))))
+ok('F-09-LIST · teacher query materials by asignaturaId alone FAILS (rule needs docenteId filter)')
 
 // ── submissions ──────────────────────────────────────────────────────────────
 // Id determinista (A12 · H5 · R22): {actividadId}_{alumnoId}, exigido por la
@@ -1390,6 +1418,15 @@ ok('F-09 · student CANNOT read aviso directly (must use /api/subject/content)')
 
 await assertFails(getDoc(doc(asT2, 'avisos', 'AV_T1')))
 ok('F-09 · foreign teacher CANNOT read another teacher\'s aviso')
+
+await assertSucceeds(getDocs(query(collection(asT1, 'avisos'), where('asignaturaId', '==', 'S1'), where('docenteId', '==', T1))))
+ok('F-09-LIST · teacher query avisos by asignaturaId + docenteId SUCCEEDS (AvisosTab fix)')
+
+await assertFails(getDocs(query(collection(asT1, 'avisos'), where('asignaturaId', '==', 'S1'))))
+ok('F-09-LIST · teacher query avisos by asignaturaId alone FAILS (rule needs docenteId filter)')
+
+await assertFails(getDocs(query(collection(asJuan, 'avisos'), where('asignaturaId', '==', 'S1'), where('docenteId', '==', T1))))
+ok('F-09-LIST · student CANNOT query avisos directly (must use /api/subject/content via AvisosGate fix)')
 
 await assertSucceeds(setDoc(doc(asT1, 'avisos', 'AV_NEW'), { docenteId: T1, asignaturaId: 'S1', titulo: 'Nuevo', activo: true }))
 ok('A14 · teacher CAN create aviso for own subject')
