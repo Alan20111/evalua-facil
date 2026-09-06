@@ -104,21 +104,31 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk "evalua-facil-v$V.apk"
           cp android/app/build/outputs/bundle/release/app-release.aab "evalua-facil-v$V.aab"
 
+      # Las notas se arman en un archivo, no en una variable multilínea: un
+      # texto con saltos de línea dentro de `run: |` tiene que ir indentado
+      # línea por línea, y al no estarlo rompió el YAML entero — GitHub dejó de
+      # reconocer el workflow por su nombre.
       - name: Publicar el release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTAS_ENTRADA: ${{ inputs.notas }}
+          VERSION_NAME: ${{ steps.version.outputs.versionName }}
+          VERSION_CODE: ${{ steps.version.outputs.versionCode }}
         run: |
-          V="${{ steps.version.outputs.versionName }}"
-          NOTAS="${{ inputs.notas }}"
-          [ -z "$NOTAS" ] && NOTAS="Versión $V compilada desde main.
-
-- \`.apk\` — instalación directa desde el enlace de descarga.
-- \`.aab\` — el que se sube a Google Play Console (versionCode ${{ steps.version.outputs.versionCode }})."
-          gh release create "v$V" \
-            "evalua-facil-v$V.apk" \
-            "evalua-facil-v$V.aab" \
-            --title "Evalúa Fácil $V (Android)" \
-            --notes "$NOTAS"
+          if [ -n "$NOTAS_ENTRADA" ]; then
+            printf '%s\n' "$NOTAS_ENTRADA" > notas.md
+          else
+            {
+              printf 'Versión %s compilada desde main.\n\n' "$VERSION_NAME"
+              printf -- '- APK — instalación directa desde el enlace de descarga.\n'
+              printf -- '- AAB — el que se sube a Google Play Console (versionCode %s).\n' "$VERSION_CODE"
+            } > notas.md
+          fi
+          gh release create "v$VERSION_NAME" \
+            "evalua-facil-v$VERSION_NAME.apk" \
+            "evalua-facil-v$VERSION_NAME.aab" \
+            --title "Evalúa Fácil $VERSION_NAME (Android)" \
+            --notes-file notas.md
 
       # Deja el enlace listo: /descargar lo toma solo por estar marcado como
       # producción, así que los docentes no reciben una URL nueva.
