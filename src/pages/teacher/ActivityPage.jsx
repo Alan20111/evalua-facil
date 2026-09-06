@@ -410,7 +410,7 @@ export default function ActivityPage() {
       const [studsSnap, subsSnap, siblingActsSnap] = await Promise.all([
         getDocs(query(collection(db, 'students'), where('asignaturaId', '==', actData.asignaturaId))),
         getDocs(query(collection(db, 'submissions'), where('actividadId', '==', activityId))),
-        getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', actData.asignaturaId))),
+        getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', actData.asignaturaId), where('docenteId', '==', currentUser.uid))),
       ])
       // "Actividad" (1.1, 1.2…) is presentation, derived from this activity's
       // position among its parcial siblings — never trusted from the stored
@@ -530,7 +530,7 @@ export default function ActivityPage() {
     try {
       await deleteSubmissionsByActivity(activity.id)
       await deleteDoc(doc(db, 'activities', activity.id))
-      const siblingsSnap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', activity.asignaturaId)))
+      const siblingsSnap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', activity.asignaturaId), where('docenteId', '==', currentUser.uid)))
       const remaining = siblingsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((a) => a.id !== activity.id && a.parcial === activity.parcial)

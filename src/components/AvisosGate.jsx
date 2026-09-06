@@ -9,6 +9,7 @@ import { teacherDisplayName } from '../utils/studentSearch'
 import { lecturaDocId, avisosDesde } from '../utils/avisos'
 import { IS_NATIVE_APP } from '../utils/platform'
 import AvisoLecturaModal from './subject/AvisoLecturaModal'
+import { fetchContentBatch } from '../utils/apiContent'
 
 // Lectura obligatoria de avisos — GLOBAL, no por asignatura. Pedido explícito:
 // un aviso debe bloquear al estudiante "aunque no esté navegando dentro de
@@ -66,10 +67,17 @@ export default function AvisosGate() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia al quedarse sin inscripciones activas, antes de (no) suscribirse
     if (enrollments.length === 0) { setAvisos([]); return undefined }
     const subjectIds = enrollments.map((e) => e.asignaturaId)
-    const unsub = onSnapshot(
-      query(collection(db, 'avisos'), where('asignaturaId', 'in', subjectIds)),
-      (snap) => {
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((a) => a.activo !== false)
+    let cancelled = false
+
+    // F-09: `avisos` ya no es de lectura abierta en Firestore. El alumno
+    // obtiene sus avisos vía /api/subject/content, que verifica la inscripción
+    // real con Admin SDK antes de entregar datos. Polling de 60 s — igual que
+    // el patrón de student/SubjectPage — en lugar del onSnapshot directo.
+    async function cargarAvisos() {
+      try {
+        const docs = await fetchContentBatch(subjectIds, 'avisos')
+        if (cancelled) return
+        const list = docs.filter((a) => a.activo !== false)
         setAvisos(list)
         // Nombres de docente — solo se piden los que todavía no se conocen.
         const faltantes = [...new Set(list.map((a) => a.docenteId))].filter((id) => id && !teacherNames[id])
@@ -82,10 +90,14 @@ export default function AvisosGate() {
             })
             .catch(() => {})
         }
-      },
-      () => {}
-    )
-    return unsub
+      } catch {
+        // silently fail — el alumno seguirá viendo los avisos ya cargados
+      }
+    }
+
+    cargarAvisos()
+    const timer = setInterval(cargarAvisos, 60_000)
+    return () => { cancelled = true; clearInterval(timer) }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- teacherNames se lee para deduplicar, no para re-suscribir
   }, [enrollments])
 

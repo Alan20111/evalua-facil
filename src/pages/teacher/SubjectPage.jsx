@@ -1276,7 +1276,7 @@ export default function SubjectPage() {
       // never reached).
       const [subSnap, actsSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
-        getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
+        getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId), where('docenteId', '==', currentUser.uid))),
       ])
       // Una asignatura ajena jamás se muestra: subjects es de lectura pública
       // (activación por QR) así que sin este guard cualquier cuenta con la URL
@@ -1286,7 +1286,7 @@ export default function SubjectPage() {
         navigate('/dashboard')
         return
       }
-      const matsSnap = await getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))).catch(() => ({ docs: [] }))
+      const matsSnap = await getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId), where('docenteId', '==', currentUser.uid))).catch(() => ({ docs: [] }))
       let subData = { id: subSnap.id, ...subSnap.data() }
       if (!subData.accessCode) {
         const newCode = Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -1376,7 +1376,7 @@ export default function SubjectPage() {
     if (resourcesLoaded && !force) return resources
     setLoadingResources(true)
     try {
-      const snap = await getDocs(query(collection(db, 'resources'), where('asignaturaId', '==', subjectId)))
+      const snap = await getDocs(query(collection(db, 'resources'), where('asignaturaId', '==', subjectId), where('docenteId', '==', currentUser.uid)))
       const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
         // Most-recent-first by publish date — sorted in memory since this
         // project's Firestore queries can't use orderBy (see CLAUDE.md).
@@ -2473,7 +2473,7 @@ export default function SubjectPage() {
     setImportSel(new Set())
     setImportLoading(true)
     try {
-      const snap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', sub.id)))
+      const snap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', sub.id), where('docenteId', '==', currentUser.uid)))
       const acts = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         // Un juego sin confirmar no se ofrece: la copia quedaría imposible de
