@@ -228,6 +228,34 @@ await assertFails(setDoc(doc(asT2, 'materials', 'M_EVIL'), {
   docenteId: T2, asignaturaId: 'S1', nombre: 'x', parcial: 1, orden: 0,
 })); ok('foreign teacher CANNOT create material in another subject')
 
+// F-09 · activities/resources/materials: solo el docente dueño lee directamente
+await assertSucceeds(getDoc(doc(asT1, 'activities', 'A1')))
+ok('F-09 · owner teacher CAN read own activity directly')
+
+await assertFails(getDoc(doc(asJuan, 'activities', 'A1')))
+ok('F-09 · student CANNOT read activity directly (must use /api/subject/content)')
+
+await assertFails(getDoc(doc(asT2, 'activities', 'A1')))
+ok('F-09 · foreign teacher CANNOT read another teacher\'s activity')
+
+await assertSucceeds(getDoc(doc(asT1, 'resources', 'R_NEW')))
+ok('F-09 · owner teacher CAN read own resource directly')
+
+await assertFails(getDoc(doc(asJuan, 'resources', 'R_NEW')))
+ok('F-09 · student CANNOT read resource directly (must use /api/subject/content)')
+
+await assertFails(getDoc(doc(asT2, 'resources', 'R_NEW')))
+ok('F-09 · foreign teacher CANNOT read another teacher\'s resource')
+
+await assertSucceeds(getDoc(doc(asT1, 'materials', 'M_NEW')))
+ok('F-09 · owner teacher CAN read own material directly')
+
+await assertFails(getDoc(doc(asJuan, 'materials', 'M_NEW')))
+ok('F-09 · student CANNOT read material directly (must use /api/subject/content)')
+
+await assertFails(getDoc(doc(asT2, 'materials', 'M_NEW')))
+ok('F-09 · foreign teacher CANNOT read another teacher\'s material')
+
 // ── submissions ──────────────────────────────────────────────────────────────
 // Id determinista (A12 · H5 · R22): {actividadId}_{alumnoId}, exigido por la
 // regla — ver 'A12 · H5' más abajo para los casos que prueban ESE candado.
@@ -813,7 +841,7 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   })
 })
 await assertSucceeds(getDoc(doc(asJuan, 'activities', 'A_JUEGO_VENCIDO', 'preguntas', 'P_JUEGO1')))
-ok('F-04 · student CAN read preguntas of a juego activity (words are not secret)')
+ok('F-04/F-09 · student CAN read preguntas of a juego via subcollection rule (independent of activities rule)')
 
 // El docente dueño puede escribir preguntas (comportamiento existente preservado)
 await assertSucceeds(setDoc(doc(asT1, 'activities', 'A_EVAL_CLAVE', 'preguntas', 'Q2'), {
@@ -1253,12 +1281,15 @@ ok('A18 · foreign teacher CANNOT update another teacher\'s event')
 await assertFails(deleteDoc(doc(asT2, 'events', 'EV_T1')))
 ok('A18 · foreign teacher CANNOT delete another teacher\'s event')
 
-// academicEvents — compartidos con alumnos de la asignatura (lectura amplia)
+// academicEvents — F-09: solo el docente dueño (y admin), no alumnos ni otros docentes
 await assertSucceeds(getDoc(doc(asT1, 'academicEvents', 'AEV_T1')))
-ok('A18 · teacher CAN read academicEvent (any authenticated)')
+ok('A18/F-09 · owner teacher CAN read own academicEvent')
 
-await assertSucceeds(getDoc(doc(asJuan, 'academicEvents', 'AEV_T1')))
-ok('A18 · student CAN read academicEvent (public for enrolled students)')
+await assertFails(getDoc(doc(asJuan, 'academicEvents', 'AEV_T1')))
+ok('F-09 · student CANNOT read academicEvent directly (must use /api/subject/content)')
+
+await assertFails(getDoc(doc(asT2, 'academicEvents', 'AEV_T1')))
+ok('F-09 · foreign teacher CANNOT read another teacher\'s academicEvent')
 
 await assertSucceeds(setDoc(doc(asT1, 'academicEvents', 'AEV_NEW'), {
   docenteId: T1, asignaturaId: 'S1', titulo: 'Nuevo académico', fecha: '2026-10-05',
@@ -1292,12 +1323,15 @@ ok('A18 · student CANNOT create studentEvent attributed to another user')
 await assertFails(updateDoc(doc(asT1, 'studentEvents', 'SEV_JUAN'), { titulo: 'Alterado por docente' }))
 ok('A18 · teacher CANNOT update a student\'s personal event')
 
-// horarioBloques — lectura amplia (alumno necesita "Próxima clase"), escritura del dueño
-await assertSucceeds(getDoc(doc(asJuan, 'horarioBloques', 'HB_T1')))
-ok('A18 · student CAN read horarioBloque (needed for "Próxima clase" in agenda)')
+// horarioBloques — F-09: solo el docente dueño (y admin), no alumnos ni otros docentes
+await assertFails(getDoc(doc(asJuan, 'horarioBloques', 'HB_T1')))
+ok('F-09 · student CANNOT read horarioBloque directly (must use /api/subject/content)')
 
 await assertSucceeds(getDoc(doc(asT1, 'horarioBloques', 'HB_T1')))
-ok('A18 · teacher CAN read any horarioBloque (any authenticated)')
+ok('A18/F-09 · owner teacher CAN read own horarioBloque')
+
+await assertFails(getDoc(doc(asT2, 'horarioBloques', 'HB_T1')))
+ok('F-09 · foreign teacher CANNOT read another teacher\'s horarioBloque')
 
 await assertSucceeds(setDoc(doc(asT1, 'horarioBloques', 'HB_NEW'), { docenteId: T1, asignaturaId: 'S1', dia: 'viernes', hora: '09:00' }))
 ok('A18 · teacher CAN create own horarioBloque')
@@ -1347,12 +1381,15 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'avisoPlantillas', 'AP_T2'), { docenteId: T2, emoji: '📢', label: 'Aviso ajena' })
 })
 
-// avisos — lectura amplia; escritura solo al dueño activo con ownsSubject
+// avisos — F-09: solo el docente dueño (y admin), no alumnos ni otros docentes
 await assertSucceeds(getDoc(doc(asT1, 'avisos', 'AV_T1')))
-ok('A14 · teacher CAN read own aviso')
+ok('A14/F-09 · owner teacher CAN read own aviso')
 
-await assertSucceeds(getDoc(doc(asJuan, 'avisos', 'AV_T1')))
-ok('A14 · student CAN read aviso (public for enrolled students)')
+await assertFails(getDoc(doc(asJuan, 'avisos', 'AV_T1')))
+ok('F-09 · student CANNOT read aviso directly (must use /api/subject/content)')
+
+await assertFails(getDoc(doc(asT2, 'avisos', 'AV_T1')))
+ok('F-09 · foreign teacher CANNOT read another teacher\'s aviso')
 
 await assertSucceeds(setDoc(doc(asT1, 'avisos', 'AV_NEW'), { docenteId: T1, asignaturaId: 'S1', titulo: 'Nuevo', activo: true }))
 ok('A14 · teacher CAN create aviso for own subject')

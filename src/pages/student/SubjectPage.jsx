@@ -21,6 +21,7 @@ import { isActivityPublished, formatPublishAt, formatDeadline, isOverdue, isDraf
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
+import { fetchContent } from '../../utils/apiContent'
 import { fmtAttMonth } from '../../utils/attendance'
 import { toDateStr } from '../../utils/horarioBloques'
 import { getResourceIcon, getLinkResourceIcon } from '../../utils/resourceTypes'
@@ -204,28 +205,32 @@ export default function StudentSubjectPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   }, [subjectId, currentUser])
 
-  // Avisos en tiempo real — a diferencia del resto de esta pantalla (una sola
-  // lectura al entrar), un aviso que el docente publica/edita/borra mientras
-  // el alumno ya tiene la materia abierta debe aparecer/desaparecer solo, sin
-  // que recargue la página. `onSnapshot` en vez de `getDocs`, ver pedido
-  // explícito de sincronización en tiempo real.
+  // Avisos — carga inicial + sondeo cada 60 s (F-09: ya no hay onSnapshot
+  // directo a Firestore; el servidor verifica la inscripción del alumno).
   useEffect(() => {
+    if (!currentUser) return
+    let cancelled = false
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reinicia el gate de "listo" al cambiar de asignatura, antes de suscribirse
     setAvisosReady(false)
-    const unsub = onSnapshot(
-      query(collection(db, 'avisos'), where('asignaturaId', '==', subjectId)),
-      (snap) => {
+
+    async function loadAvisos() {
+      try {
+        const avs = await fetchContent(subjectId, 'avisos')
+        if (cancelled) return
         setAvisos(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-            .filter((a) => a.activo !== false)
-            .sort((a, b) => (b.fechaCreacion?.seconds ?? 0) - (a.fechaCreacion?.seconds ?? 0))
+          avs.filter((a) => a.activo !== false)
+             .sort((a, b) => (b.fechaCreacion?.seconds ?? 0) - (a.fechaCreacion?.seconds ?? 0))
         )
         setAvisosReady(true)
-      },
-      () => setAvisosReady(true)
-    )
-    return unsub
-  }, [subjectId])
+      } catch {
+        if (!cancelled) setAvisosReady(true)
+      }
+    }
+
+    loadAvisos()
+    const timer = setInterval(loadAvisos, 60_000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [subjectId, currentUser])
 
   // Sus propias confirmaciones de lectura — también en vivo: si confirma un
   // aviso en un dispositivo, no debe volver a pedírselo en otro donde tenga
@@ -341,24 +346,25 @@ export default function StudentSubjectPage() {
     // component is reused (not remounted) when switching subjects, so reset it here.
     setOpenParcial(1)
     try {
-      const [subSnap, studData, actsSnap, resSnap] = await Promise.all([
+      const [subSnap, studData] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
         getEnrollmentForSubject(currentUser, userProfile, subjectId),
-        getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
-        getDocs(query(collection(db, 'resources'), where('asignaturaId', '==', subjectId))),
       ])
-      const matsSnap = await getDocs(
-        query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))
-      ).catch(() => ({ docs: [] }))
 
-      // Sin inscripción no hay nada que mostrar: subjects/activities son de lectura
-      // pública (necesario para la activación por QR), así que sin este guard
-      // cualquier estudiante con la URL vería el contenido completo de la asignatura.
+      // Sin inscripción no hay nada que mostrar — el endpoint de contenido
+      // también deniega si no hay inscripción, pero conviene abortar antes.
       if (!studData) {
         toast('No estás inscrito en esta asignatura', 'error')
         navigate('/alumno/dashboard')
         return
       }
+
+      // Contenido protegido: el servidor verifica inscripción (F-09)
+      const [actsDocs, resDocs, matsDocs] = await Promise.all([
+        fetchContent(subjectId, 'activities'),
+        fetchContent(subjectId, 'resources'),
+        fetchContent(subjectId, 'materials').catch(() => []),
+      ])
 
       const subData = { id: subSnap.id, ...subSnap.data() }
       setSubject(subData)
@@ -381,8 +387,7 @@ export default function StudentSubjectPage() {
       }
 
       const parcialesOcultos = subData.parcialesOcultos || []
-      const allActs = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      const allActs = actsDocs.slice().sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       // Same "Actividad" numbering as the teacher's view: position within the
       // parcial over ALL non-draft activities — computed before the visibility
       // filter so numbers match the teacher's even when a scheduled or hidden
@@ -399,11 +404,10 @@ export default function StudentSubjectPage() {
       setActivities(acts)
 
       setResources(
-        resSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (b.fechaPublicacion?.seconds ?? 0) - (a.fechaPublicacion?.seconds ?? 0))
+        resDocs.slice().sort((a, b) => (b.fechaPublicacion?.seconds ?? 0) - (a.fechaPublicacion?.seconds ?? 0))
       )
       setMaterials(
-        matsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        matsDocs
           .filter((m) => isActivityPublished(m, parcialesOcultos.includes(m.parcial)))
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       )

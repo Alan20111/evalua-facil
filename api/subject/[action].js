@@ -255,6 +255,125 @@ async function handleDeleteResources(req, res) {
   }
 }
 
+// ── /api/subject/content ──────────────────────────────────────────────────
+// F-09 (2026-09-06): puerta de acceso verificada para los alumnos.
+//
+// Tras endurecer las reglas de Firestore, las colecciones de contenido
+// (activities, resources, materials, avisos, academicEvents, horarioBloques)
+// ya no son de lectura abierta para cualquier autenticado: solo el docente
+// dueño o un admin puede leerlas directamente. Los alumnos pasan por aquí.
+//
+// El servidor verifica la inscripción real del alumno antes de devolver
+// ningún documento: consulta `students.where('uid', '==', uid)` y comprueba
+// que el asignaturaId solicitado esté en ese resultado. Misma fuente de
+// verdad que studentLookup.js en el cliente.
+//
+// Modos de llamada (Body):
+//   { tipo, subjectId }           → todos los docs de una asignatura
+//   { tipo, subjectIds: [...] }   → batch: varias asignaturas a la vez (Agenda)
+//   { tipo: 'activities', docId } → una actividad por id (ActivityPage)
+//
+// Colecciones permitidas: CONTENT_TIPOS (lista cerrada — no es un proxy
+// genérico a Firestore).
+//
+// Serialización: los Timestamps del Admin SDK se convierten a
+// { seconds, nanoseconds } para sobrevivir JSON. El cliente los rehidrata con
+// rehydrateTimestamps() (src/utils/apiContent.js).
+
+const CONTENT_TIPOS = new Set(['activities', 'resources', 'materials', 'avisos', 'academicEvents', 'horarioBloques'])
+
+function serializeDoc(snap) {
+  function walk(v) {
+    if (v === null || v === undefined) return v
+    if (typeof v.toDate === 'function') return { seconds: v._seconds ?? v.seconds, nanoseconds: v._nanoseconds ?? v.nanoseconds }
+    if (Array.isArray(v)) return v.map(walk)
+    if (typeof v === 'object') {
+      const out = {}
+      for (const k of Object.keys(v)) out[k] = walk(v[k])
+      return out
+    }
+    return v
+  }
+  return { id: snap.id, ...walk(snap.data()) }
+}
+
+async function handleContent(req, res) {
+  if (aplicarCors(req, res)) return
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' })
+
+  let decoded
+  try { decoded = await verifyRequest(req) }
+  catch (err) { return res.status(err.status || 401).json({ error: err.message }) }
+
+  let body
+  try { body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {}) }
+  catch { return res.status(400).json({ error: 'Body inválido.' }) }
+
+  const { tipo, docId } = body
+  let subjectIds = []
+  if (body.subjectId) subjectIds = [String(body.subjectId).trim()]
+  else if (Array.isArray(body.subjectIds)) subjectIds = body.subjectIds.map((s) => String(s).trim()).filter(Boolean)
+
+  if (!tipo || !CONTENT_TIPOS.has(tipo)) {
+    return res.status(400).json({ error: 'Tipo de contenido no válido.' })
+  }
+  const docIdStr = docId ? String(docId).trim() : null
+  if (!docIdStr && subjectIds.length === 0) {
+    return res.status(400).json({ error: 'Falta subjectId, subjectIds o docId.' })
+  }
+  if (docIdStr && tipo !== 'activities') {
+    return res.status(400).json({ error: 'docId solo está permitido para activities.' })
+  }
+
+  const { uid, email } = decoded
+  const db = getDb()
+  const isAlumno = typeof email === 'string' && email.endsWith('@evalua.local')
+
+  if (isAlumno) {
+    // Alumno: verificar inscripción real vía Admin SDK
+    const studSnap = await db.collection('students').where('uid', '==', uid).get()
+    const enrolled = new Set(studSnap.docs.map((d) => d.data().asignaturaId).filter(Boolean))
+
+    if (docIdStr) {
+      // Una actividad por id: buscar su asignaturaId y verificar inscripción
+      const actDoc = await db.collection('activities').doc(docIdStr).get()
+      if (!actDoc.exists) return res.status(404).json({ error: 'Actividad no encontrada.' })
+      if (!enrolled.has(actDoc.data().asignaturaId)) {
+        return res.status(403).json({ error: 'No estás inscrito en esta asignatura.' })
+      }
+      return res.status(200).json({ ok: true, docs: [serializeDoc(actDoc)] })
+    }
+
+    for (const sid of subjectIds) {
+      if (!enrolled.has(sid)) return res.status(403).json({ error: 'No estás inscrito en esta asignatura.' })
+    }
+  } else {
+    // Docente o admin
+    if (docIdStr) return res.status(400).json({ error: 'docId no está disponible para docentes.' })
+
+    const userDoc = await db.collection('users').doc(uid).get()
+    const role = userDoc.exists ? userDoc.data().role : null
+    if (role !== 'admin') {
+      // Docente: verificar propiedad de cada asignatura solicitada
+      for (const sid of subjectIds) {
+        const subDoc = await db.collection('subjects').doc(sid).get()
+        if (!subDoc.exists || subDoc.data().docenteId !== uid) {
+          return res.status(403).json({ error: 'Esta asignatura no es tuya.' })
+        }
+      }
+    }
+  }
+
+  // Fetch: hasta 30 ids por cláusula `in` (límite de Firestore)
+  const chunks = []
+  for (let i = 0; i < subjectIds.length; i += 30) chunks.push(subjectIds.slice(i, i + 30))
+
+  const snaps = await Promise.all(
+    chunks.map((ids) => db.collection(tipo).where('asignaturaId', 'in', ids).get())
+  )
+  return res.status(200).json({ ok: true, docs: snaps.flatMap((s) => s.docs).map(serializeDoc) })
+}
+
 // ── /api/subject/sign-upload ───────────────────────────────────────────────
 // F-08 (2026-09-06): genera una firma de Cloudinary para que el cliente suba
 // archivos directamente a la CDN sin exponer el upload_preset ni el cloud_name
@@ -346,6 +465,7 @@ async function handleSignUpload(req, res) {
 // │ Acción                          │ Auth  │ Descripción                 │
 // ├─────────────────────────────────┼───────┼─────────────────────────────┤
 // │ info                            │ No    │ Datos públicos de asignatura │
+// │ content                         │ Sí    │ Contenido protegido (F-09)  │
 // │ sign-upload                     │ Sí    │ Firma de upload a Cloudinary │
 // │ delete-fuente                   │ Sí    │ Borra fuente de IA          │
 // │ delete-planeacion-archivo       │ Sí    │ Borra archivo de planeación │
@@ -357,6 +477,7 @@ export default async function handler(req, res) {
   const { action } = req.query
   try {
     if (action === 'info')                      return await handleInfo(req, res)
+    if (action === 'content')                   return await handleContent(req, res)
     if (action === 'sign-upload')               return await handleSignUpload(req, res)
     if (action === 'delete-fuente')             return await handleDeleteFuente(req, res)
     if (action === 'delete-planeacion-archivo') return await handleDeletePlaneacionArchivo(req, res)

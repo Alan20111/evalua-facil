@@ -9,6 +9,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, List, Columns3, CalendarRange, La
 import { formatHora12 } from '../../utils/formatHora'
 import MiniSelect from '../../components/calendar/MiniSelect'
 import { getEnrollments } from '../../utils/studentLookup'
+import { fetchContentBatch } from '../../utils/apiContent'
 import { isActivityPublished, estadoAgenda, withDefaultTime } from '../../utils/activityVisibility'
 import { toDateStr } from '../../utils/horarioBloques'
 import { MESES, DIAS_LARGO, addDays, addMonths, addWeeks, getWeekDays, isToday } from '../../utils/calendarGrid'
@@ -45,16 +46,6 @@ const VIEWS = [
   { id: 'mes', label: 'Mes', Icon: LayoutGrid },
 ]
 
-async function fetchActivitiesForSubjects(subjectIds) {
-  if (subjectIds.length === 0) return []
-  const chunks = []
-  for (let i = 0; i < subjectIds.length; i += 30) chunks.push(subjectIds.slice(i, i + 30))
-  const snaps = await Promise.all(
-    chunks.map((ids) => getDocs(query(collection(db, 'activities'), where('asignaturaId', 'in', ids))))
-  )
-  return snaps.flatMap((s) => s.docs)
-}
-
 // Una consulta `==` por inscripción, en paralelo — NO `in` por lotes: la regla
 // de lectura de submissions verifica la propiedad por alumnoId con un get() al
 // doc de inscripción, y una disyunción `in` multiplica esos get()s más allá del
@@ -62,19 +53,6 @@ async function fetchActivitiesForSubjects(subjectIds) {
 async function fetchSubmissionsForStudents(studentDocIds) {
   const snaps = await Promise.all(
     studentDocIds.map((id) => getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', id))))
-  )
-  return snaps.flatMap((s) => s.docs)
-}
-
-// horarioBloques/academicEvents no soportan `in` + filtro adicional sin un
-// índice compuesto nuevo (ver CLAUDE.md) — se piden por asignaturaId `in`
-// nada más, igual que ya hace este archivo con `activities`.
-async function fetchByAsignaturaIn(coleccion, subjectIds) {
-  if (subjectIds.length === 0) return []
-  const chunks = []
-  for (let i = 0; i < subjectIds.length; i += 30) chunks.push(subjectIds.slice(i, i + 30))
-  const snaps = await Promise.all(
-    chunks.map((ids) => getDocs(query(collection(db, coleccion), where('asignaturaId', 'in', ids))))
   )
   return snaps.flatMap((s) => s.docs)
 }
@@ -159,26 +137,28 @@ export default function Agenda() {
       const activeSubjectIds = subjectIds.filter((id) => subjectById[id] && !subjectById[id].archived)
       const activeDocIds = activeSubjectIds.map((id) => docIdBySubject[id])
       const teacherIds = [...new Set(activeSubjectIds.map((id) => subjectById[id].docenteId).filter(Boolean))]
+      // F-09: activities/horarioBloques/academicEvents ya no son de lectura
+      // abierta; el servidor verifica la inscripción en cada petición.
       const [teacherSnaps, actDocs, subDocs, bloqueDocs, academicEventDocs, studentEventDocs] = await Promise.all([
         Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'publicProfiles', tid)))),
-        fetchActivitiesForSubjects(activeSubjectIds),
+        fetchContentBatch(activeSubjectIds, 'activities'),
         fetchSubmissionsForStudents(activeDocIds),
-        fetchByAsignaturaIn('horarioBloques', activeSubjectIds),
-        fetchByAsignaturaIn('academicEvents', activeSubjectIds),
+        fetchContentBatch(activeSubjectIds, 'horarioBloques'),
+        fetchContentBatch(activeSubjectIds, 'academicEvents'),
         getDocs(query(collection(db, 'studentEvents'), where('alumnoId', '==', currentUser.uid))),
       ])
       const teacherName = {}
       teacherSnaps.forEach((t) => { if (t.exists()) { const d = t.data(); teacherName[t.id] = teacherDisplayName(d) } })
 
-      setBloques(bloqueDocs.map((d) => ({ id: d.id, ...d.data() })))
-      setAcademicEvents(academicEventDocs.map((d) => ({ id: d.id, ...d.data() })))
+      // actDocs/bloqueDocs/academicEventDocs son ya objetos planos (fetchContentBatch)
+      setBloques(bloqueDocs)
+      setAcademicEvents(academicEventDocs)
       setStudentEvents(studentEventDocs.docs.map((d) => ({ id: d.id, ...d.data() })))
 
       const submissionByActivity = {}
       subDocs.forEach((d) => { submissionByActivity[d.data().actividadId] = { id: d.id, ...d.data() } })
 
       const built = actDocs
-        .map((d) => ({ id: d.id, ...d.data() }))
         .filter((a) => {
           const subj = subjectById[a.asignaturaId]
           if (!subj) return false
