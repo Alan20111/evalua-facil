@@ -27,7 +27,7 @@ import VerifyEmail from './pages/teacher/VerifyEmail'
 import Privacidad from './pages/Privacidad'
 import DescargaApp from './pages/DescargaApp'
 import TeacherNotificationSettings from './pages/teacher/NotificationSettings'
-import GettingStartedPage from './pages/teacher/GettingStartedPage'
+import AyudaPage from './pages/teacher/AyudaPage'
 
 import StudentActivation from './pages/student/Activation'
 import StudentLogin from './pages/student/Login'
@@ -246,7 +246,8 @@ export default function App() {
               <Route path="/perfil-ia" element={<PerfilIA />} />
               <Route path="/calendario" element={<CalendarPage />} />
               <Route path="/notificaciones" element={<TeacherNotificationSettings />} />
-              <Route path="/manual" element={<GettingStartedPage />} />
+              <Route path="/ayuda" element={<AyudaPage />} />
+              <Route path="/manual" element={<Navigate to="/ayuda" replace />} />
             </Route>
 
             {/* Student protected */}
