@@ -29,6 +29,7 @@ import { isActivityPublished, cuentaParaCalificacion } from '../../utils/activit
 import { publicacionVisible } from '../../utils/evaluacionGrading'
 import { normalizeGrade } from '../../utils/ponderacion'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
+import { fetchActivity, fetchContent } from '../../utils/apiContent'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import AttachmentList from '../../components/AttachmentList'
 import { uploadToCloudinary, downloadUrl } from '../../utils/cloudinary'
@@ -88,14 +89,20 @@ export default function StudentActivityPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- se dispara solo al llegar con el flag, no en cada cambio de location
   }, [])
 
-  // Real-time listener: keeps activity fresh when teacher saves changes (extensions, edits)
+  // Sondea la actividad cada 60 s para reflejar cambios del docente (F-09:
+  // onSnapshot directo a Firestore ya no está permitido para alumnos).
   useEffect(() => {
-    if (!activityId) return
-    const unsub = onSnapshot(doc(db, 'activities', activityId), (snap) => {
-      if (snap.exists()) setActivity({ id: snap.id, ...snap.data() })
-    })
-    return () => unsub()
-  }, [activityId])
+    if (!activityId || !currentUser) return
+    let cancelled = false
+    async function refresh() {
+      try {
+        const data = await fetchActivity(activityId)
+        if (!cancelled && data) setActivity(data)
+      } catch { /* ignorar — la carga inicial en loadOther() mostrará el error */ }
+    }
+    const timer = setInterval(refresh, 60_000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [activityId, currentUser])
 
   // La calificación de una evaluación la escribe el SERVIDOR (Cloud Function
   // onEvaluacionFinalizada) unos instantes después de que el alumno finaliza —
@@ -120,22 +127,26 @@ export default function StudentActivityPage() {
   async function loadOther() {
     setLoading(true)
     try {
-      const actSnap = await getDoc(doc(db, 'activities', activityId))
-      if (!actSnap.exists()) {
+      // F-09: el servidor verifica la inscripción antes de entregar la actividad
+      let actData
+      try {
+        actData = await fetchActivity(activityId)
+      } catch (err) {
+        toast(err.message.includes('inscrito') ? 'No estás inscrito en esta asignatura' : 'Actividad no encontrada', 'error')
+        navigate('/alumno/dashboard')
+        return
+      }
+      if (!actData) {
         toast('Actividad no encontrada', 'error')
         navigate('/alumno/dashboard')
         return
       }
-      let actData = { id: actSnap.id, ...actSnap.data() }
 
-      // Subject is needed before the gate check below — a whole parcial can be
-      // hidden from students at the subject level, which must override an
-      // individual activity's own visibility.
+      // Subject es legible directamente por cualquier autenticado (F-11).
       const subSnap = await getDoc(doc(db, 'subjects', actData.asignaturaId))
       const subData = { id: subSnap.id, ...subSnap.data() }
       const parcialOculto = (subData.parcialesOcultos || []).includes(actData.parcial)
 
-      // Students must never reach a hidden/scheduled activity, even via a direct URL.
       if (!isActivityPublished(actData, parcialOculto)) {
         toast('Esta actividad no está disponible', 'error')
         navigate('/alumno/dashboard')
@@ -144,12 +155,9 @@ export default function StudentActivityPage() {
       setActivity(actData)
       setSubject(subData)
 
-      // Número de actividad (1.1., 1.2., …): igual que en la lista y en la vista
-      // del docente — posición entre las hermanas NO borrador del mismo parcial,
-      // ordenadas por `orden`.
+      // Número de actividad (1.1., 1.2., …) — igual que en la lista del docente.
       try {
-        const sibSnap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', actData.asignaturaId)))
-        const sibs = sibSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        const sibs = (await fetchContent(actData.asignaturaId, 'activities'))
           .filter((a) => cuentaParaCalificacion(a))
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
         const countByParcial = {}
@@ -163,10 +171,9 @@ export default function StudentActivityPage() {
         setActivityLabel(null)
       }
 
-      // Resolve this student's enrollment record for the activity's subject.
-      // Sin inscripción, fuera: las actividades son de lectura pública y sin este
-      // guard cualquier estudiante con la URL vería (e intentaría entregar) una
-      // actividad de una asignatura ajena.
+      // La inscripción real la habrá verificado el servidor al entregar actData,
+      // pero seguimos necesitando el doc de inscripción (studData.id) para las
+      // submissions, así que lo buscamos con el mismo helper de siempre.
       const studData = await getEnrollmentForSubject(currentUser, userProfile, actData.asignaturaId)
       if (!studData) {
         toast('No estás inscrito en esta asignatura', 'error')
