@@ -139,8 +139,9 @@ async function handleEnableRecovery(req, res) {
       return res.status(403).json({ error: 'No tienes permiso para este alumno' })
     }
 
-    // Cryptographically secure 8-char token (4 random bytes → 8 uppercase hex chars)
-    const token = randomBytes(4).toString('hex').toUpperCase()
+    // Cryptographically secure 32-char token (16 random bytes → 32 uppercase hex chars).
+    // Space: 16^32 ≈ 3.4×10³⁸ — brute-force infeasible even without rate limiting (F-07).
+    const token = randomBytes(16).toString('hex').toUpperCase()
     const expiresAt = Date.now() + 24 * 60 * 60 * 1000 // 24 hours
 
     // Store token in private collection (Admin SDK only — Firestore rule: allow read, write: if false)
