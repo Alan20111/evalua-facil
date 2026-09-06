@@ -156,7 +156,7 @@ export default function TeacherLayout({ children }) {
             </a>
           )}
           <NavLink
-            to="/manual"
+            to="/ayuda"
             aria-label="Ayuda para comenzar"
             className="p-2 text-muted hover:text-accent rounded transition-colors"
           >
@@ -340,7 +340,7 @@ export default function TeacherLayout({ children }) {
             </NavLink>
 
             <NavLink
-              to="/manual"
+              to="/ayuda"
               className={({ isActive }) =>
                 `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
               }
