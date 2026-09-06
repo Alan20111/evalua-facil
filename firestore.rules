@@ -824,15 +824,20 @@ service cloud.firestore {
     }
 
     match /submissions/{submissionId} {
-      // Un alumno solo lee SUS entregas (calificaciones incluidas) — antes
-      // cualquier cuenta autenticada podía listar las de toda la plataforma.
-      // Los docentes/admin conservan lectura amplia: sus consultas (por
-      // actividad, exports, tablas) no siempre pueden probar propiedad
-      // por-documento y el dato sensible protegido aquí es el del alumno.
-      // OJO clientes: las consultas de alumno deben filtrar alumnoId con `==`
-      // (no `in`) para que ownsStudentDoc sea demostrable dentro del límite
-      // de get()s por consulta.
-      allow read: if isAdmin() || isDocente() ||
+      // F-06 (2026-09-06): acceso cruzado entre docentes de distintas escuelas.
+      // Antes: isDocente() sin restricción → cualquier docente leía las calificaciones
+      // de alumnos de otras escuelas con una sola query directa a Firestore.
+      // Ahora: el docente solo accede a submissions cuya actividadId es de una
+      // actividad que él mismo creó (ownsActivity). El alumno conserva acceso a
+      // SUS propias entregas por ownsStudentDoc.
+      //
+      // OJO clientes: las consultas de docente deben filtrar actividadId con `==`
+      // (no `in`) para que ownsActivity sea evaluable dentro del límite de
+      // get()s de reglas (1 para users + 1 para la activity = 2 por consulta).
+      // Ver fetchSubmissionsForActivities en SubjectPage.jsx y deleteSubjectCascade.js.
+      // Las consultas de alumno siguen filtrando alumnoId con `==`.
+      allow read: if isAdmin() ||
+        (isDocente() && ownsActivity(resource.data.actividadId)) ||
         (request.auth != null && ownsStudentDoc(resource.data.alumnoId));
 
       // A submission is written either by the student who owns it (submit /

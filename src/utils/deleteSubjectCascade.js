@@ -6,12 +6,16 @@ import { deleteDoc, writeBatch } from './firestoreGuard'
 import { db, auth } from '../firebase'
 import { apiUrl } from './apiBase'
 
+// F-06: usa queries '==' individuales por actividad en lugar de 'in' con
+// múltiples IDs. La regla de lectura de submissions ahora exige
+// ownsActivity(actividadId), y ownsActivity hace 1 get() al doc de la
+// actividad. Con 'in', Firestore evaluaría N get()s (uno por ID del array)
+// más 1 del users doc = N+1, excediendo el límite de 10 en asignaturas con
+// muchas actividades. Con '==' individual cada query usa exactamente 2 get()s.
 async function fetchSubmissionsForActivities(actIds) {
   if (actIds.length === 0) return []
-  const chunks = []
-  for (let i = 0; i < actIds.length; i += 30) chunks.push(actIds.slice(i, i + 30))
   const snaps = await Promise.all(
-    chunks.map((ids) => getDocs(query(collection(db, 'submissions'), where('actividadId', 'in', ids))))
+    actIds.map((id) => getDocs(query(collection(db, 'submissions'), where('actividadId', '==', id))))
   )
   return snaps.flatMap((s) => s.docs)
 }
@@ -96,9 +100,26 @@ export async function deleteSubjectCascade(subjectId, docenteId) {
 
 // Deletes the submissions of a single student enrollment (submissions are keyed by the
 // per-subject `students` doc id). Call before deleting the student doc to avoid orphans.
-export async function deleteSubmissionsByStudent(studentDocId) {
-  const snap = await getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', studentDocId)))
-  await batchDeleteDocs(snap.docs.map((d) => doc(db, 'submissions', d.id)))
+// F-06: ya no filtra por alumnoId directamente — con la nueva regla el docente
+// solo puede leer submissions cuya actividadId le pertenece, y un query filtrado
+// solo por alumnoId no permite demostrar esa propiedad en las rules. En su lugar,
+// hace una query compuesta (actividadId == X AND alumnoId == studentDocId) por
+// cada actividad; el índice compuesto (actividadId, alumnoId) ya existe en
+// firestore.indexes.json, cada query devuelve 0 o 1 documentos.
+// actIds es obligatorio: el caller (SubjectPage.confirmDeleteStudent) lo tiene.
+export async function deleteSubmissionsByStudent(studentDocId, actIds) {
+  if (!actIds || actIds.length === 0) return
+  const snaps = await Promise.all(
+    actIds.map((actId) =>
+      getDocs(query(
+        collection(db, 'submissions'),
+        where('actividadId', '==', actId),
+        where('alumnoId', '==', studentDocId),
+      ))
+    )
+  )
+  const refs = snaps.flatMap((s) => s.docs.map((d) => doc(db, 'submissions', d.id)))
+  await batchDeleteDocs(refs)
 }
 
 // Deletes the submissions of a single activity. Call before deleting the activity doc.

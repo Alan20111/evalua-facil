@@ -111,6 +111,9 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'vacaciones', 'VAC_T2_OWN'), {
     docenteId: T2, fechaInicio: '2026-07-15', fechaFin: '2026-07-31', clases: true,
   })
+  // F-06 · actividad y submission de T2 para probar que T1 NO puede leerlas
+  await setDoc(doc(db, 'activities', 'A_T2_OWN'), { docenteId: T2, asignaturaId: 'S2', tipo: 'archivo' })
+  await setDoc(doc(db, 'submissions', 'A_T2_OWN_SOME_STU'), { alumnoId: 'SOME_STUDENT', actividadId: 'A_T2_OWN' })
 })
 
 const asT1 = testEnv.authenticatedContext(T1).firestore()
@@ -2154,6 +2157,48 @@ ok('F-11 · authenticated teacher CAN read their own subjects')
 
 await assertSucceeds(getDoc(doc(asT2, 'subjects', 'S1')))
 ok('F-11 · authenticated teacher CAN read subjects from other teachers (cross-read allowed)')
+
+// ── F-06 · Submissions solo legibles por el docente dueño de la actividad ───
+// Antes: isDocente() sin restricción → cualquier docente podía leer calificaciones
+// de alumnos de otras escuelas con una query directa a Firestore.
+// Ahora: isDocente() && ownsActivity(actividadId).
+
+// GET individual: docente dueño → OK
+await assertSucceeds(getDoc(doc(asT1, 'submissions', 'A1_ST_JUAN')))
+ok('F-06 · owning teacher CAN read a submission for their own activity')
+
+// GET individual: docente ajeno → DENEGADO
+await assertFails(getDoc(doc(asT2, 'submissions', 'A1_ST_JUAN')))
+ok('F-06 · foreign teacher CANNOT read a submission belonging to another teacher')
+
+await assertFails(getDoc(doc(asMallory, 'submissions', 'A1_ST_JUAN')))
+ok('F-06 · unrelated docente CANNOT read a submission they do not own')
+
+// GET T1 no puede leer la submission de T2
+await assertFails(getDoc(doc(asT1, 'submissions', 'A_T2_OWN_SOME_STU')))
+ok('F-06 · T1 CANNOT read a submission belonging to T2')
+
+// Admin conserva acceso total
+await assertSucceeds(getDoc(doc(asAdmin, 'submissions', 'A1_ST_JUAN')))
+ok('F-06 · admin CAN read any submission')
+
+// Alumno sigue leyendo sus propias submissions (ownsStudentDoc sin cambios)
+await assertSucceeds(getDoc(doc(asJuan, 'submissions', 'A1_ST_JUAN')))
+ok('F-06 · student CAN still read their own submission (ownsStudentDoc)')
+
+// QUERY lista por actividadId — el escenario real de explotación era via query
+await assertSucceeds(getDocs(query(collection(asT1, 'submissions'), where('actividadId', '==', 'A1'))))
+ok('F-06 · owning teacher CAN list submissions by their actividadId')
+
+await assertFails(getDocs(query(collection(asT2, 'submissions'), where('actividadId', '==', 'A1'))))
+ok('F-06 · foreign teacher CANNOT query submissions for an activity they do not own')
+
+await assertFails(getDocs(query(collection(asMallory, 'submissions'), where('actividadId', '==', 'A1'))))
+ok('F-06 · unrelated docente CANNOT query submissions for an activity they do not own')
+
+// T2 puede leer sus propias submissions
+await assertSucceeds(getDocs(query(collection(asT2, 'submissions'), where('actividadId', '==', 'A_T2_OWN'))))
+ok('F-06 · T2 CAN query their own submissions')
 
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

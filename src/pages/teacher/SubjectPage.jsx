@@ -84,13 +84,13 @@ import AvisosTab from '../../components/subject/AvisosTab'
 import PlaneacionDidacticaTab from '../../components/subject/PlaneacionDidacticaTab'
 import { isPerfilIACompleto } from '../../utils/perfilIA'
 
+// F-06: queries '==' individuales en lugar de 'in'. Ver el comentario en
+// deleteSubjectCascade.js/fetchSubmissionsForActivities para la justificación.
 async function fetchSubmissionsForActivities(actIds) {
   if (actIds.length === 0) return []
-  const chunks = []
-  for (let i = 0; i < actIds.length; i += 30) chunks.push(actIds.slice(i, i + 30))
   const snaps = await Promise.all(
-    chunks.map((ids) =>
-      getDocs(query(collection(db, 'submissions'), where('actividadId', 'in', ids)))
+    actIds.map((id) =>
+      getDocs(query(collection(db, 'submissions'), where('actividadId', '==', id)))
     )
   )
   return snaps.flatMap((s) => s.docs)
@@ -2260,7 +2260,7 @@ export default function SubjectPage() {
     setSavingStudent(true)
     try {
       // Remove this enrollment's submissions first so none are orphaned.
-      await deleteSubmissionsByStudent(studentToDelete.id)
+      await deleteSubmissionsByStudent(studentToDelete.id, activities.map((a) => a.id))
       // Igual para sus prórrogas por actividad — sin esto, activities.extensiones
       // se quedaba con la llave del estudiante borrado para siempre (dato
       // muerto, nunca vuelve a leerse porque ningún id nuevo la reutiliza,
