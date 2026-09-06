@@ -2200,5 +2200,66 @@ ok('F-06 · unrelated docente CANNOT query submissions for an activity they do n
 await assertSucceeds(getDocs(query(collection(asT2, 'submissions'), where('actividadId', '==', 'A_T2_OWN'))))
 ok('F-06 · T2 CAN query their own submissions')
 
+// ── F-05 · users lectura restringida + publicProfiles para alumnos ───────────
+// Seed publicProfiles para T1 y T2 (el cliente normalmente los crea vía
+// syncPublicProfile; aquí los creamos directamente con reglas desactivadas).
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'publicProfiles', T1), {
+    nombreMostrar: 'Profa. Test', prefijo: 'Profa.', nombre: 'Maestra', photoURL: null, mostrarFotoAlumnos: true,
+  })
+  await setDoc(doc(db, 'publicProfiles', T2), {
+    nombreMostrar: 'Prof. Test2', prefijo: 'Prof.', nombre: 'Maestro', photoURL: null, mostrarFotoAlumnos: false,
+  })
+})
+
+// 1. Alumno NO puede leer el perfil completo de un docente (getDoc en users)
+await assertFails(getDoc(doc(asJuan, 'users', T1)))
+ok('F-05 · alumno CANNOT getDoc a teacher profile from users/{uid}')
+
+// 2. Alumno NO puede hacer queries sobre la colección users
+await assertFails(getDocs(collection(asJuan, 'users')))
+ok('F-05 · alumno CANNOT list/query users collection')
+
+// 3. Docente SÍ puede leer su propio perfil con getDoc
+await assertSucceeds(getDoc(doc(asT1, 'users', T1)))
+ok('F-05 · teacher CAN read their own profile via getDoc')
+
+// 4. Docente NO puede leer el perfil de OTRO docente con getDoc
+await assertFails(getDoc(doc(asT1, 'users', T2)))
+ok('F-05 · teacher CANNOT getDoc another teacher profile')
+
+// 5. Docente SÍ puede hacer queries en users (preserva LinkAccountModal / ResetPassword)
+await assertSucceeds(getDocs(query(collection(asT1, 'users'), where('email', '==', 'alguien@x.mx'))))
+ok('F-05 · teacher CAN query users by email (LinkAccountModal / ResetPassword)')
+
+// 6. Admin SÍ puede leer cualquier perfil con getDoc
+await assertSucceeds(getDoc(doc(asAdmin, 'users', T1)))
+ok('F-05 · admin CAN getDoc any teacher profile')
+
+// 7. Admin SÍ puede listar la colección users completa
+await assertSucceeds(getDocs(collection(asAdmin, 'users')))
+ok('F-05 · admin CAN list users collection')
+
+// 8. Alumno SÍ puede leer publicProfiles de un docente
+await assertSucceeds(getDoc(doc(asJuan, 'publicProfiles', T1)))
+ok('F-05 · alumno CAN read publicProfiles/{docenteId}')
+
+// 9. Alumno NO puede escribir en publicProfiles de ningún docente
+await assertFails(setDoc(doc(asJuan, 'publicProfiles', T1), { nombreMostrar: 'Hack' }))
+ok('F-05 · alumno CANNOT write to publicProfiles of any teacher')
+
+// 10. Docente SÍ puede escribir su propio publicProfiles/{uid}
+await assertSucceeds(setDoc(doc(asT1, 'publicProfiles', T1), { nombreMostrar: 'Actualizado' }, { merge: true }))
+ok('F-05 · teacher CAN write their own publicProfiles/{uid}')
+
+// 11. Docente NO puede escribir el publicProfile de otro docente
+await assertFails(setDoc(doc(asT1, 'publicProfiles', T2), { nombreMostrar: 'Hack' }))
+ok('F-05 · teacher CANNOT write publicProfiles of another teacher')
+
+// 12. Admin SÍ puede leer publicProfiles
+await assertSucceeds(getDoc(doc(asAdmin, 'publicProfiles', T1)))
+ok('F-05 · admin CAN read publicProfiles')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

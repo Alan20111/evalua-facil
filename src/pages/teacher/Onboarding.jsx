@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { doc, updateDoc } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '../../firebase'
+import { syncPublicProfile } from '../../utils/publicProfile'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -149,6 +150,7 @@ export default function Onboarding() {
         profileComplete: true,
       }
       await updateDoc(doc(db, 'users', currentUser.uid), updates)
+      await syncPublicProfile(currentUser.uid, updates)
       setUserProfile((p) => ({ ...p, ...updates }))
       navigate('/dashboard')
     } catch (err) {

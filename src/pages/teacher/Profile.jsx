@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
+import { syncPublicProfile } from '../../utils/publicProfile'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -161,6 +162,7 @@ export default function Profile() {
     try {
       const url = await uploadAvatar(croppedFile)
       await updateDoc(doc(db, 'users', currentUser.uid), { photoURL: url })
+      await syncPublicProfile(currentUser.uid, { photoURL: url })
       setUserProfile((p) => ({ ...p, photoURL: url }))
       setCropFile(null)
       toast('Foto actualizada')
@@ -192,6 +194,7 @@ export default function Profile() {
     const prefijo = prefijoOption === '__otro__' ? prefijoCustom.trim() : prefijoOption
     try {
       await updateDoc(doc(db, 'users', currentUser.uid), { nombreMostrar: nombre.trim(), prefijo })
+      await syncPublicProfile(currentUser.uid, { nombreMostrar: nombre.trim(), prefijo })
       setUserProfile((p) => ({ ...p, nombreMostrar: nombre.trim(), prefijo }))
       toast('Nombre actualizado')
     } catch (err) {
@@ -221,6 +224,8 @@ export default function Profile() {
         ciudad: ubicacionCP.ciudad,
       }
       await updateDoc(doc(db, 'users', currentUser.uid), updates)
+      // nombre is the public fallback name — sync to publicProfiles
+      await syncPublicProfile(currentUser.uid, { nombre: updates.nombre })
       setUserProfile((p) => ({ ...p, ...updates }))
       toast('Datos personales actualizados')
     } catch (err) {
@@ -370,6 +375,7 @@ export default function Profile() {
                 const checked = e.target.checked
                 setUserProfile((p) => ({ ...p, mostrarFotoAlumnos: checked }))
                 updateDoc(doc(db, 'users', currentUser.uid), { mostrarFotoAlumnos: checked })
+                  .then(() => syncPublicProfile(currentUser.uid, { mostrarFotoAlumnos: checked }))
                   .catch(() => toast('No se pudo guardar: intenta de nuevo', 'error'))
               }}
             />

@@ -33,6 +33,7 @@ import { APP_DOWNLOAD_URL, APP_DOWNLOAD_READY } from '../../config/appDownload'
 import AppQRButton from '../../components/AppQRButton'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
+import { syncPublicProfile } from '../../utils/publicProfile'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -98,6 +99,7 @@ export default function TeacherDashboard() {
     try {
       const url = await uploadToCloudinary(croppedFile, 'evalua-facil/avatars')
       await updateDoc(doc(db, 'users', currentUser.uid), { photoURL: url })
+      await syncPublicProfile(currentUser.uid, { photoURL: url })
       setUserProfile((p) => ({ ...p, photoURL: url }))
       setCropFile(null)
       toast('Foto actualizada')

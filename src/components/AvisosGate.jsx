@@ -74,7 +74,7 @@ export default function AvisosGate() {
         // Nombres de docente — solo se piden los que todavía no se conocen.
         const faltantes = [...new Set(list.map((a) => a.docenteId))].filter((id) => id && !teacherNames[id])
         if (faltantes.length) {
-          Promise.all(faltantes.map((id) => getDoc(doc(db, 'users', id))))
+          Promise.all(faltantes.map((id) => getDoc(doc(db, 'publicProfiles', id))))
             .then((snaps) => {
               const nuevos = {}
               snaps.forEach((s, i) => { if (s.exists()) nuevos[faltantes[i]] = teacherDisplayName(s.data()) })

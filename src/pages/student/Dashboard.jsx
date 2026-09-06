@@ -298,7 +298,7 @@ export default function StudentDashboard() {
       const subjectIds = subs.map((s) => s.id)
       const myDocIds = Object.values(docIdBySubject)
       const [teacherSnaps, actDocs, mySubmissions] = await Promise.all([
-        Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'users', tid)))),
+        Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'publicProfiles', tid)))),
         fetchActivitiesForSubjects(subjectIds),
         fetchSubmissionsForStudents(myDocIds),
       ])

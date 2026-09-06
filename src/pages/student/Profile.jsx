@@ -74,16 +74,7 @@ export default function StudentProfile() {
       setStudentInfo(enrollments[0] || null)
       setEnrollments(enrollments)
 
-      // Nombre de la escuela: igual que StudentLayout, a través del docente de
-      // la primera asignatura (refleja SU escuela actual); si no, el doc schools.
-      const firstSubjectId = enrollments.find((e) => e.asignaturaId)?.asignaturaId
-      const subjSnap = firstSubjectId ? await getDoc(doc(db, 'subjects', firstSubjectId)).catch(() => null) : null
-      const docenteId = subjSnap?.exists() ? subjSnap.data().docenteId : null
-      if (docenteId) {
-        getDoc(doc(db, 'users', docenteId))
-          .then((snap) => { if (snap.exists()) setSchoolName(snap.data().schoolName || '') })
-          .catch(() => {})
-      } else if (enrollments[0]?.escuelaId) {
+      if (enrollments[0]?.escuelaId) {
         getDoc(doc(db, 'schools', enrollments[0].escuelaId))
           .then((snap) => { if (snap.exists()) setSchoolName(snap.data().shortName || snap.data().nombre || '') })
           .catch(() => {})
