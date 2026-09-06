@@ -470,7 +470,11 @@ service cloud.firestore {
     }
 
     match /subjects/{subjectId} {
-      allow read: if true;
+      // F-11 (2026-09-07): lectura requiere autenticación. El único flujo
+      // pre-auth que leía subjects (activación QR) ahora usa
+      // /api/subject/info (Admin SDK, devuelve solo campos de pantalla).
+      // Usuarios autenticados (docentes, alumnos, admin) mantienen acceso.
+      allow read: if request.auth != null;
       // Only teachers create subjects, always attributed to themselves — y
       // siempre con la escuela del docente puesta (ver traeEscuela arriba).
       allow create: if isDocente() &&

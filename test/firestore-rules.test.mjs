@@ -2131,5 +2131,29 @@ ok('F-02 · authenticated teacher CAN list students in their subject')
 await assertSucceeds(getDoc(doc(asT2, 'students', 'ST_JUAN')))
 ok('F-02 · any authenticated user CAN read student docs (auth required, not owner-only)')
 
+// ── F-11 · La colección subjects ya NO es de lectura pública ───────────────
+// Antes: `allow read: if true` — cualquier persona sin sesión podía
+// enumerar todas las asignaturas y obtener todos los accessCodes.
+// Ahora: `allow read: if request.auth != null` — solo usuarios con sesión.
+// El único flujo pre-auth (activación QR) usa /api/subject/info (Admin SDK).
+
+await assertFails(getDoc(doc(asAnon, 'subjects', 'S1')))
+ok('F-11 · unauthenticated user CANNOT read a subject document by ID')
+
+await assertFails(getDocs(query(collection(asAnon, 'subjects'), where('accessCode', '==', 'abc'))))
+ok('F-11 · unauthenticated user CANNOT query subjects by accessCode')
+
+await assertFails(getDocs(collection(asAnon, 'subjects')))
+ok('F-11 · unauthenticated attacker CANNOT enumerate all subjects and access codes')
+
+await assertSucceeds(getDoc(doc(asJuan, 'subjects', 'S1')))
+ok('F-11 · authenticated student CAN read a subject document')
+
+await assertSucceeds(getDocs(query(collection(asT1, 'subjects'), where('docenteId', '==', T1))))
+ok('F-11 · authenticated teacher CAN read their own subjects')
+
+await assertSucceeds(getDoc(doc(asT2, 'subjects', 'S1')))
+ok('F-11 · authenticated teacher CAN read subjects from other teachers (cross-read allowed)')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

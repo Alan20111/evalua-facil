@@ -192,15 +192,27 @@ export default function StudentActivation() {
     }
   }
 
+  // F-11 (2026-09-07): subjects ya no es lectura pública. La búsqueda
+  // pre-auth por accessCode pasa por /api/subject/info (Admin SDK) en lugar
+  // de leer Firestore directamente desde el cliente sin sesión.
   async function loadSubject() {
     try {
-      const q = query(collection(db, 'subjects'), where('accessCode', '==', accessCode))
-      const snap = await getDocs(q)
-      if (snap.empty) {
+      const resp = await fetch(apiUrl('/api/subject/info'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjectCode: accessCode }),
+      })
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}))
+        setLoadError(errData.error || 'No encontramos ninguna asignatura con ese código de acceso. Revisa el código con tu maestro.')
+        return
+      }
+      const data = await resp.json()
+      if (!data.ok || !data.subject) {
         setLoadError('No encontramos ninguna asignatura con ese código de acceso. Revisa el código con tu maestro.')
         return
       }
-      setSubject({ id: snap.docs[0].id, ...snap.docs[0].data() })
+      setSubject(data.subject)
     } catch {
       setLoadError('No pudimos cargar la asignatura. Revisa tu conexión e intenta de nuevo.')
     } finally {
