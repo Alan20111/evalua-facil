@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   Copy, Check, Link2, Link2Off, Smartphone,
-  Download, QrCode, RotateCcw, AlertTriangle, Cog, ExternalLink,
+  Download, QrCode, RotateCcw, AlertTriangle, Cog, ExternalLink, Package,
 } from 'lucide-react'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
@@ -208,6 +208,42 @@ export default function DownloadLinks() {
             <p className="text-xs text-emerald-700 font-medium mt-1.5">
               ✓ El QR descarga esta versión
             </p>
+
+            {/* Los dos binarios de esta versión. Salen de la misma compilación,
+                así que comparten versionCode: lo que se sube a Play es el mismo
+                código que están usando los docentes por enlace directo.
+
+                El .aab solo aparece aquí, nunca en la página pública: es el
+                archivo que se sube a Play Console, no algo que se instale. Las
+                versiones publicadas antes de esta pantalla no lo tienen, por
+                eso el botón es condicional. */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a
+                href={vigente.url}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
+              >
+                <Smartphone size={15} className="text-accent" />
+                Descargar .apk
+              </a>
+
+              {vigente.aabUrl ? (
+                <a
+                  href={vigente.aabUrl}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
+                >
+                  <Package size={15} className="text-accent" />
+                  Descargar .aab para Play Store
+                </a>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-dashed border-outline-variant text-sm text-slate-400"
+                  title="Esta versión se publicó antes de que se generara el bundle. La próxima que publiques lo incluirá."
+                >
+                  <Package size={15} />
+                  Sin .aab — publica una versión nueva
+                </span>
+              )}
+            </div>
           </div>
         ) : (
           <div className="mt-3 flex items-center gap-2 text-sm text-amber-700">
@@ -260,9 +296,10 @@ export default function DownloadLinks() {
           Publicar una versión nueva
         </h2>
         <p className="text-sm text-muted mt-1">
-          Compila el APK desde el código más reciente y lo publica. El enlace que
-          ya circula entre los docentes y el código QR pasan a entregar esta versión
-          — no hay que repartir nada nuevo.
+          Compila el <code>.apk</code> y el <code>.aab</code> desde el código más
+          reciente. El enlace que ya circula entre los docentes y el código QR pasan
+          a entregar la versión nueva — no hay que repartir nada. El <code>.aab</code>
+          queda arriba, listo para subirlo a Play Console.
         </p>
 
         <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-3">
