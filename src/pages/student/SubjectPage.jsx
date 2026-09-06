@@ -367,7 +367,7 @@ export default function StudentSubjectPage() {
 
       // Fetch teacher name separately — best-effort
       if (subData.docenteId) {
-        getDoc(doc(db, 'users', subData.docenteId))
+        getDoc(doc(db, 'publicProfiles', subData.docenteId))
           .then((snap) => {
             if (snap.exists()) {
               const td = snap.data()

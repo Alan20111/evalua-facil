@@ -1,6 +1,7 @@
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { sendWelcomeEmail } from './welcomeEmail'
+import { syncPublicProfile } from './publicProfile'
 
 // Creates the minimal Firestore profile + trial subscription for a brand-new
 // docente account (email/password or Google). Profile starts incomplete —
@@ -19,7 +20,7 @@ import { sendWelcomeEmail } from './welcomeEmail'
 // con profileComplete:false y depender de Onboarding para completarla en un
 // segundo paso.
 export async function createTeacherAccount(uid, email, photoURL = null, provider = 'password', sendEmail = true, extra = {}) {
-  await setDoc(doc(db, 'users', uid), {
+  const profileData = {
     role: 'docente',
     email: email.trim().toLowerCase(),
     photoURL,
@@ -27,7 +28,12 @@ export async function createTeacherAccount(uid, email, photoURL = null, provider
     provider,
     hasLocalPassword: provider === 'password',
     ...extra,
-  })
+  }
+  await setDoc(doc(db, 'users', uid), profileData)
+  // F-05: also seed the public profile so the teacher's display name and photo
+  // are available to students from registration day without a separate backfill
+  // step for new accounts. syncPublicProfile only copies the allowed public fields.
+  await syncPublicProfile(uid, profileData).catch(() => {})
 
   // La suscripción de prueba NO se crea aquí: la pone la Cloud Function
   // onDocenteCreado en cuanto existe este documento, con fechas del servidor.

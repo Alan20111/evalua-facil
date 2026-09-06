@@ -363,7 +363,17 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if request.auth != null;
+      // F-05 (2026-09-06): alumnos no pueden leer perfiles completos de docentes.
+      // Se separa `get` (un solo doc) de `list` (queries) para poder:
+      //   · get  → solo el propio dueño o admin (ningún alumno puede leer un
+      //            perfil de docente con getDoc).
+      //   · list → docentes + admin: preserva las queries por email que usan
+      //            LinkAccountModal y ResetPassword (flujos docente-only) y
+      //            el getDocs completo de useAdminStats.
+      // Los datos de presentación que los alumnos necesitan (nombre, foto, etc.)
+      // se sirven desde publicProfiles/{uid}, que solo contiene campos públicos.
+      allow get: if request.auth.uid == userId || isAdmin();
+      allow list: if isAdmin() || isDocente();
       // El perfil se crea UNA sola vez y lo escribe su propio dueño, así que es
       // la única escritura donde nadie estaba mirando: el `update` de abajo
       // congela `suscripcionHasta`, pero al crear se podía traer puesto. Un
@@ -390,6 +400,15 @@ service cloud.firestore {
          request.resource.data.get('suscripcionHasta', null) == resource.data.get('suscripcionHasta', null) &&
          perfilDocenteConEscuela(request.resource.data));
       allow delete: if isAdmin();
+    }
+
+    match /publicProfiles/{uid} {
+      // F-05: datos de presentación del docente accesibles a alumnos autenticados.
+      // Solo contiene: nombreMostrar, prefijo, nombre, photoURL, mostrarFotoAlumnos.
+      // El cliente solo escribe aquí a través de syncPublicProfile(), que filtra
+      // los campos permitidos antes de llamar a setDoc.
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == uid;
     }
 
     match /students/{studentId} {

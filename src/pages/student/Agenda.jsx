@@ -160,7 +160,7 @@ export default function Agenda() {
       const activeDocIds = activeSubjectIds.map((id) => docIdBySubject[id])
       const teacherIds = [...new Set(activeSubjectIds.map((id) => subjectById[id].docenteId).filter(Boolean))]
       const [teacherSnaps, actDocs, subDocs, bloqueDocs, academicEventDocs, studentEventDocs] = await Promise.all([
-        Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'users', tid)))),
+        Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'publicProfiles', tid)))),
         fetchActivitiesForSubjects(activeSubjectIds),
         fetchSubmissionsForStudents(activeDocIds),
         fetchByAsignaturaIn('horarioBloques', activeSubjectIds),

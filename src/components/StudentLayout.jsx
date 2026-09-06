@@ -82,18 +82,6 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
   }, [currentUser, userProfile, refreshKey])
 
   useEffect(() => {
-    // The student's own `escuelaId` is copied onto their `students` doc at creation
-    // time and never updated again — if the teacher later changes their school in
-    // Profile, old students keep pointing at the stale one, showing a different
-    // name than the teacher's own header. Resolve through the subject's teacher
-    // instead, which always reflects their CURRENT school.
-    const docenteId = subjects[0]?.docenteId
-    if (docenteId) {
-      getDoc(doc(db, 'users', docenteId))
-        .then((snap) => { if (snap.exists()) setSchoolName(snap.data().schoolName || '') })
-        .catch(() => {})
-      return
-    }
     const eid = userProfile?.escuelaId || studentInfo?.escuelaId
     if (!eid) return
     getDoc(doc(db, 'schools', eid))

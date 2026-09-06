@@ -102,7 +102,7 @@ export default function EvaluacionRunner() {
       }
       setStudent(studData)
       if (actData.docenteId) {
-        getDoc(doc(db, 'users', actData.docenteId))
+        getDoc(doc(db, 'publicProfiles', actData.docenteId))
           .then((s) => { if (s.exists()) { const d = s.data(); setTeacherName(teacherDisplayName(d)) } })
           .catch(() => {})
       }
