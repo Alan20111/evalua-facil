@@ -7,15 +7,7 @@
 // Al añadir un endpoint nuevo, agrégalo aquí como una acción más en vez de
 // crear otro archivo suelto.
 //
-// ┌─────────────────────────────────┬───────┬─────────────────────────────┐
-// │ Acción                          │ Auth  │ Descripción                 │
-// ├─────────────────────────────────┼───────┼─────────────────────────────┤
-// │ info                            │ No    │ Datos públicos de asignatura │
-// │ delete-fuente                   │ Sí    │ Borra fuente de IA          │
-// │ delete-planeacion-archivo       │ Sí    │ Borra archivo de planeación │
-// │ delete-resources                │ Sí    │ Borra recursos/materiales   │
-// └─────────────────────────────────┴───────┴─────────────────────────────┘
-
+import crypto from 'crypto'
 import { getDb, admin, verifyRequest } from '../_lib/firebaseAdmin.js'
 import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
 import { aplicarCors } from '../_lib/cors.js'
@@ -263,13 +255,109 @@ async function handleDeleteResources(req, res) {
   }
 }
 
+// ── /api/subject/sign-upload ───────────────────────────────────────────────
+// F-08 (2026-09-06): genera una firma de Cloudinary para que el cliente suba
+// archivos directamente a la CDN sin exponer el upload_preset ni el cloud_name
+// en el bundle público.
+//
+// El secreto (CLOUDINARY_API_SECRET) nunca abandona el servidor. La firma
+// cubre { folder, timestamp } en orden alfabético y caduca cuando Cloudinary
+// ya no la acepta: la API de Cloudinary rechaza timestamps con más de 1 hora
+// de diferencia respecto a su reloj — esa es la ventana real; no existe ningún
+// mecanismo oficial para acortarla más sin almacenar nonces en base de datos.
+//
+// Solo se firma una carpeta de la lista de permisos. Los alumnos únicamente
+// pueden usar sus carpetas específicas; los docentes pueden usar todas.
+// La distinción alumno/docente se hace por el dominio del email del token
+// (@evalua.local es siempre un alumno — ver auth flow en CLAUDE.md).
+
+const CARPETAS_DOCENTE = new Set([
+  'evalua-facil/avatars',
+  'evalua-facil/instrucciones',
+  'evalua-facil/instrucciones-adjuntos',
+  'evalua-facil/ia-fuentes',
+  'evalua-facil/ia-rubrica-evidencia',
+  'evalua-facil/preguntas',
+  'evalua-facil/programas-estudio',
+  'evalua-facil/planeaciones-docente',
+  'evalua-facil/recursos',
+  'evalua-facil/materiales',
+])
+
+const CARPETAS_ALUMNO = new Set([
+  'evalua-facil/profiles',
+  'evalua-facil/submissions',
+])
+
+async function handleSignUpload(req, res) {
+  if (aplicarCors(req, res)) return
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' })
+
+  let decoded
+  try {
+    decoded = await verifyRequest(req)
+  } catch (err) {
+    return res.status(err.status || 401).json({ error: err.message })
+  }
+
+  let body
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
+  } catch {
+    return res.status(400).json({ error: 'Body inválido.' })
+  }
+
+  const folder = String(body.folder || '').trim()
+  if (!folder) return res.status(400).json({ error: 'Falta la carpeta de destino.' })
+
+  const isAlumno = decoded.email?.endsWith('@evalua.local') ?? false
+  const permitidas = isAlumno
+    ? CARPETAS_ALUMNO
+    : new Set([...CARPETAS_DOCENTE, ...CARPETAS_ALUMNO])
+
+  if (!permitidas.has(folder)) {
+    return res.status(403).json({ error: 'Carpeta de destino no permitida.' })
+  }
+
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME
+  const apiKey    = process.env.CLOUDINARY_API_KEY
+  const apiSecret = process.env.CLOUDINARY_API_SECRET
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    return res.status(500).json({ error: 'El servidor no está configurado para subida de archivos.' })
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000)
+  // Parámetros firmados: folder y timestamp, en orden alfabético, seguido del
+  // apiSecret. La firma cubre exactamente lo que el cliente mandará en el
+  // FormData; si se añaden más parámetros deben entrar aquí en su lugar
+  // alfabético o Cloudinary rechazará la petición por firma inválida.
+  const signature = crypto
+    .createHash('sha1')
+    .update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`)
+    .digest('hex')
+
+  return res.status(200).json({ cloudName, apiKey, timestamp, signature, folder })
+}
+
 // ── Dispatcher ─────────────────────────────────────────────────────────────
+
+// ┌─────────────────────────────────┬───────┬─────────────────────────────┐
+// │ Acción                          │ Auth  │ Descripción                 │
+// ├─────────────────────────────────┼───────┼─────────────────────────────┤
+// │ info                            │ No    │ Datos públicos de asignatura │
+// │ sign-upload                     │ Sí    │ Firma de upload a Cloudinary │
+// │ delete-fuente                   │ Sí    │ Borra fuente de IA          │
+// │ delete-planeacion-archivo       │ Sí    │ Borra archivo de planeación │
+// │ delete-resources                │ Sí    │ Borra recursos/materiales   │
+// └─────────────────────────────────┴───────┴─────────────────────────────┘
 
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return
   const { action } = req.query
   try {
     if (action === 'info')                      return await handleInfo(req, res)
+    if (action === 'sign-upload')               return await handleSignUpload(req, res)
     if (action === 'delete-fuente')             return await handleDeleteFuente(req, res)
     if (action === 'delete-planeacion-archivo') return await handleDeletePlaneacionArchivo(req, res)
     if (action === 'delete-resources')          return await handleDeleteResources(req, res)
