@@ -27,6 +27,7 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
+import { uploadToCloudinary } from '../../utils/cloudinary'
 import EliminarCuentaModal from '../../components/EliminarCuentaModal'
 import AppVersionInfo from '../../components/AppVersionInfo'
 import { PREFIJOS } from '../../utils/prefijos'
@@ -34,20 +35,6 @@ import { capitalizarNombre } from '../../utils/nombres'
 import Select from '../../components/ui/Select'
 import InfoDisclosure from '../../components/ui/InfoDisclosure'
 
-async function uploadAvatar(file) {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-  const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
-  const fd = new FormData()
-  fd.append('file', file)
-  fd.append('upload_preset', preset)
-  fd.append('folder', 'evalua-facil/avatars')
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-    { method: 'POST', body: fd }
-  )
-  if (!res.ok) throw new Error('Error al subir imagen')
-  return (await res.json()).secure_url
-}
 
 const inputCls =
   'w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
@@ -160,7 +147,7 @@ export default function Profile() {
   async function handleCropConfirm(croppedFile) {
     setPhotoUploading(true)
     try {
-      const url = await uploadAvatar(croppedFile)
+      const url = await uploadToCloudinary(croppedFile, 'evalua-facil/avatars')
       await updateDoc(doc(db, 'users', currentUser.uid), { photoURL: url })
       await syncPublicProfile(currentUser.uid, { photoURL: url })
       setUserProfile((p) => ({ ...p, photoURL: url }))

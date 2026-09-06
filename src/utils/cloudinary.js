@@ -1,3 +1,6 @@
+import { auth } from '../firebase'
+import { apiUrl } from './apiBase'
+
 // Raw-delivered types. PDF is intentionally NOT here: we upload PDFs as the
 // `image` resource type so Cloudinary can rasterize their pages to JPG. That
 // lets us preview PDFs (page by page) even when the account has "PDF and ZIP
@@ -24,18 +27,38 @@ export function pdfPageImageUrl(url, page = 1) {
     .replace(/\.pdf(\?|$)/i, '.jpg$1')
 }
 
-// Shared Cloudinary upload helper. Centralizes the upload request so every
-// feature that needs to store a user-provided file (rich-text editor images,
-// submissions, avatars, etc.) hits the same endpoint/credentials handling.
+// Shared Cloudinary upload helper — F-08 (2026-09-06): signed uploads.
+//
+// El cliente ya NO usa upload_preset ni cloudName embebidos en el bundle.
+// En su lugar pide una firma al servidor (/api/subject/sign-upload), que usa
+// CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET (server-side) para generarla.
+// Cloudinary valida la firma en su extremo; sin ella rechaza la subida.
+// La firma cubre { folder, timestamp } y Cloudinary la acepta hasta 1 hora
+// después del timestamp (ventana fija de su API; no existe forma oficial de
+// acortarla sin almacenar nonces).
 export async function uploadToCloudinary(file, folder = 'evalua-facil/uploads') {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+  const token = await auth.currentUser?.getIdToken()
+  if (!token) throw new Error('No autenticado')
+
+  const sigRes = await fetch(apiUrl('/api/subject/sign-upload'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ folder }),
+  })
+  if (!sigRes.ok) {
+    const motivo = await sigRes.json().then((j) => j?.error).catch(() => null)
+    throw new Error(motivo || 'No se pudo iniciar la subida')
+  }
+  const { cloudName, apiKey, timestamp, signature } = await sigRes.json()
+
   const isRaw = NON_IMAGE_EXTS.includes(fileExt(file))
   const resourceType = isRaw ? 'raw' : 'auto'
 
   const formData = new FormData()
   formData.append('file', file)
-  formData.append('upload_preset', uploadPreset)
+  formData.append('api_key', String(apiKey))
+  formData.append('timestamp', String(timestamp))
+  formData.append('signature', signature)
   formData.append('folder', folder)
 
   const res = await fetch(
@@ -43,9 +66,6 @@ export async function uploadToCloudinary(file, folder = 'evalua-facil/uploads') 
     { method: 'POST', body: formData }
   )
   if (!res.ok) {
-    // Cloudinary explica el motivo real en el cuerpo (extensión no permitida,
-    // preset inválido, límite de tamaño…). Sin esto todos los fallos se ven
-    // igual y no hay forma de saber qué arreglar.
     const motivo = await res.json().then((j) => j?.error?.message).catch(() => null)
     throw new Error(motivo ? `Error al subir el archivo: ${motivo}` : 'Error al subir el archivo')
   }

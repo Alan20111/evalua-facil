@@ -31,7 +31,7 @@ import { normalizeGrade } from '../../utils/ponderacion'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import AttachmentList from '../../components/AttachmentList'
-import { downloadUrl } from '../../utils/cloudinary'
+import { uploadToCloudinary, downloadUrl } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
 import Fireworks from '../../components/Fireworks'
 import RubricaTable from '../../components/rubrica/RubricaTable'
@@ -42,20 +42,6 @@ import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { formatHora12FromDate } from '../../utils/formatHora'
 
-async function uploadToCloudinary(file) {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('upload_preset', uploadPreset)
-  formData.append('folder', 'evalua-facil/submissions')
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-    { method: 'POST', body: formData }
-  )
-  if (!res.ok) throw new Error('Error al subir archivo a Cloudinary')
-  return (await res.json()).secure_url
-}
 
 function fmtDate(dateStr) {
   if (!dateStr) return ''
@@ -251,7 +237,7 @@ export default function StudentActivityPage() {
     setUploading(true)
     try {
       const uploaded = await Promise.all(
-        files.map(async (f) => ({ url: await uploadToCloudinary(f), nombre: f.name, tamano: f.size }))
+        files.map(async (f) => ({ url: await uploadToCloudinary(f, 'evalua-facil/submissions'), nombre: f.name, tamano: f.size }))
       )
       // `archivoURL`/`nombreArchivo` stay as the FIRST file so every existing
       // reader (teacher list, previews, ZIP export) keeps working; `archivos`

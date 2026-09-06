@@ -23,6 +23,10 @@ const RULES = [
   { pattern: '/api/student/recover-password', limit: 5,  windowSec: 60 },
   // Info pública de asignatura — enumeración de grupos/horarios.
   { pattern: '/api/subject/info',             limit: 30, windowSec: 60 },
+  // Firma de upload a Cloudinary (F-08) — genera una firma válida por 1 hora.
+  // 20 firmas/min/IP cubre subidas simultáneas normales sin dar margen para
+  // generar firmas en masa y usarlas desde otra IP o más tarde.
+  { pattern: '/api/subject/sign-upload',      limit: 20, windowSec: 60 },
 ]
 
 // Orígenes CORS permitidos (mismo conjunto que api/_lib/cors.js) — se incluyen
@@ -80,5 +84,10 @@ export default function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/api/student/lookup', '/api/student/recover-password', '/api/subject/info'],
+  matcher: [
+    '/api/student/lookup',
+    '/api/student/recover-password',
+    '/api/subject/info',
+    '/api/subject/sign-upload',
+  ],
 }
