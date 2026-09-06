@@ -577,7 +577,13 @@ service cloud.firestore {
       // no pedir ese campo. Una restricción que solo vive en el navegador no
       // existe (§1.1).
       match /preguntas/{preguntaId} {
-        allow read: if request.auth != null;
+        // Docentes: lectura directa desde Firestore (editor, revisión, exportación).
+        // Alumnos de evaluaciones: obtienen preguntas vía /api/exam/questions (F-04).
+        // Juegos (crucigrama, sopa de letras): palabras no son secretas → readable.
+        allow read: if isDocente() || (
+          request.auth != null &&
+          get(/databases/$(database)/documents/activities/$(activityId)).data.get('categoria', null) == 'juego'
+        );
         allow write: if isDocente() &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
       }

@@ -1,4 +1,4 @@
-// Firestore Security Rules — behavioral tests against the emulator.
+﻿// Firestore Security Rules — behavioral tests against the emulator.
 // Run with:  firebase emulators:exec --only firestore --project demo-test \
 //              'node test/firestore-rules.test.mjs'
 //
@@ -770,8 +770,8 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'activities', 'A_EVAL_CLAVE', 'clave', 'Q1'), { respuestaCorrecta: 'b' })
 })
 
-await assertSucceeds(getDoc(doc(asJuan, 'activities', 'A_EVAL_CLAVE', 'preguntas', 'Q1')))
-ok('student CAN still read the question itself — they need it to answer')
+await assertFails(getDoc(doc(asJuan, 'activities', 'A_EVAL_CLAVE', 'preguntas', 'Q1')))
+ok('F-04 · student CANNOT read evaluacion questions directly from Firestore (use /api/exam/questions)')
 
 await assertFails(getDoc(doc(asJuan, 'activities', 'A_EVAL_CLAVE', 'clave', 'Q1')))
 ok('student CANNOT read the answer key of the exam they are taking')
@@ -789,7 +789,40 @@ await assertSucceeds(setDoc(doc(asT1, 'activities', 'A_EVAL_CLAVE', 'clave', 'Q1
 ok('the owning teacher CAN write the answer key')
 
 await assertFails(getDoc(doc(asT2, 'activities', 'A_EVAL_CLAVE', 'clave', 'Q1')))
-ok('another teacher CANNOT read someone else’s answer key')
+ok("another teacher CANNOT read someone else's answer key")
+
+// ── F-04 · Restricción de preguntas de evaluación ───────────────────────────
+// El candado real está en el servidor (/api/exam/questions). Las reglas de
+// Firestore solo bloquean la lectura directa: docentes pasan, alumnos no.
+
+// Docente propietario sí puede leer directamente (editor, exportación)
+await assertSucceeds(getDoc(doc(asT1, 'activities', 'A_EVAL_CLAVE', 'preguntas', 'Q1')))
+ok('F-04 · owning teacher CAN still read evaluacion questions directly from Firestore')
+
+// Cualquier docente (isDocente() es true para T2 también)
+await assertSucceeds(getDoc(doc(asT2, 'activities', 'A_EVAL_CLAVE', 'preguntas', 'Q1')))
+ok('F-04 · any authenticated teacher CAN read evaluacion questions (isDocente())')
+
+// Preguntas de juego siguen siendo legibles por el alumno (palabras no son secretas)
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'activities', 'A_JUEGO_VENCIDO', 'preguntas', 'P_JUEGO1'), {
+    palabra: 'MEXICO', pista: 'País',
+  })
+})
+await assertSucceeds(getDoc(doc(asJuan, 'activities', 'A_JUEGO_VENCIDO', 'preguntas', 'P_JUEGO1')))
+ok('F-04 · student CAN read preguntas of a juego activity (words are not secret)')
+
+// El docente dueño puede escribir preguntas (comportamiento existente preservado)
+await assertSucceeds(setDoc(doc(asT1, 'activities', 'A_EVAL_CLAVE', 'preguntas', 'Q2'), {
+  enunciado: '¿Continente?', tipo: 'opcion_multiple', orden: 2,
+}))
+ok('F-04 · owning teacher CAN still write preguntas')
+
+// Un docente ajeno no puede escribir preguntas de otro
+await assertFails(setDoc(doc(asT2, 'activities', 'A_EVAL_CLAVE', 'preguntas', 'Q3'), {
+  enunciado: '¿Evil?', tipo: 'opcion_multiple', orden: 3,
+}))
+ok("F-04 · foreign teacher CANNOT write another teacher's preguntas")
 
 // ── A08 · El alumno no maneja la máquina de estados de su examen ────────────
 //

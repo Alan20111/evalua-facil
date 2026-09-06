@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc, serverTimestamp,
 } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { db, auth } from '../../firebase'
+import { apiUrl } from '../../utils/apiBase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -114,8 +115,17 @@ export default function EvaluacionRunner() {
       const subData = { id: subsSnap.docs[0].id, ...subsSnap.docs[0].data() }
       setSubmission(subData)
 
-      const pregSnap = await getDocs(collection(db, 'activities', activityId, 'preguntas'))
-      let lista = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      const idToken = await auth.currentUser.getIdToken()
+      const pregResp = await fetch(apiUrl('/api/exam/questions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ activityId }),
+      })
+      if (!pregResp.ok) {
+        const errData = await pregResp.json().catch(() => ({}))
+        throw new Error(errData.error || 'Error al cargar las preguntas')
+      }
+      let lista = (await pregResp.json()).questions
       let seed = subData.ordenSeed
       // Con secciones, el aleatorio baraja DENTRO de cada una y las secciones
       // conservan su lugar: un reactivo nunca se sale de su sección (es lo que

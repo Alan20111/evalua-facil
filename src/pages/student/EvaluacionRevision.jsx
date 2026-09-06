@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { db, auth } from '../../firebase'
+import { apiUrl } from '../../utils/apiBase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -66,10 +67,19 @@ export default function EvaluacionRevision() {
       const answersVisible = publicacionVisible(ev.publicarRespuestas || 'inmediato', ev.publicarRespuestasFecha, ev.respuestasPublicadas, new Date().toISOString())
       if (!answersVisible) { navigate(`/alumno/actividad/${activityId}`); return }
 
-      const pregSnap = await getDocs(collection(db, 'activities', activityId, 'preguntas'))
+      const idToken = await auth.currentUser.getIdToken()
+      const pregResp = await fetch(apiUrl('/api/exam/questions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ activityId }),
+      })
+      if (!pregResp.ok) {
+        const errData = await pregResp.json().catch(() => ({}))
+        throw new Error(errData.error || 'Error al cargar las preguntas')
+      }
       // `orden` es relativo a la sección: se reagrupa para verlas en el mismo
       // orden en que se presentaron.
-      const crudas = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const crudas = (await pregResp.json()).questions
       const lista = preguntasEnOrden(crudas, seccionesDe(actData?.evaluacion))
       setPreguntas(lista)
 
