@@ -91,18 +91,33 @@ jobs:
       - name: Comprobar que salió firmado y con la versión esperada
         run: node scripts/verificar-apk.mjs android/app/build/outputs/apk/release/app-release.apk "${{ steps.version.outputs.versionCode }}" "${{ steps.version.outputs.versionName }}"
 
+      # El .aab sale de la MISMA corrida que el APK a propósito: así los dos
+      # comparten versionCode y no puede pasar que lo que se sube a Play sea un
+      # binario distinto del que están usando los docentes por enlace directo.
+      - name: Compilar el bundle firmado (.aab para Play Store)
+        run: ./gradlew bundleRelease --no-daemon
+        working-directory: android
+
       - name: Renombrar
-        run: cp android/app/build/outputs/apk/release/app-release.apk "evalua-facil-v${{ steps.version.outputs.versionName }}.apk"
+        run: |
+          V="${{ steps.version.outputs.versionName }}"
+          cp android/app/build/outputs/apk/release/app-release.apk "evalua-facil-v$V.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "evalua-facil-v$V.aab"
 
       - name: Publicar el release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          V="${{ steps.version.outputs.versionName }}"
           NOTAS="${{ inputs.notas }}"
-          [ -z "$NOTAS" ] && NOTAS="APK de la versión ${{ steps.version.outputs.versionName }}, compilado desde main."
-          gh release create "v${{ steps.version.outputs.versionName }}" \
-            "evalua-facil-v${{ steps.version.outputs.versionName }}.apk" \
-            --title "Evalúa Fácil ${{ steps.version.outputs.versionName }} (Android)" \
+          [ -z "$NOTAS" ] && NOTAS="Versión $V compilada desde main.
+
+- \`.apk\` — instalación directa desde el enlace de descarga.
+- \`.aab\` — el que se sube a Google Play Console (versionCode ${{ steps.version.outputs.versionCode }})."
+          gh release create "v$V" \
+            "evalua-facil-v$V.apk" \
+            "evalua-facil-v$V.aab" \
+            --title "Evalúa Fácil $V (Android)" \
             --notes "$NOTAS"
 
       # Deja el enlace listo: /descargar lo toma solo por estar marcado como
@@ -114,7 +129,10 @@ jobs:
           # desplegar functions y reglas.
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-        run: node scripts/registrar-enlace-descarga.mjs "${{ steps.version.outputs.versionName }}" "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.versionName }}/evalua-facil-v${{ steps.version.outputs.versionName }}.apk"
+        run: |
+          BASE="https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.versionName }}"
+          V="${{ steps.version.outputs.versionName }}"
+          node scripts/registrar-enlace-descarga.mjs "$V" "$BASE/evalua-facil-v$V.apk" "$BASE/evalua-facil-v$V.aab"
 
       # Se ejecuta aunque algo anterior fallara a medias: si el release ya
       # salió, main TIENE que enterarse del versionCode gastado. Si no, la

@@ -5,7 +5,11 @@
 // marcadas, así que el enlace que ya circula entre los docentes empieza a
 // entregar el APK nuevo sin cambiar de URL.
 //
-//   node scripts/registrar-enlace-descarga.mjs <versionName> <urlDelApk>
+//   node scripts/registrar-enlace-descarga.mjs <versionName> <urlDelApk> [urlDelAab]
+//
+// El .aab es opcional y NO lo usa la página pública: solo el panel de admin,
+// para bajar el bundle que se sube a Google Play. Va en el mismo documento
+// porque sale de la misma compilación y comparte versionCode con el APK.
 //
 // Acepta DOS credenciales, en este orden:
 //
@@ -17,9 +21,9 @@
 // La segunda existe para no obligar a dar de alta una credencial nueva solo
 // por este paso: quien ya puede desplegar reglas y functions puede de sobra
 // escribir un enlace de descarga.
-const [version, url] = process.argv.slice(2)
+const [version, url, aabUrl] = process.argv.slice(2)
 if (!version || !url) {
-  console.error('Uso: registrar-enlace-descarga.mjs <versionName> <urlDelApk>')
+  console.error('Uso: registrar-enlace-descarga.mjs <versionName> <urlDelApk> [urlDelAab]')
   process.exit(1)
 }
 
@@ -38,6 +42,7 @@ const datos = {
   version,
   fecha,
   url,
+  aabUrl: aabUrl || null,
   fileName: null,
   produccion: true,
   activo: true,
