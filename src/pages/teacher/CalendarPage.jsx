@@ -862,20 +862,6 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
   )
 }
 
-// ─── Conflict detection ────────────────────────────────────────────────────
-
-function useConflicts(events) {
-  return useMemo(() => {
-    const byDate = {}
-    events.filter(ev => ev.tipo === 'deadline').forEach(ev => {
-      byDate[ev.dateStr] = (byDate[ev.dateStr] || 0) + 1
-    })
-    return Object.entries(byDate)
-      .filter(([, count]) => count >= 3)
-      .map(([date]) => date)
-      .sort()
-  }, [events])
-}
 
 // ─── Main CalendarPage ─────────────────────────────────────────────────────
 
@@ -1151,8 +1137,6 @@ export default function CalendarPage() {
 
     return evs.filter(ev => ev.dateStr)
   }, [activities, personalEvents, subjects, activityLabels])
-
-  const conflicts = useConflicts(events)
 
   // Índice de días de asueto por fecha (para marcar y bloquear por tipo).
   const asuetoMap = useMemo(() => buildAsuetoMap(asuetos), [asuetos])
@@ -2056,22 +2040,7 @@ export default function CalendarPage() {
           </>
         )}
 
-        {/* Conflict warning */}
-        {conflicts.length > 0 && (
-          <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-card flex items-start gap-2 text-sm text-amber-800">
-            <AlertTriangle size={16} className="flex-shrink-0 mt-0.5 text-amber-500" />
-            <span>
-              <strong>Días con 3 o más entregas:</strong>{' '}
-              {conflicts.map(d => {
-                const dt = new Date(d + 'T12:00:00')
-                return `${dt.getDate()} ${MESES[dt.getMonth()]}`
-              }).join(', ')}.
-              Considera distribuir las fechas límite para evitar saturar a tus alumnos.
-            </span>
-          </div>
-        )}
-
-        {/* Calendar body — en web, Día y 3 días se ven mal a lo ancho de las
+{/* Calendar body — en web, Día y 3 días se ven mal a lo ancho de las
             demás vistas (columnas gigantes); se acotan y centran. Semana y
             Mes se quedan a ancho completo, como ya estaban. Solo web: en la
             app esta franja ya es angosta por el propio viewport. */}
