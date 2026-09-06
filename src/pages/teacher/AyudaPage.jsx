@@ -38,8 +38,15 @@ const GUIDES = [
         image: '/ayuda-comenzar/03-tab-estudiantes.png',
       },
       {
-        text: 'Escribe apellido paterno, apellido materno (opcional) y nombre(s), y toca "Agregar estudiante". El sistema genera el usuario automáticamente: apellido paterno + punto + primer nombre (todo en minúsculas, sin acentos). Ejemplo: garcia.laura.',
+        text: 'Escribe apellido paterno, apellido materno (opcional) y nombre(s), y toca "Agregar estudiante".',
         image: '/ayuda-comenzar/04-modal-agregar-estudiante.png',
+        highlight: {
+          label: '¿Cuál será el usuario de tu estudiante?',
+          formula: 'Apellido paterno + punto + primer nombre',
+          input: 'Méndez   Enrique',
+          output: 'mendez.enrique',
+          nota: 'Con ese usuario entra a Evalúa Fácil.',
+        },
       },
       {
         text: 'Si es todo un grupo a la vez, usa "Plantilla Excel": descarga la plantilla, llénala con un alumno por fila y súbela. La plataforma genera los códigos de acceso de todos de golpe.',
@@ -323,6 +330,21 @@ export default function AyudaPage() {
                           alt=""
                           className="mt-2 rounded-card border border-outline-variant shadow-card max-w-full sm:max-w-md"
                         />
+                      )}
+                      {step.highlight && (
+                        <div className="mt-3 rounded-card bg-[var(--accent-tint)] px-4 py-3 space-y-2">
+                          <p className="text-[12px] font-bold uppercase tracking-wide text-accent">
+                            {step.highlight.label}
+                          </p>
+                          <p className="text-[14px] font-semibold text-on-surface">
+                            {step.highlight.formula}
+                          </p>
+                          <div className="rounded bg-surface px-3 py-2">
+                            <p className="text-[13px] text-muted">{step.highlight.input}</p>
+                            <p className="text-[15px] font-bold text-accent">→ {step.highlight.output}</p>
+                          </div>
+                          <p className="text-[13px] text-muted">{step.highlight.nota}</p>
+                        </div>
                       )}
                     </div>
                   </li>
