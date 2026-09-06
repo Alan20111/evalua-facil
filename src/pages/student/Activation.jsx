@@ -304,8 +304,8 @@ export default function StudentActivation() {
     e.preventDefault()
     if (submitting.current) return
     setPasswordError('')
-    if (password.length < 6) {
-      setPasswordError('La contraseña debe tener al menos 6 caracteres')
+    if (password.length < 8) {
+      setPasswordError('La contraseña debe tener al menos 8 caracteres')
       return
     }
     if (password !== confirmPassword) {
@@ -638,7 +638,7 @@ export default function StudentActivation() {
                     // se muestra una sola vez por sesión de activación — no es un modal reabrible.
                     autoFocus
                     className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                   />
                 </div>
                 <div>

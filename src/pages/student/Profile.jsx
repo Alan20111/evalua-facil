@@ -135,7 +135,7 @@ export default function StudentProfile() {
 
   async function handleChangePassword(e) {
     e.preventDefault()
-    if (passNueva.length < 6) { toast('La contraseña nueva debe tener al menos 6 caracteres', 'error'); return }
+    if (passNueva.length < 8) { toast('La contraseña nueva debe tener al menos 8 caracteres', 'error'); return }
     if (passNueva !== passConfirm) { toast('Las contraseñas nuevas no coinciden', 'error'); return }
     setSavingPass(true)
     try {
@@ -337,7 +337,7 @@ export default function StudentProfile() {
             <PasswordInput
               value={passNueva}
               onChange={(e) => setPassNueva(e.target.value)}
-              placeholder="Contraseña nueva (mínimo 6 caracteres)"
+              placeholder="Contraseña nueva (mínimo 8 caracteres)"
               autoComplete="new-password"
               required
               className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"

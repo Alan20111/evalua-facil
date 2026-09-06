@@ -145,7 +145,7 @@ const SECTIONS = [
         items: [
           'Les das el código de acceso de tu asignatura, el de 6 caracteres. Lo dictas, lo escribes en el pizarrón o lo copias con el botón que está junto al nombre de la materia.',
           'El estudiante entra a su pantalla de acceso, toca "¿Primera vez? Activa tu cuenta" y escribe ese código.',
-          'Luego escribe su usuario, la plataforma lo reconoce en tu lista, y él elige su contraseña (mínimo 6 caracteres). Listo.',
+          'Luego escribe su usuario, la plataforma lo reconoce en tu lista, y él elige su contraseña (mínimo 8 caracteres). Listo.',
           'Si ya tenía cuenta contigo en otra asignatura, no crea una nueva: escribe la contraseña que ya usa y esa asignatura se suma a su cuenta.',
           'Puedes descargar el PDF de lista de acceso, con el código de la clase y el usuario de cada quien.',
           '⚠ Ese PDF no trae contraseñas, y no es un descuido: nadie más que el estudiante conoce la suya.',

@@ -173,7 +173,7 @@ export default function StudentLogin() {
     e.preventDefault()
     setRecoverError('')
     if (!resetToken.trim()) { setRecoverError('Escribe el código de recuperación que te dio tu maestro.'); return }
-    if (newPassword.length < 6) { setRecoverError('La contraseña debe tener al menos 6 caracteres.'); return }
+    if (newPassword.length < 8) { setRecoverError('La contraseña debe tener al menos 8 caracteres.'); return }
     if (newPassword !== confirmNewPassword) { setRecoverError('Las contraseñas no coinciden.'); return }
     setLoading(true)
     try {
@@ -310,7 +310,7 @@ export default function StudentLogin() {
                     onChange={(e) => { setNewPassword(e.target.value); setRecoverError('') }}
                     required
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                   />
                 </div>
                 <div>

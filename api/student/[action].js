@@ -211,8 +211,8 @@ async function handleRecoverPassword(req, res) {
     if (!escuelaId) {
       return res.status(400).json({ error: 'Falta la escuela del alumno.' })
     }
-    if (String(newPassword).length < 6) {
-      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres.' })
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' })
     }
 
     const db = getDb()
