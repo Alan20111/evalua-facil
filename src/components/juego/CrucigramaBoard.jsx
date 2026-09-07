@@ -88,7 +88,7 @@ export default function CrucigramaBoard({
     if (!el) return
     programmaticFocusRef.current = true
     el.focus()
-    queueMicrotask(() => { programmaticFocusRef.current = false })
+    setTimeout(() => { programmaticFocusRef.current = false }, 0)
   }
 
   const horizontales = palabras.filter((p) => p.horizontal).sort((a, b) => (a.numero || 0) - (b.numero || 0))
