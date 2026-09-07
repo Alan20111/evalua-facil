@@ -60,7 +60,11 @@ export default function StudentLogin() {
         body: JSON.stringify({ username }),
       })
       if (!resp.ok) {
-        setError('Error al verificar el usuario. Intenta de nuevo.')
+        if (resp.status === 429) {
+          setError('Demasiadas solicitudes. Espera un momento y vuelve a intentar.')
+        } else {
+          setError('Error al verificar el usuario. Intenta de nuevo.')
+        }
         return
       }
       const lookupData = await resp.json()
@@ -143,7 +147,11 @@ export default function StudentLogin() {
         body: JSON.stringify({ username: recoverUsername }),
       })
       if (!resp.ok) {
-        setRecoverError('Ocurrió un error. Intenta de nuevo.')
+        if (resp.status === 429) {
+          setRecoverError('Demasiadas solicitudes. Espera un momento y vuelve a intentar.')
+        } else {
+          setRecoverError('Ocurrió un error. Intenta de nuevo.')
+        }
         return
       }
       const lookupData = await resp.json()
@@ -297,7 +305,7 @@ export default function StudentLogin() {
                     autoCorrect="off"
                     autoCapitalize="characters"
                     spellCheck={false}
-                    maxLength={8}
+                    maxLength={32}
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
                     placeholder="Tu maestro te lo dio"
                   />
