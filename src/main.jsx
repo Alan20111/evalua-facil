@@ -21,6 +21,21 @@ lockPortrait()
 watchViewportWidth(IS_NATIVE_APP)
 if (IS_NATIVE_APP) document.documentElement.classList.add('is-native-app')
 
+// Cuando Vite no puede cargar un chunk dinámico (version skew: el WebView
+// conservó un index.html de un deploy anterior y los hashes de los chunks
+// ya cambiaron), recarga la página UNA VEZ para obtener el index.html y
+// los chunks actuales. event.preventDefault() suprime el error original
+// antes de que llegue al catch de cada módulo (de lo contrario aparece
+// "No se pudo iniciar sesión con Google" aunque Google no sea la causa).
+// El flag de sessionStorage evita un loop si el deployment en sí está roto:
+// si tras la recarga el chunk sigue sin existir, el error llega al usuario.
+window.addEventListener('vite:preloadError', (event) => {
+  if (sessionStorage.getItem('vite_reload') === '1') return
+  event.preventDefault()
+  sessionStorage.setItem('vite_reload', '1')
+  window.location.reload()
+})
+
 const root = createRoot(document.getElementById('root'))
 
 root.render(
