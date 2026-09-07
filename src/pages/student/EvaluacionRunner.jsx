@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore'
 import { db, auth } from '../../firebase'
 import { apiUrl } from '../../utils/apiBase'
+import { fetchActivity } from '../../utils/apiContent'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -83,11 +84,10 @@ export default function EvaluacionRunner() {
   async function load() {
     setLoading(true)
     try {
-      const actSnap = await getDoc(doc(db, 'activities', activityId))
-      if (!actSnap.exists() || actSnap.data().tipo !== 'evaluacion') {
+      const actData = await fetchActivity(activityId)
+      if (!actData || actData.tipo !== 'evaluacion') {
         navigate(`/alumno/actividad/${activityId}`); return
       }
-      const actData = { id: actSnap.id, ...actSnap.data() }
       setActivity(actData)
       const subSnap = await getDoc(doc(db, 'subjects', actData.asignaturaId))
       setSubject({ id: subSnap.id, ...subSnap.data() })
