@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished, cuentaParaCalificacion } from '../../utils/activityVisibility'
+import { fetchContentBatch } from '../../utils/apiContent'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollments, updateAllEnrollments, visibleEnrollments } from '../../utils/studentLookup'
@@ -35,20 +36,6 @@ import { teacherDisplayName } from '../../utils/studentSearch'
 import { capitalizarNombre } from '../../utils/nombres'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { APP_DOWNLOAD_URL, APP_DOWNLOAD_READY } from '../../config/appDownload'
-
-// All activities for a set of subjects in as few round trips as possible.
-// Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
-async function fetchActivitiesForSubjects(subjectIds) {
-  if (subjectIds.length === 0) return []
-  const chunks = []
-  for (let i = 0; i < subjectIds.length; i += 30) chunks.push(subjectIds.slice(i, i + 30))
-  const snaps = await Promise.all(
-    chunks.map((ids) =>
-      getDocs(query(collection(db, 'activities'), where('asignaturaId', 'in', ids)))
-    )
-  )
-  return snaps.flatMap((s) => s.docs)
-}
 
 // All submissions belonging to a set of student enrollment docs — one `==` query
 // per enrollment, in parallel. NO `in` chunks here: the submissions read rule
@@ -299,7 +286,7 @@ export default function StudentDashboard() {
       const myDocIds = Object.values(docIdBySubject)
       const [teacherSnaps, actDocs, mySubmissions] = await Promise.all([
         Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'publicProfiles', tid)))),
-        fetchActivitiesForSubjects(subjectIds),
+        fetchContentBatch(subjectIds, 'activities'),
         fetchSubmissionsForStudents(myDocIds),
       ])
 
@@ -313,8 +300,7 @@ export default function StudentDashboard() {
       // Group activities by subject and index this student's grade per activity
       // (activities are subject-unique, so keying by activity id never collides).
       const actsBySubject = {}
-      actDocs.forEach((d) => {
-        const a = { id: d.id, ...d.data() }
+      actDocs.forEach((a) => {
         const parcialesOcultos = subjectById[a.asignaturaId]?.parcialesOcultos || []
         if (!isActivityPublished(a, parcialesOcultos.includes(a.parcial))) return
         if (!actsBySubject[a.asignaturaId]) actsBySubject[a.asignaturaId] = []
