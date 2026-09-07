@@ -77,6 +77,20 @@ export default function CrucigramaBoard({
   // añadirlos dos veces si el componente re-renderiza con el mismo DOM.
   const boundRef = useRef(new WeakMap())
 
+  // Previene que handleClickCelda toglee la dirección cuando el foco se mueve
+  // por código (auto-avance, Backspace, selección de pista). En algunos WebViews
+  // de Android/iOS, el .focus() programático despacha un 'click' sintético que
+  // burbujea al div envolvente y dispararía el toggle. El flag lo bloquea sin
+  // afectar los clicks reales del usuario.
+  const programmaticFocusRef = useRef(false)
+  function focusProgrammatico(key) {
+    const el = refs.current[key]
+    if (!el) return
+    programmaticFocusRef.current = true
+    el.focus()
+    queueMicrotask(() => { programmaticFocusRef.current = false })
+  }
+
   const horizontales = palabras.filter((p) => p.horizontal).sort((a, b) => (a.numero || 0) - (b.numero || 0))
   const verticales = palabras.filter((p) => !p.horizontal).sort((a, b) => (a.numero || 0) - (b.numero || 0))
 
@@ -116,7 +130,7 @@ export default function CrucigramaBoard({
     const { celdas: lc, palabraActiva: lp, onCambioCelda: loc } = liveRef.current
     const { borrar, foco } = resolverBackspace(r, c, lc, lp)
     if (borrar) loc?.(borrar.r, borrar.c, '')
-    if (foco) refs.current[`${foco.r}-${foco.c}`]?.focus()
+    if (foco) focusProgrammatico(`${foco.r}-${foco.c}`)
   }
 
   // ─── Listeners nativos — bypass de la delegación de eventos de React ──────
@@ -196,7 +210,7 @@ export default function CrucigramaBoard({
   }) // Sin dependency array: se ejecuta tras cada render para capturar celdas nuevas
 
   function handleClickCelda(r, c) {
-    if (readOnly) return
+    if (readOnly || programmaticFocusRef.current) return
     const enCelda = palabrasEnCelda(r, c)
     if (enCelda.length === 0) return
 
@@ -213,7 +227,7 @@ export default function CrucigramaBoard({
         setActivaIdx(preferH.index)
       }
     }
-    refs.current[`${r}-${c}`]?.focus()
+    focusProgrammatico(`${r}-${c}`)
   }
 
   // ─── onChange: último fallback para Android WebView ────────────────────────
@@ -247,7 +261,7 @@ export default function CrucigramaBoard({
     onCambioCelda?.(r, c, letra)
     if (letra) {
       const sig = siguiente(r, c)
-      if (sig) refs.current[`${sig.r}-${sig.c}`]?.focus()
+      if (sig) focusProgrammatico(`${sig.r}-${sig.c}`)
     }
   }
 
@@ -280,7 +294,7 @@ export default function CrucigramaBoard({
   function handleSelectPalabra(p) {
     if (readOnly) return
     setActivaIdx(p.index)
-    refs.current[`${p.fila}-${p.col}`]?.focus()
+    focusProgrammatico(`${p.fila}-${p.col}`)
   }
 
   function textoClue(p) {
