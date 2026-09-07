@@ -50,7 +50,6 @@ const GUIDES = [
       },
       {
         text: 'Si es todo un grupo a la vez, usa "Plantilla Excel": descarga la plantilla, llénala con un alumno por fila y súbela. La plataforma genera los códigos de acceso de todos de golpe.',
-        image: '/ayuda-comenzar/04b-plantilla-excel-ui.png',
       },
     ],
     transfer: 'Lo que le pertenece a una asignatura (estudiantes, actividades, asistencias) se administra en su propia pestaña.',
@@ -81,7 +80,6 @@ const GUIDES = [
     steps: [
       {
         text: 'Dentro de la asignatura, en la pestaña "Actividades", toca "Nueva actividad".',
-        image: '/ayuda-comenzar/05b-boton-nueva-actividad.png',
       },
       {
         text: 'Elige el tipo "Entregable" y ponle nombre, por ejemplo "Fotos del cuaderno — tema 1".',
