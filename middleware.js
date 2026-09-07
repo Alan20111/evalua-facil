@@ -16,7 +16,12 @@
 
 const RULES = [
   // Búsqueda pública de alumnos — enumeración de PII si no se limita.
-  { pattern: '/api/student/lookup',           limit: 30, windowSec: 60 },
+  // Límite 120/min/IP: cubre salones de hasta ~60 alumnos que inician
+  // sesión al mismo tiempo desde la misma IP escolar (NAT), con margen para
+  // un reintento por alumno, sin sacrificar protección contra scripts de
+  // enumeración. Sin almacén distribuido el contador vive en el isolate —
+  // ver limitación conocida en el encabezado de este archivo.
+  { pattern: '/api/student/lookup',           limit: 120, windowSec: 60 },
   // Recuperación de contraseña — token de 32 hex chars (F-07), pero se añade
   // friction adicional igualmente: 5 intentos/min es suficiente para el flujo
   // legítimo (una o dos llamadas) y eleva el coste de cualquier abuso.
@@ -30,8 +35,14 @@ const RULES = [
 ]
 
 // Orígenes CORS permitidos (mismo conjunto que api/_lib/cors.js) — se incluyen
-// en el 429 para que la app móvil (WebView cross-origin) pueda leer el error.
-const ALLOWED_ORIGINS = ['https://localhost', 'capacitor://localhost', 'http://localhost']
+// en el 429 para que el navegador (web o WebView) pueda leer el cuerpo del
+// error y mostrar un mensaje comprensible en lugar de un fallo opaco de red.
+const ALLOWED_ORIGINS = [
+  'https://evalua-facil.vercel.app', // producción web
+  'https://localhost',
+  'capacitor://localhost',           // app Android (Capacitor)
+  'http://localhost',
+]
 
 // Almacén en memoria del isolate — persiste mientras el mismo isolate esté
 // caliente. key = "ip|path", value = { count, resetAt (epoch seg) }.
