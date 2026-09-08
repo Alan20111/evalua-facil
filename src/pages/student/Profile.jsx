@@ -143,12 +143,12 @@ export default function StudentProfile() {
       await updatePassword(currentUser, passNueva)
       setPassActual(''); setPassNueva(''); setPassConfirm('')
 
-      // Si el alumno llegó aquí tras un restablecimiento del docente, limpiar
-      // resetPassword en todas sus inscripciones y marcarlo como activado.
+      // Si el alumno llegó aquí tras un restablecimiento del docente, marcarlo
+      // como activado en todas sus inscripciones. resetPassword NO se toca —
+      // se generó al crear al alumno y se conserva para resets futuros.
       if (debeEstablecerContrasena) {
-        const toClean = enrollments.filter((e) => e.resetPassword)
         await Promise.all(
-          toClean.map((e) => updateDoc(doc(db, 'students', e.id), { resetPassword: null, activado: true }))
+          enrollments.map((e) => updateDoc(doc(db, 'students', e.id), { activado: true }))
         )
         setDebeEstablecerContrasena(false)
         toast('¡Listo! Tu nueva contraseña está guardada.')

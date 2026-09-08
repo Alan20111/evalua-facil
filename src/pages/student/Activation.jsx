@@ -281,7 +281,7 @@ export default function StudentActivation() {
     // ningún lado y el panel de administración no tenía forma de mostrarlo:
     // `createdAt` es el alta que hizo el docente, que puede ser días anterior.
     // Se marca en todas las inscripciones del alumno, igual que `activado`.
-    const marcas = { activado: true, uid: authUser.uid, resetPassword: null }
+    const marcas = { activado: true, uid: authUser.uid }
     // …pero UNA SOLA VEZ por inscripción: es la primera activación, no la
     // última. Esta función vuelve a correr cada vez que el alumno se une a
     // otra materia o rehace su contraseña tras un reinicio del docente, y

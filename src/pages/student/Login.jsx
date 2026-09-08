@@ -64,7 +64,7 @@ export default function StudentLogin() {
       // A username can repeat across schools, so each school is a different account/email.
       // For already-activated accounts, try sign-in against each school's email — the correct
       // password authenticates exactly one of them.
-      const activatedSchools = [...new Set(stuDocs.filter((d) => d.activado || d.resetPassword).map((d) => d.escuelaId))]
+      const activatedSchools = [...new Set(stuDocs.filter((d) => d.cuentaExiste).map((d) => d.escuelaId))]
       if (activatedSchools.length > 0) {
         let signedInEscuelaId = null
         for (const esc of activatedSchools) {
@@ -80,7 +80,7 @@ export default function StudentLogin() {
         }
         // Detectar si el alumno entró con una contraseña de reset activa (booleano
         // normalizado por el API — el valor real no llega al cliente).
-        const conReset = stuDocs.find((d) => d.escuelaId === signedInEscuelaId && d.resetPassword)
+        const conReset = stuDocs.find((d) => d.escuelaId === signedInEscuelaId && !d.activado)
         if (conReset) {
           // El alumno entró con la contraseña de reset — dirigirlo a su perfil
           // para que establezca una contraseña personal.
