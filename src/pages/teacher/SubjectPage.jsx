@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, memo, Fragment } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc,
@@ -66,7 +66,7 @@ import {
   Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
-  AlertTriangle, ArrowUp, ArrowDown, Sparkles, Gamepad2,
+  AlertTriangle, ArrowUp, ArrowDown, Sparkles, Gamepad2, GripVertical,
 } from 'lucide-react'
 import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
@@ -83,6 +83,68 @@ import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
 import PlaneacionDidacticaTab from '../../components/subject/PlaneacionDidacticaTab'
 import { isPerfilIACompleto } from '../../utils/perfilIA'
+
+// ── Materiales de apoyo: ordenamiento robusto ─────────────────────────────
+// Builds a unified ordered list of activities + positioned materials for one
+// parcial. Activities occupy integer `orden` slots (1, 2, 3…); positioned
+// materials (ordenManual:true) occupy fractional slots between them.
+// Unpositioned materials (ordenManual absent/false) are appended at the end
+// in their existing relative order, same as the current pre-drag behavior.
+function buildUnifiedParcial(acts, mats) {
+  const positioned = mats.filter((m) => m.ordenManual)
+  const unpositioned = mats
+    .filter((m) => !m.ordenManual)
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+
+  const items = [
+    ...acts.map((a) => ({ type: 'activity', item: a })),
+    ...positioned.map((m) => ({ type: 'material', item: m })),
+  ].sort((a, b) => {
+    const ka = a.item.orden ?? 0, kb = b.item.orden ?? 0
+    if (ka !== kb) return ka - kb
+    return a.type === 'activity' ? -1 : 1 // activity always before material on tie
+  })
+
+  return [...items, ...unpositioned.map((m) => ({ type: 'material', item: m }))]
+}
+
+// Computes fresh, clean fractional `orden` values for every material in the
+// unified list. Values are always strictly between the surrounding activities'
+// integer ordenes and are recomputed from scratch on every drop — no
+// accumulation of floating-point errors across repeated moves.
+//
+// Formula: for k materials in a slot [prevActOrden, nextActOrden):
+//   ordenⱼ = prevActOrden + (j+1) * (limit − prevActOrden) / (k+1)
+// where limit = nextActOrden if it exists, or prevActOrden+1 (virtual boundary
+// that keeps values strictly < prevActOrden+1, so they always precede any
+// future activity that gets orden = prevActOrden+1).
+function computeMaterialOrdenes(unified) {
+  const ordenByMatId = new Map()
+  let slotMats = []
+  let prevActOrden = 0
+
+  function flushSlot(nextActOrden) {
+    const k = slotMats.length
+    if (k === 0) return
+    const limit = nextActOrden ?? (prevActOrden + 1)
+    slotMats.forEach((mat, j) => {
+      ordenByMatId.set(mat.id, prevActOrden + (j + 1) * (limit - prevActOrden) / (k + 1))
+    })
+    slotMats = []
+  }
+
+  for (const item of unified) {
+    if (item.type === 'activity') {
+      flushSlot(item.item.orden)
+      prevActOrden = item.item.orden
+    } else {
+      slotMats.push(item.item)
+    }
+  }
+  flushSlot(null) // materials after the last activity use virtualNext = prevActOrden+1
+
+  return ordenByMatId
+}
 
 // F-06: queries '==' individuales en lugar de 'in'. Ver el comentario en
 // deleteSubjectCascade.js/fetchSubmissionsForActivities para la justificación.
@@ -717,6 +779,8 @@ export default function SubjectPage() {
   const [deleteMaterialConfirm, setDeleteMaterialConfirm] = useState(null)
   const [deletingMaterial, setDeletingMaterial] = useState(false)
   const [expandedMaterialId, setExpandedMaterialId] = useState(null)
+  const [dragMatId, setDragMatId] = useState(null)          // id of material being dragged
+  const [dropZoneActive, setDropZoneActive] = useState(null) // {parcial, idx} of highlighted drop zone
 
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -2686,6 +2750,9 @@ export default function SubjectPage() {
         // computed fresh from position within the parcial wherever it's shown
         // (see `activityLabelById` below) — never stored, so it can't drift.
         const orden = activities.filter((a) => a.parcial === modalParcial).length + 1
+        // orden-1 = the max activity orden BEFORE this new activity is added.
+        // Used below to detect materials currently positioned at the end.
+        const previousLastActOrden = orden - 1
         const esEvaluacion = tipoActividad === 'cuestionario' || tipoActividad === 'examen'
         const tipo = esEvaluacion ? 'evaluacion' : 'archivo'
         const extra = esEvaluacion ? { evaluacion: EVALUACION_DEFAULTS[form.categoria] } : {}
@@ -2695,6 +2762,29 @@ export default function SubjectPage() {
         })
         setActivities((prev) => [...prev, { id: ref.id, ...payload, ...extra, tipo, parcial: modalParcial, orden, asignaturaId: subjectId, docenteId: currentUser.uid }])
         setSubmissionCounts((prev) => ({ ...prev, [ref.id]: { delivered: 0, graded: 0 } }))
+        // Keep materials that were positioned "at the end" still at the end.
+        // Our formula gives end materials orden values strictly in
+        // (prevLastActOrden, prevLastActOrden+1), so any material with
+        // m.orden > previousLastActOrden was there. Push them past the new
+        // activity (orden) with fresh clean values.
+        const matsAtEnd = materials.filter((m) =>
+          m.parcial === modalParcial && m.ordenManual === true && m.orden > previousLastActOrden
+        )
+        if (matsAtEnd.length > 0) {
+          const sorted = [...matsAtEnd].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+          const k = sorted.length
+          const matBatch = writeBatch(db)
+          const updatedMats = sorted.map((m, j) => {
+            const newOrden = orden + (j + 1) / (k + 1)
+            matBatch.update(doc(db, 'materials', m.id), { orden: newOrden })
+            return { ...m, orden: newOrden }
+          })
+          matBatch.commit().catch(() => {}) // best-effort; visual state is correct already
+          setMaterials((prev) => prev.map((m) => {
+            const upd = updatedMats.find((u) => u.id === m.id)
+            return upd || m
+          }))
+        }
         if (esEvaluacion) {
           toast('Evaluación creada — agrega tus preguntas')
           setShowModal(false); setForm(EMPTY_FORM)
@@ -2841,11 +2931,13 @@ export default function SubjectPage() {
       }
       if (materialModalMode === 'create') {
         const orden = materials.filter((m) => m.parcial === materialParcial).length + 1
+        // ordenManual:false marks this material as "unpositioned" — it will appear
+        // at the end of the parcial list until the teacher drags it into place.
         const ref = await addDoc(collection(db, 'materials'), {
-          ...payload, parcial: materialParcial, orden,
+          ...payload, parcial: materialParcial, orden, ordenManual: false,
           asignaturaId: subjectId, docenteId: currentUser.uid, createdAt: serverTimestamp(),
         })
-        setMaterials((prev) => [...prev, { id: ref.id, ...payload, parcial: materialParcial, orden, asignaturaId: subjectId, docenteId: currentUser.uid }])
+        setMaterials((prev) => [...prev, { id: ref.id, ...payload, parcial: materialParcial, orden, ordenManual: false, asignaturaId: subjectId, docenteId: currentUser.uid }])
         toast('Material agregado')
       } else {
         await updateDoc(doc(db, 'materials', editMaterialId), payload)
@@ -2866,6 +2958,47 @@ export default function SubjectPage() {
       toast('Material eliminado'); setDeleteMaterialConfirm(null)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setDeletingMaterial(false) }
+  }
+
+  // Repositions a material within its parcial by dropping at a visual zone index.
+  // ALL materials in the parcial are reindexed to clean fractional values after
+  // each drop — no midpoint-averaging, no precision accumulation.
+  async function handleMaterialDrop(materialId, parcial, vizIdx) {
+    const parcialActs = activities
+      .filter((a) => a.parcial === parcial)
+      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+    const parcialMats = materials.filter((m) => m.parcial === parcial)
+    const draggedMat = parcialMats.find((m) => m.id === materialId)
+    if (!draggedMat) return
+
+    // Build the unified list without the dragged material, then insert at the
+    // target index (converting from visual drop-zone index to unifiedWithout index).
+    const unifiedWithout = buildUnifiedParcial(parcialActs, parcialMats.filter((m) => m.id !== materialId))
+    const origIdx = buildUnifiedParcial(parcialActs, parcialMats)
+      .findIndex((i) => i.type === 'material' && i.item.id === materialId)
+    // Visual zone idx → insert index in unifiedWithout (compensate for removed item)
+    const targetIdx = vizIdx <= origIdx ? vizIdx : vizIdx - 1
+
+    const newUnified = [
+      ...unifiedWithout.slice(0, targetIdx),
+      { type: 'material', item: draggedMat },
+      ...unifiedWithout.slice(targetIdx),
+    ]
+
+    const ordenByMatId = computeMaterialOrdenes(newUnified)
+
+    const batch = writeBatch(db)
+    parcialMats.forEach((m) => {
+      batch.update(doc(db, 'materials', m.id), { orden: ordenByMatId.get(m.id), ordenManual: true })
+    })
+    try {
+      await batch.commit()
+      setMaterials((prev) => prev.map((m) =>
+        m.parcial === parcial
+          ? { ...m, orden: ordenByMatId.get(m.id), ordenManual: true }
+          : m
+      ))
+    } catch (err) { toast('Error al guardar posición: ' + err.message, 'error') }
   }
 
   // Same visibility toggle activities already have ("Activar para alumnos" /
@@ -4413,225 +4546,238 @@ export default function SubjectPage() {
                   {isOpen && (
                     <div className="border-t border-outline-variant pr-4 py-2">
                       <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
-                      {acts.length === 0 && (
-                        <p className="text-slate-400 text-sm text-center py-2">Sin actividades</p>
-                      )}
-                      {acts.map((a) => {
-                        const counts = submissionCounts[a.id] || {}
-                        const visState = activityVisibilityState(a, parcialOculto)
-                        const isHidden = visState !== 'visible'
-                        // Distinct icon per activity type so they're recognizable at a glance
-                        const ActIcon = a.categoria === 'examen' ? GraduationCap
-                          : a.categoria === 'cuestionario' ? ListChecks
-                          : a.categoria === 'observacion' ? ClipboardCheck
-                          : a.categoria === 'juego' ? Sparkles
-                          : FileText
-                        // Un juego siempre se edita/revisa en ActivityPage (su propio
-                        // flujo de contenido → construcción → confirmación), nunca en
-                        // el modal de creación de entregable/evaluación.
-                        const esJuego = a.categoria === 'juego'
+                      {(() => {
+                        const unified = buildUnifiedParcial(acts, mats)
+                        const isDraggingHere = !IS_NATIVE_APP && !!dragMatId && mats.some((m) => m.id === dragMatId)
+                        // Drop zone: a thin area between list items that highlights when a
+                        // dragged material passes over it. vizIdx is the visual position (0 =
+                        // before all items, unified.length = after all items).
+                        const dropZone = (vizIdx) => {
+                          const isActive = dropZoneActive?.parcial === p && dropZoneActive?.idx === vizIdx
+                          return (
+                            <div
+                              key={`dz-${p}-${vizIdx}`}
+                              className={`w-full rounded-full transition-all duration-100 ${isActive ? 'h-1.5 bg-accent my-0.5' : 'h-2'}`}
+                              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropZoneActive({ parcial: p, idx: vizIdx }) }}
+                              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropZoneActive(null) }}
+                              onDrop={(e) => { e.preventDefault(); setDropZoneActive(null); handleMaterialDrop(dragMatId, p, vizIdx).catch(() => {}) }}
+                            />
+                          )
+                        }
                         return (
-                          <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
-                            {/* A draft has nothing to grade — its row opens the editor instead
-                                (igual en web y en la app nativa). */}
-                            <button type="button"
-                              onClick={() => {
-                                if (isDraftActivity(a) && !esJuego) {
-                                  openEdit(a, activityLabelById[a.id])
-                                } else {
-                                  navigate(`/activity/${a.id}`)
-                                }
-                              }}
-                              data-tooltip-follow={isDraftActivity(a) && !esJuego ? 'Editar borrador' : a.tipo === 'evaluacion' ? 'Evaluación' : 'Evaluar'}
-                              className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
-                              <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : a.categoria === 'juego' ? 'text-accent' : 'text-slate-400'}`} />
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
-                                  {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} </span>}
-                                  {/* Un juego creado antes de que se pudiera
-                                      nombrar (JuegoManager) no tiene `nombre`:
-                                      la fila salía en blanco. Mismo respaldo
-                                      que ya usaban JuegoManager y la
-                                      ActivityPage del estudiante. */}
-                                  {esJuego ? (a.nombre || etiquetaJuego(a)) : a.nombre}
-                                  <span className={`text-xs font-normal ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>
-                                    {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : a.categoria === 'juego' ? etiquetaJuego(a) : 'Entregable'})
-                                  </span>
-                                  {/* Por qué esta actividad no lleva número ni
-                                      sale en la tabla de calificaciones. */}
-                                  {sinCalificacion(a) && (
-                                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-surface-container text-muted text-[10px] font-semibold align-middle">
-                                      Sin calificación
-                                    </span>
-                                  )}
-                                </p>
-                                {((!IS_NATIVE_APP && (a.publishedAt || a.fechaLimite || a.publishAt)) || visState === 'hidden') && (
-                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                    {/* Fechas de publicación/cierre: solo en la web */}
-                                    {!IS_NATIVE_APP && a.publishedAt && (
-                                      <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
-                                        <Clock size={14} /> {formatPublishAt(a.publishedAt)}
-                                      </span>
-                                    )}
-                                    {!IS_NATIVE_APP && a.publishAt && (
-                                      <span data-tooltip="Publicación programada" className="text-xs text-accent flex items-center gap-0.5">
-                                        <Clock size={14} /> {formatPublishAt(a.publishAt)}
-                                      </span>
-                                    )}
-                                    {!IS_NATIVE_APP && a.fechaLimite && (
-                                      <span data-tooltip="Cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
-                                        <Clock size={14} /> {formatDeadline(a.fechaLimite)}
-                                      </span>
-                                    )}
-                                    {visState === 'hidden' && (
-                                      <span
-                                        data-tooltip={parcialOculto ? 'La actividad está publicada, pero el Parcial completo está oculto a estudiantes. Muéstralo con el ojo del encabezado del parcial.' : undefined}
-                                        className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${parcialOculto ? 'bg-amber-100 text-amber-700' : 'bg-surface-container text-muted'}`}>
-                                        <EyeOff size={13} /> {parcialOculto ? 'Parcial oculto' : (!a.publishedAt && a.oculta && !a.publishAt) ? 'Borrador' : 'Oculta'}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                              {!IS_NATIVE_APP && (
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <span
-                                    data-tooltip="Entregados"
-                                    className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <FileCheck2 size={11} /> {counts.delivered}/{totalStudents}
-                                  </span>
-                                  <span
-                                    data-tooltip="Calificados"
-                                    className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <CheckCircle size={11} /> {counts.graded}/{counts.delivered}
-                                  </span>
-                                  <span
-                                    data-tooltip="Por calificar"
-                                    className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <Timer size={11} /> {counts.delivered - counts.graded}/{counts.delivered}
-                                  </span>
-                                </div>
-                              )}
-                            </button>
-                            {/* Visibility toggle. Published → direct show/hide.
-                                Draft (no publishedAt) → confirm first publication.
-                                Un juego no confirmado (juego.estado !== 'juego_confirmado')
-                                no puede publicarse — firestore.rules lo bloquea del lado
-                                servidor; aquí solo evitamos ofrecer el botón (capa amable). */}
-                            {esJuego && a.juego?.estado !== 'juego_confirmado' ? null : isHidden ? (
-                              <button type="button"
-                                onClick={(e) => { e.stopPropagation(); a.publishedAt ? showActivityNow(a) : setPublishDraftConfirm(a) }}
-                                aria-label={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
-                                data-tooltip={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
-                                className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
-                              >
-                                <EyeOff size={16} />
-                              </button>
-                            ) : (
-                              <button type="button"
-                                onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
-                                aria-label="Ocultar para estudiantes"
-                                data-tooltip="Ocultar para estudiantes"
-                                className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
-                              >
-                                <Eye size={16} />
-                              </button>
+                          <>
+                            {unified.length === 0 && (
+                              <p className="text-slate-400 text-sm text-center py-2">Sin actividades</p>
                             )}
-                            {/* El menú ⋮ (Duplicar/Eliminar) sigue solo en la web; el lápiz de
-                                editar ya se muestra también en Android.
-                                Un juego se edita/revisa siempre dentro de ActivityPage (su
-                                propio flujo), nunca en el modal de creación. */}
-                            <button type="button" onClick={() => esJuego ? navigate(`/activity/${a.id}`) : openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
-                              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
-                              <Pencil size={16} />
-                            </button>
-                            {!IS_NATIVE_APP && (
-                              // Less-used actions (Duplicar / Eliminar) tucked into a ⋮ menu
-                              <button type="button"
-                                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
-                                aria-label="Más acciones"
-                                data-tooltip="Más acciones"
-                                className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-1">
-                                <MoreVertical size={16} />
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })}
-
-                      {/* Materiales de apoyo — visually distinct from activities (book
-                          icon, no submission/grade badges): independent entity, not an
-                          "actividad sin calificación". */}
-                      {mats.length > 0 && (
-                        <>
-                          <div className="pt-1">
-                            <p className="text-xs font-semibold text-muted uppercase tracking-wide">Material de apoyo</p>
-                            <p className="text-xs text-slate-400 mb-1">Vas agregando esto sobre la marcha de este parcial — no genera entrega ni número de actividad.</p>
-                          </div>
-                          {mats.map((m) => {
-                            const visState = activityVisibilityState(m, parcialOculto)
-                            const isHidden = visState !== 'visible'
-                            const isExpanded = expandedMaterialId === m.id
-                            return (
-                              <div key={m.id} className={`w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
-                                <div className="flex items-center gap-1">
-                                  <button type="button" onClick={() => setExpandedMaterialId(isExpanded ? null : m.id)}
-                                    className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left hover:bg-[var(--accent-tint)] rounded transition-colors">
-                                    <BookOpen size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-amber-500'}`} />
-                                    <div className="flex-1 min-w-0">
-                                      <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>{m.nombre}</p>
-                                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                        <span className="text-xs text-slate-500 flex items-center gap-0.5">
-                                          <Paperclip size={12} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
-                                        </span>
-                                        {m.publishAt && (
-                                          <span data-tooltip="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
-                                            <Clock size={14} /> {formatPublishAt(m.publishAt)}
-                                          </span>
+                            {isDraggingHere && dropZone(0)}
+                            {unified.map((item, i) => {
+                              const vizIdx = i + 1
+                              if (item.type === 'activity') {
+                                const a = item.item
+                                const counts = submissionCounts[a.id] || {}
+                                const visState = activityVisibilityState(a, parcialOculto)
+                                const isHidden = visState !== 'visible'
+                                const ActIcon = a.categoria === 'examen' ? GraduationCap
+                                  : a.categoria === 'cuestionario' ? ListChecks
+                                  : a.categoria === 'observacion' ? ClipboardCheck
+                                  : a.categoria === 'juego' ? Sparkles
+                                  : FileText
+                                const esJuego = a.categoria === 'juego'
+                                return (
+                                  <Fragment key={a.id}>
+                                    <div className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
+                                      <button type="button"
+                                        onClick={() => {
+                                          if (isDraftActivity(a) && !esJuego) {
+                                            openEdit(a, activityLabelById[a.id])
+                                          } else {
+                                            navigate(`/activity/${a.id}`)
+                                          }
+                                        }}
+                                        data-tooltip-follow={isDraftActivity(a) && !esJuego ? 'Editar borrador' : a.tipo === 'evaluacion' ? 'Evaluación' : 'Evaluar'}
+                                        className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
+                                        <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : a.categoria === 'juego' ? 'text-accent' : 'text-slate-400'}`} />
+                                        <div className="flex-1 min-w-0">
+                                          <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
+                                            {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} </span>}
+                                            {esJuego ? (a.nombre || etiquetaJuego(a)) : a.nombre}
+                                            <span className={`text-xs font-normal ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>
+                                              {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : a.categoria === 'juego' ? etiquetaJuego(a) : 'Entregable'})
+                                            </span>
+                                            {sinCalificacion(a) && (
+                                              <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-surface-container text-muted text-[10px] font-semibold align-middle">
+                                                Sin calificación
+                                              </span>
+                                            )}
+                                          </p>
+                                          {((!IS_NATIVE_APP && (a.publishedAt || a.fechaLimite || a.publishAt)) || visState === 'hidden') && (
+                                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                              {!IS_NATIVE_APP && a.publishedAt && (
+                                                <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
+                                                  <Clock size={14} /> {formatPublishAt(a.publishedAt)}
+                                                </span>
+                                              )}
+                                              {!IS_NATIVE_APP && a.publishAt && (
+                                                <span data-tooltip="Publicación programada" className="text-xs text-accent flex items-center gap-0.5">
+                                                  <Clock size={14} /> {formatPublishAt(a.publishAt)}
+                                                </span>
+                                              )}
+                                              {!IS_NATIVE_APP && a.fechaLimite && (
+                                                <span data-tooltip="Cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
+                                                  <Clock size={14} /> {formatDeadline(a.fechaLimite)}
+                                                </span>
+                                              )}
+                                              {visState === 'hidden' && (
+                                                <span
+                                                  data-tooltip={parcialOculto ? 'La actividad está publicada, pero el Parcial completo está oculto a estudiantes. Muéstralo con el ojo del encabezado del parcial.' : undefined}
+                                                  className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${parcialOculto ? 'bg-amber-100 text-amber-700' : 'bg-surface-container text-muted'}`}>
+                                                  <EyeOff size={13} /> {parcialOculto ? 'Parcial oculto' : (!a.publishedAt && a.oculta && !a.publishAt) ? 'Borrador' : 'Oculta'}
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                        {!IS_NATIVE_APP && (
+                                          <div className="flex items-center gap-1 flex-shrink-0">
+                                            <span
+                                              data-tooltip="Entregados"
+                                              className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                              <FileCheck2 size={11} /> {counts.delivered}/{totalStudents}
+                                            </span>
+                                            <span
+                                              data-tooltip="Calificados"
+                                              className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                              <CheckCircle size={11} /> {counts.graded}/{counts.delivered}
+                                            </span>
+                                            <span
+                                              data-tooltip="Por calificar"
+                                              className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                              <Timer size={11} /> {counts.delivered - counts.graded}/{counts.delivered}
+                                            </span>
+                                          </div>
                                         )}
-                                        {visState === 'hidden' && (
-                                          <span className="text-xs bg-surface-container text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                            <EyeOff size={13} /> Oculto
-                                          </span>
-                                        )}
-                                      </div>
+                                      </button>
+                                      {esJuego && a.juego?.estado !== 'juego_confirmado' ? null : isHidden ? (
+                                        <button type="button"
+                                          onClick={(e) => { e.stopPropagation(); a.publishedAt ? showActivityNow(a) : setPublishDraftConfirm(a) }}
+                                          aria-label={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
+                                          data-tooltip={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
+                                          className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                                        >
+                                          <EyeOff size={16} />
+                                        </button>
+                                      ) : (
+                                        <button type="button"
+                                          onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
+                                          aria-label="Ocultar para estudiantes"
+                                          data-tooltip="Ocultar para estudiantes"
+                                          className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                                        >
+                                          <Eye size={16} />
+                                        </button>
+                                      )}
+                                      <button type="button" onClick={() => esJuego ? navigate(`/activity/${a.id}`) : openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
+                                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
+                                        <Pencil size={16} />
+                                      </button>
+                                      {!IS_NATIVE_APP && (
+                                        <button type="button"
+                                          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
+                                          aria-label="Más acciones"
+                                          data-tooltip="Más acciones"
+                                          className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-1">
+                                          <MoreVertical size={16} />
+                                        </button>
+                                      )}
                                     </div>
-                                    {isExpanded ? <ChevronUp size={18} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-slate-400 flex-shrink-0" />}
-                                  </button>
-                                  {isHidden ? (
-                                    <button type="button" onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} aria-label="Mostrar a estudiantes" data-tooltip="Mostrar a estudiantes"
-                                      className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                                      <EyeOff size={16} />
-                                    </button>
-                                  ) : (
-                                    <button type="button" onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} aria-label="Ocultar a estudiantes" data-tooltip="Ocultar a estudiantes"
-                                      className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                                      <Eye size={16} />
-                                    </button>
-                                  )}
-                                  <button type="button" onClick={() => openEditMaterial(m)} aria-label="Editar" data-tooltip="Editar"
-                                    className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
-                                    <Pencil size={16} />
-                                  </button>
-                                  <button type="button" onClick={() => setDeleteMaterialConfirm(m)} aria-label="Eliminar" data-tooltip="Eliminar"
-                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                                {isExpanded && (
-                                  <div className="border-t border-outline-variant px-3 py-2 ml-9">
-                                    {m.descripcion && (
-                                      <div className={`text-sm text-on-surface mb-2 ${richTextContentClass}`}
-                                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.descripcion) }} />
-                                    )}
-                                    <AttachmentList files={m.archivos} title={null} />
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </>
-                      )}
+                                    {isDraggingHere && dropZone(vizIdx)}
+                                  </Fragment>
+                                )
+                              } else {
+                                // Material de apoyo — arrastrable solo en web
+                                const m = item.item
+                                const visState = activityVisibilityState(m, parcialOculto)
+                                const isHidden = visState !== 'visible'
+                                const isExpanded = expandedMaterialId === m.id
+                                const isBeingDragged = m.id === dragMatId
+                                return (
+                                  <Fragment key={m.id}>
+                                    <div
+                                      draggable={!IS_NATIVE_APP}
+                                      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragMatId(m.id) }}
+                                      onDragEnd={() => { setDragMatId(null); setDropZoneActive(null) }}
+                                      className={`w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'} ${isBeingDragged ? 'opacity-40' : ''}`}
+                                    >
+                                      <div className="flex items-center gap-1">
+                                        {!IS_NATIVE_APP && (
+                                          <div
+                                            className="pl-2 py-2 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing flex-shrink-0"
+                                            data-tooltip="Arrastrar para reordenar"
+                                          >
+                                            <GripVertical size={16} />
+                                          </div>
+                                        )}
+                                        <button type="button" onClick={() => setExpandedMaterialId(isExpanded ? null : m.id)}
+                                          className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left hover:bg-[var(--accent-tint)] rounded transition-colors">
+                                          <BookOpen size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-amber-500'}`} />
+                                          <div className="flex-1 min-w-0">
+                                            <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>{m.nombre}</p>
+                                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                              <span className="text-xs text-slate-500 flex items-center gap-0.5">
+                                                <Paperclip size={12} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
+                                              </span>
+                                              {m.publishAt && (
+                                                <span data-tooltip="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
+                                                  <Clock size={14} /> {formatPublishAt(m.publishAt)}
+                                                </span>
+                                              )}
+                                              {visState === 'hidden' && (
+                                                <span className="text-xs bg-surface-container text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                                  <EyeOff size={13} /> Oculto
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          {isExpanded ? <ChevronUp size={18} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-slate-400 flex-shrink-0" />}
+                                        </button>
+                                        {isHidden ? (
+                                          <button type="button" onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} aria-label="Mostrar a estudiantes" data-tooltip="Mostrar a estudiantes"
+                                            className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                                            <EyeOff size={16} />
+                                          </button>
+                                        ) : (
+                                          <button type="button" onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} aria-label="Ocultar a estudiantes" data-tooltip="Ocultar a estudiantes"
+                                            className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                                            <Eye size={16} />
+                                          </button>
+                                        )}
+                                        <button type="button" onClick={() => openEditMaterial(m)} aria-label="Editar" data-tooltip="Editar"
+                                          className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
+                                          <Pencil size={16} />
+                                        </button>
+                                        <button type="button" onClick={() => setDeleteMaterialConfirm(m)} aria-label="Eliminar" data-tooltip="Eliminar"
+                                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
+                                          <Trash2 size={16} />
+                                        </button>
+                                      </div>
+                                      {isExpanded && (
+                                        <div className="border-t border-outline-variant px-3 py-2 ml-9">
+                                          {m.descripcion && (
+                                            <div className={`text-sm text-on-surface mb-2 ${richTextContentClass}`}
+                                              dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.descripcion) }} />
+                                          )}
+                                          <AttachmentList files={m.archivos} title={null} />
+                                        </div>
+                                      )}
+                                    </div>
+                                    {isDraggingHere && dropZone(vizIdx)}
+                                  </Fragment>
+                                )
+                              }
+                            })}
+                          </>
+                        )
+                      })()}
 
                       <button type="button" onClick={() => openAdd(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevas actividades'}

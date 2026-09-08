@@ -611,7 +611,7 @@ export default function StudentSubjectPage() {
           )}
           {PARCIALES.map((p) => {
             const acts = activities.filter((a) => a.parcial === p)
-            const mats = materials.filter((m) => m.parcial === p)
+            const mats = materials.filter((m) => m.parcial === p).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
             const avg = calcParcialAvg(p)
             const isOpen = openParcial === p
             return (
