@@ -103,22 +103,33 @@ async function handleDelete(req, res) {
   }
 }
 
-// ── /api/student/enable-recovery ───────────────────────────────────
-// Authenticated endpoint: a teacher enables password recovery for one of their students.
-// Returns a one-time recovery token that the teacher must give to the student verbally/by
-// message. The token is stored in a PRIVATE Firestore collection (allow read, write: if false)
-// that clients cannot access — the recover-password endpoint reads it server-side via Admin SDK.
+// ── /api/student/reset-student-password ────────────────────────────
+// El docente restablece la contrasena de uno de sus alumnos.
+// Genera una contrasena de reset segura, la establece en Firebase Auth via
+// Admin SDK y la guarda en Firestore para que el docente se la comunique al
+// alumno. El alumno inicia sesion con ella y el cliente lo dirige a elegir
+// una nueva contrasena personal.
 //
-// Security model:
-//   1. Caller must present a valid Firebase ID token (verifyRequest).
-//   2. Caller must own the subject the student is enrolled in (docenteId check).
-//   3. The token is never written to the public `students` collection — only to
-//      `studentResetTokens/{studentId}`, which is inaccessible to any client.
-//   4. The token is cryptographically random (4 bytes = 8 hex chars), expires in 24 h,
-//      and is invalidated (deleted) after one successful use.
+// Seguridad:
+//   1. Requiere ID token valido del docente (verifyRequest).
+//   2. Verifica que el docente sea dueno de la asignatura donde esta inscrito.
+//   3. La contrasena se genera con crypto.randomBytes (nunca Math.random).
 
-async function handleEnableRecovery(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' })
+// Sin I/O/1/0 para evitar confusion visual al leer en voz alta.
+const RESET_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+function generarContrasenaReset() {
+  const bytes = randomBytes(6)
+  return Array.from(bytes).map((b) => RESET_CHARS[b % RESET_CHARS.length]).join('')
+}
+
+function studentEmail(username, escuelaId) {
+  return `${String(username).toLowerCase()}.${escuelaId}@evalua.local`
+}
+
+async function handleResetStudentPassword(req, res) {
+  if (aplicarCors(req, res)) return
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Metodo no permitido' })
   try {
     const quien = await verifyRequest(req)
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
@@ -126,168 +137,51 @@ async function handleEnableRecovery(req, res) {
     if (!studentId) return res.status(400).json({ error: 'Falta studentId' })
 
     const db = getDb()
+    const fbAuth = getAuth()
 
-    // Verify the student exists
     const studentDoc = await db.collection('students').doc(studentId).get()
     if (!studentDoc.exists) return res.status(404).json({ error: 'Alumno no encontrado' })
     const studentData = studentDoc.data()
 
-    // Verify caller owns the subject this enrollment belongs to
     const subjectDoc = await db.collection('subjects').doc(studentData.asignaturaId).get()
     if (!subjectDoc.exists) return res.status(404).json({ error: 'Asignatura no encontrada' })
     if (subjectDoc.data().docenteId !== quien.uid) {
       return res.status(403).json({ error: 'No tienes permiso para este alumno' })
     }
 
-    // Cryptographically secure 32-char token (16 random bytes → 32 uppercase hex chars).
-    // Space: 16^32 ≈ 3.4×10³⁸ — brute-force infeasible even without rate limiting (F-07).
-    const token = randomBytes(16).toString('hex').toUpperCase()
-    const expiresAt = Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+    const resetPassword = generarContrasenaReset()
+    const email = studentEmail(studentData.username, studentData.escuelaId)
 
-    // Store token in private collection (Admin SDK only — Firestore rule: allow read, write: if false)
-    await db.collection('studentResetTokens').doc(studentId).set({
-      token,
-      expiresAt,
-      docenteId: quien.uid,
-      createdAt: Date.now(),
-    })
-
-    // Update the visible flag on the student doc so the recover UI can tell the student
-    // that recovery is enabled. The token itself is NOT stored here.
-    await db.collection('students').doc(studentId).update({ resetPassword: true })
-
-    // Token is returned only to the authenticated teacher in this HTTP response.
-    // It never touches the public students collection.
-    return res.status(200).json({ ok: true, token })
-  } catch (err) {
-    return res.status(err.status || 500).json({ error: err.message || 'Error al habilitar la recuperación' })
-  }
-}
-
-// ── /api/student/recover-password ──────────────────────────────────
-// Password recovery for a student who FORGOT their password. This cannot be done from the
-// browser: student accounts use fake @evalua.local emails (no reset email possible) and a
-// client cannot change a password it doesn't know. The Admin SDK can.
-//
-// Gate: recovery only proceeds if the teacher ENABLED it for that student, i.e. the student
-// doc has a non-empty `resetPassword` flag (set by the teacher's "Habilitar recuperación"
-// action). After a successful reset the flag is cleared (one-shot).
-//
-// Requires the env var FIREBASE_SERVICE_ACCOUNT in Vercel (same as the payment endpoints).
-
-function studentEmail(username, escuelaId) {
-  return `${String(username).toLowerCase()}.${escuelaId}@evalua.local`
-}
-
-async function setAuthPassword(email, newPassword) {
-  const auth = getAuth()
-  let user = null
-  try {
-    user = await auth.getUserByEmail(email)
-  } catch (e) {
-    // Only "no existe" means we should create it; any other error must surface.
-    if (e.code !== 'auth/user-not-found') throw e
-  }
-  if (user) {
-    await auth.updateUser(user.uid, { password: newPassword })
-    return user.uid
-  }
-  const created = await auth.createUser({ email, password: newPassword })
-  return created.uid
-}
-
-async function handleRecoverPassword(req, res) {
-  if (aplicarCors(req, res)) return // preflight de la app
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Método no permitido' })
-  }
-  try {
-    // Vercel usually parses JSON bodies, but be defensive if it arrives as a string.
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
-    const { username, escuelaId, newPassword, resetToken } = body
-    if (!username || !String(username).trim() || !newPassword || !resetToken) {
-      return res.status(400).json({ error: 'Faltan datos (usuario, código de recuperación y nueva contraseña).' })
-    }
-    // escuelaId is required so a username can never be resolved across schools.
-    if (!escuelaId) {
-      return res.status(400).json({ error: 'Falta la escuela del alumno.' })
-    }
-    if (String(newPassword).length < 8) {
-      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' })
+    let uid = studentData.uid || null
+    try {
+      const authUser = await fbAuth.getUserByEmail(email)
+      await fbAuth.updateUser(authUser.uid, { password: resetPassword })
+      uid = authUser.uid
+    } catch (e) {
+      if (e.code !== 'auth/user-not-found') throw e
+      const created = await fbAuth.createUser({ email, password: resetPassword })
+      uid = created.uid
     }
 
-    const db = getDb()
-    // Search both lowercase (new format) and UPPERCASE (legacy 4-char codes).
-    // The old code only queried .toUpperCase(), which silently missed every
-    // new-format username stored in lowercase ("munoz.enrique" ≠ "MUNOZ.ENRIQUE").
-    const raw = String(username).trim()
+    const raw = String(studentData.username).trim()
     const variants = [...new Set([raw.toLowerCase(), raw.toUpperCase()])]
     const snaps = await Promise.all(
-      variants.map((u) => db.collection('students').where('username', '==', u).get())
+      variants.map((u) => db.collection('students')
+        .where('username', '==', u)
+        .where('escuelaId', '==', studentData.escuelaId)
+        .get())
     )
     const seenIds = new Set()
-    const docs = snaps
-      .flatMap((s) => s.docs)
+    const allDocs = snaps.flatMap((s) => s.docs)
       .filter((d) => { if (seenIds.has(d.id)) return false; seenIds.add(d.id); return true })
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .filter((d) => d.escuelaId === escuelaId)
-    if (!docs.length) {
-      return res.status(404).json({ error: 'No encontramos ese usuario.' })
-    }
 
-    // The teacher must have enabled recovery (resetPassword set) on at least one enrollment.
-    const enabled = docs.find((d) => d.resetPassword)
-    if (!enabled) {
-      return res.status(403).json({ error: 'La recuperación de contraseña no está habilitada. Pídele a tu maestro que la habilite.' })
-    }
-
-    // Validate the one-time token against the private collection (inaccessible to clients).
-    // This prevents unauthenticated attackers from taking over accounts even when
-    // the public `students` collection exposes the resetPassword flag.
-    const tokenDoc = await db.collection('studentResetTokens').doc(enabled.id).get()
-    if (!tokenDoc.exists) {
-      return res.status(403).json({ error: 'Código de recuperación no válido. Pídele a tu maestro que genere uno nuevo.' })
-    }
-    const tokenData = tokenDoc.data()
-    if (tokenData.token !== String(resetToken).toUpperCase().trim()) {
-      return res.status(403).json({ error: 'Código de recuperación incorrecto.' })
-    }
-    if (tokenData.expiresAt < Date.now()) {
-      return res.status(403).json({ error: 'El código de recuperación expiró (válido 24 h). Pídele a tu maestro que genere uno nuevo.' })
-    }
-
-    // Aquí había una guarda que rechazaba a los estudiantes con correo
-    // verificado, porque su email de Auth había dejado de ser el
-    // @evalua.local y este flujo habría bifurcado la cuenta en dos. Se fue con
-    // la función del correo de recuperación: el email de Auth de un estudiante
-    // ya nunca cambia, así que esta —la recuperación que habilita su maestro—
-    // es la única, y vale para todos sin excepción.
-    const email = studentEmail(enabled.username, enabled.escuelaId)
-    const uid = await setAuthPassword(email, newPassword)
-
-    // Clear the flag + mark activated on every enrollment of this student (same account).
     const batch = db.batch()
-    docs
-      .filter((d) => d.username === enabled.username && d.escuelaId === enabled.escuelaId)
-      .forEach((d) => batch.update(db.collection('students').doc(d.id), {
-        activado: true,
-        uid,
-        resetPassword: null,
-      }))
+    allDocs.forEach((d) => batch.update(d.ref, { resetPassword, activado: false, uid }))
     await batch.commit()
 
-    // Invalidate the one-time token so it cannot be reused.
-    // This runs after the password change succeeds — a failure here is non-critical
-    // (the token expires in 24 h regardless) but logged for observability.
-    try {
-      await db.collection('studentResetTokens').doc(enabled.id).delete()
-    } catch (deleteErr) {
-      console.error('[recover-password] no se pudo limpiar studentResetTokens:', deleteErr.message)
-    }
-
-    return res.status(200).json({ ok: true })
+    return res.status(200).json({ ok: true, resetPassword })
   } catch (err) {
-    return res.status(err.status || 500).json({ error: err.message || 'Error al recuperar la contraseña.' })
+    return res.status(err.status || 500).json({ error: err.message || 'Error al restablecer la contrasena.' })
   }
 }
 
@@ -351,11 +245,14 @@ async function handleRemovePhoto(req, res) {
 // Modo activación: { subjectCode, username } → student + alreadyHasAccount
 // Modo login/recuperación: { username } → students[]
 
-const SAFE_FIELDS = ['username', 'escuelaId', 'activado', 'resetPassword', 'nombre', 'apellidoPaterno', 'apellidoMaterno']
+const SAFE_FIELDS = ['username', 'escuelaId', 'activado', 'nombre', 'apellidoPaterno', 'apellidoMaterno']
 
 function pickSafeFields(data) {
   const obj = {}
   SAFE_FIELDS.forEach((k) => { if (k in data) obj[k] = data[k] })
+  // Devolver resetPassword como booleano — el valor real (la contraseña) nunca
+  // sale al cliente. El login solo necesita saber si hay un reset activo.
+  obj.resetPassword = !!data.resetPassword
   return obj
 }
 
@@ -441,8 +338,7 @@ export default async function handler(req, res) {
   try {
     if (action === 'lookup') return await handleLookup(req, res)
     if (action === 'delete') return await handleDelete(req, res)
-    if (action === 'enable-recovery') return await handleEnableRecovery(req, res)
-    if (action === 'recover-password') return await handleRecoverPassword(req, res)
+    if (action === 'reset-student-password') return await handleResetStudentPassword(req, res)
     if (action === 'remove-photo') return await handleRemovePhoto(req, res)
     return res.status(404).json({ error: 'Acción no encontrada.' })
   } catch (err) {

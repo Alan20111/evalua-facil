@@ -812,7 +812,7 @@ export default function SubjectPage() {
   const [studentToEdit, setStudentToEdit] = useState(null)
   const [editStudentForm, setEditStudentForm] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '', comentarios: '' })
   const [studentToReset, setStudentToReset] = useState(null)
-  const [resetPwdResult, setResetPwdResult] = useState(null) // { student }
+  const [resetPwdResult, setResetPwdResult] = useState(null) // { student, resetPassword }
   const [linkCandidate, setLinkCandidate] = useState(null) // { person, identity, schoolDocs }
   const [newStudent, setNewStudent] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
   const [savingStudent, setSavingStudent] = useState(false)
@@ -2234,20 +2234,27 @@ export default function SubjectPage() {
     }
   }
 
-  // Enables password recovery for a student: sets the `resetPassword` field to `true` (an
-  // opaque enable-marker, NOT a password) that the student-side "Recuperar contraseña" flow
-  // checks. The student then chooses a new password (the actual reset runs server-side via
-  // Admin SDK, which clears the marker). We do NOT dictate any temp password to the teacher.
+  // Restablece la contrasena del alumno: genera una nueva contrasena de reset
+  // (servidor via Admin SDK), la guarda en Firestore y la muestra al docente
+  // para que se la comunique al alumno.
   async function confirmResetStudentPassword() {
     if (!studentToReset) return
     try {
-      await updateDoc(doc(db, 'students', studentToReset.id), {
-        resetPassword: true,
+      const token = await currentUser.getIdToken()
+      const resp = await fetch('/api/student/reset-student-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ studentId: studentToReset.id }),
       })
+      const data = await resp.json()
+      if (!resp.ok) {
+        toast(data.error || 'Error al restablecer la contrasena', 'error')
+        return
+      }
       setGroupStudents((prev) =>
-        prev.map((s) => s.id === studentToReset.id ? { ...s, resetPassword: true } : s)
+        prev.map((s) => s.id === studentToReset.id ? { ...s, resetPassword: data.resetPassword, activado: false } : s)
       )
-      setResetPwdResult({ student: studentToReset })
+      setResetPwdResult({ student: studentToReset, resetPassword: data.resetPassword })
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -6463,7 +6470,7 @@ export default function SubjectPage() {
                 className="w-full py-1.5 rounded border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 <RotateCcw size={17} />
-                Habilitar recuperación de contraseña
+                Restablecer contraseña
               </button>
               {studentToEdit?.ocultaPorAlumno && (
                 // Salió por su cuenta de la asignatura — no se reactiva sola
@@ -6500,11 +6507,11 @@ export default function SubjectPage() {
             <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-2">
               <KeyRound size={24} className="text-amber-500" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Habilitar recuperación de contraseña?</h3>
+            <h3 className="text-lg font-semibold text-center text-on-surface">¿Restablecer contraseña?</h3>
             <p className="text-sm text-muted text-center mt-2">
+              Se generará una nueva <strong>contraseña de reset</strong> para{' '}
               <strong>{studentFullName(studentToReset)}</strong>{' '}
-              ({studentToReset.username}) podrá elegir una <strong>nueva contraseña</strong> desde
-              «Recuperar contraseña» en su pantalla de acceso. No necesitas darle ninguna clave.
+              ({studentToReset.username}). Deberás comunicársela para que pueda volver a entrar.
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button"
@@ -6518,7 +6525,7 @@ export default function SubjectPage() {
                 className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded transition-colors flex items-center justify-center gap-2"
               >
                 <KeyRound size={18} />
-                Habilitar
+                Restablecer
               </button>
             </div>
           </div>
@@ -7204,7 +7211,7 @@ export default function SubjectPage() {
         </div>
       )}
 
-      {/* ── Recovery enabled confirmation ── */}
+      {/* ── Reset password result ── */}
       {resetPwdResult && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setResetPwdResult(null)} aria-label="Cerrar" />
@@ -7212,11 +7219,18 @@ export default function SubjectPage() {
             <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-2">
               <KeyRound size={24} className="text-green-600" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">Recuperación habilitada</h3>
-            <p className="text-sm text-muted text-center mt-2 mb-4">
-              <strong>{resetPwdResult.student.nombre}</strong> ya puede entrar a la pantalla de acceso
-              de estudiantes, tocar <strong>«Recuperar contraseña»</strong>, escribir su usuario y elegir una
-              nueva contraseña.
+            <h3 className="text-lg font-semibold text-center text-on-surface">Contraseña restablecida</h3>
+            <p className="text-sm text-muted text-center mt-2">
+              Dale esta contraseña de reset a <strong>{studentFullName(resetPwdResult.student)}</strong>{' '}
+              para que pueda entrar:
+            </p>
+            <div className="my-3 py-3 px-4 bg-amber-50 border border-amber-200 rounded text-center">
+              <span className="font-mono text-2xl font-bold tracking-widest text-amber-800 select-all">
+                {resetPwdResult.resetPassword}
+              </span>
+            </div>
+            <p className="text-xs text-muted text-center mb-4">
+              El estudiante entrará con su usuario y esta contraseña, y luego podrá establecer una nueva contraseña personal.
             </p>
             <button type="button"
               onClick={() => setResetPwdResult(null)}

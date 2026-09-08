@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { getDoc, doc } from 'firebase/firestore'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { getDoc, doc, updateDoc } from 'firebase/firestore'
 import {
   EmailAuthProvider, reauthenticateWithCredential, updatePassword,
 } from 'firebase/auth'
@@ -37,6 +37,11 @@ const FOTO_CAMARA = IS_NATIVE_APP ? 24 : 18
 // agenda tienen su casa en el dashboard; cerrar sesión, en el layout.
 export default function StudentProfile() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
+  const location = useLocation()
+  // Viene de login cuando el alumno entró con una contraseña de reset activa.
+  const [debeEstablecerContrasena, setDebeEstablecerContrasena] = useState(
+    !!location.state?.debeEstablecerContrasena
+  )
   const [studentInfo, setStudentInfo] = useState(null)
   const [schoolName, setSchoolName] = useState('')
   const [loading, setLoading] = useState(true)
@@ -137,7 +142,19 @@ export default function StudentProfile() {
       await reauthenticateWithCredential(currentUser, cred)
       await updatePassword(currentUser, passNueva)
       setPassActual(''); setPassNueva(''); setPassConfirm('')
-      toast('Contraseña actualizada. Úsala la próxima vez que entres.')
+
+      // Si el alumno llegó aquí tras un restablecimiento del docente, limpiar
+      // resetPassword en todas sus inscripciones y marcarlo como activado.
+      if (debeEstablecerContrasena) {
+        const toClean = enrollments.filter((e) => e.resetPassword)
+        await Promise.all(
+          toClean.map((e) => updateDoc(doc(db, 'students', e.id), { resetPassword: null, activado: true }))
+        )
+        setDebeEstablecerContrasena(false)
+        toast('¡Listo! Tu nueva contraseña está guardada.')
+      } else {
+        toast('Contraseña actualizada. Úsala la próxima vez que entres.')
+      }
     } catch (err) {
       if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         toast('La contraseña actual no es correcta', 'error')
@@ -314,13 +331,26 @@ export default function StudentProfile() {
         {/* ── Cambiar contraseña ── */}
         <div className="bg-surface-card rounded-card shadow-card p-5 mb-4">
           <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
-            <KeyRound size={16} className="text-accent" /> Cambiar contraseña
+            <KeyRound size={16} className="text-accent" />
+            {debeEstablecerContrasena ? 'Establece tu contraseña personal' : 'Cambiar contraseña'}
           </h2>
+
+          {debeEstablecerContrasena && (
+            <div className="mb-3 rounded border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
+              <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-on-surface leading-relaxed">
+                <strong className="text-amber-700">Tu maestro restableció tu contraseña.</strong>{' '}
+                Ingresa la contraseña de reset que te dio como «Contraseña actual», luego elige
+                una nueva contraseña personal.
+              </p>
+            </div>
+          )}
+
           <form onSubmit={handleChangePassword} className="space-y-3">
             <PasswordInput
               value={passActual}
               onChange={(e) => setPassActual(e.target.value)}
-              placeholder="Contraseña actual"
+              placeholder={debeEstablecerContrasena ? 'Contraseña de reset (la que te dio tu maestro)' : 'Contraseña actual'}
               autoComplete="current-password"
               required
               className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
@@ -352,18 +382,17 @@ export default function StudentProfile() {
           {/* Aquí vivía "Correo de recuperación". Se quitó: guardar el correo
               de un menor solo se justifica si de verdad le sirve para
               recuperar su cuenta, y esa recuperación por correo no existe. El
-              único camino es su maestro — y como la contraseña es lo único que
-              lo deja entrar, el aviso va con peso visual, no como nota al pie. */}
-          <div className="mt-3 rounded border border-red-300 bg-red-50 p-3 flex items-start gap-2">
-            <AlertTriangle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-on-surface leading-relaxed">
-              <strong className="text-red-700">SUGERENCIA MUY IMPORTANTE:</strong>{' '}
-              Anota tu contraseña en un lugar seguro, es tu responsabilidad cuidarla.
-              En caso extremo de que la pierdas, puedes pedirle a tu Maestra o Maestro
-              que te habilite la recuperación, para que tú dando clic en «Recuperar
-              contraseña» puedas crear una nueva, y puedas volver a entrar a Evalúa Fácil.
-            </p>
-          </div>
+              único camino es su maestro. */}
+          {!debeEstablecerContrasena && (
+            <div className="mt-3 rounded border border-red-300 bg-red-50 p-3 flex items-start gap-2">
+              <AlertTriangle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-on-surface leading-relaxed">
+                <strong className="text-red-700">SUGERENCIA MUY IMPORTANTE:</strong>{' '}
+                Anota tu contraseña en un lugar seguro, es tu responsabilidad cuidarla.
+                Si la pierdes, pídele a tu Maestra o Maestro que restablezca tu contraseña.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ── Mi cuenta ──
