@@ -31,7 +31,6 @@
 import { aplicarCors } from '../_lib/cors.js'
 import { borrarAssets, extraerAssets } from '../_lib/cloudinary.js'
 import { getAuth, getDb, verifyRequest } from '../_lib/firebaseAdmin.js'
-import { randomBytes } from 'crypto'
 
 const PALABRA_CONFIRMACION = 'ELIMINAR'
 
@@ -105,23 +104,16 @@ async function handleDelete(req, res) {
 
 // ── /api/student/reset-student-password ────────────────────────────
 // El docente restablece la contrasena de uno de sus alumnos.
-// Genera una contrasena de reset segura, la establece en Firebase Auth via
-// Admin SDK y la guarda en Firestore para que el docente se la comunique al
-// alumno. El alumno inicia sesion con ella y el cliente lo dirige a elegir
-// una nueva contrasena personal.
+// Lee la contraseña de reset que se generó UNA SOLA VEZ al crear al alumno
+// y la aplica de nuevo en Firebase Auth — sin generar ninguna nueva.
+// El alumno entra con su contraseña de reset y el sistema lo lleva a elegir
+// una contraseña personal (activado: false es la señal).
 //
 // Seguridad:
-//   1. Requiere ID token valido del docente (verifyRequest).
-//   2. Verifica que el docente sea dueno de la asignatura donde esta inscrito.
-//   3. La contrasena se genera con crypto.randomBytes (nunca Math.random).
-
-// Sin I/O/1/0 para evitar confusion visual al leer en voz alta.
-const RESET_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-
-function generarContrasenaReset() {
-  const bytes = randomBytes(6)
-  return Array.from(bytes).map((b) => RESET_CHARS[b % RESET_CHARS.length]).join('')
-}
+//   1. Requiere ID token válido del docente (verifyRequest).
+//   2. Verifica que el docente sea dueño de la asignatura donde está inscrito.
+//   3. Si resetPassword es null (alumno legacy anterior al sistema), devuelve
+//      error 400 — NO genera una contraseña nueva en ese caso.
 
 function studentEmail(username, escuelaId) {
   return `${String(username).toLowerCase()}.${escuelaId}@evalua.local`
@@ -149,18 +141,20 @@ async function handleResetStudentPassword(req, res) {
       return res.status(403).json({ error: 'No tienes permiso para este alumno' })
     }
 
-    const resetPassword = generarContrasenaReset()
-    const email = studentEmail(studentData.username, studentData.escuelaId)
+    const { resetPassword } = studentData
+    if (!resetPassword) {
+      return res.status(400).json({
+        error: 'Este alumno no tiene contraseña de reset. Fue creado antes de que se implementara este sistema.',
+      })
+    }
 
-    let uid = studentData.uid || null
+    const email = studentEmail(studentData.username, studentData.escuelaId)
     try {
       const authUser = await fbAuth.getUserByEmail(email)
       await fbAuth.updateUser(authUser.uid, { password: resetPassword })
-      uid = authUser.uid
     } catch (e) {
       if (e.code !== 'auth/user-not-found') throw e
-      const created = await fbAuth.createUser({ email, password: resetPassword })
-      uid = created.uid
+      return res.status(400).json({ error: 'El alumno aún no ha activado su cuenta.' })
     }
 
     const raw = String(studentData.username).trim()
@@ -176,10 +170,10 @@ async function handleResetStudentPassword(req, res) {
       .filter((d) => { if (seenIds.has(d.id)) return false; seenIds.add(d.id); return true })
 
     const batch = db.batch()
-    allDocs.forEach((d) => batch.update(d.ref, { resetPassword, activado: false, uid }))
+    allDocs.forEach((d) => batch.update(d.ref, { activado: false }))
     await batch.commit()
 
-    return res.status(200).json({ ok: true, resetPassword })
+    return res.status(200).json({ ok: true })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message || 'Error al restablecer la contrasena.' })
   }
@@ -250,9 +244,11 @@ const SAFE_FIELDS = ['username', 'escuelaId', 'activado', 'nombre', 'apellidoPat
 function pickSafeFields(data) {
   const obj = {}
   SAFE_FIELDS.forEach((k) => { if (k in data) obj[k] = data[k] })
-  // Devolver resetPassword como booleano — el valor real (la contraseña) nunca
-  // sale al cliente. El login solo necesita saber si hay un reset activo.
+  // resetPassword como booleano — el valor real nunca sale al cliente.
   obj.resetPassword = !!data.resetPassword
+  // cuentaExiste indica si el alumno ya tiene cuenta en Firebase Auth
+  // (uid presente). Login.jsx lo usa para distinguir primer acceso vs. reset.
+  obj.cuentaExiste = !!data.uid
   return obj
 }
 

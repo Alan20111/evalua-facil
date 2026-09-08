@@ -47,11 +47,16 @@ export function studentEmail(username, escuelaId) {
   return `${username.toLowerCase()}.${escuelaId.toLowerCase()}@evalua.local`
 }
 
-// Aquí vivían `generateResetPassword` y `maskEmail`, las dos sin un solo uso:
-//   · La primera armaba contraseñas temporales con Math.random(), que no sirve
-//     para credenciales — es predecible. Hoy el docente no dicta ninguna
-//     contraseña: solo habilita el rescate y el propio alumno elige la suya
-//     (ver confirmResetStudentPassword y api/student/recover-password.js).
-//   · La segunda enmascaraba un correo de recuperación que ya no existe.
-// Se retiran en A04: código muerto en la superficie de credenciales es una
-// invitación a que alguien lo reutilice creyendo que está probado.
+// Contraseña de reset: se genera UNA SOLA VEZ al crear al estudiante y se
+// guarda permanentemente en Firestore. No se regenera en ningún reset posterior.
+// Usa Web Crypto API (disponible en browser y en Node 19+) — no randomBytes de
+// Node porque este archivo se importa desde código cliente (SubjectPage.jsx).
+// Charset sin I/O/1/0 para evitar confusión visual al comunicarla al alumno.
+export function generateResetPassword() {
+  const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const bytes = new Uint8Array(6)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes).map((b) => CHARS[b % CHARS.length]).join('')
+}
+
+// maskEmail se retiró en A04 — enmascaraba un correo de recuperación que ya no existe.

@@ -68,7 +68,7 @@ import {
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
   AlertTriangle, ArrowUp, ArrowDown, Sparkles, Gamepad2, GripVertical,
 } from 'lucide-react'
-import { generateUsername } from '../../utils/generate'
+import { generateUsername, generateResetPassword } from '../../utils/generate'
 import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
 import { capitalizarNombre, sinAcentos } from '../../utils/nombres'
@@ -876,7 +876,7 @@ export default function SubjectPage() {
   const [studentToEdit, setStudentToEdit] = useState(null)
   const [editStudentForm, setEditStudentForm] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '', comentarios: '' })
   const [studentToReset, setStudentToReset] = useState(null)
-  const [resetPwdResult, setResetPwdResult] = useState(null) // { student, resetPassword }
+  const [resetPwdResult, setResetPwdResult] = useState(null) // { student }
   const [linkCandidate, setLinkCandidate] = useState(null) // { person, identity, schoolDocs }
   const [newStudent, setNewStudent] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
   const [savingStudent, setSavingStudent] = useState(false)
@@ -2093,7 +2093,7 @@ export default function SubjectPage() {
       apellidoMaterno: person.apellidoMaterno.trim(),
       nombre: person.nombre.trim(),
       username,
-      resetPassword: null,
+      resetPassword: identity ? (identity.resetPassword || null) : generateResetPassword(),
       // Identidad ya conocida → su MISMA escuela (ver identity.escuelaId en
       // studentIdentity.js), no la escuela actual del docente.
       // Identidad ya conocida → su MISMA escuela; si es alguien nuevo, la del
@@ -2273,7 +2273,9 @@ export default function SubjectPage() {
           // trae MAYÚSCULAS, la pantalla se encarga de mostrarlas bien.
           ...row,
           username,
-          resetPassword: null,
+          resetPassword: (item.status === 'link' && item.identity)
+            ? (item.identity.resetPassword || null)
+            : generateResetPassword(),
           uid,
           escuelaId,
           asignaturaId: subjectId,
@@ -2298,9 +2300,9 @@ export default function SubjectPage() {
     }
   }
 
-  // Restablece la contrasena del alumno: genera una nueva contrasena de reset
-  // (servidor via Admin SDK), la guarda en Firestore y la muestra al docente
-  // para que se la comunique al alumno.
+  // Restablece la contraseña del alumno aplicando en Firebase Auth la contraseña
+  // de reset que se generó al crear al alumno (UNA SOLA VEZ, permanente).
+  // El docente no ve ni copia ningún valor — solo pulsa el botón.
   async function confirmResetStudentPassword() {
     if (!studentToReset) return
     try {
@@ -2312,13 +2314,13 @@ export default function SubjectPage() {
       })
       const data = await resp.json()
       if (!resp.ok) {
-        toast(data.error || 'Error al restablecer la contrasena', 'error')
+        toast(data.error || 'Error al restablecer la contraseña', 'error')
         return
       }
       setGroupStudents((prev) =>
-        prev.map((s) => s.id === studentToReset.id ? { ...s, resetPassword: data.resetPassword, activado: false } : s)
+        prev.map((s) => s.id === studentToReset.id ? { ...s, activado: false } : s)
       )
-      setResetPwdResult({ student: studentToReset, resetPassword: data.resetPassword })
+      setResetPwdResult({ student: studentToReset })
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -6665,9 +6667,10 @@ export default function SubjectPage() {
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Restablecer contraseña?</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Se generará una nueva <strong>contraseña de reset</strong> para{' '}
+              Se restaurará la <strong>contraseña de reset</strong> de{' '}
               <strong>{studentFullName(studentToReset)}</strong>{' '}
-              ({studentToReset.username}). Deberás comunicársela para que pueda volver a entrar.
+              ({studentToReset.username}) en Firebase Auth.
+              El alumno podrá volver a entrar con su contraseña de reset habitual.
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button"
@@ -7377,20 +7380,13 @@ export default function SubjectPage() {
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">Contraseña restablecida</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Dale esta contraseña de reset a <strong>{studentFullName(resetPwdResult.student)}</strong>{' '}
-              para que pueda entrar:
-            </p>
-            <div className="my-3 py-3 px-4 bg-amber-50 border border-amber-200 rounded text-center">
-              <span className="font-mono text-2xl font-bold tracking-widest text-amber-800 select-all">
-                {resetPwdResult.resetPassword}
-              </span>
-            </div>
-            <p className="text-xs text-muted text-center mb-4">
-              El estudiante entrará con su usuario y esta contraseña, y luego podrá establecer una nueva contraseña personal.
+              La contraseña de reset de{' '}
+              <strong>{studentFullName(resetPwdResult.student)}</strong>{' '}
+              ha sido restaurada. El alumno puede volver a entrar con su usuario y su contraseña de reset.
             </p>
             <button type="button"
               onClick={() => setResetPwdResult(null)}
-              className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
+              className="w-full mt-4 py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
             >
               Entendido
             </button>
