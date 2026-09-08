@@ -7380,9 +7380,8 @@ export default function SubjectPage() {
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">Contraseña restablecida</h3>
             <p className="text-sm text-muted text-center mt-2">
-              La contraseña de reset de{' '}
               <strong>{studentFullName(resetPwdResult.student)}</strong>{' '}
-              ha sido restablecida. El alumno ya puede usar &ldquo;¿Olvidaste tu contraseña?&rdquo; en la pantalla de acceso para establecer una nueva contraseña personal.
+              ya puede establecer una nueva contraseña desde la pantalla de acceso.
             </p>
             <button type="button"
               onClick={() => setResetPwdResult(null)}

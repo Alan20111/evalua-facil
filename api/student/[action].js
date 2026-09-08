@@ -330,18 +330,17 @@ async function handleLookup(req, res) {
 
 // ── /api/student/recover-password ─────────────────────────────────
 // Auto-recuperación del alumno: el docente autorizó el restablecimiento
-// (activado: false) y el alumno usa su contraseña de reset ORIGINAL para
-// establecer una nueva contraseña personal.
+// (activado: false) y el alumno establece una nueva contraseña personal.
 //
 // Endpoint PÚBLICO (sin token de docente): el alumno no tiene sesión abierta.
 // El rate-limiting de middleware.js protege contra fuerza bruta.
 //
 // Seguridad:
 //   1. El restablecimiento debe estar autorizado: uid existe + activado: false.
-//   2. La contraseña proporcionada se compara contra studentData.resetPassword.
-//   3. Si no coincide, respuesta genérica (no revelar cuál condición falló).
-//   4. resetPassword NO se modifica — permanece para futuros restablecimientos.
-//   5. Se devuelve el email (sintético interno) solo tras verificación exitosa.
+//      El docente es quien coloca al alumno en ese estado — esa es la autorización.
+//   2. Respuesta genérica si no hay restablecimiento autorizado.
+//   3. resetPassword NO se modifica — permanece como dato interno del sistema.
+//   4. Se devuelve el email (sintético interno) solo tras verificación exitosa.
 
 async function handleRecoverPassword(req, res) {
   if (aplicarCors(req, res)) return
@@ -353,12 +352,9 @@ async function handleRecoverPassword(req, res) {
     return res.status(400).json({ error: 'Body inválido.' })
   }
 
-  const { username, resetPassword: providedReset, newPassword } = body
+  const { username, newPassword } = body
   if (!username || typeof username !== 'string' || !username.trim() || username.length > 60) {
     return res.status(400).json({ error: 'Falta o es inválido el username.' })
-  }
-  if (!providedReset || typeof providedReset !== 'string' || !providedReset.trim()) {
-    return res.status(400).json({ error: 'Falta la contraseña de reset.' })
   }
   if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
     return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres.' })
@@ -377,18 +373,18 @@ async function handleRecoverPassword(req, res) {
     .filter((d) => { if (seenIds.has(d.id)) return false; seenIds.add(d.id); return true })
 
   if (allDocs.length === 0) {
-    return res.status(400).json({ error: 'Datos incorrectos o el restablecimiento no está autorizado.' })
+    return res.status(400).json({ error: 'No hay un restablecimiento autorizado para este usuario.' })
   }
 
-  // El restablecimiento está autorizado cuando: uid existe (hay cuenta Auth)
-  // + activado: false (docente habilitó el reset) + resetPassword coincide.
+  // El restablecimiento está autorizado cuando el docente pulsó "Restablecer":
+  // uid existe (hay cuenta Auth) + activado: false (señal que pone el docente).
   const candidate = allDocs.find((d) => {
     const data = d.data()
-    return data.uid && !data.activado && data.resetPassword && data.resetPassword === providedReset.trim()
+    return data.uid && !data.activado
   })
 
   if (!candidate) {
-    return res.status(400).json({ error: 'Datos incorrectos o el restablecimiento no está autorizado.' })
+    return res.status(400).json({ error: 'No hay un restablecimiento autorizado para este usuario.' })
   }
 
   const studentData = candidate.data()

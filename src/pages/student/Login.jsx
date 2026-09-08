@@ -23,7 +23,6 @@ export default function StudentLogin() {
   // Self-service password recovery
   const [showResetSection, setShowResetSection] = useState(false)
   const [resetUsername, setResetUsername] = useState('')
-  const [resetPwd, setResetPwd] = useState('')
   const [resetNewPwd, setResetNewPwd] = useState('')
   const [resetConfirmPwd, setResetConfirmPwd] = useState('')
   const [resetError, setResetError] = useState('')
@@ -135,7 +134,6 @@ export default function StudentLogin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: resetUsername.trim(),
-          resetPassword: resetPwd,
           newPassword: resetNewPwd,
         }),
       })
@@ -246,7 +244,7 @@ export default function StudentLogin() {
             <div className="px-5 pb-5 border-t border-outline-variant pt-4">
               <p className="text-xs text-muted mb-3 leading-relaxed">
                 Tu maestro debe haber pulsado &ldquo;Restablecer contraseña&rdquo; primero.
-                Luego introduce tu usuario, tu <strong>contraseña de reset</strong> y la nueva contraseña que quieres usar.
+                Luego introduce tu usuario y la nueva contraseña que quieres usar.
               </p>
               <form onSubmit={handleRecover} className="space-y-3">
                 <div>
@@ -264,17 +262,6 @@ export default function StudentLogin() {
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
                     placeholder="Ej: mendez.enrique"
                     maxLength={40}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="recover-reset-pwd" className="block text-sm font-medium text-muted mb-1">Contraseña de reset</label>
-                  <PasswordInput
-                    id="recover-reset-pwd"
-                    value={resetPwd}
-                    onChange={(e) => { setResetPwd(e.target.value); setResetError('') }}
-                    required
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Tu contraseña de reset"
                   />
                 </div>
                 <div>
