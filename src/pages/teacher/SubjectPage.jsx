@@ -4549,18 +4549,26 @@ export default function SubjectPage() {
                       {(() => {
                         const unified = buildUnifiedParcial(acts, mats)
                         const isDraggingHere = !IS_NATIVE_APP && !!dragMatId && mats.some((m) => m.id === dragMatId)
-                        // Drop zone: a thin area between list items that highlights when a
-                        // dragged material passes over it. vizIdx is the visual position (0 =
-                        // before all items, unified.length = after all items).
-                        const dropZone = (vizIdx) => {
-                          const isActive = dropZoneActive?.parcial === p && dropZoneActive?.idx === vizIdx
+                        // Drop zone: always in the DOM to avoid DOM mutations during dragstart
+                        // (inserting nodes during onDragStart cancels the HTML5 drag operation).
+                        // Visibility and interactivity are controlled via CSS classes only.
+                        // isDragging=true → h-6 hitbox + events active; false → h-2 spacer, no events.
+                        const dropZone = (vizIdx, isDragging) => {
+                          const isActive = isDragging && dropZoneActive?.parcial === p && dropZoneActive?.idx === vizIdx
                           return (
+                            // eslint-disable-next-line jsx-a11y/no-static-element-interactions
                             <div
                               key={`dz-${p}-${vizIdx}`}
-                              className={`w-full rounded-full transition-all duration-100 ${isActive ? 'h-1.5 bg-accent my-0.5' : 'h-2'}`}
-                              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropZoneActive({ parcial: p, idx: vizIdx }) }}
-                              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropZoneActive(null) }}
-                              onDrop={(e) => { e.preventDefault(); setDropZoneActive(null); handleMaterialDrop(dragMatId, p, vizIdx).catch(() => {}) }}
+                              className={`w-full rounded transition-all duration-75 ${
+                                !isDragging
+                                  ? 'h-2 pointer-events-none'
+                                  : isActive
+                                    ? 'h-6 border-t-2 border-accent bg-[var(--accent-tint)] pointer-events-auto'
+                                    : 'h-6 pointer-events-auto'
+                              }`}
+                              onDragOver={isDragging ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropZoneActive({ parcial: p, idx: vizIdx }) } : undefined}
+                              onDragLeave={isDragging ? (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropZoneActive(null) } : undefined}
+                              onDrop={isDragging ? (e) => { e.preventDefault(); setDropZoneActive(null); handleMaterialDrop(dragMatId, p, vizIdx).catch(() => {}) } : undefined}
                             />
                           )
                         }
@@ -4569,7 +4577,7 @@ export default function SubjectPage() {
                             {unified.length === 0 && (
                               <p className="text-slate-400 text-sm text-center py-2">Sin actividades</p>
                             )}
-                            {isDraggingHere && dropZone(0)}
+                            {dropZone(0, isDraggingHere)}
                             {unified.map((item, i) => {
                               const vizIdx = i + 1
                               if (item.type === 'activity') {
@@ -4690,7 +4698,7 @@ export default function SubjectPage() {
                                         </button>
                                       )}
                                     </div>
-                                    {isDraggingHere && dropZone(vizIdx)}
+                                    {dropZone(vizIdx, isDraggingHere)}
                                   </Fragment>
                                 )
                               } else {
@@ -4702,6 +4710,7 @@ export default function SubjectPage() {
                                 const isBeingDragged = m.id === dragMatId
                                 return (
                                   <Fragment key={m.id}>
+                                    {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
                                     <div
                                       draggable={!IS_NATIVE_APP}
                                       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragMatId(m.id) }}
@@ -4713,6 +4722,7 @@ export default function SubjectPage() {
                                           <div
                                             className="pl-2 py-2 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing flex-shrink-0"
                                             data-tooltip="Arrastrar para reordenar"
+                                            data-tooltip-pos="right"
                                           >
                                             <GripVertical size={16} />
                                           </div>
@@ -4770,7 +4780,7 @@ export default function SubjectPage() {
                                         </div>
                                       )}
                                     </div>
-                                    {isDraggingHere && dropZone(vizIdx)}
+                                    {dropZone(vizIdx, isDraggingHere)}
                                   </Fragment>
                                 )
                               }

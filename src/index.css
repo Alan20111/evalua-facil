@@ -308,6 +308,15 @@
     right: calc(100% + 8px);
     transform: translateY(-50%);
   }
+  /* Right-side variant — for triggers at the LEFT edge of an overflow-hidden
+     card (e.g. the drag handle), where the default above-cursor and left
+     variants would both be clipped by the card's overflow boundary. */
+  [data-tooltip][data-tooltip-pos='right']::after {
+    bottom: auto;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+  }
   /* Bottom variant — for triggers at the TOP edge of a scroll container (e.g. the
      grades-table header), where the default above-the-cursor tooltip would be
      clipped by the container's top edge. */
