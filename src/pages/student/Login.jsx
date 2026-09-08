@@ -4,12 +4,11 @@ import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../../firebase'
 import Spinner from '../../components/Spinner'
 import { studentEmail } from '../../utils/generate'
-import { Hash, ChevronDown, ArrowLeft, KeyRound } from 'lucide-react'
+import { Hash, ChevronDown } from 'lucide-react'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { apiUrl } from '../../utils/apiBase'
-import { studentFullName } from '../../utils/studentSearch'
 
 export default function StudentLogin() {
   const [username, setUsername] = useState('')
@@ -21,24 +20,11 @@ export default function StudentLogin() {
   const [showCodeSection, setShowCodeSection] = useState(false)
   const [codeInput, setCodeInput] = useState('')
 
-  // Password recovery ('login' | 'recover')
-  const [mode, setMode] = useState('login')
-  const [recoverStep, setRecoverStep] = useState('username') // 'username' | 'password'
-  const [recoverUsername, setRecoverUsername] = useState('')
-  const [recoverStudent, setRecoverStudent] = useState(null)
-  const [resetToken, setResetToken] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmNewPassword, setConfirmNewPassword] = useState('')
-  const [recoverError, setRecoverError] = useState('')
-
   const navigate = useNavigate()
   const submitting = useRef(false) // guards against double-submit (rapid taps)
 
-  // En modo "recuperar", atrás hace lo mismo que el link "Volver al inicio de
-  // sesión" (un solo nivel, igual para ambos recoverStep — la UI tampoco
-  // ofrece un paso intermedio). En modo "login" no se registra nada: cae al
-  // fallback global de "presiona de nuevo para salir".
-  useBackHandler(backToLogin, mode === 'recover')
+  // En modo login no se registra nada: cae al fallback global de "presiona de nuevo para salir".
+  useBackHandler(null, false)
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -51,7 +37,7 @@ export default function StudentLogin() {
       // aquí es porque se confundió, y hay que decírselo con todas sus letras
       // en vez de dejarlo intentando.
       if (username.includes('@')) {
-        setError('Tu usuario no es un correo. Es el que te dio tu maestro (por ejemplo ABCD). Tu correo solo sirve para recuperar tu contraseña.')
+        setError('Tu usuario no es un correo. Es el que te dio tu maestro (por ejemplo ABCD).')
         return
       }
       const resp = await fetch(apiUrl('/api/student/lookup'), {
@@ -78,29 +64,41 @@ export default function StudentLogin() {
       // A username can repeat across schools, so each school is a different account/email.
       // For already-activated accounts, try sign-in against each school's email — the correct
       // password authenticates exactly one of them.
-      const activatedSchools = [...new Set(stuDocs.filter((d) => d.activado).map((d) => d.escuelaId))]
+      const activatedSchools = [...new Set(stuDocs.filter((d) => d.activado || d.resetPassword).map((d) => d.escuelaId))]
       if (activatedSchools.length > 0) {
+        let signedInEscuelaId = null
         for (const esc of activatedSchools) {
           try {
             await signInWithEmailAndPassword(auth, studentEmail(uname, esc), password)
-            navigate('/alumno/dashboard')
-            return
+            signedInEscuelaId = esc
+            break
           } catch { /* wrong password for this school — try the next */ }
         }
-        setError('Contraseña incorrecta. Si la olvidaste, usa “Recuperar contraseña”.')
+        if (!signedInEscuelaId) {
+          setError('Contraseña incorrecta. Si olvidaste tu contraseña, pídele a tu maestro que la restablezca.')
+          return
+        }
+        // Detectar si el alumno entró con una contraseña de reset activa (booleano
+        // normalizado por el API — el valor real no llega al cliente).
+        const conReset = stuDocs.find((d) => d.escuelaId === signedInEscuelaId && d.resetPassword)
+        if (conReset) {
+          // El alumno entró con la contraseña de reset — dirigirlo a su perfil
+          // para que establezca una contraseña personal.
+          navigate('/alumno/perfil', { state: { debeEstablecerContrasena: true } })
+        } else {
+          navigate('/alumno/dashboard')
+        }
         return
       }
 
       // No activated account yet: this form is only for students who already
       // activated. First-time access happens exclusively via "¿Primera vez?
-      // Activa tu cuenta" below (código/QR/link) → /activate/:code, which asks
-      // for the subject's access code AND makes it explicit they're choosing a
-      // new password there — no ambiguity about "is this a login or a signup".
+      // Activa tu cuenta" below (código/QR/link) → /activate/:code.
       setError('Todavía no activas tu cuenta. Usa "¿Primera vez? Activa tu cuenta" más abajo.')
       setShowCodeSection(true)
     } catch (err) {
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-        setError('Contraseña incorrecta. Si la olvidaste, usa “Recuperar contraseña”.')
+        setError('Contraseña incorrecta. Si olvidaste tu contraseña, pídele a tu maestro que la restablezca.')
       } else {
         setError('Error al iniciar sesión. Intenta de nuevo.')
       }
@@ -117,361 +115,125 @@ export default function StudentLogin() {
     navigate(`/activate/${code}`)
   }
 
-  function openRecover() {
-    setMode('recover')
-    setRecoverStep('username')
-    setRecoverUsername(username.trim())
-    setRecoverStudent(null)
-    setResetToken('')
-    setNewPassword('')
-    setConfirmNewPassword('')
-    setRecoverError('')
-  }
-
-  function backToLogin() {
-    setMode('login')
-    setResetToken('')
-    setRecoverError('')
-  }
-
-  // Step 1: find the student and check the teacher enabled recovery (resetPassword set).
-  const handleRecoverFind = async (e) => {
-    e.preventDefault()
-    setRecoverError('')
-    setLoading(true)
-    try {
-      if (!recoverUsername.trim()) return
-      const resp = await fetch(apiUrl('/api/student/lookup'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: recoverUsername }),
-      })
-      if (!resp.ok) {
-        if (resp.status === 429) {
-          setRecoverError('Demasiadas solicitudes. Espera un momento y vuelve a intentar.')
-        } else {
-          setRecoverError('Ocurrió un error. Intenta de nuevo.')
-        }
-        return
-      }
-      const lookupData = await resp.json()
-      const found = lookupData.students || []
-      if (found.length === 0) {
-        setRecoverError('Usuario no encontrado. Verifica tu username con tu maestro.')
-        return
-      }
-      const enabled = found.find((d) => d.resetPassword)
-      if (!enabled) {
-        setRecoverError('La recuperación de contraseña está inhabilitada. Pídele a tu maestro que la habilite desde su panel y vuelve a intentar.')
-        return
-      }
-      setRecoverStudent(enabled)
-      setRecoverStep('password')
-    } catch {
-      setRecoverError('Ocurrió un error. Intenta de nuevo.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Step 2: set a new password. A forgotten Firebase password can't be reset from the
-  // browser, so this calls a serverless endpoint (Admin SDK) gated by the teacher-enabled
-  // recovery flag; then we sign in with the new password.
-  const handleRecoverSetPassword = async (e) => {
-    e.preventDefault()
-    setRecoverError('')
-    if (!resetToken.trim()) { setRecoverError('Escribe el código de recuperación que te dio tu maestro.'); return }
-    if (newPassword.length < 8) { setRecoverError('La contraseña debe tener al menos 8 caracteres.'); return }
-    if (newPassword !== confirmNewPassword) { setRecoverError('Las contraseñas no coinciden.'); return }
-    setLoading(true)
-    try {
-      const email = studentEmail(recoverStudent.username, recoverStudent.escuelaId)
-      const resp = await fetch(apiUrl('/api/student/recover-password'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: recoverStudent.username,
-          escuelaId: recoverStudent.escuelaId,
-          newPassword,
-          resetToken,
-        }),
-      })
-      if (!resp.ok) {
-        // The endpoint changes the Auth password BEFORE the Firestore cleanup; if the cleanup
-        // failed (non-atomic) the password may already be the new one. Try signing in before
-        // giving up so the student isn't stuck after a partial success.
-        try {
-          await signInWithEmailAndPassword(auth, email, newPassword)
-          navigate('/alumno/dashboard')
-          return
-        } catch { /* genuinely failed — show the server message */ }
-        let msg = 'No pudimos recuperar tu contraseña. Pídele a tu maestro que vuelva a habilitar la recuperación.'
-        try { const data = await resp.json(); if (data?.error) msg = data.error } catch { /* ignore */ }
-        setRecoverError(msg)
-        return
-      }
-      // Password is already changed server-side; sign in. If THIS fails (e.g. network),
-      // tell the student to just log in — their new password is valid.
-      try {
-        await signInWithEmailAndPassword(auth, email, newPassword)
-        navigate('/alumno/dashboard')
-      } catch {
-        setRecoverError('Tu contraseña se actualizó. Vuelve a “Iniciar sesión” con tu nueva contraseña.')
-      }
-    } catch {
-      setRecoverError('No pudimos recuperar tu contraseña. Intenta de nuevo en un momento.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
-          <h1 className="text-2xl font-bold text-on-surface">
-            {mode === 'recover' ? 'Recuperar contraseña' : 'Acceso Estudiantes'}
-          </h1>
+          <h1 className="text-2xl font-bold text-on-surface">Acceso Estudiantes</h1>
         </div>
 
-        {mode === 'recover' ? (
-          /* ── Recovery ── */
-          <div className="bg-surface-card rounded-card shadow-card p-5">
-            {recoverStep === 'username' ? (
-              <>
-              {/* Se recupera SIEMPRE con el usuario, nunca con un correo: el
-                  usuario es el único acceso del estudiante. */}
-              <form onSubmit={handleRecoverFind} className="space-y-3">
-                <p className="text-sm text-muted">
-                  Escribe el <strong>usuario que te dio tu maestro</strong>. Él tiene que
-                  <strong> habilitar la recuperación</strong> antes de que puedas elegir una contraseña nueva.
-                </p>
-                <div>
-                  <label htmlFor="recover-username" className="block text-sm font-medium text-muted mb-1">Username</label>
-                  <input
-                    id="recover-username"
-                    type="text"
-                    value={recoverUsername}
-                    onChange={(e) => { setRecoverUsername(e.target.value); setRecoverError('') }}
-                    required
-                    // autoFocus intencional: primer campo de este paso (recuperar contraseña por username),
-                    // se muestra una sola vez por sesión — no es un modal reabrible.
-                    autoFocus
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
-                    placeholder="Ej: mendez.enrique"
-                    maxLength={40}
-                  />
-                </div>
-                {recoverError && (
-                  <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">{recoverError}</p>
-                )}
-                <button
-                  type="submit"
-                  disabled={loading || !recoverUsername.trim()}
-                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {loading ? <Spinner size="sm" /> : <KeyRound size={18} />}
-                  {loading ? 'Verificando…' : 'Continuar'}
-                </button>
-              </form>
-              </>
-            ) : (
-              <form onSubmit={handleRecoverSetPassword} className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-accent-light rounded">
-                  <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-                    <KeyRound size={18} className="text-accent" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-on-surface truncate">
-                      {studentFullName(recoverStudent)}
-                    </p>
-                    <p className="text-xs text-muted font-mono">{recoverStudent?.username}</p>
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="recover-token" className="block text-sm font-medium text-muted mb-1">Código de recuperación</label>
-                  <input
-                    id="recover-token"
-                    type="text"
-                    value={resetToken}
-                    onChange={(e) => { setResetToken(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, '')); setRecoverError('') }}
-                    required
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="characters"
-                    spellCheck={false}
-                    maxLength={32}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
-                    placeholder="Tu maestro te lo dio"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="recover-nueva-password" className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
-                  <PasswordInput
-                    id="recover-nueva-password"
-                    value={newPassword}
-                    onChange={(e) => { setNewPassword(e.target.value); setRecoverError('') }}
-                    required
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Mínimo 8 caracteres"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="recover-confirmar-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
-                  <PasswordInput
-                    id="recover-confirmar-password"
-                    value={confirmNewPassword}
-                    onChange={(e) => { setConfirmNewPassword(e.target.value); setRecoverError('') }}
-                    required
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Repite tu contraseña"
-                  />
-                </div>
-                {recoverError && (
-                  <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">{recoverError}</p>
-                )}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {loading ? <Spinner size="sm" /> : <KeyRound size={18} />}
-                  {loading ? 'Guardando…' : 'Guardar contraseña'}
-                </button>
-              </form>
+        {/* ── Login form ── */}
+        <div className="bg-surface-card rounded-card shadow-card p-5">
+          <form onSubmit={handleLogin} className="space-y-3">
+            <div>
+              <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Username</label>
+              <input
+                id="login-username"
+                type="text"
+                value={username}
+                onChange={(e) => { setUsername(e.target.value); setError('') }}
+                required
+                // autoFocus intencional: primer campo del formulario de login,
+                // pantalla de entrada única — no es un modal reabrible.
+                autoFocus
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
+                placeholder="Ej: mendez.enrique"
+                maxLength={40}
+              />
+            </div>
+            <div>
+              <label htmlFor="login-password" className="block text-sm font-medium text-muted mb-1">Contraseña</label>
+              <PasswordInput
+                id="login-password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError('') }}
+                required
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                placeholder="••••••••"
+              />
+            </div>
+            {error && (
+              <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
+                {error}
+              </p>
             )}
             <button
-              type="button"
-              onClick={backToLogin}
-              className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm text-muted hover:text-on-surface transition-colors"
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              <ArrowLeft size={17} /> Volver al inicio de sesión
+              {loading ? <Spinner size="sm" /> : null}
+              {loading ? 'Entrando…' : 'Iniciar sesión'}
             </button>
-          </div>
-        ) : (
-          <>
-            {/* ── Login form ── */}
-            <div className="bg-surface-card rounded-card shadow-card p-5">
-              <form onSubmit={handleLogin} className="space-y-3">
-                <div>
-                  <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Username o correo</label>
-                  <input
-                    id="login-username"
-                    type="text"
-                    value={username}
-                    onChange={(e) => { setUsername(e.target.value); setError('') }}
-                    required
-                    // autoFocus intencional: primer campo del formulario de login,
-                    // pantalla de entrada única — no es un modal reabrible.
-                    autoFocus
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
-                    placeholder="Ej: mendez.enrique"
-                    maxLength={40}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="login-password" className="block text-sm font-medium text-muted mb-1">Contraseña</label>
-                  <PasswordInput
-                    id="login-password"
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); setError('') }}
-                    required
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="••••••••"
-                  />
-                </div>
-                {error && (
-                  <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
-                    {error}
-                  </p>
-                )}
+          </form>
+          <p className="mt-3 text-center text-xs text-muted">
+            ¿Olvidaste tu contraseña? Pídele a tu maestro(a) que la restablezca.
+          </p>
+        </div>
+
+        {/* ── First-time activation ── */}
+        <div className="mt-3 bg-surface-card rounded-card shadow-card overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowCodeSection((v) => !v)}
+            className="w-full flex items-center justify-between px-5 py-3 text-left"
+          >
+            <span className="text-sm font-semibold text-muted">¿Primera vez? Activa tu cuenta</span>
+            <ChevronDown
+              size={19}
+              className={`text-slate-400 transition-transform duration-200 ${showCodeSection ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {showCodeSection && (
+            <div className="px-5 pb-5 border-t border-outline-variant pt-4">
+              <p className="text-xs text-muted mb-3 leading-relaxed">
+                <strong>MUY IMPORTANTE:</strong>
+                <br />
+                1. Asegúrate de que tu Maestro(a) te haya agregado a su grupo
+                <br />
+                2. Pídele que te comparta tu nombre de usuario
+                <br />
+                3. Pídele el <strong>Código de su Asignatura</strong> e ingrésalo AQUÍ:
+              </p>
+              <form onSubmit={handleActivateWithCode} className="flex gap-2">
+                <input
+                  type="text"
+                  value={codeInput}
+                  onChange={(e) => setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  maxLength={8}
+                  placeholder="Ej: A3B7K2"
+                  className="flex-1 min-w-0 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
+                />
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  disabled={!codeInput.trim()}
+                  className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-1.5 flex-shrink-0"
                 >
-                  {loading ? <Spinner size="sm" /> : null}
-                  {loading ? 'Entrando…' : 'Iniciar sesión'}
+                  <Hash size={18} />
+                  Ir
                 </button>
               </form>
-              <button
-                type="button"
-                onClick={openRecover}
-                className="mt-3 w-full text-center text-sm text-accent hover:underline"
-              >
-                ¿Olvidaste tu contraseña? Recuperar contraseña
-              </button>
             </div>
+          )}
+        </div>
 
-            {/* ── First-time activation ── */}
-            <div className="mt-3 bg-surface-card rounded-card shadow-card overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowCodeSection((v) => !v)}
-                className="w-full flex items-center justify-between px-5 py-3 text-left"
-              >
-                <span className="text-sm font-semibold text-muted">¿Primera vez? Activa tu cuenta</span>
-                <ChevronDown
-                  size={19}
-                  className={`text-slate-400 transition-transform duration-200 ${showCodeSection ? 'rotate-180' : ''}`}
-                />
-              </button>
-
-              {showCodeSection && (
-                <div className="px-5 pb-5 border-t border-outline-variant pt-4">
-                  <p className="text-xs text-muted mb-3 leading-relaxed">
-                    <strong>MUY IMPORTANTE:</strong>
-                    <br />
-                    1. Asegúrate de que tu Maestro(a) te haya agregado a su grupo
-                    <br />
-                    2. Pídele que te comparta tu nombre de usuario
-                    <br />
-                    3. Pídele el <strong>Código de su Asignatura</strong> e ingrésalo AQUÍ:
-                  </p>
-                  <form onSubmit={handleActivateWithCode} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={codeInput}
-                      onChange={(e) => setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="characters"
-                      spellCheck={false}
-                      maxLength={8}
-                      placeholder="Ej: A3B7K2"
-                      className="flex-1 min-w-0 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!codeInput.trim()}
-                      className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-1.5 flex-shrink-0"
-                    >
-                      <Hash size={18} />
-                      Ir
-                    </button>
-                  </form>
-                </div>
-              )}
-            </div>
-
-            <p className="text-center text-sm text-slate-500 mt-5 px-2">
-              Tu maestro te otorgará tus datos de acceso.
-            </p>
-            <p className="text-center text-sm text-muted mt-2 px-2">
-              ¿Eres Docente?{' '}
-              <Link to="/docente" className="text-accent font-semibold hover:underline">Entra aquí</Link>
-            </p>
-          </>
-        )}
+        <p className="text-center text-sm text-slate-500 mt-5 px-2">
+          Tu maestro te otorgará tus datos de acceso.
+        </p>
+        <p className="text-center text-sm text-muted mt-2 px-2">
+          ¿Eres Docente?{' '}
+          <Link to="/docente" className="text-accent font-semibold hover:underline">Entra aquí</Link>
+        </p>
       </div>
     </div>
   )
