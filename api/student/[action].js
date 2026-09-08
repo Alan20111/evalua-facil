@@ -328,6 +328,105 @@ async function handleLookup(req, res) {
   return res.status(200).json({ ok: true, students })
 }
 
+// ── /api/student/recover-password ─────────────────────────────────
+// Auto-recuperación del alumno: el docente autorizó el restablecimiento
+// (activado: false) y el alumno usa su contraseña de reset ORIGINAL para
+// establecer una nueva contraseña personal.
+//
+// Endpoint PÚBLICO (sin token de docente): el alumno no tiene sesión abierta.
+// El rate-limiting de middleware.js protege contra fuerza bruta.
+//
+// Seguridad:
+//   1. El restablecimiento debe estar autorizado: uid existe + activado: false.
+//   2. La contraseña proporcionada se compara contra studentData.resetPassword.
+//   3. Si no coincide, respuesta genérica (no revelar cuál condición falló).
+//   4. resetPassword NO se modifica — permanece para futuros restablecimientos.
+//   5. Se devuelve el email (sintético interno) solo tras verificación exitosa.
+
+async function handleRecoverPassword(req, res) {
+  if (aplicarCors(req, res)) return
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' })
+  let body
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
+  } catch {
+    return res.status(400).json({ error: 'Body inválido.' })
+  }
+
+  const { username, resetPassword: providedReset, newPassword } = body
+  if (!username || typeof username !== 'string' || !username.trim() || username.length > 60) {
+    return res.status(400).json({ error: 'Falta o es inválido el username.' })
+  }
+  if (!providedReset || typeof providedReset !== 'string' || !providedReset.trim()) {
+    return res.status(400).json({ error: 'Falta la contraseña de reset.' })
+  }
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+    return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres.' })
+  }
+
+  const u = String(username).trim()
+  const variants = [...new Set([u.toLowerCase(), u.toUpperCase()])]
+  const db = getDb()
+  const fbAuth = getAuth()
+
+  const snaps = await Promise.all(
+    variants.map((v) => db.collection('students').where('username', '==', v).get())
+  )
+  const seenIds = new Set()
+  const allDocs = snaps.flatMap((s) => s.docs)
+    .filter((d) => { if (seenIds.has(d.id)) return false; seenIds.add(d.id); return true })
+
+  if (allDocs.length === 0) {
+    return res.status(400).json({ error: 'Datos incorrectos o el restablecimiento no está autorizado.' })
+  }
+
+  // El restablecimiento está autorizado cuando: uid existe (hay cuenta Auth)
+  // + activado: false (docente habilitó el reset) + resetPassword coincide.
+  const candidate = allDocs.find((d) => {
+    const data = d.data()
+    return data.uid && !data.activado && data.resetPassword && data.resetPassword === providedReset.trim()
+  })
+
+  if (!candidate) {
+    return res.status(400).json({ error: 'Datos incorrectos o el restablecimiento no está autorizado.' })
+  }
+
+  const studentData = candidate.data()
+  const email = studentEmail(studentData.username, studentData.escuelaId)
+
+  try {
+    const authUser = await fbAuth.getUserByEmail(email)
+    await fbAuth.updateUser(authUser.uid, { password: newPassword })
+  } catch (e) {
+    if (e.code === 'auth/user-not-found') {
+      return res.status(400).json({ error: 'La cuenta no existe en el sistema de autenticación.' })
+    }
+    throw e
+  }
+
+  // Marcar activado: true en TODAS las inscripciones del alumno en esa escuela.
+  // resetPassword NO se toca — permanece para futuros restablecimientos.
+  const raw = String(studentData.username).trim()
+  const schoolVariants = [...new Set([raw.toLowerCase(), raw.toUpperCase()])]
+  const schoolSnaps = await Promise.all(
+    schoolVariants.map((v) => db.collection('students')
+      .where('username', '==', v)
+      .where('escuelaId', '==', studentData.escuelaId)
+      .get())
+  )
+  const seenIds2 = new Set()
+  const toUpdate = schoolSnaps.flatMap((s) => s.docs)
+    .filter((d) => { if (seenIds2.has(d.id)) return false; seenIds2.add(d.id); return true })
+  const batch = db.batch()
+  toUpdate.forEach((d) => batch.update(d.ref, { activado: true }))
+  await batch.commit()
+
+  // El email sintético se devuelve solo tras verificación exitosa para que el
+  // cliente pueda autenticar con la nueva contraseña. No es un dato sensible:
+  // es derivable de username + escuelaId, ambos ya conocidos por el alumno.
+  return res.status(200).json({ ok: true, email })
+}
+
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return
   const { action } = req.query
@@ -336,6 +435,7 @@ export default async function handler(req, res) {
     if (action === 'delete') return await handleDelete(req, res)
     if (action === 'reset-student-password') return await handleResetStudentPassword(req, res)
     if (action === 'remove-photo') return await handleRemovePhoto(req, res)
+    if (action === 'recover-password') return await handleRecoverPassword(req, res)
     return res.status(404).json({ error: 'Acción no encontrada.' })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message || 'Error interno.' })

@@ -20,8 +20,18 @@ export default function StudentLogin() {
   const [showCodeSection, setShowCodeSection] = useState(false)
   const [codeInput, setCodeInput] = useState('')
 
+  // Self-service password recovery
+  const [showResetSection, setShowResetSection] = useState(false)
+  const [resetUsername, setResetUsername] = useState('')
+  const [resetPwd, setResetPwd] = useState('')
+  const [resetNewPwd, setResetNewPwd] = useState('')
+  const [resetConfirmPwd, setResetConfirmPwd] = useState('')
+  const [resetError, setResetError] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+
   const navigate = useNavigate()
   const submitting = useRef(false) // guards against double-submit (rapid taps)
+  const submittingReset = useRef(false)
 
   // En modo login no se registra nada: cae al fallback global de "presiona de nuevo para salir".
   useBackHandler(null, false)
@@ -75,15 +85,13 @@ export default function StudentLogin() {
           } catch { /* wrong password for this school — try the next */ }
         }
         if (!signedInEscuelaId) {
-          setError('Contraseña incorrecta. Si olvidaste tu contraseña, pídele a tu maestro que la restablezca.')
+          setError('Contraseña incorrecta. Si el maestro ya restableció tu acceso, usa "¿Olvidaste tu contraseña?" más abajo.')
           return
         }
-        // Detectar si el alumno entró con una contraseña de reset activa (booleano
-        // normalizado por el API — el valor real no llega al cliente).
+        // Si el alumno entró con la contraseña de reset (activado: false),
+        // el backup path lo lleva a Perfil para que establezca una contraseña.
         const conReset = stuDocs.find((d) => d.escuelaId === signedInEscuelaId && !d.activado)
         if (conReset) {
-          // El alumno entró con la contraseña de reset — dirigirlo a su perfil
-          // para que establezca una contraseña personal.
           navigate('/alumno/perfil', { state: { debeEstablecerContrasena: true } })
         } else {
           navigate('/alumno/dashboard')
@@ -98,13 +106,56 @@ export default function StudentLogin() {
       setShowCodeSection(true)
     } catch (err) {
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-        setError('Contraseña incorrecta. Si olvidaste tu contraseña, pídele a tu maestro que la restablezca.')
+        setError('Contraseña incorrecta. Si el maestro ya restableció tu acceso, usa "¿Olvidaste tu contraseña?" más abajo.')
       } else {
         setError('Error al iniciar sesión. Intenta de nuevo.')
       }
     } finally {
       submitting.current = false
       setLoading(false)
+    }
+  }
+
+  const handleRecover = async (e) => {
+    e.preventDefault()
+    if (submittingReset.current) return
+    setResetError('')
+    if (resetNewPwd.length < 8) {
+      setResetError('La nueva contraseña debe tener al menos 8 caracteres')
+      return
+    }
+    if (resetNewPwd !== resetConfirmPwd) {
+      setResetError('Las contraseñas nuevas no coinciden')
+      return
+    }
+    submittingReset.current = true; setResetLoading(true)
+    try {
+      const resp = await fetch(apiUrl('/api/student/recover-password'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: resetUsername.trim(),
+          resetPassword: resetPwd,
+          newPassword: resetNewPwd,
+        }),
+      })
+      const data = await resp.json()
+      if (!resp.ok) {
+        setResetError(data.error || 'Error al restablecer la contraseña')
+        return
+      }
+      // Autenticar con la nueva contraseña y entrar al dashboard.
+      await signInWithEmailAndPassword(auth, data.email, resetNewPwd)
+      navigate('/alumno/dashboard')
+    } catch (err) {
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        setResetError('No se pudo autenticar con la nueva contraseña. Intenta de nuevo.')
+      } else {
+        setResetError('Error: ' + err.message)
+      }
+    } finally {
+      submittingReset.current = false
+      setResetLoading(false)
     }
   }
 
@@ -171,9 +222,99 @@ export default function StudentLogin() {
               {loading ? 'Entrando…' : 'Iniciar sesión'}
             </button>
           </form>
-          <p className="mt-3 text-center text-xs text-muted">
-            ¿Olvidaste tu contraseña? Pídele a tu maestro(a) que la restablezca.
-          </p>
+        </div>
+
+        {/* ── Password recovery ── */}
+        <div className="mt-3 bg-surface-card rounded-card shadow-card overflow-hidden">
+          <button
+            type="button"
+            onClick={() => {
+              const opening = !showResetSection
+              setShowResetSection(opening)
+              if (opening && username && !resetUsername) setResetUsername(username)
+            }}
+            className="w-full flex items-center justify-between px-5 py-3 text-left"
+          >
+            <span className="text-sm font-semibold text-muted">¿Olvidaste tu contraseña? Restablécela</span>
+            <ChevronDown
+              size={19}
+              className={`text-slate-400 transition-transform duration-200 ${showResetSection ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {showResetSection && (
+            <div className="px-5 pb-5 border-t border-outline-variant pt-4">
+              <p className="text-xs text-muted mb-3 leading-relaxed">
+                Tu maestro debe haber pulsado &ldquo;Restablecer contraseña&rdquo; primero.
+                Luego introduce tu usuario, tu <strong>contraseña de reset</strong> y la nueva contraseña que quieres usar.
+              </p>
+              <form onSubmit={handleRecover} className="space-y-3">
+                <div>
+                  <label htmlFor="recover-username" className="block text-sm font-medium text-muted mb-1">Username</label>
+                  <input
+                    id="recover-username"
+                    type="text"
+                    value={resetUsername}
+                    onChange={(e) => { setResetUsername(e.target.value); setResetError('') }}
+                    required
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
+                    placeholder="Ej: mendez.enrique"
+                    maxLength={40}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="recover-reset-pwd" className="block text-sm font-medium text-muted mb-1">Contraseña de reset</label>
+                  <PasswordInput
+                    id="recover-reset-pwd"
+                    value={resetPwd}
+                    onChange={(e) => { setResetPwd(e.target.value); setResetError('') }}
+                    required
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    placeholder="Tu contraseña de reset"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="recover-new-pwd" className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
+                  <PasswordInput
+                    id="recover-new-pwd"
+                    value={resetNewPwd}
+                    onChange={(e) => { setResetNewPwd(e.target.value); setResetError('') }}
+                    required
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    placeholder="Mínimo 8 caracteres"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="recover-confirm-pwd" className="block text-sm font-medium text-muted mb-1">Confirmar nueva contraseña</label>
+                  <PasswordInput
+                    id="recover-confirm-pwd"
+                    value={resetConfirmPwd}
+                    onChange={(e) => { setResetConfirmPwd(e.target.value); setResetError('') }}
+                    required
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    placeholder="Repite la nueva contraseña"
+                  />
+                </div>
+                {resetError && (
+                  <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
+                    {resetError}
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {resetLoading ? <Spinner size="sm" /> : null}
+                  {resetLoading ? 'Restableciendo…' : 'Restablecer contraseña'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
 
         {/* ── First-time activation ── */}

@@ -7382,7 +7382,7 @@ export default function SubjectPage() {
             <p className="text-sm text-muted text-center mt-2">
               La contraseña de reset de{' '}
               <strong>{studentFullName(resetPwdResult.student)}</strong>{' '}
-              ha sido restaurada. El alumno puede volver a entrar con su usuario y su contraseña de reset.
+              ha sido restablecida. El alumno ya puede usar &ldquo;¿Olvidaste tu contraseña?&rdquo; en la pantalla de acceso para establecer una nueva contraseña personal.
             </p>
             <button type="button"
               onClick={() => setResetPwdResult(null)}
