@@ -2595,6 +2595,9 @@ export default function SubjectPage() {
 
   function openEdit(activity, labelOverride) {
     if (activity.tipo === 'evaluacion') {
+      // Roster for "Nueva fecha → Para algunos" inside EvaluacionEditor —
+      // same reason as the entregable branch below.
+      ensureGroupStudents()
       setEvalEditor({ activityId: activity.id, categoria: activity.categoria, parcial: activity.parcial, activityLabel: labelOverride || null })
       return
     }
