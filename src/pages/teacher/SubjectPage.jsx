@@ -6667,10 +6667,10 @@ export default function SubjectPage() {
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Restablecer contraseña?</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Se restaurará la <strong>contraseña de reset</strong> de{' '}
+              Se autorizará el restablecimiento de contraseña de{' '}
               <strong>{studentFullName(studentToReset)}</strong>{' '}
-              ({studentToReset.username}) en Firebase Auth.
-              El alumno podrá volver a entrar con su contraseña de reset habitual.
+              ({studentToReset.username}).
+              El alumno podrá crear una nueva contraseña desde la pantalla de acceso.
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button"

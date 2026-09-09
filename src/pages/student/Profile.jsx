@@ -144,11 +144,10 @@ export default function StudentProfile() {
       setPassActual(''); setPassNueva(''); setPassConfirm('')
 
       // Si el alumno llegó aquí tras un restablecimiento del docente, marcarlo
-      // como activado en todas sus inscripciones. resetPassword NO se toca —
-      // se generó al crear al alumno y se conserva para resets futuros.
+      // como activado y cerrar la señal de reset pendiente en todas sus inscripciones.
       if (debeEstablecerContrasena) {
         await Promise.all(
-          enrollments.map((e) => updateDoc(doc(db, 'students', e.id), { activado: true }))
+          enrollments.map((e) => updateDoc(doc(db, 'students', e.id), { activado: true, resetPendiente: false }))
         )
         setDebeEstablecerContrasena(false)
         toast('¡Listo! Tu nueva contraseña está guardada.')

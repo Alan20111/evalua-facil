@@ -103,17 +103,16 @@ async function handleDelete(req, res) {
 }
 
 // ── /api/student/reset-student-password ────────────────────────────
-// El docente restablece la contrasena de uno de sus alumnos.
-// Lee la contraseña de reset que se generó UNA SOLA VEZ al crear al alumno
-// y la aplica de nuevo en Firebase Auth — sin generar ninguna nueva.
-// El alumno entra con su contraseña de reset y el sistema lo lleva a elegir
-// una contraseña personal (activado: false es la señal).
+// El docente autoriza el restablecimiento de contraseña de un alumno.
+// Marca resetPendiente: true + activado: false en todas las inscripciones
+// del alumno en esa escuela. No toca Firebase Auth ni genera contraseñas.
+// El alumno elige su nueva contraseña directamente en /alumno (pantalla de
+// acceso → "¿Olvidaste tu contraseña? Restablécela").
 //
 // Seguridad:
 //   1. Requiere ID token válido del docente (verifyRequest).
 //   2. Verifica que el docente sea dueño de la asignatura donde está inscrito.
-//   3. Si resetPassword es null (alumno legacy anterior al sistema), devuelve
-//      error 400 — NO genera una contraseña nueva en ese caso.
+//   3. Solo funciona si el alumno ya tiene cuenta (uid presente en Firestore).
 
 function studentEmail(username, escuelaId) {
   return `${String(username).toLowerCase()}.${escuelaId}@evalua.local`
@@ -129,7 +128,6 @@ async function handleResetStudentPassword(req, res) {
     if (!studentId) return res.status(400).json({ error: 'Falta studentId' })
 
     const db = getDb()
-    const fbAuth = getAuth()
 
     const studentDoc = await db.collection('students').doc(studentId).get()
     if (!studentDoc.exists) return res.status(404).json({ error: 'Alumno no encontrado' })
@@ -141,19 +139,7 @@ async function handleResetStudentPassword(req, res) {
       return res.status(403).json({ error: 'No tienes permiso para este alumno' })
     }
 
-    const { resetPassword } = studentData
-    if (!resetPassword) {
-      return res.status(400).json({
-        error: 'Este alumno no tiene contraseña de reset. Fue creado antes de que se implementara este sistema.',
-      })
-    }
-
-    const email = studentEmail(studentData.username, studentData.escuelaId)
-    try {
-      const authUser = await fbAuth.getUserByEmail(email)
-      await fbAuth.updateUser(authUser.uid, { password: resetPassword })
-    } catch (e) {
-      if (e.code !== 'auth/user-not-found') throw e
+    if (!studentData.uid) {
       return res.status(400).json({ error: 'El alumno aún no ha activado su cuenta.' })
     }
 
@@ -170,7 +156,7 @@ async function handleResetStudentPassword(req, res) {
       .filter((d) => { if (seenIds.has(d.id)) return false; seenIds.add(d.id); return true })
 
     const batch = db.batch()
-    allDocs.forEach((d) => batch.update(d.ref, { activado: false }))
+    allDocs.forEach((d) => batch.update(d.ref, { activado: false, resetPendiente: true }))
     await batch.commit()
 
     return res.status(200).json({ ok: true })
@@ -244,11 +230,11 @@ const SAFE_FIELDS = ['username', 'escuelaId', 'activado', 'nombre', 'apellidoPat
 function pickSafeFields(data) {
   const obj = {}
   SAFE_FIELDS.forEach((k) => { if (k in data) obj[k] = data[k] })
-  // resetPassword como booleano — el valor real nunca sale al cliente.
-  obj.resetPassword = !!data.resetPassword
   // cuentaExiste indica si el alumno ya tiene cuenta en Firebase Auth
   // (uid presente). Login.jsx lo usa para distinguir primer acceso vs. reset.
   obj.cuentaExiste = !!data.uid
+  // resetPendiente como booleano — indica si el docente autorizó un restablecimiento.
+  obj.resetPendiente = !!data.resetPendiente
   return obj
 }
 
@@ -330,16 +316,17 @@ async function handleLookup(req, res) {
 
 // ── /api/student/recover-password ─────────────────────────────────
 // Auto-recuperación del alumno: el docente autorizó el restablecimiento
-// (activado: false) y el alumno establece una nueva contraseña personal.
+// (resetPendiente: true) y el alumno establece una nueva contraseña personal.
 //
 // Endpoint PÚBLICO (sin token de docente): el alumno no tiene sesión abierta.
 // El rate-limiting de middleware.js protege contra fuerza bruta.
 //
 // Seguridad:
-//   1. El restablecimiento debe estar autorizado: uid existe + activado: false.
+//   1. El restablecimiento debe estar autorizado: uid existe + resetPendiente: true.
+//      También acepta activado: false por compatibilidad con resets anteriores.
 //      El docente es quien coloca al alumno en ese estado — esa es la autorización.
 //   2. Respuesta genérica si no hay restablecimiento autorizado.
-//   3. resetPassword NO se modifica — permanece como dato interno del sistema.
+//   3. resetPassword NO se toca — es un campo interno independiente del flujo de recuperación.
 //   4. Se devuelve el email (sintético interno) solo tras verificación exitosa.
 
 async function handleRecoverPassword(req, res) {
@@ -377,10 +364,11 @@ async function handleRecoverPassword(req, res) {
   }
 
   // El restablecimiento está autorizado cuando el docente pulsó "Restablecer":
-  // uid existe (hay cuenta Auth) + activado: false (señal que pone el docente).
+  // uid existe (hay cuenta Auth) + resetPendiente: true (señal que pone el docente).
+  // Se acepta también activado: false para compatibilidad con resets anteriores.
   const candidate = allDocs.find((d) => {
     const data = d.data()
-    return data.uid && !data.activado
+    return data.uid && (data.resetPendiente === true || !data.activado)
   })
 
   if (!candidate) {
@@ -400,8 +388,7 @@ async function handleRecoverPassword(req, res) {
     throw e
   }
 
-  // Marcar activado: true en TODAS las inscripciones del alumno en esa escuela.
-  // resetPassword NO se toca — permanece para futuros restablecimientos.
+  // Marcar activado: true + resetPendiente: false en TODAS las inscripciones del alumno.
   const raw = String(studentData.username).trim()
   const schoolVariants = [...new Set([raw.toLowerCase(), raw.toUpperCase()])]
   const schoolSnaps = await Promise.all(
@@ -414,7 +401,7 @@ async function handleRecoverPassword(req, res) {
   const toUpdate = schoolSnaps.flatMap((s) => s.docs)
     .filter((d) => { if (seenIds2.has(d.id)) return false; seenIds2.add(d.id); return true })
   const batch = db.batch()
-  toUpdate.forEach((d) => batch.update(d.ref, { activado: true }))
+  toUpdate.forEach((d) => batch.update(d.ref, { activado: true, resetPendiente: false }))
   await batch.commit()
 
   // El email sintético se devuelve solo tras verificación exitosa para que el
