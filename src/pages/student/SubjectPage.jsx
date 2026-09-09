@@ -45,6 +45,28 @@ import ScrollHintX from '../../components/ui/ScrollHintX'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde } from '../../utils/avisos'
 
+// Builds a unified ordered list of activities + positioned materials for one
+// parcial, mirroring the teacher view so both render in the same order.
+// Activities sit at integer `orden` slots; materials with ordenManual:true
+// occupy fractional slots between them; unpositioned materials go at the end.
+function buildUnifiedParcial(acts, mats) {
+  const positioned = mats.filter((m) => m.ordenManual)
+  const unpositioned = mats
+    .filter((m) => !m.ordenManual)
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+
+  const items = [
+    ...acts.map((a) => ({ type: 'activity', item: a })),
+    ...positioned.map((m) => ({ type: 'material', item: m })),
+  ].sort((a, b) => {
+    const ka = a.item.orden ?? 0, kb = b.item.orden ?? 0
+    if (ka !== kb) return ka - kb
+    return a.type === 'activity' ? -1 : 1
+  })
+
+  return [...items, ...unpositioned.map((m) => ({ type: 'material', item: m }))]
+}
+
 function ResourceCard({ resource: r }) {
   const isLink = r.tipo === 'link'
   const { icon: Icon, color } = isLink ? getLinkResourceIcon(r.url) : getResourceIcon(r.nombreArchivo || r.nombre || '')
@@ -611,7 +633,8 @@ export default function StudentSubjectPage() {
           )}
           {PARCIALES.map((p) => {
             const acts = activities.filter((a) => a.parcial === p)
-            const mats = materials.filter((m) => m.parcial === p).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+            const mats = materials.filter((m) => m.parcial === p)
+            const unified = buildUnifiedParcial(acts, mats)
             const avg = calcParcialAvg(p)
             const isOpen = openParcial === p
             return (
@@ -639,114 +662,118 @@ export default function StudentSubjectPage() {
                 {isOpen && (
                   <div className="border-t border-outline-variant pr-4 py-2">
                     <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
-                    {acts.length === 0 && mats.length === 0 && (
+                    {unified.length === 0 && (
                       <p className="text-slate-400 text-sm text-center py-2">Sin actividades</p>
                     )}
-                    {acts.map((a) => {
-                      const sub = submissions[a.id]
-                      const graded = sub?.calificacion != null
-                      const delivered = sub && !graded
-                      // Prórroga individual de ESTE alumno: solo cuenta si la
-                      // actividad tiene fecha límite propia (misma regla que
-                      // ActivityPage.jsx — una prórroga no inventa un plazo
-                      // donde no había). Sin esto, un alumno con prórroga
-                      // vigente veía su actividad marcada "vencida" en rojo
-                      // aquí aunque su página de detalle, correctamente, la
-                      // mostrara abierta.
-                      const extendedDate = a.fechaLimite ? a.extensiones?.[studentId] : null
-                      const displayDeadline = extendedDate || a.fechaLimite
-                      const overdue = !graded && !delivered && isOverdue({ ...a, fechaLimite: displayDeadline })
-                      const fechaLimiteLabel = formatDeadline(displayDeadline)
-                      const showPeso = ponderacionActivaEnParcial(subject, a.parcial) && subject?.ponderacionVisibleAlumnos && a.pesoCalificacion != null
-                      // Scheduled activities may only carry `publishAt` (already in the
-                      // past — this list is filtered to visible ones), so that IS their
-                      // publication date when `publishedAt` is absent.
-                      const publishDate = a.publishedAt || a.publishAt
-                      // Same icon-per-type as the teacher's list so both views read alike
-                      const ActIcon = a.categoria === 'examen' ? GraduationCap
-                        : a.categoria === 'cuestionario' ? ListChecks
-                        : a.categoria === 'observacion' ? ClipboardCheck
-                        : a.categoria === 'juego' ? Sparkles
-                        : FileText
+                    {unified.map(({ type, item }) => {
+                      if (type === 'activity') {
+                        const a = item
+                        const sub = submissions[a.id]
+                        const graded = sub?.calificacion != null
+                        const delivered = sub && !graded
+                        // Prórroga individual de ESTE alumno: solo cuenta si la
+                        // actividad tiene fecha límite propia (misma regla que
+                        // ActivityPage.jsx — una prórroga no inventa un plazo
+                        // donde no había). Sin esto, un alumno con prórroga
+                        // vigente veía su actividad marcada "vencida" en rojo
+                        // aquí aunque su página de detalle, correctamente, la
+                        // mostrara abierta.
+                        const extendedDate = a.fechaLimite ? a.extensiones?.[studentId] : null
+                        const displayDeadline = extendedDate || a.fechaLimite
+                        const overdue = !graded && !delivered && isOverdue({ ...a, fechaLimite: displayDeadline })
+                        const fechaLimiteLabel = formatDeadline(displayDeadline)
+                        const showPeso = ponderacionActivaEnParcial(subject, a.parcial) && subject?.ponderacionVisibleAlumnos && a.pesoCalificacion != null
+                        // Scheduled activities may only carry `publishAt` (already in the
+                        // past — this list is filtered to visible ones), so that IS their
+                        // publication date when `publishedAt` is absent.
+                        const publishDate = a.publishedAt || a.publishAt
+                        // Same icon-per-type as the teacher's list so both views read alike
+                        const ActIcon = a.categoria === 'examen' ? GraduationCap
+                          : a.categoria === 'cuestionario' ? ListChecks
+                          : a.categoria === 'observacion' ? ClipboardCheck
+                          : a.categoria === 'juego' ? Sparkles
+                          : FileText
+                        return (
+                          <button
+                            type="button"
+                            key={a.id}
+                            onClick={() => navigate(`/alumno/actividad/${a.id}`)}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded border border-outline-variant bg-surface-card hover:border-accent hover:bg-[var(--accent-tint)] transition-colors duration-200 text-left"
+                          >
+                            <ActIcon size={20} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-base font-medium leading-tight text-on-surface truncate">
+                                {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} </span>}
+                                {a.nombre}
+                                <span className="text-xs font-normal text-slate-400"> ({CATEGORIA_LABELS[a.categoria] || 'Entregable'})</span>
+                              </p>
+                              {((!IS_NATIVE_APP && (publishDate || fechaLimiteLabel)) || showPeso) && (
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  {!IS_NATIVE_APP && publishDate && (
+                                    <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
+                                      <Clock size={14} /> {formatPublishAt(publishDate)}
+                                    </span>
+                                  )}
+                                  {!IS_NATIVE_APP && fechaLimiteLabel && (
+                                    <span data-tooltip={extendedDate ? 'Cierre (con prórroga)' : 'Cierre'} className={`text-xs flex items-center gap-0.5 ${overdue ? 'text-red-500' : 'text-amber-600'}`}>
+                                      <Clock size={14} /> {fechaLimiteLabel}{extendedDate && ' (extendida)'}
+                                    </span>
+                                  )}
+                                  {showPeso && (
+                                    <span className="text-xs text-amber-700 font-semibold">Vale {a.pesoCalificacion} de 10</span>
+                                  )}
+                                </div>
+                              )}
+                              {sub?.comentario && (
+                                sub.comentarioVisibleAlumno !== undefined
+                                  ? sub.comentarioVisibleAlumno !== false
+                                  : a.comentarioVisibleAlumno !== false
+                              ) && (
+                                <p className="text-sm text-slate-500 leading-tight truncate mt-0.5">&ldquo;{sub.comentario}&rdquo;</p>
+                              )}
+                            </div>
+                            <div className="flex-shrink-0 text-right">
+                              {graded ? (
+                                <div>
+                                  <p className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
+                                    <Star size={13} /> {sub.calificacion}
+                                  </p>
+                                  <p className="text-xs text-slate-500">/{a.maxCalif}</p>
+                                </div>
+                              ) : delivered ? (
+                                <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregada</span>
+                              ) : overdue ? (
+                                <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">Vencida</span>
+                              ) : (
+                                <span className="text-xs bg-surface-container text-muted px-2 py-1 rounded-full">Pendiente</span>
+                              )}
+                            </div>
+                          </button>
+                        )
+                      }
+                      // type === 'material'
+                      const m = item
                       return (
-                        <button
-                          type="button"
-                          key={a.id}
-                          onClick={() => navigate(`/alumno/actividad/${a.id}`)}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded border border-outline-variant bg-surface-card hover:border-accent hover:bg-[var(--accent-tint)] transition-colors duration-200 text-left"
-                        >
-                          <ActIcon size={20} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-base font-medium leading-tight text-on-surface truncate">
-                              {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} </span>}
-                              {a.nombre}
-                              <span className="text-xs font-normal text-slate-400"> ({CATEGORIA_LABELS[a.categoria] || 'Entregable'})</span>
-                            </p>
-                            {((!IS_NATIVE_APP && (publishDate || fechaLimiteLabel)) || showPeso) && (
-                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                {!IS_NATIVE_APP && publishDate && (
-                                  <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
-                                    <Clock size={14} /> {formatPublishAt(publishDate)}
-                                  </span>
-                                )}
-                                {!IS_NATIVE_APP && fechaLimiteLabel && (
-                                  <span data-tooltip={extendedDate ? 'Cierre (con prórroga)' : 'Cierre'} className={`text-xs flex items-center gap-0.5 ${overdue ? 'text-red-500' : 'text-amber-600'}`}>
-                                    <Clock size={14} /> {fechaLimiteLabel}{extendedDate && ' (extendida)'}
-                                  </span>
-                                )}
-                                {showPeso && (
-                                  <span className="text-xs text-amber-700 font-semibold">Vale {a.pesoCalificacion} de 10</span>
-                                )}
-                              </div>
-                            )}
-                            {sub?.comentario && (
-                              sub.comentarioVisibleAlumno !== undefined
-                                ? sub.comentarioVisibleAlumno !== false
-                                : a.comentarioVisibleAlumno !== false
-                            ) && (
-                              <p className="text-sm text-slate-500 leading-tight truncate mt-0.5">&ldquo;{sub.comentario}&rdquo;</p>
-                            )}
+                        <div key={m.id} className="w-full rounded border border-outline-variant overflow-hidden">
+                          <div className="flex items-center gap-3 px-3 py-2">
+                            <BookOpen size={20} className="text-amber-500 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium leading-tight text-on-surface truncate">{m.nombre}</p>
+                              <p className="text-xs text-slate-500 flex items-center gap-0.5">
+                                <Paperclip size={11} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex-shrink-0 text-right">
-                            {graded ? (
-                              <div>
-                                <p className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
-                                  <Star size={13} /> {sub.calificacion}
-                                </p>
-                                <p className="text-xs text-slate-500">/{a.maxCalif}</p>
-                              </div>
-                            ) : delivered ? (
-                              <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregada</span>
-                            ) : overdue ? (
-                              <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">Vencida</span>
-                            ) : (
-                              <span className="text-xs bg-surface-container text-muted px-2 py-1 rounded-full">Pendiente</span>
-                            )}
+                          {m.descripcion && (
+                            <div className={`px-3 pb-2 ml-9 text-sm text-slate-600 ${richTextContentClass}`}
+                              dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.descripcion) }} />
+                          )}
+                          <div className="px-3 pb-2 ml-9">
+                            <AttachmentList files={(m.archivos || []).map((f) => ({ url: f.url, nombre: f.nombre, tamano: f.tamano }))} title={null} />
                           </div>
-                        </button>
+                        </div>
                       )
                     })}
-
-                    {mats.map((m) => (
-                      <div key={m.id} className="w-full rounded border border-outline-variant overflow-hidden">
-                        <div className="flex items-center gap-3 px-3 py-2">
-                          <BookOpen size={20} className="text-amber-500 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium leading-tight text-on-surface truncate">{m.nombre}</p>
-                            <p className="text-xs text-slate-500 flex items-center gap-0.5">
-                              <Paperclip size={11} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
-                            </p>
-                          </div>
-                        </div>
-                        {m.descripcion && (
-                          <div className={`px-3 pb-2 ml-9 text-sm text-slate-600 ${richTextContentClass}`}
-                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.descripcion) }} />
-                        )}
-                        <div className="px-3 pb-2 ml-9">
-                          <AttachmentList files={(m.archivos || []).map((f) => ({ url: f.url, nombre: f.nombre, tamano: f.tamano }))} title={null} />
-                        </div>
-                      </div>
-                    ))}
                     </div>
                   </div>
                 )}
