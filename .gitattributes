@@ -1,0 +1,4 @@
+# Los scripts de shell deben conservar finales LF. Con core.autocrlf=true (el
+# de esta máquina) git los checkoutea con CRLF y bash en Windows falla con
+# "\r: command not found" antes de ejecutar la primera línea.
+*.sh text eol=lf
