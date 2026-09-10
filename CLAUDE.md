@@ -68,10 +68,16 @@ export PATH="$JAVA_HOME/bin:$PATH"
    "Created a new secret version" como si hubiera funcionado. Así se
    perdieron los tres intentos del incidente del 9-sep-2026. NUNCA pegar la
    key en el chat ni en código.
-3. Redesplegar las funciones (para que las nuevas instancias lean la nueva versión):
+3. Redesplegar las funciones (para que las nuevas instancias lean la nueva versión).
+   Solo las que usan la clave, y con el timeout de descubrimiento ampliado:
    ```bash
-   firebase deploy --only functions
+   export FUNCTIONS_DISCOVERY_TIMEOUT=120
+   firebase deploy --only functions:ejecutarOperacionIA,functions:chatAdmin
    ```
+   Sin esa variable el deploy muere con "User code failed to load. Cannot
+   determine backend specification. Timeout after 10000": cargar este
+   codebase tarda más de los 10 s que da firebase-tools por defecto. No es
+   un error del código ni del secreto (visto el 9-sep-2026).
 4. Esperar 60 segundos; verificar en Firebase Console → Functions → Logs que no hay errores 401.
 5. Realizar una prueba manual en producción: generar una rúbrica u otra operación de IA.
 6. Solo si la prueba es exitosa: revocar la key anterior en Anthropic Console.
