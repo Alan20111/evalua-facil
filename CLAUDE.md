@@ -55,10 +55,18 @@ export PATH="$JAVA_HOME/bin:$PATH"
    ```bash
    firebase functions:secrets:set ANTHROPIC_API_KEY_PROD --data-file=C:\Users\Kike\anthropic-key.txt
    ```
-   El archivo contiene **solo la key**, sin salto de línea final, fuera del
-   repositorio, y se borra en cuanto termina el comando. En Windows el modo
-   interactivo (pegar en el prompt) puede guardar un solo carácter o un salto
-   de línea sin avisar — así fue el incidente del 9-sep-2026. NUNCA pegar la
+   Mejor todavía, usar el script que ya hace esto con verificación de ida y
+   vuelta:
+   ```bash
+   bash scripts/cargar-clave-anthropic.sh
+   ```
+   El archivo contiene **solo la key**, fuera del repositorio, y se borra en
+   cuanto termina el comando. **NUNCA usar el prompt interactivo.** Medido el
+   9-sep-2026 contra un secreto de prueba desechable: `--data-file` y stdin
+   conservan íntegro el valor (68 caracteres entran, 68 salen), pero pegar en
+   el prompt TTY de Windows guarda **1 solo carácter** y el CLI responde
+   "Created a new secret version" como si hubiera funcionado. Así se
+   perdieron los tres intentos del incidente del 9-sep-2026. NUNCA pegar la
    key en el chat ni en código.
 3. Redesplegar las funciones (para que las nuevas instancias lean la nueva versión):
    ```bash
