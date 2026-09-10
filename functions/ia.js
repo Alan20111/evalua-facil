@@ -46,7 +46,7 @@ const { resolveVisibilidad } = require('./_shared/activityVisibility.js')
 const { EVALUACION_DEFAULTS } = require('./_shared/evaluacionDefaults.js')
 const { calcularTarifaExamen } = require('./_shared/tarifaExamen.js')
 
-const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
+const ANTHROPIC_API_KEY_PROD = defineSecret('ANTHROPIC_API_KEY_PROD')
 
 // Extensiones que docExtract sabe leer DE VERDAD. Antes esto incluía
 // .doc/.ppt/.pptx/.xls/.xlsx "porque docExtract también los acepta" —
@@ -6206,7 +6206,7 @@ function comoHttpsError(e) {
 // toman ~2 min con la concurrencia limitada; las operaciones unitarias no
 // cambian. El cliente ajusta su propio timeout al llamar (useCreditosIA).
 exports.ejecutarOperacionIA = onCall(
-  { secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 300 },
+  { secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 300 },
   async (request) => {
     const uid = request.auth?.uid
     if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar la IA')
@@ -6302,7 +6302,7 @@ exports.ejecutarOperacionIA = onCall(
       // por el precheck: el ejecutor nunca usa texto pedagógico del cliente.
       salida = await ejecutor({
         params: { ...params, __uid: uid, __idempotencyKey: idempotencyKey, __contexto: precontexto },
-        modelo, apiKey: ANTHROPIC_API_KEY.value(), unidades: n,
+        modelo, apiKey: ANTHROPIC_API_KEY_PROD.value(), unidades: n,
       })
     } catch (e) {
       await ledger.reembolsar({ uid, idempotencyKey, motivo: String(e.message || e).slice(0, 300) })

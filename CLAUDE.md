@@ -29,6 +29,73 @@ export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
 export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
+## Credenciales de IA (Anthropic)
+
+### Secreto de producción
+
+**Nombre en GCP Secret Manager:** `ANTHROPIC_API_KEY_PROD`
+**Proyecto GCP:** `evalua-facil-app`
+**Funciones que lo usan:** `ejecutarOperacionIA` (`functions/ia.js`) y `chatAdmin` (`functions/adminChat.js`)
+**Dónde se crea la key:** console.anthropic.com → Settings → API Keys
+**Nombre sugerido en Anthropic:** `EVALUA-FACIL-PROD`
+**Expiración:** ninguna (nunca poner fecha de expiración a la key de producción)
+
+### Separación producción / pruebas
+
+- Las keys de **prueba o desarrollo** NO deben existir en GCP Secret Manager bajo ningún nombre.
+- Solo el secreto `ANTHROPIC_API_KEY_PROD` llega a Cloud Functions de producción.
+- Para pruebas locales contra Anthropic, usar una variable de entorno temporal en la terminal, nunca commiteada.
+
+### Cómo rotar la key de producción (sin downtime)
+
+1. Ir a console.anthropic.com → Settings → API Keys → **Create Key**
+   - Nombre: `EVALUA-FACIL-PROD` (o sufijo `-v2`, `-v3`, etc.)
+   - Expiración: **ninguna**
+2. Configurar la nueva versión del secreto:
+   ```bash
+   firebase functions:secrets:set ANTHROPIC_API_KEY_PROD
+   # Pegar la key cuando se solicite. NUNCA pegar en el chat ni en código.
+   ```
+3. Redesplegar las funciones (para que las nuevas instancias lean la nueva versión):
+   ```bash
+   firebase deploy --only functions
+   ```
+4. Esperar 60 segundos; verificar en Firebase Console → Functions → Logs que no hay errores 401.
+5. Realizar una prueba manual en producción: generar una rúbrica u otra operación de IA.
+6. Solo si la prueba es exitosa: revocar la key anterior en Anthropic Console.
+7. Verificar nuevamente los logs después de la revocación.
+
+### Ante un error 401 de Anthropic en producción
+
+Señal: los logs de Firebase muestran `AuthenticationError: 401 / API key is invalid.`
+
+1. **No revocar la key actual hasta tener una nueva funcionando.**
+2. Verificar el estado de `ANTHROPIC_API_KEY_PROD` en GCP:
+   ```bash
+   firebase functions:secrets:describe ANTHROPIC_API_KEY_PROD
+   ```
+3. Ir a Anthropic Console y comprobar que la key activa no fue revocada/expirada.
+4. Si fue revocada: crear nueva key y seguir el procedimiento de rotación (arriba).
+5. Si sigue activa: abrir soporte con Anthropic.
+
+### Qué NO hacer
+
+- **Nunca** poner una key de prueba en `ANTHROPIC_API_KEY_PROD`.
+- **Nunca** poner fecha de expiración a la key de producción.
+- **Nunca** pegar la key en el chat, en código, en `.env`, en logs ni en documentación.
+- **Nunca** revocar la key anterior antes de confirmar que la nueva funciona.
+- **Nunca** usar `ANTHROPIC_API_KEY` (sin `_PROD`) — ese nombre fue reemplazado en sep-2026 precisamente para evitar que una key de prueba ocupara el slot de producción.
+
+### Smoke test manual post-deploy
+
+Después de cualquier deploy de Cloud Functions que toque IA:
+1. Abrir Evalúa Fácil en producción como docente con créditos.
+2. Generar una rúbrica (operación IA más común).
+3. Confirmar que se obtiene respuesta y que el crédito se descuenta.
+4. Revisar Firebase Console → Functions → Logs: ausencia de `AuthenticationError`.
+
+---
+
 ### Candado de suscripción (servidor)
 
 Un docente sin suscripción vigente puede leer y exportar, pero no escribir. El
