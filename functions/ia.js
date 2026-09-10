@@ -46,7 +46,7 @@ const { resolveVisibilidad } = require('./_shared/activityVisibility.js')
 const { EVALUACION_DEFAULTS } = require('./_shared/evaluacionDefaults.js')
 const { calcularTarifaExamen } = require('./_shared/tarifaExamen.js')
 
-const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
+const ANTHROPIC_API_KEY_PROD = defineSecret('ANTHROPIC_API_KEY_PROD')
 
 // Extensiones que docExtract sabe leer DE VERDAD. Antes esto incluía
 // .doc/.ppt/.pptx/.xls/.xlsx "porque docExtract también los acepta" —
@@ -6202,11 +6202,40 @@ function comoHttpsError(e) {
   return new HttpsError('unavailable', 'No se pudo completar la operación. No se descontaron créditos.')
 }
 
+// Un secreto mal cargado (vacío, con el salto de línea del pegado, con un
+// carácter suelto porque la consola de Windows se comió la clave) NO falla
+// como un 401 de Anthropic: undici rechaza la CABECERA antes de salir a la
+// red ("invalid x-api-key header") y el SDK lo reporta como
+// `APIConnectionError: Connection error`. En la pantalla del docente eso se
+// veía como "El asistente de IA no está disponible en este momento" —
+// idéntico a una caída de Anthropic, sin ninguna pista de que el problema
+// era la clave y de que se arregla en Secret Manager (incidente 9-sep-2026).
+//
+// Se comprueba ANTES de reservar créditos: así el fallo ni siquiera entra al
+// ciclo reservar → ejecutar → reembolsar, y el mensaje dice qué hacer.
+function claveAnthropic() {
+  const clave = String(ANTHROPIC_API_KEY_PROD.value() || '').trim()
+  // Solo forma: longitud razonable y ASCII imprimible (lo único que una
+  // cabecera HTTP acepta). Si la clave es válida pero está revocada, esto la
+  // deja pasar y Anthropic responde 401 — que es el camino correcto.
+  if (!/^sk-ant-[\x21-\x7E]{20,}$/.test(clave)) {
+    logger.error(
+      `ANTHROPIC_API_KEY_PROD tiene un valor inválido (${clave.length} caracteres tras recortar espacios). ` +
+      'Cargar de nuevo el secreto en GCP Secret Manager y redesplegar las funciones — ver CLAUDE.md.'
+    )
+    throw new HttpsError(
+      'failed-precondition',
+      'La IA no está configurada correctamente en el servidor. Avisa al administrador. No se descontaron créditos.'
+    )
+  }
+  return clave
+}
+
 // timeoutSeconds 300: los lotes de C-02 (p. ej. 50 estudiantes × 3 abiertas)
 // toman ~2 min con la concurrencia limitada; las operaciones unitarias no
 // cambian. El cliente ajusta su propio timeout al llamar (useCreditosIA).
 exports.ejecutarOperacionIA = onCall(
-  { secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 300 },
+  { secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 300 },
   async (request) => {
     const uid = request.auth?.uid
     if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar la IA')
@@ -6223,6 +6252,10 @@ exports.ejecutarOperacionIA = onCall(
       throw new HttpsError('unimplemented', 'Esta operación de IA aún no está disponible')
     }
     const unidadesCliente = Number.isInteger(unidades) && unidades > 0 && unidades <= 500 ? unidades : 1
+
+    // Antes de tocar créditos: si la clave de Anthropic no sirve, no hay
+    // operación posible y el docente se entera de que es configuración.
+    const apiKey = claveAnthropic()
 
     // Comprobaciones previas a CUALQUIER cobro: propiedad de la actividad,
     // categoría válida y suficiencia del contexto. Si algo de esto falla, el
@@ -6302,7 +6335,7 @@ exports.ejecutarOperacionIA = onCall(
       // por el precheck: el ejecutor nunca usa texto pedagógico del cliente.
       salida = await ejecutor({
         params: { ...params, __uid: uid, __idempotencyKey: idempotencyKey, __contexto: precontexto },
-        modelo, apiKey: ANTHROPIC_API_KEY.value(), unidades: n,
+        modelo, apiKey, unidades: n,
       })
     } catch (e) {
       await ledger.reembolsar({ uid, idempotencyKey, motivo: String(e.message || e).slice(0, 300) })
