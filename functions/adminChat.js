@@ -645,7 +645,19 @@ exports.chatAdmin = onCall(
       .map((h) => ({ role: h.role, content: h.content }))
 
     const Anthropic = require('@anthropic-ai/sdk')
-    const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY_PROD.value() })
+    // Mismo candado que ejecutarOperacionIA (ver functions/ia.js): un secreto
+    // mal cargado rompe la CABECERA HTTP, no la autenticación, y sin esta
+    // comprobación se reporta como "Connection error" sin decir que la clave
+    // es el problema.
+    const apiKey = String(ANTHROPIC_API_KEY_PROD.value() || '').trim()
+    if (!/^sk-ant-[\x21-\x7E]{20,}$/.test(apiKey)) {
+      logger.error(
+        `ANTHROPIC_API_KEY_PROD tiene un valor inválido (${apiKey.length} caracteres tras recortar espacios). ` +
+        'Cargar de nuevo el secreto en GCP Secret Manager y redesplegar las funciones — ver CLAUDE.md.'
+      )
+      throw new HttpsError('failed-precondition', 'La IA no está configurada correctamente en el servidor.')
+    }
+    const client = new Anthropic({ apiKey })
     const costos = await obtenerConfigCostos(db)
 
     const inicio = Date.now()

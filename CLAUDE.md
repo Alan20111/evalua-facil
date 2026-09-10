@@ -53,9 +53,13 @@ export PATH="$JAVA_HOME/bin:$PATH"
    - Expiración: **ninguna**
 2. Configurar la nueva versión del secreto:
    ```bash
-   firebase functions:secrets:set ANTHROPIC_API_KEY_PROD
-   # Pegar la key cuando se solicite. NUNCA pegar en el chat ni en código.
+   firebase functions:secrets:set ANTHROPIC_API_KEY_PROD --data-file=C:\Users\Kike\anthropic-key.txt
    ```
+   El archivo contiene **solo la key**, sin salto de línea final, fuera del
+   repositorio, y se borra en cuanto termina el comando. En Windows el modo
+   interactivo (pegar en el prompt) puede guardar un solo carácter o un salto
+   de línea sin avisar — así fue el incidente del 9-sep-2026. NUNCA pegar la
+   key en el chat ni en código.
 3. Redesplegar las funciones (para que las nuevas instancias lean la nueva versión):
    ```bash
    firebase deploy --only functions
@@ -77,6 +81,30 @@ Señal: los logs de Firebase muestran `AuthenticationError: 401 / API key is inv
 3. Ir a Anthropic Console y comprobar que la key activa no fue revocada/expirada.
 4. Si fue revocada: crear nueva key y seguir el procedimiento de rotación (arriba).
 5. Si sigue activa: abrir soporte con Anthropic.
+
+### Ante `invalid x-api-key header` / `APIConnectionError: Connection error`
+
+Señal: los logs muestran `IA(...) falló: APIConnectionError: Connection error`
+con `cause: InvalidArgumentError: invalid x-api-key header`. **No es una caída
+de Anthropic ni un 401**: el valor del secreto está mal cargado (vacío, con un
+salto de línea, con un carácter suelto), y undici rechaza la cabecera antes de
+salir a la red.
+
+Desde el 9-sep-2026 `ejecutarOperacionIA` y `chatAdmin` comprueban la forma de
+la key antes de reservar créditos, así que este caso aparece como
+`failed-precondition` con el mensaje "La IA no está configurada correctamente
+en el servidor" y un `logger.error` que dice cuántos caracteres tiene.
+
+Comprobar la forma del secreto sin imprimirlo (PowerShell):
+
+```bash
+$p = firebase functions:secrets:access ANTHROPIC_API_KEY_PROD | Out-String
+"len=$($p.Trim().Length) ok=$($p.Trim() -match '^sk-ant-[\x21-\x7E]{20,}$')"
+```
+
+Si no sale `ok=True`, volver a cargar el secreto con `--data-file` (paso 2 de
+la rotación) y **redesplegar las funciones**: la versión del secreto queda
+fijada en el despliegue, así que cargar una versión nueva no basta.
 
 ### Qué NO hacer
 
