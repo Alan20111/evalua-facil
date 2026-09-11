@@ -309,6 +309,22 @@ const AttendanceTable = memo(function AttendanceTable({
     return () => cic(id)
   }, [attendanceParciales, filteredAttendanceStudents])
 
+  // Denominadores por parcial calculados UNA VEZ — son propiedades de la asignatura,
+  // no del alumno, así que no tiene sentido recalcularlos dentro del map de estudiantes.
+  const denPorParcial = Object.fromEntries(
+    attendanceParciales.map((g) => {
+      const p = String(g.parcial)
+      const den = parcialesCerrados?.[g.parcial]
+        ? (totalOficialPorParcial?.[p] ?? null)
+        : (sesionesPorParcialEstimadas?.[p] ?? totalOficialPorParcial?.[p] ?? null)
+      return [g.parcial, den]
+    })
+  )
+  // Denominador total = suma de parciales solo si TODOS tienen denominador conocido.
+  const denTotal = attendanceParciales.length > 0 && attendanceParciales.every((g) => denPorParcial[g.parcial] != null)
+    ? attendanceParciales.reduce((sum, g) => sum + denPorParcial[g.parcial], 0)
+    : null
+
   return (
   <table onMouseOver={handleAttHover} onFocus={handleAttHover} onMouseLeave={clearAttHighlight}
     className={`${IS_NATIVE_APP ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
@@ -500,10 +516,9 @@ const AttendanceTable = memo(function AttendanceTable({
           </td>
           {attendanceParciales.flatMap((g) => {
             const { asist, inasist } = countPresence(g.records, s.id, enrolledFrom)
-            const denominador = parcialesCerrados?.[g.parcial]
-              ? (totalOficialPorParcial?.[String(g.parcial)] ?? null)
-              : (sesionesPorParcialEstimadas?.[String(g.parcial)] ?? totalOficialPorParcial?.[String(g.parcial)] ?? null)
-            const pctInasist = denominador > 0 ? Math.round((inasist / denominador) * 100) : null
+            const denominador = denPorParcial[g.parcial]
+            const pctAsist    = denominador > 0 ? (asist   / denominador * 100) : null
+            const pctInasist  = denominador > 0 ? (inasist / denominador * 100) : null
             const riesgo = pctInasist == null ? null
               : pctInasist >= (umbralInasistencia ?? 20) ? '🔴'
               : pctInasist >= (umbralInasistencia ?? 20) * 0.75 ? '🟠'
@@ -556,23 +571,31 @@ const AttendanceTable = memo(function AttendanceTable({
               })),
               <td key={`a-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-green-600 tabular-nums bg-green-50 border-l-2 border-outline">
                 {asist}
+                {pctAsist != null && <span className="block text-[9px] font-normal text-green-500 leading-none mt-0.5 tabular-nums">{pctAsist.toFixed(1)}%</span>}
               </td>,
               <td key={`i-${g.parcial}`} className="px-0.5 py-1 text-center tabular-nums bg-red-50">
                 <span className="font-semibold text-red-500">{inasist}</span>
+                {pctInasist != null && <span className="block text-[9px] font-normal text-red-400 leading-none mt-0.5 tabular-nums">{pctInasist.toFixed(1)}%</span>}
                 {riesgo && <span className="block text-[9px] leading-none mt-0.5">{riesgo}</span>}
               </td>,
             ]
           })}
-          {!IS_NATIVE_APP && (
-            <>
-              <td className="px-0.5 py-1 text-center font-bold text-green-600 tabular-nums bg-green-100/60 border-l-2 border-outline">
-                {total.asist}
-              </td>
-              <td className="px-0.5 py-1 text-center font-bold text-red-500 tabular-nums bg-red-100/60">
-                {total.inasist}
-              </td>
-            </>
-          )}
+          {!IS_NATIVE_APP && (() => {
+            const pctAsistTot  = denTotal > 0 ? (total.asist   / denTotal * 100) : null
+            const pctInasistTot = denTotal > 0 ? (total.inasist / denTotal * 100) : null
+            return (
+              <>
+                <td className="px-0.5 py-1 text-center font-bold text-green-600 tabular-nums bg-green-100/60 border-l-2 border-outline">
+                  {total.asist}
+                  {pctAsistTot != null && <span className="block text-[9px] font-normal text-green-500 leading-none mt-0.5 tabular-nums">{pctAsistTot.toFixed(1)}%</span>}
+                </td>
+                <td className="px-0.5 py-1 text-center font-bold text-red-500 tabular-nums bg-red-100/60">
+                  {total.inasist}
+                  {pctInasistTot != null && <span className="block text-[9px] font-normal text-red-400 leading-none mt-0.5 tabular-nums">{pctInasistTot.toFixed(1)}%</span>}
+                </td>
+              </>
+            )
+          })()}
         </tr>
         )
       })}
