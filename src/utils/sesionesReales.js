@@ -73,8 +73,8 @@ export function calcularSesionesReales({
   if (parcial != null) {
     const p = parcialesFechas?.[parcial - 1]
     if (!p?.inicio || !p?.fin) return { sesiones: [], resumen: resumenVacio() }
-    rangoInicio = p.inicio
-    rangoFin = p.fin
+    rangoInicio = rangoInicio > p.inicio ? rangoInicio : p.inicio
+    rangoFin    = rangoFin   < p.fin    ? rangoFin   : p.fin
   }
   if (!rangoInicio || !rangoFin) return { sesiones: [], resumen: resumenVacio() }
 

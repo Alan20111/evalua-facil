@@ -143,6 +143,7 @@ export default function StudentSubjectPage() {
   const [deleteAvisoConfirm, setDeleteAvisoConfirm] = useState(null) // el aviso que se está por eliminar
   const [deletingAviso, setDeletingAviso] = useState(false)
   const [attendanceSummary, setAttendanceSummary] = useState(null)
+  const [umbralInasistencia, setUmbralInasistencia] = useState(20)
   const [teacherName, setTeacherName] = useState('')
   const [teacherPhoto, setTeacherPhoto] = useState(null)
   const [openParcial, setOpenParcial] = useState(1)
@@ -180,7 +181,7 @@ export default function StudentSubjectPage() {
     return () => { attSummaryUnsubRef.current?.(); attSummaryUnsubRef.current = null }
   }, [studentId])
 
-  // Listener en tiempo real para totalOficialPorParcial del docente.
+  // Listener en tiempo real para campos de denominador y cierre de parciales.
   useEffect(() => {
     if (!subjectId) return
     subjectTotalUnsubRef.current?.()
@@ -188,13 +189,30 @@ export default function StudentSubjectPage() {
       doc(db, 'subjects', subjectId),
       (snap) => {
         if (!snap.exists()) return
-        const total = snap.data().totalOficialPorParcial ?? null
-        setSubject((prev) => prev ? { ...prev, totalOficialPorParcial: total } : prev)
+        const d = snap.data()
+        setSubject((prev) => prev ? {
+          ...prev,
+          totalOficialPorParcial: d.totalOficialPorParcial ?? null,
+          sesionesPorParcialEstimadas: d.sesionesPorParcialEstimadas ?? null,
+          parcialesCerrados: d.parcialesCerrados ?? null,
+        } : prev)
       },
       () => {},
     )
     return () => { subjectTotalUnsubRef.current?.(); subjectTotalUnsubRef.current = null }
   }, [subjectId])
+
+  // Umbral institucional de inasistencia — lectura única al montar.
+  useEffect(() => {
+    const escuelaId = userProfile?.escuelaId
+    if (!escuelaId) return
+    getDoc(doc(db, 'schools', escuelaId)).then((snap) => {
+      if (snap.exists()) {
+        const u = snap.data().umbralInasistencia
+        if (typeof u === 'number' && u > 0) setUmbralInasistencia(u)
+      }
+    }).catch(() => {})
+  }, [userProfile?.escuelaId])
 
   // "Salir de esta asignatura" — mismo ocultamiento de siempre (ocultaPorAlumno,
   // ver Dashboard.jsx), no borra nada: el docente sigue viendo al alumno igual
@@ -857,14 +875,22 @@ export default function StudentSubjectPage() {
               }, { asist: 0, inasist: 0, justif: 0, total: 0 })
               if (stat.total === 0) return null
 
-              // Porcentaje solo cuando el docente capturó el total oficial.
-              const totalOficial = subject?.totalOficialPorParcial?.[String(p)] ?? null
-              const pct = (totalOficial != null && totalOficial > 0)
-                ? Math.round((stat.asist / totalOficial) * 100)
+              // Denominador: si el parcial está cerrado usa el total oficial confirmado;
+              // si no, usa la estimación calculada por el servidor (misma fuente que el docente).
+              const cerrado = subject?.parcialesCerrados?.[String(p)]
+              const denominador = cerrado
+                ? (subject?.totalOficialPorParcial?.[String(p)] ?? null)
+                : (subject?.sesionesPorParcialEstimadas?.[String(p)] ?? subject?.totalOficialPorParcial?.[String(p)] ?? null)
+              const pct = (denominador != null && denominador > 0)
+                ? Math.round((stat.asist / denominador) * 100)
                 : null
-              const pctInasist = (totalOficial != null && totalOficial > 0)
-                ? Math.round((stat.inasist / totalOficial) * 100)
+              const pctInasist = (denominador != null && denominador > 0)
+                ? Math.round((stat.inasist / denominador) * 100)
                 : null
+              const riesgo = pctInasist == null ? null
+                : pctInasist >= umbralInasistencia ? '🔴'
+                : pctInasist >= umbralInasistencia * 0.75 ? '🟠'
+                : '🟢'
 
               const attColumns = [
                 {
@@ -917,9 +943,13 @@ export default function StudentSubjectPage() {
                       </p>
                       {pct != null && (
                         <p className="text-xs mt-0.5">
-                          <span className={`font-semibold ${pct < 80 ? 'text-red-500' : 'text-accent'}`}>{pct}% asistencia</span>
+                          {riesgo && <span className="mr-1">{riesgo}</span>}
+                          <span className={`font-semibold ${pctInasist != null && pctInasist >= umbralInasistencia ? 'text-red-500' : 'text-accent'}`}>{pct}% asistencia</span>
                           {pctInasist != null && pctInasist > 0 && (
                             <span className="text-slate-400"> · {pctInasist}% inasistencia</span>
+                          )}
+                          {!cerrado && denominador != null && (
+                            <span className="text-slate-400"> · {denominador} sesiones est.</span>
                           )}
                         </p>
                       )}

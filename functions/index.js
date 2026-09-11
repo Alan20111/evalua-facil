@@ -829,6 +829,8 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
 const { normalizeGrade } = require('./_shared/ponderacion.js')
 const { normalizarPalabra } = require('./_shared/normalizarPalabra.js')
 const { parcialForDate } = require('./_shared/parciales.js')
+const { calcularSesionesReales } = require('./_shared/sesionesReales.js')
+const { fechasVacacionParaClases } = require('./_shared/vacaciones.js')
 
 function calificarSopaDeLetras(estructura, respuestasJuego) {
   const total = estructura.palabras.length
@@ -1059,25 +1061,110 @@ exports.onAttendanceEscrita = onDocumentWritten('attendance/{attendanceId}', asy
   await Promise.all(afectados.map((studentId) => recalcularResumenAsistencia(asignaturaId, studentId)))
 })
 
-// Cuando el docente modifica las fechas de los parciales (parcialesFechas),
-// recalcula los attendanceSummaries de todos los alumnos de esa asignatura.
-// Así la redistribución de sesiones entre parciales queda reflejada en
-// tiempo real en la vista del alumno — sin necesidad de esperar a que se
-// edite algún pase de lista.
+// Calcula las sesiones estimadas por parcial para una asignatura y las guarda
+// en subjects.sesionesPorParcialEstimadas. Es la ÚNICA fuente de verdad del
+// denominador estimado — tanto el docente como el alumno leen este campo.
+// Reutiliza el mismo patrón de lectura de ia.js (asuetos+vacaciones+canceladas).
+async function recomputarSesionesEstimadas(subjectId) {
+  const subjRef = db.collection('subjects').doc(subjectId)
+  const subjSnap = await subjRef.get()
+  if (!subjSnap.exists) return
+  const subj = subjSnap.data()
+  if (!Array.isArray(subj.horarioPatron) || !subj.horarioPatron.length) return
+  if (!subj.fechaInicio || !subj.fechaFin) return
+  const parcialesFechas = Array.isArray(subj.parcialesFechas) ? subj.parcialesFechas : []
+  if (!parcialesFechas.length) return
+  const uid = subj.docenteId
+  const [asuetosSnap, vacSnap, bloquesSnap] = await Promise.all([
+    db.collection('asuetos').where('docenteId', '==', uid).get(),
+    db.collection('vacaciones').where('docenteId', '==', uid).get(),
+    db.collection('horarioBloques').where('docenteId', '==', uid)
+      .where('asignaturaId', '==', subjectId).get(),
+  ])
+  const diasAsueto = [
+    ...asuetosSnap.docs.map((d) => d.data()).filter((a) => a.clases).map((a) => a.fecha),
+    ...fechasVacacionParaClases(vacSnap.docs.map((d) => d.data())),
+  ]
+  const sesionesCanceladas = bloquesSnap.docs.map((d) => d.data())
+    .filter((b) => b.cancelada).map((b) => ({ fecha: b.fecha, horaInicio: b.horaInicio }))
+  const numParciales = Math.max(1, Number(subj.parciales) || 1)
+  const sesionesPorParcialEstimadas = {}
+  for (let p = 1; p <= numParciales; p++) {
+    const { resumen } = calcularSesionesReales({
+      fechaInicio: subj.fechaInicio,
+      fechaFin: subj.fechaFin,
+      parcialesFechas,
+      horarioPatron: subj.horarioPatron,
+      diasAsueto,
+      sesionesCanceladas,
+      parcial: p,
+    })
+    sesionesPorParcialEstimadas[String(p)] = resumen.sesionesTotales
+  }
+  await subjRef.update({ sesionesPorParcialEstimadas })
+}
+
+// Cuando el docente modifica parcialesFechas, horarioPatron, fechaInicio o
+// fechaFin: (a) recalcula attendanceSummaries si cambiaron parcialesFechas;
+// (b) recomputa la estimación de sesiones si cambió cualquiera de los cuatro.
 exports.onSubjectEscrito = onDocumentWritten('subjects/{subjectId}', async (event) => {
   const before = event.data?.before?.exists ? event.data.before.data() : null
   const after  = event.data?.after?.exists  ? event.data.after.data()  : null
   if (!after) return
-  // Solo actuar cuando parcialesFechas realmente cambió — evita recalcular
-  // en cada edición de nombre, grupo, iconos u otros campos de la asignatura.
-  if (JSON.stringify(before?.parcialesFechas) === JSON.stringify(after.parcialesFechas)) return
   const subjectId = event.params.subjectId
-  const summariesSnap = await db.collection('attendanceSummaries')
-    .where('asignaturaId', '==', subjectId).get()
-  if (summariesSnap.empty) return
-  await Promise.all(summariesSnap.docs.map((d) =>
-    recalcularResumenAsistencia(subjectId, d.id),
-  ))
+  const parcialesChanged  = JSON.stringify(before?.parcialesFechas) !== JSON.stringify(after.parcialesFechas)
+  const horarioChanged    = JSON.stringify(before?.horarioPatron)   !== JSON.stringify(after.horarioPatron)
+  const fechaInicioChanged = before?.fechaInicio !== after.fechaInicio
+  const fechaFinChanged    = before?.fechaFin    !== after.fechaFin
+  const tasks = []
+  if (parcialesChanged) {
+    const summariesSnap = await db.collection('attendanceSummaries')
+      .where('asignaturaId', '==', subjectId).get()
+    if (!summariesSnap.empty) {
+      tasks.push(Promise.all(summariesSnap.docs.map((d) =>
+        recalcularResumenAsistencia(subjectId, d.id),
+      )))
+    }
+  }
+  if (parcialesChanged || horarioChanged || fechaInicioChanged || fechaFinChanged) {
+    tasks.push(recomputarSesionesEstimadas(subjectId))
+  }
+  await Promise.all(tasks)
+})
+
+// Cuando se crea, modifica o elimina un bloque de horario (incluyendo
+// cancelaciones), recomputa las sesiones estimadas de esa asignatura.
+exports.onHorarioBloqueEscrito = onDocumentWritten('horarioBloques/{bloqueId}', async (event) => {
+  const after  = event.data?.after?.exists  ? event.data.after.data()  : null
+  const before = event.data?.before?.exists ? event.data.before.data() : null
+  const data = after || before
+  if (!data?.asignaturaId) return
+  // Solo recomputa si cambió el campo cancelada (o si es creación/eliminación).
+  if (after && before && before.cancelada === after.cancelada) return
+  await recomputarSesionesEstimadas(data.asignaturaId)
+})
+
+// Cuando el docente agrega, modifica o elimina un asueto, recomputa las
+// sesiones estimadas de TODAS sus asignaturas activas.
+exports.onAsuetoEscrito = onDocumentWritten('asuetos/{asuetoId}', async (event) => {
+  const after  = event.data?.after?.exists  ? event.data.after.data()  : null
+  const before = event.data?.before?.exists ? event.data.before.data() : null
+  const uid = (after || before)?.docenteId
+  if (!uid) return
+  const snap = await db.collection('subjects').where('docenteId', '==', uid)
+    .where('archived', '==', false).get()
+  await Promise.all(snap.docs.map((d) => recomputarSesionesEstimadas(d.id)))
+})
+
+// Igual que onAsuetoEscrito pero para periodos vacacionales.
+exports.onVacacionEscrita = onDocumentWritten('vacaciones/{vacacionId}', async (event) => {
+  const after  = event.data?.after?.exists  ? event.data.after.data()  : null
+  const before = event.data?.before?.exists ? event.data.before.data() : null
+  const uid = (after || before)?.docenteId
+  if (!uid) return
+  const snap = await db.collection('subjects').where('docenteId', '==', uid)
+    .where('archived', '==', false).get()
+  await Promise.all(snap.docs.map((d) => recomputarSesionesEstimadas(d.id)))
 })
 
 // ─── 5) Programadas + recordatorios de entrega ─────────────────────────────

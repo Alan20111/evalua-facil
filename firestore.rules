@@ -352,7 +352,9 @@ service cloud.firestore {
       // solo los cambia el administrador o quien pertenece a esa escuela. Todo
       // lo demás se puede seguir completando, que es lo que el alta necesita.
       allow update: if isAdmin() || (
-        isDocente() && (
+        isDocente() &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['umbralInasistencia']) &&
+        (
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('escuelaId', '') == schoolId ||
           (
             request.resource.data.get('nombre', '') == resource.data.get('nombre', '') &&
