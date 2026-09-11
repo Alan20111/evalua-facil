@@ -893,7 +893,7 @@ export default function StudentSubjectPage() {
                   </div>
 
                   {/* Lista de días con sus sesiones individuales */}
-                  <div className="divide-y divide-outline-variant/50">
+                  <div className="divide-y divide-outline-variant">
                     {diasOrdenados.map((fecha) => {
                       const sesiones = diasMap.get(fecha)
                       return (

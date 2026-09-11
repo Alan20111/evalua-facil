@@ -4210,7 +4210,7 @@ export default function SubjectPage() {
       await updateDoc(doc(db, 'subjects', subjectId), { totalOficialPorParcial: next })
       setSubject((s) => s ? { ...s, totalOficialPorParcial: next } : s)
     }, 800)
-  }, [subject, subjectId, db])
+  }, [subject, subjectId])
 
   // Tabla de asistencias — ver componente AttendanceTable (memo) arriba.
   const attendanceTableJsx = (
