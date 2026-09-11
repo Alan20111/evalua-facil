@@ -275,7 +275,7 @@ export default function StudentActivityPage() {
       setShowFireworks(true)
       loadOther()
     } catch (err) {
-      toast('Error al subir: ' + err.message, 'error')
+      toast(err.message || 'Ocurrió un error al entregar. Inténtalo de nuevo.', 'error')
     } finally {
       setUploading(false)
     }

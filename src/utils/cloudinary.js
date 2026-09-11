@@ -36,21 +36,40 @@ export function pdfPageImageUrl(url, page = 1) {
 // La firma cubre { folder, timestamp } y Cloudinary la acepta hasta 1 hora
 // después del timestamp (ventana fija de su API; no existe forma oficial de
 // acortarla sin almacenar nonces).
+//
+// El flujo tiene tres etapas bien diferenciadas. Los errores de cada etapa
+// producen mensajes distintos para que sea posible saber dónde falló sin
+// necesidad de abrir DevTools:
+//   Etapa 1 — autenticación Firebase (getIdToken)
+//   Etapa 2 — firma     (/api/subject/sign-upload, servidor propio)
+//   Etapa 3 — subida    (api.cloudinary.com, cross-origin)
 export async function uploadToCloudinary(file, folder = 'evalua-facil/uploads') {
+  // ── Etapa 1: autenticación ────────────────────────────────────────────────
   const token = await auth.currentUser?.getIdToken()
   if (!token) throw new Error('No autenticado')
 
-  const sigRes = await fetch(apiUrl('/api/subject/sign-upload'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ folder }),
-  })
-  if (!sigRes.ok) {
-    const motivo = await sigRes.json().then((j) => j?.error).catch(() => null)
-    throw new Error(motivo || 'No se pudo iniciar la subida')
+  // ── Etapa 2: firma (servidor propio) ──────────────────────────────────────
+  let sigData
+  try {
+    const sigRes = await fetch(apiUrl('/api/subject/sign-upload'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ folder }),
+    })
+    if (!sigRes.ok) {
+      const motivo = await sigRes.json().then((j) => j?.error).catch(() => null)
+      throw new Error(motivo || 'No se pudo preparar la subida')
+    }
+    sigData = await sigRes.json()
+  } catch (err) {
+    // TypeError = la petición al servidor no obtuvo respuesta (red, no el servidor)
+    if (err instanceof TypeError) {
+      throw new Error('No se pudo preparar la subida. Revisa tu conexión e inténtalo de nuevo.', { cause: err })
+    }
+    throw err
   }
-  const { cloudName, apiKey, timestamp, signature } = await sigRes.json()
 
+  const { cloudName, apiKey, timestamp, signature } = sigData
   const isRaw = NON_IMAGE_EXTS.includes(fileExt(file))
   const resourceType = isRaw ? 'raw' : 'auto'
 
@@ -61,12 +80,38 @@ export async function uploadToCloudinary(file, folder = 'evalua-facil/uploads') 
   formData.append('signature', signature)
   formData.append('folder', folder)
 
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
-    { method: 'POST', body: formData }
-  )
+  // ── Etapa 3: subida a Cloudinary (cross-origin) ───────────────────────────
+  let res
+  try {
+    res = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
+      { method: 'POST', body: formData }
+    )
+  } catch (err) {
+    // TypeError aquí = el navegador no completó la petición a Cloudinary.
+    // Causas posibles: red interrumpida, archivo no legible desde el dispositivo
+    // (ej. PDF proveniente de almacenamiento cloud), o fallo en el preflight CORS.
+    // No se puede distinguir entre ellas desde JS — el mensaje al usuario es neutro.
+    console.error('[cloudinary] upload falló antes de recibir respuesta de Cloudinary:', {
+      etapa: 'fetch-cloudinary',
+      errorTipo: err?.constructor?.name,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      resourceType,
+    })
+    throw new Error('No se pudo subir el archivo. Revisa tu conexión e inténtalo de nuevo.', { cause: err })
+  }
   if (!res.ok) {
     const motivo = await res.json().then((j) => j?.error?.message).catch(() => null)
+    console.error('[cloudinary] upload rechazado por Cloudinary:', {
+      status: res.status,
+      motivo,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      resourceType,
+    })
     throw new Error(motivo ? `Error al subir el archivo: ${motivo}` : 'Error al subir el archivo')
   }
   return (await res.json()).secure_url
