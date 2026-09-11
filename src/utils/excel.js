@@ -540,7 +540,7 @@ export async function exportEvaluacionResultadosExcel({
   await finalizeWorkbook(workbook, `resultados_${safeActivity}_${safeExcelName(subject)}.xlsx`, watermark)
 }
 
-export async function exportParcialAttendance({ subject, students, attendanceParciales, parcial, membrete = null, watermark = false }) {
+export async function exportParcialAttendance({ subject, students, attendanceParciales, parcial, membrete = null, watermark = false, denominadoresPorParcial = {} }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
@@ -548,20 +548,23 @@ export async function exportParcialAttendance({ subject, students, attendancePar
   const days = g?.days || []
   const dayHeaders = attendanceColumnHeaders(days)
   const FIXED = 2
-  const totalCols = FIXED + dayHeaders.length + 2
+  const EXTRA = 5 // Asist. Faltas Justif. % Asist. Sesiones
+  const totalCols = FIXED + dayHeaders.length + EXTRA
 
   const periodo = subjectPeriodLabel(subject)
   const titulo = `${subjectDisplayName(subject)} — Asistencia · Parcial ${parcial}${periodo ? `   (${periodo})` : ''}`
 
-  const nameRow = ['#', 'NOMBRE', ...dayHeaders, 'Asist.', 'Faltas']
+  const nameRow = ['#', 'NOMBRE', ...dayHeaders, 'Asist.', 'Faltas', 'Justif.', '% Asist.', 'Sesiones']
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  const denominador = denominadoresPorParcial[String(parcial)] ?? null
   const dataRows = sorted.map((s) => {
     const enrolledFrom = enrolledFromDate(s)
     const row = [s.orden, studentFullName(s)]
     row.push(...attendanceRowCells(days, s.id, enrolledFrom))
-    const { asist, inasist } = countPresence(g?.records || [], s.id, enrolledFrom)
-    row.push(asist, inasist)
+    const { asist, inasist, justif } = countPresence(g?.records || [], s.id, enrolledFrom)
+    const pct = denominador > 0 ? Math.round((asist / denominador) * 100) : null
+    row.push(asist, inasist, justif ?? 0, pct != null ? `${pct}%` : '', denominador ?? '')
     return row
   })
 
@@ -569,7 +572,7 @@ export async function exportParcialAttendance({ subject, students, attendancePar
 
   addSheetFromRows(workbook, `Parcial ${parcial}`, allRows, {
     merges: headerMerges(totalCols),
-    colWidths: [4, 42, ...Array(totalCols - FIXED).fill(9)],
+    colWidths: [4, 42, ...Array(dayHeaders.length).fill(9), 8, 8, 8, 9, 9],
     rowHeights: [[1, 22], [HEADER_ROWS + 1, 18]],
   })
 
@@ -577,14 +580,15 @@ export async function exportParcialAttendance({ subject, students, attendancePar
   await finalizeWorkbook(workbook, `asistencia_parcial${parcial}_${safeName}.xlsx`, watermark)
 }
 
-export async function exportSubjectAttendance({ subject, students, attendanceParciales, membrete = null, watermark = false }) {
+export async function exportSubjectAttendance({ subject, students, attendanceParciales, membrete = null, watermark = false, denominadoresPorParcial = {} }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
   const FIXED = 2
+  const EXTRA_PER_PARCIAL = 5 // Asist. Faltas Justif. % Asist. Sesiones
   const parcialMeta = attendanceParciales.map((g) => {
     const dayHeaders = attendanceColumnHeaders(g.days)
-    return { ...g, dayHeaders, cols: dayHeaders.length + 2 }
+    return { ...g, dayHeaders, cols: dayHeaders.length + EXTRA_PER_PARCIAL }
   })
 
   const totalCols = FIXED + parcialMeta.reduce((s, m) => s + m.cols, 0) + 2
@@ -603,7 +607,7 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
   sectionRow[col] = 'TOTAL'
 
   const nameRow = ['#', 'NOMBRE']
-  parcialMeta.forEach((m) => { nameRow.push(...m.dayHeaders, 'Asist.', 'Faltas') })
+  parcialMeta.forEach((m) => { nameRow.push(...m.dayHeaders, 'Asist.', 'Faltas', 'Justif.', '% Asist.', 'Sesiones') })
   nameRow.push('Total Asist.', 'Total Faltas')
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
@@ -614,8 +618,10 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
     let totalInasist = 0
     parcialMeta.forEach((m) => {
       row.push(...attendanceRowCells(m.days, s.id, enrolledFrom))
-      const { asist, inasist } = countPresence(m.records, s.id, enrolledFrom)
-      row.push(asist, inasist)
+      const { asist, inasist, justif } = countPresence(m.records, s.id, enrolledFrom)
+      const denominador = denominadoresPorParcial[String(m.parcial)] ?? null
+      const pct = denominador > 0 ? Math.round((asist / denominador) * 100) : null
+      row.push(asist, inasist, justif ?? 0, pct != null ? `${pct}%` : '', denominador ?? '')
       totalAsist += asist
       totalInasist += inasist
     })
@@ -631,9 +637,10 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
     ...parcialMeta.map((m) => [SECTION_ROW, parcialRanges[m.parcial].start + 1, SECTION_ROW, parcialRanges[m.parcial].end + 1]),
   ]
 
+  const dayColWidths = parcialMeta.flatMap((m) => [...Array(m.dayHeaders.length).fill(9), 8, 8, 8, 9, 9])
   addSheetFromRows(workbook, 'Asistencia', allRows, {
     merges,
-    colWidths: [4, 42, ...Array(totalCols - FIXED).fill(9)],
+    colWidths: [4, 42, ...dayColWidths, 9, 9],
     rowHeights: [[1, 22], [SECTION_ROW, 18], [SECTION_ROW + 1, 18]],
   })
 

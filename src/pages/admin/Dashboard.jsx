@@ -12,6 +12,7 @@ import StudentsTable from './components/StudentsTable'
 import VentasPorZona from './components/VentasPorZona'
 import AdminChat from './components/AdminChat'
 import DownloadLinks from './components/DownloadLinks'
+import EscuelasConfig from './components/EscuelasConfig'
 
 const TAB_TITLES = {
   chat: 'Inteligencia de Evalúa Fácil',
@@ -21,6 +22,7 @@ const TAB_TITLES = {
   costosIA: 'Costos de IA',
   zonas: 'Ventas por zona',
   cobros: 'Configuración de cobros',
+  escuelas: 'Configuración de escuelas',
   estudiantes: 'Estudiantes',
   descargas: 'Descarga de la app',
 }
@@ -81,6 +83,7 @@ export default function AdminDashboard() {
           {activeTab === 'costosIA' && <CostosIAPanel />}
           {activeTab === 'zonas' && <VentasPorZona stats={stats} />}
           {activeTab === 'cobros' && <PaymentConfig />}
+          {activeTab === 'escuelas' && <EscuelasConfig />}
           {activeTab === 'estudiantes' && <StudentsTable stats={stats} />}
           {activeTab === 'descargas' && <DownloadLinks />}
         </>

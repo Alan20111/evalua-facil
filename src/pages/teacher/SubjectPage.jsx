@@ -229,6 +229,9 @@ const AttendanceTable = memo(function AttendanceTable({
   parcialesFechas, // subject.parcialesFechas — fecha corta bajo "Parcial N", si existe
   totalOficialPorParcial, // subject.totalOficialPorParcial — total oficial capturado por el docente
   onSaveTotalOficial, // (parcial, value) → void — guarda con debounce
+  sesionesPorParcialEstimadas, // subject.sesionesPorParcialEstimadas — estimación calculada por el servidor
+  parcialesCerrados, // subject.parcialesCerrados — marca de cierre por parcial
+  umbralInasistencia, // schools.umbralInasistencia — umbral institucional (%)
 }) {
   // Nodos DOM cacheados por columna/día para el efecto de cruz (fila+columna)
   // — resaltado con classList directo, sin state ni CSS :has() (ambos
@@ -358,24 +361,37 @@ const AttendanceTable = memo(function AttendanceTable({
                 ({formatShortDate(parcialesFechas[g.parcial - 1].inicio)}–{formatShortDate(parcialesFechas[g.parcial - 1].fin)})
               </span>
             )}
-            {onSaveTotalOficial && (
-              <span className="flex items-center justify-center gap-1 mt-0.5 normal-case font-normal">
-                <span className="text-[9px] text-muted whitespace-nowrap">Clases:</span>
-                <input
-                  type="number"
-                  min={0}
-                  aria-label={`Total oficial de clases del parcial ${g.parcial}`}
-                  defaultValue={totalOficialPorParcial?.[String(g.parcial)] ?? ''}
-                  key={totalOficialPorParcial?.[String(g.parcial)] ?? 'empty'}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value, 10)
-                    if (!isNaN(v) && v >= 0) onSaveTotalOficial(g.parcial, v)
-                    else if (e.target.value === '') onSaveTotalOficial(g.parcial, null)
-                  }}
-                  className="w-12 text-center text-[10px] font-semibold text-on-surface border border-outline-variant rounded px-1 py-0.5 bg-surface-card focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-              </span>
-            )}
+            {onSaveTotalOficial && (() => {
+              const cerrado = !!parcialesCerrados?.[g.parcial]
+              const estimado = sesionesPorParcialEstimadas?.[String(g.parcial)]
+              return (
+                <span className="flex items-center justify-center gap-1 mt-0.5 normal-case font-normal">
+                  <span className="text-[9px] text-muted whitespace-nowrap">{cerrado ? '🔒' : ''} Clases:</span>
+                  {cerrado ? (
+                    <span className="text-[10px] font-semibold text-on-surface">
+                      {totalOficialPorParcial?.[String(g.parcial)] ?? '—'}
+                    </span>
+                  ) : (
+                    <input
+                      type="number"
+                      min={0}
+                      aria-label={`Total oficial de clases del parcial ${g.parcial}`}
+                      defaultValue={totalOficialPorParcial?.[String(g.parcial)] ?? ''}
+                      key={totalOficialPorParcial?.[String(g.parcial)] ?? 'empty'}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10)
+                        if (!isNaN(v) && v >= 0) onSaveTotalOficial(g.parcial, v)
+                        else if (e.target.value === '') onSaveTotalOficial(g.parcial, null)
+                      }}
+                      className="w-12 text-center text-[10px] font-semibold text-on-surface border border-outline-variant rounded px-1 py-0.5 bg-surface-card focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                  )}
+                  {!cerrado && estimado != null && (
+                    <span className="text-[9px] text-slate-400 whitespace-nowrap">(est. {estimado})</span>
+                  )}
+                </span>
+              )
+            })()}
           </th>
         ))}
         {!IS_NATIVE_APP && (
@@ -484,6 +500,14 @@ const AttendanceTable = memo(function AttendanceTable({
           </td>
           {attendanceParciales.flatMap((g) => {
             const { asist, inasist } = countPresence(g.records, s.id, enrolledFrom)
+            const denominador = parcialesCerrados?.[g.parcial]
+              ? (totalOficialPorParcial?.[String(g.parcial)] ?? null)
+              : (sesionesPorParcialEstimadas?.[String(g.parcial)] ?? totalOficialPorParcial?.[String(g.parcial)] ?? null)
+            const pctInasist = denominador > 0 ? Math.round((inasist / denominador) * 100) : null
+            const riesgo = pctInasist == null ? null
+              : pctInasist >= (umbralInasistencia ?? 20) ? '🔴'
+              : pctInasist >= (umbralInasistencia ?? 20) * 0.75 ? '🟠'
+              : '🟢'
             return [
               ...g.days.flatMap(({ fecha, records }) => records.map((r) => {
                 // Día anterior a que el alumno se inscribiera: ni presente ni
@@ -533,8 +557,9 @@ const AttendanceTable = memo(function AttendanceTable({
               <td key={`a-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-green-600 tabular-nums bg-green-50 border-l-2 border-outline">
                 {asist}
               </td>,
-              <td key={`i-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-red-500 tabular-nums bg-red-50">
-                {inasist}
+              <td key={`i-${g.parcial}`} className="px-0.5 py-1 text-center tabular-nums bg-red-50">
+                <span className="font-semibold text-red-500">{inasist}</span>
+                {riesgo && <span className="block text-[9px] leading-none mt-0.5">{riesgo}</span>}
               </td>,
             ]
           })}
@@ -681,6 +706,21 @@ function EstadoFiltroHeader({ value, onChange, open, setOpen, total, activos }) 
   )
 }
 
+// Construye el mapa de denominadores reales por parcial para los Excel de asistencia.
+// Usa el total oficial confirmado si el parcial está cerrado; la estimación del servidor si no.
+function buildDenominadoresPorParcial(subject) {
+  const den = {}
+  const parciales = subject?.parcialesFechas || []
+  parciales.forEach((_, i) => {
+    const p = String(i + 1)
+    const cerrado = subject?.parcialesCerrados?.[p]
+    den[p] = cerrado
+      ? (subject?.totalOficialPorParcial?.[p] ?? subject?.sesionesPorParcialEstimadas?.[p] ?? null)
+      : (subject?.sesionesPorParcialEstimadas?.[p] ?? subject?.totalOficialPorParcial?.[p] ?? null)
+  })
+  return den
+}
+
 export default function SubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
@@ -701,6 +741,17 @@ export default function SubjectPage() {
   // Escuela + docente que encabezan cada PDF/Excel que se descarga de aquí.
   const membrete = membreteDe(userProfile)
   const [subject, setSubject] = useState(null)
+  // Lectura única del umbral institucional de inasistencia al montar.
+  useEffect(() => {
+    const escuelaId = userProfile?.escuelaId
+    if (!escuelaId) return
+    getDoc(doc(db, 'schools', escuelaId)).then((snap) => {
+      if (snap.exists()) {
+        const u = snap.data().umbralInasistencia
+        if (typeof u === 'number' && u > 0) setUmbralInasistencia(u)
+      }
+    }).catch(() => {})
+  }, [userProfile?.escuelaId])
   const [activities, setActivities] = useState([])
   const [submissionCounts, setSubmissionCounts] = useState({})
   // Conteo de estudiantes que trajo loadAll(). No se usa directo: ver
@@ -756,6 +807,13 @@ export default function SubjectPage() {
   const [closingParcial, setClosingParcial] = useState(false)
   // Grade applied to all no-entregas when closing a parcial (default 5)
   const [closeParcialGrade, setCloseParcialGrade] = useState('5')
+  // Número de sesiones confirmado por el docente al cerrar — pre-llenado con la estimación del servidor
+  const [closeParcialSesiones, setCloseParcialSesiones] = useState('')
+  // Umbral institucional de inasistencia (%) leído del documento de la escuela; por defecto 20 si no existe
+  const [umbralInasistencia, setUmbralInasistencia] = useState(20)
+  // Orden de la tabla de Asistencias — clon del patrón de Calificaciones
+  const [attSortOn, setAttSortOn] = useState(false)
+  const [attSortParcial, setAttSortParcial] = useState(null) // null = general
   const [revertParcialConfirm, setRevertParcialConfirm] = useState(null) // parcial number | null
   const [revertingParcial, setRevertingParcial] = useState(false)
   // Kebab menu per parcial header: null | { p, x, y } (fixed coords from the ⋮ button)
@@ -3555,6 +3613,8 @@ export default function SubjectPage() {
     const topeCalif = acts.length ? Math.min(...acts.map((a) => a.maxCalif ?? 10)) : 10
     playAlertSound()
     setCloseParcialGrade(String(Math.min(5, topeCalif)))
+    const estimado = subject?.sesionesPorParcialEstimadas?.[String(p)]
+    setCloseParcialSesiones(estimado != null ? String(estimado) : '')
     setCloseParcialConfirm({ p, missing, ungraded, pondError, topeCalif })
   }
 
@@ -3634,10 +3694,19 @@ export default function SubjectPage() {
         newSubs.forEach(({ key, data }) => { next[key] = data })
         return next
       })
+      const sesionesConfirmadas = parseInt(closeParcialSesiones, 10)
+      const closeTs = new Date().toISOString()
       await updateDoc(doc(db, 'subjects', subjectId), {
-        [`parcialesCerrados.${p}`]: new Date().toISOString(),
+        [`parcialesCerrados.${p}`]: closeTs,
+        ...(sesionesConfirmadas > 0 ? { [`totalOficialPorParcial.${p}`]: sesionesConfirmadas } : {}),
       })
-      setSubject((s) => ({ ...s, parcialesCerrados: { ...(s.parcialesCerrados || {}), [p]: new Date().toISOString() } }))
+      setSubject((s) => ({
+        ...s,
+        parcialesCerrados: { ...(s.parcialesCerrados || {}), [p]: closeTs },
+        ...(sesionesConfirmadas > 0 ? {
+          totalOficialPorParcial: { ...(s.totalOficialPorParcial || {}), [String(p)]: sesionesConfirmadas },
+        } : {}),
+      }))
       toast(`Parcial ${p} cerrado — ${missing.length} no entrega${missing.length !== 1 ? 's quedaron' : ' quedó'} en ${grade}`)
       setCloseParcialConfirm(null)
     } catch (err) {
@@ -3701,7 +3770,8 @@ export default function SubjectPage() {
       // "Parcial actual / Todo el curso" (ese es solo para lo que se pinta
       // en pantalla) — por eso usa attendanceParcialesAll, no la variable
       // filtrada attendanceParciales.
-      await exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, membrete })
+      const denominadoresPorParcial = buildDenominadoresPorParcial(subject)
+      await exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, membrete, denominadoresPorParcial })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
@@ -3710,7 +3780,8 @@ export default function SubjectPage() {
     if (!subject) return
     setExportingAttendance(true)
     try {
-      await exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p, membrete })
+      const denominadoresPorParcial = buildDenominadoresPorParcial(subject)
+      await exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p, membrete, denominadoresPorParcial })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
@@ -4207,6 +4278,7 @@ export default function SubjectPage() {
   // Guarda el total oficial de clases de un parcial con debounce 800 ms.
   const totalOficialDebounceRef = useRef({})
   const handleSaveTotalOficial = useCallback((parcial, value) => {
+    if (subject?.parcialesCerrados?.[String(parcial)]) return
     const key = String(parcial)
     clearTimeout(totalOficialDebounceRef.current[key])
     totalOficialDebounceRef.current[key] = setTimeout(async () => {
@@ -4217,11 +4289,33 @@ export default function SubjectPage() {
     }, 800)
   }, [subject, subjectId, db])
 
+  // Orden de la tabla de Asistencias por porcentaje de inasistencia — clon del
+  // patrón de Calificaciones. Para el valor de ordenación por parcial específico
+  // usamos los registros de ese parcial; para "general" usamos todos los registros.
+  const attSortValue = (s) => {
+    const enrolledFrom = enrolledFromDate(s)
+    const records = attSortParcial != null
+      ? (attendanceParciales.find((g) => g.parcial === attSortParcial)?.records ?? [])
+      : attendanceAllRecords
+    const { asist, inasist } = countPresence(records, s.id, enrolledFrom)
+    const total = asist + inasist
+    return total > 0 ? inasist / total : null
+  }
+  const sortedAttStudents = attSortOn
+    ? [...filteredAttendanceStudents].sort((a, b) => {
+        const av = attSortValue(a), bv = attSortValue(b)
+        if (av == null && bv == null) return 0
+        if (av == null) return 1
+        if (bv == null) return -1
+        return bv - av
+      })
+    : filteredAttendanceStudents
+
   // Tabla de asistencias — ver componente AttendanceTable (memo) arriba.
   const attendanceTableJsx = (
     <AttendanceTable
       attendanceParciales={attendanceParciales}
-      filteredAttendanceStudents={filteredAttendanceStudents}
+      filteredAttendanceStudents={sortedAttStudents}
       attendanceAllRecords={attendanceAllRecords}
       onCellClick={stableCellClick}
       onDeleteDay={stableDeleteDay}
@@ -4232,6 +4326,9 @@ export default function SubjectPage() {
       parcialesFechas={subject?.parcialesFechas}
       totalOficialPorParcial={subject?.totalOficialPorParcial}
       onSaveTotalOficial={handleSaveTotalOficial}
+      sesionesPorParcialEstimadas={subject?.sesionesPorParcialEstimadas}
+      parcialesCerrados={subject?.parcialesCerrados}
+      umbralInasistencia={umbralInasistencia}
     />
   )
 
@@ -5409,6 +5506,36 @@ export default function SubjectPage() {
             placeholder="Buscar por nombre o por número de lista…"
             autoFocus
           />
+
+          {!IS_NATIVE_APP && (
+            <div className="flex items-center gap-2">
+              <button type="button"
+                onClick={() => setAttSortOn((v) => !v)}
+                data-tooltip={attSortOn ? 'Ordenado por mayor riesgo de inasistencia' : 'Ordenar por mayor riesgo de inasistencia'}
+                className={`px-3 py-1.5 rounded-l text-xs font-bold uppercase tracking-wide transition-colors ${attSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
+                Ordenar por riesgo{attSortOn ? ` · ${attSortParcial == null ? 'General' : `P${attSortParcial}`}` : ''}
+              </button>
+              <button type="button"
+                onClick={() => {
+                  const parcials = (subject?.parcialesFechas || []).map((_, i) => i + 1)
+                  const idx = attSortParcial == null ? 0 : parcials.indexOf(attSortParcial) + 1
+                  setAttSortParcial(idx < parcials.length ? parcials[idx] : null)
+                  setAttSortOn(true)
+                }}
+                aria-label="Elegir parcial para ordenar asistencias"
+                data-tooltip="Elegir parcial (o general)"
+                className={`px-1.5 py-1.5 rounded-r transition-colors ${attSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
+                <MoreVertical size={15} />
+              </button>
+              {attSortOn && (
+                <button type="button" onClick={() => { setAttSortOn(false); setAttSortParcial(null) }}
+                  aria-label="Volver al orden normal" data-tooltip="Volver al orden normal"
+                  className="p-2 text-slate-400 hover:text-red-500 rounded">
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          )}
 
           {loadingAttendance ? (
             <div className="flex justify-center py-12"><Spinner size="lg" /></div>
@@ -7222,6 +7349,20 @@ export default function SubjectPage() {
                 ) : (
                   <p className="text-sm text-muted text-center mt-2">Todo está calificado. Puedes cerrar el parcial.</p>
                 )}
+                {/* Sesiones del parcial — se propone la estimación del servidor; el docente confirma o ajusta */}
+                <div className="flex items-center justify-center gap-2 mt-3">
+                  <label htmlFor="close-parcial-sesiones" className="text-sm text-muted">Sesiones del parcial:</label>
+                  <input
+                    id="close-parcial-sesiones"
+                    type="number"
+                    min="1"
+                    value={closeParcialSesiones}
+                    onChange={(e) => setCloseParcialSesiones(e.target.value)}
+                    disabled={closingParcial}
+                    placeholder="—"
+                    className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  />
+                </div>
                 <div className="flex gap-2 mt-4">
                   <button type="button" onClick={() => setCloseParcialConfirm(null)} disabled={closingParcial}
                     className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
