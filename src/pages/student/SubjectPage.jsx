@@ -41,6 +41,7 @@ import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde } from '../../utils/avisos'
+import Table from '../../components/ui/Table'
 
 // Builds a unified ordered list of activities + positioned materials for one
 // parcial, mirroring the teacher view so both render in the same order.
@@ -861,19 +862,50 @@ export default function StudentSubjectPage() {
               const pct = (totalOficial != null && totalOficial > 0)
                 ? Math.round((stat.asist / totalOficial) * 100)
                 : null
+              const pctInasist = (totalOficial != null && totalOficial > 0)
+                ? Math.round((stat.inasist / totalOficial) * 100)
+                : null
 
-              // Agrupar por fecha (solo para encabezados visuales, sin colapsar sesiones).
-              const diasMap = new Map()
-              registrosParcial.forEach((r) => {
-                if (!diasMap.has(r.fecha)) diasMap.set(r.fecha, [])
-                diasMap.get(r.fecha).push(r)
-              })
-              const diasOrdenados = Array.from(diasMap.keys()).sort()
+              const attColumns = [
+                {
+                  key: 'fecha',
+                  header: 'Fecha',
+                  render: (r) => <span className="whitespace-nowrap">{fmtDia(r.fecha)}</span>,
+                },
+                {
+                  key: 'slot',
+                  header: 'Clase',
+                  render: (r) => <span className="whitespace-nowrap">Clase {r.slot ?? 1}</span>,
+                },
+                {
+                  key: 'estado',
+                  header: 'Estado',
+                  render: (r) => {
+                    const esPresente = r.estado === 'presente'
+                    const esJustificada = r.estado === 'justificada'
+                    return (
+                      <span className={`inline-flex items-center gap-1 font-medium whitespace-nowrap ${esPresente ? 'text-emerald-700' : esJustificada ? 'text-amber-700' : 'text-red-600'}`}>
+                        {esPresente ? '✅' : esJustificada ? '🟡' : '❌'}
+                        {esPresente ? 'Presente' : esJustificada ? 'Justificada' : 'Falta'}
+                      </span>
+                    )
+                  },
+                },
+                {
+                  key: 'motivo',
+                  header: 'Motivo',
+                  render: (r) => (
+                    <span className="text-slate-500 text-xs">
+                      {(r.estado === 'justificada' && r.motivo) ? r.motivo : '—'}
+                    </span>
+                  ),
+                },
+              ]
 
               return (
-                <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
+                <div key={p} className="space-y-1.5">
                   {/* Encabezado del parcial */}
-                  <div className="px-4 py-3 flex items-center gap-3 border-b border-outline-variant">
+                  <div className="px-1 flex items-center gap-3">
                     <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                       <span className="text-accent font-bold text-sm">{p}</span>
                     </div>
@@ -883,58 +915,24 @@ export default function StudentSubjectPage() {
                         {stat.asist} asistencia{stat.asist !== 1 ? 's' : ''} · {stat.inasist} falta{stat.inasist !== 1 ? 's' : ''}
                         {stat.justif > 0 ? ` · ${stat.justif} justificada${stat.justif !== 1 ? 's' : ''}` : ''}
                       </p>
+                      {pct != null && (
+                        <p className="text-xs mt-0.5">
+                          <span className={`font-semibold ${pct < 80 ? 'text-red-500' : 'text-accent'}`}>{pct}% asistencia</span>
+                          {pctInasist != null && pctInasist > 0 && (
+                            <span className="text-slate-400"> · {pctInasist}% inasistencia</span>
+                          )}
+                        </p>
+                      )}
                     </div>
-                    {pct != null && (
-                      <div className="text-right flex-shrink-0">
-                        <p className={`text-2xl font-bold leading-none ${pct < 80 ? 'text-red-500' : 'text-accent'}`}>{pct}%</p>
-                        <p className="text-xs text-slate-400">asistencia</p>
-                      </div>
-                    )}
                   </div>
-
-                  {/* Lista de días con sus sesiones individuales */}
-                  <div className="divide-y divide-outline-variant">
-                    {diasOrdenados.map((fecha) => {
-                      const sesiones = diasMap.get(fecha)
-                      return (
-                        <div key={fecha} className="px-4 py-2">
-                          <p className="text-xs font-semibold text-muted mb-1.5">{fmtDia(fecha)}</p>
-                          <div className="space-y-1">
-                            {sesiones.map((r) => {
-                              const slotNum = r.slot ?? 1
-                              const tieneMotivo = r.estado === 'justificada' && r.motivo
-                              return (
-                                <button
-                                  key={`${fecha}-${slotNum}`}
-                                  type="button"
-                                  disabled={!tieneMotivo}
-                                  onClick={() => tieneMotivo && toast(r.motivo)}
-                                  className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                                    r.estado === 'presente'
-                                      ? 'bg-emerald-50 text-emerald-800'
-                                      : r.estado === 'justificada'
-                                      ? `bg-amber-50 text-amber-800 ${tieneMotivo ? 'hover:bg-amber-100 cursor-pointer' : ''}`
-                                      : 'bg-red-50 text-red-700'
-                                  }`}
-                                >
-                                  <span className="flex-shrink-0 text-base leading-none">
-                                    {r.estado === 'presente' ? '✅' : r.estado === 'justificada' ? '🟡' : '❌'}
-                                  </span>
-                                  <span className="flex-1 text-left">
-                                    Clase {slotNum}
-                                  </span>
-                                  <span className="flex-shrink-0 font-medium capitalize">
-                                    {r.estado === 'justificada' ? 'Justificada' : r.estado === 'presente' ? 'Presente' : 'Falta'}
-                                    {tieneMotivo && <span className="ml-1 text-xs opacity-70">· {r.motivo}</span>}
-                                  </span>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                  {/* Tabla — una fila por sesión individual, sin agrupar por fecha */}
+                  <Table
+                    columns={attColumns}
+                    data={registrosParcial}
+                    rowKey={(r) => `${r.fecha}-${r.slot ?? 1}`}
+                    emptyMessage="Sin sesiones en este parcial"
+                    minWidth={360}
+                  />
                 </div>
               )
             })
