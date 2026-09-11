@@ -1001,14 +1001,10 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
   // attendance.js) — así el % que ve el alumno siempre coincide con el que
   // ve su maestro. Un día con varias horas (duracion > 1) suma varios slots.
   let asistTotal = 0, inasistTotal = 0, justifTotal = 0
-  // `registros` es SOLO para la lista visual del alumno — un chip por DÍA
-  // (no por slot), para no mostrar la misma fecha repetida cuando el día
-  // tuvo varias horas de clase. Si alguna hora de ese día fue falta, el día
-  // se muestra como falta (el peor estado gana); "justificada" pesa más que
-  // "presente" para que una falta justificada no se pierda entre horas
-  // presentes del mismo día.
-  const RANGO = { falta: 2, justificada: 1, presente: 0 }
-  const porDia = {}
+  // `registros` — una entrada POR SLOT (sesión individual), no por día.
+  // La unidad de asistencia es la sesión, no el día; el alumno debe ver
+  // cada clase registrada de forma independiente.
+  const registros = []
 
   for (const r of records) {
     const presente = r.presentes?.[studentId] !== false
@@ -1022,17 +1018,15 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
       porParcial[p].asist++; asistTotal++
       if (estado === 'justificada') { porParcial[p].justif++; justifTotal++ }
     }
-    const actual = porDia[r.fecha]
-    if (!actual || RANGO[estado] > RANGO[actual.estado]) {
-      // El motivo (texto libre del docente al justificar) es propio del
-      // alumno — se guarda igual que el estado, solo para SU resumen; nunca
-      // se expone el documento compartido `attendance` con los motivos de
-      // todo el grupo. Vacío si no aplica (falta/presente).
-      porDia[r.fecha] = { fecha: r.fecha, parcial: r.parcial, estado, motivo: r.motivos?.[studentId] || '' }
-    }
+    registros.push({
+      fecha: r.fecha,
+      slot: r.slot ?? 1,
+      parcial: r.parcial,
+      estado,
+      motivo: r.motivos?.[studentId] || '',
+    })
   }
-
-  const registros = Object.values(porDia).sort((a, b) => a.fecha.localeCompare(b.fecha))
+  // records ya viene ordenado por (fecha, slot) desde el .sort() de arriba
 
   await db.doc(`attendanceSummaries/${studentId}`).set({
     asignaturaId,

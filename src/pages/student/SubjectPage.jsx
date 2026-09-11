@@ -22,8 +22,6 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { fetchContent } from '../../utils/apiContent'
-import { fmtAttMonth } from '../../utils/attendance'
-import { toDateStr } from '../../utils/horarioBloques'
 import { getResourceIcon, getLinkResourceIcon } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import { teacherDisplayName } from '../../utils/studentSearch'
@@ -41,7 +39,6 @@ import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
-import ScrollHintX from '../../components/ui/ScrollHintX'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde } from '../../utils/avisos'
 
@@ -111,30 +108,7 @@ function formatResourceDate(ts) {
 
 const TABS = ['Actividades y calificaciones', 'Asistencias', 'Recursos', 'Avisos']
 
-const DIAS_SEMANA = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
-// Arma TODAS las fechas (lunes a domingo) entre la primera y la última fecha
-// con registro, para dibujar la cuadrícula semanal — pedido explícito: un
-// renglón por semana con encabezado L-D, en blanco cuando no hubo clase ese
-// día (el caso típico es sábado/domingo, pero aplica a cualquier día sin
-// registro). Al ser un solo grid-cols-7 continuo, las semanas intermedias
-// "caen" solas sin necesidad de armarlas por separado.
-function buildAttendanceWeeks(fechas) {
-  if (!fechas.length) return []
-  const parse = (f) => new Date(`${f}T12:00:00`) // mediodía: evita saltos de día por zona horaria
-  const ordenadas = fechas.map(parse).sort((a, b) => a - b)
-  const primerLunes = new Date(ordenadas[0])
-  primerLunes.setDate(primerLunes.getDate() - ((primerLunes.getDay() + 6) % 7))
-  const ultimo = ordenadas[ordenadas.length - 1]
-  const ultimoDomingo = new Date(ultimo)
-  ultimoDomingo.setDate(ultimoDomingo.getDate() + (6 - (ultimo.getDay() + 6) % 7))
-
-  const dias = []
-  for (const d = new Date(primerLunes); d <= ultimoDomingo; d.setDate(d.getDate() + 1)) {
-    dias.push(toDateStr(d))
-  }
-  return dias
-}
 
 // 'actividad'/'tarea' are legacy categoria values from before they were
 // merged into a single "Entregable" option — still mapped here so old
@@ -188,6 +162,38 @@ export default function StudentSubjectPage() {
   const toast = useToast()
   const goBack = () => navigate('/alumno/dashboard')
   useBackHandler(goBack)
+
+  // Suscripciones en tiempo real — se cancelan al desmontar o al cambiar de asignatura.
+  const attSummaryUnsubRef = useRef(null)
+  const subjectTotalUnsubRef = useRef(null)
+
+  // Listener en tiempo real para el resumen de asistencias del alumno.
+  useEffect(() => {
+    if (!studentId) return
+    attSummaryUnsubRef.current?.()
+    attSummaryUnsubRef.current = onSnapshot(
+      doc(db, 'attendanceSummaries', studentId),
+      (snap) => setAttendanceSummary(snap.exists() ? snap.data() : null),
+      () => {},
+    )
+    return () => { attSummaryUnsubRef.current?.(); attSummaryUnsubRef.current = null }
+  }, [studentId])
+
+  // Listener en tiempo real para totalOficialPorParcial del docente.
+  useEffect(() => {
+    if (!subjectId) return
+    subjectTotalUnsubRef.current?.()
+    subjectTotalUnsubRef.current = onSnapshot(
+      doc(db, 'subjects', subjectId),
+      (snap) => {
+        if (!snap.exists()) return
+        const total = snap.data().totalOficialPorParcial ?? null
+        setSubject((prev) => prev ? { ...prev, totalOficialPorParcial: total } : prev)
+      },
+      () => {},
+    )
+    return () => { subjectTotalUnsubRef.current?.(); subjectTotalUnsubRef.current = null }
+  }, [subjectId])
 
   // "Salir de esta asignatura" — mismo ocultamiento de siempre (ocultaPorAlumno,
   // ver Dashboard.jsx), no borra nada: el docente sigue viendo al alumno igual
@@ -433,13 +439,7 @@ export default function StudentSubjectPage() {
           .filter((m) => isActivityPublished(m, parcialesOcultos.includes(m.parcial)))
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       )
-      const [subsSnap, attSummarySnap] = await Promise.all([
-        getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', studData.id))),
-        // Resumen propio (nunca la asistencia compartida del grupo) — lo
-        // mantiene la Cloud Function onAttendanceEscrita; puede no existir
-        // todavía si el docente nunca ha tomado asistencia.
-        getDoc(doc(db, 'attendanceSummaries', studData.id)).catch(() => null),
-      ])
+      const subsSnap = await getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', studData.id)))
       const actIds = new Set(acts.map((a) => a.id))
       const subsMap = {}
       subsSnap.docs.forEach((d) => {
@@ -447,7 +447,7 @@ export default function StudentSubjectPage() {
         if (actIds.has(data.actividadId)) subsMap[data.actividadId] = { id: d.id, ...data }
       })
       setSubmissions(subsMap)
-      setAttendanceSummary(attSummarySnap?.exists() ? attSummarySnap.data() : null)
+      // attendanceSummary se carga vía onSnapshot (efecto separado) una vez que studentId queda asignado
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -818,12 +818,22 @@ export default function StudentSubjectPage() {
         </div>
       )}
 
-      {/* Tab: Asistencias — mismo lenguaje visual que Calificaciones (tarjeta
-          por parcial con % arriba a la derecha); en vez de una lista de
-          actividades, chips por día (uno por fecha, no por hora de clase). */}
+      {/* Tab: Asistencias — una tarjeta por parcial; dentro, una fila por sesión
+          (slot) agrupadas bajo su encabezado de fecha. La unidad de asistencia
+          es la sesión, no el día. */}
       {activeTab === 'Asistencias' && (() => {
         const now = new Date()
         const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+        // Formatea "2025-09-08" → "Lun 8 sep"
+        const fmtDia = (fecha) => {
+          const d = new Date(`${fecha}T12:00:00`)
+          const diaNombre = d.toLocaleDateString('es-MX', { weekday: 'short' })
+          const diaNum = d.getDate()
+          const mes = d.toLocaleDateString('es-MX', { month: 'short' })
+          return `${diaNombre.charAt(0).toUpperCase()}${diaNombre.slice(1, 3)} ${diaNum} ${mes}`
+        }
+
         return (
         <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
           {PARCIALES.length === 0 || !attendanceSummary || attendanceSummary.total?.total === 0 ? (
@@ -834,11 +844,8 @@ export default function StudentSubjectPage() {
             PARCIALES.map((p) => {
               const statCompleto = attendanceSummary.porParcial?.[String(p)]
               if (!statCompleto) return null
-              // Los días futuros (generados solos desde el horario del docente,
-              // ver utils/attendanceAuto.js) llegan ya marcados "presente" por
-              // defecto — al estudiante no deben aparecérsele hasta que
-              // realmente sucedan, así que se filtran aquí antes de mostrar
-              // celdas, conteos y el % del encabezado (pedido explícito).
+              // Filtrar sesiones futuras (auto-generadas como "presente") —
+              // el alumno no debe verlas hasta que sucedan.
               const registrosParcial = (attendanceSummary.registros || [])
                 .filter((r) => r.parcial === p && r.fecha <= todayISO)
               const stat = registrosParcial.reduce((acc, r) => {
@@ -848,11 +855,24 @@ export default function StudentSubjectPage() {
                 return acc
               }, { asist: 0, inasist: 0, justif: 0, total: 0 })
               if (stat.total === 0) return null
-              const pct = stat.total > 0 ? Math.round((stat.asist / stat.total) * 100) : null
-              const registrosPorFecha = Object.fromEntries(registrosParcial.map((r) => [r.fecha, r]))
-              const semanas = buildAttendanceWeeks(registrosParcial.map((r) => r.fecha))
+
+              // Porcentaje solo cuando el docente capturó el total oficial.
+              const totalOficial = subject?.totalOficialPorParcial?.[String(p)] ?? null
+              const pct = (totalOficial != null && totalOficial > 0)
+                ? Math.round((stat.asist / totalOficial) * 100)
+                : null
+
+              // Agrupar por fecha (solo para encabezados visuales, sin colapsar sesiones).
+              const diasMap = new Map()
+              registrosParcial.forEach((r) => {
+                if (!diasMap.has(r.fecha)) diasMap.set(r.fecha, [])
+                diasMap.get(r.fecha).push(r)
+              })
+              const diasOrdenados = Array.from(diasMap.keys()).sort()
+
               return (
                 <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
+                  {/* Encabezado del parcial */}
                   <div className="px-4 py-3 flex items-center gap-3 border-b border-outline-variant">
                     <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                       <span className="text-accent font-bold text-sm">{p}</span>
@@ -860,8 +880,8 @@ export default function StudentSubjectPage() {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-on-surface">Parcial {p}</p>
                       <p className="text-xs text-slate-500">
-                        {stat.asist} de {stat.total} clases
-                        {stat.justif > 0 ? ` (${stat.justif} justificada${stat.justif !== 1 ? 's' : ''})` : ''}
+                        {stat.asist} asistencia{stat.asist !== 1 ? 's' : ''} · {stat.inasist} falta{stat.inasist !== 1 ? 's' : ''}
+                        {stat.justif > 0 ? ` · ${stat.justif} justificada${stat.justif !== 1 ? 's' : ''}` : ''}
                       </p>
                     </div>
                     {pct != null && (
@@ -871,105 +891,49 @@ export default function StudentSubjectPage() {
                       </div>
                     )}
                   </div>
-                  {/* Cuadrícula semanal (L a D) — un renglón por semana, en vez
-                      de una lista de chips en fila. Los días sin clase (el
-                      típico caso de sábado/domingo, pero también cualquier
-                      día sin registro) quedan en blanco. Celdas bajas
-                      (altura fija, NO aspect-square: en escritorio la columna
-                      es ancha y un cuadrado se ve altísimo) con esquinas
-                      apenas redondeadas (rounded-md, NO rounded-card: ese
-                      radio es para tarjetas grandes — en una celda tan chica
-                      terminaba pareciendo un círculo). Un renglón con el mes
-                      aparece arriba de cada semana en la que cambia. */}
-                  {/* Grid con 10 columnas: SEMANA + L-D + Asistencias + Faltas
-                      (pedido explícito) — grid-template-columns fijo en vez de
-                      grid-cols-N de Tailwind porque las columnas de conteo
-                      necesitan más ancho que un día. Cada celda fija su columna
-                      con gridColumn para que el auto-flow no la desalinee en
-                      los renglones de mes (que solo ocupan la zona de días). */}
-                  <div className="p-3">
-                    <ScrollHintX>
-                    <div className="grid gap-1.5 min-w-[420px]" style={{ gridTemplateColumns: '2.5rem repeat(7, 1fr) 4.5rem 4.5rem' }}>
-                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: 1 }}>Semana</span>
-                      {DIAS_SEMANA.map((d, i) => (
-                        <span key={i} className="text-[10px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: i + 2 }}>{d}</span>
-                      ))}
-                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: 9 }}>Asistencias</span>
-                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: 10 }}>Faltas</span>
-                    </div>
-                    <div className="grid gap-1.5 mt-1.5 min-w-[420px]" style={{ gridTemplateColumns: '2.5rem repeat(7, 1fr) 4.5rem 4.5rem' }}>
-                      {(() => {
-                        let mesActual = null
-                        let semanaNum = 0
-                        const celdas = []
-                        for (let i = 0; i < semanas.length; i += 7) {
-                          const semana = semanas.slice(i, i + 7)
-                          const mesSemana = fmtAttMonth(semana[0])
-                          if (mesSemana !== mesActual) {
-                            mesActual = mesSemana
-                            celdas.push(
-                              <p key={`mes-${semana[0]}`} className={`text-xs font-semibold text-muted capitalize ${i === 0 ? '' : 'mt-2'}`} style={{ gridColumn: '2 / span 7' }}>
-                                {mesSemana}
-                              </p>
-                            )
-                          }
-                          semanaNum++
-                          let semAsist = 0
-                          let semInasist = 0
-                          celdas.push(
-                            <span key={`sem-${semana[0]}`} className="h-8 flex items-center justify-center text-[11px] font-semibold text-slate-400" style={{ gridColumn: 1 }}>
-                              {semanaNum}
-                            </span>
-                          )
-                          semana.forEach((fecha, dIdx) => {
-                            const r = registrosPorFecha[fecha]
-                            if (!r) { celdas.push(<div key={fecha} style={{ gridColumn: dIdx + 2 }} />); return }
-                            if (r.estado === 'falta') semInasist++
-                            else semAsist++
-                            const tieneMotivo = r.estado === 'justificada' && r.motivo
-                            celdas.push(
-                              <button
-                                type="button"
-                                key={fecha}
-                                style={{ gridColumn: dIdx + 2 }}
-                                disabled={!tieneMotivo}
-                                onClick={() => tieneMotivo && toast(r.motivo)}
-                                data-tooltip={tieneMotivo ? r.motivo : undefined}
-                                className={`h-8 rounded-md flex items-center justify-center text-xs font-semibold transition-colors ${
-                                  r.estado === 'presente' ? 'bg-emerald-100 text-emerald-700'
-                                  : r.estado === 'justificada' ? `bg-amber-100 text-amber-700 ${tieneMotivo ? 'hover:bg-amber-200 cursor-pointer' : ''}`
-                                  : 'bg-red-100 text-red-600'
-                                }`}
-                              >
-                                {Number(fecha.slice(8, 10))}
-                              </button>
-                            )
-                          })
-                          celdas.push(
-                            <span key={`sa-${semana[0]}`} className="h-8 flex items-center justify-center text-xs font-semibold text-emerald-700" style={{ gridColumn: 9 }}>
-                              {semAsist}
-                            </span>
-                          )
-                          celdas.push(
-                            <span key={`si-${semana[0]}`} className="h-8 flex items-center justify-center text-xs font-semibold text-red-600" style={{ gridColumn: 10 }}>
-                              {semInasist}
-                            </span>
-                          )
-                        }
-                        return celdas
-                      })()}
-                      {/* Total del parcial — bajo la columna de Domingo, con las
-                          sumas en Asistencias/Faltas (mismos números que
-                          el resumen de arriba, stat.asist/stat.inasist). */}
-                      <span className="text-xs font-semibold text-muted text-right pr-1 mt-1" style={{ gridColumn: 8 }}>Total</span>
-                      <span className="h-8 flex items-center justify-center text-sm font-bold text-emerald-700 mt-1" style={{ gridColumn: 9 }}>
-                        {stat.asist}
-                      </span>
-                      <span className="h-8 flex items-center justify-center text-sm font-bold text-red-600 mt-1" style={{ gridColumn: 10 }}>
-                        {stat.inasist}
-                      </span>
-                    </div>
-                    </ScrollHintX>
+
+                  {/* Lista de días con sus sesiones individuales */}
+                  <div className="divide-y divide-outline-variant/50">
+                    {diasOrdenados.map((fecha) => {
+                      const sesiones = diasMap.get(fecha)
+                      return (
+                        <div key={fecha} className="px-4 py-2">
+                          <p className="text-xs font-semibold text-muted mb-1.5">{fmtDia(fecha)}</p>
+                          <div className="space-y-1">
+                            {sesiones.map((r) => {
+                              const slotNum = r.slot ?? 1
+                              const tieneMotivo = r.estado === 'justificada' && r.motivo
+                              return (
+                                <button
+                                  key={`${fecha}-${slotNum}`}
+                                  type="button"
+                                  disabled={!tieneMotivo}
+                                  onClick={() => tieneMotivo && toast(r.motivo)}
+                                  className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                                    r.estado === 'presente'
+                                      ? 'bg-emerald-50 text-emerald-800'
+                                      : r.estado === 'justificada'
+                                      ? `bg-amber-50 text-amber-800 ${tieneMotivo ? 'hover:bg-amber-100 cursor-pointer' : ''}`
+                                      : 'bg-red-50 text-red-700'
+                                  }`}
+                                >
+                                  <span className="flex-shrink-0 text-base leading-none">
+                                    {r.estado === 'presente' ? '✅' : r.estado === 'justificada' ? '🟡' : '❌'}
+                                  </span>
+                                  <span className="flex-1 text-left">
+                                    Clase {slotNum}
+                                  </span>
+                                  <span className="flex-shrink-0 font-medium capitalize">
+                                    {r.estado === 'justificada' ? 'Justificada' : r.estado === 'presente' ? 'Presente' : 'Falta'}
+                                    {tieneMotivo && <span className="ml-1 text-xs opacity-70">· {r.motivo}</span>}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )
