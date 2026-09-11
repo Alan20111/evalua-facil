@@ -3815,8 +3815,13 @@ export default function SubjectPage() {
   const attendanceDays = useMemo(() => [...new Set(attendanceRecords.map((r) => r.fecha))]
     .map((fecha) => {
       const records = attendanceRecords.filter((r) => r.fecha === fecha)
-      return { fecha, parcial: records[0]?.parcial || 1, records }
-    }), [attendanceRecords])
+      // Derivar el parcial de las fechas actuales — si el docente cambia los
+      // rangos, la sesión se mueve al parcial correcto en tiempo real.
+      // Fallback: parcial almacenado en el registro (o 1 para datos muy viejos).
+      const parcial = parcialForDate(subject?.parcialesFechas ?? [], fecha)
+        ?? (records[0]?.parcial || 1)
+      return { fecha, parcial, records }
+    }), [attendanceRecords, subject?.parcialesFechas])
 
   // Agrupa días consecutivos por mes (YYYY-MM) → celda "Mes Año" que abarca sus días.
   const groupDaysByMonth = (days) => days.reduce((acc, day) => {

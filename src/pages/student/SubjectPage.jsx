@@ -230,7 +230,7 @@ export default function StudentSubjectPage() {
     // the Firestore query before then gets rejected by security rules and, since this
     // effect didn't depend on `currentUser`, never retried once auth was ready.
     if (currentUser) loadAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only intencional
   }, [subjectId, currentUser])
 
   // Avisos — carga inicial + sondeo cada 60 s (F-09: ya no hay onSnapshot
@@ -893,7 +893,7 @@ export default function StudentSubjectPage() {
                   </div>
 
                   {/* Lista de días con sus sesiones individuales */}
-                  <div className="divide-y divide-outline-variant/50">
+                  <div className="divide-y divide-outline-variant">
                     {diasOrdenados.map((fecha) => {
                       const sesiones = diasMap.get(fecha)
                       return (

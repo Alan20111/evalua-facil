@@ -828,6 +828,7 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
 // server-side, normalizada) y la escribe.
 const { normalizeGrade } = require('./_shared/ponderacion.js')
 const { normalizarPalabra } = require('./_shared/normalizarPalabra.js')
+const { parcialForDate } = require('./_shared/parciales.js')
 
 function calificarSopaDeLetras(estructura, respuestasJuego) {
   const total = estructura.palabras.length
@@ -962,7 +963,10 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
   // asistencia cada columna de antes de que existiera su inscripción, igual
   // que hacía countPresence() del docente antes de corregirse (ver
   // src/utils/attendance.js).
-  const studentSnap = await db.doc(`students/${studentId}`).get()
+  const [studentSnap, subjectSnap] = await Promise.all([
+    db.doc(`students/${studentId}`).get(),
+    db.doc(`subjects/${asignaturaId}`).get(),
+  ])
   // La inscripción ya no existe: el docente dio de baja al estudiante. Su
   // resumen se BORRA, no se recalcula.
   //
@@ -978,6 +982,12 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
     await db.doc(`attendanceSummaries/${studentId}`).delete()
     return
   }
+  // parcialesFechas actuales — fuente de verdad para asignar cada sesión a
+  // su parcial. Si el docente modifica los rangos, el próximo recálculo
+  // redistribuye las sesiones según las fechas nuevas, no el valor
+  // persistido en attendance.parcial.
+  const parcialesFechas = subjectSnap.data()?.parcialesFechas ?? []
+
   const createdAt = studentSnap.data().createdAt
   const enrolledFrom = createdAt?.toDate ? (() => {
     const d = createdAt.toDate()
@@ -986,13 +996,15 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
 
   const snap = await db.collection('attendance').where('asignaturaId', '==', asignaturaId).get()
   const records = snap.docs.map((d) => d.data())
-    // A13 · H1 · Registros viejos sin `parcial`: antes se filtraban para
-    // evitar que String(undefined) → 'undefined' generara una clave inválida
-    // en porParcial y tronara el .set(). El comentario anterior decía "el
-    // docente ya los excluye de su tabla", pero el cliente usa `?? 1` y SÍ
-    // los muestra en Parcial 1 — quedaba un desfase real entre la vista del
-    // docente y el resumen del alumno. Se corrige asignando el mismo fallback.
-    .map((r) => r.parcial != null ? r : { ...r, parcial: 1 })
+    // Parcial derivado de las fechas actuales — parcialForDate(parcialesFechas, r.fecha).
+    // Si la sesión cae fuera de todos los rangos (fecha huérfana tras un
+    // cambio), se conserva el valor persistido en attendance.parcial como
+    // respaldo; si ese también es nulo (registros muy viejos), se asigna a 1.
+    // Esto garantiza que ninguna sesión desaparezca silenciosamente.
+    .map((r) => {
+      const parcialActual = parcialForDate(parcialesFechas, r.fecha) ?? r.parcial ?? 1
+      return parcialActual === r.parcial ? r : { ...r, parcial: parcialActual }
+    })
     .filter((r) => !enrolledFrom || r.fecha >= enrolledFrom)
     .sort((a, b) => (a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha)))
 
@@ -1045,6 +1057,27 @@ exports.onAttendanceEscrita = onDocumentWritten('attendance/{attendanceId}', asy
   const afectados = idsAfectados(before, after)
   if (!afectados.length) return
   await Promise.all(afectados.map((studentId) => recalcularResumenAsistencia(asignaturaId, studentId)))
+})
+
+// Cuando el docente modifica las fechas de los parciales (parcialesFechas),
+// recalcula los attendanceSummaries de todos los alumnos de esa asignatura.
+// Así la redistribución de sesiones entre parciales queda reflejada en
+// tiempo real en la vista del alumno — sin necesidad de esperar a que se
+// edite algún pase de lista.
+exports.onSubjectEscrito = onDocumentWritten('subjects/{subjectId}', async (event) => {
+  const before = event.data?.before?.exists ? event.data.before.data() : null
+  const after  = event.data?.after?.exists  ? event.data.after.data()  : null
+  if (!after) return
+  // Solo actuar cuando parcialesFechas realmente cambió — evita recalcular
+  // en cada edición de nombre, grupo, iconos u otros campos de la asignatura.
+  if (JSON.stringify(before?.parcialesFechas) === JSON.stringify(after.parcialesFechas)) return
+  const subjectId = event.params.subjectId
+  const summariesSnap = await db.collection('attendanceSummaries')
+    .where('asignaturaId', '==', subjectId).get()
+  if (summariesSnap.empty) return
+  await Promise.all(summariesSnap.docs.map((d) =>
+    recalcularResumenAsistencia(subjectId, d.id),
+  ))
 })
 
 // ─── 5) Programadas + recordatorios de entrega ─────────────────────────────

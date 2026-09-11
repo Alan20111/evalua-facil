@@ -31,8 +31,31 @@ if (!admin.apps.length) admin.initializeApp()
 const db = admin.firestore()
 const FieldValue = admin.firestore.FieldValue
 
+// Copia inline de src/utils/parciales.js — función pura, sin dependencias.
+function parcialForDate(parcialesFechas, fecha) {
+  if (!Array.isArray(parcialesFechas)) return null
+  for (let i = 0; i < parcialesFechas.length; i++) {
+    const { inicio, fin } = parcialesFechas[i] || {}
+    if (inicio && fin && fecha >= inicio && fecha <= fin) return i + 1
+  }
+  return null
+}
+
+// Cache de subjects para no re-leer el mismo documento por cada alumno.
+const subjectCache = {}
+async function getParcialesFechas(asignaturaId) {
+  if (!(asignaturaId in subjectCache)) {
+    const snap = await db.doc(`subjects/${asignaturaId}`).get()
+    subjectCache[asignaturaId] = snap.data()?.parcialesFechas ?? []
+  }
+  return subjectCache[asignaturaId]
+}
+
 async function recalcularResumenAsistencia(asignaturaId, studentId) {
-  const studentSnap = await db.doc(`students/${studentId}`).get()
+  const [studentSnap, parcialesFechas] = await Promise.all([
+    db.doc(`students/${studentId}`).get(),
+    getParcialesFechas(asignaturaId),
+  ])
   if (!studentSnap.exists) {
     if (!DRY_RUN) await db.doc(`attendanceSummaries/${studentId}`).delete()
     console.log(`  [DELETE] alumno ${studentId} ya no existe`)
@@ -47,7 +70,10 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
 
   const snap = await db.collection('attendance').where('asignaturaId', '==', asignaturaId).get()
   const records = snap.docs.map((d) => d.data())
-    .map((r) => r.parcial != null ? r : { ...r, parcial: 1 })
+    .map((r) => {
+      const parcialActual = parcialForDate(parcialesFechas, r.fecha) ?? r.parcial ?? 1
+      return parcialActual === r.parcial ? r : { ...r, parcial: parcialActual }
+    })
     .filter((r) => !enrolledFrom || r.fecha >= enrolledFrom)
     .sort((a, b) => (a.fecha === b.fecha ? (a.slot ?? 1) - (b.slot ?? 1) : a.fecha.localeCompare(b.fecha)))
 
