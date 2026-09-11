@@ -227,6 +227,8 @@ const AttendanceTable = memo(function AttendanceTable({
   onDeleteDay, onBack, onAddDay, addDayLabel, // addDayLabel null = ya no hace falta (todo automático y sin días faltantes) → botón oculto
   lastEditedCell, // "recordId:studentId" — la última celda revisada/modificada, resaltada de forma persistente
   parcialesFechas, // subject.parcialesFechas — fecha corta bajo "Parcial N", si existe
+  totalOficialPorParcial, // subject.totalOficialPorParcial — total oficial capturado por el docente
+  onSaveTotalOficial, // (parcial, value) → void — guarda con debounce
 }) {
   // Nodos DOM cacheados por columna/día para el efecto de cruz (fila+columna)
   // — resaltado con classList directo, sin state ni CSS :has() (ambos
@@ -349,11 +351,29 @@ const AttendanceTable = memo(function AttendanceTable({
         )}
         {attendanceParciales.map((g) => (
           <th key={g.parcial} colSpan={g.slotCount + 2}
-            className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
+            className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline">
             Parcial {g.parcial}
             {parcialesFechas?.[g.parcial - 1] && (
               <span className="block text-[9px] font-normal text-slate-400 normal-case tabular-nums">
                 ({formatShortDate(parcialesFechas[g.parcial - 1].inicio)}–{formatShortDate(parcialesFechas[g.parcial - 1].fin)})
+              </span>
+            )}
+            {onSaveTotalOficial && (
+              <span className="flex items-center justify-center gap-1 mt-0.5 normal-case font-normal">
+                <span className="text-[9px] text-muted whitespace-nowrap">Clases:</span>
+                <input
+                  type="number"
+                  min={0}
+                  aria-label={`Total oficial de clases del parcial ${g.parcial}`}
+                  defaultValue={totalOficialPorParcial?.[String(g.parcial)] ?? ''}
+                  key={totalOficialPorParcial?.[String(g.parcial)] ?? 'empty'}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10)
+                    if (!isNaN(v) && v >= 0) onSaveTotalOficial(g.parcial, v)
+                    else if (e.target.value === '') onSaveTotalOficial(g.parcial, null)
+                  }}
+                  className="w-12 text-center text-[10px] font-semibold text-on-surface border border-outline-variant rounded px-1 py-0.5 bg-surface-card focus:outline-none focus:ring-1 focus:ring-accent"
+                />
               </span>
             )}
           </th>
@@ -4179,6 +4199,19 @@ export default function SubjectPage() {
       true
     )
 
+  // Guarda el total oficial de clases de un parcial con debounce 800 ms.
+  const totalOficialDebounceRef = useRef({})
+  const handleSaveTotalOficial = useCallback((parcial, value) => {
+    const key = String(parcial)
+    clearTimeout(totalOficialDebounceRef.current[key])
+    totalOficialDebounceRef.current[key] = setTimeout(async () => {
+      const prev = subject?.totalOficialPorParcial || {}
+      const next = { ...prev, [key]: value }
+      await updateDoc(doc(db, 'subjects', subjectId), { totalOficialPorParcial: next })
+      setSubject((s) => s ? { ...s, totalOficialPorParcial: next } : s)
+    }, 800)
+  }, [subject, subjectId, db])
+
   // Tabla de asistencias — ver componente AttendanceTable (memo) arriba.
   const attendanceTableJsx = (
     <AttendanceTable
@@ -4192,6 +4225,8 @@ export default function SubjectPage() {
       addDayLabel={addDayLabel}
       lastEditedCell={lastEditedAttCell}
       parcialesFechas={subject?.parcialesFechas}
+      totalOficialPorParcial={subject?.totalOficialPorParcial}
+      onSaveTotalOficial={handleSaveTotalOficial}
     />
   )
 
