@@ -208,10 +208,6 @@ export default function ActivityPage() {
   const [previewIdx, setPreviewIdx] = useState(-1)
   // ZIP of the current student's files only
   const [studentZipDownloading, setStudentZipDownloading] = useState(false)
-  // Opt-in: when checked, Anterior/Siguiente save the grade; when unchecked the
-  // teacher is just browsing and only the explicit Guardar button saves.
-  // Remembered across sessions so it's a one-time choice.
-  const [autoSaveOnNav, setAutoSaveOnNav] = useState(() => localStorage.getItem('ef-autosave-nav') === '1')
   const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '', comentarioVisibleAlumno: true })
   // GLOBAL = default, INDIVIDUAL = excepción, la individual gana (26-ago-2026,
   // corrección explícita de Kike). true mientras el docente no haya tocado el
@@ -247,10 +243,7 @@ export default function ActivityPage() {
   // usa el lote) — así que este id nunca es null para una propuesta recién
   // generada, solo para el estado inicial antes de calificar. Se marca
   // 'aplicada' cuando el docente de verdad GUARDA la calificación
-  // (persistGrade), nunca por solo verla o precargarla — así "Ver propuesta
-  // de IA" sigue siendo gratis si el docente termina sin guardar, y NO
-  // depende de "Guardar calificación al avanzar o al retroceder" (esa
-  // casilla solo controla la calificación DEFINITIVA).
+  // (persistGrade), nunca por solo verla o precargarla.
   const [iaPropuestaDocId, setIaPropuestaDocId] = useState(null)
   function abrirCalificarIA() {
     setPrevioAntesDeIA({ rubricEval, gradeForm })
@@ -453,16 +446,7 @@ export default function ActivityPage() {
     setIaPropuestaDocId(null)
     setPrevioAntesDeIA(null)
     setGradeForm({
-      // Delivered but ungraded (or observación, which never has a delivery) →
-      // prefill the max grade so paging with Siguiente/Anterior grades with 10
-      // by default (adjust exceptions only).
-      // En Android arranca vacío ("—") mientras no haya calificación —
-      // muchos alumnos ni siquiera han entregado, prellenar el máximo ahí
-      // sería engañoso. Los botones +/- (stepCalif) son los que saltan a
-      // máximo/mitad desde vacío. En web se mantiene el prellenado previo.
-      calificacion: sub?.calificacion != null
-        ? String(sub.calificacion)
-        : (!IS_NATIVE_APP && ((sub && !isEvaluacion) || isObservacion)) ? String(activity?.maxCalif ?? 10) : '',
+      calificacion: sub?.calificacion != null ? String(sub.calificacion) : '',
       comentario: sub?.comentario || '',
       // Individual (excepción, si esta entrega ya tiene una) o si no, el
       // default/global de la actividad — nunca al revés. Se recarga aquí
@@ -549,17 +533,7 @@ export default function ActivityPage() {
     }
   }
 
-  async function closeModal() {
-    // With autosave on, closing counts as leaving the student (otherwise the
-    // LAST student in the list — who has no Siguiente — would lose their grade).
-    if (autoSaveOnNav && isDirty()) {
-      try {
-        await persistGrade()
-      } catch (err) {
-        toast('Error al guardar: ' + err.message, 'error')
-        return
-      }
-    }
+  function closeModal() {
     setSelected(null)
     setExtendMode(false)
     setExtendDate('')
@@ -909,7 +883,7 @@ export default function ActivityPage() {
         return next
       })
       setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: undefined } : sel))
-      setGradeForm({ calificacion: isObservacion ? String(activity?.maxCalif ?? 10) : '', comentario: '' })
+      setGradeForm({ calificacion: '', comentario: '' })
       setAnnulMode(false)
       toast('Entrega anulada — el estudiante queda en Pendiente y puede volver a entregar')
     } catch (err) {
@@ -1126,50 +1100,20 @@ export default function ActivityPage() {
     setGradeForm((f) => ({ ...f, calificacion: String(next) }))
   }
 
-  function toggleAutoSave() {
-    setAutoSaveOnNav((v) => {
-      localStorage.setItem('ef-autosave-nav', v ? '0' : '1')
-      return !v
-    })
-  }
-
-  // Filter tabs inside the grading view: re-freeze the navigation list to the new
-  // filter and, if the current student doesn't belong to it, jump to its first
-  // student (saving pending changes first when autosave is on).
-  async function changeFilterInView(f) {
+  function changeFilterInView(f) {
     const list = applyStudentFilters(f)
     setFilter(f)
     setNavList(list)
     if (list.length && !list.some((s) => s.id === selected.student.id)) {
-      if (autoSaveOnNav && isDirty()) {
-        try {
-          await persistGrade()
-        } catch (err) {
-          toast('Error al guardar: ' + err.message, 'error')
-          return
-        }
-      }
       openGrade(list[0])
     }
   }
 
-  // Navigating away saves pending changes first (shared persistGrade) — only when
-  // the teacher opted in via the checkbox; a save error keeps you on the current
-  // student instead of silently dropping the grade.
-  async function goToOffset(off) {
+  function goToOffset(off) {
     if (navList.length < 2 || curIdx < 0) return
-    // Wrap around: past the last student loops to the first, and vice versa.
     const nextIdx = (curIdx + off + navList.length) % navList.length
     const next = navList[nextIdx]
     if (!next) return
-    if (autoSaveOnNav && isDirty()) {
-      try {
-        await persistGrade()
-      } catch (err) {
-        toast('Error al guardar: ' + err.message, 'error')
-        return
-      }
-    }
     openGrade(next)
   }
 
@@ -1185,7 +1129,7 @@ export default function ActivityPage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, navList, gradeForm, submissions, autoSaveOnNav])
+  }, [selected, navList, gradeForm, submissions])
 
   // Physical Android back button: mirrors the on-screen back arrow / close
   // buttons already wired above. Order doesn't matter here — the module-level
@@ -1837,20 +1781,8 @@ export default function ActivityPage() {
                   </p>
                 </div>
 
-                {/* Autosave opt-in above the navigation. The checkbox keeps its
-                    space (invisible) when there's no submission so Anterior/
-                    Siguiente — and the grade right below — never jump around. */}
                 {navList.length > 1 && (
                   <div className="space-y-1.5">
-                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
-                    <input
-                      type="checkbox"
-                      checked={autoSaveOnNav}
-                      onChange={toggleAutoSave}
-                      className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
-                    />
-                    Guardar calificación al avanzar o al retroceder
-                  </label>
                   {/* Big, prominent prev/next — the most used controls here */}
                   <div className="flex items-center gap-2">
                     <button
@@ -2086,13 +2018,7 @@ export default function ActivityPage() {
                         Necesitas Créditos IA para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
                       </p>
                     )}
-                    {/* With autosave on, Siguiente/Anterior already save — showing
-                        this button too would be redundant and confusing. */}
-                    {parcialCerrado ? null : autoSaveOnNav && navList.length > 1 ? (
-                      <p className="text-xs text-slate-400 text-center py-1">
-                        La calificación se guarda al avanzar o al retroceder.
-                      </p>
-                    ) : (
+                    {parcialCerrado ? null : (
                       <button
                         type="submit"
                         disabled={saving || !canCreate || !isDirty()}
@@ -2429,22 +2355,9 @@ export default function ActivityPage() {
               )}
             </div>
 
-            {/* Guardar al avanzar/retroceder + Anterior/Siguiente. SIEMPRE
-                montado (nada de "navList.length > 1 &&" envolviendo todo) —
-                Anterior/Siguiente solo se deshabilitan (mismo lugar, mismo
-                tamaño) cuando no hay a dónde navegar. Sin botón en medio —
-                Todos/Por calificar ahora viven junto a la calificación
-                (ver más abajo). */}
+            {/* Anterior/Siguiente. SIEMPRE montado — se deshabilitan cuando no
+                hay a dónde navegar. */}
             <div className="space-y-1.5 flex-shrink-0 px-3">
-              <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica || !isEvaluacion) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
-                <input
-                  type="checkbox"
-                  checked={autoSaveOnNav}
-                  onChange={toggleAutoSave}
-                  className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
-                />
-                Guardar al avanzar o retroceder
-              </label>
               <div className="flex items-center justify-center gap-2">
                 <button
                   type="button"
@@ -2642,15 +2555,7 @@ export default function ActivityPage() {
                   </p>
                 )}
 
-                {/* Mismo alto en los dos casos (h-10) — si no, cambiar el
-                    checkbox de autoguardado hace que la entrega (flex-1)
-                    crezca o encoja de golpe, y se siente como que "brinca"
-                    la pantalla. */}
-                {parcialCerrado ? null : autoSaveOnNav && navList.length > 1 ? (
-                  <p className="h-10 flex items-center justify-center text-xs text-slate-400 text-center">
-                    La calificación se guarda al avanzar o al retroceder.
-                  </p>
-                ) : (
+                {parcialCerrado ? null : (
                   <button
                     type="submit"
                     disabled={saving || !canCreate || !isDirty()}
@@ -2845,25 +2750,19 @@ export default function ActivityPage() {
                 compact={!IS_NATIVE_APP}
               />
             </div>
-            {/* Con el autoguardado activo, Siguiente/Anterior ya aplican la
-                calificación — el botón sería redundante */}
-            {!autoSaveOnNav && (
-              <div className="p-2 border-t border-outline-variant flex-shrink-0">
-                {/* "Aplicar" ya GUARDA la calificación (persistGrade) — no hace
-                    falta un paso extra de "Guardar calificación". */}
-                <button
-                  type="button"
-                  disabled={saving || parcialCerrado}
-                  onClick={async () => {
-                    if (await persistGrade()) toast('Calificación guardada')
-                    setRubricaViewOpen(false)
-                  }}
-                  className="w-full py-2 bg-accent text-white text-sm font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover disabled:opacity-60 transition-colors"
-                >
-                  Aplicar y guardar calificación{totalR != null ? ` — ${totalR} / ${RUBRICA_TOTAL}` : ` (faltan ${faltan})`}
-                </button>
-              </div>
-            )}
+            <div className="p-2 border-t border-outline-variant flex-shrink-0">
+              <button
+                type="button"
+                disabled={saving || parcialCerrado}
+                onClick={async () => {
+                  if (await persistGrade()) toast('Calificación guardada')
+                  setRubricaViewOpen(false)
+                }}
+                className="w-full py-2 bg-accent text-white text-sm font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover disabled:opacity-60 transition-colors"
+              >
+                Aplicar y guardar calificación{totalR != null ? ` — ${totalR} / ${RUBRICA_TOTAL}` : ` (faltan ${faltan})`}
+              </button>
+            </div>
           </div>
         )
       })()}
