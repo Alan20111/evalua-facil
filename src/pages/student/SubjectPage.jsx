@@ -949,7 +949,7 @@ export default function StudentSubjectPage() {
                             <span className="text-slate-400"> · {pctInasist}% inasistencia</span>
                           )}
                           {!cerrado && denominador != null && (
-                            <span className="text-slate-400"> · {denominador} sesiones est.</span>
+                            <span className="text-slate-400"> · {denominador} sesiones del periodo</span>
                           )}
                         </p>
                       )}

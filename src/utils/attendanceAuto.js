@@ -4,7 +4,7 @@ import { writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
 import { toDateStr, diaSemanaLunes } from './horarioBloques'
 import { buildAsuetoMap, esAsuetoPara } from './asuetos'
-import { buildVacacionMap } from './vacaciones'
+import { buildVacacionMap, fechasVacacionParaClases } from './vacaciones'
 // parcialForDate es pura (sin Firebase) — vive en ./parciales.js para poder
 // compartirse con Cloud Functions. Se reexporta aquí para no romper los
 // imports existentes que la traen desde este archivo, y se importa también
@@ -32,6 +32,7 @@ export async function fetchClaseDiasSemana({ subjectId, docenteId }) {
   ))
   const porFecha = {}
   const diasSemana = new Set()
+  const sesionesCanceladas = []
   bloquesSnap.docs.forEach((d) => {
     const b = d.data()
     if (!b.fecha) return
@@ -41,10 +42,13 @@ export async function fetchClaseDiasSemana({ subjectId, docenteId }) {
     // que una instancia puntual se haya cancelado no cambia que ese día de la
     // semana sea parte del patrón recurrente de la asignatura.
     if (typeof b.diaSemana === 'number') diasSemana.add(b.diaSemana)
-    if (b.cancelada) return
+    if (b.cancelada) {
+      sesionesCanceladas.push({ fecha: b.fecha, horaInicio: b.horaInicio })
+      return
+    }
     porFecha[b.fecha] = (porFecha[b.fecha] || 0) + 1
   })
-  return { porFecha, diasSemana }
+  return { porFecha, diasSemana, sesionesCanceladas }
 }
 
 // Crea automáticamente los días de asistencia que falten para las fechas en
@@ -100,20 +104,30 @@ export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFe
 // fetchClaseDiasSemana), NO hay bloque porque el docente marcó asueto o
 // periodo vacacional — para mostrarlos en el área de asistencias en vez de
 // que simplemente "falten" sin explicación.
+// Devuelve { dias, diasAsueto }:
+//   dias        — días de clase sin bloque (por asueto/vacaciones), para mostrar en la tabla
+//   diasAsueto  — lista plana de fechas ISO de asueto/vacaciones, para calcularSesionesReales
 export async function loadAsuetoVacacionDiasClase({ docenteId, fechaInicio, fechaFin, diasSemana }) {
-  if (!fechaInicio || !fechaFin || !diasSemana?.size) return []
-
   const [asuetosSnap, vacacionesSnap] = await Promise.all([
     getDocs(query(collection(db, 'asuetos'), where('docenteId', '==', docenteId))),
     getDocs(query(collection(db, 'vacaciones'), where('docenteId', '==', docenteId))),
   ])
+
+  // Lista plana de fechas ISO excluidas para calcularSesionesReales.
+  const diasAsueto = [
+    ...asuetosSnap.docs.map((d) => d.data()).filter((a) => a.clases).map((a) => a.fecha),
+    ...fechasVacacionParaClases(vacacionesSnap.docs.map((d) => d.data())),
+  ]
+
+  if (!fechaInicio || !fechaFin || !diasSemana?.size) return { dias: [], diasAsueto }
+
   const asuetoMap = buildAsuetoMap(asuetosSnap.docs.map((d) => d.data()))
   const vacacionMap = buildVacacionMap(vacacionesSnap.docs.map((d) => d.data()))
 
   const dias = []
   const inicio = new Date(fechaInicio + 'T12:00:00')
   const fin = new Date(fechaFin + 'T12:00:00')
-  if (Number.isNaN(+inicio) || Number.isNaN(+fin) || fin < inicio) return dias
+  if (Number.isNaN(+inicio) || Number.isNaN(+fin) || fin < inicio) return { dias, diasAsueto }
   const cur = new Date(inicio)
   let guard = 0
   while (cur <= fin && guard < 400) {
@@ -129,5 +143,5 @@ export async function loadAsuetoVacacionDiasClase({ docenteId, fechaInicio, fech
     }
     cur.setDate(cur.getDate() + 1)
   }
-  return dias
+  return { dias, diasAsueto }
 }

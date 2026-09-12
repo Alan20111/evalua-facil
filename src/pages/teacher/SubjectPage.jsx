@@ -24,6 +24,7 @@ import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttDateLong, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay, enrolledFromDate } from '../../utils/attendance'
 import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana, parcialForDate } from '../../utils/attendanceAuto'
+import { calcularSesionesReales } from '../../utils/sesionesReales'
 import { diaSemanaLunes, DIAS_SEMANA, derivarPatrones, tramosFaltantes, generarBloques } from '../../utils/horarioBloques'
 import { escuelaValida } from '../../utils/escuela'
 import { buildAsuetoMap, esAsuetoPara } from '../../utils/asuetos'
@@ -228,8 +229,7 @@ const AttendanceTable = memo(function AttendanceTable({
   lastEditedCell, // "recordId:studentId" — la última celda revisada/modificada, resaltada de forma persistente
   parcialesFechas, // subject.parcialesFechas — fecha corta bajo "Parcial N", si existe
   totalOficialPorParcial, // subject.totalOficialPorParcial — total oficial capturado por el docente
-  onSaveTotalOficial, // (parcial, value) → void — guarda con debounce
-  sesionesPorParcialEstimadas, // subject.sesionesPorParcialEstimadas — estimación calculada por el servidor
+  sesionesPorParcialCliente, // sesiones calculadas en tiempo real por el cliente (open parcials)
   parcialesCerrados, // subject.parcialesCerrados — marca de cierre por parcial
   umbralInasistencia, // schools.umbralInasistencia — umbral institucional (%)
 }) {
@@ -316,7 +316,7 @@ const AttendanceTable = memo(function AttendanceTable({
       const p = String(g.parcial)
       const den = parcialesCerrados?.[g.parcial]
         ? (totalOficialPorParcial?.[p] ?? null)
-        : (sesionesPorParcialEstimadas?.[p] ?? totalOficialPorParcial?.[p] ?? null)
+        : (sesionesPorParcialCliente?.[p] ?? null)
       return [g.parcial, den]
     })
   )
@@ -377,34 +377,19 @@ const AttendanceTable = memo(function AttendanceTable({
                 ({formatShortDate(parcialesFechas[g.parcial - 1].inicio)}–{formatShortDate(parcialesFechas[g.parcial - 1].fin)})
               </span>
             )}
-            {onSaveTotalOficial && (() => {
+            {(() => {
               const cerrado = !!parcialesCerrados?.[g.parcial]
-              const estimado = sesionesPorParcialEstimadas?.[String(g.parcial)]
+              const p = String(g.parcial)
+              const sesiones = cerrado
+                ? (totalOficialPorParcial?.[p] ?? null)
+                : (sesionesPorParcialCliente?.[p] ?? null)
+              if (sesiones == null) return null
               return (
                 <span className="flex items-center justify-center gap-1 mt-0.5 normal-case font-normal">
-                  <span className="text-[9px] text-muted whitespace-nowrap">{cerrado ? '🔒' : ''} Clases:</span>
-                  {cerrado ? (
-                    <span className="text-[10px] font-semibold text-on-surface">
-                      {totalOficialPorParcial?.[String(g.parcial)] ?? '—'}
-                    </span>
-                  ) : (
-                    <input
-                      type="number"
-                      min={0}
-                      aria-label={`Total oficial de clases del parcial ${g.parcial}`}
-                      defaultValue={totalOficialPorParcial?.[String(g.parcial)] ?? ''}
-                      key={totalOficialPorParcial?.[String(g.parcial)] ?? 'empty'}
-                      onChange={(e) => {
-                        const v = parseInt(e.target.value, 10)
-                        if (!isNaN(v) && v >= 0) onSaveTotalOficial(g.parcial, v)
-                        else if (e.target.value === '') onSaveTotalOficial(g.parcial, null)
-                      }}
-                      className="w-12 text-center text-[10px] font-semibold text-on-surface border border-outline-variant rounded px-1 py-0.5 bg-surface-card focus:outline-none focus:ring-1 focus:ring-accent"
-                    />
-                  )}
-                  {!cerrado && estimado != null && (
-                    <span className="text-[9px] text-slate-400 whitespace-nowrap">(est. {estimado})</span>
-                  )}
+                  <span className="text-[9px] text-muted whitespace-nowrap">
+                    {cerrado ? '🔒 Sesiones oficiales:' : 'Sesiones del periodo:'}
+                  </span>
+                  <span className="text-[10px] font-semibold text-on-surface tabular-nums">{sesiones}</span>
                 </span>
               )
             })()}
@@ -730,16 +715,17 @@ function EstadoFiltroHeader({ value, onChange, open, setOpen, total, activos }) 
 }
 
 // Construye el mapa de denominadores reales por parcial para los Excel de asistencia.
-// Usa el total oficial confirmado si el parcial está cerrado; la estimación del servidor si no.
-function buildDenominadoresPorParcial(subject) {
+// Parcial cerrado → totalOficialPorParcial (oficial confirmado por el docente).
+// Parcial abierto → sesionesPorParcialCliente (calculado en tiempo real en el cliente).
+function buildDenominadoresPorParcial(subject, sesionesPorParcialCliente = {}) {
   const den = {}
   const parciales = subject?.parcialesFechas || []
   parciales.forEach((_, i) => {
     const p = String(i + 1)
     const cerrado = subject?.parcialesCerrados?.[p]
     den[p] = cerrado
-      ? (subject?.totalOficialPorParcial?.[p] ?? subject?.sesionesPorParcialEstimadas?.[p] ?? null)
-      : (subject?.sesionesPorParcialEstimadas?.[p] ?? subject?.totalOficialPorParcial?.[p] ?? null)
+      ? (subject?.totalOficialPorParcial?.[p] ?? null)
+      : (sesionesPorParcialCliente[p] ?? null)
   })
   return den
 }
@@ -1070,6 +1056,10 @@ export default function SubjectPage() {
   // Días dentro del periodo del curso sin clase por asueto/vacaciones (solo
   // informativo, no genera filas de asistencia) — ver utils/attendanceAuto.js
   const [attendanceNoClaseDias, setAttendanceNoClaseDias] = useState([])
+  // Datos para calcularSesionesReales client-side (parciales abiertos).
+  // Cargados en loadAttendance; vacíos antes de abrir la pestaña.
+  const [diasAsueto, setDiasAsueto] = useState([])
+  const [sesionesCanceladas, setSesionesCanceladas] = useState([])
   // Horario de ESTA asignatura: { porFecha, diasSemana }. Lo llena
   // loadAttendance y sirve para no dejar agregar un día sin clase.
   const [claseDias, setClaseDias] = useState(null)
@@ -1079,6 +1069,28 @@ export default function SubjectPage() {
   const [attendanceMissingAutoDias, setAttendanceMissingAutoDias] = useState([]) // [{fecha, duracion, parcial}]
   const [showRestoreAttendance, setShowRestoreAttendance] = useState(false)
   const [restoringFecha, setRestoringFecha] = useState(null)
+
+  // Cálculo dinámico de sesiones por parcial (parciales ABIERTOS).
+  // Reactivo a cambios en fechas, horario, asuetos y cancelaciones.
+  // Para parciales CERRADOS se usa totalOficialPorParcial en su lugar.
+  const sesionesPorParcialCliente = useMemo(() => {
+    if (!subject?.horarioPatron?.length || !subject?.fechaInicio || !subject?.fechaFin) return {}
+    const numParciales = Math.max(1, Number(subject.parciales) || 1)
+    const result = {}
+    for (let p = 1; p <= numParciales; p++) {
+      const { resumen } = calcularSesionesReales({
+        fechaInicio: subject.fechaInicio,
+        fechaFin: subject.fechaFin,
+        parcialesFechas: subject.parcialesFechas || [],
+        horarioPatron: subject.horarioPatron,
+        diasAsueto,
+        sesionesCanceladas,
+        parcial: p,
+      })
+      result[String(p)] = resumen.sesionesTotales
+    }
+    return result
+  }, [subject?.fechaInicio, subject?.fechaFin, subject?.parcialesFechas, subject?.horarioPatron, subject?.parciales, diasAsueto, sesionesCanceladas])
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -1773,12 +1785,13 @@ export default function SubjectPage() {
         fetchClaseDiasSemana({ subjectId, docenteId: subj.docenteId }).catch(() => null),
       ])
       setClaseDias(bloquesInfo)
+      if (bloquesInfo?.sesionesCanceladas) setSesionesCanceladas(bloquesInfo.sesionesCanceladas)
       let finalRecords = records
       if (subj?.parcialesFechas?.length && bloquesInfo) {
         // Crear los días faltantes y buscar asuetos/vacaciones tampoco
         // dependen entre sí (solo comparten diasSemana, ya calculado arriba)
         // — también en paralelo.
-        const [{ created, missing, nuevos }, noClase] = await Promise.all([
+        const [{ created, missing, nuevos }, { dias: noClase, diasAsueto: diasAsuetoLoaded }] = await Promise.all([
           syncAutoAttendanceDays({
             subjectId,
             docenteId: subj.docenteId,
@@ -1803,6 +1816,7 @@ export default function SubjectPage() {
         }
         setAttendanceMissingAutoDias(missing)
         setAttendanceNoClaseDias(noClase)
+        setDiasAsueto(diasAsuetoLoaded)
       }
       setAttendanceRecords(finalRecords)
       setAttendanceLoaded(true)
@@ -3636,8 +3650,8 @@ export default function SubjectPage() {
     const topeCalif = acts.length ? Math.min(...acts.map((a) => a.maxCalif ?? 10)) : 10
     playAlertSound()
     setCloseParcialGrade(String(Math.min(5, topeCalif)))
-    const estimado = subject?.sesionesPorParcialEstimadas?.[String(p)]
-    setCloseParcialSesiones(estimado != null ? String(estimado) : '')
+    const calculado = sesionesPorParcialCliente?.[String(p)]
+    setCloseParcialSesiones(calculado != null ? String(calculado) : '')
     setCloseParcialConfirm({ p, missing, ungraded, pondError, topeCalif })
   }
 
@@ -3793,7 +3807,7 @@ export default function SubjectPage() {
       // "Parcial actual / Todo el curso" (ese es solo para lo que se pinta
       // en pantalla) — por eso usa attendanceParcialesAll, no la variable
       // filtrada attendanceParciales.
-      const denominadoresPorParcial = buildDenominadoresPorParcial(subject)
+      const denominadoresPorParcial = buildDenominadoresPorParcial(subject, sesionesPorParcialCliente)
       await exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, membrete, denominadoresPorParcial })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
@@ -3803,7 +3817,7 @@ export default function SubjectPage() {
     if (!subject) return
     setExportingAttendance(true)
     try {
-      const denominadoresPorParcial = buildDenominadoresPorParcial(subject)
+      const denominadoresPorParcial = buildDenominadoresPorParcial(subject, sesionesPorParcialCliente)
       await exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p, membrete, denominadoresPorParcial })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
@@ -4298,19 +4312,11 @@ export default function SubjectPage() {
       true
     )
 
-  // Guarda el total oficial de clases de un parcial con debounce 800 ms.
+  // totalOficialDebounceRef conservado pero handleSaveTotalOficial eliminado:
+  // el total oficial solo se guarda al CERRAR el parcial (modal confirmCloseParcial),
+  // no mediante un input inline en la tabla. El ref se conserva para no romper
+  // el patrón si se necesita recuperar en el futuro.
   const totalOficialDebounceRef = useRef({})
-  const handleSaveTotalOficial = useCallback((parcial, value) => {
-    if (subject?.parcialesCerrados?.[String(parcial)]) return
-    const key = String(parcial)
-    clearTimeout(totalOficialDebounceRef.current[key])
-    totalOficialDebounceRef.current[key] = setTimeout(async () => {
-      const prev = subject?.totalOficialPorParcial || {}
-      const next = { ...prev, [key]: value }
-      await updateDoc(doc(db, 'subjects', subjectId), { totalOficialPorParcial: next })
-      setSubject((s) => s ? { ...s, totalOficialPorParcial: next } : s)
-    }, 800)
-  }, [subject, subjectId, db])
 
   // Orden de la tabla de Asistencias por porcentaje de inasistencia — clon del
   // patrón de Calificaciones. Para el valor de ordenación por parcial específico
@@ -4348,8 +4354,7 @@ export default function SubjectPage() {
       lastEditedCell={lastEditedAttCell}
       parcialesFechas={subject?.parcialesFechas}
       totalOficialPorParcial={subject?.totalOficialPorParcial}
-      onSaveTotalOficial={handleSaveTotalOficial}
-      sesionesPorParcialEstimadas={subject?.sesionesPorParcialEstimadas}
+      sesionesPorParcialCliente={sesionesPorParcialCliente}
       parcialesCerrados={subject?.parcialesCerrados}
       umbralInasistencia={umbralInasistencia}
     />
