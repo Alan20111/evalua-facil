@@ -22,7 +22,7 @@ import { membreteDe } from '../../utils/membrete'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
-import { fmtAttDateParts, fmtAttDateLong, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay, enrolledFromDate } from '../../utils/attendance'
+import { fmtAttDateParts, fmtAttDateLong, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
 import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana, parcialForDate } from '../../utils/attendanceAuto'
 import { calcularSesionesReales } from '../../utils/sesionesReales'
 import { diaSemanaLunes, DIAS_SEMANA, derivarPatrones, tramosFaltantes, generarBloques } from '../../utils/horarioBloques'
@@ -489,8 +489,7 @@ const AttendanceTable = memo(function AttendanceTable({
     </thead>
     <tbody>
       {filteredAttendanceStudents.map((s, i) => {
-        const enrolledFrom = enrolledFromDate(s)
-        const total = countPresence(attendanceAllRecords, s.id, enrolledFrom, todayISO)
+        const total = countPresence(attendanceAllRecords, s.id, null, todayISO)
         return (
         <tr key={s.id} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
           <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
@@ -500,7 +499,7 @@ const AttendanceTable = memo(function AttendanceTable({
             {studentFullName(s)}
           </td>
           {attendanceParciales.flatMap((g) => {
-            const { asist, inasist } = countPresence(g.records, s.id, enrolledFrom, todayISO)
+            const { asist, inasist } = countPresence(g.records, s.id, null, todayISO)
             const denominador = denPorParcial[g.parcial]
             const pctAsist    = denominador > 0 ? (asist   / denominador * 100) : null
             const pctInasist  = denominador > 0 ? (inasist / denominador * 100) : null
@@ -510,13 +509,7 @@ const AttendanceTable = memo(function AttendanceTable({
               : '🟢'
             return [
               ...g.days.flatMap(({ fecha, records }) => records.map((r) => {
-                // Día anterior a que el alumno se inscribiera: ni presente ni
-                // falta, no aplica — sin esto, isPresente() lo contaba como
-                // asistencia (trata como presente cualquier alumno sin llave
-                // en `presentes`) para clases a las que nunca pudo faltar
-                // porque todavía no era parte de la asignatura.
-                const esAntesDeInscribirse = enrolledFrom && fecha < enrolledFrom
-                const estado = esAntesDeInscribirse ? null : attendanceState(r, s.id)
+                const estado = attendanceState(r, s.id)
                 const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
                 const ui = {
                   presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} /> },
@@ -524,23 +517,6 @@ const AttendanceTable = memo(function AttendanceTable({
                   justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span> },
                 }[estado]
                 const esFuturo = fecha > todayISO
-                // Sin tooltip por celda: la leyenda de abajo ya dice qué es cada
-                // símbolo, y aquí se repetía en CADA cuadrito de la cuadrícula —
-                // con el ratón cruzando la tabla, el globito no paraba de
-                // aparecer justo encima de lo que se quería leer. Los días que
-                // aún no llegan se distinguen solos: van atenuados y no se
-                // pueden tocar.
-                if (esAntesDeInscribirse) {
-                  return (
-                    <td key={r.id}
-                      data-col={attColIndexById[r.id]}
-                      ref={addAttColEl(attColIndexById[r.id])}
-                      data-tooltip="Aún no estaba inscrito"
-                      className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none opacity-40 cursor-not-allowed`}>
-                      <span className={`relative inline-flex items-center justify-center ${cellIconSize} rounded text-slate-300`}>—</span>
-                    </td>
-                  )
-                }
                 return (
                   <td key={r.id}
                     data-col={attColIndexById[r.id]}
@@ -4326,11 +4302,10 @@ export default function SubjectPage() {
   // patrón de Calificaciones. Para el valor de ordenación por parcial específico
   // usamos los registros de ese parcial; para "general" usamos todos los registros.
   const attSortValue = (s) => {
-    const enrolledFrom = enrolledFromDate(s)
     const records = attSortParcial != null
       ? (attendanceParciales.find((g) => g.parcial === attSortParcial)?.records ?? [])
       : attendanceAllRecords
-    const { asist, inasist } = countPresence(records, s.id, enrolledFrom, todayISOComp)
+    const { asist, inasist } = countPresence(records, s.id, null, todayISOComp)
     const total = asist + inasist
     return total > 0 ? inasist / total : null
   }

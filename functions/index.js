@@ -1007,7 +1007,6 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
       const parcialActual = parcialForDate(parcialesFechas, r.fecha) ?? r.parcial ?? 1
       return parcialActual === r.parcial ? r : { ...r, parcial: parcialActual }
     })
-    .filter((r) => !enrolledFrom || r.fecha >= enrolledFrom)
     .sort((a, b) => (a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha)))
 
   const porParcial = {}
