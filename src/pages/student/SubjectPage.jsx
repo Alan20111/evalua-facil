@@ -938,7 +938,7 @@ export default function StudentSubjectPage() {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-on-surface">Parcial {p}</p>
                       <p className="text-xs text-slate-500">
-                        {stat.asist} asistencia{stat.asist !== 1 ? 's' : ''} · {stat.inasist} falta{stat.inasist !== 1 ? 's' : ''}
+                        {stat.asist - stat.justif} presente{stat.asist - stat.justif !== 1 ? 's' : ''} · {stat.inasist} falta{stat.inasist !== 1 ? 's' : ''}
                         {stat.justif > 0 ? ` · ${stat.justif} justificada${stat.justif !== 1 ? 's' : ''}` : ''}
                       </p>
                       {pct != null && (

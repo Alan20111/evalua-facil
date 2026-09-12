@@ -88,13 +88,11 @@ export function enrolledFromDate(student) {
 // Cuenta asistencias/faltas de un alumno sobre un conjunto de registros
 // (slots). Cada slot vale una asistencia; una FALTA JUSTIFICADA cuenta como
 // asistencia (no como falta) — solo la falta injustificada suma a inasist.
-// `enrolledFrom` ('YYYY-MM-DD', opcional): días anteriores a esa fecha se
-// excluyen del conteo — sin esto, un alumno que se inscribe semanas después
-// de iniciado el curso "aprovechaba" isPresente() tratando como asistencia
-// cada día en el que ni siquiera estaba inscrito, inflando su porcentaje.
+// `enrolledFrom`: parámetro obsoleto para la vista del docente (se pasa null);
+// se conserva en la firma para no romper las llamadas de exportación Excel.
 // `maxDate` ('YYYY-MM-DD', opcional): sesiones futuras (fecha > maxDate) no
-// son asistencias reales — excluirlas evita que checks verdes automáticos de
-// días aún no ocurridos inflen el conteo del docente.
+// son asistencias reales — excluirlas evita que registros creados por adelantado
+// inflen el conteo antes de que sucedan.
 export function countPresence(records, studentId, enrolledFrom, maxDate) {
   let asist = 0
   let inasist = 0
@@ -109,10 +107,10 @@ export function countPresence(records, studentId, enrolledFrom, maxDate) {
   return { asist, inasist, justif }
 }
 
-// Falta la llave (alumno inscrito después de creada la columna) → se trata como
-// presente, igual que el resto de la columna cuando se creó.
+// Solo `true` explícito cuenta como presente. `undefined` (alumno sin llave en
+// el mapa, p.ej. inscripción tardía) se trata como FALTA, nunca como presente.
 export function isPresente(record, studentId) {
-  return record.presentes?.[studentId] !== false
+  return record.presentes?.[studentId] === true
 }
 
 // Estado de asistencia de 3 valores: 'presente' | 'falta' | 'justificada'.

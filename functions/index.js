@@ -1020,7 +1020,7 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
   const registros = []
 
   for (const r of records) {
-    const presente = r.presentes?.[studentId] !== false
+    const presente = r.presentes?.[studentId] === true
     const justificada = !!r.justificadas?.[studentId]
     const estado = presente ? 'presente' : justificada ? 'justificada' : 'falta'
     const p = String(r.parcial)

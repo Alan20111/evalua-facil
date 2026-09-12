@@ -1,37 +1,49 @@
 #!/usr/bin/env node
-
 /**
- * Regenera attendanceSummaries con registros a nivel de sesión (slot).
+ * Recalcula attendanceSummaries para todos los alumnos usando la semántica
+ * corregida de isPresente: presentes[studentId] === true (no !== false).
  *
- * POR QUÉ HACE FALTA: la versión anterior de recalcularResumenAsistencia
- * colapsaba los slots del mismo día en un único registro ("peor estado del
- * día"), de modo que un alumno con dos clases en lunes solo veía una entrada.
- * El fix en functions/index.js corrige el cálculo en adelante; este script
- * regenera los resúmenes existentes para que el historial pasado también
- * refleje las sesiones individuales.
+ * Por qué hace falta: el CF onAttendanceEscrita solo corre cuando se escribe
+ * un registro de attendance. Los summaries existentes fueron calculados con la
+ * semántica antigua (undefined → presente). Este script los recalcula todos de
+ * una vez para dejar docente y alumno sincronizados.
  *
- * SEGURO: lee de `attendance` (fuente de verdad) y sobreescribe
- * `attendanceSummaries` — el mismo efecto que dispara onAttendanceEscrita en
- * cada escritura. No toca ninguna otra colección.
+ * Criterios aplicados (REGLA DEFINITIVA):
+ *   · presentes[id] === true  → PRESENTE  (contabiliza como asistencia)
+ *   · presentes[id] === false + justificadas[id] === true → JUSTIFICADA
+ *   · presentes[id] === false, sin justificada → FALTA
+ *   · presentes[id] === undefined → FALTA  (sin estado explícito = falta)
+ *   · Sesiones futuras (fecha > hoy) → excluidas del conteo y del resumen
+ *   · Sesiones pasadas de alumnos inscritos tardíamente → cuentan (no hay
+ *     filtro enrolledFrom)
  *
  * Uso:
  *   cd seeds-db && npm install
- *   node backfill-attendance-summaries.js --dry-run   # muestra pares, no escribe
- *   node backfill-attendance-summaries.js             # regenera todos
+ *   node backfill-attendance-summaries.js --dry-run
+ *   node backfill-attendance-summaries.js
  *
- * Requiere Firebase Admin SDK (GOOGLE_APPLICATION_CREDENTIALS o
- * `firebase login` con firebase-cli).
+ * Requiere credenciales del Admin SDK (GOOGLE_APPLICATION_CREDENTIALS o
+ * firebase login). En la máquina de Kike usa el Application Default Credential
+ * generado por firebase CLI.
  */
 
 const admin = require('firebase-admin')
 
-const DRY_RUN = process.argv.includes('--dry-run')
-
-if (!admin.apps.length) admin.initializeApp()
+try {
+  admin.initializeApp({ projectId: 'evalua-facil-app' })
+} catch {
+  // ya inicializado
+}
 const db = admin.firestore()
 const FieldValue = admin.firestore.FieldValue
 
-// Copia inline de src/utils/parciales.js — función pura, sin dependencias.
+const dryRun = process.argv.includes('--dry-run')
+
+// ISO de hoy — sesiones futuras (fecha > todayISO) NO se contabilizan.
+const now = new Date()
+const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+// Replica de parcialForDate de functions/_shared/parciales.js.
 function parcialForDate(parcialesFechas, fecha) {
   if (!Array.isArray(parcialesFechas)) return null
   for (let i = 0; i < parcialesFechas.length; i++) {
@@ -41,50 +53,28 @@ function parcialForDate(parcialesFechas, fecha) {
   return null
 }
 
-// Cache de subjects para no re-leer el mismo documento por cada alumno.
-const subjectCache = {}
-async function getParcialesFechas(asignaturaId) {
-  if (!(asignaturaId in subjectCache)) {
-    const snap = await db.doc(`subjects/${asignaturaId}`).get()
-    subjectCache[asignaturaId] = snap.data()?.parcialesFechas ?? []
-  }
-  return subjectCache[asignaturaId]
-}
-
-async function recalcularResumenAsistencia(asignaturaId, studentId) {
-  const [studentSnap, parcialesFechas] = await Promise.all([
-    db.doc(`students/${studentId}`).get(),
-    getParcialesFechas(asignaturaId),
-  ])
-  if (!studentSnap.exists) {
-    if (!DRY_RUN) await db.doc(`attendanceSummaries/${studentId}`).delete()
-    console.log(`  [DELETE] alumno ${studentId} ya no existe`)
-    return
-  }
-
-  const createdAt = studentSnap.data().createdAt
-  const enrolledFrom = createdAt?.toDate ? (() => {
-    const d = createdAt.toDate()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  })() : null
-
+// Replica exacta de recalcularResumenAsistencia con la semántica === true.
+async function recalcular(asignaturaId, studentId, parcialesFechas) {
   const snap = await db.collection('attendance').where('asignaturaId', '==', asignaturaId).get()
+
   const records = snap.docs.map((d) => d.data())
     .map((r) => {
       const parcialActual = parcialForDate(parcialesFechas, r.fecha) ?? r.parcial ?? 1
       return parcialActual === r.parcial ? r : { ...r, parcial: parcialActual }
     })
-    .filter((r) => !enrolledFrom || r.fecha >= enrolledFrom)
-    .sort((a, b) => (a.fecha === b.fecha ? (a.slot ?? 1) - (b.slot ?? 1) : a.fecha.localeCompare(b.fecha)))
+    // Excluir sesiones futuras — igual que countPresence(maxDate=todayISO) del docente.
+    .filter((r) => r.fecha <= todayISO)
+    .sort((a, b) => (a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha)))
 
   const porParcial = {}
   let asistTotal = 0, inasistTotal = 0, justifTotal = 0
   const registros = []
 
   for (const r of records) {
-    const presente = r.presentes?.[studentId] !== false
+    const presente = r.presentes?.[studentId] === true   // semántica corregida
     const justificada = !!r.justificadas?.[studentId]
     const estado = presente ? 'presente' : justificada ? 'justificada' : 'falta'
+
     const p = String(r.parcial)
     if (!porParcial[p]) porParcial[p] = { asist: 0, inasist: 0, justif: 0, total: 0 }
     porParcial[p].total++
@@ -102,45 +92,74 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
     })
   }
 
-  if (!DRY_RUN) {
-    await db.doc(`attendanceSummaries/${studentId}`).set({
-      asignaturaId,
-      porParcial,
-      total: { asist: asistTotal, inasist: inasistTotal, justif: justifTotal, total: records.length },
-      registros,
-      updatedAt: FieldValue.serverTimestamp(),
-    })
+  return {
+    asignaturaId,
+    porParcial,
+    total: { asist: asistTotal, inasist: inasistTotal, justif: justifTotal, total: records.length },
+    registros,
+    updatedAt: FieldValue.serverTimestamp(),
   }
-  return registros.length
 }
 
-async function run() {
-  console.log(`Modo: ${DRY_RUN ? 'DRY-RUN (sin escrituras)' : 'ESCRITURA REAL'}`)
+async function main() {
+  console.log(dryRun ? '— DRY RUN (no escribe nada) —' : `— Backfill de attendanceSummaries (todayISO: ${todayISO}) —`)
 
-  const summariesSnap = await db.collection('attendanceSummaries').get()
-  console.log(`Encontrados ${summariesSnap.size} resumen(es) existentes.`)
+  // Obtener todos los summaries existentes para saber qué alumnos/asignaturas procesar.
+  const summarySnap = await db.collection('attendanceSummaries').get()
+  console.log(`\nSummaries encontrados: ${summarySnap.size}`)
 
-  // Pares únicos (asignaturaId, studentId) para regenerar
-  const pares = summariesSnap.docs.map((d) => ({
-    studentId: d.id,
-    asignaturaId: d.data().asignaturaId,
-  })).filter((p) => p.asignaturaId)
+  if (!summarySnap.size) {
+    console.log('Nada que hacer — no hay attendanceSummaries.')
+    return
+  }
 
-  console.log(`Pares a procesar: ${pares.length}`)
+  // Agrupar por asignaturaId para cargar attendance una sola vez por asignatura.
+  const porAsignatura = {}
+  for (const doc of summarySnap.docs) {
+    const asignaturaId = doc.data().asignaturaId
+    if (!asignaturaId) continue
+    if (!porAsignatura[asignaturaId]) porAsignatura[asignaturaId] = []
+    porAsignatura[asignaturaId].push(doc.id) // doc.id = studentId
+  }
 
-  let ok = 0, errores = 0
-  for (const { asignaturaId, studentId } of pares) {
-    try {
-      const n = await recalcularResumenAsistencia(asignaturaId, studentId)
-      console.log(`  [OK] ${studentId} / ${asignaturaId} — ${n ?? 'borrado'} registro(s)`)
-      ok++
-    } catch (err) {
-      console.error(`  [ERR] ${studentId} / ${asignaturaId}: ${err.message}`)
-      errores++
+  console.log(`Asignaturas únicas: ${Object.keys(porAsignatura).length}`)
+
+  let ok = 0, err = 0
+
+  for (const [asignaturaId, studentIds] of Object.entries(porAsignatura)) {
+    // Cargar parcialesFechas de la asignatura.
+    const subjectSnap = await db.doc(`subjects/${asignaturaId}`).get()
+    const parcialesFechas = subjectSnap.data()?.parcialesFechas ?? []
+
+    for (const studentId of studentIds) {
+      try {
+        const summary = await recalcular(asignaturaId, studentId, parcialesFechas)
+
+        // Antes de escribir: mostrar cuánto cambió el total.
+        const oldSnap = await db.doc(`attendanceSummaries/${studentId}`).get()
+        const old = oldSnap.data()?.total ?? {}
+        const diff = {
+          asistAntes: old.asist ?? '?',
+          asistAhora: summary.total.asist,
+          inasistAntes: old.inasist ?? '?',
+          inasistAhora: summary.total.inasist,
+        }
+
+        console.log(`  ${studentId} (asig ${asignaturaId.slice(-6)}): asist ${diff.asistAntes}→${diff.asistAhora}, inasist ${diff.inasistAntes}→${diff.inasistAhora}`)
+
+        if (!dryRun) {
+          await db.doc(`attendanceSummaries/${studentId}`).set(summary)
+        }
+        ok++
+      } catch (e) {
+        console.error(`  ERROR ${studentId}: ${e.message}`)
+        err++
+      }
     }
   }
 
-  console.log(`\nCompletado. OK: ${ok}  Errores: ${errores}`)
+  console.log(`\n✅ ${ok} summaries ${dryRun ? 'calculados (dry-run)' : 'actualizados'}.${err ? ` ❌ ${err} errores.` : ''}`)
+  if (dryRun) console.log('Corre sin --dry-run para aplicar los cambios.')
 }
 
-run().catch((err) => { console.error(err); process.exit(1) })
+main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1) })
