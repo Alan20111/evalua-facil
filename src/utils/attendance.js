@@ -92,12 +92,16 @@ export function enrolledFromDate(student) {
 // excluyen del conteo — sin esto, un alumno que se inscribe semanas después
 // de iniciado el curso "aprovechaba" isPresente() tratando como asistencia
 // cada día en el que ni siquiera estaba inscrito, inflando su porcentaje.
-export function countPresence(records, studentId, enrolledFrom) {
+// `maxDate` ('YYYY-MM-DD', opcional): sesiones futuras (fecha > maxDate) no
+// son asistencias reales — excluirlas evita que checks verdes automáticos de
+// días aún no ocurridos inflen el conteo del docente.
+export function countPresence(records, studentId, enrolledFrom, maxDate) {
   let asist = 0
   let inasist = 0
   let justif = 0
   for (const r of records) {
     if (enrolledFrom && r.fecha < enrolledFrom) continue
+    if (maxDate && r.fecha > maxDate) continue
     if (isPresente(r, studentId)) asist++
     else if (r.justificadas?.[studentId]) { asist++; justif++ }
     else inasist++

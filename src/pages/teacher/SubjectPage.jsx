@@ -490,7 +490,7 @@ const AttendanceTable = memo(function AttendanceTable({
     <tbody>
       {filteredAttendanceStudents.map((s, i) => {
         const enrolledFrom = enrolledFromDate(s)
-        const total = countPresence(attendanceAllRecords, s.id, enrolledFrom)
+        const total = countPresence(attendanceAllRecords, s.id, enrolledFrom, todayISO)
         return (
         <tr key={s.id} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
           <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
@@ -500,7 +500,7 @@ const AttendanceTable = memo(function AttendanceTable({
             {studentFullName(s)}
           </td>
           {attendanceParciales.flatMap((g) => {
-            const { asist, inasist } = countPresence(g.records, s.id, enrolledFrom)
+            const { asist, inasist } = countPresence(g.records, s.id, enrolledFrom, todayISO)
             const denominador = denPorParcial[g.parcial]
             const pctAsist    = denominador > 0 ? (asist   / denominador * 100) : null
             const pctInasist  = denominador > 0 ? (inasist / denominador * 100) : null
@@ -4318,6 +4318,10 @@ export default function SubjectPage() {
   // el patrón si se necesita recuperar en el futuro.
   const totalOficialDebounceRef = useRef({})
 
+  // Fecha de hoy en formato ISO 'YYYY-MM-DD' — sesiones con fecha posterior no
+  // son asistencias reales todavía, se excluyen del conteo y del ordenamiento.
+  const todayISOComp = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
+
   // Orden de la tabla de Asistencias por porcentaje de inasistencia — clon del
   // patrón de Calificaciones. Para el valor de ordenación por parcial específico
   // usamos los registros de ese parcial; para "general" usamos todos los registros.
@@ -4326,7 +4330,7 @@ export default function SubjectPage() {
     const records = attSortParcial != null
       ? (attendanceParciales.find((g) => g.parcial === attSortParcial)?.records ?? [])
       : attendanceAllRecords
-    const { asist, inasist } = countPresence(records, s.id, enrolledFrom)
+    const { asist, inasist } = countPresence(records, s.id, enrolledFrom, todayISOComp)
     const total = asist + inasist
     return total > 0 ? inasist / total : null
   }
