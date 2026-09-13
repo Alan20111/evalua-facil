@@ -113,7 +113,7 @@ export function FilePreview({ url, nombre, fill = false, onCountKnown }) {
   // PDFs uploaded as an image resource → render their pages as JPGs. This works
   // even when the Cloudinary account has PDF delivery disabled.
   if (isPdf && isImageDeliveredPdf(url)) {
-    return <PdfPagesPreview url={url} nombre={nombre} fill={fill} onCountKnown={onCountKnown} />
+    return <PdfPagesPreview key={url} url={url} nombre={nombre} fill={fill} onCountKnown={onCountKnown} />
   }
   // `allow-scripts` es obligatorio en los dos casos de abajo: no muestran el
   // archivo del alumno directamente, cargan la página de Google Docs Viewer —
