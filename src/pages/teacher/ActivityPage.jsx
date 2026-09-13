@@ -1076,8 +1076,8 @@ export default function ActivityPage() {
   // Tres estados, tres etiquetas — nunca cobra ver algo que ya se generó
   // (pendiente o aplicada), solo generar algo nuevo cobra.
   const labelCalificarConIA = !sugerenciaPersistidaIA
-    ? 'Calificar con IA'
-    : sugerenciaPersistidaIA._estado === 'aplicada' ? 'Ver evaluación de IA' : 'Ver propuesta de IA'
+    ? 'Calificar'
+    : sugerenciaPersistidaIA._estado === 'aplicada' ? 'Ver evaluación' : 'Ver propuesta'
   // Clamp while typing: never above maxCalif, never below 0, at most 1 decimal.
   // Partial input like "9." is left alone so decimals can still be typed.
   function onCalifChange(e) {
@@ -1403,7 +1403,7 @@ export default function ActivityPage() {
                   className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
                 >
                   <Sparkles size={16} />
-                  Calificar con IA
+                  Calificar
                 </button>
                 {hayVersionDistinta && (
                   <button
@@ -1413,7 +1413,7 @@ export default function ActivityPage() {
                     className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface-container transition-colors disabled:opacity-60"
                   >
                     <Sparkles size={16} />
-                    Recalificar con IA
+                    Recalificar
                   </button>
                 )}
                 {pendientesIA > 0 && (
@@ -2445,7 +2445,7 @@ export default function ActivityPage() {
                     className="w-full py-2.5 text-sm font-semibold rounded border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
                   >
                     <Sparkles size={17} />
-                    Calificar con IA
+                    {labelCalificarConIA}
                   </button>
                 )}
 
