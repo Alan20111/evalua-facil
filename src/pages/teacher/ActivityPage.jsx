@@ -206,6 +206,13 @@ export default function ActivityPage() {
   // Which file of a multi-photo submission is showing in the preview pane.
   // -1 = ALL images stacked (scrollable) — the default overview.
   const [previewIdx, setPreviewIdx] = useState(-1)
+  // Real page count of the PDF currently shown in the WEB grading overlay.
+  // null = not yet determined (PDF still loading or file is not a PDF).
+  // Only set by FilePreview → PdfPagesPreview/PdfCanvasPreview callbacks;
+  // never stored in Firestore. Reset whenever the displayed file changes.
+  const [pdfPageCount, setPdfPageCount] = useState(null)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setPdfPageCount(null) }, [selected?.sub?.id, previewIdx])
   // ZIP of the current student's files only
   const [studentZipDownloading, setStudentZipDownloading] = useState(false)
   const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '', comentarioVisibleAlumno: true })
@@ -1639,7 +1646,7 @@ export default function ActivityPage() {
                     />
                   ) : canPreviewFile(f.nombre) ? (
                     <div className="flex-1 min-h-0 overflow-y-auto">
-                      <FilePreview url={f.url} nombre={f.nombre} fill />
+                      <FilePreview url={f.url} nombre={f.nombre} onCountKnown={setPdfPageCount} />
                     </div>
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
@@ -1671,7 +1678,7 @@ export default function ActivityPage() {
                   />
                 ) : canPreviewFile(selected.sub.nombreArchivo) ? (
                   <div className="flex-1 min-h-0 overflow-y-auto">
-                    <FilePreview url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo} fill />
+                    <FilePreview url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo} onCountKnown={setPdfPageCount} />
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
@@ -1769,7 +1776,11 @@ export default function ActivityPage() {
                           : selected.sub
                             ? selected.sub.completadoSinArchivo
                               ? 'Completada sin archivo'
-                              : (selected.sub.nombreArchivo || (selected.sub.sinEntrega ? `Sin entrega — calificada en ${selected.sub.calificacion ?? 0}` : 'Sin archivo'))
+                              : (selected.sub.nombreArchivo
+                                  ? (pdfPageCount != null
+                                      ? `${selected.sub.nombreArchivo} (${pdfPageCount} ${pdfPageCount === 1 ? 'página' : 'páginas'})`
+                                      : selected.sub.nombreArchivo)
+                                  : (selected.sub.sinEntrega ? `Sin entrega — calificada en ${selected.sub.calificacion ?? 0}` : 'Sin archivo'))
                             : 'Sin entrega aún'}
                   </p>
                   {/* Always reserve one line so Anterior/Siguiente don't jump
