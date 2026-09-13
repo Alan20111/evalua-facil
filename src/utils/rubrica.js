@@ -185,15 +185,18 @@ export function validarRubrica(r) {
 // lo edita y lo guarda. `validarRubrica` se sigue corriendo ahí en cada tecla
 // —nada de esto se salta la validación existente.
 
-// Puntos de cada nivel según cuántos niveles proponga la IA. El primero
-// siempre vale 10 (regla del modelo) y de ahí bajan. La escala de 4 es la
-// misma que trae una rúbrica nueva en el editor (Excelente 10 / Bueno 8 /
-// Suficiente 6 / Insuficiente 5), para que lo generado y lo hecho a mano se
-// vean igual.
-const VALORES_POR_NIVELES = {
-  3: [10, 7, 5],
-  4: [10, 8, 6, 5],
-  5: [10, 8, 6, 4, 2],
+// Calcula los valores de cada nivel de forma equidistante entre `maximo` (10)
+// y `minimo` (lo que el docente eligió: 0, 5 ó 6). El primer nivel siempre
+// vale 10; el último vale `minimo`; los intermedios se distribuyen con pasos
+// iguales y se redondean a 1 decimal.
+export function calcularEscala(numNiveles, nivelMinimo = 0) {
+  const n = Math.min(MAX_NIVELES, Math.max(MIN_NIVELES, numNiveles))
+  const min = Math.min(9, Math.max(0, nivelMinimo))
+  return Array.from({ length: n }, (_, i) =>
+    i === 0 ? RUBRICA_TOTAL
+    : i === n - 1 ? min
+    : round1(RUBRICA_TOTAL - i * (RUBRICA_TOTAL - min) / (n - 1))
+  )
 }
 
 const limpiar = (v, max) => String(v ?? '').trim().slice(0, max)
@@ -210,11 +213,12 @@ function acotar(lista, min, max) {
 // EntregableEditor.jsx): la IA los recibe en el prompt, pero aquí se vuelve a
 // forzar el número EXACTO (acotar con min=max) — la IA nunca decide la
 // estructura, ni siquiera si su respuesta trae de más o de menos.
-export function rubricaDesdePropuesta(propuesta, numCriterios = MIN_CRITERIOS, numNiveles = MIN_NIVELES) {
+// `nivelMinimo` = valor mínimo de desempeño elegido por el docente (0, 5 ó 6).
+export function rubricaDesdePropuesta(propuesta, numCriterios = MIN_CRITERIOS, numNiveles = MIN_NIVELES, nivelMinimo = 0) {
   const nc = Math.min(MAX_CRITERIOS, Math.max(MIN_CRITERIOS, numCriterios))
   const nn = Math.min(MAX_NIVELES, Math.max(MIN_NIVELES, numNiveles))
   const nombresNivel = acotar(propuesta?.niveles, nn, nn).map((n) => limpiar(n, 40))
-  const valores = VALORES_POR_NIVELES[nombresNivel.length]
+  const valores = calcularEscala(nombresNivel.length, nivelMinimo)
   const criteriosIA = acotar(propuesta?.criterios, nc, nc)
   const n = criteriosIA.length
 
@@ -340,7 +344,7 @@ export function rubricaFirma(rubrica) {
 
 // Copia limpia para guardar dentro de la actividad (sin campos del banco).
 export function snapshotRubrica(r) {
-  return {
+  const snap = {
     tipo: r.tipo || 'rubrica',
     titulo: r.titulo,
     descripcion: r.descripcion || '',
@@ -352,4 +356,8 @@ export function snapshotRubrica(r) {
       descriptores: [...c.descriptores],
     })),
   }
+  // Preserva el mínimo elegido por el docente para que la evaluación posterior
+  // con IA pueda describir la escala correctamente. Campo ausente = legacy (5).
+  if (typeof r.nivelMinimo === 'number') snap.nivelMinimo = r.nivelMinimo
+  return snap
 }
