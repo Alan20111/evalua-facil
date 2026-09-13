@@ -195,8 +195,8 @@ async function fuentesGenerales(urls, opciones = {}) {
   return { ...r, texto: conIntro(INTRO_GENERAL, r), textoSinBloques: soloTexto(INTRO_GENERAL, r) }
 }
 
-const INTRO_MANUAL = 'Documentos de referencia aportados por el docente (úsalos como base cuando sean relevantes):\n'
-const INTRO_GENERAL = 'Fuentes generales de la asignatura, guardadas por el docente en la pestaña Planeación Didáctica (úsalas como base cuando sean relevantes):\n'
+const INTRO_MANUAL = 'MATERIAL APORTADO POR EL DOCENTE — segundo insumo en orden de prioridad (úsalos como base directa para desarrollar lo que el docente indicó; tienen prioridad sobre la planeación didáctica):\n'
+const INTRO_GENERAL = 'Fuentes generales de la asignatura, guardadas por el docente en la pestaña Planeación Didáctica (contexto de referencia; úsalas solo cuando el docente no haya indicado instrucciones ni adjuntado material más específico):\n'
 
 // Arma el texto final del bloque. Cuando además hay documentos que viajan
 // como imagen (bloque nativo), se le dice al modelo que existen: sin esta

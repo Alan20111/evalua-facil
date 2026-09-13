@@ -2955,26 +2955,31 @@ const CREAR_ACTIVIDAD_SISTEMA =
 
 function promptCrearActividad(ctx, asignatura) {
   const esObs = ctx.categoria === 'observacion'
+  const tieneArchivos = !!(ctx.bloqueFuentes || ctx.fuentesBloques?.length)
   const nombresBloque = ctx.nombresExistentes.length
     ? `\nActividades que YA existen en este parcial (no propongas un nombre igual o muy parecido):\n- ${ctx.nombresExistentes.join('\n- ')}\n`
     : ''
   const fuentesBloque = ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : ''
-  // La planeación vigente va ANTES que las fuentes y que la petición: es el
-  // marco de lo que el docente ya decidió trabajar, no un material de apoyo
-  // más. Cuando la asignatura no tiene planeación vigente, el bloque
-  // desaparece por completo y el prompt queda exactamente como antes.
+  // Jerarquía de insumos (autorizada por el PO):
+  //   1. Petición del docente — máxima prioridad, va siempre primero.
+  //   2. Archivos adjuntos — van inmediatamente después de la petición cuando
+  //      existen, como material de referencia directa.
+  //   3. Planeación didáctica — contexto de fondo; es el marco principal SOLO
+  //      cuando el docente no escribió petición ni adjuntó archivos.
   const planeacionBloque = ctx.bloquePlaneacion
-    ? `\n${ctx.bloquePlaneacion}\n\nLa actividad que propongas debe ser CONGRUENTE con esa planeación: apóyate en sus `
-      + 'contenidos, sus momentos y las evidencias que ahí se esperan. Si lo que el docente pide no aparece en la '
-      + 'planeación, propón la actividad de todos modos, pero no afirmes que la planeación lo cubre.\n'
+    ? tieneArchivos
+      ? `\nCONTEXTO DE PLANEACIÓN (referencia de fondo — los documentos e instrucciones del docente tienen prioridad):\n${ctx.bloquePlaneacion}\n`
+      : `\n${ctx.bloquePlaneacion}\n\nLa actividad que propongas debe ser CONGRUENTE con esa planeación: apóyate en sus `
+        + 'contenidos, sus momentos y las evidencias que ahí se esperan. Si lo que el docente pide no aparece en la '
+        + 'planeación, propón la actividad de todos modos, pero no afirmes que la planeación lo cubre.\n'
     : ''
   return (
     `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
     `Vas a proponer ${esObs ? 'una ACTIVIDAD DE OBSERVACIÓN (sin entrega de archivos: el docente observa y califica en clase, ej. actitud, exposición, participación)' : 'un ENTREGABLE (el estudiante sube uno o varios archivos)'}.\n` +
     nombresBloque +
-    planeacionBloque +
-    `\nQUÉ QUIERE TRABAJAR EL DOCENTE:\n"""${ctx.peticion}"""\n` +
+    `\nQUÉ QUIERE TRABAJAR EL DOCENTE (prioridad máxima):\n"""${ctx.peticion}"""\n` +
     fuentesBloque +
+    planeacionBloque +
     `\nEl peso de calificación que propongas ("pesoSugerido") debe ser un número entre 0 y ${ctx.pesoRestante} ` +
     `(lo que le queda disponible a este parcial de un total de 10).\n\n` +
     'Responde SOLO con este JSON:\n' +
