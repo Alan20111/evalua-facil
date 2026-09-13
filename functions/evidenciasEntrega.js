@@ -14,16 +14,16 @@
 //     url } } (URLPDFSource) — Claude lee el PDF de forma nativa, texto Y
 //     páginas como imagen; sirve igual para un PDF con texto seleccionable
 //     que para uno escaneado (evidencia fotografiada y pegada en un PDF).
-//   · DOCX    → NO existe un tipo de bloque nativo para Word en el SDK. Se
-//     extrae el texto con docExtract.extraerTextoDocumento (mismo mecanismo
-//     que ya usa fuentesIA.js para las Fuentes de otras operaciones) y se
-//     manda como TextBlockParam { type:'text', text }.
+//   · DOCX    → NO existe bloque nativo para Word en el SDK. Se procesa con
+//     mammoth.convertToHtml (12-sep-2026, decisión de Kike): texto
+//     estructurado (tablas, listas, jerarquía) + imágenes embebidas
+//     (gráficas de Excel, capturas, fotografías) enviadas como bloques
+//     ImageBlockParam separados con source de tipo 'base64'.
 //   · .doc antiguo y cualquier otro formato quedan FUERA de esta primera
 //     versión — se ignoran sin tronar la operación (se reportan en
 //     `ignoradosPorFormato` para que el docente sepa qué no se analizó).
 
 const { logger } = require('firebase-functions')
-const docExtract = require('./docExtract')
 
 // Tope de evidencias analizadas por entrega — acota costo/latencia de la
 // llamada multimodal. Aplica al TOTAL de archivos elegibles (imagen + PDF +
@@ -31,14 +31,30 @@ const docExtract = require('./docExtract')
 const MAX_EVIDENCIAS = 3
 
 // Tope de páginas de un PDF que se manda como documento nativo (visión +
-// texto). Un PDF más largo que esto casi seguro no es "la tarea de un
-// alumno" sino un cuadernillo completo o un escaneo de más de lo pedido —
-// mandarlo entero dispararía el costo real muy por encima del objetivo de
-// ~$0.25 MXN/evaluación (cada página se cobra aprox. como una imagen). Ver
-// docs/ia/COSTO_CALIFICAR_ENTREGABLE_IA.md para las cuentas completas.
-const MAX_PAGINAS_PDF_NATIVO = 3
+// texto). Subido de 3 a 10 el 12-sep-2026 (decisión de Kike): la tarea
+// típica de bachillerato es un cuaderno fotografiado de 4-10 páginas, y con
+// el límite anterior esas páginas llegaban solo como texto plano (sin
+// gráficas, diagramas ni tablas visuales) o se ignoraban si eran escaneadas.
+// Costo real con 10 páginas nativas: ~0.39 MXN por PDF (10 × 2,100 tok ×
+// $1/MTok × TC 18.50); con 3 evidencias es ~1.17 MXN de tokens de documento.
+// La evaluación cuesta entre 1-2 créditos ($1-2 MXN), así que el documento
+// queda dentro del 50-100 % del ingreso de la operación — margen aceptable
+// dado que sin este cambio la IA no veía el trabajo real del alumno.
+const MAX_PAGINAS_PDF_NATIVO = 10
+
+// Tope de imágenes embebidas que se extraen de un DOCX y se mandan como
+// bloques de imagen individuales. Acota costo y latencia: la mayoría de
+// tareas escolares en Word tienen 0-3 imágenes; 5 cubre holgadamente los
+// casos reales sin disparar el costo si alguien sube un documento con 50
+// capturas de pantalla.
+const MAX_IMAGENES_DOCX = 5
 
 const EXT_IMAGEN = new Set(['jpg', 'jpeg', 'png'])
+
+// Tipos MIME de imagen que Claude puede procesar como bloque nativo.
+// wmf/emf son formatos vectoriales de Windows que no están en la lista de
+// la API — se descartan silenciosamente.
+const TIPOS_IMAGEN_DOCX = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'])
 
 function extension(url, nombre) {
   const s = String(nombre || url || '').split('?')[0]
@@ -122,9 +138,64 @@ async function prepararEvidenciasEntrega(archivos) {
       }
     } else if (a.ext === 'docx') {
       try {
-        const texto = await docExtract.extraerTextoDocumento(a.url)
-        bloques.push({ type: 'text', text: `[Documento Word entregado: ${a.nombre || 'documento.docx'}]\n${texto}` })
-        detalle.push({ nombre: a.nombre || 'documento.docx', tipo: 'word' })
+        const res = await fetch(a.url)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const buffer = Buffer.from(await res.arrayBuffer())
+        const mammoth = require('mammoth')
+
+        // Extraer texto estructurado e imágenes embebidas en un solo paso.
+        // mammoth.images.imgElement intercepta cada imagen antes de que se
+        // incruste en el HTML — la acumulamos por separado y devolvemos {}
+        // para que no quede el <img> en el HTML que luego convertimos a texto.
+        const imagenesEmbebidas = []
+        const resultadoHtml = await mammoth.convertToHtml({ buffer }, {
+          convertImage: mammoth.images.imgElement(async function (image) {
+            try {
+              const mediaType = image.contentType || 'image/png'
+              if (TIPOS_IMAGEN_DOCX.has(mediaType)) {
+                const imgBuffer = await image.read()
+                const base64 = Buffer.isBuffer(imgBuffer)
+                  ? imgBuffer.toString('base64')
+                  : Buffer.from(imgBuffer).toString('base64')
+                imagenesEmbebidas.push({ base64, mediaType })
+              }
+            } catch { /* imagen individual corrupta — se salta */ }
+            return {}
+          }),
+        })
+
+        // Convertir el HTML a texto estructurado: preserva la forma de las
+        // tablas (columnas separadas por tabulador, filas por salto de línea)
+        // y la jerarquía de listas, que mammoth.extractRawText() aplana.
+        const textoEstructurado = (resultadoHtml.value || '')
+          .replace(/<\/tr>/gi, '\n')
+          .replace(/<\/th>|<\/td>/gi, '\t')
+          .replace(/<\/p>|<\/li>|<br\s*\/?>/gi, '\n')
+          .replace(/<\/h[1-6]>/gi, '\n')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/\n{3,}/g, '\n\n')
+          .trim()
+
+        const imagenesParaMandar = imagenesEmbebidas.slice(0, MAX_IMAGENES_DOCX)
+
+        if (!textoEstructurado && imagenesParaMandar.length === 0) {
+          logger.warn(`evidenciasEntrega: DOCX sin texto ni imágenes legibles: ${a.url}`)
+          ignoradosPorFormato++
+        } else {
+          if (textoEstructurado) {
+            bloques.push({ type: 'text', text: `[Documento Word entregado: ${a.nombre || 'documento.docx'}]\n${textoEstructurado}` })
+          }
+          for (const img of imagenesParaMandar) {
+            bloques.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } })
+          }
+          detalle.push({ nombre: a.nombre || 'documento.docx', tipo: 'word', imagenesEmbebidas: imagenesParaMandar.length })
+        }
       } catch (e) {
         logger.warn(`evidenciasEntrega: no se pudo leer ${a.url}: ${String(e.message || e).slice(0, 200)}`)
         ignoradosPorFormato++
