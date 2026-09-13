@@ -198,7 +198,7 @@ export default function CalificarConIAModal({
       precargada.current = true
       onAplicar({ ...res, calificacionPropuesta: calificacionPropuestaDe(res) }, submissionId)
     } catch (err) {
-      toast(err.message || 'No se pudo calificar con IA', 'error')
+      toast(err.message || 'No se pudo completar la calificación', 'error')
       cerrarTodo()
     } finally {
       setEjecutando(false)
@@ -206,7 +206,7 @@ export default function CalificarConIAModal({
   }
 
   const ignorados = (resultado?.ignoradosPorFormato || 0) + (resultado?.ignoradosPorTope || 0)
-  const titulo = paso === 'consultar' ? 'Evaluación de IA' : 'Calificar con IA'
+  const titulo = paso === 'consultar' ? 'Evaluación' : 'Calificar'
 
   // Retroalimentación SIN scroll interno (26-ago-2026, pedido explícito de
   // Kike: "es primordial que la retroalimentación no tenga scroll, que se
@@ -244,7 +244,7 @@ export default function CalificarConIAModal({
               <button type="button" onClick={ejecutar} disabled={ejecutando}
                 className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center gap-2">
                 {ejecutando && <Spinner size="sm" />}
-                {ejecutando ? 'Analizando…' : 'Calificar con IA'}
+                {ejecutando ? 'Analizando…' : 'Calificar'}
               </button>
             </div>
           </>
@@ -252,7 +252,7 @@ export default function CalificarConIAModal({
           <>
             <p className="text-sm font-medium text-on-surface mb-1">No tienes suficientes créditos para esta acción.</p>
             <p className="text-sm text-muted mb-4">
-              Calificar con IA requiere {costo} crédito{costo !== 1 ? 's' : ''} y tienes {c.saldo} disponibles.
+              Esta acción requiere {costo} crédito{costo !== 1 ? 's' : ''} y tienes {c.saldo} disponibles.
               {c.mostrarCTAActivarBienvenida && ' Puedes comprar créditos o activar tus créditos de regalo.'}
             </p>
             <div className="flex flex-wrap justify-end gap-2">
@@ -352,7 +352,7 @@ export default function CalificarConIAModal({
               que el docente sepa exactamente qué revisar. */}
           {(() => {
             const totalPropuesto = calificacionPropuestaDe(resultado)
-            const etiqueta = soloLectura ? 'La IA propuso' : 'Calificación propuesta por IA'
+            const etiqueta = soloLectura ? 'Calificación propuesta' : 'Calificación propuesta'
             if (totalPropuesto != null) {
               return (
                 <p className="text-sm font-semibold text-on-surface mb-3">
