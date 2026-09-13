@@ -18,7 +18,7 @@ pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker()
 // El caller debe pasar `key={url}` para forzar un remount (y así reiniciar
 // `pages`/`error`) cuando cambia el archivo — este componente nunca resetea
 // su propio estado dentro del efecto.
-export default function PdfCanvasPreview({ url, nombre, fill }) {
+export default function PdfCanvasPreview({ url, nombre, fill, onCountKnown }) {
   const [pages, setPages] = useState([])
   const [error, setError] = useState(false)
   const cancelledRef = useRef(false)
@@ -28,6 +28,7 @@ export default function PdfCanvasPreview({ url, nombre, fill }) {
     async function render() {
       try {
         const doc = await pdfjsLib.getDocument(url).promise
+        onCountKnown?.(doc.numPages)
         for (let i = 1; i <= doc.numPages; i++) {
           if (cancelledRef.current) return
           const page = await doc.getPage(i)
@@ -48,6 +49,10 @@ export default function PdfCanvasPreview({ url, nombre, fill }) {
     render()
 
     return () => { cancelledRef.current = true }
+  // onCountKnown se llama una sola vez al cargar el documento; no debe estar
+  // en las deps porque un cambio de referencia del callback no debe recargar
+  // el PDF entero (el url sí lo recarga: key={url} en el caller lo fuerza).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url])
 
   if (error) {

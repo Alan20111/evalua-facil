@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Download, X, FileSearch, ExternalLink } from 'lucide-react'
 import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
@@ -104,7 +104,7 @@ function FileRow({ f, onRemove, index }) {
 // without adopting the whole AttachmentList row UI.
 // `fill` makes the preview take the full height of its container (used by the
 // fullscreen grading view); default keeps the inline 70vh behavior.
-export function FilePreview({ url, nombre, fill = false }) {
+export function FilePreview({ url, nombre, fill = false, onCountKnown }) {
   const ext = resourceExtension(nombre)
   const isPdf = PDF_EXTS.includes(ext)
   const isImage = IMAGE_EXTS.includes(ext)
@@ -113,7 +113,7 @@ export function FilePreview({ url, nombre, fill = false }) {
   // PDFs uploaded as an image resource → render their pages as JPGs. This works
   // even when the Cloudinary account has PDF delivery disabled.
   if (isPdf && isImageDeliveredPdf(url)) {
-    return <PdfPagesPreview url={url} nombre={nombre} fill={fill} />
+    return <PdfPagesPreview url={url} nombre={nombre} fill={fill} onCountKnown={onCountKnown} />
   }
   // `allow-scripts` es obligatorio en los dos casos de abajo: no muestran el
   // archivo del alumno directamente, cargan la página de Google Docs Viewer —
@@ -135,7 +135,7 @@ export function FilePreview({ url, nombre, fill = false }) {
     // Visor propio (pdf.js → canvas), no el <object> nativo del navegador: ese
     // visor aísla los eventos táctiles como si fuera un plugin y nunca dejaba
     // pellizcar/acercar. Ver PdfCanvasPreview.jsx.
-    <PdfCanvasPreview key={viewUrl} url={viewUrl} nombre={nombre} fill={fill} />
+    <PdfCanvasPreview key={viewUrl} url={viewUrl} nombre={nombre} fill={fill} onCountKnown={onCountKnown} />
   ) : (
     // Solo se llega aquí para Word/PowerPoint (canPreviewFile ya deja fuera a
     // Excel — ver SPREADSHEET_EXTS. Ese se abre con la app real del docente,
@@ -159,10 +159,16 @@ export function FilePreview({ url, nombre, fill = false }) {
 // Renders a PDF (uploaded as an image resource) page by page as JPGs. Loads
 // pages progressively: when the last shown page loads, it asks for the next;
 // when a page 404s (past the end) it stops. Works with PDF delivery disabled.
-function PdfPagesPreview({ url, nombre, fill }) {
+function PdfPagesPreview({ url, nombre, fill, onCountKnown }) {
   const [count, setCount] = useState(1)
   const [ended, setEnded] = useState(false)
   const [anyLoaded, setAnyLoaded] = useState(false)
+  // Refs para leer valores actualizados dentro de los handlers de imagen sin
+  // depender de closures potencialmente obsoletos.
+  const countRef = useRef(1)
+  const anyLoadedRef = useRef(false)
+  useEffect(() => { countRef.current = count }, [count])
+
   const pages = Array.from({ length: count }, (_, i) => i + 1)
   return (
     <div className={`w-full overflow-auto bg-neutral-800 ${fill ? 'h-full' : 'max-h-[70vh]'}`}>
@@ -173,8 +179,16 @@ function PdfPagesPreview({ url, nombre, fill }) {
           alt={`${nombre} — página ${p}`}
           className="block w-full mb-1"
           imgClassName="w-full h-auto bg-white"
-          onLoad={() => { setAnyLoaded(true); if (p === count && !ended) setCount((c) => c + 1) }}
-          onError={(e) => { e.currentTarget.style.display = 'none'; setEnded(true) }}
+          onLoad={() => {
+            anyLoadedRef.current = true
+            setAnyLoaded(true)
+            if (p === count && !ended) setCount((c) => c + 1)
+          }}
+          onError={(e) => {
+            e.currentTarget.style.display = 'none'
+            setEnded(true)
+            if (anyLoadedRef.current) onCountKnown?.(countRef.current - 1)
+          }}
         />
       ))}
       {ended && !anyLoaded && (
