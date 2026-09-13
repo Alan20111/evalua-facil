@@ -1645,8 +1645,8 @@ export default function ActivityPage() {
                       imgClassName="max-w-full max-h-full object-contain rounded"
                     />
                   ) : canPreviewFile(f.nombre) ? (
-                    <div className="flex-1 min-h-0 overflow-y-auto">
-                      <FilePreview url={f.url} nombre={f.nombre} onCountKnown={setPdfPageCount} />
+                    <div className="flex-1 min-h-0 overflow-hidden">
+                      <FilePreview url={f.url} nombre={f.nombre} fill onCountKnown={setPdfPageCount} />
                     </div>
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
@@ -1677,8 +1677,8 @@ export default function ActivityPage() {
                     imgClassName="max-w-full max-h-full object-contain rounded"
                   />
                 ) : canPreviewFile(selected.sub.nombreArchivo) ? (
-                  <div className="flex-1 min-h-0 overflow-y-auto">
-                    <FilePreview url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo} onCountKnown={setPdfPageCount} />
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <FilePreview url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo} fill onCountKnown={setPdfPageCount} />
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
