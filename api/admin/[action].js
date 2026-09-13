@@ -89,7 +89,7 @@ async function handleLastAccess(req, res) {
     const lote = uids.slice(i, i + 100).map((id) => ({ uid: id }))
     const { users } = await auth.getUsers(lote)
     users.forEach((u) => {
-      accesos[u.uid] = u.metadata?.lastSignInTime || null
+      accesos[u.uid] = u.metadata?.lastRefreshTime || u.metadata?.lastSignInTime || null
       creadoEn[u.uid] = u.metadata?.creationTime || null
     })
   }
