@@ -125,6 +125,7 @@ export default function EntregableEditor({
   // aunque la IA regrese de más o de menos. Default = el mínimo permitido.
   const [iaNumCriterios, setIaNumCriterios] = useState(MIN_CRITERIOS)
   const [iaNumNiveles, setIaNumNiveles] = useState(MIN_NIVELES)
+  const [iaNivelMinimo, setIaNivelMinimo] = useState(0)
   // Texto libre opcional del docente ("que cada respuesta sea un criterio",
   // etc.) — viaja tal cual al servidor, que lo mete al prompt como una
   // preferencia a respetar, nunca como una instrucción que reemplace el
@@ -320,6 +321,7 @@ export default function EntregableEditor({
     if (!effectiveActivityId) { setIaGuardarPrimero(tipo); return }
     setIaNumCriterios(MIN_CRITERIOS)
     setIaNumNiveles(MIN_NIVELES)
+    setIaNivelMinimo(0)
     setIaEvidenciaArchivos([])
     setIaTipo(tipo)
     setIaConfirmando(true)
@@ -362,6 +364,7 @@ export default function EntregableEditor({
     setIaGuardarPrimero(null)
     setIaNumCriterios(MIN_CRITERIOS)
     setIaNumNiveles(MIN_NIVELES)
+    setIaNivelMinimo(0)
     setIaTipo(tipo)
     setIaConfirmando(true)
   }
@@ -397,7 +400,7 @@ export default function EntregableEditor({
         asignaturaId: subjectId,
         asignaturaNombre: contextLine || '',
         numCriterios: iaNumCriterios,
-        ...(iaTipo === 'rubrica' ? { numNiveles: iaNumNiveles } : {}),
+        ...(iaTipo === 'rubrica' ? { numNiveles: iaNumNiveles, nivelMinimo: iaNivelMinimo } : {}),
         consideraciones: iaConsideraciones.trim(),
         archivos: archivosEvidencia,
       })
@@ -406,9 +409,15 @@ export default function EntregableEditor({
       // pidió el docente, y se validan con la misma función de siempre antes
       // de presentárselos.
       const propuesta = r?.resultado?.propuesta
-      const instrumento = iaTipo === 'cotejo'
+      const nivelMinimoReal = r?.resultado?.nivelMinimo ?? iaNivelMinimo
+      const instrumentoBase = iaTipo === 'cotejo'
         ? cotejoDesdePropuesta(propuesta, iaNumCriterios)
-        : rubricaDesdePropuesta(propuesta, iaNumCriterios, iaNumNiveles)
+        : rubricaDesdePropuesta(propuesta, iaNumCriterios, iaNumNiveles, nivelMinimoReal)
+      // Adjunta nivelMinimo al instrumento para que snapshotRubrica lo incluya
+      // en la copia que queda dentro de la actividad.
+      const instrumento = iaTipo === 'rubrica'
+        ? { ...instrumentoBase, nivelMinimo: nivelMinimoReal }
+        : instrumentoBase
       const error = validarRubrica(instrumento)
       if (error) {
         // Se abre igual —es un borrador editable— pero sin fingir que cuadra.
@@ -914,20 +923,36 @@ export default function EntregableEditor({
               </select>
             </div>
             {iaTipo === 'rubrica' && (
-              <div className="flex items-center justify-between gap-3">
-                <label htmlFor="ia-num-niveles" className="text-sm text-on-surface">¿Cuántos niveles de desempeño quieres?</label>
-                <select
-                  id="ia-num-niveles"
-                  value={iaNumNiveles}
-                  disabled={iaTrabajando}
-                  onChange={(e) => setIaNumNiveles(Number(e.target.value))}
-                  className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  {Array.from({ length: MAX_NIVELES - MIN_NIVELES + 1 }, (_, i) => MIN_NIVELES + i).map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              </div>
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="ia-num-niveles" className="text-sm text-on-surface">¿Cuántos niveles de desempeño quieres?</label>
+                  <select
+                    id="ia-num-niveles"
+                    value={iaNumNiveles}
+                    disabled={iaTrabajando}
+                    onChange={(e) => setIaNumNiveles(Number(e.target.value))}
+                    className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    {Array.from({ length: MAX_NIVELES - MIN_NIVELES + 1 }, (_, i) => MIN_NIVELES + i).map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="ia-nivel-minimo" className="text-sm text-on-surface">¿Cuánto vale el nivel más bajo?</label>
+                  <select
+                    id="ia-nivel-minimo"
+                    value={iaNivelMinimo}
+                    disabled={iaTrabajando}
+                    onChange={(e) => setIaNivelMinimo(Number(e.target.value))}
+                    className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    <option value={0}>0 — trabajo no entregado o nulo</option>
+                    <option value={5}>5 — mínimo convencional</option>
+                    <option value={6}>6 — mínimo aprobatorio</option>
+                  </select>
+                </div>
+              </>
             )}
             <div>
               <label htmlFor="ia-consideraciones" className="text-sm text-on-surface block mb-1">

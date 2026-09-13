@@ -1003,6 +1003,9 @@ async function ejecutarRubrica({ params, modelo, apiKey }) {
   // servidor no puede confiar en el número que mande el cliente.
   const numCriterios = clampInt(params?.numCriterios, MIN_CRITERIOS, MIN_CRITERIOS, MAX_CRITERIOS)
   const numNiveles = clampInt(params?.numNiveles, MIN_NIVELES, MIN_NIVELES, MAX_NIVELES)
+  // nivelMinimo: solo se aceptan los tres valores pedagógicamente válidos.
+  const MINIMOS_VALIDOS = new Set([0, 5, 6])
+  const nivelMinimo = MINIMOS_VALIDOS.has(Number(params?.nivelMinimo)) ? Number(params.nivelMinimo) : 0
   const nivelesEjemplo = Array.from({ length: numNiveles }, (_, i) => {
     if (i === 0) return '"<nivel más alto>"'
     if (i === numNiveles - 1) return '"<nivel más bajo>"'
@@ -1043,6 +1046,9 @@ async function ejecutarRubrica({ params, modelo, apiKey }) {
           descriptores: (Array.isArray(c?.descriptores) ? c.descriptores : []).map((d) => String(d).slice(0, 300)),
         })),
       },
+      // El cliente necesita nivelMinimo para calcular la escala de puntos con
+      // calcularEscala() — se devuelve tal como llegó (ya validado arriba).
+      nivelMinimo,
       clase: ctx.clase,
     },
     unidadesReales: 1,
