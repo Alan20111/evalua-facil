@@ -461,8 +461,9 @@ export default function ActivityPage() {
     // docente toca el checkbox (ver su onChange, más abajo).
     comentarioVisibleEsExcepcionRef.current = sub?.comentarioVisibleAlumno !== undefined
     // Con rúbrica: cargar la evaluación guardada; si aún no hay calificación,
-    // prellenar todo en el nivel máximo (equivale al prellenado de 10 de arriba
-    // — el docente solo ajusta las excepciones).
+    // prellenar la rúbrica en nivel máximo para que el docente solo ajuste las
+    // excepciones. gradeForm.calificacion permanece '' — el input aparece vacío
+    // hasta que el docente toque un nivel o use "Aplicar y guardar calificación".
     if (activity?.rubrica?.criterios?.length && !isEvaluacion) {
       const n = activity.rubrica.criterios.length
       const previa = Array.isArray(sub?.rubricaEval) && sub.rubricaEval.length === n ? [...sub.rubricaEval] : null
@@ -472,13 +473,6 @@ export default function ActivityPage() {
       const sinCalificar = (sub || isObservacion) && sub?.calificacion == null
       const prefill = previa || (sinCalificar ? Array(n).fill(0) : Array(n).fill(null))
       setRubricEval(prefill)
-      // Sincroniza la calificación prellenada con el total real: una lista de
-      // cotejo puede sumar menos de 10, así que el prellenado genérico de 10 de
-      // arriba no siempre aplica.
-      if (!IS_NATIVE_APP && sinCalificar) {
-        const t = totalRubrica(activity.rubrica, prefill)
-        if (t != null) setGradeForm((f) => ({ ...f, calificacion: String(t) }))
-      }
     } else {
       setRubricEval(null)
     }
@@ -568,7 +562,12 @@ export default function ActivityPage() {
       ? selected.sub.comentarioVisibleAlumno !== false
       : activity?.comentarioVisibleAlumno !== false
     const visChanged = (gradeForm.comentarioVisibleAlumno !== false) !== comentarioVisibleResuelto
-    return calChanged || comChanged || rubChanged || visChanged
+    // rubChanged solo habilita el botón Guardar cuando ya hay una calificación
+    // en el campo — de lo contrario los niveles preseleccionados en la rúbrica
+    // (nivel máximo por defecto) habilitarían el botón sin que haya nota real.
+    // "Aplicar y guardar calificación" de la rúbrica maneja el caso de input vacío.
+    const rubDirty = rubChanged && !isNaN(cal)
+    return calChanged || comChanged || rubDirty || visChanged
   }
 
   // Tocar un nivel en la rúbrica: guarda la elección y, cuando todos los
@@ -754,7 +753,10 @@ export default function ActivityPage() {
   // Updates local state in place (no reload) so navigation stays fluid.
   // For observación, the first grade CREATES the submission doc (there is no
   // student delivery to attach to).
-  async function persistGrade() {
+  // calOverride: ÚNICAMENTE para el botón "Aplicar y guardar calificación" de
+  // la rúbrica, cuando el docente no pasó por el input y el campo está vacío.
+  // Nunca se usa desde el botón normal "Guardar calificación".
+  async function persistGrade(calOverride = null) {
     if (!selected || !canCreate) return false
     if (parcialCerrado) return false
     // Sin entrega solo se puede calificar en observación, rubricando (la
@@ -762,7 +764,8 @@ export default function ActivityPage() {
     // entregó), o en Android para cualquier entregable — mismo estándar
     // que isDirty() de arriba.
     if (!selected.sub && !isObservacion && !hasRubrica && !(IS_NATIVE_APP && !isEvaluacion)) return false
-    const cal = parseFloat(gradeForm.calificacion)
+    const calRaw = calOverride != null ? String(calOverride) : gradeForm.calificacion
+    const cal = parseFloat(calRaw)
     if (isNaN(cal) || cal < 0 || cal > (activity?.maxCalif ?? 10)) return false
     const comentario = gradeForm.comentario.trim()
     // Solo se escribe el campo en la submission si esta entrega YA tenía su
@@ -2753,9 +2756,18 @@ export default function ActivityPage() {
             <div className="p-2 border-t border-outline-variant flex-shrink-0">
               <button
                 type="button"
-                disabled={saving || parcialCerrado}
+                disabled={saving || parcialCerrado || totalR == null}
                 onClick={async () => {
-                  if (await persistGrade()) toast('Calificación guardada')
+                  // Acción explícita del docente: convierte el total de la
+                  // rúbrica en calificación definitiva. Si el docente no
+                  // había tocado ningún nivel manualmente (gradeForm.calificacion
+                  // sigue vacío), se pasa como override para no depender de
+                  // setState async. Luego se sincroniza el input para coherencia.
+                  const override = !gradeForm.calificacion && totalR != null ? totalR : null
+                  if (await persistGrade(override)) {
+                    if (override != null) setGradeForm((f) => ({ ...f, calificacion: String(override) }))
+                    toast('Calificación guardada')
+                  }
                   setRubricaViewOpen(false)
                 }}
                 className="w-full py-2 bg-accent text-white text-sm font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover disabled:opacity-60 transition-colors"
