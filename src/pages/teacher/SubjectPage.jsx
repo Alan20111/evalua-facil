@@ -971,11 +971,17 @@ export default function SubjectPage() {
   // borraban; ya no se borran, así que dejarla sería preguntar por nada.
   const [archiveConZip, setArchiveConZip] = useState(false)
 
-  const [activeTab, setActiveTab] = useState(routerLocation.state?.tab || 'actividades')
   // Tomar lista en el TELÉFONO desde el navegador — vista simplificada a
   // pantalla completa (ver el bloque "TAB: ASISTENCIA"). En la app nativa
   // useTelefonoWeb siempre da false: la app sigue con su propia vista.
   const telefonoWeb = useTelefonoWeb()
+  // Calificaciones y Planeación Didáctica no están disponibles en el teléfono
+  // (web): si se llega con una de esas pestañas ya puesta (p. ej. state.tab al
+  // volver de una actividad), se arranca en Actividades.
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = routerLocation.state?.tab || 'actividades'
+    return telefonoWeb.telefono && (tab === 'calificaciones' || tab === 'asistente-ia') ? 'actividades' : tab
+  })
   const tomarListaMovil = telefonoWeb.telefono && activeTab === 'asistencia'
   // Modales de asistencia (Agregar día, Motivo) en su versión horizontal: la
   // de la app y, en el teléfono girado (web), la misma — la versión apilada no
@@ -4843,7 +4849,10 @@ export default function SubjectPage() {
             <div ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded overflow-x-auto">
               {(IS_NATIVE_APP
                 ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos', 'asistente-ia']
-                : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos', 'asistente-ia']
+                // Teléfono (web): sin Calificaciones ni Planeación Didáctica.
+                : telefonoWeb.telefono
+                  ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
+                  : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos', 'asistente-ia']
               // "Planeación Didáctica" YA TAMBIÉN en la app (1-sep-2026): se
               // excluía porque la revisión del Word necesita pantalla ancha
               // (Kike, 15-ago-2026), pero eso solo aplica a UN paso del camino
