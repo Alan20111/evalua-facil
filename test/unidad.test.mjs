@@ -209,6 +209,42 @@ caso('si no cambió nada, no se recalcula a nadie', () => {
   assert.deepStrictEqual(F.idsAfectados(x, { ...x }), [])
 })
 
+caso('registrar por primera vez a un alumno sin llave SÍ recalcula su resumen', () => {
+  // Con `!== false`, llave ausente y `true` parecían el mismo estado.
+  assert.deepStrictEqual(F.idsAfectados({ presentes: { a: true } }, { presentes: { a: true, tarde: true } }), ['tarde'])
+})
+
+const AR = await import('../src/utils/asistenciaResumen.js')
+
+caso('estado: presente, falta y justificada registrados se conservan; sin llave = sin registro', () => {
+  const r = { presentes: { p: true, f: false, j: false }, justificadas: { j: true } }
+  assert.strictEqual(AR.estadoAsistencia(r, 'p'), 'presente')
+  assert.strictEqual(AR.estadoAsistencia(r, 'f'), 'falta')
+  assert.strictEqual(AR.estadoAsistencia(r, 'j'), 'justificada')
+  assert.strictEqual(AR.estadoAsistencia(r, 'tarde'), null)
+})
+
+caso('resumen: no cuenta sesiones futuras ni las que el alumno no tiene registradas', () => {
+  const records = [
+    { fecha: '2026-09-01', slot: 1, parcial: 1, presentes: { a: true } }, // a sin llave de "tarde"
+    { fecha: '2026-09-02', slot: 1, parcial: 1, presentes: { a: false, tarde: true } },
+    { fecha: '2026-09-02', slot: 2, parcial: 1, presentes: { a: false, tarde: false }, justificadas: { a: true }, motivos: { a: 'cita' } },
+    { fecha: '2026-09-20', slot: 1, parcial: 1, presentes: { a: true, tarde: true } }, // futura
+  ]
+  const a = AR.resumenAsistencia(records, 'a', [], '2026-09-14')
+  assert.deepStrictEqual(a.total, { asist: 2, inasist: 1, justif: 1, total: 3 })
+  assert.deepStrictEqual(a.registros.map((x) => x.estado), ['presente', 'falta', 'justificada'])
+  assert.strictEqual(a.registros[2].motivo, 'cita')
+  const t = AR.resumenAsistencia(records, 'tarde', [], '2026-09-14')
+  assert.deepStrictEqual(t.total, { asist: 1, inasist: 1, justif: 0, total: 2 }, 'el 01-sep no es falta: no tenía llave')
+  assert.ok(!t.registros.some((x) => x.fecha === '2026-09-01'))
+  assert.ok(!t.registros.some((x) => x.fecha === '2026-09-20'), 'la sesión futura no entra al resumen')
+})
+
+caso('hoy en México, no en UTC: 18:30 del 14-sep en CDMX sigue siendo el 14', () => {
+  assert.strictEqual(AR.fechaHoyMexico(new Date('2026-09-15T00:30:00Z')), '2026-09-14')
+})
+
 caso('una actividad de un parcial oculto no es visible aunque no esté oculta', () => {
   assert.strictEqual(F.actividadVisible({ oculta: false }, true), false)
   assert.strictEqual(F.actividadVisible({ oculta: false }, false), true)

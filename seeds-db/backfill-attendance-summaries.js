@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 /**
- * Recalcula attendanceSummaries para todos los alumnos usando la semántica
- * corregida de isPresente: presentes[studentId] === true (no !== false).
+ * Recalcula attendanceSummaries para todos los alumnos.
  *
  * Por qué hace falta: el CF onAttendanceEscrita solo corre cuando se escribe
- * un registro de attendance. Los summaries existentes fueron calculados con la
- * semántica antigua (undefined → presente). Este script los recalcula todos de
- * una vez para dejar docente y alumno sincronizados.
+ * un registro de attendance. Este script recalcula todos los resúmenes de una
+ * vez para dejar docente y alumno sincronizados.
  *
- * Criterios aplicados (REGLA DEFINITIVA):
+ * La regla NO vive aquí: usa resumenAsistencia de src/utils/asistenciaResumen.js
+ * (copiada a functions/_shared/), la misma función que la Cloud Function y la
+ * tabla del docente — antes era una réplica y se desfasó (sep-2026).
  *   · presentes[id] === true  → PRESENTE  (contabiliza como asistencia)
- *   · presentes[id] === false + justificadas[id] === true → JUSTIFICADA
- *   · presentes[id] === false, sin justificada → FALTA
- *   · presentes[id] === undefined → FALTA  (sin estado explícito = falta)
- *   · Sesiones futuras (fecha > hoy) → excluidas del conteo y del resumen
- *   · Sesiones pasadas de alumnos inscritos tardíamente → cuentan (no hay
- *     filtro enrolledFrom)
+ *   · justificadas[id] === true → JUSTIFICADA (contabiliza como asistencia)
+ *   · presentes[id] === false → FALTA
+ *   · sin llave del alumno en la columna → SIN REGISTRO (no cuenta; alta
+ *     posterior a la columna)
+ *   · Sesiones futuras (fecha > hoy en México) → excluidas del conteo y del resumen
  *
  * Uso:
+ *   node scripts/sync-functions-shared.mjs   # genera functions/_shared/
  *   cd seeds-db && npm install
  *   node backfill-attendance-summaries.js --dry-run
  *   node backfill-attendance-summaries.js
@@ -28,6 +28,7 @@
  */
 
 const admin = require('firebase-admin')
+const { resumenAsistencia, fechaHoyMexico } = require('../functions/_shared/asistenciaResumen.js')
 
 try {
   admin.initializeApp({ projectId: 'evalua-facil-app' })
@@ -40,63 +41,13 @@ const FieldValue = admin.firestore.FieldValue
 const dryRun = process.argv.includes('--dry-run')
 
 // ISO de hoy — sesiones futuras (fecha > todayISO) NO se contabilizan.
-const now = new Date()
-const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+const todayISO = fechaHoyMexico()
 
-// Replica de parcialForDate de functions/_shared/parciales.js.
-function parcialForDate(parcialesFechas, fecha) {
-  if (!Array.isArray(parcialesFechas)) return null
-  for (let i = 0; i < parcialesFechas.length; i++) {
-    const { inicio, fin } = parcialesFechas[i] || {}
-    if (inicio && fin && fecha >= inicio && fecha <= fin) return i + 1
-  }
-  return null
-}
-
-// Replica exacta de recalcularResumenAsistencia con la semántica === true.
 async function recalcular(asignaturaId, studentId, parcialesFechas) {
   const snap = await db.collection('attendance').where('asignaturaId', '==', asignaturaId).get()
-
-  const records = snap.docs.map((d) => d.data())
-    .map((r) => {
-      const parcialActual = parcialForDate(parcialesFechas, r.fecha) ?? r.parcial ?? 1
-      return parcialActual === r.parcial ? r : { ...r, parcial: parcialActual }
-    })
-    // Excluir sesiones futuras — igual que countPresence(maxDate=todayISO) del docente.
-    .filter((r) => r.fecha <= todayISO)
-    .sort((a, b) => (a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha)))
-
-  const porParcial = {}
-  let asistTotal = 0, inasistTotal = 0, justifTotal = 0
-  const registros = []
-
-  for (const r of records) {
-    const presente = r.presentes?.[studentId] === true   // semántica corregida
-    const justificada = !!r.justificadas?.[studentId]
-    const estado = presente ? 'presente' : justificada ? 'justificada' : 'falta'
-
-    const p = String(r.parcial)
-    if (!porParcial[p]) porParcial[p] = { asist: 0, inasist: 0, justif: 0, total: 0 }
-    porParcial[p].total++
-    if (estado === 'falta') { porParcial[p].inasist++; inasistTotal++ }
-    else {
-      porParcial[p].asist++; asistTotal++
-      if (estado === 'justificada') { porParcial[p].justif++; justifTotal++ }
-    }
-    registros.push({
-      fecha: r.fecha,
-      slot: r.slot ?? 1,
-      parcial: r.parcial,
-      estado,
-      motivo: r.motivos?.[studentId] || '',
-    })
-  }
-
   return {
     asignaturaId,
-    porParcial,
-    total: { asist: asistTotal, inasist: inasistTotal, justif: justifTotal, total: records.length },
-    registros,
+    ...resumenAsistencia(snap.docs.map((d) => d.data()), studentId, parcialesFechas, todayISO),
     updatedAt: FieldValue.serverTimestamp(),
   }
 }

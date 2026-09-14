@@ -496,6 +496,32 @@ await caso('un alumno de alta tardía no arrastra las clases anteriores a su ins
   assert.strictEqual(r.total.total, 1, 'solo debía contar la clase posterior a su alta')
 })
 
+await caso('14-sep · editar asistencia no vuelve a contar sesiones futuras ni convierte "sin llave" en falta', async () => {
+  // La función contaba futuras y el backfill no; el alumno de alta tardía
+  // (sin llave en columnas viejas) salía con falta.
+  await limpiar()
+  await db.doc('students/i4').set({ asignaturaId: SUBJ, uid: 'a4', createdAt: new Date('2026-09-05') })
+  await db.doc('students/i5').set({ asignaturaId: SUBJ, uid: 'a5', createdAt: new Date('2026-08-01') })
+  await db.collection('attendance').add({ asignaturaId: SUBJ, fecha: '2026-09-01', slot: 1, parcial: 1, presentes: { i5: true } })
+  await db.collection('attendance').add({ asignaturaId: SUBJ, fecha: '2026-09-08', slot: 1, parcial: 1, presentes: { i4: false, i5: false }, justificadas: { i5: true }, motivos: { i5: 'cita' } })
+  await db.collection('attendance').add({ asignaturaId: SUBJ, fecha: '2026-09-10', slot: 1, parcial: 1, presentes: { i4: true, i5: true } })
+  await db.collection('attendance').add({ asignaturaId: SUBJ, fecha: '2026-09-25', slot: 1, parcial: 1, presentes: { i4: true, i5: true } }) // futura
+  await F.recalcularResumenAsistencia(SUBJ, 'i4', '2026-09-14')
+  await F.recalcularResumenAsistencia(SUBJ, 'i5', '2026-09-14')
+
+  const i4 = (await db.doc('attendanceSummaries/i4').get()).data()
+  assert.deepStrictEqual(i4.total, { asist: 1, inasist: 1, justif: 0, total: 2 }, 'el 01-sep (sin llave) no es falta y el 25-sep (futura) no cuenta')
+  assert.deepStrictEqual(i4.registros.map((x) => `${x.fecha}:${x.estado}`), ['2026-09-08:falta', '2026-09-10:presente'])
+  const i5 = (await db.doc('attendanceSummaries/i5').get()).data()
+  assert.deepStrictEqual(i5.total, { asist: 3, inasist: 0, justif: 1, total: 3 })
+  assert.strictEqual(i5.registros[1].motivo, 'cita')
+
+  // La tarea diaria recalcula con la misma regla cuando llega el día de la columna.
+  await F.recalcularResumenesDelDia('2026-09-25')
+  const i4dia = (await db.doc('attendanceSummaries/i4').get()).data()
+  assert.deepStrictEqual(i4dia.total, { asist: 2, inasist: 1, justif: 0, total: 3 })
+})
+
 await caso('A13 · H1 — registros viejos sin parcial cuentan en Parcial 1, igual que la vista del docente', async () => {
   // Antes se filtraban con `.filter(r => r.parcial != null)`, lo que excluía
   // estos registros del resumen del alumno aunque el cliente del docente SÍ

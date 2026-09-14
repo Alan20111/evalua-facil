@@ -63,6 +63,10 @@ const ARCHIVOS = [
   // `consumo_ia` del Chat de Administración. Compartirla es justo el punto —
   // dos copias darían dos costos distintos para el mismo día.
   'costosIA.js',
+  // Asistencia (14-sep-2026): estado de una sesión y resumen del alumno. La
+  // Cloud Function que escribe attendanceSummaries contaba sesiones futuras
+  // y el backfill no — una sola copia para que no vuelvan a desfasarse.
+  'asistenciaResumen.js',
 ]
 
 function fallar(mensaje) {
