@@ -269,15 +269,14 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             </button>
           </div>
 
-          {/* QR de descarga de la app — arriba de Archivadas, igual que en el
-              panel del docente. Fuera de cualquier asignatura porque el QR es
-              el mismo para todas: la app es una sola y el perfil se elige al
-              abrirla. */}
+          {/* QR general de Evalúa Fácil — arriba de Archivadas, igual que en el
+              sidebar del docente. Fuera de cualquier asignatura porque es el
+              mismo para todas. */}
           <div className="px-2 pt-2 border-t border-white/15">
             <AppQRButton
-              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white/80 hover:bg-white/10 transition-colors disabled:opacity-60"
+              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white/80 hover:bg-white/10 transition-colors"
             >
-              QR para descargar la app
+              QR de Evalúa Fácil
             </AppQRButton>
           </div>
 

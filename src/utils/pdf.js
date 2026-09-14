@@ -132,7 +132,7 @@ function safeFile(subject) {
     .replace(/\s+/g, '_')
 }
 
-// QR de descarga de la app, para proyectar o imprimir. NO lleva datos de
+// QR general de Evalúa Fácil en la web, para proyectar o imprimir. NO lleva datos de
 // ninguna asignatura: es el MISMO para todas, porque la app es una sola y el
 // perfil (docente o estudiante) se elige al abrirla. Por eso vive fuera de la
 // asignatura y no dentro, como vivia el viejo QR de activacion.
@@ -152,28 +152,29 @@ export async function exportAppQRPDF({ url }) {
   doc.setFont(undefined, 'bold')
   doc.setFontSize(22)
   doc.setTextColor(20)
-  doc.text('Descarga la app de Evalua Facil', centerX, 30, { align: 'center' })
+  doc.text('Evalua Facil — Entra desde la web', centerX, 30, { align: 'center' })
 
   doc.setFont(undefined, 'normal')
   doc.setFontSize(13)
   doc.setTextColor(90)
-  doc.text('Escanea este codigo con la camara de tu telefono', centerX, 41, { align: 'center' })
+  doc.text('Evalua Facil solo funciona en la web por ahora.', centerX, 41, { align: 'center' })
+  doc.text('Escanea el codigo con la camara de tu telefono.', centerX, 50, { align: 'center' })
 
   const qrDataUrl = await QRCode.toDataURL(url, { width: 600, margin: 1 })
   const qrSize = 120
-  doc.addImage(qrDataUrl, 'PNG', centerX - qrSize / 2, 55, qrSize, qrSize)
+  doc.addImage(qrDataUrl, 'PNG', centerX - qrSize / 2, 60, qrSize, qrSize)
 
   doc.setFont(undefined, 'normal')
   doc.setFontSize(11)
   doc.setTextColor(120)
-  doc.text('O escribe esta direccion en tu navegador:', centerX, 190, { align: 'center' })
+  doc.text('O escribe esta direccion en tu navegador:', centerX, 195, { align: 'center' })
 
   doc.setFont(undefined, 'bold')
   doc.setFontSize(14)
   doc.setTextColor(37, 99, 235)
-  doc.text(url, centerX, 199, { align: 'center' })
+  doc.text(url, centerX, 204, { align: 'center' })
 
-  await savePdfDocSinCandado(doc, 'descarga_app_evalua_facil.pdf')
+  await savePdfDocSinCandado(doc, 'evalua_facil_web.pdf')
 }
 
 // Ranking report: estudiantes ordenados por promedio (mayor a menor).

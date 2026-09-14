@@ -302,9 +302,8 @@ export default function TeacherLayout({ children }) {
               que en la app móvil (activar/desactivar avisos, el registro de lo
               enviado); casi todo lo que controla solo aplica en el celular
               donde esté instalada la app, pero se puede gestionar desde aquí. */}
-          {/* QR de descarga de la app — arriba de Notificaciones. Va aquí y no
-              dentro de una asignatura porque es el MISMO para todas: la app es
-              una sola y el perfil se elige al abrirla. */}
+          {/* QR general de Evalúa Fácil — arriba de Notificaciones. Va aquí y no
+              dentro de una asignatura porque es el MISMO para todas. */}
           {/* Un solo grupo con UNA divisoria arriba. Antes cada enlace vivía
               en su propio <div> con su propio `border-t`, así que salía una
               línea entre cada renglón y el menú se leía como cinco cajas
@@ -325,8 +324,8 @@ export default function TeacherLayout({ children }) {
               Perfil para IA del docente
             </NavLink>
 
-            <AppQRButton className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO} disabled:opacity-60`}>
-              QR para descargar la app
+            <AppQRButton className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}>
+              QR de Evalúa Fácil
             </AppQRButton>
 
             <NavLink

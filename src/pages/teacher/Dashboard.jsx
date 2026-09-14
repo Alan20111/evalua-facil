@@ -17,7 +17,7 @@ import Spinner from '../../components/Spinner'
 import Select from '../../components/ui/Select'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { uploadToCloudinary } from '../../utils/cloudinary'
-import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe, Smartphone, Download, Sparkles } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe, Smartphone, Sparkles } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
@@ -29,7 +29,6 @@ import SubjectIcon from '../../components/SubjectIcon'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
-import { APP_DOWNLOAD_URL, APP_DOWNLOAD_READY } from '../../config/appDownload'
 import AppQRButton from '../../components/AppQRButton'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
@@ -536,15 +535,14 @@ export default function TeacherDashboard() {
               </button>
             )}
 
-            {/* QR de descarga de la app — solo en la App, arriba de
-                "Archivadas". En la web el mismo botón vive en el menú lateral,
-                arriba de Notificaciones. */}
+            {/* QR general de Evalúa Fácil — solo en la App, arriba de
+                "Archivadas". En la web el mismo botón vive en el menú lateral. */}
             {IS_NATIVE_APP && (
               <AppQRButton
                 iconSize={21}
-                className="w-full mb-3 bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-2 text-left disabled:opacity-60 text-accent"
+                className="w-full mb-3 bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-2 text-left text-accent"
               >
-                <span className="flex-1 min-w-0 font-semibold text-on-surface">QR para descargar la app</span>
+                <span className="flex-1 min-w-0 font-semibold text-on-surface">QR de Evalúa Fácil</span>
               </AppQRButton>
             )}
 
@@ -611,11 +609,9 @@ export default function TeacherDashboard() {
               </div>
             )}
 
-            {/* El espejo del anterior: en la WEB se recuerda que también hay
-                app. Mismo trato — colapsado, informativo, sin prometer
-                destinos. El botón de descarga aparece solo cuando ya hay URL
-                oficial (config/appDownload.js); mientras tanto se explica que
-                está por publicarse, en vez de dejar un enlace muerto. */}
+            {/* En la WEB se informa que Evalúa Fácil también funciona en el
+                celular mediante el navegador. Colapsado e informativo, sin
+                invitar a descargar una app que todavía no existe en tiendas. */}
             {!IS_NATIVE_APP && (
               <div className="w-full mt-3 bg-surface-card rounded-card shadow-card overflow-hidden">
                 <button
@@ -627,26 +623,12 @@ export default function TeacherDashboard() {
                   <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                     <Smartphone size={21} className="text-accent" />
                   </div>
-                  <p className="flex-1 min-w-0 font-semibold text-on-surface">📱 También puedes usar la app en tu celular</p>
+                  <p className="flex-1 min-w-0 font-semibold text-on-surface">📱 Evalúa Fácil en tu celular</p>
                   <ChevronRight size={20} className={`text-slate-300 flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-90' : ''}`} />
                 </button>
                 {showAppInfo && (
                   <div className="px-3 pb-3 pt-0.5">
-                    <p className="text-sm text-slate-500">Con la app revisas entregas y capturas calificaciones desde tu celular. Por ejemplo, puedes tomar lista en clase sin cargar la computadora.</p>
-                    <p className="text-sm text-slate-500 mt-1.5">Es una sola app para docentes y estudiantes: al abrirla eliges con cuál perfil entras, igual que aquí.</p>
-                    <p className="text-sm text-slate-500 mt-1.5">Es tu misma cuenta: inicia sesión con el mismo correo y contraseña. Todo lo que hagas en la versión web se refleja en la app, y viceversa.</p>
-                    {APP_DOWNLOAD_READY ? (
-                      <a
-                        href={APP_DOWNLOAD_URL}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 mt-2 text-sm font-semibold text-accent hover:underline"
-                      >
-                        <Download size={15} /> Descargar la app
-                      </a>
-                    ) : (
-                      <p className="text-sm text-slate-400 mt-2">La descarga estará disponible muy pronto.</p>
-                    )}
+                    <p className="text-sm text-slate-500">Evalúa Fácil solo funciona en la web por ahora. Puedes abrirla desde el navegador de tu celular igual que en la computadora — es la misma cuenta, todo sincronizado.</p>
                   </div>
                 )}
               </div>

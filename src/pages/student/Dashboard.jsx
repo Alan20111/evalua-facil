@@ -35,7 +35,6 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { capitalizarNombre } from '../../utils/nombres'
 import { IS_NATIVE_APP } from '../../utils/platform'
-import { APP_DOWNLOAD_URL, APP_DOWNLOAD_READY } from '../../config/appDownload'
 
 // All submissions belonging to a set of student enrollment docs — one `==` query
 // per enrollment, in parallel. NO `in` chunks here: the submissions read rule
@@ -633,10 +632,9 @@ export default function StudentDashboard() {
           </div>
         )}
 
-        {/* El espejo del anterior: en la WEB se recuerda que también hay app.
-            El botón de descarga aparece solo cuando ya hay URL oficial
-            (config/appDownload.js); mientras tanto se dice que está por
-            publicarse, en vez de dejar un enlace muerto. */}
+        {/* En la WEB se informa que Evalúa Fácil también funciona en el
+            celular mediante el navegador. Colapsado e informativo, sin
+            invitar a descargar una app que todavía no existe en tiendas. */}
         {!IS_NATIVE_APP && (
           <div className="mt-4 bg-surface-card rounded-card shadow-card overflow-hidden">
             <button
@@ -646,26 +644,12 @@ export default function StudentDashboard() {
               className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-accent-tint transition-colors text-left"
             >
               <Smartphone size={17} className="text-accent flex-shrink-0" />
-              <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">También puedes usar la app en tu celular</span>
+              <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">📱 Evalúa Fácil en tu celular</span>
               <ChevronDown size={15} className={`text-slate-400 flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-180' : ''}`} />
             </button>
             {showAppInfo && (
               <div className="px-4 pb-4 pt-0.5">
-                <p className="text-sm text-muted">Con la app puedes revisar tus asignaturas, entregar tus trabajos y ver tus calificaciones desde donde estés, y recibir avisos cuando tu maestro publique algo nuevo.</p>
-                <p className="text-sm text-muted mt-1.5">Es una sola app para estudiantes y docentes: al abrirla eliges con cuál perfil entras, igual que aquí.</p>
-                <p className="text-sm text-muted mt-1.5">Es tu misma cuenta: inicia sesión con el mismo usuario y contraseña. Todo lo que hagas en la versión web se refleja en la app, y viceversa.</p>
-                {APP_DOWNLOAD_READY ? (
-                  <a
-                    href={APP_DOWNLOAD_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 mt-2 text-sm font-semibold text-accent hover:underline"
-                  >
-                    <Download size={15} /> Descargar la app
-                  </a>
-                ) : (
-                  <p className="text-sm text-slate-400 mt-2">La descarga estará disponible muy pronto.</p>
-                )}
+                <p className="text-sm text-muted">Evalúa Fácil solo funciona en la web por ahora. Puedes abrirla desde el navegador de tu celular igual que en la computadora — es la misma cuenta, todo sincronizado.</p>
               </div>
             )}
           </div>
