@@ -3935,20 +3935,21 @@ export default function SubjectPage() {
     // (datos históricos escritos antes de que existiera el guard en
     // handleCreateAttendanceDay), la tabla mostraría "1 1 2 2" en vez de "1 2".
     // Esta deduplicación es solo de presentación — NO borra datos de Firestore.
-    // Cuando hay duplicados, se conserva el registro con más datos reales del
-    // docente (faltas/justificadas); si ambos están intactos (todo-presente por
-    // defecto), se conserva el primero (orden determinístico).
+    // Cuando hay duplicados, gana el registro que cubre a MÁS alumnos vigentes.
+    // Antes ganaba el de más faltas y, en empate, el primero por ID de
+    // documento: así ganaba a veces un registro viejo con los IDs de un roster
+    // reimportado, y todos los alumnos actuales aparecían con falta (sep-2026,
+    // "Diseña red LAN 5D"). Los datos se fusionaron con
+    // seeds-db/fusionar-asistencias-duplicadas.js; esto queda como red.
+    const vigentes = new Set(groupStudents.map((s) => s.id))
+    const cobertura = (rec) => Object.keys(rec.presentes || {}).filter((id) => vigentes.has(id)).length
+    const marcas = (rec) => [...vigentes].filter((id) => rec.presentes?.[id] === false || rec.justificadas?.[id]).length
     const slotMap = new Map()
     for (const r of attendanceRecords) {
       const key = `${r.fecha}-${r.slot}`
       const prev = slotMap.get(key)
-      if (!prev) {
+      if (!prev || cobertura(r) > cobertura(prev) || (cobertura(r) === cobertura(prev) && marcas(r) > marcas(prev))) {
         slotMap.set(key, r)
-      } else {
-        const changes = (rec) =>
-          Object.values(rec.presentes || {}).filter((v) => v === false).length +
-          Object.values(rec.justificadas || {}).filter(Boolean).length
-        if (changes(r) > changes(prev)) slotMap.set(key, r)
       }
     }
     const deduped = [...slotMap.values()]
@@ -3963,7 +3964,7 @@ export default function SubjectPage() {
           ?? (records[0]?.parcial || 1)
         return { fecha, parcial, records }
       })
-  }, [attendanceRecords, subject?.parcialesFechas])
+  }, [attendanceRecords, groupStudents, subject?.parcialesFechas])
 
   // Agrupa días consecutivos por mes (YYYY-MM) → celda "Mes Año" que abarca sus días.
   const groupDaysByMonth = (days) => days.reduce((acc, day) => {

@@ -60,3 +60,6 @@ seeds-db/*.json
 # Copia generada por scripts/sync-functions-shared.mjs — fuente real en
 # src/utils/. Nunca se edita a mano ni se commitea.
 functions/_shared/
+
+# Respaldos JSON que generan los scripts de reparación de datos
+seeds-db/respaldos/
