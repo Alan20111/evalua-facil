@@ -264,7 +264,13 @@ const AttendanceTable = memo(function AttendanceTable({
     : 'w-9'
   const cellPadY = esApp ? 'py-[4.8px]' : 'py-1' // renglones 20% menos altos que antes (52px→41.6px) sin achicar el ícono de 32px — pedido explícito
   const cellIconSize = esApp || esMovil ? 'w-8 h-8' : 'w-6 h-6' // símbolo más grande en la app, a juego con la celda más ancha
-  const nameColW = variante === 'movil-v' ? 'w-[130px]' : 'w-[210px]'
+  // Teléfono vertical: 150px y el nombre en hasta dos líneas (sin "…") — con
+  // 130px y una sola línea se cortaban 2 de cada 3 nombres largos.
+  const nameColW = variante === 'movil-v' ? 'w-[150px]' : 'w-[210px]'
+  // Teléfono horizontal: encabezado compacto (parcial, fechas y sesiones en un
+  // renglón; fila de días más baja) para que la tabla empiece más arriba.
+  const compactaH = variante === 'movil-h'
+  const diaPy = compactaH ? 'py-0.5' : 'py-1'
   const now = new Date()
   const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
@@ -352,7 +358,7 @@ const AttendanceTable = memo(function AttendanceTable({
     // redistribuía (medido en 360px: nombre 150 en vez de 130, celdas 33 en vez
     // de 44). Nº (w-8) + nombre + sesiones + 2 columnas de resumen (w-10) por
     // parcial. En 'app' y 'web' no se agrega nada.
-    style={esMovil ? { width: `calc(2rem + ${variante === 'movil-v' ? 130 : 210}px + ${_attCol * (variante === 'movil-v' ? 44 : 48)}px + ${attendanceParciales.length * 5}rem)` } : undefined}
+    style={esMovil ? { width: `calc(2rem + ${variante === 'movil-v' ? 150 : 210}px + ${_attCol * (variante === 'movil-v' ? 44 : 48)}px + ${attendanceParciales.length * 5}rem)` } : undefined}
     className={`${esSimple ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
     <colgroup>
       <col className="w-8" />
@@ -396,10 +402,12 @@ const AttendanceTable = memo(function AttendanceTable({
         )}
         {attendanceParciales.map((g) => (
           <th key={g.parcial} colSpan={g.slotCount + 2}
-            className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline">
+            className={compactaH
+              ? 'px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap'
+              : 'px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline'}>
             Parcial {g.parcial}
             {parcialesFechas?.[g.parcial - 1] && (
-              <span className="block text-[9px] font-normal text-slate-400 normal-case tabular-nums">
+              <span className={`${compactaH ? 'ml-1' : 'block'} text-[9px] font-normal text-slate-400 normal-case tabular-nums`}>
                 ({formatShortDate(parcialesFechas[g.parcial - 1].inicio)}–{formatShortDate(parcialesFechas[g.parcial - 1].fin)})
               </span>
             )}
@@ -411,7 +419,7 @@ const AttendanceTable = memo(function AttendanceTable({
                 : (sesionesPorParcialCliente?.[p] ?? null)
               if (sesiones == null) return null
               return (
-                <span className="flex items-center justify-center gap-1 mt-0.5 normal-case font-normal">
+                <span className={`${compactaH ? 'inline-flex items-center gap-1 ml-1.5' : 'flex items-center justify-center gap-1 mt-0.5'} normal-case font-normal`}>
                   <span className="text-[9px] text-muted whitespace-nowrap">
                     {cerrado ? '🔒 Sesiones oficiales:' : 'Sesiones del periodo:'}
                   </span>
@@ -452,8 +460,8 @@ const AttendanceTable = memo(function AttendanceTable({
       </tr>
       {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
       <tr className="bg-accent-light/60 border-b border-outline-variant">
-        <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-        <th className={`sticky left-8 z-20 bg-accent-light ${nameColW} px-2 py-1 ${esSimple ? 'text-left' : 'text-right'} text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate`}>
+        <th className={`sticky left-0 z-10 bg-accent-light w-8 px-1 ${diaPy} border-r border-outline-variant`} />
+        <th className={`sticky left-8 z-20 bg-accent-light ${nameColW} px-2 ${diaPy} ${esSimple ? 'text-left' : 'text-right'} text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate`}>
           {esSimple ? 'Estudiante / Día:' : 'Día:'}
         </th>
         {attendanceParciales.flatMap((g) => [
@@ -466,17 +474,17 @@ const AttendanceTable = memo(function AttendanceTable({
                 data-tooltip={esSimple
                   ? `Eliminar la asistencia del ${dia}/${mes}/${anio}`
                   : `Eliminar la asistencia del ${fmtAttDateLong(fecha)}`}
-                className={`px-0.5 py-1 font-semibold text-center border-l border-outline-variant cursor-pointer transition-colors tabular-nums ${fecha === todayISO ? 'bg-accent text-white' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
+                className={`px-0.5 ${diaPy} font-semibold text-center border-l border-outline-variant cursor-pointer transition-colors tabular-nums ${fecha === todayISO ? 'bg-accent text-white' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
                 {dia}
               </th>
             )
           }),
           <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial"
-            className="px-0.5 py-1 text-center border-l-2 border-outline">
+            className={`px-0.5 ${diaPy} text-center border-l-2 border-outline`}>
             <CheckIcon size={13} className="inline text-green-600" />
           </th>,
           <th key={`hi-${g.parcial}`} data-tooltip="Faltas del parcial"
-            className="px-0.5 py-1 text-center">
+            className={`px-0.5 ${diaPy} text-center`}>
             <X size={13} className="inline text-red-500" />
           </th>,
         ])}
@@ -521,7 +529,7 @@ const AttendanceTable = memo(function AttendanceTable({
           <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
             {s.orden}
           </td>
-          <td className={`sticky left-8 z-10 ${nameColW} px-2 py-1 ${esSimple ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+          <td className={`sticky left-8 z-10 ${nameColW} px-2 py-1 ${compactaH ? 'text-[13px]' : esSimple ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant ${variante === 'movil-v' ? 'break-words' : 'truncate'} transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
             {studentFullName(s)}
           </td>
           {attendanceParciales.flatMap((g) => {
@@ -4613,7 +4621,14 @@ export default function SubjectPage() {
         className="flex-none px-2.5 py-1 rounded bg-[#39FF14] text-black hover:bg-[#2ee510] transition-colors">
         <ArrowLeft size={20} />
       </button>
-      <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
+      {/* Indicación (no botón) solo en vertical: debajo de ASISTENCIAS, así la
+          barra crece ~4px en vez de agregar una franja propia. */}
+      <div className="flex flex-col min-w-0">
+        <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
+        {!telefonoWeb.horizontal && (
+          <span className="text-[11px] leading-tight text-muted">Girar para mejorar vista</span>
+        )}
+      </div>
       {addDayLabel && totalStudents > 0 && (
         <button type="button" onClick={handleAddDayClick}
           className="ml-auto flex items-center gap-1.5 px-2.5 py-1 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
