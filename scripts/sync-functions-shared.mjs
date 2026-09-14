@@ -67,6 +67,10 @@ const ARCHIVOS = [
   // Cloud Function que escribe attendanceSummaries contaba sesiones futuras
   // y el backfill no — una sola copia para que no vuelvan a desfasarse.
   'asistenciaResumen.js',
+  // Asistencia frente a asuetos/vacaciones (14-sep-2026): qué fechas no llevan
+  // lista y qué columna no tiene marcas del docente. La usan la creación
+  // automática (cliente), el denominador y la limpieza de onAsuetoEscrito.
+  'asistenciaAsuetos.js',
 ]
 
 function fallar(mensaje) {

@@ -3400,6 +3400,136 @@ caso('RI-11: dentro del MISMO intento, lo contestado sí se conserva al recargar
   assert.strictEqual(pintadas.length, 2)
 })
 
+// ── Asistencia frente a asuetos y vacaciones (14-sep-2026) ──────────────────
+// Caso real: asueto "Todo" del 16-sep-2026 registrado cuando el horario ya
+// tenía clase ese día. La columna se creaba igual y contaba asistencia, y el
+// denominador descontaba por `clases` en vez de por `asistencias`.
+const AA = require('../functions/_shared/asistenciaAsuetos.js')
+const { calcularSesionesReales: CSR_AA } = require('../functions/_shared/sesionesReales.js')
+const { generarBloques: GB_AA } = require('../functions/_shared/horarioBloques.js')
+const { fechasVacacionParaClases: FVC_AA } = require('../functions/_shared/vacaciones.js')
+const PF_AA = [{ inicio: '2026-08-31', fin: '2026-10-18' }]
+const TODO_AA = { clases: true, eventos: true, actividades: true, asistencias: true }
+const asuetoTodo16 = { docenteId: 'd', fecha: '2026-09-16', ...TODO_AA }
+const fechasPlan = (plan) => plan.writes.map((w) => `${w.fecha}_${w.slot}`)
+
+caso('AA-01: asueto que afecta asistencias → esa fecha no lleva lista', () => {
+  assert.deepStrictEqual(AA.fechasSinAsistencia([asuetoTodo16], []), ['2026-09-16'])
+})
+
+caso('AA-02: asueto sin clases pero CON pase de lista → la fecha sí lleva lista', () => {
+  const soloClases = { fecha: '2026-09-16', clases: true, eventos: false, actividades: false, asistencias: false }
+  assert.deepStrictEqual(AA.fechasSinAsistencia([soloClases], []), [])
+})
+
+caso('AA-03: asueto guardado antes de la opción "asistencias" la hereda de clases', () => {
+  assert.deepStrictEqual(AA.fechasSinAsistencia([{ fecha: '2026-09-16', clases: true }], []), ['2026-09-16'])
+  assert.deepStrictEqual(AA.fechasSinAsistencia([{ fecha: '2026-09-16', clases: false, eventos: true }], []), [])
+})
+
+caso('AA-04: vacaciones que afectan asistencias cubren todo el periodo; las que no, nada', () => {
+  const vacLista = { fechaInicio: '2026-09-21', fechaFin: '2026-09-25', ...TODO_AA }
+  assert.deepStrictEqual(AA.fechasSinAsistencia([], [vacLista]),
+    ['2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25'])
+  const vacSinLista = { fechaInicio: '2026-09-21', fechaFin: '2026-09-25', clases: true, eventos: true, actividades: true, asistencias: false }
+  assert.deepStrictEqual(AA.fechasSinAsistencia([], [vacSinLista]), [])
+})
+
+caso('AA-05 (escenarios 1 y 2): con bloque de clase en el asueto no se crea columna; los demás días sí', () => {
+  const plan = AA.planSesionesAutomaticas({
+    porFecha: { '2026-09-15': 2, '2026-09-16': 2, '2026-09-17': 2 },
+    parcialesFechas: PF_AA,
+    sinAsistencia: AA.fechasSinAsistencia([asuetoTodo16], []),
+    todayISO: '2026-09-30',
+  })
+  assert.deepStrictEqual(fechasPlan(plan), ['2026-09-15_1', '2026-09-15_2', '2026-09-17_1', '2026-09-17_2'])
+})
+
+caso('AA-06: vacaciones con asistencias no generan columnas en su periodo', () => {
+  const plan = AA.planSesionesAutomaticas({
+    porFecha: { '2026-09-18': 1, '2026-09-21': 1, '2026-09-25': 1, '2026-09-28': 1 },
+    parcialesFechas: PF_AA,
+    sinAsistencia: AA.fechasSinAsistencia([], [{ fechaInicio: '2026-09-21', fechaFin: '2026-09-25', ...TODO_AA }]),
+    todayISO: '2026-09-30',
+  })
+  assert.deepStrictEqual(fechasPlan(plan), ['2026-09-18_1', '2026-09-28_1'])
+})
+
+caso('AA-07: asueto o vacaciones que NO afectan asistencias no cambian las columnas', () => {
+  const base = { porFecha: { '2026-09-16': 2, '2026-09-22': 1 }, parcialesFechas: PF_AA, todayISO: '2026-09-30' }
+  const sinLista = AA.fechasSinAsistencia(
+    [{ fecha: '2026-09-16', clases: true, eventos: true, actividades: true, asistencias: false }],
+    [{ fechaInicio: '2026-09-21', fechaFin: '2026-09-23', clases: false, eventos: true, actividades: true, asistencias: false }],
+  )
+  assert.deepStrictEqual(AA.planSesionesAutomaticas({ ...base, sinAsistencia: sinLista }), AA.planSesionesAutomaticas(base))
+  assert.strictEqual(AA.planSesionesAutomaticas(base).writes.length, 3)
+})
+
+caso('AA-08: un día borrado a propósito que cae en asueto no se ofrece para restaurar', () => {
+  const plan = AA.planSesionesAutomaticas({
+    porFecha: { '2026-09-16': 2, '2026-09-17': 1 },
+    parcialesFechas: PF_AA,
+    excludedFechas: ['2026-09-16', '2026-09-17'],
+    sinAsistencia: ['2026-09-16'],
+    todayISO: '2026-09-30',
+  })
+  assert.deepStrictEqual(plan.writes, [])
+  assert.deepStrictEqual(plan.missing, [{ fecha: '2026-09-17', duracion: 1, parcial: 1 }])
+})
+
+caso('AA-09: sin regresión — futuras no se crean y los slots existentes no se duplican', () => {
+  const plan = AA.planSesionesAutomaticas({
+    porFecha: { '2026-09-14': 2, '2026-09-15': 1 },
+    parcialesFechas: PF_AA,
+    existingSlots: ['2026-09-14_1'],
+    todayISO: '2026-09-14',
+  })
+  assert.deepStrictEqual(fechasPlan(plan), ['2026-09-14_2'])
+})
+
+caso('AA-10: columna sin marcas (nació toda en presente) → se puede limpiar', () => {
+  assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: true, b: true } }), true)
+  // "Sin registro" (llave ausente por alta tardía) no es una marca del docente.
+  assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: true } }), true)
+  // Ciclo completo de vuelta a Presente: el estado es idéntico al original.
+  assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: true }, justificadas: { a: false }, motivos: { a: '' } }), true)
+})
+
+caso('AA-11: una falta es trabajo del docente → la columna se conserva', () => {
+  assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: true, b: false } }), false)
+})
+
+caso('AA-12: justificada o motivo escrito es trabajo del docente → la columna se conserva', () => {
+  assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: false }, justificadas: { a: true }, motivos: { a: 'Consulta médica' } }), false)
+  assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: true }, justificadas: { a: true } }), false)
+  assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: true }, motivos: { a: 'aviso' } }), false)
+})
+
+caso('AA-13 (escenario 9): el denominador cuenta exactamente las columnas que se crean', () => {
+  // Martes (1) y miércoles (2), septiembre 2026. El horario se programó ANTES
+  // de registrar los asuetos, así que hay bloque en todos los días.
+  const horarioPatron = [
+    { diaSemana: 1, horaInicio: '08:00', duracionMin: 50 },
+    { diaSemana: 2, horaInicio: '08:00', duracionMin: 50 },
+  ]
+  const curso = { fechaInicio: '2026-09-01', fechaFin: '2026-09-30' }
+  const asuetos = [
+    asuetoTodo16, // miércoles, sin lista
+    { fecha: '2026-09-08', clases: true, eventos: false, actividades: false, asistencias: false }, // martes, sí hay lista
+  ]
+  const vacaciones = [{ fechaInicio: '2026-09-22', fechaFin: '2026-09-23', ...TODO_AA }] // martes y miércoles, sin lista
+  const porFecha = {}
+  GB_AA({ ...curso, patrones: horarioPatron }).forEach((b) => { porFecha[b.fecha] = (porFecha[b.fecha] || 0) + 1 })
+  const sinAsistencia = AA.fechasSinAsistencia(asuetos, vacaciones)
+  const columnas = AA.planSesionesAutomaticas({ porFecha, parcialesFechas: PF_AA, sinAsistencia, todayISO: '2026-12-31' }).writes.length
+  const denominador = CSR_AA({ ...curso, parcialesFechas: PF_AA, horarioPatron, diasAsueto: sinAsistencia, parcial: 1 }).resumen.sesionesTotales
+  assert.strictEqual(columnas, 7) // 10 días de clase (5 martes, 5 miércoles) − 16, 22 y 23
+  assert.strictEqual(denominador, columnas)
+  // Con la definición anterior (por `clases`) no coincidían.
+  const diasPorClases = [...asuetos.filter((a) => a.clases).map((a) => a.fecha), ...FVC_AA(vacaciones)]
+  const denominadorViejo = CSR_AA({ ...curso, parcialesFechas: PF_AA, horarioPatron, diasAsueto: diasPorClases, parcial: 1 }).resumen.sesionesTotales
+  assert.notStrictEqual(denominadorViejo, columnas)
+})
 
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)

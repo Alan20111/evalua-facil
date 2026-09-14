@@ -23,7 +23,7 @@ import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloa
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttDateLong, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
-import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana, parcialForDate } from '../../utils/attendanceAuto'
+import { syncAutoAttendanceDays, diasSinAsistenciaEnCurso, fetchAsuetosVacaciones, fetchClaseDiasSemana, parcialForDate } from '../../utils/attendanceAuto'
 import { calcularSesionesReales } from '../../utils/sesionesReales'
 import { diaSemanaLunes, DIAS_SEMANA, derivarPatrones, tramosFaltantes, generarBloques } from '../../utils/horarioBloques'
 import { escuelaValida } from '../../utils/escuela'
@@ -1766,35 +1766,36 @@ export default function SubjectPage() {
       // valida que no se agregue un día en el que esta asignatura no tiene
       // clase (ver motivoSinClase más abajo). Antes venía null justo en el
       // caso del alta manual, que es donde hace falta.
-      const [students, records, bloquesInfo] = await Promise.all([
+      // Asuetos/vacaciones van en este mismo lote: deciden qué columnas se
+      // crean (un asueto que afecta asistencias no genera columna aunque el
+      // bloque de clase siga en el horario), así que tienen que estar antes
+      // de sincronizar. Solo hacen falta con fechas de parciales.
+      const [students, records, bloquesInfo, calendarioDocente] = await Promise.all([
         ensureGroupStudents(force),
         loadAttendanceRecords(subjectId),
         fetchClaseDiasSemana({ subjectId, docenteId: subj.docenteId }).catch(() => null),
+        subj?.parcialesFechas?.length ? fetchAsuetosVacaciones({ docenteId: subj.docenteId }) : null,
       ])
       setClaseDias(bloquesInfo)
       if (bloquesInfo?.sesionesCanceladas) setSesionesCanceladas(bloquesInfo.sesionesCanceladas)
       let finalRecords = records
       if (subj?.parcialesFechas?.length && bloquesInfo) {
-        // Crear los días faltantes y buscar asuetos/vacaciones tampoco
-        // dependen entre sí (solo comparten diasSemana, ya calculado arriba)
-        // — también en paralelo.
-        const [{ created, missing, nuevos }, { dias: noClase, diasAsueto: diasAsuetoLoaded }] = await Promise.all([
-          syncAutoAttendanceDays({
-            subjectId,
-            docenteId: subj.docenteId,
-            parcialesFechas: subj.parcialesFechas,
-            existingSlots: new Set(records.map((r) => `${r.fecha}_${r.slot}`)),
-            excludedFechas: subj.attendanceExcluded || [],
-            studentIds: (students || groupStudents).map((s) => s.id),
-            porFecha: bloquesInfo.porFecha,
-          }),
-          loadAsuetoVacacionDiasClase({
-            docenteId: subj.docenteId,
-            fechaInicio: subj.fechaInicio,
-            fechaFin: subj.fechaFin,
-            diasSemana: bloquesInfo.diasSemana,
-          }),
-        ])
+        const { dias: noClase, diasAsueto: diasAsuetoLoaded } = diasSinAsistenciaEnCurso({
+          ...calendarioDocente,
+          fechaInicio: subj.fechaInicio,
+          fechaFin: subj.fechaFin,
+          diasSemana: bloquesInfo.diasSemana,
+        })
+        const { created, missing, nuevos } = await syncAutoAttendanceDays({
+          subjectId,
+          docenteId: subj.docenteId,
+          parcialesFechas: subj.parcialesFechas,
+          existingSlots: new Set(records.map((r) => `${r.fecha}_${r.slot}`)),
+          excludedFechas: subj.attendanceExcluded || [],
+          sinAsistencia: diasAsuetoLoaded,
+          studentIds: (students || groupStudents).map((s) => s.id),
+          porFecha: bloquesInfo.porFecha,
+        })
         // Los recién creados se agregan en memoria — ya no se vuelve a
         // descargar TODA la asistencia por segunda vez para incluirlos.
         if (created > 0) {
@@ -1840,7 +1841,7 @@ export default function SubjectPage() {
   // reposición de clase en un día de asueto es legítima y debe poder
   // registrarse, solo con el aviso de que es inusual. Chequeo directo por
   // fecha (no depende de diasSemana/fechas de curso, a diferencia de
-  // loadAsuetoVacacionDiasClase) — este modal solo existe precisamente
+  // diasSinAsistenciaEnCurso) — este modal solo existe precisamente
   // cuando la asignatura NO tiene fechas de curso configuradas.
   const avisoAsueto = newAttendanceForm.fecha && attAsuetoMaps && (
     // Por 'asistencias' y no por 'clases': el docente puede marcar un día sin

@@ -830,7 +830,7 @@ const { normalizeGrade } = require('./_shared/ponderacion.js')
 const { normalizarPalabra } = require('./_shared/normalizarPalabra.js')
 const { estadoAsistencia, resumenAsistencia, fechaHoyMexico } = require('./_shared/asistenciaResumen.js')
 const { calcularSesionesReales } = require('./_shared/sesionesReales.js')
-const { fechasVacacionParaClases } = require('./_shared/vacaciones.js')
+const { fechasSinAsistencia, sesionSinMarcas } = require('./_shared/asistenciaAsuetos.js')
 
 function calificarSopaDeLetras(estructura, respuestasJuego) {
   const total = estructura.palabras.length
@@ -1045,7 +1045,10 @@ exports.recalcularResumenesAsistenciaDiario = onSchedule(
 // Calcula las sesiones estimadas por parcial para una asignatura y las guarda
 // en subjects.sesionesPorParcialEstimadas. Es la ÚNICA fuente de verdad del
 // denominador estimado — tanto el docente como el alumno leen este campo.
-// Reutiliza el mismo patrón de lectura de ia.js (asuetos+vacaciones+canceladas).
+// Es un denominador de ASISTENCIA: descuenta los asuetos/vacaciones que
+// afectan asistencias (fechasSinAsistencia, la misma lista que impide crear
+// columnas), no los que solo suspenden clases. ia.js conserva su propio
+// cálculo por `clases` para las sesiones de clase de la planeación.
 async function recomputarSesionesEstimadas(subjectId) {
   const subjRef = db.collection('subjects').doc(subjectId)
   const subjSnap = await subjRef.get()
@@ -1062,10 +1065,10 @@ async function recomputarSesionesEstimadas(subjectId) {
     db.collection('horarioBloques').where('docenteId', '==', uid)
       .where('asignaturaId', '==', subjectId).get(),
   ])
-  const diasAsueto = [
-    ...asuetosSnap.docs.map((d) => d.data()).filter((a) => a.clases).map((a) => a.fecha),
-    ...fechasVacacionParaClases(vacSnap.docs.map((d) => d.data())),
-  ]
+  const diasAsueto = fechasSinAsistencia(
+    asuetosSnap.docs.map((d) => d.data()),
+    vacSnap.docs.map((d) => d.data()),
+  )
   const sesionesCanceladas = bloquesSnap.docs.map((d) => d.data())
     .filter((b) => b.cancelada).map((b) => ({ fecha: b.fecha, horaInicio: b.horaInicio }))
   const numParciales = Math.max(1, Number(subj.parciales) || 1)
@@ -1125,28 +1128,67 @@ exports.onHorarioBloqueEscrito = onDocumentWritten('horarioBloques/{bloqueId}', 
   await recomputarSesionesEstimadas(data.asignaturaId)
 })
 
-// Cuando el docente agrega, modifica o elimina un asueto, recomputa las
-// sesiones estimadas de TODAS sus asignaturas activas.
-exports.onAsuetoEscrito = onDocumentWritten('asuetos/{asuetoId}', async (event) => {
+// Un asueto/vacación que afecta asistencias se puede registrar cuando las
+// columnas de esas fechas YA existen (creadas antes, o por adelantado antes de
+// #1450). Se borran solo las que siguen como las creó el sistema
+// (sesionSinMarcas); cualquier falta, justificada o motivo las conserva.
+//
+// `creadoMs` es cuándo se registró el asueto/vacación: una columna creada
+// DESPUÉS es una reposición que el docente agregó a mano sabiendo del asueto
+// (el cliente ya no las crea solo), y se respeta aunque no tenga marcas.
+//
+// No se toca `attendanceExcluded`: si luego se quita el asueto, la
+// sincronización normal vuelve a crear la columna. Cada borrado dispara
+// onAttendanceEscrita, que recalcula el resumen de cada alumno con la regla de
+// siempre. El borrado lleva precondición de `updateTime`: si el docente marcó
+// algo entre la lectura y el borrado, falla y la columna se conserva.
+async function limpiarAsistenciasSinMarcas(subjectIds, fechas, creadoMs) {
+  if (!subjectIds.length || !fechas.length) return { borradas: 0, conservadas: 0 }
+  const objetivo = new Set(fechas)
+  const snaps = await Promise.all(subjectIds.map((id) =>
+    db.collection('attendance').where('asignaturaId', '==', id).get()))
+  const candidatas = snaps.flatMap((s) => s.docs).filter((d) => objetivo.has(d.data().fecha))
+  let conservadas = 0
+  const aBorrar = []
+  for (const d of candidatas) {
+    const r = d.data()
+    const creadaMs = r.createdAt?.toMillis?.() ?? null
+    const reposicion = creadoMs != null && creadaMs != null && creadaMs >= creadoMs
+    if (reposicion || !sesionSinMarcas(r)) { conservadas++; continue }
+    aBorrar.push(d)
+  }
+  const resultados = await Promise.allSettled(aBorrar.map((d) => d.ref.delete({ lastUpdateTime: d.updateTime })))
+  const borradas = resultados.filter((x) => x.status === 'fulfilled').length
+  conservadas += resultados.length - borradas
+  if (candidatas.length) {
+    logger.info(`Asueto/vacaciones: ${borradas} columna(s) de asistencia sin marcas borradas, ${conservadas} conservada(s) — fechas ${fechas[0]}…${fechas[fechas.length - 1]}`)
+  }
+  return { borradas, conservadas }
+}
+
+// Cuando el docente agrega, modifica o elimina un asueto o periodo vacacional:
+// recomputa las sesiones estimadas de TODAS sus asignaturas activas y limpia
+// las columnas sin marcas de las fechas que ahora no llevan lista.
+async function alEscribirCalendarioDocente(event, fechasDelDoc) {
   const after  = event.data?.after?.exists  ? event.data.after.data()  : null
   const before = event.data?.before?.exists ? event.data.before.data() : null
   const uid = (after || before)?.docenteId
   if (!uid) return
   const snap = await db.collection('subjects').where('docenteId', '==', uid)
     .where('archived', '==', false).get()
-  await Promise.all(snap.docs.map((d) => recomputarSesionesEstimadas(d.id)))
-})
+  const fechas = after ? fechasDelDoc(after) : []
+  await Promise.all([
+    ...snap.docs.map((d) => recomputarSesionesEstimadas(d.id)),
+    limpiarAsistenciasSinMarcas(snap.docs.map((d) => d.id), fechas, after?.createdAt?.toMillis?.() ?? null),
+  ])
+}
+
+exports.onAsuetoEscrito = onDocumentWritten('asuetos/{asuetoId}', (event) =>
+  alEscribirCalendarioDocente(event, (a) => fechasSinAsistencia([a], [])))
 
 // Igual que onAsuetoEscrito pero para periodos vacacionales.
-exports.onVacacionEscrita = onDocumentWritten('vacaciones/{vacacionId}', async (event) => {
-  const after  = event.data?.after?.exists  ? event.data.after.data()  : null
-  const before = event.data?.before?.exists ? event.data.before.data() : null
-  const uid = (after || before)?.docenteId
-  if (!uid) return
-  const snap = await db.collection('subjects').where('docenteId', '==', uid)
-    .where('archived', '==', false).get()
-  await Promise.all(snap.docs.map((d) => recomputarSesionesEstimadas(d.id)))
-})
+exports.onVacacionEscrita = onDocumentWritten('vacaciones/{vacacionId}', (event) =>
+  alEscribirCalendarioDocente(event, (v) => fechasSinAsistencia([], [v])))
 
 // ─── 5) Programadas + recordatorios de entrega ─────────────────────────────
 // Corre cada 30 min. Ventana de 35 min (> intervalo del scheduler) para no
