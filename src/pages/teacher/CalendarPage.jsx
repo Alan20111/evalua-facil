@@ -865,12 +865,17 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
 
 // ─── Main CalendarPage ─────────────────────────────────────────────────────
 
-const VIEWS = [
+const VIEWS_ALL = [
   { id: 'agenda', label: 'Día',    Icon: List },
   { id: '3dias',  label: '3 días', Icon: Columns3 },
   { id: 'semana', label: 'Semana', Icon: CalendarRange },
   { id: 'mes',    label: 'Mes',    Icon: LayoutGrid },
 ]
+// En la app nativa el horario es solo horario: solo Día y 3 días.
+// Semana y Mes quedan disponibles únicamente en la web.
+const VIEWS = IS_NATIVE_APP
+  ? VIEWS_ALL.filter(v => v.id === 'agenda' || v.id === '3dias')
+  : VIEWS_ALL
 
 // Select propio con el estilo de la app — reemplaza el <select> nativo, que
 // en Android abre el picker del sistema operativo (se ve fuera de lugar).
@@ -1135,6 +1140,9 @@ export default function CalendarPage() {
       })
     })
 
+    // En la app nativa el horario muestra únicamente bloques de clase.
+    // Deadlines, publicaciones y eventos personales no aparecen en móvil.
+    if (IS_NATIVE_APP) return []
     return evs.filter(ev => ev.dateStr)
   }, [activities, personalEvents, subjects, activityLabels])
 

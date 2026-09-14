@@ -1378,7 +1378,7 @@ export default function ActivityPage() {
             de siempre (contarEntregasIA/contarRecalificarIA/
             contarAplicarTodasIA), solo reorganización visual. "Aplicar
             propuestas" solo aparece si hay algo pendiente que aplicar. */}
-        {hasRubrica && (() => {
+        {hasRubrica && !IS_NATIVE_APP && (() => {
           const pendientesIA = Object.values(sugerenciasLoteIA).filter((s) => s._estado === 'pendiente').length
           // "Recalificar con IA" solo se muestra cuando podemos CONFIRMAR que
           // el instrumento actual ya no es el que se usó para generar alguna
@@ -2399,7 +2399,7 @@ export default function ActivityPage() {
                 web). */}
             {(selected.sub || isObservacion || hasRubrica || !isEvaluacion) ? (
               <form onSubmit={saveGrade} className="space-y-2 flex-shrink-0 px-3">
-                {parcialCerrado && (
+                {parcialCerrado && !IS_NATIVE_APP && (
                   <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
                     <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
                     Para modificarlas, primero <strong>revierte el cierre del parcial</strong> desde Calificaciones.
@@ -2411,8 +2411,10 @@ export default function ActivityPage() {
                     Sin rúbrica, pedido explícito: ya NO se reserva este
                     espacio (antes quedaba invisible para que la calificación
                     no cambiara de posición) — se omite del todo para que la
-                    entrega (arriba, flex-1) gane ese alto. */}
-                {hasRubrica && (() => {
+                    entrega (arriba, flex-1) gane ese alto.
+                    En la app nativa el overlay es solo de consulta: se ocultan
+                    rúbrica, IA y controles de calificación. */}
+                {hasRubrica && !IS_NATIVE_APP && (() => {
                   const totalR = totalRubrica(activity.rubrica, rubricEval)
                   const faltan = activity.rubrica.criterios.filter((_, i) => rubricEval?.[i] == null).length
                   return (
@@ -2438,7 +2440,7 @@ export default function ActivityPage() {
                     </button>
                   )
                 })()}
-                {puedeCalificarConIA && (
+                {puedeCalificarConIA && !IS_NATIVE_APP && (
                   <button
                     type="button"
                     onClick={() => abrirCalificarIA()}
@@ -2494,6 +2496,7 @@ export default function ActivityPage() {
                       </button>
                     </div>
 
+                    {!IS_NATIVE_APP && (
                     <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
                       <button
                         type="button"
@@ -2527,6 +2530,7 @@ export default function ActivityPage() {
                         +
                       </button>
                     </div>
+                    )}
 
                     {!isObservacion && !isEvaluacion && (
                       <>
@@ -2563,13 +2567,13 @@ export default function ActivityPage() {
                   </div>
                 </div>
 
-                {!canCreate && (
+                {!canCreate && !IS_NATIVE_APP && (
                   <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
                     Necesitas Créditos IA para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
                   </p>
                 )}
 
-                {parcialCerrado ? null : (
+                {!IS_NATIVE_APP && !parcialCerrado && (
                   <button
                     type="submit"
                     disabled={saving || !canCreate || !isDirty()}
