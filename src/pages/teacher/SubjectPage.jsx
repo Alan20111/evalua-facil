@@ -5020,19 +5020,21 @@ export default function SubjectPage() {
                                               </span>
                                             )}
                                           </p>
-                                          {((!IS_NATIVE_APP && (a.publishedAt || a.fechaLimite || a.publishAt)) || visState === 'hidden') && (
+                                          {/* Teléfono (web): sin fechas ni contadores de entregas — tarjeta
+                                              limpia como en la App (el estado Oculta/Borrador sí se ve). */}
+                                          {((!IS_NATIVE_APP && !telefonoWeb.telefono && (a.publishedAt || a.fechaLimite || a.publishAt)) || visState === 'hidden') && (
                                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                              {!IS_NATIVE_APP && a.publishedAt && (
+                                              {!IS_NATIVE_APP && !telefonoWeb.telefono && a.publishedAt && (
                                                 <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
                                                   <Clock size={14} /> {formatPublishAt(a.publishedAt)}
                                                 </span>
                                               )}
-                                              {!IS_NATIVE_APP && a.publishAt && (
+                                              {!IS_NATIVE_APP && !telefonoWeb.telefono && a.publishAt && (
                                                 <span data-tooltip="Publicación programada" className="text-xs text-accent flex items-center gap-0.5">
                                                   <Clock size={14} /> {formatPublishAt(a.publishAt)}
                                                 </span>
                                               )}
-                                              {!IS_NATIVE_APP && a.fechaLimite && (
+                                              {!IS_NATIVE_APP && !telefonoWeb.telefono && a.fechaLimite && (
                                                 <span data-tooltip="Cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
                                                   <Clock size={14} /> {formatDeadline(a.fechaLimite)}
                                                 </span>
@@ -5047,7 +5049,7 @@ export default function SubjectPage() {
                                             </div>
                                           )}
                                         </div>
-                                        {!IS_NATIVE_APP && (
+                                        {!IS_NATIVE_APP && !telefonoWeb.telefono && (
                                           <div className="flex items-center gap-1 flex-shrink-0">
                                             <span
                                               data-tooltip="Entregados"
@@ -5138,7 +5140,7 @@ export default function SubjectPage() {
                                               <span className="text-xs text-slate-500 flex items-center gap-0.5">
                                                 <Paperclip size={12} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
                                               </span>
-                                              {m.publishAt && (
+                                              {!telefonoWeb.telefono && m.publishAt && (
                                                 <span data-tooltip="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
                                                   <Clock size={14} /> {formatPublishAt(m.publishAt)}
                                                 </span>
