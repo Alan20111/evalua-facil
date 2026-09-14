@@ -6242,6 +6242,24 @@ export default function SubjectPage() {
             </div>
           ) : (
             <div className="bg-surface-card rounded-card overflow-y-auto max-h-[65vh] shadow-card">
+              {/* Teléfono (web): encabezado y renglón compactos — la versión de
+                  escritorio tiene anchos fijos (foto 86px, código 158px,
+                  estado 86px) que no caben en 310-362px: el nombre colapsaba a
+                  0px y Editar quedaba fuera de la pantalla. Escritorio, tablet
+                  y App siguen con su versión de siempre. */}
+              {telefonoWeb.telefono ? (
+                <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-1.5 bg-surface-container">
+                  <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide truncate">Estudiante</p>
+                  <EstadoFiltroHeader
+                    value={filtroActivacion}
+                    onChange={setFiltroActivacion}
+                    open={estadoFiltroOpen}
+                    setOpen={setEstadoFiltroOpen}
+                    total={groupStudents.length}
+                    activos={groupStudents.filter((s) => s.activado).length}
+                  />
+                </div>
+              ) : (
               <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-1.5 bg-surface-container">
                 {!IS_NATIVE_APP && <span className="w-24 flex-shrink-0" />}
                 {!IS_NATIVE_APP && <span className="w-5 flex-shrink-0" />}
@@ -6262,7 +6280,50 @@ export default function SubjectPage() {
                 />
                 {!IS_NATIVE_APP && <span className="w-9 flex-shrink-0" />}
               </div>
-              {filteredAlumnos.map((s, i) => (
+              )}
+              {filteredAlumnos.map((s, i) => telefonoWeb.telefono ? (
+                // Teléfono (web): [foto 32px] [No.] [nombre hasta 2 líneas /
+                // código · salió · estado] [Editar 36px] — todo dentro del ancho.
+                <div
+                  key={s.id}
+                  className={`flex items-center gap-2 px-3 py-1 leading-tight transition-colors duration-200 hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}
+                >
+                  <div className="w-9 h-9 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0">
+                    {s.photoURL ? (
+                      <img src={s.photoURL} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-bold text-accent">{(s.nombre || '?').charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <span className="text-sm text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-on-surface break-words">{studentFullName(s)}</p>
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
+                      <span className="font-mono text-accent font-semibold text-xs break-all">{s.username}</span>
+                      {s.ocultaPorAlumno && (
+                        <span
+                          className="leading-none bg-slate-200 text-slate-600 rounded-full text-[11px] px-1.5 py-0.5"
+                          data-tooltip={`Salió de la asignatura${s.ocultaPorAlumnoAt?.toDate ? ` el ${s.ocultaPorAlumnoAt.toDate().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}`}
+                        >
+                          salió
+                        </span>
+                      )}
+                      {s.activado ? (
+                        <span className="leading-none bg-emerald-100 text-emerald-700 rounded-full text-[11px] px-1.5 py-0.5">activo</span>
+                      ) : (
+                        <span className="leading-none bg-amber-100 text-amber-700 rounded-full text-[11px] px-1.5 py-0.5">sin activar</span>
+                      )}
+                    </div>
+                  </div>
+                  <button type="button"
+                    onClick={() => openEditStudent(s)}
+                    className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
+                    aria-label="Editar estudiante"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                </div>
+              ) : (
                 <div
                   key={s.id}
                   onClick={IS_NATIVE_APP ? () => openEditStudent(s) : undefined}
