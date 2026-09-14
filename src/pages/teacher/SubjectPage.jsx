@@ -4938,6 +4938,7 @@ export default function SubjectPage() {
                         )
                       })()}
 
+                      {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openAdd(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevas actividades'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
@@ -4945,6 +4946,8 @@ export default function SubjectPage() {
                         }`}>
                         <Plus size={17} /> Agregar actividad
                       </button>
+                      )}
+                      {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openAddMaterial(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevo material de apoyo'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
@@ -4952,6 +4955,8 @@ export default function SubjectPage() {
                         }`}>
                         <BookOpen size={17} /> Agregar material de apoyo
                       </button>
+                      )}
+                      {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openImport(p)}
                         data-tooltip="Copia actividades de otra de tus asignaturas a este parcial"
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
@@ -4959,6 +4964,7 @@ export default function SubjectPage() {
                         }`}>
                         <Copy size={17} /> Traer de otra asignatura
                       </button>
+                      )}
                       </div>
                     </div>
                   )}
