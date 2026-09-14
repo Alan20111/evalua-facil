@@ -556,13 +556,14 @@ export async function exportParcialAttendance({ subject, students, attendancePar
 
   const nameRow = ['#', 'NOMBRE', ...dayHeaders, 'Asist.', 'Faltas', 'Justif.', '% Asist.', 'Sesiones']
 
+  const todayISO = new Date().toISOString().slice(0, 10)
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const denominador = denominadoresPorParcial[String(parcial)] ?? null
   const dataRows = sorted.map((s) => {
     const enrolledFrom = enrolledFromDate(s)
     const row = [s.orden, studentFullName(s)]
     row.push(...attendanceRowCells(days, s.id, enrolledFrom))
-    const { asist, inasist, justif } = countPresence(g?.records || [], s.id, enrolledFrom)
+    const { asist, inasist, justif } = countPresence(g?.records || [], s.id, enrolledFrom, todayISO)
     const pct = denominador > 0 ? Math.round((asist / denominador) * 100) : null
     row.push(asist, inasist, justif ?? 0, pct != null ? `${pct}%` : '', denominador ?? '')
     return row
@@ -610,6 +611,7 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
   parcialMeta.forEach((m) => { nameRow.push(...m.dayHeaders, 'Asist.', 'Faltas', 'Justif.', '% Asist.', 'Sesiones') })
   nameRow.push('Total Asist.', 'Total Faltas')
 
+  const todayISO = new Date().toISOString().slice(0, 10)
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const dataRows = sorted.map((s) => {
     const enrolledFrom = enrolledFromDate(s)
@@ -618,7 +620,7 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
     let totalInasist = 0
     parcialMeta.forEach((m) => {
       row.push(...attendanceRowCells(m.days, s.id, enrolledFrom))
-      const { asist, inasist, justif } = countPresence(m.records, s.id, enrolledFrom)
+      const { asist, inasist, justif } = countPresence(m.records, s.id, enrolledFrom, todayISO)
       const denominador = denominadoresPorParcial[String(m.parcial)] ?? null
       const pct = denominador > 0 ? Math.round((asist / denominador) * 100) : null
       row.push(asist, inasist, justif ?? 0, pct != null ? `${pct}%` : '', denominador ?? '')
