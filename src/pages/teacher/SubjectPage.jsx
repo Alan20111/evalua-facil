@@ -1778,7 +1778,7 @@ export default function SubjectPage() {
             subjectId,
             docenteId: subj.docenteId,
             parcialesFechas: subj.parcialesFechas,
-            existingFechas: new Set(records.map((r) => r.fecha)),
+            existingSlots: new Set(records.map((r) => `${r.fecha}_${r.slot}`)),
             excludedFechas: subj.attendanceExcluded || [],
             studentIds: (students || groupStudents).map((s) => s.id),
             porFecha: bloquesInfo.porFecha,
@@ -1852,15 +1852,13 @@ export default function SubjectPage() {
     // envía con Enter.
     const aviso = motivoSinClase(newAttendanceForm.fecha)
     if (aviso) { toast(aviso, 'error'); return }
-    // Unicidad (asignaturaId, fecha): si ya existen registros para esta fecha —
-    // creados automáticamente por syncAutoAttendanceDays o manualmente antes —
-    // bloquear la escritura. Esto hace que ambos mecanismos de creación sean
-    // mutuamente excluyentes y elimina la causa raíz de registros duplicados.
-    // La validación es en memoria (attendanceRecords siempre está actualizado
-    // después de loadAttendance) y es suficiente: para crear un duplicado habría
-    // que tener dos pestañas idénticas creando el mismo día al mismo tiempo,
-    // escenario que syncAutoAttendanceDays ya protege con existingFechas.
-    if (attendanceRecords.some((r) => r.fecha === newAttendanceForm.fecha)) {
+    // Unicidad (asignaturaId, fecha, slot): bloquear si ya existe algún slot del
+    // rango que se va a crear. Permite coexistencia de slot 1 y slot 2 el mismo día.
+    const duracion = Number(newAttendanceForm.duracion)
+    const haySolapamiento = attendanceRecords.some(
+      (r) => r.fecha === newAttendanceForm.fecha && r.slot >= 1 && r.slot <= duracion
+    )
+    if (haySolapamiento) {
       toast(`El ${formatShortDate(newAttendanceForm.fecha)} ya tiene sesiones registradas. Para rehacerlo con diferente duración, elimina el día primero.`, 'error')
       return
     }
@@ -1870,7 +1868,7 @@ export default function SubjectPage() {
         subjectId,
         docenteId: currentUser.uid,
         fecha: newAttendanceForm.fecha,
-        duracion: Number(newAttendanceForm.duracion),
+        duracion,
         parcial: Number(newAttendanceForm.parcial),
         studentIds: groupStudents.map((s) => s.id),
       })
@@ -1879,7 +1877,11 @@ export default function SubjectPage() {
       await loadAttendance(true)
       toast('Asistencia agregada')
     } catch (err) {
-      toast('Error: ' + err.message, 'error')
+      if (err.message === 'ALREADY_EXISTS') {
+        toast(`El ${formatShortDate(newAttendanceForm.fecha)} ya tiene sesiones registradas. Para rehacerlo con diferente duración, elimina el día primero.`, 'error')
+      } else {
+        toast('Error: ' + err.message, 'error')
+      }
     } finally {
       setSavingAttendance(false)
     }

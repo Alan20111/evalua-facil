@@ -1,8 +1,8 @@
 import {
-  collection, doc, getDocs, query, serverTimestamp, where,
+  collection, doc, getDocs, query, runTransaction, serverTimestamp, where,
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
-import { deleteDoc, updateDoc, writeBatch } from './firestoreGuard'
+import { deleteDoc, updateDoc } from './firestoreGuard'
 import { db } from '../firebase'
 
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
@@ -55,24 +55,27 @@ export async function loadAttendanceRecords(subjectId) {
 // Crea `duracion` columnas (slots 1..duracion) para el mismo día, cada una con
 // todos los estudiantes actuales marcados presentes — el docente solo quita la
 // palomita de quienes faltaron.
+// Usa IDs deterministas (subjectId_fecha_slot) + runTransaction para garantizar
+// que nunca se creen duplicados, incluso con dos pestañas abiertas al mismo tiempo.
+// Si algún slot ya existe la transacción aborta y el llamador recibe ALREADY_EXISTS.
 export async function createAttendanceDay({ subjectId, docenteId, fecha, duracion, parcial, studentIds }) {
   const presentes = Object.fromEntries(studentIds.map((id) => [id, true]))
-  const batch = writeBatch(db)
-  const refs = []
-  for (let slot = 1; slot <= duracion; slot++) {
-    const ref = doc(collection(db, 'attendance'))
-    refs.push(ref)
-    batch.set(ref, {
+  const refs = Array.from({ length: duracion }, (_, i) =>
+    doc(db, 'attendance', `${subjectId}_${fecha}_${i + 1}`)
+  )
+  await runTransaction(db, async (tx) => {
+    const snaps = await Promise.all(refs.map((r) => tx.get(r)))
+    if (snaps.some((s) => s.exists())) throw new Error('ALREADY_EXISTS')
+    refs.forEach((ref, i) => tx.set(ref, {
       asignaturaId: subjectId,
       docenteId,
       fecha,
-      slot,
+      slot: i + 1,
       parcial,
       presentes,
       createdAt: serverTimestamp(),
-    })
-  }
-  await batch.commit()
+    }))
+  })
   return refs.map((r) => r.id)
 }
 
