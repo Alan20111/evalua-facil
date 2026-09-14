@@ -938,6 +938,7 @@ export default function SubjectPage() {
   const [studentToDelete, setStudentToDelete] = useState(null)
   const [studentToEdit, setStudentToEdit] = useState(null)
   const [editStudentForm, setEditStudentForm] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '', comentarios: '' })
+  const [studentLastAccess, setStudentLastAccess] = useState(null)
   const [studentToReset, setStudentToReset] = useState(null)
   const [resetPwdResult, setResetPwdResult] = useState(null) // { student }
   const [linkCandidate, setLinkCandidate] = useState(null) // { person, identity, schoolDocs }
@@ -2465,6 +2466,7 @@ export default function SubjectPage() {
 
   function openEditStudent(s) {
     setStudentToEdit(s)
+    setStudentLastAccess(null)
     // Capitalizado, para que el formulario muestre el MISMO nombre que la lista
     // (un registro viejo guardado en MAYÚSCULAS se ve aquí ya corregido) y para
     // que el docente pueda dejarlo exactamente como lo quiere ver.
@@ -2474,6 +2476,18 @@ export default function SubjectPage() {
       nombre: capitalizarNombre(s.nombre),
       comentarios: s.comentarios || '',
     })
+    if (s.uid && s.id) {
+      currentUser.getIdToken().then((token) =>
+        fetch('/api/student/last-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ studentId: s.id }),
+        })
+          .then((r) => r.json())
+          .then((data) => { if (data.lastAccess) setStudentLastAccess(data.lastAccess) })
+          .catch(() => {})
+      ).catch(() => {})
+    }
   }
 
   // "Guardar cambios" de Editar estudiante se apaga sin cambios — compara
@@ -6747,6 +6761,18 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">Editar estudiante</h3>
               <button type="button" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
+            {studentToEdit.uid && (
+              <p className="text-xs text-muted mb-3">
+                {studentLastAccess
+                  ? (() => {
+                      const d = new Date(studentLastAccess)
+                      const fecha = d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+                      const hora = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                      return `Último acceso: ${fecha}, ${hora}`
+                    })()
+                  : 'Último acceso: consultando…'}
+              </p>
+            )}
             {/* Foto de perfil del estudiante — la sube el propio estudiante desde su cuenta;
                 el docente solo puede eliminarla (por si sube algo inapropiado), no reemplazarla */}
             <div className="flex items-center gap-3 mb-4">

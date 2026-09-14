@@ -410,6 +410,45 @@ async function handleRecoverPassword(req, res) {
   return res.status(200).json({ ok: true, email })
 }
 
+// ── /api/student/last-access ──────────────────────────────────────
+// El docente consulta el último acceso de uno de sus alumnos.
+// Devuelve lastRefreshTime de Firebase Auth para el uid del alumno.
+//
+// Seguridad:
+//   1. Requiere ID token válido del docente (verifyRequest).
+//   2. Verifica que el docente sea dueño de la asignatura del alumno.
+//   3. Solo funciona si el alumno tiene uid (cuenta activada).
+
+async function handleLastAccess(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' })
+  const quien = await verifyRequest(req)
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
+  const { studentId } = body
+  if (!studentId || typeof studentId !== 'string') {
+    return res.status(400).json({ error: 'Falta studentId.' })
+  }
+
+  const db = getDb()
+  const studentDoc = await db.collection('students').doc(studentId).get()
+  if (!studentDoc.exists) return res.status(404).json({ error: 'Alumno no encontrado.' })
+  const studentData = studentDoc.data()
+
+  const subjectDoc = await db.collection('subjects').doc(studentData.asignaturaId).get()
+  if (!subjectDoc.exists || subjectDoc.data().docenteId !== quien.uid) {
+    return res.status(403).json({ error: 'No tienes permiso para este alumno.' })
+  }
+
+  if (!studentData.uid) {
+    return res.status(200).json({ lastAccess: null })
+  }
+
+  const auth = getAuth()
+  const { users } = await auth.getUsers([{ uid: studentData.uid }])
+  const u = users[0]
+  const lastAccess = u?.metadata?.lastRefreshTime || u?.metadata?.lastSignInTime || null
+  return res.status(200).json({ lastAccess })
+}
+
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return
   const { action } = req.query
@@ -419,6 +458,7 @@ export default async function handler(req, res) {
     if (action === 'reset-student-password') return await handleResetStudentPassword(req, res)
     if (action === 'remove-photo') return await handleRemovePhoto(req, res)
     if (action === 'recover-password') return await handleRecoverPassword(req, res)
+    if (action === 'last-access') return await handleLastAccess(req, res)
     return res.status(404).json({ error: 'Acción no encontrada.' })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message || 'Error interno.' })
