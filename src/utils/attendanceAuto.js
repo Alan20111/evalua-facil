@@ -63,10 +63,18 @@ export async function fetchClaseDiasSemana({ subjectId, docenteId }) {
 // agregue en memoria en vez de volver a descargar TODA la asistencia de la
 // asignatura — antes, cada vez que se creaba algo, se repetía la consulta
 // completa de attendance por segunda vez.
-export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFechas, existingFechas, excludedFechas, studentIds, porFecha }) {
+// existingSlots: Set de strings "fecha_slot" de los registros ya existentes —
+// guardia a nivel de slot (no solo de fecha) para permitir que un día tenga
+// dos sesiones legítimas (slot 1 y slot 2) sin bloquear la segunda por la primera.
+// IDs deterministas (subjectId_fecha_slot): si dos procesos llegan al set()
+// simultáneamente apuntan al mismo documento, no crean un duplicado nuevo.
+// Fechas futuras (fecha > todayISO): la colección attendance registra sesiones
+// realizadas, no el calendario. Las futuras se crean cuando llega su día.
+export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFechas, existingSlots, excludedFechas, studentIds, porFecha }) {
   if (!parcialesFechas?.length || !studentIds?.length || !porFecha) return { created: 0, missing: [], nuevos: [] }
 
-  const existing = new Set(existingFechas)
+  const todayISO = new Date().toISOString().slice(0, 10)
+  const existing = new Set(existingSlots)
   // Fechas que el docente borró a propósito — no se regeneran solas, pero se
   // reportan en `missing` para que el docente las restaure si quiere.
   const excluded = new Set(excludedFechas)
@@ -74,18 +82,21 @@ export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFe
   const writes = [] // { fecha, slot, parcial }
   const missing = [] // { fecha, duracion, parcial } — excluidas pero aún válidas
   Object.keys(porFecha).forEach((fecha) => {
-    if (existing.has(fecha)) return
+    if (fecha > todayISO) return
     const parcial = parcialForDate(parcialesFechas, fecha)
     if (!parcial) return
     if (excluded.has(fecha)) { missing.push({ fecha, duracion: porFecha[fecha], parcial }); return }
-    for (let slot = 1; slot <= porFecha[fecha]; slot++) writes.push({ fecha, slot, parcial })
+    for (let slot = 1; slot <= porFecha[fecha]; slot++) {
+      if (existing.has(`${fecha}_${slot}`)) continue
+      writes.push({ fecha, slot, parcial })
+    }
   })
 
   const nuevos = []
   for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
     const batch = writeBatch(db)
     writes.slice(i, i + BATCH_LIMIT).forEach(({ fecha, slot, parcial }) => {
-      const ref = doc(collection(db, 'attendance'))
+      const ref = doc(db, 'attendance', `${subjectId}_${fecha}_${slot}`)
       const data = { asignaturaId: subjectId, docenteId, fecha, slot, parcial, presentes, createdAt: serverTimestamp() }
       batch.set(ref, data)
       // createdAt local queda null (aún no resuelto por el servidor) — nada
