@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   LogOut,
-  Smartphone,
   User,
   Plus,
   Archive,
@@ -29,7 +28,6 @@ import { teacherDisplayName } from '../utils/studentSearch'
 import { IS_NATIVE_APP } from '../utils/platform'
 import SubjectIcon from './SubjectIcon'
 import PortalBadge from './PortalBadge'
-import { Capacitor } from '@capacitor/core'
 import EFLogo from './EFLogo'
 import AppQRButton from './AppQRButton'
 import ConfirmModal from './ConfirmModal'
@@ -59,8 +57,6 @@ function navIconPillCls(isActive) {
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
   const navigate = useNavigate()
-  // Dentro del APK no tiene sentido ofrecer descargar el APK.
-  const enNavegador = !Capacitor.isNativePlatform()
 
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
@@ -144,17 +140,6 @@ export default function TeacherLayout({ children }) {
         <div className="flex items-center gap-1">
           {/* Créditos IA — visibles sin entrar a ninguna sección (chip compacto) */}
           <CreditosBar variant="movil" />
-          {enNavegador && (
-            <a
-              href="/descargar"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Descargar la app de Android"
-              className="p-2 text-muted hover:text-accent rounded transition-colors"
-            >
-              <Smartphone size={20} />
-            </a>
-          )}
           <NavLink
             to="/ayuda"
             aria-label="Ayuda para comenzar"

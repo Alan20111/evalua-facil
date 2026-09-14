@@ -638,15 +638,19 @@ export default function TeacherDashboard() {
         )}
       </div>
 
-      {/* FAB — create subject (mobile only; on web use the sidebar's "Nueva asignatura") */}
-      <button
-        type="button"
-        onClick={openSubjectModal}
-        aria-label="Nueva asignatura"
-        className="md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-accent hover:bg-accent-hover text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
-      >
-        <Plus size={26} />
-      </button>
+      {/* FAB — create subject, solo en la App. En la web (móvil y escritorio)
+          ya están "Nueva asignatura" al pie de la lista y "Crear mi primera
+          asignatura" en la tarjeta vacía; el FAB los duplicaba. */}
+      {IS_NATIVE_APP && (
+        <button
+          type="button"
+          onClick={openSubjectModal}
+          aria-label="Nueva asignatura"
+          className="md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-accent hover:bg-accent-hover text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
+        >
+          <Plus size={26} />
+        </button>
+      )}
 
       {/* ── Nueva asignatura modal ── */}
       {showSubjectModal && (
