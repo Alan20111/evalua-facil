@@ -18,9 +18,11 @@ export default function StudentBottomNav() {
   return (
     // style width usa --layout-w (layout viewport real, 360px) en lugar de 100% (que en
     // Samsung S23 Capacitor resuelve al visual viewport de ~410px, causando el hueco).
+    // En la web ese ancho no se aplica, así que el ancho lo da `right-0`: sin él
+    // la barra `fixed` se encoge a su contenido (~204 de 375px) y queda cortada.
     <nav
       style={IS_NATIVE_APP ? { width: 'var(--layout-w)' } : undefined}
-      className={`${IS_NATIVE_APP ? '' : 'md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}
+      className={`${IS_NATIVE_APP ? '' : 'right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}
     >
       <div className="flex">
         {NAV_TABS.map(({ to, label, Icon }) => (

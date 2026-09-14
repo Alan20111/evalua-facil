@@ -422,10 +422,13 @@ export default function TeacherLayout({ children }) {
       </div>
 
       {/* Mobile bottom nav — en la app nativa siempre visible; en la web se
-          oculta en escritorio (md:hidden). Misma razón que el <header>. */}
+          oculta en escritorio (md:hidden). Misma razón que el <header>.
+          Ancho: en la app lo fija --layout-w (Samsung S23); en la web lo da
+          `right-0` — sin él la barra `fixed` se encoge a su contenido y queda
+          cortada (~204 de 375px). */}
       <nav
         style={IS_NATIVE_APP ? { width: 'var(--layout-w)' } : undefined}
-        className={`${IS_NATIVE_APP ? '' : 'md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}
+        className={`${IS_NATIVE_APP ? '' : 'right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}
       >
         <div className="flex">
           <NavLink
