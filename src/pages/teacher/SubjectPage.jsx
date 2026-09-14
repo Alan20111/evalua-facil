@@ -37,6 +37,7 @@ import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { formatShortDate, formatShortDateRange } from '../../utils/dateRange'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
 import PaletteSelect from '../../components/PaletteSelect'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
@@ -232,6 +233,14 @@ const AttendanceTable = memo(function AttendanceTable({
   sesionesPorParcialCliente, // sesiones calculadas en tiempo real por el cliente (open parcials)
   parcialesCerrados, // subject.parcialesCerrados — marca de cierre por parcial
   umbralInasistencia, // schools.umbralInasistencia — umbral institucional (%)
+  // Qué versión pintar, SIEMPRE explícita:
+  //  · 'app'     → vista horizontal de la app nativa (IS_NATIVE_APP), igual que siempre
+  //  · 'web'     → escritorio/tablet, igual que siempre
+  //  · 'movil-v' → Tomar lista en el teléfono (navegador), vertical
+  //  · 'movil-h' → Tomar lista en el teléfono (navegador), horizontal
+  // 'app' y 'web' producen exactamente las mismas clases que antes de existir
+  // las variantes de teléfono.
+  variante,
 }) {
   // Nodos DOM cacheados por columna/día para el efecto de cruz (fila+columna)
   // — resaltado con classList directo, sin state ni CSS :has() (ambos
@@ -242,9 +251,20 @@ const AttendanceTable = memo(function AttendanceTable({
   const attLastHoverRef = useRef({ col: null, day: null })
   const attActiveCellRef = useRef(null)
 
-  const dayColW = IS_NATIVE_APP ? 'w-[74px]' : 'w-9'   // columnas de asistencia más anchas en la app — pedido explícito, +15% sobre los 64px anteriores
-  const cellPadY = IS_NATIVE_APP ? 'py-[4.8px]' : 'py-1' // renglones 20% menos altos que antes (52px→41.6px) sin achicar el ícono de 32px — pedido explícito
-  const cellIconSize = IS_NATIVE_APP ? 'w-8 h-8' : 'w-6 h-6' // símbolo más grande en la app, a juego con la celda más ancha
+  const esApp = variante === 'app'
+  const esMovil = variante === 'movil-v' || variante === 'movil-h'
+  // Versión simplificada (app y teléfono web): sin Totales ni renglón de sesión.
+  const esSimple = esApp || esMovil
+  // Regresar/ASISTENCIAS/Agregar día en la esquina fija de la tabla. En el
+  // teléfono vertical no caben junto al nombre de 130px: van en una barra arriba.
+  const conEsquina = esApp || variante === 'movil-h'
+  const dayColW = esApp ? 'w-[74px]'   // columnas de asistencia más anchas en la app — pedido explícito, +15% sobre los 64px anteriores
+    : variante === 'movil-h' ? 'w-[48px]' // teléfono horizontal: angostas para que quepan más sesiones
+    : variante === 'movil-v' ? 'w-[44px]' // teléfono vertical: cómodas para el dedo
+    : 'w-9'
+  const cellPadY = esApp ? 'py-[4.8px]' : 'py-1' // renglones 20% menos altos que antes (52px→41.6px) sin achicar el ícono de 32px — pedido explícito
+  const cellIconSize = esApp || esMovil ? 'w-8 h-8' : 'w-6 h-6' // símbolo más grande en la app, a juego con la celda más ancha
+  const nameColW = variante === 'movil-v' ? 'w-[130px]' : 'w-[210px]'
   const now = new Date()
   const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
@@ -327,22 +347,28 @@ const AttendanceTable = memo(function AttendanceTable({
 
   return (
   <table onMouseOver={handleAttHover} onFocus={handleAttHover} onMouseLeave={clearAttHighlight}
-    className={`${IS_NATIVE_APP ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
+    // Teléfono (web): ancho explícito. `table-fixed` solo respeta los anchos de
+    // <col> si la tabla tiene ancho propio; con `auto` el navegador los
+    // redistribuía (medido en 360px: nombre 150 en vez de 130, celdas 33 en vez
+    // de 44). Nº (w-8) + nombre + sesiones + 2 columnas de resumen (w-10) por
+    // parcial. En 'app' y 'web' no se agrega nada.
+    style={esMovil ? { width: `calc(2rem + ${variante === 'movil-v' ? 130 : 210}px + ${_attCol * (variante === 'movil-v' ? 44 : 48)}px + ${attendanceParciales.length * 5}rem)` } : undefined}
+    className={`${esSimple ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
     <colgroup>
       <col className="w-8" />
-      <col className="w-[210px]" />
+      <col className={nameColW} />
       {attendanceParciales.flatMap((g) => [
         ...g.days.flatMap(({ records }) => records.map((r) => <col key={r.id} className={dayColW} />)),
         <col key={`ca-${g.parcial}`} className="w-10" />,
         <col key={`ci-${g.parcial}`} className="w-10" />,
       ])}
-      {!IS_NATIVE_APP && <col className="w-10" />}
-      {!IS_NATIVE_APP && <col className="w-10" />}
+      {!esSimple && <col className="w-10" />}
+      {!esSimple && <col className="w-10" />}
     </colgroup>
     <thead className="sticky top-0 z-30 bg-accent-light">
       {/* Fila de parcial — nivel superior, abarca sus días + su resumen */}
       <tr className="bg-accent-light border-b border-outline-variant">
-        {IS_NATIVE_APP ? (
+        {conEsquina ? (
           /* Esquina fija: Regresar + ASISTENCIAS + Agregar día en UNA sola celda
              (sin línea divisoria), para darle más ancho al botón de regresar. */
           <th colSpan={2} rowSpan={2} className="sticky left-0 z-30 bg-accent-light px-2 align-middle border-r border-outline-variant">
@@ -365,7 +391,7 @@ const AttendanceTable = memo(function AttendanceTable({
         ) : (
           <>
             <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-            <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+            <th className={`sticky left-8 z-20 bg-accent-light ${nameColW} px-2 py-1 border-r border-outline-variant`} />
           </>
         )}
         {attendanceParciales.map((g) => (
@@ -395,7 +421,7 @@ const AttendanceTable = memo(function AttendanceTable({
             })()}
           </th>
         ))}
-        {!IS_NATIVE_APP && (
+        {!esSimple && (
           <th colSpan={2}
             className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
             Totales
@@ -404,10 +430,10 @@ const AttendanceTable = memo(function AttendanceTable({
       </tr>
       {/* Fila de mes — celda "Mes Año" que abarca sus días */}
       <tr className="bg-accent-light/70 border-b border-outline-variant">
-        {!IS_NATIVE_APP && (
+        {!conEsquina && (
           <>
             <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-            <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+            <th className={`sticky left-8 z-20 bg-accent-light ${nameColW} px-2 py-1 border-r border-outline-variant`} />
           </>
         )}
         {attendanceParciales.flatMap((g) => [
@@ -422,13 +448,13 @@ const AttendanceTable = memo(function AttendanceTable({
             Resumen
           </th>,
         ])}
-        {!IS_NATIVE_APP && <th colSpan={2} className="border-l-2 border-outline" />}
+        {!esSimple && <th colSpan={2} className="border-l-2 border-outline" />}
       </tr>
       {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
       <tr className="bg-accent-light/60 border-b border-outline-variant">
         <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-        <th className={`sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-left' : 'text-right'} text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate`}>
-          {IS_NATIVE_APP ? 'Estudiante / Día:' : 'Día:'}
+        <th className={`sticky left-8 z-20 bg-accent-light ${nameColW} px-2 py-1 ${esSimple ? 'text-left' : 'text-right'} text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate`}>
+          {esSimple ? 'Estudiante / Día:' : 'Día:'}
         </th>
         {attendanceParciales.flatMap((g) => [
           ...g.days.map(({ fecha, records }) => {
@@ -437,7 +463,7 @@ const AttendanceTable = memo(function AttendanceTable({
               <th key={fecha} colSpan={records.length}
                 ref={setAttDayEl(fecha)}
                 onClick={() => onDeleteDay(fecha)}
-                data-tooltip={IS_NATIVE_APP
+                data-tooltip={esSimple
                   ? `Eliminar la asistencia del ${dia}/${mes}/${anio}`
                   : `Eliminar la asistencia del ${fmtAttDateLong(fecha)}`}
                 className={`px-0.5 py-1 font-semibold text-center border-l border-outline-variant cursor-pointer transition-colors tabular-nums ${fecha === todayISO ? 'bg-accent text-white' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
@@ -454,7 +480,7 @@ const AttendanceTable = memo(function AttendanceTable({
             <X size={13} className="inline text-red-500" />
           </th>,
         ])}
-        {!IS_NATIVE_APP && (
+        {!esSimple && (
           <>
             <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
               <CheckIcon size={13} className="inline text-green-600" />
@@ -467,7 +493,7 @@ const AttendanceTable = memo(function AttendanceTable({
       </tr>
       {/* Renglón de sesión — solo web; en la app se oculta para ganar espacio.
           La etiqueta "Estudiante" pasa al renglón de Día (Estudiante / Día:). */}
-      {!IS_NATIVE_APP && (
+      {!esSimple && (
         <tr className="bg-accent-light/50 border-b border-outline-variant">
           <th className="sticky left-0 z-10 bg-accent-light w-8 border-r border-outline-variant" />
           <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-0.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate">
@@ -495,7 +521,7 @@ const AttendanceTable = memo(function AttendanceTable({
           <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
             {s.orden}
           </td>
-          <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+          <td className={`sticky left-8 z-10 ${nameColW} px-2 py-1 ${esSimple ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
             {studentFullName(s)}
           </td>
           {attendanceParciales.flatMap((g) => {
@@ -551,7 +577,7 @@ const AttendanceTable = memo(function AttendanceTable({
               </td>,
             ]
           })}
-          {!IS_NATIVE_APP && (() => {
+          {!esSimple && (() => {
             const pctAsistTot  = denTotal > 0 ? (total.asist   / denTotal * 100) : null
             const pctInasistTot = denTotal > 0 ? (total.inasist / denTotal * 100) : null
             return (
@@ -901,6 +927,15 @@ export default function SubjectPage() {
   const [archiveConZip, setArchiveConZip] = useState(false)
 
   const [activeTab, setActiveTab] = useState(routerLocation.state?.tab || 'actividades')
+  // Tomar lista en el TELÉFONO desde el navegador — vista simplificada a
+  // pantalla completa (ver el bloque "TAB: ASISTENCIA"). En la app nativa
+  // useTelefonoWeb siempre da false: la app sigue con su propia vista.
+  const telefonoWeb = useTelefonoWeb()
+  const tomarListaMovil = telefonoWeb.telefono && activeTab === 'asistencia'
+  // Modales de asistencia (Agregar día, Motivo) en su versión horizontal: la
+  // de la app y, en el teléfono girado (web), la misma — la versión apilada no
+  // cabe en ~360px de alto.
+  const modalAsistenciaHorizontal = IS_NATIVE_APP || (tomarListaMovil && telefonoWeb.horizontal)
 
   // Pista de que la barra de pestañas se puede deslizar — en la App, con 6
   // pestañas angostas, algunas quedan fuera de vista sin ningún indicio de
@@ -2005,6 +2040,43 @@ export default function SubjectPage() {
   // explícito, ya no se sale solo por mover el teléfono a vertical (ver el
   // efecto de lockLandscape/lockPortrait más arriba).
   useBackHandler(stableAttBack, IS_NATIVE_APP && activeTab === 'asistencia')
+
+  // Tomar lista en el TELÉFONO (web). En el navegador el botón/gesto atrás es
+  // un history.back(): sin una entrada propia en el historial sacaría de la
+  // asignatura entera. Al entrar se apila una entrada (misma URL, marcada con
+  // efTomarLista) y su popstate regresa a Actividades — o, si hay un modal de
+  // asistencia abierto, solo lo cierra (sin tocar datos, como "Salir") y
+  // vuelve a apilar la entrada para seguir tomando lista. Nada de esto corre
+  // en la app: ahí tomarListaMovil siempre es false.
+  const tomarListaPopRef = useRef()
+  tomarListaPopRef.current = () => {
+    if (reasonModal || showAddAttendance || showRestoreAttendance || deleteAttendanceConfirm) {
+      setReasonModal(null)
+      setShowAddAttendance(false)
+      setShowRestoreAttendance(false)
+      setDeleteAttendanceConfirm(null)
+      window.history.pushState({ ...window.history.state, efTomarLista: true }, '')
+      return
+    }
+    setActiveTab('actividades')
+  }
+  useEffect(() => {
+    if (!tomarListaMovil) return undefined
+    // Revisar la marca evita apilar dos entradas (StrictMode monta dos veces
+    // en desarrollo, o se recargó la página estando ya en esta entrada).
+    if (!window.history.state?.efTomarLista) {
+      window.history.pushState({ ...window.history.state, efTomarLista: true }, '')
+    }
+    const onPop = () => tomarListaPopRef.current()
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [tomarListaMovil])
+  // "Regresar" en pantalla: consume la entrada propia (su popstate regresa a
+  // Actividades), así el historial queda igual que antes de entrar.
+  const stableTomarListaBack = useCallback(() => {
+    if (window.history.state?.efTomarLista) window.history.back()
+    else setActiveTab('actividades')
+  }, [])
   // Con fechas de curso configuradas, todo es automático: "Agregar día" pasa
   // a ser "Restaurar día" (solo fechas que el docente borró y siguen siendo
   // válidas) — sin fechas de curso, sigue siendo el alta manual de siempre.
@@ -4020,13 +4092,47 @@ export default function SubjectPage() {
   // completo cuando de verdad se necesita.
   const [showAllParciales, setShowAllParciales] = useState(false)
   const attendanceParciales = useMemo(() => (
-    !IS_NATIVE_APP && showAllParciales
+    // En el teléfono (web) tampoco hay "Todo el curso", igual que en la App.
+    !IS_NATIVE_APP && !telefonoWeb.telefono && showAllParciales
       ? attendanceParcialesAll
       : attendanceParcialesAll.filter((g) => g.parcial === attendanceParcialActual)
-  ), [attendanceParcialesAll, attendanceParcialActual, showAllParciales])
+  ), [attendanceParcialesAll, attendanceParcialActual, showAllParciales, telefonoWeb.telefono])
 
   // Registros mostrados (unión de los parciales visibles) — base de los totales.
   const attendanceAllRecords = useMemo(() => attendanceParciales.flatMap((g) => g.records), [attendanceParciales])
+
+  // Tomar lista en el teléfono (web): al entrar, lleva la tabla a la sesión
+  // de HOY si existe — sin esto, con 4-5 columnas visibles en vertical se
+  // veían las primeras sesiones del parcial y había que buscar la de hoy a
+  // mano. Una vez por orientación: al girar cambian los anchos de columna, así
+  // que se vuelve a llevar a hoy; tocar celdas (que re-arma attendanceParciales)
+  // no mueve la tabla.
+  const tomarListaScrollRef = useRef(null)
+  const tomarListaHoyRef = useRef(null)
+  useEffect(() => {
+    if (!tomarListaMovil) { tomarListaHoyRef.current = null; return }
+    const box = tomarListaScrollRef.current
+    if (loadingAttendance || !box || !attendanceParciales.length) return
+    const orientacion = telefonoWeb.horizontal ? 'h' : 'v'
+    if (tomarListaHoyRef.current === orientacion) return
+    tomarListaHoyRef.current = orientacion
+    const now = new Date()
+    const hoy = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    // Mismo orden de columnas (data-col) que arma AttendanceTable.
+    let col = 0
+    let colHoy = null
+    attendanceParciales.forEach((g) => g.days.forEach(({ fecha, records }) => records.forEach(() => {
+      if (colHoy == null && fecha === hoy) colHoy = col
+      col++
+    })))
+    if (colHoy == null) return
+    const celda = box.querySelector(`tbody tr td[data-col="${colHoy}"]`)
+    const fila = celda?.parentElement
+    if (!celda || !fila) return
+    // Nº + nombre son sticky: la sesión de hoy queda justo a su derecha.
+    const anchoFijo = fila.children[0].offsetWidth + fila.children[1].offsetWidth
+    box.scrollLeft = Math.max(0, celda.offsetLeft - anchoFijo)
+  }, [tomarListaMovil, telefonoWeb.horizontal, loadingAttendance, attendanceParciales])
 
   // Drafts don't grade anything — keep them out of the Calificaciones table
   const tableParcials = PARCIALES.map((p) => ({
@@ -4392,7 +4498,7 @@ export default function SubjectPage() {
       attendanceAllRecords={attendanceAllRecords}
       onCellClick={stableCellClick}
       onDeleteDay={stableDeleteDay}
-      onBack={stableAttBack}
+      onBack={tomarListaMovil ? stableTomarListaBack : stableAttBack}
       onAddDay={stableAddDay}
       addDayLabel={addDayLabel}
       lastEditedCell={lastEditedAttCell}
@@ -4401,6 +4507,7 @@ export default function SubjectPage() {
       sesionesPorParcialCliente={sesionesPorParcialCliente}
       parcialesCerrados={subject?.parcialesCerrados}
       umbralInasistencia={umbralInasistencia}
+      variante={IS_NATIVE_APP ? 'app' : tomarListaMovil ? (telefonoWeb.horizontal ? 'movil-h' : 'movil-v') : 'web'}
     />
   )
 
@@ -4483,6 +4590,26 @@ export default function SubjectPage() {
       {/* Mismo botón verde fosforescente que en la tabla con datos — igual
           color y tamaño en cualquier asignatura */}
       <button type="button" onClick={() => switchTab('actividades')} aria-label="Regresar"
+        className="flex-none px-2.5 py-1 rounded bg-[#39FF14] text-black hover:bg-[#2ee510] transition-colors">
+        <ArrowLeft size={20} />
+      </button>
+      <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
+      {addDayLabel && totalStudents > 0 && (
+        <button type="button" onClick={handleAddDayClick}
+          className="ml-auto flex items-center gap-1.5 px-2.5 py-1 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
+          <CalendarPlus size={14} /> {addDayLabel}
+        </button>
+      )}
+    </div>
+  )
+
+  // Misma barra para Tomar lista en el teléfono (web): en vertical siempre (la
+  // esquina de la tabla no cabe junto al nombre de 130px) y en horizontal solo
+  // en los estados sin tabla. Regresar pasa por el historial (ver
+  // stableTomarListaBack) para que el botón atrás del navegador quede en orden.
+  const tomarListaMovilBar = (
+    <div className="flex items-center gap-2 px-2 py-1 bg-accent-light border-b border-outline-variant">
+      <button type="button" onClick={stableTomarListaBack} aria-label="Regresar"
         className="flex-none px-2.5 py-1 rounded bg-[#39FF14] text-black hover:bg-[#2ee510] transition-colors">
         <ArrowLeft size={20} />
       </button>
@@ -5491,6 +5618,42 @@ export default function SubjectPage() {
             </div>
           )}
         </div>
+      ) : tomarListaMovil ? (
+        /* ── Tomar lista en el TELÉFONO, desde el navegador ────────────────
+           Mismo enfoque que la vista de la app: pantalla completa, solo tomar
+           y modificar asistencia (sin buscador, Excel, "Todo el curso" ni
+           ordenar por riesgo). Un navegador no puede bloquear la orientación
+           como la app, así que se adapta: en vertical los controles van en la
+           barra de arriba; en horizontal, en la esquina de la tabla. Girar NO
+           saca de aquí, y la barra y el contenedor ocupan el mismo lugar en
+           ambas orientaciones para que React conserve el scroll.
+           Safe-area a los lados (muesca/cámara en horizontal) y abajo
+           (indicador de inicio del iPhone). */
+        <div className="fixed inset-0 z-[70] bg-surface flex flex-col safe-top"
+          style={{ paddingLeft: 'env(safe-area-inset-left, 0px)', paddingRight: 'env(safe-area-inset-right, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+          {loadingAttendance ? (
+            <>{tomarListaMovilBar}<div className="flex-1 flex items-center justify-center"><Spinner size="lg" /></div></>
+          ) : totalStudents === 0 ? (
+            <>{tomarListaMovilBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p></>
+          ) : attendanceRecords.length === 0 ? (
+            <>
+              {tomarListaMovilBar}
+              <div className="flex-1 overflow-auto overscroll-contain p-3 space-y-2">
+                <p className="text-slate-400 text-sm text-center py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+                {attendanceStudentsRosterJsx}
+              </div>
+            </>
+          ) : attendanceParciales.length === 0 ? (
+            <>{tomarListaMovilBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Sin días de asistencia en el parcial actual.</p></>
+          ) : (
+            <>
+              {!telefonoWeb.horizontal && tomarListaMovilBar}
+              <div ref={tomarListaScrollRef} className="flex-1 overflow-auto overscroll-contain bg-surface-card">
+                {attendanceTableJsx}
+              </div>
+            </>
+          )}
+        </div>
       ) : (
         <div className="px-4 py-2 space-y-2">
         {totalStudents === 0 ? (
@@ -5643,14 +5806,15 @@ export default function SubjectPage() {
       {/* Agregar día de asistencia — el nº de sesiones crea esa misma cantidad
           de columnas (una asistencia por sesión de clase). */}
       {showAddAttendance && (
-        <div className={`fixed inset-0 z-[80] flex justify-center px-4 ${IS_NATIVE_APP ? 'items-start pt-1' : 'items-center'}`}>
+        <div className={`fixed inset-0 z-[80] flex justify-center px-4 ${modalAsistenciaHorizontal ? 'items-start pt-1' : 'items-center'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowAddAttendance(false)} aria-label="Cerrar" />
-          <form onSubmit={handleCreateAttendanceDay} className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-3xl p-3 space-y-2' : 'max-w-sm p-4 space-y-3'}`}>
-            <h3 className={`font-semibold text-on-surface ${IS_NATIVE_APP ? 'text-sm' : 'text-base'}`}>Agregar día de asistencia</h3>
-            {/* En la app: campos en fila y modal pegado arriba, así el calendario
-                del selector de día tiene espacio para abrirse sin recortarse. */}
-            <div className={IS_NATIVE_APP ? 'flex items-start gap-3' : 'space-y-3'}>
-              <div className={IS_NATIVE_APP ? 'flex-1 min-w-0' : undefined}>
+          <form onSubmit={handleCreateAttendanceDay} className={`relative bg-surface-card rounded-card shadow-2xl w-full ${modalAsistenciaHorizontal ? 'max-w-3xl p-3 space-y-2' : 'max-w-sm p-4 space-y-3'}`}>
+            <h3 className={`font-semibold text-on-surface ${modalAsistenciaHorizontal ? 'text-sm' : 'text-base'}`}>Agregar día de asistencia</h3>
+            {/* En la app (y en el teléfono horizontal, web): campos en fila y
+                modal pegado arriba, así el calendario del selector de día tiene
+                espacio para abrirse sin recortarse. */}
+            <div className={modalAsistenciaHorizontal ? 'flex items-start gap-3' : 'space-y-3'}>
+              <div className={modalAsistenciaHorizontal ? 'flex-1 min-w-0' : undefined}>
                 <Select
                   id="att-parcial"
                   label="Parcial"
@@ -5659,14 +5823,14 @@ export default function SubjectPage() {
                   options={PARCIALES.map((p) => ({ value: p, label: `Parcial ${p}` }))}
                 />
               </div>
-              <div className={IS_NATIVE_APP ? 'flex-1 min-w-0' : undefined}>
+              <div className={modalAsistenciaHorizontal ? 'flex-1 min-w-0' : undefined}>
                 <label htmlFor="att-fecha" className="block text-xs font-medium text-muted mb-1">Día</label>
                 <EFDateTimePicker mode="date" value={newAttendanceForm.fecha}
                   onChange={(v) => setNewAttendanceForm((f) => ({ ...f, fecha: v }))}
                   placeholder="Elige el día…" clearable={false}
-                  shortcutLabels={IS_NATIVE_APP ? ['Hoy', 'Mañana', 'Pasado mañana'] : undefined} />
+                  shortcutLabels={modalAsistenciaHorizontal ? ['Hoy', 'Mañana', 'Pasado mañana'] : undefined} />
               </div>
-              <div className={IS_NATIVE_APP ? 'flex-1 min-w-0' : undefined}>
+              <div className={modalAsistenciaHorizontal ? 'flex-1 min-w-0' : undefined}>
                 <Select
                   id="att-sesiones"
                   label="Número de sesiones"
@@ -5771,10 +5935,10 @@ export default function SubjectPage() {
           app va ANCHO y pegado arriba para seguir usable con el teclado (que
           en horizontal tapa la mitad inferior). */}
       {reasonModal && (
-        <div className={`fixed inset-0 z-[80] flex justify-center ${IS_NATIVE_APP ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
+        <div className={`fixed inset-0 z-[80] flex justify-center ${modalAsistenciaHorizontal ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={cancelReasonModal} aria-label="Cerrar" />
-          <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-none p-3 space-y-1.5' : 'max-w-lg p-5 space-y-4'}`}>
-            {IS_NATIVE_APP ? null : (
+          <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${modalAsistenciaHorizontal ? 'max-w-none p-3 space-y-1.5' : 'max-w-lg p-5 space-y-4'}`}>
+            {modalAsistenciaHorizontal ? null : (
               // Web: nombre del estudiante en su propio renglón (evita truncar
               // nombres largos) y textos más grandes que en la app, donde el
               // modal comparte columna angosta con el teclado en horizontal.
@@ -5786,7 +5950,7 @@ export default function SubjectPage() {
                 </p>
               </div>
             )}
-            {IS_NATIVE_APP ? (
+            {modalAsistenciaHorizontal ? (
               /* App horizontal: columna izquierda (título + nombre a la
                  izquierda, motivos rápidos, motivo) y columna derecha con los
                  3 botones apilados — Guardar / Asistencia / Salir. El nombre
