@@ -223,6 +223,25 @@ function gradeColor(norm) {
 // memo funcione de verdad, los callbacks que recibe deben tener identidad
 // ESTABLE entre renders (ver useCallback en SubjectPage) — si no, memo()
 // vería "props nuevas" en cada render y el problema seguiría igual.
+// Teléfono horizontal (web): ancho de la columna del nombre = el nombre más
+// largo del grupo, medido con la fuente real de la celda (Outfit 13px, peso
+// 500), para que TODOS quepan en una sola línea y sin "…". Mínimo 210px.
+// Se suma el relleno px-2 de ambos lados (1rem), el borde derecho y 2px de
+// margen. Con la fuente todavía sin cargar, el canvas mide con la de respaldo;
+// por eso quien llama vuelve a medir cuando la fuente termina de cargar.
+let ctxAnchoNombreH = null
+function anchoColumnaNombreH(estudiantes) {
+  if (typeof document === 'undefined') return 210
+  ctxAnchoNombreH = ctxAnchoNombreH || document.createElement('canvas').getContext('2d')
+  const ctx = ctxAnchoNombreH
+  if (!ctx) return 210
+  ctx.font = `500 13px ${getComputedStyle(document.body).fontFamily}`
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  let max = 0
+  estudiantes.forEach((s) => { max = Math.max(max, ctx.measureText(studentFullName(s)).width) })
+  return Math.max(210, Math.ceil(max + rem + 1 + 2))
+}
+
 const AttendanceTable = memo(function AttendanceTable({
   attendanceParciales, filteredAttendanceStudents, attendanceAllRecords,
   onCellClick,
@@ -271,6 +290,24 @@ const AttendanceTable = memo(function AttendanceTable({
   // renglón; fila de días más baja) para que la tabla empiece más arriba.
   const compactaH = variante === 'movil-h'
   const diaPy = compactaH ? 'py-0.5' : 'py-1'
+  // Teléfono horizontal: ancho de la columna del nombre según el nombre más
+  // largo del grupo (ver anchoColumnaNombreH). Se calcula DURANTE el render, no
+  // en un efecto: así el primer commit ya trae el ancho final y el
+  // desplazamiento automático hacia HOY (que mide la tabla al entrar) no queda
+  // desfasado. Cambia solo cuando cambia la lista. El estado únicamente fuerza
+  // a medir de nuevo si la fuente termina de cargar después del primer render.
+  const [, setFuenteNombreLista] = useState(0)
+  useEffect(() => {
+    if (!compactaH || typeof document === 'undefined' || !document.fonts) return undefined
+    let vivo = true
+    const avisar = () => { if (vivo) setFuenteNombreLista((n) => n + 1) }
+    const fuentes = document.fonts
+    fuentes.load(`500 13px ${getComputedStyle(document.body).fontFamily}`).then(avisar, () => {})
+    fuentes.addEventListener?.('loadingdone', avisar)
+    return () => { vivo = false; fuentes.removeEventListener?.('loadingdone', avisar) }
+  }, [compactaH])
+  const anchoNombreH = compactaH ? anchoColumnaNombreH(filteredAttendanceStudents) : 210
+  const estiloNombreH = compactaH ? { width: anchoNombreH } : undefined
   const now = new Date()
   const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
@@ -358,11 +395,11 @@ const AttendanceTable = memo(function AttendanceTable({
     // redistribuía (medido en 360px: nombre 150 en vez de 130, celdas 33 en vez
     // de 44). Nº (w-8) + nombre + sesiones + 2 columnas de resumen (w-10) por
     // parcial. En 'app' y 'web' no se agrega nada.
-    style={esMovil ? { width: `calc(2rem + ${variante === 'movil-v' ? 150 : 210}px + ${_attCol * (variante === 'movil-v' ? 44 : 48)}px + ${attendanceParciales.length * 5}rem)` } : undefined}
+    style={esMovil ? { width: `calc(2rem + ${variante === 'movil-v' ? 150 : anchoNombreH}px + ${_attCol * (variante === 'movil-v' ? 44 : 48)}px + ${attendanceParciales.length * 5}rem)` } : undefined}
     className={`${esSimple ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
     <colgroup>
       <col className="w-8" />
-      <col className={nameColW} />
+      <col className={nameColW} style={estiloNombreH} />
       {attendanceParciales.flatMap((g) => [
         ...g.days.flatMap(({ records }) => records.map((r) => <col key={r.id} className={dayColW} />)),
         <col key={`ca-${g.parcial}`} className="w-10" />,
@@ -461,7 +498,7 @@ const AttendanceTable = memo(function AttendanceTable({
       {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
       <tr className="bg-accent-light/60 border-b border-outline-variant">
         <th className={`sticky left-0 z-10 bg-accent-light w-8 px-1 ${diaPy} border-r border-outline-variant`} />
-        <th className={`sticky left-8 z-20 bg-accent-light ${nameColW} px-2 ${diaPy} ${esSimple ? 'text-left' : 'text-right'} text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate`}>
+        <th style={estiloNombreH} className={`sticky left-8 z-20 bg-accent-light ${nameColW} px-2 ${diaPy} ${esSimple ? 'text-left' : 'text-right'} text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate`}>
           {esSimple ? 'Estudiante / Día:' : 'Día:'}
         </th>
         {attendanceParciales.flatMap((g) => [
@@ -529,7 +566,7 @@ const AttendanceTable = memo(function AttendanceTable({
           <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
             {s.orden}
           </td>
-          <td className={`sticky left-8 z-10 ${nameColW} px-2 py-1 ${compactaH ? 'text-[13px]' : esSimple ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant ${variante === 'movil-v' ? 'break-words' : 'truncate'} transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+          <td style={estiloNombreH} className={`sticky left-8 z-10 ${nameColW} px-2 py-1 ${compactaH ? 'text-[13px]' : esSimple ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant ${variante === 'movil-v' ? 'break-words' : compactaH ? 'whitespace-nowrap' : 'truncate'} transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
             {studentFullName(s)}
           </td>
           {attendanceParciales.flatMap((g) => {
