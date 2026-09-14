@@ -513,9 +513,13 @@ const AttendanceTable = memo(function AttendanceTable({
                 // Sesiones futuras son slots PROGRAMADOS, no asistencias realizadas.
                 // Mostrar ícono neutro (—) en vez de ✔️/❌ para evitar estados
                 // de asistencia falsos. countPresence ya excluye futuras del conteo.
+                // Sin registro (null): el estudiante se dio de alta después de
+                // creada la columna y no tiene llave — mismo ícono neutro, no
+                // es falta ni asistencia y no cuenta. Tocarla sí lo registra.
                 const estado = esFuturo ? null : attendanceState(r, s.id)
+                const sinRegistro = !esFuturo && estado == null
                 const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
-                const ui = esFuturo
+                const ui = estado == null
                   ? { cls: 'bg-slate-100 text-slate-300', icon: <Minus size={14} /> }
                   : {
                       presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} /> },
@@ -527,6 +531,7 @@ const AttendanceTable = memo(function AttendanceTable({
                     data-col={attColIndexById[r.id]}
                     ref={addAttColEl(attColIndexById[r.id])}
                     onClick={() => onCellClick(r, s)}
+                    title={sinRegistro ? 'Sin registro: el estudiante aún no estaba en la lista de esta sesión. No cuenta como falta.' : undefined}
                     className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none ${esFuturo ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${lastEditedCell === `${r.id}:${s.id}` ? 'ring-2 ring-inset ring-accent bg-[var(--accent-medium)]' : fecha === todayISO ? 'bg-accent-light' : ''}`}>
                     <span className={`relative inline-flex items-center justify-center ${cellIconSize} rounded ${ui.cls}`}>
                       {ui.icon}

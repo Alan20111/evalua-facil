@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
 import { subjectPeriodLabel } from './dateRange'
 import { promedioParcial, pesoDe, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
-import { attendanceState, countPresence, fmtAttDateParts, enrolledFromDate } from './attendance'
+import { attendanceState, countPresence, fmtAttDateParts } from './attendance'
 import { studentFullName } from './studentSearch'
 import { cuentaParaCalificacion } from './activityVisibility'
 import { saveBlob } from './exportGuard'
@@ -415,14 +415,15 @@ function attendanceColumnHeaders(days) {
   return headers
 }
 
-// `enrolledFrom` ('YYYY-MM-DD', opcional): días anteriores al alta del
-// alumno se dejan en blanco en vez de 0/1 — no aplica, no es una falta.
-function attendanceRowCells(days, studentId, enrolledFrom) {
+// Sesión sin registro del alumno (no tiene llave: alta posterior a la
+// columna) → celda en blanco, igual que la celda neutra de la tabla — no
+// aplica, no es una falta.
+function attendanceRowCells(days, studentId) {
   const cells = []
-  days.forEach(({ fecha, records }) => {
+  days.forEach(({ records }) => {
     records.forEach((r) => {
-      if (enrolledFrom && fecha < enrolledFrom) { cells.push(''); return }
-      cells.push(attendanceState(r, studentId) === 'falta' ? 0 : 1)
+      const estado = attendanceState(r, studentId)
+      cells.push(estado == null ? '' : estado === 'falta' ? 0 : 1)
     })
   })
   return cells
@@ -560,10 +561,9 @@ export async function exportParcialAttendance({ subject, students, attendancePar
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const denominador = denominadoresPorParcial[String(parcial)] ?? null
   const dataRows = sorted.map((s) => {
-    const enrolledFrom = enrolledFromDate(s)
     const row = [s.orden, studentFullName(s)]
-    row.push(...attendanceRowCells(days, s.id, enrolledFrom))
-    const { asist, inasist, justif } = countPresence(g?.records || [], s.id, enrolledFrom, todayISO)
+    row.push(...attendanceRowCells(days, s.id))
+    const { asist, inasist, justif } = countPresence(g?.records || [], s.id, null, todayISO)
     const pct = denominador > 0 ? Math.round((asist / denominador) * 100) : null
     row.push(asist, inasist, justif ?? 0, pct != null ? `${pct}%` : '', denominador ?? '')
     return row
@@ -614,13 +614,12 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
   const todayISO = new Date().toISOString().slice(0, 10)
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const dataRows = sorted.map((s) => {
-    const enrolledFrom = enrolledFromDate(s)
     const row = [s.orden, studentFullName(s)]
     let totalAsist = 0
     let totalInasist = 0
     parcialMeta.forEach((m) => {
-      row.push(...attendanceRowCells(m.days, s.id, enrolledFrom))
-      const { asist, inasist, justif } = countPresence(m.records, s.id, enrolledFrom, todayISO)
+      row.push(...attendanceRowCells(m.days, s.id))
+      const { asist, inasist, justif } = countPresence(m.records, s.id, null, todayISO)
       const denominador = denominadoresPorParcial[String(m.parcial)] ?? null
       const pct = denominador > 0 ? Math.round((asist / denominador) * 100) : null
       row.push(asist, inasist, justif ?? 0, pct != null ? `${pct}%` : '', denominador ?? '')

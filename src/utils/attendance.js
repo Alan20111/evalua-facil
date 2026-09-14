@@ -4,6 +4,7 @@ import {
 // Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
 import { deleteDoc, updateDoc } from './firestoreGuard'
 import { db } from '../firebase'
+import { estadoAsistencia } from './asistenciaResumen'
 
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
@@ -91,8 +92,10 @@ export function enrolledFromDate(student) {
 // Cuenta asistencias/faltas de un alumno sobre un conjunto de registros
 // (slots). Cada slot vale una asistencia; una FALTA JUSTIFICADA cuenta como
 // asistencia (no como falta) — solo la falta injustificada suma a inasist.
-// `enrolledFrom`: parámetro obsoleto para la vista del docente (se pasa null);
-// se conserva en la firma para no romper las llamadas de exportación Excel.
+// Una sesión SIN REGISTRO del alumno (sin llave: alta posterior a la columna)
+// no suma a ningún lado — ver estadoAsistencia en ./asistenciaResumen.js.
+// `enrolledFrom`: parámetro obsoleto (todas las llamadas pasan null); se
+// conserva en la firma para no cambiar las llamadas.
 // `maxDate` ('YYYY-MM-DD', opcional): sesiones futuras (fecha > maxDate) no
 // son asistencias reales — excluirlas evita que registros creados por adelantado
 // inflen el conteo antes de que sucedan.
@@ -103,24 +106,23 @@ export function countPresence(records, studentId, enrolledFrom, maxDate) {
   for (const r of records) {
     if (enrolledFrom && r.fecha < enrolledFrom) continue
     if (maxDate && r.fecha > maxDate) continue
-    if (isPresente(r, studentId)) asist++
-    else if (r.justificadas?.[studentId]) { asist++; justif++ }
-    else inasist++
+    const estado = estadoAsistencia(r, studentId)
+    if (estado === 'presente') asist++
+    else if (estado === 'justificada') { asist++; justif++ }
+    else if (estado === 'falta') inasist++
   }
   return { asist, inasist, justif }
 }
 
-// Solo `true` explícito cuenta como presente. `undefined` (alumno sin llave en
-// el mapa, p.ej. inscripción tardía) se trata como FALTA, nunca como presente.
+// Solo `true` explícito cuenta como presente, nunca una llave ausente.
 export function isPresente(record, studentId) {
   return record.presentes?.[studentId] === true
 }
 
-// Estado de asistencia de 3 valores: 'presente' | 'falta' | 'justificada'.
+// 'presente' | 'falta' | 'justificada' | null (sin registro). Misma regla que
+// el resumen del alumno, en un solo lugar: ./asistenciaResumen.js.
 export function attendanceState(record, studentId) {
-  if (isPresente(record, studentId)) return 'presente'
-  if (record.justificadas?.[studentId]) return 'justificada'
-  return 'falta'
+  return estadoAsistencia(record, studentId)
 }
 
 // Ciclo al tocar la celda: Presente → Falta → Justificada → Presente.

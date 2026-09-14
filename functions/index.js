@@ -828,7 +828,7 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
 // server-side, normalizada) y la escribe.
 const { normalizeGrade } = require('./_shared/ponderacion.js')
 const { normalizarPalabra } = require('./_shared/normalizarPalabra.js')
-const { parcialForDate } = require('./_shared/parciales.js')
+const { estadoAsistencia, resumenAsistencia, fechaHoyMexico } = require('./_shared/asistenciaResumen.js')
 const { calcularSesionesReales } = require('./_shared/sesionesReales.js')
 const { fechasVacacionParaClases } = require('./_shared/vacaciones.js')
 
@@ -940,17 +940,18 @@ function idsAfectados(before, after) {
   const ids = new Set([...Object.keys(before.presentes || {}), ...Object.keys(after.presentes || {})])
   const cambiaron = []
   for (const id of ids) {
-    const antesPresente = before.presentes?.[id] !== false
-    const despuesPresente = after.presentes?.[id] !== false
-    const antesJustif = !!before.justificadas?.[id]
-    const despuesJustif = !!after.justificadas?.[id]
+    // Compara el estado completo (incluido "sin registro"). Con `!== false`
+    // una llave ausente y `true` parecían iguales: registrar por primera vez
+    // a un alumno de alta tardía no recalculaba su resumen.
+    const antesEstado = estadoAsistencia(before, id)
+    const despuesEstado = estadoAsistencia(after, id)
     // El texto del motivo también cuenta como cambio — si solo se edita la
     // justificación (sin tocar presente/justificada), antes esto no
     // disparaba un recálculo y el resumen del alumno se quedaba con el
     // motivo viejo para siempre (bug real reportado).
     const antesMotivo = before.motivos?.[id] || ''
     const despuesMotivo = after.motivos?.[id] || ''
-    if (antesPresente !== despuesPresente || antesJustif !== despuesJustif || antesMotivo !== despuesMotivo) cambiaron.push(id)
+    if (antesEstado !== despuesEstado || antesMotivo !== despuesMotivo) cambiaron.push(id)
   }
   return cambiaron
 }
@@ -959,12 +960,8 @@ function idsAfectados(before, after) {
 // asignatura) — más simple y siempre correcto que ir acumulando deltas, y el
 // volumen de columnas por asignatura (decenas, no miles) hace que un
 // recálculo completo sea barato.
-async function recalcularResumenAsistencia(asignaturaId, studentId) {
-  // Alta tardía: días anteriores a que el alumno se inscribiera se excluyen
-  // del resumen — sin esto, `presente ?? true` (abajo) contaba como
-  // asistencia cada columna de antes de que existiera su inscripción, igual
-  // que hacía countPresence() del docente antes de corregirse (ver
-  // src/utils/attendance.js).
+// `hoyISO` solo se pasa en pruebas; en producción es hoy en la Ciudad de México.
+async function recalcularResumenAsistencia(asignaturaId, studentId, hoyISO = fechaHoyMexico()) {
   const [studentSnap, subjectSnap] = await Promise.all([
     db.doc(`students/${studentId}`).get(),
     db.doc(`subjects/${asignaturaId}`).get(),
@@ -990,62 +987,16 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
   // persistido en attendance.parcial.
   const parcialesFechas = subjectSnap.data()?.parcialesFechas ?? []
 
-  const createdAt = studentSnap.data().createdAt
-  const enrolledFrom = createdAt?.toDate ? (() => {
-    const d = createdAt.toDate()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  })() : null
-
+  // Regla única (src/utils/asistenciaResumen.js, la misma del backfill y de la
+  // tabla del docente): una entrada POR SLOT, sin sesiones futuras y sin las
+  // sesiones en las que el alumno no tiene registro (alta posterior a la
+  // columna — no es falta).
   const snap = await db.collection('attendance').where('asignaturaId', '==', asignaturaId).get()
-  const records = snap.docs.map((d) => d.data())
-    // Parcial derivado de las fechas actuales — parcialForDate(parcialesFechas, r.fecha).
-    // Si la sesión cae fuera de todos los rangos (fecha huérfana tras un
-    // cambio), se conserva el valor persistido en attendance.parcial como
-    // respaldo; si ese también es nulo (registros muy viejos), se asigna a 1.
-    // Esto garantiza que ninguna sesión desaparezca silenciosamente.
-    .map((r) => {
-      const parcialActual = parcialForDate(parcialesFechas, r.fecha) ?? r.parcial ?? 1
-      return parcialActual === r.parcial ? r : { ...r, parcial: parcialActual }
-    })
-    .sort((a, b) => (a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha)))
-
-  const porParcial = {}
-  // Mismo cálculo por-slot que countPresence() del docente (src/utils/
-  // attendance.js) — así el % que ve el alumno siempre coincide con el que
-  // ve su maestro. Un día con varias horas (duracion > 1) suma varios slots.
-  let asistTotal = 0, inasistTotal = 0, justifTotal = 0
-  // `registros` — una entrada POR SLOT (sesión individual), no por día.
-  // La unidad de asistencia es la sesión, no el día; el alumno debe ver
-  // cada clase registrada de forma independiente.
-  const registros = []
-
-  for (const r of records) {
-    const presente = r.presentes?.[studentId] === true
-    const justificada = !!r.justificadas?.[studentId]
-    const estado = presente ? 'presente' : justificada ? 'justificada' : 'falta'
-    const p = String(r.parcial)
-    if (!porParcial[p]) porParcial[p] = { asist: 0, inasist: 0, justif: 0, total: 0 }
-    porParcial[p].total++
-    if (estado === 'falta') { porParcial[p].inasist++; inasistTotal++ }
-    else {
-      porParcial[p].asist++; asistTotal++
-      if (estado === 'justificada') { porParcial[p].justif++; justifTotal++ }
-    }
-    registros.push({
-      fecha: r.fecha,
-      slot: r.slot ?? 1,
-      parcial: r.parcial,
-      estado,
-      motivo: r.motivos?.[studentId] || '',
-    })
-  }
-  // records ya viene ordenado por (fecha, slot) desde el .sort() de arriba
+  const resumen = resumenAsistencia(snap.docs.map((d) => d.data()), studentId, parcialesFechas, hoyISO)
 
   await db.doc(`attendanceSummaries/${studentId}`).set({
     asignaturaId,
-    porParcial,
-    total: { asist: asistTotal, inasist: inasistTotal, justif: justifTotal, total: records.length },
-    registros,
+    ...resumen,
     updatedAt: FieldValue.serverTimestamp(),
   })
 }
@@ -1059,6 +1010,37 @@ exports.onAttendanceEscrita = onDocumentWritten('attendance/{attendanceId}', asy
   if (!afectados.length) return
   await Promise.all(afectados.map((studentId) => recalcularResumenAsistencia(asignaturaId, studentId)))
 })
+
+// Como el resumen no cuenta sesiones futuras, una columna creada por
+// adelantado no le aparece al alumno cuando llega su día si nadie la edita.
+// Cada madrugada (hora de México) se recalculan los resúmenes de las
+// asignaturas que tienen sesiones HOY: los alumnos que traen esas columnas y
+// los que ya tenían resumen. Una igualdad de un solo campo — sin índice nuevo.
+async function recalcularResumenesDelDia(hoyISO) {
+  const snap = await db.collection('attendance').where('fecha', '==', hoyISO).get()
+  const porAsignatura = new Map()
+  snap.docs.forEach((d) => {
+    const r = d.data()
+    if (!r.asignaturaId) return
+    if (!porAsignatura.has(r.asignaturaId)) porAsignatura.set(r.asignaturaId, new Set())
+    Object.keys(r.presentes || {}).forEach((id) => porAsignatura.get(r.asignaturaId).add(id))
+  })
+  for (const [asignaturaId, ids] of porAsignatura) {
+    const resumenes = await db.collection('attendanceSummaries').where('asignaturaId', '==', asignaturaId).get()
+    resumenes.docs.forEach((d) => ids.add(d.id))
+    await Promise.all([...ids].map((studentId) => recalcularResumenAsistencia(asignaturaId, studentId, hoyISO)))
+  }
+  return porAsignatura.size
+}
+
+exports.recalcularResumenesAsistenciaDiario = onSchedule(
+  { schedule: '5 0 * * *', timeZone: 'America/Mexico_City' },
+  async () => {
+    const hoyISO = fechaHoyMexico()
+    const n = await recalcularResumenesDelDia(hoyISO)
+    logger.info(`Resúmenes de asistencia recalculados para ${n} asignatura(s) con sesiones el ${hoyISO}`)
+  },
+)
 
 // Calcula las sesiones estimadas por parcial para una asignatura y las guarda
 // en subjects.sesionesPorParcialEstimadas. Es la ÚNICA fuente de verdad del
@@ -1461,6 +1443,7 @@ exports._pruebas = {
   parsearFechaLimiteMs,
   vigenciaDe,
   recalcularResumenAsistencia,
+  recalcularResumenesDelDia,
   TIPOS_OBJETIVOS,
   TIPOS_REVISION_MANUAL,
 }
