@@ -67,7 +67,7 @@ import {
   Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
-  AlertTriangle, ArrowUp, ArrowDown, Sparkles, Gamepad2, GripVertical,
+  AlertTriangle, ArrowUp, ArrowDown, Sparkles, Gamepad2, GripVertical, Minus,
 } from 'lucide-react'
 import { generateUsername, generateResetPassword } from '../../utils/generate'
 import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
@@ -509,14 +509,19 @@ const AttendanceTable = memo(function AttendanceTable({
               : '🟢'
             return [
               ...g.days.flatMap(({ fecha, records }) => records.map((r) => {
-                const estado = attendanceState(r, s.id)
-                const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
-                const ui = {
-                  presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} /> },
-                  falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} /> },
-                  justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span> },
-                }[estado]
                 const esFuturo = fecha > todayISO
+                // Sesiones futuras son slots PROGRAMADOS, no asistencias realizadas.
+                // Mostrar ícono neutro (—) en vez de ✔️/❌ para evitar estados
+                // de asistencia falsos. countPresence ya excluye futuras del conteo.
+                const estado = esFuturo ? null : attendanceState(r, s.id)
+                const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
+                const ui = esFuturo
+                  ? { cls: 'bg-slate-100 text-slate-300', icon: <Minus size={14} /> }
+                  : {
+                      presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} /> },
+                      falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} /> },
+                      justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span> },
+                    }[estado]
                 return (
                   <td key={r.id}
                     data-col={attColIndexById[r.id]}
@@ -1847,6 +1852,18 @@ export default function SubjectPage() {
     // envía con Enter.
     const aviso = motivoSinClase(newAttendanceForm.fecha)
     if (aviso) { toast(aviso, 'error'); return }
+    // Unicidad (asignaturaId, fecha): si ya existen registros para esta fecha —
+    // creados automáticamente por syncAutoAttendanceDays o manualmente antes —
+    // bloquear la escritura. Esto hace que ambos mecanismos de creación sean
+    // mutuamente excluyentes y elimina la causa raíz de registros duplicados.
+    // La validación es en memoria (attendanceRecords siempre está actualizado
+    // después de loadAttendance) y es suficiente: para crear un duplicado habría
+    // que tener dos pestañas idénticas creando el mismo día al mismo tiempo,
+    // escenario que syncAutoAttendanceDays ya protege con existingFechas.
+    if (attendanceRecords.some((r) => r.fecha === newAttendanceForm.fecha)) {
+      toast(`El ${formatShortDate(newAttendanceForm.fecha)} ya tiene sesiones registradas. Para rehacerlo con diferente duración, elimina el día primero.`, 'error')
+      return
+    }
     setSavingAttendance(true)
     try {
       await createAttendanceDay({
@@ -3910,16 +3927,41 @@ export default function SubjectPage() {
   // el día completo de una sola vez.
   // Cada "día" (fecha) agrupa sus slots; su parcial es el de sus registros
   // (todos se crean juntos). Registros viejos sin parcial → Parcial 1.
-  const attendanceDays = useMemo(() => [...new Set(attendanceRecords.map((r) => r.fecha))]
-    .map((fecha) => {
-      const records = attendanceRecords.filter((r) => r.fecha === fecha)
-      // Derivar el parcial de las fechas actuales — si el docente cambia los
-      // rangos, la sesión se mueve al parcial correcto en tiempo real.
-      // Fallback: parcial almacenado en el registro (o 1 para datos muy viejos).
-      const parcial = parcialForDate(subject?.parcialesFechas ?? [], fecha)
-        ?? (records[0]?.parcial || 1)
-      return { fecha, parcial, records }
-    }), [attendanceRecords, subject?.parcialesFechas])
+  const attendanceDays = useMemo(() => {
+    // Deduplicar por (fecha, slot) antes de agrupar en días.
+    // Razón: si Firestore contiene registros duplicados para el mismo slot
+    // (datos históricos escritos antes de que existiera el guard en
+    // handleCreateAttendanceDay), la tabla mostraría "1 1 2 2" en vez de "1 2".
+    // Esta deduplicación es solo de presentación — NO borra datos de Firestore.
+    // Cuando hay duplicados, se conserva el registro con más datos reales del
+    // docente (faltas/justificadas); si ambos están intactos (todo-presente por
+    // defecto), se conserva el primero (orden determinístico).
+    const slotMap = new Map()
+    for (const r of attendanceRecords) {
+      const key = `${r.fecha}-${r.slot}`
+      const prev = slotMap.get(key)
+      if (!prev) {
+        slotMap.set(key, r)
+      } else {
+        const changes = (rec) =>
+          Object.values(rec.presentes || {}).filter((v) => v === false).length +
+          Object.values(rec.justificadas || {}).filter(Boolean).length
+        if (changes(r) > changes(prev)) slotMap.set(key, r)
+      }
+    }
+    const deduped = [...slotMap.values()]
+    deduped.sort((a, b) => a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha))
+    return [...new Set(deduped.map((r) => r.fecha))]
+      .map((fecha) => {
+        const records = deduped.filter((r) => r.fecha === fecha)
+        // Derivar el parcial de las fechas actuales — si el docente cambia los
+        // rangos, la sesión se mueve al parcial correcto en tiempo real.
+        // Fallback: parcial almacenado en el registro (o 1 para datos muy viejos).
+        const parcial = parcialForDate(subject?.parcialesFechas ?? [], fecha)
+          ?? (records[0]?.parcial || 1)
+        return { fecha, parcial, records }
+      })
+  }, [attendanceRecords, subject?.parcialesFechas])
 
   // Agrupa días consecutivos por mes (YYYY-MM) → celda "Mes Año" que abarca sus días.
   const groupDaysByMonth = (days) => days.reduce((acc, day) => {
