@@ -35,7 +35,7 @@ const admin = require('firebase-admin')
 const path = require('path')
 
 const { calcularSesionesReales } = require(path.join(__dirname, '../functions/_shared/sesionesReales.js'))
-const { fechasVacacionParaClases } = require(path.join(__dirname, '../functions/_shared/vacaciones.js'))
+const { fechasSinAsistencia } = require(path.join(__dirname, '../functions/_shared/asistenciaAsuetos.js'))
 
 try {
   admin.initializeApp({ projectId: 'evalua-facil-app' })
@@ -59,10 +59,12 @@ async function calcularParaSubject(subjectId, subj) {
       .where('asignaturaId', '==', subjectId).get(),
   ])
 
-  const diasAsueto = [
-    ...asuetosSnap.docs.map((d) => d.data()).filter((a) => a.clases).map((a) => a.fecha),
-    ...fechasVacacionParaClases(vacSnap.docs.map((d) => d.data())),
-  ]
+  // Días sin pase de lista (asuetos/vacaciones que afectan asistencias): la
+  // misma lista que impide crear columnas, para que el denominador coincida.
+  const diasAsueto = fechasSinAsistencia(
+    asuetosSnap.docs.map((d) => d.data()),
+    vacSnap.docs.map((d) => d.data()),
+  )
   const sesionesCanceladas = bloquesSnap.docs
     .map((d) => d.data())
     .filter((b) => b.cancelada)

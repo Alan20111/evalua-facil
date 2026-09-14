@@ -4,11 +4,11 @@ import { writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
 import { toDateStr, diaSemanaLunes } from './horarioBloques'
 import { buildAsuetoMap, esAsuetoPara } from './asuetos'
-import { buildVacacionMap, fechasVacacionParaClases } from './vacaciones'
+import { buildVacacionMap } from './vacaciones'
+import { fechasSinAsistencia, planSesionesAutomaticas } from './asistenciaAsuetos'
 // parcialForDate es pura (sin Firebase) — vive en ./parciales.js para poder
 // compartirse con Cloud Functions. Se reexporta aquí para no romper los
-// imports existentes que la traen desde este archivo, y se importa también
-// como binding local porque este módulo la usa internamente (línea de abajo).
+// imports existentes que la traen desde este archivo.
 import { parcialForDate } from './parciales'
 export { parcialForDate }
 
@@ -51,6 +51,19 @@ export async function fetchClaseDiasSemana({ subjectId, docenteId }) {
   return { porFecha, diasSemana, sesionesCanceladas }
 }
 
+// Asuetos y vacaciones del docente — una lectura de cada colección. Se
+// descargan ANTES de sincronizar porque deciden qué columnas se crean.
+export async function fetchAsuetosVacaciones({ docenteId }) {
+  const [asuetosSnap, vacacionesSnap] = await Promise.all([
+    getDocs(query(collection(db, 'asuetos'), where('docenteId', '==', docenteId))),
+    getDocs(query(collection(db, 'vacaciones'), where('docenteId', '==', docenteId))),
+  ])
+  return {
+    asuetos: asuetosSnap.docs.map((d) => d.data()),
+    vacaciones: vacacionesSnap.docs.map((d) => d.data()),
+  }
+}
+
 // Crea automáticamente los días de asistencia que falten para las fechas en
 // que la asignatura YA tiene clase programada (`porFecha`, de
 // fetchClaseDiasSemana), asignando el parcial según `parcialesFechas`. Todos
@@ -70,27 +83,23 @@ export async function fetchClaseDiasSemana({ subjectId, docenteId }) {
 // simultáneamente apuntan al mismo documento, no crean un duplicado nuevo.
 // Fechas futuras (fecha > todayISO): la colección attendance registra sesiones
 // realizadas, no el calendario. Las futuras se crean cuando llega su día.
-export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFechas, existingSlots, excludedFechas, studentIds, porFecha }) {
+// sinAsistencia: fechas de asueto/vacaciones que afectan asistencias
+// (fechasSinAsistencia). Aunque el bloque de clase siga en el horario — el
+// asueto se pudo registrar después de programarlo — ese día no se crea
+// columna. Una reposición se sigue pudiendo agregar a mano.
+// El cálculo de qué crear es puro y vive en ./asistenciaAsuetos.js.
+export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFechas, existingSlots, excludedFechas, sinAsistencia, studentIds, porFecha }) {
   if (!parcialesFechas?.length || !studentIds?.length || !porFecha) return { created: 0, missing: [], nuevos: [] }
 
-  const todayISO = new Date().toISOString().slice(0, 10)
-  const existing = new Set(existingSlots)
-  // Fechas que el docente borró a propósito — no se regeneran solas, pero se
-  // reportan en `missing` para que el docente las restaure si quiere.
-  const excluded = new Set(excludedFechas)
-  const presentes = Object.fromEntries(studentIds.map((id) => [id, true]))
-  const writes = [] // { fecha, slot, parcial }
-  const missing = [] // { fecha, duracion, parcial } — excluidas pero aún válidas
-  Object.keys(porFecha).forEach((fecha) => {
-    if (fecha > todayISO) return
-    const parcial = parcialForDate(parcialesFechas, fecha)
-    if (!parcial) return
-    if (excluded.has(fecha)) { missing.push({ fecha, duracion: porFecha[fecha], parcial }); return }
-    for (let slot = 1; slot <= porFecha[fecha]; slot++) {
-      if (existing.has(`${fecha}_${slot}`)) continue
-      writes.push({ fecha, slot, parcial })
-    }
+  const { writes, missing } = planSesionesAutomaticas({
+    porFecha,
+    parcialesFechas,
+    existingSlots,
+    excludedFechas,
+    sinAsistencia,
+    todayISO: new Date().toISOString().slice(0, 10),
   })
+  const presentes = Object.fromEntries(studentIds.map((id) => [id, true]))
 
   const nuevos = []
   for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
@@ -106,34 +115,26 @@ export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFe
     await batch.commit()
   }
 
-  missing.sort((a, b) => a.fecha.localeCompare(b.fecha))
   return { created: writes.length, missing, nuevos }
 }
 
 // Días dentro de [fechaInicio, fechaFin] en los que, por caer en el mismo día
 // de la semana que las clases de esta asignatura (`diasSemana`, de
-// fetchClaseDiasSemana), NO hay bloque porque el docente marcó asueto o
+// fetchClaseDiasSemana), NO se pasa lista porque el docente marcó asueto o
 // periodo vacacional — para mostrarlos en el área de asistencias en vez de
-// que simplemente "falten" sin explicación.
+// que simplemente "falten" sin explicación. Recibe lo ya descargado por
+// fetchAsuetosVacaciones (no vuelve a leer Firestore).
 // Devuelve { dias, diasAsueto }:
-//   dias        — días de clase sin bloque (por asueto/vacaciones), para mostrar en la tabla
-//   diasAsueto  — lista plana de fechas ISO de asueto/vacaciones, para calcularSesionesReales
-export async function loadAsuetoVacacionDiasClase({ docenteId, fechaInicio, fechaFin, diasSemana }) {
-  const [asuetosSnap, vacacionesSnap] = await Promise.all([
-    getDocs(query(collection(db, 'asuetos'), where('docenteId', '==', docenteId))),
-    getDocs(query(collection(db, 'vacaciones'), where('docenteId', '==', docenteId))),
-  ])
-
-  // Lista plana de fechas ISO excluidas para calcularSesionesReales.
-  const diasAsueto = [
-    ...asuetosSnap.docs.map((d) => d.data()).filter((a) => a.clases).map((a) => a.fecha),
-    ...fechasVacacionParaClases(vacacionesSnap.docs.map((d) => d.data())),
-  ]
+//   dias        — días de clase sin lista (por asueto/vacaciones), para mostrar en la tabla
+//   diasAsueto  — fechasSinAsistencia(): lo que descuenta el denominador
+//                 (calcularSesionesReales), la MISMA lista que impide crear columnas
+export function diasSinAsistenciaEnCurso({ asuetos = [], vacaciones = [], fechaInicio, fechaFin, diasSemana }) {
+  const diasAsueto = fechasSinAsistencia(asuetos, vacaciones)
 
   if (!fechaInicio || !fechaFin || !diasSemana?.size) return { dias: [], diasAsueto }
 
-  const asuetoMap = buildAsuetoMap(asuetosSnap.docs.map((d) => d.data()))
-  const vacacionMap = buildVacacionMap(vacacionesSnap.docs.map((d) => d.data()))
+  const asuetoMap = buildAsuetoMap(asuetos)
+  const vacacionMap = buildVacacionMap(vacaciones)
 
   const dias = []
   const inicio = new Date(fechaInicio + 'T12:00:00')
