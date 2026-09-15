@@ -32,7 +32,7 @@ import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacacion
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime, isDraftActivity, cuentaParaCalificacion, sinCalificacion } from '../../utils/activityVisibility'
-import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
+import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade, estadoParcial, puedeIniciarAtencion } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { formatShortDate, formatShortDateRange } from '../../utils/dateRange'
@@ -69,6 +69,7 @@ import {
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
   AlertTriangle, ArrowUp, ArrowDown, Sparkles, Gamepad2, GripVertical, Minus,
+  MessageCircleQuestion,
 } from 'lucide-react'
 import { generateUsername, generateResetPassword } from '../../utils/generate'
 import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
@@ -882,6 +883,9 @@ export default function SubjectPage() {
   const [attSortParcial, setAttSortParcial] = useState(null) // null = general
   const [revertParcialConfirm, setRevertParcialConfirm] = useState(null) // parcial number | null
   const [revertingParcial, setRevertingParcial] = useState(false)
+  // Iniciar atención de inquietudes: null | parcial number
+  const [atencionParcialConfirm, setAtencionParcialConfirm] = useState(null)
+  const [iniciandoAtencion, setIniciandoAtencion] = useState(false)
   // Kebab menu per parcial header: null | { p, x, y } (fixed coords from the ⋮ button)
   const [parcialMenu, setParcialMenu] = useState(null)
   // Asistencia — Excel split-button ⋮ dropdown (por parcial): boolean
@@ -1197,6 +1201,7 @@ export default function SubjectPage() {
   useBackHandler(() => setConfirmRevertParcial(null), !!confirmRevertParcial)
   useBackHandler(() => !closingParcial && setCloseParcialConfirm(null), !!closeParcialConfirm)
   useBackHandler(() => !revertingParcial && setRevertParcialConfirm(null), !!revertParcialConfirm)
+  useBackHandler(() => !iniciandoAtencion && setAtencionParcialConfirm(null), atencionParcialConfirm != null)
   useBackHandler(() => !savingStudent && setLinkCandidate(null), !!linkCandidate)
   useBackHandler(() => setResetPwdResult(null), !!resetPwdResult)
   useBackHandler(() => setStudentToDelete(null), !!studentToDelete)
@@ -1232,6 +1237,7 @@ export default function SubjectPage() {
   useScrollLock(confirmRevertParcial != null)
   useScrollLock(closeParcialConfirm)
   useScrollLock(revertParcialConfirm != null)
+  useScrollLock(atencionParcialConfirm != null)
   useScrollLock(linkCandidate)
   useScrollLock(resetPwdResult)
   useScrollLock(studentToDelete)
@@ -1261,7 +1267,7 @@ export default function SubjectPage() {
   function openGradeQuickEdit(e, sub, activity, student) {
     e.preventDefault()
     if (subject?.parcialesCerrados?.[activity.parcial]) {
-      toast('El parcial está cerrado — revierte el cierre para editar calificaciones', 'error')
+      toast('El parcial está cerrado — reábrelo para editar calificaciones', 'error')
       return
     }
     if (!sub && !canCreate) {
@@ -1352,7 +1358,7 @@ export default function SubjectPage() {
     e.preventDefault()
     // Guard: parcial cerrado — misma lógica que openGradeQuickEdit.
     if (subject?.parcialesCerrados?.[activity.parcial]) {
-      toast('El parcial está cerrado — revierte el cierre para editar calificaciones', 'error')
+      toast('El parcial está cerrado — reábrelo para editar calificaciones', 'error')
       return
     }
     // Guard: actividad que no genera calificación (diagnóstico, encuesta).
@@ -3818,16 +3824,53 @@ export default function SubjectPage() {
         removedKeys.forEach((k) => delete next[k])
         return next
       })
-      const nextClosed = { ...(subject?.parcialesCerrados || {}) }
-      delete nextClosed[p]
-      await updateDoc(doc(db, 'subjects', subjectId), { parcialesCerrados: nextClosed })
-      setSubject((s) => ({ ...s, parcialesCerrados: nextClosed }))
-      toast(`Cierre del Parcial ${p} revertido — ${removedKeys.length} no entrega${removedKeys.length !== 1 ? 's volvieron' : ' volvió'} a quedar sin calificar`)
+      // CERRADO → ATENCIÓN DE INQUIETUDES, nunca de vuelta a abierto: el
+      // estudiante ya conoció el resultado. Una sola escritura, así que no hay
+      // un instante en que el parcial quede "abierto" y se le oculte. La fecha
+      // de publicación es la de la atención si la hubo; si se cerró directo,
+      // la del cierre, que fue cuando se publicó.
+      const publicadoEn = subject?.parcialesAtencion?.[p] || subject?.parcialesCerrados?.[p] || new Date().toISOString()
+      await updateDoc(doc(db, 'subjects', subjectId), {
+        [`parcialesCerrados.${p}`]: deleteField(),
+        [`parcialesAtencion.${p}`]: publicadoEn,
+      })
+      setSubject((s) => {
+        const nextClosed = { ...(s.parcialesCerrados || {}) }
+        delete nextClosed[p]
+        return { ...s, parcialesCerrados: nextClosed, parcialesAtencion: { ...(s.parcialesAtencion || {}), [p]: publicadoEn } }
+      })
+      toast(`Parcial ${p} reabierto para atención de inquietudes — ${removedKeys.length} no entrega${removedKeys.length !== 1 ? 's volvieron' : ' volvió'} a quedar sin calificar`)
       setRevertParcialConfirm(null)
     } catch (err) {
-      toast('Error al revertir el cierre: ' + err.message, 'error')
+      toast('Error al reabrir el parcial: ' + err.message, 'error')
     } finally {
       setRevertingParcial(false)
+    }
+  }
+
+  // ABIERTO → ATENCIÓN DE INQUIETUDES. Publica al estudiante el resultado del
+  // parcial (y, si es ponderado, sus pesos); no toca ninguna calificación.
+  // Solo con la ponderación guardada y sumando exactamente 10 — la misma regla
+  // con la que el estudiante ve el resultado (utils/ponderacion.js).
+  async function confirmIniciarAtencion() {
+    const p = atencionParcialConfirm
+    if (p == null) return
+    if (Object.keys(pesoEdits).length > 0 || !puedeIniciarAtencion(subject, p, activities)) {
+      toast(`La ponderación del Parcial ${p} debe estar guardada y sumar exactamente 10 para iniciar la atención de inquietudes`, 'warning')
+      setAtencionParcialConfirm(null)
+      return
+    }
+    setIniciandoAtencion(true)
+    try {
+      const inicio = new Date().toISOString()
+      await updateDoc(doc(db, 'subjects', subjectId), { [`parcialesAtencion.${p}`]: inicio })
+      setSubject((s) => ({ ...s, parcialesAtencion: { ...(s.parcialesAtencion || {}), [p]: inicio } }))
+      toast(`Parcial ${p} en atención de inquietudes`)
+      setAtencionParcialConfirm(null)
+    } catch (err) {
+      toast('Error al iniciar la atención de inquietudes: ' + err.message, 'error')
+    } finally {
+      setIniciandoAtencion(false)
     }
   }
 
@@ -4252,10 +4295,10 @@ export default function SubjectPage() {
     try {
       const map = {}
       ALL_PARCIALES.forEach((p) => { map[p] = next })
-      // Activation always starts with weights HIDDEN from students; the
-      // teacher's later choice (eye toggle) persists across visits
+      // Qué ven los estudiantes ya no se decide aquí: depende del estado de
+      // cada parcial (resultadoPublicadoAlumno en utils/ponderacion.js).
       const updates = next
-        ? { ponderacionActivada: true, ponderacionParciales: map, ponderacionVisibleAlumnos: false }
+        ? { ponderacionActivada: true, ponderacionParciales: map }
         : { ponderacionActivada: false, ponderacionParciales: map }
       await updateDoc(doc(db, 'subjects', subjectId), updates)
       // On activation weights start at 0 — the teacher types them. Only clear
@@ -4294,7 +4337,6 @@ export default function SubjectPage() {
       ALL_PARCIALES.forEach((pp) => { map[pp] = pp === p ? next : pondParcial(pp) })
       const any = Object.values(map).some(Boolean)
       const updates = { ponderacionParciales: map, ponderacionActivada: any }
-      if (next && !anyPonderacionOn) updates.ponderacionVisibleAlumnos = false
       await updateDoc(doc(db, 'subjects', subjectId), updates)
       // On activation weights start at 0 — the teacher types them. Only clear
       // this parcial's weights when going back to simple average.
@@ -4311,20 +4353,6 @@ export default function SubjectPage() {
       toast(next
         ? `Ponderación activada en el Parcial ${p} — escribe los pesos (deben sumar 10 para exportar)`
         : `Parcial ${p} con promedio simple — sus pesos se borraron`)
-    } catch (err) { toast('Error: ' + err.message, 'error') }
-  }
-
-  // Whether STUDENTS see the weights. The weighted average is always the
-  // official one; this only controls showing "Vale X de 10" on their view —
-  // some teachers weight privately for servicios escolares, others announce it.
-  async function togglePonderacionVisible() {
-    const next = !subject?.ponderacionVisibleAlumnos
-    try {
-      await updateDoc(doc(db, 'subjects', subjectId), { ponderacionVisibleAlumnos: next })
-      setSubject((s) => ({ ...s, ponderacionVisibleAlumnos: next }))
-      toast(next
-        ? 'Los estudiantes ahora ven el peso de cada actividad'
-        : 'Pesos ocultos para los estudiantes — solo tú los ves')
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
@@ -5433,6 +5461,9 @@ export default function SubjectPage() {
                               {subject?.parcialesCerrados?.[p] && (
                                 <Lock size={12} className="text-emerald-600 flex-shrink-0" data-tooltip="Parcial cerrado" />
                               )}
+                              {estadoParcial(subject, p) === 'atencion' && (
+                                <MessageCircleQuestion size={12} className="text-accent flex-shrink-0" data-tooltip="Atención de inquietudes" />
+                              )}
                               <span>
                                 Parcial {p}
                                 {subject?.parcialesFechas?.[p - 1] && (
@@ -5467,18 +5498,8 @@ export default function SubjectPage() {
                       {anyPonderacionOn && (
                         <tr className="bg-amber-50 border-b border-amber-200">
                           <th className="sticky left-0 z-10 bg-amber-50 w-8 px-1 py-1 border-r border-outline-variant" />
-                          <th className="sticky left-8 z-10 bg-amber-50 w-[210px] px-2 py-1 border-r border-outline-variant">
+                          <th aria-label="Ponderación" className="sticky left-8 z-10 bg-amber-50 w-[210px] px-2 py-1 border-r border-outline-variant">
                             <div className="flex items-center justify-end gap-1.5">
-                              <button type="button" onClick={togglePonderacionVisible}
-                                aria-label={subject?.ponderacionVisibleAlumnos
-                                  ? 'Los estudiantes VEN los pesos — clic para ocultárselos'
-                                  : 'Los estudiantes NO ven los pesos — clic para mostrárselos'}
-                                data-tooltip-follow={subject?.ponderacionVisibleAlumnos
-                                  ? 'Los estudiantes VEN los pesos — clic para ocultárselos'
-                                  : 'Los estudiantes NO ven los pesos — clic para mostrárselos'}
-                                className={`p-0.5 rounded transition-colors ${subject?.ponderacionVisibleAlumnos ? 'text-amber-700 hover:text-amber-900' : 'text-amber-400 hover:text-amber-700'}`}>
-                                {subject?.ponderacionVisibleAlumnos ? <Eye size={14} /> : <EyeOff size={14} />}
-                              </button>
                               <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">Ponderación</span>
                             </div>
                           </th>
@@ -5612,7 +5633,7 @@ export default function SubjectPage() {
                                   key={a.id}
                                   data-col={colIndexByKey[`act-${a.id}`]}
                                   data-tooltip={
-                                    gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó) — revierte el cierre para corregirla'
+                                    gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó) — reabre el parcial para corregirla'
                                     : grades[ai] != null ? `${a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'} · clic derecho para corregir rápido`
                                     : `${a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'} · clic derecho para calificar rápido`
                                   }
@@ -7583,27 +7604,47 @@ export default function SubjectPage() {
             style={{ top: parcialMenu.y + 4, left: Math.max(8, parcialMenu.x - 208) }}
           >
             <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Parcial {parcialMenu.p}</div>
-            {/* 1 — Cerrar / Revertir cierre (habilita Exportar a Excel) */}
-            {subject?.parcialesCerrados?.[parcialMenu.p] ? (
+            {/* Acciones según el estado del parcial (estadoParcial en utils/ponderacion.js):
+                abierto  → Iniciar atención de inquietudes · Cerrar definitivamente
+                atención → Cerrar definitivamente
+                cerrado  → Reabrir para atención de inquietudes */}
+            {estadoParcial(subject, parcialMenu.p) === 'cerrado' ? (
               <button type="button"
                 onClick={() => { const p = parcialMenu.p; setParcialMenu(null); setRevertParcialConfirm(p) }}
                 className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-card">
-                <RotateCcw size={16} className="text-amber-600 flex-shrink-0" /> Revertir cierre del Parcial {parcialMenu.p}
+                <RotateCcw size={16} className="text-amber-600 flex-shrink-0" /> Reabrir para atención de inquietudes
               </button>
             ) : (() => {
               const p = parcialMenu.p
               const pondOn = ponderacionActivaEnParcial(subject, p)
               const total = pondOn ? pesoTotalVivo(activities.filter((a) => a.parcial === p && !isDraftActivity(a))) : 10
               const sumOk = !pondOn || Math.abs(total - 10) <= 0.001
+              // Mismo conjunto que usa la publicación al estudiante: solo lo que
+              // cuenta para calificación (actividadesQueCuentan).
+              const totalAtencion = pondOn ? pesoTotalVivo(activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))) : 10
+              const atencionOk = !pondOn || Math.abs(totalAtencion - 10) <= 0.001
               return (
-                <button type="button"
-                  onClick={() => { setParcialMenu(null); requestCloseParcial(p) }}
-                  data-tooltip={!sumOk ? `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para poder cerrar` : undefined}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-card">
-                  <Lock size={16} className="text-slate-400 flex-shrink-0" />
-                  <span className="flex-1">Cerrar Parcial {p}</span>
-                  {!sumOk && <span className="text-[10px] font-semibold text-amber-600">{total}/10</span>}
-                </button>
+                <>
+                  {estadoParcial(subject, p) === 'abierto' && (
+                    <button type="button"
+                      aria-disabled={!atencionOk}
+                      onClick={() => { if (!atencionOk) return; setParcialMenu(null); setAtencionParcialConfirm(p) }}
+                      data-tooltip={!atencionOk ? `La ponderación del Parcial ${p} suma ${totalAtencion} de 10 — debe sumar exactamente 10 para iniciar la atención de inquietudes` : undefined}
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors text-left rounded-card ${atencionOk ? 'text-on-surface hover:bg-[var(--accent-tint)]' : 'text-slate-400 cursor-not-allowed'}`}>
+                      <MessageCircleQuestion size={16} className={`flex-shrink-0 ${atencionOk ? 'text-accent' : 'text-slate-300'}`} />
+                      <span className="flex-1">Iniciar atención de inquietudes</span>
+                      {!atencionOk && <span className="text-[10px] font-semibold text-amber-600">{totalAtencion}/10</span>}
+                    </button>
+                  )}
+                  <button type="button"
+                    onClick={() => { setParcialMenu(null); requestCloseParcial(p) }}
+                    data-tooltip={!sumOk ? `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para poder cerrar` : undefined}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-card">
+                    <Lock size={16} className="text-slate-400 flex-shrink-0" />
+                    <span className="flex-1">Cerrar definitivamente</span>
+                    {!sumOk && <span className="text-[10px] font-semibold text-amber-600">{total}/10</span>}
+                  </button>
+                </>
               )
             })()}
           </div>
@@ -7661,7 +7702,7 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !closingParcial && setCloseParcialConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl">
-            <h3 className="text-lg font-semibold text-center text-on-surface">Cerrar el Parcial {closeParcialConfirm.p}</h3>
+            <h3 className="text-lg font-semibold text-center text-on-surface">Cerrar definitivamente el Parcial {closeParcialConfirm.p}</h3>
             <p className="text-sm text-muted text-center mt-2">
               Para cerrar el parcial, <strong>todas las calificaciones deben estar puestas</strong>.
             </p>
@@ -7757,14 +7798,14 @@ export default function SubjectPage() {
         </div>
       )}
 
-      {/* ── Revertir cierre del parcial: borra las calificaciones del cierre ── */}
+      {/* ── Reabrir el parcial: vuelve a atención de inquietudes y borra las calificaciones del cierre ── */}
       {revertParcialConfirm != null && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !revertingParcial && setRevertParcialConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl">
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Revertir el cierre del Parcial {revertParcialConfirm}?</h3>
+            <h3 className="text-lg font-semibold text-center text-on-surface">¿Reabrir el Parcial {revertParcialConfirm} para atención de inquietudes?</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Las calificaciones que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
+              Tus estudiantes siguen viendo su resultado y podrás corregir calificaciones. Las calificaciones que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setRevertParcialConfirm(null)} disabled={revertingParcial}
@@ -7773,7 +7814,33 @@ export default function SubjectPage() {
               </button>
               <button type="button" onClick={revertCloseParcial} disabled={revertingParcial}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
-                {revertingParcial ? 'Revirtiendo…' : 'Revertir cierre'}
+                {revertingParcial ? 'Reabriendo…' : 'Reabrir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Iniciar atención de inquietudes: publica el resultado del parcial ── */}
+      {atencionParcialConfirm != null && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !iniciandoAtencion && setAtencionParcialConfirm(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl">
+            <h3 className="text-lg font-semibold text-center text-on-surface">¿Iniciar la atención de inquietudes del Parcial {atencionParcialConfirm}?</h3>
+            <p className="text-sm text-muted text-center mt-2">
+              {ponderacionActivaEnParcial(subject, atencionParcialConfirm)
+                ? <>Tus estudiantes podrán ver <strong>los pesos de las actividades y su calificación ponderada</strong> del parcial para revisarla. Una vez publicada ya no vuelve a ocultarse.</>
+                : <>El parcial pasa a atención de inquietudes.</>}
+              {' '}Podrás seguir corrigiendo calificaciones y después cerrarlo definitivamente.
+            </p>
+            <div className="flex gap-2 mt-4">
+              <button type="button" onClick={() => setAtencionParcialConfirm(null)} disabled={iniciandoAtencion}
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={confirmIniciarAtencion} disabled={iniciandoAtencion}
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
+                {iniciandoAtencion ? 'Iniciando…' : 'Iniciar atención'}
               </button>
             </div>
           </div>

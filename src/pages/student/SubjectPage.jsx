@@ -37,7 +37,8 @@ import {
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
-import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
+import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno, pesosVisiblesAlumno } from '../../utils/ponderacion'
+import PonderacionPendiente from '../../components/PonderacionPendiente'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde } from '../../utils/avisos'
@@ -129,6 +130,10 @@ export default function StudentSubjectPage() {
   // aunque siga activo. `null` mientras no se sabe aún (no filtra).
   const [enrollmentSince, setEnrollmentSince] = useState(null)
   const [activities, setActivities] = useState([])
+  // La lista COMPLETA que entrega el servidor (programadas incluidas): con
+  // ella se decide si un parcial ponderado ya publicó su resultado — ver
+  // resultadoPublicadoAlumno en utils/ponderacion.js.
+  const [todasActividades, setTodasActividades] = useState([])
   const [activityLabels, setActivityLabels] = useState({})
   const [submissions, setSubmissions] = useState({})
   const [resources, setResources] = useState([])
@@ -181,9 +186,11 @@ export default function StudentSubjectPage() {
     return () => { attSummaryUnsubRef.current?.(); attSummaryUnsubRef.current = null }
   }, [studentId])
 
-  // Listener en tiempo real para campos de denominador y cierre de parciales.
+  // Listener en tiempo real para campos de denominador, cierre de parciales y
+  // publicación del resultado ponderado (atención de inquietudes).
   useEffect(() => {
     if (!subjectId) return
+    let firmaPublicacion = null
     subjectTotalUnsubRef.current?.()
     subjectTotalUnsubRef.current = onSnapshot(
       doc(db, 'subjects', subjectId),
@@ -195,7 +202,22 @@ export default function StudentSubjectPage() {
           totalOficialPorParcial: d.totalOficialPorParcial ?? null,
           sesionesPorParcialEstimadas: d.sesionesPorParcialEstimadas ?? null,
           parcialesCerrados: d.parcialesCerrados ?? null,
+          parcialesAtencion: d.parcialesAtencion ?? null,
+          ponderacionParciales: d.ponderacionParciales ?? null,
+          ponderacionActivada: d.ponderacionActivada ?? null,
         } : prev)
+        // Cambió el estado o la ponderación de algún parcial: los pesos que
+        // entrega el servidor pueden ser otros, así que se vuelven a pedir las
+        // actividades. La primera lectura ya la hizo loadAll.
+        const firma = JSON.stringify([d.parcialesAtencion ?? null, d.parcialesCerrados ?? null, d.ponderacionParciales ?? null, d.ponderacionActivada ?? null])
+        const anterior = firmaPublicacion
+        firmaPublicacion = firma
+        if (anterior === null || anterior === firma) return
+        fetchContent(subjectId, 'activities').then((docs) => {
+          const porId = new Map(docs.map((a) => [a.id, a]))
+          setTodasActividades(docs)
+          setActivities((prev) => prev.map((a) => porId.get(a.id) ?? a))
+        }).catch(() => {})
       },
       () => {},
     )
@@ -449,6 +471,7 @@ export default function StudentSubjectPage() {
       const acts = allActs
         .filter((a) => isActivityPublished(a, parcialesOcultos.includes(a.parcial)))
       setActivities(acts)
+      setTodasActividades(allActs)
 
       setResources(
         resDocs.slice().sort((a, b) => (b.fechaPublicacion?.seconds ?? 0) - (a.fechaPublicacion?.seconds ?? 0))
@@ -654,7 +677,10 @@ export default function StudentSubjectPage() {
             const acts = activities.filter((a) => a.parcial === p)
             const mats = materials.filter((m) => m.parcial === p)
             const unified = buildUnifiedParcial(acts, mats)
-            const avg = calcParcialAvg(p)
+            // Ponderado y todavía sin publicar: ni se calcula (el servidor no
+            // mandó sus pesos; calcular daría una media simple engañosa).
+            const publicado = resultadoPublicadoAlumno(subject, p, todasActividades)
+            const avg = publicado ? calcParcialAvg(p) : null
             const isOpen = openParcial === p
             return (
               <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
@@ -671,7 +697,9 @@ export default function StudentSubjectPage() {
                     <p className="text-sm text-slate-500">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {avg != null && (
+                    {!publicado ? (
+                      <PonderacionPendiente className="text-lg font-bold text-slate-400" />
+                    ) : avg != null && (
                       <span className="text-lg font-bold text-accent">{avg}</span>
                     )}
                     {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
@@ -701,7 +729,7 @@ export default function StudentSubjectPage() {
                         const displayDeadline = extendedDate || a.fechaLimite
                         const overdue = !graded && !delivered && isOverdue({ ...a, fechaLimite: displayDeadline })
                         const fechaLimiteLabel = formatDeadline(displayDeadline)
-                        const showPeso = ponderacionActivaEnParcial(subject, a.parcial) && subject?.ponderacionVisibleAlumnos && a.pesoCalificacion != null
+                        const showPeso = pesosVisiblesAlumno(subject, a.parcial, todasActividades) && a.pesoCalificacion != null
                         // Scheduled activities may only carry `publishAt` (already in the
                         // past — this list is filtered to visible ones), so that IS their
                         // publication date when `publishedAt` is absent.

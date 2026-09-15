@@ -832,7 +832,7 @@ export default function ActivityPage() {
     e.preventDefault()
     if (!selected?.sub && !isObservacion && !hasRubrica) return
     if (parcialCerrado) {
-      toast('El parcial está cerrado. Primero revierte el cierre del parcial para cambiar calificaciones.', 'error')
+      toast('El parcial está cerrado. Primero reabre el parcial para cambiar calificaciones.', 'error')
       return
     }
     if (!canCreate) {
@@ -881,7 +881,7 @@ export default function ActivityPage() {
   async function annulSubmission() {
     if (!selected?.sub) return
     if (parcialCerrado) {
-      toast('El parcial está cerrado. Primero revierte el cierre del parcial.', 'error')
+      toast('El parcial está cerrado. Primero reabre el parcial.', 'error')
       return
     }
     setAnnulling(true)
@@ -909,7 +909,7 @@ export default function ActivityPage() {
   async function saveSinEntrega() {
     if (!selected || selected.sub) return
     if (parcialCerrado) {
-      toast('El parcial está cerrado. Primero revierte el cierre del parcial.', 'error')
+      toast('El parcial está cerrado. Primero reabre el parcial.', 'error')
       return
     }
     if (!canCreate) {
@@ -1826,8 +1826,8 @@ export default function ActivityPage() {
                     {parcialCerrado && (
                       <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
                         <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
-                        Para modificarlas, primero <strong>revierte el cierre del parcial</strong> desde Calificaciones.
-                        Al revertir, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
+                        Para modificarlas, primero <strong>reabre el parcial</strong> desde Calificaciones.
+                        Al reabrirlo, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
                       </div>
                     )}
                     {/* Rúbrica: abre la tabla en la zona izquierda (donde la vista
@@ -2402,8 +2402,8 @@ export default function ActivityPage() {
                 {parcialCerrado && !IS_NATIVE_APP && (
                   <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
                     <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
-                    Para modificarlas, primero <strong>revierte el cierre del parcial</strong> desde Calificaciones.
-                    Al revertir, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
+                    Para modificarlas, primero <strong>reabre el parcial</strong> desde Calificaciones.
+                    Al reabrirlo, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
                   </div>
                 )}
 

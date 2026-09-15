@@ -28,7 +28,8 @@ import { getEnrollments, updateAllEnrollments, visibleEnrollments } from '../../
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
 import AvatarCropModal from '../../components/AvatarCropModal'
-import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
+import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno } from '../../utils/ponderacion'
+import PonderacionPendiente from '../../components/PonderacionPendiente'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -299,7 +300,12 @@ export default function StudentDashboard() {
       // Group activities by subject and index this student's grade per activity
       // (activities are subject-unique, so keying by activity id never collides).
       const actsBySubject = {}
+      // Todas, sin filtrar por visibilidad: deciden si un parcial ponderado ya
+      // publicó su resultado (resultadoPublicadoAlumno).
+      const todasBySubject = {}
       actDocs.forEach((a) => {
+        if (!todasBySubject[a.asignaturaId]) todasBySubject[a.asignaturaId] = []
+        todasBySubject[a.asignaturaId].push(a)
         const parcialesOcultos = subjectById[a.asignaturaId]?.parcialesOcultos || []
         if (!isActivityPublished(a, parcialesOcultos.includes(a.parcial))) return
         if (!actsBySubject[a.asignaturaId]) actsBySubject[a.asignaturaId] = []
@@ -323,13 +329,22 @@ export default function StudentDashboard() {
         // redondeaba solo el Final, lo que podía dar un Final distinto al de
         // la pantalla del docente por el orden del redondeo.
         const PARC = Array.from({ length: s.parciales || 3 }, (_, i) => i + 1)
+        // Un parcial ponderado cuyo resultado el docente todavía no publica no
+        // entra en ningún cálculo. Si ya tiene calificaciones —o sea, si el
+        // promedio de la asignatura lo necesita— el promedio completo queda
+        // pendiente: mostrar el de los demás parciales sería otro número.
+        let avgPendiente = false
         const parcAvgs = PARC.map((p) => {
           const pacts = acts.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
           const grades = pacts.map((a) => normalizeGrade(gradeByActivity[a.id], a.maxCalif, { decimals: 1 }))
+          if (!resultadoPublicadoAlumno(s, p, todasBySubject[s.id] || [])) {
+            if (grades.some((g) => g != null)) avgPendiente = true
+            return null
+          }
           const raw = promedioParcial(pacts, grades, ponderacionActivaEnParcial(s, p))
           return raw !== null ? parseFloat(raw.toFixed(1)) : null
         }).filter((v) => v !== null)
-        const avg = parcAvgs.length
+        const avg = !avgPendiente && parcAvgs.length
           ? (parcAvgs.reduce((x, y) => x + y, 0) / parcAvgs.length).toFixed(1)
           : null
         // enrollmentId: el doc de `students` de ESTA materia — lo necesita
@@ -337,7 +352,7 @@ export default function StudentDashboard() {
         // en SU inscripción — el `orden` de ese mismo doc ya es del docente,
         // la posición en SU lista de grupo, un campo distinto).
         const enrollment = enrollments.find((e) => e.asignaturaId === s.id)
-        return { ...s, enrollmentId: docIdBySubject[s.id], teacherName: teachers[s.docenteId] || '—', avg, alumnoOrden: enrollment?.alumnoOrden }
+        return { ...s, enrollmentId: docIdBySubject[s.id], teacherName: teachers[s.docenteId] || '—', avg, avgPendiente, alumnoOrden: enrollment?.alumnoOrden }
       })
       // Mismo patrón de auto-sanado que el Dashboard del docente (Dashboard.jsx):
       // la primera vez que se ve una inscripción sin alumnoOrden, se asigna uno
@@ -532,7 +547,12 @@ export default function StudentDashboard() {
                     <p className="text-slate-500 text-sm font-medium mt-0.5 truncate">{s.teacherName}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {s.avg != null && (
+                    {s.avgPendiente ? (
+                      <div className="text-right">
+                        <PonderacionPendiente className="block text-lg font-bold text-slate-400" />
+                        <p className="text-sm text-slate-500">promedio</p>
+                      </div>
+                    ) : s.avg != null && (
                       <div className="text-right">
                         <p className="text-lg font-bold text-accent">{s.avg}</p>
                         <p className="text-sm text-slate-500">promedio</p>

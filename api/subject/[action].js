@@ -11,6 +11,7 @@ import crypto from 'crypto'
 import { getDb, admin, verifyRequest } from '../_lib/firebaseAdmin.js'
 import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
 import { aplicarCors } from '../_lib/cors.js'
+import { ocultarPesosNoPublicados } from '../../src/utils/ponderacion.js'
 
 // ── /api/subject/info ──────────────────────────────────────────────────────
 // F-11 (2026-09-07): endpoint público para el flujo de activación QR.
@@ -341,7 +342,13 @@ async function handleContent(req, res) {
       if (!enrolled.has(actDoc.data().asignaturaId)) {
         return res.status(403).json({ error: 'No estás inscrito en esta asignatura.' })
       }
-      return res.status(200).json({ ok: true, docs: [serializeDoc(actDoc)] })
+      // Ninguna pantalla del alumno lee el peso de una actividad suelta (solo
+      // la lista de la asignatura, y esa pasa por ocultarPesosNoPublicados).
+      // Sin sus hermanas no se puede saber si el parcial ya publicó sus pesos,
+      // así que aquí nunca viaja.
+      const actividad = serializeDoc(actDoc)
+      delete actividad.pesoCalificacion
+      return res.status(200).json({ ok: true, docs: [actividad] })
     }
 
     for (const sid of subjectIds) {
@@ -371,7 +378,25 @@ async function handleContent(req, res) {
   const snaps = await Promise.all(
     chunks.map((ids) => db.collection(tipo).where('asignaturaId', 'in', ids).get())
   )
-  return res.status(200).json({ ok: true, docs: snaps.flatMap((s) => s.docs).map(serializeDoc) })
+  const docs = snaps.flatMap((s) => s.docs).map(serializeDoc)
+  if (!isAlumno || tipo !== 'activities') return res.status(200).json({ ok: true, docs })
+
+  // Alumno: los pesos de un parcial ponderado solo viajan cuando el docente ya
+  // publicó su resultado (atención de inquietudes o cierre). Protegerlo aquí,
+  // y no solo en React, es lo que impide reconstruir la calificación ponderada
+  // desde la respuesta de red.
+  const subjSnaps = await db.getAll(...subjectIds.map((sid) => db.collection('subjects').doc(sid)))
+  const subjectById = new Map(subjSnaps.map((s) => [s.id, s.exists ? s.data() : null]))
+  const porAsignatura = new Map()
+  docs.forEach((d) => {
+    if (!porAsignatura.has(d.asignaturaId)) porAsignatura.set(d.asignaturaId, [])
+    porAsignatura.get(d.asignaturaId).push(d)
+  })
+  const protegidos = new Map()
+  porAsignatura.forEach((acts, sid) => {
+    ocultarPesosNoPublicados(subjectById.get(sid), acts).forEach((a) => protegidos.set(a.id, a))
+  })
+  return res.status(200).json({ ok: true, docs: docs.map((d) => protegidos.get(d.id)) })
 }
 
 // ── /api/subject/sign-upload ───────────────────────────────────────────────

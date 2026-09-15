@@ -491,7 +491,7 @@ function JuegoConfiguracion({
   async function handleAnular() {
     if (!anularConfirm) return
     if (parcialCerrado) {
-      toast('El parcial está cerrado. Primero revierte el cierre del parcial.', 'error')
+      toast('El parcial está cerrado. Primero reabre el parcial.', 'error')
       return
     }
     setAnulando(true)

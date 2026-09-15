@@ -4,8 +4,10 @@
 // `parcialOculto` is the subject-level override (the whole parcial hidden from
 // students) — when true it always wins over the activity's own `oculta` state.
 
-import { formatHora12FromDate } from './formatHora'
-import { nowIsoLocal } from './nowIso'
+// Con extensión `.js`: /api/subject/content importa este módulo (vía
+// ponderacion.js) con Node nativo, que no resuelve imports sin extensión.
+import { formatHora12FromDate } from './formatHora.js'
+import { nowIsoLocal } from './nowIso.js'
 
 export function isActivityPublished(a, parcialOculto = false) {
   if (parcialOculto) return false
