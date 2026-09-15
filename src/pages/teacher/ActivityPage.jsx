@@ -42,6 +42,7 @@ import EFDateTimePicker from '../../components/EFDateTimePicker'
 import { nowIsoLocal } from '../../utils/nowIso'
 import { fechaLimiteTimestamp } from '../../utils/deadline'
 import { formatDeadline, formatPublishAt, parseFechaLimite, withDefaultTime, cuentaParaCalificacion } from '../../utils/activityVisibility'
+import { parcialCerrado as esParcialCerrado, mensajeParcialCerrado } from '../../utils/ponderacion'
 import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
@@ -253,6 +254,7 @@ export default function ActivityPage() {
   // (persistGrade), nunca por solo verla o precargarla.
   const [iaPropuestaDocId, setIaPropuestaDocId] = useState(null)
   function abrirCalificarIA() {
+    if (parcialCerrado) { toast(mensajeParcialCerrado(activity.parcial), 'error'); return }
     setPrevioAntesDeIA({ rubricEval, gradeForm })
     setCalificarIAAbierto(true)
   }
@@ -340,7 +342,7 @@ export default function ActivityPage() {
   // abrir el editor de una vez (clic en el evento de fecha límite/publicación).
   const [editingActivity, setEditingActivity] = useState(!!location.state?.openEditActivity)
   // Parcial cerrado: no grade can be changed until the teacher reverts the close.
-  const parcialCerrado = !!(subject?.parcialesCerrados && activity?.parcial != null && subject.parcialesCerrados[activity.parcial])
+  const parcialCerrado = activity?.parcial != null && esParcialCerrado(subject, activity.parcial)
 
   // Guard on currentUser + depend on it — mismo patrón que SubjectPage: en un
   // cold load Firebase Auth puede no haber restaurado la sesión todavía y el
@@ -511,6 +513,12 @@ export default function ActivityPage() {
   // parcial en SubjectPage.jsx (ver deleteSubmissionsByActivity).
   async function handleDeleteActivity() {
     if (!activity) return
+    // Una actividad que cuenta no sale de un parcial cerrado definitivamente.
+    if (parcialCerrado && cuentaParaCalificacion(activity)) {
+      toast(mensajeParcialCerrado(activity.parcial), 'error')
+      setDeleteConfirm(false)
+      return
+    }
     setDeletingActivity(true)
     try {
       await deleteSubmissionsByActivity(activity.id)
@@ -546,6 +554,17 @@ export default function ActivityPage() {
 
   // True when the form differs from what's stored — this is what makes
   // Siguiente/Anterior save without duplicating the Guardar logic.
+  // Con el parcial cerrado solo se guarda el comentario: ¿cambió él (o su
+  // visibilidad) respecto a la entrega guardada?
+  function comentarioDirty() {
+    if (!selected?.sub) return false
+    const comChanged = gradeForm.comentario.trim() !== (selected.sub.comentario || '')
+    const visibleGuardado = selected.sub.comentarioVisibleAlumno !== undefined
+      ? selected.sub.comentarioVisibleAlumno !== false
+      : activity?.comentarioVisibleAlumno !== false
+    return comChanged || (gradeForm.comentarioVisibleAlumno !== false) !== visibleGuardado
+  }
+
   function isDirty() {
     if (!selected) return false
     if (!selected.sub) {
@@ -616,6 +635,7 @@ export default function ActivityPage() {
   // TODAVÍA no tienen propuesta persistida — esas se recuperan gratis, sin
   // volver a contarlas ni cobrarlas.
   function contarEntregasIA() {
+    if (parcialCerrado) { toast(mensajeParcialCerrado(activity.parcial), 'error'); return }
     // "Por calificar" (la pestaña) sigue contando TODA entrega sin
     // calificación — el docente la puede calificar a mano aunque no sea
     // elegible para IA. `totalPorCalificar` es solo para que el modal
@@ -648,6 +668,7 @@ export default function ActivityPage() {
   // No crea entregas nuevas, no toca archivos ni calificaciones existentes:
   // solo dEJA LISTAS propuestas nuevas para que el docente las revise.
   function contarRecalificarIA() {
+    if (parcialCerrado) { toast(mensajeParcialCerrado(activity.parcial), 'error'); return }
     const elegibles = students.filter((s) => {
       const sub = submissions[s.id]
       if (!sub) return false
@@ -722,6 +743,7 @@ export default function ActivityPage() {
   const [aplicarTodasTrabajando, setAplicarTodasTrabajando] = useState(false)
 
   function contarAplicarTodasIA() {
+    if (parcialCerrado) { toast(mensajeParcialCerrado(activity.parcial), 'error'); return }
     const pendientes = Object.values(sugerenciasLoteIA).filter((s) => s._estado === 'pendiente')
     if (!pendientes.length) {
       toast('No hay propuestas de IA pendientes por aplicar', 'error')
@@ -765,7 +787,21 @@ export default function ActivityPage() {
   // Nunca se usa desde el botón normal "Guardar calificación".
   async function persistGrade(calOverride = null) {
     if (!selected || !canCreate) return false
-    if (parcialCerrado) return false
+    // Parcial cerrado definitivamente: la calificación queda congelada, pero el
+    // comentario no la cambia — se guarda solo eso (firestore.rules ·
+    // soloComentarioDocente).
+    if (parcialCerrado) {
+      if (!selected.sub) return false
+      const comentarioCerrado = gradeForm.comentario.trim()
+      const visibleCerrado = comentarioVisibleEsExcepcionRef.current
+        ? { comentarioVisibleAlumno: gradeForm.comentarioVisibleAlumno !== false }
+        : {}
+      await updateDoc(doc(db, 'submissions', selected.sub.id), { comentario: comentarioCerrado, ...visibleCerrado })
+      const actualizado = { ...selected.sub, comentario: comentarioCerrado, ...visibleCerrado }
+      setSubmissions((prev) => ({ ...prev, [selected.student.id]: actualizado }))
+      setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: actualizado } : sel))
+      return true
+    }
     // Sin entrega solo se puede calificar en observación, rubricando (la
     // rúbrica permite evaluar en cero o en lo que corresponda a quien no
     // entregó), o en Android para cualquier entregable — mismo estándar
@@ -831,17 +867,13 @@ export default function ActivityPage() {
   async function saveGrade(e) {
     e.preventDefault()
     if (!selected?.sub && !isObservacion && !hasRubrica) return
-    if (parcialCerrado) {
-      toast('El parcial está cerrado. Primero reabre el parcial para cambiar calificaciones.', 'error')
-      return
-    }
     if (!canCreate) {
       toast('Necesitas Créditos IA para registrar calificaciones — toda tu información sigue disponible')
       return
     }
     setSaving(true)
     try {
-      if (await persistGrade()) toast('Calificación guardada')
+      if (await persistGrade()) toast(parcialCerrado ? 'Comentario guardado' : 'Calificación guardada')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -959,6 +991,8 @@ export default function ActivityPage() {
 
   async function saveExtension() {
     if (!selected || !extendDate) return
+    // Una prórroga reabriría la actividad en un parcial cerrado definitivamente.
+    if (parcialCerrado) { toast(mensajeParcialCerrado(activity.parcial), 'error'); return }
     setSavingExtension(true)
     try {
       const motivo = extendMotivo.trim()
@@ -1229,6 +1263,7 @@ export default function ActivityPage() {
             return next
           })}
           onSubmissionUpdated={(studentId, sub) => setSubmissions((prev) => ({ ...prev, [studentId]: sub }))}
+          parcialCerrado={parcialCerrado}
           resultadosOnly
           backState={returnToGrades ? { tab: 'calificaciones' } : null}
           openStudentId={location.state?.openStudentId || null}
@@ -1378,7 +1413,7 @@ export default function ActivityPage() {
             de siempre (contarEntregasIA/contarRecalificarIA/
             contarAplicarTodasIA), solo reorganización visual. "Aplicar
             propuestas" solo aparece si hay algo pendiente que aplicar. */}
-        {hasRubrica && !IS_NATIVE_APP && (() => {
+        {hasRubrica && !IS_NATIVE_APP && !parcialCerrado && (() => {
           const pendientesIA = Object.values(sugerenciasLoteIA).filter((s) => s._estado === 'pendiente').length
           // "Recalificar con IA" solo se muestra cuando podemos CONFIRMAR que
           // el instrumento actual ya no es el que se usó para generar alguna
@@ -2002,7 +2037,6 @@ export default function ActivityPage() {
                         value={gradeForm.comentario}
                         onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                         rows={6}
-                        disabled={parcialCerrado}
                         className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                         placeholder="Retroalimentación para el estudiante…"
                       />
@@ -2022,7 +2056,6 @@ export default function ActivityPage() {
                           comentarioVisibleEsExcepcionRef.current = true
                           setGradeForm((f) => ({ ...f, comentarioVisibleAlumno: e.target.checked }))
                         }}
-                        disabled={parcialCerrado}
                         className="w-4 h-4 rounded border-outline-variant text-accent focus:ring-accent"
                       />
                       Permitir que el estudiante vea este comentario
@@ -2032,7 +2065,18 @@ export default function ActivityPage() {
                         Necesitas Créditos IA para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
                       </p>
                     )}
-                    {parcialCerrado ? null : (
+                    {parcialCerrado ? (
+                      selected.sub && (
+                        <button
+                          type="submit"
+                          disabled={saving || !canCreate || !comentarioDirty()}
+                          className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                        >
+                          {saving ? <Spinner size="sm" /> : null}
+                          {saving ? 'Guardando…' : 'Guardar comentario'}
+                        </button>
+                      )
+                    ) : (
                       <button
                         type="submit"
                         disabled={saving || !canCreate || !isDirty()}
@@ -2122,7 +2166,7 @@ export default function ActivityPage() {
                   {!extendMode ? (
                     <button
                       type="button"
-                      onClick={() => setExtendMode(true)}
+                      onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setExtendMode(true))}
                       className="block mx-auto text-sm text-slate-500 hover:text-muted transition-colors"
                     >
                       Modificar fecha de entrega para este estudiante
@@ -2841,6 +2885,7 @@ export default function ActivityPage() {
         <EntregableEditor
           activityId={activityId}
           parcial={activity.parcial}
+          parcialCerrado={parcialCerrado}
           categoria={activity.categoria || 'entregable'}
           subjectId={activity.asignaturaId}
           docenteId={activity.docenteId}
@@ -2879,7 +2924,7 @@ export default function ActivityPage() {
           }}
           initialExistingFiles={activity.archivosAdjuntos || []}
           contextLine={subjectDisplayName(subject)}
-          onNuevaFecha={isPublished ? () => setNewDateOpen(true) : undefined}
+          onNuevaFecha={isPublished && !parcialCerrado ? () => setNewDateOpen(true) : undefined}
           externalFechaLimite={activity.fechaLimite || ''}
           students={students}
           extensiones={activity.extensiones || {}}

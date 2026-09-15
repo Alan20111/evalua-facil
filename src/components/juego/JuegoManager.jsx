@@ -35,6 +35,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { etiquetaJuego } from '../../utils/copiaActividad'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import { withDefaultTime, formatDeadline } from '../../utils/activityVisibility'
+import { mensajeParcialCerrado } from '../../utils/ponderacion'
 import { groupExtensions } from '../../utils/extensiones'
 import { fechaLimiteTimestamp } from '../../utils/deadline'
 import NuevaFechaEntregaModal from '../NuevaFechaEntregaModal'
@@ -447,6 +448,18 @@ function JuegoConfiguracion({
       // mismo criterio que EvaluacionEditor (`infoForm.fechaLimite ? … : false`).
       recibirTarde: visForm.fechaLimite ? !visForm.cerrarEntregasEnFecha : false,
     }
+    // Parcial cerrado definitivamente: ocultar sí; regresar a borrador, mover la
+    // fecha límite o la recepción tardía no (reabriría el juego o cambiaría si cuenta).
+    if (parcialCerrado) {
+      const cuentaAntes = !(activity.oculta && !activity.publishedAt && !activity.publishAt)
+      const cuentaDespues = !(payload.oculta && !payload.publishedAt && !payload.publishAt)
+      const reabre = (payload.fechaLimite || null) !== (activity.fechaLimite || null) ||
+        !!payload.recibirTarde !== !!activity.recibirTarde
+      if (cuentaAntes !== cuentaDespues || reabre) {
+        toast(mensajeParcialCerrado(activity.parcial), 'error')
+        return
+      }
+    }
     setSavingVis(true)
     try {
       await updateDoc(doc(db, 'activities', activityId), payload)
@@ -611,7 +624,7 @@ function JuegoConfiguracion({
             )
           })()}
           {!isDraft && (
-            <button type="button" onClick={() => setNuevaFecha({ preselect: null })}
+            <button type="button" onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setNuevaFecha({ preselect: null }))}
               className="w-full py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2">
               <CalendarDays size={16} />
               Nueva fecha para prórroga
@@ -748,7 +761,7 @@ function JuegoConfiguracion({
 
                 {/* Fecha propia para ESTE estudiante — abre el mismo modal de
                     siempre, ya en "Para algunos" y con él marcado. */}
-                <button type="button" onClick={() => setNuevaFecha({ preselect: st.id })}
+                <button type="button" onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setNuevaFecha({ preselect: st.id }))}
                   aria-label={`Modificar la fecha de entrega de ${nombre}`}
                   data-tooltip="Modificar la fecha de entrega para este estudiante"
                   className="p-1.5 rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] flex-shrink-0">

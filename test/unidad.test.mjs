@@ -18,6 +18,7 @@ import { extraerAssets } from '../api/_lib/cloudinary.js'
 import {
   promedioParcial, ponderacionActivaEnParcial, normalizeGrade,
   estadoParcial, resultadoPublicadoAlumno, pesosVisiblesAlumno, puedeIniciarAtencion, ocultarPesosNoPublicados,
+  parcialCerrado, esNotaAutomaticaDeCierre,
 } from '../src/utils/ponderacion.js'
 import {
   totalRubrica, validarCotejo, validarRubrica, RUBRICA_TOTAL,
@@ -3628,6 +3629,32 @@ caso('API: con lo que recibe el alumno de un parcial abierto NO se reconstruye e
   assert.notStrictEqual(promedioParcial(recibido, notas, true), ponderadoReal)
   // Y el estudiante tampoco lo "publica" por su lado: sin pesos no suman 10.
   assert.strictEqual(resultadoPublicadoAlumno({ ...pondTodos, parcialesAtencion: { 1: 'x' } }, 1, recibido), false)
+})
+
+// ═══ Parcial cerrado definitivamente = resultado congelado ═══════════════════
+grupo('Parcial cerrado definitivamente — congelamiento y notas automáticas')
+
+caso('parcialCerrado: solo el estado cerrado congela; abierto y atención no', () => {
+  assert.strictEqual(parcialCerrado({}, 1), false)
+  assert.strictEqual(parcialCerrado({ parcialesAtencion: { 1: 'x' } }, 1), false)
+  assert.strictEqual(parcialCerrado({ parcialesCerrados: { 1: 'x' } }, 1), true)
+  assert.strictEqual(parcialCerrado({ parcialesCerrados: { 1: 'x' } }, 2), false, 'cada parcial es independiente')
+  assert.strictEqual(parcialCerrado(null, 1), false, 'sin asignatura cargada no bloquea')
+})
+
+caso('esNotaAutomaticaDeCierre: la nota del cierre sin trabajo real sí se puede revertir', () => {
+  const auto = { alumnoId: 's', actividadId: 'a', calificacion: 5, comentario: '', estado: 'calificado', sinEntrega: true, cierreParcial: true }
+  assert.strictEqual(esNotaAutomaticaDeCierre(auto), true)
+  assert.strictEqual(esNotaAutomaticaDeCierre({ ...auto, cierreParcial: undefined }), false, 'una calificación manual sin entrega no es del cierre')
+})
+
+caso('esNotaAutomaticaDeCierre: con trabajo real del estudiante NUNCA es automática (reabrir no la borra)', () => {
+  const auto = { calificacion: 5, estado: 'calificado', sinEntrega: true, cierreParcial: true }
+  assert.strictEqual(esNotaAutomaticaDeCierre({ ...auto, calificacion: 9, estadoEvaluacion: 'finalizado', intentoActual: 1, intentos: [{ numero: 1, calificacion: 9 }] }), false, 'examen presentado encima')
+  assert.strictEqual(esNotaAutomaticaDeCierre({ ...auto, estadoEvaluacion: 'en_progreso', intentoActual: 1 }), false, 'intento abierto')
+  assert.strictEqual(esNotaAutomaticaDeCierre({ ...auto, archivos: [{ url: 'x' }] }), false, 'evidencia entregada')
+  assert.strictEqual(esNotaAutomaticaDeCierre({ ...auto, respuestasJuego: { celdas: {} } }), false, 'juego iniciado')
+  assert.strictEqual(esNotaAutomaticaDeCierre({ ...auto, completadoSinArchivo: true }), false)
 })
 
 if (fallos.length) {

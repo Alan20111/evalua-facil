@@ -32,7 +32,7 @@ import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacacion
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime, isDraftActivity, cuentaParaCalificacion, sinCalificacion } from '../../utils/activityVisibility'
-import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade, estadoParcial, puedeIniciarAtencion } from '../../utils/ponderacion'
+import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade, estadoParcial, puedeIniciarAtencion, parcialCerrado, mensajeParcialCerrado, esNotaAutomaticaDeCierre } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { formatShortDate, formatShortDateRange } from '../../utils/dateRange'
@@ -1266,8 +1266,8 @@ export default function SubjectPage() {
   // nada (mismo caso que "sin entrega" en la pantalla de la actividad).
   function openGradeQuickEdit(e, sub, activity, student) {
     e.preventDefault()
-    if (subject?.parcialesCerrados?.[activity.parcial]) {
-      toast('El parcial está cerrado — reábrelo para editar calificaciones', 'error')
+    if (parcialCerrado(subject, activity.parcial)) {
+      toast(mensajeParcialCerrado(activity.parcial), 'error')
       return
     }
     if (!sub && !canCreate) {
@@ -1357,8 +1357,8 @@ export default function SubjectPage() {
   function openActivityContextMenu(e, activity) {
     e.preventDefault()
     // Guard: parcial cerrado — misma lógica que openGradeQuickEdit.
-    if (subject?.parcialesCerrados?.[activity.parcial]) {
-      toast('El parcial está cerrado — reábrelo para editar calificaciones', 'error')
+    if (parcialCerrado(subject, activity.parcial)) {
+      toast(mensajeParcialCerrado(activity.parcial), 'error')
       return
     }
     // Guard: actividad que no genera calificación (diagnóstico, encuesta).
@@ -2299,30 +2299,33 @@ export default function SubjectPage() {
       const acts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
       if (acts.length === 0) continue
       const subDocs = await fetchSubmissionsForActivities(acts.map((a) => a.id))
-      const cierreDoc = subDocs.find((d) => d.data().cierreParcial === true)
+      const cierreDoc = subDocs.find((d) => esNotaAutomaticaDeCierre(d.data()))
       const grade = cierreDoc ? cierreDoc.data().calificacion : 0
       acts.forEach((a) => entries.push({ a, grade }))
     }
     if (entries.length === 0) return
-    const pairs = []
-    studentIds.forEach((sid) => entries.forEach(({ a, grade }) => pairs.push({ sid, a, grade })))
-    for (let i = 0; i < pairs.length; i += 400) {
-      const batch = writeBatch(db)
-      pairs.slice(i, i + 400).forEach(({ sid, a, grade }) => {
-        // Id determinista (A12 · H5 · R22).
-        const ref = doc(db, 'submissions', submissionDocId(a.id, sid))
-        batch.set(ref, {
-          alumnoId: sid,
-          actividadId: a.id,
-          calificacion: grade,
-          comentario: '',
-          estado: 'calificado',
-          sinEntrega: true,
-          cierreParcial: true,
-          fechaEntrega: serverTimestamp(),
+    // Un lote por actividad: con el parcial ya cerrado, cada escritura hace que
+    // firestore.rules lea la actividad y su asignatura (notaAutomaticaDeCierre),
+    // y un lote no puede consultar más de 20 documentos distintos.
+    for (const { a, grade } of entries) {
+      for (let i = 0; i < studentIds.length; i += 400) {
+        const batch = writeBatch(db)
+        studentIds.slice(i, i + 400).forEach((sid) => {
+          // Id determinista (A12 · H5 · R22).
+          const ref = doc(db, 'submissions', submissionDocId(a.id, sid))
+          batch.set(ref, {
+            alumnoId: sid,
+            actividadId: a.id,
+            calificacion: grade,
+            comentario: '',
+            estado: 'calificado',
+            sinEntrega: true,
+            cierreParcial: true,
+            fechaEntrega: serverTimestamp(),
+          })
         })
-      })
-      await batch.commit()
+        await batch.commit()
+      }
     }
   }
 
@@ -2578,8 +2581,6 @@ export default function SubjectPage() {
     if (!studentToDelete) return
     setSavingStudent(true)
     try {
-      // Remove this enrollment's submissions first so none are orphaned.
-      await deleteSubmissionsByStudent(studentToDelete.id, activities.map((a) => a.id))
       // Igual para sus prórrogas por actividad — sin esto, activities.extensiones
       // se quedaba con la llave del estudiante borrado para siempre (dato
       // muerto, nunca vuelve a leerse porque ningún id nuevo la reutiliza,
@@ -2603,7 +2604,12 @@ export default function SubjectPage() {
           return { ...a, extensiones, extensionesMotivo }
         }))
       }
+      // Primero la inscripción y DESPUÉS sus entregas: un parcial cerrado
+      // definitivamente no deja borrar calificaciones de un estudiante que
+      // sigue inscrito (firestore.rules), y eliminar a un estudiante es una
+      // operación administrativa que debe poder hacerse igual.
       await deleteDoc(doc(db, 'students', studentToDelete.id))
+      await deleteSubmissionsByStudent(studentToDelete.id, activities.map((a) => a.id))
       const remaining = groupStudents.filter((s) => s.id !== studentToDelete.id)
       const batch = writeBatch(db)
       remaining.forEach((s, i) => batch.update(doc(db, 'students', s.id), { orden: i + 1 }))
@@ -2765,6 +2771,7 @@ export default function SubjectPage() {
 
   // ── Activity actions ───────────────────────────────────────────────
   function openAdd(parcial) {
+    if (parcialCerrado(subject, parcial)) { toast(mensajeParcialCerrado(parcial), 'error'); return }
     if (!canCreate) {
       toast('Necesitas Créditos IA para crear nuevas actividades — toda tu información sigue disponible')
       return
@@ -2779,6 +2786,7 @@ export default function SubjectPage() {
 
   // ── Traer actividad de otra asignatura ─────────────────────────────
   async function openImport(parcial) {
+    if (parcialCerrado(subject, parcial)) { toast(mensajeParcialCerrado(parcial), 'error'); return }
     if (!canCreate) {
       toast('Necesitas Créditos IA para crear nuevas actividades — toda tu información sigue disponible')
       return
@@ -3069,7 +3077,14 @@ export default function SubjectPage() {
   }
 
   async function handleDeleteActivity() {
-    if (!deleteConfirm) return; setDeleting(true)
+    if (!deleteConfirm) return
+    // Una actividad que cuenta no sale de un parcial cerrado definitivamente.
+    if (parcialCerrado(subject, deleteConfirm.parcial) && cuentaParaCalificacion(deleteConfirm)) {
+      toast(mensajeParcialCerrado(deleteConfirm.parcial), 'error')
+      setDeleteConfirm(null)
+      return
+    }
+    setDeleting(true)
     try {
       // Remove this activity's submissions first so none are orphaned.
       await deleteSubmissionsByActivity(deleteConfirm.id)
@@ -3347,6 +3362,10 @@ export default function SubjectPage() {
 
   async function handleUnarchiveConfirm() {
     const newParciales = parseInt(unarchiveEdits.parciales) || 3
+    // "Empezar de cero" libera los parciales cerrados antes (deleteSubjectStudents).
+    const cerradoFuera = unarchiveStudents === 'reset' ? null
+      : [1, 2, 3, 4, 5, 6].find((p) => p > newParciales && parcialCerrado(subject, p))
+    if (cerradoFuera) { toast(mensajeParcialCerrado(cerradoFuera), 'error'); return }
     if (activities.some((a) => a.parcial > newParciales)) {
       toast(`Hay actividades en parciales superiores a ${newParciales}. Elimínalas primero.`, 'error')
       return
@@ -3433,6 +3452,11 @@ export default function SubjectPage() {
     setDuplicating(true)
     try {
       const src = duplicateConfirm
+      if (parcialCerrado(subject, src.parcial)) {
+        toast(mensajeParcialCerrado(src.parcial), 'error')
+        setDuplicateConfirm(null)
+        return
+      }
       // Un juego sin confirmar no se duplica (ver esCopiable): sin la reserva
       // de créditos del original —que nunca se copia— la copia quedaría
       // imposible de confirmar y de publicar. El menú ⋮ ya no lo ofrece.
@@ -3528,6 +3552,12 @@ export default function SubjectPage() {
   // confirmation and stamps the publication datetime.
   async function publishDraftNow() {
     if (!publishDraftConfirm) return
+    // Publicar un borrador lo haría contar en la calificación del parcial.
+    if (parcialCerrado(subject, publishDraftConfirm.parcial)) {
+      toast(mensajeParcialCerrado(publishDraftConfirm.parcial), 'error')
+      setPublishDraftConfirm(null)
+      return
+    }
     const d = new Date()
     const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
     try {
@@ -3571,6 +3601,8 @@ export default function SubjectPage() {
   async function handleEditSubject(e) {
     e.preventDefault()
     const newParciales = parseInt(editSubjectForm.parciales) || 3
+    const cerradoFuera = [1, 2, 3, 4, 5, 6].find((p) => p > newParciales && parcialCerrado(subject, p))
+    if (cerradoFuera) { toast(mensajeParcialCerrado(cerradoFuera), 'error'); return }
     const hasActsAbove = activities.some((a) => a.parcial > newParciales)
     if (hasActsAbove) {
       toast(`Hay actividades en parciales superiores a ${newParciales}. Elimínalas primero.`, 'error')
@@ -3806,24 +3838,6 @@ export default function SubjectPage() {
     const p = revertParcialConfirm
     setRevertingParcial(true)
     try {
-      const acts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
-      const snaps = await fetchSubmissionsForActivities(acts.map((a) => a.id))
-      const toDelete = snaps.filter((d) => d.data().cierreParcial === true)
-      const removedKeys = []
-      for (let i = 0; i < toDelete.length; i += 400) {
-        const batch = writeBatch(db)
-        toDelete.slice(i, i + 400).forEach((d) => {
-          batch.delete(doc(db, 'submissions', d.id))
-          const data = d.data()
-          removedKeys.push(`${data.alumnoId}-${data.actividadId}`)
-        })
-        await batch.commit()
-      }
-      setGradeSubMap((prev) => {
-        const next = { ...prev }
-        removedKeys.forEach((k) => delete next[k])
-        return next
-      })
       // CERRADO → ATENCIÓN DE INQUIETUDES, nunca de vuelta a abierto: el
       // estudiante ya conoció el resultado. Una sola escritura, así que no hay
       // un instante en que el parcial quede "abierto" y se le oculte. La fecha
@@ -3838,6 +3852,52 @@ export default function SubjectPage() {
         const nextClosed = { ...(s.parcialesCerrados || {}) }
         delete nextClosed[p]
         return { ...s, parcialesCerrados: nextClosed, parcialesAtencion: { ...(s.parcialesAtencion || {}), [p]: publicadoEn } }
+      })
+      // Ya en atención (mientras el parcial seguía cerrado las reglas no dejaban
+      // borrar nada), las notas automáticas del cierre — y SOLO las que siguen
+      // siendo automáticas (esNotaAutomaticaDeCierre). Un documento marcado
+      // `cierreParcial` que ya trae trabajo real del estudiante (un intento
+      // presentado sobre la nota automática) nunca se borra: se le quita la
+      // marca y queda como la calificación real que es. Un lote por actividad
+      // por el límite de lecturas de firestore.rules.
+      const acts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
+      const snaps = await fetchSubmissionsForActivities(acts.map((a) => a.id))
+      const porActividad = new Map()
+      snaps.filter((d) => d.data().cierreParcial === true).forEach((d) => {
+        const actId = d.data().actividadId
+        if (!porActividad.has(actId)) porActividad.set(actId, [])
+        porActividad.get(actId).push(d)
+      })
+      const removedKeys = []
+      const conservadas = []
+      for (const grupo of porActividad.values()) {
+        for (let i = 0; i < grupo.length; i += 400) {
+          const batch = writeBatch(db)
+          grupo.slice(i, i + 400).forEach((d) => {
+            const data = d.data()
+            const key = `${data.alumnoId}-${data.actividadId}`
+            if (esNotaAutomaticaDeCierre(data)) {
+              batch.delete(doc(db, 'submissions', d.id))
+              removedKeys.push(key)
+            } else {
+              batch.update(doc(db, 'submissions', d.id), { cierreParcial: deleteField(), sinEntrega: deleteField() })
+              conservadas.push(key)
+            }
+          })
+          await batch.commit()
+        }
+      }
+      setGradeSubMap((prev) => {
+        const next = { ...prev }
+        removedKeys.forEach((k) => delete next[k])
+        conservadas.forEach((k) => {
+          if (!next[k]) return
+          const real = { ...next[k] }
+          delete real.cierreParcial
+          delete real.sinEntrega
+          next[k] = real
+        })
+        return next
       })
       toast(`Parcial ${p} reabierto para atención de inquietudes — ${removedKeys.length} no entrega${removedKeys.length !== 1 ? 's volvieron' : ' volvió'} a quedar sin calificar`)
       setRevertParcialConfirm(null)
@@ -3884,9 +3944,16 @@ export default function SubjectPage() {
     try {
       // Batched creates (Firestore caps batches at 500 writes)
       const newSubs = []
-      for (let i = 0; i < missing.length; i += 400) {
+      // Un lote por actividad — mismo límite de lecturas de firestore.rules
+      // que la reapertura y las altas tardías.
+      const faltantesPorActividad = new Map()
+      missing.forEach((m) => {
+        if (!faltantesPorActividad.has(m.a.id)) faltantesPorActividad.set(m.a.id, [])
+        faltantesPorActividad.get(m.a.id).push(m)
+      })
+      for (const faltantes of faltantesPorActividad.values()) for (let i = 0; i < faltantes.length; i += 400) {
         const batch = writeBatch(db)
-        missing.slice(i, i + 400).forEach(({ s, a }) => {
+        faltantes.slice(i, i + 400).forEach(({ s, a }) => {
           // Id determinista (A12 · H5 · R22).
           const ref = doc(db, 'submissions', submissionDocId(a.id, s.id))
           const data = {
@@ -4291,15 +4358,16 @@ export default function SubjectPage() {
 
   async function applyPonderacion(next) {
     setConfirmRevertPonderacion(false)
-    const conPeso = activities.filter((a) => pesoDe(a) > 0)
+    // Un parcial cerrado definitivamente conserva su ponderación y sus pesos:
+    // el botón global solo mueve los parciales abiertos o en atención.
+    const cerrados = ALL_PARCIALES.filter((p) => parcialCerrado(subject, p))
+    const conPeso = activities.filter((a) => pesoDe(a) > 0 && !parcialCerrado(subject, a.parcial))
     try {
       const map = {}
-      ALL_PARCIALES.forEach((p) => { map[p] = next })
+      ALL_PARCIALES.forEach((p) => { map[p] = cerrados.includes(p) ? pondParcial(p) : next })
       // Qué ven los estudiantes ya no se decide aquí: depende del estado de
       // cada parcial (resultadoPublicadoAlumno en utils/ponderacion.js).
-      const updates = next
-        ? { ponderacionActivada: true, ponderacionParciales: map }
-        : { ponderacionActivada: false, ponderacionParciales: map }
+      const updates = { ponderacionActivada: Object.values(map).some(Boolean), ponderacionParciales: map }
       await updateDoc(doc(db, 'subjects', subjectId), updates)
       // On activation weights start at 0 — the teacher types them. Only clear
       // existing weights when going back to simple average.
@@ -4307,7 +4375,7 @@ export default function SubjectPage() {
         const batch = writeBatch(db)
         conPeso.forEach((a) => batch.update(doc(db, 'activities', a.id), { pesoCalificacion: null }))
         await batch.commit()
-        setActivities((prev) => prev.map((x) => x.pesoCalificacion != null ? { ...x, pesoCalificacion: null } : x))
+        setActivities((prev) => prev.map((x) => x.pesoCalificacion != null && !parcialCerrado(subject, x.parcial) ? { ...x, pesoCalificacion: null } : x))
         setPesoEdits({})
       }
       setSubject((s) => ({ ...s, ...updates }))
@@ -4319,6 +4387,7 @@ export default function SubjectPage() {
 
   // Per-parcial switch (the button in the amber weights row)
   function toggleParcialPonderacion(p) {
+    if (parcialCerrado(subject, p)) { toast(mensajeParcialCerrado(p), 'error'); return }
     const next = !pondParcial(p)
     const conPeso = activities.filter((a) => a.parcial === p && pesoDe(a) > 0)
     if (!next && conPeso.length > 0) {
@@ -4331,6 +4400,7 @@ export default function SubjectPage() {
 
   async function applyParcialPonderacion(p, next) {
     setConfirmRevertParcial(null)
+    if (parcialCerrado(subject, p)) { toast(mensajeParcialCerrado(p), 'error'); return }
     try {
       // Materialize the whole map so every parcial's state is explicit from now on
       const map = {}
@@ -4416,6 +4486,11 @@ export default function SubjectPage() {
   async function savePeso(a) {
     const raw = pesoEdits[a.id]
     if (raw === undefined) return
+    // Parcial cerrado definitivamente: los pesos quedan congelados.
+    if (parcialCerrado(subject, a.parcial)) {
+      setPesoEdits((f) => { const n = { ...f }; delete n[a.id]; return n })
+      return
+    }
     let num = parseFloat(raw)
     if (isNaN(num) || num < 0) num = null
     // Cap so the parcial total can NEVER exceed 10 (the teacher can go under —
@@ -5534,8 +5609,9 @@ export default function SubjectPage() {
                                   }}
                                   onFocus={(e) => { try { e.target.select() } catch { /* algunos navegadores */ } }}
                                   onBlur={() => savePeso(a)}
-                                  data-tooltip={`Peso de la actividad ${activityLabelById[a.id] || ''}`}
-                                  className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400" />
+                                  readOnly={parcialCerrado(subject, p)}
+                                  data-tooltip={parcialCerrado(subject, p) ? mensajeParcialCerrado(p) : `Peso de la actividad ${activityLabelById[a.id] || ''}`}
+                                  className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400 read-only:opacity-60 read-only:cursor-not-allowed" />
                               </th>
                             )),
                             <th key={`pw-${p}`} className={`w-14 px-1 py-1 text-center text-[11px] font-bold border-l border-outline-variant bg-amber-50 ${pesoTotalVivo(acts) === 10 ? 'text-emerald-600' : 'text-amber-700'}`}>
@@ -5543,7 +5619,7 @@ export default function SubjectPage() {
                                 <span data-tooltip={pesoTotalVivo(acts) === 10 ? 'Los pesos suman 10' : 'Suma libre — para exportar este parcial deberá sumar 10'}>{pesoTotalVivo(acts)}</span>
                                 <button type="button" onClick={() => toggleParcialPonderacion(p)}
                                   aria-label={`Quitar la ponderación solo del Parcial ${p}`}
-                                  data-tooltip={`Quitar la ponderación solo del Parcial ${p}`}
+                                  data-tooltip={parcialCerrado(subject, p) ? mensajeParcialCerrado(p) : `Quitar la ponderación solo del Parcial ${p}`}
                                   className="p-0.5 text-amber-400 hover:text-amber-800 rounded transition-colors">
                                   <X size={12} />
                                 </button>
@@ -5552,7 +5628,7 @@ export default function SubjectPage() {
                           ] : (
                             <th key={`pond-off-${p}`} colSpan={acts.length + 1} className="px-1 py-1 text-center border-l border-outline-variant bg-amber-50/50">
                               <button type="button" onClick={() => toggleParcialPonderacion(p)}
-                                data-tooltip-follow={`Ponderar solo el Parcial ${p} — este parcial usa promedio simple`}
+                                data-tooltip-follow={parcialCerrado(subject, p) ? mensajeParcialCerrado(p) : `Ponderar solo el Parcial ${p} — este parcial usa promedio simple`}
                                 className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-white border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors whitespace-nowrap">
                                 Activar en P{p}
                               </button>
@@ -8530,6 +8606,7 @@ export default function SubjectPage() {
         <EntregableEditor
           activityId={entregableEditor.activityId}
           parcial={entregableEditor.parcial}
+          parcialCerrado={parcialCerrado(subject, entregableEditor.parcial)}
           categoria={entregableEditor.categoria}
           subjectId={subjectId}
           docenteId={currentUser?.uid}

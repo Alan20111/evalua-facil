@@ -10,6 +10,7 @@ import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../utils/sanitizeHtml'
 import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
+import { mensajeParcialCerrado } from '../utils/ponderacion'
 import { nowIsoLocal as toIsoNow } from '../utils/nowIso'
 import { fechaLimiteTimestamp } from '../utils/deadline'
 import { matchesStudentSearch, studentFullName } from '../utils/studentSearch'
@@ -174,9 +175,16 @@ function millisDeGeneradoEn(x) {
   return new Date(x).getTime() || 0
 }
 
-export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, onSubmissionUpdated = null, resultadosOnly = false, backState = null, openStudentId = null, onDeleteActivity = null }) {
+export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, onSubmissionUpdated = null, resultadosOnly = false, backState = null, openStudentId = null, onDeleteActivity = null, parcialCerrado = false }) {
   const navigate = useNavigate()
   const toast = useToast()
+  // Parcial cerrado definitivamente: nada de lo que cambie la calificación
+  // (reactivos, puntos, anular intentos, prórrogas). Comentar sí.
+  function bloqueadoPorCierre() {
+    if (!parcialCerrado) return false
+    toast(mensajeParcialCerrado(activity?.parcial), 'error')
+    return true
+  }
   // Créditos de IA — estimación y ejecución del piloto C-02.
   const creditosIA = useCreditosIA()
   // Escuela + docente para encabezar los documentos que se descargan de aquí.
@@ -421,6 +429,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   async function handleAddPregunta(e) {
     e.preventDefault()
+    if (bloqueadoPorCierre()) return
     if (!validatePreguntaForm(preguntaForm)) return
     setSaving(true)
     try {
@@ -461,6 +470,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   }
 
   async function handleAddFromBanco(item) {
+    if (bloqueadoPorCierre()) return
     setSaving(true)
     try {
       const orden = siguienteOrden(preguntas, seccionDestino)
@@ -486,7 +496,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // solo writeBatch en vez de un addDoc por pregunta. Mismo patrón que
   // EvaluacionEditor.jsx.
   async function handleAddFromBancoMultiple(items) {
-    if (!items.length) return
+    if (!items.length || bloqueadoPorCierre()) return
     setSaving(true)
     try {
       let orden = siguienteOrden(preguntas, seccionDestino)
@@ -513,7 +523,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // las preguntas existentes en partes iguales. Mismo cálculo compartido
   // (repartirPonderacionParejo) que usa EvaluacionEditor.jsx.
   async function handleRepartirParejo() {
-    if (!preguntas.length) return
+    if (!preguntas.length || bloqueadoPorCierre()) return
     const values = repartirPonderacionParejo(preguntas.length)
     setSaving(true)
     try {
@@ -530,6 +540,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   }
 
   async function handleDeletePregunta(id) {
+    if (bloqueadoPorCierre()) return
     if (!confirm('¿Eliminar esta pregunta?')) return
     try {
       await borrarPregunta(activityId, id)
@@ -565,6 +576,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   async function handleSavePreguntaEdit(e, id) {
     e.preventDefault()
+    if (bloqueadoPorCierre()) return
     if (!validatePreguntaForm(preguntaEditForm)) return
     setSaving(true)
     try {
@@ -595,6 +607,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   }
 
   async function handleDuplicatePregunta(p) {
+    if (bloqueadoPorCierre()) return
     try {
       const orden = siguienteOrden(preguntas, p.seccionId || null)
       const data = {
@@ -615,6 +628,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   }
 
   async function handleMovePregunta(id, direction) {
+    if (bloqueadoPorCierre()) return
     // Se mueve dentro de SU grupo (su sección, o el bloque suelto): un reactivo
     // nunca cambia de sección con las flechas — para eso está el selector de
     // sección en su formulario de edición.
@@ -719,6 +733,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // ── Configuración ──
   async function handleSaveConfig(e) {
     e.preventDefault()
+    // "Sin calificación" decide si la evaluación cuenta: congelado con el parcial cerrado.
+    if (parcialCerrado && !!configForm.sinCalificacion !== !!activity?.evaluacion?.sinCalificacion) {
+      bloqueadoPorCierre()
+      return
+    }
     // Anything scheduled for a specific date must be in the future
     if (configForm.publicarResultados === 'fecha') {
       if (!configForm.publicarResultadosFecha) { toast('Elige la fecha de publicación de resultados', 'error'); return }
@@ -896,6 +915,25 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     const sub = reviewing?.submission
     if (!sub) return
     const draft = gradeDrafts[pregunta.id] || {}
+    // Parcial cerrado definitivamente: los puntos no cambian (tampoco la
+    // calificación que se recalcula con ellos); el comentario sí se guarda.
+    if (parcialCerrado) {
+      const comentarioCerrado = (draft.comentario || '').trim() || null
+      setSavingGradeId(pregunta.id)
+      try {
+        await setDoc(doc(db, 'submissions', sub.id, 'respuestas', pregunta.id), { comentarioDocente: comentarioCerrado }, { merge: true })
+        setReviewing((r) => r && ({
+          ...r,
+          allRespuestas: { ...r.allRespuestas, [pregunta.id]: { ...(r.allRespuestas[pregunta.id] || {}), comentarioDocente: comentarioCerrado } },
+        }))
+        toast('Comentario guardado')
+      } catch (err) {
+        toast('Error al guardar el comentario: ' + err.message, 'error')
+      } finally {
+        setSavingGradeId(null)
+      }
+      return
+    }
     const puntos = parseFloat(draft.puntos)
     const max = parseFloat(pregunta.ponderacion) || 0
     if (!Number.isFinite(puntos) || puntos < 0 || puntos > max + 1e-9) {
@@ -1169,7 +1207,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     extendMotivo.trim() === (activity?.extensionesMotivo?.[reviewing.student.id] || '')
 
   async function saveReviewExtension() {
-    if (!reviewing || !extendDate) return
+    if (!reviewing || !extendDate || bloqueadoPorCierre()) return
     setSavingExtension(true)
     try {
       const motivo = extendMotivo.trim()
@@ -1200,6 +1238,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // to "No realizado" and can present again. Only this student is affected.
   async function handleCancelSubmission() {
     if (!cancelConfirm) return
+    if (bloqueadoPorCierre()) { setCancelConfirm(null); return }
     setCancelling(true)
     try {
       const sub = cancelConfirm.sub
@@ -2338,10 +2377,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               )}
                               <button
                                 type="button"
-                                onClick={() => setGradeDrafts((d) => ({
-                                  ...d,
-                                  [p.id]: { puntos: String(sug.puntos), comentario: sug.retroalimentacion || '' },
-                                }))}
+                                onClick={() => {
+                                  if (bloqueadoPorCierre()) return
+                                  setGradeDrafts((d) => ({
+                                    ...d,
+                                    [p.id]: { puntos: String(sug.puntos), comentario: sug.retroalimentacion || '' },
+                                  }))
+                                }}
                                 className="w-full py-1.5 border border-accent text-accent text-xs font-semibold rounded hover:bg-[var(--accent-medium)] transition-colors"
                               >
                                 Usar sugerencia (puedes editarla antes de guardar)
@@ -2356,7 +2398,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               value={draft.puntos}
                               onChange={(e) => setGradeDrafts((d) => ({ ...d, [p.id]: { ...draft, puntos: e.target.value } }))}
                               placeholder="0"
-                              className="w-24 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface-card"
+                              readOnly={parcialCerrado}
+                              data-tooltip={parcialCerrado ? mensajeParcialCerrado(activity?.parcial) : undefined}
+                              className="w-24 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface-card read-only:opacity-60 read-only:cursor-not-allowed"
                             />
                             <span className="text-sm text-muted">/ {p.ponderacion}</span>
                             {respuesta.puntosObtenidos == null && (
@@ -2373,11 +2417,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           <button
                             type="button"
                             onClick={() => saveGrade(p)}
-                            disabled={saving || !dirty || draft.puntos === ''}
+                            disabled={saving || !dirty || (!parcialCerrado && draft.puntos === '')}
                             className="w-full py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2"
                           >
                             {saving ? <Spinner size="sm" /> : null}
-                            {saving ? 'Guardando…' : 'Guardar puntos'}
+                            {saving ? 'Guardando…' : parcialCerrado ? 'Guardar comentario' : 'Guardar puntos'}
                           </button>
                         </div>
                       )
@@ -2480,11 +2524,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   </div>
                   <div className="w-px h-9 bg-outline-variant flex-shrink-0" />
                   <div className="flex flex-col gap-2 flex-shrink-0 -mr-3">
-                    <button type="button" onClick={() => setExtendMode(true)} aria-label="Modificar fecha de entrega" data-tooltip="Modificar fecha de entrega"
+                    <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setExtendMode(true) }} aria-label="Modificar fecha de entrega" data-tooltip="Modificar fecha de entrega"
                       className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors">
                       <CalendarDays size={17} />
                     </button>
-                    <button type="button" onClick={() => setCancelConfirm({ student: st, sub })} aria-label="Anular la entrega" data-tooltip="Anular la entrega"
+                    <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setCancelConfirm({ student: st, sub }) }} aria-label="Anular la entrega" data-tooltip="Anular la entrega"
                       className={`h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors ${done ? '' : 'invisible'}`}>
                       <Trash2 size={17} />
                     </button>
@@ -2500,7 +2544,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
                   {/* Anular la entrega actual */}
                   {done && (
-                    <button type="button" onClick={() => setCancelConfirm({ student: st, sub })}
+                    <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setCancelConfirm({ student: st, sub }) }}
                       className="w-full text-sm text-slate-500 hover:text-red-600 transition-colors py-1">
                       Anular la entrega actual para este estudiante
                     </button>
@@ -2508,7 +2552,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
                   {/* Modificar fecha de entrega para este estudiante */}
                   {!extendMode ? (
-                    <button type="button" onClick={() => setExtendMode(true)}
+                    <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setExtendMode(true) }}
                       className="w-full text-sm text-slate-500 hover:text-muted transition-colors py-1">
                       Modificar fecha de entrega para este estudiante
                     </button>

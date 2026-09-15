@@ -27,6 +27,7 @@ import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
 import useCreditosIA from '../hooks/useCreditosIA'
 import EFDateTimePicker from './EFDateTimePicker'
 import { formatDeadline, isActivityPublished, resolveVisibilidad, isDraftActivity } from '../utils/activityVisibility'
+import { mensajeParcialCerrado } from '../utils/ponderacion'
 import { minDeadline, isoLocalFromDate } from '../utils/nowIso'
 import { groupExtensions } from '../utils/extensiones'
 import { useBackHandler } from '../hooks/useBackHandler'
@@ -66,6 +67,7 @@ export default function EntregableEditor({
   extensiones,        // activity.extensiones — read-only display, never edited here
   extensionesMotivo,  // activity.extensionesMotivo — read-only display, never edited here
   onDeleteActivity,   // ActivityPage only: abre la confirmación de borrado — ausente al crear
+  parcialCerrado = false, // parcial cerrado definitivamente: no cambia nada que decida la calificación
 }) {
   const toast = useToast()
   // La actividad puede nacer DENTRO de este editor: "Generar con IA" necesita
@@ -242,6 +244,16 @@ export default function EntregableEditor({
     })
     if (!resolved.ok) { toast(resolved.error, 'error'); return }
     const { mode, oculta, publishAt: resolvedPublishAt, publishedAt: newPublishedAt } = resolved
+    // Parcial cerrado definitivamente: ni publicar un borrador ni regresar a
+    // borrador (cambia si cuenta), ni cambiar el instrumento de evaluación.
+    if (parcialCerrado && !isNew) {
+      const cuentaDespues = !(oculta && !newPublishedAt && !resolvedPublishAt)
+      const rubricaCambio = JSON.stringify(form.rubrica || null) !== JSON.stringify(initialForm?.rubrica || null)
+      if (cuentaDespues !== !wasDraft || rubricaCambio) {
+        toast(mensajeParcialCerrado(parcial), 'error')
+        return
+      }
+    }
 
     setSaving(true)
     // Id de la actividad guardada — lo espera "Generar con IA" para saber si

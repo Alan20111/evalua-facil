@@ -205,6 +205,18 @@ ve el cálculo tentativo siempre. `/api/subject/content` no le manda al
 alumno `pesoCalificacion` de un parcial sin publicar. Un parcial simple
 publica siempre. `ponderacionVisibleAlumnos` (el ojo global) ya no se usa.
 
+**Cerrado definitivamente = resultado congelado** (`parcialCerrado`). Solo ese
+estado congela; abierto y atención trabajan y corrigen normal. Con el parcial
+cerrado no cambian calificaciones, puntos de reactivos, pesos, ponderación, ni
+qué actividades cuentan (crear, borrar, publicar o regresar a borrador, "sin
+calificación", escala, rúbrica); el estudiante no entrega ni abre intentos. Sí
+se permite comentar, editar lo informativo, ocultar, reordenar, publicar
+resultados, asistencias, alta y baja de estudiantes. La protección vive en
+`firestore.rules` y en las Cloud Functions que califican (evaluaciones, juegos,
+IA), no solo en la pantalla. Única escritura de nota admitida: la nota
+automática de un alta tardía. Reabrir borra solo las notas automáticas que
+siguen siéndolo (`esNotaAutomaticaDeCierre`): un intento real nunca se pierde.
+
 ### Fechas límite y prórrogas
 
 `fechaLimite` con hora; `recibirTarde` decide si se aceptan entregas después

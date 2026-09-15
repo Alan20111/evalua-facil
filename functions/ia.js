@@ -41,7 +41,7 @@ const juegoFns = require('./juego')
 const { calcularSesionesReales } = require('./_shared/sesionesReales.js')
 const { fechasVacacionParaClases } = require('./_shared/vacaciones.js')
 const { parcialForDate } = require('./_shared/parciales.js')
-const { promedioParcial, normalizeGrade, ponderacionActivaEnParcial } = require('./_shared/ponderacion.js')
+const { promedioParcial, normalizeGrade, ponderacionActivaEnParcial, parcialCerrado, mensajeParcialCerrado } = require('./_shared/ponderacion.js')
 const { resolveVisibilidad } = require('./_shared/activityVisibility.js')
 const { EVALUACION_DEFAULTS } = require('./_shared/evaluacionDefaults.js')
 const { calcularTarifaExamen } = require('./_shared/tarifaExamen.js')
@@ -1298,6 +1298,16 @@ async function nombrePilaDeEstudiante(db, alumnoId) {
   }
 }
 
+// Parcial CERRADO DEFINITIVAMENTE = resultado congelado: ninguna operación de IA
+// califica, recalifica ni crea actividades ahí (Admin SDK no pasa por las reglas).
+async function exigirParcialNoCerrado(db, asignaturaId, parcial) {
+  if (!asignaturaId) return
+  const snap = await db.doc(`subjects/${asignaturaId}`).get()
+  if (snap.exists && parcialCerrado(snap.data(), parcial)) {
+    throw new HttpsError('failed-precondition', mensajeParcialCerrado(parcial), { codigo: 'PARCIAL_CERRADO' })
+  }
+}
+
 async function precheckCalificarEntregable({ uid, params }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
@@ -1310,6 +1320,7 @@ async function precheckCalificarEntregable({ uid, params }) {
   if (!actSnap.exists) throw new HttpsError('not-found', 'La actividad no existe')
   const act = actSnap.data()
   if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+  await exigirParcialNoCerrado(db, act.asignaturaId, act.parcial)
   if (PADRES_VALIDOS[act.categoria] !== 'entregable') {
     throw new HttpsError('failed-precondition', 'Solo un entregable con evidencia se puede calificar así.')
   }
@@ -1505,6 +1516,7 @@ async function precheckCalificarEntregableLote({ uid, params }) {
   if (!actSnap.exists) throw new HttpsError('not-found', 'La actividad no existe')
   const act = actSnap.data()
   if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+  await exigirParcialNoCerrado(db, act.asignaturaId, act.parcial)
   if (PADRES_VALIDOS[act.categoria] !== 'entregable') {
     throw new HttpsError('failed-precondition', 'Solo un entregable con evidencia se puede calificar así.')
   }
@@ -2871,6 +2883,9 @@ async function precheckCrearActividad({ uid, params, tarifas }) {
   const parcial = clampInt(params?.parcial, 1, 1, Number(subj.parciales) || 1)
   if (!Number.isInteger(params?.parcial) || params.parcial < 1 || params.parcial > (Number(subj.parciales) || 1)) {
     throw new HttpsError('invalid-argument', 'El parcial indicado no existe en esta asignatura')
+  }
+  if (parcialCerrado(subj, params.parcial)) {
+    throw new HttpsError('failed-precondition', mensajeParcialCerrado(params.parcial), { codigo: 'PARCIAL_CERRADO' })
   }
 
   const peticion = String(params?.peticion || '').trim().slice(0, MAX_PETICION_ACTIVIDAD)
@@ -5929,11 +5944,14 @@ async function precheckAccionChat({ uid, params, accionesEsperadas }) {
 const ACCIONES_ACTIVIDAD = ['CREAR_ACTIVIDAD_ENTREGABLE', 'CREAR_ACTIVIDAD_OBSERVACION']
 
 async function precheckChatCrearActividad({ uid, params }) {
-  return precheckAccionChat({ uid, params, accionesEsperadas: ACCIONES_ACTIVIDAD })
+  const ctx = await precheckAccionChat({ uid, params, accionesEsperadas: ACCIONES_ACTIVIDAD })
+  await exigirParcialNoCerrado(getFirestore(), ctx.subjectId, ctx.parcial)
+  return ctx
 }
 
 async function precheckChatCrearExamen({ uid, params }) {
   const ctx = await precheckAccionChat({ uid, params, accionesEsperadas: ['CREAR_EXAMEN'] })
+  await exigirParcialNoCerrado(getFirestore(), ctx.subjectId, ctx.parcial)
   // Tarifa DEFINITIVA por tramos de 10 reactivos (Kike, 18-ago-2026) — el
   // cliente nunca puede bajarla: `unidadesMinimas` la fija aquí, a partir
   // del número REAL de reactivos ya saneados, y ejecutarOperacionIA nunca

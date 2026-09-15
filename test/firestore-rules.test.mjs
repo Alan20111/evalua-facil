@@ -13,7 +13,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, collection, addDoc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { doc, collection, addDoc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, deleteField } from 'firebase/firestore'
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')
 
@@ -2334,6 +2334,206 @@ ok('F-05 · teacher CANNOT write publicProfiles of another teacher')
 // 12. Admin SÍ puede leer publicProfiles
 await assertSucceeds(getDoc(doc(asAdmin, 'publicProfiles', T1)))
 ok('F-05 · admin CAN read publicProfiles')
+
+// ═══ Parcial CERRADO DEFINITIVAMENTE = resultado académico congelado ══════════
+{
+  const U_CIERRE = 'authuid_cierre'
+  const HOY = new Date().toISOString()
+  const pub = { oculta: false, publishedAt: HOY }
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'subjects', 'S_CIERRE'), {
+      docenteId: T1, escuelaId: 'E1', parciales: 3, nombre: 'Materia',
+      ponderacionActivada: true, ponderacionParciales: { 1: true, 2: true, 3: false },
+      parcialesCerrados: { 1: HOY },
+    })
+    await setDoc(doc(db, 'activities', 'AC_1'), { docenteId: T1, asignaturaId: 'S_CIERRE', parcial: 1, tipo: 'archivo', categoria: 'entregable', maxCalif: 10, pesoCalificacion: 6, nombre: 'A', ...pub })
+    await setDoc(doc(db, 'activities', 'AC_2'), { docenteId: T1, asignaturaId: 'S_CIERRE', parcial: 1, tipo: 'archivo', categoria: 'entregable', maxCalif: 10, pesoCalificacion: 0, ...pub })
+    await setDoc(doc(db, 'activities', 'AC_EV'), { docenteId: T1, asignaturaId: 'S_CIERRE', parcial: 1, tipo: 'evaluacion', categoria: 'examen', maxCalif: 10, pesoCalificacion: 4, evaluacion: { intentosPermitidos: 3 }, ...pub })
+    await setDoc(doc(db, 'activities', 'AC_BORRADOR'), { docenteId: T1, asignaturaId: 'S_CIERRE', parcial: 1, tipo: 'archivo', oculta: true, publishedAt: null, publishAt: null })
+    await setDoc(doc(db, 'activities', 'AO_2'), { docenteId: T1, asignaturaId: 'S_CIERRE', parcial: 2, tipo: 'evaluacion', categoria: 'examen', maxCalif: 10, evaluacion: { intentosPermitidos: 3 }, ...pub })
+    await setDoc(doc(db, 'activities', 'AO_3'), { docenteId: T1, asignaturaId: 'S_CIERRE', parcial: 2, tipo: 'archivo', categoria: 'entregable', maxCalif: 10, ...pub })
+    await setDoc(doc(db, 'activities', 'AC_EV', 'preguntas', 'Q1'), { enunciado: 'x', ponderacion: 5 })
+    await setDoc(doc(db, 'activities', 'AO_2', 'preguntas', 'Q1'), { enunciado: 'x', ponderacion: 5 })
+    for (const [id, uid] of [['SC_ALU', U_CIERRE], ['SC_BAJA', null], ['SC_NUEVO', null]]) {
+      await setDoc(doc(db, 'students', id), { asignaturaId: 'S_CIERRE', escuelaId: 'E1', username: id, uid, activado: !!uid })
+    }
+    await setDoc(doc(db, 'submissions', 'AC_1_SC_ALU'), { alumnoId: 'SC_ALU', actividadId: 'AC_1', calificacion: 8, estado: 'calificado', comentario: '' })
+    await setDoc(doc(db, 'submissions', 'AC_EV_SC_ALU'), { alumnoId: 'SC_ALU', actividadId: 'AC_EV', calificacion: 7, estado: 'calificado', estadoEvaluacion: 'finalizado', intentoActual: 1, intentos: [{ numero: 1, calificacion: 7 }] })
+    await setDoc(doc(db, 'submissions', 'AO_2_SC_ALU'), { alumnoId: 'SC_ALU', actividadId: 'AO_2', calificacion: 6, estado: 'calificado', estadoEvaluacion: 'finalizado', intentoActual: 1, intentos: [{ numero: 1, calificacion: 6 }] })
+    await setDoc(doc(db, 'submissions', 'AC_1_SC_BAJA'), { alumnoId: 'SC_BAJA', actividadId: 'AC_1', calificacion: 5, estado: 'calificado', comentario: '', sinEntrega: true, cierreParcial: true })
+    await setDoc(doc(db, 'submissions', 'AC_EV_SC_ALU', 'respuestas', 'Q1'), { puntosObtenidos: 3 })
+  })
+  const docente = testEnv.authenticatedContext(T1).firestore()
+  const alumno = testEnv.authenticatedContext(U_CIERRE).firestore()
+
+  // Calificaciones
+  await assertFails(updateDoc(doc(docente, 'submissions', 'AC_1_SC_ALU'), { calificacion: 9 }))
+  ok('CIERRE · docente NO cambia una calificación de un parcial cerrado')
+  await assertSucceeds(updateDoc(doc(docente, 'submissions', 'AO_2_SC_ALU'), { calificacion: 9 }))
+  ok('CIERRE · docente SÍ cambia una calificación de un parcial no cerrado')
+  await assertSucceeds(updateDoc(doc(docente, 'submissions', 'AC_1_SC_ALU'), { comentario: 'Buen trabajo', comentarioVisibleAlumno: true }))
+  ok('CIERRE · docente SÍ edita solo el comentario con el parcial cerrado')
+  await assertFails(updateDoc(doc(docente, 'submissions', 'AC_1_SC_ALU'), { comentario: 'x', calificacion: 10 }))
+  ok('CIERRE · comentario y calificación juntos: rechazado')
+  await assertFails(updateDoc(doc(docente, 'submissions', 'AC_1_SC_BAJA'), { calificacion: 7 }))
+  ok('CIERRE · la nota automática de cierre tampoco se edita')
+  await assertFails(updateDoc(doc(docente, 'submissions', 'AC_1_SC_ALU'), { calificacion: deleteField() }))
+  ok('CIERRE · docente NO borra el valor de una calificación')
+  await assertFails(deleteDoc(doc(docente, 'submissions', 'AC_1_SC_ALU')))
+  ok('CIERRE · docente NO borra la entrega de un estudiante inscrito')
+
+  // Reactivos
+  await assertFails(setDoc(doc(docente, 'submissions', 'AC_EV_SC_ALU', 'respuestas', 'Q1'), { puntosObtenidos: 5 }, { merge: true }))
+  ok('CIERRE · docente NO cambia los puntos de un reactivo')
+  await assertSucceeds(setDoc(doc(docente, 'submissions', 'AC_EV_SC_ALU', 'respuestas', 'Q1'), { comentarioDocente: 'Revisa el paso 2' }, { merge: true }))
+  ok('CIERRE · docente SÍ comenta un reactivo')
+  await assertFails(setDoc(doc(docente, 'activities', 'AC_EV', 'preguntas', 'Q1'), { ponderacion: 9 }, { merge: true }))
+  ok('CIERRE · docente NO edita reactivos (puntos/clave) de una evaluación que cuenta')
+  await assertFails(setDoc(doc(docente, 'activities', 'AC_EV', 'clave', 'Q1'), { respuestaCorrecta: 'b' }))
+  ok('CIERRE · docente NO cambia la clave de respuestas')
+  await assertSucceeds(setDoc(doc(docente, 'activities', 'AO_2', 'preguntas', 'Q1'), { ponderacion: 9 }, { merge: true }))
+  ok('CIERRE · reactivos de un parcial no cerrado: sin cambios')
+
+  // Estudiante
+  await assertFails(updateDoc(doc(alumno, 'submissions', 'AC_EV_SC_ALU'), { estadoEvaluacion: 'en_progreso', intentoActual: 2, tiempoInicio: serverTimestamp() }))
+  ok('CIERRE · estudiante NO abre un intento nuevo (aunque la app no tenga el candado)')
+  await assertSucceeds(updateDoc(doc(alumno, 'submissions', 'AO_2_SC_ALU'), { estadoEvaluacion: 'en_progreso', intentoActual: 2, tiempoInicio: serverTimestamp() }))
+  ok('CIERRE · estudiante SÍ abre un intento nuevo en un parcial no cerrado')
+  await assertFails(setDoc(doc(alumno, 'submissions', 'AC_2_SC_ALU'), { alumnoId: 'SC_ALU', actividadId: 'AC_2', calificacion: null, estado: 'entregado' }))
+  ok('CIERRE · estudiante NO entrega en un parcial cerrado')
+  await assertSucceeds(setDoc(doc(alumno, 'submissions', 'AO_3_SC_ALU'), { alumnoId: 'SC_ALU', actividadId: 'AO_3', calificacion: null, estado: 'entregado' }))
+  ok('CIERRE · estudiante SÍ entrega en un parcial no cerrado')
+
+  // Alta tardía (backfillClosedParcialesFor): única escritura de nota admitida
+  const notaCierre = (actId, alumnoId, extra = {}) => ({ alumnoId, actividadId: actId, calificacion: 5, comentario: '', estado: 'calificado', sinEntrega: true, cierreParcial: true, fechaEntrega: serverTimestamp(), ...extra })
+  await assertSucceeds(setDoc(doc(docente, 'submissions', 'AC_2_SC_NUEVO'), notaCierre('AC_2', 'SC_NUEVO')))
+  ok('CIERRE · alta tardía: SÍ se crea la nota automática de cierre')
+  await assertFails(setDoc(doc(docente, 'submissions', 'AC_EV_SC_NUEVO'), { alumnoId: 'SC_NUEVO', actividadId: 'AC_EV', calificacion: 10, comentario: '', estado: 'calificado', sinEntrega: true }))
+  ok('CIERRE · sin la marca de cierre no se crea ninguna calificación')
+  await assertFails(setDoc(doc(docente, 'submissions', 'AC_EV_SC_NUEVO'), notaCierre('AC_EV', 'SC_NUEVO', { intentos: [{ numero: 1, calificacion: 10 }] })))
+  ok('CIERRE · la excepción no admite intentos ni campos extra')
+  await assertFails(setDoc(doc(docente, 'submissions', 'AC_2_SC_NUEVO'), notaCierre('AC_2', 'SC_NUEVO', { calificacion: 9 })))
+  ok('CIERRE · la excepción no pisa una nota que ya existe')
+
+  // Actividades
+  await assertFails(updateDoc(doc(docente, 'activities', 'AC_1'), { pesoCalificacion: 5 }))
+  ok('CIERRE · peso de una actividad: congelado')
+  await assertFails(updateDoc(doc(docente, 'activities', 'AC_1'), { maxCalif: 20 }))
+  ok('CIERRE · escala (maxCalif): congelada')
+  await assertFails(updateDoc(doc(docente, 'activities', 'AC_1'), { parcial: 2 }))
+  ok('CIERRE · no se mueve una actividad fuera del parcial cerrado')
+  await assertFails(updateDoc(doc(docente, 'activities', 'AO_3'), { parcial: 1 }))
+  ok('CIERRE · no se mete una actividad que cuenta al parcial cerrado')
+  await assertFails(updateDoc(doc(docente, 'activities', 'AC_1'), { oculta: true, publishedAt: null }))
+  ok('CIERRE · no se regresa a borrador')
+  await assertFails(updateDoc(doc(docente, 'activities', 'AC_BORRADOR'), { oculta: false, publishedAt: HOY }))
+  ok('CIERRE · no se publica un borrador (empezaría a contar)')
+  await assertFails(updateDoc(doc(docente, 'activities', 'AC_EV'), { evaluacion: { intentosPermitidos: 3, sinCalificacion: true } }))
+  ok('CIERRE · no se marca "sin calificación"')
+  await assertFails(updateDoc(doc(docente, 'activities', 'AC_1'), { rubrica: { criterios: [] } }))
+  ok('CIERRE · no se cambia el instrumento (rúbrica)')
+  await assertSucceeds(updateDoc(doc(docente, 'activities', 'AC_1'), { nombre: 'Nuevo nombre', instrucciones: '<p>x</p>', orden: 3 }))
+  ok('CIERRE · SÍ se editan nombre, instrucciones y orden')
+  await assertSucceeds(updateDoc(doc(docente, 'activities', 'AC_EV'), { evaluacion: { intentosPermitidos: 3, resultadosPublicados: true } }))
+  ok('CIERRE · SÍ se publican resultados de una evaluación')
+  await assertSucceeds(updateDoc(doc(docente, 'activities', 'AC_2'), { oculta: true }))
+  ok('CIERRE · SÍ se oculta una actividad (sigue publicada, sigue contando)')
+  await assertFails(deleteDoc(doc(docente, 'activities', 'AC_1')))
+  ok('CIERRE · no se elimina una actividad que cuenta')
+  await assertSucceeds(deleteDoc(doc(docente, 'activities', 'AC_BORRADOR')))
+  ok('CIERRE · SÍ se elimina un borrador (no cuenta)')
+  await assertFails(setDoc(doc(docente, 'activities', 'AC_NUEVA'), { docenteId: T1, asignaturaId: 'S_CIERRE', parcial: 1, tipo: 'archivo', ...pub }))
+  ok('CIERRE · no se crea una actividad que cuenta en el parcial cerrado')
+  await assertSucceeds(updateDoc(doc(docente, 'activities', 'AO_3'), { pesoCalificacion: 5 }))
+  ok('CIERRE · pesos de un parcial no cerrado: sin cambios')
+
+  // Asignatura
+  await assertFails(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { 'ponderacionParciales.1': false }))
+  ok('CIERRE · no se apaga la ponderación del parcial cerrado')
+  await assertFails(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { ponderacionActivada: false, ponderacionParciales: { 1: false, 2: false, 3: false } }))
+  ok('CIERRE · el botón global tampoco la apaga')
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { ponderacionActivada: true, ponderacionParciales: { 1: true, 2: false, 3: true } }))
+  ok('CIERRE · SÍ cambia la ponderación de los parciales no cerrados')
+  await assertFails(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { 'parcialesCerrados.1': deleteField() }))
+  ok('CIERRE · no se quita el cierre sin pasar a atención (nunca cerrado → abierto)')
+  await assertFails(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { parciales: 0 }))
+  ok('CIERRE · el parcial cerrado no puede desaparecer')
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { nombre: 'Materia renombrada' }))
+  ok('CIERRE · SÍ se edita la información de la asignatura')
+
+  // Eliminar estudiante (operación administrativa)
+  await assertSucceeds(deleteDoc(doc(docente, 'students', 'SC_BAJA')))
+  await assertSucceeds(deleteDoc(doc(docente, 'submissions', 'AC_1_SC_BAJA')))
+  ok('CIERRE · eliminar estudiante: primero su inscripción, después sus notas del parcial cerrado')
+
+  // Reabrir → corregir → volver a cerrar
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { 'parcialesCerrados.1': deleteField(), 'parcialesAtencion.1': HOY }))
+  ok('CIERRE · reabrir: cerrado → atención en una sola escritura')
+  await assertSucceeds(updateDoc(doc(docente, 'submissions', 'AC_1_SC_ALU'), { calificacion: 9 }))
+  await assertSucceeds(updateDoc(doc(docente, 'activities', 'AC_1'), { pesoCalificacion: 5 }))
+  await assertSucceeds(updateDoc(doc(alumno, 'submissions', 'AC_EV_SC_ALU'), { estadoEvaluacion: 'en_progreso', intentoActual: 2, tiempoInicio: serverTimestamp() }))
+  ok('CIERRE · en atención se corrige: calificación, peso e intento nuevo del estudiante')
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { 'parcialesCerrados.1': HOY }))
+  await assertFails(updateDoc(doc(docente, 'submissions', 'AC_1_SC_ALU'), { calificacion: 4 }))
+  ok('CIERRE · al volver a cerrar, vuelve a quedar congelado')
+
+  // ── Límites de lectura de las reglas con lotes grandes ─────────────────────
+  const N_ACT = 25
+  const N_ALU = 16
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'subjects', 'S_GRANDE'), { docenteId: T1, escuelaId: 'E1', parciales: 3 })
+    for (let i = 0; i < N_ACT; i++) {
+      await setDoc(doc(db, 'activities', `AG_${i}`), { docenteId: T1, asignaturaId: 'S_GRANDE', parcial: 1, tipo: 'archivo', maxCalif: 10, orden: i, ...pub })
+    }
+    for (let j = 0; j < N_ALU; j++) {
+      await setDoc(doc(db, 'students', `SG_${j}`), { asignaturaId: 'S_GRANDE', escuelaId: 'E1', username: `SG${j}`, uid: null })
+    }
+  })
+  // Cierre (confirmCloseParcial): un lote por actividad.
+  for (let i = 0; i < N_ACT; i++) {
+    const batch = writeBatch(docente)
+    for (let j = 0; j < N_ALU; j++) {
+      batch.set(doc(docente, 'submissions', `AG_${i}_SG_${j}`), { alumnoId: `SG_${j}`, actividadId: `AG_${i}`, calificacion: 5, comentario: '', estado: 'calificado', sinEntrega: true, cierreParcial: true, fechaEntrega: serverTimestamp() })
+    }
+    await assertSucceeds(batch.commit())
+  }
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_GRANDE'), { 'parcialesCerrados.1': HOY }))
+  ok(`LÍMITES · cerrar ${N_ACT} actividades × ${N_ALU} estudiantes en lotes por actividad`)
+  // Reordenar todas las actividades del parcial cerrado en un solo lote.
+  const reorden = writeBatch(docente)
+  for (let i = 0; i < N_ACT; i++) reorden.update(doc(docente, 'activities', `AG_${i}`), { orden: N_ACT - i })
+  await assertSucceeds(reorden.commit())
+  ok(`LÍMITES · reordenar ${N_ACT} actividades del parcial cerrado en un lote`)
+  // Alta tardía con el parcial cerrado: un lote por actividad.
+  await testEnv.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'students', 'SG_TARDE'), { asignaturaId: 'S_GRANDE', escuelaId: 'E1', username: 'SGT', uid: null }))
+  for (let i = 0; i < N_ACT; i++) {
+    const batch = writeBatch(docente)
+    batch.set(doc(docente, 'submissions', `AG_${i}_SG_TARDE`), { alumnoId: 'SG_TARDE', actividadId: `AG_${i}`, calificacion: 5, comentario: '', estado: 'calificado', sinEntrega: true, cierreParcial: true, fechaEntrega: serverTimestamp() })
+    await assertSucceeds(batch.commit())
+  }
+  ok(`LÍMITES · alta tardía en parcial cerrado: ${N_ACT} notas automáticas`)
+  // Eliminar estudiante con el parcial cerrado: su inscripción y luego sus
+  // notas de todas las actividades, en lotes de 5 (deleteSubmissionsByStudent).
+  // Un lote que mezcla muchas actividades rebasa el límite de lecturas desde
+  // antes de este cambio (medido: con las reglas previas, 12 ya no pasaba).
+  await assertSucceeds(deleteDoc(doc(docente, 'students', 'SG_0')))
+  for (let i = 0; i < N_ACT; i += 5) {
+    const b = writeBatch(docente)
+    for (let k = i; k < Math.min(i + 5, N_ACT); k++) b.delete(doc(docente, 'submissions', `AG_${k}_SG_0`))
+    await assertSucceeds(b.commit())
+  }
+  ok(`LÍMITES · eliminar estudiante con el parcial cerrado: ${N_ACT} notas en lotes de 5`)
+  // Reabrir y revertir las notas automáticas: un lote por actividad.
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_GRANDE'), { 'parcialesCerrados.1': deleteField(), 'parcialesAtencion.1': HOY }))
+  for (let i = 0; i < N_ACT; i++) {
+    const batch = writeBatch(docente)
+    for (let j = 1; j < N_ALU; j++) batch.delete(doc(docente, 'submissions', `AG_${i}_SG_${j}`))
+    await assertSucceeds(batch.commit())
+  }
+  ok(`LÍMITES · reabrir y revertir ${N_ACT * (N_ALU - 1)} notas automáticas en lotes por actividad`)
+}
 
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

@@ -13,6 +13,7 @@ import RichTextEditor from './RichTextEditor'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, toRichHtml, htmlToPlainText, richTextContentClass } from '../utils/sanitizeHtml'
 import { repartirPonderacionParejo } from '../utils/evaluacionGrading'
+import { parcialCerrado as esParcialCerrado, mensajeParcialCerrado } from '../utils/ponderacion'
 import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy, Scale, CheckSquare, Square,
   Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight, ChevronUp, ChevronDown, FolderOpen, Sparkles,
@@ -171,6 +172,14 @@ export default function EvaluacionEditor({
   onDeleteActivity,   // EvaluacionManager only: abre la confirmación de borrado — ausente al crear
 }) {
   const toast = useToast()
+  // Parcial cerrado definitivamente: la evaluación queda congelada en todo lo
+  // que decide su calificación (reactivos, puntos, clave, si cuenta).
+  const cerrado = esParcialCerrado(subject, parcial)
+  function bloqueadoPorCierre() {
+    if (!cerrado) return false
+    toast(mensajeParcialCerrado(parcial), 'error')
+    return true
+  }
   // This component is only mounted while open — same close path as its own
   // "Volver" button.
   useBackHandler(onClose, true)
@@ -393,6 +402,9 @@ export default function EvaluacionEditor({
     })
     if (!resolved.ok) { toast(resolved.error, 'error'); return }
     const { mode, oculta, publishAt: resolvedPublishAt, publishedAt: newPublishedAt } = resolved
+    // Publicar un borrador o regresar a borrador cambia si cuenta.
+    const cuentaDespues = !(oculta && !newPublishedAt && !resolvedPublishAt)
+    if (cerrado && currentActivityId && cuentaDespues !== !wasDraft) { bloqueadoPorCierre(); return }
 
     setSavingInfo(true)
     try {
@@ -462,6 +474,11 @@ export default function EvaluacionEditor({
   async function handleSaveConfig(e) {
     e.preventDefault()
     if (!currentActivityId) { toast('Guarda la información general primero', 'error'); return }
+    // "Sin calificación" decide si la evaluación cuenta: congelado con el parcial cerrado.
+    if (cerrado && !!configForm.sinCalificacion !== !!JSON.parse(configSnap.current || '{}').sinCalificacion) {
+      bloqueadoPorCierre()
+      return
+    }
     // Anything scheduled for a specific date must be in the future
     if (configForm.publicarResultados === 'fecha') {
       if (!configForm.publicarResultadosFecha) { toast('Elige la fecha de publicación de resultados', 'error'); return }
@@ -554,6 +571,7 @@ export default function EvaluacionEditor({
 
   async function handleAddPregunta(e) {
     e.preventDefault()
+    if (bloqueadoPorCierre()) return
     if (!currentActivityId) { toast('Guarda la información antes de agregar preguntas', 'error'); return }
     if (!validatePregunta(preguntaForm)) return
     const nueva = parseFloat(preguntaForm.ponderacion) || 1
@@ -621,6 +639,7 @@ export default function EvaluacionEditor({
 
   async function handleSavePreguntaEdit(e, id) {
     e.preventDefault()
+    if (bloqueadoPorCierre()) return
     if (!validatePregunta(preguntaEditForm)) return
     const otrasPonderacion = preguntas.filter((p) => p.id !== id).reduce((s, p) => s + (parseFloat(p.ponderacion) || 0), 0)
     const nueva = parseFloat(preguntaEditForm.ponderacion) || 1
@@ -666,6 +685,7 @@ export default function EvaluacionEditor({
   // suelto): con las flechas nunca cambia de sección — para eso está el
   // selector de sección de su formulario.
   async function handleMovePregunta(id, direction) {
+    if (bloqueadoPorCierre()) return
     const actual = preguntas.find((p) => p.id === id)
     const hermanas = preguntas
       .filter((p) => (p.seccionId || null) === (actual?.seccionId || null))
@@ -691,6 +711,7 @@ export default function EvaluacionEditor({
   }
 
   async function handleDeletePregunta(id) {
+    if (bloqueadoPorCierre()) return
     if (!confirm('¿Eliminar esta pregunta?')) return
     // Se lleva también su clave: si se quedara, sería un huérfano invisible.
     await borrarPregunta(currentActivityId, id)
@@ -701,6 +722,7 @@ export default function EvaluacionEditor({
   }
 
   async function handleDuplicatePregunta(p) {
+    if (bloqueadoPorCierre()) return
     const orden = siguienteOrden(preguntas, p.seccionId || null)
     const data = { ...p, enunciado: `${p.enunciado} (copia)`, orden, origenBancoId: null }
     delete data.id
@@ -713,6 +735,7 @@ export default function EvaluacionEditor({
   }
 
   async function handleAddFromBanco(item) {
+    if (bloqueadoPorCierre()) return
     if (!currentActivityId) { toast('Guarda la información antes de agregar preguntas', 'error'); return }
     const orden = siguienteOrden(preguntas, seccionDestino)
     const data = { tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
@@ -729,7 +752,7 @@ export default function EvaluacionEditor({
   // Agregar varias reactivos del banco de un jalón (pedido explícito) — un
   // solo writeBatch en vez de un addDoc por pregunta.
   async function handleAddFromBancoMultiple(items) {
-    if (!currentActivityId || !items.length) return
+    if (!currentActivityId || !items.length || bloqueadoPorCierre()) return
     setSavingPregunta(true)
     try {
       let orden = siguienteOrden(preguntas, seccionDestino)
@@ -767,6 +790,7 @@ export default function EvaluacionEditor({
   }
 
   async function generarReactivosConIA() {
+    if (bloqueadoPorCierre()) return
     // Defensa: la validación real vive en el disabled del botón (ver más abajo),
     // pero si alguna ruta se cuela sin selección, se detiene aquí sin gastar
     // créditos — el precheck del servidor también la rechaza.
@@ -814,7 +838,7 @@ export default function EvaluacionEditor({
   // clave (crearPreguntasEnLote) que "Agregar desde el Banco" — la IA nunca
   // guarda nada por su cuenta, esto solo corre cuando el docente confirma.
   async function handleGuardarReactivosIA(items) {
-    if (!currentActivityId || !items.length) return
+    if (!currentActivityId || !items.length || bloqueadoPorCierre()) return
     try {
       let orden = siguienteOrden(preguntas, seccionDestino)
       const lista = items.map((r) => {
@@ -856,7 +880,7 @@ export default function EvaluacionEditor({
   // las preguntas existentes en partes iguales, en vez de tener que calcular
   // y escribir la ponderación de cada una a mano.
   async function handleRepartirParejo() {
-    if (!preguntas.length) return
+    if (!preguntas.length || bloqueadoPorCierre()) return
     const values = repartirPonderacionParejo(preguntas.length)
     setSavingPregunta(true)
     try {
@@ -1130,7 +1154,7 @@ export default function EvaluacionEditor({
                   })()}
                   {/* Evaluación publicada: prorrogar la fecha para todo el grupo o
                       para estudiantes específicos — mismo modal que un entregable. */}
-                  {!isNew && infoForm.publishedAt && (
+                  {!isNew && infoForm.publishedAt && !cerrado && (
                     <button
                       type="button"
                       onClick={() => setNewDateOpen(true)}

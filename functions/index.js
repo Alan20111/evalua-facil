@@ -685,6 +685,15 @@ const { resolverCalificacionFinal } = require('./calificacionIntentos')
 // escritura de esta función, ediciones del docente, notificaciones) ve el
 // intento ya registrado y se retira. La transacción relee el doc EN VIVO
 // (mismo patrón anti-ráfagas que onSubmissionEntregada).
+// Parcial CERRADO DEFINITIVAMENTE = resultado congelado. Las reglas ya no dejan
+// abrir ni terminar intentos ahí, pero estos triggers corren con Admin SDK: si
+// un intento finalizado llega de todos modos, no se escribe ninguna calificación.
+async function actividadEnParcialCerrado(act) {
+  if (!act?.asignaturaId) return false
+  const snap = await db.collection('subjects').doc(act.asignaturaId).get()
+  return snap.exists && parcialCerrado(snap.data(), act.parcial)
+}
+
 exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}', async (event) => {
   const after = event.data?.after
   if (!after?.exists) return // borrada
@@ -696,6 +705,10 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   const actSnap = await db.collection('activities').doc(sub.actividadId).get()
   if (!actSnap.exists || actSnap.data().tipo !== 'evaluacion') return
   const act = actSnap.data()
+  if (await actividadEnParcialCerrado(act)) {
+    logger.warn(`onEvaluacionFinalizada(${event.params.submissionId}): Parcial ${act.parcial} cerrado definitivamente — el intento ${intentoNum} no se califica`)
+    return
+  }
 
   // La clave de respuestas vive APARTE del reactivo desde A08: el alumno lee
   // `preguntas` para contestar, y `clave` solo la abre el docente dueño (las
@@ -826,7 +839,7 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
 // propia `calificacion` (las reglas se lo bloquean); este trigger, con Admin
 // SDK, es quien la calcula contra `juego.estructura` (fuente de verdad
 // server-side, normalizada) y la escribe.
-const { normalizeGrade } = require('./_shared/ponderacion.js')
+const { normalizeGrade, parcialCerrado } = require('./_shared/ponderacion.js')
 const { normalizarPalabra } = require('./_shared/normalizarPalabra.js')
 const { estadoAsistencia, resumenAsistencia, fechaHoyMexico } = require('./_shared/asistenciaResumen.js')
 const { calcularSesionesReales } = require('./_shared/sesionesReales.js')
@@ -871,6 +884,10 @@ exports.onJuegoFinalizado = onDocumentWritten('submissions/{submissionId}', asyn
   const actSnap = await db.collection('activities').doc(sub.actividadId).get()
   if (!actSnap.exists || actSnap.data().categoria !== 'juego') return
   const act = actSnap.data()
+  if (await actividadEnParcialCerrado(act)) {
+    logger.warn(`onJuegoFinalizado(${event.params.submissionId}): Parcial ${act.parcial} cerrado definitivamente — el intento ${intentoNum} no se califica`)
+    return
+  }
   const publica = act.juego?.estructura
   if (!publica) return // no debería poder entregarse sin estructura, pero por si acaso no truena
 

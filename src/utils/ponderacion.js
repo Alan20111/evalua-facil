@@ -89,6 +89,31 @@ export function estadoParcial(subject, parcial) {
   return 'abierto'
 }
 
+// Cerrado definitivamente = resultado académico congelado. SOLO este estado
+// congela: abierto y atención de inquietudes permiten trabajar y corregir. Es
+// el predicado que usan las pantallas (docente y estudiante) y las Cloud
+// Functions (vía functions/_shared); firestore.rules repite la misma lectura de
+// `parcialesCerrados` porque ahí no se puede importar.
+export function parcialCerrado(subject, parcial) {
+  return estadoParcial(subject, parcial) === 'cerrado'
+}
+
+export function mensajeParcialCerrado(parcial) {
+  return `El Parcial ${parcial} está cerrado definitivamente — reábrelo para atención de inquietudes para cambiarlo`
+}
+
+// Una nota automática de cierre (la que confirmCloseParcial pone a quien no
+// entregó) que SIGUE siendo solo eso: marcada, sin entrega y sin ningún rastro
+// de trabajo real del estudiante. Si el documento ya trae un intento, archivos
+// o progreso de juego, dejó de ser automática aunque conserve la marca — y
+// reabrir el parcial nunca debe borrarla.
+export function esNotaAutomaticaDeCierre(sub) {
+  return sub?.cierreParcial === true && sub?.sinEntrega === true &&
+    !(sub.intentos?.length) && !sub.estadoEvaluacion && !sub.intentoActual &&
+    !(sub.archivos?.length) && !sub.archivoURL && !sub.completadoSinArchivo &&
+    !sub.respuestasJuego
+}
+
 export function actividadesQueCuentan(activities, parcial) {
   return (activities || []).filter((a) => a.parcial === parcial && cuentaParaCalificacion(a))
 }
