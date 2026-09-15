@@ -31,6 +31,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { logger } = require('firebase-functions')
+const { parcialCerrado, mensajeParcialCerrado } = require('./_shared/ponderacion.js')
 
 // Espejo mínimo de esCotejo/totalRubrica (src/utils/rubrica.js, también
 // duplicado en ia.js) — no vale la pena acoplar este archivo a ia.js por dos
@@ -80,6 +81,11 @@ async function aplicarEvaluacionesIAPendientesImpl(request) {
   const db = getFirestore()
   const actividadId = String(request.data?.actividadId || '')
   const act = await verificarActividadDocente(db, uid, actividadId)
+  // Parcial cerrado definitivamente: su resultado está congelado.
+  const subjSnap = act.asignaturaId ? await db.doc(`subjects/${act.asignaturaId}`).get() : null
+  if (subjSnap?.exists && parcialCerrado(subjSnap.data(), act.parcial)) {
+    throw new HttpsError('failed-precondition', mensajeParcialCerrado(act.parcial), { codigo: 'PARCIAL_CERRADO' })
+  }
   const rubrica = act.rubrica
 
   // where('estado','==','pendiente') es la única fuente — una sugerencia ya
@@ -235,6 +241,7 @@ async function confirmarChatAplicarEvaluacionesIAImpl(request) {
   // propuso (regla 5 del pedido: si cambió el número de pendientes entre la
   // propuesta y la confirmación, se aplica lo que de verdad sigue pendiente
   // en este momento, nunca lo que se mencionó antes).
+  const subjConfirmado = (await db.doc(`subjects/${subjectId}`).get()).data() || null
   const actsSnap = await db.collection('activities')
     .where('asignaturaId', '==', subjectId).where('categoria', '==', 'entregable').get()
 
@@ -247,6 +254,13 @@ async function confirmarChatAplicarEvaluacionesIAImpl(request) {
     const pendSnap = await db.collection(`activities/${actDoc.id}/iaSugerenciasEntregable`)
       .where('estado', '==', 'pendiente').get()
     if (pendSnap.empty) continue // nada pendiente en esta actividad — no se toca
+    // Parcial cerrado definitivamente: esas propuestas se quedan pendientes
+    // hasta que el docente lo reabra para atención de inquietudes.
+    if (subjConfirmado && parcialCerrado(subjConfirmado, actDoc.data().parcial)) {
+      noAplicadas += pendSnap.size
+      motivos.push({ actividadId: actDoc.id, motivo: mensajeParcialCerrado(actDoc.data().parcial) })
+      continue
+    }
 
     // Reutiliza TAL CUAL la función existente, con la misma forma de
     // `request` que ya espera (uid + actividadId) — mismos candados de

@@ -253,6 +253,112 @@ service cloud.firestore {
         calificacionEnRango(actId);
     }
 
+    // ── Parcial CERRADO DEFINITIVAMENTE = resultado académico congelado ──────
+    //
+    // Solo el estado "cerrado" congela (subjects.parcialesCerrados[p]); abierto
+    // y atención de inquietudes trabajan igual que siempre. Misma lectura que
+    // estadoParcial/parcialCerrado en src/utils/ponderacion.js — aquí no se
+    // puede importar. Las Cloud Functions (Admin SDK) no pasan por estas reglas
+    // y llevan su propio candado (functions/index.js, ia.js, calificarAplicar.js).
+    function mapaDe(d, campo) {
+      return d.get(campo, {}) is map ? d.get(campo, {}) : {};
+    }
+
+    function cerradoEnDoc(subj, parcial) {
+      return mapaDe(subj, 'parcialesCerrados').get(string(parcial), null) != null;
+    }
+
+    function parcialCerradoEn(asigId, parcial) {
+      return asigId is string && asigId != '' &&
+        exists(/databases/$(database)/documents/subjects/$(asigId)) &&
+        cerradoEnDoc(get(/databases/$(database)/documents/subjects/$(asigId)).data, parcial);
+    }
+
+    function actividadEnParcialCerrado(actId) {
+      return exists(/databases/$(database)/documents/activities/$(actId)) &&
+        parcialCerradoEn(
+          get(/databases/$(database)/documents/activities/$(actId)).data.get('asignaturaId', ''),
+          get(/databases/$(database)/documents/activities/$(actId)).data.get('parcial', 0));
+    }
+
+    function vacio(v) {
+      return v == null || v == '';
+    }
+
+    // ¿Cuenta para la calificación? Espejo de cuentaParaCalificacion
+    // (src/utils/activityVisibility.js): no es borrador ni "sin calificación".
+    function actividadCuenta(d) {
+      return !(d.get('oculta', false) == true && vacio(d.get('publishedAt', null)) && vacio(d.get('publishAt', null))) &&
+        d.get('sinCalificacion', false) != true &&
+        !(d.get('evaluacion', null) is map && d.get('evaluacion', {}).get('sinCalificacion', false) == true);
+    }
+
+    // Reactivos, puntos y clave de una evaluación que cuenta en un parcial cerrado.
+    function reactivosCongelados(actId) {
+      return actividadCuenta(get(/databases/$(database)/documents/activities/$(actId)).data) &&
+        actividadEnParcialCerrado(actId);
+    }
+
+    // La única calificación que se admite escribir en un parcial cerrado: la
+    // nota automática de cierre de un estudiante dado de alta DESPUÉS de cerrar
+    // (backfillClosedParcialesFor en SubjectPage.jsx). Solo como documento
+    // NUEVO (se usa en `create`), con exactamente los campos de ese flujo y sin
+    // intentos ni evidencia: no puede pisar ni simular trabajo real.
+    function notaAutomaticaDeCierre() {
+      return request.resource.data.keys().hasOnly(['alumnoId', 'actividadId', 'calificacion', 'comentario', 'estado', 'sinEntrega', 'cierreParcial', 'fechaEntrega']) &&
+        request.resource.data.get('cierreParcial', false) == true &&
+        request.resource.data.get('sinEntrega', false) == true &&
+        request.resource.data.get('estado', '') == 'calificado' &&
+        request.resource.data.get('calificacion', null) is number &&
+        request.resource.data.get('comentario', '') == '';
+    }
+
+    // Con el parcial cerrado el docente sí puede escribir su comentario: no
+    // cambia la calificación.
+    function soloComentarioDocente() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['comentario', 'comentarioVisibleAlumno']);
+    }
+
+    // Actividades: con su parcial cerrado no cambia nada de lo que decide la
+    // calificación — a qué parcial pertenece, su peso, su escala, su
+    // instrumento, ni si cuenta (borrador / "sin calificación"). Lo informativo
+    // (nombre, instrucciones, archivos, ocultar, orden, fechas) sigue libre:
+    // los intentos y entregas los frena `submissions`.
+    function actividadCerradaIntacta() {
+      return (
+        !parcialCerradoEn(resource.data.get('asignaturaId', ''), resource.data.get('parcial', 0)) &&
+        !(actividadCuenta(request.resource.data) &&
+          parcialCerradoEn(request.resource.data.get('asignaturaId', ''), request.resource.data.get('parcial', 0)))
+      ) || (
+        parcialCerradoEn(resource.data.get('asignaturaId', ''), resource.data.get('parcial', 0)) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['parcial', 'asignaturaId', 'pesoCalificacion', 'maxCalif', 'rubrica']) &&
+        actividadCuenta(resource.data) == actividadCuenta(request.resource.data)
+      );
+    }
+
+    // Asignatura: un parcial cerrado solo deja de estarlo pasando a atención de
+    // inquietudes en la MISMA escritura ("Reabrir"), y mientras siga cerrado no
+    // cambia su ponderación efectiva ni desaparece. A lo sumo 6 parciales
+    // (Dashboard.jsx), así que se revisan uno por uno.
+    function pondEfectiva(d, k) {
+      return mapaDe(d, 'ponderacionParciales').get(k, d.get('ponderacionActivada', false)) == true;
+    }
+
+    function cierreRespetado(k) {
+      return !cerradoEnDoc(resource.data, k) || (
+        (cerradoEnDoc(request.resource.data, k) || mapaDe(request.resource.data, 'parcialesAtencion').get(k, null) != null) &&
+        pondEfectiva(resource.data, k) == pondEfectiva(request.resource.data, k) &&
+        request.resource.data.get('parciales', 3) >= int(k)
+      );
+    }
+
+    function cierresRespetados() {
+      return cierreRespetado('1') && cierreRespetado('2') && cierreRespetado('3') &&
+        cierreRespetado('4') && cierreRespetado('5') && cierreRespetado('6');
+    }
+
     // ── A08 · El alumno no maneja la máquina de estados de su examen ────────
     //
     // Blindar `calificacion` no basta, y esto no era evidente: el alumno no
@@ -502,7 +608,10 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.docenteId &&
         traeEscuela(request.resource.data);
       allow update, delete: if isDocente() &&
-        request.auth.uid == resource.data.docenteId;
+        request.auth.uid == resource.data.docenteId &&
+        // Un parcial cerrado definitivamente solo se reabre a atención de
+        // inquietudes, y mientras siga cerrado su ponderación no cambia.
+        (request.method == 'delete' || cierresRespetados());
 
       // Diagnóstico del grupo — Asistente IA (FASE 2-BIS del Plan Maestro de
       // IA). Bitácora de generaciones, mismo patrón que activities/analisisIA:
@@ -565,9 +674,12 @@ service cloud.firestore {
       // F-09: ya no lectura abierta — el alumno usa /api/subject/content.
       allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
       // Create only within a subject you own, attributed to yourself.
+      // Nunca una actividad que cuente dentro de un parcial cerrado definitivamente.
       allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId &&
-        ownsSubject(request.resource.data.asignaturaId);
+        ownsSubject(request.resource.data.asignaturaId) &&
+        !(actividadCuenta(request.resource.data) &&
+          parcialCerradoEn(request.resource.data.get('asignaturaId', ''), request.resource.data.get('parcial', 0)));
       allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId &&
         // Crucigrama / Sopa de letras (22-ago-2026): no se puede publicar
@@ -591,7 +703,13 @@ service cloud.firestore {
           resource.data.get('categoria', null) != 'juego' ||
           request.resource.data.oculta != false ||
           resource.data.oculta == false ||
-          resource.data.juego.estado == 'juego_confirmado');
+          resource.data.juego.estado == 'juego_confirmado') &&
+        // Parcial cerrado definitivamente: no se borra una actividad que cuenta
+        // y no cambia nada de lo que decide la calificación.
+        (request.method == 'delete'
+          ? !(actividadCuenta(resource.data) &&
+              parcialCerradoEn(resource.data.get('asignaturaId', ''), resource.data.get('parcial', 0)))
+          : actividadCerradaIntacta());
 
       // Reactivos de una evaluación. Los lee cualquier cuenta autenticada
       // porque el alumno los necesita para contestar; los escribe solo el
@@ -614,7 +732,8 @@ service cloud.firestore {
           get(/databases/$(database)/documents/activities/$(activityId)).data.get('categoria', null) == 'juego'
         );
         allow write: if isDocente() &&
-          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId &&
+          !reactivosCongelados(activityId);
       }
 
       // La clave de respuestas, aparte y SOLO para el docente dueño. Es lo que
@@ -627,8 +746,11 @@ service cloud.firestore {
       //
       // La califica el Admin SDK, que no pasa por estas reglas.
       match /clave/{preguntaId} {
-        allow read, write: if isDocente() &&
+        allow read: if isDocente() &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow write: if isDocente() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId &&
+          !reactivosCongelados(activityId);
       }
 
       // Sugerencias de calificación de C-02 (piloto IA). Las CREA únicamente
@@ -892,31 +1014,43 @@ service cloud.firestore {
           enrollmentMatchesActivity(request.resource.data.alumnoId, request.resource.data.actividadId) &&
           request.resource.data.get('calificacion', null) == null &&
           request.resource.data.get('estado', '') != 'calificado' &&
-          !actividadVencidaParaAlumno(request.resource.data.actividadId, request.resource.data.alumnoId)
+          !actividadVencidaParaAlumno(request.resource.data.actividadId, request.resource.data.alumnoId) &&
+          // Parcial cerrado definitivamente: ni entregas ni intentos nuevos.
+          !actividadEnParcialCerrado(request.resource.data.actividadId)
         ) ||
         (
           isDocente() &&
           ownsActivity(request.resource.data.actividadId) &&
-          calificacionEnRango(request.resource.data.actividadId)
+          calificacionEnRango(request.resource.data.actividadId) &&
+          (!actividadEnParcialCerrado(request.resource.data.actividadId) || notaAutomaticaDeCierre())
         )
       );
       allow update: if request.auth != null && (
         (
           ownsStudentDoc(resource.data.alumnoId) &&
           studentNoTocaCalificacion() &&
-          studentNoManipulaIntento()
+          studentNoManipulaIntento() &&
+          // Parcial cerrado: ni abrir ni terminar intentos, ni cambiar entregas
+          // (una app vieja sin el candado de la pantalla tampoco).
+          !actividadEnParcialCerrado(resource.data.actividadId)
         ) ||
         (
           isDocente() &&
           ownsActivity(resource.data.actividadId) &&
-          calificacionEnRangoSiCambia(resource.data.actividadId)
+          calificacionEnRangoSiCambia(resource.data.actividadId) &&
+          (!actividadEnParcialCerrado(resource.data.actividadId) || soloComentarioDocente())
         )
       );
       // Borrar una submission borra su nota — eso es manipulación de
       // calificaciones si lo hace el alumno (ningún flujo del alumno borra
       // submissions). Solo el docente dueño de la actividad.
+      // Parcial cerrado definitivamente: sus calificaciones no se borran, salvo
+      // las de un estudiante que ya se dio de baja (eliminar estudiante borra
+      // primero su inscripción y después sus entregas).
       allow delete: if isDocente() &&
-        ownsActivity(resource.data.actividadId);
+        ownsActivity(resource.data.actividadId) &&
+        (!actividadEnParcialCerrado(resource.data.actividadId) ||
+          !exists(/databases/$(database)/documents/students/$(resource.data.alumnoId)));
 
       // Evaluación answers (autosave + teacher revision). Only the student who
       // owns the parent submission, or the teacher who owns the parent activity,
@@ -942,7 +1076,18 @@ service cloud.firestore {
           (
             isDocente() &&
             exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
-            ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId)
+            ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId) &&
+            // Parcial cerrado: el docente comenta, pero no cambia puntos ni borra.
+            (
+              !actividadEnParcialCerrado(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId) ||
+              (
+                request.resource != null && (
+                  resource == null
+                    ? !request.resource.data.keys().hasAny(['puntosObtenidos'])
+                    : !request.resource.data.diff(resource.data).affectedKeys().hasAny(['puntosObtenidos'])
+                )
+              )
+            )
           ) || (
             exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
             ownsStudentDoc(get(/databases/$(database)/documents/submissions/$(submissionId)).data.alumnoId) &&

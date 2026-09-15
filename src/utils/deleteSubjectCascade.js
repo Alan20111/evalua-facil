@@ -1,8 +1,8 @@
 import {
-  collection, query, where, getDocs, doc,
+  collection, query, where, getDocs, getDoc, doc, deleteField,
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
-import { deleteDoc, writeBatch } from './firestoreGuard'
+import { deleteDoc, updateDoc, writeBatch } from './firestoreGuard'
 import { db, auth } from '../firebase'
 import { apiUrl } from './apiBase'
 
@@ -21,6 +21,23 @@ async function fetchSubmissionsForActivities(actIds) {
 }
 
 // Deletes in writeBatch chunks of ≤500 ops to stay within Firestore limits.
+// Las reglas de `submissions` leen, por cada borrado, la actividad y su
+// asignatura, y un lote no puede consultar más de 20 documentos distintos
+// (medido en el emulador: con actividades mezcladas, un lote de 9 entregas ya
+// no pasa). Por eso las entregas se borran agrupadas por actividad, y las de un
+// solo estudiante —una por actividad— en lotes chicos.
+const LOTE_ENTREGAS_MEZCLADAS = 5
+
+async function borrarEntregasPorActividad(subDocs) {
+  const porActividad = new Map()
+  subDocs.forEach((d) => {
+    const actId = d.data().actividadId
+    if (!porActividad.has(actId)) porActividad.set(actId, [])
+    porActividad.get(actId).push(doc(db, 'submissions', d.id))
+  })
+  for (const refs of porActividad.values()) await batchDeleteDocs(refs)
+}
+
 async function batchDeleteDocs(refs) {
   const LIMIT = 490
   for (let i = 0; i < refs.length; i += LIMIT) {
@@ -61,6 +78,24 @@ async function deleteSubjectResourcesAndFiles(subjectId) {
   }
 }
 
+// Un parcial CERRADO DEFINITIVAMENTE no deja borrar sus calificaciones ni sus
+// actividades (firestore.rules). Las dos operaciones administrativas que sí
+// deben poder hacerlo —eliminar la asignatura y "empezar de cero" al
+// desarchivar— primero pasan cada parcial cerrado a atención de inquietudes:
+// la misma transición que "Reabrir" (cerrado → atención, una sola escritura).
+async function liberarParcialesCerrados(subjectId) {
+  const snap = await getDoc(doc(db, 'subjects', subjectId))
+  if (!snap.exists()) return
+  const data = snap.data()
+  const updates = {}
+  Object.entries(data.parcialesCerrados || {}).forEach(([p, fecha]) => {
+    if (!fecha) return
+    updates[`parcialesCerrados.${p}`] = deleteField()
+    updates[`parcialesAtencion.${p}`] = data.parcialesAtencion?.[p] || fecha
+  })
+  if (Object.keys(updates).length) await updateDoc(doc(db, 'subjects', subjectId), updates)
+}
+
 // Fully deletes a subject and all related data in cascade:
 // resources+materials (server, incl. their Cloudinary files) → activities →
 // submissions → students → attendance → horarioBloques → subject doc.
@@ -70,6 +105,7 @@ async function deleteSubjectResourcesAndFiles(subjectId) {
 // read), so the query must filter by docenteId too or the list itself is denied.
 export async function deleteSubjectCascade(subjectId, docenteId) {
   await deleteSubjectResourcesAndFiles(subjectId)
+  await liberarParcialesCerrados(subjectId)
 
   const [actsSnap, studsSnap, attSnap, bloquesSnap] = await Promise.all([
     getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
@@ -80,9 +116,9 @@ export async function deleteSubjectCascade(subjectId, docenteId) {
 
   const actIds = actsSnap.docs.map((d) => d.id)
   const subsDocs = await fetchSubmissionsForActivities(actIds)
+  await borrarEntregasPorActividad(subsDocs)
 
   const refs = [
-    ...subsDocs.map((d) => doc(db, 'submissions', d.id)),
     ...actsSnap.docs.map((d) => doc(db, 'activities', d.id)),
     ...studsSnap.docs.map((d) => doc(db, 'students', d.id)),
     ...attSnap.docs.map((d) => doc(db, 'attendance', d.id)),
@@ -119,7 +155,9 @@ export async function deleteSubmissionsByStudent(studentDocId, actIds) {
     )
   )
   const refs = snaps.flatMap((s) => s.docs.map((d) => doc(db, 'submissions', d.id)))
-  await batchDeleteDocs(refs)
+  for (let i = 0; i < refs.length; i += LOTE_ENTREGAS_MEZCLADAS) {
+    await batchDeleteDocs(refs.slice(i, i + LOTE_ENTREGAS_MEZCLADAS))
+  }
 }
 
 // Deletes the submissions of a single activity. Call before deleting the activity doc.
@@ -131,6 +169,7 @@ export async function deleteSubmissionsByActivity(activityId) {
 // Deletes only the students of a subject and their submissions.
 // Used in the "start from 0" unarchive flow.
 export async function deleteSubjectStudents(subjectId) {
+  await liberarParcialesCerrados(subjectId)
   const [actsSnap, studsSnap] = await Promise.all([
     getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
@@ -138,9 +177,6 @@ export async function deleteSubjectStudents(subjectId) {
   const actIds = actsSnap.docs.map((d) => d.id)
   const subsDocs = await fetchSubmissionsForActivities(actIds)
 
-  const refs = [
-    ...subsDocs.map((d) => doc(db, 'submissions', d.id)),
-    ...studsSnap.docs.map((d) => doc(db, 'students', d.id)),
-  ]
-  await batchDeleteDocs(refs)
+  await borrarEntregasPorActividad(subsDocs)
+  await batchDeleteDocs(studsSnap.docs.map((d) => doc(db, 'students', d.id)))
 }

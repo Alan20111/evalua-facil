@@ -27,7 +27,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { isActivityPublished, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { publicacionVisible } from '../../utils/evaluacionGrading'
-import { normalizeGrade } from '../../utils/ponderacion'
+import { normalizeGrade, parcialCerrado } from '../../utils/ponderacion'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { fetchActivity, fetchContent } from '../../utils/apiContent'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
@@ -609,6 +609,10 @@ export default function StudentActivityPage() {
               <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
                 Ya usaste todos tus intentos disponibles.
               </div>
+            ) : parcialCerrado(subject, activity.parcial) ? (
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+                Tu maestro cerró definitivamente el Parcial {activity.parcial} — esta evaluación ya no recibe intentos.
+              </div>
             ) : evaluacionCerrada ? (
               <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
                 La fecha límite ya pasó — esta evaluación está cerrada.
@@ -765,6 +769,10 @@ export default function StudentActivityPage() {
               <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
                 Ya usaste todos tus intentos disponibles.
               </div>
+            ) : parcialCerrado(subject, activity.parcial) ? (
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+                Tu maestro cerró definitivamente el Parcial {activity.parcial} — este juego ya no recibe intentos.
+              </div>
             ) : juegoCerrado ? (
               <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
                 La fecha límite ya pasó — este juego está cerrado.
@@ -819,7 +827,7 @@ export default function StudentActivityPage() {
   // terminó. Antes nada de esto miraba el estado de la asignatura, así que el
   // alumno podía seguir entregando en una materia archivada meses atrás.
   const asignaturaArchivada = !!subject?.archived
-  const cerrada = asignaturaArchivada || (!withinExtension && (
+  const cerrada = asignaturaArchivada || parcialCerrado(subject, activity?.parcial) || (!withinExtension && (
     !!activity?.cerradaManual || (isPastDeadline && !activity?.recibirTarde)
   ))
 
