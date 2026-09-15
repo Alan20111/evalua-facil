@@ -15,7 +15,10 @@
 import assert from 'node:assert'
 import { createRequire } from 'node:module'
 import { extraerAssets } from '../api/_lib/cloudinary.js'
-import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../src/utils/ponderacion.js'
+import {
+  promedioParcial, ponderacionActivaEnParcial, normalizeGrade,
+  estadoParcial, resultadoPublicadoAlumno, pesosVisiblesAlumno, puedeIniciarAtencion, ocultarPesosNoPublicados,
+} from '../src/utils/ponderacion.js'
 import {
   totalRubrica, validarCotejo, validarRubrica, RUBRICA_TOTAL,
   rubricaDesdePropuesta, cotejoDesdePropuesta, esCotejo,
@@ -3529,6 +3532,102 @@ caso('AA-13 (escenario 9): el denominador cuenta exactamente las columnas que se
   const diasPorClases = [...asuetos.filter((a) => a.clases).map((a) => a.fecha), ...FVC_AA(vacaciones)]
   const denominadorViejo = CSR_AA({ ...curso, parcialesFechas: PF_AA, horarioPatron, diasAsueto: diasPorClases, parcial: 1 }).resumen.sesionesTotales
   assert.notStrictEqual(denominadorViejo, columnas)
+})
+
+// ═══ Publicación del resultado ponderado por parcial ═════════════════════════
+grupo('Parciales ponderados — abierto / atención de inquietudes / cerrado')
+
+const actPub = (id, parcial, peso, extra = {}) => ({ id, parcial, maxCalif: 10, pesoCalificacion: peso, ...extra })
+const pondTodos = { parciales: 3, ponderacionActivada: true, ponderacionParciales: { 1: true, 2: true, 3: true } }
+
+caso('estadoParcial: sin marcas abierto, atención con parcialesAtencion, cerrado gana sobre atención', () => {
+  assert.strictEqual(estadoParcial({}, 1), 'abierto')
+  assert.strictEqual(estadoParcial({ parcialesAtencion: { 1: '2026-10-01T00:00:00Z' } }, 1), 'atencion')
+  assert.strictEqual(estadoParcial({ parcialesAtencion: { 1: 'x' }, parcialesCerrados: { 1: 'y' } }, 1), 'cerrado')
+  assert.strictEqual(estadoParcial({ parcialesCerrados: { 2: 'y' } }, 1), 'abierto', 'cada parcial es independiente')
+})
+
+caso('sin ponderación el resultado se publica siempre, en los tres estados', () => {
+  const simple = { parciales: 1, ponderacionParciales: { 1: false } }
+  const acts = [actPub('s1', 1, null)]
+  assert.strictEqual(resultadoPublicadoAlumno(simple, 1, acts), true)
+  assert.strictEqual(resultadoPublicadoAlumno({ ...simple, parcialesAtencion: { 1: 'x' } }, 1, acts), true)
+  assert.strictEqual(resultadoPublicadoAlumno({ ...simple, parcialesCerrados: { 1: 'x' } }, 1, acts), true)
+  assert.strictEqual(pesosVisiblesAlumno(simple, 1, acts), false, 'un parcial simple no muestra pesos')
+})
+
+caso('ponderado abierto NO publica, aunque los pesos ya sumen 10', () => {
+  const acts = [actPub('a', 1, 6), actPub('b', 1, 4)]
+  assert.strictEqual(resultadoPublicadoAlumno(pondTodos, 1, acts), false)
+  assert.strictEqual(pesosVisiblesAlumno(pondTodos, 1, acts), false)
+})
+
+caso('ponderación incompleta (activada, pesos en 0 o que no suman 10) nunca publica, ni en atención', () => {
+  const enAtencion = { ...pondTodos, parcialesAtencion: { 1: 'x' } }
+  assert.strictEqual(resultadoPublicadoAlumno(pondTodos, 1, [actPub('a', 1, null)]), false, 'recién activada')
+  assert.strictEqual(resultadoPublicadoAlumno(enAtencion, 1, [actPub('a', 1, 3), actPub('b', 1, 4)]), false, 'suma 7')
+  // legado: solo `ponderacionActivada`, sin mapa por parcial
+  assert.strictEqual(resultadoPublicadoAlumno({ ponderacionActivada: true }, 1, [actPub('a', 1, 10)]), false)
+})
+
+caso('ponderado en atención o cerrado con pesos = 10 publica resultado y pesos', () => {
+  const acts = [actPub('a', 1, 6), actPub('b', 1, 4)]
+  assert.strictEqual(resultadoPublicadoAlumno({ ...pondTodos, parcialesAtencion: { 1: 'x' } }, 1, acts), true)
+  assert.strictEqual(pesosVisiblesAlumno({ ...pondTodos, parcialesCerrados: { 1: 'x' } }, 1, acts), true)
+})
+
+caso('la suma de pesos solo considera lo que cuenta para calificación (sin borradores ni "sin calificación")', () => {
+  const s = { ...pondTodos, parcialesAtencion: { 1: 'x' } }
+  const acts = [
+    actPub('a', 1, 6), actPub('b', 1, 4),
+    actPub('borrador', 1, 5, { oculta: true, publishedAt: null, publishAt: null }),
+    actPub('diag', 1, 5, { sinCalificacion: true }),
+  ]
+  assert.strictEqual(resultadoPublicadoAlumno(s, 1, acts), true)
+})
+
+caso('puedeIniciarAtencion: solo desde abierto y, si es ponderado, con pesos = 10', () => {
+  const diez = [actPub('a', 1, 6), actPub('b', 1, 4)]
+  const siete = [actPub('a', 1, 3), actPub('b', 1, 4)]
+  assert.strictEqual(puedeIniciarAtencion(pondTodos, 1, diez), true)
+  assert.strictEqual(puedeIniciarAtencion(pondTodos, 1, siete), false)
+  assert.strictEqual(puedeIniciarAtencion({ ...pondTodos, parcialesAtencion: { 1: 'x' } }, 1, diez), false)
+  assert.strictEqual(puedeIniciarAtencion({ ...pondTodos, parcialesCerrados: { 1: 'x' } }, 1, diez), false)
+  assert.strictEqual(puedeIniciarAtencion({ parciales: 1 }, 1, [actPub('s', 1, null)]), true, 'parcial simple')
+})
+
+caso('reabrir (cerrado → atención) mantiene publicado el resultado', () => {
+  const acts = [actPub('a', 1, 6), actPub('b', 1, 4)]
+  const reabierto = { ...pondTodos, parcialesAtencion: { 1: '2026-10-01T00:00:00Z' } } // sin parcialesCerrados[1]
+  assert.strictEqual(estadoParcial(reabierto, 1), 'atencion')
+  assert.strictEqual(resultadoPublicadoAlumno(reabierto, 1, acts), true)
+})
+
+caso('API: P1 abierto, P2 atención, P3 cerrado — solo P1 viaja sin pesos, sin mutar la entrada', () => {
+  const s = { ...pondTodos, parcialesAtencion: { 2: 'x' }, parcialesCerrados: { 3: 'y' } }
+  const acts = [
+    actPub('p1a', 1, 6), actPub('p1b', 1, 4),
+    actPub('p2a', 2, 5), actPub('p2b', 2, 5),
+    actPub('p3a', 3, 7), actPub('p3b', 3, 3),
+  ]
+  const out = ocultarPesosNoPublicados(s, acts)
+  const conPeso = out.filter((a) => 'pesoCalificacion' in a).map((a) => a.id)
+  assert.deepStrictEqual(conPeso, ['p2a', 'p2b', 'p3a', 'p3b'])
+  assert.strictEqual(acts[0].pesoCalificacion, 6, 'la lista original no se toca')
+  assert.deepStrictEqual(out.map((a) => a.id), acts.map((a) => a.id), 'mismo orden, mismas actividades')
+})
+
+caso('API: con lo que recibe el alumno de un parcial abierto NO se reconstruye el ponderado', () => {
+  const acts = [actPub('x', 1, 9), actPub('y', 1, 1)]
+  const notas = [10, 0]
+  const ponderadoReal = promedioParcial(acts, notas, true) // 9.0
+  const recibido = ocultarPesosNoPublicados(pondTodos, acts)
+  assert.ok(recibido.every((a) => !('pesoCalificacion' in a)), 'ningún peso en la respuesta')
+  // Lo único calculable sin pesos es la media simple (5.0), nunca el 9.0.
+  assert.strictEqual(promedioParcial(recibido, notas, true), 5)
+  assert.notStrictEqual(promedioParcial(recibido, notas, true), ponderadoReal)
+  // Y el estudiante tampoco lo "publica" por su lado: sin pesos no suman 10.
+  assert.strictEqual(resultadoPublicadoAlumno({ ...pondTodos, parcialesAtencion: { 1: 'x' } }, 1, recibido), false)
 })
 
 if (fallos.length) {

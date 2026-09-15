@@ -96,7 +96,8 @@ students              UNA POR INSCRIPCIÓN          username, escuelaId, asignat
                                                    uid, activado, createdAt, activadoAt
 subjects              asignaturas del docente      docenteId, accessCode, parciales,
                                                    parcialesFechas, parcialesOcultos,
-                                                   parcialesCerrados, ponderacionParciales,
+                                                   parcialesCerrados, parcialesAtencion,
+                                                   ponderacionParciales,
                                                    archived, colorPalette, icon
 activities            actividades                  tipo, categoria, parcial, orden,
                                                    oculta/publishAt/publishedAt,
@@ -187,6 +188,22 @@ Con `ponderacionParciales[p]` activa, cada actividad lleva `pesoCalificacion`
 (los pesos deben sumar 10 para poder exportar) y el promedio es la media
 ponderada. **Cerrar un parcial** (`parcialesCerrados`) congela sus
 calificaciones y pone 0 a quien no entregó; se puede revertir.
+
+**Estados del parcial** (`estadoParcial` en `src/utils/ponderacion.js`, la
+única fuente de verdad): **abierto** → **atención de inquietudes**
+(`parcialesAtencion[p]`, la pone el docente con "Iniciar atención de
+inquietudes" y nunca se borra) → **cerrado** (`parcialesCerrados[p]`). La
+atención es opcional (abierto → cerrado directo) y reabrir un cerrado lo
+regresa a atención, nunca a abierto.
+
+Un parcial **ponderado** (activado, aunque los pesos no sumen 10) no publica
+al estudiante ni sus pesos ni su calificación mientras está abierto: ve "—"
+con la ayuda "Ponderación pendiente", también en el promedio de su Dashboard.
+Publica en atención o cerrado, y solo con los pesos sumando exactamente 10
+(`resultadoPublicadoAlumno`); iniciar la atención exige lo mismo. El docente
+ve el cálculo tentativo siempre. `/api/subject/content` no le manda al
+alumno `pesoCalificacion` de un parcial sin publicar. Un parcial simple
+publica siempre. `ponderacionVisibleAlumnos` (el ojo global) ya no se usa.
 
 ### Fechas límite y prórrogas
 
