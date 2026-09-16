@@ -5011,6 +5011,7 @@ export default function SubjectPage() {
           <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
             {PARCIALES.map((p) => {
               const acts = activities.filter((a) => a.parcial === p)
+              const numeradas = acts.filter((a) => activityLabelById[a.id]).length
               const mats = materials.filter((m) => m.parcial === p)
               const isOpen = openParcial === p
               const parcialOculto = (subject?.parcialesOcultos || []).includes(p)
@@ -5028,7 +5029,10 @@ export default function SubjectPage() {
                         <p className={`font-semibold text-base leading-tight truncate ${parcialOculto ? 'text-slate-400' : 'text-on-surface'}`}>
                           Parcial {p}{parcialOculto && <span className="text-xs font-normal text-slate-400"> · oculto a estudiantes</span>}
                         </p>
-                        <p className="text-sm text-slate-500 leading-tight -mt-0.5">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
+                        {/* Solo cuenta las que llevan número (1.1., 1.2.…): misma
+                            regla que activityLabelById, para que nunca se desalineen.
+                            Borradores y "sin calificación" siguen en la lista, no aquí. */}
+                        <p className="text-sm text-slate-500 leading-tight -mt-0.5">{numeradas} actividad{numeradas !== 1 ? 'es' : ''}</p>
                       </div>
                     </button>
                     <button type="button"
