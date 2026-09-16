@@ -19,6 +19,8 @@ import AvatarCropModal from '../../components/AvatarCropModal'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe, Smartphone, Sparkles } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { subjectPeriodLabel } from '../../utils/dateRange'
+import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import PaletteSelect from '../../components/PaletteSelect'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
@@ -38,6 +40,8 @@ function generateAccessCode() {
 }
 
 export default function TeacherDashboard() {
+  // Teléfono abierto en el navegador (siempre false en la app).
+  const telefonoWeb = useTelefonoWeb()
   const { currentUser, userProfile, setUserProfile } = useAuth()
   const location = useLocation()
   const [subjects, setSubjects] = useState([])
@@ -490,6 +494,12 @@ export default function TeacherDashboard() {
                             llegan asignaturas vivas, así que nunca se
                             mostraría. */}
                         <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
+                        {/* Solo en la web de ESCRITORIO — pedido explícito: en
+                            la App y en el teléfono (web) no deben verse las
+                            fechas de inicio y fin junto a las asignaturas. */}
+                        {!IS_NATIVE_APP && !telefonoWeb.telefono && subjectPeriodLabel(s) && (
+                          <p className="text-sm text-slate-500 mt-0.5">{subjectPeriodLabel(s)}</p>
+                        )}
                       </div>
                       <ChevronRight size={20} className="text-slate-300 flex-shrink-0" />
                     </button>
