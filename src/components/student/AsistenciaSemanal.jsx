@@ -114,17 +114,25 @@ export default function AsistenciaSemanal({
           {riesgo && <span className="text-xl flex-shrink-0" aria-hidden="true">{riesgo}</span>}
         </div>
 
+        {/* Los dos porcentajes son sobre las sesiones del PERIODO (el denominador
+            que calcula SubjectPage), no sobre las clases registradas — por eso
+            la etiqueta lo dice y el total de sesiones va pegado a ellos. */}
         {pct != null && (
-          <div className="flex items-end flex-wrap gap-x-5 gap-y-1 mt-3">
-            <p className="leading-none">
-              <span className={`text-4xl font-bold tabular-nums ${enRiesgo ? 'text-red-500' : 'text-accent'}`}>{pct}%</span>
-              <span className="text-sm text-muted ml-1.5">asistencia</span>
-            </p>
-            {pctInasist != null && (
+          <div className="mt-3">
+            <div className="flex items-end flex-wrap gap-x-5 gap-y-1.5">
               <p className="leading-none">
-                <span className={`text-2xl font-bold tabular-nums ${enRiesgo ? 'text-red-500' : 'text-slate-500'}`}>{pctInasist}%</span>
-                <span className="text-sm text-muted ml-1.5">inasistencia</span>
+                <span className={`text-4xl font-bold tabular-nums ${enRiesgo ? 'text-red-500' : 'text-accent'}`}>{pct}%</span>
+                <span className="text-sm text-muted ml-1.5">asistencia del periodo</span>
               </p>
+              {pctInasist != null && (
+                <p className="leading-none">
+                  <span className={`text-2xl font-bold tabular-nums ${enRiesgo ? 'text-red-500' : 'text-slate-500'}`}>{pctInasist}%</span>
+                  <span className="text-sm text-muted ml-1.5">inasistencia del periodo</span>
+                </p>
+              )}
+            </div>
+            {!cerrado && denominador != null && (
+              <p className="text-xs text-muted mt-1.5">{denominador} sesiones del periodo</p>
             )}
           </div>
         )}
@@ -136,7 +144,8 @@ export default function AsistenciaSemanal({
           <Stat valor={stat.inasist} etiqueta={`Falta${stat.inasist !== 1 ? 's' : ''}`} className="text-red-600" />
         </div>
 
-        {!cerrado && denominador != null && (
+        {/* Sin porcentajes (sin denominador válido) el total va aquí, como antes. */}
+        {pct == null && !cerrado && denominador != null && (
           <p className="text-xs text-muted mt-2">{denominador} sesiones del periodo</p>
         )}
 
