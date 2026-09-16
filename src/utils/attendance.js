@@ -5,6 +5,16 @@ import {
 import { deleteDoc, updateDoc } from './firestoreGuard'
 import { db } from '../firebase'
 import { estadoAsistencia } from './asistenciaResumen'
+import { esSesionInformativa } from './asistenciaInformativa'
+
+// Una columna informativa de asueto/vacaciones no existe en Firestore y no se
+// registra: cualquier camino de la interfaz que intente escribirla se detiene
+// aquí, no solo porque la celda no tenga clic. Las reposiciones y los registros
+// históricos son documentos reales y pasan sin cambio.
+export const ERROR_SESION_INFORMATIVA = 'SESION_INFORMATIVA'
+function rechazarInformativa(recordId) {
+  if (esSesionInformativa(recordId)) throw new Error(ERROR_SESION_INFORMATIVA)
+}
 
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
@@ -104,6 +114,8 @@ export function countPresence(records, studentId, enrolledFrom, maxDate) {
   let inasist = 0
   let justif = 0
   for (const r of records) {
+    // Columna informativa de asueto/vacaciones: no es una sesión, no suma.
+    if (esSesionInformativa(r)) continue
     if (enrolledFrom && r.fecha < enrolledFrom) continue
     if (maxDate && r.fecha > maxDate) continue
     const estado = estadoAsistencia(r, studentId)
@@ -136,6 +148,7 @@ export function nextAttendanceState(state) {
 // texto de la justificación. Al salir de "justificada" se limpia el motivo; al
 // entrar, si se pasa `motivo` se guarda (undefined = conservar el existente).
 export async function setAttendanceState(recordId, studentId, state, motivo) {
+  rechazarInformativa(recordId)
   const patch = {
     [`presentes.${studentId}`]: state === 'presente',
     [`justificadas.${studentId}`]: state === 'justificada',
@@ -146,16 +159,18 @@ export async function setAttendanceState(recordId, studentId, state, motivo) {
 }
 
 export async function toggleAttendance(recordId, studentId, nextValue) {
+  rechazarInformativa(recordId)
   await updateDoc(doc(db, 'attendance', recordId), { [`presentes.${studentId}`]: nextValue })
 }
 
 export async function deleteAttendanceRecord(recordId) {
+  rechazarInformativa(recordId)
   await deleteDoc(doc(db, 'attendance', recordId))
 }
 
 // Borra TODAS las columnas (slots) de un mismo día — usado cuando el docente
 // se equivocó de fecha/duración y prefiere rehacer el día completo.
 export async function deleteAttendanceDay(records, fecha) {
-  const targets = records.filter((r) => r.fecha === fecha)
+  const targets = records.filter((r) => r.fecha === fecha && !esSesionInformativa(r))
   await Promise.all(targets.map((r) => deleteDoc(doc(db, 'attendance', r.id))))
 }

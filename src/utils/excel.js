@@ -406,10 +406,13 @@ export async function exportSubjectGrades({
 // registrados — no hace falta filtrar de nuevo aquí).
 function attendanceColumnHeaders(days) {
   const headers = []
-  days.forEach(({ fecha, records }) => {
+  days.forEach(({ fecha, records, sinAsistencia }) => {
     const { dia, mes } = fmtAttDateParts(fecha)
+    // Día de asueto/vacaciones sin sesión registrada: se marca en el encabezado,
+    // igual que en la tabla en pantalla.
+    const marca = sinAsistencia ? (sinAsistencia === 'vacaciones' ? ' vac.' : ' asueto') : ''
     records.forEach((r) => {
-      headers.push(records.length > 1 ? `${dia}-${mes} (${r.slot})` : `${dia}-${mes}`)
+      headers.push(records.length > 1 ? `${dia}-${mes}${marca} (${r.slot})` : `${dia}-${mes}${marca}`)
     })
   })
   return headers
@@ -420,8 +423,11 @@ function attendanceColumnHeaders(days) {
 // aplica, no es una falta.
 function attendanceRowCells(days, studentId) {
   const cells = []
-  days.forEach(({ records }) => {
+  days.forEach(({ records, sinAsistencia }) => {
     records.forEach((r) => {
+      // Columna informativa de asueto/vacaciones: "—", no es 0 ni 1 y no suma
+      // (countPresence la ignora).
+      if (sinAsistencia) { cells.push('—'); return }
       const estado = attendanceState(r, studentId)
       cells.push(estado == null ? '' : estado === 'falta' ? 0 : 1)
     })

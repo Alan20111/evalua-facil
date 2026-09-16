@@ -23,6 +23,7 @@ import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloa
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttDateLong, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
+import { diasInformativosAsistencia, esSesionInformativa } from '../../utils/asistenciaInformativa'
 import { syncAutoAttendanceDays, diasSinAsistenciaEnCurso, fetchAsuetosVacaciones, fetchClaseDiasSemana, parcialForDate } from '../../utils/attendanceAuto'
 import { calcularSesionesReales } from '../../utils/sesionesReales'
 import { diaSemanaLunes, DIAS_SEMANA, derivarPatrones, tramosFaltantes, generarBloques } from '../../utils/horarioBloques'
@@ -497,8 +498,24 @@ const AttendanceTable = memo(function AttendanceTable({
           {esSimple ? 'Estudiante / Día:' : 'Día:'}
         </th>
         {attendanceParciales.flatMap((g) => [
-          ...g.days.map(({ fecha, records }) => {
+          ...g.days.map(({ fecha, records, sinAsistencia }) => {
             const { dia, mes, anio } = fmtAttDateParts(fecha)
+            // Día de asueto/vacaciones sin sesión registrada: columna solo
+            // informativa — identificada por color y tooltip, sin "Eliminar".
+            if (sinAsistencia) {
+              const vac = sinAsistencia === 'vacaciones'
+              const etiqueta = vac ? 'Periodo vacacional' : 'Día de asueto'
+              return (
+                <th key={fecha} colSpan={records.length}
+                  ref={setAttDayEl(fecha)}
+                  data-tooltip={`${etiqueta} (${esSimple ? `${dia}/${mes}/${anio}` : fmtAttDateLong(fecha)}): no se registra asistencia`}
+                  aria-label={`${etiqueta}: no se registra asistencia`}
+                  className={`px-0.5 ${diaPy} font-semibold text-center border-l border-outline-variant tabular-nums cursor-default ${vac ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'}`}>
+                  {dia}
+                  <span className="block text-[8px] font-bold uppercase leading-none tracking-tight">{vac ? 'Vac.' : 'Asueto'}</span>
+                </th>
+              )
+            }
             return (
               <th key={fecha} colSpan={records.length}
                 ref={setAttDayEl(fecha)}
@@ -540,8 +557,8 @@ const AttendanceTable = memo(function AttendanceTable({
             Estudiante / Número de la sesión
           </th>
           {attendanceParciales.flatMap((g) => [
-            ...g.days.flatMap(({ fecha, records }) => records.map((r) => (
-              <th key={r.id} data-col={attColIndexById[r.id]} ref={addAttColEl(attColIndexById[r.id])} className={`w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
+            ...g.days.flatMap(({ fecha, records, sinAsistencia }) => records.map((r) => (
+              <th key={r.id} data-col={attColIndexById[r.id]} ref={addAttColEl(attColIndexById[r.id])} className={`w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant ${sinAsistencia ? (sinAsistencia === 'vacaciones' ? 'bg-purple-50' : 'bg-amber-50') : fecha === todayISO ? 'bg-accent-light' : ''}`}>
                 {records.length > 1 ? r.slot : ''}
               </th>
             ))),
@@ -574,7 +591,23 @@ const AttendanceTable = memo(function AttendanceTable({
               : pctInasist >= (umbralInasistencia ?? 20) * 0.75 ? '🟠'
               : '🟢'
             return [
-              ...g.days.flatMap(({ fecha, records }) => records.map((r) => {
+              ...g.days.flatMap(({ fecha, records, sinAsistencia }) => records.map((r) => {
+                // Columna informativa de asueto/vacaciones: "—", sin clic y
+                // sin clase att-cell (no se marca como celda activa). No hay
+                // documento detrás, así que tampoco hay nada que sumar.
+                if (sinAsistencia) {
+                  const vac = sinAsistencia === 'vacaciones'
+                  return (
+                    <td key={r.id}
+                      data-col={attColIndexById[r.id]}
+                      ref={addAttColEl(attColIndexById[r.id])}
+                      aria-disabled="true"
+                      title={vac ? 'Periodo vacacional: no se registra asistencia' : 'Día de asueto: no se registra asistencia'}
+                      className={`${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none cursor-not-allowed ${vac ? 'bg-purple-50/70' : 'bg-amber-50/70'}`}>
+                      <span className={`inline-flex items-center justify-center ${cellIconSize} text-slate-400 text-[13px] font-semibold leading-none`}>—</span>
+                    </td>
+                  )
+                }
                 const esFuturo = fecha > todayISO
                 // Sesiones futuras son slots PROGRAMADOS, no asistencias realizadas.
                 // Mostrar ícono neutro (—) en vez de ✔️/❌ para evitar estados
@@ -1995,7 +2028,19 @@ export default function SubjectPage() {
   // (anillo azul + fondo) hasta que se toque otra celda — el foco del teclado
   // se pierde al mover el mouse, así que esto va por estado, no por :focus
   // (pedido explícito: que se NOTE cuál fue la que se acaba de ver).
+  function avisoSesionInformativa(record) {
+    return record?.tipoSinAsistencia === 'vacaciones'
+      ? 'Periodo vacacional: ese día no se registra asistencia'
+      : 'Día de asueto: ese día no se registra asistencia'
+  }
   async function handleCycleAttendance(record, student) {
+    // Columna informativa de asueto/vacaciones: no hay sesión que registrar.
+    // Se corta ANTES del cambio optimista (la celda no tiene clic, pero esto no
+    // depende de eso). attendance.js vuelve a rechazarla al escribir.
+    if (esSesionInformativa(record)) {
+      toast(avisoSesionInformativa(record), 'error')
+      return
+    }
     const now = new Date()
     const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     if (record.fecha > todayISO) {
@@ -2029,6 +2074,7 @@ export default function SubjectPage() {
   // `revertOnCancel` decide qué hace Cancelar en el modal — ver el comentario
   // de handleCycleAttendance arriba, la única que ahora abre esta ventana.
   function openReasonModal(record, student, { revertOnCancel = false } = {}) {
+    if (esSesionInformativa(record)) return
     const current = record.motivos?.[student.id] || ''
     setReasonText(current)
     setReasonModal({ recordId: record.id, studentId: student.id, fecha: record.fecha, studentName: studentFullName(student), original: current, revertOnCancel })
@@ -2053,7 +2099,7 @@ export default function SubjectPage() {
     await markPresenteFrom(modal)
   }
   async function markPresenteFrom(modal) {
-    if (!modal) return
+    if (!modal || esSesionInformativa(modal.recordId)) return
     const { recordId, studentId } = modal
     setAttendanceRecords((prev) => prev.map((r) => r.id === recordId ? {
       ...r,
@@ -2147,6 +2193,7 @@ export default function SubjectPage() {
   async function handleSaveReason() {
     if (!reasonModal) return
     const { recordId, studentId } = reasonModal
+    if (esSesionInformativa(recordId)) { setReasonModal(null); return }
     const motivo = reasonText.trim()
     setAttendanceRecords((prev) => prev.map((r) => r.id === recordId ? {
       ...r,
@@ -2166,6 +2213,12 @@ export default function SubjectPage() {
   async function handleDeleteAttendanceDay() {
     if (!deleteAttendanceConfirm) return
     const fecha = deleteAttendanceConfirm.fecha
+    // Un día informativo de asueto/vacaciones no tiene registros que borrar, y
+    // agregarlo a attendanceExcluded no tendría sentido.
+    if (!attendanceRecords.some((r) => r.fecha === fecha && !esSesionInformativa(r))) {
+      setDeleteAttendanceConfirm(null)
+      return
+    }
     setDeletingAttendance(true)
     try {
       await deleteAttendanceDay(attendanceRecords, fecha)
@@ -4250,7 +4303,7 @@ export default function SubjectPage() {
     }
     const deduped = [...slotMap.values()]
     deduped.sort((a, b) => a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha))
-    return [...new Set(deduped.map((r) => r.fecha))]
+    const reales = [...new Set(deduped.map((r) => r.fecha))]
       .map((fecha) => {
         const records = deduped.filter((r) => r.fecha === fecha)
         // Derivar el parcial de las fechas actuales — si el docente cambia los
@@ -4260,7 +4313,20 @@ export default function SubjectPage() {
           ?? (records[0]?.parcial || 1)
         return { fecha, parcial, records }
       })
-  }, [attendanceRecords, groupStudents, subject?.parcialesFechas])
+    // Días de asueto/vacaciones SIN ningún registro real: columna informativa
+    // en memoria ("—", sin clic, no suma). Una fecha con registros reales
+    // (reposición o histórico) se queda tal cual — ver asistenciaInformativa.js.
+    const informativos = diasInformativosAsistencia({
+      diasSinAsistencia: attendanceNoClaseDias,
+      fechasConRegistro: reales.map((d) => d.fecha),
+      parcialesFechas: subject?.parcialesFechas ?? [],
+      porFecha: claseDias?.porFecha,
+      horarioPatron: subject?.horarioPatron,
+      todayISO: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })(),
+    })
+    if (!informativos.length) return reales
+    return [...reales, ...informativos].sort((a, b) => a.fecha.localeCompare(b.fecha))
+  }, [attendanceRecords, groupStudents, subject?.parcialesFechas, subject?.horarioPatron, attendanceNoClaseDias, claseDias])
 
   // Agrupa días consecutivos por mes (YYYY-MM) → celda "Mes Año" que abarca sus días.
   const groupDaysByMonth = (days) => days.reduce((acc, day) => {
