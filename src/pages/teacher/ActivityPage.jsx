@@ -621,12 +621,7 @@ export default function ActivityPage() {
   function aplicarPropuestaIA(resultado, docId = null) {
     const next = resultado.criterios.map((c) => c.nivel)
     setRubricEval(next)
-    // Criterio del plazo de entrega: la IA no lo evalúa (functions/ia.js) —
-    // sin total hasta que el docente lo asigne; en cotejo, vacío contaría
-    // como "no cumple".
-    const total = resultado.criterios.some((c) => c.criterioDeTiempo && c.nivel == null)
-      ? null
-      : totalRubrica(activity.rubrica, next)
+    const total = totalRubrica(activity.rubrica, next)
     setGradeForm((f) => ({
       ...f,
       calificacion: total != null ? String(total) : f.calificacion,
