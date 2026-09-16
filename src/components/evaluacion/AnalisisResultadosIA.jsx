@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Sparkles, TrendingDown, TrendingUp, AlertTriangle, Lightbulb, FileText, Save } from 'lucide-react'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import { exportAnalisisResultadosPDF } from '../../utils/pdf'
@@ -57,6 +58,9 @@ function TextoEditable({ value, onChange, className = '', placeholder }) {
 // descarga directo.
 export default function AnalisisResultadosIA({ resultado, students, generadoEn = null, activity, subject, membrete = null, watermark = false, onClose, onGuardar = null, onPedirDescarga = null }) {
   const toast = useToast()
+  // Teléfono (web): sin descargas de archivos generados (siempre false en la
+  // app y en escritorio).
+  const telefonoWeb = useTelefonoWeb()
   const [descargando, setDescargando] = useState(false)
   const [editado, setEditado] = useState(resultado)
   const [guardando, setGuardando] = useState(false)
@@ -133,12 +137,14 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
               {guardando ? 'Guardando…' : sinGuardar ? 'Guardar' : 'Guardado'}
             </button>
           )}
+          {!telefonoWeb.telefono && (
           <button type="button" onClick={handleDescargarPDF} disabled={descargando}
             data-tooltip="Descargar este análisis en PDF"
             className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded transition-colors disabled:opacity-60">
             {descargando ? <Spinner size="sm" /> : <FileText size={14} />}
             {descargando ? 'Generando…' : 'PDF'}
           </button>
+          )}
         </div>
       </header>
 
