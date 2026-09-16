@@ -1971,11 +1971,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           className="px-2.5 py-1 text-xs font-semibold border border-outline-variant rounded hover:bg-surface-container transition-colors">
                           Ver
                         </button>
+                        {!telefonoWeb.telefono && (
                         <button type="button" onClick={() => descargarAnalisisHistoricoPDF(h)}
                           disabled={analisisDescargandoId === h.id}
                           className="px-2.5 py-1 text-xs font-semibold border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-60">
                           {analisisDescargandoId === h.id ? '…' : 'PDF'}
                         </button>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -2029,6 +2031,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 docente acaba de ver en pantalla: el Excel para trabajarlo y el
                 PDF para archivarlo o entregarlo. Las gráficas se descargan
                 desde su propia pantalla (botón "Gráficas" de arriba). */}
+            {/* Teléfono (web): sin descargas de archivos generados. */}
+            {!telefonoWeb.telefono && (
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xs text-muted flex-shrink-0">Descargar resultados:</span>
               {[['excel', 'Excel', FileSpreadsheet], ['pdf', 'PDF', FileText]].map(([kind, label, Icon]) => (
@@ -2047,6 +2051,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 </button>
               ))}
             </div>
+            )}
             {configForm?.publicarResultados === 'manual' && !configForm.resultadosPublicados && (
               <button type="button" onClick={handlePublicarResultados} className="w-full mb-3 py-2 bg-accent text-white text-sm font-medium rounded">
                 Publicar resultados a tus estudiantes

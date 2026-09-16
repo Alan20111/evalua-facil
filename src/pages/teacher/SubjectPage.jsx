@@ -6387,6 +6387,9 @@ export default function SubjectPage() {
             {/* Prominent 3-step cards — everything starts here. No overflow-hidden
                 wrapper so the tooltips render above without clipping. */}
             <div className="flex flex-col sm:flex-row sm:items-stretch gap-2">
+              {/* Teléfono (web): sin la plantilla Excel ni el PDF de códigos
+                  (descargas de archivos generados). */}
+              {!telefonoWeb.telefono && (<>
               <button
                 type="button"
                 onClick={downloadStudentTemplate}
@@ -6401,6 +6404,7 @@ export default function SubjectPage() {
                 </div>
               </button>
               <ChevronRight size={18} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
+              </>)}
               <label
                 data-tooltip="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
                 data-tooltip-nowrap=""
@@ -6413,6 +6417,7 @@ export default function SubjectPage() {
                 </div>
                 <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelFileSelected} disabled={parsingExcel} />
               </label>
+              {!telefonoWeb.telefono && (<>
               <ChevronRight size={18} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
               <button
                 type="button"
@@ -6425,6 +6430,7 @@ export default function SubjectPage() {
                   <p className="text-xs text-muted truncate">Accesos para tus estudiantes</p>
                 </div>
               </button>
+              </>)}
             </div>
           </div>
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, PieChart as PieChartIcon, Download, Check } from 'lucide-react'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
+import useTelefonoWeb from '../hooks/useTelefonoWeb'
 import { useToast } from './Toast'
 import { descargaSoloWeb } from '../utils/descargaSoloWeb'
 import { exportEvaluacionGraficasPDF } from '../utils/pdf'
@@ -68,6 +69,9 @@ function Pie({ slices, size = 140 }) {
 export default function EvaluacionGraficas({ activity, activityLabel, subject, preguntas, submissions, onClose }) {
   useBackHandler(onClose, true)
   useScrollLock(true)
+  // Teléfono (web): sin descargas de archivos generados (siempre false en la
+  // app y en escritorio).
+  const telefonoWeb = useTelefonoWeb()
   const toast = useToast()
   const { userProfile } = useAuth()
   const membrete = membreteDe(userProfile)
@@ -128,6 +132,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
           {/* El botón se queda a la vista también en la app: al tocarlo
               explica que las descargas se hacen desde la web (ver
               descargaSoloWeb) en vez de desaparecer sin decir nada. */}
+          {!telefonoWeb.telefono && (
           <button
             type="button"
             onClick={handleExportPdf}
@@ -138,6 +143,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
             {exportingPdf ? <Spinner size="sm" /> : <Download size={16} />}
             {exportingPdf ? 'Generando…' : 'Descargar gráficas'}
           </button>
+          )}
         </div>
       </div>
 
