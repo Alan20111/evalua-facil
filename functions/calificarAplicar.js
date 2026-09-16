@@ -55,6 +55,9 @@ function totalInstrumento(rubrica, seleccion) {
   return Math.round(total * 10) / 10
 }
 
+const tieneCriterioDeTiempoPendiente = (sugerencia) =>
+  (sugerencia?.criterios || []).some((c) => c?.criterioDeTiempo && c.nivel == null)
+
 async function verificarActividadDocente(db, uid, actividadId) {
   if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad')
   const snap = await db.doc(`activities/${actividadId}`).get()
@@ -121,6 +124,13 @@ async function aplicarEvaluacionesIAPendientesImpl(request) {
         return
       }
       const niveles = (data.sugerencia?.criterios || []).map((c) => c.nivel)
+      // Criterio de tiempo (ia.js, 16-sep-2026): la IA no lo evalúa, así que
+      // no hay total que aplicar hasta que el docente lo asigne — en cotejo,
+      // recalcularlo aquí contaría ese indicador como "no cumple".
+      if (tieneCriterioDeTiempoPendiente(data.sugerencia)) {
+        motivos.push({ submissionId, motivo: 'Tiene un criterio del plazo de entrega que debe asignar el docente' })
+        return
+      }
       const total = typeof data.sugerencia?.calificacionPropuesta === 'number'
         ? data.sugerencia.calificacionPropuesta
         : totalInstrumento(rubrica, niveles)
@@ -288,7 +298,7 @@ async function confirmarChatAplicarEvaluacionesIAImpl(request) {
 exports.confirmarChatAplicarEvaluacionesIA = onCall({ timeoutSeconds: 120 }, confirmarChatAplicarEvaluacionesIAImpl)
 
 exports._pruebas = {
-  verificarActividadDocente, totalInstrumento, esCotejo,
+  verificarActividadDocente, totalInstrumento, esCotejo, tieneCriterioDeTiempoPendiente,
   aplicarEvaluacionesIAPendientesImpl, confirmarChatAplicarEvaluacionesIAImpl,
   verificarSubjectDocente, revalidarPropuestaAplicarIA,
 }
