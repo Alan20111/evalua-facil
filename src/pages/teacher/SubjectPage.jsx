@@ -36,7 +36,7 @@ import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTi
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade, estadoParcial, puedeIniciarAtencion, parcialCerrado, mensajeParcialCerrado, esNotaAutomaticaDeCierre } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { formatShortDate } from '../../utils/dateRange'
+import { formatShortDate, formatShortDateRange } from '../../utils/dateRange'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
@@ -4935,15 +4935,18 @@ export default function SubjectPage() {
           ? <><CheckIcon size={22} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
           : <span>{subject?.accessCode}</span>}
       </button>
-      {/* La leyenda "Código de acceso a este curso para estudiantes" (solo
-          web) se quitó a pedido explícito (sep-2026): su lugar lo ocupa
-          ahora el botón "Editar", pegado al código. */}
+      {/* Leyenda del código: solo en la web de ESCRITORIO. En la app nunca
+          existió y en el teléfono (web) se quitó a pedido explícito
+          (sep-2026): ahí su lugar lo ocupa el botón "Editar". */}
+      {!IS_NATIVE_APP && !telefonoWeb.telefono && (
+        <span className="text-sm font-medium text-muted flex-shrink-0">Código de acceso a este curso para estudiantes</span>
+      )}
     </>
   )
-  // Web (sep-2026, pedido explícito): solo "Editar" (lápiz + texto) junto al
-  // código, y "Restaurar" si la asignatura está archivada. Duplicar, archivar
-  // y eliminar NO se muestran en la web, pero sus handlers y modales siguen
-  // intactos (la App los usa tal cual).
+  // Teléfono (web) (sep-2026, pedido explícito): solo "Editar" (lápiz + texto)
+  // junto al código, y "Restaurar" si la asignatura está archivada. Duplicar,
+  // archivar y eliminar NO se muestran en el teléfono, pero sus handlers y
+  // modales siguen intactos (escritorio y App los usan tal cual).
   const subjectHeaderRightIconsWeb = (
     <>
       <button type="button" onClick={openEditSubject}
@@ -4962,8 +4965,9 @@ export default function SubjectPage() {
       )}
     </>
   )
-  // App: los cuatro (editar, duplicar, archivar, eliminar), sin cambios.
-  const subjectHeaderRightIcons = IS_NATIVE_APP ? (
+  // App y web de ESCRITORIO: los cuatro (editar, duplicar, archivar,
+  // eliminar), sin cambios. Solo el teléfono (web) usa la versión reducida.
+  const subjectHeaderRightIcons = (IS_NATIVE_APP || !telefonoWeb.telefono) ? (
     <>
       {/* ml-auto en el PRIMER botón de este grupo: empuja editar/duplicar/
           archivar/eliminar hasta la orilla derecha del renglón, comiéndose
@@ -5019,9 +5023,15 @@ export default function SubjectPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
                 <h1 className="text-xl font-bold text-on-surface truncate min-w-0">
-                  {/* Solo nombre + grupo: las fechas del curso ya no se
-                      muestran junto al nombre (siguen guardadas y en uso). */}
                   {subjectDisplayName(subject)}
+                  {/* Fechas solo en la web de ESCRITORIO: en la app y en el
+                      teléfono (web) el renglón es angosto y el rango cortaba
+                      el nombre de la asignatura, que es lo que hay que leer. */}
+                  {!IS_NATIVE_APP && !telefonoWeb.telefono && subject?.fechaInicio && subject?.fechaFin && (
+                    <span className="text-xs font-medium text-slate-400 ml-1.5 tabular-nums align-middle">
+                      ({formatShortDateRange(subject.fechaInicio, subject.fechaFin)})
+                    </span>
+                  )}
                 </h1>
                 {subject?.archived && (
                   <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">Archivada</span>
@@ -5157,6 +5167,10 @@ export default function SubjectPage() {
                       <div className="text-left min-w-0">
                         <p className={`font-semibold text-base leading-tight truncate ${parcialOculto ? 'text-slate-400' : 'text-on-surface'}`}>
                           Parcial {p}{parcialOculto && <span className="text-xs font-normal text-slate-400"> · oculto a estudiantes</span>}
+                          {/* Fechas del parcial solo en la web de escritorio. */}
+                          {!IS_NATIVE_APP && !telefonoWeb.telefono && subject?.parcialesFechas?.[p - 1] && (
+                            <span className="text-xs font-medium text-slate-400 tabular-nums"> ({formatShortDate(subject.parcialesFechas[p - 1].inicio)} – {formatShortDate(subject.parcialesFechas[p - 1].fin)})</span>
+                          )}
                         </p>
                         {/* Solo cuenta las que llevan número (1.1., 1.2.…): misma
                             regla que activityLabelById, para que nunca se desalineen.
@@ -5693,7 +5707,15 @@ export default function SubjectPage() {
                               {estadoParcial(subject, p) === 'atencion' && (
                                 <MessageCircleQuestion size={12} className="text-accent flex-shrink-0" data-tooltip="Atención de inquietudes" />
                               )}
-                              <span>Parcial {p}</span>
+                              <span>
+                                Parcial {p}
+                                {/* Fechas del parcial solo en la web de escritorio. */}
+                                {!IS_NATIVE_APP && !telefonoWeb.telefono && subject?.parcialesFechas?.[p - 1] && (
+                                  <span className="block text-[9px] font-normal text-slate-400 normal-case tabular-nums">
+                                    ({formatShortDate(subject.parcialesFechas[p - 1].inicio)}–{formatShortDate(subject.parcialesFechas[p - 1].fin)})
+                                  </span>
+                                )}
+                              </span>
                               <button type="button" id={`parcial-menu-${p}`}
                                 onClick={(e) => {
                                   const r = e.currentTarget.getBoundingClientRect()
