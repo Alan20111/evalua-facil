@@ -27,6 +27,7 @@ import {
 } from '../src/utils/rubrica.js'
 import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosIA.js'
 import { estaRespondida } from '../src/utils/evaluacionRespondida.js'
+import { diasInformativosAsistencia, esSesionInformativa, PREFIJO_INFORMATIVA } from '../src/utils/asistenciaInformativa.js'
 import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
@@ -3655,6 +3656,47 @@ caso('esNotaAutomaticaDeCierre: con trabajo real del estudiante NUNCA es automá
   assert.strictEqual(esNotaAutomaticaDeCierre({ ...auto, archivos: [{ url: 'x' }] }), false, 'evidencia entregada')
   assert.strictEqual(esNotaAutomaticaDeCierre({ ...auto, respuestasJuego: { celdas: {} } }), false, 'juego iniciado')
   assert.strictEqual(esNotaAutomaticaDeCierre({ ...auto, completadoSinArchivo: true }), false)
+})
+
+// ─── Columnas informativas de asueto/vacaciones en Asistencias ─────────────
+const PF_ASUETO = [{ inicio: '2026-09-01', fin: '2026-09-30' }, { inicio: '2026-10-01', fin: '2026-10-31' }]
+
+caso('asueto sin registros: columna informativa con tantas sesiones como el patrón de ese día', () => {
+  // 2026-09-16 es miércoles (diaSemana 2): dos bloques en el patrón.
+  const patron = [{ diaSemana: 2, horaInicio: '07:00' }, { diaSemana: 2, horaInicio: '08:00' }, { diaSemana: 4, horaInicio: '07:00' }]
+  const [d] = diasInformativosAsistencia({ diasSinAsistencia: [{ fecha: '2026-09-16', tipo: 'asueto' }], parcialesFechas: PF_ASUETO, horarioPatron: patron, todayISO: '2026-09-20' })
+  assert.strictEqual(d.fecha, '2026-09-16')
+  assert.strictEqual(d.parcial, 1)
+  assert.strictEqual(d.sinAsistencia, 'asueto')
+  assert.deepStrictEqual(d.records.map((r) => r.slot), [1, 2])
+  assert.ok(d.records.every((r) => r.informativa && r.id.startsWith(PREFIJO_INFORMATIVA)))
+  assert.ok(d.records.every((r) => !r.presentes), 'sin presentes: no hay nada que sumar')
+})
+
+caso('asueto: los bloques que aún existan ese día mandan sobre el patrón; sin datos, 1 sesión', () => {
+  const [a] = diasInformativosAsistencia({ diasSinAsistencia: [{ fecha: '2026-09-16', tipo: 'vacaciones' }], parcialesFechas: PF_ASUETO, porFecha: { '2026-09-16': 3 }, todayISO: '2026-09-20' })
+  assert.strictEqual(a.records.length, 3)
+  assert.strictEqual(a.sinAsistencia, 'vacaciones')
+  const [b] = diasInformativosAsistencia({ diasSinAsistencia: [{ fecha: '2026-09-16', tipo: 'asueto' }], parcialesFechas: PF_ASUETO, todayISO: '2026-09-20' })
+  assert.strictEqual(b.records.length, 1)
+})
+
+caso('asueto con registro real (reposición o histórico): NO se agrega columna informativa', () => {
+  const dias = diasInformativosAsistencia({ diasSinAsistencia: [{ fecha: '2026-09-16', tipo: 'asueto' }, { fecha: '2026-09-17', tipo: 'asueto' }], fechasConRegistro: ['2026-09-16'], parcialesFechas: PF_ASUETO, todayISO: '2026-09-20' })
+  assert.deepStrictEqual(dias.map((d) => d.fecha), ['2026-09-17'])
+})
+
+caso('asueto futuro o fuera de los parciales: sin columna (igual que las sesiones normales)', () => {
+  const dias = diasInformativosAsistencia({ diasSinAsistencia: [{ fecha: '2026-09-25', tipo: 'asueto' }, { fecha: '2026-08-20', tipo: 'asueto' }], parcialesFechas: PF_ASUETO, todayISO: '2026-09-20' })
+  assert.deepStrictEqual(dias, [])
+})
+
+caso('esSesionInformativa: reconoce id y registro informativos; un registro real no', () => {
+  assert.strictEqual(esSesionInformativa(PREFIJO_INFORMATIVA + '2026-09-16_1'), true)
+  assert.strictEqual(esSesionInformativa({ id: 'x', informativa: true }), true)
+  assert.strictEqual(esSesionInformativa('subj_2026-09-16_1'), false, 'id de una reposición real')
+  assert.strictEqual(esSesionInformativa({ id: 'subj_2026-09-16_1', fecha: '2026-09-16', presentes: {} }), false)
+  assert.strictEqual(esSesionInformativa(null), false)
 })
 
 if (fallos.length) {
