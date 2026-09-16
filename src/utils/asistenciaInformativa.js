@@ -1,8 +1,11 @@
-// ─── Columnas informativas de asueto/vacaciones — lógica pura ───────────────
+// ─── Columnas informativas de asueto — lógica pura ──────────────────────────
 //
 // Un día de asueto o de vacaciones que afecta asistencias NO genera registros
-// en `attendance` (ver ./asistenciaAsuetos.js), pero el docente sí debe verlo
-// en su tabla: una columna marcada, con "—", que no se toca y no suma.
+// en `attendance` (ver ./asistenciaAsuetos.js). El ASUETO sí debe verse en la
+// tabla del docente: una columna marcada, con "—", que no se toca y no suma.
+// Las VACACIONES no (regla de Kike, 16-sep-2026): durante vacaciones no hay
+// sesiones, así que no generan columna ni afectan totales. Una sesión REAL
+// creada en una fecha de vacaciones es un registro normal y se pinta como tal.
 //
 // Estas columnas viven SOLO en memoria. Sus "registros" no tienen documento en
 // Firestore: llevan `informativa: true` y un id con PREFIJO_INFORMATIVA, que
@@ -48,10 +51,13 @@ function sesionesDelDia(fecha, porFecha, horarioPatron) {
 // Devuelve [{ fecha, parcial, sinAsistencia: tipo, records: [placeholder…] }].
 export function diasInformativosAsistencia({ diasSinAsistencia = [], fechasConRegistro = [], parcialesFechas = [], porFecha = {}, horarioPatron = [], todayISO }) {
   const conRegistro = new Set(fechasConRegistro)
+  // Una fecha de vacaciones nunca lleva columna informativa, aunque además
+  // esté marcada como asueto.
+  const deVacaciones = new Set(diasSinAsistencia.filter((d) => d?.tipo === 'vacaciones').map((d) => d.fecha))
   const vistos = new Set()
   const dias = []
   for (const { fecha, tipo } of diasSinAsistencia) {
-    if (!fecha || vistos.has(fecha) || conRegistro.has(fecha)) continue
+    if (!fecha || vistos.has(fecha) || conRegistro.has(fecha) || deVacaciones.has(fecha)) continue
     if (todayISO && fecha > todayISO) continue
     const parcial = parcialForDate(parcialesFechas, fecha)
     if (!parcial) continue

@@ -3674,9 +3674,9 @@ caso('asueto sin registros: columna informativa con tantas sesiones como el patr
 })
 
 caso('asueto: los bloques que aún existan ese día mandan sobre el patrón; sin datos, 1 sesión', () => {
-  const [a] = diasInformativosAsistencia({ diasSinAsistencia: [{ fecha: '2026-09-16', tipo: 'vacaciones' }], parcialesFechas: PF_ASUETO, porFecha: { '2026-09-16': 3 }, todayISO: '2026-09-20' })
+  const [a] = diasInformativosAsistencia({ diasSinAsistencia: [{ fecha: '2026-09-16', tipo: 'asueto' }], parcialesFechas: PF_ASUETO, porFecha: { '2026-09-16': 3 }, todayISO: '2026-09-20' })
   assert.strictEqual(a.records.length, 3)
-  assert.strictEqual(a.sinAsistencia, 'vacaciones')
+  assert.strictEqual(a.sinAsistencia, 'asueto')
   const [b] = diasInformativosAsistencia({ diasSinAsistencia: [{ fecha: '2026-09-16', tipo: 'asueto' }], parcialesFechas: PF_ASUETO, todayISO: '2026-09-20' })
   assert.strictEqual(b.records.length, 1)
 })
@@ -3684,6 +3684,14 @@ caso('asueto: los bloques que aún existan ese día mandan sobre el patrón; sin
 caso('asueto con registro real (reposición o histórico): NO se agrega columna informativa', () => {
   const dias = diasInformativosAsistencia({ diasSinAsistencia: [{ fecha: '2026-09-16', tipo: 'asueto' }, { fecha: '2026-09-17', tipo: 'asueto' }], fechasConRegistro: ['2026-09-16'], parcialesFechas: PF_ASUETO, todayISO: '2026-09-20' })
   assert.deepStrictEqual(dias.map((d) => d.fecha), ['2026-09-17'])
+})
+
+caso('vacaciones: NUNCA columna informativa, aunque la fecha también sea asueto', () => {
+  const dias = diasInformativosAsistencia({
+    diasSinAsistencia: [{ fecha: '2026-09-14', tipo: 'vacaciones' }, { fecha: '2026-09-15', tipo: 'vacaciones' }, { fecha: '2026-09-15', tipo: 'asueto' }, { fecha: '2026-09-16', tipo: 'asueto' }],
+    parcialesFechas: PF_ASUETO, porFecha: { '2026-09-14': 2 }, todayISO: '2026-09-20',
+  })
+  assert.deepStrictEqual(dias.map((d) => [d.fecha, d.sinAsistencia]), [['2026-09-16', 'asueto']])
 })
 
 caso('asueto futuro o fuera de los parciales: sin columna (igual que las sesiones normales)', () => {
