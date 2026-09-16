@@ -249,6 +249,7 @@ const AttendanceTable = memo(function AttendanceTable({
   onCellClick,
   onDeleteDay, onBack, onAddDay, addDayLabel, // addDayLabel null = ya no hace falta (todo automático y sin días faltantes) → botón oculto
   lastEditedCell, // "recordId:studentId" — la última celda revisada/modificada, resaltada de forma persistente
+  parcialesFechas, // subject.parcialesFechas — fecha corta bajo "Parcial N", si existe
   totalOficialPorParcial, // subject.totalOficialPorParcial — total oficial capturado por el docente
   sesionesPorParcialCliente, // sesiones calculadas en tiempo real por el cliente (open parcials)
   parcialesCerrados, // subject.parcialesCerrados — marca de cierre por parcial
@@ -444,6 +445,11 @@ const AttendanceTable = memo(function AttendanceTable({
               ? 'px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap'
               : 'px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline'}>
             Parcial {g.parcial}
+            {parcialesFechas?.[g.parcial - 1] && (
+              <span className={`${compactaH ? 'ml-1' : 'block'} text-[9px] font-normal text-slate-400 normal-case tabular-nums`}>
+                ({formatShortDate(parcialesFechas[g.parcial - 1].inicio)}–{formatShortDate(parcialesFechas[g.parcial - 1].fin)})
+              </span>
+            )}
             {(() => {
               const cerrado = !!parcialesCerrados?.[g.parcial]
               const p = String(g.parcial)
@@ -4779,6 +4785,9 @@ export default function SubjectPage() {
       onAddDay={stableAddDay}
       addDayLabel={addDayLabel}
       lastEditedCell={lastEditedAttCell}
+      // Fecha bajo "Parcial N": web de escritorio y app, como antes de #1465.
+      // En el teléfono (web) se quitó a pedido explícito.
+      parcialesFechas={telefonoWeb.telefono ? undefined : subject?.parcialesFechas}
       totalOficialPorParcial={subject?.totalOficialPorParcial}
       sesionesPorParcialCliente={sesionesPorParcialCliente}
       parcialesCerrados={subject?.parcialesCerrados}
