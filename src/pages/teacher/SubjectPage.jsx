@@ -4806,21 +4806,35 @@ export default function SubjectPage() {
           ? <><CheckIcon size={22} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
           : <span>{subject?.accessCode}</span>}
       </button>
-      {/* Etiqueta explicando qué es el código — solo en la web, pedido
-          explícito de no tocar cómo se ve en la App. Va DESPUÉS del código
-          (pedido explícito): el código es lo prominente, la etiqueta es su
-          leyenda — de ahí que ya no lleve ":" al final, que apuntaba hacia
-          algo que venía después y ahora viene antes. */}
-      {!IS_NATIVE_APP && (
-        <span className="text-sm font-medium text-muted flex-shrink-0">Código de acceso a este curso para estudiantes</span>
+      {/* La leyenda "Código de acceso a este curso para estudiantes" (solo
+          web) se quitó a pedido explícito (sep-2026): su lugar lo ocupa
+          ahora el botón "Editar", pegado al código. */}
+    </>
+  )
+  // Web (sep-2026, pedido explícito): solo "Editar" (lápiz + texto) junto al
+  // código, y "Restaurar" si la asignatura está archivada. Duplicar, archivar
+  // y eliminar NO se muestran en la web, pero sus handlers y modales siguen
+  // intactos (la App los usa tal cual).
+  const subjectHeaderRightIconsWeb = (
+    <>
+      <button type="button" onClick={openEditSubject}
+        aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
+        data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
+        className="flex items-center gap-1.5 px-2 py-1.5 text-sm font-medium text-slate-500 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        <Pencil size={18} /> Editar
+      </button>
+      {subject?.archived && (
+        <button type="button" onClick={handleToggleArchive} disabled={archiving}
+          aria-label="Restaurar asignatura (vuelve a tus asignaturas activas)"
+          data-tooltip="Restaurar asignatura (vuelve a tus asignaturas activas)"
+          className="flex items-center gap-1.5 px-2 py-1.5 text-sm font-medium text-slate-500 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
+          <ArchiveRestore size={18} /> Restaurar
+        </button>
       )}
     </>
   )
-  // Los cuatro (editar, duplicar, archivar, eliminar) van igual en web y en
-  // app. Duplicar/archivar/eliminar estaban solo en la web por falta de
-  // espacio en el renglón; al quitarse el QR y el link ya caben. Sus modales
-  // nunca estuvieron restringidos, así que funcionaban desde el primer día.
-  const subjectHeaderRightIcons = (
+  // App: los cuatro (editar, duplicar, archivar, eliminar), sin cambios.
+  const subjectHeaderRightIcons = IS_NATIVE_APP ? (
     <>
       {/* ml-auto en el PRIMER botón de este grupo: empuja editar/duplicar/
           archivar/eliminar hasta la orilla derecha del renglón, comiéndose
@@ -4853,7 +4867,7 @@ export default function SubjectPage() {
         <Trash2 size={21} />
       </button>
     </>
-  )
+  ) : subjectHeaderRightIconsWeb
 
   return (
     <>
