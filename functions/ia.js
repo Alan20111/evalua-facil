@@ -1205,7 +1205,16 @@ const CALIFICAR_ENTREGABLE_SISTEMA =
   'todas las hojas. También revisa con más detalle las respuestas reflexivas, ya que algunas podrían ' +
   'estar mejor desarrolladas. Vas bien; solo necesitas cuidar esos aspectos."\n' +
   'LA IA DEBE PROPONER UNA RETROALIMENTACIÓN QUE PAREZCA ESCRITA POR EL DOCENTE PARA SU ESTUDIANTE, ' +
-  'NO UNA DESCRIPCIÓN DE LO QUE LA IA ENCONTRÓ EN LAS EVIDENCIAS.'
+  'NO UNA DESCRIPCIÓN DE LO QUE LA IA ENCONTRÓ EN LAS EVIDENCIAS.\n\n' +
+  // REGLA 16-sep-2026 (Kike): el tiempo de entrega NUNCA es parte de la
+  // evaluación de la IA, ni siquiera si la rúbrica lo menciona. La entrega
+  // tardía es un estado aparte y el docente decide si le resta puntos.
+  'REGLA ESTRICTA sobre FECHAS: nunca evalúes ni consideres fechas, horas, fecha límite, plazo, ' +
+  'puntualidad, retrasos ni entrega tardía — no forman parte de tu evaluación. No intentes deducir ' +
+  'cuándo se entregó el trabajo a partir de los archivos, sus metadatos, fechas escritas en el ' +
+  'documento o las instrucciones. No menciones fechas, plazos, puntualidad ni retrasos en ' +
+  '"evidencia" ni en "retroalimentacionGeneral". Los criterios marcados como RESERVADOS AL DOCENTE ' +
+  'no se evalúan: responde "nivel": null y no los comentes.'
 
 // Espejo mínimo de esCotejo (src/utils/rubrica.js) — no vale la pena meter
 // este archivo entero al mecanismo de _shared/ (scripts/sync-functions-
@@ -1258,17 +1267,61 @@ function rubricaFirma(rubrica) {
   return h.toString(36)
 }
 
+// ── Criterios de tiempo (16-sep-2026, regla definitiva de Kike) ─────────────
+// Bug real: "Cumplimiento de formato y fecha límite" hizo que la IA buscara la
+// fecha dentro del PDF y escribiera "no pude verificar si cumpliste la fecha
+// límite" en 31 entregas. La IA NUNCA evalúa tiempo de entrega: un criterio
+// que lo mencione — aunque también hable de formato — queda COMPLETO sin
+// nivel, para el docente. Ni se le dan fechas al modelo ni se le muestra el
+// texto del criterio. La rúbrica guardada no se toca.
+//
+// Solo términos de PLAZO DE ENTREGA, no "fecha" o "tiempo" sueltos: "Ubica las
+// fechas históricas", "procesa en tiempo real" o "inversión a largo plazo"
+// son criterios académicos y se siguen evaluando.
+const RX_CRITERIO_TIEMPO = new RegExp([
+  'fechas?\\s+(l[ií]mite|de\\s+entrega|establecidas?|indicadas?|solicitadas?|acordadas?|programadas?)',
+  'puntual',
+  '\\ba\\s+tiempo\\b(?!\\s+completo)',
+  '\\ben\\s+tiempo\\b(?!\\s+real)',
+  'fuera\\s+de\\s+(tiempo|plazo|fecha)',
+  '(?<!(largo|corto|mediano)\\s)\\bplazos?\\b',
+  '\\b(con|sin)\\s+(poco\\s+|alg[uú]n\\s+|ning[uú]n\\s+)?retrasos?\\b',
+  '\\bretrasos?\\s+(en\\s+la\\s+entrega|de\\s+entrega|menores|mayores)',
+  '\\btard[ií]as?\\b',
+  '\\b(entreg|lleg)[a-záéíóúñ]*\\s+(muy\\s+)?tarde\\b',
+  'extempor[aá]ne',
+].join('|'), 'i')
+
+function esCriterioDeTiempo(criterio) {
+  return [criterio?.nombre, ...(Array.isArray(criterio?.descriptores) ? criterio.descriptores : [])]
+    .some((t) => RX_CRITERIO_TIEMPO.test(String(t || '')))
+}
+
+const AVISO_CRITERIO_TIEMPO = 'Criterio relacionado con el plazo de entrega: la IA no lo evalúa, lo asigna el docente.'
+
+// Total de la propuesta de IA. Con un criterio de tiempo pendiente no hay
+// total — ni siquiera en lista de cotejo, donde vacío contaría como "no
+// cumple" y le restaría puntos al estudiante por algo que la IA no evaluó.
+function totalPropuestaIA(rubrica, criterios) {
+  if (criterios.some((c) => c.criterioDeTiempo && c.nivel == null)) return null
+  return totalInstrumento(rubrica, criterios.map((c) => c.nivel))
+}
+
+const lineaCriterioReservado = (i) =>
+  `${i + 1}. [CRITERIO RESERVADO AL DOCENTE — no lo evalúes ni lo comentes; responde "nivel": null]`
+
 // Describe los criterios del instrumento en el prompt — única diferencia
 // real entre rúbrica y lista de cotejo (ver comentario del bloque arriba).
 function bloqueCriteriosInstrumento(rubrica) {
   if (esCotejo(rubrica)) {
-    const lista = rubrica.criterios.map((c, i) =>
+    const lista = rubrica.criterios.map((c, i) => esCriterioDeTiempo(c) ? lineaCriterioReservado(i) :
       `${i + 1}. "${c.nombre}" — se marca CUMPLE (nivel 0) o NO CUMPLE (nivel null), sin términos intermedios.`
     ).join('\n')
     return `LISTA DE COTEJO — indicadores a verificar (cumple/no cumple):\n${lista}`
   }
   const niveles = rubrica.niveles.map((n, i) => `${i}=${n.nombre}`).join(', ')
   const lista = rubrica.criterios.map((c, i) => {
+    if (esCriterioDeTiempo(c)) return lineaCriterioReservado(i)
     const descriptores = c.descriptores
       .map((d, ni) => `  nivel ${ni} (${rubrica.niveles[ni]?.nombre || ''}): ${d || '(sin descriptor)'}`)
       .join('\n')
@@ -1415,6 +1468,10 @@ async function evaluarEntregaConIA({ client, modelo, rubrica, nombre, instruccio
   const porIndice = new Map((Array.isArray(datos.criterios) ? datos.criterios : []).map((c) => [Number(c?.n) - 1, c]))
   const maxNivel = rubrica.niveles.length - 1
   const criterios = rubrica.criterios.map((c, i) => {
+    // Criterio de tiempo: se ignora lo que responda el modelo — nunca nivel.
+    if (esCriterioDeTiempo(c)) {
+      return { n: i + 1, nivel: null, evidencia: AVISO_CRITERIO_TIEMPO, sinEvidenciaSuficiente: true, criterioDeTiempo: true }
+    }
     const d = porIndice.get(i) || {}
     const sinEvidencia = !Number.isInteger(d.nivel) || !!d.sinEvidenciaSuficiente
     const nivel = sinEvidencia ? null : Math.min(maxNivel, Math.max(0, d.nivel))
@@ -1457,7 +1514,7 @@ async function ejecutarCalificarEntregableIA({ params, modelo, apiKey }) {
     ...sugerencia,
     ignoradosPorFormato: ctx.ignoradosPorFormato,
     ignoradosPorTope: ctx.ignoradosPorTope,
-    calificacionPropuesta: totalInstrumento(ctx.rubrica, sugerencia.criterios.map((c) => c.nivel)),
+    calificacionPropuesta: totalPropuestaIA(ctx.rubrica, sugerencia.criterios),
   }
 
   // Persistir como 'pendiente' EN CUANTO se genera — mismo mecanismo y
@@ -1683,7 +1740,7 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
         // cambie la rúbrica; sin este número fijo, reconstruirlo más tarde
         // recalculando contra la rúbrica ACTUAL daría un valor distinto.
         const niveles = sugerencia.criterios.map((c) => c.nivel)
-        const total = totalInstrumento(ctx.rubrica, niveles)
+        const total = totalPropuestaIA(ctx.rubrica, sugerencia.criterios)
         const sugerenciaCompleta = {
           ...sugerencia,
           ignoradosPorFormato: item.evidencias.ignoradosPorFormato,
@@ -6542,6 +6599,8 @@ exports._pruebas = {
   verificarSaldoChat, calcularTarifaExamen, precheckChatCrearActividad, precheckChatCrearExamen,
   ACCIONES_ACTIVIDAD,
   precheckCalificarEntregable, bloqueCriteriosInstrumento, precheckCalificarEntregableLote, rubricaFirma,
+  evaluarEntregaConIA, esCriterioDeTiempo, totalPropuestaIA, AVISO_CRITERIO_TIEMPO,
+  ejecutarCalificarEntregableIA, ejecutarCalificarEntregableIALote,
   pendientesEvaluacionesIATexto,
   validarClavesVerdaderoFalso, bloqueFechaActualChat, extraerJsonVeredictos,
   CALIFICAR_ENTREGABLE_SISTEMA,
