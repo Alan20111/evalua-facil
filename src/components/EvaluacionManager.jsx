@@ -54,6 +54,7 @@ import AnalisisResultadosIA from './evaluacion/AnalisisResultadosIA'
 import { resolverNombresAnalisis } from '../utils/resolverNombresAnalisis'
 import { MIN_ENTREGAS_ANALISIS } from '../utils/analisisResultados'
 import { useBackHandler } from '../hooks/useBackHandler'
+import useTelefonoWeb from '../hooks/useTelefonoWeb'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { formatHora12FromDate } from '../utils/formatHora'
 
@@ -178,6 +179,9 @@ function millisDeGeneradoEn(x) {
 export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, onSubmissionUpdated = null, resultadosOnly = false, backState = null, openStudentId = null, onDeleteActivity = null, parcialCerrado = false }) {
   const navigate = useNavigate()
   const toast = useToast()
+  // Teléfono abierto en el navegador (siempre false en la app y en escritorio):
+  // ahí la revisión muestra el resultado/estado, sin la hoja de respuestas.
+  const telefonoWeb = useTelefonoWeb()
   // Parcial cerrado definitivamente: nada de lo que cambie la calificación
   // (reactivos, puntos, anular intentos, prórrogas). Comentar sí.
   function bloqueadoPorCierre() {
@@ -2313,6 +2317,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               crecer con el contenido — sin esto el alto de esta zona variaba
               según el estudiante/aside. */}
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            {!telefonoWeb.telefono && (
             <div className="flex-1 min-h-0 overflow-y-auto p-4">
               <div className="max-w-3xl mx-auto">
                 {done ? (
@@ -2435,8 +2440,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 )}
               </div>
             </div>
+            )}
 
-            <aside className="w-full md:w-[380px] flex-shrink-0 border-t md:border-t-0 md:border-l border-outline-variant bg-surface-card overflow-y-auto p-4 space-y-3">
+            <aside className={`w-full md:w-[380px] ${telefonoWeb.telefono ? 'flex-1 min-h-0' : 'flex-shrink-0'} border-t md:border-t-0 md:border-l border-outline-variant bg-surface-card overflow-y-auto p-4 space-y-3`}>
               {/* Filter tabs — 2×2 grid en web. En Android estas 4 se
                   reducen a las dos etiquetas "Todos"/"Por calificar" junto a
                   la calificación (mismo patrón que Evaluar), no van aquí arriba. */}
@@ -2460,6 +2466,18 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   {st.orden != null && <span className="text-on-surface">{st.orden}. </span>}
                   {nombre}
                 </p>
+                {/* Teléfono (web): sin hoja de respuestas, el estado va aquí —
+                    misma etiqueta y colores que la lista de Entregas. */}
+                {telefonoWeb.telefono && (() => {
+                  const estado = estadoEstudiante(sub)
+                  return (
+                    <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${
+                      estado === 'Calificado' || estado === 'Realizado' ? 'bg-emerald-100 text-emerald-700' :
+                      estado === 'Por calificar' ? 'bg-amber-100 text-amber-700' :
+                      estado === 'En proceso' ? 'bg-blue-100 text-blue-700' : 'bg-surface-container text-muted'
+                    }`}>{estado}</span>
+                  )
+                })()}
                 {/* Reserve the line even when not done so Anterior/Siguiente never move (web only — en Android no se muestran fechas/intentos) */}
                 {!IS_NATIVE_APP && (
                   <p className={`text-xs text-slate-400 mt-0.5 min-h-4 ${done ? '' : 'invisible'}`}>

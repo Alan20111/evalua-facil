@@ -58,6 +58,7 @@ import { ClipboardList, ListChecks, X, Sparkles } from 'lucide-react'
 import { totalRubrica, RUBRICA_TOTAL, esCotejo, instrumentoColors, rubricaFirma } from '../../utils/rubrica'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12FromDate } from '../../utils/formatHora'
 
@@ -185,6 +186,9 @@ function NativeEvalBgFix() {
 
 export default function ActivityPage() {
   const { activityId } = useParams()
+  // Teléfono abierto en el navegador (siempre false en la app y en escritorio):
+  // ahí Evaluar muestra el resultado/estado de cada estudiante, sin la entrega.
+  const telefonoWeb = useTelefonoWeb()
   const [activity, setActivity] = useState(null)
   const [activityLabel, setActivityLabel] = useState(null)
   // "Nueva fecha de entrega" modal, offered from within the activity editor
@@ -1390,7 +1394,7 @@ export default function ActivityPage() {
           </div>
 
         {/* ZIP download — solo en la web. Primero en el contenedor. */}
-        {!IS_NATIVE_APP && Object.values(submissions).some((s) => s.archivoURL && !s.completadoSinArchivo) && (
+        {!IS_NATIVE_APP && !telefonoWeb.telefono && Object.values(submissions).some((s) => s.archivoURL && !s.completadoSinArchivo) && (
           <div className="px-4 pt-3">
             <button
               type="button"
@@ -1635,7 +1639,9 @@ export default function ActivityPage() {
 
           <div className="flex-1 min-h-0 flex flex-col md:flex-row">
 
-            {/* Left: file preview, top to bottom */}
+            {/* Left: file preview, top to bottom — no en el teléfono (web):
+                ahí el panel de calificación ocupa toda la pantalla. */}
+            {!telefonoWeb.telefono && (
             <div className="h-[45vh] md:h-auto md:flex-1 min-w-0 bg-surface-container flex flex-col">
               {/* Aviso de cómo hacer zoom en la web — con mouse no hay pellizcar,
                   así que el gesto no es obvio: clic para las imágenes (abre un
@@ -1746,6 +1752,7 @@ export default function ActivityPage() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Right: grading panel — cuando "Calificar con IA" está abierto,
                 esta MISMA columna (espacio real de layout, no un overlay)
@@ -1919,7 +1926,7 @@ export default function ActivityPage() {
                       {/* En la app no hay botón de descarga; cae al hueco
                           invisible de abajo cuando hay rúbrica, para que la
                           calificación no cambie de lugar. */}
-                      {selFiles.length === 1 && !IS_NATIVE_APP ? (
+                      {selFiles.length === 1 && !IS_NATIVE_APP && !telefonoWeb.telefono ? (
                         <a
                           href={downloadUrl(selFiles[0].url, selFiles[0].nombre)}
                           download={selFiles[0].nombre}
@@ -1937,7 +1944,7 @@ export default function ActivityPage() {
                           <span className="truncate">Descargar entrega</span>
                         </div>
                       ) : null}
-                      <div className={selFiles.length === 1 || hasRubrica ? 'flex-shrink-0' : 'flex-1'}>
+                      <div className={(selFiles.length === 1 && !telefonoWeb.telefono) || hasRubrica ? 'flex-shrink-0' : 'flex-1'}>
                         <label htmlFor="act-calificacion" className="block text-sm font-medium text-muted mb-1 text-center">
                           Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
                         </label>
@@ -1961,7 +1968,7 @@ export default function ActivityPage() {
 
                     {/* Several files: click the name to PREVIEW that image on the
                         left; only the download icon downloads it */}
-                    {selFiles.length > 1 && (
+                    {selFiles.length > 1 && !telefonoWeb.telefono && (
                       <div className="space-y-1">
                         {/* All images: icon downloads everything as a ZIP; the
                             name shows them all stacked in the preview */}
@@ -2108,7 +2115,7 @@ export default function ActivityPage() {
                           {v.completadoSinArchivo
                             ? <span className="text-slate-400 italic">sin archivo</span>
                             : v.archivoURL
-                              ? IS_NATIVE_APP
+                              ? (IS_NATIVE_APP || telefonoWeb.telefono)
                                 ? <span className="text-muted truncate flex items-center gap-1">{v.nombreArchivo}</span>
                                 : <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
                                   <Download size={14} /> {v.nombreArchivo}
