@@ -23,6 +23,7 @@ import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacacion
 import { TEACHER_CONTAINER } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { usePointerDrag } from '../../hooks/usePointerDrag'
 import { refreshTeacherReminders } from '../../utils/localReminders'
@@ -883,6 +884,11 @@ export default function CalendarPage() {
   const { currentUser } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
+  // Teléfono (web): el Horario es solo de consulta. Sin asuetos, vacaciones
+  // ni programar/modificar bloques, y los bloques no se tocan ni se arrastran
+  // (eso se hace desde la computadora). Los eventos personales sí se editan.
+  // En la app nativa useTelefonoWeb siempre da false: la app sigue igual.
+  const soloConsulta = useTelefonoWeb().telefono
 
   // Entra donde el docente lo dejó la última vez (vista y fecha) — pedido
   // explícito: no siempre debe aterrizar en Hoy/Día. "Hoy" sigue disponible
@@ -1214,12 +1220,18 @@ export default function CalendarPage() {
   // Bloquea la creación en un día marcado como asueto o dentro de vacaciones.
   function bloqueadoPorAsueto(fecha, tipo) {
     const d = new Date(fecha + 'T12:00:00')
+    // En el teléfono (web) los botones de asueto/vacaciones no están: el aviso
+    // manda a la computadora en vez de a un control que no se ve.
     if (esAsuetoPara(asuetoMap, fecha, tipo)) {
-      toast(`${d.getDate()}/${d.getMonth() + 1} es día de asueto (sin ${tipo}). Quítalo en "Días de asueto" para permitirlo.`, 'error')
+      toast(soloConsulta
+        ? `${d.getDate()}/${d.getMonth() + 1} es día de asueto (sin ${tipo}). Para permitirlo, quítalo desde Horario en la computadora.`
+        : `${d.getDate()}/${d.getMonth() + 1} es día de asueto (sin ${tipo}). Quítalo en "Días de asueto" para permitirlo.`, 'error')
       return true
     }
     if (esAsuetoPara(vacacionMap, fecha, tipo)) {
-      toast(`${d.getDate()}/${d.getMonth() + 1} cae en vacaciones (sin ${tipo}). Ajusta el periodo en "Vacaciones" para permitirlo.`, 'error')
+      toast(soloConsulta
+        ? `${d.getDate()}/${d.getMonth() + 1} cae en vacaciones (sin ${tipo}). Para permitirlo, ajusta el periodo desde Horario en la computadora.`
+        : `${d.getDate()}/${d.getMonth() + 1} cae en vacaciones (sin ${tipo}). Ajusta el periodo en "Vacaciones" para permitirlo.`, 'error')
       return true
     }
     return false
@@ -1657,16 +1669,21 @@ export default function CalendarPage() {
   // mover el mismo día a otra hora, o borrarla (clase suspendida). Un
   // adelanto/movimiento de una sola clase es SIEMPRE el mismo día: solo cambia
   // la hora (nunca el día ni las clases siguientes → eso es "Modificar bloques").
+  // Teléfono (web): ninguno de los tres abre el diálogo — el horario es solo
+  // de consulta (las vistas ya no los reciben; esto es la red de seguridad).
   function requestMoveBloque(b, _nuevaFecha, nuevaHora) {
+    if (soloConsulta) return
     setPendingMove({ bloque: b, fecha: b.fecha, hora: nuevaHora })
   }
   // Tocar una clase (sin arrastrar) abre el mismo diálogo con su hora actual.
   function openBloqueAcciones(b) {
+    if (soloConsulta) return
     setPendingMove({ bloque: b, fecha: b.fecha, hora: b.horaInicio })
   }
   // En la vista Mes solo se puede BORRAR ese día (no mover): el diálogo se abre
   // sin la opción de cambiar la hora.
   function openBloqueSoloBorrar(b) {
+    if (soloConsulta) return
     setPendingMove({ bloque: b, fecha: b.fecha, hora: b.horaInicio, soloBorrar: true })
   }
 
@@ -1990,7 +2007,9 @@ export default function CalendarPage() {
               {viewSwitcher}
             </div>
 
-            {/* Segunda fila: asuetos + programación de bloques */}
+            {/* Segunda fila: asuetos + programación de bloques. Solo en la
+                computadora: en el teléfono (web) el horario es de consulta. */}
+            {!soloConsulta && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <button
                 type="button"
@@ -2045,16 +2064,31 @@ export default function CalendarPage() {
                 <CalendarPlus size={15} /> Programar bloques
               </button>
             </div>
+            )}
           </>
         )}
 
 {/* Calendar body — en web, Día y 3 días se ven mal a lo ancho de las
             demás vistas (columnas gigantes); se acotan y centran. Semana y
             Mes se quedan a ancho completo, como ya estaban. Solo web: en la
-            app esta franja ya es angosta por el propio viewport. */}
+            app esta franja ya es angosta por el propio viewport. En el
+            teléfono (web) tampoco se acotan: ocupan todo el ancho.
+            Además, en el teléfono (web) Día y 3 días devuelven el
+            desplazamiento con el dedo a lo que no se arrastra (bloques de
+            solo consulta, actividades): las vistas les ponen
+            `touch-action: none` fuera de la app, y con eso la página no se
+            movía si el dedo empezaba encima de un bloque. Lo que sí se
+            arrastra (eventos personales, `cursor-grab`) se queda igual.
+            3 días, también en el teléfono (web), anula el mínimo de 620px de
+            WeekView (`md:min-w-[620px]`, pensado para arrastrar con mouse):
+            un teléfono girado pasa de 768px y, con la barra lateral, deja
+            menos de 620px — la vista se salía de lado en vez de caber. */}
         <div className={IS_NATIVE_APP
           ? 'bg-surface-card overflow-x-hidden'
-          : `bg-surface-card border border-outline rounded shadow-card overflow-hidden ${view === 'agenda' ? 'w-1/2 mx-auto' : view === '3dias' ? 'w-3/4 mx-auto' : ''}`
+          : `bg-surface-card border border-outline rounded shadow-card overflow-hidden ${soloConsulta
+            ? (view === 'agenda' ? '[&_[style*=touch-action]:not(.cursor-grab)]:!touch-auto'
+              : view === '3dias' ? '[&_[style*=touch-action]:not(.cursor-grab)]:!touch-auto [&>div>div]:!min-w-0' : '')
+            : view === 'agenda' ? 'w-1/2 mx-auto' : view === '3dias' ? 'w-3/4 mx-auto' : ''}`
         }>
           {loading ? (
             <div className="flex justify-center py-16"><Spinner /></div>
@@ -2067,8 +2101,11 @@ export default function CalendarPage() {
               dayStart={dayStart}
               dayEnd={dayEnd}
               onEventClick={openEditEvent}
-              onBlockClick={openBloqueAcciones}
-              onMoveBloque={requestMoveBloque}
+              // Teléfono (web): bloques solo de consulta (mismo camino que la
+              // Agenda del alumno). Los eventos personales siguen editables.
+              onBlockClick={soloConsulta ? undefined : openBloqueAcciones}
+              onMoveBloque={soloConsulta ? undefined : requestMoveBloque}
+              editableBloques={!soloConsulta}
               onMoveEvent={moveEvent}
               onSlotClick={IS_NATIVE_APP ? undefined : openNewEventAt}
               asuetoMap={asuetoMap}
@@ -2108,8 +2145,10 @@ export default function CalendarPage() {
               selectedDate={currentDate}
               onSlotClick={IS_NATIVE_APP ? undefined : openNewEventAt}
               onEventClick={openEditEvent}
-              onBlockClick={openBloqueAcciones}
-              onMoveBloque={requestMoveBloque}
+              // Teléfono (web): bloques solo de consulta, como en Día.
+              onBlockClick={soloConsulta ? undefined : openBloqueAcciones}
+              onMoveBloque={soloConsulta ? undefined : requestMoveBloque}
+              editable={!soloConsulta}
               onMoveEvent={moveEvent}
               asuetoMap={asuetoMap}
               vacacionMap={vacacionMap}
