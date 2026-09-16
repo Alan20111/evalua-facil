@@ -35,7 +35,7 @@ import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTi
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade, estadoParcial, puedeIniciarAtencion, parcialCerrado, mensajeParcialCerrado, esNotaAutomaticaDeCierre } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { formatShortDate, formatShortDateRange } from '../../utils/dateRange'
+import { formatShortDate } from '../../utils/dateRange'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
@@ -248,7 +248,6 @@ const AttendanceTable = memo(function AttendanceTable({
   onCellClick,
   onDeleteDay, onBack, onAddDay, addDayLabel, // addDayLabel null = ya no hace falta (todo automático y sin días faltantes) → botón oculto
   lastEditedCell, // "recordId:studentId" — la última celda revisada/modificada, resaltada de forma persistente
-  parcialesFechas, // subject.parcialesFechas — fecha corta bajo "Parcial N", si existe
   totalOficialPorParcial, // subject.totalOficialPorParcial — total oficial capturado por el docente
   sesionesPorParcialCliente, // sesiones calculadas en tiempo real por el cliente (open parcials)
   parcialesCerrados, // subject.parcialesCerrados — marca de cierre por parcial
@@ -444,11 +443,6 @@ const AttendanceTable = memo(function AttendanceTable({
               ? 'px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap'
               : 'px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline'}>
             Parcial {g.parcial}
-            {parcialesFechas?.[g.parcial - 1] && (
-              <span className={`${compactaH ? 'ml-1' : 'block'} text-[9px] font-normal text-slate-400 normal-case tabular-nums`}>
-                ({formatShortDate(parcialesFechas[g.parcial - 1].inicio)}–{formatShortDate(parcialesFechas[g.parcial - 1].fin)})
-              </span>
-            )}
             {(() => {
               const cerrado = !!parcialesCerrados?.[g.parcial]
               const p = String(g.parcial)
@@ -4656,7 +4650,6 @@ export default function SubjectPage() {
       onAddDay={stableAddDay}
       addDayLabel={addDayLabel}
       lastEditedCell={lastEditedAttCell}
-      parcialesFechas={subject?.parcialesFechas}
       totalOficialPorParcial={subject?.totalOficialPorParcial}
       sesionesPorParcialCliente={sesionesPorParcialCliente}
       parcialesCerrados={subject?.parcialesCerrados}
@@ -4883,16 +4876,9 @@ export default function SubjectPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
                 <h1 className="text-xl font-bold text-on-surface truncate min-w-0">
+                  {/* Solo nombre + grupo: las fechas del curso ya no se
+                      muestran junto al nombre (siguen guardadas y en uso). */}
                   {subjectDisplayName(subject)}
-                  {/* Fechas solo en la web — mismo criterio que la lista de
-                      asignaturas del Dashboard: en el celular el renglón es
-                      angosto y el rango terminaba cortando el nombre de la
-                      asignatura, que es lo que sí hay que leer. */}
-                  {!IS_NATIVE_APP && subject?.fechaInicio && subject?.fechaFin && (
-                    <span className="text-xs font-medium text-slate-400 ml-1.5 tabular-nums align-middle">
-                      ({formatShortDateRange(subject.fechaInicio, subject.fechaFin)})
-                    </span>
-                  )}
                 </h1>
                 {subject?.archived && (
                   <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">Archivada</span>
@@ -5027,9 +5013,6 @@ export default function SubjectPage() {
                       <div className="text-left min-w-0">
                         <p className={`font-semibold text-base leading-tight truncate ${parcialOculto ? 'text-slate-400' : 'text-on-surface'}`}>
                           Parcial {p}{parcialOculto && <span className="text-xs font-normal text-slate-400"> · oculto a estudiantes</span>}
-                          {subject?.parcialesFechas?.[p - 1] && (
-                            <span className="text-xs font-medium text-slate-400 tabular-nums"> ({formatShortDate(subject.parcialesFechas[p - 1].inicio)} – {formatShortDate(subject.parcialesFechas[p - 1].fin)})</span>
-                          )}
                         </p>
                         <p className="text-sm text-slate-500 leading-tight -mt-0.5">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                       </div>
@@ -5539,14 +5522,7 @@ export default function SubjectPage() {
                               {estadoParcial(subject, p) === 'atencion' && (
                                 <MessageCircleQuestion size={12} className="text-accent flex-shrink-0" data-tooltip="Atención de inquietudes" />
                               )}
-                              <span>
-                                Parcial {p}
-                                {subject?.parcialesFechas?.[p - 1] && (
-                                  <span className="block text-[9px] font-normal text-slate-400 normal-case tabular-nums">
-                                    ({formatShortDate(subject.parcialesFechas[p - 1].inicio)}–{formatShortDate(subject.parcialesFechas[p - 1].fin)})
-                                  </span>
-                                )}
-                              </span>
+                              <span>Parcial {p}</span>
                               <button type="button" id={`parcial-menu-${p}`}
                                 onClick={(e) => {
                                   const r = e.currentTarget.getBoundingClientRect()

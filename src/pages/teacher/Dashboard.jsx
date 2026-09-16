@@ -19,7 +19,6 @@ import AvatarCropModal from '../../components/AvatarCropModal'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe, Smartphone, Sparkles } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
@@ -491,11 +490,6 @@ export default function TeacherDashboard() {
                             llegan asignaturas vivas, así que nunca se
                             mostraría. */}
                         <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
-                        {/* Solo en la web — pedido explícito: en la App no deben
-                            verse las fechas de inicio y fin junto a las asignaturas. */}
-                        {!IS_NATIVE_APP && subjectPeriodLabel(s) && (
-                          <p className="text-sm text-slate-500 mt-0.5">{subjectPeriodLabel(s)}</p>
-                        )}
                       </div>
                       <ChevronRight size={20} className="text-slate-300 flex-shrink-0" />
                     </button>
