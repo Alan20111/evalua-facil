@@ -155,8 +155,6 @@ export default function CalificarConIAModal({
       console.warn('[CalificarConIAModal] criterios no es Array:', typeof res.criterios)
       return null
     }
-    // Criterio del plazo de entrega sin asignar: sin total propuesto (ver ia.js).
-    if (res.criterios.some((c2) => c2.criterioDeTiempo && c2.nivel == null)) return null
     return totalRubrica(rubrica, res.criterios.map((c2) => c2.nivel))
   }
 
