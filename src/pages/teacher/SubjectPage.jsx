@@ -6381,7 +6381,10 @@ export default function SubjectPage() {
           {!IS_NATIVE_APP && <>
           {/* Agregar alumnos — compact 3-step strip: template → upload → activation codes.
               Each step shows just a number + icon + short label; the full instructions
-              live in the title tooltip instead of wrapping across two lines like before. */}
+              live in the title tooltip instead of wrapping across two lines like before.
+              Teléfono (web): sin descargas, no hay paso 1 (plantilla), así que el
+              flujo completo de la plantilla no se muestra. */}
+          {!telefonoWeb.telefono && (
           <div>
             <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar estudiantes</p>
             {/* Prominent 3-step cards — everything starts here. No overflow-hidden
@@ -6433,6 +6436,7 @@ export default function SubjectPage() {
               </>)}
             </div>
           </div>
+          )}
 
           {/* Por asignatura (no un ajuste global de Ajustes > Notificaciones):
               la Cloud Function lee este campo directo del documento de la
