@@ -42,7 +42,7 @@ import PonderacionPendiente from '../../components/PonderacionPendiente'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde } from '../../utils/avisos'
-import Table from '../../components/ui/Table'
+import AsistenciaSemanal from '../../components/student/AsistenciaSemanal'
 
 // Builds a unified ordered list of activities + positioned materials for one
 // parcial, mirroring the teacher view so both render in the same order.
@@ -865,21 +865,13 @@ export default function StudentSubjectPage() {
         </div>
       )}
 
-      {/* Tab: Asistencias — una tarjeta por parcial; dentro, una fila por sesión
-          (slot) agrupadas bajo su encabezado de fecha. La unidad de asistencia
-          es la sesión, no el día. */}
+      {/* Tab: Asistencias — por parcial: resumen destacado y una tarjeta por semana
+          (components/student/AsistenciaSemanal.jsx). Totales y porcentajes se
+          calculan aquí igual que siempre; el componente solo los presenta. La
+          unidad de asistencia es la sesión, no el día. */}
       {activeTab === 'Asistencias' && (() => {
         const now = new Date()
         const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-
-        // Formatea "2025-09-08" → "Lun 8 sep"
-        const fmtDia = (fecha) => {
-          const d = new Date(`${fecha}T12:00:00`)
-          const diaNombre = d.toLocaleDateString('es-MX', { weekday: 'short' })
-          const diaNum = d.getDate()
-          const mes = d.toLocaleDateString('es-MX', { month: 'short' })
-          return `${diaNombre.charAt(0).toUpperCase()}${diaNombre.slice(1, 3)} ${diaNum} ${mes}`
-        }
 
         return (
         <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
@@ -920,78 +912,20 @@ export default function StudentSubjectPage() {
                 : pctInasist >= umbralInasistencia * 0.75 ? '🟠'
                 : '🟢'
 
-              const attColumns = [
-                {
-                  key: 'fecha',
-                  header: 'Fecha',
-                  render: (r) => <span className="whitespace-nowrap">{fmtDia(r.fecha)}</span>,
-                },
-                {
-                  key: 'slot',
-                  header: 'Clase',
-                  render: (r) => <span className="whitespace-nowrap">Clase {r.slot ?? 1}</span>,
-                },
-                {
-                  key: 'estado',
-                  header: 'Estado',
-                  render: (r) => {
-                    const esPresente = r.estado === 'presente'
-                    const esJustificada = r.estado === 'justificada'
-                    return (
-                      <span className={`inline-flex items-center gap-1 font-medium whitespace-nowrap ${esPresente ? 'text-emerald-700' : esJustificada ? 'text-amber-700' : 'text-red-600'}`}>
-                        {esPresente ? '✅' : esJustificada ? '🟡' : '❌'}
-                        {esPresente ? 'Presente' : esJustificada ? 'Justificada' : 'Falta'}
-                      </span>
-                    )
-                  },
-                },
-                {
-                  key: 'motivo',
-                  header: 'Motivo',
-                  render: (r) => (
-                    <span className="text-slate-500 text-xs">
-                      {(r.estado === 'justificada' && r.motivo) ? r.motivo : '—'}
-                    </span>
-                  ),
-                },
-              ]
-
               return (
-                <div key={p} className="space-y-1.5">
-                  {/* Encabezado del parcial */}
-                  <div className="px-1 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-                      <span className="text-accent font-bold text-sm">{p}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-on-surface">Parcial {p}</p>
-                      <p className="text-xs text-slate-500">
-                        {stat.asist - stat.justif} presente{stat.asist - stat.justif !== 1 ? 's' : ''} · {stat.inasist} falta{stat.inasist !== 1 ? 's' : ''}
-                        {stat.justif > 0 ? ` · ${stat.justif} justificada${stat.justif !== 1 ? 's' : ''}` : ''}
-                      </p>
-                      {pct != null && (
-                        <p className="text-xs mt-0.5">
-                          {riesgo && <span className="mr-1">{riesgo}</span>}
-                          <span className={`font-semibold ${pctInasist != null && pctInasist >= umbralInasistencia ? 'text-red-500' : 'text-accent'}`}>{pct}% asistencia</span>
-                          {pctInasist != null && pctInasist > 0 && (
-                            <span className="text-slate-400"> · {pctInasist}% inasistencia</span>
-                          )}
-                          {!cerrado && denominador != null && (
-                            <span className="text-slate-400"> · {denominador} sesiones del periodo</span>
-                          )}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {/* Tabla — una fila por sesión individual, sin agrupar por fecha */}
-                  <Table
-                    columns={attColumns}
-                    data={registrosParcial}
-                    rowKey={(r) => `${r.fecha}-${r.slot ?? 1}`}
-                    emptyMessage="Sin sesiones en este parcial"
-                    minWidth={360}
-                  />
-                </div>
+                <AsistenciaSemanal
+                  key={p}
+                  parcial={p}
+                  registros={registrosParcial}
+                  stat={stat}
+                  pct={pct}
+                  pctInasist={pctInasist}
+                  riesgo={riesgo}
+                  denominador={denominador}
+                  cerrado={cerrado}
+                  umbralInasistencia={umbralInasistencia}
+                  todayISO={todayISO}
+                />
               )
             })
           )}
