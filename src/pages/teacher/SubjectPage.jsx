@@ -922,6 +922,7 @@ export default function SubjectPage() {
   const [deletingMaterial, setDeletingMaterial] = useState(false)
   const [expandedMaterialId, setExpandedMaterialId] = useState(null)
   const [dragMatId, setDragMatId] = useState(null)          // id of material being dragged
+  const [dragDraftId, setDragDraftId] = useState(null)      // id of draft activity being dragged (mismas zonas de soltar)
   const [dropZoneActive, setDropZoneActive] = useState(null) // {parcial, idx} of highlighted drop zone
 
   const [loading, setLoading] = useState(true)
@@ -3274,6 +3275,68 @@ export default function SubjectPage() {
     } catch (err) { toast('Error al guardar posición: ' + err.message, 'error') }
   }
 
+  // Arrastrar un BORRADOR a cualquier punto de la lista de su parcial (mismas
+  // zonas de soltar que los materiales). Solo se mueve el borrador: el orden
+  // relativo de las demás actividades y de los materiales queda igual. Como las
+  // actividades viven en `orden` enteros y los materiales en fraccionarios
+  // ENTRE ellas, se recalculan a partir de la lista visual final: actividades
+  // 1..n en el orden en que aparecen y materiales con computeMaterialOrdenes.
+  // Solo se escribe lo que cambia, en un solo batch. La numeración (1.1., 1.2.…)
+  // no se toca: se sigue derivando de la posición, y un borrador no lleva número.
+  async function handleDraftDrop(activityId, parcial, vizIdx) {
+    const parcialActs = activities
+      .filter((a) => a.parcial === parcial)
+      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+    const parcialMats = materials.filter((m) => m.parcial === parcial)
+    const draft = parcialActs.find((a) => a.id === activityId)
+    if (!draft || !isDraftActivity(draft)) return
+
+    const unified = buildUnifiedParcial(parcialActs, parcialMats)
+    const origIdx = unified.findIndex((i) => i.type === 'activity' && i.item.id === activityId)
+    const targetIdx = vizIdx <= origIdx ? vizIdx : vizIdx - 1
+    if (origIdx < 0 || targetIdx === origIdx) return // soltado en su mismo lugar
+
+    const unifiedWithout = unified.filter((_, i) => i !== origIdx)
+    const newUnified = [
+      ...unifiedWithout.slice(0, targetIdx),
+      unified[origIdx],
+      ...unifiedWithout.slice(targetIdx),
+    ]
+
+    let n = 0
+    const ordenByActId = new Map()
+    const renumberedUnified = newUnified.map((it) => {
+      if (it.type !== 'activity') return it
+      n += 1
+      ordenByActId.set(it.item.id, n)
+      return { ...it, item: { ...it.item, orden: n } }
+    })
+    const ordenByMatId = computeMaterialOrdenes(renumberedUnified)
+
+    const actsChanged = parcialActs.filter((a) => a.orden !== ordenByActId.get(a.id))
+    const matsChanged = parcialMats.filter((m) => m.orden !== ordenByMatId.get(m.id) || m.ordenManual !== true)
+    if (actsChanged.length === 0 && matsChanged.length === 0) return
+
+    const prevActivities = activities
+    const prevMaterials = materials
+    // Optimista (como applyMoveActivities): se pinta de inmediato y se revierte si falla.
+    const newParcialActs = renumberedUnified.filter((it) => it.type === 'activity').map((it) => it.item)
+    setActivities((prev) => [...prev.filter((a) => a.parcial !== parcial), ...newParcialActs])
+    setMaterials((prev) => prev.map((m) =>
+      m.parcial === parcial ? { ...m, orden: ordenByMatId.get(m.id), ordenManual: true } : m
+    ))
+    try {
+      const batch = writeBatch(db)
+      actsChanged.forEach((a) => batch.update(doc(db, 'activities', a.id), { orden: ordenByActId.get(a.id) }))
+      matsChanged.forEach((m) => batch.update(doc(db, 'materials', m.id), { orden: ordenByMatId.get(m.id), ordenManual: true }))
+      await batch.commit()
+    } catch (err) {
+      setActivities(prevActivities)
+      setMaterials(prevMaterials)
+      toast('Error al guardar posición: ' + err.message, 'error')
+    }
+  }
+
   // Same visibility toggle activities already have ("Activar para alumnos" /
   // "Ocultar para alumnos" without opening the full edit form).
   async function hideMaterial(m) {
@@ -5054,7 +5117,10 @@ export default function SubjectPage() {
                       <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
                       {(() => {
                         const unified = buildUnifiedParcial(acts, mats)
-                        const isDraggingHere = !IS_NATIVE_APP && !!dragMatId && mats.some((m) => m.id === dragMatId)
+                        const isDraggingHere = !IS_NATIVE_APP && (
+                          (!!dragMatId && mats.some((m) => m.id === dragMatId)) ||
+                          (!!dragDraftId && acts.some((a) => a.id === dragDraftId))
+                        )
                         // Drop zone: always in the DOM to avoid DOM mutations during dragstart
                         // (inserting nodes during onDragStart cancels the HTML5 drag operation).
                         // Visibility and interactivity are controlled via CSS classes only.
@@ -5074,7 +5140,11 @@ export default function SubjectPage() {
                               }`}
                               onDragOver={isDragging ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropZoneActive({ parcial: p, idx: vizIdx }) } : undefined}
                               onDragLeave={isDragging ? (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropZoneActive(null) } : undefined}
-                              onDrop={isDragging ? (e) => { e.preventDefault(); setDropZoneActive(null); handleMaterialDrop(dragMatId, p, vizIdx).catch(() => {}) } : undefined}
+                              onDrop={isDragging ? (e) => {
+                                e.preventDefault(); setDropZoneActive(null)
+                                if (dragDraftId) handleDraftDrop(dragDraftId, p, vizIdx).catch(() => {})
+                                else handleMaterialDrop(dragMatId, p, vizIdx).catch(() => {})
+                              } : undefined}
                             />
                           )
                         }
@@ -5097,9 +5167,26 @@ export default function SubjectPage() {
                                   : a.categoria === 'juego' ? Sparkles
                                   : FileText
                                 const esJuego = a.categoria === 'juego'
+                                // Solo los BORRADORES se arrastran (mismo arrastre HTML5 que los
+                                // materiales, solo web). Las publicadas se mueven con Subir/Bajar.
+                                const arrastrable = !IS_NATIVE_APP && isDraftActivity(a)
                                 return (
                                   <Fragment key={a.id}>
-                                    <div className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
+                                    {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+                                    <div
+                                      draggable={arrastrable || undefined}
+                                      onDragStart={arrastrable ? (e) => { e.dataTransfer.effectAllowed = 'move'; setDragDraftId(a.id) } : undefined}
+                                      onDragEnd={arrastrable ? () => { setDragDraftId(null); setDropZoneActive(null) } : undefined}
+                                      className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}${dragDraftId === a.id ? ' opacity-40' : ''}`}>
+                                      {arrastrable && (
+                                        <div
+                                          className="pl-2 py-2 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing flex-shrink-0"
+                                          data-tooltip="Arrastrar para reordenar"
+                                          data-tooltip-pos="right"
+                                        >
+                                          <GripVertical size={16} />
+                                        </div>
+                                      )}
                                       <button type="button"
                                         onClick={() => {
                                           if (isDraftActivity(a) && !esJuego) {
