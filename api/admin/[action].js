@@ -10,7 +10,8 @@ const LIMITE_LOTE = 400
 
 const POR_DOCENTE = ['subjects', 'activities', 'attendance', 'events', 'horarioBloques',
   'horario', 'asuetos', 'vacaciones', 'bancoReactivos', 'bancoRubricas',
-  'avisos', 'avisoPlantillas', 'academicEvents', 'subscriptions', 'payments']
+  'avisos', 'avisoPlantillas', 'academicEvents', 'subscriptions', 'payments',
+  'observacionesAsistencia']
 
 const CON_SUBCOLECCIONES = { activities: 'preguntas', submissions: 'respuestas' }
 
@@ -187,7 +188,7 @@ async function handleDeleteAccount(req, res) {
     ...porColeccion.horario, ...porColeccion.asuetos, ...porColeccion.vacaciones,
     ...porColeccion.bancoReactivos, ...porColeccion.bancoRubricas,
     ...porColeccion.avisos, ...porColeccion.avisoPlantillas, ...porColeccion.academicEvents,
-    ...porColeccion.subjects, ...porColeccion.subscriptions, ...porColeccion.payments,
+    ...porColeccion.subjects, ...porColeccion.subscriptions, ...porColeccion.payments, ...porColeccion.observacionesAsistencia,
     ...bitacora,
   ].map((d) => d.ref).filter((r) => !conSubcolecciones.has(r.path))
 
