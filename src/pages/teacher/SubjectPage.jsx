@@ -291,9 +291,10 @@ const AttendanceTable = memo(function AttendanceTable({
 
   const esApp = variante === 'app'
   const esMovil = variante === 'movil-v' || variante === 'movil-h'
-  // Observaciones: web (escritorio y tablet) y teléfono (web). NUNCA la app:
-  // con 'app' la tabla sale exactamente igual que antes de existir esto.
-  const conObservaciones = variante !== 'app' && !!observaciones
+  // Observaciones en las CUATRO variantes: web de escritorio, tablet, teléfono
+  // (web) y app nativa (17-sep-2026, pedido explícito). Con mouse se abren con
+  // clic derecho; en pantalla táctil —incluida la app— con pulsación larga.
+  const conObservaciones = !!observaciones
   // Globo al pasar el puntero: solo tiene sentido donde puede haber mouse.
   const conGloboObs = conObservaciones && variante === 'web'
   // Versión simplificada (app y teléfono web): sin Totales ni renglón de sesión.
@@ -2394,36 +2395,38 @@ export default function SubjectPage() {
   const addDayClickRef = useRef(); addDayClickRef.current = handleAddDayClick
   const stableAddDay = useCallback(() => addDayClickRef.current(), [])
 
-  // ── Observaciones y bitácora (solo web de escritorio) ─────────────
+  // ── Observaciones y bitácora ──────────────────────────────────────
   // Registros escritos del docente sobre una celda de asistencia, en su propia
   // colección (utils/observacionesAsistencia.js): no tocan `attendance`, sus
   // conteos ni onAttendanceEscrita, y se conservan aunque el día se elimine.
-  // Web de escritorio, tablet y teléfono (web). La app nativa ni los carga ni
-  // monta nada de esto (AttendanceTable además excluye la variante 'app').
-  const observacionesHabilitadas = !IS_NATIVE_APP
+  // Disponibles en las cuatro experiencias del docente: escritorio, tablet,
+  // teléfono (web) y app nativa — misma lógica, mismos datos, mismas reglas.
   const [observaciones, setObservaciones] = useState([])
   const [observacionesDe, setObservacionesDe] = useState(null) // subjectId ya cargado
   const [menuAsistencia, setMenuAsistencia] = useState(null)
   const [observacionModal, setObservacionModal] = useState(null) // { id, record?, student, fecha, original, sobreBitacora }
   const [bitacoraStudent, setBitacoraStudent] = useState(null)
+  // Asistencias se ve a pantalla completa (capa fija z-[70]) en la app nativa y
+  // en Tomar lista del teléfono: ahí estas ventanas tienen que ir por encima.
+  const modalesSobreCapaCompleta = IS_NATIVE_APP || tomarListaMovil
   // Esc (EscKeyHandler) y el botón atrás cierran la ventana de hasta arriba;
   // sin registrarlas aquí, Esc sacaría de la asignatura además de cerrarla.
   useBackHandler(() => setBitacoraStudent(null), !!bitacoraStudent)
   useBackHandler(() => setObservacionModal(null), !!observacionModal)
 
   useEffect(() => {
-    if (!observacionesHabilitadas || !attendanceLoaded || observacionesDe === subjectId) return undefined
+    if (!attendanceLoaded || observacionesDe === subjectId) return undefined
     let vivo = true
     cargarObservacionesAsistencia(subjectId, currentUser.uid)
       .then((lista) => { if (vivo) { setObservaciones(lista); setObservacionesDe(subjectId) } })
       // Un fallo aquí no debe estorbar el pase de lista: la tabla sigue igual.
       .catch((err) => { if (vivo) console.warn('No se pudieron cargar las observaciones:', err) })
     return () => { vivo = false }
-  }, [observacionesHabilitadas, attendanceLoaded, observacionesDe, subjectId, currentUser.uid])
+  }, [attendanceLoaded, observacionesDe, subjectId, currentUser.uid])
 
   const observacionesPorCelda = useMemo(
-    () => (observacionesHabilitadas ? Object.fromEntries(observaciones.map((o) => [llaveCeldaObservacion(o.fecha, o.slot, o.alumnoId), o.texto])) : undefined),
-    [observacionesHabilitadas, observaciones],
+    () => Object.fromEntries(observaciones.map((o) => [llaveCeldaObservacion(o.fecha, o.slot, o.alumnoId), o.texto])),
+    [observaciones],
   )
 
   // Fechas que hoy tienen más de una hora de clase: ahí la bitácora escribe la hora.
@@ -5196,6 +5199,27 @@ export default function SubjectPage() {
     </div>
   )
 
+  // Ayuda de observaciones, debajo de la leyenda de estados y claramente por
+  // debajo de ella (más chica y más clara, sin íconos, para no competir con
+  // los cuadritos de color). Se pinta donde se pinta la leyenda: la vista
+  // estándar (escritorio y tablet). El texto nombra el gesto de cada aparato:
+  // con mouse, clic derecho; en pantalla táctil, pulsación larga — solo cambia
+  // la redacción, la interacción es la misma en ambos casos.
+  const CONSEJOS_OBSERVACIONES = [
+    ['Clic derecho en la celda para agregar observación', 'Mantén presionada la celda para agregar observación'],
+    ['Clic derecho en el nombre para ver bitácora de observaciones', 'Mantén presionado el nombre para ver bitácora de observaciones'],
+  ]
+  const attendanceLegendObservaciones = (
+    <div className="mt-1 px-1 text-sm text-slate-400 leading-snug">
+      {CONSEJOS_OBSERVACIONES.map(([conMouse, conDedo]) => (
+        <p key={conMouse}>
+          <span className="hidden [@media(hover:hover)_and_(pointer:fine)]:inline">{conMouse}</span>
+          <span className="[@media(hover:hover)_and_(pointer:fine)]:hidden">{conDedo}</span>
+        </p>
+      ))}
+    </div>
+  )
+
   // Motivos rápidos para justificar una falta (botones de un toque).
   const QUICK_MOTIVOS = [
     { emoji: '🤒', label: 'Salud' },
@@ -6486,6 +6510,7 @@ export default function SubjectPage() {
                 {attendanceTableJsx}
               </div>
               {attendanceLegend}
+              {attendanceLegendObservaciones}
               {filteredAttendanceStudents.length === 0 && searchAttendance && (
                 <p className="text-center text-sm text-slate-400">Sin resultados para &quot;{searchAttendance}&quot;</p>
               )}
@@ -6627,36 +6652,39 @@ export default function SubjectPage() {
           se queda en Justificada con su motivo. Igual en web y app. En la
           app va ANCHO y pegado arriba para seguir usable con el teclado (que
           en horizontal tapa la mitad inferior). */}
-      {observacionesHabilitadas && (
-        <>
-          <MenuContextualAsistencia menu={menuAsistencia} onClose={cerrarMenuAsistencia} />
-          {bitacoraStudent && (
-            <BitacoraObservacionesModal
-              estudiante={studentFullName(bitacoraStudent)}
-              asignatura={subjectDisplayName(subject)}
-              docente={membrete.docente}
-              filas={bitacoraFilas}
-              onEditar={editarDesdeBitacora}
-              onImprimir={imprimirBitacoraActual}
-              // Con la observación abierta encima, Esc cierra solo esa ventana.
-              onClose={() => { if (!observacionModal) setBitacoraStudent(null) }}
-              // Tomar lista en el teléfono es una capa fija z-[70]: encima de ella.
-              z={tomarListaMovil ? 90 : 50}
-            />
-          )}
-          {observacionModal && (
-            <ObservacionModal
-              key={observacionModal.id}
-              estudiante={studentFullName(observacionModal.student)}
-              fecha={observacionModal.fecha}
-              original={observacionModal.original}
-              onGuardar={guardarObservacion}
-              onClose={() => setObservacionModal(null)}
-              z={tomarListaMovil ? (observacionModal.sobreBitacora ? 110 : 90) : (observacionModal.sobreBitacora ? 60 : 50)}
-            />
-          )}
-        </>
-      )}
+      {/* Menú, observación y bitácora — las cuatro experiencias del docente.
+          Sobre la capa de pantalla completa de Asistencias (app y teléfono
+          web, z-[70]) los modales necesitan ir más arriba. */}
+      <>
+        <MenuContextualAsistencia menu={menuAsistencia} onClose={cerrarMenuAsistencia} />
+        {bitacoraStudent && (
+          <BitacoraObservacionesModal
+            estudiante={studentFullName(bitacoraStudent)}
+            asignatura={subjectDisplayName(subject)}
+            docente={membrete.docente}
+            filas={bitacoraFilas}
+            onEditar={editarDesdeBitacora}
+            onImprimir={imprimirBitacoraActual}
+            // El WebView de Android no abre el diálogo de impresión del
+            // sistema: en la app el botón no se muestra (en web sigue igual).
+            mostrarImprimir={!IS_NATIVE_APP}
+            // Con la observación abierta encima, Esc cierra solo esa ventana.
+            onClose={() => { if (!observacionModal) setBitacoraStudent(null) }}
+            z={modalesSobreCapaCompleta ? 90 : 50}
+          />
+        )}
+        {observacionModal && (
+          <ObservacionModal
+            key={observacionModal.id}
+            estudiante={studentFullName(observacionModal.student)}
+            fecha={observacionModal.fecha}
+            original={observacionModal.original}
+            onGuardar={guardarObservacion}
+            onClose={() => setObservacionModal(null)}
+            z={modalesSobreCapaCompleta ? (observacionModal.sobreBitacora ? 110 : 90) : (observacionModal.sobreBitacora ? 60 : 50)}
+          />
+        )}
+      </>
       {reasonModal && (
         <div className={`fixed inset-0 z-[80] flex justify-center ${modalAsistenciaHorizontal ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={cancelReasonModal} aria-label="Cerrar" />

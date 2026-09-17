@@ -14,9 +14,11 @@ import Modal from '../ui/Modal'
 //   filas     [{ id, fecha (etiqueta), texto }] ya ordenadas
 //   onEditar  (id) => void
 //   onImprimir () => void
+//   mostrarImprimir  false en la app nativa: su WebView no abre el diálogo de
+//                    impresión del sistema, así que ahí el botón no se muestra
 //   onClose   () => void
 //   z         z-index del Modal (en Tomar lista del teléfono va sobre su capa z-[70])
-export default function BitacoraObservacionesModal({ estudiante, asignatura, docente, filas, onEditar, onImprimir, onClose, z = 50 }) {
+export default function BitacoraObservacionesModal({ estudiante, asignatura, docente, filas, onEditar, onImprimir, onClose, z = 50, mostrarImprimir = true }) {
   return (
     <Modal open onClose={onClose} variant="centered" size="3xl" z={z} title="Bitácora de observaciones">
       <dl className="text-sm space-y-0.5 mb-4">
@@ -66,10 +68,12 @@ export default function BitacoraObservacionesModal({ estudiante, asignatura, doc
           className="px-5 py-2.5 rounded border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors">
           Cerrar
         </button>
-        <button type="button" onClick={onImprimir} disabled={filas.length === 0}
-          className="px-5 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-2">
-          <Printer size={17} /> Imprimir
-        </button>
+        {mostrarImprimir && (
+          <button type="button" onClick={onImprimir} disabled={filas.length === 0}
+            className="px-5 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-2">
+            <Printer size={17} /> Imprimir
+          </button>
+        )}
       </div>
     </Modal>
   )
