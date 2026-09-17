@@ -795,12 +795,19 @@ const AttendanceTable = memo(function AttendanceTable({
                     data-col={attColIndexById[r.id]}
                     ref={addAttColEl(attColIndexById[r.id])}
                     onClick={() => onCellClick(r, s)}
-                    // Observación (no en sesiones futuras): clic derecho con
-                    // mouse, pulsación larga en táctil. El toque corto sigue
-                    // siendo P/F/J. Con mouse el texto se lee al pasar el puntero.
-                    onContextMenu={conObservaciones && !esFuturo ? (e) => alContextMenu(e, (info) => onCellContextMenu(info, r, s)) : undefined}
-                    onPointerDown={conObservaciones && !esFuturo ? (e) => iniciarPulsacion(e, (info) => onCellContextMenu(info, r, s)) : undefined}
-                    style={conObservaciones && !esFuturo ? SIN_CALLOUT_IOS : undefined}
+                    // Observación: clic derecho con mouse, pulsación larga en
+                    // táctil. El toque corto sigue siendo P/F/J. Con mouse el
+                    // texto se lee al pasar el puntero.
+                    // TAMBIÉN en sesiones futuras (17-sep-2026): una observación
+                    // es una nota escrita, no una marca de asistencia — no toca
+                    // P/F/J ni ningún conteo, así que la fecha no la bloquea.
+                    // Antes se excluían y el docente solo veía el menú del
+                    // navegador, como si la función estuviera rota. Las columnas
+                    // informativas (asueto/vacaciones) siguen SIN menú: se pintan
+                    // en la rama de arriba y no son una sesión real.
+                    onContextMenu={conObservaciones ? (e) => alContextMenu(e, (info) => onCellContextMenu(info, r, s)) : undefined}
+                    onPointerDown={conObservaciones ? (e) => iniciarPulsacion(e, (info) => onCellContextMenu(info, r, s)) : undefined}
+                    style={conObservaciones ? SIN_CALLOUT_IOS : undefined}
                     data-obs={observacion || undefined}
                     title={sinRegistro && !observacion ? 'Sin registro: el estudiante aún no estaba en la lista de esta sesión. No cuenta como falta.' : undefined}
                     className={`att-cell ${observacion ? 'relative ' : ''}${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none ${esFuturo ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${lastEditedCell === `${r.id}:${s.id}` ? 'ring-2 ring-inset ring-accent bg-[var(--accent-medium)]' : fecha === todayISO ? 'bg-accent-light' : ''}`}>
