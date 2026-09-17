@@ -28,6 +28,9 @@ import {
 import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosIA.js'
 import { estaRespondida } from '../src/utils/evaluacionRespondida.js'
 import { diasInformativosAsistencia, esSesionInformativa, PREFIJO_INFORMATIVA } from '../src/utils/asistenciaInformativa.js'
+import {
+  observacionId, llaveCeldaObservacion, ordenarBitacora, fechaObservacion, etiquetaFechaObservacion, htmlBitacoraImprimible,
+} from '../src/utils/observacionesBitacora.js'
 import { contenidoAnalisisResultadosPDF, AVISO_IA_ANALISIS } from '../src/utils/analisisResultadosPDF.js'
 import { resumenConfiabilidad } from '../src/utils/confiabilidadAnalisis.js'
 import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
@@ -3705,6 +3708,48 @@ caso('esSesionInformativa: reconoce id y registro informativos; un registro real
   assert.strictEqual(esSesionInformativa('subj_2026-09-16_1'), false, 'id de una reposición real')
   assert.strictEqual(esSesionInformativa({ id: 'subj_2026-09-16_1', fecha: '2026-09-16', presentes: {} }), false)
   assert.strictEqual(esSesionInformativa(null), false)
+})
+
+// ─── Observaciones de Asistencias: id, orden y etiqueta de la bitácora ─────
+caso('observacionId: por asignatura + fecha + hora + estudiante (no por id del doc de asistencia)', () => {
+  assert.strictEqual(observacionId('S1', '2026-09-16', 2, 'AL1'), 'S1_2026-09-16_2_AL1')
+  assert.strictEqual(llaveCeldaObservacion('2026-09-16', 2, 'AL1'), '2026-09-16_2_AL1')
+})
+
+caso('ordenarBitacora: la más reciente primero; mismo día, la hora más tardía arriba', () => {
+  const lista = [
+    { id: 'a', fecha: '2026-09-01', slot: 1 },
+    { id: 'b', fecha: '2026-09-16', slot: 1 },
+    { id: 'c', fecha: '2026-09-16', slot: 2 },
+    { id: 'd', fecha: '2026-08-30', slot: 1 },
+  ]
+  assert.deepStrictEqual(ordenarBitacora(lista).map((o) => o.id), ['c', 'b', 'a', 'd'])
+  assert.deepStrictEqual(lista.map((o) => o.id), ['a', 'b', 'c', 'd'], 'no muta la lista original')
+})
+
+caso('etiquetaFechaObservacion: la hora solo aparece cuando hace falta distinguir sesiones', () => {
+  const o1 = { fecha: '2026-09-16', slot: 1 }
+  assert.strictEqual(fechaObservacion('2026-09-16'), 'miércoles 16/sep/2026')
+  assert.strictEqual(etiquetaFechaObservacion(o1, { observaciones: [o1] }), 'miércoles 16/sep/2026')
+  assert.strictEqual(etiquetaFechaObservacion(o1, { fechasVariasHoras: new Set(['2026-09-16']) }), 'miércoles 16/sep/2026 · 1ª hora')
+  const o2 = { fecha: '2026-09-16', slot: 2 }
+  assert.strictEqual(etiquetaFechaObservacion(o1, { observaciones: [o1, o2] }), 'miércoles 16/sep/2026 · 1ª hora')
+  assert.strictEqual(etiquetaFechaObservacion(o2, { observaciones: [o2] }), 'miércoles 16/sep/2026 · 2ª hora', 'día ya eliminado: la hora 2 se sigue distinguiendo')
+})
+
+caso('htmlBitacoraImprimible: solo los datos pedidos, texto escapado y sin controles', () => {
+  const html = htmlBitacoraImprimible({
+    estudiante: 'Ana <b>López</b>', asignatura: 'Cultura Digital I — 1A', docente: 'Ing. Ruiz',
+    filas: [{ fecha: 'miércoles 16/sep/2026', texto: 'Trajo <script>x</script>\nsegunda línea' }],
+  })
+  assert.ok(html.includes('Bitácora de observaciones'))
+  assert.ok(html.includes('Estudiante:') && html.includes('Asignatura:') && html.includes('Docente:'))
+  assert.ok(html.includes('<th>Fecha</th><th>Observación</th>'))
+  assert.ok(html.includes('Ana &lt;b&gt;López&lt;/b&gt;'))
+  assert.ok(!html.includes('<script>'), 'el texto del docente nunca se interpreta como HTML')
+  assert.ok(!/<button|<nav|<input/i.test(html), 'sin controles de la interfaz')
+  assert.strictEqual((html.match(/<th>/g) || []).length, 2, 'solo dos columnas')
+  assert.ok(htmlBitacoraImprimible({ estudiante: 'A', asignatura: 'B', docente: 'C', filas: [] }).includes('Sin observaciones registradas.'))
 })
 
 if (fallos.length) {

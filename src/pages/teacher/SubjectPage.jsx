@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo, Fragment } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc,
@@ -24,6 +25,11 @@ import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttDateLong, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
 import { diasInformativosAsistencia, esSesionInformativa } from '../../utils/asistenciaInformativa'
+import { cargarObservacionesAsistencia, crearObservacionAsistencia, editarObservacionAsistencia, eliminarObservacionAsistencia, eliminarObservacionesDeAlumno, imprimirBitacora } from '../../utils/observacionesAsistencia'
+import { ordenarBitacora, etiquetaFechaObservacion, observacionId, llaveCeldaObservacion } from '../../utils/observacionesBitacora'
+import MenuContextualAsistencia from '../../components/asistencia/MenuContextualAsistencia'
+import ObservacionModal from '../../components/asistencia/ObservacionModal'
+import BitacoraObservacionesModal from '../../components/asistencia/BitacoraObservacionesModal'
 import { syncAutoAttendanceDays, diasSinAsistenciaEnCurso, fetchAsuetosVacaciones, fetchClaseDiasSemana, parcialForDate } from '../../utils/attendanceAuto'
 import { calcularSesionesReales } from '../../utils/sesionesReales'
 import { diaSemanaLunes, DIAS_SEMANA, derivarPatrones, tramosFaltantes, generarBloques } from '../../utils/horarioBloques'
@@ -244,6 +250,11 @@ function anchoColumnaNombreH(estudiantes) {
   return Math.max(210, Math.ceil(max + rem + 1 + 2))
 }
 
+// iPhone: sin la burbuja nativa (copiar/buscar) al mantener presionado.
+const SIN_CALLOUT_IOS = { WebkitTouchCallout: 'none' }
+// Hora actual para los manejadores de la pulsación larga (nunca en el render).
+const marcaDeTiempo = () => Date.now()
+
 const AttendanceTable = memo(function AttendanceTable({
   attendanceParciales, filteredAttendanceStudents, attendanceAllRecords,
   onCellClick,
@@ -254,6 +265,12 @@ const AttendanceTable = memo(function AttendanceTable({
   sesionesPorParcialCliente, // sesiones calculadas en tiempo real por el cliente (open parcials)
   parcialesCerrados, // subject.parcialesCerrados — marca de cierre por parcial
   umbralInasistencia, // schools.umbralInasistencia — umbral institucional (%)
+  // Observaciones del docente por celda (solo variante 'web'; en las demás
+  // llega undefined y la tabla queda exactamente igual):
+  //  · observaciones      { '{fecha}_{slot}_{studentId}': texto }
+  //  · onCellContextMenu  (event, record, student) — clic derecho en una celda
+  //  · onNameContextMenu  (event, student) — clic derecho / tecla Menú en el nombre
+  observaciones, onCellContextMenu, onNameContextMenu,
   // Qué versión pintar, SIEMPRE explícita:
   //  · 'app'     → vista horizontal de la app nativa (IS_NATIVE_APP), igual que siempre
   //  · 'web'     → escritorio/tablet, igual que siempre
@@ -274,6 +291,11 @@ const AttendanceTable = memo(function AttendanceTable({
 
   const esApp = variante === 'app'
   const esMovil = variante === 'movil-v' || variante === 'movil-h'
+  // Observaciones: web (escritorio y tablet) y teléfono (web). NUNCA la app:
+  // con 'app' la tabla sale exactamente igual que antes de existir esto.
+  const conObservaciones = variante !== 'app' && !!observaciones
+  // Globo al pasar el puntero: solo tiene sentido donde puede haber mouse.
+  const conGloboObs = conObservaciones && variante === 'web'
   // Versión simplificada (app y teléfono web): sin Totales ni renglón de sesión.
   const esSimple = esApp || esMovil
   // Regresar/ASISTENCIAS/Agregar día en la esquina fija de la tabla. En el
@@ -328,7 +350,121 @@ const AttendanceTable = memo(function AttendanceTable({
     attColElsRef.current.set(col, arr)
   }
   const setAttDayEl = (fecha) => (el) => { if (el) attDayElRef.current.set(fecha, el) }
+  // Globo con el texto de la observación al pasar el puntero por una celda que
+  // la tiene — un solo nodo en un portal, manejado por DOM directo (sin state)
+  // por la misma razón que el resaltado en cruz: no re-renderizar la tabla.
+  // Posición fija, así no lo recortan el scroll ni el encabezado sticky.
+  const obsPopRef = useRef(null)
+  const obsTimerRef = useRef(null)
+  const ocultarObs = () => {
+    clearTimeout(obsTimerRef.current)
+    obsPopRef.current?.classList.add('hidden')
+  }
+  const programarObs = (cellEl) => {
+    ocultarObs()
+    const texto = cellEl?.getAttribute('data-obs')
+    if (!texto || !obsPopRef.current) return
+    obsTimerRef.current = setTimeout(() => {
+      const pop = obsPopRef.current
+      if (!pop || !cellEl.isConnected) return
+      pop.textContent = texto
+      pop.classList.remove('hidden')
+      const r = cellEl.getBoundingClientRect()
+      const { width, height } = pop.getBoundingClientRect()
+      const margen = 8
+      const left = Math.max(margen, Math.min(r.left, window.innerWidth - width - margen))
+      const top = r.bottom + 4 + height > window.innerHeight - margen ? Math.max(margen, r.top - 4 - height) : r.bottom + 4
+      pop.style.left = `${left}px`
+      pop.style.top = `${top}px`
+    }, 250)
+  }
+  useEffect(() => {
+    if (!conGloboObs) return undefined
+    const ocultar = () => { clearTimeout(obsTimerRef.current); obsPopRef.current?.classList.add('hidden') }
+    window.addEventListener('scroll', ocultar, true)
+    return () => { window.removeEventListener('scroll', ocultar, true); clearTimeout(obsTimerRef.current) }
+  }, [conGloboObs])
+
+  // ── Menú de observaciones: clic derecho / teclado / pulsación larga ──────
+  // Con mouse o teclado llega el evento `contextmenu` de siempre. En pantalla
+  // táctil (teléfono o tablet) se usa una pulsación larga propia de ~500 ms:
+  // iPhone no dispara `contextmenu` y Android sí, así que un solo mecanismo
+  // se comporta igual en los dos. Se cancela si el dedo se mueve más de ~10 px
+  // o si el navegador toma el gesto para desplazarse (pointercancel/scroll).
+  // Al dispararse se "traga" el clic que llega al soltar: sin eso, el toque
+  // que termina el gesto cambiaría P/F/J o elegiría una opción del menú.
+  const punteroRef = useRef('mouse') // último pointerType visto en la tabla
+  const pulsacionRef = useRef(null) // { timer, quitar } mientras el dedo espera
+  const ultimoToqueRef = useRef(0)
+  const cancelarPulsacion = () => {
+    const p = pulsacionRef.current
+    if (!p) return
+    clearTimeout(p.timer)
+    p.quitar()
+    pulsacionRef.current = null
+  }
+  const tragarClickAlSoltar = () => {
+    const tragar = (ev) => { ev.preventDefault(); ev.stopPropagation(); quitar() }
+    const alSoltar = () => setTimeout(quitar, 400)
+    const respaldo = setTimeout(() => quitar(), 10000)
+    function quitar() {
+      clearTimeout(respaldo)
+      document.removeEventListener('click', tragar, true)
+      window.removeEventListener('pointerup', alSoltar, true)
+      window.removeEventListener('pointercancel', alSoltar, true)
+    }
+    document.addEventListener('click', tragar, true)
+    window.addEventListener('pointerup', alSoltar, true)
+    window.addEventListener('pointercancel', alSoltar, true)
+  }
+  const iniciarPulsacion = (e, abrir) => {
+    punteroRef.current = e.pointerType
+    if (e.pointerType === 'mouse' || !e.isPrimary) return
+    cancelarPulsacion()
+    ultimoToqueRef.current = marcaDeTiempo()
+    const el = e.currentTarget
+    const { pointerId, clientX: x0, clientY: y0 } = e
+    const mover = (ev) => {
+      if (ev.pointerId === pointerId && Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) cancelarPulsacion()
+    }
+    const soltar = (ev) => { if (ev.pointerId === pointerId) cancelarPulsacion() }
+    window.addEventListener('pointermove', mover, true)
+    window.addEventListener('pointerup', soltar, true)
+    window.addEventListener('pointercancel', soltar, true)
+    window.addEventListener('scroll', cancelarPulsacion, true)
+    const quitar = () => {
+      window.removeEventListener('pointermove', mover, true)
+      window.removeEventListener('pointerup', soltar, true)
+      window.removeEventListener('pointercancel', soltar, true)
+      window.removeEventListener('scroll', cancelarPulsacion, true)
+    }
+    const timer = setTimeout(() => {
+      cancelarPulsacion()
+      tragarClickAlSoltar()
+      try { navigator.vibrate?.(15) } catch { /* sin vibración disponible */ }
+      abrir({ x: x0, y: y0, trigger: el, tactil: true })
+    }, 500)
+    pulsacionRef.current = { timer, quitar }
+  }
+  useEffect(() => () => {
+    const p = pulsacionRef.current
+    if (p) { clearTimeout(p.timer); p.quitar() }
+  }, [])
+  // `contextmenu`: con mouse abre el menú junto al puntero; desde el teclado
+  // (Shift+F10 / tecla Menú, sin coordenadas) lo abre bajo el elemento. Si
+  // viene de un toque (Android lo dispara con la pulsación larga) solo se
+  // bloquea el menú nativo: la pulsación larga propia es la que abre.
+  const alContextMenu = (e, abrir) => {
+    e.preventDefault()
+    if (conGloboObs) ocultarObs()
+    if (pulsacionRef.current || (punteroRef.current !== 'mouse' && marcaDeTiempo() - ultimoToqueRef.current < 1500)) return
+    const r = e.currentTarget.getBoundingClientRect()
+    const teclado = !e.clientX && !e.clientY
+    abrir({ x: teclado ? r.left + 8 : e.clientX, y: teclado ? r.bottom : e.clientY, trigger: e.currentTarget, tactil: false })
+  }
+
   const clearAttHighlight = () => {
+    if (conGloboObs) ocultarObs()
     const { col, day } = attLastHoverRef.current
     if (col != null) (attColElsRef.current.get(col) || []).forEach((el) => el.classList.remove('att-col-hover'))
     if (day != null) attDayElRef.current.get(day)?.classList.remove('att-day-hover')
@@ -354,6 +490,8 @@ const AttendanceTable = memo(function AttendanceTable({
     attActiveCellRef.current?.classList.remove('att-cell-active')
     attActiveCellRef.current = cellEl?.classList.contains('att-cell') ? cellEl : null
     attActiveCellRef.current?.classList.add('att-cell-active')
+    // Solo con mouse real: tras un toque el navegador simula un mouseover.
+    if (conGloboObs && e.type === 'mouseover' && punteroRef.current === 'mouse') programarObs(attActiveCellRef.current)
   }
 
   // Precalienta el hover: recorre cada columna/día en tiempo ocioso
@@ -390,8 +528,10 @@ const AttendanceTable = memo(function AttendanceTable({
     ? attendanceParciales.reduce((sum, g) => sum + denPorParcial[g.parcial], 0)
     : null
 
-  return (
+  const tabla = (
   <table onMouseOver={handleAttHover} onFocus={handleAttHover} onMouseLeave={clearAttHighlight}
+    // Observaciones: saber si el puntero es mouse o táctil (globo solo con mouse).
+    {...(conObservaciones ? { onPointerOver: (e) => { punteroRef.current = e.pointerType } } : {})}
     // Teléfono (web): ancho explícito. `table-fixed` solo respeta los anchos de
     // <col> si la tabla tiene ancho propio; con `auto` el navegador los
     // redistribuía (medido en 360px: nombre 150 en vez de 130, celdas 33 en vez
@@ -584,7 +724,25 @@ const AttendanceTable = memo(function AttendanceTable({
           <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
             {s.orden}
           </td>
-          <td style={estiloNombreH} className={`sticky left-8 z-10 ${nameColW} px-2 py-1 ${compactaH ? 'text-[13px]' : esSimple ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant ${variante === 'movil-v' ? 'break-words' : compactaH ? 'whitespace-nowrap' : 'truncate'} transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+          <td style={estiloNombreH} className={`sticky left-8 z-10 ${nameColW} px-2 py-1 ${compactaH ? 'text-[13px]' : esSimple ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant ${variante === 'movil-v' ? 'break-words' : compactaH ? 'whitespace-nowrap' : 'truncate'} transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}${conObservaciones ? (esMovil ? ' select-none' : ' [@media(pointer:coarse)]:select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent') : ''}`}
+            // "Ver bitácora": clic derecho, pulsación larga (táctil) y, en la
+            // web, también teclado — el nombre recibe foco (una parada de Tab
+            // por estudiante) y abre el menú con la tecla Menú o Shift+F10.
+            {...(conObservaciones ? {
+              style: { ...estiloNombreH, WebkitTouchCallout: 'none' },
+              'aria-haspopup': 'menu',
+              onContextMenu: (e) => alContextMenu(e, (info) => onNameContextMenu(info, s)),
+              onPointerDown: (e) => iniciarPulsacion(e, (info) => onNameContextMenu(info, s)),
+              ...(variante === 'web' ? {
+                tabIndex: 0,
+                onKeyDown: (e) => {
+                  if (e.key !== 'ContextMenu' && !(e.shiftKey && e.key === 'F10')) return
+                  e.preventDefault()
+                  const r = e.currentTarget.getBoundingClientRect()
+                  onNameContextMenu({ x: r.left + 8, y: r.bottom, trigger: e.currentTarget, tactil: false }, s)
+                },
+              } : {}),
+            } : {})}>
             {studentFullName(s)}
           </td>
           {attendanceParciales.flatMap((g) => {
@@ -624,6 +782,7 @@ const AttendanceTable = memo(function AttendanceTable({
                 const estado = esFuturo ? null : attendanceState(r, s.id)
                 const sinRegistro = !esFuturo && estado == null
                 const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
+                const observacion = conObservaciones ? (observaciones[llaveCeldaObservacion(fecha, r.slot, s.id)] || '') : ''
                 const ui = estado == null
                   ? { cls: 'bg-slate-100 text-slate-300', icon: <Minus size={14} /> }
                   : {
@@ -636,12 +795,25 @@ const AttendanceTable = memo(function AttendanceTable({
                     data-col={attColIndexById[r.id]}
                     ref={addAttColEl(attColIndexById[r.id])}
                     onClick={() => onCellClick(r, s)}
-                    title={sinRegistro ? 'Sin registro: el estudiante aún no estaba en la lista de esta sesión. No cuenta como falta.' : undefined}
-                    className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none ${esFuturo ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${lastEditedCell === `${r.id}:${s.id}` ? 'ring-2 ring-inset ring-accent bg-[var(--accent-medium)]' : fecha === todayISO ? 'bg-accent-light' : ''}`}>
+                    // Observación (no en sesiones futuras): clic derecho con
+                    // mouse, pulsación larga en táctil. El toque corto sigue
+                    // siendo P/F/J. Con mouse el texto se lee al pasar el puntero.
+                    onContextMenu={conObservaciones && !esFuturo ? (e) => alContextMenu(e, (info) => onCellContextMenu(info, r, s)) : undefined}
+                    onPointerDown={conObservaciones && !esFuturo ? (e) => iniciarPulsacion(e, (info) => onCellContextMenu(info, r, s)) : undefined}
+                    style={conObservaciones && !esFuturo ? SIN_CALLOUT_IOS : undefined}
+                    data-obs={observacion || undefined}
+                    title={sinRegistro && !observacion ? 'Sin registro: el estudiante aún no estaba en la lista de esta sesión. No cuenta como falta.' : undefined}
+                    className={`att-cell ${observacion ? 'relative ' : ''}${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none ${esFuturo ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${lastEditedCell === `${r.id}:${s.id}` ? 'ring-2 ring-inset ring-accent bg-[var(--accent-medium)]' : fecha === todayISO ? 'bg-accent-light' : ''}`}>
                     <span className={`relative inline-flex items-center justify-center ${cellIconSize} rounded ${ui.cls}`}>
                       {ui.icon}
                       {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
                     </span>
+                    {observacion && (
+                      /* Indicador de observación: esquina superior IZQUIERDA
+                         (la derecha ya la usa el punto de la justificación). */
+                      <span aria-hidden="true" className="absolute top-0 left-0 w-2 h-2 bg-accent pointer-events-none"
+                        style={{ clipPath: 'polygon(0 0, 100% 0, 0 100%)' }} />
+                    )}
                   </td>
                 )
               })),
@@ -677,6 +849,17 @@ const AttendanceTable = memo(function AttendanceTable({
       })}
     </tbody>
   </table>
+  )
+  if (!conGloboObs) return tabla
+  return (
+    <>
+      {tabla}
+      {createPortal(
+        <div ref={obsPopRef} role="tooltip"
+          className="hidden fixed z-[94] max-w-xs px-3 py-2 bg-surface-card text-on-surface text-xs leading-snug whitespace-pre-wrap break-words border border-outline-variant rounded shadow-lg pointer-events-none" />,
+        document.body,
+      )}
+    </>
   )
 })
 
@@ -2154,6 +2337,15 @@ export default function SubjectPage() {
   // en la app: ahí tomarListaMovil siempre es false.
   const tomarListaPopRef = useRef()
   tomarListaPopRef.current = () => {
+    // Observaciones: atrás cierra SOLO la ventana de hasta arriba (menú →
+    // observación → bitácora) y se queda en Tomar lista.
+    if (menuAsistencia || observacionModal || bitacoraStudent) {
+      if (menuAsistencia) setMenuAsistencia(null)
+      else if (observacionModal) setObservacionModal(null)
+      else setBitacoraStudent(null)
+      window.history.pushState({ ...window.history.state, efTomarLista: true }, '')
+      return
+    }
     if (reasonModal || showAddAttendance || showRestoreAttendance || deleteAttendanceConfirm) {
       setReasonModal(null)
       setShowAddAttendance(false)
@@ -2194,6 +2386,154 @@ export default function SubjectPage() {
   }
   const addDayClickRef = useRef(); addDayClickRef.current = handleAddDayClick
   const stableAddDay = useCallback(() => addDayClickRef.current(), [])
+
+  // ── Observaciones y bitácora (solo web de escritorio) ─────────────
+  // Registros escritos del docente sobre una celda de asistencia, en su propia
+  // colección (utils/observacionesAsistencia.js): no tocan `attendance`, sus
+  // conteos ni onAttendanceEscrita, y se conservan aunque el día se elimine.
+  // Web de escritorio, tablet y teléfono (web). La app nativa ni los carga ni
+  // monta nada de esto (AttendanceTable además excluye la variante 'app').
+  const observacionesHabilitadas = !IS_NATIVE_APP
+  const [observaciones, setObservaciones] = useState([])
+  const [observacionesDe, setObservacionesDe] = useState(null) // subjectId ya cargado
+  const [menuAsistencia, setMenuAsistencia] = useState(null)
+  const [observacionModal, setObservacionModal] = useState(null) // { id, record?, student, fecha, original, sobreBitacora }
+  const [bitacoraStudent, setBitacoraStudent] = useState(null)
+  // Esc (EscKeyHandler) y el botón atrás cierran la ventana de hasta arriba;
+  // sin registrarlas aquí, Esc sacaría de la asignatura además de cerrarla.
+  useBackHandler(() => setBitacoraStudent(null), !!bitacoraStudent)
+  useBackHandler(() => setObservacionModal(null), !!observacionModal)
+
+  useEffect(() => {
+    if (!observacionesHabilitadas || !attendanceLoaded || observacionesDe === subjectId) return undefined
+    let vivo = true
+    cargarObservacionesAsistencia(subjectId, currentUser.uid)
+      .then((lista) => { if (vivo) { setObservaciones(lista); setObservacionesDe(subjectId) } })
+      // Un fallo aquí no debe estorbar el pase de lista: la tabla sigue igual.
+      .catch((err) => { if (vivo) console.warn('No se pudieron cargar las observaciones:', err) })
+    return () => { vivo = false }
+  }, [observacionesHabilitadas, attendanceLoaded, observacionesDe, subjectId, currentUser.uid])
+
+  const observacionesPorCelda = useMemo(
+    () => (observacionesHabilitadas ? Object.fromEntries(observaciones.map((o) => [llaveCeldaObservacion(o.fecha, o.slot, o.alumnoId), o.texto])) : undefined),
+    [observacionesHabilitadas, observaciones],
+  )
+
+  // Fechas que hoy tienen más de una hora de clase: ahí la bitácora escribe la hora.
+  function fechasVariasHoras() {
+    const cuenta = {}
+    attendanceRecords.forEach((r) => { if (!esSesionInformativa(r)) cuenta[r.fecha] = (cuenta[r.fecha] || 0) + 1 })
+    return new Set(Object.keys(cuenta).filter((f) => cuenta[f] > 1))
+  }
+  function etiquetaObs(obs, delAlumno) {
+    return etiquetaFechaObservacion(obs, { fechasVariasHoras: fechasVariasHoras(), observaciones: delAlumno })
+  }
+
+  // `info` llega ya resuelto por AttendanceTable, venga del clic derecho, del
+  // teclado o de la pulsación larga: { x, y, trigger, tactil }.
+  // En táctil (sin hover) el menú de una celda con observación muestra el
+  // texto resumido: es la forma de consultarla sin robarle el toque a P/F/J.
+  function cellContextMenu(info, record, student) {
+    if (esSesionInformativa(record)) return
+    const id = observacionId(subjectId, record.fecha, record.slot, student.id)
+    const existente = observaciones.find((o) => o.id === id)
+    setMenuAsistencia({
+      ...info,
+      resumen: info.tactil ? existente?.texto : undefined,
+      ariaLabel: `Observación de ${studentFullName(student)}`,
+      items: [{
+        label: existente ? 'Ver / editar observación' : 'Agregar observación',
+        icon: Pencil,
+        onSelect: () => {
+          const delAlumno = observaciones.filter((o) => o.alumnoId === student.id)
+          setObservacionModal({
+            id,
+            record,
+            student,
+            fecha: etiquetaObs(existente || { fecha: record.fecha, slot: record.slot }, existente ? delAlumno : [...delAlumno, { fecha: record.fecha, slot: record.slot }]),
+            original: existente?.texto || '',
+            sobreBitacora: false,
+          })
+        },
+      }],
+    })
+  }
+  function nameContextMenu(info, student) {
+    setMenuAsistencia({
+      ...info,
+      ariaLabel: `Opciones de ${studentFullName(student)}`,
+      items: [{
+        label: 'Ver bitácora',
+        tooltip: 'Ver e imprimir las observaciones registradas de este estudiante',
+        icon: BookOpen,
+        onSelect: () => setBitacoraStudent(student),
+      }],
+    })
+  }
+  const cellContextMenuRef = useRef(); cellContextMenuRef.current = cellContextMenu
+  const stableCellContextMenu = useCallback((info, record, student) => cellContextMenuRef.current(info, record, student), [])
+  const nameContextMenuRef = useRef(); nameContextMenuRef.current = nameContextMenu
+  const stableNameContextMenu = useCallback((info, student) => nameContextMenuRef.current(info, student), [])
+  const cerrarMenuAsistencia = useCallback(() => setMenuAsistencia(null), [])
+
+  // Guardar: crea, edita, o —con el texto vacío— quita la observación.
+  async function guardarObservacion(texto) {
+    const modal = observacionModal
+    if (!modal) return
+    const existente = observaciones.find((o) => o.id === modal.id)
+    try {
+      if (!texto) {
+        if (existente) {
+          await eliminarObservacionAsistencia(modal.id)
+          setObservaciones((prev) => prev.filter((o) => o.id !== modal.id))
+          toast('Observación eliminada')
+        }
+      } else if (existente) {
+        await editarObservacionAsistencia(modal.id, texto)
+        setObservaciones((prev) => prev.map((o) => o.id === modal.id ? { ...o, texto } : o))
+        toast('Observación guardada')
+      } else {
+        const nueva = await crearObservacionAsistencia({
+          asignaturaId: subjectId,
+          docenteId: currentUser.uid,
+          alumnoId: modal.student.id,
+          record: modal.record,
+          texto,
+        })
+        setObservaciones((prev) => [...prev, nueva])
+        toast('Observación guardada')
+      }
+      setObservacionModal(null)
+    } catch (err) {
+      toast('Error al guardar la observación: ' + err.message, 'error')
+    }
+  }
+
+  const bitacoraFilas = bitacoraStudent
+    ? (() => {
+        const delAlumno = observaciones.filter((o) => o.alumnoId === bitacoraStudent.id)
+        return ordenarBitacora(delAlumno).map((o) => ({ id: o.id, fecha: etiquetaObs(o, delAlumno), texto: o.texto }))
+      })()
+    : []
+  function editarDesdeBitacora(id) {
+    const obs = observaciones.find((o) => o.id === id)
+    if (!obs || !bitacoraStudent) return
+    const delAlumno = observaciones.filter((o) => o.alumnoId === bitacoraStudent.id)
+    setObservacionModal({ id, student: bitacoraStudent, fecha: etiquetaObs(obs, delAlumno), original: obs.texto, sobreBitacora: true })
+  }
+  function imprimirBitacoraActual() {
+    if (!bitacoraStudent) return
+    try {
+      imprimirBitacora({
+        estudiante: studentFullName(bitacoraStudent),
+        asignatura: subjectDisplayName(subject),
+        docente: membrete.docente,
+        filas: bitacoraFilas,
+      })
+    } catch (err) {
+      toast('No se pudo imprimir: ' + err.message, 'error')
+    }
+  }
 
   // Guarda el motivo y deja la celda en "justificada".
   async function handleSaveReason() {
@@ -2662,6 +3002,11 @@ export default function SubjectPage() {
       // definitivamente no deja borrar calificaciones de un estudiante que
       // sigue inscrito (firestore.rules), y eliminar a un estudiante es una
       // operación administrativa que debe poder hacerse igual.
+      // Sus observaciones de Asistencias también se van: eliminar a un
+      // estudiante no debe dejar residuos (a diferencia de eliminar un día de
+      // asistencia, que las conserva a propósito).
+      const obsBorradas = await eliminarObservacionesDeAlumno(subjectId, currentUser.uid, studentToDelete.id)
+      if (obsBorradas.length) setObservaciones((prev) => prev.filter((o) => o.alumnoId !== studentToDelete.id))
       await deleteDoc(doc(db, 'students', studentToDelete.id))
       await deleteSubmissionsByStudent(studentToDelete.id, activities.map((a) => a.id))
       const remaining = groupStudents.filter((s) => s.id !== studentToDelete.id)
@@ -4792,6 +5137,9 @@ export default function SubjectPage() {
       sesionesPorParcialCliente={sesionesPorParcialCliente}
       parcialesCerrados={subject?.parcialesCerrados}
       umbralInasistencia={umbralInasistencia}
+      observaciones={observacionesPorCelda}
+      onCellContextMenu={stableCellContextMenu}
+      onNameContextMenu={stableNameContextMenu}
       variante={IS_NATIVE_APP ? 'app' : tomarListaMovil ? (telefonoWeb.horizontal ? 'movil-h' : 'movil-v') : 'web'}
     />
   )
@@ -6272,6 +6620,36 @@ export default function SubjectPage() {
           se queda en Justificada con su motivo. Igual en web y app. En la
           app va ANCHO y pegado arriba para seguir usable con el teclado (que
           en horizontal tapa la mitad inferior). */}
+      {observacionesHabilitadas && (
+        <>
+          <MenuContextualAsistencia menu={menuAsistencia} onClose={cerrarMenuAsistencia} />
+          {bitacoraStudent && (
+            <BitacoraObservacionesModal
+              estudiante={studentFullName(bitacoraStudent)}
+              asignatura={subjectDisplayName(subject)}
+              docente={membrete.docente}
+              filas={bitacoraFilas}
+              onEditar={editarDesdeBitacora}
+              onImprimir={imprimirBitacoraActual}
+              // Con la observación abierta encima, Esc cierra solo esa ventana.
+              onClose={() => { if (!observacionModal) setBitacoraStudent(null) }}
+              // Tomar lista en el teléfono es una capa fija z-[70]: encima de ella.
+              z={tomarListaMovil ? 90 : 50}
+            />
+          )}
+          {observacionModal && (
+            <ObservacionModal
+              key={observacionModal.id}
+              estudiante={studentFullName(observacionModal.student)}
+              fecha={observacionModal.fecha}
+              original={observacionModal.original}
+              onGuardar={guardarObservacion}
+              onClose={() => setObservacionModal(null)}
+              z={tomarListaMovil ? (observacionModal.sobreBitacora ? 110 : 90) : (observacionModal.sobreBitacora ? 60 : 50)}
+            />
+          )}
+        </>
+      )}
       {reasonModal && (
         <div className={`fixed inset-0 z-[80] flex justify-center ${modalAsistenciaHorizontal ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={cancelReasonModal} aria-label="Cerrar" />

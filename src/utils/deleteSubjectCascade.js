@@ -107,11 +107,13 @@ export async function deleteSubjectCascade(subjectId, docenteId) {
   await deleteSubjectResourcesAndFiles(subjectId)
   await liberarParcialesCerrados(subjectId)
 
-  const [actsSnap, studsSnap, attSnap, bloquesSnap] = await Promise.all([
+  // observacionesAsistencia: owner-only como horarioBloques, mismo filtro doble.
+  const [actsSnap, studsSnap, attSnap, bloquesSnap, obsSnap] = await Promise.all([
     getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'attendance'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'horarioBloques'), where('docenteId', '==', docenteId), where('asignaturaId', '==', subjectId))),
+    getDocs(query(collection(db, 'observacionesAsistencia'), where('asignaturaId', '==', subjectId), where('docenteId', '==', docenteId))),
   ])
 
   const actIds = actsSnap.docs.map((d) => d.id)
@@ -123,6 +125,7 @@ export async function deleteSubjectCascade(subjectId, docenteId) {
     ...studsSnap.docs.map((d) => doc(db, 'students', d.id)),
     ...attSnap.docs.map((d) => doc(db, 'attendance', d.id)),
     ...bloquesSnap.docs.map((d) => doc(db, 'horarioBloques', d.id)),
+    ...obsSnap.docs.map((d) => doc(db, 'observacionesAsistencia', d.id)),
   ]
   await batchDeleteDocs(refs)
   await deleteDoc(doc(db, 'subjects', subjectId))

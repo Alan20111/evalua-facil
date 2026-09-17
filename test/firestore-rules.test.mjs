@@ -485,6 +485,68 @@ await assertFails(setDoc(doc(asSinCampo, 'attendance', 'AT_AJENA'), {
   asignaturaId: 'S_VENC', docenteId: T_SIN_CAMPO, fecha: '2026-08-06', slot: 1, parcial: 1, presentes: {},
 })); ok('teacher CANNOT take attendance on a subject that is not theirs (ownsSubject sigue vigente)')
 
+// ── Observaciones de asistencia y bitácora (17-sep-2026) ────────────────────
+// Privadas del docente dueño: ni otro docente ni el estudiante las leen. Id
+// determinista {asignaturaId}_{fecha}_{slot}_{alumnoId}; solo `texto` cambia.
+{
+  const OBS_ID = 'S1_2026-07-01_1_ST_JUAN'
+  const obs = (extra = {}) => ({
+    asignaturaId: 'S1', docenteId: T1, alumnoId: 'ST_JUAN',
+    fecha: '2026-07-01', slot: 1, texto: 'Llegó sin material', createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...extra,
+  })
+  await testEnv.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'students', 'ST_S2'), { asignaturaId: 'S2', escuelaId: 'E2', username: 'OTRO' }))
+
+  await assertSucceeds(setDoc(doc(asT1, 'observacionesAsistencia', OBS_ID), obs()))
+  ok('OBSERVACIONES · el docente dueño crea una observación de su celda')
+  await assertSucceeds(getDoc(doc(asT1, 'observacionesAsistencia', OBS_ID)))
+  await assertSucceeds(getDocs(query(collection(asT1, 'observacionesAsistencia'), where('asignaturaId', '==', 'S1'), where('docenteId', '==', T1))))
+  ok('OBSERVACIONES · el dueño las lee (documento y consulta por asignatura + docente)')
+  await assertSucceeds(updateDoc(doc(asT1, 'observacionesAsistencia', OBS_ID), { texto: 'Llegó sin material; avisó', updatedAt: serverTimestamp() }))
+  ok('OBSERVACIONES · el dueño edita el texto')
+
+  await assertFails(getDoc(doc(asT2, 'observacionesAsistencia', OBS_ID)))
+  await assertFails(getDocs(query(collection(asT2, 'observacionesAsistencia'), where('asignaturaId', '==', 'S1'))))
+  ok('OBSERVACIONES · otro docente NO las lee')
+  await assertFails(getDoc(doc(asJuan, 'observacionesAsistencia', OBS_ID)))
+  await assertFails(getDocs(query(collection(asJuan, 'observacionesAsistencia'), where('alumnoId', '==', 'ST_JUAN'))))
+  ok('OBSERVACIONES · el estudiante NO las lee')
+  await assertFails(updateDoc(doc(asT2, 'observacionesAsistencia', OBS_ID), { texto: 'x', updatedAt: serverTimestamp() }))
+  await assertFails(deleteDoc(doc(asT2, 'observacionesAsistencia', OBS_ID)))
+  ok('OBSERVACIONES · otro docente NO las edita ni las borra')
+
+  await assertFails(updateDoc(doc(asT1, 'observacionesAsistencia', OBS_ID), { alumnoId: 'ST_UNACT', updatedAt: serverTimestamp() }))
+  await assertFails(updateDoc(doc(asT1, 'observacionesAsistencia', OBS_ID), { texto: '', updatedAt: serverTimestamp() }))
+  await assertFails(updateDoc(doc(asT1, 'observacionesAsistencia', OBS_ID), { texto: 'x'.repeat(2001), updatedAt: serverTimestamp() }))
+  ok('OBSERVACIONES · al editar solo cambia el texto (1–2000 caracteres)')
+
+  await assertFails(setDoc(doc(asT2, 'observacionesAsistencia', OBS_ID.replace('S1', 'S1x')), obs({ docenteId: T2 })))
+  await assertFails(setDoc(doc(asT2, 'observacionesAsistencia', 'S2_2026-07-01_1_ST_JUAN'), obs({ asignaturaId: 'S2', docenteId: T2 })))
+  ok('OBSERVACIONES · un docente NO crea observaciones en asignatura ajena ni de alumnos de otra asignatura')
+  await assertFails(setDoc(doc(asT1, 'observacionesAsistencia', 'S1_2026-07-01_1_ST_S2'), obs({ alumnoId: 'ST_S2' })))
+  ok('OBSERVACIONES · el alumno debe pertenecer a la asignatura')
+  await assertFails(setDoc(doc(asT1, 'observacionesAsistencia', 'OTRO_ID'), obs()))
+  await assertFails(setDoc(doc(asT1, 'observacionesAsistencia', 'S1_2026-07-02_1_ST_JUAN'), obs({ fecha: '2026-07-03' })))
+  ok('OBSERVACIONES · el id debe coincidir con la celda (asignatura, fecha, hora y alumno)')
+  await assertFails(setDoc(doc(asT1, 'observacionesAsistencia', 'S1_2026-07-01_2_ST_JUAN'), obs({ slot: 2, clasificacion: 'conducta' })))
+  await assertFails(setDoc(doc(asT1, 'observacionesAsistencia', 'S1_2026-07-01_2_ST_JUAN'), obs({ slot: 2, texto: '' })))
+  await assertFails(setDoc(doc(asT1, 'observacionesAsistencia', 'S1_2026-07-01_2_ST_JUAN'), obs({ slot: 2, docenteId: T2 })))
+  ok('OBSERVACIONES · sin campos extra, sin texto vacío y siempre a nombre de quien escribe')
+  await assertSucceeds(setDoc(doc(asT1, 'observacionesAsistencia', 'S1_2026-07-01_2_ST_JUAN'), obs({ slot: 2, texto: 'Segunda hora' })))
+  ok('OBSERVACIONES · la segunda hora del mismo día tiene su propia observación')
+
+  // Se conservan aunque se elimine el día de asistencia: no dependen del doc.
+  await assertSucceeds(setDoc(doc(asT1, 'attendance', 'AT_OBS_DIA'), {
+    asignaturaId: 'S1', docenteId: T1, fecha: '2026-07-01', slot: 1, parcial: 1, presentes: { ST_JUAN: true },
+  }))
+  await assertSucceeds(deleteDoc(doc(asT1, 'attendance', 'AT_OBS_DIA')))
+  await assertSucceeds(getDoc(doc(asT1, 'observacionesAsistencia', OBS_ID)))
+  await assertSucceeds(updateDoc(doc(asT1, 'observacionesAsistencia', OBS_ID), { texto: 'Editada tras borrar el día', updatedAt: serverTimestamp() }))
+  ok('OBSERVACIONES · eliminar el día de asistencia no afecta la observación')
+
+  await assertSucceeds(deleteDoc(doc(asT1, 'observacionesAsistencia', 'S1_2026-07-01_2_ST_JUAN')))
+  ok('OBSERVACIONES · el dueño puede quitar una observación')
+}
+
 // ── Compra de créditos: montoOficialCredito espeja los 6 paquetes vivos ──────
 // NUEVO (26-ago-2026). No había NINGUNA prueba de creditPurchases, y por eso
 // nadie notó que `montoOficialCredito` en firestore.rules se quedó con los
