@@ -143,15 +143,10 @@ async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual
   const manualSinDuplicar = excluirUrlsPermanentes(fuentesManual, urlsPermanentes)
   const maxPaginasVisual = fuentesIA.presupuestoPaginasVisual(creditosOperacion)
 
-  const manual = await fuentesIA.fuentesManual(manualSinDuplicar, { maxPaginasVisual })
   // Lo que el docente adjuntó a mano SÍ bloquea si nada de ello sirvió: lo
   // acaba de elegir y merece enterarse, en vez de que la evaluación salga en
   // silencio sin el material que él creía haber aportado.
-  if (manualSinDuplicar.length && !manual.texto && !manual.bloques.length) {
-    const motivo = manual.avisos[0]?.motivo || 'No se pudo procesar el documento.'
-    throw new HttpsError('failed-precondition',
-      `No se pudo usar ninguno de los documentos que adjuntaste. ${motivo} Corrígelo o continúa sin adjuntarlos. No se descontaron créditos.`)
-  }
+  const manual = await fuentesIA.fuentesManualRequeridas(manualSinDuplicar, { maxPaginasVisual })
 
   const permanentes = await bloqueFuentesPermanentes(
     db, asignaturaId, parcial,
@@ -946,8 +941,16 @@ async function pedirJSON({ client, modelo, maxTokens, prompt, system = INSTRUMEN
   })
   let texto = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
   if (texto.startsWith('```')) texto = texto.replace(/^```(json)?\n?/, '').replace(/```$/, '').trim()
+  const datos = JSON.parse(texto) // un JSON ilegible cae al catch del callable → reembolso
+  // El modelo avisa que no pudo leer los PDF que se le mandaron a mirar (ver
+  // fuentesIA.notaDocumentosVisuales). Solo cuenta si de verdad viajaron
+  // documentos: sin ellos esa clave no significa nada. Detiene la operación
+  // y el callable reembolsa la reserva completa — no se cobra por inventar.
+  if ((prefijo.length || bloques.length) && datos?.[fuentesIA.CLAVE_DOCUMENTO_ILEGIBLE] === true) {
+    throw new HttpsError('failed-precondition', fuentesIA.MENSAJE_DOCUMENTO_ILEGIBLE, { codigo: 'DOCUMENTO_ILEGIBLE' })
+  }
   return {
-    datos: JSON.parse(texto), // un JSON ilegible cae al catch del callable → reembolso
+    datos,
     interno: {
       modelo,
       tokensEntrada: msg.usage?.input_tokens ?? null,
@@ -3099,7 +3102,7 @@ const MAX_PALABRAS_JUEGO = 20
 const MODALIDADES_JUEGO = ['palabra', 'descripcion']
 const MAX_CONTEXTO_JUEGO = 1500
 
-async function precheckGenerarContenidoJuego({ uid, params }) {
+async function precheckGenerarContenidoJuego({ uid, params, tarifas }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad')
@@ -3120,17 +3123,23 @@ async function precheckGenerarContenidoJuego({ uid, params }) {
     ? clampInt(params?.tamanoSopa, 10, 8, 20)
     : null
 
-  // Documento opcional (máx 1, PDF o .docx — FuentesIAInput ya lo limita en
-  // el cliente; aquí solo se toma el primero por si acaso).
+  // Documento opcional (se toma solo el primero, PDF o .docx). Se lee con la
+  // capa común (17-sep-2026): un PDF cuyo contenido está en imágenes —una
+  // infografía, un escaneo— viaja al modelo como documento nativo en vez de
+  // rechazarse por "no tener texto", dentro del presupuesto de páginas que
+  // alcanza la tarifa de esta operación.
   const urls = Array.isArray(params?.fuentes) ? params.fuentes.slice(0, 1) : []
-  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes(urls)
+  const fuentes = await fuentesIA.fuentesManualRequeridas(urls, {
+    maxPaginasVisual: fuentesIA.presupuestoPaginasVisual(creditosDe(tarifas, 'generar_contenido_juego')),
+  })
 
   return {
     tipoJuego: act.tipoJuego,
     modalidad,
     cantidad,
     contexto,
-    bloqueFuentes,
+    bloqueFuentes: fuentes.texto,
+    fuentesBloques: fuentes.bloques,
     tamanoSopa,
   }
 }
@@ -3178,6 +3187,9 @@ async function ejecutarGenerarContenidoJuego({ params, modelo, apiKey }) {
     return pedirJSON({
       client, modelo, maxTokens: 1500, system: CONTENIDO_JUEGO_SISTEMA,
       prompt: promptContenidoJuego(ctx, asignatura),
+      // PDF visual como prefijo cacheado: si hace falta el reintento de
+      // abajo, relee el documento a 0.1× en vez de pagarlo otra vez.
+      bloquesPrefijo: ctx.fuentesBloques || [],
     })
   }
 
@@ -3385,7 +3397,7 @@ async function requerirProgramaEstudios(db, subjectId, configSnap) {
   return programaEstudios
 }
 
-async function precheckDiagnosticoBase({ uid, subjectId }) {
+async function precheckDiagnosticoBase({ uid, subjectId, creditosOperacion = 0 }) {
   const db = getFirestore()
   if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura.')
 
@@ -3416,14 +3428,23 @@ async function precheckDiagnosticoBase({ uid, subjectId }) {
     return { id: d.id, ...data, creadoEnMillis: data.creadoEn?.toMillis?.() || 0 }
   })
   const seleccionadas = seleccionarFuentesGenerales(fuentes)
-  const bloqueFuentes = await fuentesIA.prepararBloqueFuentes([programaEstudios.url, ...seleccionadas.map((f) => f.url)])
+  // Capa común (17-sep-2026): un programa o una fuente escaneada viaja como
+  // documento nativo en vez de rechazarse o ignorarse por no tener texto.
+  const fuentesDiag = await fuentesIA.fuentesManualRequeridas(
+    [programaEstudios.url, ...seleccionadas.map((f) => f.url)],
+    { maxPaginasVisual: fuentesIA.presupuestoPaginasVisual(creditosOperacion) }
+  )
+  if (fuentesDiag.avisos.length) {
+    logger.warn(`Diagnóstico(${subjectId}): ${fuentesDiag.avisos.length} fuente(s) sin usar — ${fuentesDiag.avisos.map((a) => a.motivo).join(' | ').slice(0, 300)}`)
+  }
   const comentariosGrupoTexto = comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)
 
   return {
     asignaturaNombre: String(subj.nombre || '').trim().slice(0, 120),
     perfilIATexto: perfilIATexto(perfilIA),
     comentariosGrupoTexto,
-    bloqueFuentes,
+    bloqueFuentes: fuentesDiag.texto,
+    fuentesBloques: fuentesDiag.bloques,
     fuentesUsadas: [{ id: 'programa', nombre: programaEstudios.nombre }, ...seleccionadas.map((f) => ({ id: f.id, nombre: String(f.nombre || '').slice(0, 200) }))],
   }
 }
@@ -3434,7 +3455,7 @@ async function precheckDiagnosticoBase({ uid, subjectId }) {
 // diagnosticoTipo:'contexto', evaluacion.ponderarReactivos:false — es una
 // ENCUESTA, sin "correcta") y esta operación llena su instrumento
 // (10 a 15 preguntas, la IA decide cuántas dentro de ese rango).
-async function precheckDiagnosticoContexto({ uid, params }) {
+async function precheckDiagnosticoContexto({ uid, params, tarifas }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad ya creada')
@@ -3447,7 +3468,9 @@ async function precheckDiagnosticoContexto({ uid, params }) {
     throw new HttpsError('failed-precondition', 'Esta actividad no es un diagnóstico de contexto')
   }
 
-  const base = await precheckDiagnosticoBase({ uid, subjectId: act.asignaturaId })
+  const base = await precheckDiagnosticoBase({
+    uid, subjectId: act.asignaturaId, creditosOperacion: creditosDe(tarifas, 'diagnostico_contexto'),
+  })
   // Corrección de Kike (12-ago-2026): ahora el docente SÍ elige cuántas
   // preguntas (10-15, antes las decidía la IA sola) y puede orientar el
   // instrumento con un texto libre opcional — mismo principio que "¿qué
@@ -3464,7 +3487,7 @@ async function precheckDiagnosticoContexto({ uid, params }) {
 // borrador) y esta operación llena sus preguntas/clave, igual que
 // crear_evaluacion_ia. `cantidad` la elige el docente (antes la decidía la
 // IA sola).
-async function precheckDiagnosticoConocimientos({ uid, params }) {
+async function precheckDiagnosticoConocimientos({ uid, params, tarifas }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad ya creada')
@@ -3477,7 +3500,9 @@ async function precheckDiagnosticoConocimientos({ uid, params }) {
     throw new HttpsError('failed-precondition', 'Esta actividad no es un diagnóstico de conocimientos')
   }
 
-  const base = await precheckDiagnosticoBase({ uid, subjectId: act.asignaturaId })
+  const base = await precheckDiagnosticoBase({
+    uid, subjectId: act.asignaturaId, creditosOperacion: creditosDe(tarifas, 'diagnostico_conocimientos'),
+  })
   const cantidad = clampInt(params?.cantidad, MIN_REACTIVOS_DIAGNOSTICO, MIN_REACTIVOS_DIAGNOSTICO, MAX_REACTIVOS_DIAGNOSTICO)
 
   return { ...base, actividadId, cantidad }
@@ -3596,6 +3621,7 @@ async function ejecutarDiagnosticoContexto({ params, modelo, apiKey }) {
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 6000, system: DIAGNOSTICO_SISTEMA,
     prompt: promptInstrumentoContexto(ctx),
+    bloquesPrefijo: ctx.fuentesBloques || [],
   })
 
   const preguntas = normalizarPreguntasContexto(datos?.preguntas)
@@ -3685,6 +3711,7 @@ async function ejecutarDiagnosticoConocimientos({ params, modelo, apiKey }) {
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: Math.min(8000, 350 * ctx.cantidad + 400), system: DIAGNOSTICO_SISTEMA,
     prompt: promptDiagnosticoConocimientos(ctx),
+    bloquesPrefijo: ctx.fuentesBloques || [],
   })
 
   const reactivos = normalizarReactivos(datos, { tipos }).filter((r) => r.enunciado)
@@ -3977,7 +4004,7 @@ function construirParcialesCtx(subj, { diasAsueto = [], sesionesCanceladas = [] 
 // contexto por parcial (fuentes generales + fuentes específicas de CADA
 // parcial, según §5 del apartado). Comparte perfilIACompleto/perfilIATexto/
 // seleccionarFuentesGenerales con el precheck de Diagnóstico del grupo.
-async function precheckPlaneacionInicial({ uid, params }) {
+async function precheckPlaneacionInicial({ uid, params, tarifas }) {
   const db = getFirestore()
   const subjectId = String(params?.subjectId || '').trim()
   if (!subjectId) throw new HttpsError('invalid-argument', 'Falta la asignatura.')
@@ -4085,9 +4112,21 @@ async function precheckPlaneacionInicial({ uid, params }) {
     }
   }
 
-  const bloqueFuentesGenerales = await fuentesIA.prepararBloqueFuentes(
-    [programaEstudiosGen.url, ...seleccionarFuentesGenerales(generales).map((f) => f.url)]
+  // Capa común (17-sep-2026): un programa o una fuente escaneada viaja como
+  // documento nativo en vez de rechazarse o ignorarse por no tener texto.
+  // `bloqueFuentesGenerales` sigue siendo SOLO el texto extraído, igual que
+  // antes: de su largo depende la fragmentación (calcularUnidadesMinimasFuente
+  // y extraerTemasDeDocumentoGrande), que no ve los PDF visuales. La nota que
+  // anuncia esos PDF al modelo viaja aparte, en `notaFuentesVisuales`, para
+  // que ninguna de las dos cosas se mezcle con la otra.
+  const fuentesPlan = await fuentesIA.fuentesManualRequeridas(
+    [programaEstudiosGen.url, ...seleccionarFuentesGenerales(generales).map((f) => f.url)],
+    { maxPaginasVisual: fuentesIA.presupuestoPaginasVisual(creditosDe(tarifas, 'planeacion_didactica_inicial')) }
   )
+  if (fuentesPlan.avisos.length) {
+    logger.warn(`Planeación(${subjectId}): ${fuentesPlan.avisos.length} fuente(s) sin usar — ${fuentesPlan.avisos.map((a) => a.motivo).join(' | ').slice(0, 300)}`)
+  }
+  const bloqueFuentesGenerales = fuentesPlan.textoSinBloques
   const configSnap = await db.doc(`subjects/${subjectId}/asistenteIA/config`).get()
   const comentariosGrupoTexto = incluir.comentarios
     ? comentariosGrupoATexto(configSnap.data()?.comentariosGrupo)
@@ -4144,6 +4183,8 @@ async function precheckPlaneacionInicial({ uid, params }) {
     autoanalisisDocenteTexto,
     consideracionesTexto,
     bloqueFuentesGenerales,
+    fuentesBloques: fuentesPlan.bloques,
+    notaFuentesVisuales: fuentesIA.notaDocumentosVisuales(fuentesPlan.bloques.length, { exigirLectura: true }),
     diagnosticoContextoTexto: incluir.diagContexto ? diagnosticoContextoATexto(resultadoContexto) : '',
     diagnosticoConocimientosTexto: incluir.diagConocimientos ? diagnosticoConocimientosATexto(resultadoConocimientos) : '',
     parciales,
@@ -4460,6 +4501,7 @@ function promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada, pedirBibli
     (ctx.diagnosticoConocimientosTexto ? `DIAGNÓSTICO DE CONOCIMIENTOS (instrumento, sin resultados ` +
       `todavía):\n${ctx.diagnosticoConocimientosTexto}\n\n` : '') +
     (ctx.bloqueFuentesGenerales ? `FUENTES GENERALES DE LA ASIGNATURA:\n${ctx.bloqueFuentesGenerales}\n\n` : '') +
+    (ctx.notaFuentesVisuales ? `${ctx.notaFuentesVisuales}\n\n` : '') +
     'CONGRUENCIA OBLIGATORIA entre sesiones y contenido (error grave encontrado el 15-ago-2026: una propuesta ' +
     'que decía cubrir 10 horas pero cuyas actividades sumaban apenas hora y media, y que además solo cubría el ' +
     'primer tema del manual, dejando el resto sin planear):\n' +
@@ -4683,6 +4725,12 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
     ctx = { ...ctx, bloqueFuentesGenerales: construirBloqueFuenteEstructurada(temas) }
   }
 
+  // PDF de fuente cuyo contenido está en imágenes (17-sep-2026): van en TODAS
+  // las llamadas de todos los parciales, como prefijo cacheado — la primera
+  // los paga y las demás los releen a 0.1×. La fragmentación de arriba solo
+  // trabaja con texto y no los necesita.
+  const pdfsVisuales = ctx.fuentesBloques || []
+
   const limpiarCampo = (s) => String(s || '').trim().slice(0, 2000)
   const limpiarMomento = (m) => {
     const out = {}
@@ -4714,7 +4762,7 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
     const maxTokens = Math.min(16000, (esPrimerParcial ? 3000 : 2500) + secuenciasEstimadas * 3200)
     const promptBase = promptSecuenciasParcial(ctx, parcialCtx, cantidadSolicitada, esPrimerParcial)
     let { datos, interno } = await pedirJSON({
-      client, modelo, maxTokens, system: PLANEACION_SISTEMA, prompt: promptBase,
+      client, modelo, maxTokens, system: PLANEACION_SISTEMA, prompt: promptBase, bloquesPrefijo: pdfsVisuales,
     })
     tokensEntrada += interno.tokensEntrada || 0
     tokensSalida += interno.tokensSalida || 0
@@ -4732,7 +4780,7 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
       (cantidadSolicitada ? entregadas !== objetivo : entregadas < objetivo)
     if (necesitaReintento) {
       const reintento = await pedirJSON({
-        client, modelo, maxTokens, system: PLANEACION_SISTEMA,
+        client, modelo, maxTokens, system: PLANEACION_SISTEMA, bloquesPrefijo: pdfsVisuales,
         prompt: promptCorreccionSecuencias(promptBase, objetivo, entregadas),
       })
       tokensEntrada += reintento.interno.tokensEntrada || 0
@@ -4759,7 +4807,7 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
     if (coberturaIncompleta(datos?.temasFuente)) {
       const temasAntes = datos.temasFuente
       const reintentoCobertura = await pedirJSON({
-        client, modelo, maxTokens, system: PLANEACION_SISTEMA,
+        client, modelo, maxTokens, system: PLANEACION_SISTEMA, bloquesPrefijo: pdfsVisuales,
         prompt: promptCorreccionCobertura(promptBase, temasAntes),
       })
       tokensEntrada += reintentoCobertura.interno.tokensEntrada || 0
@@ -4788,7 +4836,7 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
     const sumaInicial = sumaPonderacionesParcial(datos?.secuenciasDidacticas)
     if (Math.abs(sumaInicial - PONDERACION_TOTAL) > 0.5) {
       const reintentoPonderacion = await pedirJSON({
-        client, modelo, maxTokens, system: PLANEACION_SISTEMA,
+        client, modelo, maxTokens, system: PLANEACION_SISTEMA, bloquesPrefijo: pdfsVisuales,
         prompt: promptCorreccionPonderaciones(promptBase, sumaInicial),
       })
       tokensEntrada += reintentoPonderacion.interno.tokensEntrada || 0

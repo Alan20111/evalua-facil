@@ -2051,6 +2051,174 @@ await (async () => {
   })
 })()
 
+// ── Cualquier PDF sirve como fuente de IA, esté como esté hecho (17-sep-2026) ──
+// Caso real: Windows.pdf, 14 páginas de infografía con 0 caracteres
+// extraíbles, rechazado en Crucigrama con "no tiene texto". Se prueba con
+// PDF REALES (fabricados con jspdf) que pasan por el mismo pdf-parse de
+// producción; nada de clasificaciones inventadas a mano.
+grupo('Fuentes PDF para IA — textual, visual, mixto, vectorial y en blanco')
+
+await (async () => {
+  const fx = await import('./helpers/pdfFixtures.mjs')
+  const clasificar = (ab) => docExtract.clasificarBytes('pdf', ab)
+  const [texto, imagen, mixto, vectorial, blanco, blanco3] = await Promise.all([
+    clasificar(fx.pdfTexto(2)), clasificar(fx.pdfImagen(3)), clasificar(fx.pdfMixto(2)),
+    clasificar(fx.pdfVectorial()), clasificar(fx.pdfEnBlanco()), clasificar(fx.pdfEnBlanco(3)),
+  ])
+  const word = await docExtract.clasificarBytes('docx', await fx.docxTexto('La fotosintesis ocurre en el cloroplasto.'))
+
+  caso('PDF con capa de texto → "texto": sigue el camino barato de siempre, con su texto', () => {
+    assert.strictEqual(texto.tipo, 'texto')
+    assert.strictEqual(texto.paginas, 2)
+    assert.ok(texto.texto.includes('La celula es la unidad basica de la vida'))
+  })
+  caso('PDF de solo imágenes (escaneo/infografía, el caso de Windows.pdf) → "visual", nunca vacío ni inválido', () => {
+    assert.strictEqual(imagen.tipo, 'visual')
+    assert.strictEqual(imagen.paginas, 3)
+    assert.strictEqual(imagen.texto, '')
+  })
+  caso('PDF mixto (encabezado de texto + imagen) → "mixto", conserva el poco texto que tiene', () => {
+    assert.strictEqual(mixto.tipo, 'mixto')
+    assert.ok(mixto.texto.includes('Pagina 1'))
+  })
+  caso('PDF vectorial sin texto ni imágenes (diagrama, texto en curvas) → "visual": tiene algo que mirar', () => {
+    assert.strictEqual(vectorial.tipo, 'visual')
+  })
+  caso('PDF en blanco → "vacio" con un motivo claro (nunca se manda a mirar ni se cobra)', () => {
+    assert.strictEqual(blanco.tipo, 'vacio')
+    assert.ok(blanco.motivo.includes('en blanco'), blanco.motivo)
+    assert.strictEqual(blanco3.tipo, 'vacio')
+    assert.ok(blanco3.motivo.includes('ninguna de sus 3 páginas'), blanco3.motivo)
+  })
+  caso('Word (.docx) sigue siendo camino de texto, sin cambios', () => {
+    assert.strictEqual(word.tipo, 'texto')
+    assert.ok(word.texto.includes('fotosintesis'))
+  })
+
+  // Bug de pdf-parse encontrado aquí: con un Buffer de menos de 4 KB leía
+  // memoria del pool compartido de Node → "dañado" o el texto de OTRO PDF.
+  const chicos = []
+  for (const t of ['Primero uno', 'Segundo dos', 'Tercero tres']) {
+    chicos.push(await clasificar(fx.pdfTexto(1, `${t}. `.repeat(40))))
+  }
+  caso('PDF pequeños seguidos: cada uno se lee con SU texto (pool de Buffer de Node)', () => {
+    assert.ok(chicos[0].texto.includes('Primero uno'), chicos[0].texto.slice(0, 40))
+    assert.ok(chicos[1].texto.includes('Segundo dos'), chicos[1].texto.slice(0, 40))
+    assert.ok(chicos[2].texto.includes('Tercero tres'), chicos[2].texto.slice(0, 40))
+  })
+
+  caso('hayOperadorVisible: solo cuentan los operadores que dejan tinta', () => {
+    const OPS = { setLineWidth: 2, setStrokeRGBColor: 58, fill: 22, showText: 44, paintImageXObject: 85 }
+    assert.strictEqual(docExtract.hayOperadorVisible([2, 58], OPS), false)
+    assert.strictEqual(docExtract.hayOperadorVisible([2, 22], OPS), true)
+    assert.strictEqual(docExtract.hayOperadorVisible([44], OPS), true)
+    assert.strictEqual(docExtract.hayOperadorVisible([], OPS), false)
+  })
+
+  // ── La capa común: fuentesManualRequeridas (todas las operaciones con PDF) ──
+  const restaurar = fx.servirDocumentos({
+    'texto.pdf': fx.pdfTexto(2), 'visual.pdf': fx.pdfImagen(3), 'mixto.pdf': fx.pdfMixto(2),
+    'blanco.pdf': fx.pdfEnBlanco(2), 'visual20.pdf': fx.pdfImagen(20), 'apuntes.docx': await fx.docxTexto('Apuntes de clase sobre la celula.'),
+  })
+  const intentar = (p) => p.then((r) => ({ r }), (e) => ({ e }))
+  let soloTexto, soloVisual, mixtos, soloBlanco, blancoMasTexto, excede, excedeConOtro, conWord, generales
+  try {
+    soloTexto = await FUENTES.fuentesManualRequeridas([fx.urlFixture('texto.pdf')], { maxPaginasVisual: 19 })
+    soloVisual = await FUENTES.fuentesManualRequeridas([fx.urlFixture('visual.pdf')], { maxPaginasVisual: 19 })
+    mixtos = await FUENTES.fuentesManualRequeridas([fx.urlFixture('mixto.pdf'), fx.urlFixture('texto.pdf')], { maxPaginasVisual: 19 })
+    soloBlanco = await intentar(FUENTES.fuentesManualRequeridas([fx.urlFixture('blanco.pdf')], { maxPaginasVisual: 19 }))
+    blancoMasTexto = await FUENTES.fuentesManualRequeridas([fx.urlFixture('blanco.pdf'), fx.urlFixture('texto.pdf')], { maxPaginasVisual: 19 })
+    excede = await intentar(FUENTES.fuentesManualRequeridas([fx.urlFixture('visual20.pdf')], { maxPaginasVisual: 19 }))
+    excedeConOtro = await FUENTES.fuentesManualRequeridas([fx.urlFixture('visual20.pdf'), fx.urlFixture('visual.pdf')], { maxPaginasVisual: 19 })
+    conWord = await FUENTES.fuentesManualRequeridas([fx.urlFixture('apuntes.docx')], { maxPaginasVisual: 19 })
+    generales = await FUENTES.fuentesGenerales([fx.urlFixture('visual.pdf')], { maxPaginasVisual: 19 })
+  } finally {
+    restaurar()
+  }
+
+  caso('capa común · PDF textual: va como texto, SIN bloque visual (mismo costo que antes)', () => {
+    assert.strictEqual(soloTexto.bloques.length, 0)
+    assert.ok(soloTexto.texto.includes('La celula es la unidad basica'))
+    assert.ok(!soloTexto.texto.includes('documentoIlegible'), 'sin PDF visual no hay nada que advertir')
+  })
+  caso('capa común · PDF visual: viaja como documento nativo y el prompt lo anuncia', () => {
+    assert.deepStrictEqual(soloVisual.bloques, [{ type: 'document', source: { type: 'url', url: fx.urlFixture('visual.pdf') } }])
+    assert.strictEqual(soloVisual.paginasVisuales, 3)
+    assert.ok(soloVisual.texto.includes('Se adjuntan además 1 documento(s) PDF'))
+  })
+  caso('capa común · PDF que el docente eligió: se le pide al modelo NO inventar si no lo puede leer', () => {
+    assert.ok(soloVisual.texto.includes(`{"${FUENTES.CLAVE_DOCUMENTO_ILEGIBLE}": true}`))
+  })
+  caso('capa común · fuentes de la biblioteca (no elegidas aquí): se anuncian SIN exigir lectura', () => {
+    assert.strictEqual(generales.bloques.length, 1)
+    assert.ok(!generales.texto.includes(FUENTES.CLAVE_DOCUMENTO_ILEGIBLE))
+  })
+  caso('capa común · mixto + textual: el mixto se mira, el textual se lee — ninguno se pierde', () => {
+    assert.strictEqual(mixtos.bloques.length, 1)
+    assert.strictEqual(mixtos.bloques[0].source.url, fx.urlFixture('mixto.pdf'))
+    assert.ok(mixtos.texto.includes('La celula es la unidad basica'))
+    assert.ok(!mixtos.texto.includes('Pagina'), 'el texto del mixto NO se duplica: ya va dentro del PDF')
+  })
+  caso('capa común · PDF en blanco como única fuente: se rechaza con su motivo real y "No se descontaron créditos"', () => {
+    assert.ok(soloBlanco.e, 'debe lanzar')
+    assert.ok(String(soloBlanco.e.code).includes('failed-precondition'), soloBlanco.e.code)
+    assert.ok(soloBlanco.e.message.includes('en blanco'), soloBlanco.e.message)
+    assert.ok(soloBlanco.e.message.includes('No se descontaron créditos'))
+  })
+  caso('capa común · PDF en blanco junto a uno bueno: se usa el bueno y el blanco queda como aviso', () => {
+    assert.strictEqual(blancoMasTexto.bloques.length, 0, 'el blanco NUNCA viaja a análisis visual')
+    assert.ok(blancoMasTexto.texto.includes('La celula'))
+    assert.strictEqual(blancoMasTexto.avisos.length, 1)
+    assert.ok(blancoMasTexto.avisos[0].motivo.includes('en blanco'))
+  })
+  caso('capa común · PDF visual que excede el presupuesto de páginas: se rechaza diciendo el límite, sin cobrar', () => {
+    assert.ok(excede.e, 'debe lanzar')
+    assert.ok(excede.e.message.includes('Tiene 20 páginas'), excede.e.message)
+    assert.ok(excede.e.message.includes('máximo de 19 páginas'), excede.e.message)
+    assert.ok(excede.e.message.includes('No se descontaron créditos'))
+  })
+  caso('capa común · el límite es por operación, no por archivo: el que cabe se usa, el que no, se avisa', () => {
+    assert.strictEqual(excedeConOtro.bloques.length, 1)
+    assert.strictEqual(excedeConOtro.bloques[0].source.url, fx.urlFixture('visual.pdf'))
+    assert.strictEqual(excedeConOtro.avisos.length, 1)
+  })
+  caso('capa común · Word: texto, como siempre', () => {
+    assert.strictEqual(conWord.bloques.length, 0)
+    assert.ok(conWord.texto.includes('Apuntes de clase'))
+  })
+})()
+
+// ── pedirJSON: el modelo avisa que no pudo leer el PDF → se detiene y reembolsa ──
+await (async () => {
+  const clienteQueResponde = (texto) => ({
+    messages: { create: async () => ({ content: [{ type: 'text', text: texto }], usage: { input_tokens: 1, output_tokens: 1 } }) },
+  })
+  const pdf = { type: 'document', source: { type: 'url', url: 'https://x/escaneo.pdf' } }
+  const conDocumento = await FIA.pedirJSON({
+    client: clienteQueResponde('{"documentoIlegible": true}'), modelo: 'm', maxTokens: 10, prompt: 'p', system: 's',
+    bloquesPrefijo: [pdf],
+  }).then(() => null, (e) => e)
+  const sinDocumento = await FIA.pedirJSON({
+    client: clienteQueResponde('{"documentoIlegible": true}'), modelo: 'm', maxTokens: 10, prompt: 'p', system: 's',
+  })
+  const legible = await FIA.pedirJSON({
+    client: clienteQueResponde('{"palabras": []}'), modelo: 'm', maxTokens: 10, prompt: 'p', system: 's', bloquesPrefijo: [pdf],
+  })
+
+  caso('pedirJSON: PDF ilegible según el modelo → HttpsError DOCUMENTO_ILEGIBLE (el callable reembolsa)', () => {
+    assert.ok(conDocumento, 'debe lanzar')
+    assert.ok(String(conDocumento.code).includes('failed-precondition'), conDocumento.code)
+    assert.strictEqual(conDocumento.details?.codigo, 'DOCUMENTO_ILEGIBLE')
+    assert.ok(conDocumento.message.includes('No se descontaron créditos'))
+  })
+  caso('pedirJSON: esa clave sin documentos adjuntos no significa nada (contrato intacto para las demás)', () => {
+    assert.deepStrictEqual(sinDocumento.datos, { documentoIlegible: true })
+  })
+  caso('pedirJSON: con documento legible, la respuesta pasa tal cual', () => {
+    assert.deepStrictEqual(legible.datos, { palabras: [] })
+  })
+})()
+
 // Fragmentación de documentos grandes SIN pérdida de contenido (17-ago-2026)
 const docChunking = require('../functions/docChunking.js')
 
