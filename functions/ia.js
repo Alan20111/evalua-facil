@@ -4698,6 +4698,18 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
   const client = new Anthropic({ apiKey })
   const porParcial = []
   let tokensEntrada = 0, tokensSalida = 0, ms = 0
+  // Tokens de caché (17-sep-2026): un PDF de fuente que viaja como imagen se
+  // cobra como escritura de caché en la primera llamada y como lectura en las
+  // demás. Sin sumarlos aquí, iaConsumosInterno registraba solo una fracción
+  // del costo real de la Planeación.
+  let cacheEscritura = 0, cacheLectura = 0
+  const sumarLlamada = (interno) => {
+    tokensEntrada += interno.tokensEntrada || 0
+    tokensSalida += interno.tokensSalida || 0
+    cacheEscritura += interno.cacheEscritura || 0
+    cacheLectura += interno.cacheLectura || 0
+    ms += interno.ms || 0
+  }
   let reintentos = 0 // cuántos parciales necesitaron el reintento de cantidad — se cobra aparte (ver unidadesReales)
   let fragmentosProcesados = 0 // documento fuente grande: cuántos fragmentos se procesaron — también se cobra aparte
   // La bibliografía es de la Planeación completa, no de cada parcial — solo
@@ -4764,9 +4776,7 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
     let { datos, interno } = await pedirJSON({
       client, modelo, maxTokens, system: PLANEACION_SISTEMA, prompt: promptBase, bloquesPrefijo: pdfsVisuales,
     })
-    tokensEntrada += interno.tokensEntrada || 0
-    tokensSalida += interno.tokensSalida || 0
-    ms += interno.ms || 0
+    sumarLlamada(interno)
 
     let entregadas = Array.isArray(datos?.secuenciasDidacticas) ? datos.secuenciasDidacticas.length : 0
     // Aseguramiento real (no solo instrucción de texto): si la cantidad
@@ -4783,9 +4793,7 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
         client, modelo, maxTokens, system: PLANEACION_SISTEMA, bloquesPrefijo: pdfsVisuales,
         prompt: promptCorreccionSecuencias(promptBase, objetivo, entregadas),
       })
-      tokensEntrada += reintento.interno.tokensEntrada || 0
-      tokensSalida += reintento.interno.tokensSalida || 0
-      ms += reintento.interno.ms || 0
+      sumarLlamada(reintento.interno)
       const entregadasReintento = Array.isArray(reintento.datos?.secuenciasDidacticas) ? reintento.datos.secuenciasDidacticas.length : 0
       // Solo se usa el reintento si de verdad mejoró (más cerca del
       // objetivo que antes) — si no, se sigue con la respuesta original en
@@ -4810,9 +4818,7 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
         client, modelo, maxTokens, system: PLANEACION_SISTEMA, bloquesPrefijo: pdfsVisuales,
         prompt: promptCorreccionCobertura(promptBase, temasAntes),
       })
-      tokensEntrada += reintentoCobertura.interno.tokensEntrada || 0
-      tokensSalida += reintentoCobertura.interno.tokensSalida || 0
-      ms += reintentoCobertura.interno.ms || 0
+      sumarLlamada(reintentoCobertura.interno)
       // Solo se usa el reintento si de verdad mejoró (menos temas sin
       // cubrir que antes, y sin perder Secuencias que ya estaban bien) — si
       // no, se sigue con la respuesta original en vez de arriesgar un JSON
@@ -4839,9 +4845,7 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
         client, modelo, maxTokens, system: PLANEACION_SISTEMA, bloquesPrefijo: pdfsVisuales,
         prompt: promptCorreccionPonderaciones(promptBase, sumaInicial),
       })
-      tokensEntrada += reintentoPonderacion.interno.tokensEntrada || 0
-      tokensSalida += reintentoPonderacion.interno.tokensSalida || 0
-      ms += reintentoPonderacion.interno.ms || 0
+      sumarLlamada(reintentoPonderacion.interno)
       const sumaReintento = sumaPonderacionesParcial(reintentoPonderacion.datos?.secuenciasDidacticas)
       // Solo se usa el reintento si de verdad mejoró (más cerca de
       // PONDERACION_TOTAL que antes) — si no, se sigue con la respuesta
@@ -4873,7 +4877,7 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
     porParcial.push({ numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, secuencias })
   }
 
-  return { porParcial, fuentesInformacion, reintentos, fragmentosProcesados, interno: { modelo, tokensEntrada, tokensSalida, ms } }
+  return { porParcial, fuentesInformacion, reintentos, fragmentosProcesados, interno: { modelo, tokensEntrada, tokensSalida, cacheEscritura, cacheLectura, ms } }
 }
 
 async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
