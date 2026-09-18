@@ -580,15 +580,42 @@ const AttendanceTable = memo(function AttendanceTable({
             <th className={`sticky left-8 z-20 bg-accent-light ${nameColW} px-2 py-1 border-r border-outline-variant`} />
           </>
         )}
-        {attendanceParciales.map((g) => (
+        {/* Encabezado del parcial en DOS renglones (17-sep-2026):
+              PARCIAL 1 · (31/08/26–16/10/26)
+              Sesiones del periodo: 47
+            Antes eran tres y la fecha y las sesiones iban en 9-10px. El ancho
+            de esta celda es (sesiones × ancho de columna) + 80px de las dos de
+            resumen: con un parcial normal sobra espacio de sobra para juntar
+            nombre y fecha en el primer renglón, y así el texto puede crecer.
+            Medido con la fuente real: el primer renglón pide ~197px, o sea que
+            cabe desde 4 sesiones en la web, 3 en el teléfono y 2 en la app.
+            Con MENOS sesiones el renglón simplemente se parte (flex-wrap): no
+            se fuerza `nowrap`, que con `table-fixed` desbordaría sobre el
+            encabezado vecino. El teléfono horizontal (compactaH) NO cambia:
+            ahí ya era un solo renglón y así se queda. */}
+        {attendanceParciales.map((g) => {
+          const rango = parcialesFechas?.[g.parcial - 1]
+          const textoRango = rango ? `(${formatShortDate(rango.inicio)}–${formatShortDate(rango.fin)})` : null
+          return (
           <th key={g.parcial} colSpan={g.slotCount + 2}
             className={compactaH
               ? 'px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap'
-              : 'px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline'}>
-            Parcial {g.parcial}
-            {parcialesFechas?.[g.parcial - 1] && (
-              <span className={`${compactaH ? 'ml-1' : 'block'} text-[9px] font-normal text-slate-400 normal-case tabular-nums`}>
-                ({formatShortDate(parcialesFechas[g.parcial - 1].inicio)}–{formatShortDate(parcialesFechas[g.parcial - 1].fin)})
+              : 'px-1 py-1 font-bold text-accent text-center text-base uppercase tracking-wide border-l-2 border-outline'}>
+            {compactaH ? (
+              <>
+                Parcial {g.parcial}
+                {textoRango && (
+                  <span className="ml-1 text-[9px] font-normal text-slate-400 normal-case tabular-nums">{textoRango}</span>
+                )}
+              </>
+            ) : (
+              <span className="flex flex-wrap items-baseline justify-center gap-x-1.5 leading-tight">
+                <span>Parcial {g.parcial}</span>
+                {textoRango && (
+                  <span className="text-sm font-normal text-slate-400 normal-case tabular-nums whitespace-nowrap">
+                    <span aria-hidden="true">· </span>{textoRango}
+                  </span>
+                )}
               </span>
             )}
             {(() => {
@@ -600,15 +627,16 @@ const AttendanceTable = memo(function AttendanceTable({
               if (sesiones == null) return null
               return (
                 <span className={`${compactaH ? 'inline-flex items-center gap-1 ml-1.5' : 'flex items-center justify-center gap-1 mt-0.5'} normal-case font-normal`}>
-                  <span className="text-[9px] text-muted whitespace-nowrap">
+                  <span className={`${compactaH ? 'text-[9px]' : 'text-base'} text-muted whitespace-nowrap`}>
                     {cerrado ? '🔒 Sesiones oficiales:' : 'Sesiones del periodo:'}
                   </span>
-                  <span className="text-[10px] font-semibold text-on-surface tabular-nums">{sesiones}</span>
+                  <span className={`${compactaH ? 'text-[10px]' : 'text-base'} font-semibold text-on-surface tabular-nums`}>{sesiones}</span>
                 </span>
               )
             })()}
           </th>
-        ))}
+          )
+        })}
         {!esSimple && (
           <th colSpan={2}
             className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
