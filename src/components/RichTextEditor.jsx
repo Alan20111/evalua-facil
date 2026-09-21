@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
+import { TextSelection } from '@tiptap/pm/state'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import { TextStyle } from '@tiptap/extension-text-style'
@@ -30,6 +31,82 @@ import AttachmentList from './AttachmentList'
 const TOOLBAR_BTN = 'p-1.5 rounded transition-colors disabled:opacity-40'
 const TOOLBAR_BTN_HOVER = 'hover:bg-[var(--accent-tint)]'
 const TOOLBAR_BTN_ACTIVE = 'bg-accent-light text-accent'
+
+// Un `<br>` (salto duro) se ve como un renglón nuevo, pero para el editor
+// sigue siendo el MISMO párrafo. Al pulsar viñeta o numeración, la lista
+// envolvía el párrafo entero y la marca aparecía junto a la primera línea, no
+// junto a la del cursor. Esos saltos no los teclea el docente (Enter parte el
+// párrafo): llegan con contenido importado — instrucciones antiguas
+// convertidas por toRichHtml, las que genera la IA (el prompt de
+// functions/ia.js autoriza `<br>`) o texto pegado desde Word.
+//
+// Antes de aplicar la lista partimos en párrafos SOLO los bloques que toca la
+// selección, y devolvemos el cursor a su misma línea y columna. Un contenido
+// hecho de párrafos normales no tiene saltos duros, así que esto no lo altera.
+function dividirSaltosDeLinea({ tr, state }) {
+  const hardBreak = state.schema.nodes.hardBreak
+  const paragraph = state.schema.nodes.paragraph
+  if (!hardBreak || !paragraph) return true
+
+  const { from, to } = state.selection
+  const bloques = []
+  state.doc.nodesBetween(from, to, (node, pos) => {
+    if (!node.isTextblock) return true
+    let tieneSalto = false
+    node.forEach((hijo) => { if (hijo.type === hardBreak) tieneSalto = true })
+    if (tieneSalto) bloques.push({ node, pos })
+    return false
+  })
+  if (!bloques.length) return true
+
+  // Cada bloque partido crece (nº de líneas - 1); al recorrerlos en orden hay
+  // que sumar ese desplazamiento para saber dónde quedó el siguiente.
+  let desplazamiento = 0
+  let anclaNueva = null
+  let cabezaNueva = null
+
+  for (const { node, pos } of bloques) {
+    const posActual = pos + desplazamiento
+    const lineas = [[]]
+    node.forEach((hijo) => {
+      if (hijo.type === hardBreak) lineas.push([])
+      else lineas[lineas.length - 1].push(hijo)
+    })
+    const parrafos = lineas.map((hijos) => paragraph.create(node.attrs, hijos))
+
+    // En qué línea y en qué columna del bloque original cae una posición.
+    const reubicar = (posicion) => {
+      if (posicion <= pos || posicion > pos + node.nodeSize) return null
+      let recorrido = pos + 1
+      let linea = 0
+      let inicioLinea = pos + 1
+      node.forEach((hijo) => {
+        const fin = recorrido + hijo.nodeSize
+        if (hijo.type === hardBreak && posicion >= fin) { linea++; inicioLinea = fin }
+        recorrido = fin
+      })
+      let base = posActual
+      for (let l = 0; l < linea; l++) base += parrafos[l].nodeSize
+      return base + 1 + Math.max(0, posicion - inicioLinea)
+    }
+
+    const ancla = reubicar(from)
+    if (ancla !== null) anclaNueva = ancla
+    const cabeza = reubicar(to)
+    if (cabeza !== null) cabezaNueva = cabeza
+
+    tr.replaceWith(posActual, posActual + node.nodeSize, parrafos)
+    desplazamiento += lineas.length - 1
+  }
+
+  // Los extremos que no cayeron en un bloque partido se mueven solos con el
+  // mapeo de la transacción (quedan fuera de los rangos reemplazados).
+  const limite = tr.doc.content.size
+  const ancla = Math.min(anclaNueva ?? tr.mapping.map(from), limite)
+  const cabeza = Math.min(cabezaNueva ?? tr.mapping.map(to), limite)
+  tr.setSelection(TextSelection.create(tr.doc, ancla, cabeza))
+  return true
+}
 
 async function insertImageFile(editor, file) {
   if (!file || !file.type?.startsWith('image/')) return
@@ -108,6 +185,14 @@ export default function RichTextEditor({ value, onChange, placeholder, attachmen
 
   if (!editor) return null
 
+  // Camino común de los dos botones de lista. Al QUITAR la lista no se parte
+  // nada: el contenido se queda exactamente como estaba.
+  function alternarLista(comando, nombreLista) {
+    const cadena = editor.chain().focus()
+    if (!editor.isActive(nombreLista)) cadena.command(dividirSaltosDeLinea)
+    cadena[comando]().run()
+  }
+
   function setLink() {
     const url = window.prompt('Pega la URL del enlace:', editor.getAttributes('link').href || '')
     if (url === null) return
@@ -170,12 +255,12 @@ export default function RichTextEditor({ value, onChange, placeholder, attachmen
 
         <button type="button" data-tooltip="Lista con viñetas" aria-label="Lista con viñetas"
           className={`${TOOLBAR_BTN} ${editor.isActive('bulletList') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}>
+          onClick={() => alternarLista('toggleBulletList', 'bulletList')}>
           <List size={16} />
         </button>
         <button type="button" data-tooltip="Lista numerada" aria-label="Lista numerada"
           className={`${TOOLBAR_BTN} ${editor.isActive('orderedList') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+          onClick={() => alternarLista('toggleOrderedList', 'orderedList')}>
           <ListOrdered size={16} />
         </button>
 
