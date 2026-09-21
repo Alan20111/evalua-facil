@@ -45,30 +45,59 @@ export default function StudentLogin() {
       // segunda llave (ver Profile.jsx del estudiante). Si escribe un correo
       // aquí es porque se confundió, y hay que decírselo con todas sus letras
       // en vez de dejarlo intentando.
-      if (username.includes('@')) {
+      const tecleado = username.trim()
+      if (tecleado.includes('@')) {
         setError('Tu usuario no es un correo. Es el que te dio tu maestro (por ejemplo ABCD).')
         return
       }
-      const resp = await fetch(apiUrl('/api/student/lookup'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
-      })
-      if (!resp.ok) {
-        if (resp.status === 429) {
-          setError('Demasiadas solicitudes. Espera un momento y vuelve a intentar.')
-        } else {
-          setError('Error al verificar el usuario. Intenta de nuevo.')
-        }
+      if (!tecleado) {
+        setError('Escribe tu usuario.')
         return
       }
-      const lookupData = await resp.json()
+
+      // La búsqueda y el fallo de RED se atrapan aquí, no en el catch de
+      // abajo: un internet caído no es "usuario no encontrado", y confundir
+      // las dos cosas mandaba al alumno a activar una cuenta que ya tenía.
+      let lookupData
+      try {
+        const resp = await fetch(apiUrl('/api/student/lookup'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: tecleado }),
+        })
+        if (!resp.ok) {
+          if (resp.status === 429) {
+            setError('Demasiadas solicitudes. Espera un momento y vuelve a intentar.')
+          } else if (resp.status >= 500) {
+            setError('El servidor no respondió bien. No es tu usuario: espera un momento y vuelve a intentar.')
+          } else {
+            setError('No pudimos verificar tu usuario. Espera un momento y vuelve a intentar.')
+          }
+          return
+        }
+        lookupData = await resp.json()
+      } catch {
+        setError('No pudimos conectar. Revisa tu conexión a internet y vuelve a intentar.')
+        return
+      }
+
       const stuDocs = lookupData.students || []
       if (stuDocs.length === 0) {
-        setError('Usuario no encontrado. Verifica tu username, o usa "¿Primera vez? Activa tu cuenta" más abajo.')
+        // Ahora sí significa exactamente eso: el servidor buscó y no existe
+        // ninguna cuenta con ese usuario, ni escrito con ñ ni con acentos.
+        // Se le repite lo que escribió, que es lo que caza un dedazo de un
+        // vistazo ("patino.evenlin" en vez de "patino.evelin").
+        setError(`No encontramos el usuario "${tecleado}". Revísalo con calma —debe estar escrito igual que te lo dio tu maestro—, o usa "¿Primera vez? Activa tu cuenta" más abajo.`)
         return
       }
       const uname = stuDocs[0].username
+      // Lo encontramos porque le normalizamos la ñ o los acentos: que vea cómo
+      // se escribe su usuario en lugar de entrar sin enterarse. Se corrige el
+      // campo en pantalla —sin pantallas nuevas ni un paso más— y la próxima
+      // vez ya lo escribe bien.
+      if (lookupData.coincidencia === 'normalizada' && lookupData.canonico) {
+        setUsername(lookupData.canonico)
+      }
 
       // A username can repeat across schools, so each school is a different account/email.
       // For already-activated accounts, try sign-in against each school's email — the correct
@@ -76,15 +105,26 @@ export default function StudentLogin() {
       const activatedSchools = [...new Set(stuDocs.filter((d) => d.cuentaExiste).map((d) => d.escuelaId))]
       if (activatedSchools.length > 0) {
         let signedInEscuelaId = null
+        // El último error se guarda en vez de tirarse: este bucle se traga
+        // también las caídas de red y los bloqueos por reintentos, y darlos
+        // todos por "contraseña incorrecta" mandaba al alumno a pedir un
+        // restablecimiento que no necesitaba.
+        let ultimoError = null
         for (const esc of activatedSchools) {
           try {
             await signInWithEmailAndPassword(auth, studentEmail(uname, esc), password)
             signedInEscuelaId = esc
             break
-          } catch { /* wrong password for this school — try the next */ }
+          } catch (e) { ultimoError = e /* contraseña de otra escuela — se prueba la siguiente */ }
         }
         if (!signedInEscuelaId) {
-          setError('Contraseña incorrecta. Si el maestro ya restableció tu acceso, usa "¿Olvidaste tu contraseña?" más abajo.')
+          if (ultimoError?.code === 'auth/network-request-failed') {
+            setError('No pudimos conectar. Revisa tu conexión a internet y vuelve a intentar.')
+          } else if (ultimoError?.code === 'auth/too-many-requests') {
+            setError('Demasiados intentos seguidos. Espera unos minutos y vuelve a intentar.')
+          } else {
+            setError('Contraseña incorrecta. Si el maestro ya restableció tu acceso, usa "¿Olvidaste tu contraseña?" más abajo.')
+          }
           return
         }
         // Si el alumno entró con la contraseña de reset (activado: false),
@@ -104,10 +144,15 @@ export default function StudentLogin() {
       setError('Todavía no activas tu cuenta. Usa "¿Primera vez? Activa tu cuenta" más abajo.')
       setShowCodeSection(true)
     } catch (err) {
+      // Red de seguridad: los casos de arriba ya cubren usuario, contraseña,
+      // activación y red. Lo que llegue aquí es un fallo inesperado, y se dice
+      // así — nunca como si el usuario estuviera mal.
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
         setError('Contraseña incorrecta. Si el maestro ya restableció tu acceso, usa "¿Olvidaste tu contraseña?" más abajo.')
+      } else if (err.code === 'auth/network-request-failed') {
+        setError('No pudimos conectar. Revisa tu conexión a internet y vuelve a intentar.')
       } else {
-        setError('Error al iniciar sesión. Intenta de nuevo.')
+        setError('Algo falló de nuestro lado al iniciar sesión. No es tu usuario: vuelve a intentar en un momento.')
       }
     } finally {
       submitting.current = false
@@ -129,17 +174,31 @@ export default function StudentLogin() {
     }
     submittingReset.current = true; setResetLoading(true)
     try {
-      const resp = await fetch(apiUrl('/api/student/recover-password'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: resetUsername.trim(),
-          newPassword: resetNewPwd,
-        }),
-      })
-      const data = await resp.json()
+      let resp, data
+      try {
+        resp = await fetch(apiUrl('/api/student/recover-password'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: resetUsername.trim(),
+            newPassword: resetNewPwd,
+          }),
+        })
+        data = await resp.json()
+      } catch {
+        setResetError('No pudimos conectar. Revisa tu conexión a internet y vuelve a intentar.')
+        return
+      }
       if (!resp.ok) {
-        setResetError(data.error || 'Error al restablecer la contraseña')
+        // Mismo criterio que el login: un 429 o un 500 no son culpa de lo que
+        // escribió el alumno y no se le pueden contar como si lo fueran.
+        if (resp.status === 429) {
+          setResetError('Demasiados intentos seguidos. Espera un minuto y vuelve a intentar.')
+        } else if (resp.status >= 500) {
+          setResetError('El servidor no respondió bien. Espera un momento y vuelve a intentar.')
+        } else {
+          setResetError(data?.error || 'No se pudo restablecer la contraseña.')
+        }
         return
       }
       // Autenticar con la nueva contraseña y entrar al dashboard.

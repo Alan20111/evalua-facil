@@ -73,7 +73,7 @@ import {
   MessageCircleQuestion,
 } from 'lucide-react'
 import { generateUsername, generateResetPassword } from '../../utils/generate'
-import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
+import { findStudentIdentity, findSimilarIdentity, studentNameKey } from '../../utils/studentIdentity'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
 import { capitalizarNombre, sinAcentos } from '../../utils/nombres'
 import { useBackHandler } from '../../hooks/useBackHandler'
@@ -2438,6 +2438,14 @@ export default function SubjectPage() {
         setLinkCandidate({ person: { ...newStudent }, identity, schoolDocs })
         return
       }
+      // Nombre PARECIDO (una letra, un nombre de pila de más, el materno que
+      // falta): tampoco se crea en silencio. Es el caso que partió en dos a
+      // una alumna real — ver findSimilarIdentity en utils/studentIdentity.js.
+      const parecida = findSimilarIdentity(schoolDocs, newStudent)
+      if (parecida) {
+        setLinkCandidate({ person: { ...newStudent }, identity: parecida, schoolDocs })
+        return
+      }
       await createEnrollment(newStudent, null, schoolDocs)
       setNewStudent({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
       setShowAddStudent(false)
@@ -2456,6 +2464,17 @@ export default function SubjectPage() {
     const { person, identity, schoolDocs } = linkCandidate
     setSavingStudent(true)
     try {
+      // "Es la misma persona" y esa persona YA está en esta asignatura (solo
+      // puede pasar por la vía del nombre parecido: el camino exacto se corta
+      // antes, en addStudent). Vincular aquí crearía una segunda fila de la
+      // misma alumna en la misma lista, que es justo lo contrario de lo que
+      // se pidió.
+      if (isSamePerson && identity.matches?.some((m) => m.asignaturaId === subjectId)) {
+        setNewStudent({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
+        setShowAddStudent(false)
+        toast(`Ya está en esta asignatura, escrita como ${studentFullName(identity.matches.find((m) => m.asignaturaId === subjectId))}`)
+        return
+      }
       await createEnrollment(person, isSamePerson ? identity : null, schoolDocs)
       setNewStudent({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
       setShowAddStudent(false)
@@ -2501,6 +2520,13 @@ export default function SubjectPage() {
         // comunes (dos "Juan Pérez García" distintos en la misma escuela) eso
         // fusionaba en silencio a dos personas reales en una sola cuenta.
         if (identity) return { row, status: 'link', decision: 'link', identity }
+        // Nombre PARECIDO — la misma duda, pero al revés: aquí la propuesta
+        // por default es CUENTA NUEVA. Un parecido no basta para unir a dos
+        // personas sin que nadie lo mire, y unir por error a dos hermanas
+        // sería mucho peor que dejar dos cuentas. Lo que no puede pasar es
+        // que la fila sea invisible: se marca en ámbar y se puede voltear.
+        const parecida = findSimilarIdentity(schoolDocs, row)
+        if (parecida) return { row, status: 'link', decision: 'new', identity: parecida, parecido: true }
         return { row, status: 'new', decision: 'new' }
       })
       // Dos filas del MISMO archivo con el mismo nombre (captura repetida,
@@ -2556,6 +2582,14 @@ export default function SubjectPage() {
         if (item.status === 'duplicate') { duplicated++; continue }
         const row = item.row
         let username, uid = null, activado = false, escuelaId = userProfile.escuelaId
+        // "Es la misma" por parecido, y esa persona ya está en esta
+        // asignatura: no se agrega nada. Vincularla crearía una segunda fila
+        // de la misma alumna en la misma lista.
+        if (item.status === 'link' && item.decision === 'link'
+            && item.identity?.matches?.some((m) => m.asignaturaId === subjectId)) {
+          skipped++
+          continue
+        }
         if (item.status === 'link' && item.decision === 'link') {
           // Same person elsewhere, y el docente lo confirmó en la vista previa
           // (o lo dejó tal cual, que es la propuesta por default) → se vincula
@@ -8120,19 +8154,47 @@ export default function SubjectPage() {
               <UserPlus size={24} className="text-accent" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Es el mismo estudiante?</h3>
-            <p className="text-sm text-muted text-center mt-2">
-              Ya hay un estudiante llamado{' '}
-              <strong>{studentFullName(linkCandidate.person)}</strong>{' '}
-              en esta escuela
-              {(() => {
-                const n = new Set(linkCandidate.identity.matches.map((m) => m.asignaturaId)).size
-                return n ? ` (inscrito en ${n} asignatura${n !== 1 ? 's' : ''})` : ''
-              })()}.
-            </p>
+            {linkCandidate.identity.parecido ? (
+              // Nombre PARECIDO: aquí la diferencia entre los dos nombres ES
+              // la pregunta, así que se enseñan los dos, uno debajo del otro.
+              // Con un solo nombre en pantalla el docente no puede decidir.
+              <>
+                <p className="text-sm text-muted text-center mt-2">
+                  Ya hay un estudiante con un nombre <strong>muy parecido</strong> en esta escuela
+                  {(() => {
+                    const n = new Set(linkCandidate.identity.matches.map((m) => m.asignaturaId)).size
+                    return n ? ` (inscrito en ${n} asignatura${n !== 1 ? 's' : ''})` : ''
+                  })()}:
+                </p>
+                <div className="mt-2 rounded bg-surface-container px-3 py-2 text-sm">
+                  <p className="text-muted text-xs">Ya existe</p>
+                  <p className="text-on-surface font-semibold">{studentFullName(linkCandidate.identity.matches[0])}</p>
+                  <p className="text-muted font-mono text-xs">{linkCandidate.identity.username}</p>
+                  <p className="text-muted text-xs mt-2">Estás agregando</p>
+                  <p className="text-on-surface font-semibold">{studentFullName(linkCandidate.person)}</p>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted text-center mt-2">
+                Ya hay un estudiante llamado{' '}
+                <strong>{studentFullName(linkCandidate.person)}</strong>{' '}
+                en esta escuela
+                {(() => {
+                  const n = new Set(linkCandidate.identity.matches.map((m) => m.asignaturaId)).size
+                  return n ? ` (inscrito en ${n} asignatura${n !== 1 ? 's' : ''})` : ''
+                })()}.
+              </p>
+            )}
             <p className="text-xs text-muted text-center mt-2">
               Si es la <strong>misma persona</strong>, se agrega esta asignatura a su cuenta (mismo usuario
-              <span className="font-mono"> {linkCandidate.identity.username}</span>). Si es <strong>otra persona</strong> con el mismo nombre, se crea una cuenta nueva.
+              <span className="font-mono"> {linkCandidate.identity.username}</span>). Si es <strong>otra persona</strong>{linkCandidate.identity.parecido ? '' : ' con el mismo nombre'}, se crea una cuenta nueva.
             </p>
+            {linkCandidate.identity.parecido && (
+              <p className="text-xs text-muted text-center mt-2">
+                Si es la misma y su nombre está mal escrito en algún lado, corrígelo después desde su
+                ficha — su usuario no cambia.
+              </p>
+            )}
             <div className="flex flex-col gap-2 mt-4">
               <button type="button"
                 onClick={() => resolveLinkCandidate(true)}
@@ -8199,11 +8261,24 @@ export default function SubjectPage() {
                       silencio a dos personas reales en una sola cuenta. Ahora
                       "Cuenta existente" es el badge por default (la propuesta
                       más probable), pero se puede voltear por fila. */}
-                  {excelPreview.rows.some((r) => r.status === 'link') && (
+                  {excelPreview.rows.some((r) => r.status === 'link' && !r.parecido) && (
                     <p className="text-xs text-muted bg-surface-container rounded px-2.5 py-1.5 mb-1.5">
                       Los marcados <strong>Cuenta existente</strong> coinciden con un nombre que ya está en la
                       escuela y se van a unir a esa cuenta. Si alguno es <strong>otra persona</strong> que solo
                       comparte el nombre, tócalo para darle una cuenta nueva.
+                    </p>
+                  )}
+                  {/* Nombre PARECIDO, no idéntico. La propuesta por default es
+                      cuenta nueva —un parecido no une a dos personas sin que
+                      nadie lo mire— pero la fila va en ámbar para que no pase
+                      desapercibida: es el caso que partió en dos a una alumna
+                      real. */}
+                  {excelPreview.rows.some((r) => r.parecido) && (
+                    <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 mb-1.5">
+                      Los marcados en <strong>ámbar</strong> se parecen mucho a alguien que ya está en la escuela
+                      (una letra de diferencia, un nombre de más). Por si acaso se les da una{' '}
+                      <strong>cuenta nueva</strong>. Si en realidad es la misma persona, tócalos: así conserva
+                      su usuario y sus otras materias.
                     </p>
                   )}
                   {/* 'duplicate': mismo nombre repetido dos veces en ESTE
@@ -8225,16 +8300,24 @@ export default function SubjectPage() {
                           <button
                             type="button"
                             onClick={() => toggleImportLinkDecision(i)}
-                            data-tooltip={item.decision === 'link'
-                              ? 'Toca si es otra persona que solo comparte el nombre'
-                              : 'Toca si en realidad es la misma persona'}
+                            data-tooltip={item.parecido
+                              ? (item.decision === 'link'
+                                ? `Se unirá a ${studentFullName(item.identity.matches[0])} (${item.identity.username}). Toca si es otra persona.`
+                                : `Se parece a ${studentFullName(item.identity.matches[0])} (${item.identity.username}). Toca si es la misma persona.`)
+                              : (item.decision === 'link'
+                                ? 'Toca si es otra persona que solo comparte el nombre'
+                                : 'Toca si en realidad es la misma persona')}
                             className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 transition-colors ${
                               item.decision === 'link'
                                 ? 'text-accent bg-accent-light hover:bg-[var(--accent-tint)]'
-                                : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                                : item.parecido
+                                  ? 'text-amber-800 bg-amber-50 hover:bg-amber-100'
+                                  : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
                             }`}
                           >
-                            {item.decision === 'link' ? 'Cuenta existente ✎' : 'Cuenta nueva ✎'}
+                            {item.decision === 'link'
+                              ? 'Cuenta existente ✎'
+                              : item.parecido ? 'Cuenta nueva — ¿es la misma? ✎' : 'Cuenta nueva ✎'}
                           </button>
                         )}
                         {item.status === 'skip' && <span className="text-[10px] font-semibold text-muted bg-surface-container px-1.5 py-0.5 rounded flex-shrink-0">Ya inscrito — se omite</span>}
