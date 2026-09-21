@@ -50,6 +50,9 @@ import {
 import {
   camposComunesCopia, camposJuegoCopia, esCopiable, nombreParaCopia, etiquetaJuego,
 } from '../src/utils/copiaActividad.js'
+import { normalizarUsername, candidatosUsername, coincidenciaExacta } from '../src/utils/usernameMatch.js'
+import { usernameCandidates } from '../src/utils/generate.js'
+import { esNombreParecido, findSimilarIdentity, findStudentIdentity, studentNameKey } from '../src/utils/studentIdentity.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -3876,6 +3879,193 @@ caso('esSesionInformativa: reconoce id y registro informativos; un registro real
   assert.strictEqual(esSesionInformativa('subj_2026-09-16_1'), false, 'id de una reposición real')
   assert.strictEqual(esSesionInformativa({ id: 'subj_2026-09-16_1', fecha: '2026-09-16', presentes: {} }), false)
   assert.strictEqual(esSesionInformativa(null), false)
+})
+
+
+// ── Usuario del estudiante: cómo se COMPARA ────────────────────────────────
+//
+// El fallo que cierran: desde F-02 la búsqueda previa al login se movió al
+// servidor, y la copia del servidor se quedó sin normalizar la ñ. Una alumna
+// apellidada Patiño que escribía su apellido como se escribe recibía "Usuario
+// no encontrado" teniendo cuenta. Estas pruebas existen para que cliente y
+// servidor no puedan volver a separarse sin que algo se ponga en rojo.
+
+caso('usernameMatch: la forma canónica quita acentos, ñ y mayúsculas', () => {
+  assert.strictEqual(normalizarUsername('patiño.evelin'), 'patino.evelin')
+  assert.strictEqual(normalizarUsername('PATIÑO.EVELIN'), 'patino.evelin')
+  assert.strictEqual(normalizarUsername('  Patiño.Evelin  '), 'patino.evelin')
+  assert.strictEqual(normalizarUsername('jiménez.martha'), 'jimenez.martha')
+  assert.strictEqual(normalizarUsername('muñoz.brythani'), 'munoz.brythani')
+  assert.strictEqual(normalizarUsername('carreño.ana'), 'carreno.ana')
+  assert.strictEqual(normalizarUsername('josé.maría'), 'jose.maria')
+})
+
+caso('usernameMatch: con ñ/acento se busca también la forma canónica', () => {
+  const c = candidatosUsername('patiño.evelin')
+  assert.ok(c.includes('patino.evelin'), 'falta la forma guardada en Firestore')
+  assert.ok(c.includes('PATINO.EVELIN'), 'falta la canónica en mayúsculas (usuarios legados)')
+})
+
+caso('usernameMatch: sin ñ ni acentos NO se pagan consultas de más', () => {
+  // Sin diacríticos la canónica coincide con lo tecleado, así que el Set las
+  // colapsa y se hacen las dos consultas de siempre.
+  assert.deepStrictEqual(candidatosUsername('patino.evelin'), ['patino.evelin', 'PATINO.EVELIN'])
+  assert.deepStrictEqual(candidatosUsername('PATINO.EVELIN'), ['patino.evelin', 'PATINO.EVELIN'])
+  assert.deepStrictEqual(candidatosUsername('LURC'), ['lurc', 'LURC'])
+})
+
+caso('usernameMatch: un usuario vacío no genera ninguna consulta', () => {
+  assert.deepStrictEqual(candidatosUsername(''), [])
+  assert.deepStrictEqual(candidatosUsername('   '), [])
+  assert.deepStrictEqual(candidatosUsername(null), [])
+  assert.deepStrictEqual(candidatosUsername(undefined), [])
+})
+
+caso('usernameMatch: cliente y servidor comparan IGUAL (el bug de la ñ)', () => {
+  // usernameCandidates (lo que importa el navegador desde generate.js) tiene
+  // que SER candidatosUsername (lo que importa api/student/[action].js). Si
+  // alguien vuelve a escribir una copia, esta prueba se pone en rojo.
+  assert.strictEqual(usernameCandidates, candidatosUsername, 'hay dos definiciones otra vez')
+  for (const u of ['patiño.evelin', 'PATIÑO.EVELIN', 'jiménez.martha', 'LURC', 'mendez.enrique']) {
+    assert.deepStrictEqual(usernameCandidates(u), candidatosUsername(u), u)
+  }
+})
+
+caso('usernameMatch: coincidenciaExacta distingue "lo escribió bien" de "se lo normalizamos"', () => {
+  assert.strictEqual(coincidenciaExacta('patino.evelin', 'patino.evelin'), true)
+  assert.strictEqual(coincidenciaExacta('PATINO.EVELIN', 'patino.evelin'), true, 'solo mayúsculas: lo escribió bien')
+  assert.strictEqual(coincidenciaExacta(' patino.evelin ', 'patino.evelin'), true)
+  assert.strictEqual(coincidenciaExacta('patiño.evelin', 'patino.evelin'), false, 'con ñ: hay algo que enseñarle')
+})
+
+// ── Identidad: "el mismo nombre escrito distinto" ──────────────────────────
+
+caso('esNombreParecido: una letra cambiada en medio SÍ es la misma (Evelin/Evelyn)', () => {
+  assert.strictEqual(esNombreParecido('EVELINGUADALUPE', 'EVELYNGUADALUPE'), true)
+  assert.strictEqual(esNombreParecido('JAZMIN', 'YAZMIN'), true)
+  assert.strictEqual(esNombreParecido('CINTHIA', 'CYNTHIA'), true)
+})
+
+caso('esNombreParecido: la ÚLTIMA letra distingue hermanos, no variantes', () => {
+  assert.strictEqual(esNombreParecido('MARIO', 'MARIA'), false)
+  assert.strictEqual(esNombreParecido('ROBERTO', 'ROBERTA'), false)
+  assert.strictEqual(esNombreParecido('DANIEL', 'DANIELA'), false)
+  assert.strictEqual(esNombreParecido('LUIS', 'LUISA'), false)
+  assert.strictEqual(esNombreParecido('JUAN', 'JUANA'), false)
+  assert.strictEqual(esNombreParecido('ANTONIO', 'ANTONIA'), false)
+})
+
+caso('esNombreParecido: un nombre de pila de más SÍ, una letra de más al final NO', () => {
+  assert.strictEqual(esNombreParecido('JUAN', 'JUANCARLOS'), true)
+  assert.strictEqual(esNombreParecido('ANA', 'ANAMARIA'), true)
+  assert.strictEqual(esNombreParecido('VANESA', 'VANESSA'), true, 'letra doblada en medio')
+  assert.strictEqual(esNombreParecido('ALISON', 'ALISSON'), true)
+})
+
+caso('esNombreParecido: nombres distintos y nombres cortos se quedan fuera', () => {
+  assert.strictEqual(esNombreParecido('PEDRO', 'PABLO'), false)
+  assert.strictEqual(esNombreParecido('ANA', 'EVA'), false)
+  assert.strictEqual(esNombreParecido('ANA', 'ANI'), false, 'demasiado corto para arriesgarse')
+  assert.strictEqual(esNombreParecido('EVELIN', 'EVELIN'), false, 'idéntico lo cubre findStudentIdentity')
+  assert.strictEqual(esNombreParecido('', 'EVELIN'), false)
+})
+
+const ESCUELA_EVELIN = [
+  { id: 'a', username: 'patino.evelyn', uid: 'uid-evelyn', activado: true, escuelaId: 'ESC',
+    apellidoPaterno: 'PATIÑO', apellidoMaterno: 'GUZMAN', nombre: 'EVELYN GUADALUPE', asignaturaId: 'mate' },
+  { id: 'b', username: 'patino.leonardo', uid: 'uid-leo', activado: true, escuelaId: 'ESC',
+    apellidoPaterno: 'PATIÑO', apellidoMaterno: 'LARA', nombre: 'LEONARDO', asignaturaId: 'mate' },
+]
+
+caso('findSimilarIdentity: el caso real — Evelin/Evelyn con los mismos apellidos', () => {
+  const hallada = findSimilarIdentity(ESCUELA_EVELIN, {
+    apellidoPaterno: 'Patiño', apellidoMaterno: 'Guzman', nombre: 'Evelin Guadalupe',
+  })
+  assert.ok(hallada, 'no detectó la duda: se habría creado una segunda cuenta en silencio')
+  assert.strictEqual(hallada.username, 'patino.evelyn')
+  assert.strictEqual(hallada.uid, 'uid-evelyn')
+  assert.strictEqual(hallada.parecido, true)
+  assert.strictEqual(hallada.matches.length, 1)
+})
+
+caso('findSimilarIdentity: apellido materno distinto → son otra persona, sin preguntar', () => {
+  assert.strictEqual(findSimilarIdentity(ESCUELA_EVELIN, {
+    apellidoPaterno: 'Patiño', apellidoMaterno: 'Rico', nombre: 'Evelin Guadalupe',
+  }), null)
+})
+
+caso('findSimilarIdentity: el nombre idéntico NO pasa por aquí (lo cubre el exacto)', () => {
+  const persona = { apellidoPaterno: 'PATIÑO', apellidoMaterno: 'GUZMAN', nombre: 'Evelyn Guadalupe' }
+  assert.strictEqual(findSimilarIdentity(ESCUELA_EVELIN, persona), null)
+  assert.ok(findStudentIdentity(ESCUELA_EVELIN, persona), 'este es el camino exacto de siempre')
+})
+
+caso('findSimilarIdentity: dos personas realmente distintas siguen pudiendo registrarse', () => {
+  // Hermanos con los dos apellidos iguales — se distinguen por la última letra.
+  const escuela = [{ id: 'a', username: 'rojas.mario', uid: 'u1', activado: true, escuelaId: 'ESC',
+    apellidoPaterno: 'ROJAS', apellidoMaterno: 'LARA', nombre: 'MARIO', asignaturaId: 's1' }]
+  assert.strictEqual(findSimilarIdentity(escuela, {
+    apellidoPaterno: 'ROJAS', apellidoMaterno: 'LARA', nombre: 'MARIA',
+  }), null)
+  assert.strictEqual(findSimilarIdentity(ESCUELA_EVELIN, {
+    apellidoPaterno: 'HERNANDEZ', apellidoMaterno: 'SOTO', nombre: 'MIGUEL',
+  }), null)
+})
+
+caso('findSimilarIdentity: el apellido materno que falta en una lista y no en la otra', () => {
+  const escuela = [{ id: 'a', username: 'garcia.juan', uid: 'u1', activado: true, escuelaId: 'ESC',
+    apellidoPaterno: 'GARCIA', apellidoMaterno: '', nombre: 'JUAN', asignaturaId: 's1' }]
+  const hallada = findSimilarIdentity(escuela, {
+    apellidoPaterno: 'GARCIA', apellidoMaterno: 'LOPEZ', nombre: 'JUAN',
+  })
+  assert.ok(hallada, 'la captura incompleta también parte identidades')
+  assert.strictEqual(hallada.username, 'garcia.juan')
+  // Pero con el nombre distinto ya no: ahí sí son dos personas.
+  assert.strictEqual(findSimilarIdentity(escuela, {
+    apellidoPaterno: 'GARCIA', apellidoMaterno: 'LOPEZ', nombre: 'PEDRO',
+  }), null)
+})
+
+caso('findSimilarIdentity: prefiere la inscripción que YA tiene cuenta', () => {
+  const escuela = [
+    { id: 'a', username: 'patino.evelyn', uid: null, activado: false, escuelaId: 'ESC',
+      apellidoPaterno: 'PATIÑO', apellidoMaterno: 'GUZMAN', nombre: 'EVELYN GUADALUPE', asignaturaId: 's1' },
+    { id: 'b', username: 'patino.evelyn', uid: 'uid-real', activado: true, escuelaId: 'ESC',
+      apellidoPaterno: 'PATIÑO', apellidoMaterno: 'GUZMAN', nombre: 'EVELYN GUADALUPE', asignaturaId: 's2' },
+  ]
+  const hallada = findSimilarIdentity(escuela, {
+    apellidoPaterno: 'PATIÑO', apellidoMaterno: 'GUZMAN', nombre: 'EVELIN GUADALUPE',
+  })
+  assert.strictEqual(hallada.uid, 'uid-real')
+  assert.strictEqual(hallada.matches.length, 2)
+})
+
+caso('findSimilarIdentity: mismos campos que findStudentIdentity, ni uno más', () => {
+  // Las dos alimentan el MISMO createEnrollment. Si una trajera un campo que
+  // la otra no, una inscripción vinculada se guardaría distinta según por qué
+  // camino llegó.
+  const exacta = findStudentIdentity(ESCUELA_EVELIN, {
+    apellidoPaterno: 'PATIÑO', apellidoMaterno: 'GUZMAN', nombre: 'EVELYN GUADALUPE',
+  })
+  const parecida = findSimilarIdentity(ESCUELA_EVELIN, {
+    apellidoPaterno: 'PATIÑO', apellidoMaterno: 'GUZMAN', nombre: 'EVELIN GUADALUPE',
+  })
+  const extra = Object.keys(parecida).filter((k) => k !== 'parecido')
+  assert.deepStrictEqual(extra.sort(), Object.keys(exacta).sort())
+})
+
+caso('studentNameKey sigue siendo EXACTA (no se relajó por debajo)', () => {
+  // La llave exacta sostiene el camino de siempre. Relajarla fusionaría gente
+  // sin preguntar — justo lo que la Capa 3 NO debe hacer.
+  assert.notStrictEqual(
+    studentNameKey({ apellidoPaterno: 'PATIÑO', apellidoMaterno: 'GUZMAN', nombre: 'EVELIN GUADALUPE' }),
+    studentNameKey({ apellidoPaterno: 'PATIÑO', apellidoMaterno: 'GUZMAN', nombre: 'EVELYN GUADALUPE' }),
+  )
+  // Pero acentos y mayúsculas sí los sigue ignorando, como siempre.
+  assert.strictEqual(
+    studentNameKey({ apellidoPaterno: 'Patiño', apellidoMaterno: 'Guzmán', nombre: 'Evelin' }),
+    studentNameKey({ apellidoPaterno: 'PATINO', apellidoMaterno: 'GUZMAN', nombre: 'EVELIN' }),
+  )
 })
 
 // ─── Observaciones de Asistencias: id, orden y etiqueta de la bitácora ─────

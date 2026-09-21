@@ -31,6 +31,10 @@
 import { aplicarCors } from '../_lib/cors.js'
 import { borrarAssets, extraerAssets } from '../_lib/cloudinary.js'
 import { getAuth, getDb, verifyRequest } from '../_lib/firebaseAdmin.js'
+// La MISMA función que usa el navegador para decidir con qué formas buscar un
+// usuario. Importada, no copiada: tener dos copias fue exactamente el bug de
+// la ñ (ver el encabezado de src/utils/usernameMatch.js).
+import { candidatosUsername, coincidenciaExacta } from '../../src/utils/usernameMatch.js'
 
 const PALABRA_CONFIRMACION = 'ELIMINAR'
 
@@ -144,7 +148,10 @@ async function handleResetStudentPassword(req, res) {
     }
 
     const raw = String(studentData.username).trim()
-    const variants = [...new Set([raw.toLowerCase(), raw.toUpperCase()])]
+    // Mismo criterio de comparación que el login (usernameMatch.js). Sobre un
+    // username YA guardado da lo mismo que antes —ninguno tiene ñ ni acentos—,
+    // pero deja una sola definición en todo el archivo.
+    const variants = candidatosUsername(raw)
     const snaps = await Promise.all(
       variants.map((u) => db.collection('students')
         .where('username', '==', u)
@@ -252,7 +259,9 @@ async function handleLookup(req, res) {
     return res.status(400).json({ error: 'Falta o es inválido el username.' })
   }
   const u = String(username).trim()
-  const variants = [...new Set([u.toLowerCase(), u.toUpperCase()])]
+  // Cuatro formas como mucho (minúsculas, MAYÚSCULAS, canónica y canónica en
+  // mayúsculas). Sin ñ ni acentos el Set las colapsa a las dos de siempre.
+  const variants = candidatosUsername(u)
   const db = getDb()
 
   // Activation mode: subjectCode + username
@@ -281,7 +290,7 @@ async function handleLookup(req, res) {
     // las inscripciones del alumno (mismo username + escuela) para saberlo.
     let alreadyHasAccount = raw.activado === true || !!raw.uid
     if (!alreadyHasAccount && raw.escuelaId) {
-      const crossVariants = [...new Set([raw.username?.toLowerCase(), raw.username?.toUpperCase()].filter(Boolean))]
+      const crossVariants = candidatosUsername(raw.username)
       const crossSnaps = await Promise.all(
         crossVariants.map((v) => db.collection('students')
           .where('username', '==', v)
@@ -311,7 +320,23 @@ async function handleLookup(req, res) {
   const docs = snaps.flatMap((s) => s.docs)
     .filter((d) => { if (seenIds.has(d.id)) return false; seenIds.add(d.id); return true })
   const students = docs.map((d) => ({ id: d.id, ...pickSafeFields(d.data()) }))
-  return res.status(200).json({ ok: true, students })
+  if (students.length === 0) {
+    // `motivo` existe para que la pantalla NO tenga que adivinar: "no
+    // encontrado" tiene que significar exactamente eso y nada más. Antes el
+    // mismo texto cubría también un fallo de red o un 500, y eso mandaba al
+    // alumno a activar una cuenta que ya tenía.
+    return res.status(200).json({ ok: true, students: [], motivo: 'no_existe' })
+  }
+  // ¿Lo encontramos tal cual lo escribió, o hubo que normalizarle la ñ / los
+  // acentos? Si fue lo segundo, la pantalla le enseña cómo se escribe su
+  // usuario en vez de dejarlo entrar sin enterarse.
+  const exacta = students.some((s) => coincidenciaExacta(u, s.username))
+  return res.status(200).json({
+    ok: true,
+    students,
+    coincidencia: exacta ? 'exacta' : 'normalizada',
+    canonico: students[0].username,
+  })
 }
 
 // ── /api/student/recover-password ─────────────────────────────────
@@ -348,7 +373,9 @@ async function handleRecoverPassword(req, res) {
   }
 
   const u = String(username).trim()
-  const variants = [...new Set([u.toLowerCase(), u.toUpperCase()])]
+  // Mismas formas que el login: quien restablece su contraseña escribe su
+  // usuario igual de "mal" (con ñ, con acento) que quien inicia sesión.
+  const variants = candidatosUsername(u)
   const db = getDb()
   const fbAuth = getAuth()
 
@@ -390,7 +417,7 @@ async function handleRecoverPassword(req, res) {
 
   // Marcar activado: true + resetPendiente: false en TODAS las inscripciones del alumno.
   const raw = String(studentData.username).trim()
-  const schoolVariants = [...new Set([raw.toLowerCase(), raw.toUpperCase()])]
+  const schoolVariants = candidatosUsername(raw)
   const schoolSnaps = await Promise.all(
     schoolVariants.map((v) => db.collection('students')
       .where('username', '==', v)
