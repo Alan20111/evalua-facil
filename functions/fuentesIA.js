@@ -87,7 +87,8 @@ async function clasificarTodos(urls) {
  *   · 'visual'/'mixto' → bloque `document` nativo, para que Claude lo lea con
  *                        visión — mismo mecanismo ya probado en producción por
  *                        evidenciasEntrega.js (OP-11).
- *   · lo demás         → aviso con el motivo REAL; nunca un "PDF inválido" genérico.
+ *   · lo demás         → aviso con el motivo REAL; nunca un "PDF inválido" genérico
+ *                        (incluye 'vacio': un PDF en blanco no viaja, no cuesta).
  *
  * Devuelve `{ texto, bloques, avisos, paginasVisuales }`. NUNCA lanza: decidir
  * si se puede continuar es del llamador, que es quien sabe si le basta con lo
@@ -144,10 +145,11 @@ async function prepararBloqueFuentes(urls) {
   const { textoSinBloques, bloques, avisos } = await fuentesManual(urls)
   if (!textoSinBloques && bloques.length) {
     // El documento SÍ es válido, solo que su contenido está en imágenes y
-    // esta operación todavía no manda documentos nativos al modelo (hoy solo
-    // lo hacen crear evaluación, reactivos y crear actividad, vía
-    // bloqueFuentesOperacion). Se dice tal cual en vez de acusar al archivo
-    // de inválido, que es justo el error que originó todo esto.
+    // quien llama a esta variante solo sabe mandar texto. Desde el
+    // 17-sep-2026 todas las operaciones que aceptan PDF usan
+    // fuentesManualRequeridas (o bloqueFuentesOperacion, que la usa); esta
+    // queda para el Chat, que es de solo texto a propósito. Se dice tal cual
+    // en vez de acusar al archivo de inválido.
     throw new HttpsError('failed-precondition',
       'El documento que adjuntaste no tiene texto: su contenido está en imágenes (escaneo, infografía o similar) y esta operación todavía necesita documentos con texto. Usa un PDF o Word con texto, o continúa sin adjuntarlo. No se descontaron créditos.')
   }
@@ -171,7 +173,34 @@ async function fuentesManual(urls, opciones = {}) {
   const lista = (Array.isArray(urls) ? urls : []).filter(Boolean).slice(0, MAX_FUENTES)
   if (!lista.length) return { texto: null, textoSinBloques: null, bloques: [], avisos: [], paginasVisuales: 0 }
   const r = await prepararFuentes(lista, { ...opciones, etiqueta: 'Documento' })
-  return { ...r, texto: conIntro(INTRO_MANUAL, r), textoSinBloques: soloTexto(INTRO_MANUAL, r) }
+  return { ...r, texto: conIntro(INTRO_MANUAL, r, { exigirLectura: true }), textoSinBloques: soloTexto(INTRO_MANUAL, r) }
+}
+
+/**
+ * La capa común para TODA operación que acepta PDF/Word como fuente
+ * (17-sep-2026): documentos que el docente eligió para esta operación — o
+ * que la operación exige, como el programa de estudios — leídos por el camino
+ * que a cada uno le toca (texto si tiene capa de texto, visión si su
+ * contenido está en imágenes), dentro del presupuesto de páginas visuales de
+ * la operación.
+ *
+ * Devuelve lo mismo que fuentesManual: `texto` (para el prompt; incluye la
+ * nota que le anuncia al modelo los PDF que viajan como imagen), `bloques`
+ * (esos PDF, para `bloquesPrefijo` de pedirJSON), `avisos` y
+ * `paginasVisuales`. Si había documentos y NINGUNO se pudo usar —dañado, en
+ * blanco, formato no soportado, o más páginas visuales que el presupuesto—,
+ * lanza con el motivo real. Corre en el precheck, así que eso ocurre antes
+ * de reservar créditos.
+ */
+async function fuentesManualRequeridas(urls, opciones = {}) {
+  const lista = (Array.isArray(urls) ? urls : []).filter(Boolean)
+  const r = await fuentesManual(lista, opciones)
+  if (lista.length && !r.texto && !r.bloques.length) {
+    const motivo = r.avisos[0]?.motivo || 'No se pudo procesar el documento.'
+    throw new HttpsError('failed-precondition',
+      `No se pudo usar ninguno de los documentos que adjuntaste. ${motivo} Corrígelo o continúa sin adjuntarlos. No se descontaron créditos.`)
+  }
+  return r
 }
 
 /**
@@ -198,20 +227,42 @@ async function fuentesGenerales(urls, opciones = {}) {
 const INTRO_MANUAL = 'MATERIAL APORTADO POR EL DOCENTE — segundo insumo en orden de prioridad (úsalos como base directa para desarrollar lo que el docente indicó; tienen prioridad sobre la planeación didáctica):\n'
 const INTRO_GENERAL = 'Fuentes generales de la asignatura, guardadas por el docente en la pestaña Planeación Didáctica (contexto de referencia; úsalas solo cuando el docente no haya indicado instrucciones ni adjuntado material más específico):\n'
 
-// Arma el texto final del bloque. Cuando además hay documentos que viajan
-// como imagen (bloque nativo), se le dice al modelo que existen: sin esta
-// línea el prompt no los menciona y el modelo no sabe qué son las páginas
-// que le llegan adjuntas.
-function conIntro(intro, { texto, bloques }) {
+// Clave que el modelo devuelve cuando no puede leer los PDF que se le
+// mandaron a mirar (17-sep-2026). pedirJSON (functions/ia.js) la detecta y
+// detiene la operación: el callable reembolsa la reserva completa.
+const CLAVE_DOCUMENTO_ILEGIBLE = 'documentoIlegible'
+const MENSAJE_DOCUMENTO_ILEGIBLE =
+  'No se pudo leer el contenido del documento que adjuntaste: sus páginas están en blanco o la imagen es ' +
+  'ilegible. Usa una versión más clara del documento o continúa sin adjuntarlo. No se descontaron créditos.'
+
+/**
+ * La línea que le anuncia al modelo los PDF que viajan como imagen: sin ella
+ * el prompt no los menciona y el modelo no sabe qué son las páginas que le
+ * llegan adjuntas. Con `exigirLectura` (documentos que el docente eligió o
+ * que la operación exige) se le pide además que NO invente si no los puede
+ * leer — un escaneo borroso no se distingue de uno bueno sin mirarlo, y
+ * mirarlo es justo lo que hace el modelo.
+ */
+function notaDocumentosVisuales(cantidad, { exigirLectura = false } = {}) {
+  if (!cantidad) return null
+  let nota =
+    `Se adjuntan además ${cantidad} documento(s) PDF de referencia cuyo contenido está en imágenes ` +
+    '(escaneos, infografías, diagramas o capturas). Léelos directamente y trátalos como material fuente ' +
+    'con el mismo peso que el texto anterior.'
+  if (exigirLectura) {
+    nota += ` Si no logras leer NINGUNO de los documentos PDF adjuntos (páginas en blanco o imagen ilegible), ` +
+      `no inventes contenido: responde únicamente {"${CLAVE_DOCUMENTO_ILEGIBLE}": true} en lugar del JSON indicado.`
+  }
+  return nota
+}
+
+// Arma el texto final del bloque: el texto extraído más, si hay documentos
+// que viajan como imagen (bloque nativo), la nota que se los anuncia.
+function conIntro(intro, { texto, bloques }, { exigirLectura = false } = {}) {
   const partes = []
   if (texto) partes.push(intro + texto)
-  if (bloques.length) {
-    partes.push(
-      `Se adjuntan además ${bloques.length} documento(s) PDF de referencia cuyo contenido está en imágenes ` +
-      '(escaneos, infografías, diagramas o capturas). Léelos directamente y trátalos como material fuente ' +
-      'con el mismo peso que el texto anterior.'
-    )
-  }
+  const nota = notaDocumentosVisuales(bloques.length, { exigirLectura })
+  if (nota) partes.push(nota)
   return partes.length ? partes.join('\n\n') : null
 }
 
@@ -230,6 +281,7 @@ function combinarBloquesFuentes(...bloques) {
 
 module.exports = {
   prepararBloqueFuentes, prepararBloqueFuentesGenerales, combinarBloquesFuentes, MAX_FUENTES,
-  prepararFuentes, fuentesManual, fuentesGenerales,
+  prepararFuentes, fuentesManual, fuentesManualRequeridas, fuentesGenerales,
   MAX_PAGINAS_VISUAL, MIN_PAGINAS_VISUAL, presupuestoPaginasVisual,
+  notaDocumentosVisuales, CLAVE_DOCUMENTO_ILEGIBLE, MENSAJE_DOCUMENTO_ILEGIBLE,
 }

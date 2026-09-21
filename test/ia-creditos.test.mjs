@@ -2221,4 +2221,336 @@ await caso('un juego sin nombre se confirma igual (el respaldo visual es cosa de
   assert.strictEqual(act.juego.estado, 'juego_confirmado')
 })
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Cualquier PDF sirve como fuente de IA, esté como esté hecho (17-sep-2026)
+//
+// Caso real: Windows.pdf (14 páginas de infografía, 0 caracteres extraíbles)
+// rechazado en Crucigrama con "no tiene texto". Todas las operaciones que
+// aceptan PDF pasan ahora por la misma capa (fuentesIA.fuentesManualRequeridas
+// o bloqueFuentesOperacion, que la usa): texto si lo tiene, visión si su
+// contenido está en imágenes, rechazo SIN cobro si está en blanco o excede el
+// presupuesto de páginas de la operación. Los PDF se fabrican con jspdf y se
+// sirven por un fetch pinchado (sin red); Anthropic se sustituye por un
+// cliente falso que registra lo que recibió.
+grupo('Fuentes PDF para IA — todas las operaciones, créditos incluidos')
+
+const FX = await import('./helpers/pdfFixtures.mjs')
+const DOCS_FX = {
+  'texto.pdf': FX.pdfTexto(2), 'visual.pdf': FX.pdfImagen(14), 'mixto.pdf': FX.pdfMixto(2),
+  'blanco.pdf': FX.pdfEnBlanco(2), 'visual20.pdf': FX.pdfImagen(20), 'visual31.pdf': FX.pdfImagen(31),
+}
+const conDocs = () => FX.servirDocumentos(DOCS_FX)
+const U = FX.urlFixture
+
+// Tarifas VIGENTES de producción (config/iaTarifas v6, leídas el 17-sep-2026):
+// de ellas sale el presupuesto de páginas de cada operación.
+const TARIFAS_FUENTES = {
+  version: 6,
+  tarifas: {
+    generar_contenido_juego: 3, crear_actividad_ia: 1, crear_evaluacion_ia: 0.25, reactivos: 0.25,
+    diagnostico_contexto: 3, diagnostico_conocimientos: 5, planeacion_didactica_inicial: 20,
+  },
+  categorias: {
+    generar_contenido_juego: 'Actividades', crear_actividad_ia: 'Actividades', crear_evaluacion_ia: 'Evaluaciones',
+    reactivos: 'Evaluaciones', diagnostico_contexto: 'Diagnóstico', diagnostico_conocimientos: 'Diagnóstico',
+    planeacion_didactica_inicial: 'Planeación',
+  },
+  modeloPorOperacion: { generar_contenido_juego: 'claude-haiku-4-5' },
+}
+
+// Anthropic falso: se reemplaza el módulo en la caché de require que usan
+// los ejecutores (lo piden con require() en cada llamada).
+const requireFn = createRequire(new URL('../functions/index.js', import.meta.url))
+const rutaSdk = requireFn.resolve('@anthropic-ai/sdk')
+requireFn(rutaSdk)
+const SDK_REAL = require.cache[rutaSdk].exports
+const pedidosIA = []
+let respuestaIA = () => ({ palabras: [] })
+require.cache[rutaSdk].exports = class AnthropicFalso {
+  constructor() {
+    this.messages = {
+      create: async (req) => {
+        pedidosIA.push(req)
+        return { content: [{ type: 'text', text: JSON.stringify(respuestaIA(req)) }], usage: { input_tokens: 10, output_tokens: 10 } }
+      },
+    }
+  }
+}
+process.env.ANTHROPIC_API_KEY_PROD ||= 'sk-ant-prueba-' + 'x'.repeat(40)
+
+const PALABRAS_OK = ['ESCRITORIO', 'ICONOS', 'RELOJ', 'PAPELERA', 'VENTANA', 'MENU'].map((palabra) => ({ palabra, descripcion: `Pista de ${palabra}` }))
+const documentosDelPedido = (req) => (Array.isArray(req.messages[0].content) ? req.messages[0].content : []).filter((b) => b.type === 'document')
+const textoDelPedido = (req) => (Array.isArray(req.messages[0].content)
+  ? req.messages[0].content.filter((b) => b.type === 'text').map((b) => b.text).join('\n')
+  : req.messages[0].content)
+const codigoDe = (e) => String(e?.code || '')
+
+async function sembrarJuegoIA({ tipoJuego = 'crucigrama', actividadId = 'act_juego_pdf' } = {}) {
+  await db.doc('subjects/sub_pdf').set({ docenteId: DOCENTE, nombre: 'Informática', parciales: 2 })
+  await db.doc(`activities/${actividadId}`).set({
+    nombre: '', categoria: 'juego', tipoJuego, asignaturaId: 'sub_pdf', docenteId: DOCENTE, parcial: 1, oculta: true,
+    juego: { modalidad: 'descripcion', cantidadPalabras: 6, contenido: [], estado: null, estructura: null },
+  })
+  return actividadId
+}
+const generarJuego = ({ actividadId, fuentes, tipoJuego = 'crucigrama', k = clave() }) =>
+  IA_FN.ejecutarOperacionIA.run({
+    auth: { uid: DOCENTE },
+    data: {
+      operacion: 'generar_contenido_juego', idempotencyKey: k,
+      params: { actividadId, asignaturaNombre: 'Informática', modalidad: 'descripcion', cantidadPalabras: 6, contexto: '', fuentes, ...(tipoJuego === 'sopa_letras' && { tamanoSopa: 10 }) },
+    },
+  })
+const IA_FN = require('../functions/ia.js')
+
+async function reiniciarFuentes({ saldo = 100 } = {}) {
+  await limpiar()
+  await db.doc(`users/${DOCENTE}`).set({ role: 'docente', nombre: 'Prueba', escuelaId: 'E1', perfilIA: PERFIL_IA_COMPLETO })
+  await db.doc('config/iaTarifas').set(TARIFAS_FUENTES)
+  await darSaldo(DOCENTE, saldo)
+  pedidosIA.length = 0
+  respuestaIA = () => ({ palabras: PALABRAS_OK })
+}
+
+// ── Crucigrama / Sopa de letras: flujo COMPLETO por el callable ──────────────
+await caso('Crucigrama + PDF visual (14 págs., como Windows.pdf): el PDF llega al modelo y se cobran 3 créditos solo al confirmar', async () => {
+  await reiniciarFuentes()
+  const id = await sembrarJuegoIA()
+  const restaurar = conDocs()
+  const k = clave()
+  try {
+    const r = await generarJuego({ actividadId: id, fuentes: [U('visual.pdf')], k })
+    assert.strictEqual(r.resultado.contenido.length, 6)
+  } finally { restaurar() }
+  assert.strictEqual(pedidosIA.length, 1, 'una sola llamada a la IA, sin OCR ni pasos extra')
+  assert.deepStrictEqual(documentosDelPedido(pedidosIA[0]).map((b) => b.source.url), [U('visual.pdf')])
+  assert.ok(textoDelPedido(pedidosIA[0]).includes('Se adjuntan además 1 documento(s) PDF'))
+  assert.strictEqual((await consumoDe(k)).estado, 'reservado', 'generar solo aparta; el cobro espera la confirmación')
+  assert.strictEqual((await creditosDe()).saldo, 97)
+
+  await JUEGO.construirJuegoImpl({ auth: { uid: DOCENTE }, data: { actividadId: id } })
+  const conf = await JUEGO.confirmarJuegoImpl({ auth: { uid: DOCENTE }, data: { actividadId: id } })
+  assert.strictEqual(conf.creditosReales, 3)
+  assert.strictEqual((await consumoDe(k)).estado, 'ejecutado')
+  assert.strictEqual((await creditosDe()).saldo, 97, 'cobro correcto: exactamente la tarifa vigente de 3')
+})
+
+await caso('Sopa de letras + PDF visual: mismo camino; cancelar el borrador devuelve los 3 créditos (0 cobrados)', async () => {
+  await reiniciarFuentes()
+  const id = await sembrarJuegoIA({ tipoJuego: 'sopa_letras', actividadId: 'act_sopa_pdf' })
+  const restaurar = conDocs()
+  const k = clave()
+  try {
+    await generarJuego({ actividadId: id, fuentes: [U('visual.pdf')], tipoJuego: 'sopa_letras', k })
+  } finally { restaurar() }
+  assert.strictEqual(documentosDelPedido(pedidosIA[0]).length, 1)
+  assert.strictEqual((await creditosDe()).saldo, 97)
+  await JUEGO.cancelarBorradorJuegoImpl({ auth: { uid: DOCENTE }, data: { actividadId: id } })
+  assert.strictEqual((await consumoDe(k)).creditosReales, 0)
+  assert.strictEqual((await creditosDe()).saldo, 100, 'cancelación sin cobro')
+})
+
+await caso('Crucigrama + PDF con texto: sigue por texto, SIN documento adjunto al modelo (regresión)', async () => {
+  await reiniciarFuentes()
+  const id = await sembrarJuegoIA()
+  const restaurar = conDocs()
+  try { await generarJuego({ actividadId: id, fuentes: [U('texto.pdf')] }) } finally { restaurar() }
+  assert.strictEqual(documentosDelPedido(pedidosIA[0]).length, 0)
+  assert.ok(textoDelPedido(pedidosIA[0]).includes('La celula es la unidad basica'))
+})
+
+await caso('Crucigrama + PDF mixto: el PDF viaja completo (texto + imagen) y su texto no se duplica', async () => {
+  await reiniciarFuentes()
+  const id = await sembrarJuegoIA()
+  const restaurar = conDocs()
+  try { await generarJuego({ actividadId: id, fuentes: [U('mixto.pdf')] }) } finally { restaurar() }
+  assert.strictEqual(documentosDelPedido(pedidosIA[0]).length, 1)
+  assert.ok(!textoDelPedido(pedidosIA[0]).includes('Pagina 1'))
+})
+
+await caso('Crucigrama + PDF en blanco: se rechaza ANTES de reservar — ni reserva, ni llamada a la IA, ni cobro', async () => {
+  await reiniciarFuentes()
+  const id = await sembrarJuegoIA()
+  const restaurar = conDocs()
+  let err = null
+  try { await generarJuego({ actividadId: id, fuentes: [U('blanco.pdf')] }) } catch (e) { err = e } finally { restaurar() }
+  assert.ok(codigoDe(err).includes('failed-precondition'), codigoDe(err))
+  assert.ok(err.message.includes('en blanco'), err.message)
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 0)
+  assert.strictEqual(pedidosIA.length, 0)
+  assert.strictEqual((await creditosDe()).saldo, 100)
+})
+
+await caso('Crucigrama + PDF visual de 20 páginas (tope 19 con 3 créditos): se rechaza diciendo el límite, sin cobro', async () => {
+  await reiniciarFuentes()
+  const id = await sembrarJuegoIA()
+  const restaurar = conDocs()
+  let err = null
+  try { await generarJuego({ actividadId: id, fuentes: [U('visual20.pdf')] }) } catch (e) { err = e } finally { restaurar() }
+  assert.ok(err?.message.includes('máximo de 19 páginas'), err?.message)
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 0)
+  assert.strictEqual(pedidosIA.length, 0)
+  assert.strictEqual((await creditosDe()).saldo, 100)
+})
+
+await caso('Crucigrama: la IA no puede leer el PDF (escaneo ilegible) → falla DESPUÉS de reservar y se reembolsa completo', async () => {
+  await reiniciarFuentes()
+  respuestaIA = () => ({ documentoIlegible: true })
+  const id = await sembrarJuegoIA()
+  const restaurar = conDocs()
+  const k = clave()
+  let err = null
+  try { await generarJuego({ actividadId: id, fuentes: [U('visual.pdf')], k }) } catch (e) { err = e } finally { restaurar() }
+  assert.strictEqual(err?.details?.codigo, 'DOCUMENTO_ILEGIBLE', err?.message)
+  assert.strictEqual(pedidosIA.length, 1, 'sí llegó a la IA: la reserva existió')
+  assert.strictEqual((await consumoDe(k)).estado, 'fallido')
+  assert.strictEqual((await consumoDe(k)).creditosReales, 0)
+  assert.strictEqual((await creditosDe()).saldo, 100, 'reembolso íntegro')
+})
+
+await caso('Crucigrama: cualquier otro fallo de la IA tras reservar conserva el reembolso de siempre', async () => {
+  await reiniciarFuentes()
+  respuestaIA = () => ({ palabras: [] }) // "no generó suficientes palabras"
+  const id = await sembrarJuegoIA()
+  const restaurar = conDocs()
+  const k = clave()
+  try { await generarJuego({ actividadId: id, fuentes: [U('visual.pdf')], k }).catch(() => {}) } finally { restaurar() }
+  assert.strictEqual((await consumoDe(k)).estado, 'fallido')
+  assert.strictEqual((await creditosDe()).saldo, 100)
+})
+
+// ── Crear actividad / Crear evaluación / Reactivos (bloqueFuentesOperacion) ──
+await reiniciarFuentes()
+await db.doc('subjects/sub_pdf').set({ docenteId: DOCENTE, nombre: 'Informática', parciales: 2 })
+await db.doc('activities/act_cuest_pdf').set({ ...CUESTIONARIO, asignaturaId: 'sub_pdf', parcial: 1 })
+const PETICION = 'Una actividad para identificar los elementos del escritorio de Windows'
+const precheckActividad = (fuentes) => IA.precheckCrearActividad({
+  uid: DOCENTE, tarifas: TARIFAS_FUENTES,
+  params: { categoria: 'entregable', asignaturaId: 'sub_pdf', parcial: 1, peticion: PETICION, fuentes },
+})
+const precheckEvaluacion = (fuentes, cantidad = 20) => IA.precheckCrearEvaluacion({
+  uid: DOCENTE, tarifas: TARIFAS_FUENTES,
+  params: { actividadId: 'act_cuest_pdf', quiereEvaluar: QUIERE_EVALUAR_OK, cantidad, fuentes },
+})
+const precheckReact = (fuentes, cantidad = 20) => IA.precheckReactivos({
+  uid: DOCENTE, tarifas: TARIFAS_FUENTES,
+  params: { actividadId: 'act_cuest_pdf', quiereEvaluar: QUIERE_EVALUAR_OK, cantidad, fuentes },
+})
+
+for (const [nombre, precheck] of [['Crear actividad', precheckActividad], ['Crear evaluación', precheckEvaluacion], ['Reactivos', precheckReact]]) {
+  await caso(`${nombre}: PDF textual → texto; visual → documento nativo; en blanco → rechazo claro`, async () => {
+    const restaurar = conDocs()
+    try {
+      const t = await precheck([U('texto.pdf')])
+      assert.strictEqual(t.fuentesBloques.length, 0)
+      assert.ok(t.bloqueFuentes.includes('La celula'))
+      const m = await precheck([U('mixto.pdf')])
+      assert.strictEqual(m.fuentesBloques.length, 1)
+      const b = await precheck([U('blanco.pdf')]).then(() => null, (e) => e)
+      assert.ok(b?.message.includes('en blanco'), b?.message)
+    } finally { restaurar() }
+  })
+}
+
+await caso('Crear actividad (1 crédito → tope 6 páginas): Windows.pdf de 14 se rechaza con el límite — el límite NO se quitó', async () => {
+  const restaurar = conDocs()
+  try {
+    const e = await precheckActividad([U('visual.pdf')]).then(() => null, (x) => x)
+    assert.ok(e?.message.includes('máximo de 6 páginas'), e?.message)
+  } finally { restaurar() }
+})
+
+await caso('Crear evaluación de 20 reactivos (5 créditos → tope 30): Windows.pdf cabe y viaja como documento', async () => {
+  const restaurar = conDocs()
+  try {
+    const ctx = await precheckEvaluacion([U('visual.pdf')], 20)
+    assert.strictEqual(ctx.fuentesBloques.length, 1)
+  } finally { restaurar() }
+})
+
+// ── Diagnóstico y Planeación (programa de estudios + fuentes del curso) ──────
+async function sembrarProgramaPdf(url) {
+  await db.doc('subjects/sub_pdf').set({ docenteId: DOCENTE, nombre: 'Informática', parciales: 2 })
+  await db.doc('subjects/sub_pdf/asistenteIA/config').set({
+    docenteId: DOCENTE, programaEstudios: { nombre: 'programa.pdf', tipo: 'pdf', url },
+  })
+  await db.doc('activities/act_dctx_pdf').set({ docenteId: DOCENTE, asignaturaId: 'sub_pdf', categoria: 'cuestionario', diagnosticoTipo: 'contexto' })
+  await db.doc('activities/act_dcon_pdf').set({ docenteId: DOCENTE, asignaturaId: 'sub_pdf', categoria: 'cuestionario', diagnosticoTipo: 'conocimientos' })
+}
+const precheckDxCtx = () => IA.precheckDiagnosticoContexto({ uid: DOCENTE, tarifas: TARIFAS_FUENTES, params: { actividadId: 'act_dctx_pdf' } })
+const precheckDxCon = () => IA.precheckDiagnosticoConocimientos({ uid: DOCENTE, tarifas: TARIFAS_FUENTES, params: { actividadId: 'act_dcon_pdf' } })
+const precheckPlan = () => IA.precheckPlaneacionInicial({ uid: DOCENTE, tarifas: TARIFAS_FUENTES, params: { subjectId: 'sub_pdf' } })
+
+await caso('Diagnóstico de contexto y de conocimientos: programa escaneado → viaja como documento (antes: "no tiene texto")', async () => {
+  await reiniciarFuentes()
+  await sembrarProgramaPdf(U('visual.pdf'))
+  const restaurar = conDocs()
+  try {
+    for (const ctx of [await precheckDxCtx(), await precheckDxCon()]) {
+      assert.strictEqual(ctx.fuentesBloques.length, 1)
+      assert.ok(ctx.bloqueFuentes.includes('Se adjuntan además 1 documento(s) PDF'))
+    }
+  } finally { restaurar() }
+})
+
+await caso('Diagnóstico: programa con texto → igual que antes, sin documento adjunto (regresión)', async () => {
+  await reiniciarFuentes()
+  await sembrarProgramaPdf(U('texto.pdf'))
+  const restaurar = conDocs()
+  try {
+    const ctx = await precheckDxCtx()
+    assert.strictEqual(ctx.fuentesBloques.length, 0)
+    assert.ok(ctx.bloqueFuentes.includes('La celula'))
+  } finally { restaurar() }
+})
+
+await caso('Diagnóstico: programa en blanco → se detiene antes de reservar, con el motivo real', async () => {
+  await reiniciarFuentes()
+  await sembrarProgramaPdf(U('blanco.pdf'))
+  const restaurar = conDocs()
+  try {
+    const e = await precheckDxCtx().then(() => null, (x) => x)
+    assert.ok(e?.message.includes('en blanco'), e?.message)
+  } finally { restaurar() }
+})
+
+await caso('Planeación Inicial: programa escaneado → documento nativo + nota aparte; el texto para fragmentar queda igual', async () => {
+  await reiniciarFuentes()
+  await sembrarProgramaPdf(U('visual.pdf'))
+  const restaurar = conDocs()
+  try {
+    const ctx = await precheckPlan()
+    assert.strictEqual(ctx.fuentesBloques.length, 1)
+    assert.strictEqual(ctx.bloqueFuentesGenerales, null, 'sin capa de texto no hay texto que fragmentar')
+    assert.strictEqual(ctx.unidadesMinimas, 1, 'un PDF visual no infla las unidades a reservar')
+    assert.ok(ctx.notaFuentesVisuales.includes('documentoIlegible'))
+    const prompt = IA.promptSecuenciasParcial(ctx, ctx.parciales[0], null, true)
+    assert.ok(prompt.includes('Se adjuntan además 1 documento(s) PDF'))
+  } finally { restaurar() }
+})
+
+await caso('Planeación Inicial: programa con texto → exactamente el bloque de antes, sin nota ni documento (regresión)', async () => {
+  await reiniciarFuentes()
+  await sembrarProgramaPdf(U('texto.pdf'))
+  const restaurar = conDocs()
+  try {
+    const ctx = await precheckPlan()
+    assert.strictEqual(ctx.fuentesBloques.length, 0)
+    assert.strictEqual(ctx.notaFuentesVisuales, null)
+    assert.ok(ctx.bloqueFuentesGenerales.startsWith('MATERIAL APORTADO POR EL DOCENTE'))
+  } finally { restaurar() }
+})
+
+await caso('Planeación Inicial (20 créditos → tope 30): un programa escaneado de 31 páginas se rechaza con el límite', async () => {
+  await reiniciarFuentes()
+  await sembrarProgramaPdf(U('visual31.pdf'))
+  const restaurar = conDocs()
+  try {
+    const e = await precheckPlan().then(() => null, (x) => x)
+    assert.ok(e?.message.includes('máximo de 30 páginas'), e?.message)
+  } finally { restaurar() }
+})
+
+require.cache[rutaSdk].exports = SDK_REAL
+
 resumen('pruebas del ledger de créditos IA')
