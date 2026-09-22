@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, ChevronRight, CalendarDays, Plus, Archive } from 'lucide-react'
+import { LogOut, ChevronRight, CalendarDays, Plus, Archive, Lightbulb } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { getDoc, doc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -269,10 +269,27 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             </button>
           </div>
 
-          {/* QR general de Evalúa Fácil — arriba de Archivadas, igual que en el
-              sidebar del docente. Fuera de cualquier asignatura porque es el
-              mismo para todas. */}
-          <div className="px-2 pt-2 border-t border-white/15">
+          {/* Tips — arriba del QR, mismo bloque secundario. Ayuda específica
+              para el estudiante (hoy solo un tip sobre PDFs pesados; ver
+              TipsPage.jsx para agregar más). Solo en este sidebar de
+              escritorio, a propósito — mismo alcance que el QR que tiene
+              debajo. */}
+          {/* QR general de Evalúa Fácil — igual que en el sidebar del
+              docente. Fuera de cualquier asignatura porque es el mismo para
+              todas. */}
+          <div className="px-2 pt-2 border-t border-white/15 space-y-0.5">
+            <NavLink
+              to="/alumno/tips"
+              className={({ isActive }) =>
+                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
+                  isActive ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
+                }`
+              }
+            >
+              <Lightbulb size={17} className="flex-shrink-0" />
+              Tips
+            </NavLink>
+
             <AppQRButton
               className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white/80 hover:bg-white/10 transition-colors"
             >
