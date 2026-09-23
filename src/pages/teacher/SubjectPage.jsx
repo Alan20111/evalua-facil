@@ -9422,7 +9422,10 @@ export default function SubjectPage() {
               const snap = await getDoc(doc(db, 'activities', activityId))
               if (snap.exists()) activity = { id: snap.id, ...snap.data() }
             } catch { /* si falla, se abre con el formulario en blanco */ }
-            if (activity) setActivities((prev) => [...prev, activity])
+            if (activity) {
+              setActivities((prev) => [...prev, activity])
+              setSubmissionCounts((prev) => ({ ...prev, [activity.id]: { delivered: 0, graded: 0 } }))
+            }
             setEntregableEditor({
               activityId,
               parcial: modalParcial,
