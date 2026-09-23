@@ -9371,12 +9371,27 @@ export default function SubjectPage() {
           docenteId={currentUser?.uid}
           existingActivitiesCountInParcial={activities.filter((a) => a.parcial === modalParcial).length}
           onClose={() => setCrearEvalIA(null)}
-          onCreated={(activityId) => {
+          onCreated={async (activityId) => {
             const label = `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.`
+            const categoria = crearEvalIA.categoria
             setCrearEvalIA(null)
+            // La actividad la creó el modal, no el editor: el editor la abre
+            // como existente y al guardar solo ACTUALIZA `activities`. Sin
+            // agregarla aquí, el borrador no aparecía en la lista hasta F5 (y
+            // un segundo cuestionario con IA repetía el mismo `orden`). Se
+            // relee fresca —trae el numPreguntas que escribió el servidor—,
+            // igual que en CrearActividadIAModal más abajo.
+            try {
+              const snap = await getDoc(doc(db, 'activities', activityId))
+              if (snap.exists()) {
+                const activity = { id: snap.id, ...snap.data() }
+                setActivities((prev) => prev.some((a) => a.id === activity.id) ? prev : [...prev, activity])
+                setSubmissionCounts((prev) => ({ ...prev, [activity.id]: { delivered: 0, graded: 0 } }))
+              }
+            } catch { /* si falla, aparece al recargar, como antes */ }
             // Misma ruta que "Editar": abre el editor completo ya con los
             // reactivos que generó la IA, para que el docente los revise.
-            setEvalEditor({ activityId, categoria: crearEvalIA.categoria, parcial: modalParcial, activityLabel: label })
+            setEvalEditor({ activityId, categoria, parcial: modalParcial, activityLabel: label })
           }}
         />
       )}
