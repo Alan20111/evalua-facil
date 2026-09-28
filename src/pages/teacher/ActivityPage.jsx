@@ -42,6 +42,7 @@ import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
 import { nowIsoLocal } from '../../utils/nowIso'
 import { fechaLimiteTimestamp } from '../../utils/deadline'
+import { tieneEntregaReal, leerEntregasReales, MENSAJE_PRORROGA_CON_ENTREGA } from '../../utils/extensiones'
 import { formatDeadline, formatPublishAt, parseFechaLimite, withDefaultTime, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { parcialCerrado as esParcialCerrado, mensajeParcialCerrado } from '../../utils/ponderacion'
 import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
@@ -1053,12 +1054,26 @@ export default function ActivityPage() {
     extendDate === (activity?.extensiones?.[selected.student.id] || '') &&
     extendMotivo.trim() === (activity?.extensionesMotivo?.[selected.student.id] || '')
 
+  // Prórroga solo sin entrega real (ver tieneEntregaReal en utils/extensiones).
+  const prorrogaBloqueada = !!selected && tieneEntregaReal(selected.sub, activity)
+
   async function saveExtension() {
     if (!selected || !extendDate) return
     // Una prórroga reabriría la actividad en un parcial cerrado definitivamente.
     if (parcialCerrado) { toast(mensajeParcialCerrado(activity.parcial), 'error'); return }
+    if (prorrogaBloqueada) { toast(MENSAJE_PRORROGA_CON_ENTREGA, 'error'); return }
     setSavingExtension(true)
     try {
+      // Las entregas se leyeron al abrir la página: se vuelve a preguntar justo
+      // antes de escribir, por si el alumno entregó con el panel abierto.
+      const actual = (await leerEntregasReales(db, activityId, activity, selected.student.id)).get(selected.student.id)
+      if (actual) {
+        setSubmissions((prev) => ({ ...prev, [selected.student.id]: actual }))
+        setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: actual } : sel))
+        setExtendMode(false)
+        toast('Este estudiante acaba de entregar. No se modificó su fecha: para hacerlo, primero anula la entrega.', 'error')
+        return
+      }
       const motivo = extendMotivo.trim()
       // `extensionesTS` es el espejo en Timestamp y es lo ÚNICO que
       // firestore.rules mira (actividadVencidaParaAlumno). Sin él la prórroga
@@ -2233,7 +2248,18 @@ export default function ActivityPage() {
                       </div>
                     )
                   )}
-                  {!extendMode ? (
+                  {prorrogaBloqueada ? (
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        disabled
+                        className="block mx-auto text-sm text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Modificar fecha de entrega para este estudiante
+                      </button>
+                      <p className="text-xs text-slate-400 mt-1">{MENSAJE_PRORROGA_CON_ENTREGA}</p>
+                    </div>
+                  ) : !extendMode ? (
                     <button
                       type="button"
                       onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setExtendMode(true))}
@@ -2656,9 +2682,9 @@ export default function ActivityPage() {
                           <button
                             type="button"
                             onClick={() => setExtendMode(true)}
-                            disabled={parcialCerrado}
+                            disabled={parcialCerrado || prorrogaBloqueada}
                             aria-label="Modificar fecha de entrega"
-                            data-tooltip="Modificar fecha de entrega"
+                            data-tooltip={prorrogaBloqueada ? MENSAJE_PRORROGA_CON_ENTREGA : 'Modificar fecha de entrega'}
                             className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40"
                           >
                             <CalendarDays size={17} />
@@ -2771,7 +2797,7 @@ export default function ActivityPage() {
         </div>
       )}
 
-      {selected && IS_NATIVE_APP && extendMode && (
+      {selected && IS_NATIVE_APP && extendMode && !prorrogaBloqueada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setExtendMode(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">

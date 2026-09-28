@@ -14,6 +14,7 @@ import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
 import { mensajeParcialCerrado } from '../utils/ponderacion'
 import { nowIsoLocal as toIsoNow } from '../utils/nowIso'
 import { fechaLimiteTimestamp } from '../utils/deadline'
+import { tieneEntregaReal, leerEntregasReales, MENSAJE_PRORROGA_CON_ENTREGA } from '../utils/extensiones'
 import { matchesStudentSearch, studentFullName } from '../utils/studentSearch'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { uploadToCloudinary } from '../utils/cloudinary'
@@ -1211,10 +1212,26 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     extendDate === (activity?.extensiones?.[reviewing.student.id] || '') &&
     extendMotivo.trim() === (activity?.extensionesMotivo?.[reviewing.student.id] || '')
 
+  // Prórroga solo sin entrega real: aquí, sin intento `finalizado` (uno
+  // `en_progreso` no cuenta). Ver tieneEntregaReal en utils/extensiones.
+  const reviewProrrogaBloqueada = !!reviewing && tieneEntregaReal(reviewing.submission, activity)
+
   async function saveReviewExtension() {
     if (!reviewing || !extendDate || bloqueadoPorCierre()) return
+    if (reviewProrrogaBloqueada) { toast(MENSAJE_PRORROGA_CON_ENTREGA, 'error'); return }
     setSavingExtension(true)
     try {
+      // Se vuelve a leer justo antes de escribir: el alumno pudo terminar su
+      // intento con la revisión abierta.
+      const studentId = reviewing.student.id
+      const actual = (await leerEntregasReales(db, activityId || activity?.id, activity, studentId)).get(studentId)
+      if (actual) {
+        onSubmissionUpdated?.(studentId, actual)
+        await mostrarIntentoActual(studentId, actual)
+        setExtendMode(false)
+        toast('Este estudiante acaba de terminar su intento. No se modificó su fecha: para hacerlo, primero anula la entrega.', 'error')
+        return
+      }
       const motivo = extendMotivo.trim()
       // Ver el mismo comentario en teacher/ActivityPage.jsx: `extensionesTS` es
       // el espejo en Timestamp que firestore.rules compara contra request.time.
@@ -2580,8 +2597,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   </div>
                   <div className="w-px h-9 bg-outline-variant flex-shrink-0" />
                   <div className="flex flex-col gap-2 flex-shrink-0 -mr-3">
-                    <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setExtendMode(true) }} aria-label="Modificar fecha de entrega" data-tooltip="Modificar fecha de entrega"
-                      className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors">
+                    <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setExtendMode(true) }} aria-label="Modificar fecha de entrega"
+                      disabled={reviewProrrogaBloqueada}
+                      data-tooltip={reviewProrrogaBloqueada ? MENSAJE_PRORROGA_CON_ENTREGA : 'Modificar fecha de entrega'}
+                      className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40">
                       <CalendarDays size={17} />
                     </button>
                     <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setCancelConfirm({ student: st, sub }) }} aria-label="Anular la entrega" data-tooltip="Anular la entrega"
@@ -2607,7 +2626,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   )}
 
                   {/* Modificar fecha de entrega para este estudiante */}
-                  {!extendMode ? (
+                  {reviewProrrogaBloqueada ? (
+                    <div className="text-center">
+                      <button type="button" disabled
+                        className="w-full text-sm text-slate-500 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+                        Modificar fecha de entrega para este estudiante
+                      </button>
+                      <p className="text-xs text-slate-400">{MENSAJE_PRORROGA_CON_ENTREGA}</p>
+                    </div>
+                  ) : !extendMode ? (
                     <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setExtendMode(true) }}
                       className="w-full text-sm text-slate-500 hover:text-muted transition-colors py-1">
                       Modificar fecha de entrega para este estudiante
@@ -2640,7 +2667,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       {/* "Modificar fecha" en Android — ventana flotante en vez de formulario
           en línea (mismo patrón que ActivityPage.jsx), para que el alto del
           aside — y por lo tanto el de la zona de respuestas — no varíe. */}
-      {reviewing && IS_NATIVE_APP && extendMode && (
+      {reviewing && IS_NATIVE_APP && extendMode && !reviewProrrogaBloqueada && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setExtendMode(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">

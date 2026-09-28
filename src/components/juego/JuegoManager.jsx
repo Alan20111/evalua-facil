@@ -37,7 +37,7 @@ import { etiquetaJuego } from '../../utils/copiaActividad'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import { withDefaultTime, formatDeadline } from '../../utils/activityVisibility'
 import { mensajeParcialCerrado } from '../../utils/ponderacion'
-import { groupExtensions } from '../../utils/extensiones'
+import { groupExtensions, tieneEntregaReal, MENSAJE_PRORROGA_CON_ENTREGA } from '../../utils/extensiones'
 import { fechaLimiteTimestamp } from '../../utils/deadline'
 import NuevaFechaEntregaModal from '../NuevaFechaEntregaModal'
 import { nowIsoLocal } from '../../utils/nowIso'
@@ -741,6 +741,8 @@ function JuegoConfiguracion({
             const nombre = studentFullName(st)
             const tieneEntrega = !!sub
             const prorroga = activity.extensiones?.[st.id] || null
+            // Con entrega real no se da ni cambia la fecha: primero se anula.
+            const prorrogaBloqueada = tieneEntregaReal(sub, activity)
             // La fila deja de ser un botón entero: las acciones de la derecha
             // son botones propios y no pueden anidarse dentro de otro. El
             // nombre conserva su papel de abrir la resolución cuando la hay.
@@ -777,9 +779,10 @@ function JuegoConfiguracion({
                 {/* Fecha propia para ESTE estudiante — abre el mismo modal de
                     siempre, ya en "Para algunos" y con él marcado. */}
                 <button type="button" onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setNuevaFecha({ preselect: st.id }))}
+                  disabled={prorrogaBloqueada}
                   aria-label={`Modificar la fecha de entrega de ${nombre}`}
-                  data-tooltip="Modificar la fecha de entrega para este estudiante"
-                  className="p-1.5 rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] flex-shrink-0">
+                  data-tooltip={prorrogaBloqueada ? MENSAJE_PRORROGA_CON_ENTREGA : 'Modificar la fecha de entrega para este estudiante'}
+                  className="p-1.5 rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
                   <CalendarClock size={16} />
                 </button>
 
