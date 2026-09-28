@@ -343,6 +343,30 @@ service cloud.firestore {
         d.get('completadoSinArchivo', false) == true;
     }
 
+    // ── El docente puede confirmar que una entrega de SU actividad no existe ──
+    //
+    // El guardián del cliente (src/utils/submissionGuard.js) lee la submission
+    // dentro de una transacción antes de escribir, para crear "sin entrega"
+    // SOLO si sigue sin existir y no pisar una entrega recién llegada. La regla
+    // de lectura de arriba mira `resource.data`, que no existe si el documento
+    // no existe, así que esa lectura se rechazaba siempre.
+    //
+    // Solo aplica cuando el documento NO existe (resource == null): no cambia
+    // en nada quién lee un documento existente. La actividad sale del propio
+    // id — el formato `{actividadId}_{alumnoId}` lo exige `allow create`, y
+    // los ids son alfanuméricos (comprobado en producción el 28-sep-2026) —, y
+    // la regex obliga a exactamente dos partes, así que no se puede fabricar
+    // un id que apunte a otra actividad. El docente tiene que ser el dueño de
+    // esa actividad: de una actividad ajena no se puede ni preguntar si hay
+    // entrega. Las consultas (list) no pasan por aquí: sus resultados siempre
+    // existen.
+    function docenteLeeSubmissionInexistente(submissionId) {
+      return resource == null &&
+        isDocente() &&
+        submissionId.matches('^[A-Za-z0-9]+_[A-Za-z0-9]+$') &&
+        ownsActivity(submissionId.split('_')[0]);
+    }
+
     function docenteRespetaEvidencia() {
       return !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['archivoURL', 'nombreArchivo', 'archivos', 'completadoSinArchivo']) &&
@@ -1056,7 +1080,8 @@ service cloud.firestore {
       // Las consultas de alumno siguen filtrando alumnoId con `==`.
       allow read: if isAdmin() ||
         (isDocente() && ownsActivity(resource.data.actividadId)) ||
-        (request.auth != null && ownsStudentDoc(resource.data.alumnoId));
+        (request.auth != null && ownsStudentDoc(resource.data.alumnoId)) ||
+        docenteLeeSubmissionInexistente(submissionId);
 
       // A submission is written either by the student who owns it (submit /
       // resubmit / evaluación autosave) or by the teacher who owns the activity

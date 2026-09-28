@@ -53,6 +53,7 @@ import {
 import { normalizarUsername, candidatosUsername, coincidenciaExacta } from '../src/utils/usernameMatch.js'
 import { usernameCandidates } from '../src/utils/generate.js'
 import { esNombreParecido, findSimilarIdentity, findStudentIdentity, studentNameKey } from '../src/utils/studentIdentity.js'
+import { tieneEvidencia, elegibleSinEntrega, firmaEntrega } from '../src/utils/submissionGuard.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -4108,6 +4109,59 @@ caso('htmlBitacoraImprimible: solo los datos pedidos, texto escapado y sin contr
   assert.ok(!/<button|<nav|<input/i.test(html), 'sin controles de la interfaz')
   assert.strictEqual((html.match(/<th>/g) || []).length, 2, 'solo dos columnas')
   assert.ok(htmlBitacoraImprimible({ estudiante: 'A', asignatura: 'B', docente: 'C', filas: [] }).includes('Sin observaciones registradas.'))
+})
+
+grupo('Guardián de entregas (submissionGuard) — funciones puras')
+
+// Fechas como las devuelve Firestore (Timestamp con toMillis) y como quedan
+// en un objeto plano ({ seconds, nanoseconds }): deben dar la misma huella.
+const TS = (ms) => ({ toMillis: () => ms, seconds: Math.floor(ms / 1000), nanoseconds: (ms % 1000) * 1e6 })
+const entregaArchivo = (extra = {}) => ({
+  id: 'A_E1', alumnoId: 'E1', actividadId: 'A', estado: 'entregado', calificacion: null,
+  archivoURL: 'https://res.cloudinary.com/x/image/upload/v1/a.pdf', nombreArchivo: 'a.pdf',
+  archivos: [{ url: 'https://res.cloudinary.com/x/image/upload/v1/a.pdf', nombre: 'a.pdf' }],
+  completadoSinArchivo: false, fechaEntrega: TS(1_700_000_000_000), ...extra,
+})
+
+caso('tieneEvidencia: archivoURL, solo archivos, o completado sin archivo', () => {
+  assert.strictEqual(tieneEvidencia(entregaArchivo()), true)
+  assert.strictEqual(tieneEvidencia({ archivos: [{ url: 'u' }] }), true)
+  assert.strictEqual(tieneEvidencia({ completadoSinArchivo: true }), true)
+  assert.strictEqual(tieneEvidencia({ archivos: [] }), false)
+  assert.strictEqual(tieneEvidencia({ completadoSinArchivo: false }), false)
+  assert.strictEqual(tieneEvidencia(undefined), false)
+  assert.strictEqual(tieneEvidencia({ estadoEvaluacion: 'finalizado', intentos: [{}] }), false, 'cuestionario: su evidencia vive en otra parte')
+})
+
+caso('elegibleSinEntrega: quién puede recibir "sin entrega" en bloque', () => {
+  assert.strictEqual(elegibleSinEntrega(undefined), true, 'sin documento (también tras anular)')
+  assert.strictEqual(elegibleSinEntrega(null), true)
+  assert.strictEqual(elegibleSinEntrega(entregaArchivo()), false, 'entrega real sin calificar NO es "no entregada"')
+  assert.strictEqual(elegibleSinEntrega(entregaArchivo({ calificacion: 8 })), false)
+  assert.strictEqual(elegibleSinEntrega({ estadoEvaluacion: 'en_progreso', calificacion: null }), true, 'cuestionario/juego en curso: semántica actual')
+  assert.strictEqual(elegibleSinEntrega({ sinEntrega: true, calificacion: 7 }), false, '"sin entrega" ya calificado')
+  assert.strictEqual(elegibleSinEntrega({ sinEntrega: true, calificacion: 0 }), false, 'el 0 es una calificación')
+  assert.strictEqual(elegibleSinEntrega({ completadoSinArchivo: true, calificacion: null }), false)
+})
+
+caso('firmaEntrega: igual si solo cambia calificación/comentario/estado', () => {
+  const vista = entregaArchivo()
+  const calificada = entregaArchivo({ calificacion: 9, comentario: 'Bien', estado: 'calificado', rubricaEval: [1, 2] })
+  assert.strictEqual(firmaEntrega(calificada), firmaEntrega(vista))
+  const plano = entregaArchivo({ fechaEntrega: { seconds: 1_700_000_000, nanoseconds: 0 } })
+  assert.strictEqual(firmaEntrega(plano), firmaEntrega(vista), 'Timestamp y objeto plano dan la misma huella')
+})
+
+caso('firmaEntrega: distinta con entrega nueva, intento nuevo o sin documento', () => {
+  const vista = entregaArchivo()
+  assert.notStrictEqual(firmaEntrega(entregaArchivo({ fechaEntrega: TS(1_700_000_500_000) })), firmaEntrega(vista))
+  assert.notStrictEqual(firmaEntrega(entregaArchivo({ archivoURL: 'otra', archivos: [{ url: 'otra' }] })), firmaEntrega(vista))
+  assert.notStrictEqual(firmaEntrega(entregaArchivo({ sinEntrega: true })), firmaEntrega(vista))
+  const intento = { estadoEvaluacion: 'finalizado', intentoActual: 1, intentos: [{ numero: 1 }], tiempoInicio: TS(1) }
+  assert.notStrictEqual(firmaEntrega({ ...intento, intentoActual: 2, tiempoInicio: TS(2) }), firmaEntrega(intento))
+  assert.notStrictEqual(firmaEntrega({ ...intento, estadoEvaluacion: 'en_progreso' }), firmaEntrega(intento))
+  assert.strictEqual(firmaEntrega(null), null)
+  assert.notStrictEqual(firmaEntrega(vista), null)
 })
 
 if (fallos.length) {

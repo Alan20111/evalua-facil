@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
 import { addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from '../utils/firestoreGuard'
+import { EntregaCambio, borrarSiNoCambio } from '../utils/submissionGuard'
 import { db, auth } from '../firebase'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
@@ -1238,26 +1239,58 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     }
   }
 
+  // La revisión abierta pasa a mostrar el intento que hay AHORA (con sus
+  // respuestas), sin tocar los borradores de calificación del docente.
+  async function mostrarIntentoActual(studentId, actual) {
+    const allRespuestas = {}
+    if (actual?.estadoEvaluacion === 'finalizado') {
+      const snap = await getDocs(collection(db, 'submissions', actual.id, 'respuestas')).catch(() => null)
+      snap?.docs.forEach((d) => { allRespuestas[d.id] = d.data() })
+    }
+    setReviewing((r) => (r && r.student?.id === studentId ? { ...r, submission: actual, allRespuestas } : r))
+  }
+
   // Anular la entrega actual: delete the intento (+ answers) so the student is back
   // to "No realizado" and can present again. Only this student is affected.
   async function handleCancelSubmission() {
     if (!cancelConfirm) return
     if (bloqueadoPorCierre()) { setCancelConfirm(null); return }
     setCancelling(true)
-    try {
-      const sub = cancelConfirm.sub
-      const respSnap = await getDocs(collection(db, 'submissions', sub.id, 'respuestas'))
-      await Promise.all(respSnap.docs.map((d) => deleteDoc(doc(db, 'submissions', sub.id, 'respuestas', d.id))))
-      await deleteDoc(doc(db, 'submissions', sub.id))
-      onSubmissionRemoved?.(cancelConfirm.student.id)
+    const studentId = cancelConfirm.student.id
+    const quedarNoRealizado = () => {
+      onSubmissionRemoved?.(studentId)
       // Stay in the review, now showing "No realizado" for this student.
-      if (reviewing?.student?.id === cancelConfirm.student.id) {
+      if (reviewing?.student?.id === studentId) {
         setReviewing((r) => r && ({ ...r, submission: null, allRespuestas: {} }))
       }
       setCancelConfirm(null)
+    }
+    try {
+      const sub = cancelConfirm.sub
+      const respSnap = await getDocs(collection(db, 'submissions', sub.id, 'respuestas'))
+      // El intento y sus respuestas se borran JUNTOS y solo si sigue siendo el
+      // intento que el docente está viendo — antes eran dos pasos y a ciegas:
+      // con el id fijo, podían llevarse un intento más nuevo
+      // (submissionGuard.js). `intentosRespuestas` no se toca (servidor).
+      await borrarSiNoCambio(db, doc(db, 'submissions', sub.id), sub, {
+        extras: respSnap.docs.map((d) => doc(db, 'submissions', sub.id, 'respuestas', d.id)),
+      })
+      quedarNoRealizado()
       toast('Entrega anulada — el estudiante puede volver a presentar')
     } catch (err) {
-      toast('Error al anular: ' + err.message, 'error')
+      if (err instanceof EntregaCambio && err.motivo === 'no-existe') {
+        quedarNoRealizado()
+        toast('Esta entrega ya no existía: el estudiante puede volver a presentar')
+      } else if (err instanceof EntregaCambio) {
+        // No se borró nada. Se muestra el intento actual de ESE estudiante
+        // (sin tocar los borradores de calificación del docente).
+        onSubmissionUpdated?.(studentId, err.actual)
+        if (reviewing?.student?.id === studentId) mostrarIntentoActual(studentId, err.actual)
+        setCancelConfirm(null)
+        toast('El intento de este estudiante cambió desde que lo abriste. Se muestra el actual; no se anuló nada.', 'error')
+      } else {
+        toast('Error al anular: ' + err.message, 'error')
+      }
     } finally {
       setCancelling(false)
     }
