@@ -54,6 +54,21 @@ import { normalizarUsername, candidatosUsername, coincidenciaExacta } from '../s
 import { usernameCandidates } from '../src/utils/generate.js'
 import { esNombreParecido, findSimilarIdentity, findStudentIdentity, studentNameKey } from '../src/utils/studentIdentity.js'
 import { tieneEvidencia, elegibleSinEntrega, firmaEntrega } from '../src/utils/submissionGuard.js'
+import { register } from 'node:module'
+
+// extensiones.js llega a studentSearch.js, que importa './nombres' sin
+// extensión (así lo resuelve Vite). Node no lo acepta, así que SOLO para esta
+// prueba se registra un resolve que reintenta un import relativo con '.js'.
+// Aplica a los imports que vengan después de registrarlo, por eso el de
+// extensiones.js es dinámico. No toca ningún archivo de la app.
+register('data:text/javascript,' + encodeURIComponent(`
+export async function resolve(spec, ctx, next) {
+  try { return await next(spec, ctx) } catch (e) {
+    if (e?.code === 'ERR_MODULE_NOT_FOUND' && /^\\.{1,2}\\//.test(spec) && !/\\.[cm]?js$/.test(spec)) return next(spec + '.js', ctx)
+    throw e
+  }
+}`))
+const { tieneEntregaReal } = await import('../src/utils/extensiones.js')
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -4162,6 +4177,44 @@ caso('firmaEntrega: distinta con entrega nueva, intento nuevo o sin documento', 
   assert.notStrictEqual(firmaEntrega({ ...intento, estadoEvaluacion: 'en_progreso' }), firmaEntrega(intento))
   assert.strictEqual(firmaEntrega(null), null)
   assert.notStrictEqual(firmaEntrega(vista), null)
+})
+
+grupo('Prórroga solo sin entrega real — tieneEntregaReal (utils/extensiones.js)')
+
+const ACT_ENTREGABLE = { tipo: 'entregable', categoria: 'tarea' }
+const ACT_CUESTIONARIO = { tipo: 'evaluacion', categoria: 'cuestionario' }
+const ACT_JUEGO = { tipo: 'evaluacion', categoria: 'juego' }
+
+caso('sin documento → no hay entrega real (en los tres tipos)', () => {
+  for (const act of [ACT_ENTREGABLE, ACT_CUESTIONARIO, ACT_JUEGO, null]) {
+    assert.strictEqual(tieneEntregaReal(null, act), false)
+    assert.strictEqual(tieneEntregaReal(undefined, act), false)
+  }
+})
+
+caso('sinEntrega:true (manual o de cierre de parcial) → no es entrega real', () => {
+  for (const act of [ACT_ENTREGABLE, ACT_CUESTIONARIO, ACT_JUEGO]) {
+    assert.strictEqual(tieneEntregaReal({ sinEntrega: true, calificacion: 0 }, act), false)
+    assert.strictEqual(tieneEntregaReal({ sinEntrega: true, cierreParcial: true, calificacion: 5 }, act), false)
+  }
+})
+
+caso('entregable: archivo, completadoSinArchivo o calificada → entrega real', () => {
+  assert.strictEqual(tieneEntregaReal({ archivoURL: 'u', archivos: [{ url: 'u' }] }, ACT_ENTREGABLE), true)
+  assert.strictEqual(tieneEntregaReal({ completadoSinArchivo: true }, ACT_ENTREGABLE), true)
+  assert.strictEqual(tieneEntregaReal({ archivoURL: 'u', calificacion: 9 }, ACT_ENTREGABLE), true)
+})
+
+caso('cuestionario/examen: en_progreso NO cuenta, finalizado SÍ', () => {
+  assert.strictEqual(tieneEntregaReal({ estadoEvaluacion: 'en_progreso', intentos: [] }, ACT_CUESTIONARIO), false)
+  assert.strictEqual(tieneEntregaReal({ estadoEvaluacion: 'en_progreso', intentos: [{ numero: 1 }] }, ACT_CUESTIONARIO), false)
+  assert.strictEqual(tieneEntregaReal({ estadoEvaluacion: 'finalizado', calificacion: 8 }, ACT_CUESTIONARIO), true)
+})
+
+caso('juego: cualquier documento cuenta (también en_progreso), salvo sinEntrega', () => {
+  assert.strictEqual(tieneEntregaReal({ estadoEvaluacion: 'en_progreso' }, ACT_JUEGO), true)
+  assert.strictEqual(tieneEntregaReal({ estadoEvaluacion: 'finalizado', estado: 'calificado' }, ACT_JUEGO), true)
+  assert.strictEqual(tieneEntregaReal({ sinEntrega: true }, ACT_JUEGO), false)
 })
 
 if (fallos.length) {

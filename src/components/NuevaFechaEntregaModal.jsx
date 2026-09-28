@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { doc, updateDoc } from 'firebase/firestore'
+import { useState, useEffect } from 'react'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
 import EFDateTimePicker from './EFDateTimePicker'
@@ -7,6 +7,7 @@ import SearchInput from './SearchInput'
 import { matchesStudentSearch, studentFullName } from '../utils/studentSearch'
 import { nowIsoLocal } from '../utils/nowIso'
 import { fechaLimiteTimestamp } from '../utils/deadline'
+import { leerEntregasReales } from '../utils/extensiones'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
@@ -17,6 +18,13 @@ import { useScrollLock } from '../hooks/useScrollLock'
 // `preselectId` (opcional) abre el modal ya en "Para algunos" con ese
 // estudiante marcado — es la vía de "modificar la fecha para este estudiante"
 // desde su fila. Sin la prop, el modal arranca exactamente como siempre.
+//
+// "Para algunos" es una prórroga individual, y esa solo se da sin entrega
+// real (ver tieneEntregaReal en utils/extensiones): quien ya entregó aparece
+// sin poder marcarse, y al guardar se vuelve a leer por si alguien entregó con
+// el modal abierto. El modal lo resuelve solo — lee él mismo la actividad y
+// sus entregas — para que ninguna de las pantallas que lo abren tenga que
+// cambiar. "Para todos" no pasa por nada de esto.
 export default function NuevaFechaEntregaModal({ activityId, students, onClose, onSaved, preselectId = null }) {
   const toast = useToast()
   const [mode, setMode] = useState(preselectId ? 'algunos' : 'todos')
@@ -25,6 +33,29 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(() => new Set(preselectId ? [preselectId] : []))
   const [saving, setSaving] = useState(false)
+  // alumnoId → entrega real. null mientras carga; `errorEntregas` si falló.
+  const [conEntrega, setConEntrega] = useState(null)
+  const [errorEntregas, setErrorEntregas] = useState(false)
+
+  async function cargarEntregasReales() {
+    const snap = await getDoc(doc(db, 'activities', activityId))
+    return leerEntregasReales(db, activityId, snap.exists() ? snap.data() : null)
+  }
+
+  useEffect(() => {
+    let vivo = true
+    cargarEntregasReales()
+      .then((reales) => {
+        if (!vivo) return
+        setConEntrega(reales)
+        // Un preseleccionado que ya entregó no queda marcado.
+        setSelected((prev) => new Set([...prev].filter((id) => !reales.has(id))))
+      })
+      .catch(() => { if (vivo) setErrorEntregas(true) })
+    return () => { vivo = false }
+    // Solo al abrir: el modal se monta cada vez que se abre.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityId])
 
   // Physical Android back button: this modal is only mounted while its parent
   // renders it (open), so it mirrors the Cancelar button unconditionally.
@@ -34,6 +65,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
   useScrollLock(true)
 
   function toggleStudent(id) {
+    if (!conEntrega || conEntrega.has(id)) return
     setSelected((prev) => {
       const n = new Set(prev)
       if (n.has(id)) n.delete(id); else n.add(id)
@@ -56,6 +88,17 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
         onSaved({ mode, date })
         toast('Nueva fecha de entrega para todo el grupo')
       } else {
+        // Se vuelve a leer justo antes de escribir: alguien pudo entregar con
+        // el modal abierto. Si pasó, no se escribe nada.
+        const reales = await cargarEntregasReales()
+        const entregaron = [...selected].filter((id) => reales.has(id))
+        if (entregaron.length) {
+          setConEntrega(reales)
+          setSelected((prev) => new Set([...prev].filter((id) => !reales.has(id))))
+          const nombres = students.filter((s) => entregaron.includes(s.id)).map(studentFullName).join(', ')
+          toast(`No se guardó: ${nombres || 'un estudiante'} acaba de entregar. Para modificar su fecha, primero anula la entrega.`, 'error')
+          return
+        }
         const motivoTrim = motivo.trim()
         const ids = [...selected]
         const patch = {}
@@ -109,16 +152,31 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
               <div className="mb-2">
                 <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nombre o número de lista…" />
               </div>
+              {errorEntregas ? (
+                <p className="text-xs text-red-600 mb-2">No se pudieron revisar las entregas. Cierra y vuelve a abrir esta ventana.</p>
+              ) : !conEntrega && (
+                <p className="text-xs text-slate-400 mb-2">Revisando entregas…</p>
+              )}
               <div className="border border-outline-variant rounded max-h-52 overflow-auto divide-y divide-outline-variant">
-                {students.filter((s) => !search.trim() || matchesStudentSearch(s, search)).map((s) => (
-                  <label key={s.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-[var(--accent-tint)]">
-                    <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleStudent(s.id)}
-                      className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
-                    <span className="text-sm text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.&nbsp;</span>
-                    <span className="truncate">{studentFullName(s)}</span>
-                  </label>
-                ))}
+                {students.filter((s) => !search.trim() || matchesStudentSearch(s, search)).map((s) => {
+                  const entrego = !!conEntrega?.has(s.id)
+                  return (
+                    <label key={s.id} className={`flex items-center gap-2 px-3 py-2 text-sm ${entrego || !conEntrega ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-[var(--accent-tint)]'}`}>
+                      <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleStudent(s.id)}
+                        disabled={entrego || !conEntrega}
+                        className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
+                      <span className="text-sm text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.&nbsp;</span>
+                      <span className="truncate">{studentFullName(s)}</span>
+                      {entrego && <span className="ml-auto text-xs text-slate-400 flex-shrink-0 whitespace-nowrap">Ya entregó</span>}
+                    </label>
+                  )
+                })}
               </div>
+              {conEntrega?.size > 0 && (
+                <p className="text-xs text-slate-400 mt-1">
+                  Quien ya entregó no puede recibir una fecha propia: primero anula su entrega.
+                </p>
+              )}
               <p className="text-xs text-slate-400 mt-1">
                 {selected.size} seleccionado{selected.size !== 1 ? 's' : ''} — podrán entregar hasta esta
                 fecha; al pasar, se cerrará también para ellos.
@@ -139,7 +197,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
             Cancelar
           </button>
           <button type="button" onClick={save}
-            disabled={saving || !date || (mode === 'algunos' && selected.size === 0)}
+            disabled={saving || !date || (mode === 'algunos' && (selected.size === 0 || !conEntrega))}
             className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors">
             {saving ? 'Guardando…' : 'Guardar'}
           </button>
