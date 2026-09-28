@@ -14,6 +14,7 @@ import {
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
 import { doc, collection, addDoc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, deleteField } from 'firebase/firestore'
+import { EntregaCambio, elegibleSinEntrega, crearSiNoExiste, actualizarSiNoCambio, borrarSiNoCambio, sinEntregaEnLote } from '../src/utils/submissionGuard.js'
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')
 
@@ -2752,6 +2753,250 @@ ok('F-05 · admin CAN read publicProfiles')
   // Anular sigue igual en este cambio (delete no se toca).
   await assertSucceeds(deleteDoc(doc(asT1, 'submissions', 'A_EV_E1')))
   ok('EVIDENCIA · el docente anula una entrega (delete sin cambios)')
+}
+
+// ── GUARDIÁN · lectura de una submission inexistente (docenteLeeSubmissionInexistente)
+// El guardián del cliente lee la submission en una transacción antes de
+// escribir; si no existe, la regla de lectura no tenía `resource.data` y la
+// rechazaba. Ahora el DUEÑO de la actividad (sacada del id determinista) puede
+// confirmar que no existe; nadie más, y nada cambia para documentos que existen.
+// Ids alfanuméricos, como en producción (la regex exige `{act}_{alumno}`).
+{
+  const U_LESR = 'authuiddeles'
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'activities', 'AGR'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo' })
+    await setDoc(doc(db, 'activities', 'AGRT2'), { docenteId: T2, asignaturaId: 'S2', tipo: 'archivo' })
+    await setDoc(doc(db, 'students', 'STLESR'), { asignaturaId: 'S1', escuelaId: 'E1', username: 'LESR', uid: U_LESR, activado: true })
+    await setDoc(doc(db, 'submissions', 'AGR_EXISTE'), { alumnoId: 'EXISTE', actividadId: 'AGR', estado: 'entregado' })
+    await setDoc(doc(db, 'submissions', 'AGRT2_EXISTE'), { alumnoId: 'EXISTE', actividadId: 'AGRT2', estado: 'entregado' })
+  })
+  const asLesR = testEnv.authenticatedContext(U_LESR, { email: 'lesr.e1@evalua.local' }).firestore()
+
+  await assertSucceeds(getDoc(doc(asT1, 'submissions', 'AGR_EXISTE')))
+  ok('GUARDIÁN · reglas: docente dueño lee una submission existente')
+  await assertSucceeds(getDoc(doc(asT1, 'submissions', 'AGR_NOHAY')))
+  ok('GUARDIÁN · reglas: docente dueño confirma que una submission NO existe')
+  await assertFails(getDoc(doc(asT2, 'submissions', 'AGR_NOHAY')))
+  await assertFails(getDoc(doc(asMallory, 'submissions', 'AGR_NOHAY')))
+  await assertFails(getDoc(doc(asT1, 'submissions', 'AGRT2_NOHAY')))
+  ok('GUARDIÁN · reglas: docente NO dueño + inexistente → denegado (ni de actividad ajena)')
+  await assertFails(getDoc(doc(asT2, 'submissions', 'AGR_EXISTE')))
+  await assertFails(getDoc(doc(asT1, 'submissions', 'AGRT2_EXISTE')))
+  ok('GUARDIÁN · reglas: docente NO dueño + existente → denegado')
+  await assertFails(getDoc(doc(asLesR, 'submissions', 'AGR_EXISTE')))
+  await assertFails(getDoc(doc(asLesR, 'submissions', 'AGR_NOHAY2')))
+  await assertFails(getDoc(doc(asJuan, 'submissions', 'AGR_NOHAY3')))
+  await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'submissions', 'AGR_NOHAY')))
+  ok('GUARDIÁN · reglas: alumno o sin sesión leyendo submission ajena o inexistente → denegado')
+  await assertFails(getDoc(doc(asT1, 'submissions', 'AGR_X_Y')))
+  await assertFails(getDoc(doc(asT1, 'submissions', 'AGR')))
+  await assertFails(getDoc(doc(asT1, 'submissions', 'NOEXISTEACT_X')))
+  ok('GUARDIÁN · reglas: id mal formado, sin alumno o de actividad inexistente → denegado')
+}
+
+// ── GUARDIÁN · src/utils/submissionGuard.js contra el emulador con las reglas reales
+// "Si existe una entrega real nueva, ninguna acción del docente con estado
+// viejo puede destruirla o convertirla en sin entrega."
+{
+  const U_LES = 'authuidguardles'
+  const EN_1_DIA_G = Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000))
+  const HACE_1_DIA_G = Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000))
+  const ARCH = (n) => ({ url: `https://res.cloudinary.com/demo/image/upload/v1/evalua-facil/submissions/${n}.pdf`, nombre: `${n}.pdf`, tamano: 10 })
+  const entregaAlumno = (alumnoId, actividadId, n) => ({
+    alumnoId, actividadId,
+    archivoURL: ARCH(n).url, nombreArchivo: ARCH(n).nombre, archivos: [ARCH(n)],
+    completadoSinArchivo: false, fechaEntrega: serverTimestamp(),
+    calificacion: null, comentario: '', estado: 'entregado', tarde: false, historial: [],
+  })
+  const sinEntregaDocente = (alumnoId, actividadId, calificacion = 7) => ({
+    actividadId, alumnoId, calificacion, comentario: '', motivoSinEntrega: '',
+    estado: 'calificado', sinEntrega: true, fechaEntrega: serverTimestamp(),
+  })
+  const leer = async (id) => {
+    let data
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { const s = await getDoc(doc(ctx.firestore(), 'submissions', id)); data = s.exists() ? { id: s.id, ...s.data() } : undefined })
+    return data
+  }
+  const esperarCambio = async (promesa, motivo) => {
+    try { await promesa } catch (e) {
+      assert.ok(e instanceof EntregaCambio, `se esperaba EntregaCambio, llegó ${e?.code || e?.message}`)
+      assert.equal(e.motivo, motivo)
+      return e
+    }
+    assert.fail(`se esperaba EntregaCambio(${motivo}) y la operación se completó`)
+  }
+  const ref = (id) => doc(asT1, 'submissions', id)
+  const prorroga = async () => {
+    let r
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const a = (await getDoc(doc(ctx.firestore(), 'activities', 'AGD'))).data()
+      r = JSON.stringify({ e: a.extensiones, t: a.extensionesTS.STLES.toMillis(), m: a.extensionesMotivo })
+    })
+    return r
+  }
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    // Plazo del grupo vencido; la alumna tiene prórroga vigente (caso Leslye).
+    await setDoc(doc(db, 'activities', 'AGD'), {
+      docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10, fechaLimiteTS: HACE_1_DIA_G,
+      extensiones: { STLES: '2099-01-01T23:59' }, extensionesTS: { STLES: EN_1_DIA_G }, extensionesMotivo: { STLES: 'Pidió prórroga' },
+    })
+    await setDoc(doc(db, 'activities', 'AGL'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10 })
+    await setDoc(doc(db, 'activities', 'AGLEVAL'), { docenteId: T1, asignaturaId: 'S1', tipo: 'evaluacion', categoria: 'cuestionario', maxCalif: 10 })
+    await setDoc(doc(db, 'activities', 'AGJ'), { docenteId: T1, asignaturaId: 'S1', categoria: 'juego', tipoJuego: 'crucigrama', maxCalif: 10 })
+    await setDoc(doc(db, 'activities', 'AGC'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10 })
+    await setDoc(doc(db, 'students', 'STLES'), { asignaturaId: 'S1', escuelaId: 'E1', username: 'LES', uid: U_LES, activado: true })
+    // Primera entrega de la alumna (la que el docente tiene en pantalla).
+    await setDoc(doc(db, 'submissions', 'AGD_STLES'), { ...entregaAlumno('STLES', 'AGD', 'v1'), fechaEntrega: Timestamp.fromMillis(1_700_000_000_000) })
+  })
+  const asLes = testEnv.authenticatedContext(U_LES, { email: 'les.e1@evalua.local' }).firestore()
+  const extAntes = await prorroga()
+
+  // 1-3 · Anular la entrega que el docente está viendo.
+  const vistaV1 = { id: 'AGD_STLES', ...(await getDoc(ref('AGD_STLES'))).data() }
+  await borrarSiNoCambio(asT1, ref('AGD_STLES'), vistaV1)
+  assert.equal(await leer('AGD_STLES'), undefined)
+  ok('GUARDIÁN · anular la entrega actual: el submission desaparece')
+  assert.equal(elegibleSinEntrega(await leer('AGD_STLES')), true)
+  ok('GUARDIÁN · tras anular: "no entregada" (elegible), sin sinEntrega ni documento artificial')
+  assert.equal(await prorroga(), extAntes)
+  ok('GUARDIÁN · tras anular: la prórroga (extensiones / extensionesTS / motivo) queda intacta')
+
+  // 4 · La alumna vuelve a entregar dentro de su prórroga (reglas reales).
+  await assertSucceeds(setDoc(doc(asLes, 'submissions', 'AGD_STLES'), entregaAlumno('STLES', 'AGD', 'v2'), { merge: true }))
+  ok('GUARDIÁN · tras anular: la alumna vuelve a entregar dentro de su prórroga')
+
+  // 5 · Anular con la huella vieja (la de v1): se detiene, v2 intacta.
+  await esperarCambio(borrarSiNoCambio(asT1, ref('AGD_STLES'), vistaV1), 'cambio')
+  assert.equal((await leer('AGD_STLES')).archivoURL, ARCH('v2').url)
+  ok('GUARDIÁN · anular con estado viejo → se detiene y la entrega nueva queda completa')
+
+  // 6 · Calificar con la huella vieja: se detiene, v2 sin calificar.
+  await esperarCambio(actualizarSiNoCambio(asT1, ref('AGD_STLES'), vistaV1, { calificacion: 9, comentario: 'de la v1', estado: 'calificado' }), 'cambio')
+  const v2 = await leer('AGD_STLES')
+  assert.equal(v2.calificacion, null)
+  assert.equal(v2.comentario, '')
+  ok('GUARDIÁN · calificar con estado viejo → se detiene y la entrega nueva no se toca')
+
+  // 7 · "Evaluar sin entrega" / calificar sin entrega con la pantalla vieja (sin documento).
+  const e7 = await esperarCambio(crearSiNoExiste(asT1, ref('AGD_STLES'), sinEntregaDocente('STLES', 'AGD')), 'ya-existe')
+  assert.equal(e7.actual.archivoURL, ARCH('v2').url, 'devuelve la entrega actual para mostrarla')
+  assert.equal((await leer('AGD_STLES')).sinEntrega, undefined)
+  ok('GUARDIÁN · "sin entrega" con estado viejo → se detiene; la entrega nueva nunca pasa a sinEntrega')
+
+  // Camino normal: calificar la versión que sí se está viendo.
+  await actualizarSiNoCambio(asT1, ref('AGD_STLES'), v2, { calificacion: 8.5, comentario: 'ok', estado: 'calificado' })
+  assert.equal((await leer('AGD_STLES')).calificacion, 8.5)
+  ok('GUARDIÁN · calificar la entrega que se está viendo → se guarda')
+
+  // Sin documento: se crea, con la fecha real del servidor (no el centinela).
+  const creado = await crearSiNoExiste(asT1, ref('AGD_NUEVO'), sinEntregaDocente('NUEVO', 'AGD'))
+  assert.equal(typeof creado.fechaEntrega?.toMillis, 'function')
+  await actualizarSiNoCambio(asT1, ref('AGD_NUEVO'), creado, { calificacion: 6 })
+  ok('GUARDIÁN · submission inexistente → "sin entrega" se crea y su huella sirve para la siguiente edición')
+
+  // Ya no existe (anulada en otra pestaña): 'no-existe', no un error de permisos.
+  await esperarCambio(borrarSiNoCambio(asT1, ref('AGD_NOHAY'), vistaV1), 'no-existe')
+  await esperarCambio(actualizarSiNoCambio(asT1, ref('AGD_NOHAY'), vistaV1, { calificacion: 5 }), 'no-existe')
+  ok('GUARDIÁN · entrega que ya no existe → "no-existe" (se muestra Pendiente, sin error de permisos)')
+
+  // 8 · Asignación masiva con un grupo mezclado.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'submissions', 'AGL_E1'), { ...entregaAlumno('E1', 'AGL', 'e1'), fechaEntrega: Timestamp.now() })
+    await setDoc(doc(db, 'submissions', 'AGL_E2'), { ...entregaAlumno('E2', 'AGL', 'e2'), fechaEntrega: Timestamp.now() })
+    await setDoc(doc(db, 'submissions', 'AGL_S1'), { ...sinEntregaDocente('S1', 'AGL', 7), fechaEntrega: Timestamp.now() })
+    await setDoc(doc(db, 'submissions', 'AGLEVAL_Q1'), { alumnoId: 'Q1', actividadId: 'AGLEVAL', estadoEvaluacion: 'en_progreso', intentoActual: 1, tiempoInicio: Timestamp.now(), calificacion: null, estado: 'entregado' })
+  })
+  const masiva = (actividadId, a) => ({ ref: ref(`${actividadId}_${a}`), alumnoId: a, data: { ...sinEntregaDocente(a, actividadId, 5), notificadoEntregaDocente: true } })
+  const r8 = await sinEntregaEnLote(asT1, ['N1', 'N2', 'E1', 'E2', 'S1'].map((a) => masiva('AGL', a)), elegibleSinEntrega)
+  const r8q = await sinEntregaEnLote(asT1, [masiva('AGLEVAL', 'Q1')], elegibleSinEntrega)
+  assert.deepEqual([...r8.escritos].sort(), ['N1', 'N2'])
+  assert.deepEqual(r8.omitidos.map((o) => `${o.alumnoId}:${o.motivo}`).sort(), ['E1:entregado', 'E2:entregado', 'S1:con-registro'])
+  assert.deepEqual(r8q.escritos, ['Q1'], 'cuestionario en curso: semántica actual')
+  for (const a of ['E1', 'E2']) {
+    const d = await leer(`AGL_${a}`)
+    assert.equal(d.archivoURL, ARCH(a.toLowerCase()).url)
+    assert.equal(d.sinEntrega, undefined)
+  }
+  assert.equal((await leer('AGL_S1')).calificacion, 7)
+  assert.equal((await leer('AGL_N1')).sinEntrega, true)
+  ok('GUARDIÁN · asignación masiva: 3 escritos, 3 omitidos (2 entregas intactas, "sin entrega" ya calificado intacto)')
+
+  // 9 · Cierre de parcial con la lista vieja: alguien entregó después.
+  await testEnv.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'submissions', 'AGC_C2'), { ...entregaAlumno('C2', 'AGC', 'c2'), fechaEntrega: Timestamp.now() }))
+  const cierre = (a) => ({ ref: ref(`AGC_${a}`), alumnoId: a, data: { alumnoId: a, actividadId: 'AGC', calificacion: 0, comentario: '', estado: 'calificado', sinEntrega: true, cierreParcial: true, fechaEntrega: serverTimestamp() } })
+  const r9 = await sinEntregaEnLote(asT1, [cierre('C1'), cierre('C2')], (sub) => !sub)
+  assert.deepEqual(r9.escritos, ['C1'])
+  assert.deepEqual(r9.omitidos.map((o) => o.alumnoId), ['C2'])
+  assert.equal((await leer('AGC_C2')).archivoURL, ARCH('c2').url)
+  assert.equal((await leer('AGC_C2')).cierreParcial, undefined)
+  ok('GUARDIÁN · cierre de parcial: la entrega que llegó después se conserva (solo se crea a quien sigue sin documento)')
+
+  // 10 · Cuestionario: anular borra el intento y sus respuestas juntos, o nada.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    for (const q of ['QA', 'QB']) {
+      await setDoc(doc(db, 'submissions', `AGLEVAL_${q}`), { alumnoId: q, actividadId: 'AGLEVAL', estadoEvaluacion: 'finalizado', intentoActual: 1, intentos: [{ numero: 1, calificacion: 8 }], tiempoInicio: Timestamp.fromMillis(1000), calificacion: 8, estado: 'calificado' })
+      await setDoc(doc(db, 'submissions', `AGLEVAL_${q}`, 'respuestas', 'p1'), { opcionSeleccionada: 1 })
+      await setDoc(doc(db, 'submissions', `AGLEVAL_${q}`, 'respuestas', 'p2'), { opcionSeleccionada: 0 })
+    }
+  })
+  const respuestasDe = (id) => ['p1', 'p2'].map((p) => doc(asT1, 'submissions', id, 'respuestas', p))
+  const contarRespuestas = async (id) => {
+    let n = 0
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { n = (await getDocs(collection(ctx.firestore(), 'submissions', id, 'respuestas'))).size })
+    return n
+  }
+  await borrarSiNoCambio(asT1, ref('AGLEVAL_QA'), await leer('AGLEVAL_QA'), { extras: respuestasDe('AGLEVAL_QA') })
+  assert.equal(await leer('AGLEVAL_QA'), undefined)
+  assert.equal(await contarRespuestas('AGLEVAL_QA'), 0)
+  const vistaQB = await leer('AGLEVAL_QB')
+  // Mientras tanto el estudiante empezó un intento nuevo.
+  await testEnv.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'submissions', 'AGLEVAL_QB'), { intentoActual: 2, estadoEvaluacion: 'en_progreso', tiempoInicio: Timestamp.fromMillis(2000) }))
+  await esperarCambio(borrarSiNoCambio(asT1, ref('AGLEVAL_QB'), vistaQB, { extras: respuestasDe('AGLEVAL_QB') }), 'cambio')
+  assert.equal((await leer('AGLEVAL_QB')).intentoActual, 2)
+  assert.equal(await contarRespuestas('AGLEVAL_QB'), 2)
+  ok('GUARDIÁN · cuestionario: anular borra intento + respuestas juntos; con estado viejo no borra nada')
+
+  // Juego: misma semántica (borrar el documento), protegido igual.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    for (const g of ['GA', 'GB']) await setDoc(doc(db, 'submissions', `AGJ_${g}`), { alumnoId: g, actividadId: 'AGJ', estadoEvaluacion: 'finalizado', intentoActual: 1, intentos: [{ numero: 1, calificacion: 9 }], calificacion: 9, estado: 'calificado' })
+  })
+  await borrarSiNoCambio(asT1, ref('AGJ_GA'), await leer('AGJ_GA'))
+  assert.equal(await leer('AGJ_GA'), undefined)
+  const vistaGB = await leer('AGJ_GB')
+  await testEnv.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'submissions', 'AGJ_GB'), { intentoActual: 2, estadoEvaluacion: 'en_progreso' }))
+  await esperarCambio(borrarSiNoCambio(asT1, ref('AGJ_GB'), vistaGB), 'cambio')
+  assert.equal((await leer('AGJ_GB')).intentoActual, 2)
+  ok('GUARDIÁN · juego: anular vigente borra; con estado viejo se detiene')
+
+  // Carrera real: la alumna entrega AL MISMO TIEMPO que el docente guarda
+  // "sin entrega" (o la asignación masiva). Gane quien gane, una entrega real
+  // nunca termina convertida en sinEntrega ni se pierde en silencio.
+  for (let i = 0; i < 6; i++) {
+    const act = `AGRC${i}`
+    await testEnv.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'activities', act), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10 }))
+    const id = `${act}_STLES`
+    const accionDocente = i % 2
+      ? crearSiNoExiste(asT1, ref(id), sinEntregaDocente('STLES', act))
+      : sinEntregaEnLote(asT1, [{ ref: ref(id), alumnoId: 'STLES', data: sinEntregaDocente('STLES', act, 5) }], elegibleSinEntrega)
+    const [docente, alumna] = await Promise.allSettled([
+      accionDocente,
+      setDoc(doc(asLes, 'submissions', id), entregaAlumno('STLES', act, `r${i}`), { merge: true }),
+    ])
+    const final = await leer(id)
+    if (final.archivoURL) {
+      assert.notEqual(final.sinEntrega, true, `carrera ${i}: la entrega real quedó convertida`)
+    } else {
+      assert.equal(alumna.status, 'rejected', `carrera ${i}: sin archivo, la entrega de la alumna tuvo que rechazarse (no perderse en silencio)`)
+    }
+    if (docente.status === 'rejected') assert.ok(docente.reason instanceof EntregaCambio, `carrera ${i}: el docente recibe EntregaCambio, no otro error (${docente.reason?.code || docente.reason?.message})`)
+  }
+  ok('GUARDIÁN · carrera entrega vs. "sin entrega"/masiva (6 rondas): ninguna entrega real se convierte ni se pierde en silencio')
 }
 
 await testEnv.cleanup()

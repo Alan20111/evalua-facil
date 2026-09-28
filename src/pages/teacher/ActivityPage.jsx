@@ -12,11 +12,12 @@ import {
   onSnapshot,
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
-import { updateDoc, setDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
+import { updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../../firebase'
 import { submissionDocId } from '../../utils/submissionId'
+import { EntregaCambio, crearSiNoExiste, actualizarSiNoCambio, borrarSiNoCambio } from '../../utils/submissionGuard'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -789,8 +790,50 @@ export default function ActivityPage() {
   // calOverride: ÚNICAMENTE para el botón "Aplicar y guardar calificación" de
   // la rúbrica, cuando el docente no pasó por el input y el campo está vacío.
   // Nunca se usa desde el botón normal "Guardar calificación".
+  // Una escritura protegida (utils/submissionGuard.js) se detuvo porque la
+  // entrega ya no es la que el docente tenía en pantalla. Se actualiza SOLO
+  // la entrega de ese estudiante — en el mapa y en el panel abierto — sin
+  // pasar por openGrade(): el formulario, la rúbrica, el alumno seleccionado
+  // y la navegación se quedan exactamente como estaban, con lo que el
+  // docente ya escribió.
+  // `mensajeCambio`: texto propio de la acción cuando la entrega cambió (Anular
+  // no "guarda" nada); sin él se usa el de guardar.
+  function mostrarEntregaActual(studentId, err, mensajeCambio = null) {
+    const actual = err.actual || undefined
+    setSubmissions((prev) => {
+      const next = { ...prev }
+      if (actual) next[studentId] = actual
+      else delete next[studentId]
+      return next
+    })
+    setSelected((sel) => (sel && sel.student.id === studentId ? { ...sel, sub: actual } : sel))
+    // La confirmación de "Anular" se cierra: lo que había que confirmar ya no
+    // es lo que hay. "Evaluar sin entrega" conserva lo tecleado (su sección
+    // solo se muestra mientras no hay entrega).
+    setAnnulMode(false)
+    if (err.motivo === 'no-existe') {
+      toast('Esta entrega ya no existe: el estudiante quedó como Pendiente. Lo que escribiste se conservó.')
+    } else if (err.motivo === 'ya-existe') {
+      toast(actual?.sinEntrega
+        ? 'Este estudiante ya tiene una calificación sin entrega. Se muestra la actual; lo que escribiste se conservó.'
+        : 'Este estudiante acaba de entregar. Revisa su entrega; lo que escribiste se conservó.', 'error')
+    } else {
+      toast(mensajeCambio || 'La entrega de este estudiante cambió desde que la abriste. Se muestra la versión actual; lo que escribiste se conservó y no se guardó nada.', 'error')
+    }
+  }
+
   async function persistGrade(calOverride = null) {
     if (!selected || !canCreate) return false
+    try {
+      return await persistGradeProtegido(calOverride)
+    } catch (err) {
+      if (!(err instanceof EntregaCambio)) throw err
+      mostrarEntregaActual(selected.student.id, err)
+      return false
+    }
+  }
+
+  async function persistGradeProtegido(calOverride) {
     // Parcial cerrado definitivamente: la calificación queda congelada, pero el
     // comentario no la cambia — se guarda solo eso (firestore.rules ·
     // soloComentarioDocente).
@@ -800,7 +843,7 @@ export default function ActivityPage() {
       const visibleCerrado = comentarioVisibleEsExcepcionRef.current
         ? { comentarioVisibleAlumno: gradeForm.comentarioVisibleAlumno !== false }
         : {}
-      await updateDoc(doc(db, 'submissions', selected.sub.id), { comentario: comentarioCerrado, ...visibleCerrado })
+      await actualizarSiNoCambio(db, doc(db, 'submissions', selected.sub.id), selected.sub, { comentario: comentarioCerrado, ...visibleCerrado })
       const actualizado = { ...selected.sub, comentario: comentarioCerrado, ...visibleCerrado }
       setSubmissions((prev) => ({ ...prev, [selected.student.id]: actualizado }))
       setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: actualizado } : sel))
@@ -828,7 +871,10 @@ export default function ActivityPage() {
     const rubricaEvalPayload = hasRubrica ? { rubricaEval: normRubricaEval(rubricEval) } : {}
     let updated
     if (selected.sub) {
-      await updateDoc(doc(db, 'submissions', selected.sub.id), {
+      // Solo si sigue siendo la entrega que el docente está viendo: con la
+      // pantalla vieja, esta nota y este comentario caerían sobre una entrega
+      // nueva que nunca revisó (submissionGuard.js).
+      await actualizarSiNoCambio(db, doc(db, 'submissions', selected.sub.id), selected.sub, {
         calificacion: cal,
         comentario,
         estado: 'calificado',
@@ -848,12 +894,11 @@ export default function ActivityPage() {
         ...comentarioVisiblePayload,
         ...rubricaEvalPayload,
       }
-      // Id determinista (A12 · H5 · R22) — merge:true por la misma razón que
-      // en ActivityPage.jsx del alumno: si `selected.sub` está desactualizado
-      // y ya existe una entrega real, no la reemplaza a ciegas.
+      // Id determinista (A12 · H5 · R22). Solo se CREA: si mientras tanto el
+      // estudiante entregó, antes un setDoc(merge) convertía esa entrega en
+      // sinEntrega:true (caso real, sep-2026) — ahora se detiene y se muestra.
       const id = submissionDocId(activityId, selected.student.id)
-      await setDoc(doc(db, 'submissions', id), data, { merge: true })
-      updated = { id, ...data }
+      updated = await crearSiNoExiste(db, doc(db, 'submissions', id), data)
     }
     setSubmissions((prev) => ({ ...prev, [selected.student.id]: updated }))
     setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: updated } : sel))
@@ -921,8 +966,7 @@ export default function ActivityPage() {
       return
     }
     setAnnulling(true)
-    try {
-      await deleteDoc(doc(db, 'submissions', selected.sub.id))
+    const quedarPendiente = () => {
       setSubmissions((prev) => {
         const next = { ...prev }
         delete next[selected.student.id]
@@ -931,9 +975,25 @@ export default function ActivityPage() {
       setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: undefined } : sel))
       setGradeForm({ calificacion: '', comentario: '' })
       setAnnulMode(false)
+    }
+    try {
+      // Se borra SOLO si sigue siendo la entrega que el docente está viendo:
+      // con el id fijo, un deleteDoc a ciegas borraba la entrega nueva que el
+      // estudiante subió después (submissionGuard.js). La ausencia del
+      // documento ES "no entregada" en toda la plataforma: no se crea ningún
+      // sinEntrega ni se toca la actividad (su prórroga sigue intacta).
+      await borrarSiNoCambio(db, doc(db, 'submissions', selected.sub.id), selected.sub)
+      quedarPendiente()
       toast('Entrega anulada — el estudiante queda en Pendiente y puede volver a entregar')
     } catch (err) {
-      toast('Error al anular: ' + err.message, 'error')
+      if (err instanceof EntregaCambio && err.motivo === 'no-existe') {
+        quedarPendiente()
+        toast('Esta entrega ya no existía: el estudiante queda en Pendiente')
+      } else if (err instanceof EntregaCambio) {
+        mostrarEntregaActual(selected.student.id, err, 'Esta entrega cambió mientras la estabas revisando. No se anuló nada. Revisa la entrega actualizada.')
+      } else {
+        toast('Error al anular: ' + err.message, 'error')
+      }
     } finally {
       setAnnulling(false)
     }
@@ -969,17 +1029,17 @@ export default function ActivityPage() {
         sinEntrega: true,
         fechaEntrega: serverTimestamp(),
       }
-      // Id determinista + merge:true — ver persistGrade() más arriba.
+      // Id determinista; solo se CREA — ver persistGrade() más arriba.
       const id = submissionDocId(activityId, selected.student.id)
-      await setDoc(doc(db, 'submissions', id), data, { merge: true })
-      const updated = { id, ...data }
+      const updated = await crearSiNoExiste(db, doc(db, 'submissions', id), data)
       setSubmissions((prev) => ({ ...prev, [selected.student.id]: updated }))
       setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: updated } : sel))
       setGradeForm({ calificacion: String(cal), comentario: '' })
       setSinEntregaMode(false)
       toast('Calificación sin entrega guardada')
     } catch (err) {
-      toast('Error: ' + err.message, 'error')
+      if (err instanceof EntregaCambio) mostrarEntregaActual(selected.student.id, err)
+      else toast('Error: ' + err.message, 'error')
     } finally {
       setSavingSinEntrega(false)
     }
@@ -1244,6 +1304,9 @@ export default function ActivityPage() {
             delete next[studentId]
             return next
           })}
+          // Anular detenido porque la entrega cambió (submissionGuard.js):
+          // se muestra la versión actual de ESE estudiante.
+          onSubmissionUpdated={(studentId, sub) => setSubmissions((prev) => ({ ...prev, [studentId]: sub }))}
           onDeleteActivity={() => setDeleteConfirm(true)}
           goBack={goBack}
           openStudentId={location.state?.openStudentId || null}

@@ -22,7 +22,8 @@ import { useState, useEffect } from 'react'
 import { ArrowLeft, Pencil, Trash2, XCircle, CalendarClock, CalendarDays, ChevronRight, Lock, LockOpen, FileCheck2, CheckCircle, Timer, Ban } from 'lucide-react'
 import { doc, getDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { updateDoc, deleteDoc } from '../../utils/firestoreGuard'
+import { updateDoc } from '../../utils/firestoreGuard'
+import { EntregaCambio, borrarSiNoCambio } from '../../utils/submissionGuard'
 import { db, functions } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
@@ -51,7 +52,7 @@ import ResolucionJuegoModal from './ResolucionJuegoModal'
 export default function JuegoManager({
   activity, subject, activityId, activityLabel, students, submissions,
   onActivityChange, onDeleteActivity, goBack,
-  parcialCerrado = false, onSubmissionRemoved, openStudentId = null,
+  parcialCerrado = false, onSubmissionRemoved, onSubmissionUpdated, openStudentId = null,
 }) {
   const [regresando, setRegresando] = useState(false)
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
@@ -249,6 +250,7 @@ export default function JuegoManager({
           onActivityChange={onActivityChange}
           parcialCerrado={parcialCerrado}
           onSubmissionRemoved={onSubmissionRemoved}
+          onSubmissionUpdated={onSubmissionUpdated}
           openStudentId={openStudentId}
         />
       )}
@@ -318,7 +320,7 @@ function NombreJuego({ activity, activityId, tipoLabel, onActivityChange }) {
 
 function JuegoConfiguracion({
   activity, activityId, estructura, students, submissions, onActivityChange,
-  parcialCerrado = false, onSubmissionRemoved, openStudentId = null,
+  parcialCerrado = false, onSubmissionRemoved, onSubmissionUpdated, openStudentId = null,
 }) {
   const toast = useToast()
   const evalDefaults = EVALUACION_DEFAULTS.juego
@@ -509,12 +511,25 @@ function JuegoConfiguracion({
     }
     setAnulando(true)
     try {
-      await deleteDoc(doc(db, 'submissions', anularConfirm.sub.id))
+      // Solo si sigue siendo el intento que el docente está viendo: con el id
+      // fijo, un deleteDoc a ciegas borraba un intento más nuevo
+      // (submissionGuard.js). La semántica no cambia: sin documento = Pendiente.
+      await borrarSiNoCambio(db, doc(db, 'submissions', anularConfirm.sub.id), anularConfirm.sub)
       onSubmissionRemoved?.(anularConfirm.student.id)
       setAnularConfirm(null)
       toast('Entrega anulada — el estudiante queda en Pendiente y puede volver a jugar')
     } catch (err) {
-      toast('Error al anular: ' + err.message, 'error')
+      if (err instanceof EntregaCambio && err.motivo === 'no-existe') {
+        onSubmissionRemoved?.(anularConfirm.student.id)
+        setAnularConfirm(null)
+        toast('Esta entrega ya no existía: el estudiante queda en Pendiente')
+      } else if (err instanceof EntregaCambio) {
+        onSubmissionUpdated?.(anularConfirm.student.id, err.actual)
+        setAnularConfirm(null)
+        toast('El juego de este estudiante cambió desde que lo abriste. Se muestra la versión actual; no se anuló nada.', 'error')
+      } else {
+        toast('Error al anular: ' + err.message, 'error')
+      }
     } finally {
       setAnulando(false)
     }

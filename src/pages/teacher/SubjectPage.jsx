@@ -7,7 +7,7 @@ import {
 } from 'firebase/firestore'
 // Las escrituras pasan por el candado de suscripción vencida (mismos nombres y
 // firmas que 'firebase/firestore'); leer sigue siendo directo.
-import { addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
+import { addDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -58,6 +58,7 @@ import ParcialesFechas, { normalizeParcialesFechas, addOneDay } from '../../comp
 import { minDeadline } from '../../utils/nowIso'
 import { fechaLimiteTimestamp } from '../../utils/deadline'
 import { submissionDocId } from '../../utils/submissionId'
+import { EntregaCambio, tieneEvidencia, elegibleSinEntrega, crearSiNoExiste, actualizarSiNoCambio, sinEntregaEnLote } from '../../utils/submissionGuard'
 import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
@@ -166,6 +167,12 @@ async function fetchSubmissionsForActivities(actIds) {
     )
   )
   return snaps.flatMap((s) => s.docs)
+}
+
+// "Ana López, Beto Ruiz, Carla Díaz y 4 más" — para decir a quién se omitió.
+function nombresBreves(ids, students) {
+  const nombres = ids.map((id) => studentFullName(students.find((s) => s.id === id)) || 'Un estudiante')
+  return nombres.length <= 3 ? nombres.join(', ') : `${nombres.slice(0, 3).join(', ')} y ${nombres.length - 3} más`
 }
 
 const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', recibirTarde: false, tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show', esEvaluacion: false }
@@ -1539,6 +1546,25 @@ export default function SubjectPage() {
     })
   }
 
+  // La edición rápida se detuvo porque la celda ya no es lo que hay en
+  // Firestore (submissionGuard.js): se actualiza SOLO esa celda y la ventanita
+  // sigue abierta con el valor que el docente tecleó.
+  function mostrarCeldaActual(key, err) {
+    const actual = err.actual || null
+    setGradeSubMap((prev) => {
+      const next = { ...prev }
+      if (actual) next[key] = actual
+      else delete next[key]
+      return next
+    })
+    setGradeQuickEdit((q) => q && ({ ...q, subId: actual?.id || null }))
+    toast(err.motivo === 'no-existe'
+      ? 'Esta entrega ya no existe (fue anulada). La celda se actualizó; tu valor sigue en la ventanita.'
+      : err.motivo === 'ya-existe' && !actual?.sinEntrega
+        ? 'Este estudiante ya tiene una entrega o intento. Ábrela en la actividad para calificarla; no se guardó nada.'
+        : 'Esta celda cambió desde que cargaste la tabla. Se actualizó; revisa y vuelve a guardar.', 'error')
+  }
+
   async function saveGradeQuickEdit() {
     if (!gradeQuickEdit) return
     const { subId, activityId, studentId, maxCalif, value } = gradeQuickEdit
@@ -1548,10 +1574,11 @@ export default function SubjectPage() {
       return
     }
     setSavingQuickGrade(true)
+    const key = `${studentId}-${activityId}`
     try {
-      const key = `${studentId}-${activityId}`
       if (subId) {
-        await updateDoc(doc(db, 'submissions', subId), { calificacion: n })
+        // Solo si la celda sigue siendo la entrega que se cargó en la tabla.
+        await actualizarSiNoCambio(db, doc(db, 'submissions', subId), gradeSubMap[key], { calificacion: n })
         setGradeSubMap((prev) => ({ ...prev, [key]: { ...prev[key], calificacion: n } }))
       } else {
         // Igual que "Calificar sin entrega" en la actividad: crea la
@@ -1567,16 +1594,18 @@ export default function SubjectPage() {
           sinEntrega: true,
           fechaEntrega: serverTimestamp(),
         }
-        // Id determinista + merge:true (A12 · H5 · R22) — ver persistGrade()
-        // en ActivityPage.jsx del docente.
+        // Id determinista (A12 · H5 · R22). Solo se CREA: si mientras tanto
+        // el estudiante entregó o empezó un intento, se detiene en vez de
+        // convertirlo en "sin entrega" (submissionGuard.js).
         const id = submissionDocId(activityId, studentId)
-        await setDoc(doc(db, 'submissions', id), data, { merge: true })
-        setGradeSubMap((prev) => ({ ...prev, [key]: { id, ...data } }))
+        const creado = await crearSiNoExiste(db, doc(db, 'submissions', id), data)
+        setGradeSubMap((prev) => ({ ...prev, [key]: creado }))
       }
       toast('Calificación guardada')
       setGradeQuickEdit(null)
     } catch (err) {
-      toast('Error: ' + err.message, 'error')
+      if (err instanceof EntregaCambio) mostrarCeldaActual(key, err)
+      else toast('Error: ' + err.message, 'error')
     } finally {
       setSavingQuickGrade(false)
     }
@@ -1586,9 +1615,9 @@ export default function SubjectPage() {
     if (!gradeQuickEdit?.subId) return
     const { subId, activityId, studentId } = gradeQuickEdit
     setSavingQuickGrade(true)
+    const key = `${studentId}-${activityId}`
     try {
-      await updateDoc(doc(db, 'submissions', subId), { calificacion: deleteField() })
-      const key = `${studentId}-${activityId}`
+      await actualizarSiNoCambio(db, doc(db, 'submissions', subId), gradeSubMap[key], { calificacion: deleteField() })
       setGradeSubMap((prev) => {
         const updated = { ...prev[key] }
         delete updated.calificacion
@@ -1597,7 +1626,8 @@ export default function SubjectPage() {
       toast('Calificación eliminada')
       setGradeQuickEdit(null)
     } catch (err) {
-      toast('Error: ' + err.message, 'error')
+      if (err instanceof EntregaCambio) mostrarCeldaActual(key, err)
+      else toast('Error: ' + err.message, 'error')
     } finally {
       setSavingQuickGrade(false)
     }
@@ -1633,10 +1663,11 @@ export default function SubjectPage() {
         const extMs = new Date(extDate.includes('T') ? extDate : `${extDate}T23:59:59`).getTime()
         if (extMs > now) return false
       }
-      const sub = gradeSubMap[`${s.id}-${activity.id}`]
-      // Pendiente: sin doc, o doc con calificacion ausente/null (incluso en_progreso).
-      // calificacion == null abarca null y campo ausente; calificacion:0 es válida (0 == null → false).
-      return !sub || sub.calificacion == null
+      // Sin documento, o documento sin evidencia y sin calificación (un
+      // cuestionario/juego en curso sigue contando, como siempre). Una entrega
+      // real sin calificar NO es "no entregada": antes contaba aquí y la
+      // escritura masiva le borraba el archivo (submissionGuard.js).
+      return elegibleSinEntrega(gradeSubMap[`${s.id}-${activity.id}`])
     }).length
 
     const popW = 280
@@ -1645,6 +1676,19 @@ export default function SubjectPage() {
       y: Math.min(e.clientY, window.innerHeight - 80),
       activity,
       missingCount,
+    })
+  }
+
+  // Vuelve a leer de Firestore las entregas de estas actividades y reemplaza
+  // SOLO sus celdas en la tabla.
+  async function refrescarCalificacionesDe(actIds) {
+    const docs = await fetchSubmissionsForActivities(actIds)
+    const ids = new Set(actIds)
+    setGradeSubMap((prev) => {
+      const next = {}
+      Object.entries(prev).forEach(([k, v]) => { if (!ids.has(v?.actividadId)) next[k] = v })
+      docs.forEach((d) => { const x = { id: d.id, ...d.data() }; next[`${x.alumnoId}-${x.actividadId}`] = x })
+      return next
     })
   }
 
@@ -1683,13 +1727,19 @@ export default function SubjectPage() {
           const extMs = new Date(extDate.includes('T') ? extDate : `${extDate}T23:59:59`).getTime()
           if (extMs > now) return false
         }
-        const data = freshSubByStudent.get(s.id)
-        if (!data) return true
-        return data.calificacion == null
+        return elegibleSinEntrega(freshSubByStudent.get(s.id))
       })
+      // Entregaron y esperan calificación: no son "no entregadas" y no se
+      // tocan — se nombran para que el docente sepa por qué no entraron.
+      const yaEntregaron = groupStudents
+        .filter((s) => { const d = freshSubByStudent.get(s.id); return tieneEvidencia(d) && d.calificacion == null })
+        .map((s) => s.id)
+      const avisoEntregaron = yaEntregaron.length
+        ? `${yaEntregaron.length} ya ${yaEntregaron.length !== 1 ? 'entregaron y esperan' : 'entregó y espera'} tu calificación (no se tocaron): ${nombresBreves(yaEntregaron, groupStudents)}`
+        : ''
 
       if (pendientes.length === 0) {
-        toast('Ya no hay estudiantes sin entrega para esta actividad')
+        toast(avisoEntregaron ? `Ya no hay estudiantes sin entrega. ${avisoEntregaron}` : 'Ya no hay estudiantes sin entrega para esta actividad', avisoEntregaron ? 'warning' : undefined)
         setBulkGradeModal(null)
         setBulkGradeValue('')
         return
@@ -1709,27 +1759,26 @@ export default function SubjectPage() {
         fechaEntrega: serverTimestamp(),
       }
 
-      const newSubs = []
-      let savedCount = 0
-      for (let i = 0; i < pendientes.length; i += 400) {
-        const batch = writeBatch(db)
-        pendientes.slice(i, i + 400).forEach((s) => {
-          const id = submissionDocId(activity.id, s.id)
-          const ref = doc(db, 'submissions', id)
-          batch.set(ref, { ...data, alumnoId: s.id })
-          newSubs.push({ key: `${s.id}-${activity.id}`, data: { id, ...data, alumnoId: s.id } })
-        })
-        await batch.commit()
-        savedCount += Math.min(400, pendientes.length - i)
-      }
+      // Cada bloque es una transacción que vuelve a revisar a cada estudiante
+      // y escribe SOLO a los que siguen elegibles (mismo set y mismo contenido
+      // que antes): si alguien entrega en este instante, queda fuera en vez
+      // de perder su archivo (submissionGuard.js).
+      const { escritos, omitidos } = await sinEntregaEnLote(db, pendientes.map((s) => ({
+        ref: doc(db, 'submissions', submissionDocId(activity.id, s.id)),
+        alumnoId: s.id,
+        data: { ...data, alumnoId: s.id },
+      })), elegibleSinEntrega)
 
-      // Actualizar el estado local para que la tabla refleje las nuevas notas.
-      setGradeSubMap((prev) => {
-        const next = { ...prev }
-        newSubs.forEach(({ key, data: d }) => { next[key] = d })
-        return next
-      })
-      toast(`${savedCount} calificación${savedCount !== 1 ? 'es' : ''} guardada${savedCount !== 1 ? 's' : ''}`)
+      // La tabla se relee de Firestore (fechas reales, no el serverTimestamp
+      // local) para que la siguiente edición compare contra lo guardado.
+      await refrescarCalificacionesDe([activity.id])
+      const savedCount = escritos.length
+      const guardadas = `${savedCount} calificación${savedCount !== 1 ? 'es' : ''} guardada${savedCount !== 1 ? 's' : ''}`
+      const avisoOmitidos = omitidos.length
+        ? `${omitidos.length} ${omitidos.length !== 1 ? 'entregaron o se calificaron' : 'entregó o se calificó'} mientras guardabas y no se ${omitidos.length !== 1 ? 'tocaron' : 'tocó'}: ${nombresBreves(omitidos.map((o) => o.alumnoId), groupStudents)}`
+        : ''
+      const avisos = [avisoEntregaron, avisoOmitidos].filter(Boolean)
+      toast(avisos.length ? `${guardadas}. ${avisos.join('. ')}` : guardadas, avisos.length ? 'warning' : undefined)
       setBulkGradeModal(null)
       setBulkGradeValue('')
     } catch (err) {
@@ -4469,24 +4518,48 @@ export default function SubjectPage() {
 
   async function confirmCloseParcial() {
     if (!closeParcialConfirm) return
-    const { p, missing, topeCalif = 10 } = closeParcialConfirm
+    const { p, topeCalif = 10 } = closeParcialConfirm
     // Grade to assign to every no-entrega (default 0 if the field is left
     // blank), acotada contra la escala del parcial — ver topeCalif arriba.
     const grade = Math.min(Math.max(0, parseFloat(closeParcialGrade) || 0), topeCalif)
     setClosingParcial(true)
     try {
-      // Batched creates (Firestore caps batches at 500 writes)
-      const newSubs = []
+      // La lista del aviso salió de la tabla tal como se cargó, que puede
+      // tener horas: se vuelve a leer ANTES de escribir nada. Misma regla que
+      // el aviso (una entrega o intento sin calificar impide cerrar), pero
+      // contra lo que hay AHORA — antes, una entrega llegada después se
+      // pisaba con la nota de cierre (submissionGuard.js).
+      const acts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
+      const actIds = acts.map((a) => a.id)
+      const frescas = await fetchSubmissionsForActivities(actIds)
+      const actualPorClave = new Map(frescas.map((d) => [`${d.data().alumnoId}-${d.data().actividadId}`, d.data()]))
+      const missing = []
+      let sinCalificar = 0
+      groupStudents.forEach((s) => {
+        acts.forEach((a) => {
+          const sub = actualPorClave.get(`${s.id}-${a.id}`)
+          if (!sub) missing.push({ s, a })
+          else if (sub.calificacion == null) sinCalificar++
+        })
+      })
+      if (sinCalificar > 0) {
+        await refrescarCalificacionesDe(actIds)
+        toast(`No se cerró el Parcial ${p}: llegaron entregas o intentos nuevos y hay ${sinCalificar} sin calificar. Califícalos y vuelve a cerrarlo.`, 'error')
+        setCloseParcialConfirm(null)
+        return
+      }
       // Un lote por actividad — mismo límite de lecturas de firestore.rules
-      // que la reapertura y las altas tardías.
+      // que la reapertura y las altas tardías. Solo se escribe a quien SIGUE
+      // sin documento al momento de escribir (transacción): quien entregue en
+      // este instante conserva su entrega y el parcial no se cierra.
       const faltantesPorActividad = new Map()
       missing.forEach((m) => {
         if (!faltantesPorActividad.has(m.a.id)) faltantesPorActividad.set(m.a.id, [])
         faltantesPorActividad.get(m.a.id).push(m)
       })
-      for (const faltantes of faltantesPorActividad.values()) for (let i = 0; i < faltantes.length; i += 400) {
-        const batch = writeBatch(db)
-        faltantes.slice(i, i + 400).forEach(({ s, a }) => {
+      const omitidos = []
+      for (const faltantes of faltantesPorActividad.values()) {
+        const items = faltantes.map(({ s, a }) => {
           // Id determinista (A12 · H5 · R22).
           const ref = doc(db, 'submissions', submissionDocId(a.id, s.id))
           const data = {
@@ -4502,16 +4575,17 @@ export default function SubjectPage() {
             cierreParcial: true,
             fechaEntrega: serverTimestamp(),
           }
-          batch.set(ref, data)
-          newSubs.push({ key: `${s.id}-${a.id}`, data: { id: ref.id, ...data } })
+          return { ref, alumnoId: s.id, data }
         })
-        await batch.commit()
+        const r = await sinEntregaEnLote(db, items, (sub) => !sub)
+        omitidos.push(...r.omitidos)
       }
-      setGradeSubMap((prev) => {
-        const next = { ...prev }
-        newSubs.forEach(({ key, data }) => { next[key] = data })
-        return next
-      })
+      await refrescarCalificacionesDe(actIds)
+      if (omitidos.length) {
+        toast(`No se cerró el Parcial ${p}: ${omitidos.length} ${omitidos.length !== 1 ? 'estudiantes entregaron' : 'estudiante entregó'} mientras se cerraba y se ${omitidos.length !== 1 ? 'conservaron sus entregas' : 'conservó su entrega'} (${nombresBreves([...new Set(omitidos.map((o) => o.alumnoId))], groupStudents)}). Califica y vuelve a cerrarlo.`, 'error')
+        setCloseParcialConfirm(null)
+        return
+      }
       const sesionesConfirmadas = parseInt(closeParcialSesiones, 10)
       const closeTs = new Date().toISOString()
       await updateDoc(doc(db, 'subjects', subjectId), {
