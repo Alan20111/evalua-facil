@@ -796,7 +796,9 @@ export default function ActivityPage() {
   // pasar por openGrade(): el formulario, la rúbrica, el alumno seleccionado
   // y la navegación se quedan exactamente como estaban, con lo que el
   // docente ya escribió.
-  function mostrarEntregaActual(studentId, err) {
+  // `mensajeCambio`: texto propio de la acción cuando la entrega cambió (Anular
+  // no "guarda" nada); sin él se usa el de guardar.
+  function mostrarEntregaActual(studentId, err, mensajeCambio = null) {
     const actual = err.actual || undefined
     setSubmissions((prev) => {
       const next = { ...prev }
@@ -816,7 +818,7 @@ export default function ActivityPage() {
         ? 'Este estudiante ya tiene una calificación sin entrega. Se muestra la actual; lo que escribiste se conservó.'
         : 'Este estudiante acaba de entregar. Revisa su entrega; lo que escribiste se conservó.', 'error')
     } else {
-      toast('La entrega de este estudiante cambió desde que la abriste. Se muestra la versión actual; lo que escribiste se conservó y no se guardó nada.', 'error')
+      toast(mensajeCambio || 'La entrega de este estudiante cambió desde que la abriste. Se muestra la versión actual; lo que escribiste se conservó y no se guardó nada.', 'error')
     }
   }
 
@@ -988,7 +990,7 @@ export default function ActivityPage() {
         quedarPendiente()
         toast('Esta entrega ya no existía: el estudiante queda en Pendiente')
       } else if (err instanceof EntregaCambio) {
-        mostrarEntregaActual(selected.student.id, err)
+        mostrarEntregaActual(selected.student.id, err, 'Esta entrega cambió mientras la estabas revisando. No se anuló nada. Revisa la entrega actualizada.')
       } else {
         toast('Error al anular: ' + err.message, 'error')
       }
