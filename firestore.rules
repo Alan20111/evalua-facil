@@ -320,6 +320,39 @@ service cloud.firestore {
         .hasOnly(['comentario', 'comentarioVisibleAlumno']);
     }
 
+    // ── La evidencia de una entrega es del alumno, no del docente ────────────
+    //
+    // Caso real (sep-2026): la pantalla del docente leía las entregas UNA vez
+    // y actuaba sobre ese estado viejo. Como el id de la submission es fijo
+    // (`{actividadId}_{alumnoId}`), una escritura pensada para "no hay
+    // entrega" caía encima de la entrega que el alumno acababa de subir: un
+    // `setDoc(merge)` la convertía en sinEntrega:true, y un `batch.set` sin
+    // merge ("asignar calificación a no entregadas", cierre de parcial) la
+    // reemplazaba entera y borraba el archivoURL. Ningún flujo del docente
+    // escribe estos campos — solo el alumno al entregar — así que prohibírselos
+    // no quita nada legítimo, y protege también a las versiones viejas de la
+    // app y a las pestañas abiertas antes de cualquier arreglo del cliente.
+    //
+    // "Evidencia" son solo los campos de la entrega de ARCHIVO. Cuestionarios,
+    // exámenes y juegos guardan lo suyo en otra parte (subcolección
+    // `respuestas`, estadoEvaluacion…), así que su semántica no cambia aquí.
+    // Sin get(): solo mira el documento, no cuenta contra el límite de lecturas.
+    function tieneEvidencia(d) {
+      return d.get('archivoURL', null) != null ||
+        (d.get('archivos', []) is list && d.get('archivos', []).size() > 0) ||
+        d.get('completadoSinArchivo', false) == true;
+    }
+
+    function docenteRespetaEvidencia() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['archivoURL', 'nombreArchivo', 'archivos', 'completadoSinArchivo']) &&
+        !(
+          tieneEvidencia(resource.data) &&
+          resource.data.get('sinEntrega', false) != true &&
+          request.resource.data.get('sinEntrega', false) == true
+        );
+    }
+
     // Actividades: con su parcial cerrado no cambia nada de lo que decide la
     // calificación — a qué parcial pertenece, su peso, su escala, su
     // instrumento, ni si cuenta (borrador / "sin calificación"). Lo informativo
@@ -1076,6 +1109,9 @@ service cloud.firestore {
           isDocente() &&
           ownsActivity(resource.data.actividadId) &&
           calificacionEnRangoSiCambia(resource.data.actividadId) &&
+          // Ni tocar la evidencia ni convertir la entrega en "sin entrega"
+          // (ver docenteRespetaEvidencia arriba).
+          docenteRespetaEvidencia() &&
           (!actividadEnParcialCerrado(resource.data.actividadId) || soloComentarioDocente())
         )
       );
