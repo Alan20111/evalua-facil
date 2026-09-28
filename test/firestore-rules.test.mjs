@@ -2597,5 +2597,162 @@ ok('F-05 · admin CAN read publicProfiles')
   ok(`LÍMITES · reabrir y revertir ${N_ACT * (N_ALU - 1)} notas automáticas en lotes por actividad`)
 }
 
+// ── La evidencia de una entrega es del alumno (docenteRespetaEvidencia) ─────
+// Caso real (sep-2026): con la pantalla vieja, "calificar" o "evaluar sin
+// entrega" hacían setDoc(merge) con sinEntrega:true sobre la entrega recién
+// subida, y "asignar a no entregadas"/cierre de parcial hacían batch.set sin
+// merge y borraban el archivoURL. El docente ya no puede tocar la evidencia
+// ni convertir una entrega con evidencia en "sin entrega"; todo lo legítimo
+// (calificar, sin entrega donde no hay nada, observación, cierre, revertir,
+// cuestionario en progreso, anular) sigue pasando.
+{
+  const ARCHIVO = { url: 'https://res.cloudinary.com/demo/image/upload/v1/evalua-facil/submissions/x.pdf', nombre: 'x.pdf', tamano: 10 }
+  const entrega = (alumnoId, actividadId, extra = {}) => ({
+    alumnoId, actividadId,
+    archivoURL: ARCHIVO.url, nombreArchivo: ARCHIVO.nombre, archivos: [ARCHIVO],
+    completadoSinArchivo: false, fechaEntrega: Timestamp.now(),
+    calificacion: null, comentario: '', estado: 'entregado', tarde: false, historial: [],
+    ...extra,
+  })
+  // Mismo payload que persistGrade (rama sin entrega) / saveSinEntrega en
+  // teacher/ActivityPage.jsx y la edición rápida de SubjectPage.jsx.
+  const sinEntrega = (alumnoId, actividadId, calificacion = 7) => ({
+    actividadId: actividadId, alumnoId, calificacion, comentario: '', motivoSinEntrega: '',
+    estado: 'calificado', sinEntrega: true, fechaEntrega: serverTimestamp(),
+  })
+  // Payload de "asignar calificación a no entregadas" (SubjectPage.jsx).
+  const masiva = (alumnoId, actividadId) => ({
+    ...sinEntrega(alumnoId, actividadId, 5), notificadoEntregaDocente: true,
+  })
+  // withSecurityRulesDisabled no devuelve el valor del callback.
+  const leer = async (id) => {
+    let data
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { data = (await getDoc(doc(ctx.firestore(), 'submissions', id))).data() })
+    return data
+  }
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'activities', 'A_EV'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10 })
+    await setDoc(doc(db, 'activities', 'A_EV_OBS'), { docenteId: T1, asignaturaId: 'S1', tipo: 'observacion', maxCalif: 10 })
+    await setDoc(doc(db, 'activities', 'A_EV_EVAL'), { docenteId: T1, asignaturaId: 'S1', tipo: 'evaluacion', categoria: 'cuestionario', maxCalif: 10 })
+    await setDoc(doc(db, 'activities', 'A_EV_ALUMNO'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10 })
+    await setDoc(doc(db, 'submissions', 'A_EV_E1'), entrega('E1', 'A_EV'))
+    await setDoc(doc(db, 'submissions', 'A_EV_E3'), entrega('E3', 'A_EV'))
+    // Entrega multi-foto vieja: solo `archivos`, sin archivoURL.
+    const soloArchivos = entrega('E4', 'A_EV')
+    delete soloArchivos.archivoURL
+    delete soloArchivos.nombreArchivo
+    await setDoc(doc(db, 'submissions', 'A_EV_E4'), soloArchivos)
+    await setDoc(doc(db, 'submissions', 'A_EV_E5'), entrega('E5', 'A_EV'))
+    await setDoc(doc(db, 'submissions', 'A_EV_E6'), entrega('E6', 'A_EV'))
+    await setDoc(doc(db, 'submissions', 'A_EV_E7'), {
+      alumnoId: 'E7', actividadId: 'A_EV', completadoSinArchivo: true,
+      fechaEntrega: Timestamp.now(), calificacion: null, comentario: '', estado: 'entregado',
+    })
+    await setDoc(doc(db, 'submissions', 'A_EV_EVAL_E8'), {
+      alumnoId: 'E8', actividadId: 'A_EV_EVAL', estadoEvaluacion: 'en_progreso',
+      intentoActual: 1, tiempoInicio: Timestamp.now(), calificacion: null, estado: 'entregado',
+    })
+  })
+
+  // ── DEBEN PASAR ──
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'A_EV_E1'), {
+    calificacion: 8, comentario: 'Bien', estado: 'calificado', rubricaEval: [2, 3], comentarioVisibleAlumno: true,
+  }))
+  assert.equal((await leer('A_EV_E1')).archivoURL, ARCHIVO.url)
+  ok('EVIDENCIA · el docente califica una entrega (la evidencia se conserva)')
+
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'A_EV_E1'), { calificacion: 9.5, comentario: 'Mejor' }))
+  ok('EVIDENCIA · el docente cambia la calificación de una entrega')
+
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'A_EV_E2'), sinEntrega('E2', 'A_EV'), { merge: true }))
+  ok('EVIDENCIA · "sin entrega" donde no existe documento (setDoc merge = create)')
+
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'A_EV_E2'), sinEntrega('E2', 'A_EV', 6), { merge: true }))
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'A_EV_E2'), { calificacion: 6.5, comentario: 'USB' }))
+  ok('EVIDENCIA · volver a calificar un documento que ya es "sin entrega"')
+
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'A_EV_OBS_E1'), sinEntrega('E1', 'A_EV_OBS', 8), { merge: true }))
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'A_EV_OBS_E1'), { calificacion: 9, comentario: 'Participó', estado: 'calificado' }))
+  ok('EVIDENCIA · observación: primera calificación (crea) y edición')
+
+  {
+    const cierre = writeBatch(asT1)
+    for (const a of ['X1', 'X2']) {
+      cierre.set(doc(asT1, 'submissions', `A_EV_${a}`), {
+        alumnoId: a, actividadId: 'A_EV', calificacion: 0, comentario: '', estado: 'calificado',
+        sinEntrega: true, cierreParcial: true, fechaEntrega: serverTimestamp(),
+      })
+    }
+    await assertSucceeds(cierre.commit())
+  }
+  ok('EVIDENCIA · cierre de parcial: batch.set sobre documentos inexistentes')
+
+  {
+    const revertir = writeBatch(asT1)
+    revertir.update(doc(asT1, 'submissions', 'A_EV_X1'), { cierreParcial: deleteField(), sinEntrega: deleteField() })
+    revertir.delete(doc(asT1, 'submissions', 'A_EV_X2'))
+    await assertSucceeds(revertir.commit())
+  }
+  ok('EVIDENCIA · revertir el cierre (quitar cierreParcial/sinEntrega y borrar nota automática)')
+
+  {
+    const b = writeBatch(asT1)
+    b.set(doc(asT1, 'submissions', 'A_EV_EVAL_E8'), masiva('E8', 'A_EV_EVAL'))
+    await assertSucceeds(b.commit())
+  }
+  ok('EVIDENCIA · "sin entrega" sobre un cuestionario en progreso (semántica actual intacta)')
+
+  await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_EV_ALUMNO_ST_JUAN'), {
+    ...entrega('ST_JUAN', 'A_EV_ALUMNO'), fechaEntrega: serverTimestamp(),
+  }, { merge: true }))
+  ok('EVIDENCIA · el alumno entrega su archivo')
+
+  // ── DEBEN FALLAR ──
+  await assertFails(setDoc(doc(asT1, 'submissions', 'A_EV_E3'), sinEntrega('E3', 'A_EV'), { merge: true }))
+  // Rama "calificar sin entrega" de persistGrade (sin motivoSinEntrega).
+  await assertFails(setDoc(doc(asT1, 'submissions', 'A_EV_E3'), {
+    actividadId: 'A_EV', alumnoId: 'E3', calificacion: 8.5, comentario: 'x', estado: 'calificado',
+    sinEntrega: true, fechaEntrega: serverTimestamp(), rubricaEval: null,
+  }, { merge: true }))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'A_EV_E3'), { sinEntrega: true }))
+  assert.equal((await leer('A_EV_E3')).sinEntrega, undefined)
+  ok('EVIDENCIA · merge/update con sinEntrega:true sobre una entrega con archivoURL → denegado')
+
+  await assertFails(setDoc(doc(asT1, 'submissions', 'A_EV_E4'), sinEntrega('E4', 'A_EV'), { merge: true }))
+  ok('EVIDENCIA · merge con sinEntrega:true sobre una entrega con solo `archivos` → denegado')
+
+  await assertFails(setDoc(doc(asT1, 'submissions', 'A_EV_E7'), sinEntrega('E7', 'A_EV'), { merge: true }))
+  ok('EVIDENCIA · merge con sinEntrega:true sobre "completado sin archivo" → denegado')
+
+  {
+    const b = writeBatch(asT1)
+    b.set(doc(asT1, 'submissions', 'A_EV_E5'), masiva('E5', 'A_EV'))
+    await assertFails(b.commit())
+    const b2 = writeBatch(asT1)
+    b2.set(doc(asT1, 'submissions', 'A_EV_E5'), {
+      alumnoId: 'E5', actividadId: 'A_EV', calificacion: 0, comentario: '', estado: 'calificado',
+      sinEntrega: true, cierreParcial: true, fechaEntrega: serverTimestamp(),
+    })
+    await assertFails(b2.commit())
+    assert.equal((await leer('A_EV_E5')).archivoURL, ARCHIVO.url)
+  }
+  ok('EVIDENCIA · batch.set sin merge sobre una entrega (masiva / cierre) → denegado, archivo intacto')
+
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'A_EV_E6'), { archivoURL: deleteField() }))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'A_EV_E6'), { archivoURL: null }))
+  ok('EVIDENCIA · el docente borra el archivoURL → denegado')
+
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'A_EV_E6'), { archivos: [] }))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'A_EV_E6'), { nombreArchivo: 'otro.pdf' }))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'A_EV_E6'), { completadoSinArchivo: true }))
+  ok('EVIDENCIA · el docente cambia archivos / nombreArchivo / completadoSinArchivo → denegado')
+
+  // Anular sigue igual en este cambio (delete no se toca).
+  await assertSucceeds(deleteDoc(doc(asT1, 'submissions', 'A_EV_E1')))
+  ok('EVIDENCIA · el docente anula una entrega (delete sin cambios)')
+}
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
