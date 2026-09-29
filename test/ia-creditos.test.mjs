@@ -1741,7 +1741,8 @@ await caso('fallo del diagnóstico de conocimientos: reembolso completo de los 1
 // ── Planeación Didáctica Inicial (FASE 2-BIS, apartado 3, 12-ago-2026) ─────
 grupo('Planeación Didáctica Inicial — precheck, secuencia completa y tarifa')
 
-const TARIFAS_PLAN = { ...TARIFAS_DIAG, tarifas: { ...TARIFAS_DIAG.tarifas, planeacion_didactica_inicial: 20 } }
+// 40 créditos = $40 MXN desde la v7 de seed-ia-tarifas.js (29-sep-2026; antes 20).
+const TARIFAS_PLAN = { ...TARIFAS_DIAG, tarifas: { ...TARIFAS_DIAG.tarifas, planeacion_didactica_inicial: 40 } }
 
 async function precheckPlaneacionFalla({ subjectId, uid = DOCENTE }) {
   try {
@@ -1847,26 +1848,31 @@ await caso('con la secuencia COMPLETA: arma el contexto con los 2 parciales real
 await caso('planeacion_didactica_inicial NO reutiliza las tarifas descartadas de Planeación Viva', () => {
   assert.notStrictEqual(TARIFAS_PLAN.tarifas.planeacion_didactica_inicial, 12) // planeacion_tronco
   assert.notStrictEqual(TARIFAS_PLAN.tarifas.planeacion_didactica_inicial, 8) // planeacion_bloque
-  assert.strictEqual(TARIFAS_PLAN.tarifas.planeacion_didactica_inicial, 20)
+  assert.strictEqual(TARIFAS_PLAN.tarifas.planeacion_didactica_inicial, 40)
 })
 
-await caso('la tarifa de planeacion_didactica_inicial reserva y liquida exactamente 20 créditos fijos', async () => {
+await caso('la tarifa de planeacion_didactica_inicial reserva y liquida exactamente 40 créditos fijos', async () => {
   const k = clave()
-  await L.reservar({ uid: DOCENTE, operacion: 'planeacion_didactica_inicial', idempotencyKey: k, tarifas: TARIFAS_PLAN })
+  const saldoAntes = (await creditosDe()).saldo
+  const r = await L.reservar({ uid: DOCENTE, operacion: 'planeacion_didactica_inicial', idempotencyKey: k, tarifas: TARIFAS_PLAN })
+  assert.strictEqual(r.costo, 40)
+  assert.strictEqual((await consumoDe(k)).creditosReservados, 40)
   const saldoTrasReserva = (await creditosDe()).saldo
-  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 20 })
+  assert.strictEqual(saldoTrasReserva, saldoAntes - 40)
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 40 })
   assert.strictEqual(saldoTrasReserva, (await creditosDe()).saldo)
-  assert.strictEqual((await consumoDe(k)).creditosReales, 20)
+  assert.strictEqual((await consumoDe(k)).creditosReales, 40)
+  assert.strictEqual((await consumoDe(k)).estado, 'ejecutado')
 })
 
 await caso('la tarifa NO cambia con el número de parciales — sigue siendo fija (unidadesReales=1 en el ejecutor)', async () => {
   // La asignatura sembrada tiene 2 parciales; el costo real liquidado en la
-  // prueba anterior fue 20 = tarifas.planeacion_didactica_inicial * 1 unidad,
+  // prueba anterior fue 40 = tarifas.planeacion_didactica_inicial * 1 unidad,
   // nunca * parciales. Se deja constancia explícita de la regla.
-  assert.strictEqual(TARIFAS_PLAN.tarifas.planeacion_didactica_inicial * 1, 20)
+  assert.strictEqual(TARIFAS_PLAN.tarifas.planeacion_didactica_inicial * 1, 40)
 })
 
-await caso('fallo de la IA generando la planeación: reembolso completo de los 20 créditos', async () => {
+await caso('fallo de la IA generando la planeación: reembolso completo de los 40 créditos', async () => {
   const k = clave()
   const saldoAntes = (await creditosDe()).saldo
   await L.reservar({ uid: DOCENTE, operacion: 'planeacion_didactica_inicial', idempotencyKey: k, tarifas: TARIFAS_PLAN })
