@@ -19,6 +19,7 @@ import { PUEDE_COMPRAR } from '../utils/platform'
 import ActivarCreditosModal from './ActivarCreditosModal'
 import { Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
+import Spinner from './Spinner'
 
 export default function ConfirmacionCreditosModal({
   titulo = 'Usar el asistente de IA',
@@ -29,6 +30,12 @@ export default function ConfirmacionCreditosModal({
   ejecutando = false,
   continuarDeshabilitado = false,   // deshabilita "Continuar" mientras un control interno (children) esté inválido
   textoCosto = null,   // si se pasa, es la ÚNICA línea de costo que se muestra (p. ej. "Costo del análisis: 12 créditos")
+  // Opcional: qué decirle al docente MIENTRAS `ejecutando` (operaciones que
+  // tardan minutos, p. ej. Planeación Didáctica). Sustituye el cuerpo del
+  // modal durante la espera — así tampoco salta a "No tienes suficientes
+  // créditos" cuando el snapshot ya refleja la reserva. Sin esta prop el
+  // modal se comporta exactamente igual que antes.
+  avisoEjecutando = null,
   onCancelar,
   onContinuar,
 }) {
@@ -61,7 +68,12 @@ export default function ConfirmacionCreditosModal({
           <h3 className="text-base font-semibold flex-1">{titulo}</h3>
         </div>
 
-        {alcanza ? (
+        {ejecutando && avisoEjecutando ? (
+          <output aria-live="polite" className="flex items-start gap-3">
+            <div className="pt-0.5 flex-shrink-0"><Spinner size="sm" /></div>
+            <div className="text-sm text-on-surface">{avisoEjecutando}</div>
+          </output>
+        ) : alcanza ? (
           <>
             {descripcion && <p className="text-sm text-muted mb-2">{descripcion}</p>}
             {children && <div className="mb-3">{children}</div>}
