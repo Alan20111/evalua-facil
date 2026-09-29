@@ -2062,6 +2062,34 @@ ok('Planeación IA · NOBODY, not even the owner, can update a planeación entry
 await assertFails(deleteDoc(doc(asT1, 'subjects', 'S1', 'planeacionesIA', planRef.id)))
 ok('Planeación IA · NOBODY, not even the owner, can delete a planeación entry')
 
+// ── Candado "Planeación en curso" (29-sep-2026) ─────────────────────────────
+// subjects/{id}/iaEnCurso/planeacion — lo escribe SOLO el servidor; el dueño
+// lo lee para mantener Generar bloqueado entre recargas/pestañas/dispositivos.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'subjects', 'S1', 'iaEnCurso', 'planeacion'), {
+    uid: T1, idempotencyKey: 'clave-de-prueba', iniciadoEn: Timestamp.now(), expiraEn: Timestamp.now(),
+  })
+})
+await assertSucceeds(getDoc(doc(asT1, 'subjects', 'S1', 'iaEnCurso', 'planeacion')))
+ok('Candado Planeación · owner teacher CAN read the lock of their subject')
+
+await assertFails(getDoc(doc(asT2, 'subjects', 'S1', 'iaEnCurso', 'planeacion')))
+ok('Candado Planeación · foreign teacher CANNOT read another teacher\'s lock')
+
+await assertFails(getDoc(doc(asJuan, 'subjects', 'S1', 'iaEnCurso', 'planeacion')))
+ok('Candado Planeación · enrolled student CANNOT read the lock')
+
+await assertFails(setDoc(doc(asT1, 'subjects', 'S1', 'iaEnCurso', 'otro'), {
+  uid: T1, idempotencyKey: 'x', iniciadoEn: Timestamp.now(), expiraEn: Timestamp.now(),
+}))
+ok('Candado Planeación · NOBODY, not even the owner, can create a lock')
+
+await assertFails(updateDoc(doc(asT1, 'subjects', 'S1', 'iaEnCurso', 'planeacion'), { expiraEn: Timestamp.now() }))
+ok('Candado Planeación · NOBODY, not even the owner, can update the lock')
+
+await assertFails(deleteDoc(doc(asT1, 'subjects', 'S1', 'iaEnCurso', 'planeacion')))
+ok('Candado Planeación · NOBODY, not even the owner, can delete the lock (only the server releases it)')
+
 // ── Config del Asistente IA — "Comentarios generales del grupo" ────────────
 // subjects/{id}/asistenteIA/config — a diferencia de diagnosticosIA/
 // planeacionesIA, este SÍ se puede actualizar (es un campo editable, no una
