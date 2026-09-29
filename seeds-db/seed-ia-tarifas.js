@@ -22,6 +22,13 @@
  *
  * Requiere credenciales del Admin SDK (GOOGLE_APPLICATION_CREDENTIALS o
  * `firebase login`), igual que el resto de scripts de esta carpeta.
+ *
+ * ⚠️ `set()` SIN merge: sustituye el documento COMPLETO. No se corre para
+ * cambiar UNA tarifa en producción — si el documento vivo difiere en algo de
+ * este archivo, esa diferencia se pierde. Para un cambio puntual hay un
+ * script dirigido que solo toca ese campo (p. ej.
+ * seeds-db/actualizar-tarifa-planeacion.js). Este archivo sigue siendo el
+ * registro de la tabla vigente y lo que siembra una instalación NUEVA.
  */
 
 const admin = require('firebase-admin')
@@ -35,8 +42,10 @@ const db = admin.firestore()
 const dryRun = process.argv.includes('--dry-run')
 
 const TARIFAS = {
-  version: 11,
-  actualizadoEl: '2026-10-06',
+  // v12 (16-oct-2026): SOLO planeacion_didactica_inicial 20 → 40. El resto de
+  // la tabla es idéntico a la v11.
+  version: 12,
+  actualizadoEl: '2026-10-16',
   // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
   // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
   chatAsistenteActivo: false,
@@ -119,7 +128,15 @@ const TARIFAS = {
     // TODOS los parciales reales de la asignatura en una sola operación.
     // Cada regeneración que pida el docente vuelve a cobrar completo — no
     // existe regeneración gratuita.
-    planeacion_didactica_inicial: 20,
+    //
+    // 40 créditos = $40 MXN (decisión del producto, 29-sep-2026; aplicada en la v12).
+    // Historial: 20 desde su alta (12-ago-2026); 40 en la v2 (23-ago, PR
+    // #1279, conversión "1 crédito = 1 MXN"); de vuelta a 20 en la v3 (24-ago,
+    // PR #1301, tabla comercial definitiva de ese momento) y así en v4–v11;
+    // 40 otra vez desde la v12. Un documento fuente grande multiplica esta
+    // tarifa por las unidades que fija precheckPlaneacionInicial
+    // (functions/ia.js) — eso no cambia aquí.
+    planeacion_didactica_inicial: 40,
     // Chat con Asistente — 0.5 créditos por mensaje (25-ago-2026, decisión
     // de Kike: el chat ya está desactivado vía chatAsistenteActivo=false, pero
     // la tarifa queda definida para cuando se reactive sin necesitar otro seed).
@@ -352,4 +369,10 @@ async function main() {
   console.log('Listo. config/iaTarifas sembrado (modelo de créditos puros). plans/mayor y plans/basico ya NO se siembran aquí — ver seeds-db/seed-plans.js (deprecado, solo histórico).')
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1) })
+// Exportado para que un script dirigido (o una prueba) pueda comparar contra
+// esta tabla sin sembrar nada: con `require()` no se ejecuta main().
+module.exports = { TARIFAS }
+
+if (require.main === module) {
+  main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1) })
+}
