@@ -4937,7 +4937,10 @@ async function ejecutarPlaneacionDidacticaInicial({ params, modelo, apiKey }) {
 
   return {
     resultado: { porParcial, datosIdentificacion, fuentesInformacion, validacion },
-    // Tarifa fija (20 créditos) + 1 unidad extra por cada parcial que
+    // Tarifa fija por generación (1 unidad × config/iaTarifas.tarifas.
+    // planeacion_didactica_inicial: 40 créditos desde la v7 de
+    // seeds-db/seed-ia-tarifas.js; lo que se cobra es lo que tenga
+    // Firestore) + 1 unidad extra por cada parcial que
     // necesitó algún reintento (cantidad, ponderaciones o cobertura de
     // contenido fuente — ver generarSecuenciasPorParciales) + 1 unidad
     // extra por cada fragmento que hizo falta procesar de un documento
