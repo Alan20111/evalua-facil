@@ -141,6 +141,9 @@ export function useCreditosIA() {
           const codigo = e?.details?.codigo || null
           const err = new Error(e?.message || 'No se pudo completar la operación')
           err.codigo = codigo
+          // Código técnico del SDK (p. ej. "functions/deadline-exceeded"):
+          // distingue "el cliente dejó de esperar" de un fallo real.
+          err.code = e?.code || null
           err.saldo = e?.details?.saldo
           err.costo = e?.details?.costo
           throw err
