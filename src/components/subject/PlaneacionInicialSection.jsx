@@ -430,6 +430,22 @@ function SelectorParcial({ porParcial, activo, onCambiar }) {
   )
 }
 
+// Aviso persistente mientras se genera la Planeación (no es un toast: dura
+// todo lo que dure `generando`).
+function AvisoGenerando({ className = '' }) {
+  return (
+    <output aria-live="polite" className={`flex items-start gap-2 p-3 rounded border border-accent bg-[var(--accent-tint)] text-sm text-on-surface ${className}`}>
+      <Spinner size="sm" />
+      <p>
+        <span className="block font-semibold">Generando tu Planeación Didáctica…</span>
+        Este proceso puede tardar varios minutos.{' '}
+        <span className="font-semibold">No cierres esta ventana ni vuelvas a pulsar Generar.</span>{' '}
+        Tu planeación aparecerá automáticamente al terminar.
+      </p>
+    </output>
+  )
+}
+
 // El selector de camino — la primera y única pregunta cuando la asignatura
 // todavía no tiene planeación. Dos alternativas, no dos pasos: el docente que
 // ya trae la suya no debe atravesar nada del camino de IA para subirla.
@@ -1245,6 +1261,12 @@ function Planeacion({
             )}
           </div>
 
+          {/* Persistente mientras dura `generando` — incluye la espera tras
+              deadline-exceeded, en la que el servidor sigue trabajando.
+              Mientras el modal de confirmación sigue abierto, el aviso va
+              dentro de él (si no, el modal lo taparía). */}
+          {generando && !confirmando && <AvisoGenerando className="mt-2" />}
+
           {!vigenteIA && !perfilIACompleto && (
             <div className="mt-2">
               <AvisoPerfilIA que="generar la planeación con Evalúa Fácil" />
@@ -1353,6 +1375,7 @@ function Planeacion({
           onCancelar={() => { if (!generando) setConfirmando(false) }}
           onContinuar={generar}
         >
+          {generando && <AvisoGenerando className="mb-3" />}
           <SelectorCantidadSecuencias
             modo={modoCantidad}
             onCambiarModo={setModoCantidad}
