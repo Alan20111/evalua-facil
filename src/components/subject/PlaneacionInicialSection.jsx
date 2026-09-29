@@ -1323,6 +1323,14 @@ function Planeacion({
           descripcion="La IA usa tu Perfil IA, tus fuentes ya guardadas y los diagnósticos del grupo — genera un documento por cada parcial real de la asignatura en una sola operación."
           costoMin={creditosIA.estimar('planeacion_didactica_inicial') ?? 40}
           ejecutando={generando}
+          avisoEjecutando={(
+            <>
+              <p className="font-semibold mb-1">Generando tu Planeación Didáctica…</p>
+              <p className="text-muted">
+                Este proceso puede tardar varios minutos. <strong className="font-semibold text-on-surface">No cierres esta ventana ni vuelvas a pulsar Generar.</strong> Tu planeación aparecerá automáticamente al terminar.
+              </p>
+            </>
+          )}
           onCancelar={() => { if (!generando) setConfirmando(false) }}
           onContinuar={generar}
         >
