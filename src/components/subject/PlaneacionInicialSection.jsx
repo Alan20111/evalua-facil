@@ -1321,7 +1321,7 @@ function Planeacion({
         <ConfirmacionCreditosModal
           titulo="Generar tu Planeación Inicial"
           descripcion="La IA usa tu Perfil IA, tus fuentes ya guardadas y los diagnósticos del grupo — genera un documento por cada parcial real de la asignatura en una sola operación."
-          costoMin={creditosIA.estimar('planeacion_didactica_inicial') ?? 20}
+          costoMin={creditosIA.estimar('planeacion_didactica_inicial') ?? 40}
           ejecutando={generando}
           onCancelar={() => { if (!generando) setConfirmando(false) }}
           onContinuar={generar}
