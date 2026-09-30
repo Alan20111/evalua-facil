@@ -1,0 +1,20 @@
+{
+  "descripcion": "Alcance de la reparación histórica de 'sin registro' (presentes.<studentId> = null) — seeds-db/reparar-sin-registro-alta.js. SOLO las inscripciones con decision 'incluir' se escriben; 'excluir', 'pendiente' y cualquier inscripción que no aparezca aquí nunca se tocan. studentId identifica la inscripción (un documento de students por asignatura); asignaturaId es verificación cruzada. username y asignatura son solo para lectura humana.",
+  "decididoPor": "Kike",
+  "fecha": "2026-09-30",
+  "inscripciones": [
+    { "studentId": "2iKzPIyvrfJYs5Lc1kuR", "asignaturaId": "5JoDsdz83oJuRglfvkOV", "username": "patino.evelin", "asignatura": "Cultura Digital I (1A)", "decision": "incluir", "motivo": "Cuenta real" },
+    { "studentId": "hlD7Xvk2Slg8ugCVPiLT", "asignaturaId": "RYSwuV3Eld5o4sZUspWG", "username": "rico.isai", "asignatura": "Mate Inducción 2026 (1A - RH)", "decision": "incluir", "motivo": "Cuenta real" },
+
+    { "studentId": "4H9HzHe1BGXrwymptNdV", "asignaturaId": "jxOX3ERlsvyR56TtHdXP", "username": "mendez.enrique", "asignatura": "Mtto impresoras y multif (3D)", "decision": "excluir", "motivo": "Cuenta de prueba" },
+    { "studentId": "lZqsWh73Q6XATTNHe9wz", "asignaturaId": "FmwD92ptNO4XavDen3D3", "username": "mendez.enrique", "asignatura": "Cultura digital I (1A)", "decision": "excluir", "motivo": "Cuenta de prueba" },
+    { "studentId": "wBiYfUPPVtGSjBTTzj0v", "asignaturaId": "RYSwuV3Eld5o4sZUspWG", "username": "mendez.enrique", "asignatura": "Mate Inducción 2026 (1A - RH)", "decision": "excluir", "motivo": "Cuenta de prueba" },
+    { "studentId": "xBGxbwovZtI0akOnDUER", "asignaturaId": "TDherSZxOdRaP38zbDR0", "username": "mendez.enrique01", "asignatura": "Algoritmos (2C)", "decision": "excluir", "motivo": "Cuenta de prueba" },
+    { "studentId": "rgYo64KY7rP841jr9T91", "asignaturaId": "kFYKxoFpILBwJ4tkMSlF", "username": "x.prueba", "asignatura": "MANTENIMIENTO PREVENTIVO (3D)", "decision": "excluir", "motivo": "Por ahora: sin evidencia suficiente para considerarla real ni prueba" },
+
+    { "studentId": "taBHLiq7pl2LzMSematw", "asignaturaId": "FmwD92ptNO4XavDen3D3", "username": "arriola.hugo", "asignatura": "Cultura digital I (1A)", "decision": "incluir", "motivo": "Cultura Digital I (FmwD) es REAL" },
+    { "studentId": "3JWEwBXxH7yHelQaWYTS", "asignaturaId": "TDherSZxOdRaP38zbDR0", "username": "martinez.noelia", "asignatura": "Algoritmos (2C)", "decision": "excluir", "motivo": "Algoritmos (2C) es PRUEBA" },
+    { "studentId": "ZGoTN5RV5GldItjVtnyw", "asignaturaId": "TDherSZxOdRaP38zbDR0", "username": "jimenez.martha", "asignatura": "Algoritmos (2C)", "decision": "excluir", "motivo": "Algoritmos (2C) es PRUEBA" },
+    { "studentId": "8pBepwRtugsfo1MVGjYi", "asignaturaId": "TDherSZxOdRaP38zbDR0", "username": "arreguin.maria", "asignatura": "Algoritmos (2C)", "decision": "excluir", "motivo": "Algoritmos (2C) es PRUEBA" }
+  ]
+}
