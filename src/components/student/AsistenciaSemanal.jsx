@@ -10,6 +10,13 @@ import { startOfWeekMon, addDays } from '../../utils/calendarGrid'
 // La unidad sigue siendo la sesión: cada registro (fecha + slot) se dibuja como
 // su propia marca "Clase N" dentro de su día; nunca se fusionan. No hay tope
 // de clases por día: las marcas se apilan hacia abajo y la fila crece.
+//
+// Qué semanas se dibujan lo decide el llamador por CALENDARIO (`semanas`, ver
+// ./semanasAsistencia.js): la semana actual y las ya pasadas del parcial,
+// aunque no tengan ningún registro, y nunca una semana futura (30-sep-2026).
+// Las sesiones "sin registro" (`sinRegistro`: le corresponden al alumno pero
+// el docente aún no pasa lista) se pintan neutras, "N —", y NO suman a ningún
+// conteo de la semana ni del parcial.
 
 const LETRAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 const MESES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
@@ -33,17 +40,22 @@ function fmtDia(fecha) {
   return `${DIAS_CORTO[(d.getDay() + 6) % 7]} ${d.getDate()} ${MESES_CORTO[d.getMonth()]}`
 }
 
-// Semanas (lunes→domingo) que tienen al menos un registro, de la más reciente
-// a la más antigua. Dentro de cada día, las clases en orden de slot.
-function agruparPorSemana(registros) {
+// Las semanas indicadas (lunes ISO), de la más reciente a la más antigua, con
+// sus registros reales (`dias`) y sus sesiones sin registro (`sinReg`)
+// repartidos por día. Una semana sin nada se conserva vacía.
+function agruparPorSemana(semanasLunes, registros, sinRegistro) {
   const semanas = new Map()
-  for (const r of registros) {
-    const lunes = startOfWeekMon(new Date(`${r.fecha}T12:00:00`))
-    const key = isoLocal(lunes)
-    if (!semanas.has(key)) semanas.set(key, { key, lunes, dias: {} })
-    const s = semanas.get(key)
-    ;(s.dias[r.fecha] ||= []).push(r)
+  const asegurar = (key) => {
+    if (!semanas.has(key)) semanas.set(key, { key, lunes: new Date(`${key}T12:00:00`), dias: {}, sinReg: {} })
+    return semanas.get(key)
   }
+  for (const key of semanasLunes) asegurar(key)
+  const meter = (r, campo) => {
+    const key = isoLocal(startOfWeekMon(new Date(`${r.fecha}T12:00:00`)))
+    ;(asegurar(key)[campo][r.fecha] ||= []).push(r)
+  }
+  for (const r of registros) meter(r, 'dias')
+  for (const r of sinRegistro) meter(r, 'sinReg')
   const lista = [...semanas.values()].sort((a, b) => b.key.localeCompare(a.key))
   for (const s of lista) {
     for (const f of Object.keys(s.dias)) s.dias[f].sort((a, b) => (a.slot ?? 1) - (b.slot ?? 1))
@@ -64,19 +76,26 @@ const ESTILO = {
   presente: { chip: 'bg-emerald-100 text-emerald-800', nombre: 'Presente' },
   justificada: { chip: 'bg-amber-100 text-amber-800', nombre: 'Justificada' },
   falta: { chip: 'bg-red-100 text-red-700', nombre: 'Falta' },
+  // Le corresponde, pero el docente aún no registra la asistencia. Neutro: no
+  // es presente ni falta. También es el respaldo de cualquier estado que no
+  // se reconozca — nunca se pinta algo desconocido como Presente.
+  sin_registro: { chip: 'bg-slate-100 text-slate-500', nombre: 'Sin registro' },
 }
 
 function Marca({ r, seleccionada, onToggle }) {
-  const e = ESTILO[r.estado] || ESTILO.presente
+  const conocido = !!ESTILO[r.estado] && r.estado !== 'sin_registro'
+  const e = conocido ? ESTILO[r.estado] : ESTILO.sin_registro
   const slot = r.slot ?? 1
-  const simbolo = r.estado === 'falta'
-    ? <X size={10} strokeWidth={3} className="flex-shrink-0" />
-    : r.estado === 'justificada'
-      ? <span className="font-bold leading-none">J</span>
-      : <Check size={10} strokeWidth={3} className="flex-shrink-0" />
+  const simbolo = !conocido
+    ? <span className="font-bold leading-none">—</span>
+    : r.estado === 'falta'
+      ? <X size={10} strokeWidth={3} className="flex-shrink-0" />
+      : r.estado === 'justificada'
+        ? <span className="font-bold leading-none">J</span>
+        : <Check size={10} strokeWidth={3} className="flex-shrink-0" />
   // Sin ancho fijo: ocupa la columna del día y cabe "12✓" aun a 320 px de pantalla.
   const base = `w-full flex items-center justify-center gap-px rounded px-0.5 py-0.5 text-[10px] sm:text-[11px] leading-none font-semibold tabular-nums whitespace-nowrap ${e.chip}`
-  const conMotivo = r.estado === 'justificada' && !!r.motivo
+  const conMotivo = conocido && r.estado === 'justificada' && !!r.motivo
   const titulo = `Clase ${slot}: ${e.nombre}`
   if (!conMotivo) {
     return <span className={base} aria-label={titulo} title={titulo}>{slot}{simbolo}</span>
@@ -95,10 +114,10 @@ function Marca({ r, seleccionada, onToggle }) {
 }
 
 export default function AsistenciaSemanal({
-  parcial, registros, stat, pct, pctInasist, riesgo, denominador, cerrado, umbralInasistencia, todayISO,
+  parcial, registros, sinRegistro = [], semanas: semanasLunes = [], stat, pct, pctInasist, riesgo, denominador, cerrado, umbralInasistencia, todayISO,
 }) {
   const [motivoAbierto, setMotivoAbierto] = useState(null) // `${fecha}-${slot}`
-  const semanas = agruparPorSemana(registros)
+  const semanas = agruparPorSemana(semanasLunes, registros, sinRegistro)
   const presentes = stat.asist - stat.justif
   const enRiesgo = pctInasist != null && pctInasist >= umbralInasistencia
 
@@ -154,11 +173,16 @@ export default function AsistenciaSemanal({
           <span className="inline-flex items-center gap-1"><span className="inline-flex items-center justify-center w-5 h-4 rounded bg-emerald-100 text-emerald-800"><Check size={11} strokeWidth={3} /></span>Presente</span>
           <span className="inline-flex items-center gap-1"><span className="inline-flex items-center justify-center w-5 h-4 rounded bg-amber-100 text-amber-800 text-[11px] font-bold">J</span>Justificada</span>
           <span className="inline-flex items-center gap-1"><span className="inline-flex items-center justify-center w-5 h-4 rounded bg-red-100 text-red-700"><X size={11} strokeWidth={3} /></span>Falta</span>
+          {sinRegistro.length > 0 && (
+            <span className="inline-flex items-center gap-1"><span className="inline-flex items-center justify-center w-5 h-4 rounded bg-slate-100 text-slate-500 text-[11px] font-bold">—</span>Sin registro</span>
+          )}
           <span>· El número es la clase del día</span>
         </div>
       </div>
 
-      {/* ── Semanas (más reciente primero; solo las que tienen clases) ── */}
+      {/* ── Semanas (más reciente primero): la actual y las ya pasadas del
+          parcial, tengan o no registros. Los conteos de cada semana salen
+          SOLO de los registros reales; "sin registro" no suma. ── */}
       {semanas.map((s) => {
         const regsSemana = Object.values(s.dias).flat()
         const asistSemana = regsSemana.filter((r) => r.estado !== 'falta').length
@@ -168,27 +192,35 @@ export default function AsistenciaSemanal({
           <div key={s.key} className="bg-surface-card rounded-card shadow-card px-2 sm:px-3 py-2.5" data-semana={s.key}>
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-1 mb-2">
               <p className="text-sm font-semibold text-on-surface">Semana {etiquetaSemana(s.lunes)}</p>
-              <p className="text-xs text-muted tabular-nums">
-                {regsSemana.length} clase{regsSemana.length !== 1 ? 's' : ''} · {asistSemana} asistencia{asistSemana !== 1 ? 's' : ''} · <span className={faltasSemana > 0 ? 'text-red-600 font-semibold' : ''}>{faltasSemana} falta{faltasSemana !== 1 ? 's' : ''}</span>
-              </p>
+              {regsSemana.length > 0 ? (
+                <p className="text-xs text-muted tabular-nums">
+                  {regsSemana.length} clase{regsSemana.length !== 1 ? 's' : ''} · {asistSemana} asistencia{asistSemana !== 1 ? 's' : ''} · <span className={faltasSemana > 0 ? 'text-red-600 font-semibold' : ''}>{faltasSemana} falta{faltasSemana !== 1 ? 's' : ''}</span>
+                </p>
+              ) : (
+                <p className="text-xs text-muted">Sin asistencia registrada</p>
+              )}
             </div>
             <div className="grid grid-cols-7 gap-1">
               {LETRAS.map((l, i) => {
                 const dia = addDays(s.lunes, i)
                 const fecha = isoLocal(dia)
                 const regs = s.dias[fecha] || []
+                const sinReg = s.sinReg[fecha] || []
+                // Registros reales y sesiones sin registro, en orden de clase.
+                const marcas = [...regs, ...sinReg.map((x) => ({ ...x, estado: 'sin_registro' }))]
+                  .sort((a, b) => (a.slot ?? 1) - (b.slot ?? 1))
                 const finde = i >= 5
                 const hoy = fecha === todayISO
                 return (
                   <div key={i} className={`min-w-0 rounded flex flex-col items-center gap-1 px-0.5 pt-1 pb-1.5 ${finde ? 'bg-surface-container' : ''} ${hoy ? 'ring-1 ring-accent' : ''}`}>
                     <span className="text-[11px] font-semibold text-muted leading-none">{l}</span>
-                    <span className={`text-sm leading-none tabular-nums ${regs.length ? 'font-semibold text-on-surface' : 'text-slate-400'}`}>{dia.getDate()}</span>
+                    <span className={`text-sm leading-none tabular-nums ${marcas.length ? 'font-semibold text-on-surface' : 'text-slate-400'}`}>{dia.getDate()}</span>
                     {/* Una semana puede cruzar de mes (lun–dom sin cortar): el día 1
                         lleva su mes para que el cambio se lea sin pensar. */}
                     {dia.getDate() === 1 && (
                       <span className="text-[10px] font-semibold uppercase text-accent leading-none -mt-0.5">{MESES_CORTO[dia.getMonth()]}</span>
                     )}
-                    {regs.map((r) => {
+                    {marcas.map((r) => {
                       const k = `${r.fecha}-${r.slot ?? 1}`
                       return (
                         <Marca key={k} r={r} seleccionada={motivoAbierto === k}

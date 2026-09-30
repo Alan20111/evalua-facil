@@ -337,6 +337,46 @@ caso('null: aparecer la llave en null SÍ recalcula; null → null no', () => {
   assert.deepStrictEqual(F.idsAfectados(x, { presentes: { a: true, n: true } }), ['n'], 'el docente la registra')
 })
 
+// ── Semanas visibles en Asistencias del estudiante (30-sep-2026) ────────────
+// Salen del calendario del parcial, no de los registros: la actual y las ya
+// pasadas, aunque estén vacías; nunca una futura; nada de un parcial sin empezar.
+const SA = await import('../src/components/student/semanasAsistencia.js')
+const PF_SA = [{ inicio: '2026-08-31', fin: '2026-10-16' }, { inicio: '2026-10-17', fin: '2026-12-18' }]
+
+caso('semanas: lunesDe devuelve el lunes de la semana (también cruzando mes)', () => {
+  assert.strictEqual(SA.lunesDe('2026-09-30'), '2026-09-28')
+  assert.strictEqual(SA.lunesDe('2026-09-28'), '2026-09-28')
+  assert.strictEqual(SA.lunesDe('2026-10-04'), '2026-09-28', 'domingo 4-oct es de la semana del 28-sep')
+  assert.strictEqual(SA.lunesDe('2026-10-05'), '2026-10-05')
+})
+
+caso('semanas: la semana actual aparece aunque no haya ningún registro', () => {
+  const s = SA.semanasVisiblesParcial({ parcialesFechas: PF_SA, parcial: 1, hoyISO: '2026-09-30' })
+  assert.deepStrictEqual(s, ['2026-09-28', '2026-09-21', '2026-09-14', '2026-09-07', '2026-08-31'])
+})
+
+caso('semanas: nunca una semana futura, ni aunque llegue un dato con fecha futura', () => {
+  const s = SA.semanasVisiblesParcial({ parcialesFechas: PF_SA, parcial: 1, hoyISO: '2026-09-30', fechasConDatos: ['2026-10-07', '2026-12-01'] })
+  assert.ok(s.every((l) => l <= '2026-09-28'))
+})
+
+caso('semanas: un parcial que aún no empieza no genera semanas', () => {
+  assert.deepStrictEqual(SA.semanasVisiblesParcial({ parcialesFechas: PF_SA, parcial: 2, hoyISO: '2026-09-30' }), [])
+  assert.strictEqual(SA.parcialIniciado(PF_SA, 2, '2026-09-30'), false)
+  assert.strictEqual(SA.parcialIniciado(PF_SA, 1, '2026-09-30'), true)
+})
+
+caso('semanas: un parcial ya terminado llega solo hasta su última semana', () => {
+  const s = SA.semanasVisiblesParcial({ parcialesFechas: [{ inicio: '2026-08-18', fin: '2026-08-28' }], parcial: 1, hoyISO: '2026-09-30' })
+  assert.deepStrictEqual(s, ['2026-08-24', '2026-08-17'])
+})
+
+caso('semanas: sin fechas de parcial se conservan las semanas con datos (comportamiento anterior)', () => {
+  const s = SA.semanasVisiblesParcial({ parcialesFechas: [], parcial: 1, hoyISO: '2026-09-30', fechasConDatos: ['2026-09-02', '2026-09-17', '2026-09-16'] })
+  assert.deepStrictEqual(s, ['2026-09-14', '2026-08-31'])
+  assert.strictEqual(SA.parcialIniciado([], 1, '2026-09-30'), false)
+})
+
 caso('hoy en México, no en UTC: 18:30 del 14-sep en CDMX sigue siendo el 14', () => {
   assert.strictEqual(AR.fechaHoyMexico(new Date('2026-09-15T00:30:00Z')), '2026-09-14')
 })
