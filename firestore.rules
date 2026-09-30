@@ -725,6 +725,16 @@ service cloud.firestore {
           request.resource.data.docenteId == request.auth.uid;
         allow delete: if false;
       }
+
+      // Candado "Planeación en curso" (29-sep-2026). Lo toma y lo libera
+      // SOLO el servidor (ejecutarOperacionIA → tomarCandadoPlaneacion en
+      // functions/ia.js); el docente dueño lo lee para mantener Generar
+      // bloqueado aunque recargue o cambie de pestaña o de dispositivo.
+      match /iaEnCurso/{docId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
+        allow write: if false;
+      }
     }
 
     match /activities/{activityId} {

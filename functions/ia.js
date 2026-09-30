@@ -22,7 +22,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { defineSecret } = require('firebase-functions/params')
-const { getFirestore, FieldValue } = require('firebase-admin/firestore')
+const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { logger } = require('firebase-functions')
 const ledger = require('./creditosLedger')
 const { resolverIntentoGanador, respuestasVivasSonDelIntentoGanador } = require('./calificacionIntentos')
@@ -6312,12 +6312,106 @@ function claveAnthropic() {
   return clave
 }
 
+// ── Candado de Planeación en curso (29-sep-2026) ─────────────────────────
+// La Planeación Didáctica Inicial puede tardar más que el timeout del cliente
+// (240 s contra 300 s del servidor). Cuando el cliente deja de esperar, el
+// servidor sigue trabajando; sin esto, un segundo clic —o una recarga, otra
+// pestaña u otro dispositivo— lanzaba otra generación con OTRA clave de
+// idempotencia, que reservaba y cobraba aparte.
+//
+// Un solo documento por asignatura, subjects/{id}/iaEnCurso/planeacion. Se
+// toma en una transacción ANTES de reservar(): dos llamadas simultáneas no
+// pueden tomarlo las dos (la segunda relee y ve el de la primera), y la que
+// pierde sale con PLANEACION_EN_CURSO sin haber tocado créditos. Se libera al
+// terminar, pase lo que pase (ver conCandadoPlaneacion). Si el proceso muere
+// sin liberarlo, `expiraEn` lo deja reemplazable: 10 min es el doble del
+// timeout de la función, así que ninguna ejecución viva puede seguir con él
+// vencido — mismo criterio que el candado 'procesando' de C-02.
+//
+// El cliente lo LEE (firestore.rules: solo el dueño de la asignatura) para
+// bloquear Generar aunque recargue; nunca lo escribe.
+const CANDADO_PLANEACION_MS = 10 * 60 * 1000
+
+const refCandadoPlaneacion = (db, subjectId) => db.doc(`subjects/${subjectId}/iaEnCurso/planeacion`)
+
+// Devuelve el candado tomado, o null si ya era de esta misma llamada (un
+// reintento con la misma clave: el ledger decide qué responder, y quien lo
+// tomó primero es quien lo libera).
+async function tomarCandadoPlaneacion({ subjectId, uid, idempotencyKey, ahora = new Date() }) {
+  const db = getFirestore()
+  const id = String(subjectId || '').trim()
+  const clave = String(idempotencyKey || '')
+  const ref = refCandadoPlaneacion(db, id)
+  try {
+    return await tomarCandadoTx(db, ref, { id, uid, clave, ahora })
+  } catch (e) {
+    if (e instanceof HttpsError) throw e
+    // Contención que agotó los reintentos de la transacción u otra falla de
+    // Firestore: no se sabe si hay otra en curso, pero tampoco se reservó nada.
+    logger.error(`tomarCandadoPlaneacion(${id}) falló:`, e)
+    throw new HttpsError('unavailable', 'No se pudo iniciar la Planeación. Intenta de nuevo en un momento. No se descontaron créditos.')
+  }
+}
+
+function tomarCandadoTx(db, ref, { id, uid, clave, ahora }) {
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (snap.exists) {
+      const c = snap.data()
+      const vigente = (c.expiraEn?.toMillis?.() ?? 0) > ahora.getTime()
+      if (vigente && c.idempotencyKey === clave) return null
+      if (vigente) {
+        throw new HttpsError('failed-precondition',
+          'Ya hay una Planeación Didáctica generándose para esta asignatura. Espera a que termine: aparecerá aquí automáticamente. No se descontaron créditos.',
+          { codigo: 'PLANEACION_EN_CURSO' })
+      }
+    }
+    const datos = {
+      uid,
+      idempotencyKey: clave,
+      iniciadoEn: Timestamp.fromDate(ahora),
+      expiraEn: Timestamp.fromMillis(ahora.getTime() + CANDADO_PLANEACION_MS),
+    }
+    // Vencido: se reemplaza dentro de la misma transacción.
+    if (snap.exists) tx.set(ref, datos)
+    else tx.create(ref, datos)
+    return { subjectId: id, idempotencyKey: clave }
+  })
+}
+
+// Solo borra el candado si sigue siendo de esta llamada: si venció y otra lo
+// reemplazó, no se toca el de la otra.
+async function liberarCandadoPlaneacion({ subjectId, idempotencyKey }) {
+  const db = getFirestore()
+  const ref = refCandadoPlaneacion(db, subjectId)
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (snap.exists && snap.data().idempotencyKey === idempotencyKey) tx.delete(ref)
+  })
+}
+
+// Envuelve el callable para que el candado se libere en TODOS los caminos de
+// salida (éxito, error antes o durante la reserva, fallo de la IA con su
+// reembolso, fallo de la liquidación). Las demás operaciones nunca toman
+// candado, así que para ellas esto no hace nada.
+async function conCandadoPlaneacion(handler, request) {
+  const estado = { candado: null }
+  try {
+    return await handler(request, estado)
+  } finally {
+    if (estado.candado) {
+      await liberarCandadoPlaneacion(estado.candado)
+        .catch((err) => logger.error(`liberarCandadoPlaneacion(${estado.candado.subjectId}) falló — vence solo en 10 min:`, err))
+    }
+  }
+}
+
 // timeoutSeconds 300: los lotes de C-02 (p. ej. 50 estudiantes × 3 abiertas)
 // toman ~2 min con la concurrencia limitada; las operaciones unitarias no
 // cambian. El cliente ajusta su propio timeout al llamar (useCreditosIA).
 exports.ejecutarOperacionIA = onCall(
   { secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 300 },
-  async (request) => {
+  (request) => conCandadoPlaneacion(async (request, estado) => {
     const uid = request.auth?.uid
     if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar la IA')
 
@@ -6384,6 +6478,13 @@ exports.ejecutarOperacionIA = onCall(
         return 'calificar_entregable_ia_lote_imagenes'
       return operacion
     })()
+
+    // Una sola Planeación en curso por asignatura (ver tomarCandadoPlaneacion).
+    // Va después del precheck, que ya comprobó que la asignatura es de este
+    // docente, y antes de reservar: la llamada rechazada no toca créditos.
+    if (operacion === 'planeacion_didactica_inicial') {
+      estado.candado = await tomarCandadoPlaneacion({ subjectId: params.subjectId, uid, idempotencyKey })
+    }
 
     let reserva
     try {
@@ -6535,7 +6636,7 @@ exports.ejecutarOperacionIA = onCall(
       creditosReales: liquidacion.repetida ? liquidacion.consumo.creditosReales : liquidacion.creditosReales,
       saldo: liquidacion.repetida ? null : liquidacion.saldo,
     }
-  }
+  }, request)
 )
 
 // Mantenimiento diario: en créditos puros ya no hay ciclos que renovar ni
@@ -6597,4 +6698,6 @@ exports._pruebas = {
   pendientesEvaluacionesIATexto,
   validarClavesVerdaderoFalso, bloqueFechaActualChat, extraerJsonVeredictos,
   CALIFICAR_ENTREGABLE_SISTEMA,
+  OPERACIONES, PRECHECKS,
+  tomarCandadoPlaneacion, liberarCandadoPlaneacion, CANDADO_PLANEACION_MS,
 }

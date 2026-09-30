@@ -430,6 +430,38 @@ function SelectorParcial({ porParcial, activo, onCambiar }) {
   )
 }
 
+// Aviso persistente mientras se genera la Planeación (no es un toast: dura
+// todo lo que dure `generando`).
+function AvisoGenerando({ className = '' }) {
+  return (
+    <output aria-live="polite" className={`flex items-start gap-2 p-3 rounded border border-accent bg-[var(--accent-tint)] text-sm text-on-surface ${className}`}>
+      <Spinner size="sm" />
+      <p>
+        <span className="block font-semibold">Generando tu Planeación Didáctica…</span>
+        Este proceso puede tardar varios minutos.{' '}
+        <span className="font-semibold">No cierres esta ventana ni vuelvas a pulsar Generar.</span>{' '}
+        Tu planeación aparecerá automáticamente al terminar.
+      </p>
+    </output>
+  )
+}
+
+// Hay una Planeación en proceso que ESTA pantalla no lanzó (o que ya dejó de
+// esperar): otra pestaña, otro dispositivo, o la misma tras recargar. Lo sabe
+// por el candado del servidor (subjects/{id}/iaEnCurso/planeacion).
+function AvisoPlaneacionEnCurso({ className = '' }) {
+  return (
+    <output aria-live="polite" className={`flex items-start gap-2 p-3 rounded border border-accent bg-[var(--accent-tint)] text-sm text-on-surface ${className}`}>
+      <Spinner size="sm" />
+      <p>
+        <span className="block font-semibold">Hay una Planeación Didáctica en proceso para esta asignatura.</span>
+        Puede venir de otra pestaña, de otro dispositivo o de una generación anterior que todavía no termina.{' '}
+        <span className="font-semibold">Espera a que termine:</span> aparecerá aquí automáticamente y podrás volver a generar.
+      </p>
+    </output>
+  )
+}
+
 // El selector de camino — la primera y única pregunta cuando la asignatura
 // todavía no tiene planeación. Dos alternativas, no dos pasos: el docente que
 // ya trae la suya no debe atravesar nada del camino de IA para subirla.
@@ -632,6 +664,47 @@ function Planeacion({
   const vistaPreviaRef = useRef(null)
   const fuenteActivaRef = useRef({ datosIdentificacion: null, fuentesInformacion: FUENTES_VACIAS, validacion: null, secuencias: [] })
   const [abrirTrasGenerar, setAbrirTrasGenerar] = useState(false)
+  // El cliente dejó de esperar (deadline-exceeded, 240 s) pero el servidor
+  // sigue generando y guarda él mismo el resultado en `planeacionesIA`.
+  // Mientras tanto `generando` se queda en true para que no se lance una
+  // segunda generación (que se cobraría aparte). Guarda el id de la
+  // generación más reciente que había al pulsar Generar: en cuanto el
+  // listener trae otra distinta, se libera.
+  const [esperandoServidor, setEsperandoServidor] = useState(null)
+  // Candado del servidor (29-sep-2026, ver tomarCandadoPlaneacion en
+  // functions/ia.js): { expiraEn } mientras haya una Planeación en curso
+  // para esta asignatura, venga de donde venga. Es lo que mantiene Generar
+  // bloqueado aunque el docente recargue, abra otra pestaña o cambie de
+  // dispositivo. `generando` sigue siendo la reacción inmediata de ESTA
+  // pantalla; la autoridad es el servidor, que rechaza la segunda llamada
+  // antes de reservar créditos aunque el cliente no se hubiera enterado.
+  const [candadoPlaneacion, setCandadoPlaneacion] = useState(null)
+  const planeacionEnCurso = !!candadoPlaneacion
+  // ¿Esta generación ya vio su candado? Tras deadline-exceeded, que el
+  // candado desaparezca quiere decir que el servidor terminó (bien o mal).
+  const candadoVistoRef = useRef(false)
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'subjects', subjectId, 'iaEnCurso', 'planeacion'), (snap) => {
+      const expiraEn = snap.exists() ? (snap.data().expiraEn?.toMillis?.() ?? 0) : 0
+      setCandadoPlaneacion(expiraEn > Date.now() ? { expiraEn } : null)
+    // Sin permiso (reglas aún sin desplegar) u offline: se comporta como
+    // antes; el servidor sigue rechazando la segunda llamada.
+    }, () => setCandadoPlaneacion(null))
+    return unsub
+  }, [subjectId])
+
+  // Un candado de un proceso que murió no se borra solo: vence a los 10 min
+  // (lo reemplaza la siguiente llamada), así que aquí también se suelta.
+  useEffect(() => {
+    if (!candadoPlaneacion) return
+    const t = setTimeout(() => setCandadoPlaneacion(null), Math.max(0, candadoPlaneacion.expiraEn - Date.now()))
+    return () => clearTimeout(t)
+  }, [candadoPlaneacion])
+
+  useEffect(() => {
+    if (generando && candadoPlaneacion) candadoVistoRef.current = true
+  }, [generando, candadoPlaneacion])
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'subjects', subjectId, 'planeacionesIA'), (snap) => {
@@ -642,6 +715,21 @@ function Planeacion({
     }, () => setHistLoaded(true))
     return unsub
   }, [subjectId])
+
+  useEffect(() => {
+    if (!esperandoServidor) return
+    // Llegó la generación, o el candado del servidor ya se soltó (terminó
+    // o falló — si falló, reembolsó y no llegará nada).
+    if ((historial[0]?.id || null) !== esperandoServidor.idAntes || (candadoVistoRef.current && !candadoPlaneacion)) {
+      setEsperandoServidor(null)
+      setGenerando(false)
+      return
+    }
+    // Seguro: el servidor corta a los 300 s, así que pasados 5 min desde el
+    // aviso ya no puede llegar nada — se libera aunque no haya llegado.
+    const t = setTimeout(() => { setEsperandoServidor(null); setGenerando(false) }, 5 * 60 * 1000)
+    return () => clearTimeout(t)
+  }, [esperandoServidor, historial, candadoPlaneacion])
 
   // ── Planeación VIGENTE vs GENERACIÓN IA PENDIENTE ─────────────────────
   // Dos conceptos distintos (1-sep-2026, ver src/utils/planeacionVigente.js).
@@ -721,7 +809,11 @@ function Planeacion({
 
   async function generar() {
     if (nuncaAprobado) { onPago(); return }
+    if (planeacionEnCurso) return
+    candadoVistoRef.current = false
     setGenerando(true)
+    const idAntes = historial[0]?.id || null
+    let siguePendiente = false
     try {
       // La función misma guarda el resultado (ver ejecutarPlaneacionDidacticaInicial
       // en functions/ia.js) — el listener onSnapshot de arriba la recibe en
@@ -742,14 +834,19 @@ function Planeacion({
       }
     } catch (err) {
       setConfirmando(false)
-      if (err.codigo === 'SALDO_INSUFICIENTE') toast('No tienes suficientes créditos de IA para esta acción', 'error')
+      if (err.code === 'functions/deadline-exceeded') {
+        siguePendiente = true
+        setEsperandoServidor({ idAntes })
+        toast('La planeación está tardando más de lo normal y se sigue generando. Aparecerá aquí en cuanto termine; no la vuelvas a generar.', 'info')
+      } else if (err.codigo === 'PLANEACION_EN_CURSO') toast('Ya hay una Planeación Didáctica generándose para esta asignatura. Espera a que termine: aparecerá aquí automáticamente. No se descontaron créditos.', 'info')
+      else if (err.codigo === 'SALDO_INSUFICIENTE') toast('No tienes suficientes créditos de IA para esta acción', 'error')
       else if (err.codigo === 'PERFIL_IA_INCOMPLETO') toast('Marcaste incluir tu Perfil IA, pero todavía no lo completas — complétalo o desmarca esa casilla', 'error')
       else if (err.codigo === 'SIN_PROGRAMA_ESTUDIOS') toast('Sube primero el programa de estudios', 'error')
       else if (err.codigo === 'SIN_DIAGNOSTICO_CONTEXTO') toast('Marcaste incluir el Diagnóstico de contexto, pero todavía no tiene resultados analizados — genera y analiza el instrumento, o desmarca esa casilla', 'error')
       else if (err.codigo === 'SIN_DIAGNOSTICO_CONOCIMIENTOS') toast('Marcaste incluir el Diagnóstico de conocimientos, pero todavía no tiene resultados analizados — genera y analiza el cuestionario, o desmarca esa casilla', 'error')
       else toast(err.message || 'El asistente de IA no está disponible en este momento', 'error')
     } finally {
-      setGenerando(false)
+      if (!siguePendiente) setGenerando(false)
     }
   }
 
@@ -1130,13 +1227,18 @@ function Planeacion({
           onGenerarIA={() => setConfirmarReiniciar(true)}
         />
       ) : camino === null ? (
-        <SelectorDeCamino
-          generando={generando}
-          subiendoArchivo={subiendoArchivo}
-          onElegirIA={() => setCaminoElegido('ia')}
-          onElegirArchivo={elegirArchivo}
-          onArchivoInvalido={(mensaje) => toast(mensaje, 'error')}
-        />
+        <>
+          {/* Recargó (o abrió otra pestaña) antes de que llegara la primera
+              generación: todavía no hay dato que fije el camino. */}
+          {planeacionEnCurso && !generando && <AvisoPlaneacionEnCurso className="mb-2" />}
+          <SelectorDeCamino
+            generando={generando || planeacionEnCurso}
+            subiendoArchivo={subiendoArchivo}
+            onElegirIA={() => setCaminoElegido('ia')}
+            onElegirArchivo={elegirArchivo}
+            onArchivoInvalido={(mensaje) => toast(mensaje, 'error')}
+          />
+        </>
       ) : (
         <>
           {vigenteIA ? (
@@ -1169,12 +1271,12 @@ function Planeacion({
             {!vigenteIA && (
               <button
                 type="button"
-                onClick={() => (nuncaAprobado ? onPago() : setConfirmando(true))}
-                disabled={generando || !perfilIACompleto}
+                onClick={() => { if (planeacionEnCurso) return; if (nuncaAprobado) onPago(); else setConfirmando(true) }}
+                disabled={generando || planeacionEnCurso || !perfilIACompleto}
                 title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar con Evalúa Fácil' : undefined}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
-                {generando ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : pendiente ? <RotateCcw size={14} /> : <Sparkles size={14} />}
+                {generando || planeacionEnCurso ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : pendiente ? <RotateCcw size={14} /> : <Sparkles size={14} />}
                 {pendiente ? 'Generar de nuevo (con IA)' : 'Generar mi planeación'}
               </button>
             )}
@@ -1217,6 +1319,16 @@ function Planeacion({
               </button>
             )}
           </div>
+
+          {/* Persistente mientras dura `generando` — incluye la espera tras
+              deadline-exceeded, en la que el servidor sigue trabajando.
+              Mientras el modal de confirmación sigue abierto, el aviso va
+              dentro de él (si no, el modal lo taparía). */}
+          {generando && !confirmando && <AvisoGenerando className="mt-2" />}
+          {/* El servidor tiene una Planeación en curso que esta pantalla no
+              está esperando (otra pestaña/dispositivo, recarga, o se cortó la
+              conexión). Nunca aparece junto con el de arriba. */}
+          {planeacionEnCurso && !generando && !confirmando && <AvisoPlaneacionEnCurso className="mt-2" />}
 
           {!vigenteIA && !perfilIACompleto && (
             <div className="mt-2">
@@ -1323,9 +1435,12 @@ function Planeacion({
           descripcion="La IA usa tu Perfil IA, tus fuentes ya guardadas y los diagnósticos del grupo — genera un documento por cada parcial real de la asignatura en una sola operación."
           costoMin={creditosIA.estimar('planeacion_didactica_inicial') ?? 20}
           ejecutando={generando}
+          continuarDeshabilitado={planeacionEnCurso}
           onCancelar={() => { if (!generando) setConfirmando(false) }}
           onContinuar={generar}
         >
+          {generando && <AvisoGenerando className="mb-3" />}
+          {planeacionEnCurso && !generando && <AvisoPlaneacionEnCurso className="mb-3" />}
           <SelectorCantidadSecuencias
             modo={modoCantidad}
             onCambiarModo={setModoCantidad}

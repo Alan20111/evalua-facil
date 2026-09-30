@@ -22,6 +22,8 @@
     "test:server": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/servidor.test.mjs\"",
     "pretest:ia": "node scripts/sync-functions-shared.mjs",
     "test:ia": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/ia-creditos.test.mjs\"",
+    "pretest:planeacion-candado": "node scripts/sync-functions-shared.mjs",
+    "test:planeacion-candado": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/planeacion-candado.test.mjs\"",
     "deploy:rules": "firebase deploy --only firestore --project evalua-facil-app",
     "check:design": "bash scripts/check-ui-standards.sh",
     "prepare": "husky"
