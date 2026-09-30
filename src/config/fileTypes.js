@@ -65,6 +65,42 @@ export const ALL_FILES_KEY = 'todos'
 export const CUSTOM_FILE_TYPE = 'personalizado'
 export const DEFAULT_FILE_TYPE = 'imagenes'
 
+// "Enlace o URL": el estudiante entrega una dirección web (p. ej. la de un
+// video en YouTube o Drive) en lugar de un archivo. No es un tipo de archivo:
+// no lleva MIME ni extensión, no pasa por Cloudinary ni Storage, y se guarda
+// como texto en `submissions.enlaceURL`. Se combina con cualquier otra
+// opción; en una actividad mixta la entrega es UN archivo O UN enlace, nunca
+// los dos (firestore.rules lo exige también: entregaEnlaceCoherente).
+export const LINK_KEY = 'enlace'
+export const LINK_MAX_LENGTH = 2000
+export const LINK_INVALID_MESSAGE = 'Escribe una URL válida que comience con http:// o https://.'
+
+export function acceptsLink(value) {
+  return normalizeFileTypeKeys(value).includes(LINK_KEY)
+}
+
+// ¿La actividad acepta algún archivo? Falso solo cuando lo único elegido es
+// el enlace — ahí no se muestra el selector de archivos.
+export function acceptsFiles(value) {
+  return normalizeFileTypeKeys(value).some((k) => k !== LINK_KEY)
+}
+
+// Valida el enlace que escribe el estudiante. Solo http:// y https:// (nada de
+// javascript:, data:, file:…), sin espacios, hasta 2000 caracteres y sin
+// restringir dominios. Es el mismo criterio que enlaceValido() en
+// firestore.rules, que es la barrera que no se puede rodear.
+export function isValidDeliveryLink(text) {
+  const t = String(text ?? '').trim()
+  if (!t || t.length > LINK_MAX_LENGTH || /\s/.test(t)) return false
+  if (!/^https?:\/\//i.test(t)) return false
+  try {
+    const u = new URL(t)
+    return (u.protocol === 'http:' || u.protocol === 'https:') && !!u.hostname
+  } catch {
+    return false
+  }
+}
+
 // `tiposArchivo` used to be a single preset key before multi-select existed.
 // Map each legacy value to its equivalent array of base keys.
 const LEGACY_KEY_MAP = {
@@ -97,15 +133,17 @@ export function parseCustomExts(raw) {
 // "Cualquier archivo".
 export function fileTypesLabel(value, customExts) {
   const keys = normalizeFileTypeKeys(value)
-  if (keys.includes(ALL_FILES_KEY)) return 'Cualquier archivo'
+  const link = keys.includes(LINK_KEY) ? ['Enlace o URL'] : []
+  if (keys.includes(ALL_FILES_KEY)) return ['Cualquier archivo', ...link].join(', ')
   const parts = keys
-    .filter((k) => k !== CUSTOM_FILE_TYPE)
+    .filter((k) => k !== CUSTOM_FILE_TYPE && k !== LINK_KEY)
     .map((k) => FILE_TYPE_BASE_OPTIONS.find((o) => o.key === k)?.label)
     .filter(Boolean)
   if (keys.includes(CUSTOM_FILE_TYPE)) {
     const exts = parseCustomExts(customExts)
     parts.push(exts.length ? exts.map((e) => e.toUpperCase()).join(', ') : 'Personalizado')
   }
+  parts.push(...link)
   return parts.length ? parts.join(', ') : FILE_TYPE_BASE_OPTIONS[0].label
 }
 
@@ -119,9 +157,11 @@ export function fileTypesLabel(value, customExts) {
 // technical extension list ("· .jpg,.pdf,.doc") reads as confusing.
 export function fileTypesInstructions(value, customExts) {
   const keys = normalizeFileTypeKeys(value)
-  if (keys.includes(ALL_FILES_KEY)) return ['Un archivo de cualquier tipo']
+  const linkLine = keys.includes(LINK_KEY) ? ['1 enlace o URL'] : []
+  if (keys.includes(ALL_FILES_KEY)) return ['Un archivo de cualquier tipo', ...linkLine]
   const lines = []
   keys.forEach((k) => {
+    if (k === LINK_KEY) return
     if (k === CUSTOM_FILE_TYPE) {
       const exts = parseCustomExts(customExts)
       if (exts.length) lines.push(`1 archivo con extensión ${exts.map((e) => `.${e.toUpperCase()}`).join(' o .')}`)
@@ -131,6 +171,7 @@ export function fileTypesInstructions(value, customExts) {
     const base = FILE_TYPE_BASE_OPTIONS.find((o) => o.key === k)
     if (base) lines.push(base.label)
   })
+  lines.push(...linkLine)
   return lines.length ? lines : ['1 archivo']
 }
 
@@ -184,6 +225,9 @@ export function resolveFileTypes(value, customExts) {
 // Validate a File against the current selection, by MIME first and extension
 // as fallback.
 export function isFileAllowed(file, value, customExts) {
+  // Solo "Enlace o URL": no se acepta ningún archivo (sin esto, la lista
+  // vacía de abajo caería en "acepta cualquier cosa").
+  if (!acceptsFiles(value)) return false
   const { mimes, exts } = resolveFileTypes(value, customExts)
   if (exts.length === 0) return true // only "personalizado" selected with no extensions typed → allow anything
   if (file.type && mimes.includes(file.type)) return true

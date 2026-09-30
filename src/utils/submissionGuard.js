@@ -20,10 +20,12 @@ import { runTransaction, getDoc } from 'firebase/firestore'
 // ── Funciones puras ───────────────────────────────────────────────────────────
 
 // Misma definición que tieneEvidencia() en firestore.rules: solo los campos de
-// la entrega de ARCHIVO. Cuestionarios y juegos guardan lo suyo en otra parte.
+// la entrega de ARCHIVO o de ENLACE. Cuestionarios y juegos guardan lo suyo en
+// otra parte.
 export function tieneEvidencia(sub) {
   return !!sub && (
     sub.archivoURL != null ||
+    sub.enlaceURL != null ||
     (Array.isArray(sub.archivos) && sub.archivos.length > 0) ||
     sub.completadoSinArchivo === true
   )
@@ -54,6 +56,7 @@ export function firmaEntrega(sub) {
   return JSON.stringify([
     milis(sub.fechaEntrega),
     sub.archivoURL ?? null,
+    sub.enlaceURL ?? null,
     Array.isArray(sub.archivos) ? sub.archivos.map((a) => a?.url ?? null) : null,
     sub.completadoSinArchivo === true,
     sub.sinEntrega === true,

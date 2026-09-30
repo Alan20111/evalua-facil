@@ -14,7 +14,8 @@ import {
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
 import { doc, collection, addDoc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, deleteField } from 'firebase/firestore'
-import { EntregaCambio, elegibleSinEntrega, crearSiNoExiste, actualizarSiNoCambio, borrarSiNoCambio, sinEntregaEnLote } from '../src/utils/submissionGuard.js'
+import { EntregaCambio, elegibleSinEntrega, tieneEvidencia, crearSiNoExiste, actualizarSiNoCambio, borrarSiNoCambio, sinEntregaEnLote } from '../src/utils/submissionGuard.js'
+import { esNotaAutomaticaDeCierre } from '../src/utils/ponderacion.js'
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')
 
@@ -2997,6 +2998,109 @@ ok('F-05 · admin CAN read publicProfiles')
     if (docente.status === 'rejected') assert.ok(docente.reason instanceof EntregaCambio, `carrera ${i}: el docente recibe EntregaCambio, no otro error (${docente.reason?.code || docente.reason?.message})`)
   }
   ok('GUARDIÁN · carrera entrega vs. "sin entrega"/masiva (6 rondas): ninguna entrega real se convierte ni se pierde en silencio')
+}
+
+// ── ENLACE O URL · entrega mediante enlaceURL (tiposArchivo contiene 'enlace')
+// La pantalla valida, pero la barrera real son las reglas: una app vieja, una
+// pestaña abierta antes del cambio o una llamada directa no pasan por ella.
+{
+  const HACE_1_DIA_E = Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000))
+  const EN_1_DIA_E = Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000))
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'activities', 'AENL'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10, tiposArchivo: ['enlace'] })
+    await setDoc(doc(db, 'activities', 'AMIX'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10, tiposArchivo: ['pdf', 'enlace'] })
+    await setDoc(doc(db, 'activities', 'ATODOSENL'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10, tiposArchivo: ['todos', 'enlace'] })
+    await setDoc(doc(db, 'activities', 'AENLVENC'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10, tiposArchivo: ['enlace'], fechaLimiteTS: HACE_1_DIA_E })
+    await setDoc(doc(db, 'activities', 'AENLPRO'), {
+      docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10, tiposArchivo: ['enlace'], fechaLimiteTS: HACE_1_DIA_E,
+      extensiones: { ST_JUAN: '2099-01-01T23:59' }, extensionesTS: { ST_JUAN: EN_1_DIA_E },
+    })
+  })
+  const borrar = (id) => testEnv.withSecurityRulesDisabled((ctx) => deleteDoc(doc(ctx.firestore(), 'submissions', id)))
+  const leerE = async (id) => {
+    let data
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { const s = await getDoc(doc(ctx.firestore(), 'submissions', id)); data = s.exists() ? s.data() : undefined })
+    return data
+  }
+  const conEnlace = (actividadId, enlaceURL) => ({
+    alumnoId: 'ST_JUAN', actividadId, enlaceURL,
+    completadoSinArchivo: false, fechaEntrega: serverTimestamp(),
+    calificacion: null, comentario: '', estado: 'entregado', tarde: false, historial: [],
+  })
+  const PDF = { url: 'https://res.cloudinary.com/demo/raw/upload/v1/evalua-facil/submissions/t.pdf', nombre: 't.pdf', tamano: 10 }
+  const conArchivo = (actividadId) => ({
+    alumnoId: 'ST_JUAN', actividadId, archivoURL: PDF.url, nombreArchivo: PDF.nombre, archivos: [PDF],
+    completadoSinArchivo: false, fechaEntrega: serverTimestamp(),
+    calificacion: null, comentario: '', estado: 'entregado', tarde: false, historial: [],
+  })
+  const sub = (a) => doc(asJuan, 'submissions', `${a}_ST_JUAN`)
+
+  // Validación del enlace
+  await assertSucceeds(setDoc(sub('AENL'), conEnlace('AENL', 'https://www.youtube.com/watch?v=XXXXXXXX'), { merge: true }))
+  const guardado = await leerE('AENL_ST_JUAN')
+  assert.equal(guardado.enlaceURL, 'https://www.youtube.com/watch?v=XXXXXXXX')
+  assert.ok(!('archivoURL' in guardado) && !('archivos' in guardado) && !('nombreArchivo' in guardado))
+  ok('ENLACE · https válido se guarda como texto en enlaceURL, sin archivoURL/archivos/nombreArchivo')
+  await borrar('AENL_ST_JUAN')
+  await assertSucceeds(setDoc(sub('AENL'), conEnlace('AENL', 'http://ejemplo.com/video'), { merge: true }))
+  ok('ENLACE · http válido → aceptado')
+  await borrar('AENL_ST_JUAN')
+  for (const malo of ['hola mundo', 'www.youtube.com/watch?v=x', 'javascript:alert(1)', 'data:text/html,<b>x</b>',
+    'file:///C:/video.mp4', 'ftp://x.com/v', 'https://', 'https://exa mple.com', `https://ejemplo.com/${'a'.repeat(2000)}`, 42]) {
+    await assertFails(setDoc(sub('AENL'), conEnlace('AENL', malo), { merge: true }))
+  }
+  assert.equal(await leerE('AENL_ST_JUAN'), undefined)
+  ok('ENLACE · rechazados: texto, sin protocolo, javascript:, data:, file:, ftp:, vacío, con espacios, >2000, no-texto')
+
+  // Candado de "solo enlace": ningún archivo entra
+  await assertFails(setDoc(sub('AENL'), conArchivo('AENL'), { merge: true }))
+  await assertFails(setDoc(sub('AENL'), { ...conArchivo('AENL'), archivoURL: null, archivos: [] }, { merge: true }))
+  ok('ENLACE · actividad SOLO enlace: la entrega de archivo (app/pestaña vieja o llamada directa) se rechaza')
+  await assertSucceeds(setDoc(sub('AENL'), conEnlace('AENL', 'https://drive.google.com/file/d/abc/view'), { merge: true }))
+  await assertFails(updateDoc(sub('AENL'), { archivoURL: PDF.url, nombreArchivo: PDF.nombre, archivos: [PDF] }))
+  await assertFails(updateDoc(sub('AENL'), { enlaceURL: deleteField(), archivoURL: PDF.url, nombreArchivo: PDF.nombre, archivos: [PDF] }))
+  await assertFails(updateDoc(sub('AENL'), { enlaceURL: 'javascript:alert(1)' }))
+  ok('ENLACE · sobre una entrega de enlace: ni agregar archivo, ni cambiarlo por archivo, ni meter un esquema peligroso')
+
+  // Actividad mixta: archivo O enlace, nunca los dos
+  await assertFails(setDoc(sub('AMIX'), { ...conArchivo('AMIX'), enlaceURL: 'https://1drv.ms/abc' }, { merge: true }))
+  ok('ENLACE · mixta: archivo + enlace en la misma entrega → rechazado')
+  await assertSucceeds(setDoc(sub('AMIX'), conArchivo('AMIX'), { merge: true }))
+  await assertFails(updateDoc(sub('AMIX'), { enlaceURL: 'https://1drv.ms/abc' }))
+  await borrar('AMIX_ST_JUAN')
+  await assertSucceeds(setDoc(sub('AMIX'), conEnlace('AMIX', 'https://1drv.ms/abc'), { merge: true }))
+  await assertFails(setDoc(sub('AMIX'), conArchivo('AMIX'), { merge: true }))
+  ok('ENLACE · mixta: el archivo solo o el enlace solo pasan; completar la otra modalidad después → rechazado')
+  await assertSucceeds(setDoc(sub('ATODOSENL'), conArchivo('ATODOSENL'), { merge: true }))
+  ok('ENLACE · "cualquier extensión" + enlace: el archivo sigue entrando igual')
+
+  // Evidencia: el docente no la pisa ni la convierte en "sin entrega"
+  const linkSub = await leerE('AENL_ST_JUAN')
+  assert.equal(tieneEvidencia(linkSub), true)
+  assert.equal(elegibleSinEntrega(linkSub), false)
+  assert.equal(esNotaAutomaticaDeCierre({ ...linkSub, cierreParcial: true, sinEntrega: true }), false)
+  ok('ENLACE · cuenta como evidencia (tieneEvidencia / elegibleSinEntrega / esNotaAutomaticaDeCierre)')
+  const refT = doc(asT1, 'submissions', 'AENL_ST_JUAN')
+  await assertFails(updateDoc(refT, { sinEntrega: true, calificacion: 0, estado: 'calificado' }))
+  await assertFails(setDoc(refT, { actividadId: 'AENL', alumnoId: 'ST_JUAN', calificacion: 5, estado: 'calificado', sinEntrega: true, cierreParcial: true }))
+  await assertFails(updateDoc(refT, { enlaceURL: 'https://otro.com' }))
+  ok('ENLACE · el docente no lo convierte en "sin entrega", no lo reemplaza en bloque (cierre) ni cambia el enlace')
+  await assertSucceeds(updateDoc(refT, { calificacion: 9, comentario: 'Buen video', estado: 'calificado' }))
+  assert.equal((await leerE('AENL_ST_JUAN')).enlaceURL, 'https://drive.google.com/file/d/abc/view')
+  ok('ENLACE · el docente califica la entrega de enlace y el enlace queda intacto')
+
+  // Anular y volver a entregar
+  const vista = { id: 'AENL_ST_JUAN', ...(await getDoc(refT)).data() }
+  await borrarSiNoCambio(asT1, refT, vista)
+  assert.equal(await leerE('AENL_ST_JUAN'), undefined)
+  await assertSucceeds(setDoc(sub('AENL'), conEnlace('AENL', 'https://www.youtube.com/watch?v=nuevo'), { merge: true }))
+  ok('ENLACE · anular la entrega de enlace y volver a entregar otro enlace')
+
+  // Prórroga
+  await assertFails(setDoc(sub('AENLVENC'), conEnlace('AENLVENC', 'https://ejemplo.com/video'), { merge: true }))
+  await assertSucceeds(setDoc(sub('AENLPRO'), conEnlace('AENLPRO', 'https://ejemplo.com/video'), { merge: true }))
+  ok('ENLACE · plazo vencido → rechazado; con prórroga individual vigente → aceptado')
 }
 
 // ── Mi espacio: ningún cliente toca miEspacio ni miEspacioArchivos ────────
