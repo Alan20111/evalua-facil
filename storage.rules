@@ -1,12 +1,53 @@
 rules_version = '2';
+
+// Firebase Storage de Evalúa Fácil. Hoy SOLO lo usa Mi espacio, el
+// almacenamiento personal del estudiante (29-sep-2026). Las evidencias de las
+// actividades y el resto de los archivos viven en Cloudinary, no aquí.
+//
+// (Este archivo antes traía una regla `submissions/` que nunca se desplegó:
+// firebase.json no lo mencionaba y el bucket no existía. Se quitó porque, al
+// desplegarlo ahora, dejaba a cualquier cuenta con sesión subir archivos a esa
+// ruta. Nada la usaba.)
+//
+// Todo lo que no esté permitido abajo queda negado.
+//
+// OJO al desplegar: la regla de Mi espacio lee Firestore (firestore.get), y
+// para eso el agente de servicio de Storage necesita el rol
+// roles/firebaserules.firestoreServiceAgent. firebase-tools lo otorga SOLO
+// cuando sube un ruleset nuevo, y NUNCA en modo no interactivo (sin TTY, como
+// en CI o en Claude Code) salvo con `--interactive --force`. Sin ese rol,
+// toda subida a Mi espacio responde 403 aunque la reserva sea válida
+// (visto el 29-sep-2026 al activar Storage).
 service firebase.storage {
   match /b/{bucket}/o {
-    // Submissions: authenticated users can read/write
-    match /submissions/{activityId}/{alumnoId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('application/pdf|application/msword|application/vnd.openxmlformats.*|image/jpeg|image/png');
+
+    // Mi espacio: mi-espacio/{uid}/{fileId}
+    //
+    // El cliente solo puede CREAR, y solo con una reserva que el servidor
+    // abrió para él en una transacción que ya comprobó la cuota
+    // (api/_lib/miEspacio.js → reservar). La reserva fija el tamaño exacto y
+    // el tipo, y vence. Sin ella no se sube nada.
+    //
+    // Leer, reemplazar y borrar: nunca desde el cliente. La descarga es con un
+    // enlace firmado y temporal que da el servidor solo al dueño, y el borrado
+    // lo hace el servidor para mantener la cuota al día.
+    match /mi-espacio/{uid}/{fileId} {
+      function reserva() {
+        return firestore.get(/databases/(default)/documents/miEspacioArchivos/$(fileId)).data;
+      }
+      // `resource == null`: solo archivos nuevos. Sin esto, con la reserva
+      // todavía abierta se podía reemplazar un archivo ya subido (visto en el
+      // emulador, que trata la sobrescritura como `create`).
+      allow create: if request.auth != null
+        && resource == null
+        && request.auth.uid == uid
+        && reserva().uid == uid
+        && reserva().estado == 'reservado'
+        && reserva().ruta == 'mi-espacio/' + uid + '/' + fileId
+        && request.time < reserva().venceEn
+        && request.resource.size == reserva().tamano
+        && request.resource.contentType == reserva().tipo;
+      allow read, update, delete: if false;
     }
   }
 }

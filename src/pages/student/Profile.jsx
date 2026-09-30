@@ -14,7 +14,7 @@ import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus, AlertTriangle, Cloud, ChevronRight } from 'lucide-react'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModal'
@@ -300,6 +300,23 @@ export default function StudentProfile() {
             )}
           </div>
         </div>
+
+        {/* ── Mi espacio ── Solo en el teléfono (web): en escritorio su casa es
+            la barra lateral, y la app nativa no lo tiene. */}
+        {!IS_NATIVE_APP && (
+          <button
+            type="button"
+            onClick={() => navigate('/alumno/mi-espacio')}
+            className="md:hidden w-full bg-surface-card rounded-card shadow-card p-5 mb-4 flex items-center gap-3 text-left hover:bg-[var(--accent-tint)] transition-colors"
+          >
+            <Cloud size={20} className="text-accent flex-shrink-0" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-on-surface">Mi espacio</span>
+              <span className="block text-xs text-muted mt-0.5">Guarda tus archivos personales aquí</span>
+            </span>
+            <ChevronRight size={18} className="text-muted flex-shrink-0" />
+          </button>
+        )}
 
         {/* ── Datos de acceso ── */}
         <div className="bg-surface-card rounded-card shadow-card p-5 mb-4">
