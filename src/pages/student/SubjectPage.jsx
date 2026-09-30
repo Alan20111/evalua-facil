@@ -43,6 +43,7 @@ import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde } from '../../utils/avisos'
 import AsistenciaSemanal from '../../components/student/AsistenciaSemanal'
+import { parcialIniciado, semanasVisiblesParcial } from '../../components/student/semanasAsistencia'
 
 // Builds a unified ordered list of activities + positioned materials for one
 // parcial, mirroring the teacher view so both render in the same order.
@@ -868,67 +869,86 @@ export default function StudentSubjectPage() {
       {/* Tab: Asistencias — por parcial: resumen destacado y una tarjeta por semana
           (components/student/AsistenciaSemanal.jsx). Totales y porcentajes se
           calculan aquí igual que siempre; el componente solo los presenta. La
-          unidad de asistencia es la sesión, no el día. */}
+          unidad de asistencia es la sesión, no el día.
+          Las semanas salen del calendario del parcial (semanasAsistencia.js):
+          la actual y las ya pasadas, aunque no tengan registros; nunca una
+          futura. Un parcial que ya empezó se muestra aunque aún no tenga
+          ningún registro (30-sep-2026). */}
       {activeTab === 'Asistencias' && (() => {
         const now = new Date()
         const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+        const parcialesFechas = subject?.parcialesFechas || []
+
+        const tarjetas = PARCIALES.map((p) => {
+          // Filtrar sesiones futuras (auto-generadas como "presente") —
+          // el alumno no debe verlas hasta que sucedan.
+          const registrosParcial = (attendanceSummary?.registros || [])
+            .filter((r) => r.parcial === p && r.fecha <= todayISO)
+          // Sesiones que le corresponden pero el docente aún no registra: solo
+          // se dibujan (neutras); no entran en `stat` ni en los porcentajes.
+          const sinRegistroParcial = (attendanceSummary?.sinRegistro || [])
+            .filter((r) => r.parcial === p && r.fecha <= todayISO)
+          const stat = registrosParcial.reduce((acc, r) => {
+            acc.total++
+            if (r.estado === 'falta') acc.inasist++
+            else { acc.asist++; if (r.estado === 'justificada') acc.justif++ }
+            return acc
+          }, { asist: 0, inasist: 0, justif: 0, total: 0 })
+          // Un parcial que aún no empieza (y sin datos) no genera tarjeta.
+          const iniciado = parcialIniciado(parcialesFechas, p, todayISO)
+          if (!iniciado && stat.total === 0 && sinRegistroParcial.length === 0) return null
+          const semanas = semanasVisiblesParcial({
+            parcialesFechas,
+            parcial: p,
+            hoyISO: todayISO,
+            fechasConDatos: [...registrosParcial, ...sinRegistroParcial].map((r) => r.fecha),
+          })
+
+          // Denominador: si el parcial está cerrado usa el total oficial confirmado;
+          // si no, usa la estimación calculada por el servidor (misma fuente que el docente).
+          const cerrado = subject?.parcialesCerrados?.[String(p)]
+          const denominador = cerrado
+            ? (subject?.totalOficialPorParcial?.[String(p)] ?? null)
+            : (subject?.sesionesPorParcialEstimadas?.[String(p)] ?? subject?.totalOficialPorParcial?.[String(p)] ?? null)
+          // Sin ningún registro todavía no hay porcentaje que mostrar: un 0 %
+          // se leería como inasistencia. Con registros, el cálculo es el de siempre.
+          const pct = (stat.total > 0 && denominador != null && denominador > 0)
+            ? Math.round((stat.asist / denominador) * 100)
+            : null
+          const pctInasist = (stat.total > 0 && denominador != null && denominador > 0)
+            ? Math.round((stat.inasist / denominador) * 100)
+            : null
+          const riesgo = pctInasist == null ? null
+            : pctInasist >= umbralInasistencia ? '🔴'
+            : pctInasist >= umbralInasistencia * 0.75 ? '🟠'
+            : '🟢'
+
+          return (
+            <AsistenciaSemanal
+              key={p}
+              parcial={p}
+              registros={registrosParcial}
+              sinRegistro={sinRegistroParcial}
+              semanas={semanas}
+              stat={stat}
+              pct={pct}
+              pctInasist={pctInasist}
+              riesgo={riesgo}
+              denominador={denominador}
+              cerrado={cerrado}
+              umbralInasistencia={umbralInasistencia}
+              todayISO={todayISO}
+            />
+          )
+        }).filter(Boolean)
 
         return (
         <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
-          {PARCIALES.length === 0 || !attendanceSummary || attendanceSummary.total?.total === 0 ? (
+          {tarjetas.length === 0 ? (
             <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
               <p className="text-muted text-sm">Tu maestro aún no ha registrado asistencia.</p>
             </div>
-          ) : (
-            PARCIALES.map((p) => {
-              const statCompleto = attendanceSummary.porParcial?.[String(p)]
-              if (!statCompleto) return null
-              // Filtrar sesiones futuras (auto-generadas como "presente") —
-              // el alumno no debe verlas hasta que sucedan.
-              const registrosParcial = (attendanceSummary.registros || [])
-                .filter((r) => r.parcial === p && r.fecha <= todayISO)
-              const stat = registrosParcial.reduce((acc, r) => {
-                acc.total++
-                if (r.estado === 'falta') acc.inasist++
-                else { acc.asist++; if (r.estado === 'justificada') acc.justif++ }
-                return acc
-              }, { asist: 0, inasist: 0, justif: 0, total: 0 })
-              if (stat.total === 0) return null
-
-              // Denominador: si el parcial está cerrado usa el total oficial confirmado;
-              // si no, usa la estimación calculada por el servidor (misma fuente que el docente).
-              const cerrado = subject?.parcialesCerrados?.[String(p)]
-              const denominador = cerrado
-                ? (subject?.totalOficialPorParcial?.[String(p)] ?? null)
-                : (subject?.sesionesPorParcialEstimadas?.[String(p)] ?? subject?.totalOficialPorParcial?.[String(p)] ?? null)
-              const pct = (denominador != null && denominador > 0)
-                ? Math.round((stat.asist / denominador) * 100)
-                : null
-              const pctInasist = (denominador != null && denominador > 0)
-                ? Math.round((stat.inasist / denominador) * 100)
-                : null
-              const riesgo = pctInasist == null ? null
-                : pctInasist >= umbralInasistencia ? '🔴'
-                : pctInasist >= umbralInasistencia * 0.75 ? '🟠'
-                : '🟢'
-
-              return (
-                <AsistenciaSemanal
-                  key={p}
-                  parcial={p}
-                  registros={registrosParcial}
-                  stat={stat}
-                  pct={pct}
-                  pctInasist={pctInasist}
-                  riesgo={riesgo}
-                  denominador={denominador}
-                  cerrado={cerrado}
-                  umbralInasistencia={umbralInasistencia}
-                  todayISO={todayISO}
-                />
-              )
-            })
-          )}
+          ) : tarjetas}
         </div>
         )
       })()}
