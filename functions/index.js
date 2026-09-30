@@ -31,9 +31,9 @@
 // simple usando el mismo título/cuerpo.
 
 const { initializeApp } = require('firebase-admin/app')
-const { getFirestore, FieldValue } = require('firebase-admin/firestore')
+const { getFirestore, FieldValue, FieldPath } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
-const { onDocumentWritten } = require('firebase-functions/v2/firestore')
+const { onDocumentWritten, onDocumentCreated } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { logger } = require('firebase-functions')
@@ -841,7 +841,7 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
 // server-side, normalizada) y la escribe.
 const { normalizeGrade, parcialCerrado } = require('./_shared/ponderacion.js')
 const { normalizarPalabra } = require('./_shared/normalizarPalabra.js')
-const { estadoAsistencia, resumenAsistencia, fechaHoyMexico } = require('./_shared/asistenciaResumen.js')
+const { estadoAsistencia, resumenAsistencia, fechaHoyMexico, tieneLlave, correspondeSinRegistroPorAlta } = require('./_shared/asistenciaResumen.js')
 const { calcularSesionesReales } = require('./_shared/sesionesReales.js')
 const { fechasSinAsistencia, sesionSinMarcas } = require('./_shared/asistenciaAsuetos.js')
 
@@ -968,7 +968,11 @@ function idsAfectados(before, after) {
     // motivo viejo para siempre (bug real reportado).
     const antesMotivo = before.motivos?.[id] || ''
     const despuesMotivo = after.motivos?.[id] || ''
-    if (antesEstado !== despuesEstado || antesMotivo !== despuesMotivo) cambiaron.push(id)
+    // Que APAREZCA la llave en null ("sin registro") no cambia el estado
+    // (null === null), pero sí el resumen: la sesión pasa de "no le
+    // corresponde" a "le corresponde, sin registro" (resumen.sinRegistro).
+    const cambioLlave = tieneLlave(before, id) !== tieneLlave(after, id)
+    if (antesEstado !== despuesEstado || antesMotivo !== despuesMotivo || cambioLlave) cambiaron.push(id)
   }
   return cambiaron
 }
@@ -1058,6 +1062,56 @@ exports.recalcularResumenesAsistenciaDiario = onSchedule(
     logger.info(`Resúmenes de asistencia recalculados para ${n} asignatura(s) con sesiones el ${hoyISO}`)
   },
 )
+
+// Alta de un alumno en una asignatura que ya tiene columnas de asistencia
+// (creadas por adelantado antes de #1450, o del día). Cada columna guarda en
+// `presentes` solo a los inscritos del momento en que se creó, así que el
+// alumno nuevo no tenía llave en ninguna y esas sesiones desaparecían de su
+// resumen (diagnóstico del 30-sep-2026).
+//
+// Regla autorizada por Kike (30-sep-2026): SOLO las columnas con fecha
+// POSTERIOR al día del alta (hora de México) reciben `presentes.<id> = null`
+// — "le corresponde, sin registro". Nunca true ni false: el sistema no
+// inventa asistencia ni falta. Las del mismo día y las anteriores se quedan
+// sin llave; si el alumno sí estuvo, el docente la registra a mano.
+//
+// Una transacción por columna: vuelve a leer y solo escribe si la llave sigue
+// sin existir, así un toque del docente que llegue en medio nunca se pisa.
+// Toca únicamente `presentes.<id>` — ni justificadas ni motivos ni nada más.
+// Cubre el alta manual, la re-alta y la importación (todas crean el documento
+// en `students`); la copia de asignatura crea una sin columnas y no hace nada.
+async function marcarSinRegistroPorAlta(studentId, alumno, altaDate) {
+  const asignaturaId = alumno?.asignaturaId
+  if (!asignaturaId || !altaDate) return { marcadas: 0 }
+  const altaISO = fechaHoyMexico(altaDate)
+  const snap = await db.collection('attendance').where('asignaturaId', '==', asignaturaId).get()
+  const candidatas = snap.docs.filter((d) => correspondeSinRegistroPorAlta(d.data(), studentId, altaISO))
+  let marcadas = 0
+  for (const d of candidatas) {
+    const escrita = await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(d.ref)
+      if (!fresh.exists) return false
+      const r = fresh.data()
+      if (r.asignaturaId !== asignaturaId) return false
+      if (!correspondeSinRegistroPorAlta(r, studentId, altaISO)) return false
+      tx.update(d.ref, new FieldPath('presentes', studentId), null)
+      return true
+    }, { maxAttempts: 10 })
+    if (escrita) marcadas++
+  }
+  return { marcadas }
+}
+
+exports.onEstudianteAltaSinRegistro = onDocumentCreated('students/{studentId}', async (event) => {
+  const snap = event.data
+  if (!snap?.exists) return
+  const alumno = snap.data()
+  // createdAt lo pone el servidor al crear el documento; si faltara, la hora
+  // del propio evento de creación es el mismo instante del alta.
+  const altaDate = alumno.createdAt?.toDate?.() || (event.time ? new Date(event.time) : null)
+  const { marcadas } = await marcarSinRegistroPorAlta(event.params.studentId, alumno, altaDate)
+  if (marcadas) logger.info(`Alta ${event.params.studentId} en ${alumno.asignaturaId}: ${marcadas} sesión(es) posteriores quedaron "sin registro"`)
+})
 
 // Calcula las sesiones estimadas por parcial para una asignatura y las guarda
 // en subjects.sesionesPorParcialEstimadas. Es la ÚNICA fuente de verdad del
@@ -1503,6 +1557,7 @@ exports._pruebas = {
   vigenciaDe,
   recalcularResumenAsistencia,
   recalcularResumenesDelDia,
+  marcarSinRegistroPorAlta,
   TIPOS_OBJETIVOS,
   TIPOS_REVISION_MANUAL,
 }
