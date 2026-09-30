@@ -333,12 +333,14 @@ service cloud.firestore {
     // no quita nada legítimo, y protege también a las versiones viejas de la
     // app y a las pestañas abiertas antes de cualquier arreglo del cliente.
     //
-    // "Evidencia" son solo los campos de la entrega de ARCHIVO. Cuestionarios,
-    // exámenes y juegos guardan lo suyo en otra parte (subcolección
-    // `respuestas`, estadoEvaluacion…), así que su semántica no cambia aquí.
+    // "Evidencia" son solo los campos de la entrega de ARCHIVO o de ENLACE
+    // (`enlaceURL`, tipo "Enlace o URL"). Cuestionarios, exámenes y juegos
+    // guardan lo suyo en otra parte (subcolección `respuestas`,
+    // estadoEvaluacion…), así que su semántica no cambia aquí.
     // Sin get(): solo mira el documento, no cuenta contra el límite de lecturas.
     function tieneEvidencia(d) {
       return d.get('archivoURL', null) != null ||
+        d.get('enlaceURL', null) != null ||
         (d.get('archivos', []) is list && d.get('archivos', []).size() > 0) ||
         d.get('completadoSinArchivo', false) == true;
     }
@@ -369,12 +371,53 @@ service cloud.firestore {
 
     function docenteRespetaEvidencia() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['archivoURL', 'nombreArchivo', 'archivos', 'completadoSinArchivo']) &&
+          .hasAny(['archivoURL', 'nombreArchivo', 'archivos', 'enlaceURL', 'completadoSinArchivo']) &&
         !(
           tieneEvidencia(resource.data) &&
           resource.data.get('sinEntrega', false) != true &&
           request.resource.data.get('sinEntrega', false) == true
         );
+    }
+
+    // ── Entrega mediante "Enlace o URL" (tiposArchivo contiene 'enlace') ────
+    //
+    // El estudiante entrega una dirección web en `enlaceURL` en lugar de subir
+    // un archivo. El cliente valida (isValidDeliveryLink en fileTypes.js),
+    // pero la barrera real es esta — una app instalada vieja, una pestaña
+    // abierta antes del cambio o una llamada directa no pasan por la pantalla:
+    //  1. el enlace es texto de hasta 2000 caracteres, http:// o https://,
+    //     sin espacios (fuera javascript:, data:, file:…);
+    //  2. una entrega es UN archivo O UN enlace, nunca los dos;
+    //  3. en una actividad cuyo único tipo es 'enlace' no entra ningún archivo.
+    function tieneArchivo(d) {
+      return d.get('archivoURL', null) != null ||
+        d.get('nombreArchivo', null) != null ||
+        (d.get('archivos', []) is list && d.get('archivos', []).size() > 0);
+    }
+
+    function enlaceValido(d) {
+      return !('enlaceURL' in d) || (
+        d.enlaceURL is string &&
+        d.enlaceURL.size() <= 2000 &&
+        d.enlaceURL.matches('^[hH][tT][tT][pP][sS]?://[^\\s]+$')
+      );
+    }
+
+    function entregaEnlaceCoherente(d) {
+      return enlaceValido(d) && !('enlaceURL' in d && tieneArchivo(d));
+    }
+
+    // Solo se consulta la actividad cuando la escritura trae un archivo (el
+    // get() va detrás del &&), así que una entrega de enlace no gasta lectura.
+    function actividadSoloEnlace(actId) {
+      let tipos = exists(/databases/$(database)/documents/activities/$(actId))
+        ? get(/databases/$(database)/documents/activities/$(actId)).data.get('tiposArchivo', null)
+        : null;
+      return tipos is list && tipos.size() > 0 && tipos.hasOnly(['enlace']);
+    }
+
+    function archivoPermitidoPorTipo(d) {
+      return !(tieneArchivo(d) && actividadSoloEnlace(d.actividadId));
     }
 
     // Actividades: con su parcial cerrado no cambia nada de lo que decide la
@@ -1108,6 +1151,8 @@ service cloud.firestore {
         (
           ownsStudentDoc(request.resource.data.alumnoId) &&
           enrollmentMatchesActivity(request.resource.data.alumnoId, request.resource.data.actividadId) &&
+          entregaEnlaceCoherente(request.resource.data) &&
+          archivoPermitidoPorTipo(request.resource.data) &&
           request.resource.data.get('calificacion', null) == null &&
           request.resource.data.get('estado', '') != 'calificado' &&
           !actividadVencidaParaAlumno(request.resource.data.actividadId, request.resource.data.alumnoId) &&
@@ -1117,6 +1162,7 @@ service cloud.firestore {
         (
           isDocente() &&
           ownsActivity(request.resource.data.actividadId) &&
+          entregaEnlaceCoherente(request.resource.data) &&
           calificacionEnRango(request.resource.data.actividadId) &&
           (!actividadEnParcialCerrado(request.resource.data.actividadId) || notaAutomaticaDeCierre())
         )
@@ -1126,6 +1172,12 @@ service cloud.firestore {
           ownsStudentDoc(resource.data.alumnoId) &&
           studentNoTocaCalificacion() &&
           studentNoManipulaIntento() &&
+          entregaEnlaceCoherente(request.resource.data) &&
+          // El candado de "solo enlace" mira únicamente escrituras que TRAEN
+          // un archivo nuevo: una entrega vieja con archivo no se vuelve
+          // intocable si el docente cambia después el tipo de la actividad.
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['archivoURL', 'nombreArchivo', 'archivos']) ||
+            archivoPermitidoPorTipo(request.resource.data)) &&
           // Parcial cerrado: ni abrir ni terminar intentos, ni cambiar entregas
           // (una app vieja sin el candado de la pantalla tampoco).
           !actividadEnParcialCerrado(resource.data.actividadId)

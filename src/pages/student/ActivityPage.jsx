@@ -20,9 +20,13 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, Upload, CheckCircle, Clock, FileText, Star,
-  MessageSquare, Download, X,
+  MessageSquare, Download, X, ExternalLink,
 } from 'lucide-react'
-import { resolveFileTypes, isFileAllowed, allowsMultipleFiles, fileTypesInstructions, MAX_IMAGES_PER_SUBMISSION } from '../../config/fileTypes'
+import {
+  resolveFileTypes, isFileAllowed, allowsMultipleFiles, fileTypesInstructions, MAX_IMAGES_PER_SUBMISSION,
+  acceptsLink, acceptsFiles, isValidDeliveryLink, LINK_MAX_LENGTH, LINK_INVALID_MESSAGE,
+} from '../../config/fileTypes'
+import EnlaceEntregado from '../../components/EnlaceEntregado'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { isActivityPublished, cuentaParaCalificacion } from '../../utils/activityVisibility'
@@ -64,6 +68,11 @@ export default function StudentActivityPage() {
   const [submission, setSubmission] = useState(null)
   // Up to MAX_IMAGES_PER_SUBMISSION images per submission; 1 file for other types
   const [files, setFiles] = useState([])
+  // "Enlace o URL": lo que el estudiante pega. En una actividad mixta la
+  // entrega es UN archivo O UN enlace — mientras uno tenga algo, el otro se
+  // bloquea; se limpia con su propio botón para cambiar de modalidad.
+  const [enlace, setEnlace] = useState('')
+  const [enlaceTocado, setEnlaceTocado] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(true)
   // Celebración de "ya entregaste": una tanda breve de fuegos artificiales
@@ -229,12 +238,13 @@ export default function StudentActivityPage() {
   }
 
   async function handleUpload() {
-    if (!files.length) return
+    if (!files.length && !enlace.trim()) return
     if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
     // Una sola ocasión de entrega: si ya existe una entrega (por una condición
     // de carrera, doble clic, o una pestaña vieja), rechazar aquí también —
     // no solo ocultar el formulario en el render.
     if (submission) { toast('Ya entregaste esta actividad — espera a que tu maestro la revise.', 'error'); return }
+    if (!files.length) { await entregarEnlace(); return }
     for (const f of files) {
       if (!isFileAllowed(f, activity?.tiposArchivo || 'todos', activity?.extensionesCustom)) {
         toast(`Solo se permite: ${fileTypesInstructions(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).join(' o ')}`, 'error'); return
@@ -272,6 +282,44 @@ export default function StudentActivityPage() {
       }, { merge: true })
       toast(files.length > 1 ? `Tarea entregada — ${files.length} imágenes` : 'Tarea entregada')
       setFiles([])
+      setShowFireworks(true)
+      loadOther()
+    } catch (err) {
+      toast(err.message || 'Ocurrió un error al entregar. Inténtalo de nuevo.', 'error')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  // Entrega mediante "Enlace o URL": se guarda SOLO el texto en `enlaceURL`.
+  // Nada se sube (ni Cloudinary ni Storage) y no se escriben archivoURL /
+  // archivos / nombreArchivo — firestore.rules rechaza la entrega que traiga
+  // las dos cosas, y la que traiga un archivo en una actividad de solo enlace.
+  async function entregarEnlace() {
+    const url = enlace.trim()
+    if (!acceptsLink(activity?.tiposArchivo) || !isValidDeliveryLink(url)) {
+      setEnlaceTocado(true)
+      toast(LINK_INVALID_MESSAGE, 'error')
+      return
+    }
+    setUploading(true)
+    try {
+      // Mismo id determinista y mismo `merge` que la entrega de archivo.
+      await setDoc(doc(db, 'submissions', submissionDocId(activityId, student.id)), {
+        alumnoId: student.id,
+        actividadId: activityId,
+        enlaceURL: url,
+        completadoSinArchivo: false,
+        fechaEntrega: serverTimestamp(),
+        calificacion: null,
+        comentario: '',
+        estado: 'entregado',
+        tarde: isPastDeadline,
+        historial: [],
+      }, { merge: true })
+      toast('Tarea entregada')
+      setEnlace('')
+      setEnlaceTocado(false)
       setShowFireworks(true)
       loadOther()
     } catch (err) {
@@ -797,6 +845,11 @@ export default function StudentActivityPage() {
   const isGraded = submission?.calificacion != null
   const isDelivered = !!submission && !isGraded
   const noFile = submission?.completadoSinArchivo
+  // Modalidades de entrega que acepta la actividad (ver LINK_KEY en fileTypes.js)
+  const aceptaEnlace = acceptsLink(activity?.tiposArchivo)
+  const aceptaArchivos = acceptsFiles(activity?.tiposArchivo || 'todos')
+  const hayEnlace = enlace.trim() !== ''
+  const enlaceInvalido = hayEnlace && enlaceTocado && !isValidDeliveryLink(enlace)
   // Observación: no delivery from the student — the teacher grades directly
   const isObservacion = activity?.tipo === 'observacion' || activity?.categoria === 'observacion'
 
@@ -888,11 +941,21 @@ export default function StudentActivityPage() {
               <p className="text-xs text-muted mt-0.5 flex items-center gap-1 min-w-0">
                 {noFile
                   ? <><CheckCircle size={14} className="flex-shrink-0" /> Completada sin archivo</>
-                  : <><FileText size={14} className="flex-shrink-0" /> <span className="truncate">{submission.nombreArchivo}</span></>}
+                  : submission.enlaceURL
+                    ? <><ExternalLink size={14} className="flex-shrink-0" /> <span className="truncate">Enlace o URL</span></>
+                    : <><FileText size={14} className="flex-shrink-0" /> <span className="truncate">{submission.nombreArchivo}</span></>}
               </p>
             )}
           </div>
         </div>
+
+        {/* Entrega mediante enlace: se muestra la dirección, no se descarga */}
+        {submission && !submission.completadoSinArchivo && submission.enlaceURL && (
+          <div className="bg-surface-card rounded-card p-4 shadow-card">
+            <p className="text-xs font-medium text-muted mb-2">Tu entrega</p>
+            <EnlaceEntregado url={submission.enlaceURL} />
+          </div>
+        )}
 
         {/* View submitted file(s) */}
         {submission && !submission.completadoSinArchivo && submission.archivoURL && (
@@ -1010,7 +1073,9 @@ export default function StudentActivityPage() {
                 tipo de archivo (hasta 5 fotos cuentan como uno), nunca varios
                 tipos combinados. */}
             <div className="mb-3 p-3 bg-accent-light border border-accent rounded text-sm">
-              <p className="font-medium text-on-surface mb-1">Archivos que puedes enviar para esta actividad:</p>
+              <p className="font-medium text-on-surface mb-1">
+                {aceptaEnlace ? 'Lo que puedes enviar para esta actividad:' : 'Archivos que puedes enviar para esta actividad:'}
+              </p>
               <ul className="space-y-0.5 text-muted">
                 {fileTypesInstructions(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).map((line, i, arr) => (
                   <li key={line}>• {line}{i < arr.length - 1 ? ' o' : ''}</li>
@@ -1018,15 +1083,19 @@ export default function StudentActivityPage() {
               </ul>
             </div>
             <div className="space-y-3">
+              {aceptaArchivos && (<>
               {/* min-h en vez de h: con altura FIJA el texto se salía de la caja
                   punteada y se recortaba a media letra en pantallas angostas o
                   con la fuente del sistema en grande. Así conserva el mismo alto
                   cuando el contenido cabe, y crece cuando no. */}
-              <label className={`flex flex-col items-center justify-center w-full min-h-[7rem] sm:min-h-[8rem] px-3 py-3 border-2 border-dashed rounded cursor-pointer transition-colors ${
-                files.length ? 'border-accent bg-accent-light' : 'border-outline-variant hover:border-accent hover:bg-surface'
+              <label className={`flex flex-col items-center justify-center w-full min-h-[7rem] sm:min-h-[8rem] px-3 py-3 border-2 border-dashed rounded transition-colors ${
+                hayEnlace
+                  ? 'border-outline-variant opacity-50 cursor-not-allowed'
+                  : files.length ? 'border-accent bg-accent-light cursor-pointer' : 'border-outline-variant hover:border-accent hover:bg-surface cursor-pointer'
               }`}>
                 <input
                   type="file"
+                  disabled={hayEnlace}
                   accept={resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}
                   multiple={allowsMultipleFiles(activity?.tiposArchivo || 'todos')}
                   className="hidden"
@@ -1078,11 +1147,60 @@ export default function StudentActivityPage() {
                   )}
                 </div>
               )}
+              {hayEnlace && (
+                <p className="text-xs text-muted text-center">Para subir un archivo, primero borra el enlace.</p>
+              )}
+              </>)}
+              {aceptaArchivos && aceptaEnlace && (
+                <p className="text-xs font-medium text-muted text-center">o</p>
+              )}
+              {aceptaEnlace && (
+                <div>
+                  <label htmlFor="entrega-enlace" className="block text-sm font-medium text-on-surface mb-1">Enlace o URL</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="entrega-enlace"
+                      type="url"
+                      inputMode="url"
+                      value={enlace}
+                      onChange={(e) => setEnlace(e.target.value)}
+                      onBlur={() => setEnlaceTocado(true)}
+                      disabled={files.length > 0 || uploading}
+                      maxLength={LINK_MAX_LENGTH}
+                      placeholder="Pega aquí el enlace de tu entrega"
+                      autoComplete="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      aria-invalid={enlaceInvalido || undefined}
+                      className={`flex-1 min-w-0 px-3 py-2 rounded border text-sm bg-surface-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50 disabled:cursor-not-allowed ${
+                        enlaceInvalido ? 'border-red-300' : 'border-outline-variant'
+                      }`}
+                    />
+                    {hayEnlace && (
+                      <button
+                        type="button"
+                        onClick={() => { setEnlace(''); setEnlaceTocado(false) }}
+                        aria-label="Borrar el enlace"
+                        className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                  {enlaceInvalido ? (
+                    <p className="mt-1 text-xs text-red-500">{LINK_INVALID_MESSAGE}</p>
+                  ) : files.length > 0 ? (
+                    <p className="mt-1 text-xs text-muted">Para entregar un enlace, primero quita el archivo.</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted">Por ejemplo, el enlace de un video alojado en YouTube, Google Drive u otro servicio.</p>
+                  )}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={handleUpload}
                 onMouseDown={(e) => e.preventDefault()}
-                disabled={!files.length || uploading}
+                disabled={(!files.length && !hayEnlace) || uploading}
                 style={{ touchAction: 'manipulation' }}
                 className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >

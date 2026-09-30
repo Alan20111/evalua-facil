@@ -1,5 +1,5 @@
 import {
-  FILE_TYPE_BASE_OPTIONS, ALL_FILES_KEY, CUSTOM_FILE_TYPE,
+  FILE_TYPE_BASE_OPTIONS, ALL_FILES_KEY, CUSTOM_FILE_TYPE, LINK_KEY,
   normalizeFileTypeKeys, parseCustomExts,
 } from '../config/fileTypes'
 
@@ -15,7 +15,14 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
   function toggle(key) {
     let next
     if (key === ALL_FILES_KEY) {
-      next = keys.includes(ALL_FILES_KEY) ? [FILE_TYPE_BASE_OPTIONS[0].key] : [ALL_FILES_KEY]
+      // "Cualquier extensión" excluye a los demás tipos de ARCHIVO, pero no al
+      // enlace: ese se conserva tal como estaba.
+      const link = keys.includes(LINK_KEY) ? [LINK_KEY] : []
+      next = keys.includes(ALL_FILES_KEY)
+        ? (link.length ? link : [FILE_TYPE_BASE_OPTIONS[0].key])
+        : [ALL_FILES_KEY, ...link]
+    } else if (key === LINK_KEY) {
+      next = keys.includes(LINK_KEY) ? keys.filter((k) => k !== LINK_KEY) : [...keys, LINK_KEY]
     } else {
       const withoutAll = keys.filter((k) => k !== ALL_FILES_KEY)
       next = withoutAll.includes(key) ? withoutAll.filter((k) => k !== key) : [...withoutAll, key]
@@ -79,6 +86,18 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
             )}
           </div>
         )}
+        <label className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={keys.includes(LINK_KEY)}
+            onChange={() => toggle(LINK_KEY)}
+            className="accent-[var(--accent)]"
+          />
+          <span className={keys.includes(LINK_KEY) ? 'text-accent font-medium' : 'text-on-surface'}>
+            Enlace o URL
+            <span className="block text-xs text-muted font-normal">Úsalo, por ejemplo, para recibir la URL donde está alojado un video.</span>
+          </span>
+        </label>
       </div>
     </fieldset>
   )

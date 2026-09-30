@@ -45,7 +45,8 @@ import { fechaLimiteTimestamp } from '../../utils/deadline'
 import { tieneEntregaReal, leerEntregasReales, MENSAJE_PRORROGA_CON_ENTREGA } from '../../utils/extensiones'
 import { formatDeadline, formatPublishAt, parseFechaLimite, withDefaultTime, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { parcialCerrado as esParcialCerrado, mensajeParcialCerrado } from '../../utils/ponderacion'
-import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
+import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, LINK_KEY, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
+import EnlaceEntregado from '../../components/EnlaceEntregado'
 import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
 import EvaluacionManager from '../../components/EvaluacionManager'
@@ -97,6 +98,7 @@ const FILE_TYPE_SHORT_LABELS = {
   imagenes: 'Imágenes (JPG, PNG) — hasta 5', pdf: 'PDF', word: 'Word',
   powerpoint: 'PowerPoint', excel: 'Excel', zip: 'ZIP/RAR',
   [ALL_FILES_KEY]: 'Cualquier tipo de archivo',
+  [LINK_KEY]: 'Enlace',
 }
 
 function isImageFile(name, url) {
@@ -1787,6 +1789,12 @@ export default function ActivityPage() {
                     </div>
                   )
                 })()
+              ) : selected.sub && !selected.sub.completadoSinArchivo && selected.sub.enlaceURL ? (
+                /* Entrega mediante "Enlace o URL": solo la dirección, clicable
+                   en otra pestaña — sin vista previa ni descarga. */
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <EnlaceEntregado url={selected.sub.enlaceURL} className="w-full max-w-xl" />
+                </div>
               ) : selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL ? (
                 isImageFile(selected.sub.nombreArchivo, selected.sub.archivoURL) ? (
                   <ZoomableImage
@@ -1896,7 +1904,9 @@ export default function ActivityPage() {
                           : selected.sub
                             ? selected.sub.completadoSinArchivo
                               ? 'Completada sin archivo'
-                              : (selected.sub.nombreArchivo
+                              : selected.sub.enlaceURL
+                                ? 'Enlace o URL'
+                                : (selected.sub.nombreArchivo
                                   ? (pdfPageCount != null
                                       ? `${selected.sub.nombreArchivo} (${pdfPageCount} ${pdfPageCount === 1 ? 'página' : 'páginas'})`
                                       : selected.sub.nombreArchivo)
@@ -2478,6 +2488,10 @@ export default function ActivityPage() {
                       )}
                     </div>
                   ))}
+                </div>
+              ) : selected.sub && !selected.sub.completadoSinArchivo && selected.sub.enlaceURL ? (
+                <div className="h-full flex items-center justify-center p-3">
+                  <EnlaceEntregado url={selected.sub.enlaceURL} className="w-full" />
                 </div>
               ) : (
                 <div className="h-full flex items-center justify-center text-slate-400 text-sm p-3 text-center">

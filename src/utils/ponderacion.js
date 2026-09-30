@@ -110,7 +110,7 @@ export function mensajeParcialCerrado(parcial) {
 export function esNotaAutomaticaDeCierre(sub) {
   return sub?.cierreParcial === true && sub?.sinEntrega === true &&
     !(sub.intentos?.length) && !sub.estadoEvaluacion && !sub.intentoActual &&
-    !(sub.archivos?.length) && !sub.archivoURL && !sub.completadoSinArchivo &&
+    !(sub.archivos?.length) && !sub.archivoURL && !sub.enlaceURL && !sub.completadoSinArchivo &&
     !sub.respuestasJuego
 }
 
