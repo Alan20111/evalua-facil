@@ -32,11 +32,12 @@ export function fechasSinAsistencia(asuetos = [], vacaciones = []) {
 
 // ¿La columna sigue tal como la creó el sistema, sin trabajo del docente?
 // Nace con todos en `true`; cualquier falta, justificada o motivo escrito es
-// trabajo del docente y la columna NO se toca. Una llave ausente ("sin
-// registro", alta posterior) no es una marca. Si el docente cicló una celda
-// hasta volver a Presente, el estado es idéntico al original: no se pierde nada.
+// trabajo del docente y la columna NO se toca. Una llave ausente o en null
+// ("sin registro": la escribe el sistema al dar de alta a un alumno, nunca el
+// docente) no es una marca. Si el docente cicló una celda hasta volver a
+// Presente, el estado es idéntico al original: no se pierde nada.
 export function sesionSinMarcas(record) {
-  if (Object.values(record?.presentes || {}).some((v) => v !== true)) return false
+  if (Object.values(record?.presentes || {}).some((v) => v !== true && v !== null)) return false
   if (Object.values(record?.justificadas || {}).some(Boolean)) return false
   if (Object.values(record?.motivos || {}).some((m) => (typeof m === 'string' ? m.trim() !== '' : Boolean(m)))) return false
   return true

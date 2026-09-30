@@ -268,6 +268,75 @@ caso('resumen: no cuenta sesiones futuras ni las que el alumno no tiene registra
   assert.ok(!t.registros.some((x) => x.fecha === '2026-09-20'), 'la sesión futura no entra al resumen')
 })
 
+// ── "Sin registro" explícito: presentes[id] === null (30-sep-2026) ──────────
+// Le corresponde (posterior al día de su alta) pero el docente aún no la
+// registra. No es presente, ni falta, ni justificada; no cuenta en nada.
+
+caso('null: estadoAsistencia da null, igual que sin llave; true/false/justificada no cambian', () => {
+  const r = { presentes: { p: true, f: false, j: false, n: null }, justificadas: { j: true } }
+  assert.strictEqual(AR.estadoAsistencia(r, 'p'), 'presente')
+  assert.strictEqual(AR.estadoAsistencia(r, 'f'), 'falta')
+  assert.strictEqual(AR.estadoAsistencia(r, 'j'), 'justificada')
+  assert.strictEqual(AR.estadoAsistencia(r, 'n'), null)
+  assert.strictEqual(AR.estadoAsistencia(r, 'sinllave'), null)
+  assert.strictEqual(AR.tieneLlave(r, 'n'), true)
+  assert.strictEqual(AR.tieneLlave(r, 'sinllave'), false)
+  assert.strictEqual(AR.sinRegistroExplicito(r, 'n'), true)
+  assert.strictEqual(AR.sinRegistroExplicito(r, 'sinllave'), false)
+  assert.strictEqual(AR.sinRegistroExplicito(r, 'f'), false)
+})
+
+caso('null: el resumen lo pone en sinRegistro y NO toca registros, porParcial ni total', () => {
+  const base = [
+    { fecha: '2026-09-01', slot: 1, parcial: 1, presentes: { a: true } },
+    { fecha: '2026-09-02', slot: 1, parcial: 1, presentes: { a: false } },
+    { fecha: '2026-09-02', slot: 2, parcial: 1, presentes: { a: false }, justificadas: { a: true }, motivos: { a: 'cita' } },
+  ]
+  const conNull = [
+    ...base,
+    { fecha: '2026-09-03', slot: 1, parcial: 1, presentes: { a: null } },
+    { fecha: '2026-09-03', slot: 2, parcial: 1, presentes: { a: null } },
+    { fecha: '2026-09-04', slot: 1, parcial: 1, presentes: { otro: true } }, // sin llave: no le corresponde
+    { fecha: '2026-09-20', slot: 1, parcial: 1, presentes: { a: null } }, // futura
+  ]
+  const sin = AR.resumenAsistencia(base, 'a', [], '2026-09-14')
+  const con = AR.resumenAsistencia(conNull, 'a', [], '2026-09-14')
+  assert.deepStrictEqual(con.registros, sin.registros)
+  assert.deepStrictEqual(con.porParcial, sin.porParcial)
+  assert.deepStrictEqual(con.total, sin.total)
+  assert.ok(!con.registros.some((x) => x.estado == null), 'registros nunca trae null')
+  assert.deepStrictEqual(con.sinRegistro, [
+    { fecha: '2026-09-03', slot: 1, parcial: 1 },
+    { fecha: '2026-09-03', slot: 2, parcial: 1 },
+  ], 'ni la sin llave ni la futura')
+  assert.deepStrictEqual(sin.sinRegistro, [])
+})
+
+caso('null: sinRegistro respeta el parcial de las fechas actuales', () => {
+  const PF = [{ inicio: '2026-08-31', fin: '2026-09-10' }, { inicio: '2026-09-11', fin: '2026-12-18' }]
+  const r = AR.resumenAsistencia([{ fecha: '2026-09-12', slot: 1, parcial: 1, presentes: { a: null } }], 'a', PF, '2026-09-14')
+  assert.deepStrictEqual(r.sinRegistro, [{ fecha: '2026-09-12', slot: 1, parcial: 2 }])
+})
+
+caso('alta: solo columnas POSTERIORES al día del alta y sin llave reciben null', () => {
+  const alta = '2026-09-14'
+  const col = (fecha, presentes) => ({ fecha, presentes })
+  assert.strictEqual(AR.correspondeSinRegistroPorAlta(col('2026-09-13', { x: true }), 'n', alta), false, 'anterior')
+  assert.strictEqual(AR.correspondeSinRegistroPorAlta(col('2026-09-14', { x: true }), 'n', alta), false, 'mismo día')
+  assert.strictEqual(AR.correspondeSinRegistroPorAlta(col('2026-09-15', { x: true }), 'n', alta), true, 'posterior')
+  assert.strictEqual(AR.correspondeSinRegistroPorAlta(col('2026-09-15', { n: true }), 'n', alta), false, 'ya presente: no se toca')
+  assert.strictEqual(AR.correspondeSinRegistroPorAlta(col('2026-09-15', { n: false }), 'n', alta), false, 'ya falta: no se toca')
+  assert.strictEqual(AR.correspondeSinRegistroPorAlta(col('2026-09-15', { n: null }), 'n', alta), false, 'ya null: idempotente')
+  assert.strictEqual(AR.correspondeSinRegistroPorAlta(col('2026-09-15', {}), 'n', null), false, 'sin fecha de alta: nada')
+})
+
+caso('null: aparecer la llave en null SÍ recalcula; null → null no', () => {
+  assert.deepStrictEqual(F.idsAfectados({ presentes: { a: true } }, { presentes: { a: true, n: null } }), ['n'])
+  const x = { presentes: { a: true, n: null } }
+  assert.deepStrictEqual(F.idsAfectados(x, { presentes: { a: true, n: null } }), [])
+  assert.deepStrictEqual(F.idsAfectados(x, { presentes: { a: true, n: true } }), ['n'], 'el docente la registra')
+})
+
 caso('hoy en México, no en UTC: 18:30 del 14-sep en CDMX sigue siendo el 14', () => {
   assert.strictEqual(AR.fechaHoyMexico(new Date('2026-09-15T00:30:00Z')), '2026-09-14')
 })
@@ -3698,6 +3767,13 @@ caso('AA-12: justificada o motivo escrito es trabajo del docente → la columna 
   assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: false }, justificadas: { a: true }, motivos: { a: 'Consulta médica' } }), false)
   assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: true }, justificadas: { a: true } }), false)
   assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: true }, motivos: { a: 'aviso' } }), false)
+})
+
+caso('sin marcas: una llave en null ("sin registro") no es trabajo del docente', () => {
+  assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: true, n: null } }), true)
+  assert.strictEqual(AA.sesionSinMarcas({ presentes: { n: null } }), true)
+  assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: false, n: null } }), false, 'la falta sí es marca')
+  assert.strictEqual(AA.sesionSinMarcas({ presentes: { a: false, n: null }, justificadas: { a: true } }), false)
 })
 
 caso('AA-13 (escenario 9): el denominador cuenta exactamente las columnas que se crean', () => {
