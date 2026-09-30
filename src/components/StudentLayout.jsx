@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, ChevronRight, CalendarDays, Plus, Archive, Lightbulb } from 'lucide-react'
+import { LogOut, ChevronRight, CalendarDays, Plus, Archive, Lightbulb, Cloud } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { getDoc, doc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -278,6 +278,23 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               docente. Fuera de cualquier asignatura porque es el mismo para
               todas. */}
           <div className="px-2 pt-2 border-t border-white/15 space-y-0.5">
+            {/* Mi espacio — almacenamiento personal del estudiante. En el
+                teléfono (web) se entra desde Perfil; la app nativa no lo tiene.
+                El tooltip es el de siempre (data-tooltip, solo con ratón). */}
+            <NavLink
+              to="/alumno/mi-espacio"
+              data-tooltip="Guarda tus archivos personales aquí"
+              data-tooltip-nowrap=""
+              className={({ isActive }) =>
+                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
+                  isActive ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
+                }`
+              }
+            >
+              <Cloud size={17} className="flex-shrink-0" />
+              Mi espacio
+            </NavLink>
+
             <NavLink
               to="/alumno/tips"
               className={({ isActive }) =>

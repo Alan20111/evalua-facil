@@ -2999,5 +2999,27 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('GUARDIÁN · carrera entrega vs. "sin entrega"/masiva (6 rondas): ninguna entrega real se convierte ni se pierde en silencio')
 }
 
+// ── Mi espacio: ningún cliente toca miEspacio ni miEspacioArchivos ────────
+// Todo pasa por /api/student/mi-espacio-* (Admin SDK). Ni el dueño, ni otro
+// estudiante, ni el docente, ni alguien sin sesión.
+{
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'miEspacio', U_JUAN), { uid: U_JUAN, usadoBytes: 10, archivos: 1 })
+    await setDoc(doc(db, 'miEspacioArchivos', 'ME1'), { uid: U_JUAN, nombre: 'a.pdf', tamano: 10, estado: 'listo', ruta: `mi-espacio/${U_JUAN}/ME1` })
+  })
+  const anon = testEnv.unauthenticatedContext().firestore()
+  for (const [quien, db] of [['dueño', asJuan], ['otro estudiante', asIntruso], ['docente', asT1], ['sin sesión', anon]]) {
+    await assertFails(getDoc(doc(db, 'miEspacio', U_JUAN)))
+    await assertFails(getDoc(doc(db, 'miEspacioArchivos', 'ME1')))
+    await assertFails(getDocs(query(collection(db, 'miEspacioArchivos'), where('uid', '==', U_JUAN))))
+    await assertFails(setDoc(doc(db, 'miEspacio', U_JUAN), { uid: U_JUAN, usadoBytes: 0 }))
+    await assertFails(setDoc(doc(db, 'miEspacioArchivos', 'ME2'), { uid: U_JUAN, tamano: 1, estado: 'reservado' }))
+    await assertFails(updateDoc(doc(db, 'miEspacioArchivos', 'ME1'), { tamano: 1 }))
+    await assertFails(deleteDoc(doc(db, 'miEspacioArchivos', 'ME1')))
+    ok(`MI ESPACIO · ${quien}: no lee ni escribe miEspacio / miEspacioArchivos`)
+  }
+}
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

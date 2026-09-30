@@ -30,7 +30,8 @@
 
 import { aplicarCors } from '../_lib/cors.js'
 import { borrarAssets, extraerAssets } from '../_lib/cloudinary.js'
-import { getAuth, getDb, verifyRequest } from '../_lib/firebaseAdmin.js'
+import { getAuth, getBucket, getDb, verifyRequest } from '../_lib/firebaseAdmin.js'
+import * as miEspacio from '../_lib/miEspacio.js'
 // La MISMA función que usa el navegador para decidir con qué formas buscar un
 // usuario. Importada, no copiada: tener dos copias fue exactamente el bug de
 // la ñ (ver el encabezado de src/utils/usernameMatch.js).
@@ -86,6 +87,10 @@ async function handleDelete(req, res) {
     const batch = db.batch()
     refs.forEach((r) => batch.delete(r))
     await batch.commit()
+
+    // Mi espacio: sus archivos de Storage y sus metadatos. Antes que el Auth,
+    // para que un fallo aquí deje la cuenta viva y el borrado reintentable.
+    await miEspacio.borrarTodo(db, getBucket(), uid)
 
     const archivos = await borrarAssets(assets, { origen: 'student/delete', uid })
     if (archivos.pendientes?.length) {
@@ -476,6 +481,47 @@ async function handleLastAccess(req, res) {
   return res.status(200).json({ lastAccess })
 }
 
+// ── /api/student/mi-espacio-{listar|reservar|confirmar|borrar} ─────────
+// Mi espacio: almacenamiento personal del estudiante en Firebase Storage. La
+// lógica (cuota, transacciones, conciliación) vive en api/_lib/miEspacio.js;
+// aquí solo se autentica y se traduce a HTTP.
+//
+// El dueño es SIEMPRE el uid del token — ningún parámetro del cuerpo puede
+// apuntar a otro estudiante. Solo cuentas de estudiante (@evalua.local): los
+// docentes no tienen acceso a Mi espacio.
+const OPERACIONES_MI_ESPACIO = {
+  'mi-espacio-listar': (db, uid) => miEspacio.listar(db, getBucket(), uid),
+  'mi-espacio-reservar': async (db, uid, body) => {
+    // escuelaId solo como dato informativo del archivo (no es identidad).
+    const inscripcion = await db.collection('students').where('uid', '==', uid).limit(1).get()
+    return miEspacio.reservar(db, uid, body, inscripcion.docs[0]?.data().escuelaId || null)
+  },
+  'mi-espacio-confirmar': (db, uid, body) => miEspacio.confirmar(db, getBucket(), uid, body.fileId),
+  'mi-espacio-borrar': (db, uid, body) => miEspacio.borrar(db, getBucket(), uid, body.fileId),
+}
+
+async function handleMiEspacio(req, res, operacion) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' })
+  const decoded = await verifyRequest(req)
+  if (!decoded.email?.endsWith('@evalua.local')) {
+    return res.status(403).json({ error: 'Mi espacio es solo para estudiantes.' })
+  }
+  let body
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
+  } catch {
+    return res.status(400).json({ error: 'Body inválido.' })
+  }
+  try {
+    const resultado = await operacion(getDb(), decoded.uid, body)
+    return res.status(200).json(resultado)
+  } catch (err) {
+    if (err instanceof miEspacio.ErrorMiEspacio) return res.status(err.status).json({ error: err.message })
+    console.error(`[mi-espacio ${decoded.uid}] ${err?.message}`)
+    return res.status(500).json({ error: 'No se pudo completar. Inténtalo de nuevo.' })
+  }
+}
+
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return
   const { action } = req.query
@@ -486,6 +532,7 @@ export default async function handler(req, res) {
     if (action === 'remove-photo') return await handleRemovePhoto(req, res)
     if (action === 'recover-password') return await handleRecoverPassword(req, res)
     if (action === 'last-access') return await handleLastAccess(req, res)
+    if (OPERACIONES_MI_ESPACIO[action]) return await handleMiEspacio(req, res, OPERACIONES_MI_ESPACIO[action])
     return res.status(404).json({ error: 'Acción no encontrada.' })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message || 'Error interno.' })

@@ -1,6 +1,8 @@
 import admin from 'firebase-admin'
+import { nombreBucket } from '../../src/config/miEspacio.js'
 
 let initialized = false
+let projectId = null
 
 function init() {
   if (initialized) return
@@ -14,6 +16,8 @@ function init() {
   } catch {
     json = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'))
   }
+
+  projectId = json.project_id
 
   if (!admin.apps.length) {
     admin.initializeApp({ credential: admin.credential.cert(json) })
@@ -29,6 +33,13 @@ export function getDb() {
 export function getAuth() {
   init()
   return admin.auth()
+}
+
+// Bucket de Firebase Storage del proyecto. Hoy solo lo usa Mi espacio (ver
+// api/_lib/miEspacio.js); las evidencias y demás archivos viven en Cloudinary.
+export function getBucket() {
+  init()
+  return admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET || nombreBucket(projectId))
 }
 
 export { admin }

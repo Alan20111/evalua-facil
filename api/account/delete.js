@@ -1,4 +1,5 @@
-import { getDb, getAuth, verifyRequest } from '../_lib/firebaseAdmin.js'
+import { getDb, getAuth, getBucket, verifyRequest } from '../_lib/firebaseAdmin.js'
+import { borrarTodo as borrarMiEspacio } from '../_lib/miEspacio.js'
 import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
 import { aplicarCors } from '../_lib/cors.js'
 
@@ -75,7 +76,7 @@ async function docsPorCampoEnLista(db, coll, campo, valores) {
 // inscripción — si no, borrar una cuenta dejaría a estudiantes ajenos sin
 // poder entrar con otro maestro.
 async function borrarAlumnosHuerfanos(db, auth, uids) {
-  const huerfanos = []
+  let huerfanos = []
   for (const uid of uids) {
     const quedan = await db.collection('students').where('uid', '==', uid).limit(1).get()
     if (quedan.empty) huerfanos.push(uid)
@@ -89,6 +90,23 @@ async function borrarAlumnosHuerfanos(db, auth, uids) {
     bitacora.forEach((d) => refs.push(d.ref))
   }
   await borrarRefs(db, refs)
+  // Mi espacio (archivos de Storage + metadatos) de cada alumno que se va,
+  // ANTES de su Auth. Si no se pudo limpiar, a ese alumno no se le borra la
+  // cuenta: sus inscripciones ya no existen, así que un reintento de este
+  // borrado no lo volvería a encontrar y sus archivos quedarían huérfanos para
+  // siempre. Con la cuenta viva puede entrar y eliminarla él mismo
+  // (api/student/[action].js → handleDelete), que sí limpia Mi espacio.
+  const bucket = getBucket()
+  const sinMiEspacio = new Set()
+  for (const uid of huerfanos) {
+    try {
+      await borrarMiEspacio(db, bucket, uid)
+    } catch (err) {
+      sinMiEspacio.add(uid)
+      console.warn(`[mi-espacio ${uid}] no se pudo limpiar; su cuenta de Auth se conserva: ${err.message}`)
+    }
+  }
+  huerfanos = huerfanos.filter((uid) => !sinMiEspacio.has(uid))
   // deleteUsers borra hasta 1000 de un golpe y no truena si alguno ya no está.
   for (let i = 0; i < huerfanos.length; i += 1000) {
     await auth.deleteUsers(huerfanos.slice(i, i + 1000))

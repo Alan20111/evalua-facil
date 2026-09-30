@@ -1617,5 +1617,20 @@ service cloud.firestore {
     match /studentResetTokens/{studentId} {
       allow read, write: if false;
     }
+
+    // ── Mi espacio (almacenamiento personal del estudiante) ──
+    // Resumen de cuota (miEspacio/{uid}) y un documento por archivo
+    // (miEspacioArchivos/{fileId}). Ningún cliente los lee ni los escribe:
+    // todo pasa por /api/student/mi-espacio-*, que usa el uid del token como
+    // dueño y hace cumplir la cuota en una transacción (api/_lib/miEspacio.js).
+    // Tampoco el docente: Mi espacio es solo del estudiante.
+    // La regla de Storage (storage.rules) lee miEspacioArchivos por su cuenta
+    // (firestore.get), y esa lectura no pasa por estas reglas.
+    match /miEspacio/{uid} {
+      allow read, write: if false;
+    }
+    match /miEspacioArchivos/{fileId} {
+      allow read, write: if false;
+    }
   }
 }
