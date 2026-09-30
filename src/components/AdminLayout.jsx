@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { signOut } from 'firebase/auth'
 import {
   LayoutDashboard,
   CreditCard,
@@ -13,7 +12,8 @@ import {
   Sparkles,
   BrainCircuit,
   Download, TrendingUp, School } from 'lucide-react'
-import { auth } from '../firebase'
+import { cerrarSesion } from '../utils/cerrarSesion'
+import { useToast } from './Toast'
 import { useAuth } from '../context/AuthContext'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { useResizableSidebar, SIDEBAR_MIN, SIDEBAR_MAX } from '../hooks/useResizableSidebar'
@@ -41,14 +41,19 @@ const TABS = [
 export default function AdminLayout({ activeTab, onTabChange, children }) {
   const { userProfile } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
   const [mobileOpen, setMobileOpen] = useState(false)
   const { width, resizing, asideRef, startResize, resetWidth, onKeyDown } = useResizableSidebar()
 
   useScrollLock(mobileOpen)
 
   const handleLogout = async () => {
-    await signOut(auth)
-    navigate('/')
+    try {
+      await cerrarSesion()
+      navigate('/', { replace: true })
+    } catch (err) {
+      toast('No se pudo cerrar la sesión: ' + err.message, 'error')
+    }
   }
 
   const displayName = userProfile?.email || 'Administrador'

@@ -4,6 +4,7 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '../../firebase'
 import { syncPublicProfile } from '../../utils/publicProfile'
+import { cerrarSesion } from '../../utils/cerrarSesion'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -107,7 +108,7 @@ export default function Onboarding() {
       return
     }
     try {
-      await signOut(auth)
+      await cerrarSesion()
       navigate('/', { replace: true })
       toast('Tu cuenta ya está creada — entra de nuevo cuando quieras terminar este paso')
     } catch (err) {

@@ -22,7 +22,14 @@ export async function signInWithGoogle() {
     const cred = await signInWithCredential(auth, credential)
     return cred.user
   }
-  const result = await signInWithPopup(auth, new GoogleAuthProvider())
+  // select_account: sin esto, si la cuenta de Google sigue abierta en el
+  // navegador (computadora de la escuela), el popup se cierra solo y entra
+  // con ella en un clic, aunque la persona haya pulsado "Cerrar sesión" en
+  // Evalúa Fácil — eso cierra nuestra sesión, no la de Google. Solo la web:
+  // la rama nativa de arriba y reauthenticateWithGoogle quedan igual.
+  const provider = new GoogleAuthProvider()
+  provider.setCustomParameters({ prompt: 'select_account' })
+  const result = await signInWithPopup(auth, provider)
   return result.user
 }
 
