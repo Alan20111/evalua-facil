@@ -9,13 +9,14 @@ import {
   doc,
   serverTimestamp,
 } from 'firebase/firestore'
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'
 import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { studentEmail, usernameCandidates } from '../../utils/generate'
 import { apiUrl } from '../../utils/apiBase'
+import { cerrarSesion } from '../../utils/cerrarSesion'
 import { GraduationCap, Check } from 'lucide-react'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
@@ -185,7 +186,7 @@ export default function StudentActivation() {
 
   async function handleSignOutToSwitchAccount() {
     try {
-      await signOut(auth)
+      await cerrarSesion()
       setStep('username')
     } catch (err) {
       toast('Error al cerrar sesión: ' + err.message, 'error')
@@ -548,6 +549,7 @@ export default function StudentActivation() {
                   <label htmlFor="activation-link-password" className="block text-sm font-medium text-muted mb-1">Tu contraseña actual</label>
                   <PasswordInput
                     id="activation-link-password"
+                    autoComplete="new-password"
                     value={linkPassword}
                     onChange={(e) => { setLinkPassword(e.target.value); setPasswordError('') }}
                     required
@@ -631,6 +633,7 @@ export default function StudentActivation() {
                   <label htmlFor="activation-password" className="block text-sm font-medium text-muted mb-1">Elige tu contraseña</label>
                   <PasswordInput
                     id="activation-password"
+                    autoComplete="new-password"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setPasswordError('') }}
                     required
@@ -645,6 +648,7 @@ export default function StudentActivation() {
                   <label htmlFor="activation-confirm-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
                   <PasswordInput
                     id="activation-confirm-password"
+                    autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
                     required

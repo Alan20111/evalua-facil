@@ -12,14 +12,15 @@ import {
   BookOpen,
   Sparkles,
 } from 'lucide-react'
-import { signOut } from 'firebase/auth'
 import {
   collection,
   query,
   where,
   onSnapshot,
 } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { db } from '../firebase'
+import { cerrarSesion } from '../utils/cerrarSesion'
+import { useToast } from './Toast'
 import { useAuth } from '../context/AuthContext'
 import Spinner from './Spinner'
 import { configurarBloqueoExportacion } from '../utils/exportGuard'
@@ -57,6 +58,7 @@ function navIconPillCls(isActive) {
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
 
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
@@ -84,8 +86,12 @@ export default function TeacherLayout({ children }) {
   }, [currentUser])
 
   const handleLogout = async () => {
-    await signOut(auth)
-    navigate('/')
+    try {
+      await cerrarSesion()
+      navigate('/', { replace: true })
+    } catch (err) {
+      toast('No se pudo cerrar la sesión: ' + err.message, 'error')
+    }
   }
   // En la app nativa se pide confirmación antes de salir (es fácil tocar el
   // botón sin querer en el celular); en la web se sale directo, como siempre.
