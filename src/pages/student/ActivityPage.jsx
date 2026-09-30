@@ -1172,7 +1172,7 @@ export default function StudentActivityPage() {
                       autoCapitalize="off"
                       spellCheck={false}
                       aria-invalid={enlaceInvalido || undefined}
-                      className={`flex-1 min-w-0 px-3 py-2 rounded border text-sm bg-surface-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`flex-1 min-w-0 px-3 py-2 rounded border text-sm bg-surface-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60 disabled:cursor-not-allowed ${
                         enlaceInvalido ? 'border-red-300' : 'border-outline-variant'
                       }`}
                     />
