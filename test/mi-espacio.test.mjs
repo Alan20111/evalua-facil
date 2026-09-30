@@ -216,7 +216,7 @@ for (let ronda = 0; ronda < 5; ronda++) {
   const aceptadas = [x, y].filter((p) => p.status === 'fulfilled').length
   assert.equal(aceptadas, 1, `ronda ${ronda}: entraron ${aceptadas}`)
   const rechazo = [x, y].find((p) => p.status === 'rejected').reason
-  assert.equal(rechazo.status, 409)
+  assert.equal(rechazo.status, 409, `ronda ${ronda}: rechazo inesperado ${rechazo.code || ''} ${rechazo.message}`)
   const docs = (await db.collection('miEspacioArchivos').where('uid', '==', A).get()).docs.map((d) => d.data())
   assert.ok(docs.reduce((s, d) => s + d.tamano, 0) <= CUOTA)
 }

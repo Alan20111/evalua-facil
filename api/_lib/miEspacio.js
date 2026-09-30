@@ -48,6 +48,26 @@ export class ErrorMiEspacio extends Error {
 // en el proyecto: no hay nada guardado y no hay nada que borrar.
 const esNoEncontrado = (err) => err?.code === 404 || err?.code === '404' || /not ?found|does not exist/i.test(err?.message || '')
 
+// runTransaction con un reintento propio para el choque entre dos
+// transacciones del mismo estudiante. El SDK ya reintenta ABORTED, pero el
+// emulador de Firestore cierra la transacción perdedora y responde
+// INVALID_ARGUMENT "Transaction is invalid or closed", que el SDK no reintenta
+// (visto el 29-sep-2026 en la prueba de dos subidas simultáneas). Se reintenta
+// SOLO ese caso y ABORTED; cualquier otro error (incluido ErrorMiEspacio, como
+// "sin espacio") sale tal cual. Reintentar es seguro: la transacción completa
+// vuelve a leer y a decidir.
+async function transaccion(db, fn) {
+  for (let intento = 1; ; intento++) {
+    try {
+      return await db.runTransaction(fn)
+    } catch (err) {
+      const choque = err?.code === 10 || (err?.code === 3 && /invalid or closed/i.test(err.message || ''))
+      if (!choque || intento >= 3) throw err
+      await new Promise((r) => setTimeout(r, 50 * intento + Math.random() * 100))
+    }
+  }
+}
+
 function ms(valor) {
   if (!valor) return 0
   if (typeof valor.toMillis === 'function') return valor.toMillis()
@@ -99,7 +119,7 @@ export async function reservar(db, uid, { nombre, tamano, tipo }, escuelaId = nu
   const ruta = rutaMiEspacio(uid, ref.id)
   const venceEn = admin.firestore.Timestamp.fromMillis(Date.now() + MI_ESPACIO_RESERVA_MS)
 
-  await db.runTransaction(async (tx) => {
+  await transaccion(db, async (tx) => {
     const { resumenRef, docs } = await leerTodo(tx, db, uid)
     const datos = docs.map((d) => d.data())
     const ocupado = datos.reduce((s, d) => s + (Number(d.tamano) || 0), 0) // listos + reservados
@@ -129,7 +149,7 @@ export async function reservar(db, uid, { nombre, tamano, tipo }, escuelaId = nu
 // Pasa una reserva a `listo` con el tamaño real que tiene en Storage.
 async function promover(db, uid, fileId, tamanoReal) {
   const ref = db.collection(ARCHIVOS).doc(fileId)
-  await db.runTransaction(async (tx) => {
+  await transaccion(db, async (tx) => {
     const { resumenRef, docs } = await leerTodo(tx, db, uid)
     const actual = docs.find((d) => d.id === fileId)
     if (!actual) throw new ErrorMiEspacio(404, 'Ese archivo ya no existe.')
@@ -185,7 +205,7 @@ export async function borrar(db, bucket, uid, fileId) {
     if (!esNoEncontrado(err)) throw err
   }
 
-  await db.runTransaction(async (tx) => {
+  await transaccion(db, async (tx) => {
     const { resumenRef, docs } = await leerTodo(tx, db, uid)
     const datos = docs.filter((d) => d.id !== ref.id).map((d) => d.data())
     if (docs.some((d) => d.id === ref.id)) tx.delete(ref)
@@ -222,7 +242,7 @@ export async function conciliar(db, bucket, uid, ahora = Date.now()) {
   }]))
 
   const huerfanos = []
-  await db.runTransaction(async (tx) => {
+  await transaccion(db, async (tx) => {
     huerfanos.length = 0
     const { resumenRef, docs } = await leerTodo(tx, db, uid)
     const rutasConDoc = new Set(docs.map((d) => d.data().ruta))

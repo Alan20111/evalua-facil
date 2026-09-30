@@ -10,6 +10,14 @@ rules_version = '2';
 // ruta. Nada la usaba.)
 //
 // Todo lo que no esté permitido abajo queda negado.
+//
+// OJO al desplegar: la regla de Mi espacio lee Firestore (firestore.get), y
+// para eso el agente de servicio de Storage necesita el rol
+// roles/firebaserules.firestoreServiceAgent. firebase-tools lo otorga SOLO
+// cuando sube un ruleset nuevo, y NUNCA en modo no interactivo (sin TTY, como
+// en CI o en Claude Code) salvo con `--interactive --force`. Sin ese rol,
+// toda subida a Mi espacio responde 403 aunque la reserva sea válida
+// (visto el 29-sep-2026 al activar Storage).
 service firebase.storage {
   match /b/{bucket}/o {
 
