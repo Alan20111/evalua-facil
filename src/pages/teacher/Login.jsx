@@ -14,6 +14,7 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import { createTeacherAccountIfNew, signInWithGoogle, googleErrorInfo } from '../../utils/googleAuth'
 import LinkAccountModal from '../../components/LinkAccountModal'
+import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 
 export default function TeacherLogin() {
   const [email, setEmail] = useState('')
@@ -153,6 +154,11 @@ export default function TeacherLogin() {
           ¿Eres estudiante?{' '}
           <Link to="/alumno" className="text-accent font-semibold hover:underline">Entra aquí</Link>
         </p>
+        {/* Sin <p> envolvente: en la app nativa el componente no pinta nada, y
+            así tampoco queda un renglón vacío. */}
+        <CanalYouTubeLink className="block w-fit mx-auto text-sm mt-2 text-accent font-semibold hover:underline">
+          Evalúa Fácil en YouTube
+        </CanalYouTubeLink>
         <p className="text-center text-xs text-slate-400 mt-4">
           Para una mejor experiencia recomendamos utilizar Evalúa Fácil Docente desde una laptop o computadora de escritorio.
         </p>

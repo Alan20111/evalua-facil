@@ -11,6 +11,7 @@ import {
   Bell,
   BookOpen,
   Sparkles,
+  CirclePlay,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -33,6 +34,7 @@ import AppQRButton from './AppQRButton'
 import ConfirmModal from './ConfirmModal'
 import SkipLink from './SkipLink'
 import CreditosBar from './CreditosBar'
+import CanalYouTubeLink from './CanalYouTubeLink'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
@@ -332,6 +334,14 @@ export default function TeacherLayout({ children }) {
               <BookOpen size={20} className="flex-shrink-0" />
               Ayuda para comenzar
             </NavLink>
+
+            {/* Canal oficial de YouTube — enlace externo, por eso no es un
+                NavLink ni tiene estado activo. Solo vive en el sidebar: la
+                barra superior del móvil no lleva un ícono más. */}
+            <CanalYouTubeLink className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}>
+              <CirclePlay size={20} className="flex-shrink-0" />
+              Canal de YouTube
+            </CanalYouTubeLink>
           </div>
 
           {/* Archivadas — fixed at the bottom, above logout */}
