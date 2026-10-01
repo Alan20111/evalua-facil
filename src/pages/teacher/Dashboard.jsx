@@ -17,7 +17,8 @@ import Spinner from '../../components/Spinner'
 import Select from '../../components/ui/Select'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { uploadToCloudinary } from '../../utils/cloudinary'
-import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe, Smartphone, Sparkles } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe, Smartphone, Sparkles, CirclePlay } from 'lucide-react'
+import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import useTelefonoWeb from '../../hooks/useTelefonoWeb'
@@ -637,6 +638,17 @@ export default function TeacherDashboard() {
                 )}
               </div>
             )}
+
+            {/* Canal oficial de YouTube — solo en la web (el componente no se
+                pinta en la app). Misma tarjeta que la de arriba, pero esta SÍ
+                navega: por eso la flecha queda fija a la derecha, sin girar. */}
+            <CanalYouTubeLink className="w-full mt-3 bg-surface-card rounded-card shadow-card p-1.5 flex items-center gap-2 text-left hover:bg-[var(--accent-tint)] transition-colors">
+              <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                <CirclePlay size={21} className="text-accent" />
+              </div>
+              <p className="flex-1 min-w-0 font-semibold text-on-surface">Evalúa Fácil en YouTube</p>
+              <ChevronRight size={20} className="text-slate-300 flex-shrink-0" />
+            </CanalYouTubeLink>
 
           </>
         )}
