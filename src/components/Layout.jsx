@@ -168,7 +168,7 @@ export default function TeacherLayout({ children }) {
       <div className={IS_NATIVE_APP ? '' : 'flex'}>
         {/* Sidebar — en la app nativa siempre oculto (el WebView puede reportar
             viewport ≥768px activando md:flex); en la web solo en escritorio. */}
-        <aside className={`${IS_NATIVE_APP ? 'hidden' : 'hidden md:flex'} flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20`}>
+        <aside className={`${IS_NATIVE_APP ? 'hidden' : 'hidden md:flex'} flex-col w-[300px] h-screen overflow-y-auto sticky top-0 bg-accent text-white flex-shrink-0 z-20`}>
           {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
           {/* px-2 (no px-3): el recuadro blanco tiene que arrancar en la misma
               vertical que las píldoras de abajo, que van con mx-2. */}
@@ -244,7 +244,7 @@ export default function TeacherLayout({ children }) {
           </NavLink>
 
           {/* Subject list */}
-          <div className="flex-1 overflow-y-auto px-2 pb-2">
+          <div className="flex-1 min-h-32 overflow-y-auto px-2 pb-2">
             {loadingSidebar ? (
               <div className="flex justify-center py-3">
                 <Spinner size="sm" />
@@ -295,101 +295,121 @@ export default function TeacherLayout({ children }) {
               en su propio <div> con su propio `border-t`, así que salía una
               línea entre cada renglón y el menú se leía como cinco cajas
               apiladas en vez de una lista. */}
-          <div className="mt-2 px-2 py-2 space-y-0.5 border-t border-white/15">
-            {/* Perfil para IA del docente — arriba del QR, pedido explícito
-                (FASE 2-BIS del Plan Maestro de IA). Contexto general del
-                docente, se captura una sola vez y se reutiliza en todas las
-                funciones de IA de sus asignaturas. */}
-            <NavLink
-              to="/perfil-ia"
-              title="Necesario para generar planeación y diagnósticos con IA"
-              className={({ isActive }) =>
-                `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
-              }
-            >
-              <Sparkles size={20} className="flex-shrink-0" />
-              Perfil para IA del docente
-            </NavLink>
+          {/* Área compartida: enlaces secundarios + Archivadas en UN solo
+              bloque con UN solo scroll. Cuando la ventana es baja, la lista de
+              asignaturas conserva su mínimo (min-h-32) y lo que cede es esta
+              área, que se desplaza por dentro; Créditos y Cerrar sesión quedan
+              fuera y nunca ceden. Mientras todo cabe, no hay scroll y el menú
+              se ve igual que antes. min-h-12: nunca menos que el botón de
+              Archivadas. */}
+          <div className="mt-2 min-h-12 overflow-y-auto border-t border-white/15">
+            <div className="px-2 py-2 space-y-0.5">
+              {/* Perfil para IA del docente — arriba del QR, pedido explícito
+                  (FASE 2-BIS del Plan Maestro de IA). Contexto general del
+                  docente, se captura una sola vez y se reutiliza en todas las
+                  funciones de IA de sus asignaturas. */}
+              <NavLink
+                to="/perfil-ia"
+                title="Necesario para generar planeación y diagnósticos con IA"
+                className={({ isActive }) =>
+                  `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
+                }
+              >
+                <Sparkles size={20} className="flex-shrink-0" />
+                Perfil para IA del docente
+              </NavLink>
 
-            <AppQRButton className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}>
-              QR de Evalúa Fácil
-            </AppQRButton>
+              <AppQRButton className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}>
+                QR de Evalúa Fácil
+              </AppQRButton>
 
-            <NavLink
-              to="/notificaciones"
-              className={({ isActive }) =>
-                `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
-              }
-            >
-              <Bell size={20} className="flex-shrink-0" />
-              Notificaciones
-            </NavLink>
+              <NavLink
+                to="/notificaciones"
+                className={({ isActive }) =>
+                  `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
+                }
+              >
+                <Bell size={20} className="flex-shrink-0" />
+                Notificaciones
+              </NavLink>
 
-            <NavLink
-              to="/ayuda"
-              className={({ isActive }) =>
-                `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
-              }
-            >
-              <BookOpen size={20} className="flex-shrink-0" />
-              Ayuda para comenzar
-            </NavLink>
+              <NavLink
+                to="/ayuda"
+                className={({ isActive }) =>
+                  `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
+                }
+              >
+                <BookOpen size={20} className="flex-shrink-0" />
+                Ayuda para comenzar
+              </NavLink>
 
-            {/* Canal oficial de YouTube — enlace externo, por eso no es un
-                NavLink ni tiene estado activo. Solo vive en el sidebar: la
-                barra superior del móvil no lleva un ícono más. */}
-            <CanalYouTubeLink className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}>
-              <CirclePlay size={20} className="flex-shrink-0" />
-              Canal de YouTube
-            </CanalYouTubeLink>
+              {/* Canal oficial de YouTube — enlace externo, por eso no es un
+                  NavLink ni tiene estado activo. Solo vive en el sidebar: la
+                  barra superior del móvil no lleva un ícono más. */}
+              <CanalYouTubeLink className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}>
+                <CirclePlay size={20} className="flex-shrink-0" />
+                Canal de YouTube
+              </CanalYouTubeLink>
+            </div>
+
+            {/* Archivadas — al final del área compartida. El botón va `sticky`
+                arriba y abajo: se queda a la vista aunque el área se desplace,
+                y por eso lleva el mismo fondo del menú (lo que pasa por detrás
+                no debe transparentarse). Sus asignaturas ya no tienen scroll
+                propio: usan el del área compartida. */}
+            {archivedSubjects.length > 0 && (
+              <>
+                <div className={`sticky top-0 bottom-0 z-10 bg-accent px-2 ${showArchived ? '' : 'pb-2'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setShowArchived((a) => !a)}
+                    aria-expanded={showArchived}
+                    className={`${ITEM_SECUNDARIO} text-white/60 hover:bg-white/10 hover:text-white`}
+                  >
+                    <Archive size={20} className="flex-shrink-0" />
+                    <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
+                    {/* La flecha va a la DERECHA de la palabra (pedido explícito)
+                        y gira al desplegar — mismo lenguaje que un <details>, sin
+                        serlo, para no perder el estilo propio del botón. */}
+                    <ChevronRight size={14} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
+                  </button>
+                </div>
+                {showArchived && (
+                  <div className="px-2 pt-0.5 pb-2 space-y-0.5">
+                    {archivedSubjects.map((s) => (
+                      // pl-10: el nombre (tras el ícono) debe empezar más a la
+                      // derecha de donde arranca la palabra "Archivadas" en el
+                      // botón de arriba — pl-6 ya no alcanzaba una vez que la
+                      // flecha se movió al final; el texto del botón quedó más a
+                      // la izquierda (justo después del ícono Archive) y el
+                      // sangrado tuvo que crecer para seguir leyéndose "dentro".
+                      <NavLink
+                        key={s.id}
+                        to={`/subject/${s.id}`}
+                        className={({ isActive }) =>
+                          `flex items-center gap-2.5 pl-10 pr-3 py-2 rounded text-body-sm transition-colors ${
+                            isActive ? 'bg-white text-accent font-bold shadow-md' : 'text-white/70 hover:bg-white/15'
+                          }`
+                        }
+                      >
+                        <SubjectIcon iconKey={s.icon} size={20} className="flex-shrink-0" />
+                        <span className="truncate">{subjectDisplayName(s)}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
-          {/* Archivadas — fixed at the bottom, above logout */}
-          {archivedSubjects.length > 0 && (
-            <div className="px-2 pb-2 space-y-0.5 max-h-48 overflow-y-auto">
-              <button
-                type="button"
-                onClick={() => setShowArchived((a) => !a)}
-                aria-expanded={showArchived}
-                className={`${ITEM_SECUNDARIO} text-white/60 hover:bg-white/10 hover:text-white`}
-              >
-                <Archive size={20} className="flex-shrink-0" />
-                <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
-                {/* La flecha va a la DERECHA de la palabra (pedido explícito)
-                    y gira al desplegar — mismo lenguaje que un <details>, sin
-                    serlo, para no perder el estilo propio del botón. */}
-                <ChevronRight size={14} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
-              </button>
-              {showArchived &&
-                archivedSubjects.map((s) => (
-                  // pl-10: el nombre (tras el ícono) debe empezar más a la
-                  // derecha de donde arranca la palabra "Archivadas" en el
-                  // botón de arriba — pl-6 ya no alcanzaba una vez que la
-                  // flecha se movió al final; el texto del botón quedó más a
-                  // la izquierda (justo después del ícono Archive) y el
-                  // sangrado tuvo que crecer para seguir leyéndose "dentro".
-                  <NavLink
-                    key={s.id}
-                    to={`/subject/${s.id}`}
-                    className={({ isActive }) =>
-                      `flex items-center gap-2.5 pl-10 pr-3 py-2 rounded text-body-sm transition-colors ${
-                        isActive ? 'bg-white text-accent font-bold shadow-md' : 'text-white/70 hover:bg-white/15'
-                      }`
-                    }
-                  >
-                    <SubjectIcon iconKey={s.icon} size={20} className="flex-shrink-0" />
-                    <span className="truncate">{subjectDisplayName(s)}</span>
-                  </NavLink>
-                ))}
-            </div>
-          )}
-
           {/* Créditos IA — barra permanente del docente (clic → panel) */}
-          <CreditosBar variant="sidebar" />
+          <div className="flex-shrink-0">
+            <CreditosBar variant="sidebar" />
+          </div>
 
 
           {/* Logout */}
-          <div className="px-2 py-2 border-t border-white/15">
+          <div className="flex-shrink-0 px-2 py-2 border-t border-white/15">
             <button
               type="button"
               onClick={requestLogout}
