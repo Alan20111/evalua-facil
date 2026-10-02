@@ -157,6 +157,28 @@ function etiquetaTipo(a) {
 
 const nombreActividad = (a) => String(a.nombre || a.titulo || '(sin nombre)').trim().slice(0, 120)
 
+// Orden de las actividades en la plataforma: parcial y, dentro, `orden`. El
+// sort es estable: con el mismo `orden` se conserva el orden de llegada.
+const porParcialYOrden = (a, b) => (a.parcial - b.parcial) || ((a.orden ?? 0) - (b.orden ?? 0))
+
+// Etiqueta con la que la plataforma identifica cada actividad ("1.4"): su
+// posición dentro del parcial entre las que cuentan para calificación,
+// ordenadas por `orden`. Es la MISMA regla que usan la pestaña Actividades y
+// la tabla de Calificaciones (SubjectPage.jsx, activityLabelById), el Excel y
+// el PDF de calificaciones — hay una prueba que compara las dos. Necesita
+// TODAS las actividades de la asignatura: la numeración no depende de qué
+// fuentes o parciales eligió el docente para el análisis.
+function etiquetasDeActividades(todas) {
+  const etiquetas = new Map()
+  const cuentan = (todas || []).filter((a) => Number.isInteger(a.parcial) && cuentaParaCalificacion(a)).sort(porParcialYOrden)
+  const posicion = {}
+  for (const a of cuentan) {
+    posicion[a.parcial] = (posicion[a.parcial] || 0) + 1
+    etiquetas.set(a.id, `${a.parcial}.${posicion[a.parcial]}`)
+  }
+  return etiquetas
+}
+
 // ── Disponibilidad por parcial (para "Sin datos" y para el costo) ───────────
 // Función PURA. `entregas` = Map(actividadId → Map(alumnoId → submission)).
 // Una fuente de actividades tiene datos en un parcial si alguna de sus
@@ -196,13 +218,17 @@ function calcularDisponibilidad({ subject, activities, students, entregas, atten
 //   subject     documento de la asignatura
 //   students    [{ id, nombre, apellidoPaterno, apellidoMaterno, createdAt }]
 //   activities  todas las de la asignatura (aquí se filtran)
+//   todasLasActividades  la lista COMPLETA, solo para etiquetar ("1.4"); si no
+//               se pasa, se etiqueta con `activities`
 //   entregas    Map(actividadId → Map(alumnoId → submission))
 //   attendance  columnas de asistencia (solo si 'asistencias' entra)
 //   analisisExamenes  Map(actividadId → { resumen, pctAciertos, generadoEnMs })
 //   parciales   [1, 2…] elegidos · fuentes ['entregables', …] que entran
 //   umbrales    config/iaTarifas.analisisAsignatura.umbrales
-function agregarAsignatura({ subject, students, activities, entregas, attendance = [], analisisExamenes = new Map(), parciales, fuentes, umbrales, ahora = new Date(), textoPlano = (t) => String(t || '') }) {
+function agregarAsignatura({ subject, students, activities, todasLasActividades = null, entregas, attendance = [], analisisExamenes = new Map(), parciales, fuentes, umbrales, ahora = new Date(), textoPlano = (t) => String(t || '') }) {
   const usa = new Set(fuentes)
+  const etiquetas = etiquetasDeActividades(todasLasActividades || activities)
+  const etiquetaDe = (a) => etiquetas.get(a.id) || null
   const ahoraMs = ahora.getTime()
   const hoyISO = fechaHoyMexico(ahora)
   const fuentesActividad = FUENTES_DE_ACTIVIDADES.filter((f) => usa.has(f))
@@ -211,7 +237,7 @@ function agregarAsignatura({ subject, students, activities, entregas, attendance
 
   const actsEnAlcance = activities
     .filter((a) => actividadElegible(a) && parciales.includes(a.parcial))
-    .sort((a, b) => (a.parcial - b.parcial) || ((a.orden ?? 0) - (b.orden ?? 0)))
+    .sort(porParcialYOrden)
   // Las que aportan CALIFICACIONES: solo de los tipos marcados.
   const acts = actsEnAlcance.filter((a) => usa.has(fuenteDeActividad(a)))
 
@@ -257,6 +283,7 @@ function agregarAsignatura({ subject, students, activities, entregas, attendance
     const subs = alumnos.map((al) => subDe(a, al.id)).filter(Boolean)
     const notas = subs.map((s) => normalizeGrade(s.calificacion, a.maxCalif)).filter((x) => x != null)
     const fila = {
+      etiqueta: etiquetaDe(a),
       nombre: nombreActividad(a), fuente, tipo: etiquetaTipo(a), parcial: a.parcial,
       maxCalif: a.maxCalif || 10,
       peso: ponderacionActivaEnParcial(subject, a.parcial) && pesoDe(a) > 0 ? pesoDe(a) : null,
@@ -310,7 +337,7 @@ function agregarAsignatura({ subject, students, activities, entregas, attendance
 
   // Mejores y más bajas, por promedio — dato, no opinión de la IA.
   const conPromedio = actividades.filter((x) => x.promedio != null).sort((x, y) => y.promedio - x.promedio)
-  const corto = (x) => ({ nombre: x.nombre, tipo: x.tipo, parcial: x.parcial, promedio: x.promedio })
+  const corto = (x) => ({ etiqueta: x.etiqueta, nombre: x.nombre, tipo: x.tipo, parcial: x.parcial, promedio: x.promedio })
   // Con pocas actividades la lista se reparte: ninguna aparece en las dos.
   const mejores = conPromedio.slice(0, Math.min(3, Math.ceil(conPromedio.length / 2))).map(corto)
   const criticas = conPromedio.slice().reverse().slice(0, Math.min(3, Math.floor(conPromedio.length / 2))).map(corto)
@@ -409,7 +436,7 @@ function agregarAsignatura({ subject, students, activities, entregas, attendance
         else cuenta.sinFechaLimite++
       }
       const tieneFecha = instanteLimite(a, '') != null
-      return { nombre: nombreActividad(a), tipo: etiquetaTipo(a), parcial: a.parcial, conFechaLimite: tieneFecha, ...cuenta }
+      return { etiqueta: etiquetaDe(a), nombre: nombreActividad(a), tipo: etiquetaTipo(a), parcial: a.parcial, conFechaLimite: tieneFecha, ...cuenta }
     })
     sinEntrega = {
       actividades: filas,
@@ -449,7 +476,9 @@ function agregarAsignatura({ subject, students, activities, entregas, attendance
         senales.push({ tipo: 'asistencia', texto: `${d.pct} % de asistencia (${d.inasist} faltas en ${d.total} sesiones registradas)` })
       }
     }
-    if (senales.length) candidatos.push({ alumnoId: al.id, anonId: al.anonId, senales })
+    // `numeroLista` = el "No." de la tabla de Calificaciones. Si el estudiante
+    // no lo tiene guardado, queda en null: aquí no se inventa una numeración.
+    if (senales.length) candidatos.push({ alumnoId: al.id, anonId: al.anonId, numeroLista: Number.isFinite(al.orden) ? al.orden : null, senales })
   }
   const patronGrupal = alumnos.length > 0 && candidatos.length / alumnos.length > umbrales.proporcionPatronGrupal
 
@@ -621,10 +650,14 @@ async function cargarEstudiantes(db, asignaturaId) {
   return snap.docs
     .map((d) => {
       const s = d.data()
-      // Solo lo necesario: identidad para el informe final y fecha de alta.
-      return { id: d.id, nombre: s.nombre || '', apellidoPaterno: s.apellidoPaterno || '', apellidoMaterno: s.apellidoMaterno || '', orden: s.orden ?? 0, createdAt: s.createdAt || null }
+      // Solo lo necesario: identidad para el informe final, número de lista
+      // y fecha de alta.
+      return { id: d.id, nombre: s.nombre || '', apellidoPaterno: s.apellidoPaterno || '', apellidoMaterno: s.apellidoMaterno || '', orden: Number.isFinite(s.orden) ? s.orden : null, createdAt: s.createdAt || null }
     })
-    .sort((a, b) => (a.orden - b.orden) || a.id.localeCompare(b.id))
+    // EXACTAMENTE el orden de la tabla de Calificaciones (SubjectPage.jsx,
+    // ensureGroupStudents): por `orden`, y con el mismo número —o sin él— se
+    // conserva el orden en que llega la consulta (el sort es estable).
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
 }
 
 async function cargarActividades(db, asignaturaId) {
@@ -767,7 +800,7 @@ async function precheckAnalizarAsignatura({ uid, params, tarifas, textoPlano }) 
   const analisisExamenes = evaluaciones.length ? await cargarAnalisisExamenes(db, evaluaciones, entregas) : new Map()
 
   const { datos, candidatos } = agregarAsignatura({
-    subject, students, activities, entregas, attendance, analisisExamenes, parciales, fuentes, umbrales, ahora, textoPlano,
+    subject, students, activities, todasLasActividades: todas, entregas, attendance, analisisExamenes, parciales, fuentes, umbrales, ahora, textoPlano,
   })
   return {
     asignaturaId,
@@ -811,6 +844,7 @@ function documentoAnalisis(ctx, informe, recomendacionPorAnonId, uid) {
     informe: informeConNombres,
     estudiantesAtencion: ctx.candidatos.map((c) => ({
       ...(ctx.nombres[c.alumnoId] || { nombre: '', apellidoPaterno: '', apellidoMaterno: '' }),
+      numeroLista: c.numeroLista ?? null,
       senales: c.senales,
       recomendacion: ponerNombres(recomendacionPorAnonId.get(c.anonId) || '', nombrePorAnonId),
     })),
@@ -876,7 +910,7 @@ module.exports = {
   ejecutarAnalizarAsignatura,
   _pruebas: {
     configAnalisis, CLAVES_UMBRALES, calcularDisponibilidad, agregarAsignatura, promptAsignatura, normalizarInforme,
-    documentoAnalisis, ponerNombres, estadoPlazo, estadoRealizacion, instanteLimite, fechaMexicoAMillis, actividadElegible,
+    documentoAnalisis, ponerNombres, etiquetasDeActividades, cargarEstudiantes, estadoPlazo, estadoRealizacion, instanteLimite, fechaMexicoAMillis, actividadElegible,
     prepararDatos, borrarAnalisisDeAsignatura, ASIGNATURA_SISTEMA,
   },
 }
