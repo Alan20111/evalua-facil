@@ -447,6 +447,70 @@ await caso('el análisis de examen no se toca: sigue igual después del análisi
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
+grupo('Orden y presentación: número de lista y etiqueta de actividad')
+
+// El orden de la tabla de Calificaciones (SubjectPage.jsx, ensureGroupStudents):
+// lo que devuelve la consulta, ordenado de forma estable por `orden ?? 0`.
+const ordenDeLaTabla = async () => (await db.collection('students').where('asignaturaId', '==', SUBJ).get()).docs
+  .map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)).map((s) => s.id)
+
+await caso('el servidor carga a los estudiantes en el MISMO orden que la tabla: números desordenados, repetidos y ausentes', async () => {
+  await sembrar()
+  const { getFirestore } = createRequire(new URL('../functions/index.js', import.meta.url))('firebase-admin/firestore')
+  const cargar = async () => (await FAA.cargarEstudiantes(getFirestore(), SUBJ)).map((s) => s.id)
+  // Números de lista que no siguen el orden de los ids.
+  await db.doc('students/al_a').update({ orden: 3 }); await db.doc('students/al_b').update({ orden: 1 }); await db.doc('students/al_c').update({ orden: 2 })
+  assert.deepStrictEqual(await cargar(), ['al_b', 'al_c', 'al_a'])
+  assert.deepStrictEqual(await cargar(), await ordenDeLaTabla())
+  // Repetidos y sin número: el desempate es el de la tabla, no uno propio.
+  for (const [id, orden] of [['Zz_alumno', 5], ['aa_alumno', 5], ['MM_alumno', null], ['bb_alumno', 5]]) {
+    const datos = { asignaturaId: SUBJ, nombre: id, apellidoPaterno: 'X', apellidoMaterno: '' }
+    if (orden != null) datos.orden = orden
+    await db.doc(`students/${id}`).set(datos)
+  }
+  assert.deepStrictEqual(await cargar(), await ordenDeLaTabla())
+})
+
+await caso('el informe nuevo guarda el número de lista de cada estudiante y la etiqueta de cada actividad', async () => {
+  await sembrar()
+  await db.doc('students/al_a').update({ orden: 12 }); await db.doc('students/al_b').update({ orden: 4 }); await db.doc('students/al_c').update({ orden: 30 })
+  const k = clave()
+  const r = await ejecutar({ k, costo: 20 })
+  assert.strictEqual(r.creditosReales, 20, 'el costo no cambió')
+  assert.strictEqual((await creditosDe()).saldo, 80)
+  assert.strictEqual(pedidosIA.length, 1, 'sigue siendo UNA sola llamada a la IA')
+  const doc = (await analisisDe(k)).data()
+  // Por número de lista ascendente: 4 (Yáñez) y 30 (Villaseñor).
+  assert.deepStrictEqual(doc.estudiantesAtencion.map((e) => [e.numeroLista, e.apellidoPaterno]), [[4, 'Yáñez'], [30, 'Villaseñor']])
+  assert.deepStrictEqual(doc.datos.actividades.map((a) => `${a.etiqueta} ${a.nombre}`),
+    ['1.1 Reporte de laboratorio', '1.2 Mapa conceptual', '1.3 Exposición oral', '2.1 Cuestionario de vectores', '2.2 Crucigrama de unidades'])
+  assert.ok(doc.datos.mejores.every((a) => a.etiqueta) && doc.datos.criticas.every((a) => a.etiqueta))
+  assert.ok(doc.datos.sinEntrega.actividades.every((a) => a.etiqueta))
+  // Ni el número de lista ni la etiqueta viajan al modelo.
+  const texto = textoDelPedido(pedidosIA[0])
+  assert.ok(!/\d+\.\d+ — /.test(texto) && !texto.includes('numeroLista'))
+})
+
+await caso('con fuentes desmarcadas la etiqueta sigue siendo la de la plataforma (no se renumera)', async () => {
+  await sembrar()
+  const k = clave()
+  await ejecutar({ k, parciales: [1], fuentes: ['observacion'], costo: 3 })
+  assert.deepStrictEqual((await analisisDe(k)).data().datos.actividades.map((a) => a.etiqueta), ['1.3'])
+  assert.strictEqual((await creditosDe()).saldo, 97)
+})
+
+await caso('un informe guardado ANTES de este cambio (sin número ni etiqueta) se lee y no se modifica', async () => {
+  await sembrar()
+  const viejo = { docenteId: DOCENTE, asignaturaId: SUBJ, parciales: [1], fuentes: ['entregables'], version: 1,
+    datos: { totalEstudiantes: 3, parciales: [], actividades: [{ nombre: 'Reporte de laboratorio', fuente: 'entregables', tipo: 'Entregable', parcial: 1, promedio: 6.5 }], mejores: [], criticas: [], evolucion: null, asistencia: null, sinEntrega: null, patronGrupal: false },
+    informe: { resumenEjecutivo: 'viejo', conclusion: 'viejo' }, estudiantesAtencion: [{ nombre: 'Wenceslao', apellidoPaterno: 'Yáñez', apellidoMaterno: 'Kuri', senales: [], recomendacion: '' }] }
+  await db.doc(`subjects/${SUBJ}/analisisIA/historico`).set(viejo)
+  await ejecutar({ costo: 20 })
+  assert.deepStrictEqual((await analisisDe('historico')).data(), viejo, 'generar uno nuevo no toca los anteriores')
+  assert.strictEqual((await historial()).length, 2)
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
 grupo('Borrado de la asignatura sin huérfanos')
 
 await caso('al eliminar la asignatura, su historial de análisis se elimina; el de otra asignatura no', async () => {

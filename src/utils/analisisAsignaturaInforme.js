@@ -27,6 +27,20 @@ export function nombreEstudianteAnalisis(e) {
   return [e?.apellidoPaterno, e?.apellidoMaterno, e?.nombre].map(capitalizarNombre).filter(Boolean).join(' ') || '(sin nombre)'
 }
 
+// "6. Cerda Puga Fernando": el número de lista es el "No." de la tabla de
+// Calificaciones. Los informes guardados antes de que existiera ese campo no
+// lo traen: se muestra solo el nombre, sin inventar un número.
+export function estudianteConNumero(e) {
+  const nombre = nombreEstudianteAnalisis(e)
+  return Number.isFinite(e?.numeroLista) ? `${e.numeroLista}. ${nombre}` : nombre
+}
+
+// "1.4 — Cable cruzado": la etiqueta es la que usa la plataforma para esa
+// actividad. Informes anteriores a este campo: solo el nombre.
+export function actividadConEtiqueta(a) {
+  return a?.etiqueta ? `${a.etiqueta} — ${a.nombre}` : (a?.nombre || '')
+}
+
 export function textoParciales(parciales) {
   const lista = parciales || []
   if (!lista.length) return ''
@@ -69,9 +83,9 @@ export function planInformeAsignatura(analisis) {
   const fortalezas = [lista(inf.fortalezas, 'Los datos analizados no permiten señalar fortalezas concretas.')]
   if (d.mejores?.length) {
     fortalezas.push({
-      tipo: 'tabla', titulo: 'Dato — actividades con mejor resultado',
+      tipo: 'tabla', titulo: 'Dato — mayor promedio (ordenadas de mayor a menor promedio)',
       head: ['Actividad', 'Tipo', 'Parcial', 'Promedio'],
-      body: d.mejores.map((a) => [a.nombre, a.tipo, String(a.parcial), num(a.promedio)]),
+      body: d.mejores.map((a) => [actividadConEtiqueta(a), a.tipo, String(a.parcial), num(a.promedio)]),
     })
   }
   secciones.push({ titulo: 'Fortalezas del grupo', tono: 'ia', bloques: fortalezas })
@@ -103,9 +117,9 @@ export function planInformeAsignatura(analisis) {
   const criticas = [lista(inf.areasCriticas, 'Los datos analizados no muestran áreas críticas.')]
   if (d.criticas?.length) {
     criticas.push({
-      tipo: 'tabla', titulo: 'Dato — actividades con resultado más bajo',
+      tipo: 'tabla', titulo: 'Dato — menor promedio (ordenadas de menor a mayor promedio)',
       head: ['Actividad', 'Tipo', 'Parcial', 'Promedio'],
-      body: d.criticas.map((a) => [a.nombre, a.tipo, String(a.parcial), num(a.promedio)]),
+      body: d.criticas.map((a) => [actividadConEtiqueta(a), a.tipo, String(a.parcial), num(a.promedio)]),
     })
   }
   if (d.asistencia) {
@@ -125,9 +139,9 @@ export function planInformeAsignatura(analisis) {
     const conFaltas = s.actividades.filter((f) => f.noRealizadas || f.incompletas)
     if (conFaltas.length) {
       criticas.push({
-        tipo: 'tabla', titulo: 'Dato — actividades vencidas sin realizar',
+        tipo: 'tabla', titulo: 'Dato — actividades vencidas sin realizar (en el orden de la plataforma)',
         head: ['Actividad', 'Tipo', 'Parcial', 'No realizadas', 'Sin terminar'],
-        body: conFaltas.map((f) => [f.nombre, f.tipo, String(f.parcial), num(f.noRealizadas), num(f.incompletas)]),
+        body: conFaltas.map((f) => [actividadConEtiqueta(f), f.tipo, String(f.parcial), num(f.noRealizadas), num(f.incompletas)]),
       })
     }
     criticas.push({ tipo: 'nota', texto: `${s.totalNoRealizadas} no realizadas y ${s.totalIncompletas} iniciadas sin terminar, de ${s.estudiantesConFaltantes} estudiantes. ${s.totalEnPlazo} siguen en plazo. ${s.actividadesSinFechaLimite} actividad(es) sin fecha límite no se cuentan como incumplimiento. Una actividad calificada sin archivo en la plataforma tampoco cuenta.` })
@@ -141,9 +155,9 @@ export function planInformeAsignatura(analisis) {
       estudiantes.push({ tipo: 'nota', texto: `${atencion.length} de ${num(d.totalEstudiantes)} estudiantes presentan alguna señal: más de la mitad del grupo. Conviene tratarlo como un patrón del grupo y no como casos individuales aislados.` })
     }
     estudiantes.push({
-      tipo: 'tabla', titulo: 'Señales encontradas — no son un diagnóstico',
+      tipo: 'tabla', titulo: 'Señales encontradas — no son un diagnóstico (por número de lista)',
       head: ['Estudiante', 'Señales'],
-      body: atencion.map((e) => [nombreEstudianteAnalisis(e), (e.senales || []).map((s) => s.texto).join('\n')]),
+      body: atencion.map((e) => [estudianteConNumero(e), (e.senales || []).map((s) => s.texto).join('\n')]),
     })
   } else {
     estudiantes.push({ tipo: 'nota', texto: 'Con las fuentes analizadas, ningún estudiante presenta señales de atención.' })
@@ -159,7 +173,7 @@ export function planInformeAsignatura(analisis) {
     titulo: 'Recomendaciones específicas',
     tono: 'ia',
     bloques: [conRec.length
-      ? { tipo: 'tabla', head: ['Estudiante', 'Recomendación'], body: conRec.map((e) => [nombreEstudianteAnalisis(e), e.recomendacion]) }
+      ? { tipo: 'tabla', titulo: 'Por número de lista', head: ['Estudiante', 'Recomendación'], body: conRec.map((e) => [estudianteConNumero(e), e.recomendacion]) }
       : { tipo: 'nota', texto: atencion.length ? 'No se generaron recomendaciones individuales.' : 'No hay estudiantes identificados que requieran una recomendación individual.' }],
   })
 

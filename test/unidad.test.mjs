@@ -4878,6 +4878,182 @@ caso('si la IA menciona "Alumno N" en un texto, el informe guardado trae el nomb
   assert.strictEqual(FAA.ponerNombres('Alumno 1 va bien', new Map([['Alumno 2', 'X']])), 'Alumno 1 va bien')
 })
 
+grupo('Análisis de asignatura — orden y presentación del informe (número de lista y etiqueta de actividad)')
+
+// La regla de la plataforma, tal como está escrita en SubjectPage.jsx
+// (activityLabelById): actividades ordenadas por `orden`; dentro de cada
+// parcial, las que cuentan para calificación reciben "parcial.posición".
+// (La pantalla le agrega un punto final: "1.2.")
+const { cuentaParaCalificacion: cuentaAA } = await import('../src/utils/activityVisibility.js')
+const etiquetasPlataformaAA = (activities) => {
+  const ordenadas = activities.slice().sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  const res = {}
+  for (const p of [...new Set(ordenadas.map((a) => a.parcial))]) {
+    ordenadas.filter((a) => a.parcial === p && cuentaAA(a)).forEach((a, i) => { res[a.id] = `${p}.${i + 1}` })
+  }
+  return res
+}
+const conOrdenAA = ALUMNOS_AA.map((s, i) => ({ ...s, orden: [6, 19, 25, 38][i] }))
+const nombresAA = Object.fromEntries(ALUMNOS_AA.map((s) => [s.id, { nombre: s.nombre, apellidoPaterno: s.apellidoPaterno, apellidoMaterno: s.apellidoMaterno }]))
+const docOrdenAA = (extra = {}, informe = { resumenEjecutivo: 'r', conclusion: 'c' }, recs = new Map()) => {
+  const ctx = agregarAA(extra)
+  return { ...FAA.documentoAnalisis({ ...ctx, asignaturaId: 'S', parciales: extra.parciales || [1, 2, 3], fuentes: extra.fuentes || TODAS_AA, nombres: nombresAA }, informe, recs, 'D'), generadoEn: new Date('2026-10-15T18:00:00Z') }
+}
+
+caso('etiqueta de actividad: coincide EXACTAMENTE con la regla de la plataforma (borradores y sin calificación no numeran)', () => {
+  const desordenadas = [ACTS_AA[5], ACTS_AA[2], ACTS_AA[8], ACTS_AA[0], ACTS_AA[7], ACTS_AA[4], ACTS_AA[1], ACTS_AA[6], ACTS_AA[3]]
+  const servidor = Object.fromEntries(FAA.etiquetasDeActividades(desordenadas))
+  assert.deepStrictEqual(servidor, etiquetasPlataformaAA(desordenadas))
+  assert.deepStrictEqual(servidor, etiquetasPlataformaAA(ACTS_AA), 'no depende del orden en que llegan de Firestore')
+  assert.strictEqual(servidor.E1, '1.1')
+  assert.strictEqual(servidor.E2, '1.2')
+  assert.strictEqual(servidor.O1, '1.3')
+  assert.strictEqual(servidor.Q1, '2.1')
+  assert.strictEqual(servidor.J1, '2.2')
+  assert.strictEqual(servidor.E3, '3.1')
+  assert.strictEqual(servidor.B1, undefined, 'un borrador no lleva número')
+  assert.strictEqual(servidor.D1, undefined, 'una actividad sin calificación no lleva número')
+})
+
+caso('etiqueta de actividad: con `orden` repetido o ausente se conserva el orden de llegada, igual que la plataforma', () => {
+  const acts = [
+    { id: 'x1', categoria: 'entregable', parcial: 1, orden: 2, nombre: 'B', ...pubAA },
+    { id: 'x2', categoria: 'entregable', parcial: 1, nombre: 'sin orden', ...pubAA },
+    { id: 'x3', categoria: 'entregable', parcial: 1, orden: 2, nombre: 'C', ...pubAA },
+    { id: 'x4', categoria: 'entregable', parcial: 1, orden: 1, nombre: 'A', ...pubAA },
+  ]
+  const servidor = Object.fromEntries(FAA.etiquetasDeActividades(acts))
+  assert.deepStrictEqual(servidor, etiquetasPlataformaAA(acts))
+  assert.deepStrictEqual(servidor, { x2: '1.1', x4: '1.2', x1: '1.3', x3: '1.4' })
+})
+
+caso('actividades del informe: parcial ascendente y luego orden, cada una con su etiqueta', () => {
+  const desordenadas = ACTS_AA.slice().reverse()
+  const { datos } = agregarAA({ activities: desordenadas })
+  assert.deepStrictEqual(datos.actividades.map((a) => a.etiqueta), ['1.1', '1.2', '1.3', '2.1', '2.2', '3.1'])
+  assert.deepStrictEqual(datos.actividades.map((a) => a.parcial), [1, 1, 1, 2, 2, 3])
+  assert.deepStrictEqual(datos.sinEntrega.actividades.map((a) => a.etiqueta), ['1.1', '1.2', '2.1', '2.2', '3.1'], 'vencidas/no realizadas: mismo orden, sin Observación')
+})
+
+caso('la etiqueta NO se renumera al desmarcar fuentes o parciales: es la de la plataforma', () => {
+  const soloObs = agregarAA({ fuentes: ['observacion'], todasLasActividades: ACTS_AA, activities: ACTS_AA.filter((a) => a.categoria === 'observacion') })
+  assert.deepStrictEqual(soloObs.datos.actividades.map((a) => a.etiqueta), ['1.3'], 'sigue siendo 1.3, no 1.1')
+  const soloP2 = agregarAA({ parciales: [2] })
+  assert.deepStrictEqual(soloP2.datos.actividades.map((a) => a.etiqueta), ['2.1', '2.2'])
+})
+
+caso('"Mayor promedio" va de mayor a menor y "Menor promedio" de menor a mayor, con la etiqueta de cada actividad', () => {
+  const { datos } = agregarAA()
+  const desc = datos.mejores.map((a) => a.promedio), ascn = datos.criticas.map((a) => a.promedio)
+  assert.deepStrictEqual(desc, desc.slice().sort((a, b) => b - a))
+  assert.deepStrictEqual(ascn, ascn.slice().sort((a, b) => a - b))
+  assert.ok(datos.mejores.every((a) => /^\d+\.\d+$/.test(a.etiqueta)) && datos.criticas.every((a) => /^\d+\.\d+$/.test(a.etiqueta)))
+  // La regla de selección NO cambió: mitad superior / mitad inferior, máximo 3.
+  assert.strictEqual(datos.mejores.length, 3)
+  assert.strictEqual(datos.criticas.length, 2)
+  const plan = INF.planInformeAsignatura(docOrdenAA())
+  const titulos = plan.secciones.flatMap((s) => s.bloques).filter((b) => b.tipo === 'tabla').map((b) => b.titulo)
+  assert.ok(titulos.includes('Dato — mayor promedio (ordenadas de mayor a menor promedio)'))
+  assert.ok(titulos.includes('Dato — menor promedio (ordenadas de menor a mayor promedio)'))
+})
+
+caso('estudiantes: el informe conserva el orden de la lista y guarda el número de cada uno', () => {
+  const doc = docOrdenAA({ students: conOrdenAA })
+  assert.deepStrictEqual(doc.estudiantesAtencion.map((e) => e.numeroLista), [19, 38])
+  const plan = INF.planInformeAsignatura(doc)
+  const filas = plan.secciones[5].bloques.find((b) => b.tipo === 'tabla').body.map((f) => f[0])
+  assert.deepStrictEqual(filas, ['19. Yáñez Kuri Wenceslao', '38. Urquidi Zendejas Ximena'])
+})
+
+caso('estudiantes sin número de lista: no se inventa uno; se muestra solo el nombre', () => {
+  const doc = docOrdenAA()
+  assert.deepStrictEqual(doc.estudiantesAtencion.map((e) => e.numeroLista), [null, null])
+  const filas = INF.planInformeAsignatura(doc).secciones[5].bloques.find((b) => b.tipo === 'tabla').body.map((f) => f[0])
+  assert.deepStrictEqual(filas, ['Yáñez Kuri Wenceslao', 'Urquidi Zendejas Ximena'])
+})
+
+caso('estudiantes con el mismo número de lista: se respeta el orden recibido y cada uno muestra su número', () => {
+  const repetidos = ALUMNOS_AA.map((s) => ({ ...s, orden: 7 }))
+  const doc = docOrdenAA({ students: repetidos })
+  assert.deepStrictEqual(doc.estudiantesAtencion.map((e) => [e.numeroLista, e.apellidoPaterno]), [[7, 'Yáñez'], [7, 'Urquidi']])
+})
+
+caso('recomendaciones específicas: aunque la IA las devuelva en otro orden, salen por número de lista', () => {
+  const ctx = agregarAA({ students: conOrdenAA })
+  const { recomendacionPorAnonId } = FAA.normalizarInforme({
+    resumenEjecutivo: 'r', conclusion: 'c',
+    recomendacionesEstudiantes: [{ anonId: 'Alumno 4', recomendacion: 'Para la 38' }, { anonId: 'Alumno 2', recomendacion: 'Para la 19' }],
+  }, ctx)
+  const doc = FAA.documentoAnalisis({ ...ctx, asignaturaId: 'S', parciales: [1, 2, 3], fuentes: TODAS_AA, nombres: nombresAA }, { resumenEjecutivo: 'r', conclusion: 'c' }, recomendacionPorAnonId, 'D')
+  const tabla = INF.planInformeAsignatura(doc).secciones[7].bloques[0]
+  assert.deepStrictEqual(tabla.body, [['19. Yáñez Kuri Wenceslao', 'Para la 19'], ['38. Urquidi Zendejas Ximena', 'Para la 38']])
+})
+
+caso('narrativa de la IA: fortalezas, dificultades, áreas críticas y recomendaciones conservan SU orden', () => {
+  const ctx = agregarAA()
+  const dadas = { resumenEjecutivo: 'r', conclusion: 'c', fortalezas: ['Zeta', 'Alfa', 'Mu'], dificultades: ['3', '1', '2'], areasCriticas: ['c', 'a', 'b'], recomendacionesGenerales: ['última', 'primera'] }
+  const { informe } = FAA.normalizarInforme(dadas, ctx)
+  assert.deepStrictEqual(informe.fortalezas, ['Zeta', 'Alfa', 'Mu'])
+  assert.deepStrictEqual(informe.dificultades, ['3', '1', '2'])
+  assert.deepStrictEqual(informe.areasCriticas, ['c', 'a', 'b'])
+  assert.deepStrictEqual(informe.recomendacionesGenerales, ['última', 'primera'])
+  const plan = INF.planInformeAsignatura({ ...docOrdenAA(), informe })
+  assert.deepStrictEqual(plan.secciones[1].bloques[0].items, ['Zeta', 'Alfa', 'Mu'])
+  assert.deepStrictEqual(plan.secciones[6].bloques[0].items, ['última', 'primera'])
+})
+
+caso('fuentes y parciales: siempre en el orden canónico, se marquen en el orden que sea', () => {
+  const disp = { 1: DISP_TODO, 2: DISP_TODO }
+  assert.deepStrictEqual(ANA.fuentesEfectivas(disp, [1, 2], ['sinEntrega', 'asistencias', 'entregables', 'interactivas', 'evaluaciones', 'observacion']), ANA.CLAVES_FUENTES)
+  assert.deepStrictEqual(ANA.parcialesValidos([3, 1, 2], 3), [1, 2, 3])
+  const { datos } = agregarAA({ parciales: [1, 2, 3] })
+  assert.deepStrictEqual(datos.parciales.map((p) => p.parcial), [1, 2, 3])
+  assert.deepStrictEqual(datos.asistencia.porParcial.map((p) => p.parcial), [1])
+})
+
+caso('informe HISTÓRICO (sin número de lista ni etiqueta): se muestra igual que antes, sin huecos ni "null"', () => {
+  const historico = docOrdenAA({ students: conOrdenAA })
+  historico.estudiantesAtencion.forEach((e) => { delete e.numeroLista })
+  for (const lista of [historico.datos.actividades, historico.datos.mejores, historico.datos.criticas, historico.datos.sinEntrega.actividades]) lista.forEach((a) => { delete a.etiqueta })
+  const plan = INF.planInformeAsignatura(historico)
+  assert.deepStrictEqual(plan.secciones[5].bloques.find((b) => b.tipo === 'tabla').body.map((f) => f[0]), ['Yáñez Kuri Wenceslao', 'Urquidi Zendejas Ximena'])
+  const mayor = plan.secciones[1].bloques.find((b) => b.tipo === 'tabla')
+  assert.ok(mayor.body.every((f) => !f[0].includes('—')), 'sin etiqueta: solo el nombre de la actividad')
+  assert.ok(!/undefined|null|NaN/.test(JSON.stringify(plan)))
+  assert.strictEqual(plan.secciones.length, 9)
+})
+
+caso('informe NUEVO: número de lista y etiqueta visibles en todas las tablas de datos', () => {
+  const plan = INF.planInformeAsignatura(docOrdenAA({ students: conOrdenAA }, { resumenEjecutivo: 'r', conclusion: 'c' }, new Map([['Alumno 2', 'Tutoría']])))
+  const tablas = plan.secciones.flatMap((s) => s.bloques).filter((b) => b.tipo === 'tabla')
+  const de = (titulo) => tablas.find((t) => (t.titulo || '').startsWith(titulo))
+  assert.ok(de('Dato — mayor promedio').body.every((f) => /^\d+\.\d+ — /.test(f[0])))
+  assert.ok(de('Dato — menor promedio').body.every((f) => /^\d+\.\d+ — /.test(f[0])))
+  assert.deepStrictEqual(de('Dato — actividades vencidas sin realizar').body.map((f) => f[0]),
+    ['1.1 — Reporte de laboratorio', '1.2 — Mapa conceptual', '2.1 — Cuestionario de vectores', '2.2 — Crucigrama de unidades'])
+  assert.ok(de('Señales encontradas').body.every((f) => /^\d+\. /.test(f[0])))
+  assert.deepStrictEqual(de('Por número de lista').body, [['19. Yáñez Kuri Wenceslao', 'Tutoría']])
+  assert.strictEqual(INF.actividadConEtiqueta({ etiqueta: '1.10', nombre: 'Configuración de red' }), '1.10 — Configuración de red')
+  assert.strictEqual(INF.estudianteConNumero({ numeroLista: 6, apellidoPaterno: 'Cerda', apellidoMaterno: 'Puga', nombre: 'Fernando' }), '6. Cerda Puga Fernando')
+})
+
+caso('el prompt NO cambió: ni etiquetas ni números de lista viajan al modelo', () => {
+  const ctx = agregarAA({ students: conOrdenAA })
+  const prompt = promptAA(ctx)
+  assert.ok(!/\d+\.\d+ — /.test(prompt), 'sin etiquetas de actividad')
+  assert.ok(!prompt.includes('numeroLista') && !/\b(19|38)\. /.test(prompt))
+  // Mismo texto exacto que sin número de lista: el dato nuevo no entra al prompt.
+  assert.strictEqual(prompt, promptAA(agregarAA()))
+})
+
+caso('el cambio no altera ningún número calculado ni quién queda señalado', () => {
+  const a = agregarAA(), b = agregarAA({ students: conOrdenAA })
+  const sinNuevos = (x) => JSON.parse(JSON.stringify(x, (k, v) => (k === 'etiqueta' || k === 'numeroLista' ? undefined : v)))
+  assert.deepStrictEqual(sinNuevos(a.datos), sinNuevos(b.datos))
+  assert.deepStrictEqual(a.candidatos.map((c) => [c.anonId, c.senales]), b.candidatos.map((c) => [c.anonId, c.senales]))
+  assert.strictEqual(a.datos.parciales[0].promedioGrupo, 7.5)
+})
+
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
   fallos.forEach((f) => console.log(`  ✗ ${f.nombre}\n    ${f.e.message}`))
