@@ -35,6 +35,9 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
     icon,
     accessCode: generateAccessCode(),
     archived: false,
+    // La copia SIEMPRE nace con Asistencias visible para el estudiante: no
+    // hereda el valor de la original (decisión de producto, 1-oct-2026).
+    mostrarAsistenciasEstudiantes: true,
     createdAt: serverTimestamp(),
   })
   const newSubjectId = newSubRef.id

@@ -1304,6 +1304,67 @@ ok('A13 · student CAN read own attendanceSummaries')
 await assertFails(getDoc(doc(asT2, 'attendanceSummaries', 'ST_JUAN')))
 ok('A13 · teacher CANNOT read a student\'s attendanceSummaries')
 
+// ── "Mostrar asistencias a estudiantes" (1-oct-2026) ────────────────────────
+// subjects.mostrarAsistenciasEstudiantes: ausente o true = el estudiante lee su
+// resumen; false = permission-denied. Por asignatura, y solo el docente dueño
+// lo cambia. La lectura de arriba ('student CAN read own…') ya es el caso
+// "asignatura SIN el campo": S1 se siembra sin él.
+{
+  // Segunda inscripción del MISMO estudiante, en otra asignatura de T1.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'subjects', 'S1_B'), { docenteId: T1, escuelaId: 'E1', accessCode: 'abd' })
+    await setDoc(doc(db, 'students', 'ST_JUAN_B'), {
+      asignaturaId: 'S1_B', escuelaId: 'E1', username: 'JUAN', uid: U_JUAN, activado: true,
+    })
+    await setDoc(doc(db, 'attendanceSummaries', 'ST_JUAN_B'), {
+      asignaturaId: 'S1_B', total: { asist: 2, inasist: 0, justif: 0, total: 2 }, registros: [],
+    })
+  })
+  const s1Antes = (await getDoc(doc(asT1, 'subjects', 'S1'))).data()
+  assert.strictEqual('mostrarAsistenciasEstudiantes' in s1Antes, false)
+  ok('Visibilidad asistencias · sin el campo → student CAN read (caso de arriba, S1 sin campo)')
+
+  // Solo el docente dueño cambia la configuración.
+  await assertFails(updateDoc(doc(asT2, 'subjects', 'S1'), { mostrarAsistenciasEstudiantes: false }))
+  ok('Visibilidad asistencias · another teacher CANNOT change the setting')
+  await assertFails(updateDoc(doc(asJuan, 'subjects', 'S1'), { mostrarAsistenciasEstudiantes: false }))
+  ok('Visibilidad asistencias · student CANNOT change the setting')
+
+  await assertSucceeds(updateDoc(doc(asT1, 'subjects', 'S1'), { mostrarAsistenciasEstudiantes: true }))
+  await assertSucceeds(getDoc(doc(asJuan, 'attendanceSummaries', 'ST_JUAN')))
+  ok('Visibilidad asistencias · campo true → student CAN read own summary')
+
+  await assertSucceeds(updateDoc(doc(asT1, 'subjects', 'S1'), { mostrarAsistenciasEstudiantes: false }))
+  ok('Visibilidad asistencias · owner teacher CAN turn it off')
+  const negada = await assertFails(getDoc(doc(asJuan, 'attendanceSummaries', 'ST_JUAN')))
+  assert.strictEqual(negada.code, 'permission-denied')
+  ok('Visibilidad asistencias · campo false → student gets permission-denied')
+
+  // false en S1 no toca S1_B (sin el campo).
+  await assertSucceeds(getDoc(doc(asJuan, 'attendanceSummaries', 'ST_JUAN_B')))
+  ok('Visibilidad asistencias · false in one subject does NOT hide another subject')
+
+  // El docente sigue leyendo y escribiendo asistencia con la opción apagada.
+  await assertSucceeds(getDoc(doc(asT1, 'attendance', 'AT_T1_OWN')))
+  await assertSucceeds(updateDoc(doc(asT1, 'attendance', 'AT_T1_OWN'), { 'presentes.ST_JUAN': false }))
+  await assertSucceeds(updateDoc(doc(asT1, 'attendance', 'AT_T1_OWN'), { 'presentes.ST_JUAN': true }))
+  await assertSucceeds(setDoc(doc(asT1, 'attendance', 'AT_VIS_OFF'), {
+    asignaturaId: 'S1', docenteId: T1, fecha: '2026-08-07', slot: 1, parcial: 1, presentes: {},
+  }))
+  ok('Visibilidad asistencias · teacher still reads/writes attendance with false')
+
+  // Volver a prender devuelve el acceso; S1 se deja como estaba (sin el campo).
+  await assertSucceeds(updateDoc(doc(asT1, 'subjects', 'S1'), { mostrarAsistenciasEstudiantes: true }))
+  await assertSucceeds(getDoc(doc(asJuan, 'attendanceSummaries', 'ST_JUAN')))
+  ok('Visibilidad asistencias · turning it back on restores the read')
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'subjects', 'S1'), s1Antes)
+    await deleteDoc(doc(db, 'attendance', 'AT_VIS_OFF'))
+  })
+}
+
 await assertFails(setDoc(doc(asJuan, 'attendanceSummaries', 'ST_JUAN'), {
   asignaturaId: 'S1', total: { asist: 99 },
 })); ok('A13 · student CANNOT write to attendanceSummaries (Admin SDK only)')

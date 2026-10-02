@@ -302,6 +302,9 @@ export default function TeacherDashboard() {
         icon: newSubjectIcon,
         accessCode: generateAccessCode(),
         archived: false,
+        // La pestaña Asistencias del estudiante nace visible; el docente la
+        // apaga por asignatura desde Asistencias. Ausente también = visible.
+        mostrarAsistenciasEstudiantes: true,
         orden: subjects.length + 1,
         createdAt: serverTimestamp(),
       }
