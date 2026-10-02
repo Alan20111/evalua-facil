@@ -154,7 +154,16 @@ export default function StudentSubjectPage() {
   const [teacherPhoto, setTeacherPhoto] = useState(null)
   const [openParcial, setOpenParcial] = useState(1)
   const routerLocation = useLocation()
-  const [activeTab, setActiveTab] = useState(routerLocation.state?.tab || 'Actividades y calificaciones')
+  const [tabElegida, setActiveTab] = useState(routerLocation.state?.tab || 'Actividades y calificaciones')
+  // "Mostrar asistencias a estudiantes" — el docente puede apagar esta pestaña
+  // por asignatura (subjects.mostrarAsistenciasEstudiantes; ausente = visible).
+  // Apagada: la pestaña no se ofrece, no se abre el listener del resumen y, si
+  // era la activa (state.tab o el docente la apagó con la página abierta), se
+  // cae a la primera. El candado real está en firestore.rules
+  // (attendanceSummaries); esto solo evita ofrecer algo que el servidor niega.
+  const asistenciasOcultas = subject?.mostrarAsistenciasEstudiantes === false
+  const tabs = asistenciasOcultas ? TABS.filter((t) => t !== 'Asistencias') : TABS
+  const activeTab = tabs.includes(tabElegida) ? tabElegida : 'Actividades y calificaciones'
   // Pista de que la barra de pestañas se puede deslizar — con 4 pestañas y
   // "Actividades y calificaciones" de nombre largo, en un celular angosto
   // "Avisos" queda cortado fuera de la vista sin ningún indicio de que hay
@@ -177,7 +186,7 @@ export default function StudentSubjectPage() {
 
   // Listener en tiempo real para el resumen de asistencias del alumno.
   useEffect(() => {
-    if (!studentId) return
+    if (!studentId || asistenciasOcultas) return
     attSummaryUnsubRef.current?.()
     attSummaryUnsubRef.current = onSnapshot(
       doc(db, 'attendanceSummaries', studentId),
@@ -185,7 +194,7 @@ export default function StudentSubjectPage() {
       () => {},
     )
     return () => { attSummaryUnsubRef.current?.(); attSummaryUnsubRef.current = null }
-  }, [studentId])
+  }, [studentId, asistenciasOcultas])
 
   // Listener en tiempo real para campos de denominador, cierre de parciales y
   // publicación del resultado ponderado (atención de inquietudes).
@@ -206,6 +215,7 @@ export default function StudentSubjectPage() {
           parcialesAtencion: d.parcialesAtencion ?? null,
           ponderacionParciales: d.ponderacionParciales ?? null,
           ponderacionActivada: d.ponderacionActivada ?? null,
+          mostrarAsistenciasEstudiantes: d.mostrarAsistenciasEstudiantes ?? null,
         } : prev)
         // Cambió el estado o la ponderación de algún parcial: los pesos que
         // entrega el servidor pueden ser otros, así que se vuelven a pedir las
@@ -644,7 +654,7 @@ export default function StudentSubjectPage() {
           desaparecen solos en cuanto el estudiante ya llegó al final. */}
       <div className="relative bg-surface-card border-b border-outline-variant">
         <div ref={tabsScrollRef} className="px-4 flex gap-1 overflow-x-auto">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab}
               type="button"

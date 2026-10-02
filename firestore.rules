@@ -927,8 +927,22 @@ service cloud.firestore {
     // documento ES el mismo id que su enrollment en `students`, así
     // ownsStudentDoc ya resuelve la propiedad sin ayuda adicional. Ningún
     // cliente escribe aquí — de ahí que no haya create/update/delete.
+    //
+    // "Mostrar asistencias a estudiantes" (1-oct-2026): el docente puede
+    // apagar la pestaña Asistencias del estudiante POR ASIGNATURA
+    // (subjects.mostrarAsistenciasEstudiantes). Quitar la pestaña en el
+    // cliente no basta — el resumen se lee directo desde el navegador — así
+    // que el candado real vive aquí. Campo AUSENTE = visible: las asignaturas
+    // anteriores a este cambio siguen igual, sin backfill. La asignatura sale
+    // de la inscripción (no del resumen) para que también valga cuando el
+    // resumen todavía no existe.
+    function asistenciasVisiblesAlEstudiante(studentId) {
+      let asigId = get(/databases/$(database)/documents/students/$(studentId)).data.asignaturaId;
+      return get(/databases/$(database)/documents/subjects/$(asigId)).data.get('mostrarAsistenciasEstudiantes', true) != false;
+    }
     match /attendanceSummaries/{studentId} {
-      allow read: if request.auth != null && ownsStudentDoc(studentId);
+      allow read: if request.auth != null && ownsStudentDoc(studentId) &&
+        asistenciasVisiblesAlEstudiante(studentId);
     }
 
     // Observaciones del docente sobre una celda de asistencia (estudiante +

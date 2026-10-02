@@ -5061,6 +5061,19 @@ export default function SubjectPage() {
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
+  // "Mostrar asistencias a estudiantes" — mismo patrón que el de arriba: por
+  // asignatura, guardado inmediato, campo ausente = true. Solo decide si el
+  // ESTUDIANTE ve su pestaña Asistencias (lo hace valer firestore.rules en
+  // attendanceSummaries); el docente sigue viendo y registrando igual, y no
+  // se borra ni se recalcula nada.
+  async function toggleMostrarAsistenciasEstudiantes() {
+    const next = subject?.mostrarAsistenciasEstudiantes === false
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), { mostrarAsistenciasEstudiantes: next })
+      setSubject((s) => ({ ...s, mostrarAsistenciasEstudiantes: next }))
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+
 
   // Points still available in the parcial (10 − sum of the OTHER activities),
   // using in-progress edits. Used ONLY to cap each box so the total can never
@@ -6528,6 +6541,7 @@ export default function SubjectPage() {
               vez, la causa real de que la pestaña se sintiera pesada con un
               semestre entero de días. Este interruptor solo existe en la
               web; en la App siempre es el parcial actual, sin opción. */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <div className="flex bg-surface-container p-1 rounded w-fit">
             <button type="button" onClick={() => setShowAllParciales(false)}
               className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${!showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
@@ -6537,6 +6551,15 @@ export default function SubjectPage() {
               className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
               Todo el curso
             </button>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={subject?.mostrarAsistenciasEstudiantes !== false}
+              onChange={toggleMostrarAsistenciasEstudiantes}
+            />
+            Mostrar asistencias a estudiantes
+          </label>
           </div>
 
           {attendanceNoClaseDias.length > 0 && (
