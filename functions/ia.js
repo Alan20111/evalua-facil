@@ -317,6 +317,8 @@ const OPERACIONES = {
   // variable según las fuentes elegidas: la tarifa es 1 y el precheck fija
   // los créditos como `unidadesMinimas`, igual que chat_crear_examen.
   analizar_asignatura: (args) => analisisAcademico.ejecutarAnalizarAsignatura({ ...args, pedirJSON }),
+  // Análisis de UN entregable, «solo resultados» (Fase 1). Tarifa fija.
+  analizar_entregable: (args) => analisisAcademico.ejecutarAnalizarEntregable({ ...args, pedirJSON }),
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -338,6 +340,7 @@ const PRECHECKS = {
   chat_crear_examen: precheckChatCrearExamen,
   generar_contenido_juego: precheckGenerarContenidoJuego,
   analizar_asignatura: (args) => analisisAcademico.precheckAnalizarAsignatura({ ...args, textoPlano }),
+  analizar_entregable: (args) => analisisAcademico.precheckAnalizarEntregable({ ...args, textoPlano }),
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────

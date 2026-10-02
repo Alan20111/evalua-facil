@@ -57,6 +57,7 @@ import RubricaGradeTable from '../../components/rubrica/RubricaGradeTable'
 import CalificarConIAModal from '../../components/rubrica/CalificarConIAModal'
 import ConfirmacionCreditosModal from '../../components/ConfirmacionCreditosModal'
 import ConfirmModal from '../../components/ConfirmModal'
+import AnalisisEntregableIA from '../../components/analisis/AnalisisEntregableIA'
 import { ClipboardList, ListChecks, X, Sparkles } from 'lucide-react'
 import { totalRubrica, RUBRICA_TOTAL, esCotejo, instrumentoColors, rubricaFirma } from '../../utils/rubrica'
 import useCreditosIA from '../../hooks/useCreditosIA'
@@ -1488,6 +1489,15 @@ export default function ActivityPage() {
                 ? `Comprimiendo ${zipProgress.done}/${zipProgress.total}…`
                 : 'Descargar entregas como ZIP'}
             </button>
+          </div>
+        )}
+
+        {/* Análisis con IA de esta actividad («solo resultados»): web de
+            escritorio y teléfono, solo entregables publicados. Solo lee, así
+            que no depende de la rúbrica ni de que el parcial esté abierto. */}
+        {!IS_NATIVE_APP && !isObservacion && activity && cuentaParaCalificacion(activity) && (
+          <div className="px-4 pt-3">
+            <AnalisisEntregableIA activity={activity} subject={subject} />
           </div>
         )}
 

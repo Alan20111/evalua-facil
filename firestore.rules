@@ -898,6 +898,35 @@ service cloud.firestore {
         allow create: if false;
       }
 
+      // Análisis con IA de UNA actividad (entregable, «solo resultados»;
+      // 2-oct-2026). Lo crea ÚNICAMENTE el servidor (functions/analisisAcademico.js)
+      // dentro de la misma operación que cobra los créditos. El docente dueño lo
+      // lee y puede corregir SOLO su copia de texto (`edicion` + `editadoEn`): el
+      // informe original de la IA y los datos calculados quedan intactos. Nadie
+      // lo borra desde el cliente; se elimina con la actividad (disparador
+      // limpiarAnalisisActividad). Colección distinta de `analisisIA` (examen) a
+      // propósito: aquella regla no se toca.
+      match /analisisActividadIA/{analisisId} {
+        function edicionValida(d) {
+          return d.edicion == null || (
+            d.edicion is map &&
+            d.edicion.keys().hasOnly(['resumenEjecutivo', 'fortalezas', 'dificultades', 'recomendaciones']) &&
+            (!('resumenEjecutivo' in d.edicion) || (d.edicion.resumenEjecutivo is string && d.edicion.resumenEjecutivo.size() <= 4000)) &&
+            (!('fortalezas' in d.edicion) || (d.edicion.fortalezas is list && d.edicion.fortalezas.size() <= 30)) &&
+            (!('dificultades' in d.edicion) || (d.edicion.dificultades is list && d.edicion.dificultades.size() <= 30)) &&
+            (!('recomendaciones' in d.edicion) || (d.edicion.recomendaciones is list && d.edicion.recomendaciones.size() <= 30))
+          );
+        }
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow update: if isDocente() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['edicion', 'editadoEn']) &&
+          request.resource.data.editadoEn == request.time &&
+          edicionValida(request.resource.data);
+        allow create, delete: if false;
+      }
+
       // Bitácora de OP-10 (análisis de resultados con IA). Un documento NUEVO
       // por cada generación exitosa — el docente los crea desde el cliente
       // (ya pagó el crédito antes de llegar aquí; esto solo persiste la

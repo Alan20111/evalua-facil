@@ -35,8 +35,8 @@ const db = admin.firestore()
 const dryRun = process.argv.includes('--dry-run')
 
 const TARIFAS = {
-  version: 7,
-  actualizadoEl: '2026-10-01',
+  version: 8,
+  actualizadoEl: '2026-10-02',
   // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
   // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
   chatAsistenteActivo: false,
@@ -152,6 +152,10 @@ const TARIFAS = {
     // `analisisAsignatura.costoPorFuente` de abajo — mismo mecanismo que
     // chat_crear_examen. El número de parciales NO cambia el costo.
     analizar_asignatura: 1,
+    // Análisis de UN entregable, modalidad «solo resultados» (2-oct-2026,
+    // aprobado por Kike): 10 créditos fijos por análisis. La modalidad
+    // «resultados + entregas» (lectura de archivos) NO existe todavía.
+    analizar_entregable: 10,
   },
   // Para el resumen del panel ("Calificación de evidencias: 32", etc.).
   categorias: {
@@ -191,6 +195,7 @@ const TARIFAS = {
     planeacion_bloque: 'Planeación',
     generar_contenido_juego: 'Actividades',
     analizar_asignatura: 'Seguimiento',
+    analizar_entregable: 'Seguimiento',
   },
   // Modelo PROVISIONAL por operación (M3 sigue abierta: cambiar aquí no toca
   // código). Solo las pilotos conectadas.
@@ -230,6 +235,7 @@ const TARIFAS = {
     generar_contenido_juego: 'claude-haiku-4-5',
     // Análisis integral de asignatura: mismo modelo que el resto.
     analizar_asignatura: 'claude-haiku-4-5',
+    analizar_entregable: 'claude-haiku-4-5',
   },
   // Análisis integral de asignatura con IA — ÚNICA fuente de sus precios y
   // umbrales (ni React ni las funciones los traen escritos).

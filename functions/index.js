@@ -53,6 +53,10 @@ exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
 const analisisAcademico = require('./analisisAcademico')
 exports.prepararAnalisisAsignatura = analisisAcademico.prepararAnalisisAsignatura
 exports.limpiarAnalisisAsignatura = analisisAcademico.limpiarAnalisisAsignatura
+// Análisis de un entregable («solo resultados»): revisión gratuita y limpieza
+// de su historial al borrar la actividad.
+exports.prepararAnalisisEntregable = analisisAcademico.prepararAnalisisEntregable
+exports.limpiarAnalisisActividad = analisisAcademico.limpiarAnalisisActividad
 
 // Chat de Administración (19-ago-2026) — solo lectura, exclusivo admin,
 // independiente del Chat con Asistente del docente (ver functions/adminChat.js).

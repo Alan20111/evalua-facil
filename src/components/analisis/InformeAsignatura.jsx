@@ -12,7 +12,7 @@ import { planInformeAsignatura } from '../../utils/analisisAsignaturaInforme'
 // Lo que se muestra sale tal cual del documento guardado: los números los
 // calculó el servidor, los nombres son los de ese día. La pantalla y el PDF
 // recorren el mismo plan (utils/analisisAsignaturaInforme.js).
-function Bloque({ bloque }) {
+export function Bloque({ bloque }) {
   if (bloque.tipo === 'parrafo') {
     return bloque.texto ? <p className="text-sm text-on-surface whitespace-pre-line">{bloque.texto}</p> : null
   }
