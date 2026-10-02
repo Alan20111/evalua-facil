@@ -71,6 +71,13 @@ const ARCHIVOS = [
   // lista y qué columna no tiene marcas del docente. La usan la creación
   // automática (cliente), el denominador y la limpieza de onAsuetoEscrito.
   'asistenciaAsuetos.js',
+  // Análisis integral de asignatura con IA: fuentes y costo. El diálogo
+  // muestra el costo y el servidor lo cobra con ESTA misma función.
+  'analisisAsignatura.js',
+  // Cómo se escribe el nombre de una persona (mayúsculas/minúsculas): el
+  // informe del análisis de asignatura lo guarda ya con el mismo formato
+  // que el resto de la plataforma.
+  'nombres.js',
 ]
 
 function fallar(mensaje) {

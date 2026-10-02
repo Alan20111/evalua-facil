@@ -737,6 +737,21 @@ service cloud.firestore {
           request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
       }
 
+      // Análisis integral de asignatura con IA (1-oct-2026) — historial de
+      // informes, uno por generación. Lo escribe ÚNICAMENTE el servidor
+      // (functions/analisisAcademico.js, Admin SDK, dentro de la misma
+      // operación que cobra los créditos), así que ningún cliente crea, edita
+      // ni borra: el informe es de solo lectura y se elimina solo cuando se
+      // borra la asignatura (disparador limpiarAnalisisAsignatura). Privado
+      // del docente dueño: trae nombres de estudiantes y señales de atención.
+      // Comparte nombre con activities/{id}/analisisIA (análisis de examen),
+      // pero es otra ruta y otra regla: esa no se toca.
+      match /analisisIA/{analisisId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/subjects/$(subjectId)).data.docenteId;
+        allow write: if false;
+      }
+
       // Planeación Didáctica Inicial — Asistente IA (FASE 2-BIS, apartado 3).
       // Misma forma exacta que diagnosticosIA: bitácora append-only e
       // inmutable, privada del docente dueño. El .xlsx nunca se guarda aquí

@@ -46,6 +46,13 @@ const creditosLedger = require('./creditosLedger')
 const ia = require('./ia')
 exports.ejecutarOperacionIA = ia.ejecutarOperacionIA
 exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
+// Análisis integral de asignatura con IA (functions/analisisAcademico.js): la
+// preparación gratuita del diálogo (qué fuentes tienen datos y cuánto cuesta
+// la selección) y la limpieza del historial al borrar la asignatura. La
+// operación que cobra va por ejecutarOperacionIA, como todas.
+const analisisAcademico = require('./analisisAcademico')
+exports.prepararAnalisisAsignatura = analisisAcademico.prepararAnalisisAsignatura
+exports.limpiarAnalisisAsignatura = analisisAcademico.limpiarAnalisisAsignatura
 
 // Chat de Administración (19-ago-2026) — solo lectura, exclusivo admin,
 // independiente del Chat con Asistente del docente (ver functions/adminChat.js).

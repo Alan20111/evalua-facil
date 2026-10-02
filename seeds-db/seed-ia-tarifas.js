@@ -35,8 +35,8 @@ const db = admin.firestore()
 const dryRun = process.argv.includes('--dry-run')
 
 const TARIFAS = {
-  version: 6,
-  actualizadoEl: '2026-08-25',
+  version: 7,
+  actualizadoEl: '2026-10-01',
   // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
   // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
   chatAsistenteActivo: false,
@@ -145,6 +145,13 @@ const TARIFAS = {
     // sigue siendo un callable aparte, gratis, fuera de
     // este ledger — NO se cobra por separado.
     generar_contenido_juego: 3,
+    // Análisis integral de asignatura (1-oct-2026, aprobado por Kike). El
+    // costo depende de las fuentes que el docente marque: aquí va la UNIDAD
+    // (1 crédito) y el número real de créditos lo fija `unidadesMinimas` en
+    // precheckAnalizarAsignatura (functions/analisisAcademico.js) sumando
+    // `analisisAsignatura.costoPorFuente` de abajo — mismo mecanismo que
+    // chat_crear_examen. El número de parciales NO cambia el costo.
+    analizar_asignatura: 1,
   },
   // Para el resumen del panel ("Calificación de evidencias: 32", etc.).
   categorias: {
@@ -183,6 +190,7 @@ const TARIFAS = {
     planeacion_tronco: 'Planeación',
     planeacion_bloque: 'Planeación',
     generar_contenido_juego: 'Actividades',
+    analizar_asignatura: 'Seguimiento',
   },
   // Modelo PROVISIONAL por operación (M3 sigue abierta: cambiar aquí no toca
   // código). Solo las pilotos conectadas.
@@ -220,6 +228,47 @@ const TARIFAS = {
     chat_crear_actividad: 'claude-haiku-4-5',
     chat_crear_examen: 'claude-haiku-4-5',
     generar_contenido_juego: 'claude-haiku-4-5',
+    // Análisis integral de asignatura: mismo modelo que el resto.
+    analizar_asignatura: 'claude-haiku-4-5',
+  },
+  // Análisis integral de asignatura con IA — ÚNICA fuente de sus precios y
+  // umbrales (ni React ni las funciones los traen escritos).
+  //
+  // `costoPorFuente`: reparto aprobado por Kike (1-oct-2026); con las seis
+  // fuentes marcadas suma 20 créditos. Una fuente desmarcada o "Sin datos" no
+  // suma. Deben ser ENTEROS (la tarifa de la operación es 1 crédito por unidad).
+  //
+  // `umbrales`: criterios iniciales para "Estudiantes que requieren atención"
+  // (los decide el código, nunca la IA) y para la evolución:
+  //   · promedioMinimo / minActividadesCalificadas — promedio menor a 6 en un
+  //     parcial, con al menos 2 actividades calificadas en ese parcial.
+  //   · faltantesPorcentaje / minFaltantes — 30 % o más de las actividades ya
+  //     vencidas sin realizar, con al menos 2 faltantes.
+  //   · asistenciaMinimaPorcentaje / minSesiones — menos de 80 % de
+  //     asistencia, con al menos 5 sesiones registradas.
+  //   · proporcionPatronGrupal — si más de esta proporción del grupo queda
+  //     señalada (0.5 = la mitad), el informe lo trata como patrón del grupo.
+  //   · cambioRelevante — puntos de diferencia entre el primer y el último
+  //     parcial para contar a un estudiante como "subió" o "bajó".
+  analisisAsignatura: {
+    costoPorFuente: {
+      entregables: 5,
+      observacion: 3,
+      evaluaciones: 4,
+      interactivas: 3,
+      asistencias: 3,
+      sinEntrega: 2,
+    },
+    umbrales: {
+      promedioMinimo: 6,
+      minActividadesCalificadas: 2,
+      faltantesPorcentaje: 30,
+      minFaltantes: 2,
+      asistenciaMinimaPorcentaje: 80,
+      minSesiones: 5,
+      proporcionPatronGrupal: 0.5,
+      cambioRelevante: 1,
+    },
   },
   // Créditos puros sin caducidad (20-ago-2026, migración a modelo de
   // créditos puros — ver docs/ia/PLAN_TECNICO_CREDITOS_PUROS.md §12): ya no

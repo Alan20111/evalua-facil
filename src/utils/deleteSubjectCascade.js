@@ -100,6 +100,10 @@ async function liberarParcialesCerrados(subjectId) {
 // resources+materials (server, incl. their Cloudinary files) → activities →
 // submissions → students → attendance → horarioBloques → subject doc.
 // NOTE: Firebase Auth accounts of students are NOT deleted (same as per-student delete today).
+// El historial de "Analizar asignatura con IA" (subjects/{id}/analisisIA) NO se
+// borra desde aquí: sus reglas no dejan que ningún cliente lo escriba ni lo
+// borre. Lo limpia el servidor al eliminarse el documento de la asignatura
+// (functions/analisisAcademico.js → limpiarAnalisisAsignatura).
 // `docenteId` is required to list `horarioBloques`: its Firestore rule is owner-only
 // (unlike activities/students/attendance, which any authenticated user can
 // read), so the query must filter by docenteId too or the list itself is denied.

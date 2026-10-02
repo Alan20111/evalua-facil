@@ -1906,6 +1906,57 @@ ok('IA · NOBODY, not even the owner, can update a bitácora entry (immutable sn
 await assertFails(deleteDoc(doc(asT1, 'activities', 'A1', 'analisisIA', analisis1Ref.id)))
 ok('IA · NOBODY, not even the owner, can delete a bitácora entry')
 
+// ── subjects/{id}/analisisIA — análisis integral de asignatura con IA (PR 1) ──
+// Lo escribe solo el servidor (Admin SDK). Para cualquier cliente es de SOLO
+// LECTURA y únicamente para el docente dueño de la asignatura: trae nombres de
+// estudiantes y señales de atención.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'subjects', 'S1', 'analisisIA', 'AN1'), {
+    docenteId: T1, asignaturaId: 'S1', parciales: [1], fuentes: ['entregables'],
+    informe: { resumenEjecutivo: 'r', conclusion: 'c' },
+    estudiantesAtencion: [{ nombre: 'Ana', apellidoPaterno: 'Paz', apellidoMaterno: '', senales: [], recomendacion: '' }],
+  })
+})
+
+await assertSucceeds(getDoc(doc(asT1, 'subjects', 'S1', 'analisisIA', 'AN1')))
+ok('subjects/analisisIA · owner docente CAN read an analysis of their subject')
+
+await assertSucceeds(getDocs(collection(asT1, 'subjects', 'S1', 'analisisIA')))
+ok('subjects/analisisIA · owner docente CAN list the history of their subject')
+
+await assertFails(getDoc(doc(asT2, 'subjects', 'S1', 'analisisIA', 'AN1')))
+ok('subjects/analisisIA · another docente CANNOT read it')
+
+await assertFails(getDocs(collection(asT2, 'subjects', 'S1', 'analisisIA')))
+ok('subjects/analisisIA · another docente CANNOT list the history')
+
+await assertFails(getDoc(doc(asJuan, 'subjects', 'S1', 'analisisIA', 'AN1')))
+ok('subjects/analisisIA · a student CANNOT read it')
+
+await assertFails(getDoc(doc(asAdmin, 'subjects', 'S1', 'analisisIA', 'AN1')))
+ok('subjects/analisisIA · not even admin reads it from the client (nombres y señales de atención)')
+
+await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'subjects', 'S1', 'analisisIA', 'AN1')))
+ok('subjects/analisisIA · unauthenticated CANNOT read it')
+
+await assertFails(setDoc(doc(asT1, 'subjects', 'S1', 'analisisIA', 'AN_CLIENTE'), { docenteId: T1, informe: {} }))
+ok('subjects/analisisIA · owner CANNOT create one from the client (solo el servidor)')
+
+await assertFails(addDoc(collection(asT1, 'subjects', 'S1', 'analisisIA'), { docenteId: T1, informe: {} }))
+ok('subjects/analisisIA · owner CANNOT addDoc one from the client')
+
+await assertFails(updateDoc(doc(asT1, 'subjects', 'S1', 'analisisIA', 'AN1'), { 'informe.resumenEjecutivo': 'editado' }))
+ok('subjects/analisisIA · owner CANNOT edit the report (inmutable)')
+
+await assertFails(setDoc(doc(asT1, 'subjects', 'S1', 'analisisIA', 'AN1'), { docenteId: T1, informe: {} }))
+ok('subjects/analisisIA · owner CANNOT overwrite the report')
+
+await assertFails(deleteDoc(doc(asT1, 'subjects', 'S1', 'analisisIA', 'AN1')))
+ok('subjects/analisisIA · owner CANNOT delete it from the client (se va con la asignatura, por el servidor)')
+
+await assertFails(updateDoc(doc(asT2, 'subjects', 'S1', 'analisisIA', 'AN1'), { docenteId: T2 }))
+ok('subjects/analisisIA · another docente CANNOT hijack it')
+
 // ── Capa 2 de OP-10 — snapshot de respuestas por intento ────────────────────
 // Solo el Admin SDK (Cloud Function onEvaluacionFinalizada) escribe aquí —
 // ni el docente ni el alumno, nunca desde el cliente. `submissions/SUB1` se

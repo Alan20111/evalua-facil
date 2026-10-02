@@ -20,6 +20,7 @@ import { camposComunesCopia, nombreParaCopia, esCopiable, etiquetaJuego, esJuego
 import { copiarClaveJuego } from '../../utils/juegoClave'
 import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, exportCredentialsPDF } from '../../utils/pdf'
 import { membreteDe } from '../../utils/membrete'
+import AnalisisAsignaturaIA from '../../components/analisis/AnalisisAsignaturaIA'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
@@ -1066,6 +1067,8 @@ export default function SubjectPage() {
   const perfilIACompleto = isPerfilIACompleto(userProfile?.perfilIA)
   // Escuela + docente que encabezan cada PDF/Excel que se descarga de aquí.
   const membrete = membreteDe(userProfile)
+  // Diálogo de "Analizar asignatura con IA" (pestaña Calificaciones).
+  const [analisisAsignaturaAbierto, setAnalisisAsignaturaAbierto] = useState(false)
   const [subject, setSubject] = useState(null)
   // Lectura única del umbral institucional de inasistencia al montar.
   useEffect(() => {
@@ -6081,8 +6084,24 @@ export default function SubjectPage() {
                   menuTooltip="PDF por parcial" menuLabel="PDF de un parcial"
                   parciales={parcialesConActividades} onPickParcial={doExportParcialPDF}
                 />
+                {/* Análisis integral con IA: junto a Excel/PDF porque parte de
+                    lo mismo que ellos — los resultados de toda la asignatura.
+                    No ejecuta nada al pulsarlo: abre la configuración. */}
+                <button type="button" onClick={() => setAnalisisAsignaturaAbierto(true)}
+                  data-tooltip="Elige parciales y fuentes; la IA prepara un informe del grupo. No modifica calificaciones."
+                  className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2 border-2 border-accent rounded text-sm font-semibold text-accent hover:bg-[var(--accent-tint)] transition-colors">
+                  <Sparkles size={17} className="flex-shrink-0" /> <span className="truncate">Analizar asignatura con IA</span>
+                </button>
               </div>
             </div>
+
+            <AnalisisAsignaturaIA
+              subject={subject}
+              subjectId={subjectId}
+              membrete={membrete}
+              abierto={analisisAsignaturaAbierto}
+              onCerrar={() => setAnalisisAsignaturaAbierto(false)}
+            />
 
             <SearchInput
               value={searchGrade}
