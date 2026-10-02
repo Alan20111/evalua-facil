@@ -1957,6 +1957,61 @@ ok('subjects/analisisIA · owner CANNOT delete it from the client (se va con la 
 await assertFails(updateDoc(doc(asT2, 'subjects', 'S1', 'analisisIA', 'AN1'), { docenteId: T2 }))
 ok('subjects/analisisIA · another docente CANNOT hijack it')
 
+// ── activities/{id}/analisisActividadIA — análisis de UN entregable (Fase 1) ──
+// Lo crea solo el servidor. El dueño lee y puede corregir SOLO su copia de
+// texto (`edicion` + `editadoEn`); el original de la IA y los datos no se tocan.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'activities', 'A1', 'analisisActividadIA', 'AE1'), {
+    tipo: 'entregable', modalidad: 'resultados', docenteId: T1, actividadId: 'A1', version: 1,
+    datos: { resultados: { estudiantes: 3 } }, informe: { resumenEjecutivo: 'original', fortalezas: [], dificultades: [], recomendaciones: [] },
+    edicion: null, editadoEn: null, estudiantesRevisar: [],
+  })
+})
+const refAE = (db) => doc(db, 'activities', 'A1', 'analisisActividadIA', 'AE1')
+
+await assertSucceeds(getDoc(refAE(asT1)))
+ok('activities/analisisActividadIA · owner CAN read the analysis of their activity')
+await assertSucceeds(getDocs(collection(asT1, 'activities', 'A1', 'analisisActividadIA')))
+ok('activities/analisisActividadIA · owner CAN list the history')
+await assertFails(getDoc(refAE(asT2)))
+ok('activities/analisisActividadIA · another docente CANNOT read it')
+await assertFails(getDoc(refAE(asJuan)))
+ok('activities/analisisActividadIA · a student CANNOT read it')
+await assertFails(getDoc(refAE(testEnv.unauthenticatedContext().firestore())))
+ok('activities/analisisActividadIA · unauthenticated CANNOT read it')
+
+await assertFails(setDoc(doc(asT1, 'activities', 'A1', 'analisisActividadIA', 'AE_CLIENTE'), { docenteId: T1, informe: {} }))
+ok('activities/analisisActividadIA · owner CANNOT create one from the client')
+await assertFails(addDoc(collection(asT1, 'activities', 'A1', 'analisisActividadIA'), { docenteId: T1, informe: {} }))
+ok('activities/analisisActividadIA · owner CANNOT addDoc one from the client')
+
+await assertFails(updateDoc(refAE(asT1), { 'informe.resumenEjecutivo': 'cambiado' }))
+ok('activities/analisisActividadIA · owner CANNOT modify the original AI report')
+await assertFails(updateDoc(refAE(asT1), { 'datos.resultados.estudiantes': 99, edicion: { resumenEjecutivo: 'x' }, editadoEn: serverTimestamp() }))
+ok('activities/analisisActividadIA · owner CANNOT change the calculated data, not even together with the edit')
+await assertFails(updateDoc(refAE(asT1), { edicion: { resumenEjecutivo: 'x' } }))
+ok('activities/analisisActividadIA · an edit without its server timestamp is rejected')
+await assertFails(updateDoc(refAE(asT1), { edicion: { resumenEjecutivo: 'x', datos: 'colado' }, editadoEn: serverTimestamp() }))
+ok('activities/analisisActividadIA · the edit only accepts the four text fields')
+
+await assertSucceeds(updateDoc(refAE(asT1), { edicion: { resumenEjecutivo: 'corregido', fortalezas: ['a'], dificultades: [], recomendaciones: ['b'] }, editadoEn: serverTimestamp() }))
+ok('activities/analisisActividadIA · owner CAN save their edited copy of the text')
+await assertSucceeds(updateDoc(refAE(asT1), { edicion: null, editadoEn: serverTimestamp() }))
+ok('activities/analisisActividadIA · owner CAN go back to the original text')
+
+await assertFails(updateDoc(refAE(asT2), { edicion: { resumenEjecutivo: 'ajeno' }, editadoEn: serverTimestamp() }))
+ok('activities/analisisActividadIA · another docente CANNOT edit it')
+await assertFails(deleteDoc(refAE(asT1)))
+ok('activities/analisisActividadIA · owner CANNOT delete it from the client (se va con la actividad)')
+
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const d = (await getDoc(doc(ctx.firestore(), 'activities', 'A1', 'analisisActividadIA', 'AE1'))).data()
+  assert.strictEqual(d.informe.resumenEjecutivo, 'original')
+  assert.strictEqual(d.datos.resultados.estudiantes, 3)
+})
+ok('activities/analisisActividadIA · after every attempt the original report and data are intact')
+
+
 // ── Capa 2 de OP-10 — snapshot de respuestas por intento ────────────────────
 // Solo el Admin SDK (Cloud Function onEvaluacionFinalizada) escribe aquí —
 // ni el docente ni el alumno, nunca desde el cliente. `submissions/SUB1` se

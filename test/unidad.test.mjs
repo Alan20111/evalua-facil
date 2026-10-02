@@ -5054,6 +5054,156 @@ caso('el cambio no altera ningún número calculado ni quién queda señalado', 
   assert.strictEqual(a.datos.parciales[0].promedioGrupo, 7.5)
 })
 
+grupo('Análisis de UN entregable — «solo resultados» (agregación, plan, privacidad)')
+
+const ENT = await import('../src/utils/analisisEntregableInforme.js')
+// Hoy = 15-oct-2026. E1 venció el 20-ago; E3 no tiene fecha y su parcial (3) sigue en curso.
+const agregarEnt = (extra = {}) => FAA.agregarEntregable({
+  activity: ACTS_AA[0], todasLasActividades: ACTS_AA, subject: SUBJ_AA, students: conOrdenAA,
+  entregas: ENTREGAS_AA.get('E1'), umbrales: UMBRALES_AA, ahora: AHORA_AA, textoPlano: FIA.textoPlano, ...extra,
+})
+const docEnt = (extra = {}, informe = { resumenEjecutivo: 'r', fortalezas: ['f'], dificultades: ['d'], recomendaciones: ['x'] }) => {
+  const ag = agregarEnt(extra)
+  return { id: 'k', ...FAA.documentoAnalisisEntregable({ ...ag, actividadId: 'E1', asignaturaId: 'S', nombres: nombresAA }, informe, 'D', 'k'), generadoEn: new Date('2026-10-15T18:00:00Z') }
+}
+
+caso('resultados generales: entregaron, a tiempo, tarde, calificados sin archivo, no entregaron y sin calificar', () => {
+  const { datos } = agregarEnt()
+  // a: entregó (9) · b: entregó tarde (4) · c: calificado sin archivo (8) · d: no entregó, vencida.
+  assert.deepStrictEqual(datos.resultados, {
+    estudiantes: 4, entregaron: 2, entregasEnPlazo: 1, entregasTardias: 1, calificadasSinArchivo: 1, noEntregaron: 1,
+    pendientesEnPlazo: 0, pendientesSinFechaLimite: 0, altaPosterior: 0, sinCalificar: 0, porcentajeEntrega: 50,
+  })
+})
+
+caso('distribución: promedio, mediana, mínimo, máximo y rangos, en escala de 10', () => {
+  const c = agregarEnt().datos.calificaciones
+  assert.deepStrictEqual({ ...c, rangos: undefined }, { calificados: 3, promedio: 7, mediana: 8, minimo: 4, maximo: 9, rangos: undefined })
+  assert.deepStrictEqual(c.rangos, [{ rango: 'Menor a 6', estudiantes: 1 }, { rango: '6 a 7.9', estudiantes: 0 }, { rango: '8 a 8.9', estudiantes: 1 }, { rango: '9 a 10', estudiantes: 1 }])
+  // Calificación máxima distinta de 10: se normaliza igual que en Calificaciones.
+  const sobre20 = agregarEnt({ activity: { ...ACTS_AA[0], maxCalif: 20 } }).datos.calificaciones
+  assert.strictEqual(sobre20.maximo, 4.5)
+})
+
+caso('sin entregas: todo en cero y sin calificaciones, sin inventar nada', () => {
+  const { datos, candidatos } = agregarEnt({ activity: ACTS_AA[2], entregas: new Map() })
+  assert.strictEqual(datos.resultados.entregaron, 0)
+  assert.strictEqual(datos.resultados.pendientesSinFechaLimite, 4, 'E3: sin fecha límite y su parcial sigue abierto')
+  assert.strictEqual(datos.resultados.noEntregaron, 0)
+  assert.strictEqual(datos.calificaciones.calificados, 0)
+  assert.strictEqual(datos.calificaciones.promedio, null)
+  assert.deepStrictEqual(candidatos, [])
+})
+
+caso('todos entregaron en plazo: 100 %, sin estudiantes a revisar por entrega', () => {
+  const todos = new Map(ALUMNOS_AA.map((s) => [s.id, { estado: 'calificado', calificacion: 9, archivos: [{ url: 'x' }] }]))
+  const { datos, candidatos } = agregarEnt({ entregas: todos })
+  assert.strictEqual(datos.resultados.porcentajeEntrega, 100)
+  assert.strictEqual(datos.resultados.entregasEnPlazo, 4)
+  assert.deepStrictEqual(candidatos, [])
+})
+
+caso('en plazo y con prórroga: no cuentan como "no entregó"', () => {
+  const futura = agregarEnt({ activity: { ...ACTS_AA[0], fechaLimite: '2026-10-30' } }).datos.resultados
+  assert.strictEqual(futura.noEntregaron, 0)
+  assert.strictEqual(futura.pendientesEnPlazo, 1)
+  const prorroga = agregarEnt({ activity: { ...ACTS_AA[0], extensiones: { d: '2026-10-20T23:00' } } })
+  assert.strictEqual(prorroga.datos.resultados.pendientesEnPlazo, 1)
+  assert.ok(!prorroga.candidatos.some((c) => c.alumnoId === 'd'))
+  assert.strictEqual(prorroga.datos.actividad.prorrogas, 1)
+})
+
+caso('entregas sin calificar se cuentan aparte', () => {
+  const ent = new Map([['a', { estado: 'entregado', calificacion: null, archivos: [{ url: 'x' }] }]])
+  const { datos } = agregarEnt({ entregas: ent, students: conOrdenAA.slice(0, 1) })
+  assert.strictEqual(datos.resultados.sinCalificar, 1)
+  assert.strictEqual(datos.calificaciones.calificados, 0)
+})
+
+caso('estudiantes a revisar: por número de lista, con la señal concreta y nombre completo', () => {
+  const { candidatos } = agregarEnt()
+  assert.deepStrictEqual(candidatos.map((c) => [c.numeroLista, c.senales.map((s) => s.texto)]), [
+    [19, ['Calificación de 4 sobre 10']],
+    [38, ['No entregó; actividad vencida']],
+  ])
+  const plan = ENT.planInformeEntregable(docEnt())
+  const sec = plan.secciones.find((s) => s.titulo === 'Estudiantes a revisar')
+  assert.deepStrictEqual(sec.bloques[1].items, ['19. Yáñez Kuri Wenceslao — Calificación de 4 sobre 10.', '38. Urquidi Zendejas Ximena — No entregó; actividad vencida.'])
+})
+
+caso('rúbrica, lista de cotejo y sin instrumento', () => {
+  const rub = agregarEnt().datos.instrumento
+  assert.strictEqual(rub.tipo, 'Rúbrica')
+  assert.strictEqual(rub.evaluados, 2)
+  assert.deepStrictEqual(rub.criterios[0].niveles.map((n) => n.estudiantes), [1, 0, 1])
+  const cot = agregarEnt({ activity: { ...ACTS_AA[0], rubrica: { tipo: 'cotejo', niveles: [{ nombre: 'N' }], criterios: [{ nombre: 'Portada' }, { nombre: 'Bibliografía' }] } } }).datos.instrumento
+  assert.deepStrictEqual(cot, { tipo: 'Lista de cotejo', evaluados: 2, criterios: [{ nombre: 'Portada', cumplen: 1, evaluados: 2 }, { nombre: 'Bibliografía', cumplen: 1, evaluados: 2 }] })
+  assert.strictEqual(agregarEnt({ activity: ACTS_AA[1], entregas: ENTREGAS_AA.get('E2') }).datos.instrumento, null)
+  const titulos = (ex) => ENT.planInformeEntregable(docEnt(ex)).secciones.map((s) => s.titulo)
+  assert.ok(titulos().includes('Rúbrica'))
+  assert.ok(!titulos({ activity: ACTS_AA[1], entregas: ENTREGAS_AA.get('E2') }).some((t) => /Rúbrica|cotejo/.test(t)), 'sin instrumento no hay sección')
+})
+
+caso('etiqueta y contexto de la actividad, sin guardar instrucciones', () => {
+  const ag = agregarEnt()
+  assert.strictEqual(ag.datos.actividad.etiqueta, '1.1')
+  assert.strictEqual(ag.datos.actividad.plazoVencido, true)
+  const doc = docEnt()
+  assert.strictEqual(JSON.stringify(doc).includes('instrucciones'), false)
+  assert.strictEqual(ENT.planInformeEntregable(doc).actividad, '1.1 — Reporte de laboratorio')
+})
+
+caso('privacidad: al modelo no viaja ningún nombre, comentario, motivo de sin entrega ni archivo', () => {
+  const ag = agregarEnt()
+  const prompt = FAA.promptEntregable({ asignaturaNombre: 'Física I', ...ag }) + FAA.ENTREGABLE_SISTEMA
+  for (const al of ALUMNOS_AA) for (const parte of [al.nombre, al.apellidoPaterno, al.apellidoMaterno]) assert.ok(!prompt.toLowerCase().includes(parte.toLowerCase()), parte)
+  for (const privado of ['COMENTARIO-PRIVADO-DEL-DOCENTE', 'Lo trajo en USB', 'url', 'x.png']) assert.ok(!prompt.includes(privado), privado)
+  assert.ok(prompt.includes('Alumno 2') && prompt.includes('Alumno 4'))
+  assert.ok(!/\b19\. |\b38\. /.test(prompt), 'tampoco el número de lista')
+})
+
+caso('el informe guardado: original de la IA con nombres puestos por el servidor, edición vacía, versión y tipo', () => {
+  const doc = docEnt({}, { resumenEjecutivo: 'Alumno 4 no entregó.', fortalezas: [], dificultades: ['Alumno 2 bajó.'], recomendaciones: [] })
+  assert.strictEqual(doc.tipo, 'entregable')
+  assert.strictEqual(doc.modalidad, 'resultados')
+  assert.strictEqual(doc.version, 1)
+  assert.strictEqual(doc.idempotencyKey, 'k')
+  assert.strictEqual(doc.edicion, null)
+  assert.strictEqual(doc.informe.resumenEjecutivo, 'Urquidi Zendejas Ximena no entregó.')
+  assert.deepStrictEqual(doc.informe.dificultades, ['Yáñez Kuri Wenceslao bajó.'])
+  const hayUndefined = (v) => v === undefined || (v && typeof v === 'object' && Object.values(v).some(hayUndefined))
+  assert.strictEqual(hayUndefined(doc), false)
+})
+
+caso('edición: el texto editado gana campo por campo; el original no cambia; se marca como editado', () => {
+  const doc = docEnt()
+  const editado = { ...doc, edicion: { resumenEjecutivo: 'Mi resumen', recomendaciones: ['Mía'] } }
+  const t = ENT.textoVigenteEntregable(editado)
+  assert.strictEqual(t.resumenEjecutivo, 'Mi resumen')
+  assert.deepStrictEqual(t.recomendaciones, ['Mía'])
+  assert.deepStrictEqual(t.fortalezas, ['f'], 'lo no editado sigue siendo el original')
+  assert.strictEqual(editado.informe.resumenEjecutivo, 'r')
+  assert.strictEqual(ENT.planInformeEntregable(editado).editado, true)
+  assert.strictEqual(ENT.planInformeEntregable(doc).editado, false)
+  assert.strictEqual(ENT.planInformeEntregable({ ...doc, edicion: null }).secciones[0].bloques[0].texto, 'r', 'restaurar = volver al original')
+})
+
+caso('plan del informe: secciones en orden fijo y números del servidor (la IA no los toca)', () => {
+  const plan = ENT.planInformeEntregable(docEnt())
+  assert.deepStrictEqual(plan.secciones.map((s) => s.titulo), ['Resumen ejecutivo', 'Resultados generales', 'Distribución de calificaciones', 'Rúbrica', 'Fortalezas', 'Dificultades', 'Estudiantes a revisar', 'Recomendaciones'])
+  const filas = plan.secciones[1].bloques[0].body
+  assert.deepStrictEqual(filas[1], ['Entregaron en la plataforma', '2 (50 %)'])
+  assert.deepStrictEqual(plan.secciones[2].bloques[0].body, [['3', '7', '8', '4', '9']])
+  assert.ok(!/undefined|NaN/.test(JSON.stringify(plan)))
+  assert.ok(!/undefined|NaN/.test(JSON.stringify(ENT.planInformeEntregable({}))), 'ni un documento vacío rompe el plan')
+})
+
+caso('normalizador: solo texto, recortado; sin resumen no hay informe', () => {
+  const n = FAA.normalizarInformeEntregable({ resumenEjecutivo: '  x ', fortalezas: ['a', '', null], dificultades: 'no', recomendaciones: Array(20).fill('r') })
+  assert.deepStrictEqual(n, { resumenEjecutivo: 'x', fortalezas: ['a'], dificultades: [], recomendaciones: Array(10).fill('r') })
+  assert.strictEqual(FAA.normalizarInformeEntregable({}).resumenEjecutivo, '')
+})
+
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
   fallos.forEach((f) => console.log(`  ✗ ${f.nombre}\n    ${f.e.message}`))

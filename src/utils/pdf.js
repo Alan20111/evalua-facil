@@ -16,6 +16,7 @@ import { applyPdfWatermarkIfNeeded, addPdfFooter, getLogoDataUrl, drawPdfWaterma
 import { filasDeReactivo, totalRespuestas } from './evaluacionRespuestas'
 import { contenidoAnalisisResultadosPDF } from './analisisResultadosPDF'
 import { planInformeAsignatura } from './analisisAsignaturaInforme'
+import { planInformeEntregable } from './analisisEntregableInforme'
 
 // Palomita verde de "respuesta correcta", dibujada con dos trazos y centrada
 // en (cx, cy). Ver el comentario en didDrawCell: las fuentes estándar de jsPDF
@@ -556,13 +557,16 @@ export async function exportAnalisisResultadosPDF(args) {
 // llama a la IA ni cuesta créditos — imprime el informe ya guardado.
 const COLOR_TONO_ASIGNATURA = { ia: [37, 99, 235], dato: [71, 85, 105], atencion: [180, 120, 4] }
 
-export async function construirAnalisisAsignaturaPDF({ analisis, subject, membrete = null, watermark = false }) {
+// Dibuja cualquier informe de análisis con IA a partir de su PLAN (secciones
+// de párrafos, listas, notas y tablas). Lo comparten el análisis de
+// asignatura y el de una actividad: cada uno arma su plan y aquí solo se
+// dibuja. `lineas` = renglones informativos bajo el encabezado.
+async function construirPDFDeInforme({ plan, subject, membrete = null, watermark = false, subtitulo, destacado = '', lineas = [] }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
   ])
   const autoTable = autoTableMod.default
-  const plan = planInformeAsignatura(analisis)
 
   const doc = new jsPDF()
   const logoDataUrl = watermark ? await getLogoDataUrl() : null
@@ -570,7 +574,7 @@ export async function construirAnalisisAsignaturaPDF({ analisis, subject, membre
   const pageW = doc.internal.pageSize.getWidth()
   const pageH = doc.internal.pageSize.getHeight()
 
-  let y = drawDocHeader(doc, { membrete, subject, subtitulo: 'Análisis de la asignatura con IA', destacado: plan.parciales })
+  let y = drawDocHeader(doc, { membrete, subject, subtitulo, destacado })
 
   function ensureSpace(min = 22) {
     if (y > pageH - min) { doc.addPage(); if (watermark) drawPdfWatermarkOnPage(doc, logoDataUrl); y = 20 }
@@ -587,7 +591,7 @@ export async function construirAnalisisAsignaturaPDF({ analisis, subject, membre
     y += gap
   }
 
-  parrafo(`Fuentes analizadas: ${plan.fuentes}`, { size: 8.5, color: 110, gap: 1 })
+  lineas.filter(Boolean).forEach((l) => parrafo(l, { size: 8.5, color: 110, gap: 1 }))
   if (plan.generadoEn) parrafo(`Generado el ${plan.generadoEn}`, { size: 8, color: 140, gap: 5 })
 
   // Aviso de IA — mismo texto que en pantalla, siempre visible en el reporte.
@@ -635,9 +639,34 @@ export async function construirAnalisisAsignaturaPDF({ analisis, subject, membre
   return doc
 }
 
+export async function construirAnalisisAsignaturaPDF({ analisis, subject, membrete = null, watermark = false }) {
+  const plan = planInformeAsignatura(analisis)
+  return construirPDFDeInforme({
+    plan, subject, membrete, watermark,
+    subtitulo: 'Análisis de la asignatura con IA', destacado: plan.parciales,
+    lineas: [`Fuentes analizadas: ${plan.fuentes}`],
+  })
+}
+
 export async function exportAnalisisAsignaturaPDF(args) {
   const doc = await construirAnalisisAsignaturaPDF(args)
   await savePdfDoc(doc, `analisis_asignatura_${safeFile(args.subject)}.pdf`)
+}
+
+// Análisis con IA de UNA actividad entregable («solo resultados»). Usa el
+// texto editado por el docente cuando existe, y lo dice.
+export async function construirAnalisisEntregablePDF({ analisis, subject, membrete = null, watermark = false }) {
+  const plan = planInformeEntregable(analisis)
+  return construirPDFDeInforme({
+    plan, subject, membrete, watermark,
+    subtitulo: 'Análisis de la actividad con IA', destacado: plan.actividad,
+    lineas: [`Modalidad: ${plan.modalidad}`, plan.editado ? 'El texto del análisis fue editado por el docente.' : ''],
+  })
+}
+
+export async function exportAnalisisEntregablePDF(args) {
+  const doc = await construirAnalisisEntregablePDF(args)
+  await savePdfDoc(doc, `analisis_actividad_${safeFile(args.subject)}.pdf`)
 }
 
 // El MISMO reporte de arriba pero con las gráficas de pastel que el docente

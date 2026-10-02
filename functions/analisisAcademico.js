@@ -157,6 +157,22 @@ function etiquetaTipo(a) {
 
 const nombreActividad = (a) => String(a.nombre || a.titulo || '(sin nombre)').trim().slice(0, 120)
 
+// Distribución de una rúbrica o lista de cotejo a partir de las evaluaciones
+// por criterio guardadas (`rubricaEval`). Nunca se inventan criterios.
+function criteriosDeInstrumento(rubrica, evals) {
+  const cotejo = rubrica.tipo === 'cotejo'
+  return rubrica.criterios.map((c, i) => {
+    if (cotejo) {
+      return { nombre: String(c.nombre || `Criterio ${i + 1}`).slice(0, 120), cumplen: evals.filter((e) => e[i] === 0).length, evaluados: evals.length }
+    }
+    const niveles = (rubrica.niveles || []).map((n, j) => ({
+      nivel: String(n?.nombre || `Nivel ${j + 1}`).slice(0, 40),
+      estudiantes: evals.filter((e) => e[i] === j).length,
+    }))
+    return { nombre: String(c.nombre || `Criterio ${i + 1}`).slice(0, 120), niveles }
+  })
+}
+
 // Orden de las actividades en la plataforma: parcial y, dentro, `orden`. El
 // sort es estable: con el mismo `orden` se conserva el orden de llegada.
 const porParcialYOrden = (a, b) => (a.parcial - b.parcial) || ((a.orden ?? 0) - (b.orden ?? 0))
@@ -312,18 +328,8 @@ function agregarAsignatura({ subject, students, activities, todasLasActividades 
     if ((fuente === 'entregables' || fuente === 'observacion') && a.rubrica?.criterios?.length) {
       const evals = subs.map((s) => s.rubricaEval).filter((e) => Array.isArray(e))
       if (evals.length) {
-        const cotejo = a.rubrica.tipo === 'cotejo'
-        fila.instrumento = cotejo ? 'Lista de cotejo' : 'Rúbrica'
-        fila.criterios = a.rubrica.criterios.map((c, i) => {
-          if (cotejo) {
-            return { nombre: String(c.nombre || `Criterio ${i + 1}`).slice(0, 120), cumplen: evals.filter((e) => e[i] === 0).length, evaluados: evals.length }
-          }
-          const niveles = (a.rubrica.niveles || []).map((n, j) => ({
-            nivel: String(n?.nombre || `Nivel ${j + 1}`).slice(0, 40),
-            estudiantes: evals.filter((e) => e[i] === j).length,
-          }))
-          return { nombre: String(c.nombre || `Criterio ${i + 1}`).slice(0, 120), niveles }
-        })
+        fila.instrumento = a.rubrica.tipo === 'cotejo' ? 'Lista de cotejo' : 'Rúbrica'
+        fila.criterios = criteriosDeInstrumento(a.rubrica, evals)
       }
     }
     if (fuente === 'evaluaciones') {
@@ -885,6 +891,320 @@ async function ejecutarAnalizarAsignatura({ params, modelo, apiKey, pedirJSON })
   }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// ANÁLISIS DE UN ENTREGABLE — «Solo resultados» ('analizar_entregable').
+//
+// Fase 1 (autorizada 2-oct-2026): analiza UNA actividad entregable completa
+// con sus datos estructurados. NO lee archivos (eso es la Fase 2, aparte). Las
+// mismas reglas que el análisis de asignatura: los números los calcula el
+// código, los estudiantes viajan como "Alumno N", no viajan comentarios del
+// docente ni el texto del motivo de sin entrega, y el informe lo guarda el
+// servidor en activities/{id}/analisisActividadIA/{clave}. El docente puede
+// corregir el texto del informe en un campo aparte (`edicion`); el original de
+// la IA no se toca nunca.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Rangos de la distribución de calificaciones (escala de 10), como los pide el
+// informe: [desde, hasta).
+const RANGOS_CALIFICACION = [
+  { rango: 'Menor a 6', desde: -Infinity, hasta: 6 },
+  { rango: '6 a 7.9', desde: 6, hasta: 8 },
+  { rango: '8 a 8.9', desde: 8, hasta: 9 },
+  { rango: '9 a 10', desde: 9, hasta: Infinity },
+]
+
+function estadisticasCalificaciones(notas) {
+  const ordenadas = notas.slice().sort((a, b) => a - b)
+  const n = ordenadas.length
+  const mediana = !n ? null : n % 2 ? ordenadas[(n - 1) / 2] : (ordenadas[n / 2 - 1] + ordenadas[n / 2]) / 2
+  return {
+    calificados: n,
+    promedio: n ? r1(ordenadas.reduce((s, x) => s + x, 0) / n) : null,
+    mediana: r1(mediana),
+    minimo: n ? ordenadas[0] : null,
+    maximo: n ? ordenadas[n - 1] : null,
+    rangos: RANGOS_CALIFICACION.map(({ rango, desde, hasta }) => ({ rango, estudiantes: ordenadas.filter((x) => x >= desde && x < hasta).length })),
+  }
+}
+
+// Agregación PURA (sin Firestore) de un entregable. `entregas` =
+// Map(alumnoId → submission). `todasLasActividades` solo sirve para la
+// etiqueta ("1.4"), que depende de las demás actividades del parcial.
+function agregarEntregable({ activity, todasLasActividades = null, subject, students, entregas, umbrales, ahora = new Date(), textoPlano = (t) => String(t || '') }) {
+  const ahoraMs = ahora.getTime()
+  const hoyISO = fechaHoyMexico(ahora)
+  const alumnos = students.map((s, i) => ({ ...s, anonId: `Alumno ${i + 1}` }))
+  const etiqueta = etiquetasDeActividades(todasLasActividades || [activity]).get(activity.id) || null
+
+  const r = { estudiantes: alumnos.length, entregaron: 0, entregasEnPlazo: 0, entregasTardias: 0, calificadasSinArchivo: 0, noEntregaron: 0, pendientesEnPlazo: 0, pendientesSinFechaLimite: 0, altaPosterior: 0, sinCalificar: 0 }
+  const notas = []
+  const candidatos = []
+  for (const al of alumnos) {
+    const sub = entregas.get(al.id) || null
+    const hecho = estadoRealizacion('entregables', sub)
+    const senales = []
+    if (hecho === 'realizada') {
+      r.entregaron++
+      if (sub.tarde === true) r.entregasTardias++; else r.entregasEnPlazo++
+      if (sub.calificacion == null) r.sinCalificar++
+    } else if (hecho === 'calificada_sin_archivo') {
+      r.calificadasSinArchivo++
+    } else {
+      const plazo = estadoPlazo(activity, al, subject, ahoraMs, hoyISO)
+      if (plazo === 'vencida') { r.noEntregaron++; senales.push({ tipo: 'sin_entrega', texto: 'No entregó; actividad vencida' }) }
+      else if (plazo === 'en_plazo') r.pendientesEnPlazo++
+      else if (plazo === 'sin_fecha_limite') r.pendientesSinFechaLimite++
+      else r.altaPosterior++
+    }
+    // Calificación (también la nota automática de cierre y la calificada sin
+    // archivo): la misma escala de 10 y el mismo redondeo que Calificaciones.
+    const nota = sub?.calificacion != null ? normalizeGrade(sub.calificacion, activity.maxCalif, { decimals: 1 }) : null
+    if (nota != null) {
+      notas.push(nota)
+      if (nota < umbrales.promedioMinimo) senales.push({ tipo: 'calificacion', texto: `Calificación de ${nota} sobre 10` })
+    }
+    if (senales.length) candidatos.push({ alumnoId: al.id, anonId: al.anonId, numeroLista: Number.isFinite(al.orden) ? al.orden : null, senales })
+  }
+  r.porcentajeEntrega = pct(r.entregaron, r.estudiantes)
+
+  const subs = alumnos.map((al) => entregas.get(al.id)).filter(Boolean)
+  const evals = subs.map((s) => s.rubricaEval).filter((e) => Array.isArray(e))
+  const instrumento = activity.rubrica?.criterios?.length
+    ? { tipo: activity.rubrica.tipo === 'cotejo' ? 'Lista de cotejo' : 'Rúbrica', evaluados: evals.length, criterios: evals.length ? criteriosDeInstrumento(activity.rubrica, evals) : [] }
+    : null
+
+  const limite = millisDe(activity.fechaLimiteTS) ?? fechaMexicoAMillis(activity.fechaLimite)
+  const actividad = {
+    nombre: nombreActividad(activity), etiqueta, parcial: activity.parcial ?? null, maxCalif: activity.maxCalif || 10,
+    peso: ponderacionActivaEnParcial(subject, activity.parcial) && pesoDe(activity) > 0 ? pesoDe(activity) : null,
+    fechaLimite: activity.fechaLimite || null,
+    plazoVencido: limite != null ? limite < ahoraMs : null,
+    cerradaManual: activity.cerradaManual === true,
+    recibeTarde: activity.recibirTarde === true,
+    prorrogas: Object.keys(activity.extensiones || {}).length,
+  }
+  return {
+    datos: { actividad, resultados: r, calificaciones: estadisticasCalificaciones(notas), instrumento, promedioMinimo: umbrales.promedioMinimo },
+    candidatos,
+    // Solo para el prompt: contexto de la actividad. No se guarda.
+    contexto: {
+      instrucciones: textoPlano(activity.instrucciones).slice(0, 800),
+      productoEsperado: String(activity.productoEsperado || '').trim().slice(0, 300),
+    },
+  }
+}
+
+const ENTREGABLE_SISTEMA =
+  'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un docente de bachillerato ' +
+  'mexicano. Vas a redactar un informe sobre los RESULTADOS de una actividad entregable a partir de datos YA ' +
+  'CALCULADOS por la plataforma. No leíste las entregas: no describas su contenido. Analizas EXCLUSIVAMENTE lo que se ' +
+  'te entrega: no inventes ni recalcules números, criterios ni causas; cuando cites una cifra debe ser una de las que ' +
+  'aparecen. Si los datos no alcanzan para una conclusión, dilo. Sobre los estudiantes: SOLO puedes referirte a los ' +
+  'identificadores de la lista "ESTUDIANTES A REVISAR", escritos exactamente como aparecen (por ejemplo "Alumno 3"), ' +
+  'y siempre como señales a revisar. No hagas diagnósticos, no uses etiquetas clínicas ni psicológicas y no especules ' +
+  'sobre causas personales, familiares, emocionales o de salud. Las recomendaciones deben ser acciones concretas para ' +
+  'el docente, derivadas de los datos. Escribe en español claro y breve. Responde únicamente con el JSON pedido.'
+
+function promptEntregable({ asignaturaNombre, datos, candidatos, contexto }) {
+  const a = datos.actividad, r = datos.resultados, c = datos.calificaciones
+  const lineas = []
+  lineas.push(`ASIGNATURA: "${asignaturaNombre || 'sin nombre'}".`)
+  lineas.push(`ACTIVIDAD ENTREGABLE: "${a.nombre}" (parcial ${a.parcial ?? 's/d'}; calificación máxima ${a.maxCalif}${a.peso != null ? `; peso ${a.peso}` : ''}).`)
+  lineas.push(a.fechaLimite
+    ? `Fecha límite: ${a.fechaLimite} (${a.plazoVencido ? 'ya venció' : 'aún no vence'})${a.recibeTarde ? '; acepta entregas tardías' : ''}${a.prorrogas ? `; ${a.prorrogas} prórroga(s) individuales` : ''}.`
+    : 'La actividad no tiene fecha límite.')
+  if (a.cerradaManual) lineas.push('El docente cerró la actividad.')
+  if (contexto.instrucciones) lineas.push(`INSTRUCCIONES PARA EL ESTUDIANTE:\n"""${contexto.instrucciones}"""`)
+  if (contexto.productoEsperado) lineas.push(`PRODUCTO ESPERADO: """${contexto.productoEsperado}"""`)
+  lineas.push(
+    `RESULTADOS (de ${r.estudiantes} estudiantes): ${r.entregaron} entregaron en la plataforma (${r.porcentajeEntrega ?? 0} %), ` +
+    `${r.entregasEnPlazo} en plazo y ${r.entregasTardias} tarde; ${r.calificadasSinArchivo} calificados sin archivo en la plataforma ` +
+    `(no es incumplimiento); ${r.noEntregaron} no entregaron y la actividad ya venció para ellos; ${r.pendientesEnPlazo} aún en plazo; ` +
+    `${r.pendientesSinFechaLimite} pendientes sin fecha límite; ${r.sinCalificar} entregas sin calificar.`)
+  lineas.push(c.calificados
+    ? `CALIFICACIONES (escala de 10; mínimo aprobatorio ${datos.promedioMinimo}): ${c.calificados} calificados; promedio ${c.promedio}, mediana ${c.mediana}, mínimo ${c.minimo}, máximo ${c.maximo}. ` +
+      `Distribución: ${c.rangos.map((x) => `${x.rango}: ${x.estudiantes}`).join('; ')}.`
+    : 'CALIFICACIONES: todavía no hay ninguna.')
+  if (datos.instrumento?.criterios?.length) {
+    lineas.push(`${datos.instrumento.tipo.toUpperCase()} (${datos.instrumento.evaluados} evaluados por criterio):` + datos.instrumento.criterios.map((k) => (
+      k.niveles ? `\n- ${k.nombre}: ${k.niveles.map((n) => `${n.nivel} ${n.estudiantes}`).join(', ')}` : `\n- ${k.nombre}: cumplen ${k.cumplen} de ${k.evaluados}`
+    )).join(''))
+  } else if (datos.instrumento) {
+    lineas.push(`La actividad tiene ${datos.instrumento.tipo.toLowerCase()}, pero todavía no hay evaluaciones por criterio.`)
+  }
+  lineas.push('ESTUDIANTES A REVISAR (ya identificados por la plataforma — SOLO puedes hablar de estos):\n' +
+    (candidatos.length ? candidatos.map((k) => `- ${k.anonId}: ${k.senales.map((s) => s.texto).join('; ')}`).join('\n') : '(ninguno — no propongas ninguno)'))
+  return lineas.join('\n\n') + '\n\n' +
+    'Responde SOLO con este JSON (arreglos vacíos si no hay nada que decir con los datos):\n' +
+    '{\n' +
+    '  "resumenEjecutivo": "<3-5 frases sobre cómo le fue al grupo en esta actividad>",\n' +
+    '  "fortalezas": ["<fortaleza sustentada en un dato de arriba>"],\n' +
+    '  "dificultades": ["<dificultad sustentada en un dato de arriba>"],\n' +
+    '  "recomendaciones": ["<acción concreta para el docente>"]\n' +
+    '}'
+}
+
+function normalizarInformeEntregable(datosIA) {
+  return {
+    resumenEjecutivo: String(datosIA?.resumenEjecutivo || '').trim().slice(0, 1500),
+    fortalezas: listaTexto(datosIA?.fortalezas, 8, 400),
+    dificultades: listaTexto(datosIA?.dificultades, 8, 400),
+    recomendaciones: listaTexto(datosIA?.recomendaciones, 10, 400),
+  }
+}
+
+async function cargarEntregableDelDocente(db, uid, actividadId) {
+  if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad a analizar')
+  const snap = await db.doc(`activities/${actividadId}`).get()
+  if (!snap.exists) throw new HttpsError('not-found', 'La actividad no existe')
+  const activity = { id: snap.id, ...snap.data() }
+  if (activity.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
+  if (fuenteDeActividad(activity) !== 'entregables') {
+    throw new HttpsError('failed-precondition', 'Este análisis es para actividades entregables.')
+  }
+  if (!cuentaParaCalificacion(activity)) {
+    throw new HttpsError('failed-precondition', 'Publica la actividad antes de analizarla.')
+  }
+  const subject = await cargarAsignaturaDelDocente(db, uid, activity.asignaturaId)
+  return { activity, subject }
+}
+
+async function datosDelEntregable(db, uid, actividadId, umbrales, ahora, textoPlano) {
+  const { activity, subject } = await cargarEntregableDelDocente(db, uid, actividadId)
+  const [students, todas, entregasPorActividad] = await Promise.all([
+    cargarEstudiantes(db, activity.asignaturaId), cargarActividades(db, activity.asignaturaId), cargarEntregas(db, [activity.id]),
+  ])
+  const entregas = entregasPorActividad.get(activity.id) || new Map()
+  const agregado = agregarEntregable({ activity, todasLasActividades: todas, subject, students, entregas, umbrales, ahora, textoPlano })
+  return { activity, subject, students, ...agregado }
+}
+
+function costoEntregable(tarifas) {
+  const costo = tarifas?.tarifas?.analizar_entregable
+  if (!esNumero(costo) || costo <= 0) {
+    throw new HttpsError('failed-precondition', 'El análisis de la actividad todavía no está configurado en el servidor. No se descontaron créditos.', { codigo: 'ANALISIS_SIN_CONFIGURAR' })
+  }
+  return costo
+}
+
+// Revisión gratuita: qué se analizará y cuánto cuesta. No llama a la IA ni
+// toca créditos.
+async function prepararDatosEntregable({ uid, actividadId, tarifas, ahora = new Date() }) {
+  const { umbrales } = configAnalisis(tarifas)
+  const costo = costoEntregable(tarifas)
+  const { datos } = await datosDelEntregable(getFirestore(), uid, actividadId, umbrales, ahora)
+  return {
+    actividad: { nombre: datos.actividad.nombre, etiqueta: datos.actividad.etiqueta },
+    resultados: datos.resultados,
+    calificados: datos.calificaciones.calificados,
+    instrumento: datos.instrumento ? datos.instrumento.tipo : null,
+    costo,
+  }
+}
+
+const prepararAnalisisEntregable = onCall(async (request) => {
+  const uid = request.auth?.uid
+  if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para continuar')
+  const perfil = await getFirestore().doc(`users/${uid}`).get()
+  if (!perfil.exists || perfil.data().role !== 'docente') {
+    throw new HttpsError('permission-denied', 'El análisis de actividades es para docentes')
+  }
+  let tarifas
+  try {
+    tarifas = await ledger.cargarTarifas()
+  } catch {
+    throw new HttpsError('failed-precondition', 'El análisis de la actividad todavía no está configurado en el servidor.')
+  }
+  return prepararDatosEntregable({ uid, actividadId: String(request.data?.actividadId || ''), tarifas })
+})
+
+async function precheckAnalizarEntregable({ uid, params, tarifas, textoPlano }) {
+  const db = getFirestore()
+  const { umbrales } = configAnalisis(tarifas)
+  const costo = costoEntregable(tarifas)
+  const r = await datosDelEntregable(db, uid, String(params?.actividadId || ''), umbrales, new Date(), textoPlano)
+  if (!r.students.length) {
+    throw new HttpsError('failed-precondition', 'Esta asignatura todavía no tiene estudiantes. No se descontaron créditos.', { codigo: 'CONTEXTO_INSUFICIENTE' })
+  }
+  // Nunca se cobra distinto de lo que el docente vio y confirmó.
+  if (Number(params?.costoConfirmado) !== costo) {
+    throw new HttpsError('failed-precondition',
+      'El costo del análisis cambió. Vuelve a abrirlo e inténtalo de nuevo. No se descontaron créditos.', { codigo: 'COSTO_CAMBIO', costo })
+  }
+  return {
+    actividadId: r.activity.id,
+    asignaturaId: r.activity.asignaturaId,
+    asignaturaNombre: String(r.subject.nombre || '').trim().slice(0, 120),
+    datos: r.datos, candidatos: r.candidatos, contexto: r.contexto,
+    // Solo para armar el informe final en el servidor: NUNCA entra al prompt.
+    nombres: Object.fromEntries(r.students.map((s) => [s.id, { nombre: s.nombre, apellidoPaterno: s.apellidoPaterno, apellidoMaterno: s.apellidoMaterno }])),
+  }
+}
+
+function documentoAnalisisEntregable(ctx, informe, uid, idempotencyKey) {
+  const nombrePorAnonId = new Map(ctx.candidatos.map((c) => [c.anonId, nombreCompleto(ctx.nombres[c.alumnoId])]).filter(([, n]) => n))
+  const conNombres = (v) => (Array.isArray(v) ? v.map((x) => ponerNombres(x, nombrePorAnonId)) : ponerNombres(v, nombrePorAnonId))
+  return {
+    version: 1,
+    tipo: 'entregable',
+    modalidad: 'resultados',
+    docenteId: uid,
+    actividadId: ctx.actividadId,
+    asignaturaId: ctx.asignaturaId,
+    idempotencyKey,
+    datos: ctx.datos,
+    // El original de la IA: inmutable (las reglas solo dejan tocar `edicion`).
+    informe: Object.fromEntries(Object.entries(informe).map(([k, v]) => [k, conNombres(v)])),
+    edicion: null,
+    editadoEn: null,
+    estudiantesRevisar: ctx.candidatos.map((c) => ({
+      ...(ctx.nombres[c.alumnoId] || { nombre: '', apellidoPaterno: '', apellidoMaterno: '' }),
+      numeroLista: c.numeroLista ?? null,
+      senales: c.senales,
+    })),
+  }
+}
+
+async function ejecutarAnalizarEntregable({ params, modelo, apiKey, pedirJSON }) {
+  const Anthropic = require('@anthropic-ai/sdk')
+  const client = new Anthropic({ apiKey })
+  const ctx = params.__contexto
+  const { datos: datosIA, interno } = await pedirJSON({
+    client, modelo, maxTokens: 3000, system: ENTREGABLE_SISTEMA, prompt: promptEntregable(ctx),
+  })
+  const informe = normalizarInformeEntregable(datosIA)
+  // Sin resumen no hay informe aprovechable: no se guarda ni se cobra.
+  if (!informe.resumenEjecutivo) throw new Error('El asistente de IA no generó un informe utilizable')
+  // Se guarda ANTES de liquidar; el id es la clave de idempotencia.
+  const analisisId = params.__idempotencyKey
+  await getFirestore().doc(`activities/${ctx.actividadId}/analisisActividadIA/${analisisId}`).set({
+    ...documentoAnalisisEntregable(ctx, informe, params.__uid, analisisId),
+    generadoEn: FieldValue.serverTimestamp(),
+  })
+  return {
+    resultado: { analisisId, actividadId: ctx.actividadId },
+    unidadesReales: 1,
+    interno: { ...interno, estudiantes: ctx.datos.resultados.estudiantes },
+  }
+}
+
+// El historial de análisis se va con su actividad: ningún cliente puede
+// borrarlo, así que lo limpia el servidor cuando la actividad se elimina. Solo
+// esta subcolección: el resto del borrado de actividades no cambia.
+async function borrarAnalisisDeActividad(activityId) {
+  const db = getFirestore()
+  await db.recursiveDelete(db.collection(`activities/${activityId}/analisisActividadIA`))
+}
+
+const limpiarAnalisisActividad = onDocumentDeleted('activities/{activityId}', async (event) => {
+  try {
+    await borrarAnalisisDeActividad(event.params.activityId)
+  } catch (e) {
+    logger.error(`limpiarAnalisisActividad(${event.params.activityId}):`, e)
+    throw e
+  }
+})
+
 // ── Sin huérfanos: el historial se va con su asignatura ─────────────────────
 // Firestore no borra subcolecciones al borrar el documento padre, y las reglas
 // no dejan que ningún cliente borre un informe. Este disparador limpia el
@@ -908,9 +1228,15 @@ module.exports = {
   limpiarAnalisisAsignatura,
   precheckAnalizarAsignatura,
   ejecutarAnalizarAsignatura,
+  prepararAnalisisEntregable,
+  limpiarAnalisisActividad,
+  precheckAnalizarEntregable,
+  ejecutarAnalizarEntregable,
   _pruebas: {
     configAnalisis, CLAVES_UMBRALES, calcularDisponibilidad, agregarAsignatura, promptAsignatura, normalizarInforme,
-    documentoAnalisis, ponerNombres, etiquetasDeActividades, cargarEstudiantes, estadoPlazo, estadoRealizacion, instanteLimite, fechaMexicoAMillis, actividadElegible,
+    documentoAnalisis, ponerNombres, etiquetasDeActividades, criteriosDeInstrumento,
+    agregarEntregable, estadisticasCalificaciones, promptEntregable, normalizarInformeEntregable, documentoAnalisisEntregable,
+    prepararDatosEntregable, borrarAnalisisDeActividad, ENTREGABLE_SISTEMA, RANGOS_CALIFICACION, cargarEstudiantes, estadoPlazo, estadoRealizacion, instanteLimite, fechaMexicoAMillis, actividadElegible,
     prepararDatos, borrarAnalisisDeAsignatura, ASIGNATURA_SISTEMA,
   },
 }
