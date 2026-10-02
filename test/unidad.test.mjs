@@ -4333,6 +4333,551 @@ caso('juego: cualquier documento cuenta (también en_progreso), salvo sinEntrega
   assert.strictEqual(tieneEntregaReal({ sinEntrega: true }, ACT_JUEGO), false)
 })
 
+// ═══ Análisis integral de asignatura con IA (PR 1) ══════════════════════════
+// Lógica pura: fuentes, costo, agregación, umbrales y prompt. Sin emulador.
+grupo('Análisis de asignatura — fuentes y costo (src/utils/analisisAsignatura.js)')
+
+const ANA = await import('../src/utils/analisisAsignatura.js')
+const { _pruebas: FAA } = require('../functions/analisisAcademico.js')
+
+const COSTOS_AA = { entregables: 5, observacion: 3, evaluaciones: 4, interactivas: 3, asistencias: 3, sinEntrega: 2 }
+const UMBRALES_AA = {
+  promedioMinimo: 6, minActividadesCalificadas: 2, faltantesPorcentaje: 30, minFaltantes: 2,
+  asistenciaMinimaPorcentaje: 80, minSesiones: 5, proporcionPatronGrupal: 0.5, cambioRelevante: 1,
+}
+const DISP_TODO = { entregables: 2, observacion: 1, evaluaciones: 1, interactivas: 1, asistencias: 4, conEntrega: { entregables: 2, evaluaciones: 1, interactivas: 1 } }
+const DISP_NADA = { entregables: 0, observacion: 0, evaluaciones: 0, interactivas: 0, asistencias: 0, conEntrega: { entregables: 0, evaluaciones: 0, interactivas: 0 } }
+
+caso('todas las fuentes = 20 créditos, sin importar cuántos parciales', () => {
+  const disp = { 1: DISP_TODO, 2: DISP_TODO, 3: DISP_TODO }
+  for (const parciales of [[1], [1, 2], [1, 2, 3]]) {
+    const f = ANA.fuentesEfectivas(disp, parciales, ANA.CLAVES_FUENTES)
+    assert.deepStrictEqual(f, ANA.CLAVES_FUENTES)
+    assert.strictEqual(ANA.costoAnalisis(COSTOS_AA, f), 20)
+  }
+})
+
+caso('Entregables + Cuestionarios/Exámenes + Asistencias = 12 créditos', () => {
+  const f = ANA.fuentesEfectivas({ 1: DISP_TODO }, [1], ['entregables', 'evaluaciones', 'asistencias'])
+  assert.strictEqual(ANA.costoAnalisis(COSTOS_AA, f), 12)
+})
+
+caso('una sola fuente cuesta solo lo suyo', () => {
+  assert.strictEqual(ANA.costoAnalisis(COSTOS_AA, ANA.fuentesEfectivas({ 1: DISP_TODO }, [1], ['observacion'])), 3)
+  assert.strictEqual(ANA.costoAnalisis(COSTOS_AA, ANA.fuentesEfectivas({ 1: DISP_TODO }, [1], ['asistencias'])), 3)
+})
+
+caso('una fuente sin datos no entra ni se cobra, aunque venga marcada', () => {
+  const disp = { 1: { ...DISP_TODO, observacion: 0 } }
+  const f = ANA.fuentesEfectivas(disp, [1], ANA.CLAVES_FUENTES)
+  assert.ok(!f.includes('observacion'))
+  assert.strictEqual(ANA.costoAnalisis(COSTOS_AA, f), 17)
+  assert.strictEqual(ANA.fuentesConDatos(disp, [1], ANA.CLAVES_FUENTES).observacion, false)
+})
+
+caso('todas las fuentes sin datos: no entra ninguna y el costo es 0', () => {
+  const f = ANA.fuentesEfectivas({ 1: DISP_NADA, 2: DISP_NADA }, [1, 2], ANA.CLAVES_FUENTES)
+  assert.deepStrictEqual(f, [])
+  assert.strictEqual(ANA.costoAnalisis(COSTOS_AA, f), 0)
+})
+
+caso('la disponibilidad depende de los parciales elegidos', () => {
+  const disp = { 1: DISP_NADA, 2: DISP_TODO }
+  assert.deepStrictEqual(ANA.fuentesEfectivas(disp, [1], ANA.CLAVES_FUENTES), [])
+  assert.strictEqual(ANA.fuentesEfectivas(disp, [1, 2], ANA.CLAVES_FUENTES).length, 6)
+})
+
+caso('"Sin entrega" solo existe si hay un tipo con entrega MARCADO que tenga actividades', () => {
+  assert.strictEqual(ANA.fuentesConDatos({ 1: DISP_TODO }, [1], ['asistencias', 'sinEntrega']).sinEntrega, false)
+  assert.strictEqual(ANA.fuentesConDatos({ 1: DISP_TODO }, [1], ['observacion', 'sinEntrega']).sinEntrega, false, 'Observación no aporta entregas')
+  assert.strictEqual(ANA.fuentesConDatos({ 1: DISP_TODO }, [1], ['interactivas', 'sinEntrega']).sinEntrega, true)
+})
+
+caso('sin precio configurado no hay costo (null): nunca se inventa', () => {
+  assert.strictEqual(ANA.costoAnalisis({ entregables: 5 }, ['entregables', 'asistencias']), null)
+  assert.strictEqual(ANA.costoAnalisis(null, ['entregables']), null)
+})
+
+caso('parciales: de 1 a 6, sin repetir, sin inventar los que no existen', () => {
+  assert.deepStrictEqual(ANA.parcialesValidos([3, 1, 1, 9, '2', 0], 6), [1, 2, 3])
+  assert.deepStrictEqual(ANA.parcialesValidos([1, 2, 3, 4, 5, 6], 6), [1, 2, 3, 4, 5, 6])
+  assert.deepStrictEqual(ANA.parcialesValidos([2], 1), [])
+})
+
+caso('a qué fuente pertenece cada actividad (el juego NO es cuestionario)', () => {
+  assert.strictEqual(ANA.fuenteDeActividad({ categoria: 'juego', tipoJuego: 'crucigrama' }), 'interactivas')
+  assert.strictEqual(ANA.fuenteDeActividad({ categoria: 'examen' }), 'evaluaciones')
+  assert.strictEqual(ANA.fuenteDeActividad({ categoria: 'cuestionario' }), 'evaluaciones')
+  assert.strictEqual(ANA.fuenteDeActividad({ categoria: 'observacion' }), 'observacion')
+  assert.strictEqual(ANA.fuenteDeActividad({ categoria: 'tarea' }), 'entregables')
+  assert.strictEqual(ANA.fuenteDeActividad({ categoria: 'entregable' }), 'entregables')
+})
+
+caso('configAnalisis: sin configuración completa se detiene (nada de valores por omisión en el código)', () => {
+  assert.throws(() => FAA.configAnalisis({}), /no está configurado/)
+  assert.throws(() => FAA.configAnalisis({ analisisAsignatura: { costoPorFuente: COSTOS_AA, umbrales: { promedioMinimo: 6 } } }), /no está configurado/)
+  const faltaUna = { ...COSTOS_AA }
+  delete faltaUna.sinEntrega
+  assert.throws(() => FAA.configAnalisis({ analisisAsignatura: { costoPorFuente: faltaUna, umbrales: UMBRALES_AA } }), /no está configurado/)
+  assert.deepStrictEqual(FAA.configAnalisis({ analisisAsignatura: { costoPorFuente: COSTOS_AA, umbrales: UMBRALES_AA } }).costoPorFuente, COSTOS_AA)
+})
+
+grupo('Análisis de asignatura — agregación (functions/analisisAcademico.js)')
+
+// Hoy = 15-oct-2026. Parcial 1 y 2 ya terminaron; el 3 sigue en curso.
+const AHORA_AA = new Date('2026-10-15T18:00:00Z')
+const SUBJ_AA = {
+  nombre: 'Física I', parciales: 3, docenteId: 'D',
+  parcialesFechas: [
+    { inicio: '2026-08-01', fin: '2026-08-31' }, { inicio: '2026-09-01', fin: '2026-09-30' }, { inicio: '2026-10-01', fin: '2026-10-31' },
+  ],
+}
+const ALUMNOS_AA = [
+  { id: 'a', nombre: 'ZULEMA', apellidoPaterno: 'QUIROGA', apellidoMaterno: 'XOCHITL' },
+  { id: 'b', nombre: 'Wenceslao', apellidoPaterno: 'Yáñez', apellidoMaterno: 'Kuri' },
+  { id: 'c', nombre: 'Hermenegildo', apellidoPaterno: 'Villaseñor', apellidoMaterno: 'Ibargüengoitia' },
+  { id: 'd', nombre: 'Ximena', apellidoPaterno: 'Urquidi', apellidoMaterno: 'Zendejas' },
+]
+const pubAA = { oculta: false, publishedAt: '2026-08-01T08:00' }
+const ACTS_AA = [
+  { id: 'E1', categoria: 'entregable', tipo: 'archivo', nombre: 'Reporte de laboratorio', parcial: 1, maxCalif: 10, orden: 1, fechaLimite: '2026-08-20', ...pubAA,
+    rubrica: { tipo: 'rubrica', niveles: [{ nombre: 'Excelente' }, { nombre: 'Suficiente' }, { nombre: 'Insuficiente' }], criterios: [{ nombre: 'Procedimiento' }, { nombre: 'Conclusiones' }] } },
+  { id: 'E2', categoria: 'entregable', tipo: 'archivo', nombre: 'Mapa conceptual', parcial: 1, maxCalif: 10, orden: 2, ...pubAA },
+  { id: 'E3', categoria: 'entregable', tipo: 'archivo', nombre: 'Ensayo final', parcial: 3, maxCalif: 10, orden: 1, ...pubAA },
+  { id: 'O1', categoria: 'observacion', tipo: 'observacion', nombre: 'Exposición oral', parcial: 1, maxCalif: 10, orden: 3, instrucciones: '<p>Expón tu tema en 5 minutos</p>', ...pubAA },
+  { id: 'Q1', categoria: 'cuestionario', tipo: 'evaluacion', nombre: 'Cuestionario de vectores', parcial: 2, maxCalif: 10, orden: 1, fechaLimite: '2026-09-15T10:00', ...pubAA },
+  { id: 'J1', categoria: 'juego', tipoJuego: 'crucigrama', nombre: 'Crucigrama de unidades', parcial: 2, maxCalif: 10, orden: 2, fechaLimite: '2026-09-20', juego: { estado: 'juego_confirmado', estructura: { palabras: ['NEWTON', 'JOULE'] } }, ...pubAA },
+  { id: 'J2', categoria: 'juego', tipoJuego: 'sopa_letras', nombre: 'Sopa sin confirmar', parcial: 2, maxCalif: 10, orden: 3, juego: { estado: 'juego_generado' }, ...pubAA },
+  { id: 'B1', categoria: 'entregable', tipo: 'archivo', nombre: 'Borrador oculto', parcial: 1, maxCalif: 10, oculta: true },
+  { id: 'D1', categoria: 'cuestionario', tipo: 'evaluacion', nombre: 'Encuesta diagnóstica', parcial: 1, maxCalif: 10, evaluacion: { sinCalificacion: true }, ...pubAA },
+]
+const entregasAA = (obj) => new Map(Object.entries(obj).map(([act, porAlumno]) => [act, new Map(Object.entries(porAlumno))]))
+const ENTREGAS_AA = entregasAA({
+  E1: {
+    a: { estado: 'calificado', calificacion: 9, archivos: [{ url: 'x' }], rubricaEval: [0, 0], comentario: 'COMENTARIO-PRIVADO-DEL-DOCENTE' },
+    b: { estado: 'calificado', calificacion: 4, archivos: [{ url: 'x' }], rubricaEval: [2, 1], tarde: true },
+    c: { estado: 'calificado', calificacion: 8, sinEntrega: true, motivoSinEntrega: 'Lo trajo en USB' },
+    // d: no entregó
+  },
+  E2: {
+    a: { estado: 'calificado', calificacion: 10, archivos: [{ url: 'x' }] },
+    b: { estado: 'calificado', calificacion: 5, archivos: [{ url: 'x' }] },
+    c: { estado: 'entregado', calificacion: null, archivos: [{ url: 'x' }] },
+  },
+  O1: {
+    a: { estado: 'calificado', calificacion: 10, sinEntrega: true }, b: { estado: 'calificado', calificacion: 5, sinEntrega: true },
+    c: { estado: 'calificado', calificacion: 9, sinEntrega: true }, d: { estado: 'calificado', calificacion: 7, sinEntrega: true },
+  },
+  Q1: {
+    a: { estado: 'calificado', estadoEvaluacion: 'finalizado', calificacion: 7, intentos: [{ numero: 1 }] },
+    b: { estado: 'calificado', estadoEvaluacion: 'finalizado', calificacion: 8, intentos: [{ numero: 1 }] },
+    c: { estado: 'pendiente', estadoEvaluacion: 'en_progreso', calificacion: null, intentos: [] },
+  },
+  J1: {
+    a: { estado: 'calificado', estadoEvaluacion: 'finalizado', calificacion: 6, respuestasJuego: { celdas: { '0-0': 'N' } } },
+    b: { estado: 'calificado', estadoEvaluacion: 'finalizado', calificacion: 9 },
+    c: { estado: 'calificado', estadoEvaluacion: 'finalizado', calificacion: 8 },
+  },
+})
+// Asistencia: 6 sesiones en P1. `a` asiste a todas; `b` falta 3 de 6 (50 %);
+// `c` tiene solo 4 sesiones registradas (alta tardía) y falta a 2; `d` tiene
+// una justificada y asiste al resto.
+const ATT_AA = ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06', '2026-08-07', '2026-08-10'].map((fecha, i) => ({
+  fecha, slot: 1, parcial: 1,
+  presentes: { a: true, b: i >= 3, ...(i >= 2 ? { c: i >= 4 } : {}), d: i !== 0 },
+  justificadas: i === 0 ? { d: true } : {},
+  motivos: { d: 'MOTIVO-MEDICO-PRIVADO' },
+}))
+const TODAS_AA = ANA.CLAVES_FUENTES
+const agregarAA = (extra = {}) => FAA.agregarAsignatura({
+  subject: SUBJ_AA, students: ALUMNOS_AA, activities: ACTS_AA, entregas: ENTREGAS_AA, attendance: ATT_AA,
+  parciales: [1, 2, 3], fuentes: TODAS_AA, umbrales: UMBRALES_AA, ahora: AHORA_AA, textoPlano: FIA.textoPlano, ...extra,
+})
+const promptAA = (ctx, extra = {}) => FAA.promptAsignatura({ asignaturaNombre: 'Física I', parciales: [1, 2, 3], fuentes: TODAS_AA, ...ctx, ...extra })
+
+caso('disponibilidad por parcial: cuenta actividades con datos, sesiones con marcas y tipos con entrega', () => {
+  const d = FAA.calcularDisponibilidad({ subject: SUBJ_AA, activities: ACTS_AA, students: ALUMNOS_AA, entregas: ENTREGAS_AA, attendance: ATT_AA, hoyISO: '2026-10-15' })
+  assert.deepStrictEqual(d['1'], { entregables: 2, observacion: 1, evaluaciones: 0, interactivas: 0, asistencias: 6, conEntrega: { entregables: 2, evaluaciones: 0, interactivas: 0 } })
+  assert.strictEqual(d['2'].evaluaciones, 1)
+  assert.strictEqual(d['2'].interactivas, 1, 'solo el juego confirmado')
+  assert.strictEqual(d['3'].entregables, 0, 'E3 no tiene ninguna entrega: sin datos')
+  assert.strictEqual(d['3'].conEntrega.entregables, 1)
+})
+
+caso('disponibilidad: sin estudiantes, todo queda sin datos', () => {
+  const d = FAA.calcularDisponibilidad({ subject: SUBJ_AA, activities: ACTS_AA, students: [], entregas: ENTREGAS_AA, attendance: ATT_AA, hoyISO: '2026-10-15' })
+  assert.deepStrictEqual(ANA.fuentesEfectivas(d, [1, 2, 3], TODAS_AA), [])
+})
+
+caso('disponibilidad: una asignatura de 6 parciales devuelve los 6', () => {
+  const d = FAA.calcularDisponibilidad({ subject: { ...SUBJ_AA, parciales: 6 }, activities: [], students: ALUMNOS_AA, entregas: new Map(), attendance: [], hoyISO: '2026-10-15' })
+  assert.deepStrictEqual(Object.keys(d), ['1', '2', '3', '4', '5', '6'])
+})
+
+caso('no entran borradores, actividades sin calificación ni juegos sin confirmar', () => {
+  const nombres = agregarAA().datos.actividades.map((a) => a.nombre)
+  assert.ok(!nombres.includes('Borrador oculto'))
+  assert.ok(!nombres.includes('Encuesta diagnóstica'))
+  assert.ok(!nombres.includes('Sopa sin confirmar'))
+  assert.ok(nombres.includes('Crucigrama de unidades'))
+})
+
+caso('con todas las fuentes de actividades, el promedio es el de la tabla de Calificaciones', () => {
+  const { datos } = agregarAA()
+  // Parcial 1 — a: (9+10+10)/3=9.7 · b: (4+5+5)/3=4.7 · c: (8+9)/2=8.5 · d: 7 → grupo 7.5
+  assert.strictEqual(datos.parciales[0].promedioGrupo, 7.5)
+  assert.strictEqual(datos.parciales[0].aprobados, 3)
+  assert.strictEqual(datos.parciales[0].reprobados, 1)
+  assert.strictEqual(datos.rotuloPromedio, null, 'con los cuatro tipos no hay aviso de promedio parcial')
+  assert.strictEqual(datos.parciales[2].promedioGrupo, null, 'el Parcial 3 no tiene calificaciones')
+})
+
+caso('una fuente desmarcada queda COMPLETAMENTE fuera: ni dato, ni promedio, ni prompt', () => {
+  const fuentes = ['observacion', 'evaluaciones', 'interactivas', 'asistencias']
+  const ctx = agregarAA({ fuentes })
+  assert.ok(ctx.datos.actividades.every((a) => a.fuente !== 'entregables'))
+  // Parcial 1 solo con Observación: a 10, b 5, c 9, d 7 → 7.8
+  assert.strictEqual(ctx.datos.parciales[0].promedioGrupo, 7.8)
+  assert.ok(ctx.datos.rotuloPromedio.includes('Observación'))
+  assert.strictEqual(ctx.datos.sinEntrega, null)
+  const prompt = promptAA(ctx, { fuentes })
+  for (const prohibido of ['Reporte de laboratorio', 'Mapa conceptual', 'Ensayo final', 'ENTREGABLES', 'ENTREGAS NO REALIZADAS', 'Procedimiento']) {
+    assert.ok(!prompt.includes(prohibido), `no debe aparecer "${prohibido}"`)
+  }
+  // Con solo 1 actividad calificada en el parcial, `b` (5 en Observación) no
+  // alcanza el mínimo de 2 actividades para la señal de bajo desempeño.
+  assert.ok(!ctx.candidatos.find((c) => c.alumnoId === 'b')?.senales.some((s) => s.tipo === 'desempeno'))
+})
+
+caso('sin Asistencias, ninguna falta se usa como señal ni aparece en el prompt', () => {
+  const fuentes = ['entregables', 'observacion', 'evaluaciones', 'interactivas', 'sinEntrega']
+  const ctx = agregarAA({ fuentes })
+  assert.strictEqual(ctx.datos.asistencia, null)
+  assert.ok(ctx.candidatos.every((c) => c.senales.every((s) => s.tipo !== 'asistencia')))
+  const datosEnviados = promptAA(ctx, { fuentes }).split('Responde SOLO')[0]
+  assert.ok(!/asistencia|falta[s ]/i.test(datosEnviados), 'ni la palabra')
+})
+
+caso('criterios de rúbrica: se cuentan los niveles reales; sin rúbrica no se inventa nada', () => {
+  const { datos } = agregarAA()
+  const e1 = datos.actividades.find((a) => a.nombre === 'Reporte de laboratorio')
+  assert.strictEqual(e1.instrumento, 'Rúbrica')
+  assert.deepStrictEqual(e1.criterios[0], { nombre: 'Procedimiento', niveles: [{ nivel: 'Excelente', estudiantes: 1 }, { nivel: 'Suficiente', estudiantes: 0 }, { nivel: 'Insuficiente', estudiantes: 1 }] })
+  const o1 = datos.actividades.find((a) => a.nombre === 'Exposición oral')
+  assert.strictEqual(o1.criterios, undefined, 'Observación sin rúbrica: sin criterios')
+  assert.strictEqual(o1.instrucciones, 'Expón tu tema en 5 minutos')
+})
+
+caso('lista de cotejo: cuenta cuántos cumplen cada criterio', () => {
+  const acts = [{ ...ACTS_AA[0], rubrica: { tipo: 'cotejo', niveles: [{ nombre: 'Nivel de desempeño' }], criterios: [{ nombre: 'Trae portada' }, { nombre: 'Trae bibliografía' }] } }]
+  const entregas = entregasAA({ E1: { a: { calificacion: 10, rubricaEval: [0, 0] }, b: { calificacion: 5, rubricaEval: [0, null] } } })
+  const { datos } = agregarAA({ activities: acts, entregas, fuentes: ['entregables'], parciales: [1] })
+  assert.deepStrictEqual(datos.actividades[0].criterios, [
+    { nombre: 'Trae portada', cumplen: 2, evaluados: 2 }, { nombre: 'Trae bibliografía', cumplen: 1, evaluados: 2 },
+  ])
+})
+
+caso('entregable: sinEntrega:true es "calificada sin archivo", no un incumplimiento', () => {
+  const { datos } = agregarAA()
+  const e1 = datos.actividades.find((a) => a.nombre === 'Reporte de laboratorio')
+  assert.strictEqual(e1.entregaron, 2)
+  assert.strictEqual(e1.calificadasSinArchivo, 1)
+  assert.strictEqual(e1.tardias, 1)
+  const fila = datos.sinEntrega.actividades.find((f) => f.nombre === 'Reporte de laboratorio')
+  assert.strictEqual(fila.noRealizadas, 1, 'solo `d`, que no tiene entrega ni calificación')
+  assert.strictEqual(FAA.estadoRealizacion('entregables', { sinEntrega: true, calificacion: 8 }), 'calificada_sin_archivo')
+})
+
+caso('la nota automática de cierre (cero por no entregar) SÍ cuenta como no realizada', () => {
+  const entregas = entregasAA({ E1: { a: { calificacion: 0, sinEntrega: true, cierreParcial: true } } })
+  const { datos } = agregarAA({ activities: [ACTS_AA[0]], entregas, students: [ALUMNOS_AA[0]], fuentes: ['entregables', 'sinEntrega'], parciales: [1] })
+  assert.strictEqual(datos.sinEntrega.actividades[0].noRealizadas, 1)
+})
+
+caso('actividad sin fecha límite: vencida solo si su parcial ya terminó; si no, "sin fecha límite" y no cuenta', () => {
+  const { datos } = agregarAA()
+  const e2 = datos.sinEntrega.actividades.find((f) => f.nombre === 'Mapa conceptual')
+  assert.strictEqual(e2.conFechaLimite, false)
+  assert.strictEqual(e2.noRealizadas, 1, 'P1 terminó el 31-ago: `d` no la realizó')
+  const e3 = datos.sinEntrega.actividades.find((f) => f.nombre === 'Ensayo final')
+  assert.strictEqual(e3.noRealizadas, 0, 'P3 sigue en curso y no hay fecha: no es incumplimiento')
+  assert.strictEqual(e3.sinFechaLimite, 4)
+  assert.strictEqual(datos.sinEntrega.actividadesSinFechaLimite, 1)
+})
+
+caso('actividad sin fecha límite y sin fechas de parcial: nunca se inventa un vencimiento', () => {
+  const { datos } = agregarAA({ subject: { ...SUBJ_AA, parcialesFechas: [] }, attendance: [] })
+  const e2 = datos.sinEntrega.actividades.find((f) => f.nombre === 'Mapa conceptual')
+  assert.strictEqual(e2.noRealizadas, 0)
+  assert.strictEqual(e2.sinFechaLimite, 1)
+})
+
+caso('actividad sin fecha límite cerrada manualmente: cuenta como vencida', () => {
+  const acts = ACTS_AA.map((a) => (a.id === 'E3' ? { ...a, cerradaManual: true } : a))
+  const e3 = agregarAA({ activities: acts }).datos.sinEntrega.actividades.find((f) => f.nombre === 'Ensayo final')
+  assert.strictEqual(e3.noRealizadas, 4)
+  assert.strictEqual(e3.sinFechaLimite, 0)
+})
+
+caso('actividad con fecha límite futura: "en plazo", nunca incumplimiento', () => {
+  const acts = ACTS_AA.map((a) => (a.id === 'E3' ? { ...a, fechaLimite: '2026-10-30' } : a))
+  const e3 = agregarAA({ activities: acts }).datos.sinEntrega.actividades.find((f) => f.nombre === 'Ensayo final')
+  assert.strictEqual(e3.enPlazo, 4)
+  assert.strictEqual(e3.noRealizadas, 0)
+})
+
+caso('prórroga vigente de un estudiante: para él sigue en plazo', () => {
+  const acts = ACTS_AA.map((a) => (a.id === 'E1' ? { ...a, extensiones: { d: '2026-10-20T23:00' } } : a))
+  const e1 = agregarAA({ activities: acts }).datos.sinEntrega.actividades.find((f) => f.nombre === 'Reporte de laboratorio')
+  assert.strictEqual(e1.noRealizadas, 0)
+  assert.strictEqual(e1.enPlazo, 1)
+})
+
+caso('alta posterior al cierre de la actividad: no es incumplimiento del estudiante', () => {
+  const tardio = { ...ALUMNOS_AA[3], createdAt: Timestamp.fromDate(new Date('2026-09-10T15:00:00Z')) }
+  const { datos } = agregarAA({ students: [...ALUMNOS_AA.slice(0, 3), tardio] })
+  assert.strictEqual(datos.sinEntrega.actividades.find((f) => f.nombre === 'Reporte de laboratorio').noRealizadas, 0)
+  assert.strictEqual(datos.sinEntrega.actividades.find((f) => f.nombre === 'Mapa conceptual').noRealizadas, 0)
+})
+
+caso('fecha límite: la hora es de México, no UTC', () => {
+  // 15-sep 10:00 de México = 16:00 UTC.
+  assert.strictEqual(FAA.fechaMexicoAMillis('2026-09-15T10:00'), Date.UTC(2026, 8, 15, 16, 0))
+  assert.strictEqual(FAA.fechaMexicoAMillis('2026-08-20'), Date.UTC(2026, 7, 21, 5, 59, 59))
+  assert.strictEqual(FAA.fechaMexicoAMillis(null), null)
+  assert.strictEqual(FAA.instanteLimite({ fechaLimite: '2026-08-20', fechaLimiteTS: Timestamp.fromMillis(123000) }, 'x'), 123000, 'el Timestamp ya resuelto gana')
+})
+
+caso('cuestionario/juego: no realizada, incompleta (iniciada sin terminar) y realizada', () => {
+  const { datos } = agregarAA()
+  const q1 = datos.sinEntrega.actividades.find((f) => f.nombre === 'Cuestionario de vectores')
+  assert.strictEqual(q1.incompletas, 1, '`c` la empezó y no terminó')
+  assert.strictEqual(q1.noRealizadas, 1, '`d` no tiene registro')
+  const j1 = datos.sinEntrega.actividades.find((f) => f.nombre === 'Crucigrama de unidades')
+  assert.strictEqual(j1.noRealizadas, 1)
+  assert.ok(!datos.sinEntrega.actividades.some((f) => f.nombre === 'Exposición oral'), 'Observación no aporta "sin entrega"')
+  const q = datos.actividades.find((a) => a.nombre === 'Cuestionario de vectores')
+  assert.strictEqual(q.finalizaron, 2)
+  assert.strictEqual(q.enProgreso, 1)
+})
+
+caso('actividad oculta a los estudiantes: no cuenta como no realizada', () => {
+  const acts = ACTS_AA.map((a) => (a.id === 'E1' ? { ...a, oculta: true } : a))
+  const { datos } = agregarAA({ activities: acts })
+  assert.ok(!datos.sinEntrega.actividades.some((f) => f.nombre === 'Reporte de laboratorio'))
+  assert.ok(datos.actividades.some((a) => a.nombre === 'Reporte de laboratorio'), 'sus calificaciones sí cuentan, como en la tabla')
+})
+
+caso('atención por bajo desempeño: promedio < 6 con al menos 2 actividades calificadas en el parcial', () => {
+  const { candidatos } = agregarAA()
+  const b = candidatos.find((c) => c.alumnoId === 'b')
+  assert.ok(b.senales.some((s) => s.tipo === 'desempeno' && s.texto.includes('4.7') && s.texto.includes('Parcial 1')))
+  assert.strictEqual(b.anonId, 'Alumno 2')
+  assert.ok(!candidatos.find((c) => c.alumnoId === 'a'), '`a` aprueba, entrega y asiste: sin señales')
+})
+
+caso('atención por bajo desempeño: con UNA sola calificación no se señala (falso positivo)', () => {
+  const entregas = entregasAA({ E1: { a: { calificacion: 2, archivos: [{ url: 'x' }] } } })
+  const { candidatos } = agregarAA({ entregas, students: [ALUMNOS_AA[0]], fuentes: ['entregables'], parciales: [1] })
+  assert.deepStrictEqual(candidatos, [])
+})
+
+caso('atención por faltantes: 30 % o más de las vencidas, con al menos 2', () => {
+  const { candidatos } = agregarAA()
+  const d = candidatos.find((c) => c.alumnoId === 'd')
+  // `d` no realizó E1, E2, Q1 ni J1: 4 de 4 vencidas.
+  assert.ok(d.senales.some((s) => s.tipo === 'faltantes' && s.texto.startsWith('4 de 4')))
+  // `c` solo dejó Q1 sin terminar: 1 faltante — no alcanza el mínimo de 2.
+  assert.ok(!candidatos.find((c) => c.alumnoId === 'c')?.senales.some((s) => s.tipo === 'faltantes'))
+})
+
+caso('atención por faltantes: 2 de 10 vencidas (20 %) no alcanza el 30 %', () => {
+  const acts = Array.from({ length: 10 }, (_, i) => ({ id: `X${i}`, categoria: 'entregable', nombre: `Tarea ${i}`, parcial: 1, maxCalif: 10, fechaLimite: '2026-08-10', ...pubAA }))
+  const entregas = entregasAA(Object.fromEntries(acts.slice(2).map((a) => [a.id, { a: { calificacion: 8, archivos: [{ url: 'x' }] } }])))
+  const { candidatos } = agregarAA({ activities: acts, entregas, students: [ALUMNOS_AA[0]], fuentes: ['entregables', 'sinEntrega'], parciales: [1] })
+  assert.deepStrictEqual(candidatos, [])
+})
+
+caso('atención por asistencia: menos de 80 % con al menos 5 sesiones; las justificadas cuentan como asistencia', () => {
+  const { datos, candidatos } = agregarAA()
+  const b = candidatos.find((c) => c.alumnoId === 'b')
+  assert.ok(b.senales.some((s) => s.tipo === 'asistencia' && s.texto.startsWith('50 %') && s.texto.includes('3 faltas en 6')))
+  // `d`: 1 justificada + 5 asistencias = 100 %.
+  assert.ok(!candidatos.find((c) => c.alumnoId === 'd')?.senales.some((s) => s.tipo === 'asistencia'))
+  assert.strictEqual(datos.asistencia.justificadas, 1)
+  assert.strictEqual(datos.asistencia.debajoDelMinimo, 1)
+})
+
+caso('atención por asistencia: con menos de 5 sesiones registradas no se señala; sin registro no es falta', () => {
+  const { datos, candidatos } = agregarAA()
+  // `c` tiene 4 sesiones con registro (2 faltas = 50 %): por debajo del mínimo de sesiones.
+  assert.ok(!candidatos.find((x) => x.alumnoId === 'c')?.senales.some((s) => s.tipo === 'asistencia'))
+  assert.strictEqual(datos.asistencia.total, 6 + 6 + 4 + 6)
+})
+
+caso('asistencia: solo los parciales elegidos', () => {
+  const { datos } = agregarAA({ parciales: [2, 3] })
+  assert.strictEqual(datos.asistencia.total, 0)
+  assert.strictEqual(datos.asistencia.debajoDelMinimo, 0)
+})
+
+caso('evolución: con varios parciales con datos compara; con uno solo NO existe', () => {
+  const varios = agregarAA().datos.evolucion
+  assert.deepStrictEqual(varios.porParcial.map((p) => p.parcial), [1, 2])
+  assert.strictEqual(varios.comparables, 3)
+  // a: 9.7 → 6.5 (baja) · b: 4.7 → 8.5 (sube) · c: 8.5 → 8 (estable)
+  assert.strictEqual(varios.bajaron, 1)
+  assert.strictEqual(varios.mejoraron, 1)
+  assert.strictEqual(varios.estables, 1)
+  const uno = agregarAA({ parciales: [1] })
+  assert.strictEqual(uno.datos.evolucion, null)
+  const prompt = promptAA(uno, { parciales: [1] })
+  assert.ok(!prompt.includes('EVOLUCIÓN ENTRE PARCIALES'))
+  assert.ok(prompt.includes('"evolucion": null'))
+})
+
+caso('patrón grupal: si más de la mitad del grupo queda señalada, se avisa como patrón', () => {
+  const { datos, candidatos } = agregarAA()
+  assert.strictEqual(candidatos.length, 2)
+  assert.strictEqual(datos.patronGrupal, false, '2 de 4 no es MÁS de la mitad')
+  const tres = agregarAA({ students: ALUMNOS_AA.slice(1) })
+  assert.strictEqual(tres.datos.patronGrupal, true, '2 de 3')
+  assert.ok(promptAA(tres).includes('PATRÓN DEL GRUPO'))
+})
+
+caso('privacidad: al modelo no viaja ningún nombre, comentario, motivo, archivo ni contenido de juego', () => {
+  const ctx = agregarAA()
+  const prompt = promptAA(ctx) + FAA.ASIGNATURA_SISTEMA
+  for (const al of ALUMNOS_AA) {
+    for (const parte of [al.nombre, al.apellidoPaterno, al.apellidoMaterno]) {
+      assert.ok(!prompt.toLowerCase().includes(parte.toLowerCase()), `no debe viajar "${parte}"`)
+    }
+  }
+  for (const privado of ['COMENTARIO-PRIVADO-DEL-DOCENTE', 'MOTIVO-MEDICO-PRIVADO', 'Lo trajo en USB', 'NEWTON', 'JOULE', 'url']) {
+    assert.ok(!prompt.includes(privado), `no debe viajar "${privado}"`)
+  }
+  assert.ok(prompt.includes('Alumno 2'))
+  assert.ok(!JSON.stringify(ctx.datos).includes('QUIROGA'), 'los datos agregados tampoco llevan nombres')
+})
+
+caso('normalizarInforme: descarta estudiantes fuera de la lista y anula la evolución si no hubo datos', () => {
+  const ctx = agregarAA({ parciales: [1] })
+  const { informe, recomendacionPorAnonId } = FAA.normalizarInforme({
+    resumenEjecutivo: ' Resumen ', fortalezas: ['a', '', null], dificultades: 'no es arreglo', evolucion: 'INVENTADA',
+    recomendacionesEstudiantes: [{ anonId: 'Alumno 2', recomendacion: 'Dar seguimiento' }, { anonId: 'Alumno 99', recomendacion: 'x' }, { anonId: 'Alumno 1', recomendacion: 'no es candidato' }],
+    conclusion: 'Fin',
+  }, ctx)
+  assert.strictEqual(informe.resumenEjecutivo, 'Resumen')
+  assert.deepStrictEqual(informe.fortalezas, ['a'])
+  assert.deepStrictEqual(informe.dificultades, [])
+  assert.strictEqual(informe.evolucion, '', 'un solo parcial: no hay evolución aunque la IA la escriba')
+  assert.deepStrictEqual([...recomendacionPorAnonId.keys()], ['Alumno 2'])
+})
+
+caso('documento guardado: nombres como eran ese día, señales y recomendación; sin instrucciones ni ids de estudiante', () => {
+  const ctx = agregarAA()
+  const nombres = Object.fromEntries(ALUMNOS_AA.map((s) => [s.id, { nombre: s.nombre, apellidoPaterno: s.apellidoPaterno, apellidoMaterno: s.apellidoMaterno }]))
+  const doc = FAA.documentoAnalisis(
+    { ...ctx, asignaturaId: 'S', parciales: [1, 2, 3], fuentes: TODAS_AA, nombres },
+    { resumenEjecutivo: 'r', conclusion: 'c' }, new Map([['Alumno 2', 'Tutoría']]), 'D')
+  assert.strictEqual(doc.docenteId, 'D')
+  assert.strictEqual(doc.asignaturaId, 'S')
+  const b = doc.estudiantesAtencion.find((e) => e.apellidoPaterno === 'Yáñez')
+  assert.strictEqual(b.recomendacion, 'Tutoría')
+  assert.ok(b.senales.length >= 2)
+  assert.strictEqual(b.alumnoId, undefined)
+  assert.strictEqual(b.anonId, undefined)
+  assert.ok(doc.datos.actividades.every((a) => a.instrucciones === undefined))
+  // Firestore rechaza `undefined`: el documento no debe traer ninguno.
+  const hayUndefined = (v) => v === undefined || (v && typeof v === 'object' && Object.values(v).some(hayUndefined))
+  assert.strictEqual(hayUndefined(doc), false)
+})
+
+caso('mejores y más bajas: salen del promedio real y ninguna actividad aparece en las dos listas', () => {
+  const { datos } = agregarAA()
+  const m = datos.mejores.map((a) => a.nombre), c = datos.criticas.map((a) => a.nombre)
+  assert.ok(m.length && c.length)
+  assert.ok(m.every((n) => !c.includes(n)))
+  assert.strictEqual(datos.mejores[0].promedio, Math.max(...datos.actividades.filter((a) => a.promedio != null).map((a) => a.promedio)))
+})
+
+grupo('Análisis de asignatura — plan del informe (pantalla y PDF recorren el mismo)')
+
+const INF = await import('../src/utils/analisisAsignaturaInforme.js')
+const docInformeAA = (extra = {}) => {
+  const ctx = agregarAA(extra)
+  const nombres = Object.fromEntries(ALUMNOS_AA.map((s) => [s.id, { nombre: s.nombre, apellidoPaterno: s.apellidoPaterno, apellidoMaterno: s.apellidoMaterno }]))
+  const parciales = extra.parciales || [1, 2, 3]
+  return {
+    ...FAA.documentoAnalisis({ ...ctx, asignaturaId: 'S', parciales, fuentes: extra.fuentes || TODAS_AA, nombres },
+      { resumenEjecutivo: 'Resumen.', fortalezas: ['F1'], dificultades: [], evolucion: 'Subió.', areasCriticas: ['A1'], recomendacionesGenerales: ['R1'], conclusion: 'Fin.' },
+      new Map([['Alumno 2', 'Tutoría semanal']]), 'D'),
+    generadoEn: new Date('2026-10-15T18:00:00Z'),
+  }
+}
+
+caso('las nueve secciones son fijas y van siempre en el mismo orden', () => {
+  const titulos = ['Resumen ejecutivo', 'Fortalezas del grupo', 'Dificultades principales', 'Evolución', 'Actividades y áreas críticas',
+    'Estudiantes que requieren atención', 'Recomendaciones generales', 'Recomendaciones específicas', 'Conclusión general']
+  assert.deepStrictEqual(INF.planInformeAsignatura(docInformeAA()).secciones.map((s) => s.titulo), titulos)
+  assert.deepStrictEqual(INF.planInformeAsignatura(docInformeAA({ parciales: [1], fuentes: ['asistencias'] })).secciones.map((s) => s.titulo), titulos)
+  assert.deepStrictEqual(INF.planInformeAsignatura({}).secciones.map((s) => s.titulo), titulos, 'ni un documento vacío rompe el informe')
+})
+
+caso('muestra el nombre completo del estudiante, con sus señales y su recomendación', () => {
+  const plan = INF.planInformeAsignatura(docInformeAA())
+  const atencion = plan.secciones[5].bloques.find((b) => b.tipo === 'tabla')
+  const fila = atencion.body.find((f) => f[0] === 'Yáñez Kuri Wenceslao')
+  assert.ok(fila && fila[1].includes('Promedio de 4.7'))
+  const recs = plan.secciones[7].bloques[0]
+  assert.deepStrictEqual(recs.body, [['Yáñez Kuri Wenceslao', 'Tutoría semanal']])
+  // Un nombre capturado en MAYÚSCULAS se muestra como en el resto de la plataforma.
+  assert.strictEqual(INF.nombreEstudianteAnalisis(ALUMNOS_AA[0]), 'Quiroga Xochitl Zulema')
+})
+
+caso('con un solo parcial la sección Evolución lo dice y no inventa nada', () => {
+  const plan = INF.planInformeAsignatura(docInformeAA({ parciales: [1] }))
+  assert.deepStrictEqual(plan.secciones[3].bloques, [{ tipo: 'nota', texto: 'Se analizó un solo parcial: no hay evolución que comparar.' }])
+  assert.strictEqual(plan.parciales, 'Parcial 1')
+})
+
+caso('sin estudiantes señalados: lo dice, sin tabla vacía', () => {
+  const plan = INF.planInformeAsignatura({ ...docInformeAA(), estudiantesAtencion: [] })
+  assert.strictEqual(plan.secciones[5].bloques[0].tipo, 'nota')
+  assert.strictEqual(plan.secciones[7].bloques[0].tipo, 'nota')
+})
+
+caso('patrón grupal: el informe lo avisa antes de la lista', () => {
+  const plan = INF.planInformeAsignatura(docInformeAA({ students: ALUMNOS_AA.slice(1) }))
+  assert.ok(plan.secciones[5].bloques[0].texto.includes('patrón del grupo'))
+})
+
+caso('encabezado del historial: parciales y fuentes en texto', () => {
+  assert.strictEqual(INF.textoParciales([1, 2, 3]), 'Parciales 1, 2, 3')
+  assert.strictEqual(INF.textoFuentes(['entregables', 'sinEntrega']), 'Entregables, Sin entrega')
+  assert.ok(INF.planInformeAsignatura(docInformeAA()).generadoEn.includes('2026'))
+})
+
+caso('ninguna celda ni texto del plan queda en undefined (el PDF no tolera huecos)', () => {
+  const plan = INF.planInformeAsignatura(docInformeAA())
+  const malo = (v) => v === undefined || (v && typeof v === 'object' && Object.values(v).some(malo))
+  assert.strictEqual(malo(plan), false)
+  assert.ok(!JSON.stringify(plan).includes('undefined') && !JSON.stringify(plan).includes('NaN'))
+})
+
+caso('si la IA menciona "Alumno N" en un texto, el informe guardado trae el nombre completo', () => {
+  const ctx = agregarAA()
+  const nombres = Object.fromEntries(ALUMNOS_AA.map((s) => [s.id, { nombre: s.nombre, apellidoPaterno: s.apellidoPaterno, apellidoMaterno: s.apellidoMaterno }]))
+  const doc = FAA.documentoAnalisis({ ...ctx, asignaturaId: 'S', parciales: [1, 2, 3], fuentes: TODAS_AA, nombres },
+    { resumenEjecutivo: 'Alumno 2 y Alumno 4 concentran las señales; Alumno 20 no existe.', fortalezas: ['Alumno 2 mejora.'], conclusion: 'Sin cambios.' },
+    new Map([['Alumno 4', 'Alumno 4 debe ponerse al corriente.']]), 'D')
+  assert.strictEqual(doc.informe.resumenEjecutivo, 'Yáñez Kuri Wenceslao y Urquidi Zendejas Ximena concentran las señales; Alumno 20 no existe.')
+  assert.deepStrictEqual(doc.informe.fortalezas, ['Yáñez Kuri Wenceslao mejora.'])
+  assert.strictEqual(doc.estudiantesAtencion.find((e) => e.apellidoPaterno === 'Urquidi').recomendacion, 'Urquidi Zendejas Ximena debe ponerse al corriente.')
+  // Un estudiante que NO era candidato no se traduce: el modelo nunca lo recibió.
+  assert.strictEqual(FAA.ponerNombres('Alumno 1 va bien', new Map([['Alumno 2', 'X']])), 'Alumno 1 va bien')
+})
+
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
   fallos.forEach((f) => console.log(`  ✗ ${f.nombre}\n    ${f.e.message}`))

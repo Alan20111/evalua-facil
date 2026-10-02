@@ -33,6 +33,10 @@ const { prepararEvidenciasEntrega } = require('./evidenciasEntrega')
 // Solo para la bandera de compatibilidad de A25 (ver functions/juego.js).
 // No hay ciclo: juego.js no requiere ia.js.
 const juegoFns = require('./juego')
+// Análisis académico (integral de asignatura): la lógica vive en su propio
+// módulo; aquí solo se registra la operación. analisisAcademico.js no
+// requiere ia.js de vuelta — recibe pedirJSON/textoPlano por parámetro.
+const analisisAcademico = require('./analisisAcademico')
 // Lógica PURA de calendario/sesiones, compartida con el cliente — ver
 // src/utils/sesionesReales.js (fuente real) y scripts/sync-functions-shared.mjs
 // (genera esta copia en cada predeploy; también hay que correrlo a mano antes
@@ -309,6 +313,10 @@ const OPERACIONES = {
   // construcción de la cuadrícula es aparte (functions/juego.js,
   // construirJuego) y esa NUNCA pasa por aquí ni por el ledger.
   generar_contenido_juego: ejecutarGenerarContenidoJuego,
+  // Análisis integral de asignatura (functions/analisisAcademico.js). Costo
+  // variable según las fuentes elegidas: la tarifa es 1 y el precheck fija
+  // los créditos como `unidadesMinimas`, igual que chat_crear_examen.
+  analizar_asignatura: (args) => analisisAcademico.ejecutarAnalizarAsignatura({ ...args, pedirJSON }),
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -329,6 +337,7 @@ const PRECHECKS = {
   chat_crear_actividad: precheckChatCrearActividad,
   chat_crear_examen: precheckChatCrearExamen,
   generar_contenido_juego: precheckGenerarContenidoJuego,
+  analizar_asignatura: (args) => analisisAcademico.precheckAnalizarAsignatura({ ...args, textoPlano }),
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────

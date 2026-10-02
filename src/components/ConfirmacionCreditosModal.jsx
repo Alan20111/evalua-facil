@@ -25,6 +25,7 @@ export default function ConfirmacionCreditosModal({
   costoMax = null,
   ejecutando = false,
   continuarDeshabilitado = false,   // deshabilita "Continuar" mientras un control interno (children) esté inválido
+  textoCosto = null,   // si se pasa, es la ÚNICA línea de costo que se muestra (p. ej. "Costo del análisis: 12 créditos")
   onCancelar,
   onContinuar,
 }) {
@@ -51,15 +52,21 @@ export default function ConfirmacionCreditosModal({
           <>
             {descripcion && <p className="text-sm text-muted mb-2">{descripcion}</p>}
             {children && <div className="mb-3">{children}</div>}
-            <p className="text-sm text-on-surface mb-1">
-              Esta acción utilizará aproximadamente <span className="font-semibold">{rango} {max === 1 ? 'crédito' : 'créditos'}</span> de IA.
-            </p>
-            <p className="text-sm text-on-surface mb-1">
-              Tienes <span className="font-semibold tabular-nums">{c.saldo}</span> créditos disponibles.
-            </p>
-            <p className="text-sm text-muted mb-4">
-              Después de realizarla tendrás aproximadamente {restante}.
-            </p>
+            {textoCosto ? (
+              <p className="text-sm font-semibold text-on-surface mb-4">{textoCosto}</p>
+            ) : (
+              <>
+                <p className="text-sm text-on-surface mb-1">
+                  Esta acción utilizará aproximadamente <span className="font-semibold">{rango} {max === 1 ? 'crédito' : 'créditos'}</span> de IA.
+                </p>
+                <p className="text-sm text-on-surface mb-1">
+                  Tienes <span className="font-semibold tabular-nums">{c.saldo}</span> créditos disponibles.
+                </p>
+                <p className="text-sm text-muted mb-4">
+                  Después de realizarla tendrás aproximadamente {restante}.
+                </p>
+              </>
+            )}
             <div className="flex justify-end gap-2">
               <button type="button" onClick={onCancelar} disabled={ejecutando}
                 className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">

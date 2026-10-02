@@ -15,6 +15,7 @@ import { savePdfDoc as savePdfDocSinCandado } from './nativeSave'
 import { applyPdfWatermarkIfNeeded, addPdfFooter, getLogoDataUrl, drawPdfWatermarkOnPage } from './exportWatermark'
 import { filasDeReactivo, totalRespuestas } from './evaluacionRespuestas'
 import { contenidoAnalisisResultadosPDF } from './analisisResultadosPDF'
+import { planInformeAsignatura } from './analisisAsignaturaInforme'
 
 // Palomita verde de "respuesta correcta", dibujada con dos trazos y centrada
 // en (cx, cy). Ver el comentario en didDrawCell: las fuentes estándar de jsPDF
@@ -548,6 +549,95 @@ export async function construirAnalisisResultadosPDF({ activity, subject, result
 export async function exportAnalisisResultadosPDF(args) {
   const doc = await construirAnalisisResultadosPDF(args)
   await savePdfDoc(doc, `analisis_resultados_${safeFile(args.subject)}.pdf`)
+}
+
+// Análisis integral de asignatura con IA. Recorre el MISMO plan que la
+// pantalla (analisisAsignaturaInforme.js): aquí solo se dibuja. Descargarlo no
+// llama a la IA ni cuesta créditos — imprime el informe ya guardado.
+const COLOR_TONO_ASIGNATURA = { ia: [37, 99, 235], dato: [71, 85, 105], atencion: [180, 120, 4] }
+
+export async function construirAnalisisAsignaturaPDF({ analisis, subject, membrete = null, watermark = false }) {
+  const [{ jsPDF }, autoTableMod] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
+  const autoTable = autoTableMod.default
+  const plan = planInformeAsignatura(analisis)
+
+  const doc = new jsPDF()
+  const logoDataUrl = watermark ? await getLogoDataUrl() : null
+  if (watermark) drawPdfWatermarkOnPage(doc, logoDataUrl)
+  const pageW = doc.internal.pageSize.getWidth()
+  const pageH = doc.internal.pageSize.getHeight()
+
+  let y = drawDocHeader(doc, { membrete, subject, subtitulo: 'Análisis de la asignatura con IA', destacado: plan.parciales })
+
+  function ensureSpace(min = 22) {
+    if (y > pageH - min) { doc.addPage(); if (watermark) drawPdfWatermarkOnPage(doc, logoDataUrl); y = 20 }
+  }
+  function parrafo(texto, { bold = false, size = 9.5, color = 40, gap = 3.5 } = {}) {
+    if (!texto) return
+    doc.setFont(undefined, bold ? 'bold' : 'normal'); doc.setFontSize(size); doc.setTextColor(color)
+    // Renglón por renglón: un párrafo largo cruza de página sin cortarse.
+    doc.splitTextToSize(texto, pageW - 28).forEach((linea) => {
+      ensureSpace(14)
+      doc.text(linea, 14, y)
+      y += size / 2
+    })
+    y += gap
+  }
+
+  parrafo(`Fuentes analizadas: ${plan.fuentes}`, { size: 8.5, color: 110, gap: 1 })
+  if (plan.generadoEn) parrafo(`Generado el ${plan.generadoEn}`, { size: 8, color: 140, gap: 5 })
+
+  // Aviso de IA — mismo texto que en pantalla, siempre visible en el reporte.
+  doc.setFont(undefined, 'normal'); doc.setFontSize(7.5)
+  const avisoLines = doc.splitTextToSize(plan.aviso, pageW - 40)
+  ensureSpace(20 + avisoLines.length * 3.5)
+  doc.setFillColor(255, 247, 224)
+  doc.roundedRect(14, y - 4, pageW - 28, 9 + avisoLines.length * 3.5, 2, 2, 'F')
+  doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(146, 100, 6)
+  doc.text('Asistente IA', 18, y + 1)
+  doc.setFont(undefined, 'normal'); doc.setFontSize(7.5)
+  doc.text(avisoLines, 18, y + 5)
+  y += 12 + avisoLines.length * 3.5
+
+  plan.secciones.forEach((s, i) => {
+    const color = COLOR_TONO_ASIGNATURA[s.tono] || COLOR_TONO_ASIGNATURA.ia
+    // Título + al menos el arranque de su contenido en la misma página.
+    ensureSpace(s.bloques[0]?.tipo === 'tabla' ? 52 : 34)
+    doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.setTextColor(...color)
+    doc.text(`${i + 1}. ${s.titulo}`, 14, y)
+    y += 6
+    s.bloques.forEach((b) => {
+      if (b.tipo === 'parrafo') parrafo(b.texto)
+      else if (b.tipo === 'nota') parrafo(b.texto, { size: 8.5, color: 110 })
+      else if (b.tipo === 'lista') b.items.forEach((it) => parrafo(`•  ${it}`, { size: 9.5, gap: 2 }))
+      else if (b.tipo === 'tabla') {
+        ensureSpace(b.titulo ? 40 : 30)
+        if (b.titulo) parrafo(b.titulo, { bold: true, size: 8.5, color: 90, gap: 1 })
+        autoTable(doc, {
+          startY: y,
+          head: [b.head],
+          body: b.body,
+          styles: { fontSize: 8.5, cellPadding: 2, textColor: 30, overflow: 'linebreak' },
+          headStyles: { fillColor: color, textColor: 255, fontStyle: 'bold' },
+          margin: { left: 14, right: 14 },
+          didDrawPage: () => { if (watermark) drawPdfWatermarkOnPage(doc, logoDataUrl) },
+        })
+        y = doc.lastAutoTable.finalY + 6
+      }
+    })
+    y += 3
+  })
+
+  if (watermark) addPdfFooter(doc)
+  return doc
+}
+
+export async function exportAnalisisAsignaturaPDF(args) {
+  const doc = await construirAnalisisAsignaturaPDF(args)
+  await savePdfDoc(doc, `analisis_asignatura_${safeFile(args.subject)}.pdf`)
 }
 
 // El MISMO reporte de arriba pero con las gráficas de pastel que el docente
