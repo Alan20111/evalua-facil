@@ -484,29 +484,76 @@ await caso('consideración con petición EXPLÍCITA de tiempo: llega la regla de
 
 grupo('Petición explícita del docente: peticionTemporalExplicita (determinista)')
 
-await caso('detecta la petición explícita en sus formas habituales', () => {
-  for (const t of [
-    'Considera la puntualidad como criterio de evaluación.', 'Quiero que se considere la puntualidad como criterio de evaluación.',
-    'Evalúa si la entrega se realizó dentro de la fecha establecida.', 'Evalúa también si el estudiante entregó dentro de la fecha establecida',
-    'Quiero evaluar si el estudiante entregó a tiempo.', 'Que se evalúe el retraso en la entrega',
-    'Un criterio por pregunta. Considera la puntualidad.', 'Considera la puntualidad, no la ortografía',
-    'EVALÚA LA PUNTUALIDAD',
-  ]) assert.strictEqual(IA.peticionTemporalExplicita(t), true, `debía ser petición: "${t}"`)
+// MENCIÓN DEL TIEMPO ≠ PETICIÓN DE EVALUARLO (revisión del 3-oct-2026): el detector
+// exige un verbo de petición que gobierne el aspecto temporal, sin negación ni
+// concesión. Cada lista es regresión de un caso real que el docente podría escribir.
+const PETICIONES = [
+  'Considera la puntualidad como criterio de evaluación.',
+  'Quiero que se considere la puntualidad como criterio de evaluación.',
+  'Evalúa si la entrega se realizó dentro de la fecha establecida.',
+  'Evalúa también si el estudiante entregó dentro de la fecha establecida',
+  'Quiero evaluar si el estudiante entregó a tiempo.',
+  'Incluye la puntualidad como un criterio de la rúbrica.',
+  'Evalúa si entregan tarde.',
+  'Quiero que se evalúe el cumplimiento del plazo.',
+  'Incluye como criterio si entregó dentro de la fecha.',
+  'Considera la puntualidad como parte de la evaluación.',
+  'Que se evalúe el retraso en la entrega', 'EVALÚA LA PUNTUALIDAD', 'Valora si cumple con la fecha de entrega.',
+  'La puntualidad como criterio de evaluación.',
+  'Un criterio por pregunta. Considera la puntualidad.', 'Considera la puntualidad, no la ortografía',
+  'No evalúes la ortografía; considera la puntualidad.', 'Considera la puntualidad pero no la fecha de entrega de la actividad previa',
+  'Considera la puntualidad. No consideres el retraso.', 'Aunque entreguen con retraso, evalúa la puntualidad.',
+  'Mis alumnos entregan con retraso, por favor considera la puntualidad.',
+]
+const NO_PETICIONES = [
+  // Mención / contexto
+  'Mis alumnos suelen entregar con retraso.', 'Algunos estudiantes tienen problemas para entregar a tiempo.',
+  'La mayoría entrega después del plazo.', 'He observado retrasos frecuentes en las entregas.',
+  'La actividad tiene una fecha límite y varios alumnos han tenido problemas.',
+  'La actividad tiene una fecha límite y varios alumnos tienen problemas.',
+  'Mis alumnos entregan con retraso, pero quiero evaluar principalmente la calidad.',
+  'Los estudiantes suelen entregar tarde, pero quiero evaluar principalmente la calidad.',
+  'Mis alumnos entregan tarde y quiero evaluar principalmente la calidad.',
+  'Tengo alumnos que entregan con retraso y quiero ser flexible.',
+  'Considera que mis alumnos entregan con retraso.', 'Evalúa a los alumnos que entregan con retraso.',
+  'Incluye la fecha de entrega en el encabezado del ensayo.',
+  // Concesiones
+  'Evalúa la calidad aunque entreguen con retraso.', 'Califica sin importar si entregó a tiempo.',
+  'Toma en cuenta la calidad independientemente de la fecha de entrega.', 'Evalúa la calidad a pesar de los retrasos.',
+  'Valora el contenido incluso si entregó tarde.', 'Califica la calidad sin que cuente el retraso.',
+  // Negaciones
+  'No consideres la puntualidad.', 'No evalúes la fecha de entrega.', 'No tomes en cuenta los retrasos.',
+  'No evalúes la puntualidad.', 'No consideres la fecha de entrega.', 'Evita evaluar la puntualidad.',
+  'Sin considerar la fecha de entrega', 'Nunca evalúes si entregó a tiempo', 'Evita criterios de puntualidad',
+  // Sin tiempo, vacíos y ambiguos (ante la duda, NO)
+  'Un criterio por pregunta', 'Que cada respuesta del ejercicio sea un criterio', 'Revisa el uso correcto del tiempo verbal',
+  'Argumenta con fechas históricas', 'Quiero que la rúbrica premie la entrega puntual.', '', '   ', undefined, null,
+  // Contenido académico legítimo
+  'Uso correcto del tiempo verbal.', 'Fechas históricas.', 'Secuencia temporal de acontecimientos.', 'Romanticismo tardío.', 'Metas a corto plazo.',
+]
+
+await caso('detecta la petición explícita de evaluar el tiempo (verbo que gobierna el aspecto temporal)', () => {
+  for (const t of PETICIONES) assert.strictEqual(IA.peticionTemporalExplicita(t), true, `debía ser petición: "${t}"`)
 })
 
-await caso('la NEGACIÓN no es petición, y tampoco lo es lo que no habla de tiempo', () => {
-  for (const t of [
-    'No consideres la puntualidad.', 'No evalúes la fecha de entrega.', 'No tomes en cuenta el retraso.',
-    'Evita criterios de puntualidad', 'Sin considerar la fecha de entrega', 'Nunca evalúes si entregó a tiempo',
-    'Un criterio por pregunta', 'Que cada respuesta del ejercicio sea un criterio', 'Revisa el uso correcto del tiempo verbal',
-    'Argumenta con fechas históricas', '', '   ', undefined, null,
-  ]) assert.strictEqual(IA.peticionTemporalExplicita(t), false, `no debía ser petición: "${t}"`)
+await caso('MENCIÓN ≠ PETICIÓN: contexto, concesiones, negaciones y ambiguos NO abren la excepción', () => {
+  for (const t of NO_PETICIONES) assert.strictEqual(IA.peticionTemporalExplicita(t), false, `no debía ser petición: "${t}"`)
 })
 
-await caso('una negación en una cláusula no anula una petición en otra', () => {
-  assert.strictEqual(IA.peticionTemporalExplicita('No evalúes la ortografía; considera la puntualidad.'), true)
-  assert.strictEqual(IA.peticionTemporalExplicita('Considera la puntualidad pero no la fecha de entrega de la actividad previa'), true)
-  assert.strictEqual(IA.peticionTemporalExplicita('Considera la puntualidad. No consideres el retraso.'), true, 'basta una cláusula que lo pida')
+await caso('misma palabra temporal, distinta intención: "entregan tarde" (contexto) vs "evalúa si entregan tarde" (petición)', () => {
+  assert.strictEqual(IA.peticionTemporalExplicita('Mis alumnos entregan tarde.'), false)
+  assert.strictEqual(IA.peticionTemporalExplicita('Evalúa si entregan tarde.'), true)
+  assert.strictEqual(IA.peticionTemporalExplicita('Mis alumnos entregan con retraso.'), false)
+  assert.strictEqual(IA.peticionTemporalExplicita('Evalúa si entregan con retraso.'), true)
+  assert.strictEqual(IA.peticionTemporalExplicita('Evalúa la calidad aunque entreguen con retraso.'), false)
+  assert.strictEqual(IA.peticionTemporalExplicita('Evalúa la calidad y evalúa si entregan con retraso.'), true)
+})
+
+await caso('esCriterioTemporal NO cambió: "tarde" suelto sigue sin ser vocabulario temporal de la propuesta', () => {
+  assert.strictEqual(IA.esCriterioTemporal('Evalúa si entregan tarde'), false)
+  for (const t of ['Uso correcto del tiempo verbal', 'Fechas históricas', 'Secuencia temporal de acontecimientos', 'Romanticismo tardío', 'Metas a corto plazo']) {
+    assert.strictEqual(IA.esCriterioTemporal(t), false, t)
+  }
 })
 
 await caso('elementosTemporales con permiso: tolera UN criterio temporal (nombre y descriptores libres)', () => {
@@ -2757,6 +2804,8 @@ for (const [operacion, prop] of [['rubrica', propRubrica], ['cotejo', propCotejo
     ['negación "No consideres la puntualidad."', 'No consideres la puntualidad.'],
     ['negación "No evalúes la fecha de entrega."', 'No evalúes la fecha de entrega.'],
     ['consideración legítima NO temporal', 'Un criterio por cada apartado del ensayo.'],
+    ['mención contextual (MENCIÓN ≠ PETICIÓN)', 'Mis alumnos entregan con retraso, pero quiero evaluar principalmente la calidad.'],
+    ['concesión "aunque"', 'Evalúa la calidad aunque entreguen con retraso.'],
   ]) {
     await caso(`${operacion}: ${desc} → NO es petición: si la IA mete "Puntualidad", reintento y luego error con reembolso`, async () => {
       await reiniciarInstrumentos()
@@ -2769,7 +2818,7 @@ for (const [operacion, prop] of [['rubrica', propRubrica], ['cotejo', propCotejo
     })
   }
 
-  for (const consideraciones of ['Considera la puntualidad como criterio de evaluación.', 'Evalúa si la entrega se realizó dentro de la fecha establecida.', 'Quiero evaluar si el estudiante entregó a tiempo.']) {
+  for (const consideraciones of ['Considera la puntualidad como criterio de evaluación.', 'Evalúa si la entrega se realizó dentro de la fecha establecida.', 'Quiero evaluar si el estudiante entregó a tiempo.', 'Evalúa si entregan tarde.', 'Incluye la puntualidad como un criterio de la rúbrica.']) {
     await caso(`${operacion}: petición explícita "${consideraciones.slice(0, 45)}…" + exactamente UN criterio temporal → pasa SIN reintento`, async () => {
       await reiniciarInstrumentos()
       const nombres = ['Calidad técnica', 'Entrega dentro del plazo establecido', 'Claridad y organización']

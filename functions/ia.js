@@ -1034,25 +1034,72 @@ const textoConsideraciones = (params) =>
   String(params?.consideraciones || '').trim().slice(0, MAX_CONSIDERACIONES_CHARS)
 
 // ¿El docente pidió EXPLÍCITAMENTE evaluar un aspecto temporal? Determinista,
-// sin otra llamada al modelo. Se decide por cláusula (se corta en . ; ! ? salto
-// de línea y "pero / sin embargo / aunque"): una cláusula es petición si
-// esCriterioTemporal la reconoce Y no está negada. Negada = una negación
-// ("no", "nunca", "ni", "evita…", "sin considerar…") seguida, a ≤6 palabras, de
-// una palabra de tiempo/entrega: "No consideres la puntualidad", "No tomes en
-// cuenta el retraso". Ante la duda se falla del lado seguro (= no solicitado →
-// rige la prohibición completa); el docente revisa la propuesta antes de guardar.
+// sin otra llamada al modelo. MENCIÓN DEL TIEMPO ≠ PETICIÓN DE EVALUARLO:
+// "mis alumnos entregan tarde" es contexto; "evalúa si entregan tarde" es
+// petición. Una cláusula es petición solo si cumple las CUATRO condiciones:
+//   1. Habla de un aspecto temporal: lo que reconocen los patrones de
+//      esCriterioTemporal (+ "entregar tarde/temprano", local a este detector).
+//   2. Un verbo de petición lo GOBIERNA: aparece ANTES del aspecto temporal, a
+//      ≤5 palabras, sin palabras de sujeto/relativo entre ambos (que, mis,
+//      suelen, algunos…). Los verbos débiles (incluye, agrega, mide) exigen
+//      además un sustantivo de evaluación en la cláusula (criterio, rúbrica…).
+//      "considera que…" es informativo, no petición. También vale
+//      "<aspecto> como criterio / como parte de la evaluación".
+//   3. No hay negación ("no", "nunca", "evita…", "sin considerar…" seguida, a
+//      ≤6 palabras, de una palabra de tiempo/entrega).
+//   4. Lo que sigue a una concesión ("aunque", "sin importar", "a pesar de",
+//      "independientemente de", "incluso si", "sin que"…) se descarta hasta la
+//      siguiente coma: "Evalúa la calidad aunque entreguen con retraso" no pide
+//      evaluar el retraso. Las cláusulas se cortan además en . ; ! ? salto de
+//      línea y "pero / sin embargo".
+// Ante la duda, NO es petición (rige la prohibición completa): es preferible
+// bloquear una petición ambigua que abrir la excepción por una mención. El
+// docente revisa la propuesta antes de guardar.
 const NEGACION_TEMPORAL_RX = new RegExp(
   '\\b(?:no|nunca|jamas|tampoco|ni|evita\\w*|omite\\w*|omitas|excluy\\w*|descart\\w*|ignora\\w*|olvida\\w*|' +
   'sin (?:considerar|evaluar|tomar|tener|contar|calificar|valorar|medir))\\b' +
   '(?:\\s+\\w+){0,6}?\\s+' +
   '(?:puntual\\w*|a tiempo|plazo\\w*|fecha\\w*|retras\\w*|tard\\w*|oportun\\w*|entreg\\w*|extemporane\\w*|anticipad\\w*|cumpl\\w*|vencim\\w*)\\b')
 
+const CONCESION_RX = /\b(?:aunque|aun si|aun cuando|sin importar|a pesar de|independientemente de|con independencia de|incluso si|incluso cuando|inclusive si|sin que|no importa)\b[^,]*/g
+// "entregar tarde / temprano": local a este detector; esCriterioTemporal no cambia.
+const ENTREGAR_TARDE_RX = /\bentreg\w*(?:\s+\w+){0,3}?\s+(?:tarde|temprano)\b/
+const VERBO_PETICION_RX = /\b(?:consider(?:a|as|ar|es|e|en)|evalu(?:a|an|ar|as|es|e|en|ando)|valor(?:a|ar|e)|calific(?:a|ar|es|e|an)|tom(?:a|ar|as|es|e|en) en cuenta|ten en cuenta|tener en cuenta)\b/g
+const VERBO_DEBIL_RX = /\b(?:inclu(?:ye|yas|ir|ya)|agreg(?:a|ar|ues|ue)|mid(?:e|as|a)|medir)\b/g
+const SUSTANTIVO_EVALUACION_RX = /\b(?:criterio|criterios|rubrica|cotejo|indicador|indicadores|evaluacion|evaluar|calificacion)\b/
+const PALABRAS_BARRERA = new Set(['que', 'quienes', 'mis', 'suelen', 'algunos', 'varios', 'muchos'])
+const COMO_CRITERIO_RX = /^(?:\s+\w+){0,2}?\s+(?:como (?:un |el )?criterio|como parte de (?:la )?evaluacion|como indicador)\b/
+
 function peticionTemporalExplicita(texto) {
-  const clausulas = String(texto ?? '').split(/[.;!?\n]+|\b(?:pero|sin embargo|aunque)\b/i)
-  return clausulas.some((c) => {
-    if (!esCriterioTemporal(c)) return false
-    const n = c.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-    return !NEGACION_TEMPORAL_RX.test(n)
+  const clausulas = String(texto ?? '').split(/[.;!?\n]+|\b(?:pero|sin embargo)\b/i)
+  return clausulas.some((raw) => {
+    const n = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      .replace(/[^a-z0-9,]+/g, ' ').replace(CONCESION_RX, ' ').replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
+    if (!n || NEGACION_TEMPORAL_RX.test(n)) return false
+
+    // 1. Aspectos temporales y dónde empiezan/terminan.
+    const aspectos = [...PATRONES_TEMPORALES, ENTREGAR_TARDE_RX]
+      .flatMap((rx) => [...n.matchAll(new RegExp(rx.source, 'g'))])
+      .map((m) => [m.index, m.index + m[0].length])
+    if (!aspectos.length) return false
+
+    // 2a. "<aspecto> como criterio / como parte de la evaluación".
+    if (aspectos.some(([, fin]) => COMO_CRITERIO_RX.test(n.slice(fin)))) return true
+
+    // 2b. Verbo de petición ANTES del aspecto, cerca y sin barreras de sujeto.
+    const verbos = []
+    for (const m of n.matchAll(VERBO_PETICION_RX)) {
+      const informativo = /^(?:consider|tom|ten)/.test(m[0]) && /^\s+que\b/.test(n.slice(m.index + m[0].length))
+      if (!informativo) verbos.push([m.index, m.index + m[0].length])
+    }
+    if (SUSTANTIVO_EVALUACION_RX.test(n)) {
+      for (const m of n.matchAll(VERBO_DEBIL_RX)) verbos.push([m.index, m.index + m[0].length])
+    }
+    return verbos.some(([, vFin]) => aspectos.some(([tIni]) => {
+      if (tIni < vFin) return false
+      const entre = n.slice(vFin, tIni).split(' ').filter(Boolean)
+      return entre.length <= 5 && !entre.some((w) => PALABRAS_BARRERA.has(w))
+    }))
   })
 }
 
