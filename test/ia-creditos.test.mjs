@@ -463,12 +463,69 @@ await caso('el prompt prohíbe lo temporal y ya no manda a evaluar "las condicio
   assert.ok(IA.INSTRUMENTO_SISTEMA.includes('lógica de entregas'))
 })
 
-await caso('una consideración del docente pidiendo puntualidad llega CON la regla que la anula', () => {
-  const b = IA.bloqueConsideraciones({ consideraciones: 'Considera la puntualidad como criterio.' })
-  assert.ok(b.includes('Considera la puntualidad como criterio.'), 'la consideración del docente se conserva')
-  assert.ok(b.includes('REGLA ABSOLUTA'), 'y la regla la acompaña')
+await caso('consideración SIN petición temporal o que la NIEGA: llega con la prohibición completa', () => {
+  for (const c of ['Un criterio por pregunta', 'No consideres la puntualidad.', 'No evalúes la fecha de entrega.', 'No tomes en cuenta el retraso.']) {
+    const b = IA.bloqueConsideraciones({ consideraciones: c })
+    assert.ok(b.includes(c), 'la consideración del docente se conserva')
+    assert.ok(b.includes('REGLA ABSOLUTA') && !b.includes('REGLA SOBRE EL TIEMPO'), `prohibición completa: "${c}"`)
+  }
   assert.strictEqual(IA.bloqueConsideraciones({ consideraciones: '  ' }), '', 'sin consideración, sin bloque')
-  assert.ok(IA.bloqueConsideraciones({ consideraciones: 'Un criterio por pregunta' }).includes('Un criterio por pregunta'))
+})
+
+await caso('consideración con petición EXPLÍCITA de tiempo: llega la regla de UN criterio, no la prohibición', () => {
+  const b = IA.bloqueConsideraciones({ consideraciones: 'Considera la puntualidad como criterio de evaluación.' })
+  assert.ok(b.includes('Considera la puntualidad'), 'la consideración se conserva')
+  assert.ok(b.includes('REGLA SOBRE EL TIEMPO') && b.includes('EXACTAMENTE UN criterio'))
+  assert.ok(!b.includes('REGLA ABSOLUTA'), 'no se contradicen')
+  assert.ok(IA.sistemaInstrumento(true).includes('REGLA SOBRE EL TIEMPO') && !IA.sistemaInstrumento(true).includes('REGLA ABSOLUTA'))
+  assert.ok(IA.sistemaInstrumento(false).includes('REGLA ABSOLUTA') && !IA.sistemaInstrumento(false).includes('REGLA SOBRE EL TIEMPO'))
+  assert.strictEqual(IA.sistemaInstrumento(false), IA.INSTRUMENTO_SISTEMA, 'el sistema por defecto es la prohibición completa')
+})
+
+grupo('Petición explícita del docente: peticionTemporalExplicita (determinista)')
+
+await caso('detecta la petición explícita en sus formas habituales', () => {
+  for (const t of [
+    'Considera la puntualidad como criterio de evaluación.', 'Quiero que se considere la puntualidad como criterio de evaluación.',
+    'Evalúa si la entrega se realizó dentro de la fecha establecida.', 'Evalúa también si el estudiante entregó dentro de la fecha establecida',
+    'Quiero evaluar si el estudiante entregó a tiempo.', 'Que se evalúe el retraso en la entrega',
+    'Un criterio por pregunta. Considera la puntualidad.', 'Considera la puntualidad, no la ortografía',
+    'EVALÚA LA PUNTUALIDAD',
+  ]) assert.strictEqual(IA.peticionTemporalExplicita(t), true, `debía ser petición: "${t}"`)
+})
+
+await caso('la NEGACIÓN no es petición, y tampoco lo es lo que no habla de tiempo', () => {
+  for (const t of [
+    'No consideres la puntualidad.', 'No evalúes la fecha de entrega.', 'No tomes en cuenta el retraso.',
+    'Evita criterios de puntualidad', 'Sin considerar la fecha de entrega', 'Nunca evalúes si entregó a tiempo',
+    'Un criterio por pregunta', 'Que cada respuesta del ejercicio sea un criterio', 'Revisa el uso correcto del tiempo verbal',
+    'Argumenta con fechas históricas', '', '   ', undefined, null,
+  ]) assert.strictEqual(IA.peticionTemporalExplicita(t), false, `no debía ser petición: "${t}"`)
+})
+
+await caso('una negación en una cláusula no anula una petición en otra', () => {
+  assert.strictEqual(IA.peticionTemporalExplicita('No evalúes la ortografía; considera la puntualidad.'), true)
+  assert.strictEqual(IA.peticionTemporalExplicita('Considera la puntualidad pero no la fecha de entrega de la actividad previa'), true)
+  assert.strictEqual(IA.peticionTemporalExplicita('Considera la puntualidad. No consideres el retraso.'), true, 'basta una cláusula que lo pida')
+})
+
+await caso('elementosTemporales con permiso: tolera UN criterio temporal (nombre y descriptores libres)', () => {
+  const p = (crit, extra = {}) => ({ titulo: 'Ensayo', descripcion: 'Evalúa el ensayo', niveles: ['Excelente', 'Bien', 'Regular'], criterios: crit, ...extra })
+  const calidad = (n) => ({ nombre: n, descriptores: ['a', 'b', 'c'] })
+  const temporal = { nombre: 'Entrega dentro del plazo establecido', descriptores: ['Entrega dentro de la fecha establecida.', 'Entrega con un retraso menor.', 'Entrega después del plazo establecido.'] }
+  assert.deepStrictEqual(IA.elementosTemporales(p([calidad('Calidad técnica'), temporal, calidad('Organización')]), true), [])
+  assert.ok(IA.elementosTemporales(p([calidad('Calidad técnica'), temporal, calidad('Organización')]), false).length >= 4, 'sin permiso todo eso es falla')
+  // Un segundo criterio temporal: se rechaza SOLO el adicional.
+  const dos = IA.elementosTemporales(p([calidad('Calidad técnica'), calidad('Organización'), { nombre: 'Puntualidad', descriptores: ['a', 'b', 'c'] }, { nombre: 'Entrega oportuna', descriptores: ['a', 'b', 'c'] }]), true)
+  assert.strictEqual(dos.length, 1)
+  assert.ok(dos[0].includes('criterio temporal adicional') && dos[0].includes('Entrega oportuna'))
+  // Fuera del criterio permitido: título, descripción, niveles y descriptores de otros criterios.
+  assert.strictEqual(IA.elementosTemporales(p([temporal, calidad('Calidad')], { titulo: 'Rúbrica de puntualidad' }), true).length, 1)
+  assert.strictEqual(IA.elementosTemporales(p([temporal, calidad('Calidad')], { descripcion: 'Mide la entrega a tiempo' }), true).length, 1)
+  assert.strictEqual(IA.elementosTemporales(p([temporal, calidad('Calidad')], { niveles: ['Entrega oportuna', 'Bien', 'Regular'] }), true).length, 1)
+  assert.strictEqual(IA.elementosTemporales(p([temporal, { nombre: 'Redacción', descriptores: ['Entrega a tiempo y clara', 'b', 'c'] }]), true).length, 1)
+  // Con permiso pero sin criterio temporal: también es válida (el permiso no obliga).
+  assert.deepStrictEqual(IA.elementosTemporales(p([calidad('Calidad técnica'), calidad('Organización')]), true), [])
 })
 
 grupo('Candado: ningún criterio sobre CUÁNDO se entregó (esCriterioTemporal)')
@@ -482,6 +539,8 @@ await caso('detecta puntualidad en todas sus formas (mayúsculas, acentos, equiv
     'Entrega el documento antes de la fecha indicada', 'Es puntual al subir su evidencia', 'Entregó fuera de plazo',
     'Oportunidad', 'Tardío', 'Entrega sin retrasos', 'Sube la tarea con anticipación',
     'Cumple con los plazos de entrega', 'Entrega en la fecha acordada',
+    'Entrega dentro de la fecha establecida', 'Entrega después del plazo establecido', 'Entrega con un retraso menor',
+    'Entrega dentro del plazo establecido',
   ]
   for (const t of temporales) assert.strictEqual(IA.esCriterioTemporal(t), true, `debía detectar: "${t}"`)
 })
@@ -493,7 +552,7 @@ await caso('NO bloquea criterios legítimos (sin falsos positivos)', () => {
     'Cumplimiento de los requisitos solicitados', 'Plantea metas a corto plazo', 'Analiza el Romanticismo tardío',
     'Las intervenciones oportunas enriquecen la discusión', 'Entrega el documento en formato PDF con portada',
     'Sitúa los hechos en el tiempo y el espacio', 'Ordena cronológicamente los eventos', 'Dedica tiempo a revisar la ortografía',
-    'La entrega incluye introducción, desarrollo y conclusión', '',
+    'La entrega incluye introducción, desarrollo y conclusión', 'Fechas históricas', 'Secuencia temporal de acontecimientos', '',
   ]
   for (const t of legitimos) assert.strictEqual(IA.esCriterioTemporal(t), false, `no debía bloquear: "${t}"`)
 })
@@ -2694,15 +2753,97 @@ for (const [operacion, prop] of [['rubrica', propRubrica], ['cotejo', propCotejo
     assert.notStrictEqual((await consumoDe(k)).estado, 'ejecutado')
   })
 
-  await caso(`${operacion}: "Considera la puntualidad" del docente NO la convierte en criterio (la IA obedece → se rechaza)`, async () => {
+  for (const [desc, consideraciones] of [
+    ['negación "No consideres la puntualidad."', 'No consideres la puntualidad.'],
+    ['negación "No evalúes la fecha de entrega."', 'No evalúes la fecha de entrega.'],
+    ['consideración legítima NO temporal', 'Un criterio por cada apartado del ensayo.'],
+  ]) {
+    await caso(`${operacion}: ${desc} → NO es petición: si la IA mete "Puntualidad", reintento y luego error con reembolso`, async () => {
+      await reiniciarInstrumentos()
+      respuestaIA = () => prop(['Puntualidad en la entrega', 'Calidad técnica', 'Claridad y organización'])
+      const e = await generarInstrumento({ operacion, consideraciones }).then(() => null, (x) => x)
+      assert.strictEqual(e?.details?.codigo, 'CRITERIO_TEMPORAL')
+      assert.strictEqual(pedidosIA.length, 2, 'un reintento y nada más')
+      assert.ok(pedidosIA[0].system.includes('REGLA ABSOLUTA') && !pedidosIA[0].system.includes('REGLA SOBRE EL TIEMPO'))
+      assert.strictEqual((await creditosDe()).saldo, 100, 'reembolso íntegro')
+    })
+  }
+
+  for (const consideraciones of ['Considera la puntualidad como criterio de evaluación.', 'Evalúa si la entrega se realizó dentro de la fecha establecida.', 'Quiero evaluar si el estudiante entregó a tiempo.']) {
+    await caso(`${operacion}: petición explícita "${consideraciones.slice(0, 45)}…" + exactamente UN criterio temporal → pasa SIN reintento`, async () => {
+      await reiniciarInstrumentos()
+      const nombres = ['Calidad técnica', 'Entrega dentro del plazo establecido', 'Claridad y organización']
+      const r0 = prop(nombres)
+      if (operacion === 'rubrica') r0.criterios[1].descriptores = ['Entrega dentro de la fecha establecida.', 'Entrega con un retraso menor.', 'Entrega después del plazo establecido.']
+      respuestaIA = () => r0
+      const k = clave()
+      const r = await generarInstrumento({ operacion, consideraciones, k })
+      assert.strictEqual(pedidosIA.length, 1, 'sin reintento')
+      assert.ok(pedidosIA[0].system.includes('REGLA SOBRE EL TIEMPO') && !pedidosIA[0].system.includes('REGLA ABSOLUTA'), 'el modelo recibe el permiso, no la prohibición')
+      assert.deepStrictEqual(r.resultado.propuesta.criterios.map((c) => c.nombre), nombres)
+      assert.ok(sinVacios(r.resultado.propuesta))
+      assert.strictEqual(r.creditosReales, 1)
+      assert.strictEqual((await consumoDe(k)).estado, 'ejecutado')
+    })
+  }
+
+  await caso(`${operacion}: petición explícita + DOS criterios temporales → reintento; el segundo intento con UNO pasa`, async () => {
     await reiniciarInstrumentos()
-    respuestaIA = () => prop(['Puntualidad en la entrega', 'Calidad técnica', 'Claridad y organización'])
-    const e = await generarInstrumento({ operacion, consideraciones: 'Considera la puntualidad como criterio.' }).then(() => null, (x) => x)
+    respuestaIA = () => (pedidosIA.length === 1 ? prop(['Calidad técnica', 'Puntualidad', 'Entrega oportuna']) : prop(['Calidad técnica', 'Puntualidad', 'Claridad y organización']))
+    const k = clave()
+    const r = await generarInstrumento({ operacion, consideraciones: 'Considera la puntualidad como criterio de evaluación.', k })
+    assert.strictEqual(pedidosIA.length, 2)
+    const t2 = textoDelPedido(pedidosIA[1])
+    assert.ok(t2.includes('CORRECCIÓN OBLIGATORIA') && t2.includes('Entrega oportuna') && t2.includes('un solo criterio temporal'))
+    assert.ok(pedidosIA[1].system.includes('REGLA SOBRE EL TIEMPO'))
+    assert.deepStrictEqual(r.resultado.propuesta.criterios.map((c) => c.nombre), ['Calidad técnica', 'Puntualidad', 'Claridad y organización'])
+    assert.ok(sinVacios(r.resultado.propuesta))
+    assert.strictEqual(r.creditosReales, 1)
+  })
+
+  await caso(`${operacion}: petición explícita + el segundo intento SIGUE con dos criterios temporales → error y reembolso`, async () => {
+    await reiniciarInstrumentos()
+    respuestaIA = () => prop(['Puntualidad', 'Calidad técnica', 'Entrega oportuna'])
+    const k = clave()
+    const e = await generarInstrumento({ operacion, consideraciones: 'Considera la puntualidad como criterio de evaluación.', k }).then(() => null, (x) => x)
     assert.strictEqual(e?.details?.codigo, 'CRITERIO_TEMPORAL')
-    assert.ok(textoDelPedido(pedidosIA[0]).includes('REGLA ABSOLUTA'), 'la consideración viajó junto a la regla')
+    assert.strictEqual(pedidosIA.length, 2)
     assert.strictEqual((await creditosDe()).saldo, 100)
+    assert.notStrictEqual((await consumoDe(k)).estado, 'ejecutado')
   })
 }
+
+await caso('rúbrica: petición explícita + criterio temporal permitido + título/nivel temporal aparte → se rechaza (reintento)', async () => {
+  await reiniciarInstrumentos()
+  const nombres = ['Calidad técnica', 'Puntualidad', 'Claridad y organización']
+  respuestaIA = () => (pedidosIA.length === 1 ? { ...propRubrica(nombres), titulo: 'Rúbrica de puntualidad y calidad' } : propRubrica(nombres))
+  await generarInstrumento({ operacion: 'rubrica', consideraciones: 'Considera la puntualidad como criterio de evaluación.' })
+  assert.strictEqual(pedidosIA.length, 2)
+  await reiniciarInstrumentos()
+  respuestaIA = () => (pedidosIA.length === 1 ? { ...propRubrica(nombres), niveles: ['Entrega oportuna', 'Bien', 'Mal'] } : propRubrica(nombres))
+  await generarInstrumento({ operacion: 'rubrica', consideraciones: 'Considera la puntualidad como criterio de evaluación.' })
+  assert.strictEqual(pedidosIA.length, 2)
+})
+
+await caso('petición explícita pero la IA no genera criterio temporal: también es válida (sin reintento)', async () => {
+  await reiniciarInstrumentos()
+  respuestaIA = () => propRubrica()
+  await generarInstrumento({ operacion: 'rubrica', consideraciones: 'Considera la puntualidad como criterio de evaluación.' })
+  assert.strictEqual(pedidosIA.length, 1)
+})
+
+await caso('contenido académico legítimo con petición explícita o sin ella: no dispara reintento', async () => {
+  for (const consideraciones of ['', 'Considera la puntualidad como criterio de evaluación.']) {
+    await reiniciarInstrumentos()
+    respuestaIA = () => propRubrica(['Uso correcto del tiempo verbal', 'Argumenta con fechas históricas', 'Secuencia temporal de acontecimientos'])
+    await generarInstrumento({ operacion: 'rubrica', consideraciones })
+    assert.strictEqual(pedidosIA.length, 1)
+    await reiniciarInstrumentos()
+    respuestaIA = () => propRubrica(['Analiza el Romanticismo tardío', 'Plantea metas a corto plazo', 'Claridad y organización'])
+    await generarInstrumento({ operacion: 'rubrica', consideraciones })
+    assert.strictEqual(pedidosIA.length, 1)
+  }
+})
 
 await caso('rúbrica: un descriptor o un nivel temporal también dispara el reintento', async () => {
   await reiniciarInstrumentos()
