@@ -27,6 +27,7 @@ import { formatFileSize } from '../../utils/formatBytes'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { buildJobsForStudent, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import FiltroSoloCalificables from '../../components/FiltroSoloCalificables'
 import SubjectIcon from '../../components/SubjectIcon'
 import AttachmentList from '../../components/AttachmentList'
 import {
@@ -153,6 +154,8 @@ export default function StudentSubjectPage() {
   const [teacherName, setTeacherName] = useState('')
   const [teacherPhoto, setTeacherPhoto] = useState(null)
   const [openParcial, setOpenParcial] = useState(1)
+  // Filtro de presentación por parcial ({ 1: true, … }); solo en memoria.
+  const [soloCalificables, setSoloCalificables] = useState({})
   const routerLocation = useLocation()
   const [tabElegida, setActiveTab] = useState(routerLocation.state?.tab || 'Actividades y calificaciones')
   // "Mostrar asistencias a estudiantes" — el docente puede apagar esta pestaña
@@ -685,8 +688,11 @@ export default function StudentSubjectPage() {
             </div>
           )}
           {PARCIALES.map((p) => {
-            const acts = activities.filter((a) => a.parcial === p)
-            const mats = materials.filter((m) => m.parcial === p)
+            // Filtro "solo actividades que se califican": solo presentación. No
+            // existe en la app nativa, que conserva su encabezado y su lista tal cual.
+            const filtrando = !IS_NATIVE_APP && !!soloCalificables[p]
+            const acts = activities.filter((a) => a.parcial === p && (!filtrando || cuentaParaCalificacion(a)))
+            const mats = filtrando ? [] : materials.filter((m) => m.parcial === p)
             const unified = buildUnifiedParcial(acts, mats)
             // Ponderado y todavía sin publicar: ni se calcula (el servidor no
             // mandó sus pesos; calcular daría una media simple engañosa).
@@ -695,33 +701,55 @@ export default function StudentSubjectPage() {
             const isOpen = openParcial === p
             return (
               <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
-                <button
-                  type="button"
-                  onClick={() => setOpenParcial(isOpen ? 0 : p)}
-                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface transition-colors"
-                >
-                  <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-                    <span className="text-accent font-bold text-sm">{p}</span>
-                  </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="font-semibold text-on-surface truncate">Parcial {p}</p>
-                    <p className="text-sm text-slate-500">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {!publicado ? (
-                      <PonderacionPendiente className="text-lg font-bold text-slate-400" />
-                    ) : avg != null && (
-                      <span className="text-lg font-bold text-accent">{avg}</span>
-                    )}
-                    {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
-                  </div>
-                </button>
+                {(() => {
+                  const cabecera = (
+                    <>
+                      <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                        <span className="text-accent font-bold text-sm">{p}</span>
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="font-semibold text-on-surface truncate">Parcial {p}</p>
+                        <p className="text-sm text-slate-500">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {!publicado ? (
+                          <PonderacionPendiente className="text-lg font-bold text-slate-400" />
+                        ) : avg != null && (
+                          <span className="text-lg font-bold text-accent">{avg}</span>
+                        )}
+                        {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+                      </div>
+                    </>
+                  )
+                  const claseBoton = 'w-full px-4 py-3 flex items-center gap-3 hover:bg-surface transition-colors'
+                  if (IS_NATIVE_APP) {
+                    return (
+                      <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} className={claseBoton}>
+                        {cabecera}
+                      </button>
+                    )
+                  }
+                  return (
+                    <>
+                      <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} className={claseBoton}>
+                        {cabecera}
+                      </button>
+                      <div className="px-4 pb-2 pl-16 -mt-1">
+                        <FiltroSoloCalificables
+                          id={`solo-calificables-${p}`}
+                          checked={!!soloCalificables[p]}
+                          onChange={(v) => setSoloCalificables((prev) => ({ ...prev, [p]: v }))}
+                        />
+                      </div>
+                    </>
+                  )
+                })()}
 
                 {isOpen && (
                   <div className="border-t border-outline-variant pr-4 py-2">
                     <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
                     {unified.length === 0 && (
-                      <p className="text-slate-400 text-sm text-center py-2">Sin actividades</p>
+                      <p className="text-slate-400 text-sm text-center py-2">{filtrando ? 'Sin actividades que se califiquen' : 'Sin actividades'}</p>
                     )}
                     {unified.map(({ type, item }) => {
                       if (type === 'activity') {

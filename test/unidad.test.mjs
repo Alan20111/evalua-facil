@@ -5054,6 +5054,41 @@ caso('el cambio no altera ningún número calculado ni quién queda señalado', 
   assert.strictEqual(a.datos.parciales[0].promedioGrupo, 7.5)
 })
 
+grupo('Filtro «solo actividades que se califican» (presentación, docente y estudiante)')
+
+const { filasVisiblesParcial } = await import('../src/utils/filtroCalificables.js')
+const { cuentaParaCalificacion: cuentaFiltro } = await import('../src/utils/activityVisibility.js')
+const actF = (id, extra = {}) => ({ type: 'activity', item: { id, parcial: 1, oculta: false, publishedAt: '2026-08-01T08:00', ...extra } })
+const matF = (id) => ({ type: 'material', item: { id, parcial: 1 } })
+// Lista completa: 0 normal · 1 sin calificación · 2 material · 3 borrador · 4 sin calificación (evaluacion) · 5 normal
+const UNIF_F = [
+  actF('A'), actF('S1', { sinCalificacion: true }), matF('M'), actF('B', { oculta: true, publishedAt: null }),
+  actF('S2', { evaluacion: { sinCalificacion: true } }), actF('C'),
+]
+
+caso('filtro apagado: devuelve la lista completa, con idx = posición (idéntico a antes)', () => {
+  const v = filasVisiblesParcial(UNIF_F, false)
+  assert.deepStrictEqual(v.map((x) => x.item.item.id), ['A', 'S1', 'M', 'B', 'S2', 'C'])
+  assert.deepStrictEqual(v.map((x) => x.idx), [0, 1, 2, 3, 4, 5])
+})
+caso('filtro encendido (docente): oculta sin calificación y material; el borrador SÍ se ve', () => {
+  const v = filasVisiblesParcial(UNIF_F, true)
+  assert.deepStrictEqual(v.map((x) => x.item.item.id), ['A', 'B', 'C'])
+})
+caso('filtro encendido: idx conserva la posición en la lista COMPLETA (base del arrastre)', () => {
+  const v = filasVisiblesParcial(UNIF_F, true)
+  assert.deepStrictEqual(v.map((x) => x.idx), [0, 3, 5])
+  // la zona de soltar tras «A» es idx+1 = 1 (justo después de A en la lista completa)
+  assert.deepStrictEqual(v.map((x) => x.idx + 1), [1, 4, 6])
+})
+caso('filtro encendido: parcial sin calificables → lista vacía (la pantalla muestra «Sin actividades que se califiquen»)', () => {
+  assert.strictEqual(filasVisiblesParcial([actF('S', { sinCalificacion: true }), matF('M')], true).length, 0)
+})
+caso('estudiante: el filtro usa cuentaParaCalificacion — pendiente/entregada/calificada se ven (la entrega no cambia la actividad)', () => {
+  const acts = [actF('P').item, actF('S', { sinCalificacion: true }).item, actF('Q', { evaluacion: { sinCalificacion: true } }).item]
+  assert.deepStrictEqual(acts.filter(cuentaFiltro).map((a) => a.id), ['P'])
+})
+
 grupo('Análisis de UN entregable — «solo resultados» (agregación, plan, privacidad)')
 
 const ENT = await import('../src/utils/analisisEntregableInforme.js')

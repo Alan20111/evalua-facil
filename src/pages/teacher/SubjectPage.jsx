@@ -40,6 +40,8 @@ import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacacion
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime, isDraftActivity, cuentaParaCalificacion, sinCalificacion } from '../../utils/activityVisibility'
+import FiltroSoloCalificables from '../../components/FiltroSoloCalificables'
+import { filasVisiblesParcial } from '../../utils/filtroCalificables'
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade, estadoParcial, puedeIniciarAtencion, parcialCerrado, mensajeParcialCerrado, esNotaAutomaticaDeCierre } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -1087,6 +1089,8 @@ export default function SubjectPage() {
   // `totalStudents` más abajo, que es el que manda una vez cargada la lista.
   const [studentCountAtLoad, setStudentCountAtLoad] = useState(0)
   const [openParcial, setOpenParcial] = useState(1)
+  // Filtro de presentación por parcial ({ 1: true, … }); solo en memoria.
+  const [soloCalificables, setSoloCalificables] = useState({})
 
   // Activity modal
   const [showModal, setShowModal] = useState(false)
@@ -5691,6 +5695,12 @@ export default function SubjectPage() {
             {PARCIALES.map((p) => {
               const acts = activities.filter((a) => a.parcial === p)
               const numeradas = acts.filter((a) => activityLabelById[a.id]).length
+              // Filtro "solo actividades que se califican": solo presentación (la
+              // lista completa sigue siendo la base de numeración, orden y arrastre).
+              // En la app nativa no existe. Para el docente un borrador SÍ cuenta
+              // (se calificará al publicarse): basta con no ser sinCalificacion.
+              const filtrando = !IS_NATIVE_APP && !!soloCalificables[p]
+              const totalMostrado = filtrando ? acts.filter((a) => !sinCalificacion(a)).length : numeradas
               const mats = materials.filter((m) => m.parcial === p)
               const isOpen = openParcial === p
               const parcialOculto = (subject?.parcialesOcultos || []).includes(p)
@@ -5698,7 +5708,8 @@ export default function SubjectPage() {
                 // Open parcial gets the same accent container treatment as the
                 // Preguntas/Configuración sections — it's obvious you're inside it
                 <div key={p} className={`bg-surface-card rounded-card overflow-hidden shadow-card ${isOpen ? 'border border-accent' : ''}`}>
-                  <div className={`w-full flex items-center gap-1 ${isOpen ? 'bg-accent-light border-b border-accent' : ''}`}>
+                  <div className={isOpen ? 'bg-accent-light border-b border-accent' : ''}>
+                  <div className="w-full flex items-center gap-1">
                     <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
                       className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-medium)] transition-colors text-left">
                       <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
@@ -5715,7 +5726,7 @@ export default function SubjectPage() {
                         {/* Solo cuenta las que llevan número (1.1., 1.2.…): misma
                             regla que activityLabelById, para que nunca se desalineen.
                             Borradores y "sin calificación" siguen en la lista, no aquí. */}
-                        <p className="text-sm text-slate-500 leading-tight -mt-0.5">{numeradas} actividad{numeradas !== 1 ? 'es' : ''}</p>
+                        <p className="text-sm text-slate-500 leading-tight -mt-0.5">{totalMostrado} actividad{totalMostrado !== 1 ? 'es' : ''}</p>
                       </div>
                     </button>
                     <button type="button"
@@ -5731,12 +5742,28 @@ export default function SubjectPage() {
                       {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
                     </button>
                   </div>
+                  {!IS_NATIVE_APP && (
+                    <div className="px-4 pb-2 pl-[4.5rem] -mt-1">
+                      <FiltroSoloCalificables
+                        id={`solo-calificables-${p}`}
+                        checked={!!soloCalificables[p]}
+                        onChange={(v) => setSoloCalificables((prev) => ({ ...prev, [p]: v }))}
+                      />
+                    </div>
+                  )}
+                  </div>
 
                   {isOpen && (
                     <div className="border-t border-outline-variant pr-4 py-2">
                       <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
                       {(() => {
                         const unified = buildUnifiedParcial(acts, mats)
+                        // Con el filtro solo se OMITEN filas al pintar; cada fila conserva su
+                        // índice en la lista completa (`idx`) y la zona de soltar que le sigue
+                        // usa ESE índice, así handleDraftDrop/handleMaterialDrop (que trabajan
+                        // sobre la lista completa) guardan la posición correcta. Material y
+                        // sinCalificacion se omiten; el borrador no.
+                        const visibles = filasVisiblesParcial(unified, filtrando)
                         const isDraggingHere = !IS_NATIVE_APP && (
                           (!!dragMatId && mats.some((m) => m.id === dragMatId)) ||
                           (!!dragDraftId && acts.some((a) => a.id === dragDraftId))
@@ -5770,12 +5797,12 @@ export default function SubjectPage() {
                         }
                         return (
                           <>
-                            {unified.length === 0 && (
-                              <p className="text-slate-400 text-sm text-center py-2">Sin actividades</p>
+                            {visibles.length === 0 && (
+                              <p className="text-slate-400 text-sm text-center py-2">{filtrando ? 'Sin actividades que se califiquen' : 'Sin actividades'}</p>
                             )}
                             {dropZone(0, isDraggingHere)}
-                            {unified.map((item, i) => {
-                              const vizIdx = i + 1
+                            {visibles.map(({ item, idx }) => {
+                              const vizIdx = idx + 1
                               if (item.type === 'activity') {
                                 const a = item.item
                                 const counts = submissionCounts[a.id] || {}
