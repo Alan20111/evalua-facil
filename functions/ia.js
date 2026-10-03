@@ -894,12 +894,17 @@ async function precheckInstrumento({ uid, params }) {
   }
 }
 
-// REGLA FUNCIONAL ABSOLUTA (PO, 3-oct-2026): ningún criterio, descriptor ni
-// nivel de una rúbrica o lista de cotejo puede evaluar CUÁNDO se entregó la
-// evidencia. Es semántica, no una lista de palabras: aplica sea cual sea la
-// forma de decirlo. La puntualidad la resuelve la plataforma (fecha límite,
-// entregas tardías, prórrogas) y es independiente de la evaluación cualitativa.
-// También gana sobre cualquier "consideración" que escriba el docente.
+// REGLA FUNCIONAL (PO, 3-oct-2026): por iniciativa de la IA, ningún criterio,
+// descriptor ni nivel de una rúbrica o lista de cotejo puede evaluar CUÁNDO se
+// entregó la evidencia. Es semántica, no una lista de palabras: aplica sea cual
+// sea la forma de decirlo. La puntualidad la resuelve la plataforma (fecha
+// límite, entregas tardías, prórrogas) y es independiente de la evaluación
+// cualitativa.
+//
+// ÚNICA EXCEPCIÓN (PO, 3-oct-2026, 2ª ronda): si el docente la pide
+// EXPLÍCITAMENTE en sus consideraciones (peticionTemporalExplicita), se permite
+// UN solo criterio temporal — REGLA_TIEMPO_SOLICITADO. Sin petición, o con una
+// negación ("no consideres la puntualidad"), rige esta regla completa.
 const REGLA_SIN_TIEMPO =
   'REGLA ABSOLUTA: ningún criterio, descriptor ni nivel puede evaluar el MOMENTO en que se entregó ' +
   'la evidencia (puntualidad, entrega a tiempo u oportuna, plazos, fechas de entrega, retrasos, ' +
@@ -910,15 +915,28 @@ const REGLA_SIN_TIEMPO =
   'consideración te pide evaluar el tiempo de entrega, ignora esa parte y propón en su lugar un ' +
   'criterio de calidad del producto.'
 
-const INSTRUMENTO_SISTEMA =
+// Cuando el docente pidió expresamente evaluar un aspecto temporal. Reemplaza a
+// REGLA_SIN_TIEMPO (nunca van juntas: se contradirían). El tope de UN criterio
+// lo hace cumplir elementosTemporales, no esta frase.
+const REGLA_TIEMPO_SOLICITADO =
+  'REGLA SOBRE EL TIEMPO DE ENTREGA: el docente pidió EXPLÍCITAMENTE evaluar un aspecto temporal ' +
+  '(por ejemplo puntualidad o cumplimiento de la fecha establecida). Incluye EXACTAMENTE UN criterio ' +
+  'sobre ese aspecto, con descriptores y niveles coherentes con lo que pidió, y NINGÚN otro elemento ' +
+  'temporal: los demás criterios, el título, la descripción y los nombres de los niveles evalúan solo ' +
+  'el producto y no mencionan puntualidad, fechas, plazos ni retrasos.'
+
+const sistemaInstrumento = (permiteTemporal) =>
   'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
   'docente de bachillerato mexicano. Tu papel es PROPONER: el docente siempre revisa, edita y decide. ' +
   'Construye los criterios EXCLUSIVAMENTE a partir de la actividad que se te describe. ' +
   'No agregues criterios que no puedan justificarse con esa actividad, y no completes con ' +
   'conocimiento general del tema. No incluyas puntos, pesos, porcentajes ni totales: ' +
   'Evalúa Fácil calcula toda la aritmética. Escribe en español, claro y breve. ' +
-  REGLA_SIN_TIEMPO + ' ' +
+  (permiteTemporal ? REGLA_TIEMPO_SOLICITADO : REGLA_SIN_TIEMPO) + ' ' +
   'Responde únicamente con el JSON válido del esquema indicado, sin texto adicional.'
+
+// Por defecto, sin petición del docente: la regla completa.
+const INSTRUMENTO_SISTEMA = sistemaInstrumento(false)
 
 // Bloque de contexto común a las cuatro combinaciones (rúbrica/cotejo ×
 // entregable/observación). Solo con datos leídos de Firestore.
@@ -1004,10 +1022,85 @@ const MAX_CONSIDERACIONES_CHARS = 400
 // como algo A RESPETAR, nunca como reemplazo del contexto real leído de la
 // actividad (ese sigue siendo bloqueContexto). Cadena vacía → sin bloque.
 function bloqueConsideraciones(params) {
-  const texto = String(params?.consideraciones || '').trim().slice(0, MAX_CONSIDERACIONES_CHARS)
+  const texto = textoConsideraciones(params)
   if (!texto) return ''
   return `\nCONSIDERACIONES DEL DOCENTE — tómalas en cuenta al proponer los criterios:\n"""${texto}"""\n` +
-    `Excepción: ${REGLA_SIN_TIEMPO}\n`
+    (peticionTemporalExplicita(texto)
+      ? `Nota: ${REGLA_TIEMPO_SOLICITADO}\n`
+      : `Excepción: ${REGLA_SIN_TIEMPO}\n`)
+}
+
+const textoConsideraciones = (params) =>
+  String(params?.consideraciones || '').trim().slice(0, MAX_CONSIDERACIONES_CHARS)
+
+// ¿El docente pidió EXPLÍCITAMENTE evaluar un aspecto temporal? Determinista,
+// sin otra llamada al modelo. MENCIÓN DEL TIEMPO ≠ PETICIÓN DE EVALUARLO:
+// "mis alumnos entregan tarde" es contexto; "evalúa si entregan tarde" es
+// petición. Una cláusula es petición solo si cumple las CUATRO condiciones:
+//   1. Habla de un aspecto temporal: lo que reconocen los patrones de
+//      esCriterioTemporal (+ "entregar tarde/temprano", local a este detector).
+//   2. Un verbo de petición lo GOBIERNA: aparece ANTES del aspecto temporal, a
+//      ≤5 palabras, sin palabras de sujeto/relativo entre ambos (que, mis,
+//      suelen, algunos…). Los verbos débiles (incluye, agrega, mide) exigen
+//      además un sustantivo de evaluación en la cláusula (criterio, rúbrica…).
+//      "considera que…" es informativo, no petición. También vale
+//      "<aspecto> como criterio / como parte de la evaluación".
+//   3. No hay negación ("no", "nunca", "evita…", "sin considerar…" seguida, a
+//      ≤6 palabras, de una palabra de tiempo/entrega).
+//   4. Lo que sigue a una concesión ("aunque", "sin importar", "a pesar de",
+//      "independientemente de", "incluso si", "sin que"…) se descarta hasta la
+//      siguiente coma: "Evalúa la calidad aunque entreguen con retraso" no pide
+//      evaluar el retraso. Las cláusulas se cortan además en . ; ! ? salto de
+//      línea y "pero / sin embargo".
+// Ante la duda, NO es petición (rige la prohibición completa): es preferible
+// bloquear una petición ambigua que abrir la excepción por una mención. El
+// docente revisa la propuesta antes de guardar.
+const NEGACION_TEMPORAL_RX = new RegExp(
+  '\\b(?:no|nunca|jamas|tampoco|ni|evita\\w*|omite\\w*|omitas|excluy\\w*|descart\\w*|ignora\\w*|olvida\\w*|' +
+  'sin (?:considerar|evaluar|tomar|tener|contar|calificar|valorar|medir))\\b' +
+  '(?:\\s+\\w+){0,6}?\\s+' +
+  '(?:puntual\\w*|a tiempo|plazo\\w*|fecha\\w*|retras\\w*|tard\\w*|oportun\\w*|entreg\\w*|extemporane\\w*|anticipad\\w*|cumpl\\w*|vencim\\w*)\\b')
+
+const CONCESION_RX = /\b(?:aunque|aun si|aun cuando|sin importar|a pesar de|independientemente de|con independencia de|incluso si|incluso cuando|inclusive si|sin que|no importa)\b[^,]*/g
+// "entregar tarde / temprano": local a este detector; esCriterioTemporal no cambia.
+const ENTREGAR_TARDE_RX = /\bentreg\w*(?:\s+\w+){0,3}?\s+(?:tarde|temprano)\b/
+const VERBO_PETICION_RX = /\b(?:consider(?:a|as|ar|es|e|en)|evalu(?:a|an|ar|as|es|e|en|ando)|valor(?:a|ar|e)|calific(?:a|ar|es|e|an)|tom(?:a|ar|as|es|e|en) en cuenta|ten en cuenta|tener en cuenta)\b/g
+const VERBO_DEBIL_RX = /\b(?:inclu(?:ye|yas|ir|ya)|agreg(?:a|ar|ues|ue)|mid(?:e|as|a)|medir)\b/g
+const SUSTANTIVO_EVALUACION_RX = /\b(?:criterio|criterios|rubrica|cotejo|indicador|indicadores|evaluacion|evaluar|calificacion)\b/
+const PALABRAS_BARRERA = new Set(['que', 'quienes', 'mis', 'suelen', 'algunos', 'varios', 'muchos'])
+const COMO_CRITERIO_RX = /^(?:\s+\w+){0,2}?\s+(?:como (?:un |el )?criterio|como parte de (?:la )?evaluacion|como indicador)\b/
+
+function peticionTemporalExplicita(texto) {
+  const clausulas = String(texto ?? '').split(/[.;!?\n]+|\b(?:pero|sin embargo)\b/i)
+  return clausulas.some((raw) => {
+    const n = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      .replace(/[^a-z0-9,]+/g, ' ').replace(CONCESION_RX, ' ').replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
+    if (!n || NEGACION_TEMPORAL_RX.test(n)) return false
+
+    // 1. Aspectos temporales y dónde empiezan/terminan.
+    const aspectos = [...PATRONES_TEMPORALES, ENTREGAR_TARDE_RX]
+      .flatMap((rx) => [...n.matchAll(new RegExp(rx.source, 'g'))])
+      .map((m) => [m.index, m.index + m[0].length])
+    if (!aspectos.length) return false
+
+    // 2a. "<aspecto> como criterio / como parte de la evaluación".
+    if (aspectos.some(([, fin]) => COMO_CRITERIO_RX.test(n.slice(fin)))) return true
+
+    // 2b. Verbo de petición ANTES del aspecto, cerca y sin barreras de sujeto.
+    const verbos = []
+    for (const m of n.matchAll(VERBO_PETICION_RX)) {
+      const informativo = /^(?:consider|tom|ten)/.test(m[0]) && /^\s+que\b/.test(n.slice(m.index + m[0].length))
+      if (!informativo) verbos.push([m.index, m.index + m[0].length])
+    }
+    if (SUSTANTIVO_EVALUACION_RX.test(n)) {
+      for (const m of n.matchAll(VERBO_DEBIL_RX)) verbos.push([m.index, m.index + m[0].length])
+    }
+    return verbos.some(([, vFin]) => aspectos.some(([tIni]) => {
+      if (tIni < vFin) return false
+      const entre = n.slice(vFin, tIni).split(' ').filter(Boolean)
+      return entre.length <= 5 && !entre.some((w) => PALABRAS_BARRERA.has(w))
+    }))
+  })
 }
 
 // ── Candado posterior: nunca un criterio sobre CUÁNDO se entregó ───────────
@@ -1019,7 +1112,9 @@ function bloqueConsideraciones(params) {
 const ENTREGA_RX = 'entreg\\w*|envi(?:o|a|ar|ado|ada)|sub(?:e|ir|ida|ido)|recepcion'
 const TIEMPO_RX = 'oportun(?:o|a|os|as|amente)|tardi[oa]s?|tardanza|extemporane\\w*|anticipad\\w*|anticipacion|' +
   'tempran\\w*|retras\\w*|puntual\\w*|a tiempo|en fecha|en la fecha|fuera de (?:tiempo|fecha|plazo)|' +
-  'dentro (?:del|de) (?:tiempo|plazo)|en (?:el|los) (?:plazo|plazos)|antes de la (?:fecha|hora)'
+  'dentro (?:del|de) (?:la )?(?:tiempo|plazo|fecha)|en (?:el|los) (?:plazo|plazos)|antes de la (?:fecha|hora)|' +
+  'despues (?:del|de la) (?:plazo|fecha)|plazos? (?:establecid|fijad|acordad|indicad|limite)\\w*|' +
+  'fechas? (?:establecid|acordad|indicad|solicitad|programad|pactad|asignad|fijad)\\w*'
 const PATRONES_TEMPORALES = [
   // Inequívocos: dicen "cuándo" en sí mismos.
   /\b(?:puntual\w*|a tiempo|en tiempo y forma|extemporane\w*|retrasos?|tardanza|vencimiento|fechas? limite|fechas? de entrega|dias? limite|horas? limite|horas? de entrega|plazos? de entrega|fuera de (?:tiempo|fecha|plazo)|(?:dentro|fuera) (?:del|de) plazo|en el plazo)\b/,
@@ -1042,15 +1137,26 @@ function esCriterioTemporal(texto) {
 
 // Elementos de una propuesta (título, descripción, criterios, descriptores y
 // niveles) que evalúan el momento de entrega. [] = limpia.
-function elementosTemporales(propuesta) {
+//
+// `permiteUno` (el docente lo pidió explícitamente): se tolera UN criterio
+// temporal —el primero cuyo NOMBRE sea temporal— junto con todos sus
+// descriptores. Todo lo demás sigue siendo falla: un segundo criterio temporal,
+// un descriptor temporal de otro criterio, el título, la descripción y los
+// nombres de nivel.
+function elementosTemporales(propuesta, permiteUno = false) {
   const fallas = []
   if (!propuesta || typeof propuesta !== 'object') return fallas
   const revisa = (texto, etiqueta) => { if (esCriterioTemporal(texto)) fallas.push(`${etiqueta}: «${String(texto).slice(0, 80)}»`) }
   revisa(propuesta.titulo, 'título')
   revisa(propuesta.descripcion, 'descripción')
   ;(Array.isArray(propuesta.niveles) ? propuesta.niveles : []).forEach((n) => revisa(n, 'nivel de desempeño'))
+  let permitidoUsado = false
   ;(Array.isArray(propuesta.criterios) ? propuesta.criterios : []).forEach((c) => {
-    revisa(c?.nombre, 'criterio')
+    if (permiteUno && !permitidoUsado && esCriterioTemporal(c?.nombre)) {
+      permitidoUsado = true // el criterio temporal solicitado: su nombre y descriptores son libres
+      return
+    }
+    revisa(c?.nombre, permitidoUsado ? 'criterio temporal adicional' : 'criterio')
     ;(Array.isArray(c?.descriptores) ? c.descriptores : []).forEach((d) =>
       revisa(d, `descriptor del criterio «${String(c?.nombre || '').slice(0, 60)}»`))
   })
@@ -1063,22 +1169,35 @@ function elementosTemporales(propuesta) {
 // completo con la misma cantidad de criterios. Si el reintento también falla se
 // aborta; el callable reembolsa la reserva. No toca créditos ni unidades: lo
 // único que cambia es una segunda llamada al modelo en el caso excepcional.
-async function pedirInstrumentoSinTemporales({ client, modelo, maxTokens, prompt, bloques }) {
-  const primero = await pedirJSON({ client, modelo, maxTokens, prompt, bloques })
-  const fallas = elementosTemporales(primero.datos)
+//
+// `consideraciones` es el texto del docente: si contiene una petición explícita
+// de evaluar el tiempo (peticionTemporalExplicita) se admite UN criterio
+// temporal; si no, o si la niega, ninguno. Se decide aquí, en código, nunca
+// preguntándole al modelo.
+async function pedirInstrumentoSinTemporales({ client, modelo, maxTokens, prompt, bloques, consideraciones = '' }) {
+  const permiteUno = peticionTemporalExplicita(consideraciones)
+  const system = sistemaInstrumento(permiteUno)
+  const primero = await pedirJSON({ client, modelo, maxTokens, prompt, bloques, system })
+  const fallas = elementosTemporales(primero.datos, permiteUno)
   if (!fallas.length) return primero
 
   const segundo = await pedirJSON({
-    client, modelo, maxTokens, bloques,
+    client, modelo, maxTokens, bloques, system,
     prompt: prompt +
-      '\n\nCORRECCIÓN OBLIGATORIA: tu respuesta anterior incluyó elementos que evalúan CUÁNDO se ' +
-      `entregó la evidencia, lo cual está prohibido:\n- ${fallas.join('\n- ')}\n` +
-      'Vuelve a generar el JSON COMPLETO con el mismo esquema. Reemplaza cada uno de esos elementos ' +
-      'por uno que evalúe la calidad del producto (requisitos solicitados, contenido, claridad, ' +
-      'organización, aplicación de conocimientos). Conserva exactamente la misma cantidad de ' +
-      'criterios y de niveles que se pidió.',
+      (permiteUno
+        ? '\n\nCORRECCIÓN OBLIGATORIA: el docente pidió UN criterio sobre el tiempo de entrega y solo ' +
+          `uno. Tu respuesta anterior incluyó elementos temporales de más:\n- ${fallas.join('\n- ')}\n` +
+          'Vuelve a generar el JSON COMPLETO con el mismo esquema: un solo criterio temporal; reemplaza ' +
+          'cada elemento señalado por uno que evalúe la calidad del producto (requisitos solicitados, ' +
+          'contenido, claridad, organización, aplicación de conocimientos). '
+        : '\n\nCORRECCIÓN OBLIGATORIA: tu respuesta anterior incluyó elementos que evalúan CUÁNDO se ' +
+          `entregó la evidencia, lo cual está prohibido:\n- ${fallas.join('\n- ')}\n` +
+          'Vuelve a generar el JSON COMPLETO con el mismo esquema. Reemplaza cada uno de esos elementos ' +
+          'por uno que evalúe la calidad del producto (requisitos solicitados, contenido, claridad, ' +
+          'organización, aplicación de conocimientos). ') +
+      'Conserva exactamente la misma cantidad de criterios y de niveles que se pidió.',
   })
-  if (elementosTemporales(segundo.datos).length) {
+  if (elementosTemporales(segundo.datos, permiteUno).length) {
     throw new HttpsError('failed-precondition',
       'La IA no logró proponer criterios centrados solo en la calidad del producto. ' +
       'No se descontaron créditos; intenta de nuevo.', { codigo: 'CRITERIO_TEMPORAL' })
@@ -1154,7 +1273,7 @@ async function ejecutarRubrica({ params, modelo, apiKey }) {
       `    {"nombre": "<criterio, máx 8 palabras>", "descriptores": [${descriptoresEjemplo}]}\n` +
       '  ]\n' +
       '}',
-    bloques: evidencia.bloques,
+    bloques: evidencia.bloques, consideraciones: textoConsideraciones(params),
   })
 
   return {
@@ -1200,7 +1319,7 @@ async function ejecutarCotejo({ params, modelo, apiKey }) {
       '  "descripcion": "<una frase sobre qué verifica>",\n' +
       '  "criterios": [{"nombre": "<indicador verificable, máx 12 palabras>"}]\n' +
       '}',
-    bloques: evidencia.bloques,
+    bloques: evidencia.bloques, consideraciones: textoConsideraciones(params),
   })
 
   return {
@@ -6682,7 +6801,7 @@ exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
 // donde vive la decisión de "no alcanza, no se cobra".
 exports._pruebas = {
   pedirJSON,
-  contextoDeActividad, condicionesEntregable, esCriterioTemporal, elementosTemporales, bloqueContexto, bloqueConsideraciones, INSTRUMENTO_SISTEMA, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
+  contextoDeActividad, condicionesEntregable, esCriterioTemporal, elementosTemporales, peticionTemporalExplicita, sistemaInstrumento, bloqueContexto, bloqueConsideraciones, INSTRUMENTO_SISTEMA, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
   precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MAX_REACTIVOS,
   promptReactivos, sanitizarReactivosExistentes,
   agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
