@@ -54,9 +54,14 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
   // Mismo criterio que RubricaEditor.jsx: avisar antes de perder cambios sin
   // guardar al salir (flecha de regresar, Cancelar, o el botón físico Atrás).
   const [confirmSalir, setConfirmSalir] = useState(false)
+  // Una propuesta de IA entra como `initial`, así que coincide con la foto y
+  // `hayCambiosSinGuardar` sería false aunque nunca se haya guardado: sin esta
+  // condición la flecha la descartaba en silencio.
+  const [guardada, setGuardada] = useState(false)
+  const propuestaIASinGuardar = iaGenerada && !guardada
   const hayCambiosSinGuardar = JSON.stringify(r) !== editSnapshot.current
   function requestClose() {
-    if (hayCambiosSinGuardar) setConfirmSalir(true)
+    if (hayCambiosSinGuardar || propuestaIASinGuardar) setConfirmSalir(true)
     else onClose()
   }
   useBackHandler(() => (confirmSalir ? setConfirmSalir(false) : requestClose()), true)
@@ -133,6 +138,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
         onSaved?.({ id: initial.id, ...norm, docenteId })
         toast('Lista de cotejo actualizada — las actividades que ya la usan no cambian')
       }
+      setGuardada(true)
       onClose()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -312,9 +318,11 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
         <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !saving && setConfirmSalir(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
-            <h3 className="text-base font-semibold text-on-surface mb-1">¿Guardar los cambios?</h3>
+            <h3 className="text-base font-semibold text-on-surface mb-1">{iaGenerada ? 'Tienes una lista de cotejo sin guardar' : '¿Guardar los cambios?'}</h3>
             <p className="text-sm text-muted mb-3">
-              Tienes cambios sin guardar en esta lista de cotejo. Si sales sin guardar, se pierden.
+              {iaGenerada
+                ? 'Si sales ahora, la lista de cotejo que acabas de crear se perderá y tendrás que generarla nuevamente.'
+                : 'Tienes cambios sin guardar en esta lista de cotejo. Si sales sin guardar, se pierden.'}
             </p>
             {validationError && (
               <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-2 mb-3">
@@ -324,12 +332,12 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
             <div className="flex gap-2">
               <button type="button" onClick={() => setConfirmSalir(false)} disabled={saving}
                 className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
-                Seguir editando
+                {iaGenerada ? 'Cancelar' : 'Seguir editando'}
               </button>
               <button type="button" onClick={handleSave} disabled={saving || !!validationError}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
                 {saving ? <Spinner size="sm" /> : <Check size={16} />}
-                Guardar y salir
+                {iaGenerada ? 'Guardar lista de cotejo' : 'Guardar y salir'}
               </button>
             </div>
             <button type="button" onClick={onClose} disabled={saving}
