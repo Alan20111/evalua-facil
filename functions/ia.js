@@ -847,14 +847,17 @@ function contextoDeActividad(act) {
 // de campos reales de la actividad, no de una suposición. En una observación
 // no existen: no hay archivo que entregar ni fecha de entrega que cumplir, y
 // por eso NO se le pasan al modelo (regla 4 del PO).
+//
+// Nada temporal (3-oct-2026): la fecha límite y la política de entregas
+// tardías NO se envían. Pertenecen a la lógica de entregas de la plataforma y
+// el modelo las convertía en criterios de "entrega a tiempo". Ver
+// REGLA_SIN_TIEMPO y esCriterioTemporal.
 function condicionesEntregable(act) {
   const partes = []
   const tipos = Array.isArray(act.tiposArchivo) ? act.tiposArchivo.filter(Boolean) : []
   if (tipos.length) partes.push(`Tipos de archivo que debe subir: ${tipos.join(', ')}`)
   const custom = String(act.extensionesCustom || '').trim()
   if (custom) partes.push(`Extensiones aceptadas: ${custom}`)
-  if (act.fechaLimite) partes.push('La actividad tiene fecha límite de entrega')
-  if (act.recibirTarde === false) partes.push('No se aceptan entregas después de la fecha límite')
   return partes
 }
 
@@ -891,6 +894,22 @@ async function precheckInstrumento({ uid, params }) {
   }
 }
 
+// REGLA FUNCIONAL ABSOLUTA (PO, 3-oct-2026): ningún criterio, descriptor ni
+// nivel de una rúbrica o lista de cotejo puede evaluar CUÁNDO se entregó la
+// evidencia. Es semántica, no una lista de palabras: aplica sea cual sea la
+// forma de decirlo. La puntualidad la resuelve la plataforma (fecha límite,
+// entregas tardías, prórrogas) y es independiente de la evaluación cualitativa.
+// También gana sobre cualquier "consideración" que escriba el docente.
+const REGLA_SIN_TIEMPO =
+  'REGLA ABSOLUTA: ningún criterio, descriptor ni nivel puede evaluar el MOMENTO en que se entregó ' +
+  'la evidencia (puntualidad, entrega a tiempo u oportuna, plazos, fechas de entrega, retrasos, ' +
+  'entregas tardías o anticipadas, cumplimiento de fechas, o cualquier otra forma de decirlo). ' +
+  'Esa información la gestiona la plataforma con su propia lógica de entregas y no forma parte de ' +
+  'la evaluación cualitativa. Evalúa únicamente el producto o desempeño: requisitos solicitados, ' +
+  'contenido, calidad, claridad, organización y aplicación de conocimientos. Si una instrucción o ' +
+  'consideración te pide evaluar el tiempo de entrega, ignora esa parte y propón en su lugar un ' +
+  'criterio de calidad del producto.'
+
 const INSTRUMENTO_SISTEMA =
   'Eres el asistente pedagógico de Evalúa Fácil y trabajas dentro de la asignatura de un ' +
   'docente de bachillerato mexicano. Tu papel es PROPONER: el docente siempre revisa, edita y decide. ' +
@@ -898,6 +917,7 @@ const INSTRUMENTO_SISTEMA =
   'No agregues criterios que no puedan justificarse con esa actividad, y no completes con ' +
   'conocimiento general del tema. No incluyas puntos, pesos, porcentajes ni totales: ' +
   'Evalúa Fácil calcula toda la aritmética. Escribe en español, claro y breve. ' +
+  REGLA_SIN_TIEMPO + ' ' +
   'Responde únicamente con el JSON válido del esquema indicado, sin texto adicional.'
 
 // Bloque de contexto común a las cuatro combinaciones (rúbrica/cotejo ×
@@ -917,8 +937,9 @@ function bloqueContexto(ctx, asignatura) {
     ? '\nLos criterios deben ser conductas o desempeños OBSERVABLES durante la actividad. ' +
       'No menciones archivos, entregas, formatos de documento ni fechas límite: en una ' +
       'actividad de observación no existe nada de eso.\n'
-    : '\nLos criterios deben evaluar lo que se le pide entregar al estudiante y las ' +
-      'condiciones establecidas arriba.\n'
+    : '\nLos criterios deben basarse en los requisitos del producto que se pide, las ' +
+      'características de la evidencia, su calidad y los conocimientos que aplica. ' +
+      'Nunca evalúes cuándo se entrega.\n'
   return t
 }
 
@@ -985,7 +1006,93 @@ const MAX_CONSIDERACIONES_CHARS = 400
 function bloqueConsideraciones(params) {
   const texto = String(params?.consideraciones || '').trim().slice(0, MAX_CONSIDERACIONES_CHARS)
   if (!texto) return ''
-  return `\nCONSIDERACIONES DEL DOCENTE — tómalas en cuenta al proponer los criterios:\n"""${texto}"""\n`
+  return `\nCONSIDERACIONES DEL DOCENTE — tómalas en cuenta al proponer los criterios:\n"""${texto}"""\n` +
+    `Excepción: ${REGLA_SIN_TIEMPO}\n`
+}
+
+// ── Candado posterior: nunca un criterio sobre CUÁNDO se entregó ───────────
+// Segunda capa de REGLA_SIN_TIEMPO. Detecta el CONCEPTO, no palabras sueltas:
+// las raíces ambiguas ("tardío", "oportuno", "plazo", "anticipado") solo
+// cuentan junto a una palabra de entrega, así "Romanticismo tardío", "metas a
+// corto plazo", "intervenciones oportunas", "tiempo verbal" o "fechas
+// históricas" pasan. Función pura: se prueba sin Firestore ni modelo.
+const ENTREGA_RX = 'entreg\\w*|envi(?:o|a|ar|ado|ada)|sub(?:e|ir|ida|ido)|recepcion'
+const TIEMPO_RX = 'oportun(?:o|a|os|as|amente)|tardi[oa]s?|tardanza|extemporane\\w*|anticipad\\w*|anticipacion|' +
+  'tempran\\w*|retras\\w*|puntual\\w*|a tiempo|en fecha|en la fecha|fuera de (?:tiempo|fecha|plazo)|' +
+  'dentro (?:del|de) (?:tiempo|plazo)|en (?:el|los) (?:plazo|plazos)|antes de la (?:fecha|hora)'
+const PATRONES_TEMPORALES = [
+  // Inequívocos: dicen "cuándo" en sí mismos.
+  /\b(?:puntual\w*|a tiempo|en tiempo y forma|extemporane\w*|retrasos?|tardanza|vencimiento|fechas? limite|fechas? de entrega|dias? limite|horas? limite|horas? de entrega|plazos? de entrega|fuera de (?:tiempo|fecha|plazo)|(?:dentro|fuera) (?:del|de) plazo|en el plazo)\b/,
+  // "Cumple con la fecha", "cumplimiento temporal", "cumplimiento de plazos".
+  /\bcumpl\w*\s+(?:con\s+)?(?:la\s+|las\s+|el\s+|los\s+)?(?:fechas?|plazos?|calendario)\b/,
+  /\bcumplimiento\s+(?:temporal|de\s+(?:la\s+|las\s+)?fechas?|del\s+plazo|de\s+los\s+plazos|de\s+tiempos|del\s+calendario)\b/,
+  // Raíz ambigua cerca de una palabra de entrega, en cualquier orden.
+  new RegExp(`\\b(?:${ENTREGA_RX})(?:\\s+\\w+){0,5}?\\s+(?:${TIEMPO_RX})\\b`),
+  new RegExp(`\\b(?:${TIEMPO_RX})(?:\\s+\\w+){0,5}?\\s+(?:${ENTREGA_RX})\\b`),
+  // Criterio de una sola palabra que ya es el concepto.
+  /^(?:tardi[oa]s?|oportun[oa]s?|oportunidad|anticipad[oa]s?)$/,
+]
+
+function esCriterioTemporal(texto) {
+  const t = String(texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  if (!t) return false
+  return PATRONES_TEMPORALES.some((rx) => rx.test(t))
+}
+
+// Elementos de una propuesta (título, descripción, criterios, descriptores y
+// niveles) que evalúan el momento de entrega. [] = limpia.
+function elementosTemporales(propuesta) {
+  const fallas = []
+  if (!propuesta || typeof propuesta !== 'object') return fallas
+  const revisa = (texto, etiqueta) => { if (esCriterioTemporal(texto)) fallas.push(`${etiqueta}: «${String(texto).slice(0, 80)}»`) }
+  revisa(propuesta.titulo, 'título')
+  revisa(propuesta.descripcion, 'descripción')
+  ;(Array.isArray(propuesta.niveles) ? propuesta.niveles : []).forEach((n) => revisa(n, 'nivel de desempeño'))
+  ;(Array.isArray(propuesta.criterios) ? propuesta.criterios : []).forEach((c) => {
+    revisa(c?.nombre, 'criterio')
+    ;(Array.isArray(c?.descriptores) ? c.descriptores : []).forEach((d) =>
+      revisa(d, `descriptor del criterio «${String(c?.nombre || '').slice(0, 60)}»`))
+  })
+  return fallas
+}
+
+// pedirJSON + candado. Si la primera respuesta evalúa el momento de entrega NO
+// se filtra (dejaría un criterio vacío porque el cliente fuerza el número
+// exacto): se reintenta UNA vez nombrando lo que sobra y pidiendo el JSON
+// completo con la misma cantidad de criterios. Si el reintento también falla se
+// aborta; el callable reembolsa la reserva. No toca créditos ni unidades: lo
+// único que cambia es una segunda llamada al modelo en el caso excepcional.
+async function pedirInstrumentoSinTemporales({ client, modelo, maxTokens, prompt, bloques }) {
+  const primero = await pedirJSON({ client, modelo, maxTokens, prompt, bloques })
+  const fallas = elementosTemporales(primero.datos)
+  if (!fallas.length) return primero
+
+  const segundo = await pedirJSON({
+    client, modelo, maxTokens, bloques,
+    prompt: prompt +
+      '\n\nCORRECCIÓN OBLIGATORIA: tu respuesta anterior incluyó elementos que evalúan CUÁNDO se ' +
+      `entregó la evidencia, lo cual está prohibido:\n- ${fallas.join('\n- ')}\n` +
+      'Vuelve a generar el JSON COMPLETO con el mismo esquema. Reemplaza cada uno de esos elementos ' +
+      'por uno que evalúe la calidad del producto (requisitos solicitados, contenido, claridad, ' +
+      'organización, aplicación de conocimientos). Conserva exactamente la misma cantidad de ' +
+      'criterios y de niveles que se pidió.',
+  })
+  if (elementosTemporales(segundo.datos).length) {
+    throw new HttpsError('failed-precondition',
+      'La IA no logró proponer criterios centrados solo en la calidad del producto. ' +
+      'No se descontaron créditos; intenta de nuevo.', { codigo: 'CRITERIO_TEMPORAL' })
+  }
+  const suma = (k) => (primero.interno[k] ?? 0) + (segundo.interno[k] ?? 0)
+  return {
+    datos: segundo.datos,
+    interno: {
+      ...segundo.interno,
+      tokensEntrada: suma('tokensEntrada'), tokensSalida: suma('tokensSalida'),
+      cacheEscritura: suma('cacheEscritura'), cacheLectura: suma('cacheLectura'), ms: suma('ms'),
+      reintentoCriterioTemporal: true,
+    },
+  }
 }
 
 // Evidencia opcional que el docente adjunta al generar rúbrica/lista de
@@ -1029,7 +1136,7 @@ async function ejecutarRubrica({ params, modelo, apiKey }) {
   const descriptoresEjemplo = Array.from({ length: numNiveles }, (_, i) => `"<nivel ${i + 1}>"`).join(', ')
   const evidencia = await evidenciaInstrumento(params)
 
-  const { datos, interno } = await pedirJSON({
+  const { datos, interno } = await pedirInstrumentoSinTemporales({
     client, modelo, maxTokens: 1500,
     prompt: bloqueContexto(ctx, asignatura) +
       bloqueConsideraciones(params) +
@@ -1079,7 +1186,7 @@ async function ejecutarCotejo({ params, modelo, apiKey }) {
   const numCriterios = clampInt(params?.numCriterios, MIN_CRITERIOS, MIN_CRITERIOS, MAX_CRITERIOS)
   const evidencia = await evidenciaInstrumento(params)
 
-  const { datos, interno } = await pedirJSON({
+  const { datos, interno } = await pedirInstrumentoSinTemporales({
     client, modelo, maxTokens: 800,
     prompt: bloqueContexto(ctx, asignatura) +
       bloqueConsideraciones(params) +
@@ -6575,7 +6682,7 @@ exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
 // donde vive la decisión de "no alcanza, no se cobra".
 exports._pruebas = {
   pedirJSON,
-  contextoDeActividad, condicionesEntregable, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
+  contextoDeActividad, condicionesEntregable, esCriterioTemporal, elementosTemporales, bloqueContexto, bloqueConsideraciones, INSTRUMENTO_SISTEMA, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
   precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MAX_REACTIVOS,
   promptReactivos, sanitizarReactivosExistentes,
   agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
