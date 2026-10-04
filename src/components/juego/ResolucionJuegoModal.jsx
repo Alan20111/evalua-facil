@@ -83,11 +83,11 @@ export default function ResolucionJuegoModal({ open, onClose, estudianteNombre, 
         {navCount > 1 ? (
           <div className="flex gap-2">
             <button type="button" onClick={onAnterior}
-              className="px-3 py-2 text-sm font-medium text-muted border border-outline-variant hover:bg-surface-container rounded transition-colors">
+              className="px-3 py-2 text-sm font-medium text-muted border border-outline-variant hover:bg-surface-container rounded-full transition-colors">
               ← Anterior
             </button>
             <button type="button" onClick={onSiguiente}
-              className="px-3 py-2 text-sm font-medium text-muted border border-outline-variant hover:bg-surface-container rounded transition-colors">
+              className="px-3 py-2 text-sm font-medium text-muted border border-outline-variant hover:bg-surface-container rounded-full transition-colors">
               Siguiente →
             </button>
           </div>

@@ -131,7 +131,7 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
                 onChange(next)
                 if (respuestaCorrecta === o.id) onChangeCorrecta(next.find((x) => !x.esOtra)?.id ?? null)
               }}
-              className="p-2 text-hint hover:text-error rounded flex-shrink-0">
+              className="p-2 text-hint hover:text-error rounded-full flex-shrink-0">
               <X size={16} />
             </button>
           )}
@@ -986,7 +986,7 @@ export default function EvaluacionEditor({
       {/* ── Header ── */}
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button type="button" aria-label="Volver" onClick={onClose} className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
+          <button type="button" aria-label="Volver" onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
@@ -1021,7 +1021,7 @@ export default function EvaluacionEditor({
                 <label htmlFor="info-nombre" className="block text-sm font-medium text-muted mb-1">Nombre</label>
                 <input id="info-nombre" type="text" value={infoForm.nombre} onChange={(e) => setInfoForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               {/* Default apagado: el docente elige, actividad por actividad,
                   cuáles quiere que le avisen. El push solo llega al celular
@@ -1159,7 +1159,7 @@ export default function EvaluacionEditor({
                     <button
                       type="button"
                       onClick={() => setNewDateOpen(true)}
-                      className="w-full mt-2 py-2.5 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
+                      className="w-full mt-2 py-2.5 text-sm border border-accent text-accent rounded-full hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
                     >
                       <CalendarDays size={16} /> Nueva fecha para prórroga
                     </button>
@@ -1220,13 +1220,13 @@ export default function EvaluacionEditor({
             <>
               <button type="button" disabled={savingInfo || (!isDirty && !preguntasTocadas)}
                 onClick={() => handleSaveInfo({ preventDefault: () => {} }, true, false)}
-                className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
+                className="w-full py-3 bg-accent text-white font-semibold rounded-full disabled:opacity-60 flex items-center justify-center gap-2">
                 {savingInfo ? <Spinner size="sm" /> : null}
                 {savingInfo ? 'Guardando…' : 'Guardar borrador y seguir editando'}
               </button>
               <button type="button" disabled={savingInfo || (!isDirty && !preguntasTocadas)}
                 onClick={() => handleSaveInfo({ preventDefault: () => {} }, true, true)}
-                className="w-full py-2.5 border border-accent text-accent font-medium rounded hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                className="w-full py-2.5 border border-accent text-accent font-medium rounded-full hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                 Guardar borrador y salir
               </button>
             </>
@@ -1234,7 +1234,7 @@ export default function EvaluacionEditor({
             <>
               <button type="button" disabled={savingInfo || (!wasDraft && !isNew && !isDirty && !preguntasTocadas)}
                 onClick={() => handleSaveInfo({ preventDefault: () => {} })}
-                className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
+                className="w-full py-3 bg-accent text-white font-semibold rounded-full disabled:opacity-60 flex items-center justify-center gap-2">
                 {savingInfo ? <Spinner size="sm" /> : null}
                 {savingInfo ? 'Guardando…' : wasDraft ? (infoForm.visibilidadMode === 'schedule' ? 'Guardar con la fecha programada' : 'Guardar y publicar ahora') : 'Guardar y regresar a la asignatura'}
               </button>
@@ -1247,7 +1247,7 @@ export default function EvaluacionEditor({
                     if (infoForm.publishedAt) setConfirmDraft(true)
                     else handleSaveInfo({ preventDefault: () => {} }, true, false)
                   }}
-                  className="w-full py-2.5 border border-accent text-accent font-medium rounded hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                  className="w-full py-2.5 border border-accent text-accent font-medium rounded-full hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                   Guardar como borrador
                 </button>
               )}
@@ -1264,7 +1264,7 @@ export default function EvaluacionEditor({
           {!isNew && (
             // With no changes, exiting is the natural action — it takes the primary style
             <button type="button" onClick={onClose} disabled={savingInfo}
-              className={`w-full py-2.5 font-medium rounded transition-colors disabled:opacity-60 ${(!isDirty && !preguntasTocadas && (!wasDraft || infoForm.visibilidadMode === 'hide'))
+              className={`w-full py-2.5 font-medium rounded-full transition-colors disabled:opacity-60 ${(!isDirty && !preguntasTocadas && (!wasDraft || infoForm.visibilidadMode === 'hide'))
                 ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
                 : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
               {isDirty ? 'Salir sin guardar cambios' : 'Salir'}
@@ -1327,12 +1327,12 @@ export default function EvaluacionEditor({
             <div>
               <label htmlFor="config-tiempo-limite" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
               <input id="config-tiempo-limite" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
             </div>
             <div>
               <label htmlFor="config-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
               <input id="config-intentos" type="number" min="1" value={configForm.intentosPermitidos ?? ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
             </div>
             {/* La política de varios intentos solo importa con más de un intento —
                 con un único intento "conservar la mejor/última" es ruido. */}
@@ -1384,7 +1384,7 @@ export default function EvaluacionEditor({
               />
             </div>
             <button type="submit" disabled={savingConfig || !currentActivityId || JSON.stringify(configForm) === configSnap.current}
-              className={`w-full py-2.5 text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
+              className={`w-full py-2.5 text-sm font-medium rounded-full disabled:opacity-60 flex items-center justify-center gap-2 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
               {savingConfig ? <Spinner size="sm" /> : null}
               {savingConfig ? 'Guardando…' : 'Guardar configuración'}
             </button>
@@ -1417,7 +1417,7 @@ export default function EvaluacionEditor({
                 type="button"
                 onClick={handleRepartirParejo}
                 disabled={savingPregunta}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
               >
                 <Scale size={15} /> Repartir 10 pts parejo entre las {preguntas.length} preguntas
               </button>
@@ -1487,18 +1487,18 @@ export default function EvaluacionEditor({
                           <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.mover(grupo.seccion.id, 'up') }}
                             disabled={seccionesCtl.secciones[0]?.id === grupo.seccion.id || seccionesCtl.guardando}
                             aria-label="Subir sección"
-                            className="p-2 text-hint hover:text-accent rounded disabled:opacity-40"><ChevronUp size={13} /></button>
+                            className="p-2 text-hint hover:text-accent rounded-full disabled:opacity-40"><ChevronUp size={13} /></button>
                           <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.mover(grupo.seccion.id, 'down') }}
                             disabled={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id || seccionesCtl.guardando}
                             aria-label="Bajar sección"
-                            className="p-2 text-hint hover:text-accent rounded disabled:opacity-40"><ChevronDown size={13} /></button>
+                            className="p-2 text-hint hover:text-accent rounded-full disabled:opacity-40"><ChevronDown size={13} /></button>
                           <button type="button" onClick={(e) => { e.stopPropagation(); setFocusSectionId(null); seccionesCtl.setEditando(grupo.seccion) }}
                             disabled={seccionesCtl.guardando}
                             aria-label="Editar sección"
-                            className="p-2 text-hint hover:text-accent rounded"><Pencil size={12} /></button>
+                            className="p-2 text-hint hover:text-accent rounded-full"><Pencil size={12} /></button>
                           <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.setPorBorrar(grupo.seccion) }}
                             aria-label="Eliminar sección"
-                            className="p-2 text-hint hover:text-error rounded"><Trash2 size={12} /></button>
+                            className="p-2 text-hint hover:text-error rounded-full"><Trash2 size={12} /></button>
                         </div>
                       )}
                       {!isSeccion && seccionesCtl.secciones.length > 0 && grupo.preguntas.length > 0 && (
@@ -1560,19 +1560,19 @@ export default function EvaluacionEditor({
                                 <div className="flex items-center justify-between pt-1.5 border-t border-outline-variant mt-auto">
                                   <div className="flex gap-0.5">
                                     <button type="button" aria-label="Mover antes" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
-                                      className="p-2 text-hint hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover antes"><ChevronUp size={15} /></button>
+                                      className="p-2 text-hint hover:text-accent rounded-full disabled:opacity-40" data-tooltip="Mover antes"><ChevronUp size={15} /></button>
                                     <button type="button" aria-label="Mover después" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
-                                      className="p-2 text-hint hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover después"><ChevronDown size={15} /></button>
+                                      className="p-2 text-hint hover:text-accent rounded-full disabled:opacity-40" data-tooltip="Mover después"><ChevronDown size={15} /></button>
                                   </div>
                                   <div className="flex gap-0.5">
                                     {p.origenBancoId
                                       ? <span className="p-1 text-emerald-600 inline-flex" title="Ya está en el banco"><Library size={14} /></span>
-                                      : <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-2 text-hint hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={14} /></button>
+                                      : <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-2 text-hint hover:text-accent rounded-full" data-tooltip="Guardar en mi banco"><Library size={14} /></button>
                                     }
                                     <button type="button" aria-label="Editar" onClick={() => openEditPregunta(p)}
-                                      className={`p-1 rounded ${editingPreguntaId === p.id ? 'text-accent' : 'text-hint hover:text-accent'}`} data-tooltip="Editar"><Pencil size={14} /></button>
-                                    <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-2 text-hint hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={14} /></button>
-                                    <button type="button" aria-label="Eliminar" onClick={() => handleDeletePregunta(p.id)} className="p-2 text-hint hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={14} /></button>
+                                      className={`p-1 rounded-full ${editingPreguntaId === p.id ? 'text-accent' : 'text-hint hover:text-accent'}`} data-tooltip="Editar"><Pencil size={14} /></button>
+                                    <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-2 text-hint hover:text-accent rounded-full" data-tooltip="Duplicar"><Copy size={14} /></button>
+                                    <button type="button" aria-label="Eliminar" onClick={() => handleDeletePregunta(p.id)} className="p-2 text-hint hover:text-error rounded-full" data-tooltip="Eliminar"><Trash2 size={14} /></button>
                                   </div>
                                 </div>
                               </div>
@@ -1647,7 +1647,7 @@ export default function EvaluacionEditor({
                               max={Math.max(0, parseFloat((10 - preguntas.filter((x) => x.id !== editingPreguntaId).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)).toFixed(2)))}
                               step="0.01" value={preguntaEditForm.ponderacion}
                               onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                              className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                              className="w-full px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
                           </div>
                           {!pregEditando?.origenBancoId && (
                             <>
@@ -1660,7 +1660,7 @@ export default function EvaluacionEditor({
                                 <input type="text" value={preguntaEditForm.tema}
                                   onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tema: e.target.value }))}
                                   required aria-label="Tema (obligatorio, ej. Fracciones)"
-                                  className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                                  className="w-full px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
                               )}
                             </>
                           )}
@@ -1676,7 +1676,7 @@ export default function EvaluacionEditor({
                               }, 120)
                             }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
                             <button type="submit" disabled={savingPregunta || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current}
-                              className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                              className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60">
                               {savingPregunta ? 'Guardando…' : 'Guardar cambios'}
                             </button>
                           </div>
@@ -1720,7 +1720,7 @@ export default function EvaluacionEditor({
                             </div>
                             <input type="number" min="0.01" max={ponderacionRestante} step="0.01" value={preguntaForm.ponderacion}
                               onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                              className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                              className="w-full px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
                           </div>
                           <label className="flex items-center gap-2 text-sm text-muted">
                             <input type="checkbox" checked={preguntaForm.guardarEnBanco} onChange={(e) => setPreguntaForm((f) => ({ ...f, guardarEnBanco: e.target.checked }))} className="accent-[var(--accent)]" />
@@ -1728,7 +1728,7 @@ export default function EvaluacionEditor({
                           </label>
                           {preguntaForm.guardarEnBanco && (
                             <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
-                              required aria-label="Tema (obligatorio, ej. Fracciones)" className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                              required aria-label="Tema (obligatorio, ej. Fracciones)" className="w-full px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
                           )}
                           <div className="flex gap-2 pt-1">
                             <button type="button" onClick={() => {
@@ -1829,7 +1829,7 @@ export default function EvaluacionEditor({
                       </div>
                       <input id="preg-new-ponderacion" type="number" min="0.01" max={ponderacionRestante} step="0.01" value={preguntaForm.ponderacion}
                         onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                        className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                        className="w-full px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
                     </div>
                     <label className="flex items-center gap-2 text-sm text-muted">
                       <input type="checkbox" checked={preguntaForm.guardarEnBanco}
@@ -1839,12 +1839,12 @@ export default function EvaluacionEditor({
                     {preguntaForm.guardarEnBanco && (
                       <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
                         required aria-label="Tema (obligatorio, ej. Fracciones)"
-                        className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                        className="w-full px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
                     )}
                     <div className="flex gap-2 pt-1">
                       <button type="button" onClick={() => { setShowPreguntaForm(false); setSeccionDestino(null); setPreguntaForm(emptyPregunta()) }}
                         className="flex-1 py-2 text-sm text-muted">Cancelar</button>
-                      <button type="submit" disabled={savingPregunta} className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                      <button type="submit" disabled={savingPregunta} className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60">
                         {savingPregunta ? 'Guardando…' : 'Guardar pregunta'}
                       </button>
                     </div>
@@ -1866,18 +1866,18 @@ export default function EvaluacionEditor({
                     )}
                     <div className="flex gap-2">
                       <button type="button" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm bg-accent text-white font-medium rounded">
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm bg-accent text-white font-medium rounded-full">
                         <Plus size={15} /> Crear reactivo nuevo
                       </button>
                       <button type="button" onClick={() => { setShowBanco(true); loadBanco(); setSelectedBancoIds(new Set()) }}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm border border-accent text-accent font-medium rounded">
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm border border-accent text-accent font-medium rounded-full">
                         <Library size={15} /> Agregar desde el Banco
                       </button>
                     </div>
                     {/* OP-09: solo en la web, igual que la generación de rúbrica/cotejo. */}
                     {!IS_NATIVE_APP && (
                       <button type="button" onClick={pedirReactivosIA}
-                        className="w-full flex items-center justify-center gap-1.5 py-2.5 text-sm border border-accent text-accent font-semibold rounded hover:bg-[var(--accent-tint)] transition-colors">
+                        className="w-full flex items-center justify-center gap-1.5 py-2.5 text-sm border border-accent text-accent font-semibold rounded-full hover:bg-[var(--accent-tint)] transition-colors">
                         <Sparkles size={15} /> Generar reactivos con IA
                       </button>
                     )}
@@ -1927,7 +1927,7 @@ export default function EvaluacionEditor({
                   <select
                     value={seccionDestino || ''}
                     onChange={(e) => setSeccionDestino(e.target.value || null)}
-                    className="flex-1 text-xs px-2 py-1.5 rounded border border-outline-variant bg-surface"
+                    className="flex-1 text-xs px-2 py-1.5 rounded-full border border-outline-variant bg-surface"
                   >
                     <option value="">Sin sección</option>
                     {seccionesCtl.secciones.map((s) => (
@@ -1952,7 +1952,7 @@ export default function EvaluacionEditor({
                       handleAddFromBancoMultiple(items)
                       setShowBanco(false)
                     }}
-                    className="text-xs font-medium bg-accent text-white rounded px-3 py-2 disabled:opacity-60"
+                    className="text-xs font-medium bg-accent text-white rounded-full px-3 py-2 disabled:opacity-60"
                   >
                     Agregar {selectedBancoIds.size} a la evaluación
                   </button>
@@ -1997,12 +1997,12 @@ export default function EvaluacionEditor({
                             />
                           )}
                           <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
-                            aria-label="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                            aria-label="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
                           <div className="flex gap-2">
                             <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                             <button type="button" onClick={() => handleSaveBancoEdit(item.id)}
                               disabled={JSON.stringify(bancoEditForm) === bancoEditSnap.current}
-                              className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">Guardar</button>
+                              className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60">Guardar</button>
                           </div>
                         </div>
                       ) : (
@@ -2032,9 +2032,9 @@ export default function EvaluacionEditor({
                               <p className="text-sm font-semibold text-on-surface">{item.enunciado}</p>
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
-                              <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-2 text-hint hover:text-accent rounded"><Pencil size={13} /></button>
-                              <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-2 text-hint hover:text-accent rounded"><Copy size={13} /></button>
-                              <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-2 text-hint hover:text-error rounded"><Trash2 size={13} /></button>
+                              <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-2 text-hint hover:text-accent rounded-full"><Pencil size={13} /></button>
+                              <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-2 text-hint hover:text-accent rounded-full"><Copy size={13} /></button>
+                              <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-2 text-hint hover:text-error rounded-full"><Trash2 size={13} /></button>
                             </div>
                           </div>
                           {item.opciones && Array.isArray(item.opciones) && (
@@ -2052,7 +2052,7 @@ export default function EvaluacionEditor({
                             </p>
                           )}
                           <button type="button" onClick={() => { handleAddFromBanco(item); setShowBanco(false) }}
-                            className="mt-2 w-full py-2 text-xs font-medium bg-accent text-white rounded">
+                            className="mt-2 w-full py-2 text-xs font-medium bg-accent text-white rounded-full">
                             + Agregar a la evaluación
                           </button>
                         </div>
@@ -2066,7 +2066,7 @@ export default function EvaluacionEditor({
             {/* Footer fijo */}
             <div className="p-3 border-t border-outline-variant flex-shrink-0">
               <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }}
-                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors">Cerrar</button>
+                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors">Cerrar</button>
             </div>
           </div>
         </div>
@@ -2170,7 +2170,7 @@ export default function EvaluacionEditor({
                   <label htmlFor="ia-tema" className="block text-sm text-on-surface mb-1">Tema (opcional)</label>
                   <input id="ia-tema" type="text" value={iaTema} disabled={iaTrabajando}
                     onChange={(e) => setIaTema(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+                    className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
                 </div>
                 <div>
                   <label htmlFor="ia-quiere-evaluar" className="block text-sm text-on-surface mb-1">¿Qué quieres evaluar?</label>
@@ -2184,7 +2184,7 @@ export default function EvaluacionEditor({
               <label htmlFor="ia-cantidad" className="text-sm text-on-surface">¿Cuántos reactivos quieres generar?</label>
               <select id="ia-cantidad" value={iaCantidad} disabled={iaTrabajando}
                 onChange={(e) => setIaCantidad(Number(e.target.value))}
-                className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                className="px-2 py-1 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                 {Array.from({ length: MAX_REACTIVOS - MIN_REACTIVOS + 1 }, (_, i) => MIN_REACTIVOS + i).map((n) => (
                   <option key={n} value={n}>{n}</option>
                 ))}

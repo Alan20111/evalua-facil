@@ -150,13 +150,15 @@ Color de calificación (`gradeColor`): alta `text-emerald-700` · media `text-am
 | Token | Docente | Alumno | Uso — **regla** |
 |---|---|---|---|
 | `rounded-sm` | 2px | 2px | Solo micro-elementos ≤ 12px: muestras de leyenda, chips del calendario mensual |
-| `rounded` (DEFAULT) | 8px | 16px | **Todo lo que se toca**: botones (de cualquier tamaño), inputs, selects, items de nav, eventos del calendario, avisos internos |
+| `rounded` (DEFAULT) | 8px | 16px | Contenedores medianos que **no** son control: cuadros de icono, avisos internos, items de nav, eventos del calendario, celdas |
 | `rounded-card` | 14px | 32px | **Contenedores**: cards, modales, tablas, secciones, banners de estado. Nunca en un botón de acción |
-| `rounded-full` / `rounded-pill` | 9999px | 9999px | Badges, chips de filtro, avatares, FAB, swatches, toggles |
+| `rounded-full` / `rounded-pill` | 9999px | 9999px | **Todo control que se toca (oct-2026, patrón Apple):** botones de cualquier variante (incluidos los de icono, que en hover muestran un círculo), campos de una línea, selects y buscadores. También badges, chips, avatares, FAB, swatches y toggles. Los `<textarea>` siguen en `rounded` (varias líneas no caben en una píldora) y los controles segmentados conservan `rounded-l`/`rounded-r` |
 
 Prohibidos (candado en `check:design`): `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`, `rounded-3xl`. Variantes laterales (`rounded-l`, `rounded-r`, `rounded-t-card`) solo para controles segmentados y hojas inferiores.
 
 ### 4.2 Sombras — escala cerrada (oct-2026)
+
+**Elevación plana (oct-2026, patrón Apple):** `shadow-card` ya no es una sombra proyectada sino un filo de 1px (`0 0 0 1px rgba(19,27,46,.06)`): la tarjeta se separa del lienzo por contraste de superficie. `shadow-card-hover` agrega una sombra suave solo al pasar el cursor. Modales y flotantes conservan su sombra (sí están encima de algo).
 
 | Token | Valor | Uso — **regla** |
 |---|---|---|
@@ -182,6 +184,10 @@ Prohibidos (candado): `shadow-sm`, `shadow-md`, `shadow-xl`.
 | Alumno | `px-4 py-5` (o `py-6`) + `max-w-2xl mx-auto` (listas) / `max-w-xl` (detalle) |
 | Auth (ambos) | `data-forma="acceso"` + `min-h-dvh flex flex-col items-center justify-center px-4 py-8 bg-surface` + card `w-full max-w-sm` `p-5`, logo `w-56 sm:w-64`. `data-forma="acceso"` (login docente, login alumno, registro y activación) da las esquinas redondas del alumno (16/32px), campos en píldora (`rounded-full`) y la escala de letra del docente: son idénticos salvo el acento |
 | Admin | main `p-4 md:p-5 lg:p-8 max-w-7xl` |
+
+### Tipografía — pulido (oct-2026, patrón Apple)
+
+Sin cambiar fuente, tamaños ni colores: `h1–h3` con tracking `-0.015em` y `text-wrap: balance`; `h1` con interlineado 1.15; párrafos con `text-wrap: pretty`; tablas y campos numéricos con `tabular-nums`. Párrafos de varias líneas alineados a la izquierda (solo títulos cortos y estados vacíos van centrados).
 
 ### 4.4 Espaciado — estándares (oct-2026)
 

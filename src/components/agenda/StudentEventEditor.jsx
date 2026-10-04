@@ -110,7 +110,7 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
             onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
             aria-label="Título (ej. Estudiar para examen)"
             required
-            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+            className="w-full px-3 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
           />
 
           <textarea
@@ -155,7 +155,7 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
                 </button>
               )
             )}
-            <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2">
+            <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-full text-sm disabled:opacity-60 flex items-center justify-center gap-2">
               {saving ? <Spinner size="sm" /> : isNew ? 'Crear evento' : 'Guardar cambios'}
             </button>
           </div>

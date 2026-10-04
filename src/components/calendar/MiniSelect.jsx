@@ -22,7 +22,7 @@ export default function MiniSelect({ value, options, onChange }) {
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between gap-1 px-2 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface transition-colors"
+        className="w-full flex items-center justify-between gap-1 px-2 py-2 rounded-full border border-outline-variant bg-surface text-sm text-on-surface transition-colors"
       >
         <span className="truncate">{selected?.label}</span>
         <ChevronDown size={14} className={`text-muted flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />

@@ -162,7 +162,7 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
             type="button"
             onClick={guardar}
             disabled={guardando || sonIguales(respuestas, guardado)}
-            className="mt-3 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-2"
+            className="mt-3 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center gap-2"
           >
             {guardando && <Spinner size="sm" />}
             {guardando ? 'Guardando…' : 'Guardar'}

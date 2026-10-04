@@ -296,7 +296,7 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => setShowActivarCreditos(true)}
-              className="mt-3 w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors"
+              className="mt-3 w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full text-sm transition-colors"
             >
               Activar mis 30 créditos de regalo
             </button>
@@ -304,7 +304,7 @@ export default function Profile() {
           <button
             type="button"
             onClick={() => setShowComprarCreditos(true)}
-            className={`mt-2 w-full py-2.5 font-semibold rounded text-sm transition-colors ${
+            className={`mt-2 w-full py-2.5 font-semibold rounded-full text-sm transition-colors ${
               creditosIA.mostrarCTAActivarBienvenida
                 ? 'border border-outline-variant text-muted hover:bg-surface'
                 : 'bg-accent hover:bg-accent-hover text-white'
@@ -425,7 +425,7 @@ export default function Profile() {
                       las mismas reglas que ya revisa requestPwdChange al
                       hacer clic. */}
                   <button type="submit" disabled={savingPwd || !currentPwd || newPwd.length < 6 || newPwd !== confirmPwd}
-                    className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                     {savingPwd ? <Spinner size="sm" /> : <Lock size={17} />}
                     {savingPwd ? 'Actualizando…' : 'Cambiar contraseña'}
                   </button>
@@ -465,7 +465,7 @@ export default function Profile() {
               onChange={setCodigoPostal}
             />
             <button type="submit" disabled={savingDatosPersonales || !datosPersonalesChanged}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
               {savingDatosPersonales ? <Spinner size="sm" /> : null}
               {savingDatosPersonales ? 'Guardando…' : 'Guardar datos personales'}
             </button>
@@ -505,7 +505,7 @@ export default function Profile() {
               </div>
             </div>
             <button type="submit" disabled={savingNombre || !nombreChanged}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
               {savingNombre ? <Spinner size="sm" /> : null}
               {savingNombre ? 'Guardando…' : 'Guardar nombre'}
             </button>
@@ -557,7 +557,7 @@ export default function Profile() {
           <button
             type="button"
             onClick={() => setShowEliminarCuenta(true)}
-            className="w-full py-2.5 rounded border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors"
+            className="w-full py-2.5 rounded-full border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors"
           >
             Eliminar mi cuenta
           </button>

@@ -136,7 +136,7 @@ export default function ConfigAnalisisAsignatura({ preparacion, onCancelar, onCo
         </button>
         <button type="button" disabled={!puedeContinuar}
           onClick={() => onContinuar({ parciales: ordenados, fuentes: efectivas, costo })}
-          className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+          className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
           Continuar
         </button>
       </div>

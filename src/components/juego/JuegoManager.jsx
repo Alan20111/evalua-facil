@@ -153,7 +153,7 @@ export default function JuegoManager({
   return (
     <div className="max-w-2xl mx-auto px-4 py-4">
       <div className="flex items-center gap-2 mb-3">
-        <button type="button" onClick={goBack} aria-label="Volver" className="p-2 -ml-2 text-hint hover:text-muted rounded">
+        <button type="button" onClick={goBack} aria-label="Volver" className="p-2 -ml-2 text-hint hover:text-muted rounded-full">
           <ArrowLeft size={22} />
         </button>
         <div className="flex-1 min-w-0">
@@ -167,13 +167,13 @@ export default function JuegoManager({
         {esBorrador && (
           <button type="button" onClick={() => setConfirmandoCancelar(true)} aria-label="Eliminar este borrador"
             data-tooltip="Eliminar este borrador"
-            className="p-2 text-hint hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0">
+            className="p-2 text-hint hover:text-error hover:bg-red-50 rounded-full transition-colors flex-shrink-0">
             <XCircle size={18} />
           </button>
         )}
         {!esBorrador && onDeleteActivity && (
           <button type="button" onClick={onDeleteActivity} aria-label="Eliminar actividad"
-            className="p-2 text-hint hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0">
+            className="p-2 text-hint hover:text-error hover:bg-red-50 rounded-full transition-colors flex-shrink-0">
             <Trash2 size={18} />
           </button>
         )}
@@ -300,14 +300,14 @@ function NombreJuego({ activity, activityId, onActivityChange }) {
           disabled={guardando}
           onChange={(e) => setValor(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && cambio && !guardando) { e.preventDefault(); handleGuardar() } }}
-          className="flex-1 min-w-0 px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="flex-1 min-w-0 px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         />
         {/* Solo aparece cuando de verdad hay algo distinto que guardar, para
             no invitar a reguardar lo mismo (mismo criterio que los botones de
             Configuración/Disponibilidad de abajo). */}
         {cambio && (
           <button type="button" onClick={handleGuardar} disabled={guardando}
-            className="px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60 flex-shrink-0">
+            className="px-3 py-2 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60 flex-shrink-0">
             {guardando ? 'Guardando…' : 'Guardar'}
           </button>
         )}
@@ -598,7 +598,7 @@ function JuegoConfiguracion({
             </div>
           )}
           <button type="submit" disabled={savingVis || !visFormCambio}
-            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2">
+            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60 flex items-center justify-center gap-2">
             {savingVis ? <Spinner size="sm" /> : <Pencil size={16} />}
             {savingVis ? 'Guardando…' : 'Guardar disponibilidad'}
           </button>
@@ -638,7 +638,7 @@ function JuegoConfiguracion({
           })()}
           {!isDraft && (
             <button type="button" onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setNuevaFecha({ preselect: null }))}
-              className="w-full py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2">
+              className="w-full py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2">
               <CalendarDays size={16} />
               Nueva fecha para prórroga
             </button>
@@ -654,12 +654,12 @@ function JuegoConfiguracion({
           <div>
             <label htmlFor="juego-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
             <input id="juego-tiempo" type="number" min="1" value={form.tiempoLimiteMin ?? ''}
-              onChange={(e) => setForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+              onChange={(e) => setForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
           </div>
           <div>
             <label htmlFor="juego-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
             <input id="juego-intentos" type="number" min="1" value={form.intentosPermitidos ?? ''}
-              onChange={(e) => setForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+              onChange={(e) => setForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
           </div>
           {form.intentosPermitidos !== 1 && (
             <Select
@@ -693,7 +693,7 @@ function JuegoConfiguracion({
             onFechaChange={(v) => setForm((f) => ({ ...f, publicarSolucionFecha: v }))}
           />
           <button type="submit" disabled={saving || !formCambio}
-            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60">
             {saving ? 'Guardando…' : 'Guardar configuración'}
           </button>
         </form>
@@ -778,7 +778,7 @@ function JuegoConfiguracion({
                   disabled={prorrogaBloqueada}
                   aria-label={`Modificar la fecha de entrega de ${nombre}`}
                   data-tooltip={prorrogaBloqueada ? MENSAJE_PRORROGA_CON_ENTREGA : 'Modificar la fecha de entrega para este estudiante'}
-                  className="p-1.5 rounded text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
+                  className="p-1.5 rounded-full text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
                   <CalendarClock size={16} />
                 </button>
 
@@ -789,7 +789,7 @@ function JuegoConfiguracion({
                     disabled={parcialCerrado}
                     aria-label={`Anular la entrega de ${nombre}`}
                     data-tooltip={parcialCerrado ? 'El parcial está cerrado' : 'Anular la entrega actual'}
-                    className="p-1.5 rounded text-hint hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
+                    className="p-1.5 rounded-full text-hint hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
                     <Ban size={16} />
                   </button>
                 ) : (
@@ -840,11 +840,11 @@ function JuegoConfiguracion({
         footer={(
           <div className="flex gap-2">
             <button type="button" onClick={() => setAnularConfirm(null)} disabled={anulando}
-              className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
+              className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
               Cancelar
             </button>
             <button type="button" onClick={handleAnular} disabled={anulando}
-              className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+              className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
               {anulando ? <Spinner size="sm" /> : <Ban size={16} />}
               {anulando ? 'Anulando…' : 'Sí, anular entrega'}
             </button>

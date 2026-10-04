@@ -45,6 +45,27 @@
     @apply min-h-screen;
   }
 
+  /* ── Pulido tipográfico (oct-2026, patrones de referencia Apple) ──────
+     Sin tocar fuente ni colores. Los títulos se aprietan un poco (tracking
+     negativo y línea corta): a tamaño grande el espaciado por defecto se
+     ve suelto. Los párrafos evitan viudas y los títulos se reparten parejo
+     entre renglones. Las cifras de tablas usan dígitos de ancho fijo para
+     que las columnas de calificaciones no "bailen". Una clase de Tailwind
+     (tracking-wide, leading-…) sigue ganando donde se pone a propósito. */
+  h1, h2, h3 {
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  h1 {
+    line-height: 1.15;
+  }
+  p, li, dd {
+    text-wrap: pretty;
+  }
+  table, input[type='number'], .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
   /* ── Luminous neutral / surface tokens ─────────────────────────── */
   /* El lienzo es azul cielo, no blanco. El --surface de antes (#faf9fa) era
      casi blanco y las tarjetas —que SÍ son blancas— se perdían contra él: sin

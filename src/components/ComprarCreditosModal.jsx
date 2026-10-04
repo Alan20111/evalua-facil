@@ -96,7 +96,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
                     <button
                       type="button"
                       onClick={() => setPaquete(p)}
-                      className={`w-full flex flex-col items-center px-1 py-2.5 rounded border transition-colors ${
+                      className={`w-full flex flex-col items-center px-1 py-2.5 rounded-full border transition-colors ${
                         seleccionado
                           ? 'border-accent bg-[var(--accent-tint)]'
                           : 'border-outline-variant hover:border-accent'
@@ -139,7 +139,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
                     <button
                       type="button"
                       onClick={() => copiar(valor)}
-                      className="p-1 rounded hover:bg-surface-container transition-colors"
+                      className="p-1 rounded-full hover:bg-surface-container transition-colors"
                       aria-label={`Copiar ${label}`}
                     >
                       <Copy size={14} className="text-muted" />
@@ -164,7 +164,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
                     type="text"
                     value={referencia}
                     onChange={(e) => setReferencia(e.target.value)}
-                    className="w-full border border-outline-variant rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+                    className="w-full border border-outline-variant rounded-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </div>
 
@@ -191,7 +191,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
                   type="button"
                   onClick={enviar}
                   disabled={enviando || !referencia.trim()}
-                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60"
+                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60"
                 >
                   {enviando ? 'Enviando…' : 'Confirmar y enviar solicitud'}
                 </button>
@@ -217,7 +217,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
         <button
           type="button"
           onClick={handleClose}
-          className="w-full py-2.5 border border-outline-variant text-on-surface font-semibold rounded transition-colors hover:bg-[var(--accent-tint)] text-sm"
+          className="w-full py-2.5 border border-outline-variant text-on-surface font-semibold rounded-full transition-colors hover:bg-[var(--accent-tint)] text-sm"
         >
           Cancelar
         </button>

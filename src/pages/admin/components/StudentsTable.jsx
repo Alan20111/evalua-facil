@@ -300,7 +300,7 @@ export default function StudentsTable({ stats }) {
             type="button"
             onClick={limpiarTodo}
             disabled={!hayFiltro}
-            className="self-end inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-accent text-accent hover:bg-[var(--accent-tint)]"
+            className="self-end inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-full border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-accent text-accent hover:bg-[var(--accent-tint)]"
           >
             <X size={15} /> Quitar todos los filtros
           </button>
@@ -426,7 +426,7 @@ export default function StudentsTable({ stats }) {
             <button
               type="button"
               onClick={() => setLimit((l) => l + PAGE)}
-              className="px-3 py-2 text-sm font-semibold text-accent border border-accent rounded hover:bg-[var(--accent-tint)] transition-colors"
+              className="px-3 py-2 text-sm font-semibold text-accent border border-accent rounded-full hover:bg-[var(--accent-tint)] transition-colors"
             >
               Mostrar {Math.min(PAGE, filtered.length - visible.length)} más
             </button>

@@ -220,7 +220,7 @@ export default function DownloadLinks() {
             <div className="mt-4 flex flex-wrap gap-2">
               <a
                 href={vigente.url}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
               >
                 <Smartphone size={15} className="text-accent" />
                 Descargar .apk
@@ -229,7 +229,7 @@ export default function DownloadLinks() {
               {vigente.aabUrl ? (
                 <a
                   href={vigente.aabUrl}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
                 >
                   <Package size={15} className="text-accent" />
                   Descargar .aab para Play Store

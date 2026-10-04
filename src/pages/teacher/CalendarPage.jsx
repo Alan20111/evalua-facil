@@ -1797,7 +1797,7 @@ export default function CalendarPage() {
   // dos layouts distintos (nativo vs. web) sin duplicar el marcado.
   const dateNav = (
     <div className="relative flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
-      <button type="button" onClick={prev} aria-label="Anterior" className="p-2 rounded hover:bg-accent-tint text-muted transition-colors">
+      <button type="button" onClick={prev} aria-label="Anterior" className="p-2 rounded-full hover:bg-accent-tint text-muted transition-colors">
         <ChevronLeft size={16} />
       </button>
       <button
@@ -1806,13 +1806,13 @@ export default function CalendarPage() {
           setPickerMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
           setShowDatePicker(v => !v)
         }}
-        className={`text-sm font-semibold text-on-surface px-3 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[180px] max-w-[240px]'} truncate text-center select-none rounded hover:bg-accent-tint transition-colors py-0.5`}
+        className={`text-sm font-semibold text-on-surface px-3 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[180px] max-w-[240px]'} truncate text-center select-none rounded-full hover:bg-accent-tint transition-colors py-0.5`}
         data-tooltip="Ir a otra fecha"
         data-tooltip-pos="bottom"
       >
         {navLabel()}
       </button>
-      <button type="button" onClick={next} aria-label="Siguiente" className="p-2 rounded hover:bg-accent-tint text-muted transition-colors">
+      <button type="button" onClick={next} aria-label="Siguiente" className="p-2 rounded-full hover:bg-accent-tint text-muted transition-colors">
         <ChevronRight size={16} />
       </button>
 
@@ -1827,13 +1827,13 @@ export default function CalendarPage() {
           />
           <div className="absolute left-1/2 -translate-x-1/2 top-11 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
             <div className="flex items-center justify-between mb-2">
-              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-2 rounded hover:bg-accent-tint text-muted">
+              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-2 rounded-full hover:bg-accent-tint text-muted">
                 <ChevronLeft size={15} />
               </button>
               <span className="text-sm font-semibold text-on-surface">
                 {MESES[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}
               </span>
-              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, 1))} className="p-2 rounded hover:bg-accent-tint text-muted">
+              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, 1))} className="p-2 rounded-full hover:bg-accent-tint text-muted">
                 <ChevronRight size={15} />
               </button>
             </div>
@@ -1900,7 +1900,7 @@ export default function CalendarPage() {
           type="button"
           key={id}
           onClick={() => changeView(id)}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded text-xs font-medium transition-colors ${view === id ? 'bg-accent text-white' : 'text-muted hover:bg-accent-tint'}`}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors ${view === id ? 'bg-accent text-white' : 'text-muted hover:bg-accent-tint'}`}
         >
           <Icon size={13} />{label}
         </button>
@@ -2014,7 +2014,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setShowAsuetos(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
                 data-tooltip="Marca días sin clases, eventos y/o actividades"
                 data-tooltip-pos="bottom"
               >
@@ -2026,7 +2026,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setShowVacaciones(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
                 data-tooltip="Marca un periodo sin clases, eventos y/o actividades"
                 data-tooltip-pos="bottom"
               >
@@ -2041,7 +2041,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setShowModificarPicker(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
                 data-tooltip={(totalBloquesFueraDeRango + totalBloquesEnAsueto) > 0
                   ? `${totalBloquesFueraDeRango + totalBloquesEnAsueto} bloque(s) necesitan revisión (rango o asueto/vacaciones)`
                   : 'Modificar bloques de clase por asignatura'}
@@ -2057,7 +2057,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => openProgramar()}
-                className="flex items-center gap-1.5 px-3 py-2 rounded bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
                 data-tooltip="Programar bloques de clase por asignatura"
                 data-tooltip-pos="bottom"
               >
@@ -2454,7 +2454,7 @@ export default function CalendarPage() {
                 type="button"
                 onClick={() => confirmPendingMove()}
                 disabled={!cambioHora || seEncima}
-                className="w-full py-2.5 bg-accent text-white rounded text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-45"
+                className="w-full py-2.5 bg-accent text-white rounded-full text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-45"
               >
                 {seEncima ? 'Se encima con otra clase' : cambioHora ? `Mover a las ${fmtHour(hora)}` : 'Ajusta la hora para mover'}
               </button>
@@ -2469,7 +2469,7 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => reactivarBloqueUnico(b)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-accent/30 text-accent text-sm hover:bg-accent-tint transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent/30 text-accent text-sm hover:bg-accent-tint transition-colors"
                 >
                   Reactivar esta clase
                 </button>
@@ -2479,7 +2479,7 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => cancelarBloqueUnico(b)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-amber-300 text-amber-700 text-sm hover:bg-amber-50 transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-amber-300 text-amber-700 text-sm hover:bg-amber-50 transition-colors"
                 >
                   <Ban size={14} /> Cancelar esta clase (no se impartirá)
                 </button>
@@ -2495,7 +2495,7 @@ export default function CalendarPage() {
                   <button
                     type="button"
                     onClick={() => setPendingMove(pm => ({ ...pm, confirmDel: true }))}
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-error/30 text-error text-sm hover:bg-error/10 transition-colors"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-error/30 text-error text-sm hover:bg-error/10 transition-colors"
                   >
                     <Trash2 size={14} /> Eliminar esta clase (se creó por error)
                   </button>
@@ -2511,7 +2511,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setPendingMove(null)}
-                className="w-full py-2.5 rounded border border-outline-variant text-muted text-sm hover:bg-surface transition-colors"
+                className="w-full py-2.5 rounded-full border border-outline-variant text-muted text-sm hover:bg-surface transition-colors"
               >
                 Cancelar
               </button>
@@ -2633,7 +2633,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
         </div>
 
         <div className="border-t border-outline-variant px-4 py-3 flex justify-end flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
+          <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-muted rounded-full border border-outline-variant hover:bg-surface transition-colors">
             Cerrar
           </button>
         </div>
@@ -2763,7 +2763,7 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
         </div>
 
         <div className="border-t border-outline-variant px-4 py-3 flex justify-end flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
+          <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-muted rounded-full border border-outline-variant hover:bg-surface transition-colors">
             Cerrar
           </button>
         </div>

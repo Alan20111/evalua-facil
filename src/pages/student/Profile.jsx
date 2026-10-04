@@ -247,7 +247,7 @@ export default function StudentProfile() {
           <button
             type="button"
             onClick={() => navigate('/alumno/dashboard')}
-            className="p-2 -ml-2 rounded hover:bg-accent-tint text-muted hover:text-accent transition-colors flex-shrink-0"
+            className="p-2 -ml-2 rounded-full hover:bg-accent-tint text-muted hover:text-accent transition-colors flex-shrink-0"
             aria-label="Regresar"
           >
             <ArrowLeft size={20} />
@@ -333,7 +333,7 @@ export default function StudentProfile() {
             <button
               type="button"
               onClick={handleCopyUsername}
-              className="p-2.5 rounded border border-outline-variant text-muted hover:bg-accent-tint hover:text-accent transition-colors flex-shrink-0"
+              className="p-2.5 rounded-full border border-outline-variant text-muted hover:bg-accent-tint hover:text-accent transition-colors flex-shrink-0"
               aria-label="Copiar usuario"
               data-tooltip={copied ? 'Copiado' : 'Copiar'}
             >
@@ -370,7 +370,7 @@ export default function StudentProfile() {
               aria-label={debeEstablecerContrasena ? 'Contraseña de reset (la que te dio tu maestro)' : 'Contraseña actual'}
               autoComplete="current-password"
               required
-              className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+              className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
             />
             <PasswordInput
               value={passNueva}
@@ -378,7 +378,7 @@ export default function StudentProfile() {
               aria-label="Contraseña nueva (mínimo 8 caracteres)"
               autoComplete="new-password"
               required
-              className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+              className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
             />
             <PasswordInput
               value={passConfirm}
@@ -386,12 +386,12 @@ export default function StudentProfile() {
               aria-label="Repite la contraseña nueva"
               autoComplete="new-password"
               required
-              className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+              className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
             />
             <button
               type="submit"
               disabled={savingPass || !passActual || !passNueva || !passConfirm}
-              className="w-full py-2.5 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-full bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {savingPass ? <Spinner size="sm" /> : 'Guardar contraseña nueva'}
             </button>
@@ -431,7 +431,7 @@ export default function StudentProfile() {
             <button
               type="button"
               onClick={() => setShowEliminar(true)}
-              className="w-full py-2.5 rounded border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-full border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
             >
               <Trash2 size={16} /> Eliminar mi cuenta
             </button>

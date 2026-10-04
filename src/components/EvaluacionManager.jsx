@@ -148,7 +148,7 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
                 onChange(next)
                 if (respuestaCorrecta === o.id) onChangeCorrecta(next.find((x) => !x.esOtra)?.id ?? null)
               }}
-              className="p-2 text-hint hover:text-error rounded flex-shrink-0">
+              className="p-2 text-hint hover:text-error rounded-full flex-shrink-0">
               <X size={16} />
             </button>
           )}
@@ -1375,7 +1375,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       <div className="px-4 py-2">
         <div className={IS_NATIVE_APP ? '' : TEACHER_CONTAINER_NARROW}>
           <div className="flex items-center gap-2">
-            <button type="button" aria-label="Volver" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} className="p-2 -ml-2 text-hint hover:text-muted rounded">
+            <button type="button" aria-label="Volver" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} className="p-2 -ml-2 text-hint hover:text-muted rounded-full">
               <ArrowLeft size={22} />
             </button>
             <div className="flex-1 min-w-0">
@@ -1403,7 +1403,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   onClick={() => setShowEvalEditor(true)}
                   data-tooltip="Editar actividad"
                   aria-label="Editar actividad"
-                  className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                  className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0"
                 >
                   <Pencil size={18} />
                 </button>
@@ -1462,7 +1462,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       type="button"
                       onClick={handleRepartirParejo}
                       disabled={saving}
-                      className="flex items-center gap-1.5 py-2 px-3 rounded border border-accent text-accent text-xs font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
+                      className="flex items-center gap-1.5 py-2 px-3 rounded-full border border-accent text-accent text-xs font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
                     >
                       <Scale size={14} /> Repartir parejo
                     </button>
@@ -1545,7 +1545,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           <label htmlFor={`preg-edit-pond-${p.id}`} className="block text-sm font-medium text-muted mb-1">Ponderación</label>
                           <input id={`preg-edit-pond-${p.id}`} type="number" min="0.1" step="0.1" value={preguntaEditForm.ponderacion}
                             onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                            className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                            className="w-full px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
                         </div>
                         <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
                           <ImageIcon size={16} /> Cambiar imagen (opcional)
@@ -1555,7 +1555,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         </label>
                         <div className="flex gap-2 pt-1">
                           <button type="button" onClick={() => { setEditingPreguntaId(null); setGlowId(p.id) }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
-                          <button type="submit" disabled={saving || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current} className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                          <button type="submit" disabled={saving || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current} className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60">
                             {saving ? 'Guardando…' : 'Guardar cambios'}
                           </button>
                         </div>
@@ -1571,12 +1571,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           </div>
                           <div className="flex gap-0.5 flex-shrink-0">
                             <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
-                              className="p-2 text-hint hover:text-accent disabled:opacity-40 rounded"><ChevronUp size={15} /></button>
+                              className="p-2 text-hint hover:text-accent disabled:opacity-40 rounded-full"><ChevronUp size={15} /></button>
                             <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
-                              className="p-2 text-hint hover:text-accent disabled:opacity-40 rounded"><ChevronDown size={15} /></button>
-                            <button type="button" aria-label="Editar pregunta" onClick={() => openEditPregunta(p)} className="p-2 text-hint hover:text-accent rounded"><Pencil size={15} /></button>
-                            <button type="button" aria-label="Duplicar pregunta" onClick={() => handleDuplicatePregunta(p)} className="p-2 text-hint hover:text-accent rounded"><Copy size={15} /></button>
-                            <button type="button" aria-label="Eliminar pregunta" onClick={() => handleDeletePregunta(p.id)} className="p-2 text-hint hover:text-error rounded"><Trash2 size={15} /></button>
+                              className="p-2 text-hint hover:text-accent disabled:opacity-40 rounded-full"><ChevronDown size={15} /></button>
+                            <button type="button" aria-label="Editar pregunta" onClick={() => openEditPregunta(p)} className="p-2 text-hint hover:text-accent rounded-full"><Pencil size={15} /></button>
+                            <button type="button" aria-label="Duplicar pregunta" onClick={() => handleDuplicatePregunta(p)} className="p-2 text-hint hover:text-accent rounded-full"><Copy size={15} /></button>
+                            <button type="button" aria-label="Eliminar pregunta" onClick={() => handleDeletePregunta(p.id)} className="p-2 text-hint hover:text-error rounded-full"><Trash2 size={15} /></button>
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-32 rounded border border-outline-variant" />}
@@ -1619,10 +1619,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             )}
             {!showPreguntaForm ? (
               <div className="flex gap-2">
-                <button type="button" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }} className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-accent text-white text-sm font-medium rounded">
+                <button type="button" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }} className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-accent text-white text-sm font-medium rounded-full">
                   <Plus size={17} /> Agregar pregunta
                 </button>
-                <button type="button" onClick={() => { setShowBanco(true); setSelectedBancoIds(new Set()) }} className="flex items-center justify-center gap-1 px-3 py-2 border border-accent text-accent text-sm font-medium rounded">
+                <button type="button" onClick={() => { setShowBanco(true); setSelectedBancoIds(new Set()) }} className="flex items-center justify-center gap-1 px-3 py-2 border border-accent text-accent text-sm font-medium rounded-full">
                   <Library size={17} /> Mi banco
                 </button>
               </div>
@@ -1698,7 +1698,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   <label htmlFor="preg-nueva-pond" className="block text-sm font-medium text-muted mb-1">Ponderación</label>
                   <input id="preg-nueva-pond" type="number" min="0.1" step="0.1" value={preguntaForm.ponderacion}
                     onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                    className="w-full px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                    className="w-full px-3 py-1.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 </div>
                 <label className="flex items-center gap-2 text-sm text-muted">
                   <input type="checkbox" checked={preguntaForm.guardarEnBanco}
@@ -1708,12 +1708,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 {preguntaForm.guardarEnBanco && (
                   <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
                     required aria-label="Tema (obligatorio, ej. Fracciones)"
-                    className="w-full px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                    className="w-full px-3 py-1.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 )}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(emptyPregunta()) }}
                     className="flex-1 py-2 text-sm text-muted">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                  <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60">
                     {saving ? 'Guardando…' : 'Agregar'}
                   </button>
                 </div>
@@ -1758,7 +1758,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         type="button"
                         disabled={saving}
                         onClick={() => handleAddFromBancoMultiple(bancoFiltrado.filter((b) => selectedBancoIds.has(b.id)))}
-                        className="text-xs font-medium bg-accent text-white rounded px-3 py-2 disabled:opacity-60"
+                        className="text-xs font-medium bg-accent text-white rounded-full px-3 py-2 disabled:opacity-60"
                       >
                         Agregar {selectedBancoIds.size} a la evaluación
                       </button>
@@ -1812,11 +1812,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 </div>
                               )}
                               <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
-                                aria-label="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                                aria-label="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
                               <div className="flex gap-2">
                                 <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                                 <button type="button" onClick={() => handleSaveBancoEdit(item.id)} disabled={saving || JSON.stringify(bancoEditForm) === bancoEditSnap.current}
-                                  className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">Guardar</button>
+                                  className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60">Guardar</button>
                               </div>
                             </div>
                           ) : (
@@ -1844,9 +1844,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 )}
                               </button>
                               <div className="flex gap-1 flex-shrink-0">
-                                <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-2 text-hint hover:text-accent rounded"><Pencil size={14} /></button>
-                                <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-2 text-hint hover:text-accent rounded"><Copy size={14} /></button>
-                                <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-2 text-hint hover:text-error rounded"><Trash2 size={14} /></button>
+                                <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-2 text-hint hover:text-accent rounded-full"><Pencil size={14} /></button>
+                                <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-2 text-hint hover:text-accent rounded-full"><Copy size={14} /></button>
+                                <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-2 text-hint hover:text-error rounded-full"><Trash2 size={14} /></button>
                               </div>
                             </div>
                           )}
@@ -1855,7 +1855,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     </div>
                   )}
                   <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }}
-                    className="w-full mt-3 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors">Cerrar</button>
+                    className="w-full mt-3 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors">Cerrar</button>
                 </div>
               </div>
             )}
@@ -1903,12 +1903,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             <div>
               <label htmlFor="config-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
               <input id="config-tiempo" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
             </div>
             <div>
               <label htmlFor="config-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
               <input id="config-intentos" type="number" min="1" value={configForm.intentosPermitidos ?? ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
             </div>
             {/* Multi-attempt policy only matters with more than one attempt — with a
                 single attempt "conservar la mejor/última" is noise (Don't Make Me Think). */}
@@ -1957,7 +1957,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               />
             </div>
             <button type="submit" disabled={savingConfig || JSON.stringify(configForm) === configSnap.current}
-              className={`w-full py-2.5 text-sm font-medium rounded disabled:opacity-60 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
+              className={`w-full py-2.5 text-sm font-medium rounded-full disabled:opacity-60 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
               {savingConfig ? 'Guardando…' : 'Guardar configuración'}
             </button>
           </form>
@@ -1991,7 +1991,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 análisis significativo — mismo umbral que valida el servidor. */}
             {Object.values(submissions).filter((s) => s.estadoEvaluacion === 'finalizado').length >= MIN_ENTREGAS_ANALISIS && (
               <button type="button" onClick={() => setAnalisisConfirmando(true)}
-                className="w-full mb-3 flex items-center justify-center gap-1.5 py-2.5 text-sm border border-accent text-accent font-semibold rounded hover:bg-[var(--accent-tint)] transition-colors">
+                className="w-full mb-3 flex items-center justify-center gap-1.5 py-2.5 text-sm border border-accent text-accent font-semibold rounded-full hover:bg-[var(--accent-tint)] transition-colors">
                 <Sparkles size={15} /> Analizar resultados con IA
               </button>
             )}
@@ -2090,7 +2090,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   data-tooltip={kind === 'excel'
                     ? 'Calificaciones, respuestas de cada estudiante y resumen por reactivo'
                     : 'Resumen por reactivo: opción, respuestas y porcentaje'}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded border border-accent text-accent text-xs font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-accent text-accent text-xs font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
                 >
                   {exportingResultados === kind ? <Spinner size="sm" /> : <Icon size={14} />}
                   {exportingResultados === kind ? 'Generando…' : label}
@@ -2099,7 +2099,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             </div>
             )}
             {configForm?.publicarResultados === 'manual' && !configForm.resultadosPublicados && (
-              <button type="button" onClick={handlePublicarResultados} className="w-full mb-3 py-2.5 bg-accent text-white text-sm font-medium rounded">
+              <button type="button" onClick={handlePublicarResultados} className="w-full mb-3 py-2.5 bg-accent text-white text-sm font-medium rounded-full">
                 Publicar resultados a tus estudiantes
               </button>
             )}
@@ -2141,7 +2141,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       type="button"
                       onClick={contarRespuestasIA}
                       disabled={iaContando || iaTrabajando}
-                      className="flex-shrink-0 px-3 py-2 bg-accent text-white text-xs font-semibold rounded hover:bg-accent-hover transition-colors flex items-center gap-1.5 disabled:opacity-60"
+                      className="flex-shrink-0 px-3 py-2 bg-accent text-white text-xs font-semibold rounded-full hover:bg-accent-hover transition-colors flex items-center gap-1.5 disabled:opacity-60"
                     >
                       <Sparkles size={13} />
                       {iaContando ? 'Contando…' : iaTrabajando ? 'Trabajando…' : 'Sugerir con IA'}
@@ -2440,7 +2440,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                     [p.id]: { puntos: String(sug.puntos), comentario: sug.retroalimentacion || '' },
                                   }))
                                 }}
-                                className="w-full py-2 border border-accent text-accent text-xs font-semibold rounded hover:bg-[var(--accent-medium)] transition-colors"
+                                className="w-full py-2 border border-accent text-accent text-xs font-semibold rounded-full hover:bg-[var(--accent-medium)] transition-colors"
                               >
                                 Usar sugerencia (puedes editarla antes de guardar)
                               </button>
@@ -2455,7 +2455,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               onChange={(e) => setGradeDrafts((d) => ({ ...d, [p.id]: { ...draft, puntos: e.target.value } }))}
                               readOnly={parcialCerrado}
                               data-tooltip={parcialCerrado ? mensajeParcialCerrado(activity?.parcial) : undefined}
-                              className="w-24 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface-card read-only:opacity-60 read-only:cursor-not-allowed"
+                              className="w-24 px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface-card read-only:opacity-60 read-only:cursor-not-allowed"
                             />
                             <span className="text-sm text-muted">/ {p.ponderacion}</span>
                             {respuesta.puntosObtenidos == null && (
@@ -2473,7 +2473,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             type="button"
                             onClick={() => saveGrade(p)}
                             disabled={saving || !dirty || (!parcialCerrado && draft.puntos === '')}
-                            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2"
+                            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60 flex items-center justify-center gap-2"
                           >
                             {saving ? <Spinner size="sm" /> : null}
                             {saving ? 'Guardando…' : parcialCerrado ? 'Guardar comentario' : 'Guardar puntos'}
@@ -2546,11 +2546,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   py-2.5 text-base). */}
               <div className="flex gap-2">
                 <button type="button" onClick={() => goReview(-1)} disabled={reviewNav.length < 2}
-                  className={`flex-1 flex items-center justify-center gap-1 rounded border border-accent text-accent font-semibold hover:bg-[var(--accent-medium)] disabled:opacity-60 transition-colors ${IS_NATIVE_APP ? 'py-1 text-sm' : 'py-2.5 text-base'}`}>
+                  className={`flex-1 flex items-center justify-center gap-1 rounded-full border border-accent text-accent font-semibold hover:bg-[var(--accent-medium)] disabled:opacity-60 transition-colors ${IS_NATIVE_APP ? 'py-1 text-sm' : 'py-2.5 text-base'}`}>
                   <ChevronLeft size={IS_NATIVE_APP ? 16 : 20} /> Anterior
                 </button>
                 <button type="button" onClick={() => goReview(1)} disabled={reviewNav.length < 2}
-                  className={`flex-1 flex items-center justify-center gap-1 rounded bg-accent text-white font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors ${IS_NATIVE_APP ? 'py-1 text-sm' : 'py-2.5 text-base'}`}>
+                  className={`flex-1 flex items-center justify-center gap-1 rounded-full bg-accent text-white font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors ${IS_NATIVE_APP ? 'py-1 text-sm' : 'py-2.5 text-base'}`}>
                   Siguiente <ChevronRight size={IS_NATIVE_APP ? 16 : 20} />
                 </button>
               </div>
@@ -2642,9 +2642,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         aria-label="Motivo (opcional)…"
                         className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none" />
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">Cancelar</button>
+                        <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">Cancelar</button>
                         <button type="button" onClick={saveReviewExtension} disabled={!extendDate || savingExtension || reviewExtensionUnchanged}
-                          className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 transition-colors">
+                          className="flex-1 py-2.5 rounded-full bg-accent text-white text-sm font-semibold disabled:opacity-60 transition-colors">
                           {savingExtension ? 'Guardando…' : 'Guardar'}
                         </button>
                       </div>
@@ -2679,11 +2679,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               />
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+              <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={saveReviewExtension} disabled={!extendDate || savingExtension || reviewExtensionUnchanged}
-                className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors">
+                className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded-full disabled:opacity-60 transition-colors">
                 {savingExtension ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
@@ -2723,9 +2723,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setCancelConfirm(null)} disabled={cancelling}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">No, conservar</button>
+                className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">No, conservar</button>
               <button type="button" onClick={handleCancelSubmission} disabled={cancelling}
-                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors">
+                className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors">
                 {cancelling ? 'Anulando…' : 'Sí, anular entrega'}</button>
             </div>
           </div>

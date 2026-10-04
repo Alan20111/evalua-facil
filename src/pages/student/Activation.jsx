@@ -402,7 +402,7 @@ export default function StudentActivation() {
         <button
           type="button"
           onClick={() => navigate('/alumno')}
-          className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors"
+          className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors"
         >
           Volver al inicio
         </button>
@@ -439,7 +439,7 @@ export default function StudentActivation() {
           <button
             type="button"
             onClick={() => navigate(panelPath)}
-            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors"
+            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors"
           >
             Volver a mi panel
           </button>
@@ -465,7 +465,7 @@ export default function StudentActivation() {
           <button
             type="button"
             onClick={() => navigate(panelPath)}
-            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors"
+            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors"
           >
             Volver a mi panel
           </button>
@@ -498,14 +498,14 @@ export default function StudentActivation() {
             <button
               type="button"
               onClick={handleSignOutToSwitchAccount}
-              className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors"
+              className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors"
             >
               Cerrar sesión
             </button>
             <button
               type="button"
               onClick={() => navigate(panelPath)}
-              className="w-full px-5 py-2.5 border border-outline-variant text-muted font-semibold rounded transition-colors hover:bg-surface-container"
+              className="w-full px-5 py-2.5 border border-outline-variant text-muted font-semibold rounded-full transition-colors hover:bg-surface-container"
             >
               Volver a mi panel
             </button>
@@ -552,7 +552,7 @@ export default function StudentActivation() {
                     // autoFocus intencional (solo en escritorio): único campo de este paso (contraseña para vincular cuenta existente),
                     // se muestra una sola vez por sesión de activación — no es un modal reabrible.
                     autoFocus={PUEDE_AUTOFOCUS}
-                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
+                    className={`w-full px-4 py-2.5 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                   />
                 </div>
                 {passwordError && (
@@ -566,7 +566,7 @@ export default function StudentActivation() {
                   onMouseDown={(e) => e.preventDefault()}
                   disabled={loading || !linkPassword}
                   style={{ touchAction: 'manipulation' }}
-                  className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <Check size={18} />}
                   {loading ? 'Vinculando…' : 'Agregar asignatura'}
@@ -593,7 +593,7 @@ export default function StudentActivation() {
                   autoCorrect="off"
                   autoCapitalize="none"
                   spellCheck={false}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest "
+                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest "
                   maxLength={40}
                 />
               </div>
@@ -603,7 +603,7 @@ export default function StudentActivation() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={loading || !username.trim()}
                 style={{ touchAction: 'manipulation' }}
-                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? <Spinner size="sm" /> : null}
                 {loading ? 'Buscando…' : 'Continuar'}
@@ -633,7 +633,7 @@ export default function StudentActivation() {
                     // autoFocus intencional (solo en escritorio): primer campo de este paso (elegir contraseña),
                     // se muestra una sola vez por sesión de activación — no es un modal reabrible.
                     autoFocus={PUEDE_AUTOFOCUS}
-                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
+                    className={`w-full px-4 py-2.5 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                   />
                 </div>
                 <div>
@@ -643,7 +643,7 @@ export default function StudentActivation() {
                     value={confirmPassword}
                     onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
                     required
-                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
+                    className={`w-full px-4 py-2.5 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                   />
                 </div>
                 {passwordError && (
@@ -657,7 +657,7 @@ export default function StudentActivation() {
                   onMouseDown={(e) => e.preventDefault()}
                   disabled={loading}
                   style={{ touchAction: 'manipulation' }}
-                  className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <Check size={18} />}
                   {loading ? 'Activando…' : 'Activar cuenta'}

@@ -35,7 +35,7 @@ export default function CreditosPanel({ onCerrar }) {
           <Sparkles size={20} className="text-accent flex-shrink-0" />
           <h3 className="text-lg font-semibold flex-1">Créditos de IA</h3>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" data-tooltip="Cerrar"
-            className="p-1.5 -mr-1 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+            className="p-1.5 -mr-1 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
             <X size={18} />
           </button>
         </div>
@@ -69,7 +69,7 @@ export default function CreditosPanel({ onCerrar }) {
                 : 'Adquiere créditos para usar las funciones de IA.'}
             </p>
             <button type="button" onClick={() => setComprarAbierto(true)}
-              className="mt-2 px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+              className="mt-2 px-3 py-2 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors">
               Comprar créditos
             </button>
           </div>
@@ -78,7 +78,7 @@ export default function CreditosPanel({ onCerrar }) {
         {/* Comprar créditos — siempre disponible, no solo agotado */}
         {!agotado && (
           <button type="button" onClick={() => setComprarAbierto(true)}
-            className="w-full mb-4 px-3 py-2 border border-outline-variant text-on-surface text-sm font-medium rounded hover:bg-[var(--accent-tint)] transition-colors">
+            className="w-full mb-4 px-3 py-2 border border-outline-variant text-on-surface text-sm font-medium rounded-full hover:bg-[var(--accent-tint)] transition-colors">
             Comprar más créditos
           </button>
         )}

@@ -139,7 +139,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
             onClick={handleExportPdf}
             disabled={exportingPdf}
             data-tooltip="PDF con estas gráficas"
-            className="flex items-center gap-1.5 px-3 py-2 mt-0.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60 flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 mt-0.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60 flex-shrink-0"
           >
             {exportingPdf ? <Spinner size="sm" /> : <Download size={16} />}
             {exportingPdf ? 'Generando…' : 'Descargar gráficas'}

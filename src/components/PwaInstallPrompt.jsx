@@ -102,7 +102,7 @@ export default function PwaInstallPrompt() {
               type="button"
               onClick={handleEnableNotifications}
               disabled={busy}
-              className="mt-3 w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60"
+              className="mt-3 w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60"
             >
               {busy ? 'Activando…' : 'Activar notificaciones'}
             </button>

@@ -481,20 +481,20 @@ export default function ProgramarZonaSemanal({
             <button
               type="button"
               onClick={() => onCancel?.()}
-              className="px-4 py-2.5 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors"
+              className="px-4 py-2.5 text-sm text-muted rounded-full border border-outline-variant hover:bg-surface transition-colors"
             >
               Salir sin modificar
             </button>
           ) : (
             <>
-              <button type="button" onClick={intentarSalir} className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
+              <button type="button" onClick={intentarSalir} className="px-3 py-2 text-sm text-muted rounded-full border border-outline-variant hover:bg-surface transition-colors">
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={guardar}
                 disabled={!completo}
-                className="px-4 py-2.5 bg-accent text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center gap-2"
+                className="px-4 py-2.5 bg-accent text-white rounded-full text-sm font-semibold disabled:opacity-60 flex items-center gap-2"
               >
                 <Check size={15} /> {esModificar ? 'Guardar cambios' : 'Crear bloques'}
               </button>
@@ -587,7 +587,7 @@ export default function ProgramarZonaSemanal({
                     type="button"
                     onClick={confirmarColocar}
                     disabled={invalido}
-                    className="w-full py-2.5 bg-accent text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-accent text-white rounded-full text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
                   >
                     <Plus size={15} /> Colocar {Math.min(placing.count, Math.max(1, max))}
                   </button>
@@ -726,7 +726,7 @@ export default function ProgramarZonaSemanal({
               <button
                 type="button"
                 onClick={() => { setEditing(null); setRecienId(null) }}
-                className="flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-semibold text-white bg-accent rounded hover:bg-accent-hover transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-semibold text-white bg-accent rounded-full hover:bg-accent-hover transition-colors"
               >
                 <Check size={13} /> Confirmar
               </button>
@@ -747,7 +747,7 @@ export default function ProgramarZonaSemanal({
                 : `Colocaste ${patrones.length} de ${bloquesPorSemana} bloques. Si sales ahora se perderán.`}
             </p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setConfirmSalir(false)} className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface">
+              <button type="button" onClick={() => setConfirmSalir(false)} className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface">
                 Seguir aquí
               </button>
               <button type="button" onClick={() => { setConfirmSalir(false); onCancel?.() }} className="flex-1 py-2 rounded bg-error text-white text-sm font-semibold">

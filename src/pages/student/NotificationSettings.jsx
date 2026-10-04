@@ -226,7 +226,7 @@ export default function NotificationSettings() {
         <button
           type="button"
           onClick={goBack}
-          className="p-2 -ml-2 hover:bg-white/10 rounded flex-shrink-0 transition-colors"
+          className="p-2 -ml-2 hover:bg-white/10 rounded-full flex-shrink-0 transition-colors"
           aria-label="Regresar"
         >
           <ArrowLeft size={20} />
@@ -258,7 +258,7 @@ export default function NotificationSettings() {
                       <select
                         value={settings.recordatorios.anticipacionMinutos}
                         onChange={(e) => updateCategoria('recordatorios', { ...settings.recordatorios, anticipacionMinutos: Number(e.target.value) })}
-                        className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface"
+                        className="px-2 py-1.5 rounded-full border border-outline-variant text-sm bg-surface"
                       >
                         {ANTICIPACION_OPCIONES.map((op) => (
                           <option key={op.minutos} value={op.minutos}>{op.label}</option>

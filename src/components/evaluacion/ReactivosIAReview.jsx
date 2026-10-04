@@ -52,7 +52,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
     <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button type="button" onClick={onClose} aria-label="Volver" disabled={guardando} className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
+          <button type="button" onClick={onClose} aria-label="Volver" disabled={guardando} className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
@@ -105,7 +105,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
                     <input type="text" value={texto} disabled={!r.incluir || guardando}
                       onChange={(e) => updateOpcion(i, j, e.target.value)}
                       aria-label={`Opción ${String.fromCharCode(65 + j)}`}
-                      className="flex-1 px-2 py-1 rounded border border-outline-variant text-sm bg-surface disabled:opacity-60" />
+                      className="flex-1 px-2 py-1 rounded-full border border-outline-variant text-sm bg-surface disabled:opacity-60" />
                   </div>
                 ))}
                 <p className="text-xs text-hint">Deja seleccionada la correcta</p>
@@ -131,7 +131,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
                 </label>
                 <input type="text" value={r.respuestaEsperada || ''} disabled={!r.incluir || guardando}
                   onChange={(e) => update(i, { respuestaEsperada: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface disabled:opacity-60" />
+                  className="w-full px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface disabled:opacity-60" />
               </div>
             )}
 
@@ -143,7 +143,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
 
         <div className="h-2" />
         <button type="button" onClick={confirmar} disabled={!todosValidos || guardando}
-          className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
+          className="w-full py-3 bg-accent text-white font-semibold rounded-full disabled:opacity-60 flex items-center justify-center gap-2">
           {guardando ? <Spinner size="sm" /> : <Check size={18} />}
           {guardando
             ? 'Agregando…'
@@ -156,7 +156,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
           <p className="text-xs text-muted text-center">Descartaste todos los reactivos — no hay nada que agregar.</p>
         )}
         <button type="button" onClick={onClose} disabled={guardando}
-          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded hover:bg-surface-container transition-colors disabled:opacity-60">
+          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-full hover:bg-surface-container transition-colors disabled:opacity-60">
           Cancelar
         </button>
         <div className="h-6 safe-bottom" />

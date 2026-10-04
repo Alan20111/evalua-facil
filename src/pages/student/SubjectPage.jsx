@@ -571,7 +571,7 @@ export default function StudentSubjectPage() {
           type="button"
           aria-label="Volver"
           onClick={goBack}
-          className="md:hidden p-2 -ml-2 text-hint hover:text-muted rounded flex-shrink-0"
+          className="md:hidden p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0"
         >
           <ArrowLeft size={22} />
         </button>
@@ -597,7 +597,7 @@ export default function StudentSubjectPage() {
             type="button"
             onClick={() => setShowSubjectMenu((v) => !v)}
             aria-label="Más opciones de esta asignatura"
-            className="p-2 text-hint hover:text-on-surface hover:bg-surface-container rounded transition-colors"
+            className="p-2 text-hint hover:text-on-surface hover:bg-surface-container rounded-full transition-colors"
           >
             <MoreVertical size={19} />
           </button>
@@ -639,9 +639,9 @@ export default function StudentSubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowLeaveConfirm(false)} disabled={leaving}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+                className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
               <button type="button" onClick={handleLeaveSubject} disabled={leaving}
-                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {leaving ? <Spinner size="sm" /> : <LogOut size={16} />}
                 {leaving ? 'Saliendo…' : 'Salir'}
               </button>
@@ -891,7 +891,7 @@ export default function StudentSubjectPage() {
                 type="button"
                 onClick={descargarMisEntregas}
                 disabled={zipping}
-                className="w-full py-2.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-full border border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {zipping ? <Spinner size="sm" /> : <Download size={16} />}
                 {zipping
@@ -1083,17 +1083,17 @@ export default function StudentSubjectPage() {
                         {guardado ? (
                           <>
                             <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos" data-tooltip-pos="bottom"
-                              className="p-2 -m-1 rounded transition-colors text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
+                              className="p-2 -m-1 rounded-full transition-colors text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
                               <RotateCcw size={18} />
                             </button>
                             <button type="button" onClick={() => setDeleteAvisoConfirm(a)} aria-label="Eliminar" data-tooltip="Eliminar" data-tooltip-pos="bottom"
-                              className="p-2 -m-1 rounded transition-colors text-hint hover:text-red-500 hover:bg-red-50">
+                              className="p-2 -m-1 rounded-full transition-colors text-hint hover:text-red-500 hover:bg-red-50">
                               <Trash2 size={18} />
                             </button>
                           </>
                         ) : (
                           <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Guardar" data-tooltip="Guardar" data-tooltip-pos="bottom"
-                            className="p-2 -m-1 rounded transition-colors text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
+                            className="p-2 -m-1 rounded-full transition-colors text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
                             <Bookmark size={18} />
                           </button>
                         )}
@@ -1117,9 +1117,9 @@ export default function StudentSubjectPage() {
                 </p>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setDeleteAvisoConfirm(null)} disabled={deletingAviso}
-                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+                    className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
                   <button type="button" onClick={handleEliminarAviso} disabled={deletingAviso}
-                    className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+                    className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                     {deletingAviso ? <Spinner size="sm" /> : <Trash2 size={16} />}
                     {deletingAviso ? 'Eliminando…' : 'Eliminar'}
                   </button>

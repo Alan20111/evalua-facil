@@ -39,7 +39,7 @@ export default function PushPermissionPrimer() {
           Las usamos para avisarte de nuevos avisos de tus maestros, actividades publicadas, calificaciones y otros eventos de tus asignaturas. Tu teléfono te va a preguntar si lo permites — puedes cambiarlo después desde Notificaciones.
         </p>
         <button type="button" onClick={continuar}
-          className="w-full px-4 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors">
+          className="w-full px-4 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors">
           Entendido, continuar
         </button>
       </div>

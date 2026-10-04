@@ -125,7 +125,7 @@ export default function CrearJuegoIAModal({
               <label htmlFor="ia-juego-modalidad" className="block text-sm text-on-surface mb-1">Modalidad</label>
               <select id="ia-juego-modalidad" value={modalidad} disabled={trabajando || tipoJuego === 'crucigrama'}
                 onChange={(e) => setModalidad(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60">
+                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60">
                 {tipoJuego !== 'crucigrama' && <option value="palabra">Solo palabra</option>}
                 <option value="descripcion">Palabra + pista</option>
               </select>
@@ -135,14 +135,14 @@ export default function CrearJuegoIAModal({
               <input id="ia-juego-cantidad" type="number" min={MIN_CANTIDAD} max={MAX_CANTIDAD} value={cantidad}
                 disabled={trabajando}
                 onChange={(e) => setCantidad(Math.min(MAX_CANTIDAD, Math.max(MIN_CANTIDAD, Number(e.target.value) || MIN_CANTIDAD)))}
-                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+                className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
             </div>
             {tipoJuego === 'sopa_letras' && (
               <div className="w-28">
                 <label htmlFor="ia-juego-tamano" className="block text-sm text-on-surface mb-1">Tamaño</label>
                 <select id="ia-juego-tamano" value={tamanoSopa} disabled={trabajando}
                   onChange={(e) => setTamanoSopa(Number(e.target.value))}
-                  className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                  className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                   <option value={8}>8 × 8</option>
                   <option value={10}>10 × 10</option>
                 </select>
@@ -166,7 +166,7 @@ export default function CrearJuegoIAModal({
             Cancelar
           </button>
           <button type="button" onClick={handleGenerar} disabled={trabajando}
-            className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+            className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
             {trabajando ? 'Generando…' : 'Generar con IA'}
           </button>
         </div>

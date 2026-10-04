@@ -122,7 +122,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           type="button"
           onClick={() => setShowFullLogo((v) => !v)}
           aria-label="Ver logo de Evalúa Fácil"
-          className="flex items-center gap-2 min-w-0 -ml-1 p-1 rounded hover:bg-accent-tint transition-colors"
+          className="flex items-center gap-2 min-w-0 -ml-1 p-1 rounded-full hover:bg-accent-tint transition-colors"
         >
           <EFLogo subtitle={false} className="h-8 w-auto flex-shrink-0" />
           {/* eslint-disable-next-line jsx-a11y/aria-role -- role aquí es la prop propia de PortalBadge, no un atributo ARIA */}
@@ -398,14 +398,14 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={() => { setShowLogoutConfirm(false); handleLogout() }}
-                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
+                className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
               >
                 Sí, cerrar sesión
               </button>

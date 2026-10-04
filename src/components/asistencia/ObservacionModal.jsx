@@ -59,11 +59,11 @@ export default function ObservacionModal({ estudiante, fecha, original = '', onG
       )}
       <div className="flex gap-2 mt-4">
         <button type="button" onClick={onClose} disabled={guardando}
-          className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+          className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
           Salir
         </button>
         <button type="button" onClick={guardar} disabled={sinCambios || guardando}
-          className="flex-1 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
+          className="flex-1 py-2.5 rounded-full bg-accent text-white text-base font-semibold hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
           {guardando && <Spinner size="sm" />} Guardar
         </button>
       </div>

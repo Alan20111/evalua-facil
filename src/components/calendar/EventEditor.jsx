@@ -278,7 +278,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
                con edge-to-edge + insets del teclado cambiando a mitad de la
                animación de entrada del modal. */
             required
-            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+            className="w-full px-3 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
           />
 
           <textarea
@@ -343,7 +343,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               </button>
             )}
             <button type="submit" disabled={saving || !eventChanged}
-              className="flex-1 py-2.5 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2">
+              className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-full text-sm disabled:opacity-60 flex items-center justify-center gap-2">
               {saving ? <Spinner size="sm" /> : isNew ? 'Crear evento' : 'Guardar cambios'}
             </button>
           </div>

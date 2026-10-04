@@ -478,7 +478,7 @@ export default function EvaluacionRunner() {
               )}
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowExitModal(false)}
-                  className="flex-1 py-2.5 text-sm text-muted border border-outline-variant rounded">
+                  className="flex-1 py-2.5 text-sm text-muted border border-outline-variant rounded-full">
                   Continuar respondiendo
                 </button>
                 <button type="button" onClick={() => navigate(`/alumno/actividad/${activityId}`)}
@@ -569,7 +569,7 @@ export default function EvaluacionRunner() {
                       <input type="text" value={otraTextos[pregunta.id] || ''}
                         onChange={(e) => handleOtraTextoChange(pregunta.id, e.target.value)}
                         aria-label="Escribe tu respuesta…"
-                        className="mt-1.5 ml-9 w-[calc(100%-2.25rem)] px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                        className="mt-1.5 ml-9 w-[calc(100%-2.25rem)] px-3 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                     )}
                   </div>
                 ))}
@@ -591,13 +591,13 @@ export default function EvaluacionRunner() {
 
             {isLast ? (
               <button type="button" onClick={handleFinalizarClick} disabled={finishing}
-                className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60">
+                className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-semibold rounded-full disabled:opacity-60">
                 {finishing ? <Spinner size="sm" /> : <CheckCircle2 size={18} />}
                 {finishing ? 'Finalizando…' : 'Finalizar evaluación'}
               </button>
             ) : (
               <button type="button" onClick={goSiguiente}
-                className="flex items-center gap-1 px-5 py-2.5 bg-accent text-white font-semibold rounded">
+                className="flex items-center gap-1 px-5 py-2.5 bg-accent text-white font-semibold rounded-full">
                 Siguiente <ChevronRight size={18} />
               </button>
             )}
