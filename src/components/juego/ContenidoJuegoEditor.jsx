@@ -130,12 +130,12 @@ export default function ContenidoJuegoEditor({ activity, onConstruido }) {
             <input value={it.palabra} disabled={trabajando}
               onChange={(e) => actualizar(i, 'palabra', e.target.value)}
               aria-label="Palabra"
-              className="w-32 sm:w-40 px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+              className="w-32 sm:w-40 px-2.5 py-1.5 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
             {mostrarDescripcion && (
               <input value={it.descripcion} disabled={trabajando}
                 onChange={(e) => actualizar(i, 'descripcion', e.target.value)}
                 aria-label={activity.tipoJuego === 'crucigrama' ? 'Pista (obligatoria)' : 'Pista / descripción'}
-                className="flex-1 px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+                className="flex-1 px-2.5 py-1.5 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
             )}
             <button type="button" onClick={() => eliminar(i)} disabled={trabajando}
               aria-label={`Eliminar ${it.palabra || 'palabra'}`}
@@ -151,7 +151,7 @@ export default function ContenidoJuegoEditor({ activity, onConstruido }) {
 
       <div className="flex justify-end pt-2">
         <button type="button" onClick={handleConstruir} disabled={trabajando}
-          className="flex items-center gap-2 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+          className="flex items-center gap-2 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
           <Wand2 size={16} />
           {construyendo ? 'Construyendo…' : 'Confirmar contenido y construir juego'}
         </button>

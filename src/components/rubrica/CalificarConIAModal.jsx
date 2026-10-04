@@ -50,7 +50,7 @@ function Marco({ inline, titulo, onClose, children }) {
         <div className="flex items-center justify-between gap-2 mb-3">
           <p className="text-sm font-bold text-on-surface">{titulo}</p>
           <button type="button" onClick={onClose} aria-label="Cerrar" data-tooltip="Cerrar"
-            className="p-1.5 text-hint hover:text-accent rounded flex-shrink-0">
+            className="p-1.5 text-hint hover:text-accent rounded-full flex-shrink-0">
             <X size={16} />
           </button>
         </div>
@@ -75,7 +75,7 @@ function PanelFlotante({ titulo, onClose, children, footer }) {
           onClick={onClose}
           aria-label="Cerrar"
           data-tooltip="Cerrar"
-          className="p-2 text-hint hover:text-accent rounded flex-shrink-0"
+          className="p-2 text-hint hover:text-accent rounded-full flex-shrink-0"
         >
           <X size={17} />
         </button>
@@ -242,7 +242,7 @@ export default function CalificarConIAModal({
                 Cancelar
               </button>
               <button type="button" onClick={ejecutar} disabled={ejecutando}
-                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center gap-2">
+                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center gap-2">
                 {ejecutando && <Spinner size="sm" />}
                 {ejecutando ? 'Analizando…' : 'Calificar'}
               </button>
@@ -262,12 +262,12 @@ export default function CalificarConIAModal({
               </button>
               {c.mostrarCTAActivarBienvenida && (
                 <button type="button" onClick={() => setActivarAbierto(true)}
-                  className="px-4 py-2.5 border border-accent text-accent text-sm font-medium rounded hover:bg-[var(--accent-tint)] transition-colors">
+                  className="px-4 py-2.5 border border-accent text-accent text-sm font-medium rounded-full hover:bg-[var(--accent-tint)] transition-colors">
                   Activar créditos de regalo
                 </button>
               )}
               <button type="button" onClick={() => setComprarAbierto(true)}
-                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors">
                 Comprar créditos
               </button>
             </div>
@@ -415,7 +415,7 @@ export default function CalificarConIAModal({
           <div className="flex justify-end gap-2">
             {soloLectura ? (
               <button type="button" onClick={cerrarTodo}
-                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors">
                 Cerrar
               </button>
             ) : (
@@ -425,7 +425,7 @@ export default function CalificarConIAModal({
                   Descartar propuesta
                 </button>
                 <button type="button" onClick={cerrarTodo}
-                  className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                  className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors">
                   Listo, seguir calificando
                 </button>
               </>

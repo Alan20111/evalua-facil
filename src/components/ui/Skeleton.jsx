@@ -125,7 +125,7 @@ export function SkeletonForm({ fields = 4, className = '', etiqueta }) {
       {Array.from({ length: fields }, (_, i) => (
         <div key={i} className="space-y-1.5">
           <Skeleton className={cn('h-3', ['w-24', 'w-32', 'w-20', 'w-28'].at(i % 4))} />
-          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full rounded-full" />
         </div>
       ))}
     </SkeletonGroup>

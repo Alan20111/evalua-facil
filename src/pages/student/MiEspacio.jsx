@@ -105,7 +105,7 @@ export default function MiEspacio() {
           <button
             type="button"
             onClick={regresar}
-            className="p-2 -ml-2 rounded hover:bg-[var(--accent-tint)] text-muted hover:text-accent transition-colors flex-shrink-0"
+            className="p-2 -ml-2 rounded-full hover:bg-[var(--accent-tint)] text-muted hover:text-accent transition-colors flex-shrink-0"
             aria-label="Regresar"
           >
             <ArrowLeft size={20} />

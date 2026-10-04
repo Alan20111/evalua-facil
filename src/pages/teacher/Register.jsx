@@ -160,7 +160,7 @@ export default function Register() {
                   onChange={(e) => setRealNombre(e.target.value)}
                   required
                   autoFocus={PUEDE_AUTOFOCUS}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                 />
               </div>
               <div className="flex gap-2">
@@ -172,7 +172,7 @@ export default function Register() {
                     value={apellidoPaterno}
                     onChange={(e) => setApellidoPaterno(e.target.value)}
                     required
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   />
                 </div>
                 <div className="flex-1">
@@ -182,7 +182,7 @@ export default function Register() {
                     type="text"
                     value={apellidoMaterno}
                     onChange={(e) => setApellidoMaterno(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   />
                   <p className="text-xs text-hint mt-1">(opcional)</p>
                 </div>
@@ -214,7 +214,7 @@ export default function Register() {
                         type="text"
                         value={prefijoCustom}
                         onChange={(e) => setPrefijoCustom(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mt-2"
+                        className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mt-2"
                         aria-label="Escribe el prefijo"
                       />
                     )}
@@ -227,7 +227,7 @@ export default function Register() {
                       value={nombre}
                       onChange={(e) => setNombre(e.target.value)}
                       required
-                      className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                      className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     />
                   </div>
                 </div>
@@ -244,7 +244,7 @@ export default function Register() {
                   type="button"
                   onClick={() => setShowSchoolPicker(true)}
                   disabled={saving}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-60"
+                  className="w-full flex items-center gap-2 px-4 py-2.5 rounded-full border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-60"
                 >
                   <School size={17} className="text-accent flex-shrink-0" />
                   <span className={`text-sm truncate flex-1 ${plantelLabel ? 'text-on-surface font-medium' : 'text-slate-500'}`}>
@@ -257,7 +257,7 @@ export default function Register() {
               <button
                 type="submit"
                 disabled={saving || !plantel}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : null}
                 {saving ? 'Creando tu cuenta…' : 'Entrar al panel'}
@@ -328,7 +328,7 @@ export default function Register() {
                 required
                 minLength={6}
                 autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
               />
             </div>
             <div>
@@ -339,7 +339,7 @@ export default function Register() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
               />
             </div>
 

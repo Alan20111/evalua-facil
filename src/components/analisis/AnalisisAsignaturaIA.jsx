@@ -107,7 +107,7 @@ function FlujoAnalisis({ subjectId, onCerrar, onGenerado }) {
         <div className="py-6 text-center space-y-3">
           <p className="text-sm text-on-surface">{preparacion.error}</p>
           <button type="button" onClick={reintentar}
-            className="px-4 py-2.5 border border-accent text-accent text-sm font-medium rounded hover:bg-[var(--accent-tint)] transition-colors">
+            className="px-4 py-2.5 border border-accent text-accent text-sm font-medium rounded-full hover:bg-[var(--accent-tint)] transition-colors">
             Volver a intentar
           </button>
         </div>

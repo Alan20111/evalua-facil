@@ -95,7 +95,7 @@ export default function VerifyEmail() {
             <button
               type="button"
               onClick={() => navigate('/dashboard', { replace: true })}
-              className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors"
+              className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors"
             >
               Ir al dashboard
             </button>
@@ -115,7 +115,7 @@ export default function VerifyEmail() {
             <button
               type="button"
               onClick={() => navigate('/docente', { replace: true })}
-              className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors"
+              className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors"
             >
               Iniciar sesión
             </button>

@@ -306,7 +306,7 @@ function TarjetaPropuesta({ propuesta, contextoVigente, esLaVigente, ejecutando,
             type="button"
             onClick={onConfirmar}
             disabled={ejecutando || bloqueado}
-            className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:bg-accent-hover text-white font-semibold text-xs rounded transition-colors disabled:opacity-60"
+            className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:bg-accent-hover text-white font-semibold text-xs rounded-full transition-colors disabled:opacity-60"
           >
             {ejecutando && <Spinner size="sm" />}
             {TEXTO_BOTON_ACCION[propuesta.accion] || 'Crear'}
@@ -836,7 +836,7 @@ export default function ChatAsistente() {
         <button
           type="submit"
           disabled={enviando || !mensaje.trim() || sinCreditos || limiteAlcanzado}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded transition-colors disabled:opacity-45"
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded-full transition-colors disabled:opacity-45"
         >
           {enviando ? <Spinner size="sm" /> : <Send size={16} />}
           Enviar

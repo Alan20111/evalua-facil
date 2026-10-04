@@ -5391,7 +5391,7 @@ export default function SubjectPage() {
     <div className="grid grid-cols-2 gap-2">
       {QUICK_MOTIVOS.map((m) => (
         <button key={m.label} type="button" onClick={() => setReasonText(m.label)}
-          className={`rounded border font-medium whitespace-nowrap transition-colors ${compact ? 'px-1.5 py-2 text-[10px]' : 'px-3 py-2.5 text-sm'} ${
+          className={`rounded-full border font-medium whitespace-nowrap transition-colors ${compact ? 'px-1.5 py-2 text-[10px]' : 'px-3 py-2.5 text-sm'} ${
             reasonText.trim() === m.label
               ? 'border-amber-500 bg-amber-50 text-amber-700'
               : 'border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
@@ -5524,25 +5524,25 @@ export default function SubjectPage() {
       <button type="button" onClick={openEditSubject}
         aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
         data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)" data-tooltip-pos="left"
-        className="p-2 ml-auto text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        className="p-2 ml-auto text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
         <Pencil size={21} />
       </button>
       <button type="button" onClick={openCopyModal}
         aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
         data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)" data-tooltip-pos="left"
-        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
         <Copy size={21} />
       </button>
       <button type="button" onClick={handleToggleArchive} disabled={archiving}
         aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
         data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'} data-tooltip-pos="left"
-        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
+        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors disabled:opacity-40 flex-shrink-0">
         {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
       </button>
       <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
         aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
         data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)" data-tooltip-pos="left"
-        className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+        className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded-full transition-colors flex-shrink-0">
         <Trash2 size={21} />
       </button>
     </>
@@ -5560,7 +5560,7 @@ export default function SubjectPage() {
             no terminada. */}
         <div className="bg-surface-card border-b border-outline-variant rounded-b-card px-4 py-2">
           <div className="flex items-center gap-2">
-            <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded flex-shrink-0">
+            <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
@@ -5736,7 +5736,7 @@ export default function SubjectPage() {
                       aria-label={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       data-tooltip={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       data-tooltip-pos="left"
-                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0"
                     >
                       {parcialOculto ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -5914,7 +5914,7 @@ export default function SubjectPage() {
                                           onClick={(e) => { e.stopPropagation(); a.publishedAt ? showActivityNow(a) : setPublishDraftConfirm(a) }}
                                           aria-label={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
                                           data-tooltip={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
-                                          className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                                          className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0"
                                         >
                                           <EyeOff size={16} />
                                         </button>
@@ -5923,13 +5923,13 @@ export default function SubjectPage() {
                                           onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
                                           aria-label="Ocultar para estudiantes"
                                           data-tooltip="Ocultar para estudiantes"
-                                          className="p-2 text-hint hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                                          className="p-2 text-hint hover:text-muted hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0"
                                         >
                                           <Eye size={16} />
                                         </button>
                                       )}
                                       <button type="button" onClick={() => esJuego ? navigate(`/activity/${a.id}`) : openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
-                                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
+                                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0 mr-0.5">
                                         <Pencil size={16} />
                                       </button>
                                       {!IS_NATIVE_APP && (
@@ -5937,7 +5937,7 @@ export default function SubjectPage() {
                                           onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
                                           aria-label="Más acciones"
                                           data-tooltip="Más acciones"
-                                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-1">
+                                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0 mr-1">
                                           <MoreVertical size={16} />
                                         </button>
                                       )}
@@ -5996,21 +5996,21 @@ export default function SubjectPage() {
                                         </button>
                                         {isHidden ? (
                                           <button type="button" onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} aria-label="Mostrar a estudiantes" data-tooltip="Mostrar a estudiantes"
-                                            className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                                            className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
                                             <EyeOff size={16} />
                                           </button>
                                         ) : (
                                           <button type="button" onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} aria-label="Ocultar a estudiantes" data-tooltip="Ocultar a estudiantes"
-                                            className="p-2 text-hint hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                                            className="p-2 text-hint hover:text-muted hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
                                             <Eye size={16} />
                                           </button>
                                         )}
                                         <button type="button" onClick={() => openEditMaterial(m)} aria-label="Editar" data-tooltip="Editar"
-                                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
+                                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0 mr-0.5">
                                           <Pencil size={16} />
                                         </button>
                                         <button type="button" onClick={() => setDeleteMaterialConfirm(m)} aria-label="Eliminar" data-tooltip="Eliminar"
-                                          className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
+                                          className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded-full transition-colors flex-shrink-0 mr-1">
                                           <Trash2 size={16} />
                                         </button>
                                       </div>
@@ -6036,7 +6036,7 @@ export default function SubjectPage() {
                       {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openAdd(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevas actividades'}
-                        className={`w-full py-2.5 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full py-2.5 border-2 border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Plus size={17} /> Agregar actividad
@@ -6045,7 +6045,7 @@ export default function SubjectPage() {
                       {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openAddMaterial(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevo material de apoyo'}
-                        className={`w-full py-2.5 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full py-2.5 border-2 border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <BookOpen size={17} /> Agregar material de apoyo
@@ -6054,7 +6054,7 @@ export default function SubjectPage() {
                       {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openImport(p)}
                         data-tooltip="Copia actividades de otra de tus asignaturas a este parcial"
-                        className={`w-full py-2.5 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full py-2.5 border-2 border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Copy size={17} /> Traer de otra asignatura
@@ -6118,7 +6118,7 @@ export default function SubjectPage() {
                     No ejecuta nada al pulsarlo: abre la configuración. */}
                 <button type="button" onClick={() => setAnalisisAsignaturaAbierto(true)}
                   data-tooltip="Elige parciales y fuentes; la IA prepara un informe del grupo. No modifica calificaciones."
-                  className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 border border-accent rounded text-sm font-semibold text-accent hover:bg-[var(--accent-tint)] transition-colors">
+                  className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 border border-accent rounded-full text-sm font-semibold text-accent hover:bg-[var(--accent-tint)] transition-colors">
                   <Sparkles size={17} className="flex-shrink-0" /> <span className="truncate">Analizar asignatura con IA</span>
                 </button>
               </div>
@@ -6152,7 +6152,7 @@ export default function SubjectPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <button type="button" onClick={togglePonderacion}
                     data-tooltip={anyPonderacionOn ? 'Quitar la ponderación de todos los parciales' : 'Cada actividad vale un peso — se activa en todos los parciales; luego puedes apagarla por parcial'}
-                    className={`px-3 py-2 rounded text-xs font-bold uppercase tracking-wide transition-colors ${anyPonderacionOn
+                    className={`px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-colors ${anyPonderacionOn
                       ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
                       : 'bg-accent text-white hover:bg-accent-hover'}`}>
                     {anyPonderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
@@ -6210,7 +6210,7 @@ export default function SubjectPage() {
                       {gradeSortOn && (
                         <button type="button" onClick={() => { setGradeSortOn(false); setGradeSortMenuOpen(false) }}
                           aria-label="Volver al orden normal" data-tooltip="Volver al orden normal"
-                          className="p-2 text-hint hover:text-red-500 rounded">
+                          className="p-2 text-hint hover:text-red-500 rounded-full">
                           <X size={16} />
                         </button>
                       )}

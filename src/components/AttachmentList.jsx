@@ -66,7 +66,7 @@ function FileRow({ f, onRemove, index }) {
         </span>
         {f.url && canView && (
           <button type="button" onClick={() => setOpen(true)} aria-label="Vista previa"
-            className="p-2 text-hint hover:text-accent rounded flex-shrink-0" data-tooltip="Vista previa">
+            className="p-2 text-hint hover:text-accent rounded-full flex-shrink-0" data-tooltip="Vista previa">
             <FileSearch size={15} />
           </button>
         )}
@@ -86,7 +86,7 @@ function FileRow({ f, onRemove, index }) {
         )}
         {onRemove && (
           <button type="button" onClick={() => onRemove(index)} data-tooltip="Quitar" aria-label="Quitar"
-            className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0">
+            className="p-2 text-hint hover:text-red-500 rounded-full flex-shrink-0">
             <X size={15} />
           </button>
         )}
@@ -244,7 +244,7 @@ export function FilePreviewModal({ url, nombre, onClose }) {
             className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 disabled:opacity-60"
           />
           <button type="button" onClick={onClose} data-tooltip="Cerrar" aria-label="Cerrar"
-            className="p-2 text-hint hover:text-on-surface hover:bg-surface rounded transition-colors flex-shrink-0">
+            className="p-2 text-hint hover:text-on-surface hover:bg-surface rounded-full transition-colors flex-shrink-0">
             <X size={18} />
           </button>
         </div>

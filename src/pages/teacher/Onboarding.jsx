@@ -281,7 +281,7 @@ export default function Onboarding() {
                 type="button"
                 onClick={() => setShowSchoolPicker(true)}
                 disabled={saving}
-                className="w-full flex items-center gap-2 px-4 py-2.5 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-60"
+                className="w-full flex items-center gap-2 px-4 py-2.5 rounded-full border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-60"
               >
                 <School size={17} className="text-accent flex-shrink-0" />
                 <span className={`text-sm truncate flex-1 ${plantelLabel ? 'text-on-surface font-medium' : 'text-slate-500'}`}>
@@ -294,7 +294,7 @@ export default function Onboarding() {
             <button
               type="submit"
               disabled={saving || (!plantel && !escuelaValida(userProfile?.escuelaId))}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {saving ? <Spinner size="sm" /> : null}
               {saving ? 'Guardando…' : 'Entrar al panel'}

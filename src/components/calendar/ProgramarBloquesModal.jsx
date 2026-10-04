@@ -303,7 +303,7 @@ export default function ProgramarBloquesModal({
                 <button
                   type="button"
                   onClick={() => setConfirmDel(true)}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-error border border-error/30 hover:bg-error/10 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-full text-sm text-error border border-error/30 hover:bg-error/10 transition-colors"
                 >
                   <Trash2 size={15} /> Borrar toda la programación de esta asignatura
                 </button>
@@ -320,7 +320,7 @@ export default function ProgramarBloquesModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors"
+            className="px-3 py-2 text-sm text-muted rounded-full border border-outline-variant hover:bg-surface transition-colors"
           >
             {sinDisponibles ? 'Cerrar' : 'Cancelar'}
           </button>
@@ -329,7 +329,7 @@ export default function ProgramarBloquesModal({
               type="button"
               onClick={handleContinue}
               disabled={faltanFechasCurso}
-              className={`px-4 py-2.5 text-white rounded text-sm font-semibold flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${esModificar ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent hover:bg-accent-hover'}`}
+              className={`px-4 py-2.5 text-white rounded-full text-sm font-semibold flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${esModificar ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent hover:bg-accent-hover'}`}
             >
               Continuar <ArrowRight size={15} />
             </button>

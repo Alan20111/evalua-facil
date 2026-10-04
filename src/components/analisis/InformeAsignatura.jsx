@@ -71,7 +71,7 @@ export default function InformeAsignatura({ analisis, onClose, onDescargarPDF, d
             {plan.generadoEn && <p className="text-xs text-muted">Generado el {plan.generadoEn} — es una fotografía de ese momento: no cambia aunque después cambien los datos.</p>}
           </div>
           <button type="button" onClick={onDescargarPDF} disabled={descargando}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-[var(--accent-light)] border border-accent rounded text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60">
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-[var(--accent-light)] border border-accent rounded-full text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60">
             {descargando ? <Spinner size="sm" /> : <FileText size={16} />}
             {descargando ? 'Generando…' : 'Descargar PDF'}
           </button>
@@ -88,7 +88,7 @@ export default function InformeAsignatura({ analisis, onClose, onDescargarPDF, d
         ))}
 
         <button type="button" onClick={onClose}
-          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded hover:bg-surface-container transition-colors">
+          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-full hover:bg-surface-container transition-colors">
           Cerrar
         </button>
       </div>

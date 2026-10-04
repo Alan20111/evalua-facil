@@ -126,11 +126,11 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
         <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
         <div className="flex gap-2 mt-3 flex-shrink-0">
           <button type="button" onClick={() => setMode('todos')}
-            className={`flex-1 py-2.5 rounded text-sm font-medium border transition-colors ${mode === 'todos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
+            className={`flex-1 py-2.5 rounded-full text-sm font-medium border transition-colors ${mode === 'todos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
             Para todos
           </button>
           <button type="button" onClick={() => setMode('algunos')}
-            className={`flex-1 py-2.5 rounded text-sm font-medium border transition-colors ${mode === 'algunos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
+            className={`flex-1 py-2.5 rounded-full text-sm font-medium border transition-colors ${mode === 'algunos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
             Para algunos
           </button>
         </div>
@@ -192,12 +192,12 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
 
         <div className="flex gap-2 mt-4 flex-shrink-0">
           <button type="button" onClick={onClose} disabled={saving}
-            className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+            className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
             Cancelar
           </button>
           <button type="button" onClick={save}
             disabled={saving || !date || (mode === 'algunos' && (selected.size === 0 || !conEntrega))}
-            className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors">
+            className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded-full disabled:opacity-60 transition-colors">
             {saving ? 'Guardando…' : 'Guardar'}
           </button>
         </div>

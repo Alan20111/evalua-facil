@@ -70,7 +70,7 @@ function ProfileErrorScreen() {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors"
+          className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors"
         >
           Recargar
         </button>

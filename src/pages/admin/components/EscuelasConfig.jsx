@@ -89,7 +89,7 @@ export default function EscuelasConfig() {
                 type="button"
                 onClick={() => handleSave(s.id)}
                 disabled={saving[s.id]}
-                className="p-1.5 rounded bg-accent text-white hover:bg-accent-hover disabled:opacity-60 transition-colors"
+                className="p-1.5 rounded-full bg-accent text-white hover:bg-accent-hover disabled:opacity-60 transition-colors"
                 aria-label="Guardar umbral"
               >
                 {saving[s.id] ? <Spinner size="sm" /> : <Save size={15} />}

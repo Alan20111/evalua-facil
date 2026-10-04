@@ -77,7 +77,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
               required
               autoComplete="off"
               spellCheck={false}
-              className={`w-full px-3 py-2 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card ${
+              className={`w-full px-3 py-2 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card ${
                 customExtsMissing ? 'border-red-300' : 'border-outline-variant'
               }`}
             />

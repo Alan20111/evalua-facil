@@ -516,7 +516,7 @@ export default function StudentDashboard() {
                         disabled={i === 0}
                         data-tooltip="Subir"
                         aria-label="Subir"
-                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded-full"
                       >
                         <ArrowUp size={16} />
                       </button>
@@ -526,7 +526,7 @@ export default function StudentDashboard() {
                         disabled={i === activeSubjects.length - 1}
                         data-tooltip="Bajar"
                         aria-label="Bajar"
-                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded-full"
                       >
                         <ArrowDown size={16} />
                       </button>
@@ -569,7 +569,7 @@ export default function StudentDashboard() {
         <button
           type="button"
           onClick={openJoinModal}
-          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
+          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
         >
           <Plus size={18} /> Unirme a otra asignatura
         </button>
@@ -604,7 +604,7 @@ export default function StudentDashboard() {
                     <button
                       type="button"
                       onClick={() => navigate(`/alumno/materia/${s.id}`)}
-                      className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded text-sm text-muted hover:bg-accent-tint transition-colors text-left"
+                      className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm text-muted hover:bg-accent-tint transition-colors text-left"
                     >
                       <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
                       <span className="truncate">{subjectDisplayName(s)}</span>
@@ -613,7 +613,7 @@ export default function StudentDashboard() {
                       type="button"
                       onClick={() => setSubjectToRemove(s)}
                       aria-label={`Quitar ${subjectDisplayName(s)} de mis asignaturas archivadas`}
-                      className="p-2 rounded text-hint hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+                      className="p-2 rounded-full text-hint hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -705,7 +705,7 @@ export default function StudentDashboard() {
                 type="button"
                 aria-label="Cerrar"
                 onClick={() => setShowJoin(false)}
-                className="p-2 -mt-1 -mr-1 text-hint hover:text-muted hover:bg-surface-container rounded transition-colors flex-shrink-0"
+                className="p-2 -mt-1 -mr-1 text-hint hover:text-muted hover:bg-surface-container rounded-full transition-colors flex-shrink-0"
               >
                 <X size={20} />
               </button>
@@ -726,7 +726,7 @@ export default function StudentDashboard() {
                 autoCapitalize="characters"
                 spellCheck={false}
                 maxLength={8}
-                className="w-full px-4 py-3.5 rounded-card border-2 border-outline-variant focus:border-accent focus:outline-none text-2xl font-mono font-bold tracking-[0.25em] indent-[0.25em] bg-surface text-on-surface transition-colors"
+                className="w-full px-4 py-3.5 rounded-full border-2 border-outline-variant focus:border-accent focus:outline-none text-2xl font-mono font-bold tracking-[0.25em] indent-[0.25em] bg-surface text-on-surface transition-colors"
               />
               <p className="text-xs text-hint mt-2 text-center">
                 Son 6 caracteres, entre letras y números
@@ -734,7 +734,7 @@ export default function StudentDashboard() {
               <button
                 type="submit"
                 disabled={!joinCode.trim()}
-                className="mt-4 w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded-card transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
+                className="mt-4 w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
               >
                 Continuar <ChevronRight size={18} />
               </button>
@@ -759,7 +759,7 @@ export default function StudentDashboard() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-lg font-semibold text-on-surface truncate">Quitar de mis archivadas</h3>
-              <button type="button" aria-label="Cerrar" onClick={() => !removing && setSubjectToRemove(null)} className="p-2 text-hint rounded flex-shrink-0"><X size={20} /></button>
+              <button type="button" aria-label="Cerrar" onClick={() => !removing && setSubjectToRemove(null)} className="p-2 text-hint rounded-full flex-shrink-0"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-3 leading-relaxed">
               <strong className="text-on-surface">{subjectDisplayName(subjectToRemove)}</strong> desaparecerá
@@ -774,7 +774,7 @@ export default function StudentDashboard() {
               <button
                 type="button"
                 onClick={() => navigate(`/alumno/materia/${subjectToRemove.id}`)}
-                className="w-full py-2.5 rounded border border-amber-400 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-full border border-amber-400 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
               >
                 <Download size={16} /> Abrir y descargar mis entregas
               </button>
@@ -784,7 +784,7 @@ export default function StudentDashboard() {
                 type="button"
                 onClick={() => setSubjectToRemove(null)}
                 disabled={removing}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface-container transition-colors disabled:opacity-60"
+                className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-semibold hover:bg-surface-container transition-colors disabled:opacity-60"
               >
                 Cancelar
               </button>
@@ -792,7 +792,7 @@ export default function StudentDashboard() {
                 type="button"
                 onClick={handleRemoveArchived}
                 disabled={removing}
-                className="flex-1 py-2.5 rounded bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 rounded-full bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {removing ? <Spinner size="sm" /> : <Trash2 size={16} />} Quitar
               </button>

@@ -115,7 +115,7 @@ export default function DescargaApp() {
       <a
         href={href}
         download="evalua-facil.apk"
-        className="mt-8 w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-accent hover:bg-accent-hover text-white font-semibold rounded shadow-card transition-colors"
+        className="mt-8 w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full shadow-card transition-colors"
       >
         <Download className="w-5 h-5" />
         Descargar la app

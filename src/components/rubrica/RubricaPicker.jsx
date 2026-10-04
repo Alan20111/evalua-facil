@@ -95,7 +95,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
     <div className="fixed inset-0 z-[60] bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button type="button" onClick={onClose} aria-label="Volver" className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
+          <button type="button" onClick={onClose} aria-label="Volver" className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
@@ -110,11 +110,11 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
         {!IS_NATIVE_APP && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button type="button" onClick={() => setEditing('new')}
-              className="w-full py-3 bg-accent text-white font-semibold rounded-card flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors">
+              className="w-full py-3 bg-accent text-white font-semibold rounded-full flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors">
               <Plus size={18} /> Crear nueva rúbrica
             </button>
             <button type="button" onClick={() => setEditing('new-cotejo')}
-              className="w-full py-3 border-2 border-accent text-accent font-semibold rounded-card flex items-center justify-center gap-2 hover:bg-[var(--accent-tint)] transition-colors">
+              className="w-full py-3 border-2 border-accent text-accent font-semibold rounded-full flex items-center justify-center gap-2 hover:bg-[var(--accent-tint)] transition-colors">
               <ListChecks size={18} /> Crear lista de cotejo
             </button>
           </div>
@@ -178,7 +178,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
                     </button>
                   ) : (
                     <button type="button" onClick={() => onSelect(r)}
-                      className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors">
+                      className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors">
                       <Check size={16} /> Usar
                     </button>
                   )}
@@ -211,11 +211,11 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
                     </p>
                     <div className="flex gap-2">
                       <button type="button" onClick={() => setConfirmDeleteId(null)} disabled={deleting}
-                        className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60">
+                        className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60">
                         Cancelar
                       </button>
                       <button type="button" onClick={() => handleDelete(r.id)} disabled={deleting}
-                        className="flex-1 py-1.5 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors">
+                        className="flex-1 py-1.5 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors">
                         {deleting ? 'Eliminando…' : 'Eliminar'}
                       </button>
                     </div>

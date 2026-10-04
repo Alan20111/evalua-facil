@@ -1289,9 +1289,9 @@ export default function ActivityPage() {
         </p>
         <div className="flex gap-2">
           <button type="button" onClick={() => setDeleteConfirm(false)}
-            className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+            className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
           <button type="button" onClick={handleDeleteActivity} disabled={deletingActivity}
-            className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+            className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
             {deletingActivity ? <Spinner size="sm" /> : <Trash2 size={16} />}
             {deletingActivity ? 'Eliminando…' : 'Eliminar'}
           </button>
@@ -1372,7 +1372,7 @@ export default function ActivityPage() {
               type="button"
               onClick={goBack}
               aria-label="Volver"
-              className="p-2 -ml-2 text-hint hover:text-muted rounded"
+              className="p-2 -ml-2 text-hint hover:text-muted rounded-full"
             >
               <ArrowLeft size={22} />
             </button>
@@ -1400,7 +1400,7 @@ export default function ActivityPage() {
                   onClick={() => setEditingActivity(true)}
                   data-tooltip="Editar actividad"
                   aria-label="Editar actividad"
-                  className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                  className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0"
                 >
                   <Pencil size={18} />
                 </button>
@@ -1483,7 +1483,7 @@ export default function ActivityPage() {
               onClick={handleZipDownload}
               disabled={zipDownloading}
               data-tooltip="Descarga todas las evidencias entregadas en un archivo ZIP."
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
             >
               {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
               {zipDownloading
@@ -1530,7 +1530,7 @@ export default function ActivityPage() {
                   type="button"
                   onClick={contarEntregasIA}
                   data-tooltip="Genera propuestas de calificación con IA para las entregas pendientes."
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
                 >
                   <Sparkles size={16} />
                   Calificar
@@ -1540,7 +1540,7 @@ export default function ActivityPage() {
                     type="button"
                     onClick={contarRecalificarIA}
                     data-tooltip="La rúbrica o lista de cotejo cambió desde la última evaluación con IA. Genera una nueva propuesta con la versión actual y consume créditos."
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface-container transition-colors disabled:opacity-60"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-surface-container transition-colors disabled:opacity-60"
                   >
                     <Sparkles size={16} />
                     Recalificar
@@ -1551,7 +1551,7 @@ export default function ActivityPage() {
                     type="button"
                     onClick={contarAplicarTodasIA}
                     data-tooltip="Aplica las propuestas de IA pendientes como calificación definitiva. No consume créditos."
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60"
                   >
                     <CheckCheck size={16} />
                     Aplicar propuestas ({pendientesIA})
@@ -1943,7 +1943,7 @@ export default function ActivityPage() {
                     <button
                       type="button"
                       onClick={() => goToOffset(-1)}
-                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-medium)] transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded-full border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-medium)] transition-colors"
                     >
                       <ChevronLeft size={20} /> Anterior
                     </button>
@@ -1951,7 +1951,7 @@ export default function ActivityPage() {
                     <button
                       type="button"
                       onClick={() => goToOffset(1)}
-                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded-full bg-accent text-white text-base font-semibold hover:bg-accent-hover transition-colors"
                     >
                       Siguiente <ChevronRight size={20} />
                     </button>
@@ -1990,7 +1990,7 @@ export default function ActivityPage() {
                             if (rect) setRubricaWinTop(Math.round(rect.bottom + 6))
                             setRubricaViewOpen((v) => !v)
                           }}
-                          className={`w-full py-2.5 text-sm font-semibold rounded transition-colors flex items-center justify-center gap-2 ${
+                          className={`w-full py-2.5 text-sm font-semibold rounded-full transition-colors flex items-center justify-center gap-2 ${
                             rubricaViewOpen
                               ? 'bg-accent text-white hover:bg-accent-hover'
                               : 'border border-accent text-accent hover:bg-[var(--accent-medium)]'
@@ -2008,7 +2008,7 @@ export default function ActivityPage() {
                       <button
                         type="button"
                         onClick={() => abrirCalificarIA()}
-                        className="w-full py-2.5 text-sm font-semibold rounded border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-2.5 text-sm font-semibold rounded-full border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
                       >
                         <Sparkles size={17} />
                         {labelCalificarConIA}
@@ -2059,7 +2059,7 @@ export default function ActivityPage() {
                           // Primer campo del panel de calificación, abierto con intención de escribir.
                           autoFocus={PUEDE_AUTOFOCUS && !parcialCerrado}
                           disabled={parcialCerrado}
-                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="w-full px-3 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -2085,7 +2085,7 @@ export default function ActivityPage() {
                               disabled={studentZipDownloading}
                               data-tooltip="Descargar todas en ZIP"
                               aria-label="Descargar todas en ZIP"
-                              className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0 disabled:opacity-40"
+                              className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded-full flex-shrink-0 disabled:opacity-40"
                             >
                               {studentZipDownloading ? <Spinner size="sm" /> : <Download size={15} />}
                             </button>
@@ -2174,7 +2174,7 @@ export default function ActivityPage() {
                         <button
                           type="submit"
                           disabled={saving || !canCreate || !comentarioDirty()}
-                          className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                          className="w-full py-2.5 bg-accent text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                         >
                           {saving ? <Spinner size="sm" /> : null}
                           {saving ? 'Guardando…' : 'Guardar comentario'}
@@ -2184,7 +2184,7 @@ export default function ActivityPage() {
                       <button
                         type="submit"
                         disabled={saving || !canCreate || !isDirty()}
-                        className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="w-full py-2.5 bg-accent text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         {saving ? <Spinner size="sm" /> : <Star size={18} />}
                         {saving ? 'Guardando…' : 'Guardar calificación'}
@@ -2251,7 +2251,7 @@ export default function ActivityPage() {
                             type="button"
                             onClick={() => setAnnulMode(false)}
                             disabled={annulling}
-                            className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                            className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
                           >
                             Cancelar
                           </button>
@@ -2259,7 +2259,7 @@ export default function ActivityPage() {
                             type="button"
                             onClick={annulSubmission}
                             disabled={annulling}
-                            className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
+                            className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
                           >
                             {annulling ? 'Anulando…' : 'Anular entrega'}
                           </button>
@@ -2310,7 +2310,7 @@ export default function ActivityPage() {
                         <button
                           type="button"
                           onClick={() => setExtendMode(false)}
-                          className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                          className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
                         >
                           Cancelar
                         </button>
@@ -2318,7 +2318,7 @@ export default function ActivityPage() {
                           type="button"
                           onClick={saveExtension}
                           disabled={!extendDate || savingExtension || extensionUnchanged}
-                          className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
+                          className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded-full disabled:opacity-60 transition-colors"
                         >
                           {savingExtension ? 'Guardando…' : 'Guardar'}
                         </button>
@@ -2353,7 +2353,7 @@ export default function ActivityPage() {
                             step="0.1"
                             // Primer campo del panel "Evaluar sin entrega", abierto con intención de escribir.
                             autoFocus={PUEDE_AUTOFOCUS}
-                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold bg-surface"
+                            className="w-full px-3 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold bg-surface"
                           />
                         </div>
                         <div>
@@ -2370,7 +2370,7 @@ export default function ActivityPage() {
                           <button
                             type="button"
                             onClick={() => setSinEntregaMode(false)}
-                            className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                            className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
                           >
                             Cancelar
                           </button>
@@ -2378,7 +2378,7 @@ export default function ActivityPage() {
                             type="button"
                             onClick={saveSinEntrega}
                             disabled={savingSinEntrega || sinEntregaGrade === ''}
-                            className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
+                            className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded-full disabled:opacity-60 transition-colors"
                           >
                             {savingSinEntrega ? 'Guardando…' : 'Guardar'}
                           </button>
@@ -2538,7 +2538,7 @@ export default function ActivityPage() {
                   type="button"
                   onClick={() => goToOffset(-1)}
                   disabled={navList.length < 2}
-                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-full border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
                 >
                   <ChevronLeft size={18} /> Anterior
                 </button>
@@ -2546,7 +2546,7 @@ export default function ActivityPage() {
                   type="button"
                   onClick={() => goToOffset(1)}
                   disabled={navList.length < 2}
-                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-40"
                 >
                   Siguiente <ChevronRight size={18} />
                 </button>
@@ -2587,7 +2587,7 @@ export default function ActivityPage() {
                         if (rect) setRubricaWinBottom(Math.round(window.innerHeight - rect.top + 6))
                         setRubricaViewOpen((v) => !v)
                       }}
-                      className={`w-full py-2.5 text-sm font-semibold rounded transition-colors flex items-center justify-center gap-2 ${
+                      className={`w-full py-2.5 text-sm font-semibold rounded-full transition-colors flex items-center justify-center gap-2 ${
                         rubricaViewOpen
                           ? 'bg-accent text-white hover:bg-accent-hover'
                           : 'border border-accent text-accent hover:bg-[var(--accent-medium)]'
@@ -2605,7 +2605,7 @@ export default function ActivityPage() {
                   <button
                     type="button"
                     onClick={() => abrirCalificarIA()}
-                    className="w-full py-2.5 text-sm font-semibold rounded border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2.5 text-sm font-semibold rounded-full border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
                   >
                     <Sparkles size={17} />
                     {labelCalificarConIA}
@@ -2800,7 +2800,7 @@ export default function ActivityPage() {
                 type="button"
                 onClick={() => setAnnulMode(false)}
                 disabled={annulling}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
               >
                 Cancelar
               </button>
@@ -2808,7 +2808,7 @@ export default function ActivityPage() {
                 type="button"
                 onClick={annulSubmission}
                 disabled={annulling}
-                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
+                className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
               >
                 {annulling ? 'Anulando…' : 'Anular entrega'}
               </button>
@@ -2843,7 +2843,7 @@ export default function ActivityPage() {
               <button
                 type="button"
                 onClick={() => setExtendMode(false)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
               >
                 Cancelar
               </button>
@@ -2851,7 +2851,7 @@ export default function ActivityPage() {
                 type="button"
                 onClick={saveExtension}
                 disabled={!extendDate || savingExtension || extensionUnchanged}
-                className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
+                className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded-full disabled:opacity-60 transition-colors"
               >
                 {savingExtension ? 'Guardando…' : 'Guardar'}
               </button>
@@ -2913,7 +2913,7 @@ export default function ActivityPage() {
                 onClick={() => setRubricaViewOpen(false)}
                 aria-label="Cerrar rúbrica"
                 data-tooltip="Cerrar rúbrica"
-                className="p-2 text-hint hover:text-accent rounded flex-shrink-0"
+                className="p-2 text-hint hover:text-accent rounded-full flex-shrink-0"
               >
                 <X size={17} />
               </button>
@@ -2944,7 +2944,7 @@ export default function ActivityPage() {
                   }
                   setRubricaViewOpen(false)
                 }}
-                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover disabled:opacity-60 transition-colors"
+                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-full flex items-center justify-center gap-2 hover:bg-accent-hover disabled:opacity-60 transition-colors"
               >
                 Aplicar y guardar calificación{totalR != null ? ` — ${totalR} / ${RUBRICA_TOTAL}` : ` (faltan ${faltan})`}
               </button>

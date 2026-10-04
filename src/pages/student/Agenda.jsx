@@ -448,7 +448,7 @@ export default function Agenda() {
             <button
               type="button"
               onClick={goBack}
-              className="md:hidden p-2 -ml-2 hover:bg-white/10 rounded flex-shrink-0 transition-colors"
+              className="md:hidden p-2 -ml-2 hover:bg-white/10 rounded-full flex-shrink-0 transition-colors"
               aria-label="Regresar"
             >
               <ArrowLeft size={20} />
@@ -549,11 +549,11 @@ export default function Agenda() {
           renglón era justify-between, así que en una pantalla ancha "‹" y "›"
           terminaban en las orillas, a medio palmo de la fecha que mueven. */}
       <div className="bg-surface-card border-b border-outline-variant px-4 py-2 flex items-center justify-center gap-1">
-        <button type="button" onClick={prev} aria-label="Anterior" className="p-2 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors flex-shrink-0">
+        <button type="button" onClick={prev} aria-label="Anterior" className="p-2 text-muted hover:text-accent hover:bg-accent-tint rounded-full transition-colors flex-shrink-0">
           <ChevronLeft size={navIcon} />
         </button>
         <p className={`${navText} font-semibold text-on-surface truncate min-w-0`}>{navLabel()}</p>
-        <button type="button" onClick={next} aria-label="Siguiente" className="p-2 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors flex-shrink-0">
+        <button type="button" onClick={next} aria-label="Siguiente" className="p-2 text-muted hover:text-accent hover:bg-accent-tint rounded-full transition-colors flex-shrink-0">
           <ChevronRight size={navIcon} />
         </button>
         <button type="button" onClick={goToday} className={`${btnText} font-medium text-accent border border-accent rounded-full px-2.5 py-0.5 ml-1 flex-shrink-0 hover:bg-accent-tint transition-colors`}>

@@ -159,7 +159,7 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
       <div className="ef-nodrag relative bg-surface-card rounded-card shadow-2xl p-4 w-full max-w-sm">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-on-surface">Ajusta tu foto</h3>
-          <button type="button" onClick={onCancel} aria-label="Cancelar" className="p-2 text-hint hover:text-muted rounded"><X size={20} /></button>
+          <button type="button" onClick={onCancel} aria-label="Cancelar" className="p-2 text-hint hover:text-muted rounded-full"><X size={20} /></button>
         </div>
         <p className="text-xs text-muted mb-3 text-center">
           {IS_NATIVE_APP ? 'Pellizca para alejar o acercar · arrastra para mover' : 'Rueda del mouse para acercar/alejar · arrastra para mover'}
@@ -195,11 +195,11 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
         </div>
         <div className="flex gap-2 mt-4">
           <button type="button" onClick={onCancel}
-            className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+            className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
             Cancelar
           </button>
           <button type="button" onClick={handleConfirm} disabled={!imgEl || saving}
-            className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+            className="flex-1 py-2.5 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
             {saving ? <Spinner size="sm" /> : <Check size={16} />}
             Guardar
           </button>

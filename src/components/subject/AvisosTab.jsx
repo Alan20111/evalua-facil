@@ -410,7 +410,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
         </InfoDisclosure>
         <button type="button" onClick={openAdd}
           data-tooltip={canCreate ? 'Nuevo aviso' : blockedTooltip}
-          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
           <Plus size={16} /> Nuevo aviso
         </button>
       </div>
@@ -475,19 +475,19 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       siempre significa "Guardar". */}
                   {soloGuardados ? (
                     <button type="button" onClick={() => toggleGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos" data-tooltip-pos="bottom"
-                      className="p-2 rounded transition-colors flex-shrink-0 text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
+                      className="p-2 rounded-full transition-colors flex-shrink-0 text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
                       <RotateCcw size={18} />
                     </button>
                   ) : (
                     <button type="button" onClick={() => toggleGuardado(a)} aria-label="Guardar" data-tooltip="Guardar" data-tooltip-pos="bottom"
-                      className="p-2 rounded transition-colors flex-shrink-0 text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
+                      className="p-2 rounded-full transition-colors flex-shrink-0 text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
                       <Bookmark size={18} />
                     </button>
                   )}
                   <div className="relative flex-shrink-0">
                     <button type="button" onClick={() => setOpenMenuId((id) => (id === a.id ? null : a.id))}
                       aria-label="Más opciones" data-tooltip="Más opciones" data-tooltip-pos="bottom"
-                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors">
                       <MoreVertical size={18} />
                     </button>
                     {openMenuId === a.id && (
@@ -527,11 +527,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <div className="flex items-center gap-1">
                     <button type="button" onClick={() => setStep('plantillas')}
                       data-tooltip="Editar tus plantillas"
-                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors">
                       <Settings size={18} />
                     </button>
                     <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
-                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors">
                       <X size={18} />
                     </button>
                   </div>
@@ -542,7 +542,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <div className="text-center py-8 text-sm text-muted">
                     <p className="mb-3">Aún no tienes plantillas.</p>
                     <button type="button" onClick={() => openPlantillaForm(null)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors">
                       <Plus size={16} /> Crear tu primera plantilla
                     </button>
                   </div>
@@ -564,7 +564,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <span className="text-2xl flex-shrink-0" aria-hidden="true">{form.emoji}</span>
                   <h3 className="text-lg font-semibold flex-1">{form.titulo || 'Nuevo aviso'}</h3>
                   <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
-                    className="p-2 -mr-1 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                    className="p-2 -mr-1 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
                     <X size={18} />
                   </button>
                 </div>
@@ -582,7 +582,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     Cancelar
                   </button>
                   <button type="submit" disabled={saving}
-                    className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+                    className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
                     {saving ? 'Guardando…' : 'Publicar'}
                   </button>
                 </div>
@@ -621,7 +621,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     <Plus size={14} /> Nueva
                   </button>
                   <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
-                    className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                    className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors">
                     <X size={18} />
                   </button>
                 </div>
@@ -657,11 +657,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       <span className="text-xl flex-shrink-0" aria-hidden="true">{p.emoji}</span>
                       <span className="flex-1 min-w-0 text-sm text-on-surface truncate">{p.label}</span>
                       <button type="button" onClick={() => openPlantillaForm(p)} aria-label="Editar" data-tooltip="Editar"
-                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
                         <Pencil size={15} />
                       </button>
                       <button type="button" onClick={() => setDeletePlantillaConfirm(p)} aria-label="Eliminar" data-tooltip="Eliminar"
-                        className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+                        className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded-full transition-colors flex-shrink-0">
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -679,7 +679,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   </button>
                   <h3 className="text-lg font-semibold flex-1">{plantillaForm.id ? 'Editar plantilla' : 'Nueva plantilla'}</h3>
                   <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
-                    className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                    className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors">
                     <X size={18} />
                   </button>
                 </div>
@@ -700,7 +700,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   </div>
                   <div>
                     <label htmlFor="plantilla-label" className="block text-sm font-medium text-on-surface mb-1">Nombre</label>
-                    <input id="plantilla-label" type="text" value={plantillaForm.label} onChange={(e) => setPlantillaForm((f) => ({ ...f, label: e.target.value }))} className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm" />
+                    <input id="plantilla-label" type="text" value={plantillaForm.label} onChange={(e) => setPlantillaForm((f) => ({ ...f, label: e.target.value }))} className="w-full px-3 py-2 border border-outline-variant rounded-full bg-surface text-sm" />
                   </div>
                   <div>
                     <label htmlFor="plantilla-mensaje" className="block text-sm font-medium text-on-surface mb-1">Mensaje sugerido (opcional)</label>
@@ -715,7 +715,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     Cancelar
                   </button>
                   <button type="submit" disabled={savingPlantilla}
-                    className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+                    className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
                     {savingPlantilla ? 'Guardando…' : 'Guardar'}
                   </button>
                 </div>
@@ -813,7 +813,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 Cancelar
               </button>
               <button type="button" onClick={handleDelete} disabled={deleting}
-                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors disabled:opacity-60">
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-full hover:bg-red-700 transition-colors disabled:opacity-60">
                 {deleting ? 'Eliminando…' : 'Eliminar'}
               </button>
             </div>
@@ -834,7 +834,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 Cancelar
               </button>
               <button type="button" onClick={handleDeletePlantilla}
-                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors">
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-full hover:bg-red-700 transition-colors">
                 Eliminar
               </button>
             </div>

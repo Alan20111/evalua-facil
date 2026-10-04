@@ -148,7 +148,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
     <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="px-4 py-3 flex items-center gap-3">
-          <button type="button" onClick={requestClose} aria-label="Volver" className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
+          <button type="button" onClick={requestClose} aria-label="Volver" className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
@@ -228,7 +228,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                         {i >= MIN_CRITERIOS && (
                           <button type="button" onClick={() => removeCriterio(i)}
                             aria-label={`Eliminar criterio ${i + 1}`} data-tooltip="Eliminar criterio"
-                            className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0">
+                            className="p-2 text-hint hover:text-red-500 rounded-full flex-shrink-0">
                             <Trash2 size={14} />
                           </button>
                         )}
@@ -294,12 +294,12 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
             </p>
           )}
           <button type="submit" disabled={saving || !!validationError || (!isNew && JSON.stringify(r) === editSnapshot.current)}
-            className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
+            className="w-full py-3 bg-accent text-white font-semibold rounded-full disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Spinner size="sm" /> : <Check size={18} />}
             {saving ? 'Guardando…' : isNew ? 'Guardar lista de cotejo en mi banco' : 'Guardar cambios'}
           </button>
           <button type="button" onClick={requestClose} disabled={saving}
-            className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded hover:bg-surface-container transition-colors disabled:opacity-60">
+            className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-full hover:bg-surface-container transition-colors disabled:opacity-60">
             Cancelar
           </button>
           <div className="h-6 safe-bottom" />
@@ -324,11 +324,11 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
             )}
             <div className="flex gap-2">
               <button type="button" onClick={() => setConfirmSalir(false)} disabled={saving}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
+                className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
                 {iaGenerada ? 'Cancelar' : 'Seguir editando'}
               </button>
               <button type="button" onClick={handleSave} disabled={saving || !!validationError}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded-full bg-accent text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
                 {saving ? <Spinner size="sm" /> : <Check size={16} />}
                 {iaGenerada ? 'Guardar lista de cotejo' : 'Guardar y salir'}
               </button>

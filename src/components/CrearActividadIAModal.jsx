@@ -97,7 +97,7 @@ export default function CrearActividadIAModal({
           <Sparkles size={18} className="text-accent flex-shrink-0" />
           <h3 className="text-base font-semibold flex-1">{tipoLabel} con IA</h3>
           <button type="button" onClick={() => { if (!trabajando) onClose?.() }} aria-label="Cerrar"
-            className="p-1 text-hint rounded"><X size={18} /></button>
+            className="p-1 text-hint rounded-full"><X size={18} /></button>
         </div>
         <p className="text-sm text-muted mb-3">
           El asistente propone {isObservacion ? 'la actividad completa (qué vas a observar y cómo se evaluará)' : 'la actividad completa (nombre, instrucciones y tipos de archivo)'} a partir de lo que describas. Lo revisas y ajustas después, como cualquier otra actividad.
@@ -127,7 +127,7 @@ export default function CrearActividadIAModal({
             Cancelar
           </button>
           <button type="button" onClick={handleGenerar} disabled={trabajando}
-            className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+            className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
             {trabajando ? 'Generando…' : 'Generar con IA'}
           </button>
         </div>

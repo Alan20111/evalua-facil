@@ -689,7 +689,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               type="button"
               onClick={limpiarTodo}
               disabled={!hayFiltro}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-accent text-accent hover:bg-[var(--accent-tint)]"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-full border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-accent text-accent hover:bg-[var(--accent-tint)]"
             >
               <X size={15} /> Quitar todos los filtros
             </button>
@@ -817,7 +817,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       <button
                         type="button"
                         onClick={() => handleDeleteBaja(r.sub.docenteId)}
-                        className="p-2 text-hint hover:text-red-600 rounded"
+                        className="p-2 text-hint hover:text-red-600 rounded-full"
                         aria-label="Eliminar constancia"
                         title="Eliminar constancia"
                       >
@@ -830,7 +830,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                             type="button"
                             onClick={() => openAjuste(r.sub, r.docente)}
                             disabled={ajusteModal?.subId === r.sub.id && ajusteModal?.saving}
-                            className="p-1.5 text-hint hover:text-accent rounded disabled:opacity-40"
+                            className="p-1.5 text-hint hover:text-accent rounded-full disabled:opacity-40"
                             aria-label="Ajustar créditos de IA"
                             title="Ajustar créditos de IA"
                           >
@@ -841,7 +841,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                           <button
                             type="button"
                             onClick={() => openDeleteModal(r.uid, r.docente, r.correo)}
-                            className="p-1.5 text-hint hover:text-red-600 rounded"
+                            className="p-1.5 text-hint hover:text-red-600 rounded-full"
                             aria-label="Eliminar cuenta"
                             title="Eliminar cuenta del docente"
                           >
@@ -872,7 +872,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             <button
               type="button"
               onClick={() => setLimit((l) => l + PAGE)}
-              className="px-3 py-2 text-sm font-semibold text-accent border border-accent rounded hover:bg-[var(--accent-tint)] transition-colors"
+              className="px-3 py-2 text-sm font-semibold text-accent border border-accent rounded-full hover:bg-[var(--accent-tint)] transition-colors"
             >
               Mostrar {Math.min(PAGE, filtered.length - visible.length)} más
             </button>
@@ -907,7 +907,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 type="button"
                 onClick={() => !deleteModal.saving && setDeleteModal(null)}
                 disabled={deleteModal.saving}
-                className="flex-1 py-2.5 border border-outline-variant text-muted font-semibold rounded text-sm disabled:opacity-60"
+                className="flex-1 py-2.5 border border-outline-variant text-muted font-semibold rounded-full text-sm disabled:opacity-60"
               >
                 Cancelar
               </button>
@@ -915,7 +915,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 type="button"
                 onClick={handleDeleteAccount}
                 disabled={deleteModal.saving}
-                className="flex-1 py-2 bg-red-600 text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                className="flex-1 py-2 bg-red-600 text-white font-semibold rounded-full text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {deleteModal.saving ? <Spinner size="sm" /> : null}
                 Eliminar
@@ -970,7 +970,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               <button
                 type="submit"
                 disabled={ajusteModal.saving || !ajusteModal.cantidad || !ajusteModal.motivo.trim()}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded-full text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {ajusteModal.saving ? <Spinner size="sm" /> : null}
                 Aplicar ajuste

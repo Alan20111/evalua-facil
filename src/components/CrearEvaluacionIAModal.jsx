@@ -137,7 +137,7 @@ export default function CrearEvaluacionIAModal({
           <Sparkles size={18} className="text-accent flex-shrink-0" />
           <h3 className="text-base font-semibold flex-1">{tipoLabel} con IA</h3>
           <button type="button" onClick={() => { if (!trabajando) onClose?.() }} aria-label="Cerrar"
-            className="p-1 text-hint rounded"><X size={18} /></button>
+            className="p-1 text-hint rounded-full"><X size={18} /></button>
         </div>
         <p className="text-sm text-muted mb-3">
           El asistente crea el {tipoLabel.toLowerCase()} completo con sus reactivos a partir de lo que describas. Lo revisas y ajustas después, como cualquier otra evaluación.
@@ -148,7 +148,7 @@ export default function CrearEvaluacionIAModal({
             <label htmlFor="ia-eval-nombre" className="block text-sm text-on-surface mb-1">Nombre de la evaluación</label>
             <input id="ia-eval-nombre" type="text" value={nombre} disabled={trabajando}
               onChange={(e) => setNombre(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+              className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
           </div>
           <div>
             <label htmlFor="ia-eval-quiere" className="block text-sm text-on-surface mb-1">¿Qué quieres evaluar?</label>
@@ -160,7 +160,7 @@ export default function CrearEvaluacionIAModal({
             <label htmlFor="ia-eval-cantidad" className="text-sm text-on-surface">¿Cuántos reactivos quieres generar?</label>
             <select id="ia-eval-cantidad" value={cantidad} disabled={trabajando}
               onChange={(e) => setCantidad(Number(e.target.value))}
-              className="px-2 py-1 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+              className="px-2 py-1 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
               {Array.from({ length: tope - MIN_REACTIVOS + 1 }, (_, i) => MIN_REACTIVOS + i).map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
@@ -209,7 +209,7 @@ export default function CrearEvaluacionIAModal({
             Cancelar
           </button>
           <button type="button" onClick={handleGenerar} disabled={trabajando || tiposSeleccionados.length === 0}
-            className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+            className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
             {trabajando ? 'Generando…' : 'Generar con IA'}
           </button>
         </div>

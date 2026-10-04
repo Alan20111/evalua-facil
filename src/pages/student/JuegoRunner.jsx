@@ -227,7 +227,7 @@ export default function JuegoRunner() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowExitModal(false)}
-                className="flex-1 py-2.5 text-sm text-muted border border-outline-variant rounded">
+                className="flex-1 py-2.5 text-sm text-muted border border-outline-variant rounded-full">
                 Seguir jugando
               </button>
               <button type="button" onClick={() => navigate(`/alumno/actividad/${activityId}`)}
@@ -246,7 +246,7 @@ export default function JuegoRunner() {
 
         <div className="flex justify-end mt-4 safe-bottom">
           <button type="button" onClick={handleFinalizar} disabled={finishing}
-            className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60">
+            className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-semibold rounded-full disabled:opacity-60">
             {finishing ? <Spinner size="sm" /> : <CheckCircle2 size={18} />}
             {finishing ? 'Finalizando…' : 'Finalizar'}
           </button>

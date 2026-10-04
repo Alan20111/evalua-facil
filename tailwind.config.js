@@ -43,8 +43,11 @@ export default {
         pill: '9999px',
       },
       boxShadow: {
-        card: '0 4px 20px rgba(0,0,0,0.04)',
-        'card-hover': '0 6px 24px rgba(0,0,0,0.08)',
+        // Elevación plana (oct-2026, referencia Apple): las tarjetas se
+        // separan del lienzo por contraste de superficie + un filo de 1px,
+        // no por sombra proyectada. El hover sí levanta un poco.
+        card: '0 0 0 1px rgba(19,27,46,0.06)',
+        'card-hover': '0 0 0 1px rgba(19,27,46,0.10), 0 6px 20px rgba(19,27,46,0.06)',
       },
       maxWidth: {
         container: '1200px',

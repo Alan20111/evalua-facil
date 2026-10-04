@@ -51,7 +51,7 @@ export default function BitacoraObservacionesModal({ estudiante, asignatura, doc
                       <button type="button" onClick={() => onEditar(f.id)}
                         aria-label={`Editar la observación del ${f.fecha}`}
                         data-tooltip="Editar observación" data-tooltip-pos="left"
-                        className="flex-shrink-0 p-2 -m-2 rounded text-hint hover:text-accent hover:bg-[var(--accent-medium)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors">
+                        className="flex-shrink-0 p-2 -m-2 rounded-full text-hint hover:text-accent hover:bg-[var(--accent-medium)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors">
                         <Pencil size={14} />
                       </button>
                     </div>
@@ -65,12 +65,12 @@ export default function BitacoraObservacionesModal({ estudiante, asignatura, doc
 
       <div className="flex gap-2 mt-4 justify-end">
         <button type="button" onClick={onClose}
-          className="px-5 py-2.5 rounded border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+          className="px-5 py-2.5 rounded-full border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors">
           Cerrar
         </button>
         {mostrarImprimir && (
           <button type="button" onClick={onImprimir} disabled={filas.length === 0}
-            className="px-5 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-2">
+            className="px-5 py-2.5 rounded-full bg-accent text-white text-base font-semibold hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-2">
             <Printer size={17} /> Imprimir
           </button>
         )}

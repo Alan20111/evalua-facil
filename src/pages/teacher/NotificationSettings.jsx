@@ -122,7 +122,7 @@ function AnticipacionPicker({ value, onChange }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-sm bg-surface text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
+        className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
       >
         <span>{current?.label || 'Elegir…'}</span>
         <ChevronDown size={14} className="text-muted flex-shrink-0" />
@@ -177,7 +177,7 @@ function Toggle({ checked, onChange, label, description, icon: Icon, children })
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className="w-full flex items-center gap-3 text-left -mx-2 px-2 py-1 rounded hover:bg-accent-light active:bg-accent-light transition-colors"
+        className="w-full flex items-center gap-3 text-left -mx-2 px-2 py-1 rounded-full hover:bg-accent-light active:bg-accent-light transition-colors"
       >
         {Icon && (
           <span className="flex items-center justify-center w-9 h-9 rounded-full bg-accent-light flex-shrink-0">

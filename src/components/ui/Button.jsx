@@ -1,4 +1,6 @@
 // Botón canónico — extraído literal de docs/DESIGN_SYSTEM.md §6.1 (8 variantes).
+// Forma de píldora (rounded-full) en todas las variantes desde oct-2026: los
+// controles que se tocan son píldoras; las tarjetas, rectángulos redondeados.
 // NO inventa estilos: cada `variant` es la cadena de clases ya documentada.
 //
 // Props:
@@ -17,13 +19,13 @@ import Spinner from '../Spinner'
 
 const VARIANTS = {
   primary:
-    'bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
+    'bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
   secondary:
-    'border border-outline-variant rounded font-semibold text-on-surface hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
+    'border border-outline-variant rounded-full font-semibold text-on-surface hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
   'outline-accent':
-    'border border-accent text-accent rounded hover:bg-[var(--accent-tint)] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
+    'border border-accent text-accent rounded-full hover:bg-[var(--accent-tint)] font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
   danger:
-    'bg-red-600 hover:bg-red-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
+    'bg-red-600 hover:bg-red-700 text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
   ghost:
     'text-accent hover:underline font-semibold transition-colors disabled:opacity-60',
   // Icon-button: disabled:opacity-40 (convención de toolbars de puro icono).
@@ -32,9 +34,9 @@ const VARIANTS = {
   // escala (ej. min-h-11) daría 39.6px reales, no 44 — WCAG 2.5.8 pide el
   // tamaño real del target, no el nominal. docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 2, paso 2.8.
   icon:
-    'p-2 min-h-[44px] min-w-[44px] rounded text-hint hover:text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40 inline-flex items-center justify-center',
+    'p-2 min-h-[44px] min-w-[44px] rounded-full text-hint hover:text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40 inline-flex items-center justify-center',
   'cta-dashed':
-    'w-full py-2.5 rounded border-2 border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
+    'w-full py-2.5 rounded-full border-2 border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
   fab:
     'w-14 h-14 rounded-full bg-accent text-white shadow-lg flex items-center justify-center',
 }

@@ -370,7 +370,7 @@ function RevisionPantallaCompleta({ titulo, onCerrar, cerrarTexto = null, accion
             <button
               type="button"
               onClick={onCerrar}
-              className="flex-shrink-0 px-3 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface"
+              className="flex-shrink-0 px-3 py-2 rounded-full border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface"
             >
               {cerrarTexto}
             </button>
@@ -379,7 +379,7 @@ function RevisionPantallaCompleta({ titulo, onCerrar, cerrarTexto = null, accion
               type="button"
               onClick={onCerrar}
               aria-label="Cerrar"
-              className="p-1.5 rounded text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface"
+              className="p-1.5 rounded-full text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface"
             >
               <X size={18} />
             </button>
@@ -1173,7 +1173,7 @@ function Planeacion({
                 onClick={() => (nuncaAprobado ? onPago() : setConfirmando(true))}
                 disabled={generando || !perfilIACompleto}
                 title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar con Evalúa Fácil' : undefined}
-                className="flex items-center gap-1.5 px-3 py-2 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
                 {generando ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : pendiente ? <RotateCcw size={14} /> : <Sparkles size={14} />}
                 {pendiente ? 'Generar de nuevo (con IA)' : 'Generar mi planeación'}
@@ -1191,7 +1191,7 @@ function Planeacion({
               <button
                 type="button"
                 onClick={() => abrirVistaPrevia()}
-                className="flex items-center gap-1.5 px-3 py-2 rounded border border-green-600 text-green-700 text-sm hover:bg-green-50"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-green-600 text-green-700 text-sm hover:bg-green-50"
               >
                 <ThumbsUp size={14} />
                 Vista previa y edición
@@ -1201,7 +1201,7 @@ function Planeacion({
               <button
                 type="button"
                 onClick={() => abrirVistaPrevia()}
-                className="flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
               >
                 <Eye size={14} />
                 Vista previa
@@ -1211,7 +1211,7 @@ function Planeacion({
               <button
                 type="button"
                 onClick={() => setConfirmarReiniciar(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded border border-red-300 text-red-700 text-sm hover:bg-red-50"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-red-300 text-red-700 text-sm hover:bg-red-50"
               >
                 <AlertTriangle size={14} />
                 Generar de nuevo
@@ -1275,7 +1275,7 @@ function Planeacion({
                 type="button"
                 onClick={guardar}
                 disabled={!sinGuardar || guardando}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm disabled:opacity-60 ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm disabled:opacity-60 ${
                   sinGuardar
                     ? 'bg-amber-500 text-white hover:bg-amber-600'
                     : 'border border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
@@ -1296,7 +1296,7 @@ function Planeacion({
                 }}
                 disabled={aceptando}
                 title={parcialesConPonderacionMal.length ? 'Corrige la ponderación de cada parcial a exactamente 100% antes de aceptar' : undefined}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm disabled:opacity-60 ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm disabled:opacity-60 ${
                   parcialesConPonderacionMal.length
                     ? 'border border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
                     : 'bg-accent text-white hover:bg-accent-hover'

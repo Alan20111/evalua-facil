@@ -45,7 +45,7 @@ export default function ActivarCreditosModal({ open, onClose, onSuccess }) {
           type="button"
           onClick={activar}
           disabled={activando}
-          className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+          className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {activando ? <Spinner size="sm" /> : null}
           {activando ? 'Activando…' : 'Activar mis 30 créditos'}

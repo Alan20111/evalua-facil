@@ -54,7 +54,7 @@ function EditorTexto({ vigente, guardando, onGuardar, onCancelar, puedeRestaurar
             dificultades: deLineas(dificultades).slice(0, 30).map((x) => x.slice(0, 1000)),
             recomendaciones: deLineas(recomendaciones).slice(0, 30).map((x) => x.slice(0, 1000)),
           })}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
           {guardando && <Spinner size="sm" />} {guardando ? 'Guardando…' : 'Guardar cambios'}
         </button>
       </div>
@@ -96,13 +96,13 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
           <div className="flex flex-wrap gap-2">
             {!editando && (
               <button type="button" onClick={() => setEditando(true)}
-                className="flex items-center gap-1.5 px-3 py-2 border border-outline-variant rounded text-sm font-semibold text-on-surface hover:bg-surface-container transition-colors">
+                className="flex items-center gap-1.5 px-3 py-2 border border-outline-variant rounded-full text-sm font-semibold text-on-surface hover:bg-surface-container transition-colors">
                 <Pencil size={15} /> Editar texto
               </button>
             )}
             {puedeDescargar && (
               <button type="button" onClick={onDescargarPDF} disabled={descargando}
-                className="flex items-center gap-1.5 px-3 py-2 bg-[var(--accent-light)] border border-accent rounded text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60">
+                className="flex items-center gap-1.5 px-3 py-2 bg-[var(--accent-light)] border border-accent rounded-full text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60">
                 {descargando ? <Spinner size="sm" /> : <FileText size={16} />}
                 {descargando ? 'Generando…' : 'Descargar PDF'}
               </button>
@@ -132,7 +132,7 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
         ))}
 
         <button type="button" onClick={onClose}
-          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded hover:bg-surface-container transition-colors">
+          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-full hover:bg-surface-container transition-colors">
           Cerrar
         </button>
       </div>

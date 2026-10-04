@@ -97,7 +97,7 @@ export default function EliminarCuentaAlumnoModal({ photoURL, onClose }) {
             value={palabra}
             onChange={(e) => setPalabra(e.target.value)}
             autoComplete="off"
-            className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+            className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
           />
         </div>
         <div>
@@ -109,18 +109,18 @@ export default function EliminarCuentaAlumnoModal({ photoURL, onClose }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
-            className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+            className="w-full px-4 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
           />
         </div>
       </div>
 
       <div className="flex gap-2 mt-4">
         <button type="button" onClick={onClose} disabled={borrando}
-          className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+          className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
           Mejor no
         </button>
         <button type="button" onClick={eliminar} disabled={borrando || !puedeSeguir}
-          className="flex-1 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
+          className="flex-1 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
           {borrando ? <Spinner size="sm" /> : <Trash2 size={17} />}
           {borrando ? 'Eliminando…' : 'Eliminar para siempre'}
         </button>

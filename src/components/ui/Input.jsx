@@ -18,7 +18,7 @@ import { cn } from './cn'
 import FieldMark from './FieldMark'
 
 const BASE =
-  'w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
+  'w-full px-4 py-2.5 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
 
 const Input = forwardRef(function Input(
   { label, hint, error, id, optional = false, className = '', wrapperClassName = '', ...rest },

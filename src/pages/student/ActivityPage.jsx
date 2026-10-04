@@ -520,7 +520,7 @@ export default function StudentActivityPage() {
         <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
         <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded flex-shrink-0">
+            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="min-w-0">
@@ -669,7 +669,7 @@ export default function StudentActivityPage() {
                 type="button"
                 onClick={handleStartOrContinueEvaluacion}
                 disabled={uploading}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {uploading ? <Spinner size="sm" /> : <PlayCircle size={20} />}
                 {uploading ? 'Cargando…' : enProgreso ? 'Continuar evaluación' : finalizado ? 'Nuevo intento' : 'Comenzar'}
@@ -723,7 +723,7 @@ export default function StudentActivityPage() {
         <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
         <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded flex-shrink-0">
+            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="min-w-0">
@@ -780,7 +780,7 @@ export default function StudentActivityPage() {
                 <button
                   type="button"
                   onClick={() => setSolucionJuegoAbierta(true)}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-accent text-accent font-medium rounded hover:bg-accent-light transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-accent text-accent font-medium rounded-full hover:bg-accent-light transition-colors"
                 >
                   <BookOpen size={18} />
                   Ver solución
@@ -829,7 +829,7 @@ export default function StudentActivityPage() {
                 type="button"
                 onClick={handleStartOrContinueJuego}
                 disabled={uploading}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {uploading ? <Spinner size="sm" /> : <PlayCircle size={20} />}
                 {uploading ? 'Cargando…' : enProgresoJ ? 'Continuar' : finalizadoJ ? 'Nuevo intento' : 'Comenzar'}
@@ -892,7 +892,7 @@ export default function StudentActivityPage() {
           type="button"
           aria-label="Volver"
           onClick={goBack}
-          className="p-2 -ml-2 text-hint hover:text-muted rounded flex-shrink-0"
+          className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0"
         >
           <ArrowLeft size={22} />
         </button>
@@ -1133,7 +1133,7 @@ export default function StudentActivityPage() {
                         type="button"
                         onClick={() => removeSelectedFile(i)}
                         aria-label={`Quitar ${f.name}`}
-                        className="p-2 -mr-1 text-hint hover:text-red-500 rounded flex-shrink-0"
+                        className="p-2 -mr-1 text-hint hover:text-red-500 rounded-full flex-shrink-0"
                       >
                         <X size={15} />
                       </button>
@@ -1170,7 +1170,7 @@ export default function StudentActivityPage() {
                       autoCapitalize="off"
                       spellCheck={false}
                       aria-invalid={enlaceInvalido || undefined}
-                      className={`flex-1 min-w-0 px-3 py-2 rounded border text-sm bg-surface-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60 disabled:cursor-not-allowed ${
+                      className={`flex-1 min-w-0 px-3 py-2 rounded-full border text-sm bg-surface-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60 disabled:cursor-not-allowed ${
                         enlaceInvalido ? 'border-red-300' : 'border-outline-variant'
                       }`}
                     />
@@ -1179,7 +1179,7 @@ export default function StudentActivityPage() {
                         type="button"
                         onClick={() => { setEnlace(''); setEnlaceTocado(false) }}
                         aria-label="Borrar el enlace"
-                        className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0"
+                        className="p-2 text-hint hover:text-red-500 rounded-full flex-shrink-0"
                       >
                         <X size={16} />
                       </button>
@@ -1200,7 +1200,7 @@ export default function StudentActivityPage() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={(!files.length && !hayEnlace) || uploading}
                 style={{ touchAction: 'manipulation' }}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {uploading ? <Spinner size="sm" /> : <Upload size={18} />}
                 {uploading ? 'Subiendo…' : files.length > 1 ? `Entregar ${files.length} imágenes` : 'Entregar'}

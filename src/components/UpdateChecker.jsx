@@ -51,7 +51,7 @@ export default function UpdateChecker() {
       <button
         type="button"
         onClick={() => window.location.reload()}
-        className="flex-shrink-0 px-3 py-2 rounded bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity"
+        className="flex-shrink-0 px-3 py-2 rounded-full bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity"
       >
         Recargar
       </button>

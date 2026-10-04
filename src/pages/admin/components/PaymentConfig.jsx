@@ -249,7 +249,7 @@ export default function PaymentConfig() {
           type="button"
           onClick={handleSave}
           disabled={saving || !configChanged}
-          className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover disabled:opacity-60"
+          className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover disabled:opacity-60"
         >
           {saving ? <Spinner size="sm" /> : <Save size={17} />}
           Guardar configuración
