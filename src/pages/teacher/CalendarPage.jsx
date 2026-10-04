@@ -32,8 +32,9 @@ import { isActivityPublished, isDraftActivity, withDefaultTime } from '../../uti
 import {
   Clock, Send, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
-  CalendarOff, Trash2, X, Minus, Columns3, Lock, LockOpen, Ban,
+  CalendarOff, Trash2, X, Minus, Columns3, Lock, LockOpen, Ban, Calendar,
 } from 'lucide-react'
+import { VistaAnio, TiraSemana } from '../../components/calendar/VistasApple'
 import { SkeletonList } from '../../components/ui'
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
@@ -442,7 +443,7 @@ export function BloquePill({ b, subj, onClick }) {
     <button
       type="button"
       onClick={onClick ? e => { e.stopPropagation(); onClick(b) } : undefined}
-      className={`flex items-center gap-1 rounded-sm w-full px-1 py-0.5 ${MES_ITEM_TEXT} ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
+      className={`flex items-center gap-1 rounded-full w-full px-2 py-0.5 ${MES_ITEM_TEXT} ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
       style={{ background: pal.bg, color: pal.text, opacity: b.cancelada ? 0.55 : 1 }}
       data-tooltip={onClick ? (b.cancelada ? 'Clase cancelada — usa modificar bloques para editar' : 'Usa modificar bloques para editar') : undefined}
     >
@@ -486,9 +487,11 @@ export function MonthView({ year, month, events, bloques, subjects, selectedDate
 
   return (
     <div>
-      <div className="grid grid-cols-7 border-b border-outline-variant bg-surface">
-        {DIAS_CORTO.map(d => (
-          <div key={d} className="py-2 text-center text-xs font-semibold text-muted uppercase tracking-wide">{d.charAt(0)}</div>
+      {/* Patrón del Calendario de Apple: letra del día arriba, sin cuadrícula —
+          solo una línea fina entre semanas; fin de semana en gris. */}
+      <div className="grid grid-cols-7 border-b border-outline-variant">
+        {DIAS_CORTO.map((d, i) => (
+          <div key={d} className={`py-2 text-center text-xs font-semibold uppercase tracking-wide ${i >= 5 ? 'text-hint' : 'text-muted'}`}>{d.charAt(0)}</div>
         ))}
       </div>
       <div className="grid grid-cols-7">
@@ -522,18 +525,18 @@ export function MonthView({ year, month, events, bloques, subjects, selectedDate
                 }
               }}
               aria-label={`Ver día ${cell.getDate()} de ${MESES[cell.getMonth()]}`}
-              className={`min-h-[92px] border-b border-r border-outline-variant p-1 cursor-pointer hover:bg-accent-tint transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
-              style={(asueto || vacacion) ? { background: '#fffbeb' } : dateStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
+              className={`${IS_NATIVE_APP ? 'min-h-[4.5rem]' : 'min-h-[6.4rem]'} border-b border-outline-variant p-1 cursor-pointer hover:bg-[var(--accent-tint)] transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
+              style={(asueto || vacacion) ? { background: '#fffbeb' } : undefined}
             >
               {/* HOY: misma banda azul de ancho completo que en 3 días/Semana.
                   El -mx-1 cancela el p-1 de la celda para que llegue de borde
                   a borde de la columna; el alto es el del círculo (h-6). */}
-              <div className={`text-xs font-semibold mb-1 ${
+              {/* HOY: círculo de acento (Apple). Elegido: anillo. Fin de semana: gris. */}
+              <div className={`w-8 h-8 mb-1 mx-auto flex items-center justify-center rounded-full text-base font-semibold tabular-nums ${
                 isToday(cell)
-                  ? 'flex items-center justify-center h-6 -mx-1 bg-accent text-white'
-                  : `w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
-                      dateStr === selStr ? 'ring-2 ring-accent text-accent' : 'text-on-surface'
-                    }`
+                  ? 'bg-accent text-white'
+                  : dateStr === selStr ? 'ring-2 ring-accent text-accent'
+                  : (cell.getDay() === 0 || cell.getDay() === 6) ? 'text-hint' : 'text-on-surface'
               }`}>
                 {cell.getDate()}
               </div>
@@ -871,11 +874,13 @@ const VIEWS_ALL = [
   { id: '3dias',  label: '3 días', Icon: Columns3 },
   { id: 'semana', label: 'Semana', Icon: CalendarRange },
   { id: 'mes',    label: 'Mes',    Icon: LayoutGrid },
+  { id: 'anio',   label: 'Año',    Icon: Calendar },
 ]
-// En la app nativa el horario es solo horario: solo Día y 3 días.
-// Semana y Mes quedan disponibles únicamente en la web.
+// En la app nativa: Día, 3 días, Mes y Año (patrón del Calendario de Apple —
+// Año → Mes → Día, oct-2026). Semana sigue solo en la web: en un teléfono sus
+// siete columnas no caben legibles.
 const VIEWS = IS_NATIVE_APP
-  ? VIEWS_ALL.filter(v => v.id === 'agenda' || v.id === '3dias')
+  ? VIEWS_ALL.filter(v => v.id !== 'semana')
   : VIEWS_ALL
 
 // Select propio con el estilo de la app — reemplaza el <select> nativo, que
@@ -889,6 +894,8 @@ export default function CalendarPage() {
   // (eso se hace desde la computadora). Los eventos personales sí se editan.
   // En la app nativa useTelefonoWeb siempre da false: la app sigue igual.
   const soloConsulta = useTelefonoWeb().telefono
+  // Diseño de teléfono (patrón del Calendario de Apple): app nativa o web en celular.
+  const movil = IS_NATIVE_APP || soloConsulta
 
   // Entra donde el docente lo dejó la última vez (vista y fecha) — pedido
   // explícito: no siempre debe aterrizar en Hoy/Día. "Hoy" sigue disponible
@@ -905,6 +912,12 @@ export default function CalendarPage() {
   useEffect(() => {
     localStorage.setItem('cal_current_date', currentDate.toISOString())
   }, [currentDate])
+
+  // En el teléfono no hay Semana (siete columnas no caben): si quedó guardada
+  // de la laptop, se abre 3 días.
+  useEffect(() => {
+    if (movil && view === 'semana') setView('3dias')
+  }, [movil, view])
 
   // Foco inicial en el botón "Hoy" al entrar a Horario (web y app).
   const hoyBtnRef = useRef(null)
@@ -1181,13 +1194,15 @@ export default function CalendarPage() {
 
   // ── Navigation ─────────────────────────────────────────────────────────
   function prev() {
-    if (view === 'mes') setCurrentDate(d => addMonths(d, -1))
+    if (view === 'anio') setCurrentDate(d => addMonths(d, -12))
+    else if (view === 'mes') setCurrentDate(d => addMonths(d, -1))
     else if (view === 'semana') setCurrentDate(d => addWeeks(d, -1))
     else if (view === '3dias') setCurrentDate(d => addDays(d, -3))
     else setCurrentDate(d => addDays(d, -1))
   }
   function next() {
-    if (view === 'mes') setCurrentDate(d => addMonths(d, 1))
+    if (view === 'anio') setCurrentDate(d => addMonths(d, 12))
+    else if (view === 'mes') setCurrentDate(d => addMonths(d, 1))
     else if (view === 'semana') setCurrentDate(d => addWeeks(d, 1))
     else if (view === '3dias') setCurrentDate(d => addDays(d, 3))
     else setCurrentDate(d => addDays(d, 1))
@@ -1195,6 +1210,7 @@ export default function CalendarPage() {
   function goToday() { setCurrentDate(new Date()) }
 
   function navLabel() {
+    if (view === 'anio') return String(currentDate.getFullYear())
     if (view === 'mes') return `${MESES[currentDate.getMonth()]} ${currentDate.getFullYear()}`
     if (view === 'agenda') {
       const dl = DIAS_LARGO[(currentDate.getDay() + 6) % 7]
@@ -1796,8 +1812,8 @@ export default function CalendarPage() {
   // Piezas del toolbar armadas como variables JSX para poder recomponerlas en
   // dos layouts distintos (nativo vs. web) sin duplicar el marcado.
   const dateNav = (
-    <div className="relative flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
-      <button type="button" onClick={prev} aria-label="Anterior" className="p-2 rounded-full hover:bg-accent-tint text-muted transition-colors">
+    <div className="relative flex items-center gap-1">
+      <button type="button" onClick={prev} aria-label="Anterior" className="p-2 rounded-full hover:bg-[var(--accent-tint)] text-muted transition-colors">
         <ChevronLeft size={16} />
       </button>
       <button
@@ -1806,13 +1822,13 @@ export default function CalendarPage() {
           setPickerMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
           setShowDatePicker(v => !v)
         }}
-        className={`text-sm font-semibold text-on-surface px-3 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[180px] max-w-[240px]'} truncate text-center select-none rounded-full hover:bg-accent-tint transition-colors py-0.5`}
+        className={`text-2xl font-bold text-on-surface px-3 py-1 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[11rem]'} truncate text-left select-none rounded-full hover:bg-accent-tint transition-colors py-0.5`}
         data-tooltip="Ir a otra fecha"
         data-tooltip-pos="bottom"
       >
         {navLabel()}
       </button>
-      <button type="button" onClick={next} aria-label="Siguiente" className="p-2 rounded-full hover:bg-accent-tint text-muted transition-colors">
+      <button type="button" onClick={next} aria-label="Siguiente" className="p-2 rounded-full hover:bg-[var(--accent-tint)] text-muted transition-colors">
         <ChevronRight size={16} />
       </button>
 
@@ -1825,7 +1841,7 @@ export default function CalendarPage() {
             onClick={() => setShowDatePicker(false)}
             aria-label="Cerrar selector de fecha"
           />
-          <div className="absolute left-1/2 -translate-x-1/2 top-11 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
+          <div className="absolute left-0 top-12 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
             <div className="flex items-center justify-between mb-2">
               <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-2 rounded-full hover:bg-accent-tint text-muted">
                 <ChevronLeft size={15} />
@@ -1873,9 +1889,7 @@ export default function CalendarPage() {
       ref={hoyBtnRef}
       type="button"
       onClick={goToday}
-      className={IS_NATIVE_APP
-        ? 'text-xs px-2 py-1.5 rounded border-2 border-accent/40 bg-surface-card shadow-card text-muted transition-colors'
-        : 'text-xs px-3 py-1.5 rounded border border-outline-variant text-muted hover:bg-accent-tint transition-colors'}
+      className="text-sm font-semibold px-4 py-2 rounded-full bg-surface-card shadow-card text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
     >
       Hoy
     </button>
@@ -1885,24 +1899,24 @@ export default function CalendarPage() {
     <button
       type="button"
       onClick={() => openNewEvent(null)}
-      className={IS_NATIVE_APP
-        ? 'flex items-center gap-1 px-2 py-1.5 rounded-card border-2 border-accent/40 bg-surface-card shadow-card text-xs text-muted transition-colors'
-        : 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors'}
+      className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors"
     >
-      <Plus size={15} /> Evento
+      <Plus size={16} /> Evento
     </button>
   )
 
   const viewSwitcher = (
-    <div className="flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
+    // Control segmentado (Apple): cápsula gris con la opción elegida en blanco.
+    <div className="flex items-center gap-1 bg-surface-container rounded-full p-1" role="group" aria-label="Vista del calendario">
       {VIEWS.map(({ id, label, Icon }) => (
         <button
           type="button"
           key={id}
           onClick={() => changeView(id)}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors ${view === id ? 'bg-accent text-white' : 'text-muted hover:bg-accent-tint'}`}
+          aria-pressed={view === id}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${view === id ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}
         >
-          <Icon size={13} />{label}
+          <Icon size={14} />{label}
         </button>
       ))}
     </div>
@@ -1913,15 +1927,17 @@ export default function CalendarPage() {
       <button
         type="button"
         onClick={() => setShowHoras(v => !v)}
-        className={IS_NATIVE_APP
-          ? 'flex items-center gap-1 px-2 py-1.5 rounded-card border-2 border-accent/40 bg-surface-card shadow-card text-[11px] whitespace-nowrap text-muted transition-colors'
-          : 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors'}
+        aria-label="Horas visibles de tu día"
+        className={movil
+          ? 'p-2.5 rounded-full text-on-surface hover:bg-[var(--accent-tint)] transition-colors'
+          : 'flex items-center gap-1.5 px-4 py-2 rounded-full bg-surface-card shadow-card text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors'}
         data-tooltip="Horas visibles de tu día (Agenda y Semana)"
         data-tooltip-pos="bottom"
       >
         {/* % 24 — dayEnd puede ser 24 (medianoche, límite exclusivo del rango
             visible), que formatHora12 debe leer como "12:00 am", no "24:00". */}
-        <Clock size={14} /> {formatHora12(`${String(dayStart % 24).padStart(2, '0')}:00`)}–{formatHora12(`${String(dayEnd % 24).padStart(2, '0')}:00`)}
+        <Clock size={movil ? 20 : 14} />
+        {!movil && <> {formatHora12(`${String(dayStart % 24).padStart(2, '0')}:00`)}–{formatHora12(`${String(dayEnd % 24).padStart(2, '0')}:00`)}</>}
       </button>
       {showHoras && (
         <>
@@ -1931,7 +1947,7 @@ export default function CalendarPage() {
             onClick={() => setShowHoras(false)}
             aria-label="Cerrar selector de horas"
           />
-          <div className="absolute right-0 top-10 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
+          <div className="absolute right-0 top-12 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted w-12 flex-shrink-0">Desde</span>
@@ -1974,37 +1990,85 @@ export default function CalendarPage() {
 
   return (
     <>
-      <div className={IS_NATIVE_APP ? '' : `px-4 py-4 ${TEACHER_CONTAINER}`}>
+      <div className={movil ? 'px-3 pt-2 pb-28' : `px-4 py-4 ${TEACHER_CONTAINER}`}>
 
-        {IS_NATIVE_APP ? (
-          <div className="px-3 pt-2 pb-0">
-            {/* Nativo: fecha/Hoy/Evento/horas en un renglón; vista debajo.
-                El padding aquí (no en el wrapper) permite que el calendario
-                vaya de borde a borde sin margen lateral sobrante.
-                Días de asueto, Vacaciones, Modificar y Programar bloques se
-                manejan solo en la web. */}
-            <div className="flex items-center gap-2 mb-2">
-              {dateNav}
+        {movil ? (
+          <>
+            {/* Teléfono — patrón del Calendario de Apple: cápsula para SUBIR de
+                nivel (Día → Mes → Año) a la izquierda, acciones a la derecha,
+                y el título grande debajo. Hoy y el cambio de vista flotan abajo. */}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              {view === 'anio' ? <span /> : (
+                <button
+                  type="button"
+                  onClick={() => changeView(view === 'mes' ? 'anio' : 'mes')}
+                  className="flex items-center gap-1 pl-2 pr-4 py-2 rounded-full bg-surface-card shadow-barra text-base font-semibold text-on-surface"
+                >
+                  <ChevronLeft size={20} />
+                  {view === 'mes' ? currentDate.getFullYear() : MESES[currentDate.getMonth()]}
+                </button>
+              )}
+              <div className="flex items-center gap-1 px-1 py-1 rounded-full bg-surface-card shadow-barra">
+                {hourRangeBtn}
+                <button type="button" onClick={() => openNewEvent(null)} aria-label="Nuevo evento"
+                  className="p-2.5 rounded-full text-on-surface hover:bg-[var(--accent-tint)] transition-colors">
+                  <Plus size={20} />
+                </button>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5 mb-2">
-              {hoyBtn}
-              {eventoBtn}
-              {hourRangeBtn}
+            {view === 'anio' && (
+              <div className="flex items-center justify-between px-1 mb-1">
+                <h1 className="text-4xl font-bold text-accent tabular-nums">{currentDate.getFullYear()}</h1>
+                <span className="flex">
+                  <button type="button" onClick={prev} aria-label="Año anterior" className="p-2 rounded-full text-muted hover:bg-[var(--accent-tint)]"><ChevronLeft size={20} /></button>
+                  <button type="button" onClick={next} aria-label="Año siguiente" className="p-2 rounded-full text-muted hover:bg-[var(--accent-tint)]"><ChevronRight size={20} /></button>
+                </span>
+              </div>
+            )}
+            {view === 'mes' && (
+              <div className="flex items-center justify-between px-1 mb-1">
+                <h1 className="text-3xl font-bold text-on-surface">{MESES[currentDate.getMonth()]}</h1>
+                <span className="flex">
+                  <button type="button" onClick={prev} aria-label="Mes anterior" className="p-2 rounded-full text-muted hover:bg-[var(--accent-tint)]"><ChevronLeft size={20} /></button>
+                  <button type="button" onClick={next} aria-label="Mes siguiente" className="p-2 rounded-full text-muted hover:bg-[var(--accent-tint)]"><ChevronRight size={20} /></button>
+                </span>
+              </div>
+            )}
+            {(view === 'agenda' || view === '3dias') && (
+              <div className="mb-3">
+                <TiraSemana fecha={currentDate} onElegir={setCurrentDate} />
+              </div>
+            )}
+
+            {/* Flotantes, encima de la barra inferior: Hoy (izq.) y vistas (der.) */}
+            <div className="fixed z-30 left-3 right-3 flex items-center justify-between pointer-events-none"
+              style={{ bottom: 'calc(var(--barra-alto) + 1.25rem + env(safe-area-inset-bottom, 0px))' }}>
+              <button ref={hoyBtnRef} type="button" onClick={goToday}
+                className="pointer-events-auto px-5 py-2.5 rounded-full bg-surface-card shadow-barra text-base font-semibold text-on-surface">
+                Hoy
+              </button>
+              <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-full bg-surface-card shadow-barra" role="group" aria-label="Vista del calendario">
+                {VIEWS.filter((v) => v.id !== 'semana').map(({ id, label, Icon }) => (
+                  <button key={id} type="button" onClick={() => changeView(id)} aria-label={label} aria-pressed={view === id}
+                    className={`p-2.5 rounded-full transition-colors ${view === id ? 'bg-accent text-white' : 'text-on-surface hover:bg-[var(--accent-tint)]'}`}>
+                    <Icon size={20} />
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-2 mb-3">
-              {viewSwitcher}
-            </div>
-          </div>
+          </>
         ) : (
           <>
-            {/* Top controls — centrados como un solo grupo (antes iban con un
-                spacer flex-1 empujándolos a las orillas, se veía muy separado). */}
-            <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+            {/* Laptop — título grande a la izquierda (toca para elegir fecha),
+                acciones y vistas en cápsulas a la derecha. */}
+            <div className="flex flex-wrap items-center gap-3 mb-4">
               {dateNav}
-              {hoyBtn}
-              {eventoBtn}
-              {hourRangeBtn}
-              {viewSwitcher}
+              <div className="flex flex-wrap items-center gap-2 ml-auto">
+                {hoyBtn}
+                {eventoBtn}
+                {hourRangeBtn}
+                {viewSwitcher}
+              </div>
             </div>
 
             {/* Segunda fila: asuetos + programación de bloques. Solo en la
@@ -2084,8 +2148,8 @@ export default function CalendarPage() {
             un teléfono girado pasa de 768px y, con la barra lateral, deja
             menos de 620px — la vista se salía de lado en vez de caber. */}
         <div className={IS_NATIVE_APP
-          ? 'bg-surface-card overflow-x-hidden'
-          : `bg-surface-card border border-outline rounded shadow-card overflow-hidden ${soloConsulta
+          ? 'bg-surface-card rounded-card shadow-card overflow-x-hidden'
+          : `bg-surface-card rounded-card shadow-card overflow-hidden ${soloConsulta
             ? (view === 'agenda' ? '[&_[style*=touch-action]:not(.cursor-grab)]:!touch-auto'
               : view === '3dias' ? '[&_[style*=touch-action]:not(.cursor-grab)]:!touch-auto [&>div>div]:!min-w-0' : '')
             : view === 'agenda' ? 'w-1/2 mx-auto' : view === '3dias' ? 'w-3/4 mx-auto' : ''}`
@@ -2111,6 +2175,11 @@ export default function CalendarPage() {
               asuetoMap={asuetoMap}
               vacacionMap={vacacionMap}
             />
+          ) : view === 'anio' ? (
+            <VistaAnio
+              anio={currentDate.getFullYear()}
+              onElegirMes={(d) => { setCurrentDate(d); changeView('mes') }}
+            />
           ) : view === 'mes' ? (
             <MonthView
               year={currentDate.getFullYear()}
@@ -2119,7 +2188,8 @@ export default function CalendarPage() {
               bloques={bloques}
               subjects={subjects}
               selectedDate={currentDate}
-              onDateClick={IS_NATIVE_APP ? undefined : openNewEvent}
+              // Teléfono (Apple): tocar un día abre ese día. Laptop: nuevo evento.
+              onDateClick={movil ? (d) => { setCurrentDate(d); changeView('agenda') } : openNewEvent}
               // En la App, Mes es solo informativo: presionar un bloque o
               // evento no hace nada — evita saturar una vista ya de por sí
               // apretada en pantallas chicas. La web sigue igual. El long
@@ -2179,8 +2249,8 @@ export default function CalendarPage() {
           )}
         </div>
 
-        {/* Legend — solo web (pedido explícito: en la App no hace falta). */}
-        {!IS_NATIVE_APP && (
+        {/* Legend — solo laptop (en el teléfono no hace falta). */}
+        {!movil && (
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted px-1">
           <span className="flex items-center gap-1"><CalendarPlus size={12} /> Bloques de clase (Semana/Mes)</span>
           <span className="flex items-center gap-1"><Send size={12} /> Publicación</span>
