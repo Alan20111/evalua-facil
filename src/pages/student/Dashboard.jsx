@@ -36,6 +36,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { capitalizarNombre } from '../../utils/nombres'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import { SkeletonCards } from '../../components/ui'
 
 // All submissions belonging to a set of student enrollment docs — one `==` query
 // per enrollment, in parallel. NO `in` chunks here: the submissions read rule
@@ -381,9 +382,7 @@ export default function StudentDashboard() {
 
   if (loading) return (
     <StudentLayout refreshKey={sidebarRefreshKey}>
-      <div className="flex items-center justify-center py-20">
-        <Spinner size="lg" />
-      </div>
+      <SkeletonCards count={4} className="p-4 sm:p-6" />
     </StudentLayout>
   )
 

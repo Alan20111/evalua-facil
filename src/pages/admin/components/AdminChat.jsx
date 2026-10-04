@@ -19,6 +19,7 @@ import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import AdminChatMensaje from '../../../components/AdminChatMensaje'
 import { BrainCircuit, Send, Trash2 } from 'lucide-react'
+import { SkeletonList } from '../../../components/ui'
 
 const SUGERENCIAS = [
   '¿Cómo va Evalúa Fácil?',
@@ -135,7 +136,7 @@ export default function AdminChat() {
 
       <div className="flex-1 min-h-0 bg-surface-card rounded-card shadow-card p-3 mb-3 overflow-y-auto space-y-3">
         {!historialCargado ? (
-          <div className="h-full flex items-center justify-center"><Spinner size="sm" /></div>
+          <SkeletonList rows={3} icon={false} />
         ) : historial.length === 0 && !enviando ? (
           <div className="h-full flex flex-col items-center justify-center text-center py-6 gap-3">
             <BrainCircuit size={28} className="text-accent" />

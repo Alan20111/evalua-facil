@@ -5,7 +5,6 @@ import { signOut } from 'firebase/auth'
 import { getDoc, doc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import Spinner from './Spinner'
 import SubjectIcon from './SubjectIcon'
 import { subjectDisplayName } from '../utils/subjectName'
 import { getEnrollments, visibleEnrollments } from '../utils/studentLookup'
@@ -20,6 +19,7 @@ import AvisosGate from './AvisosGate'
 import SkipLink from './SkipLink'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { capitalizarNombre } from '../utils/nombres'
+import { SkeletonList } from './ui'
 
 // `refreshKey`: el Dashboard del alumno reordena sus asignaturas (flechas
 // subir/bajar o arrastrar) SIN desmontar este layout — a diferencia del
@@ -232,9 +232,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           {/* Subject list */}
           <div className="flex-1 overflow-y-auto px-2 pb-2">
             {loadingSidebar ? (
-              <div className="flex justify-center py-3">
-                <Spinner size="sm" />
-              </div>
+              <SkeletonList rows={3} sobreColor className="px-3 py-2" />
             ) : activeSubjects.length === 0 ? (
               <p className="text-body-sm text-white/70 px-3 py-2">Sin asignaturas aún</p>
             ) : (

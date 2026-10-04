@@ -69,6 +69,11 @@
        Sigue bastante más claro que --on-surface-variant (9.33:1), así que la
        jerarquía visual entre texto secundario y ayuda se conserva. */
     --on-surface-hint: #56657b;
+    /* Relleno de los esqueletos de carga. Se mezcla con el color del texto
+       en vez de usar un gris fijo: un slate-200 casi desaparece sobre el
+       lienzo azul (#e6f1fb) y sobre las tarjetas blancas se ve distinto. Con
+       color-mix el contraste es el mismo sobre cualquier superficie clara. */
+    --skeleton: color-mix(in srgb, var(--on-surface) 11%, transparent);
     --outline: #717785;
     --outline-variant: #c0c6d5;
   }

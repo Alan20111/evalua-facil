@@ -3,7 +3,6 @@ import { collection, query, where, onSnapshot, doc, serverTimestamp } from 'fire
 import { addDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
-import Spinner from '../Spinner'
 import InfoDisclosure from '../ui/InfoDisclosure'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -13,6 +12,7 @@ import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import { PLANTILLAS_SEED, EMOJI_PALETTE, avisoEmoji, formatAvisoFecha, avisosDesde } from '../../utils/avisos'
 import { studentFullName } from '../../utils/studentSearch'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import { SkeletonList } from '../ui'
 
 const EMPTY_FORM = { id: null, emoji: '', titulo: '', mensaje: '' }
 const EMPTY_PLANTILLA = { id: null, emoji: '✏️', label: '', mensaje: '' }
@@ -429,7 +429,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       </div>
 
       {!avisosLoaded ? (
-        <div className="flex justify-center py-10"><Spinner /></div>
+        <SkeletonList rows={4} className="py-4" />
       ) : avisosMostrados.length === 0 ? (
         <div className="text-center py-10 text-hint text-sm flex flex-col items-center gap-2">
           <Megaphone size={28} className="text-slate-300" />
@@ -537,7 +537,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   </div>
                 </div>
                 {!plantillasLoaded ? (
-                  <div className="flex justify-center py-10"><Spinner /></div>
+                  <SkeletonList rows={3} icon={false} className="py-4" />
                 ) : plantillas.length === 0 ? (
                   <div className="text-center py-8 text-sm text-muted">
                     <p className="mb-3">Aún no tienes plantillas.</p>

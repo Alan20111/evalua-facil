@@ -59,6 +59,7 @@ import { useBackHandler } from '../hooks/useBackHandler'
 import useTelefonoWeb from '../hooks/useTelefonoWeb'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { formatHora12FromDate } from '../utils/formatHora'
+import { SkeletonList } from './ui'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -1358,9 +1359,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // del estudiante esté abierta — nunca se alcanza a ver la pantalla de resultados.
   if (openingFromGrades) {
     return (
-      <div className="fixed inset-0 z-40 bg-surface flex items-center justify-center">
-        <Spinner size="lg" />
-      </div>
+      <div className="fixed inset-0 z-40 bg-surface p-4 overflow-y-auto"><div className="max-w-3xl mx-auto pt-8"><SkeletonList rows={6} icon={false} /></div></div>
     )
   }
 
@@ -1472,7 +1471,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               )
             })()}
             {loadingPreguntas ? (
-              <div className="flex justify-center py-10"><Spinner /></div>
+              <SkeletonList rows={4} icon={false} className="py-2" />
             ) : (
               <div className="space-y-2 mb-3">
                 {preguntas.length === 0 && <p className="text-sm text-hint text-center py-6">Aún no hay preguntas</p>}

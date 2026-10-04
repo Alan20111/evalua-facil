@@ -23,11 +23,11 @@ import { RefreshCw, Info } from 'lucide-react'
 import { db, functions } from '../../../firebase'
 import { useAuth } from '../../../context/AuthContext'
 import { useToast } from '../../../components/Toast'
-import Spinner from '../../../components/Spinner'
 import Table from '../../../components/ui/Table'
 import Input from '../../../components/ui/Input'
 import { formatCurrency } from '../../../utils/creditosHelpers'
 import { RANGOS_DIAS, diasEstimadosRestantes } from '../../../utils/costosIA'
+import { SkeletonTable } from '../../../components/ui'
 
 const SALDO_REF = ['adminConfig', 'anthropicSaldo']
 
@@ -270,7 +270,7 @@ export default function CostosIAPanel() {
       )}
 
       {cargando && !datos ? (
-        <div className="flex justify-center py-20"><Spinner /></div>
+        <SkeletonTable rows={6} cols={4} className="py-6" />
       ) : datos ? (
         <>
           {/* Indicadores */}

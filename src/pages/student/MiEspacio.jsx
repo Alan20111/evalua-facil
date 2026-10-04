@@ -2,10 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Cloud, FileText, Image as ImageIcon, Trash2, Upload } from 'lucide-react'
 import StudentLayout from '../../components/StudentLayout'
-import Spinner from '../../components/Spinner'
 import ConfirmModal from '../../components/ConfirmModal'
 import BotonDescargarArchivo from '../../components/BotonDescargarArchivo'
-import { Button, Input } from '../../components/ui'
+import { Button, Input, SkeletonList } from '../../components/ui'
 import { useToast } from '../../components/Toast'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import {
@@ -144,7 +143,7 @@ export default function MiEspacio() {
 
         {/* Archivos */}
         {!datos && !error ? (
-          <div className="flex justify-center py-8"><Spinner /></div>
+          <SkeletonList rows={4} className="py-4" />
         ) : error && !datos ? (
           <div className="bg-surface-card rounded-card shadow-card p-5 text-center">
             <p className="text-sm text-muted mb-3">{error}</p>

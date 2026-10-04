@@ -46,6 +46,7 @@ import SolucionJuegoModal from '../../components/juego/SolucionJuegoModal'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { formatHora12FromDate } from '../../utils/formatHora'
+import { SkeletonText } from '../../components/ui'
 
 
 function fmtDate(dateStr) {
@@ -464,9 +465,7 @@ export default function StudentActivityPage() {
 
   if (loading) return (
     <StudentLayout>
-      <div className="flex items-center justify-center py-20">
-        <Spinner size="lg" />
-      </div>
+      <SkeletonText lines={6} className="p-4 sm:p-6 max-w-3xl mx-auto" />
     </StudentLayout>
   )
 

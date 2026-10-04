@@ -4,7 +4,6 @@ import { collection, query, where, getDocs, getDoc, doc, updateDoc } from 'fireb
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
 import { ArrowLeft, ChevronLeft, ChevronRight, List, Columns3, CalendarRange, LayoutGrid, Plus, Clock } from 'lucide-react'
 import { formatHora12 } from '../../utils/formatHora'
 import MiniSelect from '../../components/calendar/MiniSelect'
@@ -25,6 +24,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { teacherDisplayName } from '../../utils/studentSearch'
 // STUDENT_CONTAINER_WIDE / TEACHER_CONTAINER solo son necesarios para Web (WEB_CONTAINER_BY_VIEW).
 import { IS_NATIVE_APP } from '../../utils/platform'
+import { SkeletonList } from '../../components/ui'
 
 // Rediseño: una sola pantalla "Agenda", misma filosofía/experiencia que el
 // Calendario del docente (src/pages/teacher/CalendarPage.jsx) — Día/3 días/
@@ -563,7 +563,7 @@ export default function Agenda() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
+        <SkeletonList rows={6} className="px-4 py-6" />
       ) : (
         <div className={`${padClass} py-4 flex-1 ${CONTAINER_BY_VIEW[view]}`}>
           <div className={IS_NATIVE_APP

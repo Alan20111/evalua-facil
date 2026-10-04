@@ -25,6 +25,7 @@ import { capitalizarNombre } from '../../utils/nombres'
 import { studentFullName } from '../../utils/studentSearch'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { PUEDE_AUTOFOCUS } from '../../utils/platform'
+import { SkeletonForm } from '../../components/ui'
 
 export default function StudentActivation() {
   const { accessCode } = useParams()
@@ -385,9 +386,7 @@ export default function StudentActivation() {
   }
 
   if (initLoading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <Spinner size="lg" />
-    </div>
+    <div className="min-h-screen flex items-center justify-center px-4"><div className="w-full max-w-sm"><SkeletonForm fields={2} /></div></div>
   )
 
   if (!subject) return (
@@ -412,9 +411,7 @@ export default function StudentActivation() {
   )
 
   if (step === 'checking_session') return (
-    <div className="min-h-screen flex items-center justify-center">
-      <Spinner size="lg" />
-    </div>
+    <div className="min-h-screen flex items-center justify-center px-4"><div className="w-full max-w-sm"><SkeletonForm fields={2} /></div></div>
   )
 
   // Caso simple y frecuente: el maestro todavía no agregó a este alumno a

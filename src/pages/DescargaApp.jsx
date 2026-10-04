@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Download, Smartphone, Link2Off, BadgeCheck } from 'lucide-react'
 import EFLogo from '../components/EFLogo'
-import Spinner from '../components/Spinner'
 import { obtenerLink, obtenerLinkProduccion, fechaCorta } from '../utils/descargaLinks'
 import { downloadUrl } from '../utils/cloudinary'
+import { Skeleton, SkeletonGroup } from '../components/ui'
 
 // Página pública de descarga del APK de Android. Dos formas de llegar:
 //
@@ -64,7 +64,7 @@ export default function DescargaApp() {
   if (cargando) {
     return (
       <Marco>
-        <div className="py-6 flex justify-center"><Spinner /></div>
+        <SkeletonGroup etiqueta="Cargando la descarga…" className="space-y-4"><Skeleton className="h-12 w-52 mx-auto" /><Skeleton className="h-6 w-44 mx-auto rounded-pill" /><Skeleton className="h-8 w-60 mx-auto" /><Skeleton className="h-12 w-full mt-8" /></SkeletonGroup>
       </Marco>
     )
   }

@@ -65,6 +65,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12FromDate } from '../../utils/formatHora'
+import { SkeletonList } from '../../components/ui'
 
 // La evaluación con rúbrica de un alumno "no existe" hasta que se elige algún
 // nivel — un arreglo todo-null equivale a no tener rúbrica evaluada (permite
@@ -1272,7 +1273,7 @@ export default function ActivityPage() {
   // Keep the spinner while a grades-table cell is about to open a student, so the
   // list never flashes before the grading view opens.
   if (loading || pendingOpenId) return (
-      <div className="flex justify-center py-20"><Spinner size="lg" /></div>
+      <SkeletonList rows={6} className="py-6" />
   )
 
   // Eliminar actividad — un solo nodo, reutilizado en las dos ramas del

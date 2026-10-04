@@ -97,6 +97,7 @@ import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
 import PlaneacionDidacticaTab from '../../components/subject/PlaneacionDidacticaTab'
 import { isPerfilIACompleto } from '../../utils/perfilIA'
+import { SkeletonList, SkeletonTable } from '../../components/ui'
 
 // ── Materiales de apoyo: ordenamiento robusto ─────────────────────────────
 // Builds a unified ordered list of activities + positioned materials for one
@@ -5451,7 +5452,7 @@ export default function SubjectPage() {
   )
 
   if (loading) return (
-    <div className="flex justify-center py-20"><Spinner size="lg" /></div>
+    <SkeletonList rows={6} className="py-6" />
   )
 
   // Botones de acción del encabezado, en dos grupos reutilizables (izquierda:
@@ -6138,7 +6139,7 @@ export default function SubjectPage() {
             />
 
             {loadingGrades ? (
-              <div className="flex justify-center py-12"><Spinner size="lg" /></div>
+              <SkeletonTable rows={8} cols={5} className="py-6" />
             ) : activities.length === 0 ? (
               <p className="text-center text-hint text-sm py-12">No hay actividades en esta asignatura</p>
             ) : groupStudents.length === 0 ? (
@@ -6511,7 +6512,7 @@ export default function SubjectPage() {
            nombre inmovilizados, solo scrollean los datos. */
         <div className="fixed inset-0 z-[70] bg-surface flex flex-col safe-top">
           {loadingAttendance ? (
-            <>{nativeAttBar}<div className="flex-1 flex items-center justify-center"><Spinner size="lg" /></div></>
+            <>{nativeAttBar}<SkeletonList rows={8} className="flex-1 p-4" /></>
           ) : totalStudents === 0 ? (
             <>{nativeAttBar}<p className="flex-1 grid place-items-center text-hint text-sm px-6 text-center">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p></>
           ) : attendanceRecords.length === 0 ? (
@@ -6544,7 +6545,7 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-[70] bg-surface flex flex-col safe-top"
           style={{ paddingLeft: 'env(safe-area-inset-left, 0px)', paddingRight: 'env(safe-area-inset-right, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           {loadingAttendance ? (
-            <>{tomarListaMovilBar}<div className="flex-1 flex items-center justify-center"><Spinner size="lg" /></div></>
+            <>{tomarListaMovilBar}<SkeletonList rows={8} className="flex-1 p-4" /></>
           ) : totalStudents === 0 ? (
             <>{tomarListaMovilBar}<p className="flex-1 grid place-items-center text-hint text-sm px-6 text-center">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p></>
           ) : attendanceRecords.length === 0 ? (
@@ -6701,7 +6702,7 @@ export default function SubjectPage() {
           )}
 
           {loadingAttendance ? (
-            <div className="flex justify-center py-12"><Spinner size="lg" /></div>
+            <SkeletonTable rows={8} cols={5} className="py-6" />
           ) : attendanceRecords.length === 0 ? (
             <>
               <p className="text-center text-hint text-sm py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
@@ -7140,7 +7141,7 @@ export default function SubjectPage() {
 
           {/* Student list */}
           {!groupStudentsLoaded ? (
-            <div className="flex justify-center py-10"><Spinner /></div>
+            <SkeletonList rows={6} className="py-4" />
           ) : filteredAlumnos.length === 0 ? (
             <div className="text-center py-10 text-hint text-sm">
               {searchAlumnos || filtroActivacion !== 'todos' ? 'Sin resultados' : 'No hay estudiantes en esta asignatura'}
@@ -7310,7 +7311,7 @@ export default function SubjectPage() {
           </div>
 
           {!resourcesLoaded || loadingResources ? (
-            <div className="flex justify-center py-10"><Spinner /></div>
+            <SkeletonList rows={4} className="py-4" />
           ) : resources.length === 0 ? (
             <div className="text-center py-10 text-hint text-sm">
               Aún no hay recursos en esta asignatura
@@ -8411,7 +8412,7 @@ export default function SubjectPage() {
 
             <div className="flex-1 overflow-y-auto p-3">
               {importLoading ? (
-                <div className="flex justify-center py-10"><Spinner size="lg" /></div>
+                <SkeletonList rows={5} className="py-4" />
               ) : !importSrc ? (
                 importSubjects.length === 0 ? (
                   <p className="text-center text-sm text-hint py-8">No tienes otras asignaturas de dónde traer.</p>

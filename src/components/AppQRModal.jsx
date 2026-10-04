@@ -7,6 +7,7 @@ import Spinner from './Spinner'
 import Modal from './ui/Modal'
 import { useToast } from './Toast'
 import { exportAppQRPDF } from '../utils/pdf'
+import { Skeleton } from './ui'
 
 export default function AppQRModal({ open, url, onClose }) {
   const toast = useToast()
@@ -46,7 +47,7 @@ export default function AppQRModal({ open, url, onClose }) {
           {qrDataUrl ? (
             <img src={qrDataUrl} alt="Código QR para entrar a Evalúa Fácil en la web" className="w-56 h-56" />
           ) : (
-            <div className="w-56 h-56 flex items-center justify-center"><Spinner /></div>
+            <Skeleton className="w-56 h-56 rounded" />
           )}
         </div>
         <p className="text-sm text-accent font-semibold break-all">{url}</p>

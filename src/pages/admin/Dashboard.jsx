@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import AdminLayout from '../../components/AdminLayout'
-import Spinner from '../../components/Spinner'
 import { useAdminStats } from '../../hooks/useAdminStats'
 import StatsCards, { ResumenCharts } from './components/StatsCards'
 import SubscriptionsTable from './components/SubscriptionsTable'
@@ -13,6 +12,7 @@ import VentasPorZona from './components/VentasPorZona'
 import AdminChat from './components/AdminChat'
 import DownloadLinks from './components/DownloadLinks'
 import EscuelasConfig from './components/EscuelasConfig'
+import { SkeletonCards } from '../../components/ui'
 
 const TAB_TITLES = {
   chat: 'Inteligencia de Evalúa Fácil',
@@ -59,9 +59,7 @@ export default function AdminDashboard() {
       </div>
 
       {loading && !stats ? (
-        <div className="flex justify-center py-20">
-          <Spinner />
-        </div>
+        <SkeletonCards count={6} className="py-4" />
       ) : (
         <>
           {activeTab === 'chat' && <AdminChat />}

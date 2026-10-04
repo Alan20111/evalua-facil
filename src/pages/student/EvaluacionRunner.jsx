@@ -21,6 +21,7 @@ import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName, studentFullName } from '../../utils/studentSearch'
+import { SkeletonList } from '../../components/ui'
 
 // Extensiones aceptadas para preguntas de tipo "subir documento": las mismas
 // que maneja toda la app (imágenes, PDF, Word, PowerPoint, Excel, ZIP/RAR).
@@ -374,9 +375,7 @@ export default function EvaluacionRunner() {
   }, [secondsLeft])
 
   if (loading || !activity) return (
-    <div className="fixed inset-0 z-50 bg-surface flex items-center justify-center">
-      <Spinner size="lg" />
-    </div>
+    <div className="fixed inset-0 z-50 bg-surface p-4 overflow-y-auto"><div className="max-w-2xl mx-auto pt-8"><SkeletonList rows={5} icon={false} /></div></div>
   )
 
   if (preguntas.length === 0) {

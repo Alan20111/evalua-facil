@@ -10,6 +10,7 @@ import { setDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
+import { SkeletonText } from '../ui'
 
 const PREGUNTA = '¿Qué quieres agregar que consideres relevante para que la planeación didáctica pueda ser realmente utilizada durante este curso?'
 const MAX_LARGO = 500
@@ -71,9 +72,7 @@ export default function ConsideracionesSection({ subjectId, docenteId }) {
 
   if (!loaded) {
     return (
-      <div className="bg-surface-card rounded-card shadow-card p-3 flex justify-center py-6">
-        <Spinner size="sm" />
-      </div>
+      <div className="bg-surface-card rounded-card shadow-card p-4"><SkeletonText lines={3} /></div>
     )
   }
 

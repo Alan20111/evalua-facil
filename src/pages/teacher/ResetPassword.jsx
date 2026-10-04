@@ -9,13 +9,13 @@ import {
 import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
 import { CheckCircle2 } from 'lucide-react'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { SkeletonText } from '../../components/ui'
 
 // Action-handler for Firebase's password-reset email links. actionCodeSettings.url
 // (set in Login.jsx) is used by Firebase's OWN hosted reset page as its "continue"
@@ -119,7 +119,7 @@ export default function ResetPassword() {
 
         <div className="bg-surface-card rounded-card shadow-card p-5">
           {status === 'verifying' && (
-            <div className="flex justify-center py-6"><Spinner /></div>
+            <SkeletonText lines={2} className="py-4" />
           )}
 
           {status === 'invalid' && (

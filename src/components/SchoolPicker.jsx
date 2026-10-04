@@ -9,6 +9,7 @@ import SearchInput from './SearchInput'
 import Modal from './ui/Modal'
 import { useToast } from './Toast'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { SkeletonList } from './ui'
 
 // Selector de escuela — la MISMA pantalla en los tres lugares donde un docente
 // elige la suya: el registro (Register), el paso final del alta con Google o de
@@ -261,7 +262,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
               Escribe el nombre de tu escuela, su municipio o su clave (CCT) para buscarla.
             </p>
           ) : catalogLoading ? (
-            <div className="flex justify-center py-10"><Spinner /></div>
+            <SkeletonList rows={5} icon={false} className="py-4" />
           ) : (
             <ul className="max-h-[50dvh] overflow-y-auto divide-y divide-slate-100 -mx-4 sm:-mx-5">
               {filteredPlanteles.length === 0 && filteredCustomSchools.length === 0 && (

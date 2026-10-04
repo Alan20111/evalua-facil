@@ -18,6 +18,7 @@ import { FilePreviewModal } from '../AttachmentList'
 import BotonDescargarArchivo from '../BotonDescargarArchivo'
 import { PLANEACION_ACCEPT, extensionPlaneacion, validarArchivoPlaneacion } from '../../utils/planeacionVigente'
 import { Upload, Trash2, FileText, CheckCircle2, Eye } from 'lucide-react'
+import { SkeletonText } from '../ui'
 
 export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstadoCargado }) {
   const toast = useToast()
@@ -90,9 +91,7 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
 
   if (!cargado) {
     return (
-      <div className="bg-surface-card rounded-card shadow-card p-3 flex justify-center py-6">
-        <Spinner size="sm" />
-      </div>
+      <div className="bg-surface-card rounded-card shadow-card p-4"><SkeletonText lines={3} /></div>
     )
   }
 

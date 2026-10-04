@@ -5,7 +5,6 @@ import { updateDoc, writeBatch, addDoc, deleteDoc } from '../../utils/firestoreG
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
 import EventEditor, { EVENT_COLORS } from '../../components/calendar/EventEditor'
 import ProgramarBloquesModal from '../../components/calendar/ProgramarBloquesModal'
@@ -35,6 +34,7 @@ import {
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
   CalendarOff, Trash2, X, Minus, Columns3, Lock, LockOpen, Ban,
 } from 'lucide-react'
+import { SkeletonList } from '../../components/ui'
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
 
@@ -2091,7 +2091,7 @@ export default function CalendarPage() {
             : view === 'agenda' ? 'w-1/2 mx-auto' : view === '3dias' ? 'w-3/4 mx-auto' : ''}`
         }>
           {loading ? (
-            <div className="flex justify-center py-16"><Spinner /></div>
+            <SkeletonList rows={6} className="py-6" />
           ) : view === 'agenda' ? (
             <AgendaView
               date={currentDate}

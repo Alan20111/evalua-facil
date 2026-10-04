@@ -39,6 +39,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import { apiUrl } from '../../utils/apiBase'
 import { saveBlob } from '../../utils/exportGuard'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
+import { Skeleton, SkeletonList, SkeletonText } from '../ui'
 
 const CLAVES_MOMENTO = MOMENTOS.map((m) => m.clave)
 const FUENTES_VACIAS = ['', '', '', '', '']
@@ -559,7 +560,7 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
       )}
 
       {habilitado && !diagLoaded && (
-        <div className="flex justify-center py-6"><Spinner size="sm" /></div>
+        <SkeletonText lines={3} className="py-4" />
       )}
 
       {habilitado && diagLoaded && subjectPlaneacionLoaded && (
@@ -1099,7 +1100,7 @@ function Planeacion({
   }, [verRevision, blobVistaPrevia])
 
   if (!histLoaded) {
-    return <div className="flex justify-center py-6"><Spinner size="sm" /></div>
+    return <SkeletonList rows={3} icon={false} className="py-4" />
   }
 
   function cambiarParcialRevision(numero) {
@@ -1308,7 +1309,7 @@ function Planeacion({
           )}
         >
           {cargandoVistaPrevia && !blobVistaPrevia ? (
-            <div className="flex justify-center py-10"><Spinner /></div>
+            <Skeleton className="h-96 w-full rounded" />
           ) : (
             <div className="flex justify-center overflow-x-auto">
               <div ref={vistaPreviaRef} />

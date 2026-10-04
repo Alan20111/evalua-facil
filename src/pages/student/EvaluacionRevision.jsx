@@ -6,7 +6,6 @@ import { apiUrl } from '../../utils/apiBase'
 import { fetchActivity } from '../../utils/apiContent'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
 import { ArrowLeft } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
@@ -17,6 +16,7 @@ import { publicacionVisible } from '../../utils/evaluacionGrading'
 import { mostrarSeccionesAlEstudiante, preguntasEnOrden, seccionesDe } from '../../utils/secciones'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { SkeletonList } from '../../components/ui'
 
 // Read-only post-evaluación review: shows the student's own answers, whether
 // each was correct (if the teacher enabled mostrarRespuestasCorrectas), and
@@ -99,7 +99,7 @@ export default function EvaluacionRevision() {
 
   if (loading || !activity) return (
     <StudentLayout>
-      <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
+      <SkeletonList rows={5} icon={false} className="p-4 sm:p-6 max-w-3xl mx-auto" />
     </StudentLayout>
   )
 

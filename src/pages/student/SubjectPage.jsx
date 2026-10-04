@@ -45,6 +45,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde } from '../../utils/avisos'
 import AsistenciaSemanal from '../../components/student/AsistenciaSemanal'
 import { parcialIniciado, semanasVisiblesParcial } from '../../components/student/semanasAsistencia'
+import { SkeletonList } from '../../components/ui'
 
 // Builds a unified ordered list of activities + positioned materials for one
 // parcial, mirroring the teacher view so both render in the same order.
@@ -556,9 +557,7 @@ export default function StudentSubjectPage() {
 
   if (loading || !avisosReady || (studentId && !lecturasReady)) return (
     <StudentLayout>
-      <div className="flex items-center justify-center py-20">
-        <Spinner size="lg" />
-      </div>
+      <SkeletonList rows={5} className="p-4 sm:p-6 max-w-2xl mx-auto" />
     </StudentLayout>
   )
 

@@ -50,6 +50,7 @@ import { groupExtensions } from '../utils/extensiones'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../utils/platform'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
+import { SkeletonList } from './ui'
 
 function toIsoNow() {
   return nowIsoLocal()
@@ -1426,7 +1427,7 @@ export default function EvaluacionEditor({
             {!currentActivityId ? (
               <p className="text-sm text-muted text-center py-4">Guarda la información de arriba para empezar a agregar preguntas.</p>
             ) : loadingPreguntas ? (
-              <div className="flex justify-center py-6"><Spinner /></div>
+              <SkeletonList rows={3} icon={false} className="py-2" />
             ) : (
               <>
                 {preguntas.length === 0 && !showPreguntaForm && (
