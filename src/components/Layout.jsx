@@ -240,7 +240,7 @@ export default function TeacherLayout({ children }) {
           </div>
 
           {/* Subjects header → goes to the full subjects list */}
-          <NavLink to="/dashboard" className="mx-2 mt-2 px-4 py-2 flex items-center justify-between rounded-full hover:bg-white/10 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
+          <NavLink to="/dashboard" className="mx-2 mt-2 pl-4 pr-2 py-2 flex items-center justify-between rounded-full hover:bg-white/10 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
             {/* De ~14 a 22 px (pedido explícito): pasaba desapercibida pese a
                 ser un link a la lista completa. Se quita `uppercase` — en
                 mayúsculas a este tamaño se lee como un GRITO, no como
