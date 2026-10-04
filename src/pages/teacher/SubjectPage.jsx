@@ -5670,7 +5670,7 @@ export default function SubjectPage() {
                       : activeTab === t ? 'text-on-surface' : 'text-muted'
                   }`}>
                   <span className="inline-flex items-center justify-center gap-1.5">
-                    {atencionPestanas[t] && <span aria-hidden="true" className="w-2 h-2 rounded-full bg-red-600 flex-shrink-0" />}
+                    {atencionPestanas[t] && <span aria-hidden="true" className="w-2 h-2 rounded-full bg-red-600 flex-shrink-0 animate-atencion motion-reduce:animate-none" />}
                     {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Planeación Didáctica'}
                   </span>
                   {/* Qué hay que hacer en esta pestaña — lo lee el lector de pantalla
@@ -7118,9 +7118,9 @@ export default function SubjectPage() {
               "fantasma" mayor al contenido realmente visible (quirk conocido
               de flex-basis con inputs) — eso solo, sin verse nada distinto,
               bastaba para forzar scroll horizontal en toda la página. */}
-          {/* p-1 -m-1: el overflow-hidden recortaba el anillo de enfoque (2px por
+          {/* p-2 -m-2: el overflow-hidden recortaba el anillo de enfoque (2px) y el halo del botón rojo (4px) por
               fuera del campo); este relleno le deja sitio sin mover el diseño. */}
-          <div className="flex gap-2 overflow-hidden p-1 -m-1">
+          <div className="flex gap-2 overflow-hidden p-2 -m-2">
             {/* min-w-0: sin esto, un flex item se niega a encoger por debajo
                 del ancho mínimo intrínseco de su <input> hijo (el gotcha
                 clásico de flexbox) — en móvil desbordaba esta fila y con
@@ -7143,7 +7143,7 @@ export default function SubjectPage() {
               aria-label="Agregar manualmente"
               data-tooltip-follow={atencionPestanas.alumnos ? 'Agrega tu primer estudiante' : 'Agregar manualmente'}
               className={atencionPestanas.alumnos
-                ? 'p-2.5 bg-red-600 text-white rounded-full ring-4 ring-red-200 hover:bg-red-700 transition-colors'
+                ? 'p-2.5 bg-red-600 text-white rounded-full animate-atencion motion-reduce:animate-none hover:bg-red-700 transition-colors'
                 : 'p-2.5 bg-accent text-white rounded-full hover:bg-accent-hover transition-colors'}
             >
               <UserPlus size={20} />

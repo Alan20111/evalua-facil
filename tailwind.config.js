@@ -43,6 +43,18 @@ export default {
         card: 'var(--radius-card)',    // large cards / dashboard containers
         pill: '9999px',
       },
+      // Latido suave para lo que pide atención (pestaña/botón rojos): un halo que
+      // se expande y se desvanece. Máximo 6px de alcance: los contenedores con
+      // overflow-hidden deben dejar p-2 de sitio. Se apaga con motion-reduce.
+      keyframes: {
+        atencion: {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(220, 38, 38, 0.45)' },
+          '50%': { boxShadow: '0 0 0 6px rgba(220, 38, 38, 0)' },
+        },
+      },
+      animation: {
+        atencion: 'atencion 2.2s ease-in-out infinite',
+      },
       boxShadow: {
         // Elevación plana (oct-2026, referencia Apple): las tarjetas se
         // separan del lienzo por contraste de superficie + un filo de 1px,
