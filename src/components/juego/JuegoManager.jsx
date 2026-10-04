@@ -153,7 +153,7 @@ export default function JuegoManager({
   return (
     <div className="max-w-2xl mx-auto px-4 py-4">
       <div className="flex items-center gap-2 mb-3">
-        <button type="button" onClick={goBack} aria-label="Volver" className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
+        <button type="button" onClick={goBack} aria-label="Volver" className="p-2 -ml-2 text-hint hover:text-muted rounded">
           <ArrowLeft size={22} />
         </button>
         <div className="flex-1 min-w-0">
@@ -167,13 +167,13 @@ export default function JuegoManager({
         {esBorrador && (
           <button type="button" onClick={() => setConfirmandoCancelar(true)} aria-label="Eliminar este borrador"
             data-tooltip="Eliminar este borrador"
-            className="p-2 text-slate-400 hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0">
+            className="p-2 text-hint hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0">
             <XCircle size={18} />
           </button>
         )}
         {!esBorrador && onDeleteActivity && (
           <button type="button" onClick={onDeleteActivity} aria-label="Eliminar actividad"
-            className="p-2 text-slate-400 hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0">
+            className="p-2 text-hint hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0">
             <Trash2 size={18} />
           </button>
         )}
@@ -565,7 +565,7 @@ function JuegoConfiguracion({
           />
           <div>
             <label htmlFor="juego-fecha-limite" className="block text-sm font-medium text-muted mb-1">
-              Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
+              Fecha límite <span className="text-hint font-normal">(opcional)</span>
             </label>
             <EFDateTimePicker
               mode="datetime"
@@ -729,7 +729,7 @@ function JuegoConfiguracion({
         </div>
         <div className="divide-y divide-outline-variant">
           {students.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-6">Sin estudiantes en esta asignatura</p>
+            <p className="text-sm text-hint text-center py-6">Sin estudiantes en esta asignatura</p>
           )}
           {students.map((st) => {
             const sub = submissions?.[st.id]
@@ -782,7 +782,7 @@ function JuegoConfiguracion({
                   disabled={prorrogaBloqueada}
                   aria-label={`Modificar la fecha de entrega de ${nombre}`}
                   data-tooltip={prorrogaBloqueada ? MENSAJE_PRORROGA_CON_ENTREGA : 'Modificar la fecha de entrega para este estudiante'}
-                  className="p-1.5 rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
+                  className="p-1.5 rounded text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
                   <CalendarClock size={16} />
                 </button>
 
@@ -793,7 +793,7 @@ function JuegoConfiguracion({
                     disabled={parcialCerrado}
                     aria-label={`Anular la entrega de ${nombre}`}
                     data-tooltip={parcialCerrado ? 'El parcial está cerrado' : 'Anular la entrega actual'}
-                    className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
+                    className="p-1.5 rounded text-hint hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
                     <Ban size={16} />
                   </button>
                 ) : (

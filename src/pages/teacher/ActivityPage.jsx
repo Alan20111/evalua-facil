@@ -1371,7 +1371,7 @@ export default function ActivityPage() {
               type="button"
               onClick={goBack}
               aria-label="Volver"
-              className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
+              className="p-2 -ml-2 text-hint hover:text-muted rounded"
             >
               <ArrowLeft size={22} />
             </button>
@@ -1399,7 +1399,7 @@ export default function ActivityPage() {
                   onClick={() => setEditingActivity(true)}
                   data-tooltip="Editar actividad"
                   aria-label="Editar actividad"
-                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                  className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                 >
                   <Pencil size={18} />
                 </button>
@@ -1597,7 +1597,7 @@ export default function ActivityPage() {
             y los filtros de arriba no se muevan de lugar al recorrer la lista. */}
         <div className="px-4 pb-4">
           {filtered.length === 0 ? (
-            <p className="text-center text-slate-400 text-sm py-8">Sin estudiantes en esta categoría</p>
+            <p className="text-center text-hint text-sm py-8">Sin estudiantes en esta categoría</p>
           ) : (
             <div className="bg-surface-card rounded-card overflow-y-auto max-h-[60vh] shadow-card">
               {filtered.map((s, i) => {
@@ -1780,7 +1780,7 @@ export default function ActivityPage() {
                       <FilePreview url={f.url} nombre={f.nombre} fill onCountKnown={setPdfPageCount} />
                     </div>
                   ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
+                    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-hint text-sm p-6 text-center">
                       <p>Sin vista previa disponible para este archivo.</p>
                       {IS_NATIVE_APP ? (
                         <AbrirConNativoButton url={f.url} nombre={f.nombre}
@@ -1818,7 +1818,7 @@ export default function ActivityPage() {
                     <FilePreview url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo} fill onCountKnown={setPdfPageCount} />
                   </div>
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
+                  <div className="flex-1 flex flex-col items-center justify-center gap-3 text-hint text-sm p-6 text-center">
                     <p>Sin vista previa disponible para este tipo de archivo.</p>
                     {IS_NATIVE_APP ? (
                       <AbrirConNativoButton url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo}
@@ -1837,7 +1837,7 @@ export default function ActivityPage() {
                   </div>
                 )
               ) : (
-                <div className="flex-1 flex items-center justify-center text-slate-400 text-sm p-6 text-center">
+                <div className="flex-1 flex items-center justify-center text-hint text-sm p-6 text-center">
                   {isObservacion
                     ? 'Actividad de observación — no requiere entrega. Califica directamente en el panel.'
                     : isEvaluacion
@@ -2044,7 +2044,7 @@ export default function ActivityPage() {
                       ) : null}
                       <div className={(selFiles.length === 1 && !telefonoWeb.telefono) || hasRubrica ? 'flex-shrink-0' : 'flex-1'}>
                         <label htmlFor="act-calificacion" className="block text-sm font-medium text-muted mb-1 text-center">
-                          Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
+                          Calificación <span className="text-hint">(máx. {activity?.maxCalif})</span>
                         </label>
                         <input
                           id="act-calificacion"
@@ -2135,7 +2135,7 @@ export default function ActivityPage() {
 
                     <div>
                       <label htmlFor="act-comentario" className="block text-sm font-medium text-muted mb-1">
-                        Comentario <span className="text-slate-400">(opcional)</span>
+                        Comentario <span className="text-hint">(opcional)</span>
                       </label>
                       <textarea
                         id="act-comentario"
@@ -2193,7 +2193,7 @@ export default function ActivityPage() {
                     )}
                   </form>
                 ) : (
-                  <p className="text-sm text-slate-400 text-center py-2">
+                  <p className="text-sm text-hint text-center py-2">
                     El estudiante aún no ha entregado esta tarea.
                   </p>
                 )}
@@ -2201,17 +2201,17 @@ export default function ActivityPage() {
                 {/* Submission history */}
                 {selected.sub?.historial?.length > 0 && (
                   <div>
-                    <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
+                    <p className="text-xs font-medium text-hint mb-2">Versiones anteriores</p>
                     <div className="space-y-1.5">
                       {[...selected.sub.historial].reverse().map((v, i) => (
                         <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
-                          <span className="text-slate-400 flex-shrink-0">
+                          <span className="text-hint flex-shrink-0">
                             {v.fechaEntrega?.seconds
                               ? (d => `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`)(new Date(v.fechaEntrega.seconds * 1000))
                               : '—'}
                           </span>
                           {v.completadoSinArchivo
-                            ? <span className="text-slate-400 italic">sin archivo</span>
+                            ? <span className="text-hint italic">sin archivo</span>
                             : v.archivoURL
                               ? (IS_NATIVE_APP || telefonoWeb.telefono)
                                 ? <span className="text-muted truncate flex items-center gap-1">{v.nombreArchivo}</span>
@@ -2277,7 +2277,7 @@ export default function ActivityPage() {
                       >
                         Modificar fecha de entrega para este estudiante
                       </button>
-                      <p className="text-xs text-slate-400 mt-1">{MENSAJE_PRORROGA_CON_ENTREGA}</p>
+                      <p className="text-xs text-hint mt-1">{MENSAJE_PRORROGA_CON_ENTREGA}</p>
                     </div>
                   ) : !extendMode ? (
                     <button
@@ -2343,7 +2343,7 @@ export default function ActivityPage() {
                         <p className="text-sm font-medium text-on-surface">Evaluar sin entrega</p>
                         <div>
                           <label htmlFor="act-sinentrega-calif" className="block text-sm font-medium text-muted mb-1">
-                            Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
+                            Calificación <span className="text-hint">(máx. {activity?.maxCalif})</span>
                           </label>
                           <input
                             id="act-sinentrega-calif"
@@ -2504,7 +2504,7 @@ export default function ActivityPage() {
                   <EnlaceEntregado url={selected.sub.enlaceURL} className="w-full" />
                 </div>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 text-sm p-3 text-center">
+                <div className="h-full flex items-center justify-center text-hint text-sm p-3 text-center">
                   {isObservacion
                     ? 'Observación — no requiere entrega.'
                     : isEvaluacion
@@ -2749,24 +2749,24 @@ export default function ActivityPage() {
                 )}
               </form>
             ) : (
-              <p className="text-sm text-slate-400 text-center py-2 flex-shrink-0 px-3">
+              <p className="text-sm text-hint text-center py-2 flex-shrink-0 px-3">
                 El estudiante aún no ha entregado esta tarea.
               </p>
             )}
 
             {selected.sub?.historial?.length > 0 && (
               <div className="flex-shrink-0 px-3">
-                <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
+                <p className="text-xs font-medium text-hint mb-2">Versiones anteriores</p>
                 <div className="space-y-1.5">
                   {[...selected.sub.historial].reverse().map((v, i) => (
                     <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
-                      <span className="text-slate-400 flex-shrink-0">
+                      <span className="text-hint flex-shrink-0">
                         {v.fechaEntrega?.seconds
                           ? (d => `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`)(new Date(v.fechaEntrega.seconds * 1000))
                           : '—'}
                       </span>
                       {v.completadoSinArchivo
-                        ? <span className="text-slate-400 italic">sin archivo</span>
+                        ? <span className="text-hint italic">sin archivo</span>
                         : v.archivoURL
                           ? IS_NATIVE_APP
                             ? <span className="text-muted truncate flex items-center gap-1">{v.nombreArchivo}</span>
@@ -2918,7 +2918,7 @@ export default function ActivityPage() {
                 onClick={() => setRubricaViewOpen(false)}
                 aria-label="Cerrar rúbrica"
                 data-tooltip="Cerrar rúbrica"
-                className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0"
+                className="p-2 text-hint hover:text-accent rounded flex-shrink-0"
               >
                 <X size={17} />
               </button>

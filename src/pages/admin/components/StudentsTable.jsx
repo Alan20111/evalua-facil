@@ -285,7 +285,7 @@ export default function StudentsTable({ stats }) {
               <span className="text-muted">{rows.length} registros</span>
             )}
           </p>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-hint mt-0.5">
             Cada renglón es un estudiante en una asignatura: quien cursa varias aparece una vez por cada una.
           </p>
         </div>
@@ -374,7 +374,7 @@ export default function StudentsTable({ stats }) {
           <tbody className="divide-y divide-slate-100">
             {visible.length === 0 ? (
               <tr>
-                <td colSpan={COLS.length} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={COLS.length} className="px-4 py-8 text-center text-hint">
                   {rows.length === 0
                     ? 'Sin estudiantes registrados'
                     : 'Ningún estudiante cumple con lo que se está filtrando'}
@@ -386,7 +386,7 @@ export default function StudentsTable({ stats }) {
                   {/* Cuenta de lo que se está viendo, de mayor a menor: arriba
                       el total de los que cumplen y abajo el 1. No es un dato
                       del alumno — los estudiantes no tienen número. */}
-                  <td className="px-3 py-2 text-right text-slate-400 tabular-nums">
+                  <td className="px-3 py-2 text-right text-hint tabular-nums">
                     {filtered.length - i}
                   </td>
                   <td className="px-3 py-2 font-medium text-on-surface truncate" title={r.nombre}>{r.nombre}</td>

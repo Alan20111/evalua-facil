@@ -478,13 +478,13 @@ export default function StudentDashboard() {
         )}
 
         <h1 className="text-xl font-bold text-on-surface mb-1">Mis asignaturas</h1>
-        <p className="text-slate-400 text-sm mb-5">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's activas' : ' activa'}</p>
+        <p className="text-hint text-sm mb-5">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's activas' : ' activa'}</p>
 
         {activeSubjects.length === 0 ? (
           <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
             <BookOpen size={32} className="text-slate-300 mx-auto mb-3" />
             <p className="text-muted mb-1">Aún no tienes asignaturas</p>
-            <p className="text-slate-400 text-sm">Usa el botón de abajo para unirte a una.</p>
+            <p className="text-hint text-sm">Usa el botón de abajo para unirte a una.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -505,7 +505,7 @@ export default function StudentDashboard() {
                       onPointerDown={(e) => dragPointerDown(e, i)}
                       aria-label="Arrastrar para reordenar"
                       data-tooltip="Mantén y arrastra para reordenar"
-                      className="p-2 -m-1 text-slate-400 hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+                      className="p-2 -m-1 text-hint hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
                     >
                       <GripVertical size={18} />
                     </button>
@@ -517,7 +517,7 @@ export default function StudentDashboard() {
                         disabled={i === 0}
                         data-tooltip="Subir"
                         aria-label="Subir"
-                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
                       >
                         <ArrowUp size={16} />
                       </button>
@@ -527,7 +527,7 @@ export default function StudentDashboard() {
                         disabled={i === activeSubjects.length - 1}
                         data-tooltip="Bajar"
                         aria-label="Bajar"
-                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
                       >
                         <ArrowDown size={16} />
                       </button>
@@ -549,7 +549,7 @@ export default function StudentDashboard() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {s.avgPendiente ? (
                       <div className="text-right">
-                        <PonderacionPendiente className="block text-lg font-bold text-slate-400" />
+                        <PonderacionPendiente className="block text-lg font-bold text-hint" />
                         <p className="text-sm text-slate-500">promedio</p>
                       </div>
                     ) : s.avg != null && (
@@ -614,7 +614,7 @@ export default function StudentDashboard() {
                       type="button"
                       onClick={() => setSubjectToRemove(s)}
                       aria-label={`Quitar ${subjectDisplayName(s)} de mis asignaturas archivadas`}
-                      className="p-2 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+                      className="p-2 rounded text-hint hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -640,7 +640,7 @@ export default function StudentDashboard() {
             >
               <Globe size={17} className="text-accent flex-shrink-0" />
               <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">También puedes entrar desde tu computadora</span>
-              <ChevronDown size={15} className={`text-slate-400 flex-shrink-0 transition-transform ${showWebInfo ? 'rotate-180' : ''}`} />
+              <ChevronDown size={15} className={`text-hint flex-shrink-0 transition-transform ${showWebInfo ? 'rotate-180' : ''}`} />
             </button>
             {showWebInfo && (
               <div className="px-4 pb-4 pt-0.5">
@@ -665,7 +665,7 @@ export default function StudentDashboard() {
             >
               <Smartphone size={17} className="text-accent flex-shrink-0" />
               <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">📱 Evalúa Fácil en tu celular</span>
-              <ChevronDown size={15} className={`text-slate-400 flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-180' : ''}`} />
+              <ChevronDown size={15} className={`text-hint flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-180' : ''}`} />
             </button>
             {showAppInfo && (
               <div className="px-4 pb-4 pt-0.5">
@@ -706,7 +706,7 @@ export default function StudentDashboard() {
                 type="button"
                 aria-label="Cerrar"
                 onClick={() => setShowJoin(false)}
-                className="p-2 -mt-1 -mr-1 text-slate-400 hover:text-muted hover:bg-surface-container rounded transition-colors flex-shrink-0"
+                className="p-2 -mt-1 -mr-1 text-hint hover:text-muted hover:bg-surface-container rounded transition-colors flex-shrink-0"
               >
                 <X size={20} />
               </button>
@@ -730,7 +730,7 @@ export default function StudentDashboard() {
                 placeholder="A3B7K2"
                 className="w-full px-4 py-3.5 rounded-card border-2 border-outline-variant focus:border-accent focus:outline-none text-2xl font-mono font-bold tracking-[0.25em] indent-[0.25em] text-center bg-surface text-on-surface placeholder:text-slate-300 placeholder:font-normal transition-colors"
               />
-              <p className="text-xs text-slate-400 mt-2 text-center">
+              <p className="text-xs text-hint mt-2 text-center">
                 Son 6 caracteres, entre letras y números
               </p>
               <button
@@ -761,7 +761,7 @@ export default function StudentDashboard() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-lg font-semibold text-on-surface truncate">Quitar de mis archivadas</h3>
-              <button type="button" aria-label="Cerrar" onClick={() => !removing && setSubjectToRemove(null)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
+              <button type="button" aria-label="Cerrar" onClick={() => !removing && setSubjectToRemove(null)} className="p-2 text-hint rounded flex-shrink-0"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-3 leading-relaxed">
               <strong className="text-on-surface">{subjectDisplayName(subjectToRemove)}</strong> desaparecerá

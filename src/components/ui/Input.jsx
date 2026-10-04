@@ -8,7 +8,7 @@
 //             asterisco rojo de obligatorio NO se pide: sale solo cuando el
 //             campo lleva `required`, para que no puedan discrepar la marca
 //             visual y la validación real.
-//   hint    texto de ayuda debajo (text-xs text-slate-400).
+//   hint    texto de ayuda debajo (text-xs text-hint).
 //   error   mensaje de error — pinta el borde en rojo y muestra el texto.
 //   className  se agrega al <input> (no al wrapper).
 //   wrapperClassName  se agrega al contenedor.
@@ -41,7 +41,7 @@ const Input = forwardRef(function Input(
       {error ? (
         <p className="text-red-500 text-xs mt-1">{error}</p>
       ) : hint ? (
-        <p className="text-xs text-slate-400 mt-1">{hint}</p>
+        <p className="text-xs text-hint mt-1">{hint}</p>
       ) : null}
     </div>
   )

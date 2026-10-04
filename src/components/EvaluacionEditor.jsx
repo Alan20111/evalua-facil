@@ -130,7 +130,7 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
                 onChange(next)
                 if (respuestaCorrecta === o.id) onChangeCorrecta(next.find((x) => !x.esOtra)?.id ?? null)
               }}
-              className="p-2 text-slate-400 hover:text-error rounded flex-shrink-0">
+              className="p-2 text-hint hover:text-error rounded flex-shrink-0">
               <X size={16} />
             </button>
           )}
@@ -1085,7 +1085,7 @@ export default function EvaluacionEditor({
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">{infoForm.fechaLimite ? 'Fecha límite de entrega' : 'Fecha límite de entrega (opcional)'}</label>
                   {infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
-                    <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
+                    <p className="text-xs text-hint px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
                     <EFDateTimePicker
                       mode="datetime"
@@ -1430,7 +1430,7 @@ export default function EvaluacionEditor({
             ) : (
               <>
                 {preguntas.length === 0 && !showPreguntaForm && (
-                  <p className="text-sm text-slate-400 text-center py-4">Aún no hay reactivos.</p>
+                  <p className="text-sm text-hint text-center py-4">Aún no hay reactivos.</p>
                 )}
 
                 <div className="space-y-3">
@@ -1488,18 +1488,18 @@ export default function EvaluacionEditor({
                           <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.mover(grupo.seccion.id, 'up') }}
                             disabled={seccionesCtl.secciones[0]?.id === grupo.seccion.id || seccionesCtl.guardando}
                             aria-label="Subir sección"
-                            className="p-2 text-slate-400 hover:text-accent rounded disabled:opacity-40"><ChevronUp size={13} /></button>
+                            className="p-2 text-hint hover:text-accent rounded disabled:opacity-40"><ChevronUp size={13} /></button>
                           <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.mover(grupo.seccion.id, 'down') }}
                             disabled={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id || seccionesCtl.guardando}
                             aria-label="Bajar sección"
-                            className="p-2 text-slate-400 hover:text-accent rounded disabled:opacity-40"><ChevronDown size={13} /></button>
+                            className="p-2 text-hint hover:text-accent rounded disabled:opacity-40"><ChevronDown size={13} /></button>
                           <button type="button" onClick={(e) => { e.stopPropagation(); setFocusSectionId(null); seccionesCtl.setEditando(grupo.seccion) }}
                             disabled={seccionesCtl.guardando}
                             aria-label="Editar sección"
-                            className="p-2 text-slate-400 hover:text-accent rounded"><Pencil size={12} /></button>
+                            className="p-2 text-hint hover:text-accent rounded"><Pencil size={12} /></button>
                           <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.setPorBorrar(grupo.seccion) }}
                             aria-label="Eliminar sección"
-                            className="p-2 text-slate-400 hover:text-error rounded"><Trash2 size={12} /></button>
+                            className="p-2 text-hint hover:text-error rounded"><Trash2 size={12} /></button>
                         </div>
                       )}
                       {!isSeccion && seccionesCtl.secciones.length > 0 && grupo.preguntas.length > 0 && (
@@ -1553,7 +1553,7 @@ export default function EvaluacionEditor({
                                   </p>
                                 )}
                                 {(p.tipo === 'respuesta_corta' || p.tipo === 'subir_archivo') && (
-                                  <p className="text-xs text-slate-400 mb-2 italic">
+                                  <p className="text-xs text-hint mb-2 italic">
                                     {p.tipo === 'respuesta_corta' ? 'Respuesta libre' : 'Sube documento'} — calificación manual
                                   </p>
                                 )}
@@ -1561,19 +1561,19 @@ export default function EvaluacionEditor({
                                 <div className="flex items-center justify-between pt-1.5 border-t border-outline-variant mt-auto">
                                   <div className="flex gap-0.5">
                                     <button type="button" aria-label="Mover antes" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
-                                      className="p-2 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover antes"><ChevronUp size={15} /></button>
+                                      className="p-2 text-hint hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover antes"><ChevronUp size={15} /></button>
                                     <button type="button" aria-label="Mover después" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
-                                      className="p-2 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover después"><ChevronDown size={15} /></button>
+                                      className="p-2 text-hint hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover después"><ChevronDown size={15} /></button>
                                   </div>
                                   <div className="flex gap-0.5">
                                     {p.origenBancoId
                                       ? <span className="p-1 text-emerald-600 inline-flex" title="Ya está en el banco"><Library size={14} /></span>
-                                      : <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-2 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={14} /></button>
+                                      : <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-2 text-hint hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={14} /></button>
                                     }
                                     <button type="button" aria-label="Editar" onClick={() => openEditPregunta(p)}
-                                      className={`p-1 rounded ${editingPreguntaId === p.id ? 'text-accent' : 'text-slate-400 hover:text-accent'}`} data-tooltip="Editar"><Pencil size={14} /></button>
-                                    <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-2 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={14} /></button>
-                                    <button type="button" aria-label="Eliminar" onClick={() => handleDeletePregunta(p.id)} className="p-2 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={14} /></button>
+                                      className={`p-1 rounded ${editingPreguntaId === p.id ? 'text-accent' : 'text-hint hover:text-accent'}`} data-tooltip="Editar"><Pencil size={14} /></button>
+                                    <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-2 text-hint hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={14} /></button>
+                                    <button type="button" aria-label="Eliminar" onClick={() => handleDeletePregunta(p.id)} className="p-2 text-hint hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={14} /></button>
                                   </div>
                                 </div>
                               </div>
@@ -1623,7 +1623,7 @@ export default function EvaluacionEditor({
                               radioName={`ep-${editingPreguntaId}`}
                             />
                           )}
-                          {preguntaEditForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>}
+                          {preguntaEditForm.tipo === 'opcion_multiple' && <p className="text-xs text-hint">Deja seleccionada la correcta</p>}
                           {preguntaEditForm.tipo === 'verdadero_falso' && (
                             <div className="flex gap-3">
                               {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
@@ -1641,7 +1641,7 @@ export default function EvaluacionEditor({
                               {(() => {
                                 const otras = preguntas.filter((x) => x.id !== editingPreguntaId).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)
                                 const disp = Math.max(0, parseFloat((10 - otras).toFixed(2)))
-                                return <span className={`text-xs font-medium ${disp <= 0 ? 'text-error' : 'text-slate-400'}`}>Disponible: {disp} / 10</span>
+                                return <span className={`text-xs font-medium ${disp <= 0 ? 'text-error' : 'text-hint'}`}>Disponible: {disp} / 10</span>
                               })()}
                             </div>
                             <input id="preg-edit-ponderacion" type="number" min="0.01"
@@ -1700,7 +1700,7 @@ export default function EvaluacionEditor({
                               onChange={(next) => setPreguntaForm((f) => ({ ...f, opciones: next }))}
                               onChangeCorrecta={(id) => setPreguntaForm((f) => ({ ...f, respuestaCorrecta: id }))} radioName={`rc-sec-${grupo.seccion.id}`} />
                           )}
-                          {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>}
+                          {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-hint">Deja seleccionada la correcta</p>}
                           {preguntaForm.tipo === 'verdadero_falso' && (
                             <div className="flex gap-3">
                               {[['v', 'Verdadero'], ['f', 'Falso']].map(([val, label]) => (
@@ -1712,12 +1712,12 @@ export default function EvaluacionEditor({
                               ))}
                             </div>
                           )}
-                          {(preguntaForm.tipo === 'respuesta_corta') && <p className="text-xs text-slate-400 italic">Respuesta libre — calificación manual.</p>}
-                          {(preguntaForm.tipo === 'subir_archivo') && <p className="text-xs text-slate-400 italic">El alumno sube un documento — calificación manual.</p>}
+                          {(preguntaForm.tipo === 'respuesta_corta') && <p className="text-xs text-hint italic">Respuesta libre — calificación manual.</p>}
+                          {(preguntaForm.tipo === 'subir_archivo') && <p className="text-xs text-hint italic">El alumno sube un documento — calificación manual.</p>}
                           <div>
                             <div className="flex items-center justify-between mb-1">
                               <label className="text-sm font-medium text-muted">Ponderación</label>
-                              <span className={`text-xs font-medium ${ponderacionRestante <= 0 ? 'text-error' : 'text-slate-400'}`}>Disponible: {ponderacionRestante} / 10</span>
+                              <span className={`text-xs font-medium ${ponderacionRestante <= 0 ? 'text-error' : 'text-hint'}`}>Disponible: {ponderacionRestante} / 10</span>
                             </div>
                             <input type="number" min="0.01" max={ponderacionRestante} step="0.01" value={preguntaForm.ponderacion}
                               onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
@@ -1801,7 +1801,7 @@ export default function EvaluacionEditor({
                         radioName="rc"
                       />
                     )}
-                    {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>}
+                    {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-hint">Deja seleccionada la correcta</p>}
                     {preguntaForm.tipo === 'verdadero_falso' && (
                       <div className="flex gap-3">
                         {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
@@ -1813,8 +1813,8 @@ export default function EvaluacionEditor({
                         ))}
                       </div>
                     )}
-                    {preguntaForm.tipo === 'respuesta_corta' && <p className="text-xs text-slate-400 italic">El alumno responde con texto libre. Tú asignas los puntos al revisar.</p>}
-                    {preguntaForm.tipo === 'subir_archivo' && <p className="text-xs text-slate-400 italic">El alumno sube un documento (PDF, Word, imágenes, etc.). Tú asignas los puntos al revisar.</p>}
+                    {preguntaForm.tipo === 'respuesta_corta' && <p className="text-xs text-hint italic">El alumno responde con texto libre. Tú asignas los puntos al revisar.</p>}
+                    {preguntaForm.tipo === 'subir_archivo' && <p className="text-xs text-hint italic">El alumno sube un documento (PDF, Word, imágenes, etc.). Tú asignas los puntos al revisar.</p>}
                     <div>
                       <label htmlFor="preg-new-retro" className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
                       <textarea id="preg-new-retro" value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
@@ -1824,7 +1824,7 @@ export default function EvaluacionEditor({
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label htmlFor="preg-new-ponderacion" className="text-sm font-medium text-muted">Ponderación</label>
-                        <span className={`text-xs font-medium ${ponderacionRestante <= 0 ? 'text-error' : 'text-slate-400'}`}>
+                        <span className={`text-xs font-medium ${ponderacionRestante <= 0 ? 'text-error' : 'text-hint'}`}>
                           Disponible: {ponderacionRestante} / 10
                         </span>
                       </div>
@@ -1964,7 +1964,7 @@ export default function EvaluacionEditor({
             {/* Lista con scroll */}
             <div className="flex-1 overflow-y-auto p-4">
               {bancoFiltrado.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-10">{banco.length === 0 ? 'Aún no tienes preguntas en tu banco' : 'Sin resultados'}</p>
+                <p className="text-sm text-hint text-center py-10">{banco.length === 0 ? 'Aún no tienes preguntas en tu banco' : 'Sin resultados'}</p>
               ) : (
                 <div className="space-y-2">
                   {bancoFiltrado.map((item) => (
@@ -2029,13 +2029,13 @@ export default function EvaluacionEditor({
                                 {TIPOS_PREGUNTA.find((t) => t.value === item.tipo)?.label}
                               </span>
                               {item.materia && <span className="ml-2 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">{item.materia}</span>}
-                              {item.tema && <span className="ml-2 text-[10px] text-slate-400">{item.tema}</span>}
+                              {item.tema && <span className="ml-2 text-[10px] text-hint">{item.tema}</span>}
                               <p className="text-sm font-semibold text-on-surface">{item.enunciado}</p>
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
-                              <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-2 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
-                              <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-2 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
-                              <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-2 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
+                              <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-2 text-hint hover:text-accent rounded"><Pencil size={13} /></button>
+                              <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-2 text-hint hover:text-accent rounded"><Copy size={13} /></button>
+                              <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-2 text-hint hover:text-error rounded"><Trash2 size={13} /></button>
                             </div>
                           </div>
                           {item.opciones && Array.isArray(item.opciones) && (

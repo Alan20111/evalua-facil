@@ -32,7 +32,7 @@ const VARIANTS = {
   // escala (ej. min-h-11) daría 39.6px reales, no 44 — WCAG 2.5.8 pide el
   // tamaño real del target, no el nominal. docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 2, paso 2.8.
   icon:
-    'p-2 min-h-[44px] min-w-[44px] rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40 inline-flex items-center justify-center',
+    'p-2 min-h-[44px] min-w-[44px] rounded text-hint hover:text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40 inline-flex items-center justify-center',
   'cta-dashed':
     'w-full py-2.5 rounded border-2 border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-60 flex items-center justify-center gap-2',
   fab:

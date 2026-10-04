@@ -235,7 +235,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                         {i >= MIN_CRITERIOS && (
                           <button type="button" onClick={() => removeCriterio(i)}
                             aria-label={`Eliminar criterio ${i + 1}`} data-tooltip="Eliminar criterio"
-                            className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                            className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0">
                             <Trash2 size={14} />
                           </button>
                         )}
@@ -248,7 +248,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                           aria-label={`Puntos del criterio ${i + 1}`}
                           data-tooltip="Puntos que suma si el estudiante cumple este criterio"
                           className="w-16 px-1 py-0.5 text-center text-sm font-bold text-accent border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
-                        <span className="text-[10px] text-slate-400">pts</span>
+                        <span className="text-[10px] text-hint">pts</span>
                       </div>
                     </td>
                   </tr>

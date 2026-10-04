@@ -50,7 +50,7 @@ function Marco({ inline, titulo, onClose, children }) {
         <div className="flex items-center justify-between gap-2 mb-3">
           <p className="text-sm font-bold text-on-surface">{titulo}</p>
           <button type="button" onClick={onClose} aria-label="Cerrar" data-tooltip="Cerrar"
-            className="p-1.5 text-slate-400 hover:text-accent rounded flex-shrink-0">
+            className="p-1.5 text-hint hover:text-accent rounded flex-shrink-0">
             <X size={16} />
           </button>
         </div>
@@ -75,7 +75,7 @@ function PanelFlotante({ titulo, onClose, children, footer }) {
           onClick={onClose}
           aria-label="Cerrar"
           data-tooltip="Cerrar"
-          className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0"
+          className="p-2 text-hint hover:text-accent rounded flex-shrink-0"
         >
           <X size={17} />
         </button>

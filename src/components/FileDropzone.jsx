@@ -29,7 +29,7 @@ export default function FileDropzone({ onFilesSelected, multiple = true, accept,
     >
       <Upload size={22} className="mx-auto text-accent mb-1" />
       <p className="text-sm font-medium text-on-surface">Arrastra tus archivos aquí o haz clic para seleccionarlos</p>
-      <p className="text-xs text-slate-400 mt-0.5">{hint || 'Puedes agregar uno o varios archivos'}</p>
+      <p className="text-xs text-hint mt-0.5">{hint || 'Puedes agregar uno o varios archivos'}</p>
       <input
         ref={inputRef}
         type="file"

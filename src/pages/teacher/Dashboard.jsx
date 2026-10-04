@@ -388,7 +388,7 @@ export default function TeacherDashboard() {
             )}
           </div>
           {userProfile?.schoolName && (
-            <p className="text-slate-400 text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
+            <p className="text-hint text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
           )}
         </div>
         {IS_NATIVE_APP && (
@@ -457,7 +457,7 @@ export default function TeacherDashboard() {
                         onPointerDown={(e) => dragPointerDown(e, i)}
                         aria-label="Arrastrar para reordenar"
                         data-tooltip="Mantén y arrastra para reordenar"
-                        className="p-2 -m-1 text-slate-400 hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+                        className="p-2 -m-1 text-hint hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
                       >
                         <GripVertical size={18} />
                       </button>
@@ -469,7 +469,7 @@ export default function TeacherDashboard() {
                           disabled={i === 0}
                           data-tooltip="Subir"
                           aria-label="Subir"
-                          className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
                         >
                           <ArrowUp size={16} />
                         </button>
@@ -479,7 +479,7 @@ export default function TeacherDashboard() {
                           disabled={i === subjects.length - 1}
                           data-tooltip="Bajar"
                           aria-label="Bajar"
-                          className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
                         >
                           <ArrowDown size={16} />
                         </button>
@@ -678,7 +678,7 @@ export default function TeacherDashboard() {
           <div className="relative bg-surface-card w-full max-w-md rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
-              <button type="button" onClick={() => setShowSubjectModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 hover:text-muted rounded">
+              <button type="button" onClick={() => setShowSubjectModal(false)} aria-label="Cerrar" className="p-2 text-hint hover:text-muted rounded">
                 <X size={20} />
               </button>
             </div>
@@ -756,7 +756,7 @@ export default function TeacherDashboard() {
               {/* Paleta de color */}
               <div>
                 <p className="block text-sm font-medium text-muted mb-2">
-                  Color de la asignatura <span className="text-slate-400 font-normal text-xs">(elige el color base que identificará a la asignatura)</span>
+                  Color de la asignatura <span className="text-hint font-normal text-xs">(elige el color base que identificará a la asignatura)</span>
                 </p>
                 <PaletteSelect value={newSubjectPalette} onChange={setNewSubjectPalette} />
               </div>

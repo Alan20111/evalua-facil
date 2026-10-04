@@ -61,12 +61,12 @@ function FileRow({ f, onRemove, index }) {
       <div className="flex items-center gap-2 px-2 py-1.5">
         <Icon size={18} className={`flex-shrink-0 ${color}`} />
         <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
-        <span className="text-xs text-slate-400 flex-shrink-0">
+        <span className="text-xs text-hint flex-shrink-0">
           {f.tamano != null ? formatFileSize(f.tamano) : ''}
         </span>
         {f.url && canView && (
           <button type="button" onClick={() => setOpen(true)} aria-label="Vista previa"
-            className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Vista previa">
+            className="p-2 text-hint hover:text-accent rounded flex-shrink-0" data-tooltip="Vista previa">
             <FileSearch size={15} />
           </button>
         )}
@@ -74,19 +74,19 @@ function FileRow({ f, onRemove, index }) {
           <a href={openInTabUrl} target="_blank" rel="noreferrer"
             data-tooltip={isImgPdf ? 'Abrir página 1 en pestaña nueva' : 'Abrir en Google Docs'}
             aria-label={isImgPdf ? 'Abrir página 1 en pestaña nueva' : 'Abrir en Google Docs'}
-            className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0">
+            className="p-2 text-hint hover:text-accent rounded flex-shrink-0">
             <ExternalLink size={15} />
           </a>
         )}
         {f.url && (
           <a href={downloadHref} download={f.nombre} rel="noreferrer" data-tooltip="Descargar" aria-label="Descargar"
-            className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0">
+            className="p-2 text-hint hover:text-accent rounded flex-shrink-0">
             <Download size={15} />
           </a>
         )}
         {onRemove && (
           <button type="button" onClick={() => onRemove(index)} data-tooltip="Quitar" aria-label="Quitar"
-            className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+            className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0">
             <X size={15} />
           </button>
         )}
@@ -227,7 +227,7 @@ export function FilePreviewModal({ url, nombre, onClose }) {
         <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant flex-shrink-0">
           <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
           <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva" aria-label="Abrir en pestaña nueva"
-            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+            className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
             <ExternalLink size={18} />
           </a>
           {/* El <a download> de antes era inerte dentro del WebView de la app:
@@ -241,10 +241,10 @@ export function FilePreviewModal({ url, nombre, onClose }) {
             etiqueta=""
             iconSize={18}
             title="Descargar"
-            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 disabled:opacity-60"
+            className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 disabled:opacity-60"
           />
           <button type="button" onClick={onClose} data-tooltip="Cerrar" aria-label="Cerrar"
-            className="p-2 text-slate-400 hover:text-on-surface hover:bg-surface rounded transition-colors flex-shrink-0">
+            className="p-2 text-hint hover:text-on-surface hover:bg-surface rounded transition-colors flex-shrink-0">
             <X size={18} />
           </button>
         </div>

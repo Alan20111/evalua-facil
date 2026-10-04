@@ -42,7 +42,7 @@ function CotejoGradeTable({ rubrica, seleccion, onSelect, disabled, compact = fa
                   </button>
                 </td>
                 <td className="border border-outline-variant text-center align-middle px-2 py-2 bg-surface-card">
-                  <p className={`text-base font-bold ${cumple ? 'text-accent' : 'text-slate-400'}`}>{cumple ? c.puntos?.[0] : 0} pts</p>
+                  <p className={`text-base font-bold ${cumple ? 'text-accent' : 'text-hint'}`}>{cumple ? c.puntos?.[0] : 0} pts</p>
                 </td>
               </tr>
             )
@@ -112,9 +112,9 @@ export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect,
                         className={`w-full h-full text-left px-3 py-2 transition-colors disabled:cursor-not-allowed ${marcado ? '' : 'hover:bg-[var(--accent-tint)]'}`}
                       >
                         <p className={`text-sm leading-snug whitespace-pre-wrap ${marcado ? 'text-on-surface' : 'text-muted'}`}>
-                          {c.descriptores?.[ni] || <span className="italic text-slate-400">—</span>}
+                          {c.descriptores?.[ni] || <span className="italic text-hint">—</span>}
                         </p>
-                        <p className={`text-sm font-bold mt-1.5 ${marcado ? 'text-accent' : 'text-slate-400'}`}>
+                        <p className={`text-sm font-bold mt-1.5 ${marcado ? 'text-accent' : 'text-hint'}`}>
                           {c.puntos?.[ni]} pts
                         </p>
                       </button>
@@ -126,7 +126,7 @@ export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect,
                   {sel != null ? (
                     <p className="text-base font-bold text-accent">{c.puntos?.[sel]} pts</p>
                   ) : (
-                    <p className="text-xs text-slate-400 italic">Elige un nivel</p>
+                    <p className="text-xs text-hint italic">Elige un nivel</p>
                   )}
                 </td>
               </tr>
@@ -143,7 +143,7 @@ export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect,
                   {total}<span className="text-xs text-muted font-normal"> / {RUBRICA_TOTAL}</span>
                 </p>
               ) : (
-                <p className="text-xs text-slate-400">Faltan {faltan} criterio{faltan !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-hint">Faltan {faltan} criterio{faltan !== 1 ? 's' : ''}</p>
               )}
             </td>
           </tr>

@@ -133,7 +133,7 @@ export default function Modal({
                 type="button"
                 onClick={requestClose}
                 aria-label="Cerrar"
-                className="p-3 -m-1 text-slate-400 hover:text-error rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="p-3 -m-1 text-hint hover:text-error rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <X size={20} />
               </button>

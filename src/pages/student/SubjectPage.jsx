@@ -80,7 +80,7 @@ function ResourceCard({ resource: r }) {
           {r.descripcion && (
             <p className="text-xs text-slate-500 mt-0.5">{r.descripcion}</p>
           )}
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-hint mt-0.5">
             {isLink ? 'Enlace · ' : (r.tamano != null ? formatFileSize(r.tamano) + ' · ' : '')}
             {formatResourceDate(r.fechaPublicacion)}
           </p>
@@ -572,7 +572,7 @@ export default function StudentSubjectPage() {
           type="button"
           aria-label="Volver"
           onClick={goBack}
-          className="md:hidden p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
+          className="md:hidden p-2 -ml-2 text-hint hover:text-muted rounded flex-shrink-0"
         >
           <ArrowLeft size={22} />
         </button>
@@ -598,7 +598,7 @@ export default function StudentSubjectPage() {
             type="button"
             onClick={() => setShowSubjectMenu((v) => !v)}
             aria-label="Más opciones de esta asignatura"
-            className="p-2 text-slate-400 hover:text-on-surface hover:bg-surface-container rounded transition-colors"
+            className="p-2 text-hint hover:text-on-surface hover:bg-surface-container rounded transition-colors"
           >
             <MoreVertical size={19} />
           </button>
@@ -713,11 +713,11 @@ export default function StudentSubjectPage() {
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {!publicado ? (
-                          <PonderacionPendiente className="text-lg font-bold text-slate-400" />
+                          <PonderacionPendiente className="text-lg font-bold text-hint" />
                         ) : avg != null && (
                           <span className="text-lg font-bold text-accent">{avg}</span>
                         )}
-                        {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+                        {isOpen ? <ChevronUp size={20} className="text-hint" /> : <ChevronDown size={20} className="text-hint" />}
                       </div>
                     </>
                   )
@@ -749,7 +749,7 @@ export default function StudentSubjectPage() {
                   <div className="border-t border-outline-variant pr-4 py-2">
                     <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
                     {unified.length === 0 && (
-                      <p className="text-slate-400 text-sm text-center py-2">{filtrando ? 'Sin actividades que se califiquen' : 'Sin actividades'}</p>
+                      <p className="text-hint text-sm text-center py-2">{filtrando ? 'Sin actividades que se califiquen' : 'Sin actividades'}</p>
                     )}
                     {unified.map(({ type, item }) => {
                       if (type === 'activity') {
@@ -786,12 +786,12 @@ export default function StudentSubjectPage() {
                             onClick={() => navigate(`/alumno/actividad/${a.id}`)}
                             className="w-full flex items-center gap-2 px-3 py-2 rounded border border-outline-variant bg-surface-card hover:border-accent hover:bg-[var(--accent-tint)] transition-colors duration-200 text-left"
                           >
-                            <ActIcon size={20} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
+                            <ActIcon size={20} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-hint'}`} />
                             <div className="flex-1 min-w-0">
                               <p className="text-base font-medium leading-tight text-on-surface truncate">
                                 {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} </span>}
                                 {a.nombre}
-                                <span className="text-xs font-normal text-slate-400"> ({CATEGORIA_LABELS[a.categoria] || 'Entregable'})</span>
+                                <span className="text-xs font-normal text-hint"> ({CATEGORIA_LABELS[a.categoria] || 'Entregable'})</span>
                               </p>
                               {((!IS_NATIVE_APP && (publishDate || fechaLimiteLabel)) || showPeso) && (
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -1070,7 +1070,7 @@ export default function StudentSubjectPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-xs text-hint mt-0.5">
                           {formatAvisoFecha(a.fechaCreacion)}{teacherName ? ` · ${teacherName}` : ''}
                         </p>
                         {a.mensaje && <p className="text-sm text-on-surface mt-1.5 whitespace-pre-wrap">{a.mensaje}</p>}
@@ -1084,17 +1084,17 @@ export default function StudentSubjectPage() {
                         {guardado ? (
                           <>
                             <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos" data-tooltip-pos="bottom"
-                              className="p-2 -m-1 rounded transition-colors text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
+                              className="p-2 -m-1 rounded transition-colors text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
                               <RotateCcw size={18} />
                             </button>
                             <button type="button" onClick={() => setDeleteAvisoConfirm(a)} aria-label="Eliminar" data-tooltip="Eliminar" data-tooltip-pos="bottom"
-                              className="p-2 -m-1 rounded transition-colors text-slate-400 hover:text-red-500 hover:bg-red-50">
+                              className="p-2 -m-1 rounded transition-colors text-hint hover:text-red-500 hover:bg-red-50">
                               <Trash2 size={18} />
                             </button>
                           </>
                         ) : (
                           <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Guardar" data-tooltip="Guardar" data-tooltip-pos="bottom"
-                            className="p-2 -m-1 rounded transition-colors text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
+                            className="p-2 -m-1 rounded transition-colors text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
                             <Bookmark size={18} />
                           </button>
                         )}

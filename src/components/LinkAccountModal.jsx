@@ -87,7 +87,7 @@ export default function LinkAccountModal({ onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-3 right-3 p-3 -m-1.5 text-slate-400 hover:text-on-surface rounded"
+          className="absolute top-3 right-3 p-3 -m-1.5 text-hint hover:text-on-surface rounded"
         >
           <X size={18} />
         </button>
@@ -131,7 +131,7 @@ export default function LinkAccountModal({ onClose }) {
             <p className="text-sm text-muted leading-relaxed">
               Te enviamos un enlace a <strong>{email.trim()}</strong>. Ábrelo desde esta misma computadora para continuar.
             </p>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-hint leading-relaxed">
               Por tu seguridad, ese enlace solo confirma que eres tú quien tiene acceso a este correo — nunca te enviamos contraseñas por correo electrónico. La contraseña la crearás tú mismo en el siguiente paso.
             </p>
             <button

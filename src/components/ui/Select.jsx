@@ -48,7 +48,7 @@ export default function Select({
           className
         )}
       >
-        <span className={`truncate ${current ? 'text-on-surface' : 'text-slate-400'}`}>
+        <span className={`truncate ${current ? 'text-on-surface' : 'text-hint'}`}>
           {current?.label || placeholder}
         </span>
         <ChevronDown size={16} className="text-muted flex-shrink-0" />
@@ -56,7 +56,7 @@ export default function Select({
       {error ? (
         <p className="text-red-500 text-xs mt-1">{error}</p>
       ) : hint ? (
-        <p className="text-xs text-slate-400 mt-1">{hint}</p>
+        <p className="text-xs text-hint mt-1">{hint}</p>
       ) : null}
 
       {open && (

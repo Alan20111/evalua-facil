@@ -274,7 +274,7 @@ export default function Profile() {
             aquí solo vive lo relacionado con IA. */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-            <Sparkles size={19} className="text-slate-400" /> Créditos de IA
+            <Sparkles size={19} className="text-hint" /> Créditos de IA
           </h2>
           {!creditosIA.listo ? (
             <div className="flex justify-center py-2"><Spinner /></div>
@@ -374,7 +374,7 @@ export default function Profile() {
             busca (cambiar la contraseña) y antes quedaba hasta el fondo. */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-            <Lock size={19} className="text-slate-400" /> Acceso
+            <Lock size={19} className="text-hint" /> Acceso
           </h2>
           <div className="space-y-1">
 
@@ -438,7 +438,7 @@ export default function Profile() {
         {/* Datos personales — nombre real, distinto del nombre visible/alias */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-            <User size={19} className="text-slate-400" /> Datos personales
+            <User size={19} className="text-hint" /> Datos personales
           </h2>
           <form onSubmit={handleSaveDatosPersonales} className="space-y-2">
             <div>
@@ -474,7 +474,7 @@ export default function Profile() {
         {/* Nombre visible */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-            <User size={19} className="text-slate-400" /> Nombre visible
+            <User size={19} className="text-hint" /> Nombre visible
           </h2>
           <p className="text-sm text-muted -mt-1 mb-2">Así te verán tus estudiantes — puede ser distinto a tu nombre real.</p>
           <form onSubmit={handleSaveNombre} className="space-y-2">
@@ -514,7 +514,7 @@ export default function Profile() {
         {/* Escuela */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-            <School size={19} className="text-slate-400" /> Escuela
+            <School size={19} className="text-hint" /> Escuela
           </h2>
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
@@ -545,7 +545,7 @@ export default function Profile() {
             demás que se puede tocar sin miedo. */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-            <Trash2 size={19} className="text-slate-400" /> Eliminar mi cuenta
+            <Trash2 size={19} className="text-hint" /> Eliminar mi cuenta
           </h2>
           <InfoDisclosure className="mb-2">
             <p className="text-sm text-muted">

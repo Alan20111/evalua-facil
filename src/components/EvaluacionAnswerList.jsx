@@ -76,7 +76,7 @@ export default function EvaluacionAnswerList({
                     </div>
                   )
                 })}
-                {!respuesta.opcionSeleccionada && <p className="text-xs text-slate-400 italic">Sin respuesta</p>}
+                {!respuesta.opcionSeleccionada && <p className="text-xs text-hint italic">Sin respuesta</p>}
               </div>
             ) : (
               <div className="space-y-1.5">
@@ -103,7 +103,7 @@ export default function EvaluacionAnswerList({
 
             {mostrarRetro && p.retroalimentacion && (
               <div className="mt-2 bg-surface rounded p-2.5 flex gap-2">
-                <MessageSquare size={15} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                <MessageSquare size={15} className="text-hint flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-muted">{p.retroalimentacion}</p>
               </div>
             )}
@@ -111,7 +111,7 @@ export default function EvaluacionAnswerList({
                 teacher view the comment is being edited inside renderGrading instead. */}
             {respuesta.comentarioDocente && !renderGrading && (
               <div className="mt-2 bg-surface rounded p-2.5 flex gap-2">
-                <MessageSquare size={15} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                <MessageSquare size={15} className="text-hint flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-muted italic">&quot;{respuesta.comentarioDocente}&quot;</p>
               </div>
             )}

@@ -90,7 +90,7 @@ function GraficaDiaria({ dias }) {
         </svg>
         {/* Etiquetas fuera del SVG: dentro se estirarían con
             preserveAspectRatio="none" y saldrían deformadas. */}
-        <div className="flex text-[10px] text-slate-400 -mt-3">
+        <div className="flex text-[10px] text-hint -mt-3">
           {dias.map((d, i) => (
             <div key={d.fecha} className="text-center truncate" style={{ width: `${anchoDia}%` }}>
               {dias.length <= 31 || i % 3 === 0 ? diaCorto(d.fecha) : ''}
@@ -112,7 +112,7 @@ function Indicador({ etiqueta, valor, ayuda, tono = '' }) {
     <div className="bg-surface-card rounded-card shadow-card p-4 min-w-0">
       <div className="text-xs text-muted flex items-center gap-1">
         <span className="truncate">{etiqueta}</span>
-        {ayuda && <Info size={12} className="text-slate-400 flex-shrink-0 cursor-help" aria-hidden />}
+        {ayuda && <Info size={12} className="text-hint flex-shrink-0 cursor-help" aria-hidden />}
       </div>
       <div className={`text-xl font-bold tabular-nums mt-1 ${tono}`} title={ayuda}>{valor}</div>
     </div>
@@ -226,7 +226,7 @@ export default function CostosIAPanel() {
       key: 'margenMXN', header: 'Margen sobre costo de IA', align: 'right',
       render: (r) => (
         <span className={`tabular-nums font-semibold ${
-          r.margenMXN == null ? 'text-slate-400' : r.margenMXN < 0 ? 'text-red-600' : 'text-emerald-700'
+          r.margenMXN == null ? 'text-hint' : r.margenMXN < 0 ? 'text-red-600' : 'text-emerald-700'
         }`}>
           {dinero(r.margenMXN)}
         </span>
@@ -353,7 +353,7 @@ export default function CostosIAPanel() {
             minWidth={760}
           />
 
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-hint">
             <strong>Costo IA estimado</strong>: sale de los tokens que registramos por la tarifa configurada
             {datos.tipoCambioUsdMxnUsado != null ? ` (tipo de cambio ${datos.tipoCambioUsdMxnUsado} MXN/USD)` : ''} —
             no es la factura de Anthropic. <strong>Margen sobre costo de IA</strong>: no es ganancia neta,

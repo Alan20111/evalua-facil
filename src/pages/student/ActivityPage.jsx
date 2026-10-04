@@ -521,7 +521,7 @@ export default function StudentActivityPage() {
         <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
         <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="min-w-0">
@@ -529,16 +529,16 @@ export default function StudentActivityPage() {
             {activityLabel && <span className="text-accent">{activityLabel} </span>}
             {activity?.nombre}
           </h1>
-              <p className="text-slate-400 text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
+              <p className="text-hint text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
               {((activity?.publishedAt || activity?.publishAt) || deadlineEv) && (
                 <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                   {(activity?.publishedAt || activity?.publishAt) && (
-                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                    <span className="text-xs text-hint flex items-center gap-1">
                       <Clock size={12} className="flex-shrink-0" /> Publicado: {fmtDate(activity.publishedAt || activity.publishAt)}
                     </span>
                   )}
                   {deadlineEv && (
-                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                    <span className="text-xs text-hint flex items-center gap-1">
                       <Clock size={12} className="flex-shrink-0" /> {extendedDateEv ? 'Cierra (extendida):' : 'Cierra:'} {fmtDate(deadlineEv)}
                     </span>
                   )}
@@ -564,7 +564,7 @@ export default function StudentActivityPage() {
                     </div>
                     <div className="flex items-end gap-2">
                       <span className="text-5xl font-bold text-accent">{submission.calificacion}</span>
-                      <span className="text-xl text-slate-400 mb-1">/{activity?.maxCalif}</span>
+                      <span className="text-xl text-hint mb-1">/{activity?.maxCalif}</span>
                       {ev.mostrarPorcentaje && (
                         <span className="text-sm text-muted mb-1.5">({Math.round(normalizeGrade(submission.calificacion, activity?.maxCalif, { base: 100 }))}%)</span>
                       )}
@@ -650,19 +650,19 @@ export default function StudentActivityPage() {
             )}
 
             {(ev.numPreguntas || 0) === 0 ? (
-              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-hint">
                 Tu maestro aún no ha agregado preguntas a esta evaluación.
               </div>
             ) : sinIntentosRestantes ? (
-              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-hint">
                 Ya usaste todos tus intentos disponibles.
               </div>
             ) : parcialCerrado(subject, activity.parcial) ? (
-              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-hint">
                 Tu maestro cerró definitivamente el Parcial {activity.parcial} — esta evaluación ya no recibe intentos.
               </div>
             ) : evaluacionCerrada ? (
-              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-hint">
                 La fecha límite ya pasó — esta evaluación está cerrada.
               </div>
             ) : (
@@ -724,7 +724,7 @@ export default function StudentActivityPage() {
         <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
         <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="min-w-0">
@@ -732,7 +732,7 @@ export default function StudentActivityPage() {
                 {activityLabel && <span className="text-accent">{activityLabel} </span>}
                 {activity?.nombre || tipoLabelJ}
               </h1>
-              <p className="text-slate-400 text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial} · {tipoLabelJ}</p>
+              <p className="text-hint text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial} · {tipoLabelJ}</p>
             </div>
           </header>
 
@@ -747,7 +747,7 @@ export default function StudentActivityPage() {
                     </div>
                     <div className="flex items-end gap-2">
                       <span className="text-5xl font-bold text-accent">{submission.calificacion}</span>
-                      <span className="text-xl text-slate-400 mb-1">/{activity?.maxCalif}</span>
+                      <span className="text-xl text-hint mb-1">/{activity?.maxCalif}</span>
                     </div>
                     {intentosJ.length > 1 && ultimoIntentoJ && (
                       <div className="mt-3 pt-3 border-t border-outline-variant space-y-1 text-sm text-muted">
@@ -814,15 +814,15 @@ export default function StudentActivityPage() {
             </div>
 
             {sinIntentosRestantesJ ? (
-              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-hint">
                 Ya usaste todos tus intentos disponibles.
               </div>
             ) : parcialCerrado(subject, activity.parcial) ? (
-              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-hint">
                 Tu maestro cerró definitivamente el Parcial {activity.parcial} — este juego ya no recibe intentos.
               </div>
             ) : juegoCerrado ? (
-              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-hint">
                 La fecha límite ya pasó — este juego está cerrado.
               </div>
             ) : (
@@ -893,7 +893,7 @@ export default function StudentActivityPage() {
           type="button"
           aria-label="Volver"
           onClick={goBack}
-          className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
+          className="p-2 -ml-2 text-hint hover:text-muted rounded flex-shrink-0"
         >
           <ArrowLeft size={22} />
         </button>
@@ -902,16 +902,16 @@ export default function StudentActivityPage() {
             {activityLabel && <span className="text-accent">{activityLabel} </span>}
             {activity?.nombre}
           </h1>
-          <p className="text-slate-400 text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
+          <p className="text-hint text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
           {((activity?.publishedAt || activity?.publishAt) || displayDate) && (
             <div className="flex items-center gap-3 mt-0.5 flex-wrap">
               {(activity?.publishedAt || activity?.publishAt) && (
-                <span className="text-xs text-slate-400 flex items-center gap-1">
+                <span className="text-xs text-hint flex items-center gap-1">
                   <Clock size={12} className="flex-shrink-0" /> Publicado: {fmtDate(activity.publishedAt || activity.publishAt)}
                 </span>
               )}
               {displayDate && (
-                <span className="text-xs text-slate-400 flex items-center gap-1">
+                <span className="text-xs text-hint flex items-center gap-1">
                   <Clock size={12} className="flex-shrink-0" /> {extendedDate ? 'Cierra (extendida):' : 'Cierra:'} {fmtDate(displayDate)}
                 </span>
               )}
@@ -929,7 +929,7 @@ export default function StudentActivityPage() {
         }`}>
           {isGraded ? <CheckCircle size={26} className="text-emerald-500 flex-shrink-0" />
             : isDelivered ? <Clock size={26} className="text-accent flex-shrink-0" />
-            : <FileText size={26} className="text-slate-400 flex-shrink-0" />}
+            : <FileText size={26} className="text-hint flex-shrink-0" />}
           <div className="min-w-0">
             <p className="font-semibold text-on-surface text-sm">
               {isGraded ? 'Calificado'
@@ -992,7 +992,7 @@ export default function StudentActivityPage() {
             </div>
             <div className="flex items-end gap-2 mb-3">
               <span className="text-5xl font-bold text-accent">{submission.calificacion}</span>
-              <span className="text-xl text-slate-400 mb-1">/{activity?.maxCalif}</span>
+              <span className="text-xl text-hint mb-1">/{activity?.maxCalif}</span>
             </div>
             {submission.comentario && (
               submission.comentarioVisibleAlumno !== undefined
@@ -1000,7 +1000,7 @@ export default function StudentActivityPage() {
                 : activity?.comentarioVisibleAlumno !== false
             ) && (
               <div className="bg-surface rounded p-3 flex gap-2">
-                <MessageSquare size={17} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                <MessageSquare size={17} className="text-hint flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-muted italic">&ldquo;{submission.comentario}&rdquo;</p>
               </div>
             )}
@@ -1051,7 +1051,7 @@ export default function StudentActivityPage() {
             ya hay una entrega: el estudiante tiene una sola ocasión; solo
             vuelve a aparecer si el docente anula la entrega) */}
         {!isObservacion && !submission && cerrada && (
-          <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+          <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-hint">
             {asignaturaArchivada
               ? 'Tu maestro archivó esta asignatura. Ya no se reciben entregas — puedes seguir consultando lo que entregaste.'
               : activity?.cerradaManual
@@ -1105,7 +1105,7 @@ export default function StudentActivityPage() {
                     e.target.value = ''
                   }}
                 />
-                <Upload size={26} className={`flex-shrink-0 ${files.length ? 'text-accent' : 'text-slate-400'}`} />
+                <Upload size={26} className={`flex-shrink-0 ${files.length ? 'text-accent' : 'text-hint'}`} />
                 {/* Solo la ACCIÓN, sin repetir el límite: cuántas fotos caben ya
                     lo dice el recuadro "Archivos que puedes enviar…" de arriba
                     ("De 1 a 5 fotos o imágenes"). Antes el mismo dato salía tres
@@ -1134,14 +1134,14 @@ export default function StudentActivityPage() {
                         type="button"
                         onClick={() => removeSelectedFile(i)}
                         aria-label={`Quitar ${f.name}`}
-                        className="p-2 -mr-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0"
+                        className="p-2 -mr-1 text-hint hover:text-red-500 rounded flex-shrink-0"
                       >
                         <X size={15} />
                       </button>
                     </div>
                   ))}
                   {allowsMultipleFiles(activity?.tiposArchivo || 'todos') && files.length < MAX_IMAGES_PER_SUBMISSION && files.every(isImageFile) && (
-                    <p className="text-xs text-slate-400 text-center pt-0.5">
+                    <p className="text-xs text-hint text-center pt-0.5">
                       Puedes tocar arriba para agregar más fotos ({files.length}/{MAX_IMAGES_PER_SUBMISSION})
                     </p>
                   )}
@@ -1181,7 +1181,7 @@ export default function StudentActivityPage() {
                         type="button"
                         onClick={() => { setEnlace(''); setEnlaceTocado(false) }}
                         aria-label="Borrar el enlace"
-                        className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0"
+                        className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0"
                       >
                         <X size={16} />
                       </button>

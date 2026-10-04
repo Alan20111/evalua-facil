@@ -22,6 +22,7 @@ export default {
         },
         'on-surface': 'var(--on-surface)',
         muted: 'var(--on-surface-variant)',
+        hint: 'var(--on-surface-hint)',
         outline: {
           DEFAULT: 'var(--outline)',
           variant: 'var(--outline-variant)',

@@ -296,7 +296,7 @@ export default function StudentLogin() {
             <span className="text-sm font-semibold text-muted">¿Olvidaste tu contraseña? Restablécela</span>
             <ChevronDown
               size={19}
-              className={`text-slate-400 transition-transform duration-200 ${showResetSection ? 'rotate-180' : ''}`}
+              className={`text-hint transition-transform duration-200 ${showResetSection ? 'rotate-180' : ''}`}
             />
           </button>
 
@@ -374,7 +374,7 @@ export default function StudentLogin() {
             <span className="text-sm font-semibold text-muted">¿Primera vez? Activa tu cuenta</span>
             <ChevronDown
               size={19}
-              className={`text-slate-400 transition-transform duration-200 ${showCodeSection ? 'rotate-180' : ''}`}
+              className={`text-hint transition-transform duration-200 ${showCodeSection ? 'rotate-180' : ''}`}
             />
           </button>
 
