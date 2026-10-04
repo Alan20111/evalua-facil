@@ -191,6 +191,10 @@ Prohibidos (candado): `shadow-sm`, `shadow-md`, `shadow-xl`.
 
 Sin cambiar fuente, tamaños ni colores: `h1–h3` con tracking `-0.015em` y `text-wrap: balance`; `h1` con interlineado 1.15; párrafos con `text-wrap: pretty`; tablas y campos numéricos con `tabular-nums`. Párrafos de varias líneas alineados a la izquierda (solo títulos cortos y estados vacíos van centrados).
 
+### Esquinas concéntricas (oct-2026)
+
+Cuando una píldora va dentro de un contenedor con padding (pestañas, controles segmentados), las dos llevan la MISMA forma: contenedor `bg-surface-container p-1 rounded-full` y píldoras `rounded-full`. Si el contenedor tiene menos radio que la píldora, el borde se ve grueso y desparejo en las esquinas. Variantes en rejilla de dos filas (solo App): contenedor `rounded-card`. El encabezado de la asignatura NO lleva borde inferior (en esquinas redondeadas se afina y parece una sombra): se separa por contraste de superficie.
+
 ### Bordes de acento (oct-2026)
 
 Un contenedor abierto, un punteado o una barra lateral NUNCA llevan el color de acento al 100% (en paletas oscuras de materia se leía como un marco negro/guinda agresivo): usan `border-accent-soft` (`--accent-soft` = acento al 30%). Punteados: `border border-dashed border-accent-soft` (1px, no `border-2`). Botones *outline* y estados de selección sí conservan `border-accent` pleno. Ojo: `border-accent/30` NO funciona en este proyecto (el acento es una variable CSS); usa el token.

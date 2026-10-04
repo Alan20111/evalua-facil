@@ -1031,13 +1031,13 @@ export default function StudentSubjectPage() {
         const avisosMostrados = soloAvisosGuardados ? guardadosList : avisosVisibles.filter((a) => !avisosGuardados[a.id])
         return (
         <div className={`px-4 py-5 ${STUDENT_CONTAINER}`}>
-          <div className="flex gap-1 bg-surface-container p-1 rounded w-fit mb-3">
+          <div className="flex gap-1 bg-surface-container p-1 rounded-full w-fit mb-3">
             <button type="button" onClick={() => setSoloAvisosGuardados(false)}
-              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${!soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${!soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>
               Todos
             </button>
             <button type="button" onClick={() => setSoloAvisosGuardados(true)}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>
+              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>
               <Bookmark size={13} /> Guardados{guardadosList.length > 0 ? ` (${guardadosList.length})` : ''}
             </button>
           </div>

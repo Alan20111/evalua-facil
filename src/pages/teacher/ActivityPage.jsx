@@ -1564,7 +1564,7 @@ export default function ActivityPage() {
 
           {/* Filter tabs — they belong to the Entregas list, so they live inside
               its container; clicking one scrolls the list into full view */}
-          <div className={IS_NATIVE_APP ? 'grid grid-cols-2 gap-1 mx-4 mt-3 bg-surface-container p-1 rounded' : 'flex gap-1 mx-4 mt-3 bg-surface-container p-1 rounded'}>
+          <div className={IS_NATIVE_APP ? 'grid grid-cols-2 gap-1 mx-4 mt-3 bg-surface-container p-1 rounded-card' : 'flex gap-1 mx-4 mt-3 bg-surface-container p-1 rounded-full'}>
             {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
               <button
                 type="button"
@@ -1573,7 +1573,7 @@ export default function ActivityPage() {
                   setFilter(f)
                   setTimeout(() => document.getElementById('entregas-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
                 }}
-                className={`${IS_NATIVE_APP ? '' : 'flex-1'} py-1.5 text-xs font-medium rounded transition-colors ${
+                className={`${IS_NATIVE_APP ? '' : 'flex-1'} py-1.5 text-xs font-medium rounded-full transition-colors ${
                   filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}
               >

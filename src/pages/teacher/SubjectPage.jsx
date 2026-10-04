@@ -5559,7 +5559,7 @@ export default function SubjectPage() {
             superior). Con el lienzo azul, este bloque blanco pasó a leerse como
             una tarjeta, y una tarjeta que termina en canto recto se ve cortada,
             no terminada. */}
-        <div className="bg-surface-card border-b border-outline-variant rounded-b-card">
+        <div className="bg-surface-card rounded-b-card">
           <div className={`${TEACHER_CONTAINER} px-4 py-2`}>
           <div className="flex items-center gap-2">
             <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
@@ -5636,7 +5636,7 @@ export default function SubjectPage() {
               esta fila. sm:flex-1 restaura el ancho igual de siempre en
               escritorio, donde sí caben cómodas. */}
           <div className="relative">
-            <div ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded overflow-x-auto">
+            <div ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-x-auto">
               {(IS_NATIVE_APP
                 ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos', 'asistente-ia']
                 // Teléfono (web): sin Calificaciones ni Planeación Didáctica.
@@ -5663,7 +5663,7 @@ export default function SubjectPage() {
               // precheckDiagnosticoBase) y la UI lo avisa antes de intentarlo.
               ).map((t) => (
                 <button type="button" key={t} onClick={() => switchTab(t)}
-                  className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
+                  className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded-full transition-colors ${
                     activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                   }`}>
                   {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Planeación Didáctica'}
@@ -5674,7 +5674,7 @@ export default function SubjectPage() {
                 solo aparece si de verdad hay pestañas fuera de vista y
                 desaparece en cuanto el docente ya deslizó hasta el final. */}
             {tabsOverflow && (
-              <div className="absolute right-0 top-2 bottom-0 flex items-center pointer-events-none bg-gradient-to-l from-surface-container via-surface-container to-transparent pl-6 pr-1 rounded-r">
+              <div className="absolute right-0 top-2 bottom-0 flex items-center pointer-events-none bg-gradient-to-l from-surface-container via-surface-container to-transparent pl-6 pr-1 rounded-r-full">
                 <ChevronRight size={16} className="text-accent animate-pulse" />
               </div>
             )}
@@ -6594,13 +6594,13 @@ export default function SubjectPage() {
               semestre entero de días. Este interruptor solo existe en la
               web; en la App siempre es el parcial actual, sin opción. */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <div className="flex bg-surface-container p-1 rounded w-fit">
+          <div className="flex bg-surface-container p-1 rounded-full w-fit">
             <button type="button" onClick={() => setShowAllParciales(false)}
-              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${!showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${!showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
               Parcial actual
             </button>
             <button type="button" onClick={() => setShowAllParciales(true)}
-              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
               Todo el curso
             </button>
           </div>

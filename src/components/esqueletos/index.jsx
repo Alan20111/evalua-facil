@@ -49,9 +49,10 @@ export function EsqueletoTableroDocente({ filas = 4 }) {
 // ── Docente · asignatura: encabezado (título, código, pestañas) + parciales ──
 export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
   return (
-    <div className={TEACHER_CONTAINER}>
+    <div>
       <SkeletonGroup etiqueta="Cargando la asignatura…">
-        <div className="bg-surface-card border-b border-outline-variant rounded-b-card px-4 py-2">
+        <div className="bg-surface-card rounded-b-card">
+          <div className={`${TEACHER_CONTAINER} px-4 py-2`}>
           <div className="flex items-center gap-2">
             <span className="p-2 -ml-2 flex-shrink-0"><Skeleton className="w-[1.528rem] h-[1.528rem]" /></span>
             <Skeleton className="w-9 h-9 rounded flex-shrink-0" />
@@ -64,14 +65,16 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
               {Array.from({ length: 4 }, (_, i) => <span key={i} className="p-2"><Skeleton className="w-[1.458rem] h-[1.458rem]" /></span>)}
             </span>
           </div>
-          <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded overflow-hidden">
+          <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-hidden">
             {Array.from({ length: 7 }, (_, i) => (
-              <span key={i} className={cn('flex-shrink-0 sm:flex-1 px-3 sm:px-0 py-2 rounded flex justify-center', i === 0 && 'bg-surface-card')}>
+              <span key={i} className={cn('flex-shrink-0 sm:flex-1 px-3 sm:px-0 py-2 rounded-full flex justify-center', i === 0 && 'bg-surface-card')}>
                 <SkeletonLine texto="text-xs sm:text-sm" className="w-16 sm:w-20" />
               </span>
             ))}
           </div>
+          </div>
         </div>
+        <div className={TEACHER_CONTAINER}>
         <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
           {Array.from({ length: parciales }, (_, i) => (
             <div key={i} className="bg-surface-card rounded-card overflow-hidden shadow-card">
@@ -92,6 +95,7 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
               </div>
             </div>
           ))}
+        </div>
         </div>
       </SkeletonGroup>
     </div>
@@ -124,9 +128,9 @@ export function EsqueletoActividadDocente({ filas = 8 }) {
         </div>
         <div className="mx-4 my-4 rounded-card overflow-hidden bg-surface-card shadow-card border border-outline-variant">
           <div className="px-4 py-3 border-b border-outline-variant"><SkeletonLine texto="text-base font-semibold" className="w-20" /></div>
-          <div className={IS_NATIVE_APP ? 'grid grid-cols-2 gap-1 mx-4 mt-3 bg-surface-container p-1 rounded' : 'flex gap-1 mx-4 mt-3 bg-surface-container p-1 rounded'}>
+          <div className={IS_NATIVE_APP ? 'grid grid-cols-2 gap-1 mx-4 mt-3 bg-surface-container p-1 rounded-card' : 'flex gap-1 mx-4 mt-3 bg-surface-container p-1 rounded-full'}>
             {Array.from({ length: 4 }, (_, i) => (
-              <span key={i} className={cn(IS_NATIVE_APP ? '' : 'flex-1', 'py-1.5 rounded flex justify-center', i === 0 && 'bg-surface-card')}>
+              <span key={i} className={cn(IS_NATIVE_APP ? '' : 'flex-1', 'py-1.5 rounded-full flex justify-center', i === 0 && 'bg-surface-card')}>
                 <SkeletonLine texto="text-xs font-medium" className="w-16" />
               </span>
             ))}
