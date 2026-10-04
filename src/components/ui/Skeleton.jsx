@@ -68,6 +68,20 @@ export function SkeletonList({ rows = 4, icon = true, sobreColor = false, classN
   )
 }
 
+// Renglón de texto: ocupa EXACTAMENTE el alto de línea del texto que reemplaza
+// (h-[1lh] con la misma clase de tamaño), así el esqueleto y la pantalla real
+// miden lo mismo y nada salta al terminar de cargar. La barra visible es más
+// delgada que el renglón, como la tinta de la letra.
+//   texto   clases de tipografía del texto real (ej. 'text-xl font-bold')
+//   className  ancho (w-…) y márgenes del renglón
+export function SkeletonLine({ texto = 'text-base', className = '', sobreColor = false }) {
+  return (
+    <span aria-hidden="true" className={cn('flex items-center h-[1lh]', texto, className)}>
+      <Skeleton sobreColor={sobreColor} className="h-[0.7em] w-full" />
+    </span>
+  )
+}
+
 // Tarjetas en rejilla: para tableros (materias del docente y del alumno).
 export function SkeletonCards({ count = 6, className = '', etiqueta }) {
   return (

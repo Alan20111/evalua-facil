@@ -335,7 +335,7 @@ El "segmented sólido" del panel de evaluar (ActivityPage) se migró a la varian
 ### 6.9 Estados vacíos / carga / resultado
 
 - **Empty:** card `rounded-card border border-outline-variant p-8..10 text-center` + icono 28–40 `text-slate-300` (o círculo `w-14 h-14 rounded-full bg-blue-50` + icono `text-blue-400`) + texto `text-sm text-muted` + CTA primario opcional.
-- **Loading de página:** `flex justify-center py-16..20` + Spinner. Spinner: `animate-spin rounded-full border-2 border-accent border-t-transparent` — sm 16px / md 24px / lg 40px — ✅ ya no azul fijo, respeta el rol activo.
+- **Carga de pantalla — esqueleto con la forma de la pantalla (oct-2026):** las pantallas principales usan su propio esqueleto de `src/components/esqueletos/` (`EsqueletoSesion`, `EsqueletoTableroDocente`, `EsqueletoAsignaturaDocente`, `EsqueletoActividadDocente`, `EsqueletoTableroAlumno`, `EsqueletoAsignaturaAlumno`). Regla: **mismo contenedor, mismo padding, mismos cuadros de icono** que la pantalla real, y los renglones con `SkeletonLine texto="<clases del texto real>"` (alto = `1lh` del texto). Encimados, esqueleto y pantalla deben coincidir. Si cambias el layout de una de esas pantallas, cambia su esqueleto. Los presets genéricos de `ui/Skeleton` (`SkeletonList`, `SkeletonCards`…) quedan para bloques internos (pestañas, modales). Spinner solo para acciones en curso dentro de un botón.
 - **Pantalla de resultado** (verify/pago): card centrada `p-8 max-w-sm text-center` + círculo `w-16 h-16 rounded-full bg-{emerald|amber|red}-100` + icono lucide 32 + `h2 text-xl font-bold` + botón primario. ✅ VerifyEmail unificado a lucide (`CheckCircle2`/`XCircle`/`AlertTriangle`) + `emerald`, mismo patrón que PagoResultado.
 
 ### 6.10 Pickers y selects custom
