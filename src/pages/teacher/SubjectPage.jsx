@@ -98,6 +98,7 @@ import AvisosTab from '../../components/subject/AvisosTab'
 import PlaneacionDidacticaTab from '../../components/subject/PlaneacionDidacticaTab'
 import { isPerfilIACompleto } from '../../utils/perfilIA'
 import { SkeletonList, SkeletonTable } from '../../components/ui'
+import { EsqueletoAsignaturaDocente } from '../../components/esqueletos'
 
 // ── Materiales de apoyo: ordenamiento robusto ─────────────────────────────
 // Builds a unified ordered list of activities + positioned materials for one
@@ -5452,7 +5453,7 @@ export default function SubjectPage() {
   )
 
   if (loading) return (
-    <SkeletonList rows={6} className="py-6" />
+    <EsqueletoAsignaturaDocente />
   )
 
   // Botones de acción del encabezado, en dos grupos reutilizables (izquierda:
