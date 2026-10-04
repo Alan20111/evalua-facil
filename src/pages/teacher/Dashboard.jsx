@@ -585,7 +585,7 @@ export default function TeacherDashboard() {
           type="button"
           onClick={openSubjectModal}
           aria-label="Nueva asignatura"
-          className="md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-accent hover:bg-accent-hover text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
+          className="md:hidden fixed bottom-[calc(var(--barra-alto)+0.5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-accent hover:bg-accent-hover text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
         >
           <Plus size={26} />
         </button>

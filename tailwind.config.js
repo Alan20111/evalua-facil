@@ -60,6 +60,9 @@ export default {
         // separan del lienzo por contraste de superficie + un filo de 1px,
         // no por sombra proyectada. El hover sí levanta un poco.
         card: '0 0 0 1px rgba(19,27,46,0.06)',
+        // Footer móvil: sombra suave hacia ARRIBA para separarlo de las tarjetas
+        // blancas que pasan por detrás al hacer scroll.
+        'barra-sup': '0 -6px 20px rgba(19,27,46,0.10)',
         'card-hover': '0 0 0 1px rgba(19,27,46,0.10), 0 6px 20px rgba(19,27,46,0.06)',
       },
       maxWidth: {

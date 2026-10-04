@@ -239,6 +239,12 @@
 }
 
 @layer utilities {
+  /* Alto de las barras móviles (encabezado y footer): UNA sola medida en px, la
+     comparten Layout, StudentLayout y los esqueletos. Cambiarla aquí las mueve a
+     todas. El área segura de Android se suma aparte (.safe-top/.safe-bottom). */
+  :root {
+    --barra-alto: 64px;
+  }
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
