@@ -149,7 +149,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-3">
-        <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-card">
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
           <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800">
             <span className="font-semibold">Asistente IA. </span>
@@ -283,7 +283,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
         )}
 
         <button type="button" onClick={onClose}
-          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors">
+          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded hover:bg-surface-container transition-colors">
           Cerrar
         </button>
         <div className="h-6 safe-bottom" />

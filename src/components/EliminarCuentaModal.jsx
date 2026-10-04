@@ -132,7 +132,7 @@ export default function EliminarCuentaModal({ onClose }) {
             value={palabra}
             onChange={(e) => setPalabra(e.target.value)}
             autoComplete="off"
-            className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+            className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
             placeholder={PALABRA}
           />
         </div>
@@ -161,7 +161,7 @@ export default function EliminarCuentaModal({ onClose }) {
 
       <div className="flex gap-2 mt-4">
         <button type="button" onClick={onClose} disabled={borrando}
-          className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+          className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
           Mejor no
         </button>
         <button type="button" onClick={eliminar} disabled={borrando || !puedeSeguir}

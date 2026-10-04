@@ -296,7 +296,7 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => setShowActivarCreditos(true)}
-              className="mt-3 w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors"
+              className="mt-3 w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors"
             >
               Activar mis 30 créditos de regalo
             </button>
@@ -304,7 +304,7 @@ export default function Profile() {
           <button
             type="button"
             onClick={() => setShowComprarCreditos(true)}
-            className={`mt-2 w-full py-2 font-semibold rounded text-sm transition-colors ${
+            className={`mt-2 w-full py-2.5 font-semibold rounded text-sm transition-colors ${
               creditosIA.mostrarCTAActivarBienvenida
                 ? 'border border-outline-variant text-muted hover:bg-surface'
                 : 'bg-accent hover:bg-accent-hover text-white'
@@ -341,7 +341,7 @@ export default function Profile() {
               )}
             </div>
             <button type="button" onClick={() => fileRef.current?.click()} disabled={photoUploading} aria-label="Cambiar foto"
-              className="absolute -bottom-1 -right-1 w-7 h-7 bg-accent rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60">
+              className="absolute -bottom-1 -right-1 w-7 h-7 bg-accent rounded-full flex items-center justify-center text-white shadow-lg disabled:opacity-60">
               {photoUploading ? <Spinner size="sm" /> : <Camera size={15} />}
             </button>
           </div>
@@ -465,7 +465,7 @@ export default function Profile() {
               onChange={setCodigoPostal}
             />
             <button type="submit" disabled={savingDatosPersonales || !datosPersonalesChanged}
-              className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
               {savingDatosPersonales ? <Spinner size="sm" /> : null}
               {savingDatosPersonales ? 'Guardando…' : 'Guardar datos personales'}
             </button>
@@ -505,7 +505,7 @@ export default function Profile() {
               </div>
             </div>
             <button type="submit" disabled={savingNombre || !nombreChanged}
-              className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
               {savingNombre ? <Spinner size="sm" /> : null}
               {savingNombre ? 'Guardando…' : 'Guardar nombre'}
             </button>
@@ -557,7 +557,7 @@ export default function Profile() {
           <button
             type="button"
             onClick={() => setShowEliminarCuenta(true)}
-            className="w-full py-2 rounded border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors"
+            className="w-full py-2.5 rounded border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors"
           >
             Eliminar mi cuenta
           </button>

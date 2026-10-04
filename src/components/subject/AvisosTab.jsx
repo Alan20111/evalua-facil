@@ -410,7 +410,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
         </InfoDisclosure>
         <button type="button" onClick={openAdd}
           data-tooltip={canCreate ? 'Nuevo aviso' : blockedTooltip}
-          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
           <Plus size={16} /> Nuevo aviso
         </button>
       </div>
@@ -542,7 +542,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <div className="text-center py-8 text-sm text-muted">
                     <p className="mb-3">Aún no tienes plantillas.</p>
                     <button type="button" onClick={() => openPlantillaForm(null)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
                       <Plus size={16} /> Crear tu primera plantilla
                     </button>
                   </div>
@@ -576,13 +576,13 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     rows={5} placeholder="Deja este campo vacío si el título ya lo dice todo"
                     className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
                 </div>
-                <div className="flex justify-end gap-2 mt-5">
+                <div className="flex justify-end gap-2 mt-4">
                   <button type="button" onClick={() => setStep(null)}
                     className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
                     Cancelar
                   </button>
                   <button type="submit" disabled={saving}
-                    className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+                    className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
                     {saving ? 'Guardando…' : 'Publicar'}
                   </button>
                 </div>
@@ -710,13 +710,13 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
                   </div>
                 </div>
-                <div className="flex justify-end gap-2 mt-5">
+                <div className="flex justify-end gap-2 mt-4">
                   <button type="button" onClick={() => setStep('plantillas')}
                     className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
                     Cancelar
                   </button>
                   <button type="submit" disabled={savingPlantilla}
-                    className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+                    className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
                     {savingPlantilla ? 'Guardando…' : 'Guardar'}
                   </button>
                 </div>

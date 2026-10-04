@@ -943,7 +943,7 @@ function ExportSplitButton({ label, Icon, onMain, mainDisabled, mainTooltip, men
         onClick={onMain}
         disabled={mainDisabled}
         data-tooltip={mainTooltip}
-        className="flex-1 flex items-center justify-center gap-2 py-2 bg-[var(--accent-light)] border border-accent rounded-l text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[var(--accent-light)] border border-accent rounded-l text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
       >
         {mainDisabled ? <Spinner size="sm" /> : <Icon size={17} />} {label}
       </button>
@@ -6035,7 +6035,7 @@ export default function SubjectPage() {
                       {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openAdd(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevas actividades'}
-                        className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full py-2.5 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Plus size={17} /> Agregar actividad
@@ -6044,7 +6044,7 @@ export default function SubjectPage() {
                       {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openAddMaterial(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevo material de apoyo'}
-                        className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full py-2.5 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <BookOpen size={17} /> Agregar material de apoyo
@@ -6053,7 +6053,7 @@ export default function SubjectPage() {
                       {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openImport(p)}
                         data-tooltip="Copia actividades de otra de tus asignaturas a este parcial"
-                        className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full py-2.5 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Copy size={17} /> Traer de otra asignatura
@@ -6117,7 +6117,7 @@ export default function SubjectPage() {
                     No ejecuta nada al pulsarlo: abre la configuración. */}
                 <button type="button" onClick={() => setAnalisisAsignaturaAbierto(true)}
                   data-tooltip="Elige parciales y fuentes; la IA prepara un informe del grupo. No modifica calificaciones."
-                  className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2 border-2 border-accent rounded text-sm font-semibold text-accent hover:bg-[var(--accent-tint)] transition-colors">
+                  className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 border border-accent rounded text-sm font-semibold text-accent hover:bg-[var(--accent-tint)] transition-colors">
                   <Sparkles size={17} className="flex-shrink-0" /> <span className="truncate">Analizar asignatura con IA</span>
                 </button>
               </div>
@@ -6151,7 +6151,7 @@ export default function SubjectPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <button type="button" onClick={togglePonderacion}
                     data-tooltip={anyPonderacionOn ? 'Quitar la ponderación de todos los parciales' : 'Cada actividad vale un peso — se activa en todos los parciales; luego puedes apagarla por parcial'}
-                    className={`px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wide transition-colors ${anyPonderacionOn
+                    className={`px-3 py-2 rounded text-xs font-bold uppercase tracking-wide transition-colors ${anyPonderacionOn
                       ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
                       : 'bg-accent text-white hover:bg-accent-hover'}`}>
                     {anyPonderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
@@ -6198,7 +6198,7 @@ export default function SubjectPage() {
                     <div className="order-1 flex items-center gap-1 relative">
                       <button type="button" onClick={() => setGradeSortOn((v) => !v)}
                         data-tooltip={gradeSortOn ? 'Ordenado de mayor a menor' : 'Ordenar por promedio, de mayor a menor'}
-                        className={`px-3 py-1.5 rounded-l text-xs font-bold uppercase tracking-wide transition-colors ${gradeSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
+                        className={`px-3 py-2 rounded-l text-xs font-bold uppercase tracking-wide transition-colors ${gradeSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
                         Ordenar de mayor a menor{gradeSortOn ? ` · ${gradeSortParcial == null ? 'General' : `P${gradeSortParcial}`}` : ''}
                       </button>
                       <button type="button" onClick={() => setGradeSortMenuOpen((v) => !v)}
@@ -6577,7 +6577,7 @@ export default function SubjectPage() {
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Asistencias</p>
             {addDayLabel && (
               <button type="button" onClick={handleAddDayClick}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
                 <CalendarPlus size={16} /> {addDayLabel}
               </button>
             )}
@@ -6635,7 +6635,7 @@ export default function SubjectPage() {
                 onClick={handleExportAttendance}
                 disabled={exportingAttendance}
                 data-tooltip="Descarga TODA la asistencia en una hoja de Excel"
-                className="flex-1 flex items-center justify-center gap-2 py-2 bg-[var(--accent-light)] border border-accent rounded-l text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[var(--accent-light)] border border-accent rounded-l text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
               >
                 {exportingAttendance ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
               </button>
@@ -6676,7 +6676,7 @@ export default function SubjectPage() {
               <button type="button"
                 onClick={() => setAttSortOn((v) => !v)}
                 data-tooltip={attSortOn ? 'Ordenado por mayor riesgo de inasistencia' : 'Ordenar por mayor riesgo de inasistencia'}
-                className={`px-3 py-1.5 rounded-l text-xs font-bold uppercase tracking-wide transition-colors ${attSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
+                className={`px-3 py-2 rounded-l text-xs font-bold uppercase tracking-wide transition-colors ${attSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
                 Ordenar por riesgo{attSortOn ? ` · ${attSortParcial == null ? 'General' : `P${attSortParcial}`}` : ''}
               </button>
               <button type="button"
@@ -6782,11 +6782,11 @@ export default function SubjectPage() {
             )}
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setShowAddAttendance(false)}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                 Cancelar
               </button>
               <button type="submit" disabled={savingAttendance || !newAttendanceForm.fecha || !!avisoSinClase}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
                 {savingAttendance ? <Spinner size="sm" /> : <CalendarPlus size={16} />} Agregar
               </button>
             </div>
@@ -6819,7 +6819,7 @@ export default function SubjectPage() {
               })}
             </div>
             <button type="button" onClick={() => setShowRestoreAttendance(false)}
-              className="w-full mt-3 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+              className="w-full mt-3 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
               Cerrar
             </button>
           </div>
@@ -6839,7 +6839,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteAttendanceConfirm(null)}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={handleDeleteAttendanceDay} disabled={deletingAttendance}
@@ -7305,7 +7305,7 @@ export default function SubjectPage() {
             </InfoDisclosure>
             <button type="button" onClick={openAddResource}
               data-tooltip="Agregar recurso"
-              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
               <Plus size={16} /> Agregar recurso
             </button>
           </div>
@@ -7585,7 +7585,7 @@ export default function SubjectPage() {
                 <label htmlFor="act-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
                 <input id="act-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Tarea 1, Examen parcial" />
               </div>
               <div>
@@ -7675,7 +7675,7 @@ export default function SubjectPage() {
               )}
 
               <button type="submit" disabled={saving}
-                className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {saving ? <Spinner size="sm" /> : modalMode === 'create' ? <Plus size={18} /> : <Pencil size={18} />}
                 {saving ? 'Guardando…' : modalMode === 'create'
                   ? (tipoActividad === 'cuestionario' || tipoActividad === 'examen') ? 'Crear y agregar preguntas' : 'Crear actividad'
@@ -7686,7 +7686,7 @@ export default function SubjectPage() {
                   publicado), así que aquí nunca hay publishedAt. */}
               {!form.publishedAt && (
                 <button type="button" disabled={saving} onClick={(e) => handleSaveActivity(e, true)}
-                  className="w-full py-2 mt-2 border border-accent text-accent font-medium rounded transition-colors hover:bg-[var(--accent-medium)] disabled:opacity-60">
+                  className="w-full py-2.5 mt-2 border border-accent text-accent font-medium rounded transition-colors hover:bg-[var(--accent-medium)] disabled:opacity-60">
                   Guardar como borrador
                 </button>
               )}
@@ -7709,9 +7709,9 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDuplicateConfirm(null)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button type="button" onClick={handleDuplicateActivity} disabled={duplicating}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {duplicating ? <Spinner size="sm" /> : <Copy size={16} />}
                 {duplicating ? 'Duplicando…' : 'Duplicar'}
               </button>
@@ -7751,9 +7751,9 @@ export default function SubjectPage() {
             )}
             <div className="flex gap-2">
               <button type="button" onClick={() => setMoveConfirm(null)} disabled={moving}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
               <button type="button" onClick={() => applyMoveActivities(moveConfirm.a.parcial, moveConfirm.newList)} disabled={moving}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {moving ? <Spinner size="sm" /> : <ArrowUpDown size={16} />}
                 {moving ? 'Moviendo…' : 'Mover'}
               </button>
@@ -7778,16 +7778,16 @@ export default function SubjectPage() {
             )}
             <div className="flex gap-2">
               <button type="button" onClick={() => setPublishDraftConfirm(null)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               {/* Editar is the primary path — a draft usually still needs changes
                   (esp. duplicates); Publicar stays available as secondary */}
               <button type="button" onClick={publishDraftNow}
-                className="flex-1 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] flex items-center justify-center gap-1.5">
+                className="flex-1 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] flex items-center justify-center gap-1.5">
                 <Eye size={14} /> Publicar
               </button>
               <button type="button"
                 onClick={() => { const a = publishDraftConfirm; setPublishDraftConfirm(null); openEdit(a, activityLabelById[a.id]) }}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover flex items-center justify-center gap-2">
                 <Pencil size={16} /> Editar
               </button>
             </div>
@@ -7808,7 +7808,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button type="button" onClick={handleDeleteActivity} disabled={deleting}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deleting ? <Spinner size="sm" /> : <Trash2 size={16} />}
@@ -7836,7 +7836,7 @@ export default function SubjectPage() {
                 <label htmlFor="material-nombre" className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
                 <input id="material-nombre" type="text" value={materialForm.nombre} onChange={(e) => setMaterialForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Libro de texto, Video introductorio, Guía de laboratorio" />
               </div>
               <div>
@@ -7907,7 +7907,7 @@ export default function SubjectPage() {
               </div>
 
               <button type="submit" disabled={savingMaterial || !materialChanged}
-                className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {savingMaterial ? <Spinner size="sm" /> : materialModalMode === 'create' ? <Plus size={18} /> : <Pencil size={18} />}
                 {savingMaterial ? 'Guardando…' : materialModalMode === 'create' ? 'Crear material' : 'Guardar cambios'}
               </button>
@@ -7927,7 +7927,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteMaterialConfirm(null)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button type="button" onClick={handleDeleteMaterial} disabled={deletingMaterial}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deletingMaterial ? <Spinner size="sm" /> : <Trash2 size={16} />}
@@ -7974,7 +7974,7 @@ export default function SubjectPage() {
                     // autoFocus intencional (solo en escritorio): primer campo del modal, se abre
                     // una sola vez por apertura — no hay nada más que esperar.
                     autoFocus={PUEDE_AUTOFOCUS && field === 'apellidoPaterno'}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder={placeholder}
                   />
                 </div>
@@ -7985,7 +7985,7 @@ export default function SubjectPage() {
               <button
                 type="submit"
                 disabled={savingStudent}
-                className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {savingStudent ? <Spinner size="sm" /> : <Plus size={18} />}
                 Agregar estudiante
@@ -8046,7 +8046,7 @@ export default function SubjectPage() {
                   value={editStudentForm[field]}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, [field]: e.target.value }))}
                   required={field !== 'apellidoMaterno'}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder={
                     field === 'apellidoPaterno' ? 'Apellido paterno'
                       : field === 'apellidoMaterno' ? 'Apellido materno'
@@ -8061,14 +8061,14 @@ export default function SubjectPage() {
                   value={editStudentForm.comentarios}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, comentarios: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                   placeholder="Ej: necesita apoyo extra, cambió de grupo, etc."
                 />
               </div>
               <button
                 type="submit"
                 disabled={savingStudent || !editStudentChanged}
-                className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {savingStudent ? <Spinner size="sm" /> : <Pencil size={18} />}
                 Guardar cambios
@@ -8077,7 +8077,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={requestResetFromEdit}
                 disabled={savingStudent}
-                className="w-full py-1.5 rounded border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 <RotateCcw size={17} />
                 Restablecer contraseña
@@ -8089,7 +8089,7 @@ export default function SubjectPage() {
                   type="button"
                   onClick={() => { handleAllowRejoin(studentToEdit); setStudentToEdit(null) }}
                   disabled={savingStudent}
-                  className="w-full py-1.5 rounded border border-accent/30 text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 rounded border border-accent/30 text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   <LogIn size={17} />
                   Permitir reingreso — salió de la asignatura
@@ -8099,7 +8099,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={requestDeleteFromEdit}
                 disabled={savingStudent}
-                className="w-full py-1.5 rounded border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 <Trash2 size={17} />
                 Eliminar estudiante
@@ -8170,7 +8170,7 @@ export default function SubjectPage() {
               <button type="button"
                 onClick={handleGenerateCredentials}
                 disabled={generatingCredentials}
-                className="flex-1 py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                className="flex-1 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {generatingCredentials ? <Spinner size="sm" /> : <Download size={18} />}
                 {generatingCredentials ? 'Descargando…' : 'Descargar lista'}
@@ -8183,7 +8183,7 @@ export default function SubjectPage() {
       {/* ── Activity-name tooltip ABOVE the number header (fixed → never clipped) ── */}
       {actTip && (
         <div
-          className="fixed z-[9999] -translate-x-1/2 -translate-y-full px-2 py-1 rounded border border-[#c0c0c0] bg-[#f5f5f5] text-[#111] text-[11px] max-w-xs shadow pointer-events-none"
+          className="fixed z-[9999] -translate-x-1/2 -translate-y-full px-2 py-1 rounded border border-[#c0c0c0] bg-[#f5f5f5] text-[#111] text-[11px] max-w-xs shadow-lg pointer-events-none"
           style={{ left: actTip.x, top: actTip.y - 6 }}
         >
           <div className="font-medium">{actTip.text}</div>
@@ -8256,11 +8256,11 @@ export default function SubjectPage() {
             </div>
             <div className="flex gap-1.5">
               <button type="button" onClick={() => setGradeQuickEdit(null)} disabled={savingQuickGrade}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60">
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60">
                 Cancelar
               </button>
               <button type="button" onClick={saveGradeQuickEdit} disabled={savingQuickGrade}
-                className="flex-1 py-1.5 rounded bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center justify-center gap-1">
+                className="flex-1 py-2 rounded bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center justify-center gap-1">
                 {savingQuickGrade ? <Spinner size="sm" /> : <CheckIcon size={13} />} Guardar
               </button>
             </div>
@@ -8269,7 +8269,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={clearGradeQuickEdit}
                 disabled={savingQuickGrade}
-                className="w-full py-1.5 rounded border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-1"
+                className="w-full py-2 rounded border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-1"
               >
                 <Trash2 size={12} />
                 Quitar calificación
@@ -8371,7 +8371,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={() => { setBulkGradeModal(null); setBulkGradeValue('') }}
                 disabled={savingBulkGrade}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60"
+                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60"
               >
                 Cancelar
               </button>
@@ -8379,7 +8379,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={confirmBulkGradeNoEntregadas}
                 disabled={savingBulkGrade || bulkGradeValue === ''}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-1"
+                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-1"
               >
                 {savingBulkGrade
                   ? <><Spinner size="sm" /> Guardando…</>
@@ -8465,7 +8465,7 @@ export default function SubjectPage() {
               <div className="px-4 py-3 border-t border-outline-variant flex items-center gap-2">
                 <span className="text-xs text-muted flex-1">{importSel.size} seleccionada{importSel.size !== 1 ? 's' : ''}</span>
                 <button type="button" onClick={confirmImport} disabled={!importSel.size || importing}
-                  className="px-4 py-2 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 hover:bg-accent-hover transition-colors flex items-center gap-2">
+                  className="px-4 py-2.5 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 hover:bg-accent-hover transition-colors flex items-center gap-2">
                   {importing ? <Spinner size="sm" /> : <Copy size={16} />}
                   {importing ? 'Trayendo…' : 'Traer como borrador'}
                 </button>
@@ -8545,7 +8545,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setConfirmRevertPonderacion(false)}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={() => applyPonderacion(false)}
@@ -8568,7 +8568,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setConfirmRevertParcial(null)}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={() => applyParcialPonderacion(confirmRevertParcial, false)}
@@ -8597,7 +8597,7 @@ export default function SubjectPage() {
                   Ajusta los pesos hasta que sumen 10 y vuelve a cerrar.
                 </p>
                 <button type="button" onClick={() => setCloseParcialConfirm(null)}
-                  className="w-full py-2 mt-4 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors">
+                  className="w-full py-2.5 mt-4 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors">
                   Entendido
                 </button>
               </>
@@ -8620,7 +8620,7 @@ export default function SubjectPage() {
                   )}
                 </p>
                 <button type="button" onClick={() => setCloseParcialConfirm(null)}
-                  className="w-full py-2 mt-4 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors">
+                  className="w-full py-2.5 mt-4 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors">
                   Entendido
                 </button>
               </>
@@ -8667,11 +8667,11 @@ export default function SubjectPage() {
                 </div>
                 <div className="flex gap-2 mt-4">
                   <button type="button" onClick={() => setCloseParcialConfirm(null)} disabled={closingParcial}
-                    className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                    className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                     Cancelar
                   </button>
                   <button type="button" onClick={confirmCloseParcial} disabled={closingParcial}
-                    className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
+                    className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
                     {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? `Cerrar y poner ${Math.min(Math.max(0, parseFloat(closeParcialGrade) || 0), closeParcialConfirm.topeCalif ?? 10)}` : 'Cerrar parcial')}
                   </button>
                 </div>
@@ -8692,11 +8692,11 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setRevertParcialConfirm(null)} disabled={revertingParcial}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={revertCloseParcial} disabled={revertingParcial}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
+                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
                 {revertingParcial ? 'Reabriendo…' : 'Reabrir'}
               </button>
             </div>
@@ -8718,11 +8718,11 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setAtencionParcialConfirm(null)} disabled={iniciandoAtencion}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={confirmIniciarAtencion} disabled={iniciandoAtencion}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
+                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
                 {iniciandoAtencion ? 'Iniciando…' : 'Iniciar atención'}
               </button>
             </div>
@@ -8784,7 +8784,7 @@ export default function SubjectPage() {
               <button type="button"
                 onClick={() => resolveLinkCandidate(true)}
                 disabled={savingStudent}
-                className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {savingStudent ? <Spinner size="sm" /> : <CheckIcon size={18} />}
                 Sí, es el mismo estudiante
@@ -8917,12 +8917,12 @@ export default function SubjectPage() {
             </div>
             <div className="p-3 border-t border-outline-variant flex-shrink-0 flex gap-2">
               <button type="button" onClick={() => setExcelPreview(null)} disabled={importingExcel}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                 Cancelar
               </button>
               <button type="button" onClick={confirmExcelImport}
                 disabled={importingExcel || excelPreview.rows.every((r) => r.status === 'skip' || r.status === 'duplicate')}
-                className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {importingExcel ? <Spinner size="sm" /> : <CheckIcon size={16} />}
                 {importingExcel ? 'Importando…' : 'Confirmar e importar'}
               </button>
@@ -8946,7 +8946,7 @@ export default function SubjectPage() {
             </p>
             <button type="button"
               onClick={() => setResetPwdResult(null)}
-              className="w-full mt-4 py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
+              className="w-full mt-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
             >
               Entendido
             </button>
@@ -9001,14 +9001,14 @@ export default function SubjectPage() {
                 <label htmlFor="edit-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input id="edit-subject-nombre" type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas I" />
               </div>
               <div>
                 <label htmlFor="edit-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input id="edit-subject-grupo" type="text" value={editSubjectForm.grupo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
@@ -9056,7 +9056,7 @@ export default function SubjectPage() {
                 <IconSelect value={editSubjectForm.icon} onChange={(ic) => setEditSubjectForm((f) => ({ ...f, icon: ic }))} />
               </div>
               <button type="submit" disabled={editingSubject || !editSubjectChanged}
-                className="w-full py-2 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
                 {editingSubject ? <Spinner size="sm" /> : <Pencil size={18} />}
                 {editingSubject ? 'Guardando…' : 'Guardar cambios'}
               </button>
@@ -9082,14 +9082,14 @@ export default function SubjectPage() {
                 <label htmlFor="copy-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input id="copy-subject-nombre" type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas II" />
               </div>
               <div>
                 <label htmlFor="copy-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input id="copy-subject-grupo" type="text" value={copyForm.grupo} onChange={(e) => setCopyForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
@@ -9128,7 +9128,7 @@ export default function SubjectPage() {
               </label>
               <p className="text-sm text-slate-500">Se duplicarán todas las actividades. Las calificaciones y entregas no se copian.</p>
               <button type="submit" disabled={copyingSubject}
-                className="w-full py-2 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
                 {copyingSubject ? <Spinner size="sm" /> : <Copy size={18} />}
                 {copyingSubject ? 'Duplicando…' : 'Duplicar asignatura'}
               </button>
@@ -9156,12 +9156,12 @@ export default function SubjectPage() {
               type="text"
               value={deleteSubjectConfirmText}
               onChange={(e) => setDeleteSubjectConfirmText(e.target.value)}
-              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 text-sm bg-surface mb-2"
+              className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 text-sm bg-surface mb-2"
               placeholder={subject?.nombre}
             />
             <div className="flex gap-2">
               <button type="button" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button type="button" onClick={handleDeleteSubject}
                 disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
@@ -9226,9 +9226,9 @@ export default function SubjectPage() {
             )}
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowArchiveModal(false)} disabled={archiving}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
               <button type="button" onClick={handleArchiveConfirm} disabled={archiving}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {archiving ? <Spinner size="sm" /> : <Archive size={16} />}
                 {archiving
                   ? (zipDownloading
@@ -9257,9 +9257,9 @@ export default function SubjectPage() {
                 <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Datos</p>
                 <div className="space-y-2">
                   <input type="text" value={unarchiveEdits.nombre} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, nombre: e.target.value }))}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" placeholder="Asignatura" />
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" placeholder="Asignatura" />
                   <input type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" placeholder="Grupo (ej: 1A)" />
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" placeholder="Grupo (ej: 1A)" />
                   <div className="space-y-2">
                     <div>
                       <span className="block text-sm text-slate-500 mb-1">Inicio</span>
@@ -9336,9 +9336,9 @@ export default function SubjectPage() {
 
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowUnarchiveModal(false)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button type="button" onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {unarchivedSaving ? <Spinner size="sm" /> : null}
                 {unarchivedSaving ? 'Guardando…' : 'Desarchivar'}
               </button>
@@ -9365,7 +9365,7 @@ export default function SubjectPage() {
                   value={resourceForm.nombre}
                   onChange={(e) => setResourceForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Programa de la asignatura"
                 />
               </div>
@@ -9376,7 +9376,7 @@ export default function SubjectPage() {
                   value={resourceForm.descripcion}
                   onChange={(e) => setResourceForm((f) => ({ ...f, descripcion: e.target.value }))}
                   rows={2}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                   placeholder="Ej: Consulta este documento antes del primer parcial"
                 />
               </div>
@@ -9384,11 +9384,11 @@ export default function SubjectPage() {
                 <p className="block text-xs font-medium text-muted mb-1">Tipo de recurso</p>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setResourceForm((f) => ({ ...f, tipo: 'archivo' }))}
-                    className={`flex-1 py-1.5 rounded border text-sm font-medium transition-colors ${resourceForm.tipo === 'archivo' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted'}`}>
+                    className={`flex-1 py-2.5 rounded border text-sm font-medium transition-colors ${resourceForm.tipo === 'archivo' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted'}`}>
                     Archivo
                   </button>
                   <button type="button" onClick={() => setResourceForm((f) => ({ ...f, tipo: 'link' }))}
-                    className={`flex-1 py-1.5 rounded border text-sm font-medium transition-colors ${resourceForm.tipo === 'link' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted'}`}>
+                    className={`flex-1 py-2.5 rounded border text-sm font-medium transition-colors ${resourceForm.tipo === 'link' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted'}`}>
                     Enlace o video
                   </button>
                 </div>
@@ -9415,7 +9415,7 @@ export default function SubjectPage() {
                     type="text"
                     value={resourceForm.enlace}
                     onChange={(e) => setResourceForm((f) => ({ ...f, enlace: e.target.value }))}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder="https://..."
                   />
                   <p className="text-xs text-hint mt-1">Video de YouTube, documento de Google Drive, sitio externo, etc.</p>
@@ -9424,7 +9424,7 @@ export default function SubjectPage() {
               <button
                 type="submit"
                 disabled={savingResource || !resourceChanged}
-                className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {savingResource ? <Spinner size="sm" /> : <Upload size={18} />}
                 {savingResource ? 'Guardando…' : 'Guardar recurso'}
@@ -9445,7 +9445,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteResourceConfirm(null)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button type="button" onClick={handleDeleteResource} disabled={deletingResource}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deletingResource ? <Spinner size="sm" /> : <Trash2 size={16} />}

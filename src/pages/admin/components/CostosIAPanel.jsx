@@ -244,7 +244,7 @@ export default function CostosIAPanel() {
             <button
               key={n} type="button" onClick={() => pedirRango(n)}
               aria-pressed={dias === n}
-              className={`px-3 py-1.5 text-sm font-semibold rounded border transition-colors ${
+              className={`px-3 py-2 text-sm font-semibold rounded border transition-colors ${
                 dias === n
                   ? 'border-accent bg-[var(--accent-tint)] text-accent'
                   : 'border-outline-variant text-muted hover:border-accent hover:text-accent'
@@ -256,7 +256,7 @@ export default function CostosIAPanel() {
         </fieldset>
         <button
           type="button" onClick={recargar} disabled={cargando}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted border border-outline-variant rounded hover:bg-[var(--accent-tint)] hover:border-accent hover:text-accent transition-colors disabled:opacity-60"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm text-muted border border-outline-variant rounded hover:bg-[var(--accent-tint)] hover:border-accent hover:text-accent transition-colors disabled:opacity-60"
         >
           <RefreshCw size={15} className={cargando ? 'animate-spin' : ''} /> Actualizar
         </button>

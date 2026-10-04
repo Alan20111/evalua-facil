@@ -1415,7 +1415,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               pestaña Resultados: son contexto de la actividad, no un resultado.
               Mismo tamaño y separación que en EVALUAR. */}
           {(activity.publishedAt || activity.publishAt || activity.fechaLimite) && (
-            <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
               {activity.publishedAt && (
                 <span data-tooltip="Publicado" className="text-sm text-emerald-600 flex items-center gap-1">
                   <Clock size={15} /> {formatPublishAt(activity.publishedAt)}
@@ -1462,7 +1462,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       type="button"
                       onClick={handleRepartirParejo}
                       disabled={saving}
-                      className="flex items-center gap-1.5 py-1.5 px-3 rounded border border-accent text-accent text-xs font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
+                      className="flex items-center gap-1.5 py-2 px-3 rounded border border-accent text-accent text-xs font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
                     >
                       <Scale size={14} /> Repartir parejo
                     </button>
@@ -1555,7 +1555,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         </label>
                         <div className="flex gap-2 pt-1">
                           <button type="button" onClick={() => { setEditingPreguntaId(null); setGlowId(p.id) }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
-                          <button type="submit" disabled={saving || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                          <button type="submit" disabled={saving || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current} className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
                             {saving ? 'Guardando…' : 'Guardar cambios'}
                           </button>
                         </div>
@@ -1619,7 +1619,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             )}
             {!showPreguntaForm ? (
               <div className="flex gap-2">
-                <button type="button" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }} className="flex-1 flex items-center justify-center gap-1 py-2 bg-accent text-white text-sm font-medium rounded">
+                <button type="button" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }} className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-accent text-white text-sm font-medium rounded">
                   <Plus size={17} /> Agregar pregunta
                 </button>
                 <button type="button" onClick={() => { setShowBanco(true); setSelectedBancoIds(new Set()) }} className="flex items-center justify-center gap-1 px-3 py-2 border border-accent text-accent text-sm font-medium rounded">
@@ -1713,7 +1713,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(emptyPregunta()) }}
                     className="flex-1 py-2 text-sm text-muted">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                  <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
                     {saving ? 'Guardando…' : 'Agregar'}
                   </button>
                 </div>
@@ -1758,7 +1758,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         type="button"
                         disabled={saving}
                         onClick={() => handleAddFromBancoMultiple(bancoFiltrado.filter((b) => selectedBancoIds.has(b.id)))}
-                        className="text-xs font-medium bg-accent text-white rounded px-3 py-1.5 disabled:opacity-60"
+                        className="text-xs font-medium bg-accent text-white rounded px-3 py-2 disabled:opacity-60"
                       >
                         Agregar {selectedBancoIds.size} a la evaluación
                       </button>
@@ -1816,7 +1816,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               <div className="flex gap-2">
                                 <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                                 <button type="button" onClick={() => handleSaveBancoEdit(item.id)} disabled={saving || JSON.stringify(bancoEditForm) === bancoEditSnap.current}
-                                  className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">Guardar</button>
+                                  className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">Guardar</button>
                               </div>
                             </div>
                           ) : (
@@ -1855,7 +1855,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     </div>
                   )}
                   <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }}
-                    className="w-full mt-3 py-2.5 bg-accent text-white text-sm font-semibold rounded-card hover:bg-accent-hover transition-colors">Cerrar</button>
+                    className="w-full mt-3 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors">Cerrar</button>
                 </div>
               </div>
             )}
@@ -1959,7 +1959,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               />
             </div>
             <button type="submit" disabled={savingConfig || JSON.stringify(configForm) === configSnap.current}
-              className={`w-full py-2 text-sm font-medium rounded disabled:opacity-60 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
+              className={`w-full py-2.5 text-sm font-medium rounded disabled:opacity-60 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
               {savingConfig ? 'Guardando…' : 'Guardar configuración'}
             </button>
           </form>
@@ -1993,7 +1993,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 análisis significativo — mismo umbral que valida el servidor. */}
             {Object.values(submissions).filter((s) => s.estadoEvaluacion === 'finalizado').length >= MIN_ENTREGAS_ANALISIS && (
               <button type="button" onClick={() => setAnalisisConfirmando(true)}
-                className="w-full mb-3 flex items-center justify-center gap-1.5 py-2.5 text-sm border-2 border-accent text-accent font-semibold rounded-card hover:bg-[var(--accent-tint)] transition-colors">
+                className="w-full mb-3 flex items-center justify-center gap-1.5 py-2.5 text-sm border border-accent text-accent font-semibold rounded hover:bg-[var(--accent-tint)] transition-colors">
                 <Sparkles size={15} /> Analizar resultados con IA
               </button>
             )}
@@ -2093,7 +2093,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   data-tooltip={kind === 'excel'
                     ? 'Calificaciones, respuestas de cada estudiante y resumen por reactivo'
                     : 'Resumen por reactivo: opción, respuestas y porcentaje'}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-accent text-accent text-xs font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded border border-accent text-accent text-xs font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
                 >
                   {exportingResultados === kind ? <Spinner size="sm" /> : <Icon size={14} />}
                   {exportingResultados === kind ? 'Generando…' : label}
@@ -2102,7 +2102,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             </div>
             )}
             {configForm?.publicarResultados === 'manual' && !configForm.resultadosPublicados && (
-              <button type="button" onClick={handlePublicarResultados} className="w-full mb-3 py-2 bg-accent text-white text-sm font-medium rounded">
+              <button type="button" onClick={handlePublicarResultados} className="w-full mb-3 py-2.5 bg-accent text-white text-sm font-medium rounded">
                 Publicar resultados a tus estudiantes
               </button>
             )}
@@ -2144,7 +2144,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       type="button"
                       onClick={contarRespuestasIA}
                       disabled={iaContando || iaTrabajando}
-                      className="flex-shrink-0 px-3 py-1.5 bg-accent text-white text-xs font-semibold rounded hover:bg-accent-hover transition-colors flex items-center gap-1.5 disabled:opacity-60"
+                      className="flex-shrink-0 px-3 py-2 bg-accent text-white text-xs font-semibold rounded hover:bg-accent-hover transition-colors flex items-center gap-1.5 disabled:opacity-60"
                     >
                       <Sparkles size={13} />
                       {iaContando ? 'Contando…' : iaTrabajando ? 'Trabajando…' : 'Sugerir con IA'}
@@ -2443,7 +2443,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                     [p.id]: { puntos: String(sug.puntos), comentario: sug.retroalimentacion || '' },
                                   }))
                                 }}
-                                className="w-full py-1.5 border border-accent text-accent text-xs font-semibold rounded hover:bg-[var(--accent-medium)] transition-colors"
+                                className="w-full py-2 border border-accent text-accent text-xs font-semibold rounded hover:bg-[var(--accent-medium)] transition-colors"
                               >
                                 Usar sugerencia (puedes editarla antes de guardar)
                               </button>
@@ -2477,7 +2477,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             type="button"
                             onClick={() => saveGrade(p)}
                             disabled={saving || !dirty || (!parcialCerrado && draft.puntos === '')}
-                            className="w-full py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2"
+                            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2"
                           >
                             {saving ? <Spinner size="sm" /> : null}
                             {saving ? 'Guardando…' : parcialCerrado ? 'Guardar comentario' : 'Guardar puntos'}
@@ -2646,9 +2646,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         placeholder="Motivo (opcional)…"
                         className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none" />
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">Cancelar</button>
+                        <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">Cancelar</button>
                         <button type="button" onClick={saveReviewExtension} disabled={!extendDate || savingExtension || reviewExtensionUnchanged}
-                          className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 transition-colors">
+                          className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 transition-colors">
                           {savingExtension ? 'Guardando…' : 'Guardar'}
                         </button>
                       </div>
@@ -2684,11 +2684,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               />
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+              <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={saveReviewExtension} disabled={!extendDate || savingExtension || reviewExtensionUnchanged}
-                className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors">
+                className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors">
                 {savingExtension ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
@@ -2728,7 +2728,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setCancelConfirm(null)} disabled={cancelling}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">No, conservar</button>
+                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">No, conservar</button>
               <button type="button" onClick={handleCancelSubmission} disabled={cancelling}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors">
                 {cancelling ? 'Anulando…' : 'Sí, anular entrega'}</button>

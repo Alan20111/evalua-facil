@@ -42,7 +42,7 @@ const ANCHOS = ['w-full', 'w-11/12', 'w-4/5', 'w-2/3', 'w-3/4', 'w-5/6']
 // Párrafo: n líneas de ancho variable, la última más corta.
 export function SkeletonText({ lines = 3, className = '', etiqueta }) {
   return (
-    <SkeletonGroup etiqueta={etiqueta} className={cn('space-y-2.5', className)}>
+    <SkeletonGroup etiqueta={etiqueta} className={cn('space-y-2', className)}>
       {Array.from({ length: lines }, (_, i) => (
         <Skeleton key={i} className={cn('h-3.5', i === lines - 1 && lines > 1 ? 'w-1/2' : ANCHOS.at(i % ANCHOS.length))} />
       ))}

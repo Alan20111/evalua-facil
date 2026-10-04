@@ -63,7 +63,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-3">
-        <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-card">
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
           <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800">
             <span className="font-semibold">Asistente IA. </span>
@@ -73,7 +73,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
         </div>
 
         {reactivos.map((r, i) => (
-          <div key={i} className={`bg-surface-card rounded-card shadow-card p-4 space-y-2.5 ${!r.incluir ? 'opacity-50' : ''}`}>
+          <div key={i} className={`bg-surface-card rounded-card shadow-card p-4 space-y-2 ${!r.incluir ? 'opacity-50' : ''}`}>
             <div className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-blue-100 text-blue-700">
                 {ETIQUETA_TIPO[r.tipo] || r.tipo}
@@ -156,7 +156,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
           <p className="text-xs text-muted text-center">Descartaste todos los reactivos — no hay nada que agregar.</p>
         )}
         <button type="button" onClick={onClose} disabled={guardando}
-          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors disabled:opacity-60">
+          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded hover:bg-surface-container transition-colors disabled:opacity-60">
           Cancelar
         </button>
         <div className="h-6 safe-bottom" />

@@ -94,7 +94,7 @@ export default function ConfigAnalisisAsignatura({ preparacion, onCancelar, onCo
             const hay = !!conDatos[f.clave]
             const id = `analisis-fuente-${f.clave}`
             return (
-              <li key={f.clave} className={`flex items-start gap-2.5 px-3 py-2.5 ${hay ? '' : 'opacity-60'}`}>
+              <li key={f.clave} className={`flex items-start gap-2 px-3 py-2.5 ${hay ? '' : 'opacity-60'}`}>
                 <input id={id} type="checkbox" className="accent-[var(--accent)] mt-0.5" disabled={!hay}
                   checked={hay && marcadas.includes(f.clave)}
                   aria-describedby={`${id}-desc`}
@@ -136,7 +136,7 @@ export default function ConfigAnalisisAsignatura({ preparacion, onCancelar, onCo
         </button>
         <button type="button" disabled={!puedeContinuar}
           onClick={() => onContinuar({ parciales: ordenados, fuentes: efectivas, costo })}
-          className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+          className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
           Continuar
         </button>
       </div>

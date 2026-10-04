@@ -28,11 +28,11 @@ export default function ConfirmModal({
       <p className="text-sm text-muted mb-4 leading-relaxed">{message}</p>
       <div className="flex gap-2">
         <button type="button" onClick={onCancel} disabled={busy}
-          className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+          className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
           Cancelar
         </button>
         <button type="button" onClick={onConfirm} disabled={busy}
-          className={`flex-1 py-2 rounded text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2 ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-accent hover:bg-accent-hover'}`}>
+          className={`flex-1 py-2.5 rounded text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2 ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-accent hover:bg-accent-hover'}`}>
           {busy ? <Spinner size="sm" /> : confirmIcon}
           {busy ? confirmingLabel : confirmLabel}
         </button>

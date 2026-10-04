@@ -21,7 +21,7 @@ const Checkbox = forwardRef(function Checkbox(
   ref
 ) {
   return (
-    <label className={cn('flex items-start gap-2.5 cursor-pointer', wrapperClassName)}>
+    <label className={cn('flex items-start gap-2 cursor-pointer', wrapperClassName)}>
       <input
         ref={ref}
         type="checkbox"

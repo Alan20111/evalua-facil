@@ -146,7 +146,7 @@ export default function GettingStartedPage() {
         {GUIDES.map((guide) => {
           const Icon = guide.icon
           return (
-            <section key={guide.id} className="bg-surface-card rounded-card shadow-card p-5">
+            <section key={guide.id} className="bg-surface-card rounded-card shadow-card p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Icon size={18} className="text-accent flex-shrink-0" />
                 <h2 className="text-[17px] font-bold text-on-surface">{guide.title}</h2>

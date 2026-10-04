@@ -671,7 +671,7 @@ export default function StudentActivation() {
           )}
         </div>
 
-        <p className="text-center text-sm text-slate-500 mt-5">
+        <p className="text-center text-sm text-slate-500 mt-4">
           ¿Ya tienes cuenta?{' '}
           <button
             type="button"

@@ -209,7 +209,7 @@ function DiagnosticoActividadBloque({
                   key={a.id}
                   type="button"
                   onClick={() => navigate(`/activity/${a.id}`)}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded border border-outline-variant bg-surface text-sm text-left hover:border-accent"
+                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-left hover:border-accent"
                 >
                   <ClipboardList size={14} className="text-accent flex-shrink-0" />
                   <span className="flex-1 min-w-0 truncate">{a.nombre}</span>
@@ -233,7 +233,7 @@ function DiagnosticoActividadBloque({
               onClick={() => setConfirmando(true)}
               disabled={generando || !perfilIACompleto}
               title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar los diagnósticos' : undefined}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
+              className="flex items-center gap-1.5 px-3 py-2 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
             >
               {generando ? <Spinner size="sm" /> : <Sparkles size={14} />}
               Generar cuestionario de diagnóstico

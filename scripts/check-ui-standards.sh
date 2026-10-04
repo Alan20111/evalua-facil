@@ -79,6 +79,13 @@ check "role=\"presentation\" (usar el patrón canónico de backdrop de §6.7)" '
 # Solo la clase sin prefijo: `hover:`/`disabled:` son estados, no texto.
 check "text-slate-400 (no pasa contraste — usar text-hint) — WCAG 1.4.3" '(^|[^:a-z-])text-slate-400' '-E'
 
+# Estándares de forma y espaciado — DESIGN_SYSTEM.md §4 (oct-2026). Escalas
+# cerradas: radios rounded-sm/rounded/rounded-card/rounded-full|pill; sombras
+# shadow-card(-hover)/shadow-lg/shadow-2xl; separaciones sin pasos sueltos.
+check "Radio fuera de escala (rounded-md/lg/xl/2xl/3xl) — DESIGN_SYSTEM.md §4.1" '(^|[^a-z-])rounded-(md|lg|xl|2xl|3xl)([^a-z0-9-]|$)' '-E'
+check "Sombra fuera de escala (shadow-sm/md/xl) — DESIGN_SYSTEM.md §4.2" '(^|[^a-z-])shadow-(sm|md|xl)([^a-z0-9-]|$)' '-E'
+check "Separación fuera de escala (gap/space-y 2.5 o 5, mt/mb-5) — DESIGN_SYSTEM.md §4.4" '(^|[^a-z-])((gap|gap-x|gap-y|space-y)-(2\.5|5)|m[tb]-5)([^a-z0-9.-]|$)' '-E'
+
 echo ""
 echo "=== Candados de accesibilidad — docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 1 ==="
 echo ""
@@ -114,8 +121,9 @@ ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
 # Button.jsx de esta fase — 54 (main) + 2 (Button.jsx) = 56.
 # Bajó a 55 en fix/responsive-movil-p0-p1: se eliminó min-w-[640px] de
 # NotificationLog.jsx al unificar los branches de la bitácora.
+# Bajó a 53 en refactor/estandares-espaciado (oct-2026).
 ratchet "Anchos/altos en píxeles duros (w-[Npx]/h-[Npx]) — evitar nuevos, usar tokens de layout.js" \
-  '(min-)?[wh]-\[[0-9]+px\]' 55
+  '(min-)?[wh]-\[[0-9]+px\]' 53
 
 echo ""
 if [ "$FAIL" -eq 1 ]; then

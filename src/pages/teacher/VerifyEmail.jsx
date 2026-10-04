@@ -88,7 +88,7 @@ export default function VerifyEmail() {
               <XCircle size={32} className="text-red-500" />
             </div>
             <h2 className="text-xl font-bold text-on-surface mb-2">Enlace no válido</h2>
-            <p className="text-muted text-sm mb-5">
+            <p className="text-muted text-sm mb-4">
               El enlace ya fue utilizado o expiró.<br/>
               Puedes pedir uno nuevo desde el dashboard.
             </p>
@@ -108,7 +108,7 @@ export default function VerifyEmail() {
               <AlertTriangle size={32} className="text-amber-500" />
             </div>
             <h2 className="text-xl font-bold text-on-surface mb-2">Cuenta incorrecta</h2>
-            <p className="text-muted text-sm mb-5">
+            <p className="text-muted text-sm mb-4">
               Este enlace es para otra cuenta.<br/>
               Inicia sesión con la cuenta correcta.
             </p>

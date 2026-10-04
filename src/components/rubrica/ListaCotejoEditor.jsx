@@ -169,7 +169,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
         <form onSubmit={handleSave} className="space-y-4 max-w-3xl mx-auto">
           {/* Mismo aviso obligatorio que RubricaEditor.jsx */}
           {iaGenerada && (
-            <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-card">
+            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
               <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800">
                 <span className="font-semibold">Asistente IA. </span>
@@ -306,7 +306,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
             {saving ? 'Guardando…' : isNew ? 'Guardar lista de cotejo en mi banco' : 'Guardar cambios'}
           </button>
           <button type="button" onClick={requestClose} disabled={saving}
-            className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors disabled:opacity-60">
+            className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded hover:bg-surface-container transition-colors disabled:opacity-60">
             Cancelar
           </button>
           <div className="h-6 safe-bottom" />
@@ -331,11 +331,11 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
             )}
             <div className="flex gap-2">
               <button type="button" onClick={() => setConfirmSalir(false)} disabled={saving}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
                 {iaGenerada ? 'Cancelar' : 'Seguir editando'}
               </button>
               <button type="button" onClick={handleSave} disabled={saving || !!validationError}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
                 {saving ? <Spinner size="sm" /> : <Check size={16} />}
                 {iaGenerada ? 'Guardar lista de cotejo' : 'Guardar y salir'}
               </button>

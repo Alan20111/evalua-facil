@@ -58,11 +58,11 @@ export function SeccionForm({ inicial, onGuardar, onCancelar, guardando }) {
       </div>
       <div className="flex gap-2">
         <button type="submit" disabled={guardando || !nombre.trim()}
-          className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60">
+          className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60">
           {guardando ? 'Guardando…' : esNueva ? 'Crear sección' : 'Guardar'}
         </button>
         <button type="button" onClick={onCancelar} disabled={guardando}
-          className="px-4 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+          className="px-4 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
           Cancelar
         </button>
       </div>
@@ -117,7 +117,7 @@ export function SeccionHeader({
       </div>
       {onAgregarReactivo && (
         <button type="button" onClick={onAgregarReactivo} disabled={disabled}
-          className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-dashed border-accent text-accent text-xs font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40">
+          className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-2 rounded border border-dashed border-accent text-accent text-xs font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40">
           <Plus size={14} /> Agregar reactivo a esta sección
         </button>
       )}
@@ -150,7 +150,7 @@ export function ConfirmarBorrarSeccion({ seccion, total, borrando, onConfirm, on
 export function BotonAgregarSeccion({ onClick, disabled }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled}
-      className="w-full flex items-center justify-center gap-1.5 py-2 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+      className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
       <Plus size={15} /> Agregar sección
     </button>
   )

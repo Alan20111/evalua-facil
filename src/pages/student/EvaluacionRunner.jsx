@@ -463,7 +463,7 @@ export default function EvaluacionRunner() {
 
         {showExitModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="bg-surface-card rounded-card shadow-2xl p-6 max-w-sm w-full">
+            <div className="bg-surface-card rounded-card shadow-2xl p-5 max-w-sm w-full">
               <h3 className="text-base font-bold text-on-surface mb-2">¿Salir de la evaluación?</h3>
               <p className="text-sm text-muted mb-1">
                 Puedes salir y continuar después desde donde lo dejaste — tus respuestas ya están guardadas.
@@ -478,7 +478,7 @@ export default function EvaluacionRunner() {
               )}
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowExitModal(false)}
-                  className="flex-1 py-2 text-sm text-muted border border-outline-variant rounded">
+                  className="flex-1 py-2.5 text-sm text-muted border border-outline-variant rounded">
                   Continuar respondiendo
                 </button>
                 <button type="button" onClick={() => navigate(`/alumno/actividad/${activityId}`)}
@@ -503,7 +503,7 @@ export default function EvaluacionRunner() {
               Pregunta {idx + 1} <span className="font-medium text-accent/70">de {preguntas.length}</span>
             </span>
           </div>
-          <div className="w-full h-1.5 bg-surface-container rounded-full mb-5 overflow-hidden">
+          <div className="w-full h-1.5 bg-surface-container rounded-full mb-4 overflow-hidden">
             <div className="h-full bg-accent transition-all" style={{ width: `${((idx + 1) / preguntas.length) * 100}%` }} />
           </div>
 

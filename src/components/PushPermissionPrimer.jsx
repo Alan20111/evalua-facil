@@ -30,12 +30,12 @@ export default function PushPermissionPrimer() {
   if (!visible) return null
   return (
     <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center px-4">
-      <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-6 text-center">
+      <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-5 text-center">
         <div className="w-14 h-14 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3">
           <Bell size={26} className="text-accent" />
         </div>
         <h2 className="text-lg font-bold text-on-surface mb-2">Activa tus notificaciones</h2>
-        <p className="text-sm text-muted mb-5">
+        <p className="text-sm text-muted mb-4">
           Las usamos para avisarte de nuevos avisos de tus maestros, actividades publicadas, calificaciones y otros eventos de tus asignaturas. Tu teléfono te va a preguntar si lo permites — puedes cambiarlo después desde Notificaciones.
         </p>
         <button type="button" onClick={continuar}

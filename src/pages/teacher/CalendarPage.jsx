@@ -350,7 +350,7 @@ export function AgendaView({
                   if (it.kind === 'bloque') onBlockClick?.(it.b)
                   else onEventClick?.(it.ev)
                 } : undefined}
-                className={`absolute rounded-card shadow-sm ring-1 ring-black/5 select-none transition-[filter] hover:brightness-95 p-0 text-left block ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+                className={`absolute rounded-card shadow-card ring-1 ring-black/5 select-none transition-[filter] hover:brightness-95 p-0 text-left block ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
                 style={{
                   top, height,
                   left: `calc(${lane * w}% + 3px)`,
@@ -442,7 +442,7 @@ export function BloquePill({ b, subj, onClick }) {
     <button
       type="button"
       onClick={onClick ? e => { e.stopPropagation(); onClick(b) } : undefined}
-      className={`flex items-center gap-1 rounded-md w-full px-1 py-0.5 ${MES_ITEM_TEXT} ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
+      className={`flex items-center gap-1 rounded-sm w-full px-1 py-0.5 ${MES_ITEM_TEXT} ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
       style={{ background: pal.bg, color: pal.text, opacity: b.cancelada ? 0.55 : 1 }}
       data-tooltip={onClick ? (b.cancelada ? 'Clase cancelada — usa modificar bloques para editar' : 'Usa modificar bloques para editar') : undefined}
     >
@@ -779,7 +779,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
                     <div
                       key={b.id}
                       onPointerDown={editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'bloque', bloque: b }) } : undefined}
-                      className={`absolute rounded-lg px-1.5 py-1 text-left shadow-sm ring-1 ring-black/5 hover:brightness-95 transition-[filter] select-none ${editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      className={`absolute rounded px-1.5 py-1 text-left shadow-card ring-1 ring-black/5 hover:brightness-95 transition-[filter] select-none ${editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{
                         top, height,
                         left: `calc(${lane * w}% + 2px)`,
@@ -811,7 +811,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
                       type="button"
                       onPointerDown={ev.editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev }) } : undefined}
                       onClick={!ev.editable ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
-                      className={`absolute right-0.5 rounded px-1 py-0.5 text-left shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      className={`absolute right-0.5 rounded px-1 py-0.5 text-left shadow-card ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{ top, width: '78%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: IS_NATIVE_APP && !ev.editable ? 'auto' : 'none' }}
                       data-tooltip={
                         ev.activityId ? 'Clic para editar esta actividad'
@@ -1900,7 +1900,7 @@ export default function CalendarPage() {
           type="button"
           key={id}
           onClick={() => changeView(id)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${view === id ? 'bg-accent text-white' : 'text-muted hover:bg-accent-tint'}`}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded text-xs font-medium transition-colors ${view === id ? 'bg-accent text-white' : 'text-muted hover:bg-accent-tint'}`}
         >
           <Icon size={13} />{label}
         </button>
@@ -2014,7 +2014,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setShowAsuetos(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
                 data-tooltip="Marca días sin clases, eventos y/o actividades"
                 data-tooltip-pos="bottom"
               >
@@ -2026,7 +2026,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setShowVacaciones(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
                 data-tooltip="Marca un periodo sin clases, eventos y/o actividades"
                 data-tooltip-pos="bottom"
               >
@@ -2041,7 +2041,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setShowModificarPicker(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
                 data-tooltip={(totalBloquesFueraDeRango + totalBloquesEnAsueto) > 0
                   ? `${totalBloquesFueraDeRango + totalBloquesEnAsueto} bloque(s) necesitan revisión (rango o asueto/vacaciones)`
                   : 'Modificar bloques de clase por asignatura'}
@@ -2057,7 +2057,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => openProgramar()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-card bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
                 data-tooltip="Programar bloques de clase por asignatura"
                 data-tooltip-pos="bottom"
               >
@@ -2285,7 +2285,7 @@ export default function CalendarPage() {
                       <button
                         type="button"
                         onClick={() => openModificar(s.id)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:brightness-95 transition-[filter]"
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:brightness-95 transition-[filter]"
                         style={{ background: pal.bg, color: pal.text }}
                       >
                         {/* Los íconos del banco se pintan con currentColor, así
@@ -2454,7 +2454,7 @@ export default function CalendarPage() {
                 type="button"
                 onClick={() => confirmPendingMove()}
                 disabled={!cambioHora || seEncima}
-                className="w-full py-2 bg-accent text-white rounded-card text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-45"
+                className="w-full py-2.5 bg-accent text-white rounded text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-45"
               >
                 {seEncima ? 'Se encima con otra clase' : cambioHora ? `Mover a las ${fmtHour(hora)}` : 'Ajusta la hora para mover'}
               </button>
@@ -2469,7 +2469,7 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => reactivarBloqueUnico(b)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-card border border-accent/30 text-accent text-sm hover:bg-accent-tint transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-accent/30 text-accent text-sm hover:bg-accent-tint transition-colors"
                 >
                   Reactivar esta clase
                 </button>
@@ -2479,7 +2479,7 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => cancelarBloqueUnico(b)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-card border border-amber-300 text-amber-700 text-sm hover:bg-amber-50 transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-amber-300 text-amber-700 text-sm hover:bg-amber-50 transition-colors"
                 >
                   <Ban size={14} /> Cancelar esta clase (no se impartirá)
                 </button>
@@ -2495,7 +2495,7 @@ export default function CalendarPage() {
                   <button
                     type="button"
                     onClick={() => setPendingMove(pm => ({ ...pm, confirmDel: true }))}
-                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-card border border-error/30 text-error text-sm hover:bg-error/10 transition-colors"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-error/30 text-error text-sm hover:bg-error/10 transition-colors"
                   >
                     <Trash2 size={14} /> Eliminar esta clase (se creó por error)
                   </button>
@@ -2511,7 +2511,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setPendingMove(null)}
-                className="w-full py-2 rounded-card border border-outline-variant text-muted text-sm hover:bg-surface transition-colors"
+                className="w-full py-2.5 rounded border border-outline-variant text-muted text-sm hover:bg-surface transition-colors"
               >
                 Cancelar
               </button>
@@ -2633,7 +2633,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
         </div>
 
         <div className="border-t border-outline-variant px-4 py-3 flex justify-end flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
+          <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
             Cerrar
           </button>
         </div>
@@ -2763,7 +2763,7 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
         </div>
 
         <div className="border-t border-outline-variant px-4 py-3 flex justify-end flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
+          <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
             Cerrar
           </button>
         </div>

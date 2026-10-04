@@ -408,7 +408,7 @@ export default function ProgramarZonaSemanal({
                       return (
                         <div
                           key={`o${k}`}
-                          className="absolute rounded-lg px-1.5 py-1 overflow-hidden pointer-events-none"
+                          className="absolute rounded px-1.5 py-1 overflow-hidden pointer-events-none"
                           style={{
                             top, height, left: '2px', right: '2px',
                             background: pal.bg, color: pal.text, opacity: 0.35,
@@ -438,7 +438,7 @@ export default function ProgramarZonaSemanal({
                           onPointerMove={onDragMove}
                           onPointerUp={onDragEnd}
                           onPointerCancel={onDragEnd}
-                          className="absolute rounded-lg px-1.5 py-1 text-left overflow-hidden shadow-sm ring-1 ring-black/10 hover:brightness-95 transition select-none cursor-grab active:cursor-grabbing"
+                          className="absolute rounded px-1.5 py-1 text-left overflow-hidden shadow-card ring-1 ring-black/10 hover:brightness-95 transition select-none cursor-grab active:cursor-grabbing"
                           style={{
                             top, height, left: '3px', right: '3px',
                             background: pal.bg, color: pal.text,
@@ -481,7 +481,7 @@ export default function ProgramarZonaSemanal({
             <button
               type="button"
               onClick={() => onCancel?.()}
-              className="px-4 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors"
+              className="px-4 py-2.5 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors"
             >
               Salir sin modificar
             </button>
@@ -494,7 +494,7 @@ export default function ProgramarZonaSemanal({
                 type="button"
                 onClick={guardar}
                 disabled={!completo}
-                className="px-4 py-2 bg-accent text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center gap-2"
+                className="px-4 py-2.5 bg-accent text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center gap-2"
               >
                 <Check size={15} /> {esModificar ? 'Guardar cambios' : 'Crear bloques'}
               </button>
@@ -509,7 +509,7 @@ export default function ProgramarZonaSemanal({
         const pal = bloqueColor(p.color)
         return (
           <div
-            className="fixed z-[65] rounded-lg px-1.5 py-1 shadow-lg pointer-events-none opacity-90"
+            className="fixed z-[65] rounded px-1.5 py-1 shadow-lg pointer-events-none opacity-90"
             style={{
               left: drag.x - drag.grabDX, top: drag.y - drag.grabDY,
               width: drag.w, height: drag.h, background: pal.bg, color: pal.text,
@@ -587,7 +587,7 @@ export default function ProgramarZonaSemanal({
                     type="button"
                     onClick={confirmarColocar}
                     disabled={invalido}
-                    className="w-full py-2 bg-accent text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-accent text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
                   >
                     <Plus size={15} /> Colocar {Math.min(placing.count, Math.max(1, max))}
                   </button>
@@ -602,7 +602,7 @@ export default function ProgramarZonaSemanal({
       {editP && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setEditing(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2.5">
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-on-surface text-sm">Editar bloque</h3>
               <button type="button" onClick={() => setEditing(null)} className="p-2 text-muted hover:text-error" aria-label="Cerrar"><X size={16} /></button>
@@ -726,7 +726,7 @@ export default function ProgramarZonaSemanal({
               <button
                 type="button"
                 onClick={() => { setEditing(null); setRecienId(null) }}
-                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-semibold text-white bg-accent rounded hover:bg-accent-hover transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-semibold text-white bg-accent rounded hover:bg-accent-hover transition-colors"
               >
                 <Check size={13} /> Confirmar
               </button>
@@ -747,7 +747,7 @@ export default function ProgramarZonaSemanal({
                 : `Colocaste ${patrones.length} de ${bloquesPorSemana} bloques. Si sales ahora se perderán.`}
             </p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setConfirmSalir(false)} className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface">
+              <button type="button" onClick={() => setConfirmSalir(false)} className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface">
                 Seguir aquí
               </button>
               <button type="button" onClick={() => { setConfirmSalir(false); onCancel?.() }} className="flex-1 py-2 rounded bg-error text-white text-sm font-semibold">

@@ -415,7 +415,7 @@ export default function StudentLogin() {
           )}
         </div>
 
-        <p className="text-center text-sm text-slate-500 mt-5 px-2">
+        <p className="text-center text-sm text-slate-500 mt-4 px-2">
           Tu maestro te otorgará tus datos de acceso.
         </p>
         <p className="text-center text-sm text-muted mt-2 px-2">

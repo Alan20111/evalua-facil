@@ -56,7 +56,7 @@ export default function InformeAsignatura({ analisis, onClose, onDescargarPDF, d
   return (
     <Modal open onClose={onClose} title="Análisis de la asignatura" size="3xl" z={60}>
       <div className="space-y-3">
-        <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-card">
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
           <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800">
             <span className="font-semibold">Asistente IA. </span>
@@ -78,7 +78,7 @@ export default function InformeAsignatura({ analisis, onClose, onDescargarPDF, d
         </div>
 
         {plan.secciones.map((s, i) => (
-          <section key={s.titulo} className="rounded-card border border-outline-variant p-3 space-y-2.5">
+          <section key={s.titulo} className="rounded-card border border-outline-variant p-3 space-y-2">
             <h4 className={`text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 ${s.tono === 'atencion' ? 'text-amber-700' : 'text-accent'}`}>
               {s.tono === 'atencion' && <AlertTriangle size={14} />}
               {i + 1}. {s.titulo}
@@ -88,7 +88,7 @@ export default function InformeAsignatura({ analisis, onClose, onDescargarPDF, d
         ))}
 
         <button type="button" onClick={onClose}
-          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors">
+          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded hover:bg-surface-container transition-colors">
           Cerrar
         </button>
       </div>

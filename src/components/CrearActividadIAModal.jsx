@@ -103,7 +103,7 @@ export default function CrearActividadIAModal({
           El asistente propone {isObservacion ? 'la actividad completa (qué vas a observar y cómo se evaluará)' : 'la actividad completa (nombre, instrucciones y tipos de archivo)'} a partir de lo que describas. Lo revisas y ajustas después, como cualquier otra actividad.
         </p>
 
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           <div>
             <label htmlFor="ia-act-peticion" className="block text-sm text-on-surface mb-1">¿Qué quieres trabajar?</label>
             <textarea id="ia-act-peticion" value={peticion} disabled={trabajando} rows={4}
@@ -130,7 +130,7 @@ export default function CrearActividadIAModal({
             Cancelar
           </button>
           <button type="button" onClick={handleGenerar} disabled={trabajando}
-            className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+            className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
             {trabajando ? 'Generando…' : 'Generar con IA'}
           </button>
         </div>

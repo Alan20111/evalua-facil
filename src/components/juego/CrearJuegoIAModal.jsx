@@ -112,7 +112,7 @@ export default function CrearJuegoIAModal({
           del tema que describas. Podrás editarlas antes de armar {tipoJuego === 'sopa_letras' ? 'la sopa de letras' : 'el crucigrama'}.
         </p>
 
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           <div>
             <label htmlFor="ia-juego-contexto" className="block text-sm text-on-surface mb-1">Tema / contexto</label>
             <textarea id="ia-juego-contexto" value={contexto} disabled={trabajando} rows={3}
@@ -167,7 +167,7 @@ export default function CrearJuegoIAModal({
             Cancelar
           </button>
           <button type="button" onClick={handleGenerar} disabled={trabajando}
-            className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+            className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
             {trabajando ? 'Generando…' : 'Generar con IA'}
           </button>
         </div>

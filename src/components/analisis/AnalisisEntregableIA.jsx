@@ -100,7 +100,7 @@ function FlujoAnalisis({ activity, onCerrar, onGenerado }) {
         <div className="py-6 text-center space-y-3">
           <p className="text-sm text-on-surface">{prep.error}</p>
           <button type="button" onClick={() => { setPrep({ cargando: true }); recibir(llamarPreparacion(activity.id)) }}
-            className="px-4 py-2 border border-accent text-accent text-sm font-medium rounded hover:bg-[var(--accent-tint)] transition-colors">
+            className="px-4 py-2.5 border border-accent text-accent text-sm font-medium rounded hover:bg-[var(--accent-tint)] transition-colors">
             Volver a intentar
           </button>
         </div>
@@ -124,7 +124,7 @@ function FlujoAnalisis({ activity, onCerrar, onGenerado }) {
               Cancelar
             </button>
             <button type="button" onClick={() => setConfirmando(true)}
-              className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+              className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
               Continuar
             </button>
           </div>
@@ -202,7 +202,7 @@ export default function AnalisisEntregableIA({ activity, subject }) {
     <div className="space-y-2">
       <button type="button" onClick={() => setAbierto(true)}
         data-tooltip="Analiza los resultados de toda la actividad. No modifica calificaciones ni entregas."
-        className="w-full flex items-center justify-center gap-2 py-1.5 rounded border-2 border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
         <Sparkles size={17} /> Analizar con IA
       </button>
 

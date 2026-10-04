@@ -20,7 +20,7 @@ export default function Landing() {
           {/* Docente */}
           <Link
             to="/docente"
-            className="group bg-surface-card rounded-card shadow-card hover:shadow-md transition-shadow p-5 text-center"
+            className="group bg-surface-card rounded-card shadow-card hover:shadow-card-hover transition-shadow p-4 text-center"
           >
             <DocenteIcon className="w-14 h-14 mx-auto mb-3 text-blue-600" />
             <h2 className="text-lg font-bold text-on-surface">Soy Docente</h2>
@@ -33,7 +33,7 @@ export default function Landing() {
           {/* Alumno */}
           <Link
             to="/alumno"
-            className="group bg-surface-card rounded-card shadow-card hover:shadow-md transition-shadow p-5 text-center"
+            className="group bg-surface-card rounded-card shadow-card hover:shadow-card-hover transition-shadow p-4 text-center"
           >
             <EstudianteIcon className="w-14 h-14 mx-auto mb-3 text-orange-600" />
             <h2 className="text-lg font-bold text-on-surface">Soy Estudiante</h2>

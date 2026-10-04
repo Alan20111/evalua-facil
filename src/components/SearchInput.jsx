@@ -8,7 +8,7 @@ import { Search, XCircle } from 'lucide-react'
 // El borde va acentuado (2px del color de la sección) + sombra sutil: con el
 // borde gris genérico la caja se perdía contra el fondo. Ese formato empezó
 // como un parche suelto en Evaluar y en Evaluación (`!border-2 !border-accent
-// shadow-sm` pasado por className); ahora vive aquí, para que TODOS los
+// sombra suave` pasado por className); ahora vive aquí, para que TODOS los
 // buscadores del proyecto se vean igual sin que cada pantalla lo repita.
 // El botón se coloca justo DESPUÉS de las letras escritas (no en el borde
 // derecho de la caja): se mide el ancho del texto con un <span> espejo
@@ -41,7 +41,7 @@ export default function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className={`w-full pl-9 pr-9 py-2 rounded border-2 border-accent shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card ${className}`}
+        className={`w-full pl-9 pr-9 py-2 rounded border-2 border-accent shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card ${className}`}
       />
       {/* Espejo invisible — mismo texto/tamaño de fuente que el input, solo para medir el ancho */}
       <span ref={measureRef} className="absolute invisible whitespace-pre text-sm pointer-events-none" aria-hidden="true">

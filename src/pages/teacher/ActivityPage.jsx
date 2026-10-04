@@ -1289,7 +1289,7 @@ export default function ActivityPage() {
         </p>
         <div className="flex gap-2">
           <button type="button" onClick={() => setDeleteConfirm(false)}
-            className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+            className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
           <button type="button" onClick={handleDeleteActivity} disabled={deletingActivity}
             className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
             {deletingActivity ? <Spinner size="sm" /> : <Trash2 size={16} />}
@@ -1417,7 +1417,7 @@ export default function ActivityPage() {
               tan juntas y tan chicas que la fecha de cierre, que es el dato que
               el docente busca de un vistazo, se leía como una nota al pie. */}
           {(activity?.publishedAt || activity?.publishAt || activity?.fechaLimite) && (
-            <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
               {activity?.publishedAt && (
                 <span data-tooltip="Publicado" className="text-sm text-emerald-600 flex items-center gap-1">
                   <Clock size={15} /> {formatPublishAt(activity.publishedAt)}
@@ -1483,7 +1483,7 @@ export default function ActivityPage() {
               onClick={handleZipDownload}
               disabled={zipDownloading}
               data-tooltip="Descarga todas las evidencias entregadas en un archivo ZIP."
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
             >
               {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
               {zipDownloading
@@ -1530,7 +1530,7 @@ export default function ActivityPage() {
                   type="button"
                   onClick={contarEntregasIA}
                   data-tooltip="Genera propuestas de calificación con IA para las entregas pendientes."
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
                 >
                   <Sparkles size={16} />
                   Calificar
@@ -1540,7 +1540,7 @@ export default function ActivityPage() {
                     type="button"
                     onClick={contarRecalificarIA}
                     data-tooltip="La rúbrica o lista de cotejo cambió desde la última evaluación con IA. Genera una nueva propuesta con la versión actual y consume créditos."
-                    className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface-container transition-colors disabled:opacity-60"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface-container transition-colors disabled:opacity-60"
                   >
                     <Sparkles size={16} />
                     Recalificar
@@ -1551,7 +1551,7 @@ export default function ActivityPage() {
                     type="button"
                     onClick={contarAplicarTodasIA}
                     data-tooltip="Aplica las propuestas de IA pendientes como calificación definitiva. No consume créditos."
-                    className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60"
                   >
                     <CheckCheck size={16} />
                     Aplicar propuestas ({pendientesIA})
@@ -2143,7 +2143,7 @@ export default function ActivityPage() {
                         value={gradeForm.comentario}
                         onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                         rows={6}
-                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                         placeholder="Retroalimentación para el estudiante…"
                       />
                     </div>
@@ -2176,7 +2176,7 @@ export default function ActivityPage() {
                         <button
                           type="submit"
                           disabled={saving || !canCreate || !comentarioDirty()}
-                          className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                          className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                         >
                           {saving ? <Spinner size="sm" /> : null}
                           {saving ? 'Guardando…' : 'Guardar comentario'}
@@ -2186,7 +2186,7 @@ export default function ActivityPage() {
                       <button
                         type="submit"
                         disabled={saving || !canCreate || !isDirty()}
-                        className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         {saving ? <Spinner size="sm" /> : <Star size={18} />}
                         {saving ? 'Guardando…' : 'Guardar calificación'}
@@ -2253,7 +2253,7 @@ export default function ActivityPage() {
                             type="button"
                             onClick={() => setAnnulMode(false)}
                             disabled={annulling}
-                            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                            className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
                           >
                             Cancelar
                           </button>
@@ -2313,7 +2313,7 @@ export default function ActivityPage() {
                         <button
                           type="button"
                           onClick={() => setExtendMode(false)}
-                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                          className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
                         >
                           Cancelar
                         </button>
@@ -2321,7 +2321,7 @@ export default function ActivityPage() {
                           type="button"
                           onClick={saveExtension}
                           disabled={!extendDate || savingExtension || extensionUnchanged}
-                          className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
+                          className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
                         >
                           {savingExtension ? 'Guardando…' : 'Guardar'}
                         </button>
@@ -2374,7 +2374,7 @@ export default function ActivityPage() {
                           <button
                             type="button"
                             onClick={() => setSinEntregaMode(false)}
-                            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                            className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
                           >
                             Cancelar
                           </button>
@@ -2382,7 +2382,7 @@ export default function ActivityPage() {
                             type="button"
                             onClick={saveSinEntrega}
                             disabled={savingSinEntrega || sinEntregaGrade === ''}
-                            className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
+                            className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
                           >
                             {savingSinEntrega ? 'Guardando…' : 'Guardar'}
                           </button>
@@ -2805,7 +2805,7 @@ export default function ActivityPage() {
                 type="button"
                 onClick={() => setAnnulMode(false)}
                 disabled={annulling}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
               >
                 Cancelar
               </button>
@@ -2849,7 +2849,7 @@ export default function ActivityPage() {
               <button
                 type="button"
                 onClick={() => setExtendMode(false)}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
               >
                 Cancelar
               </button>
@@ -2857,7 +2857,7 @@ export default function ActivityPage() {
                 type="button"
                 onClick={saveExtension}
                 disabled={!extendDate || savingExtension || extensionUnchanged}
-                className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
+                className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
               >
                 {savingExtension ? 'Guardando…' : 'Guardar'}
               </button>
@@ -2950,7 +2950,7 @@ export default function ActivityPage() {
                   }
                   setRubricaViewOpen(false)
                 }}
-                className="w-full py-2 bg-accent text-white text-sm font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover disabled:opacity-60 transition-colors"
+                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover disabled:opacity-60 transition-colors"
               >
                 Aplicar y guardar calificación{totalR != null ? ` — ${totalR} / ${RUBRICA_TOTAL}` : ` (faltan ${faltan})`}
               </button>

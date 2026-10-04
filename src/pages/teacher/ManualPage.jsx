@@ -679,9 +679,9 @@ export default function ManualPage() {
           })}
         </nav>
 
-        <div className="bg-surface-card rounded-card shadow-card p-5 min-w-0">
+        <div className="bg-surface-card rounded-card shadow-card p-4 min-w-0">
           <h2 className="text-[19px] font-bold text-on-surface mb-4">{active.title}</h2>
-          <div className="space-y-5">
+          <div className="space-y-4">
             {active.content.map((block) => (
               <section key={block.subtitle}>
                 <h3 className="text-[15px] font-bold text-accent mb-2">{block.subtitle}</h3>

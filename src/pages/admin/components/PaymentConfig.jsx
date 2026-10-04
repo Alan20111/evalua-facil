@@ -119,7 +119,7 @@ export default function PaymentConfig() {
   }
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="space-y-4 max-w-2xl">
       {/* Security notice */}
       <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-card px-4 py-3.5">
         <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
@@ -134,7 +134,7 @@ export default function PaymentConfig() {
       {/* Mercado Pago */}
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded bg-sky-50 flex items-center justify-center">
               <Wallet size={20} className="text-sky-500" />
             </div>
@@ -168,7 +168,7 @@ export default function PaymentConfig() {
       {/* PayPal */}
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center">
               <Wallet size={20} className="text-accent" />
             </div>
@@ -199,7 +199,7 @@ export default function PaymentConfig() {
       {/* Bank transfer */}
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded bg-emerald-50 flex items-center justify-center">
               <Landmark size={20} className="text-emerald-500" />
             </div>

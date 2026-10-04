@@ -639,7 +639,7 @@ export default function StudentSubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowLeaveConfirm(false)} disabled={leaving}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
               <button type="button" onClick={handleLeaveSubject} disabled={leaving}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {leaving ? <Spinner size="sm" /> : <LogOut size={16} />}
@@ -682,7 +682,7 @@ export default function StudentSubjectPage() {
       {activeTab === 'Actividades y calificaciones' && (
         <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
           {PARCIALES.length === 0 && (
-            <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
+            <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
               <p className="text-muted text-sm">El docente aún no ha publicado contenido.</p>
             </div>
           )}
@@ -982,7 +982,7 @@ export default function StudentSubjectPage() {
         return (
         <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
           {tarjetas.length === 0 ? (
-            <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
+            <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
               <p className="text-muted text-sm">Tu maestro aún no ha registrado asistencia.</p>
             </div>
           ) : tarjetas}
@@ -994,7 +994,7 @@ export default function StudentSubjectPage() {
       {activeTab === 'Recursos' && (
         <div className={`px-4 py-5 ${STUDENT_CONTAINER}`}>
           {resources.length === 0 ? (
-            <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
+            <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
               <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />
               <p className="text-muted text-sm">El docente no ha compartido recursos aún.</p>
             </div>
@@ -1042,7 +1042,7 @@ export default function StudentSubjectPage() {
             </button>
           </div>
           {avisosMostrados.length === 0 ? (
-            <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
+            <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
               <Megaphone size={32} className="text-slate-300 mx-auto mb-3" />
               <p className="text-muted text-sm">{soloAvisosGuardados ? 'No has guardado ningún aviso.' : 'El docente no ha publicado avisos aún.'}</p>
             </div>
@@ -1117,7 +1117,7 @@ export default function StudentSubjectPage() {
                 </p>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setDeleteAvisoConfirm(null)} disabled={deletingAviso}
-                    className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
                   <button type="button" onClick={handleEliminarAviso} disabled={deletingAviso}
                     className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                     {deletingAviso ? <Spinner size="sm" /> : <Trash2 size={16} />}
