@@ -41,7 +41,7 @@ export default function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         aria-label={etiqueta}
         autoFocus={autoFocus}
-        className={`w-full pl-9 pr-9 py-2 rounded-full border-2 border-accent shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card ${className}`}
+        className={`w-full pl-9 pr-9 py-2 rounded-full border border-accent-soft shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card ${className}`}
       />
       {/* Espejo invisible — mismo texto/tamaño de fuente que el input, solo para medir el ancho */}
       <span ref={measureRef} className="absolute invisible whitespace-pre text-sm pointer-events-none" aria-hidden="true">

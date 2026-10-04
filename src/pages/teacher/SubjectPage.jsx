@@ -7118,7 +7118,9 @@ export default function SubjectPage() {
               "fantasma" mayor al contenido realmente visible (quirk conocido
               de flex-basis con inputs) — eso solo, sin verse nada distinto,
               bastaba para forzar scroll horizontal en toda la página. */}
-          <div className="flex gap-2 overflow-hidden">
+          {/* p-1 -m-1: el overflow-hidden recortaba el anillo de enfoque (2px por
+              fuera del campo); este relleno le deja sitio sin mover el diseño. */}
+          <div className="flex gap-2 overflow-hidden p-1 -m-1">
             {/* min-w-0: sin esto, un flex item se niega a encoger por debajo
                 del ancho mínimo intrínseco de su <input> hijo (el gotcha
                 clásico de flexbox) — en móvil desbordaba esta fila y con
@@ -7139,8 +7141,10 @@ export default function SubjectPage() {
             <button type="button"
               onClick={() => setShowAddStudent(true)}
               aria-label="Agregar manualmente"
-              data-tooltip-follow="Agregar manualmente"
-              className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
+              data-tooltip-follow={atencionPestanas.alumnos ? 'Agrega tu primer estudiante' : 'Agregar manualmente'}
+              className={atencionPestanas.alumnos
+                ? 'p-2.5 bg-red-600 text-white rounded-full ring-4 ring-red-200 hover:bg-red-700 transition-colors'
+                : 'p-2.5 bg-accent text-white rounded-full hover:bg-accent-hover transition-colors'}
             >
               <UserPlus size={20} />
             </button>
