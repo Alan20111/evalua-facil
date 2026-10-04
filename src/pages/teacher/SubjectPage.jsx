@@ -5671,7 +5671,7 @@ export default function SubjectPage() {
                   }`}>
                   <span className="inline-flex items-center justify-center gap-1.5">
                     {atencionPestanas[t] && <span aria-hidden="true" className="w-2 h-2 rounded-full bg-red-600 flex-shrink-0 animate-atencion motion-reduce:animate-none" />}
-                    {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Planeación Didáctica'}
+                    {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Planeación'}
                   </span>
                   {/* Qué hay que hacer en esta pestaña — lo lee el lector de pantalla
                       y sale como globo al pasar el cursor/enfocar (data-tooltip). */}
