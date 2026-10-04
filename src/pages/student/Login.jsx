@@ -236,7 +236,7 @@ export default function StudentLogin() {
         <div className="bg-surface-card rounded-card shadow-card p-5">
           <form onSubmit={handleLogin} className="space-y-3">
             <div>
-              <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Username</label>
+              <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
               <input
                 id="login-username"
                 type="text"
@@ -308,7 +308,7 @@ export default function StudentLogin() {
               </p>
               <form onSubmit={handleRecover} className="space-y-3">
                 <div>
-                  <label htmlFor="recover-username" className="block text-sm font-medium text-muted mb-1">Username</label>
+                  <label htmlFor="recover-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
                   <input
                     id="recover-username"
                     type="text"

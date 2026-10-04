@@ -261,7 +261,7 @@ async function handleLookup(req, res) {
   }
   const { subjectCode, username } = body
   if (!username || typeof username !== 'string' || !username.trim() || username.length > 60) {
-    return res.status(400).json({ error: 'Falta o es inválido el username.' })
+    return res.status(400).json({ error: 'Falta o es inválido el usuario.' })
   }
   const u = String(username).trim()
   // Cuatro formas como mucho (minúsculas, MAYÚSCULAS, canónica y canónica en
@@ -371,7 +371,7 @@ async function handleRecoverPassword(req, res) {
 
   const { username, newPassword } = body
   if (!username || typeof username !== 'string' || !username.trim() || username.length > 60) {
-    return res.status(400).json({ error: 'Falta o es inválido el username.' })
+    return res.status(400).json({ error: 'Falta o es inválido el usuario.' })
   }
   if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
     return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres.' })

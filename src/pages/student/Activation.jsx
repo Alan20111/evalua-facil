@@ -578,9 +578,9 @@ export default function StudentActivation() {
             <form onSubmit={handleFindStudent} className="space-y-3">
               <div>
                 <p className="text-sm text-muted mb-3">
-                  Introduce tu <strong>username</strong> (tu maestro te lo proporcionó).
+                  Introduce tu <strong>usuario</strong> (tu maestro te lo proporcionó).
                 </p>
-                <label htmlFor="activation-username" className="block text-sm font-medium text-muted mb-1">Username</label>
+                <label htmlFor="activation-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
                 <input
                   id="activation-username"
                   type="text"
