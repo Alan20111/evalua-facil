@@ -189,6 +189,12 @@ Prohibidos (candado): `shadow-sm`, `shadow-md`, `shadow-xl`.
 
 Sin cambiar fuente, tamaños ni colores: `h1–h3` con tracking `-0.015em` y `text-wrap: balance`; `h1` con interlineado 1.15; párrafos con `text-wrap: pretty`; tablas y campos numéricos con `tabular-nums`. Párrafos de varias líneas alineados a la izquierda (solo títulos cortos y estados vacíos van centrados).
 
+### Navegación (oct-2026)
+
+- **Barra lateral del docente (escritorio):** UNA fila estándar para todo (`src/config/sidebar.js` → `SB_FILA`): `px-4 py-2.5 gap-3 rounded-full`, icono 20 px, `text-body-sm`. Horario y Agenda, cada asignatura, Nueva asignatura, los enlaces secundarios, Archivadas, créditos y Cerrar sesión miden lo mismo (≈ 285 × 38 px), con el icono en la misma vertical. Gutter `px-2`, `space-y-1` dentro de un grupo, divisoria `border-t border-white/15` entre grupos. Para añadir una fila nueva, usa `SB_FILA` — no inventes padding.
+- **Barra inferior móvil:** cuatro botones iguales (`NAV_ITEM`: `flex-1 px-1 py-2 gap-1`), contenedor `px-2`, iconos de 24 px. **Perfil va primero (izquierda) y su icono es la foto** (`AvatarNav`, con la inicial si no hay foto; anillo de acento al estar activo). La foto ya no aparece en el saludo del tablero; se cambia desde Perfil.
+- Barra superior móvil: `px-4 py-2`; botones de icono `rounded-full` con anillo de foco.
+
 ### 4.4 Espaciado — estándares (oct-2026)
 
 **Padding de contenedores** (una sola medida por papel):
