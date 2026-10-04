@@ -44,7 +44,7 @@ function TextoEditable({ value, onChange, className = '', etiqueta }) {
       value={value || ''}
       aria-label={etiqueta}
       onChange={(e) => onChange(e.target.value)}
-      className={`w-full bg-transparent border border-dashed border-accent/50 rounded px-1.5 py-1 resize-none overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:bg-[var(--accent-tint)] ${className}`}
+      className={`w-full bg-transparent border border-dashed border-accent-soft rounded px-1.5 py-1 resize-none overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:bg-[var(--accent-tint)] ${className}`}
       maxLength={2000}
     />
   )
@@ -160,7 +160,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
         </div>
 
         {editado.resumenEjecutivo != null && (
-          <div className="bg-surface-card rounded-card shadow-card p-4" style={{ border: '1px solid var(--accent)' }}>
+          <div className="bg-surface-card rounded-card shadow-card p-4" style={{ border: '1px solid var(--accent-soft)' }}>
             <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: 'var(--accent)' }}>Resumen ejecutivo</p>
             <TextoEditable value={editado.resumenEjecutivo} onChange={(v) => set('resumenEjecutivo', v)} etiqueta="Resumen ejecutivo" className="text-sm text-on-surface" />
           </div>

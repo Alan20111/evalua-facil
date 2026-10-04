@@ -1495,7 +1495,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     style={editingPreguntaId === p.id
                       ? { border: '2px solid var(--accent)', background: 'var(--accent-light)' }
                       : p.id === glowId
-                        ? { border: '1px solid var(--accent)', background: 'var(--accent-light)' }
+                        ? { border: '1px solid var(--accent-soft)', background: 'var(--accent-light)' }
                         : undefined}>
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="space-y-2">
@@ -1969,8 +1969,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 título, como en EVALUAR. Abajo se queda solo lo que sí es de
                 esta pestaña. */}
             {activity.instrucciones && (
-              <div className="mb-3 rounded-card overflow-hidden bg-surface-card" style={{ border: '1px solid var(--accent)' }}>
-                <div className="px-4 py-2" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
+              <div className="mb-3 rounded-card overflow-hidden bg-surface-card" style={{ border: '1px solid var(--accent-soft)' }}>
+                <div className="px-4 py-2" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent-soft)' }}>
                   <h2 className="font-semibold text-sm" style={{ color: 'var(--accent)' }}>Instrucciones</h2>
                 </div>
                 <div
@@ -2179,8 +2179,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   onContinuar={ejecutarSugerenciaIndividual}
                 />
               )}
-            <div className="rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
-              <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
+            <div className="rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent-soft)' }}>
+              <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent-soft)' }}>
                 <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Entregas</h2>
               </div>
               <div className="p-3 pb-2 space-y-2">
@@ -2390,7 +2390,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       const sug = iaSugerencias[reviewing.submission?.id]?.[p.id]
                       const iaKey = `${reviewing.submission?.id}_${p.id}`
                       return (
-                        <div className="mt-1 p-3 rounded border border-accent/40 bg-[var(--accent-tint)] space-y-2">
+                        <div className="mt-1 p-3 rounded border border-accent-soft bg-[var(--accent-tint)] space-y-2">
                           {/* Botón individual: solo cuando no hay sugerencia y
                               la respuesta está pendiente de calificar. */}
                           {!sug && respuesta.puntosObtenidos == null && (
@@ -2407,7 +2407,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             </div>
                           )}
                           {sug && (
-                            <div className="p-2.5 rounded border border-accent/40 bg-surface-card space-y-1.5">
+                            <div className="p-2.5 rounded border border-accent-soft bg-surface-card space-y-1.5">
                               <div className="flex items-center gap-1.5">
                                 <Sparkles size={14} className="text-accent flex-shrink-0" />
                                 <p className="text-xs font-semibold text-accent">Sugerencia de IA — tú decides</p>

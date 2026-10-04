@@ -443,7 +443,7 @@ export default function TeacherDashboard() {
               <button
                 type="button"
                 onClick={openSubjectModal}
-                className="mb-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
+                className="mb-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-dashed border-accent-soft text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
               >
                 <Plus size={18} /> Nueva asignatura
               </button>

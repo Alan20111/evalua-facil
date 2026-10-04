@@ -24,8 +24,8 @@ export default function EvaluacionStatsPanel({ stats, totalEstudiantes, totalEnt
     { icon: Clock, label: 'Total pendientes', value: totalPendientes },
   ]
   return (
-    <div className="rounded-card overflow-hidden bg-surface-card shadow-card mb-3 border border-accent">
-      <div className="px-4 py-3 bg-accent-light border-b border-accent">
+    <div className="rounded-card overflow-hidden bg-surface-card shadow-card mb-3 border border-accent-soft">
+      <div className="px-4 py-3 bg-accent-light border-b border-accent-soft">
         <h2 className="font-semibold text-accent">Análisis de resultados</h2>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 p-3">
@@ -42,7 +42,7 @@ export default function EvaluacionStatsPanel({ stats, totalEstudiantes, totalEnt
           <button
             type="button"
             onClick={onGraficas}
-            className="bg-accent-light rounded p-3 text-center border border-dashed border-accent hover:bg-[var(--accent-medium)] transition-colors"
+            className="bg-accent-light rounded p-3 text-center border border-dashed border-accent-soft hover:bg-[var(--accent-medium)] transition-colors"
           >
             <PieChart size={18} className="text-accent mx-auto mb-1" />
             <p className="text-xl font-bold text-accent leading-tight">Gráficas</p>

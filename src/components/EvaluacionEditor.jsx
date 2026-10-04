@@ -1279,8 +1279,8 @@ export default function EvaluacionEditor({
         </div>
 
         {/* ── Sección 2: Configuración — same accent container as Preguntas ── */}
-        <div className="bg-surface-card rounded-card shadow-card overflow-hidden" style={{ border: '1px solid var(--accent)' }}>
-          <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
+        <div className="bg-surface-card rounded-card shadow-card overflow-hidden" style={{ border: '1px solid var(--accent-soft)' }}>
+          <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent-soft)' }}>
             <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Configuración</h2>
           </div>
           <form onSubmit={handleSaveConfig} className="px-4 py-4 space-y-3">
@@ -1395,9 +1395,9 @@ export default function EvaluacionEditor({
         </div>
 
         {/* ── Sección 3: Preguntas ── */}
-        <div className="bg-surface-card rounded-card shadow-card overflow-hidden" style={{ border: '1px solid var(--accent)' }}>
+        <div className="bg-surface-card rounded-card shadow-card overflow-hidden" style={{ border: '1px solid var(--accent-soft)' }}>
           <div className="px-4 py-3 flex items-center justify-between"
-            style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
+            style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent-soft)' }}>
             <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>
               Preguntas {preguntas.length > 0 && <span className="font-normal">({preguntas.length})</span>}
             </h2>

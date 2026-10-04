@@ -2314,7 +2314,7 @@ export default function CalendarPage() {
                       )}
                       {faltan.length > 0 && (
                         confirmGenerarFaltantes === s.id ? (
-                          <div className="flex items-center gap-2 px-3 py-2 bg-accent-tint border-t border-accent/30">
+                          <div className="flex items-center gap-2 px-3 py-2 bg-accent-tint border-t border-accent-soft">
                             <span className="text-xs text-accent flex-1">
                               ¿Generar las clases que faltan {faltan.map(t => t.desde === t.hasta
                                 ? `el ${formatLongDate(t.desde)}`
@@ -2327,7 +2327,7 @@ export default function CalendarPage() {
                           <button
                             type="button"
                             onClick={() => setConfirmGenerarFaltantes(s.id)}
-                            className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-accent-tint border-t border-accent/30 text-xs text-accent hover:brightness-95 transition-[filter] text-left"
+                            className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-accent-tint border-t border-accent-soft text-xs text-accent hover:brightness-95 transition-[filter] text-left"
                           >
                             <CalendarClock size={12} className="flex-shrink-0" />
                             {/* El conteo son clases REALES de esta asignatura
@@ -2469,7 +2469,7 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => reactivarBloqueUnico(b)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent/30 text-accent text-sm hover:bg-accent-tint transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent-soft text-accent text-sm hover:bg-accent-tint transition-colors"
                 >
                   Reactivar esta clase
                 </button>

@@ -569,7 +569,7 @@ export default function StudentDashboard() {
         <button
           type="button"
           onClick={openJoinModal}
-          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
+          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-dashed border-accent-soft text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
         >
           <Plus size={18} /> Unirme a otra asignatura
         </button>

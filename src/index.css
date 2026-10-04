@@ -188,6 +188,10 @@
        - medium (40–60%): hover on buttons, tabs, and standalone icon
          buttons — the subject's identity color should read clearly here
          without becoming a solid fill. */
+    /* Borde tenue de acento (contenedores abiertos, punteados, barras laterales).
+       Reemplaza al borde de acento a 100%, que se leía como un marco negro/guinda
+       agresivo — sobre todo en las paletas oscuras de materia. */
+    --accent-soft: color-mix(in srgb, var(--accent) 30%, transparent);
     --accent-tint: color-mix(in srgb, var(--accent) 12%, transparent);
     --accent-tint-strong: color-mix(in srgb, var(--accent) 18%, transparent);
     --accent-medium: color-mix(in srgb, var(--accent) 28%, transparent);

@@ -432,26 +432,19 @@ export default function TeacherLayout({ children }) {
 
       {/* Mobile bottom nav — en la app nativa siempre visible; en la web se
           oculta en escritorio (md:hidden). Misma razón que el <header>.
-          Ancho: en la app lo fija --layout-w (Samsung S23); en la web lo da
-          `right-0` — sin él la barra `fixed` se encoge a su contenido y queda
-          cortada (~204 de 375px). */}
+          Ancho: en la app lo fija --layout-w (Samsung S23); en la web es
+          `w-full` + `left-0 right-0`, así llena el 100% de CUALQUIER pantalla
+          (sin ellos la barra `fixed` se encoge a su contenido y queda cortada).
+          Esquinas de ARRIBA redondeadas, como el encabezado lleva las de abajo. */}
       <nav
         aria-label="Navegación principal"
         style={IS_NATIVE_APP ? { width: 'var(--layout-w)' } : undefined}
-        className={`${IS_NATIVE_APP ? '' : 'right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}
+        className={`${IS_NATIVE_APP ? '' : 'w-full right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant rounded-t-card safe-bottom`}
       >
         {/* Estándar de espaciado: px-2 en la barra y px-1 py-2 gap-1 por botón
             (misma escala que el resto de la app). Cuatro botones iguales
-            (flex-1); el de perfil va PRIMERO, a la izquierda, con la foto. */}
+            (flex-1); el de perfil va al final, a la derecha, con la foto. */}
         <div className="flex px-2">
-          <NavLink to="/profile" className={NAV_ITEM}>
-            {({ isActive }) => (<>
-              <span className={navIconPillCls(isActive)}>
-                <AvatarNav foto={userProfile?.photoURL} nombre={teacherDisplayName(userProfile)} activo={isActive} />
-              </span>
-              <span>Perfil</span>
-            </>)}
-          </NavLink>
           <NavLink to="/dashboard" className={NAV_ITEM}>
             {({ isActive }) => (<>
               <span className={navIconPillCls(isActive)}><LayoutDashboard size={24} /></span>
@@ -468,6 +461,14 @@ export default function TeacherLayout({ children }) {
             {({ isActive }) => (<>
               <span className={navIconPillCls(isActive)}><Bell size={24} /></span>
               <span>Notificaciones</span>
+            </>)}
+          </NavLink>
+          <NavLink to="/profile" className={NAV_ITEM}>
+            {({ isActive }) => (<>
+              <span className={navIconPillCls(isActive)}>
+                <AvatarNav foto={userProfile?.photoURL} nombre={teacherDisplayName(userProfile)} activo={isActive} />
+              </span>
+              <span>Perfil</span>
             </>)}
           </NavLink>
         </div>

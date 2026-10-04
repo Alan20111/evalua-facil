@@ -189,10 +189,15 @@ Prohibidos (candado): `shadow-sm`, `shadow-md`, `shadow-xl`.
 
 Sin cambiar fuente, tamaños ni colores: `h1–h3` con tracking `-0.015em` y `text-wrap: balance`; `h1` con interlineado 1.15; párrafos con `text-wrap: pretty`; tablas y campos numéricos con `tabular-nums`. Párrafos de varias líneas alineados a la izquierda (solo títulos cortos y estados vacíos van centrados).
 
+### Bordes de acento (oct-2026)
+
+Un contenedor abierto, un punteado o una barra lateral NUNCA llevan el color de acento al 100% (en paletas oscuras de materia se leía como un marco negro/guinda agresivo): usan `border-accent-soft` (`--accent-soft` = acento al 30%). Punteados: `border border-dashed border-accent-soft` (1px, no `border-2`). Botones *outline* y estados de selección sí conservan `border-accent` pleno. Ojo: `border-accent/30` NO funciona en este proyecto (el acento es una variable CSS); usa el token.
+
 ### Navegación (oct-2026)
 
 - **Barra lateral del docente (escritorio):** UNA fila estándar para todo (`src/config/sidebar.js` → `SB_FILA`): `px-4 py-2.5 gap-3 rounded-full`, icono 20 px, `text-body-sm`. Horario y Agenda, cada asignatura, Nueva asignatura, los enlaces secundarios, Archivadas, créditos y Cerrar sesión miden lo mismo (≈ 285 × 38 px), con el icono en la misma vertical. Gutter `px-2`, `space-y-1` dentro de un grupo, divisoria `border-t border-white/15` entre grupos. Para añadir una fila nueva, usa `SB_FILA` — no inventes padding.
-- **Barra inferior móvil:** cuatro botones iguales (`NAV_ITEM`: `flex-1 px-1 py-2 gap-1`), contenedor `px-2`, iconos de 24 px. **Perfil va primero (izquierda) y su icono es la foto** (`AvatarNav`, con la inicial si no hay foto; anillo de acento al estar activo). La foto ya no aparece en el saludo del tablero; se cambia desde Perfil.
+- **Barra inferior móvil (footer):** cuatro botones iguales (`NAV_ITEM`: `flex-1 px-1 py-2 gap-1`), contenedor `px-2`, iconos de 24 px. Llena el 100% del ancho de cualquier pantalla (`w-full left-0 right-0`) y lleva **esquinas de arriba redondeadas** (`rounded-t-card`). **Perfil va al final (derecha) y su icono es la foto** (`AvatarNav`, con la inicial si no hay foto; anillo de acento al estar activo). La foto ya no aparece en el saludo del tablero; se cambia desde Perfil. Docente y alumno usan el mismo estándar.
+- **Encabezado de la asignatura (docente):** el bloque blanco ocupa TODO el ancho del área de contenido, con esquinas de **abajo** redondeadas (`rounded-b-card`); su contenido sí va en `TEACHER_CONTAINER`.
 - Barra superior móvil: `px-4 py-2`; botones de icono `rounded-full` con anillo de foco.
 
 ### 4.4 Espaciado — estándares (oct-2026)

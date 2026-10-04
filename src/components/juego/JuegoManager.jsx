@@ -218,8 +218,8 @@ export default function JuegoManager({
         onActivityChange={onActivityChange}
       />
 
-      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
-        <div className="px-4 py-3 bg-accent-light border-b border-accent">
+      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
+        <div className="px-4 py-3 bg-accent-light border-b border-accent-soft">
           <h2 className="font-semibold text-accent">
             {mostrandoContenido ? 'Contenido' : mostrandoRevision ? 'Vista previa' : 'Configuración y resultados'}
           </h2>
@@ -548,8 +548,8 @@ function JuegoConfiguracion({
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
-        <div className="px-4 py-3 bg-accent-light border-b border-accent">
+      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
+        <div className="px-4 py-3 bg-accent-light border-b border-accent-soft">
           <h2 className="font-semibold text-accent">Disponibilidad</h2>
         </div>
         <form onSubmit={handleSaveVisibilidad} className="p-4 space-y-3">
@@ -646,8 +646,8 @@ function JuegoConfiguracion({
         </form>
       </div>
 
-      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
-        <div className="px-4 py-3 bg-accent-light border-b border-accent">
+      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
+        <div className="px-4 py-3 bg-accent-light border-b border-accent-soft">
           <h2 className="font-semibold text-accent">Configuración</h2>
         </div>
         <form onSubmit={handleSaveConfig} className="p-4 space-y-3">
@@ -699,8 +699,8 @@ function JuegoConfiguracion({
         </form>
       </div>
 
-      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
-        <div className="px-4 py-3 bg-accent-light border-b border-accent flex items-center justify-between gap-2 flex-wrap">
+      <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
+        <div className="px-4 py-3 bg-accent-light border-b border-accent-soft flex items-center justify-between gap-2 flex-wrap">
           <h2 className="font-semibold text-accent">Resultados</h2>
           {/* Mismas tres píldoras y mismo criterio que la lista de actividades
               de la asignatura, para que el número diga lo mismo en los dos
