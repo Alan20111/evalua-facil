@@ -690,7 +690,7 @@ export default function StudentDashboard() {
               sola fila, y ese "# Ir" diminuto no parecía la acción principal de
               nada. Los 6 caracteres los genera el docente
               (Math.random().toString(36).slice(2, 8)), de ahí la ayuda de abajo. */}
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card drop-shadow-2xl overflow-hidden">
+          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card drop-shadow-2xl overflow-hidden">
             <div className="flex items-start gap-3 p-5 pb-4">
               <div className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                 <Hash size={22} className="text-accent" />
@@ -756,7 +756,7 @@ export default function StudentDashboard() {
             onClick={() => !removing && setSubjectToRemove(null)}
             aria-label="Cerrar"
           />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl">
+          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-lg font-semibold text-on-surface truncate">Quitar de mis archivadas</h3>
               <button type="button" aria-label="Cerrar" onClick={() => !removing && setSubjectToRemove(null)} className="p-2 text-hint rounded-full flex-shrink-0"><X size={20} /></button>

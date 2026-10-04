@@ -142,7 +142,7 @@ export default function TeacherLayout({ children }) {
           en escritorio (md:hidden). El WebView de Android a veces reporta un
           viewport ≥768px activando el breakpoint md: de Tailwind, lo que
           mostraría el sidebar en lugar de la navegación móvil. */}
-      <header data-esq="sesion-encabezado-movil" className={`${IS_NATIVE_APP ? '' : 'md:hidden'} sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 h-[var(--barra-alto)] flex items-center justify-between shadow-card safe-top`}>
+      <header data-esq="sesion-encabezado-movil" className={`${IS_NATIVE_APP ? '' : 'md:hidden'} sticky barra-flotante-sup z-30 mx-2 rounded-full bg-surface-card px-4 h-[var(--barra-alto)] flex items-center justify-between shadow-barra`}>
         <div className="flex items-center gap-2 min-w-0">
           <EFLogo subtitle={false} className="h-8 w-auto flex-shrink-0" />
           {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de PortalBadge, no un atributo ARIA */}
@@ -454,7 +454,7 @@ export default function TeacherLayout({ children }) {
         <main
           id="main-content"
           tabIndex={-1}
-          className={`${IS_NATIVE_APP ? 'w-full overflow-x-hidden' : 'flex-1 min-w-0'} min-h-screen pb-[calc(var(--barra-alto)+env(safe-area-inset-bottom,0px))] ${IS_NATIVE_APP ? '' : 'md:pb-0'} focus:outline-none`}
+          className={`${IS_NATIVE_APP ? 'w-full overflow-x-hidden' : 'flex-1 min-w-0'} min-h-screen pb-[calc(var(--barra-alto)+1.5rem+env(safe-area-inset-bottom,0px))] ${IS_NATIVE_APP ? '' : 'md:pb-0'} focus:outline-none`}
         >
           {children}
         </main>
@@ -468,8 +468,8 @@ export default function TeacherLayout({ children }) {
           Esquinas de ARRIBA redondeadas, como el encabezado lleva las de abajo. */}
       <nav data-esq="nav-inferior"
         aria-label="Navegación principal"
-        style={IS_NATIVE_APP ? { width: 'var(--layout-w)' } : undefined}
-        className={`${IS_NATIVE_APP ? '' : 'w-full right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card rounded-t-card shadow-barra-sup safe-bottom`}
+        style={IS_NATIVE_APP ? { width: 'calc(var(--layout-w) - 1rem)' } : undefined}
+        className={`${IS_NATIVE_APP ? '' : 'right-2 md:hidden'} fixed barra-flotante-inf left-2 z-30 bg-surface-card rounded-full shadow-barra`}
       >
         {/* Estándar de espaciado: px-2 en la barra y px-1 py-2 gap-1 por botón
             (misma escala que el resto de la app). Cuatro botones iguales

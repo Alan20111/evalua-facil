@@ -519,7 +519,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {step && (step === 'picker' || step === 'form') && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setStep(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             {step === 'picker' ? (
               <>
                 <div className="flex items-center justify-between mb-3">
@@ -608,7 +608,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {(step === 'plantillas' || step === 'plantilla-form') && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setStep(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             {step === 'plantillas' ? (
               <>
                 <div className="flex items-center gap-2 mb-3">
@@ -729,7 +729,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {detailAviso && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDetailAviso(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[85vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Detalle del aviso</h3>
               <button type="button" onClick={() => setDetailAviso(null)} aria-label="Cerrar" className="p-2 text-muted hover:text-accent rounded">

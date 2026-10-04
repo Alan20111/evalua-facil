@@ -1,4 +1,25 @@
 /** @type {import('tailwindcss').Config} */
+// Clases propias de forma (oct-2026): en un plugin, no en index.css, para que el
+// linter (better-tailwindcss) las reconozca como clases válidas.
+//  · barra-flotante-sup/inf: barras móviles en cápsula, separadas 0.5rem del
+//    borde + el área segura (como posición/margen, así miden EXACTO --barra-alto).
+//  · hoja: hoja inferior (modal tipo sheet) 100% redonda que flota sobre el borde
+//    inferior en móvil; en escritorio no hace nada (modal centrado).
+const formaApp = ({ addComponents }) => addComponents({
+  '.barra-flotante-sup': {
+    top: 'calc(0.5rem + env(safe-area-inset-top, 0px))',
+    marginTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))',
+  },
+  '.barra-flotante-inf': {
+    bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
+  },
+  '.hoja': {
+    '@media (max-width: 639.98px)': {
+      marginBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
+    },
+  },
+})
+
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
@@ -63,6 +84,9 @@ export default {
         // Footer móvil: sombra suave hacia ARRIBA para separarlo de las tarjetas
         // blancas que pasan por detrás al hacer scroll.
         'barra-sup': '0 -6px 20px rgba(19,27,46,0.10)',
+        // Barras móviles flotantes (encabezado y footer en cápsula): sombra suave
+        // en todas direcciones para separarlas de las tarjetas que pasan detrás.
+        barra: '0 4px 20px rgba(19,27,46,0.12), 0 0 0 1px rgba(19,27,46,0.05)',
         'card-hover': '0 0 0 1px rgba(19,27,46,0.10), 0 6px 20px rgba(19,27,46,0.06)',
       },
       maxWidth: {
@@ -144,5 +168,5 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [formaApp],
 }

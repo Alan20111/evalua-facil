@@ -2250,7 +2250,7 @@ export default function CalendarPage() {
           {/* pb mayor en la web: la lista terminaba pegada al borde inferior de
               la tarjeta. `pb-*` se emite después de `p-*`, así que gana sin
               depender del orden en que se escriban las clases. */}
-          <div className={`relative bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3 ${IS_NATIVE_APP ? '' : 'pb-6'}`}>
+          <div className={`relative bg-surface-card hoja rounded-card shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-sm p-4 space-y-3 ${IS_NATIVE_APP ? '' : 'pb-6'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CalendarClock size={18} className="text-accent" />
@@ -2556,7 +2556,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
         onClick={onClose}
         aria-label="Cerrar"
       />
-      <div className="relative bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col">
+      <div className="relative bg-surface-card hoja rounded-card shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-md max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0">
           <div className="flex items-center gap-2">
             <CalendarOff size={18} className="text-amber-600" />
@@ -2677,7 +2677,7 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
         onClick={onClose}
         aria-label="Cerrar"
       />
-      <div className="relative bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col">
+      <div className="relative bg-surface-card hoja rounded-card shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-md max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0">
           <div className="flex items-center gap-2">
             <CalendarRange size={18} className="text-amber-600" />

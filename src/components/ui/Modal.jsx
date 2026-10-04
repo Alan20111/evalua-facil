@@ -7,7 +7,7 @@
 // ambos para poder migrar sin cambiar nada visual:
 //   variant='sheet'    → bottom-sheet en móvil, centrado en desktop (patrón
 //                        "objetivo" de §6.7): items-end sm:items-center +
-//                        rounded-t-card sm:rounded-card.
+//                        hoja rounded-card (flota, 100% redonda).
 //   variant='centered' → centrado siempre (el más común hoy): items-center +
 //                        rounded-card.
 //
@@ -91,8 +91,8 @@ export default function Modal({
     sheet ? 'items-end sm:items-center' : 'items-center px-4'
   )
   const panel = cn(
-    'relative bg-surface-card w-full drop-shadow-2xl max-h-[92vh] overflow-y-auto',
-    sheet ? 'sm:w-[calc(100%-2rem)] rounded-t-card sm:rounded-card' : 'rounded-card',
+    'relative bg-surface-card drop-shadow-2xl max-h-[92vh] overflow-y-auto',
+    sheet ? 'hoja w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] rounded-card' : 'w-full rounded-card',
     SIZES[size] || SIZES.sm,
     padding,
     className

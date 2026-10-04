@@ -131,7 +131,7 @@ export default function ProgramarBloquesModal({
         aria-label="Cerrar"
       />
       <div
-        className={`relative bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col ${esModificar ? 'ring-4 ring-amber-400 ring-inset' : ''}`}
+        className={`relative bg-surface-card hoja rounded-card shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-xl max-h-[92vh] flex flex-col ${esModificar ? 'ring-4 ring-amber-400 ring-inset' : ''}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0"

@@ -25,8 +25,8 @@ export default function StudentBottomNav() {
     <nav
       data-esq="nav-inferior"
       aria-label="Navegación principal"
-      style={IS_NATIVE_APP ? { width: 'var(--layout-w)' } : undefined}
-      className={`${IS_NATIVE_APP ? '' : 'w-full right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card rounded-t-card shadow-barra-sup safe-bottom`}
+      style={IS_NATIVE_APP ? { width: 'calc(var(--layout-w) - 1rem)' } : undefined}
+      className={`${IS_NATIVE_APP ? '' : 'right-2 md:hidden'} fixed barra-flotante-inf left-2 z-30 bg-surface-card rounded-full shadow-barra`}
     >
       <div data-esq="nav-inferior-fila" className="flex px-2 h-[var(--barra-alto)]">
         {NAV_TABS.map(({ to, label, Icon }) => (
