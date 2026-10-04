@@ -19,6 +19,6 @@ export const SB_GRUPO = 'px-2 py-2 space-y-1'
 // Botón de la barra inferior (móvil): columna icono + etiqueta. Mismo padding
 // y gap para los cuatro botones; foco visible por teclado con anillo redondo.
 export const NAV_ITEM = ({ isActive }) =>
-  `flex-1 min-w-0 flex flex-col items-center px-1 py-2 gap-1 rounded-full text-metadata transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
+  `flex-1 min-w-0 flex flex-col items-center justify-center px-1 gap-1 rounded-full text-metadata transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
     isActive ? 'text-accent' : 'text-muted'
   }`
