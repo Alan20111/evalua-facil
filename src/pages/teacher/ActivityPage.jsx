@@ -1366,7 +1366,7 @@ export default function ActivityPage() {
             el tooltip hace crecer el scrollWidth de toda la página unos px de más
             aunque nada se vea cortado (mismo "scrollWidth fantasma" ya visto en
             SubjectPage.jsx). */}
-        <div className="px-4 py-2 overflow-hidden">
+        <div data-esq="act-doc-encabezado" className="px-4 py-2 overflow-hidden">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -1441,7 +1441,7 @@ export default function ActivityPage() {
             </div>
           )}
           {activity?.instrucciones && (
-            <div className="mt-2 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
+            <div data-esq="act-doc-instrucciones" className="mt-2 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
               <div className="px-4 py-2 bg-accent-light border-b border-accent-soft">
                 <h2 className="font-semibold text-sm text-accent">Instrucciones</h2>
               </div>
@@ -1470,8 +1470,8 @@ export default function ActivityPage() {
         </div>
 
         {/* ── Entregas — same accent container as Preguntas/Configuración ── */}
-        <div id="entregas-container" className="mx-4 my-4 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
-          <div className="px-4 py-3 bg-accent-light border-b border-accent-soft">
+        <div data-esq="act-doc-entregas" id="entregas-container" className="mx-4 my-4 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
+          <div data-esq="act-doc-entregas-cabecera" className="px-4 py-3 bg-accent-light border-b border-accent-soft">
             <h2 className="font-semibold text-accent">Entregas</h2>
           </div>
 
@@ -1583,7 +1583,7 @@ export default function ActivityPage() {
           </div>
 
         {/* Search — misma barra en web y en Android */}
-        <div className="px-4 pt-4 pb-2">
+        <div data-esq="act-doc-ayuda" className="px-4 pt-4 pb-2">
           <SearchInput
             value={searchStudents}
             onChange={setSearchStudents}
@@ -1596,11 +1596,11 @@ export default function ActivityPage() {
         {/* Student list — nombre a la izquierda, estatus a la derecha. Altura
             acotada con scroll propio (rueda del mouse) para que la búsqueda
             y los filtros de arriba no se muevan de lugar al recorrer la lista. */}
-        <div className="px-4 pb-4">
+        <div data-esq="act-doc-lista-contenedor" className="px-4 pb-4">
           {filtered.length === 0 ? (
             <p className="text-center text-hint text-sm py-8">Sin estudiantes en esta categoría</p>
           ) : (
-            <div className="bg-surface-card rounded-card overflow-y-auto max-h-[60vh] shadow-card">
+            <div data-esq="act-doc-lista" className="bg-surface-card rounded-card overflow-y-auto max-h-[60vh] shadow-card">
               {filtered.map((s, i) => {
                 const status = getStatus(s.id)
                 const sub = submissions[s.id]

@@ -566,7 +566,7 @@ export default function StudentSubjectPage() {
     <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
 
       {/* Page header */}
-      <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
+      <header data-esq="subj-alu-encabezado" className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
           type="button"
           aria-label="Volver"
@@ -575,7 +575,7 @@ export default function StudentSubjectPage() {
         >
           <ArrowLeft size={22} />
         </button>
-        <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+        <div data-esq="subj-alu-icono" className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
           <SubjectIcon iconKey={subject?.icon} size={20} className="text-accent" />
         </div>
         <div className="min-w-0 flex items-center gap-2 flex-wrap">
@@ -654,10 +654,10 @@ export default function StudentSubjectPage() {
           "Avisos" queda fuera de vista sin ningún indicio de que hay más a
           la derecha. El desvanecido + flecha avisan que se puede deslizar, y
           desaparecen solos en cuanto el estudiante ya llegó al final. */}
-      <div className="relative bg-surface-card border-b border-outline-variant">
-        <div ref={tabsScrollRef} className="px-4 flex gap-1 overflow-x-auto">
+      <div data-esq="subj-alu-pestanas-fondo" className="relative bg-surface-card border-b border-outline-variant">
+        <div data-esq="subj-alu-pestanas" ref={tabsScrollRef} className="px-4 flex gap-1 overflow-x-auto">
           {tabs.map((tab) => (
-            <button
+            <button data-esq="subj-alu-pestana"
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
@@ -680,7 +680,7 @@ export default function StudentSubjectPage() {
 
       {/* Tab: Actividades y calificaciones */}
       {activeTab === 'Actividades y calificaciones' && (
-        <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
+        <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
           {PARCIALES.length === 0 && (
             <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
               <p className="text-muted text-sm">El docente aún no ha publicado contenido.</p>
@@ -699,11 +699,11 @@ export default function StudentSubjectPage() {
             const avg = publicado ? calcParcialAvg(p) : null
             const isOpen = openParcial === p
             return (
-              <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
+              <div data-esq="subj-alu-parcial" key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                 {(() => {
                   const cabecera = (
                     <>
-                      <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                      <div data-esq="subj-alu-parcial-icono" className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                         <span className="text-accent font-bold text-sm">{p}</span>
                       </div>
                       <div className="flex-1 text-left min-w-0">

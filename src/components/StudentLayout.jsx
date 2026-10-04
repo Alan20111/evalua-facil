@@ -19,7 +19,7 @@ import AvisosGate from './AvisosGate'
 import SkipLink from './SkipLink'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { capitalizarNombre } from '../utils/nombres'
-import { SkeletonList } from './ui'
+import { EsqueletoFilasLateralAlumno } from './esqueletos'
 
 // `refreshKey`: el Dashboard del alumno reordena sus asignaturas (flechas
 // subir/bajar o arrastrar) SIN desmontar este layout — a diferencia del
@@ -232,12 +232,12 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           {/* Subject list */}
           <div className="flex-1 overflow-y-auto px-2 pb-2">
             {loadingSidebar ? (
-              <SkeletonList rows={3} sobreColor className="px-3 py-2" />
+              <EsqueletoFilasLateralAlumno />
             ) : activeSubjects.length === 0 ? (
               <p className="text-body-sm text-white/70 px-3 py-2">Sin asignaturas aún</p>
             ) : (
               activeSubjects.map((s) => (
-                <NavLink
+                <NavLink data-esq="sba-fila"
                   key={s.id}
                   to={`/alumno/materia/${s.id}`}
                   className={({ isActive }) =>

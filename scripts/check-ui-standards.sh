@@ -128,6 +128,11 @@ ratchet "Anchos/altos en píxeles duros (w-[Npx]/h-[Npx]) — evitar nuevos, usa
   '(min-)?[wh]-\[[0-9]+px\]' 53
 
 echo ""
+# Esqueletos de carga: deben medir lo mismo que su pantalla real
+# (data-esq en pantalla y en components/esqueletos/ — ver check-esqueletos.mjs).
+node scripts/check-esqueletos.mjs || FAIL=1
+
+echo ""
 if [ "$FAIL" -eq 1 ]; then
   echo "⚠️  Se encontraron patrones ya corregidos anteriormente. Revisa docs/DESIGN_SYSTEM.md §6/§10 antes de continuar."
   exit 1

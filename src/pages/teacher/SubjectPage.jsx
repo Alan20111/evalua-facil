@@ -5559,8 +5559,8 @@ export default function SubjectPage() {
             superior). Con el lienzo azul, este bloque blanco pasó a leerse como
             una tarjeta, y una tarjeta que termina en canto recto se ve cortada,
             no terminada. */}
-        <div className="bg-surface-card rounded-b-card">
-          <div className={`${TEACHER_CONTAINER} px-4 py-2`}>
+        <div data-esq="subj-doc-encabezado" className="bg-surface-card rounded-b-card">
+          <div data-esq="subj-doc-encabezado-interior" className={`${TEACHER_CONTAINER} px-4 py-2`}>
           <div className="flex items-center gap-2">
             <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
               <ArrowLeft size={22} />
@@ -5636,7 +5636,7 @@ export default function SubjectPage() {
               esta fila. sm:flex-1 restaura el ancho igual de siempre en
               escritorio, donde sí caben cómodas. */}
           <div className="relative">
-            <div ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-x-auto">
+            <div data-esq="subj-doc-pestanas" ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-x-auto">
               {(IS_NATIVE_APP
                 ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos', 'asistente-ia']
                 // Teléfono (web): sin Calificaciones ni Planeación Didáctica.
@@ -5662,7 +5662,7 @@ export default function SubjectPage() {
               // el servidor lo revalida (precheckPlaneacionInicial,
               // precheckDiagnosticoBase) y la UI lo avisa antes de intentarlo.
               ).map((t) => (
-                <button type="button" key={t} onClick={() => switchTab(t)}
+                <button data-esq="subj-doc-pestana" type="button" key={t} onClick={() => switchTab(t)}
                   className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded-full transition-colors ${
                     activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                   }`}>
@@ -5698,7 +5698,7 @@ export default function SubjectPage() {
             TAB: ACTIVIDADES
         ══════════════════════════════════════════════════════════ */}
         {activeTab === 'actividades' && (
-          <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
+          <div data-esq="subj-doc-parciales" className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
             {PARCIALES.map((p) => {
               const acts = activities.filter((a) => a.parcial === p)
               const numeradas = acts.filter((a) => activityLabelById[a.id]).length
@@ -5714,12 +5714,12 @@ export default function SubjectPage() {
               return (
                 // Open parcial gets the same accent container treatment as the
                 // Preguntas/Configuración sections — it's obvious you're inside it
-                <div key={p} className={`bg-surface-card rounded-card overflow-hidden shadow-card ${isOpen ? 'border border-accent-soft' : ''}`}>
+                <div data-esq="subj-doc-parcial" key={p} className={`bg-surface-card rounded-card overflow-hidden shadow-card ${isOpen ? 'border border-accent-soft' : ''}`}>
                   <div className={isOpen ? 'bg-accent-light border-b border-accent-soft' : ''}>
                   <div className="w-full flex items-center gap-1">
-                    <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
+                    <button data-esq="subj-doc-parcial-cabecera" type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
                       className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-medium)] transition-colors text-left">
-                      <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
+                      <div data-esq="subj-doc-parcial-icono" className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
                         <span className={`font-bold text-sm ${parcialOculto ? 'text-hint' : 'text-accent'}`}>{p}</span>
                       </div>
                       <div className="text-left min-w-0">
@@ -5750,7 +5750,7 @@ export default function SubjectPage() {
                     </button>
                   </div>
                   {!IS_NATIVE_APP && (
-                    <div className="px-4 pb-2 pl-[4.5rem] -mt-1">
+                    <div data-esq="subj-doc-parcial-filtro" className="px-4 pb-2 pl-[4.5rem] -mt-1">
                       <FiltroSoloCalificables
                         id={`solo-calificables-${p}`}
                         checked={!!soloCalificables[p]}
