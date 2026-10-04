@@ -83,7 +83,7 @@ export default function RevisionJuegoBorrador({ activity, estructura: estructura
         </button>
         {!confirmado && (
           <button type="button" onClick={handleConfirmar} disabled={confirmando}
-            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
             <CheckCircle2 size={16} /> {confirmando ? 'Confirmando…' : 'Confirmar juego'}
           </button>
         )}

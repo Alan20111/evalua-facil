@@ -115,7 +115,7 @@ export default function MiEspacio() {
         </div>
 
         {/* Uso + subir */}
-        <div className="bg-surface-card rounded-card shadow-card p-5 mb-4">
+        <div className="bg-surface-card rounded-card shadow-card p-4 mb-4">
           <p className="text-sm text-on-surface">
             <span className="font-semibold">{tamano(usado)}</span> de {tamano(MI_ESPACIO_CUOTA_BYTES)}
           </p>
@@ -145,7 +145,7 @@ export default function MiEspacio() {
         {!datos && !error ? (
           <SkeletonList rows={4} className="py-4" />
         ) : error && !datos ? (
-          <div className="bg-surface-card rounded-card shadow-card p-5 text-center">
+          <div className="bg-surface-card rounded-card shadow-card p-4 text-center">
             <p className="text-sm text-muted mb-3">{error}</p>
             <Button variant="secondary" className="mx-auto" onClick={cargar}>Reintentar</Button>
           </div>

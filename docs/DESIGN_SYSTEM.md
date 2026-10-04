@@ -145,22 +145,33 @@ Color de calificación (`gradeColor`): alta `text-emerald-700` · media `text-am
 
 ## 4. Forma, elevación y espaciado
 
-### 4.1 Radios
+### 4.1 Radios — escala cerrada (oct-2026)
 
-| Token | Docente | Alumno | Uso |
+| Token | Docente | Alumno | Uso — **regla** |
 |---|---|---|---|
-| `rounded` (DEFAULT) | 8px | 16px | Botones, inputs, items de nav, contenedores medianos |
-| `rounded-card` | 14px | 32px | Cards grandes, modales, tablas |
-| `rounded-pill` / `rounded-full` | 9999px | 9999px | Badges, avatares, FAB, swatches, toggles |
+| `rounded-sm` | 2px | 2px | Solo micro-elementos ≤ 12px: muestras de leyenda, chips del calendario mensual |
+| `rounded` (DEFAULT) | 8px | 16px | **Todo lo que se toca**: botones (de cualquier tamaño), inputs, selects, items de nav, eventos del calendario, avisos internos |
+| `rounded-card` | 14px | 32px | **Contenedores**: cards, modales, tablas, secciones, banners de estado. Nunca en un botón de acción |
+| `rounded-full` / `rounded-pill` | 9999px | 9999px | Badges, chips de filtro, avatares, FAB, swatches, toggles |
 
-### 4.2 Sombras
+Prohibidos (candado en `check:design`): `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`, `rounded-3xl`. Variantes laterales (`rounded-l`, `rounded-r`, `rounded-t-card`) solo para controles segmentados y hojas inferiores.
 
-| Token | Valor | Uso |
+### 4.2 Sombras — escala cerrada (oct-2026)
+
+| Token | Valor | Uso — **regla** |
 |---|---|---|
-| `shadow-card` | `0 4px 20px rgba(0,0,0,0.04)` | Card en reposo |
-| `shadow-card-hover` | `0 6px 24px rgba(0,0,0,0.08)` | Card en hover (en la práctica se usa `hover:shadow-md`) |
-| `shadow-lg` | Tailwind | Toast, FAB, header sticky accent |
-| `shadow-2xl` | Tailwind | Modales/paneles flotantes |
+| `shadow-card` | `0 4px 20px rgba(0,0,0,0.04)` | Card o control elevado en reposo (también eventos del calendario y el buscador) |
+| `hover:shadow-card-hover` | `0 6px 24px rgba(0,0,0,0.08)` | Card clicable en hover |
+| `shadow-lg` | Tailwind | Flotantes pequeños: toast, FAB, elemento arrastrado, item activo sobre fondo de acento, tooltip |
+| `shadow-2xl` / `drop-shadow-2xl` | Tailwind | Modales, hojas inferiores y paneles flotantes |
+
+Prohibidos (candado): `shadow-sm`, `shadow-md`, `shadow-xl`.
+
+### Bordes
+
+- Ancho por defecto `border` (1px) con color `border-outline-variant`.
+- `border-outline` (más oscuro) solo como **divisor fuerte de tabla** (columnas de parcial/asistencia en la sábana).
+- `border-2` solo para: CTA punteado (`border-dashed`), buscador destacado (`SearchInput`), selección de swatch/color, celdas de calificación de rúbrica y el spinner. Un botón *outline* lleva `border border-accent` (1px), igual que `Button variant="outline-accent"`.
 
 ### 4.3 Contenedores de página
 
@@ -172,12 +183,28 @@ Color de calificación (`gradeColor`): alta `text-emerald-700` · media `text-am
 | Auth (ambos) | `min-h-screen flex flex-col items-center justify-center px-4 bg-surface` + card `w-full max-w-sm` |
 | Admin | main `p-4 md:p-5 lg:p-8 max-w-7xl` |
 
-### 4.4 Espaciado recurrente
+### 4.4 Espaciado — estándares (oct-2026)
 
-- Padding de página: `px-4 py-4` (docente) / `px-4 py-5–6` (alumno)
-- Entre cards de lista: `space-y-2` · Entre secciones/cards de settings: `space-y-4` / `mb-4`
-- Padding de card: `p-3` (compacta docente) · `p-4` (media) · `p-5` (form auth) · `p-8` (resultado) · `p-10` (empty alumno)
-- Forms: `space-y-3` · Toolbars: `gap-2` · Grupos de icon-buttons: `gap-1`
+**Padding de contenedores** (una sola medida por papel):
+
+| Papel | Padding |
+|---|---|
+| Fila de lista clicable / card compacta / aviso interno | `p-3` |
+| Card de contenido en página (perfil, ajustes, ayuda, admin) | `p-4` |
+| Panel centrado o diálogo (login, registro, modal, confirmación) | `p-5` (el `Modal` usa `p-4 sm:p-5`) |
+| Estado vacío / resultado centrado | `p-8` |
+
+**Botones de texto** (= tamaños de `Button`): `sm` → `px-3 py-2` · `md` (por defecto, también acciones `flex-1`/`w-full` de modales y formularios) → `px-4 py-2.5` · `lg` → `px-5 py-2.5 text-base`. Los botones de `text-xs` (mini-acciones de tabla) usan `py-2`. El CTA de guardado a pantalla completa de los editores conserva `py-3`.
+
+**Campos**: `px-4 py-2.5` (igual que `Input`/`Select`).
+
+**Separaciones** — escala `0.5 · 1 · 1.5 · 2 · 3 · 4 · 6 · 8`:
+- `gap-1` grupos de icon-buttons · `gap-1.5` icono + texto chico · `gap-2` toolbars, botones juntos, ítems de nav · `gap-3` icono + contenido en filas/cards · `gap-4` columnas y secciones.
+- Pila vertical: `space-y-2` entre filas de lista · `space-y-3` campos de formulario · `space-y-4` entre secciones/cards.
+- Márgenes de sección: `mb-4`/`mt-4` (nunca `-5`).
+- Prohibidos (candado): `gap-2.5`, `gap-5`, `space-y-2.5`, `space-y-5`, `mt-5`, `mb-5`.
+
+Padding de página: `px-4 py-4` (docente) / `px-4 py-5–6` (alumno).
 
 ### 4.5 Breakpoints en uso
 
@@ -236,12 +263,12 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 | **Destructivo** | `bg-red-600 hover:bg-red-700 text-white font-semibold rounded` |
 | **Ghost/link** | `text-sm text-slate-500 hover:text-muted` o `text-accent hover:underline` |
 | **Icon-button** | `p-2 rounded text-hint hover:text-accent hover:bg-[var(--accent-medium)]` — destructivo: `hover:text-red-500 hover:bg-red-50` — icono 21 |
-| **CTA punteado** | `w-full py-2.5 rounded(-card) border-2 border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light` |
+| **CTA punteado** | `w-full py-2.5 rounded border-2 border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light` |
 | **FAB** | `w-14 h-14 rounded-full bg-accent text-white shadow-lg` + `Plus 26` |
 
 ### 6.2 Inputs y formularios
 
-- **Input estándar:** `w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface` — ✅ el anillo de foco es `focus-visible:` en toda la app (jul-2026): ya no aparece con click de mouse, solo con navegación por teclado. Persisten variantes menores de padding (`py-2`/`py-2.5`, `px-3`/`px-3.5`) sin unificar.
+- **Input estándar:** `w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface` — ✅ el anillo de foco es `focus-visible:` en toda la app (jul-2026): ya no aparece con click de mouse, solo con navegación por teclado. ✅ Padding unificado a `px-4 py-2.5` (oct-2026).
 - Input con error: `border-red-400` (+ mensaje `text-red-500 text-xs`).
 - Input código/username: añade `font-mono tracking-widest text-center text-lg` + `autoCapitalize="characters"`.
 - Numérico de captura: `no-spinner` (oculta flechas), `text-center font-semibold`.
@@ -255,9 +282,9 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 
 | Tipo | Clases |
 |---|---|
-| Estándar | `bg-surface-card rounded-card shadow-card p-3..5` (sin borde) |
+| Estándar | `bg-surface-card rounded-card shadow-card p-4` (sin borde) — ver §4.4 para `p-3`/`p-5`/`p-8` |
 | Con borde (recursos, empty) | `bg-surface-card rounded-card border border-outline-variant` |
-| Fila clicable (lista) | `bg-surface-card rounded-card p-3 shadow-card hover:shadow-md transition-shadow flex items-center gap-3 text-left` + icono en cuadro `w-11..12 h-11..12 rounded bg-accent-light` + `ChevronRight 18-20 text-slate-300` |
+| Fila clicable (lista) | `bg-surface-card rounded-card p-3 shadow-card hover:shadow-card-hover transition-shadow flex items-center gap-3 text-left` + icono en cuadro `w-11..12 h-11..12 rounded bg-accent-light` + `ChevronRight 18-20 text-slate-300` |
 | Acordeón (parcial) | `rounded-card overflow-hidden shadow-card`; abierto añade borde `1px solid var(--accent)`; header `px-4 py-2 hover:bg-[var(--accent-medium)]` + chevron 20 |
 | Sección acentuada | borde `1px solid var(--accent)` + header `background: var(--accent-light)` + título `color: var(--accent)` (hoy inline styles) |
 | Stat card (admin) | `p-4`, label `text-xs text-hint font-medium` + icono 18, valor `text-xl md:text-2xl font-bold` |
@@ -375,7 +402,7 @@ Nacieron en `main` después del trabajo original de este documento y se auditaro
 |---|---|
 | Hover superficie/fila | `bg-[var(--accent-tint)]` (12%) |
 | Hover botón/tab/icon-button | `bg-[var(--accent-medium)]` (28%) |
-| Hover card | `hover:shadow-md` (elevación, no color) |
+| Hover card | `hover:shadow-card-hover` (elevación, no color) |
 | Hover sobre acento sólido | `bg-white/10` – `/15` |
 | Focus | `focus:outline-none focus:ring-2 focus:ring-accent` (⚠ nunca `focus-visible`; ring aparece con click — corregir a `focus-visible:ring-2`) |
 | Disabled | `disabled:opacity-60` (⚠ conviven 30/40/50/60 — estandarizar: 60 general, 40 toolbar) |

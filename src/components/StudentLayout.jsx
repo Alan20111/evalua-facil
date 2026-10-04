@@ -203,7 +203,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           <NavLink
             to="/alumno/agenda"
             className={({ isActive }) =>
-              `flex items-center gap-2.5 mx-2 mt-1.5 px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
+              `flex items-center gap-2 mx-2 mt-1.5 px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
                 isActive
                   ? 'bg-white text-accent shadow-card'
                   : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
@@ -398,7 +398,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
               >
                 Cancelar
               </button>

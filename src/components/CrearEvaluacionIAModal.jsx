@@ -143,7 +143,7 @@ export default function CrearEvaluacionIAModal({
           El asistente crea el {tipoLabel.toLowerCase()} completo con sus reactivos a partir de lo que describas. Lo revisas y ajustas después, como cualquier otra evaluación.
         </p>
 
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           <div>
             <label htmlFor="ia-eval-nombre" className="block text-sm text-on-surface mb-1">Nombre de la evaluación</label>
             <input id="ia-eval-nombre" type="text" value={nombre} disabled={trabajando}
@@ -211,7 +211,7 @@ export default function CrearEvaluacionIAModal({
             Cancelar
           </button>
           <button type="button" onClick={handleGenerar} disabled={trabajando || tiposSeleccionados.length === 0}
-            className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+            className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
             {trabajando ? 'Generando…' : 'Generar con IA'}
           </button>
         </div>

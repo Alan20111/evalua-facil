@@ -54,7 +54,7 @@ function EditorTexto({ vigente, guardando, onGuardar, onCancelar, puedeRestaurar
             dificultades: deLineas(dificultades).slice(0, 30).map((x) => x.slice(0, 1000)),
             recomendaciones: deLineas(recomendaciones).slice(0, 30).map((x) => x.slice(0, 1000)),
           })}
-          className="flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
           {guardando && <Spinner size="sm" />} {guardando ? 'Guardando…' : 'Guardar cambios'}
         </button>
       </div>
@@ -81,7 +81,7 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
   return (
     <Modal open onClose={onClose} title="Análisis de la actividad" size="3xl" z={60} busy={guardando}>
       <div className="space-y-3">
-        <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-card">
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
           <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800"><span className="font-semibold">Asistente IA. </span>{plan.aviso}</p>
         </div>
@@ -122,7 +122,7 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
         )}
 
         {plan.secciones.map((s, i) => (
-          <section key={s.titulo} className="rounded-card border border-outline-variant p-3 space-y-2.5">
+          <section key={s.titulo} className="rounded-card border border-outline-variant p-3 space-y-2">
             <h4 className={`text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 ${s.tono === 'atencion' ? 'text-amber-700' : 'text-accent'}`}>
               {s.tono === 'atencion' && <AlertTriangle size={14} />}
               {i + 1}. {s.titulo}
@@ -132,7 +132,7 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
         ))}
 
         <button type="button" onClick={onClose}
-          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors">
+          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded hover:bg-surface-container transition-colors">
           Cerrar
         </button>
       </div>

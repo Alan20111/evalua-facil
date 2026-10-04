@@ -199,7 +199,7 @@ export default function AdminChat() {
         <button
           type="submit"
           disabled={enviando || !mensaje.trim()}
-          className="flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded transition-colors disabled:opacity-45"
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded transition-colors disabled:opacity-45"
         >
           {enviando ? <Spinner size="sm" /> : <Send size={16} />}
           Enviar

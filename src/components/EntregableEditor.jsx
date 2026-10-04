@@ -482,7 +482,7 @@ export default function EntregableEditor({
               <input id="ent-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                 required
                 placeholder={isObservacion ? 'Ej: Actitud, Exposición de tema, Participación' : 'Ej: Tarea 1, Proyecto final'}
-                className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
             </div>
 
             {/* Default apagado: el docente elige, actividad por actividad,
@@ -605,12 +605,12 @@ export default function EntregableEditor({
                   </div>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setRubricaPreview((v) => !v)}
-                      className="flex-1 py-2 text-sm border border-outline-variant text-muted rounded hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-1.5">
+                      className="flex-1 py-2.5 text-sm border border-outline-variant text-muted rounded hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-1.5">
                       {rubricaPreview ? <EyeOff size={15} /> : <Eye size={15} />}
                       {rubricaPreview ? 'Ocultar' : 'Ver rúbrica'}
                     </button>
                     <button type="button" onClick={() => setRubricaPickerOpen(true)}
-                      className="flex-1 py-2 text-sm border border-outline-variant text-muted rounded hover:border-accent hover:text-accent transition-colors">
+                      className="flex-1 py-2.5 text-sm border border-outline-variant text-muted rounded hover:border-accent hover:text-accent transition-colors">
                       Cambiar rúbrica
                     </button>
                   </div>
@@ -642,7 +642,7 @@ export default function EntregableEditor({
                         <Sparkles size={16} /> Generar rúbrica con IA
                       </button>
                       <button type="button" onClick={() => pedirIA('cotejo')}
-                        className="w-full py-2.5 text-sm border-2 border-accent text-accent font-semibold rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2">
+                        className="w-full py-2.5 text-sm border border-accent text-accent font-semibold rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2">
                         <Sparkles size={16} /> Generar lista de cotejo con IA
                       </button>
                     </div>
@@ -657,12 +657,12 @@ export default function EntregableEditor({
                   {/* Crear directo (banco Y asignación en un paso): solo en la web */}
                   {!IS_NATIVE_APP && (
                     <button type="button" onClick={() => setRubricaEditorOpen(true)}
-                      className="w-full py-2 text-sm border border-outline-variant text-muted rounded hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-2">
+                      className="w-full py-2.5 text-sm border border-outline-variant text-muted rounded hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-2">
                       <Plus size={16} /> Crear rúbrica a mano
                     </button>
                   )}
                   <button type="button" onClick={() => setRubricaPickerOpen(true)}
-                    className="w-full py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2">
+                    className="w-full py-2.5 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2">
                     <ClipboardList size={16} /> Usar una rúbrica de mi banco
                   </button>
                 </div>
@@ -773,7 +773,7 @@ export default function EntregableEditor({
                   <button
                     type="button"
                     onClick={onNuevaFecha}
-                    className="w-full py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2.5 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
                   >
                     <CalendarDays size={16} /> Nueva fecha para prórroga
                   </button>
@@ -841,7 +841,7 @@ export default function EntregableEditor({
                   type="button"
                   onClick={(e) => { if (form.publishedAt) setConfirmDraft(true); else handleSave(e, true) }}
                   disabled={saving}
-                  className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                  className="w-full py-2.5 border border-accent text-accent font-medium rounded hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                   Guardar como borrador
                 </button>
               )}
@@ -850,7 +850,7 @@ export default function EntregableEditor({
           {!isNew && (
             // With no changes, exiting is the natural action — it takes the primary style
             <button type="button" onClick={onClose} disabled={saving}
-              className={`w-full py-2.5 font-medium rounded-card transition-colors disabled:opacity-60 ${(!isDirty && (!wasDraft || form.visibilidadMode === 'hide'))
+              className={`w-full py-2.5 font-medium rounded transition-colors disabled:opacity-60 ${(!isDirty && (!wasDraft || form.visibilidadMode === 'hide'))
                 ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
                 : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
               {isDirty ? 'Salir sin guardar cambios' : 'Salir'}

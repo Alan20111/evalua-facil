@@ -600,7 +600,7 @@ function JuegoConfiguracion({
             </div>
           )}
           <button type="submit" disabled={savingVis || !visFormCambio}
-            className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2">
+            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2">
             {savingVis ? <Spinner size="sm" /> : <Pencil size={16} />}
             {savingVis ? 'Guardando…' : 'Guardar disponibilidad'}
           </button>
@@ -640,7 +640,7 @@ function JuegoConfiguracion({
           })()}
           {!isDraft && (
             <button type="button" onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setNuevaFecha({ preselect: null }))}
-              className="w-full py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2">
+              className="w-full py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2">
               <CalendarDays size={16} />
               Nueva fecha para prórroga
             </button>
@@ -697,7 +697,7 @@ function JuegoConfiguracion({
             onFechaChange={(v) => setForm((f) => ({ ...f, publicarSolucionFecha: v }))}
           />
           <button type="submit" disabled={saving || !formCambio}
-            className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
             {saving ? 'Guardando…' : 'Guardar configuración'}
           </button>
         </form>
@@ -844,7 +844,7 @@ function JuegoConfiguracion({
         footer={(
           <div className="flex gap-2">
             <button type="button" onClick={() => setAnularConfirm(null)} disabled={anulando}
-              className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
+              className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
               Cancelar
             </button>
             <button type="button" onClick={handleAnular} disabled={anulando}

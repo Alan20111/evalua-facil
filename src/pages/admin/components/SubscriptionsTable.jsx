@@ -689,7 +689,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               type="button"
               onClick={limpiarTodo}
               disabled={!hayFiltro}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-accent text-accent hover:bg-[var(--accent-tint)]"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-accent text-accent hover:bg-[var(--accent-tint)]"
             >
               <X size={15} /> Quitar todos los filtros
             </button>
@@ -872,7 +872,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             <button
               type="button"
               onClick={() => setLimit((l) => l + PAGE)}
-              className="px-3 py-1.5 text-sm font-semibold text-accent border border-accent rounded hover:bg-[var(--accent-tint)] transition-colors"
+              className="px-3 py-2 text-sm font-semibold text-accent border border-accent rounded hover:bg-[var(--accent-tint)] transition-colors"
             >
               Mostrar {Math.min(PAGE, filtered.length - visible.length)} más
             </button>
@@ -882,7 +882,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
 
       {deleteModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-xl">
+          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-2xl">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-on-surface">Eliminar cuenta</h3>
               <button type="button" onClick={() => !deleteModal.saving && setDeleteModal(null)} aria-label="Cerrar">
@@ -893,7 +893,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               Docente: <strong className="text-on-surface">{deleteModal.docente}</strong>
             </p>
             <p className="text-sm text-muted mb-4 truncate">{deleteModal.correo}</p>
-            <div className="text-sm bg-red-50 border border-red-200 rounded p-3 mb-5 space-y-1.5">
+            <div className="text-sm bg-red-50 border border-red-200 rounded p-3 mb-4 space-y-1.5">
               <p className="font-semibold text-red-700">Esta acción es permanente e irreversible:</p>
               <ul className="list-disc list-inside space-y-0.5 text-red-600">
                 <li>Se elimina la cuenta de Firebase Auth</li>
@@ -907,7 +907,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 type="button"
                 onClick={() => !deleteModal.saving && setDeleteModal(null)}
                 disabled={deleteModal.saving}
-                className="flex-1 py-2 border border-outline-variant text-muted font-semibold rounded text-sm disabled:opacity-60"
+                className="flex-1 py-2.5 border border-outline-variant text-muted font-semibold rounded text-sm disabled:opacity-60"
               >
                 Cancelar
               </button>
@@ -927,7 +927,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
 
       {ajusteModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-xl">
+          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-2xl">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-on-surface">Ajustar créditos de IA</h3>
               <button type="button" onClick={() => setAjusteModal(null)} aria-label="Cerrar">
@@ -972,7 +972,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               <button
                 type="submit"
                 disabled={ajusteModal.saving || !ajusteModal.cantidad || !ajusteModal.motivo.trim()}
-                className="w-full py-2 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {ajusteModal.saving ? <Spinner size="sm" /> : null}
                 Aplicar ajuste

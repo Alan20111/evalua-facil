@@ -242,7 +242,7 @@ export default function CalificarConIAModal({
                 Cancelar
               </button>
               <button type="button" onClick={ejecutar} disabled={ejecutando}
-                className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center gap-2">
+                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center gap-2">
                 {ejecutando && <Spinner size="sm" />}
                 {ejecutando ? 'Analizando…' : 'Calificar'}
               </button>
@@ -262,12 +262,12 @@ export default function CalificarConIAModal({
               </button>
               {c.mostrarCTAActivarBienvenida && (
                 <button type="button" onClick={() => setActivarAbierto(true)}
-                  className="px-4 py-2 border border-accent text-accent text-sm font-medium rounded hover:bg-[var(--accent-tint)] transition-colors">
+                  className="px-4 py-2.5 border border-accent text-accent text-sm font-medium rounded hover:bg-[var(--accent-tint)] transition-colors">
                   Activar créditos de regalo
                 </button>
               )}
               <button type="button" onClick={() => setComprarAbierto(true)}
-                className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
                 Comprar créditos
               </button>
             </div>
@@ -415,7 +415,7 @@ export default function CalificarConIAModal({
           <div className="flex justify-end gap-2">
             {soloLectura ? (
               <button type="button" onClick={cerrarTodo}
-                className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
                 Cerrar
               </button>
             ) : (
@@ -425,7 +425,7 @@ export default function CalificarConIAModal({
                   Descartar propuesta
                 </button>
                 <button type="button" onClick={cerrarTodo}
-                  className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                  className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
                   Listo, seguir calificando
                 </button>
               </>

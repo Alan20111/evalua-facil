@@ -44,10 +44,10 @@ import { SkeletonList } from './ui'
 // Menú secundario del sidebar (perfil IA, QR, notificaciones, ayuda,
 // archivadas, salir). Una sola clase para todos: antes cada bloque repetía la
 // suya y habían divergido —py-1.5 en unos, py-2 en otros—, así que los
-// renglones no medían igual. gap-2.5 y px-3 son los mismos del menú
+// renglones no medían igual. gap-2 y px-3 son los mismos del menú
 // principal, para que TODO el sidebar alinee su texto en una vertical.
 const ITEM_SECUNDARIO =
-  'flex items-center gap-2.5 w-full px-3 py-2 rounded text-body-sm font-medium transition-colors'
+  'flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm font-medium transition-colors'
 const ITEM_SEC_INACTIVO = 'text-white/80 hover:bg-white/10 hover:text-white'
 const ITEM_SEC_ACTIVO = 'bg-white/15 text-white'
 
@@ -219,7 +219,7 @@ export default function TeacherLayout({ children }) {
           <NavLink
             to="/calendario"
             className={({ isActive }) =>
-              `flex items-center gap-2.5 mx-2 px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
+              `flex items-center gap-2 mx-2 px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
                 isActive
                   ? 'bg-white text-accent shadow-card'
                   : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
@@ -255,8 +255,8 @@ export default function TeacherLayout({ children }) {
                   key={s.id}
                   to={`/subject/${s.id}`}
                   className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-3 py-2.5 rounded transition-colors ${
-                      isActive ? 'bg-white text-accent font-bold shadow-md' : 'text-white/90 hover:bg-white/15'
+                    `flex items-center gap-2 px-3 py-2.5 rounded transition-colors ${
+                      isActive ? 'bg-white text-accent font-bold shadow-lg' : 'text-white/90 hover:bg-white/15'
                     }`
                   }
                 >
@@ -273,7 +273,7 @@ export default function TeacherLayout({ children }) {
             <button
               type="button"
               onClick={() => navigate('/dashboard', { state: { openCreate: true } })}
-              className="flex items-center gap-2.5 w-full px-3 py-2 rounded text-body-sm font-medium text-white hover:bg-white/10 transition-colors mt-1"
+              className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm font-medium text-white hover:bg-white/10 transition-colors mt-1"
             >
               <Plus size={20} className="flex-shrink-0" />
               Nueva asignatura…
@@ -385,8 +385,8 @@ export default function TeacherLayout({ children }) {
                         key={s.id}
                         to={`/subject/${s.id}`}
                         className={({ isActive }) =>
-                          `flex items-center gap-2.5 pl-10 pr-3 py-2 rounded text-body-sm transition-colors ${
-                            isActive ? 'bg-white text-accent font-bold shadow-md' : 'text-white/70 hover:bg-white/15'
+                          `flex items-center gap-2 pl-10 pr-3 py-2 rounded text-body-sm transition-colors ${
+                            isActive ? 'bg-white text-accent font-bold shadow-lg' : 'text-white/70 hover:bg-white/15'
                           }`
                         }
                       >

@@ -188,7 +188,7 @@ export default function DownloadLinks() {
     <div className="space-y-4">
 
       {/* ── Versión vigente + QR ── */}
-      <div className="bg-surface-card rounded-card shadow-card p-5">
+      <div className="bg-surface-card rounded-card shadow-card p-4">
         <h2 className="flex items-center gap-2 text-base font-bold text-on-surface">
           <QrCode size={18} className="text-accent" />
           Versión vigente
@@ -253,9 +253,9 @@ export default function DownloadLinks() {
         )}
 
         {/* QR permanente */}
-        <div className="mt-5 pt-5 border-t border-outline-variant">
+        <div className="mt-4 pt-5 border-t border-outline-variant">
           <p className="text-sm font-semibold text-on-surface">Código QR de descarga</p>
-          <div className="mt-3 flex flex-col sm:flex-row gap-5 items-start">
+          <div className="mt-3 flex flex-col sm:flex-row gap-4 items-start">
             <div className="flex-none">
               {qrDataUrl ? (
                 <img
@@ -288,7 +288,7 @@ export default function DownloadLinks() {
       </div>
 
       {/* ── Publicar una versión nueva ── */}
-      <div className="bg-surface-card rounded-card shadow-card p-5">
+      <div className="bg-surface-card rounded-card shadow-card p-4">
         <h2 className="flex items-center gap-2 text-base font-bold text-on-surface">
           <Cog size={18} className="text-accent" />
           Publicar una versión nueva
@@ -325,7 +325,7 @@ export default function DownloadLinks() {
       </div>
 
       {/* ── Historial ── */}
-      <div className="bg-surface-card rounded-card shadow-card p-5">
+      <div className="bg-surface-card rounded-card shadow-card p-4">
         <h2 className="flex items-center gap-2 text-base font-bold text-on-surface">
           <Link2 size={18} className="text-accent" />
           Historial de versiones
@@ -402,7 +402,7 @@ export default function DownloadLinks() {
 
         {/* LINK_LEGADO — aviso informativo mientras siga activo */}
         {LINK_LEGADO.activo && (
-          <div className="mt-5 flex gap-2 bg-amber-50 border border-amber-200 rounded p-3">
+          <div className="mt-4 flex gap-2 bg-amber-50 border border-amber-200 rounded p-3">
             <AlertTriangle size={14} className="text-amber-600 flex-none mt-0.5" />
             <p className="text-xs text-amber-900 leading-relaxed">
               El enlace de la versión {LINK_LEGADO.version} (agosto 2026) sigue activo y puede estar

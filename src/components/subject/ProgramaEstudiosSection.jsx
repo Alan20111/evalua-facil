@@ -122,7 +122,7 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
             <button
               type="button"
               onClick={() => setVerArchivo(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
+              className="flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
             >
               <Eye size={14} />
               Ver
@@ -136,7 +136,7 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
             <button
               type="button"
               onClick={() => setConfirmarQuitar(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-red-300 text-red-700 text-sm hover:bg-red-50"
+              className="flex items-center gap-1.5 px-3 py-2 rounded border border-red-300 text-red-700 text-sm hover:bg-red-50"
             >
               <Trash2 size={14} /> Quitar
             </button>
@@ -156,7 +156,7 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={subiendo}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
+            className="flex items-center gap-1.5 px-3 py-2 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
           >
             {subiendo ? <Spinner size="sm" /> : <Upload size={14} />}
             Subir programa de estudios (PDF o Word)

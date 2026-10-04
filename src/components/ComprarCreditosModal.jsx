@@ -79,7 +79,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
 
   return (
     <Modal open={open} onClose={handleClose} title="Comprar créditos" variant="centered" size="md">
-      <div className="space-y-5">
+      <div className="space-y-4">
 
         {/* Selección de paquete */}
         <div>
@@ -96,7 +96,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
                     <button
                       type="button"
                       onClick={() => setPaquete(p)}
-                      className={`w-full flex flex-col items-center px-1 py-2.5 rounded-card border transition-colors ${
+                      className={`w-full flex flex-col items-center px-1 py-2.5 rounded border transition-colors ${
                         seleccionado
                           ? 'border-accent bg-[var(--accent-tint)]'
                           : 'border-outline-variant hover:border-accent'
@@ -218,7 +218,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
         <button
           type="button"
           onClick={handleClose}
-          className="w-full py-2 border border-outline-variant text-on-surface font-semibold rounded transition-colors hover:bg-[var(--accent-tint)] text-sm"
+          className="w-full py-2.5 border border-outline-variant text-on-surface font-semibold rounded transition-colors hover:bg-[var(--accent-tint)] text-sm"
         >
           Cancelar
         </button>

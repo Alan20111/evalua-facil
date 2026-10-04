@@ -123,7 +123,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
         {loading ? (
           <SkeletonList rows={5} className="py-4" />
         ) : rubricas.length === 0 ? (
-          <div className="bg-surface-card rounded-card shadow-card p-10 text-center">
+          <div className="bg-surface-card rounded-card shadow-card p-8 text-center">
             <ClipboardList size={32} className="text-slate-300 mx-auto mb-3" />
             <p className="text-muted text-sm">
               Aún no tienes rúbricas guardadas. Crea la primera y podrás
@@ -178,7 +178,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
                     </button>
                   ) : (
                     <button type="button" onClick={() => onSelect(r)}
-                      className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors">
+                      className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors">
                       <Check size={16} /> Usar
                     </button>
                   )}
@@ -211,7 +211,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
                     </p>
                     <div className="flex gap-2">
                       <button type="button" onClick={() => setConfirmDeleteId(null)} disabled={deleting}
-                        className="flex-1 py-1.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60">
+                        className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60">
                         Cancelar
                       </button>
                       <button type="button" onClick={() => handleDelete(r.id)} disabled={deleting}

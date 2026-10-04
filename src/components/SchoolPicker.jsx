@@ -173,7 +173,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
           <div className="flex gap-2">
             <button type="button" onClick={() => setCustomStep('form')} disabled={saving} className={btnSec}>Volver</button>
             <button type="button" onClick={() => setCustomStep('confirm')} disabled={saving}
-              className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60">
+              className="flex-1 py-2.5 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60">
               Ninguna, es nueva
             </button>
           </div>
@@ -204,7 +204,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
               required
-              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+              className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
               placeholder="Ej. Escuela Secundaria Técnica N.° 12"
             />
           </div>
@@ -217,7 +217,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
               type="text"
               value={customCCT}
               onChange={(e) => setCustomCCT(e.target.value)}
-              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+              className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
               placeholder="Ej. 15ECT0001H"
             />
           </div>
@@ -230,7 +230,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
                 value={customCity}
                 onChange={(e) => setCustomCity(e.target.value)}
                 required
-                className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                 placeholder="Ej. Celaya"
               />
             </div>
@@ -242,7 +242,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
                 value={customState}
                 onChange={(e) => setCustomState(e.target.value)}
                 required
-                className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                 placeholder="Ej. Guanajuato"
               />
             </div>

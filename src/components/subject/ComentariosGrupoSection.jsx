@@ -88,7 +88,7 @@ export default function ComentariosGrupoSection({ subjectId, docenteId }) {
         Pesan mucho al diseñar la Planeación con IA — junto con los diagnósticos.
       </p>
       <textarea
-        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
+        className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
         rows={4}
         placeholder={PLACEHOLDER}
         value={comentarios}
@@ -100,7 +100,7 @@ export default function ComentariosGrupoSection({ subjectId, docenteId }) {
           type="button"
           onClick={guardar}
           disabled={guardando || comentarios.trim() === guardado}
-          className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-2"
+          className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-2"
         >
           {guardando && <Spinner size="sm" />}
           {guardando ? 'Guardando…' : 'Guardar'}

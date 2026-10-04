@@ -139,7 +139,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
             onClick={handleExportPdf}
             disabled={exportingPdf}
             data-tooltip="PDF con estas gráficas"
-            className="flex items-center gap-1.5 px-3 py-1.5 mt-0.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60 flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 mt-0.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60 flex-shrink-0"
           >
             {exportingPdf ? <Spinner size="sm" /> : <Download size={16} />}
             {exportingPdf ? 'Generando…' : 'Descargar gráficas'}
@@ -179,7 +179,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
                     </div>
                     <div className="flex flex-col sm:flex-row items-center gap-4">
                       <Pie slices={slices} />
-                      <div className="flex-1 w-full min-w-0 space-y-2.5">
+                      <div className="flex-1 w-full min-w-0 space-y-2">
                         {(p.opciones || []).map((o, idx) => {
                           const count = preguntaCounts[o.id] || 0
                           const pct = total ? Math.round((count / total) * 100) : 0

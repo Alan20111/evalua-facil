@@ -108,7 +108,7 @@ export default function PerfilIA() {
       </div>
 
       <div
-        className={`flex items-center gap-2 text-sm font-medium rounded-card px-3 py-2 mb-5 ${
+        className={`flex items-center gap-2 text-sm font-medium rounded-card px-3 py-2 mb-4 ${
           completo
             ? 'bg-green-50 text-green-700'
             : 'bg-amber-50 text-amber-700'
@@ -141,7 +141,7 @@ export default function PerfilIA() {
         <button
           type="submit"
           disabled={saving || !changed}
-          className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+          className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {saving && <Spinner size="sm" />}
           {saving ? 'Guardando…' : 'Guardar'}

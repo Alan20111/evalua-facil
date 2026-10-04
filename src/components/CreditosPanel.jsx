@@ -69,7 +69,7 @@ export default function CreditosPanel({ onCerrar }) {
                 : 'Adquiere créditos para usar las funciones de IA.'}
             </p>
             <button type="button" onClick={() => setComprarAbierto(true)}
-              className="mt-2 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+              className="mt-2 px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
               Comprar créditos
             </button>
           </div>
@@ -78,7 +78,7 @@ export default function CreditosPanel({ onCerrar }) {
         {/* Comprar créditos — siempre disponible, no solo agotado */}
         {!agotado && (
           <button type="button" onClick={() => setComprarAbierto(true)}
-            className="w-full mb-4 px-3 py-2 border border-outline-variant text-on-surface text-sm font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors">
+            className="w-full mb-4 px-3 py-2 border border-outline-variant text-on-surface text-sm font-medium rounded hover:bg-[var(--accent-tint)] transition-colors">
             Comprar más créditos
           </button>
         )}

@@ -195,11 +195,11 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
         </div>
         <div className="flex gap-2 mt-4">
           <button type="button" onClick={onCancel}
-            className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+            className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
             Cancelar
           </button>
           <button type="button" onClick={handleConfirm} disabled={!imgEl || saving}
-            className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+            className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
             {saving ? <Spinner size="sm" /> : <Check size={16} />}
             Guardar
           </button>

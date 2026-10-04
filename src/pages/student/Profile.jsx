@@ -256,7 +256,7 @@ export default function StudentProfile() {
         </div>
 
         {/* ── Identidad ── */}
-        <div className="bg-surface-card rounded-card shadow-card p-5 mb-4 flex items-center gap-4">
+        <div className="bg-surface-card rounded-card shadow-card p-4 mb-4 flex items-center gap-4">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -308,7 +308,7 @@ export default function StudentProfile() {
           <button
             type="button"
             onClick={() => navigate('/alumno/mi-espacio')}
-            className="md:hidden w-full bg-surface-card rounded-card shadow-card p-5 mb-4 flex items-center gap-3 text-left hover:bg-[var(--accent-tint)] transition-colors"
+            className="md:hidden w-full bg-surface-card rounded-card shadow-card p-4 mb-4 flex items-center gap-3 text-left hover:bg-[var(--accent-tint)] transition-colors"
           >
             <Cloud size={20} className="text-accent flex-shrink-0" />
             <span className="min-w-0 flex-1">
@@ -320,7 +320,7 @@ export default function StudentProfile() {
         )}
 
         {/* ── Datos de acceso ── */}
-        <div className="bg-surface-card rounded-card shadow-card p-5 mb-4">
+        <div className="bg-surface-card rounded-card shadow-card p-4 mb-4">
           <h2 className="text-sm font-semibold text-on-surface mb-3">Datos de acceso</h2>
           <p className="text-xs text-muted mb-1.5">
             Entras a Evalúa Fácil con este usuario, y <strong>solo con este</strong>. Te lo dio tu
@@ -346,7 +346,7 @@ export default function StudentProfile() {
         </div>
 
         {/* ── Cambiar contraseña ── */}
-        <div className="bg-surface-card rounded-card shadow-card p-5 mb-4">
+        <div className="bg-surface-card rounded-card shadow-card p-4 mb-4">
           <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
             <KeyRound size={16} className="text-accent" />
             {debeEstablecerContrasena ? 'Establece tu contraseña personal' : 'Cambiar contraseña'}
@@ -420,7 +420,7 @@ export default function StudentProfile() {
             cualquier otra. Contarle por qué "todavía no puede" era hacerlo
             pensar en un problema que no tiene. */}
         {enrollments.length === 0 && (
-          <div className="bg-surface-card rounded-card shadow-card p-5 mt-4">
+          <div className="bg-surface-card rounded-card shadow-card p-4 mt-4">
             <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
               <UserMinus size={16} className="text-accent" /> Mi cuenta
             </h2>

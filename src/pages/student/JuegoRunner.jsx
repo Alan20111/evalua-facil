@@ -220,14 +220,14 @@ export default function JuegoRunner() {
 
       {showExitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-surface-card rounded-card shadow-2xl p-6 max-w-sm w-full">
+          <div className="bg-surface-card rounded-card shadow-2xl p-5 max-w-sm w-full">
             <h3 className="text-base font-bold text-on-surface mb-2">¿Salir del juego?</h3>
             <p className="text-sm text-muted mb-3">
               Puedes salir y continuar después desde donde lo dejaste — tu progreso ya está guardado.
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowExitModal(false)}
-                className="flex-1 py-2 text-sm text-muted border border-outline-variant rounded">
+                className="flex-1 py-2.5 text-sm text-muted border border-outline-variant rounded">
                 Seguir jugando
               </button>
               <button type="button" onClick={() => navigate(`/alumno/actividad/${activityId}`)}

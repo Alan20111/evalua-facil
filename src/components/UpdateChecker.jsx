@@ -45,13 +45,13 @@ export default function UpdateChecker() {
   if (IS_NATIVE_APP || !hayVersionNueva) return null
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-4 py-3 rounded-card shadow-2xl bg-surface-card border border-outline max-w-[calc(100vw-2rem)]">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-4 py-3 rounded-card shadow-2xl bg-surface-card border border-outline-variant max-w-[calc(100vw-2rem)]">
       <RefreshCw size={18} className="flex-shrink-0 text-accent" />
       <p className="text-sm text-on-surface">Hay una versión nueva de Evalúa Fácil. Recarga para actualizar.</p>
       <button
         type="button"
         onClick={() => window.location.reload()}
-        className="flex-shrink-0 px-3 py-1.5 rounded bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity"
+        className="flex-shrink-0 px-3 py-2 rounded bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity"
       >
         Recargar
       </button>

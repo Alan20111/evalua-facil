@@ -63,7 +63,7 @@ function ProfileErrorScreen() {
     <div className="min-h-[100dvh] flex items-center justify-center bg-surface px-4">
       <div className="bg-surface-card rounded-card shadow-card p-8 max-w-sm w-full text-center">
         <p className="text-on-surface font-semibold mb-2">Error al cargar tu perfil</p>
-        <p className="text-muted text-sm mb-5">
+        <p className="text-muted text-sm mb-4">
           No pudimos conectar con el servidor.<br />
           Revisa tu conexión e intenta de nuevo.
         </p>

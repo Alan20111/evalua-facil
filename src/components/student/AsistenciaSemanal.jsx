@@ -138,7 +138,7 @@ export default function AsistenciaSemanal({
             la etiqueta lo dice y el total de sesiones va pegado a ellos. */}
         {pct != null && (
           <div className="mt-3">
-            <div className="flex items-end flex-wrap gap-x-5 gap-y-1.5">
+            <div className="flex items-end flex-wrap gap-x-4 gap-y-1.5">
               <p className="leading-none">
                 <span className={`text-4xl font-bold tabular-nums ${enRiesgo ? 'text-red-500' : 'text-accent'}`}>{pct}%</span>
                 <span className="text-sm text-muted ml-1.5">asistencia del periodo</span>

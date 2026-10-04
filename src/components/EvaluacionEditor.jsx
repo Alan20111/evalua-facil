@@ -1021,7 +1021,7 @@ export default function EvaluacionEditor({
                 <label htmlFor="info-nombre" className="block text-sm font-medium text-muted mb-1">Nombre</label>
                 <input id="info-nombre" type="text" value={infoForm.nombre} onChange={(e) => setInfoForm((f) => ({ ...f, nombre: e.target.value }))}
                   required placeholder={`Ej: ${tipoLabel} parcial 1`}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               {/* Default apagado: el docente elige, actividad por actividad,
                   cuáles quiere que le avisen. El push solo llega al celular
@@ -1159,7 +1159,7 @@ export default function EvaluacionEditor({
                     <button
                       type="button"
                       onClick={() => setNewDateOpen(true)}
-                      className="w-full mt-2 py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
+                      className="w-full mt-2 py-2.5 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
                     >
                       <CalendarDays size={16} /> Nueva fecha para prórroga
                     </button>
@@ -1226,7 +1226,7 @@ export default function EvaluacionEditor({
               </button>
               <button type="button" disabled={savingInfo || (!isDirty && !preguntasTocadas)}
                 onClick={() => handleSaveInfo({ preventDefault: () => {} }, true, true)}
-                className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                className="w-full py-2.5 border border-accent text-accent font-medium rounded hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                 Guardar borrador y salir
               </button>
             </>
@@ -1247,7 +1247,7 @@ export default function EvaluacionEditor({
                     if (infoForm.publishedAt) setConfirmDraft(true)
                     else handleSaveInfo({ preventDefault: () => {} }, true, false)
                   }}
-                  className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                  className="w-full py-2.5 border border-accent text-accent font-medium rounded hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                   Guardar como borrador
                 </button>
               )}
@@ -1264,7 +1264,7 @@ export default function EvaluacionEditor({
           {!isNew && (
             // With no changes, exiting is the natural action — it takes the primary style
             <button type="button" onClick={onClose} disabled={savingInfo}
-              className={`w-full py-2.5 font-medium rounded-card transition-colors disabled:opacity-60 ${(!isDirty && !preguntasTocadas && (!wasDraft || infoForm.visibilidadMode === 'hide'))
+              className={`w-full py-2.5 font-medium rounded transition-colors disabled:opacity-60 ${(!isDirty && !preguntasTocadas && (!wasDraft || infoForm.visibilidadMode === 'hide'))
                 ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
                 : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
               {isDirty ? 'Salir sin guardar cambios' : 'Salir'}
@@ -1386,7 +1386,7 @@ export default function EvaluacionEditor({
               />
             </div>
             <button type="submit" disabled={savingConfig || !currentActivityId || JSON.stringify(configForm) === configSnap.current}
-              className={`w-full py-2 text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
+              className={`w-full py-2.5 text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
               {savingConfig ? <Spinner size="sm" /> : null}
               {savingConfig ? 'Guardando…' : 'Guardar configuración'}
             </button>
@@ -1419,7 +1419,7 @@ export default function EvaluacionEditor({
                 type="button"
                 onClick={handleRepartirParejo}
                 disabled={savingPregunta}
-                className="w-full flex items-center justify-center gap-1.5 py-2 rounded border border-accent text-accent text-sm font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
               >
                 <Scale size={15} /> Repartir 10 pts parejo entre las {preguntas.length} preguntas
               </button>
@@ -1678,7 +1678,7 @@ export default function EvaluacionEditor({
                               }, 120)
                             }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
                             <button type="submit" disabled={savingPregunta || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current}
-                              className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                              className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
                               {savingPregunta ? 'Guardando…' : 'Guardar cambios'}
                             </button>
                           </div>
@@ -1846,7 +1846,7 @@ export default function EvaluacionEditor({
                     <div className="flex gap-2 pt-1">
                       <button type="button" onClick={() => { setShowPreguntaForm(false); setSeccionDestino(null); setPreguntaForm(emptyPregunta()) }}
                         className="flex-1 py-2 text-sm text-muted">Cancelar</button>
-                      <button type="submit" disabled={savingPregunta} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                      <button type="submit" disabled={savingPregunta} className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
                         {savingPregunta ? 'Guardando…' : 'Guardar pregunta'}
                       </button>
                     </div>
@@ -1868,18 +1868,18 @@ export default function EvaluacionEditor({
                     )}
                     <div className="flex gap-2">
                       <button type="button" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm bg-accent text-white font-medium rounded-card">
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm bg-accent text-white font-medium rounded">
                         <Plus size={15} /> Crear reactivo nuevo
                       </button>
                       <button type="button" onClick={() => { setShowBanco(true); loadBanco(); setSelectedBancoIds(new Set()) }}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm border border-accent text-accent font-medium rounded-card">
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm border border-accent text-accent font-medium rounded">
                         <Library size={15} /> Agregar desde el Banco
                       </button>
                     </div>
                     {/* OP-09: solo en la web, igual que la generación de rúbrica/cotejo. */}
                     {!IS_NATIVE_APP && (
                       <button type="button" onClick={pedirReactivosIA}
-                        className="w-full flex items-center justify-center gap-1.5 py-2.5 text-sm border-2 border-accent text-accent font-semibold rounded-card hover:bg-[var(--accent-tint)] transition-colors">
+                        className="w-full flex items-center justify-center gap-1.5 py-2.5 text-sm border border-accent text-accent font-semibold rounded hover:bg-[var(--accent-tint)] transition-colors">
                         <Sparkles size={15} /> Generar reactivos con IA
                       </button>
                     )}
@@ -1954,7 +1954,7 @@ export default function EvaluacionEditor({
                       handleAddFromBancoMultiple(items)
                       setShowBanco(false)
                     }}
-                    className="text-xs font-medium bg-accent text-white rounded px-3 py-1.5 disabled:opacity-60"
+                    className="text-xs font-medium bg-accent text-white rounded px-3 py-2 disabled:opacity-60"
                   >
                     Agregar {selectedBancoIds.size} a la evaluación
                   </button>
@@ -2004,7 +2004,7 @@ export default function EvaluacionEditor({
                             <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                             <button type="button" onClick={() => handleSaveBancoEdit(item.id)}
                               disabled={JSON.stringify(bancoEditForm) === bancoEditSnap.current}
-                              className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">Guardar</button>
+                              className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">Guardar</button>
                           </div>
                         </div>
                       ) : (
@@ -2054,7 +2054,7 @@ export default function EvaluacionEditor({
                             </p>
                           )}
                           <button type="button" onClick={() => { handleAddFromBanco(item); setShowBanco(false) }}
-                            className="mt-2 w-full py-1.5 text-xs font-medium bg-accent text-white rounded">
+                            className="mt-2 w-full py-2 text-xs font-medium bg-accent text-white rounded">
                             + Agregar a la evaluación
                           </button>
                         </div>
@@ -2068,7 +2068,7 @@ export default function EvaluacionEditor({
             {/* Footer fijo */}
             <div className="p-3 border-t border-outline-variant flex-shrink-0">
               <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }}
-                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-card hover:bg-accent-hover transition-colors">Cerrar</button>
+                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors">Cerrar</button>
             </div>
           </div>
         </div>
@@ -2144,7 +2144,7 @@ export default function EvaluacionEditor({
           onCancelar={() => { if (!iaTrabajando) setIaConfirmando(false) }}
           onContinuar={generarReactivosConIA}
         >
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             {/* "Mismo tema que los reactivos anteriores": SOLO aparece si ya
                 hay reactivos en la evaluación (manuales, generados por IA o
                 mezcla — no distingue). Marcado por defecto. Cuando está

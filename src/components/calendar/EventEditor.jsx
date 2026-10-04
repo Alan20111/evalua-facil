@@ -344,7 +344,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               </button>
             )}
             <button type="submit" disabled={saving || !eventChanged}
-              className="flex-1 py-2 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2">
+              className="flex-1 py-2.5 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2">
               {saving ? <Spinner size="sm" /> : isNew ? 'Crear evento' : 'Guardar cambios'}
             </button>
           </div>

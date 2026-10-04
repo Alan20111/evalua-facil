@@ -98,7 +98,7 @@ export default function PlaneacionPropiaCard({
         <button
           type="button"
           onClick={() => setVerArchivo(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
+          className="flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
         >
           <Eye size={14} />
           Ver
@@ -123,7 +123,7 @@ export default function PlaneacionPropiaCard({
           type="button"
           onClick={onGenerarIA}
           disabled={subiendo}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-accent text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
+          className="flex items-center gap-1.5 px-3 py-2 rounded border border-outline-variant text-accent text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
         >
           <Sparkles size={14} />
           Generar planeación con Evalúa Fácil

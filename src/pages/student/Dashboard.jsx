@@ -477,10 +477,10 @@ export default function StudentDashboard() {
         )}
 
         <h1 className="text-xl font-bold text-on-surface mb-1">Mis asignaturas</h1>
-        <p className="text-hint text-sm mb-5">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's activas' : ' activa'}</p>
+        <p className="text-hint text-sm mb-4">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's activas' : ' activa'}</p>
 
         {activeSubjects.length === 0 ? (
-          <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
+          <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
             <BookOpen size={32} className="text-slate-300 mx-auto mb-3" />
             <p className="text-muted mb-1">Aún no tienes asignaturas</p>
             <p className="text-hint text-sm">Usa el botón de abajo para unirte a una.</p>
@@ -492,7 +492,7 @@ export default function StudentDashboard() {
                 key={s.id}
                 ref={(el) => { dragCardRefs.current[i] = el }}
                 {...subjectPaletteProps(s.colorPalette)}
-                className={`w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md transition-all duration-200 flex items-center gap-1 ${dragIndex === i ? 'opacity-60 shadow-lg' : ''}`}
+                className={`w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-card-hover transition-all duration-200 flex items-center gap-1 ${dragIndex === i ? 'opacity-60 shadow-lg' : ''}`}
               >
                 {/* Reordenar: flechas en la web, arrastrar en la App — solo si
                     hay más de una asignatura (con una sola no hay nada que
@@ -569,7 +569,7 @@ export default function StudentDashboard() {
         <button
           type="button"
           onClick={openJoinModal}
-          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-card border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
+          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
         >
           <Plus size={18} /> Unirme a otra asignatura
         </button>
@@ -588,7 +588,7 @@ export default function StudentDashboard() {
             <button
               type="button"
               onClick={() => setShowArchived((v) => !v)}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-muted hover:bg-accent-tint transition-colors"
+              className="w-full flex items-center gap-2 px-4 py-3 text-sm text-muted hover:bg-accent-tint transition-colors"
             >
               <Archive size={16} className="flex-shrink-0" />
               <span className="flex-1 text-left">Asignaturas archivadas ({archivedSubjects.length})</span>
@@ -604,7 +604,7 @@ export default function StudentDashboard() {
                     <button
                       type="button"
                       onClick={() => navigate(`/alumno/materia/${s.id}`)}
-                      className="flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2 rounded text-sm text-muted hover:bg-accent-tint transition-colors text-left"
+                      className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded text-sm text-muted hover:bg-accent-tint transition-colors text-left"
                     >
                       <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
                       <span className="truncate">{subjectDisplayName(s)}</span>
@@ -635,7 +635,7 @@ export default function StudentDashboard() {
               type="button"
               onClick={() => setShowWebInfo((v) => !v)}
               aria-expanded={showWebInfo}
-              className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-accent-tint transition-colors text-left"
+              className="w-full flex items-center gap-2 px-4 py-3 hover:bg-accent-tint transition-colors text-left"
             >
               <Globe size={17} className="text-accent flex-shrink-0" />
               <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">También puedes entrar desde tu computadora</span>
@@ -660,7 +660,7 @@ export default function StudentDashboard() {
               type="button"
               onClick={() => setShowAppInfo((v) => !v)}
               aria-expanded={showAppInfo}
-              className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-accent-tint transition-colors text-left"
+              className="w-full flex items-center gap-2 px-4 py-3 hover:bg-accent-tint transition-colors text-left"
             >
               <Smartphone size={17} className="text-accent flex-shrink-0" />
               <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">📱 Evalúa Fácil en tu celular</span>
@@ -775,7 +775,7 @@ export default function StudentDashboard() {
               <button
                 type="button"
                 onClick={() => navigate(`/alumno/materia/${subjectToRemove.id}`)}
-                className="w-full py-2 rounded border border-amber-400 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded border border-amber-400 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
               >
                 <Download size={16} /> Abrir y descargar mis entregas
               </button>

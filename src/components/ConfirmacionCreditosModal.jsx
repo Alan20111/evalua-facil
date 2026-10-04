@@ -73,7 +73,7 @@ export default function ConfirmacionCreditosModal({
                 Cancelar
               </button>
               <button type="button" onClick={onContinuar} disabled={ejecutando || continuarDeshabilitado}
-                className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
                 {ejecutando ? 'Trabajando…' : 'Continuar'}
               </button>
             </div>
@@ -94,12 +94,12 @@ export default function ConfirmacionCreditosModal({
               </button>
               {c.mostrarCTAActivarBienvenida && (
                 <button type="button" onClick={() => setActivarAbierto(true)}
-                  className="px-4 py-2 border border-accent text-accent text-sm font-medium rounded hover:bg-[var(--accent-tint)] transition-colors">
+                  className="px-4 py-2.5 border border-accent text-accent text-sm font-medium rounded hover:bg-[var(--accent-tint)] transition-colors">
                   Activar créditos de regalo
                 </button>
               )}
               <button type="button" onClick={() => setComprarAbierto(true)}
-                className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
                 Comprar créditos
               </button>
             </div>

@@ -151,7 +151,7 @@ export default function ContenidoJuegoEditor({ activity, onConstruido }) {
 
       <div className="flex justify-end pt-2">
         <button type="button" onClick={handleConstruir} disabled={trabajando}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
+          className="flex items-center gap-2 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
           <Wand2 size={16} />
           {construyendo ? 'Construyendo…' : 'Confirmar contenido y construir juego'}
         </button>

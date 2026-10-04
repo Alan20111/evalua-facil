@@ -36,7 +36,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
             onClick={() => onChange(p.key)}
             data-tooltip={p.label}
             aria-label={p.label}
-            className={`aspect-square w-full ${IS_NATIVE_APP ? 'rounded' : 'rounded-lg'} flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
+            className={`aspect-square w-full rounded flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
             style={{ backgroundColor: p.color }}
           >
             {selected && <Check size={IS_NATIVE_APP ? 12 : 16} className="text-white" />}
@@ -53,7 +53,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
         data-tooltip="Elige tu propio color (se ajusta solo para notarse sobre blanco)"
         data-tooltip-pos="left"
         aria-label="Color personalizado"
-        className={`aspect-square w-full ${IS_NATIVE_APP ? 'rounded' : 'rounded-lg'} flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
+        className={`aspect-square w-full rounded flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
         style={custom
           ? { backgroundColor: customColor }
           : { background: 'conic-gradient(#ef4444, #f97316, #eab308, #16a34a, #06b6d4, #2563eb, #9333ea, #ef4444)' }}
