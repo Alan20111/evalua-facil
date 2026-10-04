@@ -1093,7 +1093,7 @@ export default function EvaluacionEditor({
                       headerLabel="Fecha y hora límite"
                       value={infoForm.fechaLimite}
                       onChange={v => setInfoForm(f => ({ ...f, fechaLimite: v }))}
-                      textoVacio="Sin fecha límite…"
+                      valorVacio="Sin fecha límite"
                       clearable
                       defaultTime="23:59"
                       defaultDate={

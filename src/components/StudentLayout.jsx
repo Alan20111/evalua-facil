@@ -117,7 +117,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
       {/* IS_NATIVE_APP: el WebView de Android a veces reporta viewport ≥768px
           activando md:hidden — con IS_NATIVE_APP forzamos el comportamiento
           móvil en la app nativa igual que en Layout.jsx del docente. */}
-      <header className={`${IS_NATIVE_APP ? '' : 'md:hidden'} sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top`}>
+      <header data-esq="sesion-encabezado-movil" className={`${IS_NATIVE_APP ? '' : 'md:hidden'} sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2 flex items-center justify-between shadow-card safe-top`}>
         <button
           type="button"
           onClick={() => setShowFullLogo((v) => !v)}
@@ -144,6 +144,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
         {/* Sidebar — desktop only. data-role="docente" forces the institutional
             blue regardless of the parent's data-role="alumno" accent override. */}
         <aside
+          data-esq="sesion-lateral"
           data-role="docente"
           className={`${IS_NATIVE_APP ? 'hidden' : 'hidden md:flex'} flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20`}
         >

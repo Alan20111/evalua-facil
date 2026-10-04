@@ -701,7 +701,7 @@ export default function EntregableEditor({
                       headerLabel="Fecha y hora límite"
                       value={form.fechaLimite}
                       onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
-                      textoVacio="Sin fecha límite…"
+                      valorVacio="Sin fecha límite"
                       clearable
                       defaultTime="23:59"
                       defaultDate={

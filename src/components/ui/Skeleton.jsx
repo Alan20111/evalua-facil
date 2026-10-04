@@ -31,9 +31,12 @@ export function SkeletonGroup({ etiqueta = 'Cargando…', className = '', childr
   return (
     // <output> ya tiene el rol "status" implícito (lo anuncia el lector de
     // pantalla); es inline de fábrica, por eso el `block`.
+    // El texto para lectores va AL FINAL: `space-y-*` usa el combinador `~`, y
+    // si el <span> oculto fuera el primer hijo empujaría la primera fila
+    // (medido: 3.6 px de desfase contra la pantalla real).
     <output aria-busy="true" aria-live="polite" className={cn('block', className)}>
-      <span className="sr-only">{etiqueta}</span>
       {children}
+      <span className="sr-only">{etiqueta}</span>
     </output>
   )
 }

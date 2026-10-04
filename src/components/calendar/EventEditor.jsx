@@ -306,7 +306,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               mode="datetime"
               value={fechas.inicio}
               onChange={v => setFechas(f => ({ ...f, inicio: v, fin: f.fin && f.fin < v ? v : f.fin }))}
-              textoVacio="Fecha y hora de inicio"
+              etiqueta="Fecha y hora de inicio"
               clearable={false}
             />
           </div>
@@ -317,7 +317,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               mode="datetime"
               value={fechas.fin}
               onChange={v => setFechas(f => ({ ...f, fin: v }))}
-              textoVacio="Fecha y hora de fin (opcional)"
+              etiqueta="Fecha y hora de fin (opcional)"
               clearable
             />
           </div>

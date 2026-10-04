@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { EsqueletoSesion } from '../components/esqueletos'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -12,11 +13,26 @@ import { refreshTeacherReminders, installReminderResumeListener, installReminder
 
 const AuthContext = createContext(null)
 
+// Mientras se resuelve la sesión NO se deja la pantalla en blanco: en las rutas
+// privadas se dibuja el esqueleto del shell (barra lateral/superior/inferior
+// + lista), que mide lo mismo que la app ya cargada (check:esqueletos). En las
+// públicas (login, registro, descarga…) se sigue sin pintar nada.
+const RUTAS_DOCENTE = ['/dashboard', '/subject/', '/activity/', '/profile', '/perfil-ia', '/calendario', '/notificaciones', '/ayuda']
+function esqueletoDeSesion(pathname) {
+  if (pathname.startsWith('/alumno/')) {
+    return <EsqueletoSesion rol="alumno" contenido={pathname.startsWith('/alumno/materia/') ? 'asignatura' : 'tablero'} />
+  }
+  if (!RUTAS_DOCENTE.some((r) => pathname === r || pathname.startsWith(r))) return null
+  const contenido = pathname.startsWith('/subject/') ? 'asignatura' : pathname.startsWith('/activity/') ? 'actividad' : 'tablero'
+  return <EsqueletoSesion contenido={contenido} />
+}
+
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null)
   const [userProfile, setUserProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
+  const { pathname } = useLocation()
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -212,7 +228,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{ currentUser, userProfile, loading, setUserProfile }}>
-      {!loading && children}
+      {loading ? esqueletoDeSesion(pathname) : children}
     </AuthContext.Provider>
   )
 }

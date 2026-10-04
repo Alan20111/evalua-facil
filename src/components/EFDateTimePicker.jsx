@@ -430,7 +430,8 @@ export default function EFDateTimePicker({
   value = '',
   onChange,
   mode = 'datetime',   // 'date' | 'datetime'
-  textoVacio,
+  valorVacio,
+  etiqueta,
   disabled = false,
   clearable = true,
   className = '',
@@ -745,7 +746,11 @@ export default function EFDateTimePicker({
   }, [draft, mode, hourIdx, minIdx, ampmIdx])
 
   const display       = formatDisplay(parsed, mode)
-  const placeholderText = textoVacio || (mode === 'date' ? 'Seleccionar fecha…' : 'Seleccionar fecha y hora…')
+  // Sin texto gris dentro del campo (regla de la app). Si "vacío" es un estado con
+  // significado (p. ej. «Sin fecha límite»), el llamador pasa `valorVacio` y se
+  // muestra como un valor más. Si no, el campo queda en blanco y su nombre
+  // accesible sale de `etiqueta` o `headerLabel`.
+  const nombreVacio = etiqueta || headerLabel || (mode === 'date' ? 'Fecha' : 'Fecha y hora')
 
   // ── Calendar grid ──────────────────────────────────────────────────────────
   const grid = useMemo(() => buildGrid(viewDate), [viewDate])
@@ -1106,7 +1111,9 @@ export default function EFDateTimePicker({
               )}
             </>
           ) : (
-            <span style={{ color: 'var(--outline)' }}>{placeholderText}</span>
+            valorVacio
+              ? <span style={{ color: 'var(--on-surface)' }}>{valorVacio}</span>
+              : <><span aria-hidden="true">&nbsp;</span><span className="sr-only">{nombreVacio}</span></>
           )}
         </span>
         {value && clearable && (

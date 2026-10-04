@@ -17,11 +17,16 @@ const ANCHOS = ['w-2/3', 'w-1/2', 'w-3/5', 'w-2/5', 'w-1/3']
 const ancho = (i, desfase = 0) => ANCHOS[(i + desfase) % ANCHOS.length]
 
 // Columna de flechas Subir/Bajar (web) o asa de arrastre (App) de las filas
-// reordenables: dos botones p-2 con icono 16 = 32×64.
+// reordenables. Los iconos de la pantalla real son de 16 px literales (no
+// escalan con la raíz de 14.4 px): dos botones p-2 con icono 16 = 30.4×60.8.
 function Reordenar() {
   return IS_NATIVE_APP
-    ? <span className="w-[2.361rem] h-[2.361rem] -m-1 flex-shrink-0 flex items-center justify-center"><Skeleton className="w-3 h-4" /></span>
-    : <span className="w-8 h-16 flex-shrink-0 flex flex-col items-center justify-around"><Skeleton className="w-3.5 h-3.5" /><Skeleton className="w-3.5 h-3.5" /></span>
+    ? <span className="p-2 -m-1 flex-shrink-0"><Skeleton className="w-[1.25rem] h-[1.25rem]" /></span>
+    : (
+      <span className="flex flex-col flex-shrink-0">
+        {[0, 1].map((i) => <span key={i} className="p-2"><Skeleton className="w-[1.111rem] h-[1.111rem]" /></span>)}
+      </span>
+    )
 }
 
 // ── Docente · tablero: "Mis asignaturas (n)" + filas de materia ──
@@ -77,27 +82,45 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
         </div>
         <div className={TEACHER_CONTAINER}>
         <div data-esq="subj-doc-parciales" className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
-          {Array.from({ length: parciales }, (_, i) => (
-            <div key={i} data-esq="subj-doc-parcial" className="bg-surface-card rounded-card overflow-hidden shadow-card">
-              <div className="flex items-center gap-1">
-                <div data-esq="subj-doc-parcial-cabecera" className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2">
-                  <Skeleton data-esq="subj-doc-parcial-icono" className="w-10 h-10 rounded flex-shrink-0" />
-                  <div className="min-w-0 w-40">
-                    <SkeletonLine texto="text-base font-semibold leading-tight" className="w-24" />
-                    <SkeletonLine texto="text-sm leading-tight" className="w-20 -mt-0.5" />
+          {Array.from({ length: parciales }, (_, i) => {
+            // El Parcial 1 llega ABIERTO en la pantalla real (borde tenue, fondo
+            // en la cabecera y la lista con sus tres botones punteados).
+            const abierto = i === 0
+            return (
+              <div key={i} data-esq="subj-doc-parcial" className={cn('bg-surface-card rounded-card overflow-hidden shadow-card', abierto && 'border border-accent-soft')}>
+                <div data-esq="subj-doc-parcial-cabecera-fondo" className={abierto ? 'bg-accent-light border-b border-accent-soft' : ''}>
+                  <div className="flex items-center gap-1">
+                    <div data-esq="subj-doc-parcial-cabecera" className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2">
+                      <Skeleton data-esq="subj-doc-parcial-icono" className="w-10 h-10 rounded flex-shrink-0" />
+                      <div className="min-w-0 w-40">
+                        <SkeletonLine texto="text-base font-semibold leading-tight" className="w-24" />
+                        <SkeletonLine texto="text-sm leading-tight" className="w-20 -mt-0.5" />
+                      </div>
+                    </div>
+                    <span className="p-2"><Skeleton className="w-[1.389rem] h-[1.389rem]" /></span>
+                    <span className="p-2 mr-2"><Skeleton className="w-[1.389rem] h-[1.389rem]" /></span>
+                  </div>
+                  <div data-esq="subj-doc-parcial-filtro" className="px-4 pb-2 pl-[4.5rem] -mt-1">
+                    <span className="inline-flex items-center gap-2 w-full">
+                      <Skeleton className="w-[0.903rem] h-[0.903rem] m-[0.208rem] ml-1 rounded-sm flex-shrink-0" />
+                      <SkeletonLine texto="text-xs" className="w-48 max-w-[70%]" />
+                    </span>
                   </div>
                 </div>
-                <span className="p-2"><Skeleton className="w-[1.389rem] h-[1.389rem]" /></span>
-                <span className="p-2 mr-2"><Skeleton className="w-[1.389rem] h-[1.389rem]" /></span>
+                {abierto && (
+                  <div data-esq="subj-doc-parcial-cuerpo" className="border-t border-outline-variant pr-4 py-2">
+                    <div data-esq="subj-doc-parcial-lista" className="ml-3 pl-3 border-l-2 border-accent-soft space-y-1.5">
+                      {[0, 1, 2].map((k) => (
+                        <div key={k} data-esq="subj-doc-cta" className="w-full py-2.5 border border-dashed border-accent-soft rounded-full text-sm font-medium flex items-center justify-center gap-2">
+                          <SkeletonLine texto="text-sm" className="w-40" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div data-esq="subj-doc-parcial-filtro" className="px-4 pb-2 pl-[4.5rem] -mt-1">
-                <span className="inline-flex items-center gap-2 w-full">
-                  <Skeleton className="w-[0.903rem] h-[0.903rem] m-[0.208rem] ml-1 rounded-sm flex-shrink-0" />
-                  <SkeletonLine texto="text-xs" className="w-48 max-w-[70%]" />
-                </span>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
         </div>
       </SkeletonGroup>
@@ -138,7 +161,10 @@ export function EsqueletoActividadDocente({ filas = 8 }) {
               </span>
             ))}
           </div>
-          <div data-esq="act-doc-ayuda" className="px-4 pt-4 pb-2 flex justify-center"><SkeletonLine texto="text-xs" className="w-44 mt-1.5" /></div>
+          <div data-esq="act-doc-ayuda" className="px-4 pt-4 pb-2">
+            <Skeleton className="h-[2.528rem] w-full rounded-full" />
+            <div className="flex justify-center"><SkeletonLine texto="text-xs" className="w-44 mt-1.5" /></div>
+          </div>
           <div data-esq="act-doc-lista-contenedor" className="px-4 pb-4">
             <div data-esq="act-doc-lista" className="bg-surface-card rounded-card overflow-hidden shadow-card">
               {Array.from({ length: filas }, (_, i) => (
@@ -245,9 +271,12 @@ export function EsqueletoAsignaturaAlumno({ parciales = 3 }) {
 // ── Espera de la sesión (App.jsx), antes de saber el rol ──
 // Misma geometría que el shell: barra lateral de 300 px en escritorio y el
 // tablero en el contenedor angosto, que es a donde llega casi todo el mundo.
-export function EsqueletoSesion() {
+export function EsqueletoSesion({ rol = 'docente', contenido = 'tablero' }) {
   return (
-    <div className="min-h-dvh bg-surface">
+    // data-role propio: mientras se resuelve la sesión este esqueleto vive FUERA
+    // del RoleWrapper de App.jsx, y sin rol cae a la escala de letra por defecto
+    // (medido: renglones 0.9 px más bajos y 5.8 px de salto al cargar).
+    <div data-role={rol} className="min-h-dvh bg-surface">
       {/* Barra superior del móvil — mismas medidas que la real de Layout */}
       {!IS_NATIVE_APP && (
         <div aria-hidden="true" data-esq="sesion-encabezado-movil" className="md:hidden bg-surface-card border-b border-outline-variant px-4 py-2 flex items-center justify-between">
@@ -260,15 +289,25 @@ export function EsqueletoSesion() {
       )}
       <div className={IS_NATIVE_APP ? '' : 'flex'}>
         {!IS_NATIVE_APP && <div aria-hidden="true" data-esq="sesion-lateral" className="hidden md:block w-[20.833rem] h-dvh sticky top-0 flex-shrink-0 bg-skeleton" />}
-        <div data-esq="dash-doc-contenedor" className={`flex-1 min-w-0 px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
-          <div className="mb-4 flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <SkeletonLine texto="text-lg font-bold" className="w-40" />
-              <SkeletonLine texto="text-xs" className="w-52 mt-0.5" />
-            </div>
+        {rol === 'alumno' ? (
+          <div className="flex-1 min-w-0">
+            {contenido === 'asignatura' ? <EsqueletoAsignaturaAlumno /> : <EsqueletoTableroAlumno />}
           </div>
-          <EsqueletoTableroDocente />
-        </div>
+        ) : contenido === 'asignatura' ? (
+          <div className="flex-1 min-w-0"><EsqueletoAsignaturaDocente /></div>
+        ) : contenido === 'actividad' ? (
+          <div className="flex-1 min-w-0"><EsqueletoActividadDocente /></div>
+        ) : (
+          <div data-esq="dash-doc-contenedor" className={`flex-1 min-w-0 px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
+            <div data-esq="dash-doc-saludo" className="mb-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <SkeletonLine data-esq="dash-doc-saludo-nombre" texto="text-lg font-bold" className="w-40 min-w-0" />
+              </div>
+              <SkeletonLine data-esq="dash-doc-saludo-escuela" texto="text-xs" className="w-52 mt-0.5" />
+            </div>
+            <EsqueletoTableroDocente />
+          </div>
+        )}
       </div>
       {/* Barra inferior del móvil: 100% de ancho, esquinas de arriba redondeadas */}
       {!IS_NATIVE_APP && (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   LogOut,
@@ -10,6 +10,7 @@ import {
   Bell,
   BookOpen,
   Sparkles,
+  Settings,
   CirclePlay,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
@@ -48,6 +49,8 @@ import { EsqueletoFilasLateral } from './esqueletos'
 // renglones no medían igual. gap-2 y px-3 son los mismos del menú
 // principal, para que TODO el sidebar alinee su texto en una vertical.
 const ITEM_SECUNDARIO = SB_FILA
+// Pantallas que viven dentro del submenú «Ajustes y ayuda» de la barra lateral.
+const RUTAS_AJUSTES = ['/perfil-ia', '/notificaciones', '/ayuda']
 const ITEM_SEC_INACTIVO = SB_INACTIVA
 const ITEM_SEC_ACTIVO = SB_ACTIVA_SUAVE
 
@@ -59,6 +62,12 @@ function navIconPillCls(isActive) {
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  // Submenú «Ajustes y ayuda»: null = automático (abierto solo si estás en una de
+  // sus pantallas); true/false = lo decidió el usuario con el botón.
+  const [ajustesManual, setAjustesManual] = useState(null)
+  const enAjustes = RUTAS_AJUSTES.some((r) => pathname === r || pathname.startsWith(`${r}/`))
+  const ajustesAbierto = ajustesManual ?? enAjustes
 
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
@@ -300,52 +309,73 @@ export default function TeacherLayout({ children }) {
               Archivadas. */}
           <div className="mt-2 min-h-12 overflow-y-auto border-t border-white/15">
             <div className={SB_GRUPO}>
-              {/* Perfil para IA del docente — arriba del QR, pedido explícito
-                  (FASE 2-BIS del Plan Maestro de IA). Contexto general del
-                  docente, se captura una sola vez y se reutiliza en todas las
-                  funciones de IA de sus asignaturas. */}
-              <NavLink
-                to="/perfil-ia"
-                title="Necesario para generar planeación y diagnósticos con IA"
-                className={({ isActive }) =>
-                  `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
-                }
+              {/* Un solo botón abre el submenú: las cinco herramientas de apoyo
+                  (perfil de IA, QR, avisos, ayuda y tutoriales) viven dentro en
+                  lugar de ocupar cinco filas fijas. Disclosure accesible:
+                  aria-expanded + aria-controls, el teclado lo opera con
+                  Enter/Espacio y el foco queda en el botón. */}
+              <button
+                type="button"
+                id="boton-ajustes"
+                aria-expanded={ajustesAbierto}
+                aria-controls="submenu-ajustes"
+                onClick={() => setAjustesManual(!ajustesAbierto)}
+                className={`${ITEM_SECUNDARIO} ${ajustesAbierto || enAjustes ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`}
               >
-                <Sparkles size={SB_ICONO} className="flex-shrink-0" />
-                Perfil para IA del docente
-              </NavLink>
+                <Settings size={SB_ICONO} className="flex-shrink-0" />
+                <span className="flex-1 text-left">Ajustes y ayuda</span>
+                <ChevronRight size={16} className={`flex-shrink-0 transition-transform ${ajustesAbierto ? 'rotate-90' : ''}`} />
+              </button>
+              {ajustesAbierto && (
+                <div id="submenu-ajustes" className="space-y-1">
+                {/* Perfil para IA del docente — arriba del QR, pedido explícito
+                    (FASE 2-BIS del Plan Maestro de IA). Contexto general del
+                    docente, se captura una sola vez y se reutiliza en todas las
+                    funciones de IA de sus asignaturas. */}
+                <NavLink
+                  to="/perfil-ia"
+                  title="Necesario para generar planeación y diagnósticos con IA"
+                  className={({ isActive }) =>
+                    `${ITEM_SECUNDARIO} pl-8 ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
+                  }
+                >
+                  <Sparkles size={SB_ICONO} className="flex-shrink-0" />
+                  Perfil para IA del docente
+                </NavLink>
 
-              <AppQRButton className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}>
-                QR de Evalúa Fácil
-              </AppQRButton>
+                <AppQRButton className={`${ITEM_SECUNDARIO} pl-8 ${ITEM_SEC_INACTIVO}`}>
+                  QR de Evalúa Fácil
+                </AppQRButton>
 
-              <NavLink
-                to="/notificaciones"
-                className={({ isActive }) =>
-                  `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
-                }
-              >
-                <Bell size={SB_ICONO} className="flex-shrink-0" />
-                Notificaciones
-              </NavLink>
+                <NavLink
+                  to="/notificaciones"
+                  className={({ isActive }) =>
+                    `${ITEM_SECUNDARIO} pl-8 ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
+                  }
+                >
+                  <Bell size={SB_ICONO} className="flex-shrink-0" />
+                  Notificaciones
+                </NavLink>
 
-              <NavLink
-                to="/ayuda"
-                className={({ isActive }) =>
-                  `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
-                }
-              >
-                <BookOpen size={SB_ICONO} className="flex-shrink-0" />
-                Ayuda para comenzar
-              </NavLink>
+                <NavLink
+                  to="/ayuda"
+                  className={({ isActive }) =>
+                    `${ITEM_SECUNDARIO} pl-8 ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
+                  }
+                >
+                  <BookOpen size={SB_ICONO} className="flex-shrink-0" />
+                  Ayuda para comenzar
+                </NavLink>
 
-              {/* Canal oficial de YouTube — enlace externo, por eso no es un
-                  NavLink ni tiene estado activo. Solo vive en el sidebar: la
-                  barra superior del móvil no lleva un ícono más. */}
-              <CanalYouTubeLink className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}>
-                <CirclePlay size={SB_ICONO} className="flex-shrink-0" />
-                Canal de YouTube
-              </CanalYouTubeLink>
+                {/* Canal oficial de YouTube — enlace externo, por eso no es un
+                    NavLink ni tiene estado activo. Solo vive en el sidebar: la
+                    barra superior del móvil no lleva un ícono más. */}
+                <CanalYouTubeLink className={`${ITEM_SECUNDARIO} pl-8 ${ITEM_SEC_INACTIVO}`}>
+                  <CirclePlay size={SB_ICONO} className="flex-shrink-0" />
+                  Canal de YouTube
+                </CanalYouTubeLink>
+                </div>
+              )}
             </div>
 
             {/* Archivadas — al final del área compartida. El botón va `sticky`
