@@ -197,7 +197,7 @@ Cuando una píldora va dentro de un contenedor con padding (pestañas, controles
 
 ### Bordes de acento (oct-2026)
 
-El buscador (`SearchInput`) lleva `border border-accent-soft` (1px tenue). Una fila con `overflow-hidden` que contenga un campo debe darle relleno (`p-1 -m-1`) o recortará su anillo de enfoque.
+El buscador (`SearchInput`) lleva `border border-accent-soft` (1px tenue). Una fila con `overflow-hidden` que contenga un campo debe darle relleno (`p-2 -m-2`) o recortará su anillo de enfoque.
 
 Un contenedor abierto, un punteado o una barra lateral NUNCA llevan el color de acento al 100% (en paletas oscuras de materia se leía como un marco negro/guinda agresivo): usan `border-accent-soft` (`--accent-soft` = acento al 30%). Punteados: `border border-dashed border-accent-soft` (1px, no `border-2`). Botones *outline* y estados de selección sí conservan `border-accent` pleno. Ojo: `border-accent/30` NO funciona en este proyecto (el acento es una variable CSS); usa el token.
 
@@ -330,7 +330,7 @@ El "segmented sólido" del panel de evaluar (ActivityPage) se migró a la varian
 
 ### 6.4b Pestaña que requiere atención (oct-2026)
 
-Una pestaña que necesita que el usuario haga algo se marca en **rojo**: texto `text-red-700 font-semibold`, fondo `bg-red-50` (si no es la activa) y un punto `w-2 h-2 rounded-full bg-red-600` antes de la etiqueta. Cada pestaña marcada declara QUÉ hay que hacer en ella (`atencionPestanas` en `SubjectPage.jsx`): sale como globo (`data-tooltip`) y como texto para lectores de pantalla («: requiere atención. …»). No se usan frases rojas sueltas bajo el encabezado. Hoy: **Estudiantes** cuando la asignatura aún no tiene estudiantes. Dentro de la pestaña, el botón que resuelve el problema también va en rojo (`bg-red-600 ring-4 ring-red-200`): en Estudiantes, «Agregar manualmente». Para añadir otra, agrega su motivo a `atencionPestanas`.
+Una pestaña que necesita que el usuario haga algo se marca en **rojo**: texto `text-red-700 font-semibold`, fondo `bg-red-50` (si no es la activa) y un punto `w-2 h-2 rounded-full bg-red-600` antes de la etiqueta. Cada pestaña marcada declara QUÉ hay que hacer en ella (`atencionPestanas` en `SubjectPage.jsx`): sale como globo (`data-tooltip`) y como texto para lectores de pantalla («: requiere atención. …»). No se usan frases rojas sueltas bajo el encabezado. Hoy: **Estudiantes** cuando la asignatura aún no tiene estudiantes. Dentro de la pestaña, el botón que resuelve el problema también va en rojo (`bg-red-600` + `animate-atencion`, un halo que late suave; se apaga con `motion-reduce`): en Estudiantes, «Agregar manualmente». Para añadir otra, agrega su motivo a `atencionPestanas`.
 
 ### 6.5 Badges / chips
 
