@@ -20,7 +20,7 @@ const TRIGGER_BASE =
 
 export default function Select({
   label, hint, error, id, options = [], value, onChange, required = false, optional = false,
-  textoVacio = 'Seleccionar…', className = '', wrapperClassName = '', disabled = false,
+  className = '', wrapperClassName = '', disabled = false,
 }) {
   const [open, setOpen] = useState(false)
   useBackHandler(() => setOpen(false), open)
@@ -48,8 +48,10 @@ export default function Select({
           className
         )}
       >
-        <span className={`truncate ${current ? 'text-on-surface' : 'text-hint'}`}>
-          {current?.label || textoVacio}
+        {/* Sin texto gris (regla de la app): vacío = en blanco; el nombre accesible
+            es la etiqueta del campo (o «Seleccionar» para lectores de pantalla). */}
+        <span className="truncate text-on-surface">
+          {current?.label || <><span aria-hidden="true">&nbsp;</span><span className="sr-only">Seleccionar</span></>}
         </span>
         <ChevronDown size={16} className="text-muted flex-shrink-0" />
       </button>

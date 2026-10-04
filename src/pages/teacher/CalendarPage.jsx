@@ -2576,7 +2576,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
           <div className="rounded-card border border-outline-variant p-3 space-y-3">
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted uppercase tracking-wide">Fecha</span>
-              <EFDateTimePicker mode="date" value={fecha} onChange={setFecha} textoVacio="Elige el día…" clearable showShortcuts={false} />
+              <EFDateTimePicker mode="date" value={fecha} onChange={setFecha} etiqueta="Elige el día" clearable showShortcuts={false} />
             </div>
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted uppercase tracking-wide">¿A qué afecta?</span>
@@ -2698,11 +2698,11 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-muted uppercase tracking-wide">Inicio</span>
-                <EFDateTimePicker mode="date" value={fechaInicio} onChange={setFechaInicio} textoVacio="Inicio…" clearable showShortcuts={false} />
+                <EFDateTimePicker mode="date" value={fechaInicio} onChange={setFechaInicio} etiqueta="Inicio" clearable showShortcuts={false} />
               </div>
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-muted uppercase tracking-wide">Fin</span>
-                <EFDateTimePicker mode="date" value={fechaFin} onChange={setFechaFin} textoVacio="Fin…" clearable showShortcuts={false} />
+                <EFDateTimePicker mode="date" value={fechaFin} onChange={setFechaFin} etiqueta="Fin" clearable showShortcuts={false} />
               </div>
             </div>
             {fechaInicio && fechaFin && fechaFin < fechaInicio && (

@@ -5715,7 +5715,7 @@ export default function SubjectPage() {
                 // Open parcial gets the same accent container treatment as the
                 // Preguntas/Configuración sections — it's obvious you're inside it
                 <div data-esq="subj-doc-parcial" key={p} className={`bg-surface-card rounded-card overflow-hidden shadow-card ${isOpen ? 'border border-accent-soft' : ''}`}>
-                  <div className={isOpen ? 'bg-accent-light border-b border-accent-soft' : ''}>
+                  <div data-esq="subj-doc-parcial-cabecera-fondo" className={isOpen ? 'bg-accent-light border-b border-accent-soft' : ''}>
                   <div className="w-full flex items-center gap-1">
                     <button data-esq="subj-doc-parcial-cabecera" type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
                       className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-medium)] transition-colors text-left">
@@ -5761,8 +5761,8 @@ export default function SubjectPage() {
                   </div>
 
                   {isOpen && (
-                    <div className="border-t border-outline-variant pr-4 py-2">
-                      <div className="ml-3 pl-3 border-l-2 border-accent-soft space-y-1.5">
+                    <div data-esq="subj-doc-parcial-cuerpo" className="border-t border-outline-variant pr-4 py-2">
+                      <div data-esq="subj-doc-parcial-lista" className="ml-3 pl-3 border-l-2 border-accent-soft space-y-1.5">
                       {(() => {
                         const unified = buildUnifiedParcial(acts, mats)
                         // Con el filtro solo se OMITEN filas al pintar; cada fila conserva su
@@ -6039,7 +6039,7 @@ export default function SubjectPage() {
                       })()}
 
                       {!IS_NATIVE_APP && (
-                      <button type="button" onClick={() => openAdd(p)}
+                      <button data-esq="subj-doc-cta" type="button" onClick={() => openAdd(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevas actividades'}
                         className={`w-full py-2.5 border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent-soft text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
@@ -6048,7 +6048,7 @@ export default function SubjectPage() {
                       </button>
                       )}
                       {!IS_NATIVE_APP && (
-                      <button type="button" onClick={() => openAddMaterial(p)}
+                      <button data-esq="subj-doc-cta" type="button" onClick={() => openAddMaterial(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevo material de apoyo'}
                         className={`w-full py-2.5 border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent-soft text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
@@ -6057,7 +6057,7 @@ export default function SubjectPage() {
                       </button>
                       )}
                       {!IS_NATIVE_APP && (
-                      <button type="button" onClick={() => openImport(p)}
+                      <button data-esq="subj-doc-cta" type="button" onClick={() => openImport(p)}
                         data-tooltip="Copia actividades de otra de tus asignaturas a este parcial"
                         className={`w-full py-2.5 border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent-soft text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
@@ -6756,7 +6756,7 @@ export default function SubjectPage() {
                 <label htmlFor="att-fecha" className="block text-xs font-medium text-muted mb-1">Día</label>
                 <EFDateTimePicker mode="date" value={newAttendanceForm.fecha}
                   onChange={(v) => setNewAttendanceForm((f) => ({ ...f, fecha: v }))}
-                  textoVacio="Elige el día…" clearable={false}
+                  etiqueta="Elige el día" clearable={false}
                   shortcutLabels={modalAsistenciaHorizontal ? ['Hoy', 'Mañana', 'Pasado mañana'] : undefined} />
               </div>
               <div className={modalAsistenciaHorizontal ? 'flex-1 min-w-0' : undefined}>
@@ -7647,7 +7647,7 @@ export default function SubjectPage() {
                         headerLabel="Fecha y hora límite"
                         value={form.fechaLimite}
                         onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
-                        textoVacio="Sin fecha límite…"
+                        valorVacio="Sin fecha límite"
                         clearable
                         minDateTime={minDeadline(
                           form.visibilidadMode === 'schedule' ? form.publishAt : form.publishedAt

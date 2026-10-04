@@ -570,7 +570,7 @@ function JuegoConfiguracion({
               headerLabel="Fecha y hora límite"
               value={visForm.fechaLimite}
               onChange={(v) => setVisForm((f) => ({ ...f, fechaLimite: v }))}
-              textoVacio="Sin fecha límite…"
+              valorVacio="Sin fecha límite"
               clearable
             />
           </div>

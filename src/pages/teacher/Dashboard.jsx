@@ -319,14 +319,14 @@ export default function TeacherDashboard() {
             alumnos (teacherDisplayName). El nombre va en un inline-block y
             SIN truncate: si no cabe junto a "Hola", baja entero al siguiente
             renglón en vez de cortarse a media palabra. */}
-        <div className="mb-4">
+        <div data-esq="dash-doc-saludo" className="mb-4">
           <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-lg font-bold text-on-surface min-w-0">
+            <h1 data-esq="dash-doc-saludo-nombre" className="text-lg font-bold text-on-surface min-w-0">
               Hola <span className="inline-block">{teacherGreetingName}</span>
             </h1>
           </div>
           {userProfile?.schoolName && (
-            <p className="text-hint text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
+            <p data-esq="dash-doc-saludo-escuela" className="text-hint text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
           )}
         </div>
         {loading ? (
