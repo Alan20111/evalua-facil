@@ -325,7 +325,6 @@ export default function CostosIAPanel() {
                   id="saldo-anthropic" label="Saldo en MXN"
                   type="number" step="0.01" min="0" inputMode="decimal"
                   value={borrador} onChange={(e) => setBorrador(e.target.value)}
-                  placeholder="0.00"
                   wrapperClassName="w-32"
                 />
                 <button

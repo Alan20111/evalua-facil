@@ -120,7 +120,7 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
                 onChange={() => onChangeCorrecta(o.id)} className="accent-[var(--accent)] flex-shrink-0" />
               <input type="text" value={o.texto}
                 onChange={(e) => onChange(opciones.map((x) => x.id === o.id ? { ...x, texto: e.target.value } : x))}
-                placeholder={`Opción ${String.fromCharCode(65 + idx)}`} required={idx < 2}
+                aria-label={`Opción ${String.fromCharCode(65 + idx)}`} required={idx < 2}
                 className={`flex-1 ${inputPad} rounded border border-outline-variant text-sm bg-surface`} />
             </>
           )}
@@ -1020,7 +1020,7 @@ export default function EvaluacionEditor({
               <div>
                 <label htmlFor="info-nombre" className="block text-sm font-medium text-muted mb-1">Nombre</label>
                 <input id="info-nombre" type="text" value={infoForm.nombre} onChange={(e) => setInfoForm((f) => ({ ...f, nombre: e.target.value }))}
-                  required placeholder={`Ej: ${tipoLabel} parcial 1`}
+                  required
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               {/* Default apagado: el docente elige, actividad por actividad,
@@ -1054,7 +1054,7 @@ export default function EvaluacionEditor({
                 <RichTextEditor
                   value={infoForm.instrucciones}
                   onChange={(html) => setInfoForm((f) => ({ ...f, instrucciones: html }))}
-                  placeholder="Describe la evaluación para tus estudiantes…"
+                  etiqueta="Describe la evaluación para tus estudiantes…"
                   attachments={[...attachExisting, ...attachNew.map((f) => ({ nombre: f.name, tamano: f.size }))]}
                   onAttachFiles={(files) => setAttachNew((prev) => [...prev, ...files])}
                   onRemoveAttachment={(i) => {
@@ -1093,7 +1093,7 @@ export default function EvaluacionEditor({
                       headerLabel="Fecha y hora límite"
                       value={infoForm.fechaLimite}
                       onChange={v => setInfoForm(f => ({ ...f, fechaLimite: v }))}
-                      placeholder="Sin fecha límite…"
+                      textoVacio="Sin fecha límite…"
                       clearable
                       defaultTime="23:59"
                       defaultDate={
@@ -1327,14 +1327,12 @@ export default function EvaluacionEditor({
             <div>
               <label htmlFor="config-tiempo-limite" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
               <input id="config-tiempo-limite" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))}
-                placeholder="Sin límite" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
             </div>
             <div>
               <label htmlFor="config-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
               <input id="config-intentos" type="number" min="1" value={configForm.intentosPermitidos ?? ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))}
-                placeholder="Ilimitados" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
             </div>
             {/* La política de varios intentos solo importa con más de un intento —
                 con un único intento "conservar la mejor/última" es ruido. */}
@@ -1661,7 +1659,7 @@ export default function EvaluacionEditor({
                               {preguntaEditForm.guardarEnBanco && (
                                 <input type="text" value={preguntaEditForm.tema}
                                   onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tema: e.target.value }))}
-                                  required placeholder="Tema (obligatorio, ej. Fracciones)"
+                                  required aria-label="Tema (obligatorio, ej. Fracciones)"
                                   className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                               )}
                             </>
@@ -1730,7 +1728,7 @@ export default function EvaluacionEditor({
                           </label>
                           {preguntaForm.guardarEnBanco && (
                             <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
-                              required placeholder="Tema (obligatorio, ej. Fracciones)" className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                              required aria-label="Tema (obligatorio, ej. Fracciones)" className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                           )}
                           <div className="flex gap-2 pt-1">
                             <button type="button" onClick={() => {
@@ -1819,7 +1817,7 @@ export default function EvaluacionEditor({
                     <div>
                       <label htmlFor="preg-new-retro" className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
                       <textarea id="preg-new-retro" value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
-                        rows={1} placeholder="Se muestra al alumno al finalizar, si la config lo permite"
+                        rows={1}
                         className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                     </div>
                     <div>
@@ -1840,7 +1838,7 @@ export default function EvaluacionEditor({
                     </label>
                     {preguntaForm.guardarEnBanco && (
                       <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
-                        required placeholder="Tema (obligatorio, ej. Fracciones)"
+                        required aria-label="Tema (obligatorio, ej. Fracciones)"
                         className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                     )}
                     <div className="flex gap-2 pt-1">
@@ -1903,7 +1901,7 @@ export default function EvaluacionEditor({
               <h3 className="text-base font-semibold mb-3">Mi banco de reactivos</h3>
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <SearchInput value={bancoSearch} onChange={setBancoSearch} placeholder="Buscar…" />
+                  <SearchInput value={bancoSearch} onChange={setBancoSearch} etiqueta="Buscar…" />
                 </div>
                 {materias.length > 0 && (
                   <Select
@@ -1999,7 +1997,7 @@ export default function EvaluacionEditor({
                             />
                           )}
                           <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
-                            placeholder="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                            aria-label="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                           <div className="flex gap-2">
                             <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                             <button type="button" onClick={() => handleSaveBancoEdit(item.id)}
@@ -2172,14 +2170,12 @@ export default function EvaluacionEditor({
                   <label htmlFor="ia-tema" className="block text-sm text-on-surface mb-1">Tema (opcional)</label>
                   <input id="ia-tema" type="text" value={iaTema} disabled={iaTrabajando}
                     onChange={(e) => setIaTema(e.target.value)}
-                    placeholder="Ej: Algoritmos y estructuras condicionales"
                     className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
                 </div>
                 <div>
                   <label htmlFor="ia-quiere-evaluar" className="block text-sm text-on-surface mb-1">¿Qué quieres evaluar?</label>
                   <textarea id="ia-quiere-evaluar" value={iaQuiereEvaluar} disabled={iaTrabajando} rows={4}
                     onChange={(e) => setIaQuiereEvaluar(e.target.value)}
-                    placeholder="Describe con el mayor detalle posible el tema, contenidos, conceptos, procedimientos, habilidades, conocimientos o aspectos que quieres evaluar. Entre más información proporciones, mejor podrá el Asistente IA generar los reactivos."
                     className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
                 </div>
               </>

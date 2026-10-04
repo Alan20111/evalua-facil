@@ -430,7 +430,7 @@ export default function EFDateTimePicker({
   value = '',
   onChange,
   mode = 'datetime',   // 'date' | 'datetime'
-  placeholder,
+  textoVacio,
   disabled = false,
   clearable = true,
   className = '',
@@ -745,7 +745,7 @@ export default function EFDateTimePicker({
   }, [draft, mode, hourIdx, minIdx, ampmIdx])
 
   const display       = formatDisplay(parsed, mode)
-  const placeholderText = placeholder || (mode === 'date' ? 'Seleccionar fecha…' : 'Seleccionar fecha y hora…')
+  const placeholderText = textoVacio || (mode === 'date' ? 'Seleccionar fecha…' : 'Seleccionar fecha y hora…')
 
   // ── Calendar grid ──────────────────────────────────────────────────────────
   const grid = useMemo(() => buildGrid(viewDate), [viewDate])

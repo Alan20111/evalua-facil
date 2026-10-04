@@ -28,7 +28,7 @@ function Toggle({ checked, onChange }) {
   )
 }
 
-function Field({ label, value, onChange, placeholder, hint }) {
+function Field({ label, value, onChange, hint }) {
   return (
     <div>
       <label className="block text-xs font-medium text-muted mb-1">{label}</label>
@@ -36,7 +36,7 @@ function Field({ label, value, onChange, placeholder, hint }) {
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
+        aria-label={label}
         className={inputCls}
       />
       {hint && <p className="text-xs text-hint mt-1">{hint}</p>}
@@ -154,7 +154,6 @@ export default function PaymentConfig() {
               label="Public Key"
               value={form.mercadoPago.publicKey}
               onChange={(v) => patch('mercadoPago', 'publicKey', v)}
-              placeholder="APP_USR-xxxxxxxx-xxxx-..."
               hint="Panel de Mercado Pago → Tus integraciones → Credenciales de producción."
             />
             <p className="text-xs text-hint flex items-center gap-1">
@@ -185,7 +184,6 @@ export default function PaymentConfig() {
               label="Client ID"
               value={form.paypal.clientId}
               onChange={(v) => patch('paypal', 'clientId', v)}
-              placeholder="AeA1QIZ..."
               hint="PayPal Developer Dashboard → tu app → Client ID (producción)."
             />
             <p className="text-xs text-hint flex items-center gap-1">
@@ -219,32 +217,27 @@ export default function PaymentConfig() {
               label="Banco"
               value={form.transferencia.banco}
               onChange={(v) => patch('transferencia', 'banco', v)}
-              placeholder="BBVA"
             />
             <Field
               label="Titular"
               value={form.transferencia.titular}
               onChange={(v) => patch('transferencia', 'titular', v)}
-              placeholder="Nombre del titular"
             />
             <Field
               label="Número de cuenta"
               value={form.transferencia.cuenta}
               onChange={(v) => patch('transferencia', 'cuenta', v)}
-              placeholder="0123456789"
             />
             <Field
               label="CLABE"
               value={form.transferencia.clabe}
               onChange={(v) => patch('transferencia', 'clabe', v)}
-              placeholder="012345678901234567"
             />
             <div className="sm:col-span-2">
               <Field
                 label="Nota para el docente"
                 value={form.transferencia.nota}
                 onChange={(v) => patch('transferencia', 'nota', v)}
-                placeholder="Indica tu usuario en el concepto."
               />
             </div>
           </div>

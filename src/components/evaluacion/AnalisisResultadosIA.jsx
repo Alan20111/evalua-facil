@@ -30,7 +30,7 @@ import { resumenConfiabilidad } from '../../utils/confiabilidadAnalisis'
 // Textarea "en su lugar" que crece con el contenido, igual que las celdas
 // editables de Planeación — para que el reporte se siga viendo como reporte
 // y no como un formulario con cajas.
-function TextoEditable({ value, onChange, className = '', placeholder }) {
+function TextoEditable({ value, onChange, className = '', etiqueta }) {
   const ref = useRef(null)
   useEffect(() => {
     const el = ref.current
@@ -42,7 +42,7 @@ function TextoEditable({ value, onChange, className = '', placeholder }) {
     <textarea
       ref={ref}
       value={value || ''}
-      placeholder={placeholder}
+      aria-label={etiqueta}
       onChange={(e) => onChange(e.target.value)}
       className={`w-full bg-transparent border border-dashed border-accent/50 rounded px-1.5 py-1 resize-none overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:bg-[var(--accent-tint)] ${className}`}
       maxLength={2000}
@@ -162,7 +162,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
         {editado.resumenEjecutivo != null && (
           <div className="bg-surface-card rounded-card shadow-card p-4" style={{ border: '1px solid var(--accent)' }}>
             <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: 'var(--accent)' }}>Resumen ejecutivo</p>
-            <TextoEditable value={editado.resumenEjecutivo} onChange={(v) => set('resumenEjecutivo', v)} className="text-sm text-on-surface" />
+            <TextoEditable value={editado.resumenEjecutivo} onChange={(v) => set('resumenEjecutivo', v)} etiqueta="Resumen ejecutivo" className="text-sm text-on-surface" />
           </div>
         )}
 
@@ -177,7 +177,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
             <TextoEditable
               value={editado.resumenGeneral}
               onChange={(v) => set('resumenGeneral', v)}
-              placeholder="No hay suficiente información para un resumen general."
+              etiqueta="Resumen general"
               className="text-sm text-on-surface flex-1"
             />
           </div>
@@ -238,11 +238,11 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
               <div key={i} className="border-l-2 pl-3" style={{ borderColor: 'var(--accent)' }}>
                 <p className="text-sm text-on-surface flex items-start gap-1">
                   <span className="font-semibold flex-shrink-0">Observación (dato): </span>
-                  <TextoEditable value={p.observacion} onChange={(v) => setPatron(i, 'observacion', v)} className="text-sm text-on-surface flex-1" />
+                  <TextoEditable value={p.observacion} onChange={(v) => setPatron(i, 'observacion', v)} etiqueta="Dato observado" className="text-sm text-on-surface flex-1" />
                 </p>
                 <p className="text-sm text-muted flex items-start gap-1">
                   <span className="font-semibold flex-shrink-0">Interpretación: </span>
-                  <TextoEditable value={p.interpretacion} onChange={(v) => setPatron(i, 'interpretacion', v)} className="text-sm text-muted flex-1" />
+                  <TextoEditable value={p.interpretacion} onChange={(v) => setPatron(i, 'interpretacion', v)} etiqueta="Interpretación" className="text-sm text-muted flex-1" />
                 </p>
               </div>
             ))}
@@ -258,7 +258,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
               {editado.estudiantesAtencion.map((e, i) => (
                 <li key={i} className="text-sm flex items-start gap-1">
                   <span className="font-semibold text-on-surface flex-shrink-0">{nombrePorAnonId.get(e.anonId) || e.anonId}: </span>
-                  <TextoEditable value={e.senal} onChange={(v) => setSenalAtencion(i, v)} className="text-sm text-muted flex-1" />
+                  <TextoEditable value={e.senal} onChange={(v) => setSenalAtencion(i, v)} etiqueta="Señal de atención" className="text-sm text-muted flex-1" />
                 </li>
               ))}
             </ul>
@@ -275,7 +275,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
             <ul className="list-disc pl-5 space-y-1">
               {editado.recomendaciones.map((r, i) => (
                 <li key={i} className="text-sm text-on-surface">
-                  <TextoEditable value={r} onChange={(v) => setRecomendacion(i, v)} className="text-sm text-on-surface" />
+                  <TextoEditable value={r} onChange={(v) => setRecomendacion(i, v)} etiqueta="Recomendación" className="text-sm text-on-surface" />
                 </li>
               ))}
             </ul>

@@ -108,6 +108,14 @@
      Solo campos de una línea; los botones y las tarjetas siguen el radio de
      arriba. Va por CSS y no por clase porque los campos salen de varios
      componentes (Input, PasswordInput, inputs propios de cada pantalla). */
+  /* Sin texto gris dentro de los campos, nunca (pedido explícito): la app
+     no usa placeholder — cada campo se nombra con su etiqueta o aria-label.
+     Red de seguridad por si algo (una librería, un descuido) pinta uno. El
+     candado de scripts/check-ui-standards.sh impide escribirlos. */
+  ::placeholder {
+    color: transparent;
+    opacity: 0;
+  }
   [data-forma='acceso'] :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), select) {
     border-radius: 9999px;
   }

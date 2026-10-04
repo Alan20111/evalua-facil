@@ -137,7 +137,7 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
                 onChange={() => onChangeCorrecta(o.id)} className="accent-[var(--accent)] flex-shrink-0" />
               <input type="text" value={o.texto}
                 onChange={(e) => onChange(opciones.map((x) => x.id === o.id ? { ...x, texto: e.target.value } : x))}
-                placeholder={`Opción ${String.fromCharCode(65 + idx)}`} required={idx < 2}
+                aria-label={`Opción ${String.fromCharCode(65 + idx)}`} required={idx < 2}
                 className={`flex-1 ${inputPad} rounded border border-outline-variant text-sm bg-surface`} />
             </>
           )}
@@ -1691,7 +1691,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <div>
                   <label htmlFor="preg-nueva-retro" className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
                   <textarea id="preg-nueva-retro" value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
-                    rows={2} placeholder="Se muestra al alumno después de finalizar, si la configuración lo permite"
+                    rows={2}
                     className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 </div>
                 <div>
@@ -1707,7 +1707,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 </label>
                 {preguntaForm.guardarEnBanco && (
                   <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
-                    required placeholder="Tema (obligatorio, ej. Fracciones)"
+                    required aria-label="Tema (obligatorio, ej. Fracciones)"
                     className="w-full px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 )}
                 <div className="flex gap-2 pt-1">
@@ -1727,7 +1727,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
                   <div className="flex gap-2 mb-3">
                     <div className="flex-1">
-                      <SearchInput value={bancoSearch} onChange={setBancoSearch} placeholder="Buscar…" />
+                      <SearchInput value={bancoSearch} onChange={setBancoSearch} etiqueta="Buscar…" />
                     </div>
                     {materias.length > 0 && (
                       <Select
@@ -1812,7 +1812,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 </div>
                               )}
                               <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
-                                placeholder="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                                aria-label="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                               <div className="flex gap-2">
                                 <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                                 <button type="button" onClick={() => handleSaveBancoEdit(item.id)} disabled={saving || JSON.stringify(bancoEditForm) === bancoEditSnap.current}
@@ -1903,14 +1903,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             <div>
               <label htmlFor="config-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
               <input id="config-tiempo" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))}
-                placeholder="Sin límite" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
             </div>
             <div>
               <label htmlFor="config-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
               <input id="config-intentos" type="number" min="1" value={configForm.intentosPermitidos ?? ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))}
-                placeholder="Ilimitados" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
             </div>
             {/* Multi-attempt policy only matters with more than one attempt — with a
                 single attempt "conservar la mejor/última" is noise (Don't Make Me Think). */}
@@ -2055,7 +2053,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     value={analisisConsideraciones}
                     disabled={analisisTrabajando}
                     onChange={(e) => setAnalisisConsideraciones(e.target.value)}
-                    placeholder="Ejemplo: céntrate en las respuestas a las preguntas abiertas, identifica los errores más frecuentes o propón ejercicios de refuerzo."
                     rows={3}
                     maxLength={400}
                     className="w-full px-2 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none"
@@ -2200,7 +2197,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <SearchInput
                   value={searchResultados}
                   onChange={setSearchResultados}
-                  placeholder="Buscar por nombre o por número de lista…"
+                  etiqueta="Buscar por nombre o por número de lista…"
                   autoFocus={PUEDE_AUTOFOCUS}
                 />
                 <p className="text-xs text-red-600 text-center mt-1.5">Presiona un nombre para ver resultado</p>
@@ -2456,7 +2453,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               type="number" min="0" max={p.ponderacion} step="0.1"
                               value={draft.puntos}
                               onChange={(e) => setGradeDrafts((d) => ({ ...d, [p.id]: { ...draft, puntos: e.target.value } }))}
-                              placeholder="0"
                               readOnly={parcialCerrado}
                               data-tooltip={parcialCerrado ? mensajeParcialCerrado(activity?.parcial) : undefined}
                               className="w-24 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface-card read-only:opacity-60 read-only:cursor-not-allowed"
@@ -2470,7 +2466,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             value={draft.comentario}
                             onChange={(e) => setGradeDrafts((d) => ({ ...d, [p.id]: { ...draft, comentario: e.target.value } }))}
                             rows={2}
-                            placeholder="Comentario para el estudiante (opcional)…"
+                            aria-label="Comentario para el estudiante (opcional)…"
                             className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-card resize-none"
                           />
                           <button
@@ -2643,7 +2639,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       <p className="text-sm font-medium text-on-surface flex items-center gap-1.5"><CalendarDays size={15} className="text-accent" /> Nueva fecha y hora</p>
                       <EFDateTimePicker mode="datetime" value={extendDate} onChange={setExtendDate} clearable={false} defaultTime="23:59" minDateTime={toIsoNow()} />
                       <textarea value={extendMotivo} onChange={(e) => setExtendMotivo(e.target.value)} rows={2}
-                        placeholder="Motivo (opcional)…"
+                        aria-label="Motivo (opcional)…"
                         className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none" />
                       <div className="flex gap-2">
                         <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">Cancelar</button>
@@ -2679,7 +2675,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 value={extendMotivo}
                 onChange={(e) => setExtendMotivo(e.target.value)}
                 rows={2}
-                placeholder="Motivo de la extensión…"
                 className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
               />
             </div>

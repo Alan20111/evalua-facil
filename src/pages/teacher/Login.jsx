@@ -116,7 +116,6 @@ export default function TeacherLogin() {
               required
               autoComplete="email"
               className="focus:border-transparent"
-              placeholder="nombre@correo.com"
             />
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -137,7 +136,6 @@ export default function TeacherLogin() {
                 required
                 autoComplete="current-password"
                 className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:border-transparent text-sm bg-surface"
-                placeholder="••••••••"
               />
             </div>
             <Button type="submit" fullWidth busy={loading}>

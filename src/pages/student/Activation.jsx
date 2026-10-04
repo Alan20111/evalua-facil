@@ -553,7 +553,6 @@ export default function StudentActivation() {
                     // se muestra una sola vez por sesión de activación — no es un modal reabrible.
                     autoFocus={PUEDE_AUTOFOCUS}
                     className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
-                    placeholder="Tu contraseña de Evalúa Fácil"
                   />
                 </div>
                 {passwordError && (
@@ -594,8 +593,7 @@ export default function StudentActivation() {
                   autoCorrect="off"
                   autoCapitalize="none"
                   spellCheck={false}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
-                  placeholder="Ej: mendez.enrique"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest "
                   maxLength={40}
                 />
               </div>
@@ -636,7 +634,6 @@ export default function StudentActivation() {
                     // se muestra una sola vez por sesión de activación — no es un modal reabrible.
                     autoFocus={PUEDE_AUTOFOCUS}
                     className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
-                    placeholder="Mínimo 8 caracteres"
                   />
                 </div>
                 <div>
@@ -647,7 +644,6 @@ export default function StudentActivation() {
                     onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
                     required
                     className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
-                    placeholder="Repite tu contraseña"
                   />
                 </div>
                 {passwordError && (

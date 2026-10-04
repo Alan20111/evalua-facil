@@ -108,7 +108,7 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
             type="text"
             value={form.titulo}
             onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
-            placeholder="Título (ej. Estudiar para examen)"
+            aria-label="Título (ej. Estudiar para examen)"
             required
             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
           />
@@ -116,7 +116,7 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
           <textarea
             value={form.descripcion}
             onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
-            placeholder="Descripción (opcional)"
+            aria-label="Descripción (opcional)"
             rows={2}
             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
           />
@@ -127,7 +127,7 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
               mode="datetime"
               value={form.inicio}
               onChange={(v) => setForm((f) => ({ ...f, inicio: v, fin: f.fin && f.fin < v ? v : f.fin }))}
-              placeholder="Fecha y hora de inicio"
+              textoVacio="Fecha y hora de inicio"
               clearable={false}
             />
           </div>
@@ -138,7 +138,7 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
               mode="datetime"
               value={form.fin}
               onChange={(v) => setForm((f) => ({ ...f, fin: v }))}
-              placeholder="Fecha y hora de fin (opcional)"
+              textoVacio="Fecha y hora de fin (opcional)"
               clearable
             />
           </div>

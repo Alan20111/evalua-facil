@@ -135,7 +135,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
             {/* Buscador + filtro por tema — mismo patrón que el banco de reactivos. */}
             <div className="flex gap-2">
               <div className="flex-1">
-                <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nombre…" />
+                <SearchInput value={search} onChange={setSearch} etiqueta="Buscar por nombre…" />
               </div>
               {temas.length > 0 && (
                 <Select

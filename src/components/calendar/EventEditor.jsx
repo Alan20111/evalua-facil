@@ -270,7 +270,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             type="text"
             value={contenido.titulo}
             onChange={e => patchContenido({ titulo: e.target.value })}
-            placeholder="Título del evento"
+            aria-label="Título del evento"
             /* Sin autoFocus: en Android (edge-to-edge) enfocar un input y abrir
                el teclado justo al montar el modal deja el WebView con un
                frame en blanco hasta que algo más fuerza un repintado (p. ej.
@@ -284,7 +284,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
           <textarea
             value={contenido.descripcion}
             onChange={e => patchContenido({ descripcion: e.target.value })}
-            placeholder="Descripción (opcional)"
+            aria-label="Descripción (opcional)"
             rows={2}
             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
           />
@@ -295,7 +295,6 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               id="event-notas"
               value={contenido.notas}
               onChange={e => patchContenido({ notas: e.target.value })}
-              placeholder="Escribe aquí tus notas del evento; se quedan guardadas"
               rows={3}
               className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
             />
@@ -307,7 +306,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               mode="datetime"
               value={fechas.inicio}
               onChange={v => setFechas(f => ({ ...f, inicio: v, fin: f.fin && f.fin < v ? v : f.fin }))}
-              placeholder="Fecha y hora de inicio"
+              textoVacio="Fecha y hora de inicio"
               clearable={false}
             />
           </div>
@@ -318,7 +317,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               mode="datetime"
               value={fechas.fin}
               onChange={v => setFechas(f => ({ ...f, fin: v }))}
-              placeholder="Fecha y hora de fin (opcional)"
+              textoVacio="Fecha y hora de fin (opcional)"
               clearable
             />
           </div>

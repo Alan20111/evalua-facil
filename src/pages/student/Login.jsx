@@ -250,8 +250,7 @@ export default function StudentLogin() {
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center"
-                placeholder="Ej: mendez.enrique"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide "
                 maxLength={40}
               />
             </div>
@@ -263,7 +262,6 @@ export default function StudentLogin() {
                 onChange={(e) => { setPassword(e.target.value); setError('') }}
                 required
                 className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                placeholder="••••••••"
               />
             </div>
             {error && (
@@ -319,8 +317,7 @@ export default function StudentLogin() {
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center"
-                    placeholder="Ej: mendez.enrique"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide "
                     maxLength={40}
                   />
                 </div>
@@ -332,7 +329,6 @@ export default function StudentLogin() {
                     onChange={(e) => { setResetNewPwd(e.target.value); setResetError('') }}
                     required
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Mínimo 8 caracteres"
                   />
                 </div>
                 <div>
@@ -343,7 +339,6 @@ export default function StudentLogin() {
                     onChange={(e) => { setResetConfirmPwd(e.target.value); setResetError('') }}
                     required
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Repite la nueva contraseña"
                   />
                 </div>
                 {resetError && (
@@ -399,8 +394,8 @@ export default function StudentLogin() {
                   autoCapitalize="characters"
                   spellCheck={false}
                   maxLength={8}
-                  placeholder="Ej: A3B7K2"
-                  className="flex-1 min-w-0 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
+                  aria-label="Ej: A3B7K2"
+                  className="flex-1 min-w-0 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest "
                 />
                 <button
                   type="submit"

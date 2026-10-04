@@ -407,17 +407,17 @@ export default function Profile() {
                   <div>
                     <label htmlFor="prof-pwd-actual" className="block text-xs font-medium text-muted mb-1">Contraseña actual</label>
                     <PasswordInput id="prof-pwd-actual" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
-                      required autoComplete="current-password" className={inputCls} placeholder="••••••••" />
+                      required autoComplete="current-password" className={inputCls} />
                   </div>
                   <div>
                     <label htmlFor="prof-pwd-nueva" className="block text-xs font-medium text-muted mb-1">Nueva contraseña</label>
                     <PasswordInput id="prof-pwd-nueva" value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
-                      required autoComplete="new-password" className={inputCls} placeholder="Mínimo 6 caracteres" />
+                      required autoComplete="new-password" className={inputCls} />
                   </div>
                   <div>
                     <label htmlFor="prof-pwd-confirmar" className="block text-xs font-medium text-muted mb-1">Confirmar nueva contraseña</label>
                     <PasswordInput id="prof-pwd-confirmar" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)}
-                      required autoComplete="new-password" className={inputCls} placeholder="Repite la contraseña" />
+                      required autoComplete="new-password" className={inputCls} />
                   </div>
                   {/* No hay "original" con qué comparar una contraseña (vive
                       hasheada) — aquí "nada que guardar" es que los campos
@@ -445,18 +445,18 @@ export default function Profile() {
             <div>
               <label htmlFor="prof-real-nombre" className="block text-xs font-medium text-muted mb-1">Nombre(s)</label>
               <input id="prof-real-nombre" type="text" value={realNombre} onChange={(e) => setRealNombre(e.target.value)}
-                className={inputCls} placeholder="Ej. Laura" />
+                className={inputCls} />
             </div>
             <div className="flex gap-2">
               <div className="flex-1">
                 <label htmlFor="prof-apellido-paterno" className="block text-xs font-medium text-muted mb-1">Apellido paterno</label>
                 <input id="prof-apellido-paterno" type="text" value={apellidoPaterno} onChange={(e) => setApellidoPaterno(e.target.value)}
-                  className={inputCls} placeholder="Ej. García" />
+                  className={inputCls} />
               </div>
               <div className="flex-1">
                 <label htmlFor="prof-apellido-materno" className="block text-xs font-medium text-muted mb-1">Apellido materno</label>
                 <input id="prof-apellido-materno" type="text" value={apellidoMaterno} onChange={(e) => setApellidoMaterno(e.target.value)}
-                  className={inputCls} placeholder="Ej. Pérez" />
+                  className={inputCls} />
               </div>
             </div>
             <CodigoPostalField
@@ -495,13 +495,13 @@ export default function Profile() {
                 />
                 {prefijoOption === '__otro__' && (
                   <input type="text" value={prefijoCustom} onChange={(e) => setPrefijoCustom(e.target.value)}
-                    className={`${inputCls} mt-2`} placeholder="Escribe el prefijo" />
+                    className={`${inputCls} mt-2`} aria-label="Escribe el prefijo" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <label htmlFor="prof-nombre" className="block text-xs font-medium text-muted mb-1">Nombre</label>
                 <input id="prof-nombre" type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
-                  className={inputCls} placeholder="Ej. Profa. García Pérez" />
+                  className={inputCls} />
               </div>
             </div>
             <button type="submit" disabled={savingNombre || !nombreChanged}

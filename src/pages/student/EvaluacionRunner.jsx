@@ -518,7 +518,7 @@ export default function EvaluacionRunner() {
                 value={respuestas[pregunta.id] || ''}
                 onChange={(e) => handleTextoChange(pregunta.id, e.target.value)}
                 rows={4}
-                placeholder="Escribe tu respuesta…"
+                aria-label="Escribe tu respuesta…"
                 className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
               />
             ) : pregunta.tipo === 'subir_archivo' ? (
@@ -568,7 +568,7 @@ export default function EvaluacionRunner() {
                     {o.esOtra && respuestas[pregunta.id] === o.id && (
                       <input type="text" value={otraTextos[pregunta.id] || ''}
                         onChange={(e) => handleOtraTextoChange(pregunta.id, e.target.value)}
-                        placeholder="Escribe tu respuesta…"
+                        aria-label="Escribe tu respuesta…"
                         className="mt-1.5 ml-9 w-[calc(100%-2.25rem)] px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                     )}
                   </div>

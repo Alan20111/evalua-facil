@@ -18,7 +18,7 @@ const PAD_LEFT = 36 // px — coincide con pl-9 (2.25rem), donde arranca el text
 const GAP = 4
 
 export default function SearchInput({
-  value, onChange, placeholder, size = 16, className = '', autoFocus = false,
+  value, onChange, etiqueta, size = 16, className = '', autoFocus = false,
 }) {
   const inputRef = useRef(null)
   const measureRef = useRef(null)
@@ -39,7 +39,7 @@ export default function SearchInput({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
+        aria-label={etiqueta}
         autoFocus={autoFocus}
         className={`w-full pl-9 pr-9 py-2 rounded border-2 border-accent shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card ${className}`}
       />

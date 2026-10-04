@@ -73,7 +73,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
               type="text"
               value={customExts}
               onChange={(e) => onCustomChange?.(e.target.value)}
-              placeholder="Ej: pptx, zip, psd"
+              aria-label="Ej: pptx, zip, psd"
               required
               autoComplete="off"
               spellCheck={false}

@@ -38,7 +38,6 @@ export function SeccionForm({ inicial, onGuardar, onCancelar, guardando }) {
           onChange={(e) => setNombre(e.target.value)}
           required
           maxLength={120}
-          placeholder="Ej. Comprensión lectora"
           className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface"
         />
       </div>
@@ -52,7 +51,6 @@ export function SeccionForm({ inicial, onGuardar, onCancelar, guardando }) {
           onChange={(e) => setDescripcion(e.target.value)}
           rows={2}
           maxLength={400}
-          placeholder="Qué se evalúa en esta sección"
           className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface"
         />
       </div>

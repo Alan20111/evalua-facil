@@ -42,7 +42,7 @@ export default function PublicacionScheduler({ id, label, hint, mode, fecha, onM
             value={fecha || ''}
             onChange={onFechaChange}
             minDateTime={toIsoNow()}
-            placeholder="Elegir fecha de publicación…"
+            textoVacio="Elegir fecha de publicación…"
             clearable={false}
           />
         </div>

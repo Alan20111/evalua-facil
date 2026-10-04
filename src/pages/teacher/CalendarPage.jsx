@@ -2435,7 +2435,7 @@ export default function CalendarPage() {
                   <input
                     type="time" value={hora} step={60}
                     onChange={e => e.target.value && setPendingMove(pm => ({ ...pm, hora: e.target.value }))}
-                    className={`${inputCls} flex-1 text-center text-base font-semibold tabular-nums`}
+                    className={`${inputCls} flex-1 text-base font-semibold tabular-nums`}
                   />
                   <button type="button" onClick={() => stepHora(5)}
                     className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-accent-tint transition-colors" aria-label="+5 minutos">
@@ -2576,7 +2576,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
           <div className="rounded-card border border-outline-variant p-3 space-y-3">
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted uppercase tracking-wide">Fecha</span>
-              <EFDateTimePicker mode="date" value={fecha} onChange={setFecha} placeholder="Elige el día…" clearable showShortcuts={false} />
+              <EFDateTimePicker mode="date" value={fecha} onChange={setFecha} textoVacio="Elige el día…" clearable showShortcuts={false} />
             </div>
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted uppercase tracking-wide">¿A qué afecta?</span>
@@ -2698,11 +2698,11 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-muted uppercase tracking-wide">Inicio</span>
-                <EFDateTimePicker mode="date" value={fechaInicio} onChange={setFechaInicio} placeholder="Inicio…" clearable showShortcuts={false} />
+                <EFDateTimePicker mode="date" value={fechaInicio} onChange={setFechaInicio} textoVacio="Inicio…" clearable showShortcuts={false} />
               </div>
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-muted uppercase tracking-wide">Fin</span>
-                <EFDateTimePicker mode="date" value={fechaFin} onChange={setFechaFin} placeholder="Fin…" clearable showShortcuts={false} />
+                <EFDateTimePicker mode="date" value={fechaFin} onChange={setFechaFin} textoVacio="Fin…" clearable showShortcuts={false} />
               </div>
             </div>
             {fechaInicio && fechaFin && fechaFin < fechaInicio && (

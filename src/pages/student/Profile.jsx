@@ -367,7 +367,7 @@ export default function StudentProfile() {
             <PasswordInput
               value={passActual}
               onChange={(e) => setPassActual(e.target.value)}
-              placeholder={debeEstablecerContrasena ? 'Contraseña de reset (la que te dio tu maestro)' : 'Contraseña actual'}
+              aria-label={debeEstablecerContrasena ? 'Contraseña de reset (la que te dio tu maestro)' : 'Contraseña actual'}
               autoComplete="current-password"
               required
               className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
@@ -375,7 +375,7 @@ export default function StudentProfile() {
             <PasswordInput
               value={passNueva}
               onChange={(e) => setPassNueva(e.target.value)}
-              placeholder="Contraseña nueva (mínimo 8 caracteres)"
+              aria-label="Contraseña nueva (mínimo 8 caracteres)"
               autoComplete="new-password"
               required
               className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
@@ -383,7 +383,7 @@ export default function StudentProfile() {
             <PasswordInput
               value={passConfirm}
               onChange={(e) => setPassConfirm(e.target.value)}
-              placeholder="Repite la contraseña nueva"
+              aria-label="Repite la contraseña nueva"
               autoComplete="new-password"
               required
               className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"

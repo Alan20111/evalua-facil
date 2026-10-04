@@ -205,7 +205,6 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
               onChange={(e) => setCustomName(e.target.value)}
               required
               className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-              placeholder="Ej. Escuela Secundaria Técnica N.° 12"
             />
           </div>
           <div>
@@ -218,7 +217,6 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
               value={customCCT}
               onChange={(e) => setCustomCCT(e.target.value)}
               className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-              placeholder="Ej. 15ECT0001H"
             />
           </div>
           <div className="flex gap-2">
@@ -231,7 +229,6 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
                 onChange={(e) => setCustomCity(e.target.value)}
                 required
                 className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                placeholder="Ej. Celaya"
               />
             </div>
             <div className="flex-1">
@@ -243,7 +240,6 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
                 onChange={(e) => setCustomState(e.target.value)}
                 required
                 className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                placeholder="Ej. Guanajuato"
               />
             </div>
           </div>
@@ -255,7 +251,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
       ) : (
         <div className="flex flex-col">
           <div className="pb-3 -mx-4 sm:-mx-5 px-4 sm:px-5 border-b border-outline-variant">
-            <SearchInput value={search} onChange={setSearch} placeholder="Nombre, CCT o municipio…" />
+            <SearchInput value={search} onChange={setSearch} etiqueta="Nombre, CCT o municipio…" />
           </div>
           {!search.trim() ? (
             <p className="py-8 text-center text-sm text-slate-500">

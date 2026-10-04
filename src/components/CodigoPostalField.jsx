@@ -37,7 +37,6 @@ export default function CodigoPostalField({ id, value, onChange }) {
         maxLength={5}
         value={value}
         onChange={(e) => onChange(soloDigitosCP(e.target.value))}
-        placeholder="Ej. 38000"
         aria-describedby={`${id}-ubicacion`}
       />
       {/* aria-live: quien usa lector de pantalla también se entera de que el

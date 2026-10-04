@@ -215,7 +215,6 @@ export default function JuegoManager({
       <NombreJuego
         activity={activity}
         activityId={activityId}
-        tipoLabel={tipoLabel}
         onActivityChange={onActivityChange}
       />
 
@@ -265,7 +264,7 @@ export default function JuegoManager({
 // `juego.estado`, no reconstruye el tablero, no confirma nada y no pasa por
 // ningún callable de IA, así que no mueve créditos ni el apartado de la
 // generación. Por eso puede usarse mientras el juego sigue en borrador.
-function NombreJuego({ activity, activityId, tipoLabel, onActivityChange }) {
+function NombreJuego({ activity, activityId, onActivityChange }) {
   const toast = useToast()
   const guardado = activity.nombre || ''
   const [valor, setValor] = useState(guardado)
@@ -301,7 +300,6 @@ function NombreJuego({ activity, activityId, tipoLabel, onActivityChange }) {
           disabled={guardando}
           onChange={(e) => setValor(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && cambio && !guardando) { e.preventDefault(); handleGuardar() } }}
-          placeholder={`Sin nombre — se mostrará como "${tipoLabel}"`}
           className="flex-1 min-w-0 px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         />
         {/* Solo aparece cuando de verdad hay algo distinto que guardar, para
@@ -572,7 +570,7 @@ function JuegoConfiguracion({
               headerLabel="Fecha y hora límite"
               value={visForm.fechaLimite}
               onChange={(v) => setVisForm((f) => ({ ...f, fechaLimite: v }))}
-              placeholder="Sin fecha límite…"
+              textoVacio="Sin fecha límite…"
               clearable
             />
           </div>
@@ -656,14 +654,12 @@ function JuegoConfiguracion({
           <div>
             <label htmlFor="juego-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
             <input id="juego-tiempo" type="number" min="1" value={form.tiempoLimiteMin ?? ''}
-              onChange={(e) => setForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))}
-              placeholder="Sin límite" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+              onChange={(e) => setForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
           </div>
           <div>
             <label htmlFor="juego-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
             <input id="juego-intentos" type="number" min="1" value={form.intentosPermitidos ?? ''}
-              onChange={(e) => setForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))}
-              placeholder="Ilimitados" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+              onChange={(e) => setForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
           </div>
           {form.intentosPermitidos !== 1 && (
             <Select

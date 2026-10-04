@@ -161,7 +161,6 @@ export default function Register() {
                   required
                   autoFocus={PUEDE_AUTOFOCUS}
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej. Laura"
                 />
               </div>
               <div className="flex gap-2">
@@ -174,7 +173,6 @@ export default function Register() {
                     onChange={(e) => setApellidoPaterno(e.target.value)}
                     required
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Ej. García"
                   />
                 </div>
                 <div className="flex-1">
@@ -185,7 +183,6 @@ export default function Register() {
                     value={apellidoMaterno}
                     onChange={(e) => setApellidoMaterno(e.target.value)}
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Ej. Pérez"
                   />
                   <p className="text-xs text-hint mt-1">(opcional)</p>
                 </div>
@@ -218,7 +215,7 @@ export default function Register() {
                         value={prefijoCustom}
                         onChange={(e) => setPrefijoCustom(e.target.value)}
                         className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mt-2"
-                        placeholder="Escribe el prefijo"
+                        aria-label="Escribe el prefijo"
                       />
                     )}
                   </div>
@@ -231,7 +228,6 @@ export default function Register() {
                       onChange={(e) => setNombre(e.target.value)}
                       required
                       className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                      placeholder="Ej. Laura García"
                     />
                   </div>
                 </div>
@@ -321,7 +317,6 @@ export default function Register() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              placeholder="nombre@correo.com"
             />
 
             <div>
@@ -334,7 +329,6 @@ export default function Register() {
                 minLength={6}
                 autoComplete="new-password"
                 className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                placeholder="Mínimo 6 caracteres"
               />
             </div>
             <div>
@@ -346,7 +340,6 @@ export default function Register() {
                 required
                 autoComplete="new-password"
                 className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                placeholder="Repite la contraseña"
               />
             </div>
 

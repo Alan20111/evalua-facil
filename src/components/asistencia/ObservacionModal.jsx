@@ -52,7 +52,6 @@ export default function ObservacionModal({ estudiante, fecha, original = '', onG
         ref={textoRef}
         onChange={(e) => setTexto(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); guardar() } }}
-        placeholder="Escribe lo que observaste…"
         className="w-full px-3 py-2.5 rounded border border-outline-variant text-base bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-y"
       />
       {!esNueva && (

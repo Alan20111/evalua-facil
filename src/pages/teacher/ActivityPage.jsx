@@ -1587,7 +1587,7 @@ export default function ActivityPage() {
           <SearchInput
             value={searchStudents}
             onChange={setSearchStudents}
-            placeholder="Buscar por nombre o por número de lista…"
+            etiqueta="Buscar por nombre o por número de lista…"
             autoFocus={PUEDE_AUTOFOCUS}
           />
           <p className="text-xs text-red-600 text-center mt-1.5">Presiona un nombre para evaluar</p>
@@ -2056,11 +2056,10 @@ export default function ActivityPage() {
                           min="0"
                           max={activity?.maxCalif}
                           step="0.1"
-                          placeholder="—"
                           // Primer campo del panel de calificación, abierto con intención de escribir.
                           autoFocus={PUEDE_AUTOFOCUS && !parcialCerrado}
                           disabled={parcialCerrado}
-                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -2144,7 +2143,6 @@ export default function ActivityPage() {
                         onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                         rows={6}
                         className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y disabled:opacity-60 disabled:cursor-not-allowed"
-                        placeholder="Retroalimentación para el estudiante…"
                       />
                     </div>
                     {/* Empieza mostrando el default/global de la actividad
@@ -2305,7 +2303,6 @@ export default function ActivityPage() {
                           value={extendMotivo}
                           onChange={(e) => setExtendMotivo(e.target.value)}
                           rows={2}
-                          placeholder="Motivo de la extensión…"
                           className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                         />
                       </div>
@@ -2356,7 +2353,7 @@ export default function ActivityPage() {
                             step="0.1"
                             // Primer campo del panel "Evaluar sin entrega", abierto con intención de escribir.
                             autoFocus={PUEDE_AUTOFOCUS}
-                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface"
+                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold bg-surface"
                           />
                         </div>
                         <div>
@@ -2366,7 +2363,6 @@ export default function ActivityPage() {
                             value={sinEntregaMotivo}
                             onChange={(e) => setSinEntregaMotivo(e.target.value)}
                             rows={2}
-                            placeholder="Ej.: Entregó el archivo en memoria USB"
                             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                           />
                         </div>
@@ -2681,9 +2677,8 @@ export default function ActivityPage() {
                         min="0"
                         max={activity?.maxCalif}
                         step="0.5"
-                        placeholder="—"
                         disabled={parcialCerrado}
-                        className="w-24 py-1 text-center text-[2.7rem] font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-24 py-1 text-[2.7rem] font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                       <button
                         type="button"
@@ -2841,7 +2836,6 @@ export default function ActivityPage() {
                 value={extendMotivo}
                 onChange={(e) => setExtendMotivo(e.target.value)}
                 rows={2}
-                placeholder="Motivo de la extensión…"
                 className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
               />
             </div>

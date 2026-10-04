@@ -75,7 +75,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
             headerLabel="Fecha y hora de publicación"
             value={publishAt}
             onChange={onPublishAtChange}
-            placeholder="Elegir fecha de publicación…"
+            textoVacio="Elegir fecha de publicación…"
             clearable={false}
             defaultTime="07:00"
             minDateTime={toIsoNowLocal()}
@@ -142,7 +142,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
               headerLabel="Fecha y hora de publicación"
               value={publishAt}
               onChange={onPublishAtChange}
-              placeholder="Elegir fecha de publicación…"
+              textoVacio="Elegir fecha de publicación…"
               clearable={false}
               defaultTime="07:00"
               minDateTime={toIsoNowLocal()}

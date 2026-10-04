@@ -85,6 +85,8 @@ check "text-slate-400 (no pasa contraste — usar text-hint) — WCAG 1.4.3" '(^
 check "Radio fuera de escala (rounded-md/lg/xl/2xl/3xl) — DESIGN_SYSTEM.md §4.1" '(^|[^a-z-])rounded-(md|lg|xl|2xl|3xl)([^a-z0-9-]|$)' '-E'
 check "Sombra fuera de escala (shadow-sm/md/xl) — DESIGN_SYSTEM.md §4.2" '(^|[^a-z-])shadow-(sm|md|xl)([^a-z0-9-]|$)' '-E'
 check "Separación fuera de escala (gap/space-y 2.5 o 5, mt/mb-5) — DESIGN_SYSTEM.md §4.4" '(^|[^a-z-])((gap|gap-x|gap-y|space-y)-(2\.5|5)|m[tb]-5)([^a-z0-9.-]|$)' '-E'
+check "placeholder (texto gris en campos — prohibido; usa etiqueta o aria-label) — DESIGN_SYSTEM.md §6.2" '(^|[^A-Za-z.])placeholder(=|:)' '-E'
+check "Texto centrado en campos (los campos alinean a la izquierda) — DESIGN_SYSTEM.md §6.2" '<(input|textarea)[^>]*text-center' '-E'
 
 echo ""
 echo "=== Candados de accesibilidad — docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 1 ==="

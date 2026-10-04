@@ -269,8 +269,10 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 ### 6.2 Inputs y formularios
 
 - **Input estándar:** `w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface` — ✅ el anillo de foco es `focus-visible:` en toda la app (jul-2026): ya no aparece con click de mouse, solo con navegación por teclado. ✅ Padding unificado a `px-4 py-2.5` (oct-2026).
+- **Sin placeholder, nunca (oct-2026):** ningún campo muestra texto gris adentro. Cada campo se nombra con su `<label>` (o `label` de `Input`) y, si no tiene etiqueta visible, con `aria-label`. Los ejemplos que antes iban en el placeholder, si hacen falta, van como texto de ayuda debajo (`text-xs text-hint mt-1`). `SearchInput` y `RichTextEditor` reciben `etiqueta`; `Select`/`EFDateTimePicker` usan `textoVacio`. Candado en `check:design` + `::placeholder { color: transparent }` como red de seguridad.
+- **Texto de los campos alineado a la izquierda**, siempre (también usuario y códigos). Única excepción: las casillas de una letra del crucigrama.
 - Input con error: `border-red-400` (+ mensaje `text-red-500 text-xs`).
-- Input código/username: añade `font-mono tracking-widest text-center text-lg` + `autoCapitalize="characters"`.
+- Input código/usuario: añade `font-mono tracking-widest` + `autoCapitalize="characters"` (alineado a la izquierda, mismo tamaño que el resto).
 - Numérico de captura: `no-spinner` (oculta flechas), `text-center font-semibold`.
 - PasswordInput: input estándar + toggle `Eye/EyeOff` interno.
 - Label: `block text-sm font-medium text-muted mb-1` · Hint: `text-xs text-hint mt-1`.
