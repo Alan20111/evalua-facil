@@ -109,7 +109,7 @@ fi
 ratchet "Modales a mano (fixed inset-0 fuera de ui/Modal.jsx) — migrar a ui/Modal en Fase 3" \
   'fixed inset-0' 42 'components/ui/Modal.jsx' files
 ratchet "h-screen (rompe con la barra de URL de Chrome Android, usar dvh) — Fase 5 paso 5.3" \
-  '\bh-screen\b' 27
+  '\bh-screen\b' 25
 ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
   '([0-9]+)(vh)\b' 58
 # Presupuesto subido de 52 a 54 (Fase 2, paso 2.8): min-h-[44px]/min-w-[44px]

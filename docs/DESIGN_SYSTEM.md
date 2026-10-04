@@ -180,7 +180,7 @@ Prohibidos (candado): `shadow-sm`, `shadow-md`, `shadow-xl`.
 | Docente amplio (tablas/grids) — `TEACHER_CONTAINER` | `w-full max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1600px] mx-auto` |
 | Docente angosto (forms/settings) — `TEACHER_CONTAINER_NARROW` | `w-full max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto` |
 | Alumno | `px-4 py-5` (o `py-6`) + `max-w-2xl mx-auto` (listas) / `max-w-xl` (detalle) |
-| Auth (ambos) | `min-h-screen flex flex-col items-center justify-center px-4 bg-surface` + card `w-full max-w-sm` |
+| Auth (ambos) | `data-forma="acceso"` + `min-h-dvh flex flex-col items-center justify-center px-4 py-8 bg-surface` + card `w-full max-w-sm` `p-5`, logo `w-56 sm:w-64`. `data-forma="acceso"` da a los dos logins las esquinas redondas del alumno (16/32px) y la escala de letra del docente: son idénticos salvo el acento |
 | Admin | main `p-4 md:p-5 lg:p-8 max-w-7xl` |
 
 ### 4.4 Espaciado — estándares (oct-2026)

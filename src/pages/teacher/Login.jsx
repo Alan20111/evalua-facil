@@ -78,7 +78,7 @@ export default function TeacherLogin() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
+    <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 py-8 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           {/* Logotipo completo de la marca (icono + nombre + subtítulo) */}

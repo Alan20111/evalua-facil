@@ -225,10 +225,10 @@ export default function StudentLogin() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-surface">
+    <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 py-8 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+          <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
           <h1 className="text-2xl font-bold text-on-surface">Acceso Estudiantes</h1>
         </div>
 
@@ -250,7 +250,7 @@ export default function StudentLogin() {
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center"
                 placeholder="Ej: mendez.enrique"
                 maxLength={40}
               />
@@ -274,7 +274,7 @@ export default function StudentLogin() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loading ? <Spinner size="sm" /> : null}
               {loading ? 'Entrando…' : 'Iniciar sesión'}
@@ -319,7 +319,7 @@ export default function StudentLogin() {
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center"
                     placeholder="Ej: mendez.enrique"
                     maxLength={40}
                   />
@@ -354,7 +354,7 @@ export default function StudentLogin() {
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {resetLoading ? <Spinner size="sm" /> : null}
                   {resetLoading ? 'Restableciendo…' : 'Restablecer contraseña'}
@@ -405,7 +405,7 @@ export default function StudentLogin() {
                 <button
                   type="submit"
                   disabled={!codeInput.trim()}
-                  className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-1.5 flex-shrink-0"
+                  className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-1.5 flex-shrink-0"
                 >
                   <Hash size={18} />
                   Ir
@@ -415,7 +415,7 @@ export default function StudentLogin() {
           )}
         </div>
 
-        <p className="text-center text-sm text-slate-500 mt-4 px-2">
+        <p className="text-center text-sm text-muted mt-6 px-2">
           Tu maestro te otorgará tus datos de acceso.
         </p>
         <p className="text-center text-sm text-muted mt-2 px-2">
