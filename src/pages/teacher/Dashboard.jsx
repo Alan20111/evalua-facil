@@ -35,7 +35,7 @@ import AppQRButton from '../../components/AppQRButton'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { syncPublicProfile } from '../../utils/publicProfile'
-import { SkeletonCards } from '../../components/ui'
+import { EsqueletoTableroDocente } from '../../components/esqueletos'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -411,7 +411,7 @@ export default function TeacherDashboard() {
         )}
 
         {loading ? (
-          <SkeletonCards count={6} />
+          <EsqueletoTableroDocente />
         ) : (
           <>
             {/* ── Mis asignaturas ── */}
