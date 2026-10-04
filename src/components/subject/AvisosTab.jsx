@@ -30,7 +30,7 @@ function ProgressoLectura({ leidos, total }) {
         </div>
         <span className="text-xs font-semibold text-accent flex-shrink-0">{pct}%</span>
       </div>
-      <p className="text-xs text-slate-400 mt-1">
+      <p className="text-xs text-hint mt-1">
         {total === 0 ? 'Sin estudiantes inscritos aún' : `${leidos} de ${total} estudiantes han confirmado la lectura.`}
       </p>
     </div>
@@ -396,7 +396,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
   return (
     <div className="px-4 py-2 space-y-2">
       {totalEstudiantes === 0 ? (
-        <p className="text-center text-slate-400 text-sm py-12">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p>
+        <p className="text-center text-hint text-sm py-12">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p>
       ) : (
       <>
       <div className="flex items-start justify-between gap-3">
@@ -431,7 +431,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {!avisosLoaded ? (
         <div className="flex justify-center py-10"><Spinner /></div>
       ) : avisosMostrados.length === 0 ? (
-        <div className="text-center py-10 text-slate-400 text-sm flex flex-col items-center gap-2">
+        <div className="text-center py-10 text-hint text-sm flex flex-col items-center gap-2">
           <Megaphone size={28} className="text-slate-300" />
           {soloGuardados ? 'No has guardado ningún aviso' : 'Aún no hay avisos en esta asignatura'}
         </div>
@@ -456,7 +456,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <button type="button" onClick={() => setDetailAviso(a)} className="flex-1 min-w-0 flex items-start gap-3 text-left">
                     <span className="text-xl leading-none flex-shrink-0 mt-0.5" aria-hidden="true">{avisoEmoji(a)}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-400">{formatAvisoFecha(a.fechaCreacion)}</p>
+                      <p className="text-xs text-hint">{formatAvisoFecha(a.fechaCreacion)}</p>
                       {/* Sin línea de título aparte — el mensaje ya lo dice
                           todo, mostrar los dos era repetir la misma idea dos
                           veces y le hacía perder tiempo al docente. El
@@ -475,19 +475,19 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       siempre significa "Guardar". */}
                   {soloGuardados ? (
                     <button type="button" onClick={() => toggleGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos" data-tooltip-pos="bottom"
-                      className="p-2 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
+                      className="p-2 rounded transition-colors flex-shrink-0 text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
                       <RotateCcw size={18} />
                     </button>
                   ) : (
                     <button type="button" onClick={() => toggleGuardado(a)} aria-label="Guardar" data-tooltip="Guardar" data-tooltip-pos="bottom"
-                      className="p-2 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
+                      className="p-2 rounded transition-colors flex-shrink-0 text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
                       <Bookmark size={18} />
                     </button>
                   )}
                   <div className="relative flex-shrink-0">
                     <button type="button" onClick={() => setOpenMenuId((id) => (id === a.id ? null : a.id))}
                       aria-label="Más opciones" data-tooltip="Más opciones" data-tooltip-pos="bottom"
-                      className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
                       <MoreVertical size={18} />
                     </button>
                     {openMenuId === a.id && (
@@ -527,11 +527,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <div className="flex items-center gap-1">
                     <button type="button" onClick={() => setStep('plantillas')}
                       data-tooltip="Editar tus plantillas"
-                      className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
                       <Settings size={18} />
                     </button>
                     <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
-                      className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
                       <X size={18} />
                     </button>
                   </div>
@@ -564,7 +564,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <span className="text-2xl flex-shrink-0" aria-hidden="true">{form.emoji}</span>
                   <h3 className="text-lg font-semibold flex-1">{form.titulo || 'Nuevo aviso'}</h3>
                   <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
-                    className="p-2 -mr-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                    className="p-2 -mr-1 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                     <X size={18} />
                   </button>
                 </div>
@@ -621,7 +621,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     <Plus size={14} /> Nueva
                   </button>
                   <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
-                    className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                    className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
                     <X size={18} />
                   </button>
                 </div>
@@ -639,17 +639,17 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       {IS_NATIVE_APP ? (
                         <button type="button" onPointerDown={(e) => dragPointerDown(e, i)} aria-label="Arrastrar para reordenar"
                           data-tooltip="Mantén y arrastra para reordenar"
-                          className="p-2 -m-0.5 text-slate-400 hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none">
+                          className="p-2 -m-0.5 text-hint hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none">
                           <GripVertical size={16} />
                         </button>
                       ) : (
                         <div className="flex flex-col flex-shrink-0">
                           <button type="button" onClick={() => movePlantilla(i, -1)} disabled={i === 0} aria-label="Subir"
-                            className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-40 disabled:hover:text-slate-400">
+                            className="p-0.5 text-hint hover:text-accent disabled:opacity-40 disabled:hover:text-slate-400">
                             <ChevronUp size={14} />
                           </button>
                           <button type="button" onClick={() => movePlantilla(i, 1)} disabled={i === plantillas.length - 1} aria-label="Bajar"
-                            className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-40 disabled:hover:text-slate-400">
+                            className="p-0.5 text-hint hover:text-accent disabled:opacity-40 disabled:hover:text-slate-400">
                             <ChevronDown size={14} />
                           </button>
                         </div>
@@ -657,11 +657,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       <span className="text-xl flex-shrink-0" aria-hidden="true">{p.emoji}</span>
                       <span className="flex-1 min-w-0 text-sm text-on-surface truncate">{p.label}</span>
                       <button type="button" onClick={() => openPlantillaForm(p)} aria-label="Editar" data-tooltip="Editar"
-                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                         <Pencil size={15} />
                       </button>
                       <button type="button" onClick={() => setDeletePlantillaConfirm(p)} aria-label="Eliminar" data-tooltip="Eliminar"
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+                        className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -679,7 +679,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   </button>
                   <h3 className="text-lg font-semibold flex-1">{plantillaForm.id ? 'Editar plantilla' : 'Nueva plantilla'}</h3>
                   <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
-                    className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                    className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
                     <X size={18} />
                   </button>
                 </div>
@@ -749,7 +749,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
             <div className="flex items-start gap-3 mb-4">
               <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">{avisoEmoji(detailAviso)}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-400">{formatAvisoFecha(detailAviso.fechaCreacion)}</p>
+                <p className="text-xs text-hint">{formatAvisoFecha(detailAviso.fechaCreacion)}</p>
                 {detailAviso.titulo && (
                   <p className="font-semibold text-on-surface break-words mt-0.5">{detailAviso.titulo}</p>
                 )}
@@ -782,7 +782,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                           <CheckCircle2 size={13} /> Leído · {formatAvisoFecha(leidoAt)}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-slate-400 font-medium flex-shrink-0">
+                        <span className="inline-flex items-center gap-1 text-xs text-hint font-medium flex-shrink-0">
                           <Circle size={11} /> Pendiente
                         </span>
                       )}

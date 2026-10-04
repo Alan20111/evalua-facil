@@ -187,7 +187,7 @@ export default function Register() {
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder="Ej. Pérez"
                   />
-                  <p className="text-xs text-slate-400 mt-1">(opcional)</p>
+                  <p className="text-xs text-hint mt-1">(opcional)</p>
                 </div>
               </div>
               <CodigoPostalField

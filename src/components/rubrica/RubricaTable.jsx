@@ -93,9 +93,9 @@ export default function RubricaTable({ rubrica, seleccion = null, onSelect = nul
                 const inner = (
                   <>
                     <p className={`text-sm leading-snug whitespace-pre-wrap ${sel ? 'text-on-surface' : 'text-muted'}`}>
-                      {c.descriptores?.[ni] || <span className="italic text-slate-400">—</span>}
+                      {c.descriptores?.[ni] || <span className="italic text-hint">—</span>}
                     </p>
-                    <p className={`text-sm font-bold mt-1.5 ${sel ? 'text-accent' : 'text-slate-400'}`}>
+                    <p className={`text-sm font-bold mt-1.5 ${sel ? 'text-accent' : 'text-hint'}`}>
                       {c.puntos?.[ni]} pts
                     </p>
                   </>

@@ -74,6 +74,10 @@ check "focus:ring-2 sin focus-visible — DESIGN_SYSTEM.md §10-#19" 'focus:ring
 check "disabled:opacity fuera de 40/60 — DESIGN_SYSTEM.md §10-#20" 'disabled:opacity-(20|30|50)' '-E'
 check "fontSize inline en píxeles crudos — DESIGN_SYSTEM.md §10 (Fase 1)" 'fontSize: [0-9]' '-E'
 check "role=\"presentation\" (usar el patrón canónico de backdrop de §6.7)" 'role="presentation"'
+# text-slate-400 medía 2.56:1 sobre blanco (WCAG 1.4.3 pide 4.5:1). Se cambió
+# por el token `text-hint` (#56657b, ≥ 4.6:1 en las tres superficies claras).
+# Solo la clase sin prefijo: `hover:`/`disabled:` son estados, no texto.
+check "text-slate-400 (no pasa contraste — usar text-hint) — WCAG 1.4.3" '(^|[^:a-z-])text-slate-400' '-E'
 
 echo ""
 echo "=== Candados de accesibilidad — docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 1 ==="

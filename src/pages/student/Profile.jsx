@@ -279,7 +279,7 @@ export default function StudentProfile() {
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-on-surface leading-snug">{displayName}</p>
             {schoolName && <p className="text-sm text-muted truncate mt-0.5">{schoolName}</p>}
-            <p className="text-xs text-slate-400 mt-1">Toca la foto para cambiarla</p>
+            <p className="text-xs text-hint mt-1">Toca la foto para cambiarla</p>
             {/* "Sin foto" solo aparece si hay foto que quitar — un botón para
                 borrar algo que no existe nomás hace dudar. */}
             {photoURL && (
@@ -339,7 +339,7 @@ export default function StudentProfile() {
               {copied ? <Check size={17} className="text-green-600" /> : <Copy size={17} />}
             </button>
           </div>
-          <p className="text-xs text-slate-400 mt-2">
+          <p className="text-xs text-hint mt-2">
             Tu nombre lo administra tu maestro — si hay un error, pídele que lo corrija.
           </p>
         </div>

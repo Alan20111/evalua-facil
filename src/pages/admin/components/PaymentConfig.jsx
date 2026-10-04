@@ -38,7 +38,7 @@ function Field({ label, value, onChange, placeholder, hint }) {
         placeholder={placeholder}
         className={inputCls}
       />
-      {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-hint mt-1">{hint}</p>}
     </div>
   )
 }
@@ -141,7 +141,7 @@ export default function PaymentConfig() {
             </div>
             <div>
               <h3 className="font-semibold text-on-surface">Mercado Pago</h3>
-              <p className="text-xs text-slate-400">Tarjeta, SPEI y OXXO</p>
+              <p className="text-xs text-hint">Tarjeta, SPEI y OXXO</p>
             </div>
           </div>
           <Toggle
@@ -158,7 +158,7 @@ export default function PaymentConfig() {
               placeholder="APP_USR-xxxxxxxx-xxxx-..."
               hint="Panel de Mercado Pago → Tus integraciones → Credenciales de producción."
             />
-            <p className="text-xs text-slate-400 flex items-center gap-1">
+            <p className="text-xs text-hint flex items-center gap-1">
               <ExternalLink size={13} />
               El Access Token (secreto) va en Vercel como MP_ACCESS_TOKEN.
             </p>
@@ -175,7 +175,7 @@ export default function PaymentConfig() {
             </div>
             <div>
               <h3 className="font-semibold text-on-surface">PayPal</h3>
-              <p className="text-xs text-slate-400">Tarjeta y saldo PayPal</p>
+              <p className="text-xs text-hint">Tarjeta y saldo PayPal</p>
             </div>
           </div>
           <Toggle checked={form.paypal.enabled} onChange={(v) => patch('paypal', 'enabled', v)} />
@@ -189,7 +189,7 @@ export default function PaymentConfig() {
               placeholder="AeA1QIZ..."
               hint="PayPal Developer Dashboard → tu app → Client ID (producción)."
             />
-            <p className="text-xs text-slate-400 flex items-center gap-1">
+            <p className="text-xs text-hint flex items-center gap-1">
               <ExternalLink size={13} />
               El Secret va en Vercel como PAYPAL_SECRET.
             </p>
@@ -206,7 +206,7 @@ export default function PaymentConfig() {
             </div>
             <div>
               <h3 className="font-semibold text-on-surface">Transferencia bancaria</h3>
-              <p className="text-xs text-slate-400">Manual, con aprobación tuya</p>
+              <p className="text-xs text-hint">Manual, con aprobación tuya</p>
             </div>
           </div>
           <Toggle

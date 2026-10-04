@@ -25,7 +25,7 @@ export default function PublicacionScheduler({ id, label, hint, mode, fecha, onM
           { value: 'nunca', label: 'No publicar' },
         ]}
       />
-      {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-hint mt-1">{hint}</p>}
       {mode === 'nunca' && (
         <p className="text-xs text-muted mt-1">
           El estudiante no lo verá. Tú sí: en Resultados tienes todo, y puedes cambiar esto cuando quieras.

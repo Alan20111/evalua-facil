@@ -107,12 +107,12 @@ export default function EvaluacionRevision() {
     <StudentLayout>
       <div className="bg-surface min-h-screen" {...subjectPaletteProps(subject?.colorPalette)}>
         <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-          <button type="button" onClick={goBack} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+          <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-on-surface truncate">{activity.nombre}</h1>
-            <p className="text-slate-400 text-xs truncate">{subjectDisplayName(subject)} · Revisión</p>
+            <p className="text-hint text-xs truncate">{subjectDisplayName(subject)} · Revisión</p>
           </div>
         </header>
 

@@ -236,7 +236,7 @@ export default function DownloadLinks() {
                 </a>
               ) : (
                 <span
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-dashed border-outline-variant text-sm text-slate-400"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-dashed border-outline-variant text-sm text-hint"
                   title="Esta versión se publicó antes de que se generara el bundle. La próxima que publiques lo incluirá."
                 >
                   <Package size={15} />
@@ -319,7 +319,7 @@ export default function DownloadLinks() {
           </Button>
         </div>
 
-        <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-400">
+        <p className="mt-3 flex items-start gap-1.5 text-xs text-hint">
           <ExternalLink size={13} className="flex-shrink-0 mt-0.5" />
           Tarda unos minutos. Al iniciar se abre el registro de la compilación en
           otra pestaña; el enlace de descarga cambia solo cuando termina.

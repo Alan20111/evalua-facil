@@ -35,7 +35,7 @@ export default function CreditosPanel({ onCerrar }) {
           <Sparkles size={20} className="text-accent flex-shrink-0" />
           <h3 className="text-lg font-semibold flex-1">Créditos de IA</h3>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" data-tooltip="Cerrar"
-            className="p-1.5 -mr-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+            className="p-1.5 -mr-1 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
             <X size={18} />
           </button>
         </div>

@@ -45,7 +45,7 @@ export default function CodigoPostalField({ id, value, onChange }) {
           Va fuera del Input porque su `hint` es texto gris fijo y aquí el
           mensaje cambia de color según el estado. */}
       <p id={`${id}-ubicacion`} aria-live="polite" className="text-sm mt-1 min-h-[1.25rem]">
-        {buscando && <span className="text-slate-400">{estadoInmediato || 'Buscando…'}</span>}
+        {buscando && <span className="text-hint">{estadoInmediato || 'Buscando…'}</span>}
         {ubicacion && <span className="text-muted">{ubicacionTexto(ubicacion)}</span>}
         {noEncontrado && <span className="text-red-600">No encontramos ese código postal — revísalo</span>}
       </p>

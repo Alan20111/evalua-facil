@@ -29,7 +29,7 @@ export default function Privacidad() {
         </Link>
 
         <h1 className="text-2xl font-bold text-on-surface">Aviso de privacidad</h1>
-        <p className="text-xs text-slate-400 mt-1">Última actualización: {ACTUALIZADO}</p>
+        <p className="text-xs text-hint mt-1">Última actualización: {ACTUALIZADO}</p>
 
         <p className="text-sm text-muted leading-relaxed mt-6">
           Evalúa Fácil es una plataforma educativa que permite a docentes gestionar

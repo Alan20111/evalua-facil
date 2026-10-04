@@ -159,7 +159,7 @@ export default function TeacherLogin() {
         <CanalYouTubeLink className="block w-fit mx-auto text-sm mt-2 text-accent font-semibold hover:underline">
           Evalúa Fácil en YouTube
         </CanalYouTubeLink>
-        <p className="text-center text-xs text-slate-400 mt-4">
+        <p className="text-center text-xs text-hint mt-4">
           Para una mejor experiencia recomendamos utilizar Evalúa Fácil Docente desde una laptop o computadora de escritorio.
         </p>
       </div>

@@ -101,7 +101,7 @@ function BarChart({ items, labelKey, valueKey, maxBars = 10 }) {
   return (
     <div className="space-y-2">
       {data.length === 0 ? (
-        <p className="text-sm text-slate-400">Sin datos</p>
+        <p className="text-sm text-hint">Sin datos</p>
       ) : (
         data.map((item) => (
           <div key={item[labelKey]} className="flex items-center gap-3">

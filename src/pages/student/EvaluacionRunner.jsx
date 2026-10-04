@@ -382,7 +382,7 @@ export default function EvaluacionRunner() {
   if (preguntas.length === 0) {
     return (
       <div className="fixed inset-0 z-50 bg-surface flex items-center justify-center">
-        <p className="text-sm text-slate-400">Esta evaluación no tiene preguntas.</p>
+        <p className="text-sm text-hint">Esta evaluación no tiene preguntas.</p>
       </div>
     )
   }
@@ -550,7 +550,7 @@ export default function EvaluacionRunner() {
                     onChange={(e) => { handleArchivoChange(pregunta.id, e.target.files?.[0] || null); e.target.value = '' }}
                   />
                 </label>
-                <p className="text-xs text-slate-400 italic">Tu maestro revisará el documento para asignar los puntos.</p>
+                <p className="text-xs text-hint italic">Tu maestro revisará el documento para asignar los puntos.</p>
               </div>
             ) : (
               <div className="space-y-2">

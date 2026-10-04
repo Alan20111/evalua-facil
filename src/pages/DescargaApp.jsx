@@ -121,7 +121,7 @@ export default function DescargaApp() {
         Descargar la app
       </a>
 
-      <p className="mt-4 text-xs text-slate-400">
+      <p className="mt-4 text-xs text-hint">
         Ábrelo desde tu celular Android
       </p>
     </Marco>

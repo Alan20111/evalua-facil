@@ -136,8 +136,8 @@ Color de calificación (`gradeColor`): alta `text-emerald-700` · media `text-am
 - Eyebrow: `text-xs font-bold uppercase tracking-wide text-accent`
 - Label de campo: `block text-sm font-medium text-muted mb-1`
 - Label caps: `text-xs font-semibold text-muted uppercase tracking-wide`
-- Metadatos/hints: `text-xs text-slate-400`
-- Dato destacado (nota): `text-5xl font-bold text-accent` + `/{max}` en `text-xl text-slate-400`
+- Metadatos/hints: `text-xs text-hint`
+- Dato destacado (nota): `text-5xl font-bold text-accent` + `/{max}` en `text-xl text-hint`
 - Código de acceso: `font-mono font-bold text-3xl text-accent`
 - Micro-tipografía de tabla densa: `text-[10px]` / `text-[11px]`
 
@@ -220,7 +220,7 @@ Color de calificación (`gradeColor`): alta `text-emerald-700` · media `text-am
 ### 5.3 Header de página interior (docente y alumno)
 
 `bg-surface-card border-b border-outline-variant px-4 py-2` (docente) / `py-3 shadow-card` (alumno):
-back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `SubjectIcon 20` → `h1 text-xl/lg font-bold truncate` + subtítulo `text-xs text-slate-400` → acciones a la derecha.
+back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `SubjectIcon 20` → `h1 text-xl/lg font-bold truncate` + subtítulo `text-xs text-hint` → acciones a la derecha.
 
 ---
 
@@ -235,7 +235,7 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 | **Outline acento** | `border border-accent text-accent rounded hover:bg-[var(--accent-tint)]` |
 | **Destructivo** | `bg-red-600 hover:bg-red-700 text-white font-semibold rounded` |
 | **Ghost/link** | `text-sm text-slate-500 hover:text-muted` o `text-accent hover:underline` |
-| **Icon-button** | `p-2 rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]` — destructivo: `hover:text-red-500 hover:bg-red-50` — icono 21 |
+| **Icon-button** | `p-2 rounded text-hint hover:text-accent hover:bg-[var(--accent-medium)]` — destructivo: `hover:text-red-500 hover:bg-red-50` — icono 21 |
 | **CTA punteado** | `w-full py-2.5 rounded(-card) border-2 border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light` |
 | **FAB** | `w-14 h-14 rounded-full bg-accent text-white shadow-lg` + `Plus 26` |
 
@@ -246,7 +246,7 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 - Input código/username: añade `font-mono tracking-widest text-center text-lg` + `autoCapitalize="characters"`.
 - Numérico de captura: `no-spinner` (oculta flechas), `text-center font-semibold`.
 - PasswordInput: input estándar + toggle `Eye/EyeOff` interno.
-- Label: `block text-sm font-medium text-muted mb-1` · Hint: `text-xs text-slate-400 mt-1`.
+- Label: `block text-sm font-medium text-muted mb-1` · Hint: `text-xs text-hint mt-1`.
 - Checkbox/radio nativos: `accent-[var(--accent)]`.
 - **Toggle switch** (admin): pista `h-6 w-11 rounded-full` (`bg-accent` on / `bg-slate-300` off — ✅ ya no `bg-blue-600` fijo), pulgar `h-4 w-4 rounded-full bg-surface-card` (`translate-x-6/translate-x-1`).
 - **Banner de error de form:** `text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5`.
@@ -260,7 +260,7 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 | Fila clicable (lista) | `bg-surface-card rounded-card p-3 shadow-card hover:shadow-md transition-shadow flex items-center gap-3 text-left` + icono en cuadro `w-11..12 h-11..12 rounded bg-accent-light` + `ChevronRight 18-20 text-slate-300` |
 | Acordeón (parcial) | `rounded-card overflow-hidden shadow-card`; abierto añade borde `1px solid var(--accent)`; header `px-4 py-2 hover:bg-[var(--accent-medium)]` + chevron 20 |
 | Sección acentuada | borde `1px solid var(--accent)` + header `background: var(--accent-light)` + título `color: var(--accent)` (hoy inline styles) |
-| Stat card (admin) | `p-4`, label `text-xs text-slate-400 font-medium` + icono 18, valor `text-xl md:text-2xl font-bold` |
+| Stat card (admin) | `p-4`, label `text-xs text-hint font-medium` + icono 18, valor `text-xl md:text-2xl font-bold` |
 | Banner de estado (alumno) | `rounded-card p-4 flex items-center gap-3` — calificado `bg-emerald-50 border-emerald-200`, entregado `bg-accent-light border-accent`, pendiente `bg-surface border-outline-variant`; icono 26 |
 
 ### 6.4 Tabs — ✅ consolidado a 2 variantes (jul-2026)
@@ -283,9 +283,9 @@ El "segmented sólido" del panel de evaluar (ActivityPage) se migró a la varian
 ### 6.6 Tablas
 
 - Contenedor: `bg-surface-card rounded-card shadow-card overflow-hidden` + `overflow-x-auto`; en móvil docente `-mx-4 sm:mx-0` (full-bleed).
-- Admin: `table w-full text-sm min-w-[720px]`; thead `bg-surface text-left text-xs text-muted uppercase`, celdas `px-4 py-2`; tbody `divide-y divide-slate-100`; hover `hover:bg-slate-50/50`; vacío `px-4 py-8 text-center text-slate-400`.
+- Admin: `table w-full text-sm min-w-[720px]`; thead `bg-surface text-left text-xs text-muted uppercase`, celdas `px-4 py-2`; tbody `divide-y divide-slate-100`; hover `hover:bg-slate-50/50`; vacío `px-4 py-8 text-center text-hint`.
 - Calificaciones (docente): sticky col 1 `sticky left-0 z-10`, col nombre `sticky left-8 z-20 w-[210px]`, cabeceras `bg-accent-light`, fila de ponderación `bg-amber-50`, zebra `bg-slate-50/50`, hover de fila `group-hover:bg-[var(--accent-tint)]`, micro-texto `text-[10px]/[11px]`, celdas `w-14/w-9`.
-- Acciones por fila: `p-1.5 text-slate-400 hover:text-{blue|amber|red}-600 rounded` + `data-tooltip`, iconos 16.
+- Acciones por fila: `p-1.5 text-hint hover:text-{blue|amber|red}-600 rounded` + `data-tooltip`, iconos 16.
 
 ### 6.7 Modales
 
@@ -293,7 +293,7 @@ El "segmented sólido" del panel de evaluar (ActivityPage) se migró a la varian
 - Wrapper `fixed inset-0 z-50 flex items-end sm:items-center justify-center`
 - Backdrop — ✅ **patrón canónico fijado (jul-2026), no usar otra solución:** `<button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={cerrar} aria-label="Cerrar" />`, hermano del panel (nunca lo envuelve). Es un `<button>` real y enfocable — no `<div role="presentation">` ni `aria-hidden` — para que el cierre por teclado/lector de pantalla funcione sin depender de que exista otro botón de cierre visible. El panel ya no necesita `onClick={e => e.stopPropagation()}` porque es hermano del backdrop, no su hijo.
 - Panel `relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-{sm|lg|3xl} rounded-t-card sm:rounded-card p-4..5 shadow-2xl max-h-[92vh] overflow-y-auto`
-- Header: `flex items-center justify-between` + `h3 text-lg font-bold` + cerrar `p-1..2 text-slate-400 hover:text-error` (`X 18-20`)
+- Header: `flex items-center justify-between` + `h3 text-lg font-bold` + cerrar `p-1..2 text-hint hover:text-error` (`X 18-20`)
 - Footer: `flex gap-2` — cancelar outline + acción primaria.
 - Confirmación destructiva: `max-w-sm`, botón `bg-red-600`, borrado de materia exige teclear texto de confirmación.
 - Editores fullscreen (EvaluacionEditor/EntregableEditor/Runner): `fixed inset-0 z-50 bg-surface overflow-y-auto` + header sticky `bg-accent text-white shadow-lg`, contenido `max-w-3xl mx-auto px-4 py-6`.
@@ -319,8 +319,8 @@ El "segmented sólido" del panel de evaluar (ActivityPage) se migró a la varian
 - **FileTypeSelect:** checklist `border rounded divide-y`, opción `px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)]`, activo `text-accent font-medium`.
 - **EFDateTimePicker:** trigger tipo input (borde outline-variant, icono Calendar accent); popover portal radius 14, sombra `0 8px 40px`, header lavado accent 10%, chips de atajos pill, calendario (días circulares 28px — seleccionado fondo accent, hoy outline accent 35%) + ruedas hora/min/AM-PM (item 26px, resalte accent 12%), footer Borrar/Cancelar/Confirmar (accent + Check 13). Animaciones `ef-pop-in` 200ms.
 - **RichTextEditor (TipTap):** marco `border rounded bg-surface-card`; toolbar `p-1.5 border-b bg-surface`, botón `p-1.5 rounded disabled:opacity-40` — activo `bg-accent-light text-accent`, hover `bg-[var(--accent-tint)]`; iconos 16; separador `w-px h-5 bg-outline-variant`; área `p-3 min-h-[160px] max-h-[40vh]`.
-- **FileDropzone:** `border-2 border-dashed rounded p-4 text-center` — idle `border-outline-variant hover:bg-[var(--accent-tint)]`, drag-over/activo `border-accent bg-[var(--accent-tint)]` (alumno: `bg-accent-light`), `Upload 22-26 text-accent`, título `text-sm font-medium`, hint `text-xs text-slate-400`. Alto móvil `h-28 sm:h-32`.
-- **AttachmentList:** fila `rounded border bg-surface-card px-2 py-1.5 flex gap-2` — icono por tipo, nombre `text-sm truncate`, tamaño `text-xs text-slate-400`, acciones `p-1 text-slate-400 hover:text-accent` (quitar `hover:text-red-500`), iconos 15.
+- **FileDropzone:** `border-2 border-dashed rounded p-4 text-center` — idle `border-outline-variant hover:bg-[var(--accent-tint)]`, drag-over/activo `border-accent bg-[var(--accent-tint)]` (alumno: `bg-accent-light`), `Upload 22-26 text-accent`, título `text-sm font-medium`, hint `text-xs text-hint`. Alto móvil `h-28 sm:h-32`.
+- **AttachmentList:** fila `rounded border bg-surface-card px-2 py-1.5 flex gap-2` — icono por tipo, nombre `text-sm truncate`, tamaño `text-xs text-hint`, acciones `p-1 text-hint hover:text-accent` (quitar `hover:text-red-500`), iconos 15.
 
 ### 6.11 Patrón de quiz (EvaluacionRunner — modo examen)
 
@@ -484,7 +484,7 @@ Nacieron en `main` después del trabajo original de este documento y se auditaro
 - Sin datos personales en URLs/query strings; códigos QR de activación no deben incluir datos del alumno más allá del código.
 - Estados de sesión visibles (quién soy, qué rol, botón de salir accesible en toda pantalla — hoy cumplido vía topbar/sidebar).
 - Touch targets ≥44×44px (Android/WCAG) — auditar icon-buttons `p-1`/`p-1.5` (28–32px hoy) en tablas y attachments.
-- Contraste AA: verificar `text-slate-400` sobre blanco (≈3.5:1, insuficiente para texto pequeño) y `text-white/60-70` sobre accent.
+- ✅ Contraste AA de texto de ayuda (oct-2026): `text-hint` medía 2.56:1 sobre blanco, no ≈3.5. Sustituido en toda la app por el token `text-hint` (`--on-surface-hint` = `#56657b`): 5.93:1 sobre blanco, 5.18:1 sobre el lienzo, 4.61:1 sobre `surface-container`. `slate-500` NO servía: 4.16:1 sobre el lienzo. Candado en `check-ui-standards.sh`. Pendiente: `text-white/60-70` sobre accent.
 - Modo examen (Runner): mantener fullscreen sin fugas de navegación; timer siempre visible; autosave por respuesta (ya existe).
 
 ---

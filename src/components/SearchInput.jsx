@@ -33,7 +33,7 @@ export default function SearchInput({
 
   return (
     <div className="relative">
-      <Search size={size} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <Search size={size} className="absolute left-3 top-1/2 -translate-y-1/2 text-hint pointer-events-none" />
       <input
         ref={inputRef}
         type="text"
@@ -53,7 +53,7 @@ export default function SearchInput({
           onClick={() => onChange('')}
           aria-label="Limpiar búsqueda"
           style={{ left: clearLeft }}
-          className="absolute top-1/2 -translate-y-1/2 text-slate-400 hover:text-muted rounded-full transition-colors"
+          className="absolute top-1/2 -translate-y-1/2 text-hint hover:text-muted rounded-full transition-colors"
         >
           <XCircle size={size} />
         </button>

@@ -51,7 +51,7 @@ export default function BitacoraObservacionesModal({ estudiante, asignatura, doc
                       <button type="button" onClick={() => onEditar(f.id)}
                         aria-label={`Editar la observación del ${f.fecha}`}
                         data-tooltip="Editar observación" data-tooltip-pos="left"
-                        className="flex-shrink-0 p-2 -m-2 rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors">
+                        className="flex-shrink-0 p-2 -m-2 rounded text-hint hover:text-accent hover:bg-[var(--accent-medium)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors">
                         <Pencil size={14} />
                       </button>
                     </div>

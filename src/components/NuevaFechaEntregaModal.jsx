@@ -140,7 +140,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
           <EFDateTimePicker mode="datetime" value={date} onChange={setDate} clearable={false} minDateTime={nowIsoLocal()} />
 
           {mode === 'todos' && (
-            <p className="text-xs text-slate-400 mt-2">
+            <p className="text-xs text-hint mt-2">
               Se aplicará a <strong>todo el grupo</strong> y se reabrirá la actividad si estaba cerrada.
               Al llegar esta fecha y hora, las entregas se cerrarán otra vez automáticamente
               (según la casilla &ldquo;Cerrar entregas en la fecha y hora programada&rdquo;).
@@ -155,7 +155,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
               {errorEntregas ? (
                 <p className="text-xs text-red-600 mb-2">No se pudieron revisar las entregas. Cierra y vuelve a abrir esta ventana.</p>
               ) : !conEntrega && (
-                <p className="text-xs text-slate-400 mb-2">Revisando entregas…</p>
+                <p className="text-xs text-hint mb-2">Revisando entregas…</p>
               )}
               <div className="border border-outline-variant rounded max-h-52 overflow-auto divide-y divide-outline-variant">
                 {students.filter((s) => !search.trim() || matchesStudentSearch(s, search)).map((s) => {
@@ -167,22 +167,22 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                         className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
                       <span className="text-sm text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.&nbsp;</span>
                       <span className="truncate">{studentFullName(s)}</span>
-                      {entrego && <span className="ml-auto text-xs text-slate-400 flex-shrink-0 whitespace-nowrap">Ya entregó</span>}
+                      {entrego && <span className="ml-auto text-xs text-hint flex-shrink-0 whitespace-nowrap">Ya entregó</span>}
                     </label>
                   )
                 })}
               </div>
               {conEntrega?.size > 0 && (
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-hint mt-1">
                   Quien ya entregó no puede recibir una fecha propia: primero anula su entrega.
                 </p>
               )}
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-hint mt-1">
                 {selected.size} seleccionado{selected.size !== 1 ? 's' : ''} — podrán entregar hasta esta
                 fecha; al pasar, se cerrará también para ellos.
               </p>
               <div className="mt-2">
-                <label htmlFor="motivo-extension" className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-slate-400">(opcional)</span></label>
+                <label htmlFor="motivo-extension" className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-hint">(opcional)</span></label>
                 <textarea id="motivo-extension" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
                   placeholder="Ej.: Falta justificada por duelo familiar"
                   className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />

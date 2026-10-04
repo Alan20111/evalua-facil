@@ -43,7 +43,7 @@ export default function Table({
           <tbody className="divide-y divide-slate-100">
             {data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-hint">
                   {emptyMessage}
                 </td>
               </tr>

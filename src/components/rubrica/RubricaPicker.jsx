@@ -147,7 +147,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
               )}
             </div>
             {filtered.length === 0 && (
-              <p className="text-center text-slate-400 text-sm py-8">Ninguna rúbrica coincide con la búsqueda</p>
+              <p className="text-center text-hint text-sm py-8">Ninguna rúbrica coincide con la búsqueda</p>
             )}
             {filtered.map((r) => (
             <div key={r.id} className={`bg-surface-card rounded-card shadow-card overflow-hidden border-l-4 ${instrumentoColors(r).border}`}>

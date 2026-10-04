@@ -43,7 +43,7 @@ export default function AvisoLecturaModal({ avisos, teacherNames = {}, subjectNa
         {aviso.mensaje && (
           <p className="text-sm text-on-surface whitespace-pre-wrap text-left mb-4">{aviso.mensaje}</p>
         )}
-        <p className="text-xs text-slate-400 mb-6">
+        <p className="text-xs text-hint mb-6">
           {formatAvisoFecha(aviso.fechaCreacion)}{teacherName ? ` · ${teacherName}` : ''}
         </p>
         <button type="button" onClick={handleEntendido} disabled={confirming}

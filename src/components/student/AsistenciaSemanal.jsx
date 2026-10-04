@@ -214,7 +214,7 @@ export default function AsistenciaSemanal({
                 return (
                   <div key={i} className={`min-w-0 rounded flex flex-col items-center gap-1 px-0.5 pt-1 pb-1.5 ${finde ? 'bg-surface-container' : ''} ${hoy ? 'ring-1 ring-accent' : ''}`}>
                     <span className="text-[11px] font-semibold text-muted leading-none">{l}</span>
-                    <span className={`text-sm leading-none tabular-nums ${marcas.length ? 'font-semibold text-on-surface' : 'text-slate-400'}`}>{dia.getDate()}</span>
+                    <span className={`text-sm leading-none tabular-nums ${marcas.length ? 'font-semibold text-on-surface' : 'text-hint'}`}>{dia.getDate()}</span>
                     {/* Una semana puede cruzar de mes (lun–dom sin cortar): el día 1
                         lleva su mes para que el cambio se lea sin pensar. */}
                     {dia.getDate() === 1 && (

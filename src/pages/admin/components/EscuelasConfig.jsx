@@ -62,7 +62,7 @@ export default function EscuelasConfig() {
         placeholder="Buscar por nombre, clave o short name…"
       />
       {filtered.length === 0 && (
-        <p className="text-sm text-slate-400 text-center py-8">Sin resultados</p>
+        <p className="text-sm text-hint text-center py-8">Sin resultados</p>
       )}
       <div className="space-y-2">
         {filtered.map((s) => (

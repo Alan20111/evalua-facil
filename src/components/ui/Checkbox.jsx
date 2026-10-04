@@ -9,7 +9,7 @@
 //
 // Props:
 //   label  texto principal (obligatorio — es el nombre accesible del control)
-//   hint   texto secundario debajo (text-xs text-slate-400)
+//   hint   texto secundario debajo (text-xs text-hint)
 //   className         se agrega al <input>
 //   wrapperClassName  se agrega al <label> contenedor
 // El resto (checked, onChange, disabled…) pasa al <input>.
@@ -30,7 +30,7 @@ const Checkbox = forwardRef(function Checkbox(
       />
       <span className="text-sm font-medium text-on-surface">
         {label}
-        {hint && <span className="block font-normal text-xs text-slate-400">{hint}</span>}
+        {hint && <span className="block font-normal text-xs text-hint">{hint}</span>}
       </span>
     </label>
   )

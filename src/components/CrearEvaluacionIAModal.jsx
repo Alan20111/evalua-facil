@@ -137,7 +137,7 @@ export default function CrearEvaluacionIAModal({
           <Sparkles size={18} className="text-accent flex-shrink-0" />
           <h3 className="text-base font-semibold flex-1">{tipoLabel} con IA</h3>
           <button type="button" onClick={() => { if (!trabajando) onClose?.() }} aria-label="Cerrar"
-            className="p-1 text-slate-400 rounded"><X size={18} /></button>
+            className="p-1 text-hint rounded"><X size={18} /></button>
         </div>
         <p className="text-sm text-muted mb-3">
           El asistente crea el {tipoLabel.toLowerCase()} completo con sus reactivos a partir de lo que describas. Lo revisas y ajustas después, como cualquier otra evaluación.

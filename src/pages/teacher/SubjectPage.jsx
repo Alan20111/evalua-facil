@@ -615,14 +615,14 @@ const AttendanceTable = memo(function AttendanceTable({
               <>
                 Parcial {g.parcial}
                 {textoRango && (
-                  <span className="ml-1 text-[9px] font-normal text-slate-400 normal-case tabular-nums">{textoRango}</span>
+                  <span className="ml-1 text-[9px] font-normal text-hint normal-case tabular-nums">{textoRango}</span>
                 )}
               </>
             ) : (
               <span className="flex flex-wrap items-baseline justify-center gap-x-1.5 leading-tight">
                 <span>Parcial {g.parcial}</span>
                 {textoRango && (
-                  <span className="text-sm font-normal text-slate-400 normal-case tabular-nums whitespace-nowrap">
+                  <span className="text-sm font-normal text-hint normal-case tabular-nums whitespace-nowrap">
                     <span aria-hidden="true">· </span>{textoRango}
                   </span>
                 )}
@@ -760,7 +760,7 @@ const AttendanceTable = memo(function AttendanceTable({
         const total = countPresence(attendanceAllRecords, s.id, null, todayISO)
         return (
         <tr key={s.id} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
-          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-hint border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
             {s.orden}
           </td>
           <td style={estiloNombreH} className={`sticky left-8 z-10 ${nameColW} px-2 py-1 ${compactaH ? 'text-[13px]' : esSimple ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant ${variante === 'movil-v' ? 'break-words' : compactaH ? 'whitespace-nowrap' : 'truncate'} transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}${conObservaciones ? (esMovil ? ' select-none' : ' [@media(pointer:coarse)]:select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent') : ''}`}
@@ -807,7 +807,7 @@ const AttendanceTable = memo(function AttendanceTable({
                       aria-disabled="true"
                       title={vac ? 'Periodo vacacional: no se registra asistencia' : 'Día de asueto: no se registra asistencia'}
                       className={`${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none cursor-not-allowed ${vac ? 'bg-purple-50/70' : 'bg-amber-50/70'}`}>
-                      <span className={`inline-flex items-center justify-center ${cellIconSize} text-slate-400 text-[13px] font-semibold leading-none`}>—</span>
+                      <span className={`inline-flex items-center justify-center ${cellIconSize} text-hint text-[13px] font-semibold leading-none`}>—</span>
                     </td>
                   )
                 }
@@ -5351,7 +5351,7 @@ export default function SubjectPage() {
         </span>
         Justificada con motivo
       </span>
-      <span className="text-slate-400">· Toca para cambiar el estado</span>
+      <span className="text-hint">· Toca para cambiar el estado</span>
     </div>
   )
 
@@ -5366,7 +5366,7 @@ export default function SubjectPage() {
     ['Clic derecho en el nombre para ver bitácora de observaciones', 'Mantén presionado el nombre para ver bitácora de observaciones'],
   ]
   const attendanceLegendObservaciones = (
-    <div className="mt-1 px-1 text-sm text-slate-400 leading-snug">
+    <div className="mt-1 px-1 text-sm text-hint leading-snug">
       {CONSEJOS_OBSERVACIONES.map(([conMouse, conDedo]) => (
         <p key={conMouse}>
           <span className="hidden [@media(hover:hover)_and_(pointer:fine)]:inline">{conMouse}</span>
@@ -5522,25 +5522,25 @@ export default function SubjectPage() {
       <button type="button" onClick={openEditSubject}
         aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
         data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)" data-tooltip-pos="left"
-        className="p-2 ml-auto text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        className="p-2 ml-auto text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
         <Pencil size={21} />
       </button>
       <button type="button" onClick={openCopyModal}
         aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
         data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)" data-tooltip-pos="left"
-        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
         <Copy size={21} />
       </button>
       <button type="button" onClick={handleToggleArchive} disabled={archiving}
         aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
         data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'} data-tooltip-pos="left"
-        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
+        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
         {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
       </button>
       <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
         aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
         data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)" data-tooltip-pos="left"
-        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+        className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
         <Trash2 size={21} />
       </button>
     </>
@@ -5558,7 +5558,7 @@ export default function SubjectPage() {
             no terminada. */}
         <div className="bg-surface-card border-b border-outline-variant rounded-b-card px-4 py-2">
           <div className="flex items-center gap-2">
-            <button type="button" onClick={goBack} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+            <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
@@ -5572,7 +5572,7 @@ export default function SubjectPage() {
                       teléfono (web) el renglón es angosto y el rango cortaba
                       el nombre de la asignatura, que es lo que hay que leer. */}
                   {!IS_NATIVE_APP && !telefonoWeb.telefono && subject?.fechaInicio && subject?.fechaFin && (
-                    <span className="text-xs font-medium text-slate-400 ml-1.5 tabular-nums align-middle">
+                    <span className="text-xs font-medium text-hint ml-1.5 tabular-nums align-middle">
                       ({formatShortDateRange(subject.fechaInicio, subject.fechaFin)})
                     </span>
                   )}
@@ -5713,14 +5713,14 @@ export default function SubjectPage() {
                     <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
                       className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-medium)] transition-colors text-left">
                       <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
-                        <span className={`font-bold text-sm ${parcialOculto ? 'text-slate-400' : 'text-accent'}`}>{p}</span>
+                        <span className={`font-bold text-sm ${parcialOculto ? 'text-hint' : 'text-accent'}`}>{p}</span>
                       </div>
                       <div className="text-left min-w-0">
-                        <p className={`font-semibold text-base leading-tight truncate ${parcialOculto ? 'text-slate-400' : 'text-on-surface'}`}>
-                          Parcial {p}{parcialOculto && <span className="text-xs font-normal text-slate-400"> · oculto a estudiantes</span>}
+                        <p className={`font-semibold text-base leading-tight truncate ${parcialOculto ? 'text-hint' : 'text-on-surface'}`}>
+                          Parcial {p}{parcialOculto && <span className="text-xs font-normal text-hint"> · oculto a estudiantes</span>}
                           {/* Fechas del parcial solo en la web de escritorio. */}
                           {!IS_NATIVE_APP && !telefonoWeb.telefono && subject?.parcialesFechas?.[p - 1] && (
-                            <span className="text-xs font-medium text-slate-400 tabular-nums"> ({formatShortDate(subject.parcialesFechas[p - 1].inicio)} – {formatShortDate(subject.parcialesFechas[p - 1].fin)})</span>
+                            <span className="text-xs font-medium text-hint tabular-nums"> ({formatShortDate(subject.parcialesFechas[p - 1].inicio)} – {formatShortDate(subject.parcialesFechas[p - 1].fin)})</span>
                           )}
                         </p>
                         {/* Solo cuenta las que llevan número (1.1., 1.2.…): misma
@@ -5734,12 +5734,12 @@ export default function SubjectPage() {
                       aria-label={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       data-tooltip={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       data-tooltip-pos="left"
-                      className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                     >
                       {parcialOculto ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                     <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} className="p-2 mr-2 flex-shrink-0">
-                      {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+                      {isOpen ? <ChevronUp size={20} className="text-hint" /> : <ChevronDown size={20} className="text-hint" />}
                     </button>
                   </div>
                   {!IS_NATIVE_APP && (
@@ -5798,7 +5798,7 @@ export default function SubjectPage() {
                         return (
                           <>
                             {visibles.length === 0 && (
-                              <p className="text-slate-400 text-sm text-center py-2">{filtrando ? 'Sin actividades que se califiquen' : 'Sin actividades'}</p>
+                              <p className="text-hint text-sm text-center py-2">{filtrando ? 'Sin actividades que se califiquen' : 'Sin actividades'}</p>
                             )}
                             {dropZone(0, isDraggingHere)}
                             {visibles.map(({ item, idx }) => {
@@ -5844,12 +5844,12 @@ export default function SubjectPage() {
                                         }}
                                         data-tooltip-follow={isDraftActivity(a) && !esJuego ? 'Editar borrador' : a.tipo === 'evaluacion' ? 'Evaluación' : 'Evaluar'}
                                         className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
-                                        <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : a.categoria === 'juego' ? 'text-accent' : 'text-slate-400'}`} />
+                                        <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : a.categoria === 'juego' ? 'text-accent' : 'text-hint'}`} />
                                         <div className="flex-1 min-w-0">
-                                          <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
+                                          <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-hint' : 'text-on-surface'}`}>
                                             {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} </span>}
                                             {esJuego ? (a.nombre || etiquetaJuego(a)) : a.nombre}
-                                            <span className={`text-xs font-normal ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>
+                                            <span className={`text-xs font-normal ${isHidden ? 'text-slate-300' : 'text-hint'}`}>
                                               {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : a.categoria === 'juego' ? etiquetaJuego(a) : 'Entregable'})
                                             </span>
                                             {sinCalificacion(a) && (
@@ -5921,13 +5921,13 @@ export default function SubjectPage() {
                                           onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
                                           aria-label="Ocultar para estudiantes"
                                           data-tooltip="Ocultar para estudiantes"
-                                          className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                                          className="p-2 text-hint hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                                         >
                                           <Eye size={16} />
                                         </button>
                                       )}
                                       <button type="button" onClick={() => esJuego ? navigate(`/activity/${a.id}`) : openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
-                                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
+                                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                                         <Pencil size={16} />
                                       </button>
                                       {!IS_NATIVE_APP && (
@@ -5935,7 +5935,7 @@ export default function SubjectPage() {
                                           onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
                                           aria-label="Más acciones"
                                           data-tooltip="Más acciones"
-                                          className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-1">
+                                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-1">
                                           <MoreVertical size={16} />
                                         </button>
                                       )}
@@ -5973,7 +5973,7 @@ export default function SubjectPage() {
                                           className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left hover:bg-[var(--accent-tint)] rounded transition-colors">
                                           <BookOpen size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-amber-500'}`} />
                                           <div className="flex-1 min-w-0">
-                                            <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>{m.nombre}</p>
+                                            <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-hint' : 'text-on-surface'}`}>{m.nombre}</p>
                                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                               <span className="text-xs text-slate-500 flex items-center gap-0.5">
                                                 <Paperclip size={12} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
@@ -5990,7 +5990,7 @@ export default function SubjectPage() {
                                               )}
                                             </div>
                                           </div>
-                                          {isExpanded ? <ChevronUp size={18} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-slate-400 flex-shrink-0" />}
+                                          {isExpanded ? <ChevronUp size={18} className="text-hint flex-shrink-0" /> : <ChevronDown size={18} className="text-hint flex-shrink-0" />}
                                         </button>
                                         {isHidden ? (
                                           <button type="button" onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} aria-label="Mostrar a estudiantes" data-tooltip="Mostrar a estudiantes"
@@ -5999,16 +5999,16 @@ export default function SubjectPage() {
                                           </button>
                                         ) : (
                                           <button type="button" onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} aria-label="Ocultar a estudiantes" data-tooltip="Ocultar a estudiantes"
-                                            className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                                            className="p-2 text-hint hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                                             <Eye size={16} />
                                           </button>
                                         )}
                                         <button type="button" onClick={() => openEditMaterial(m)} aria-label="Editar" data-tooltip="Editar"
-                                          className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
+                                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                                           <Pencil size={16} />
                                         </button>
                                         <button type="button" onClick={() => setDeleteMaterialConfirm(m)} aria-label="Eliminar" data-tooltip="Eliminar"
-                                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
+                                          className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
                                           <Trash2 size={16} />
                                         </button>
                                       </div>
@@ -6035,7 +6035,7 @@ export default function SubjectPage() {
                       <button type="button" onClick={() => openAdd(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevas actividades'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
+                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Plus size={17} /> Agregar actividad
                       </button>
@@ -6044,7 +6044,7 @@ export default function SubjectPage() {
                       <button type="button" onClick={() => openAddMaterial(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevo material de apoyo'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
+                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <BookOpen size={17} /> Agregar material de apoyo
                       </button>
@@ -6053,7 +6053,7 @@ export default function SubjectPage() {
                       <button type="button" onClick={() => openImport(p)}
                         data-tooltip="Copia actividades de otra de tus asignaturas a este parcial"
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
+                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Copy size={17} /> Traer de otra asignatura
                       </button>
@@ -6073,7 +6073,7 @@ export default function SubjectPage() {
         {activeTab === 'calificaciones' && (
           <div className="px-4 py-2 space-y-2">
           {totalStudents === 0 ? (
-            <p className="text-center text-slate-400 text-sm py-12">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p>
+            <p className="text-center text-hint text-sm py-12">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p>
           ) : (
             <>
             {/* 1 — Descargar calificaciones. El botón grande baja TODO; el ⋮
@@ -6140,9 +6140,9 @@ export default function SubjectPage() {
             {loadingGrades ? (
               <div className="flex justify-center py-12"><Spinner size="lg" /></div>
             ) : activities.length === 0 ? (
-              <p className="text-center text-slate-400 text-sm py-12">No hay actividades en esta asignatura</p>
+              <p className="text-center text-hint text-sm py-12">No hay actividades en esta asignatura</p>
             ) : groupStudents.length === 0 ? (
-              <p className="text-center text-slate-400 text-sm py-12">No hay estudiantes en este grupo</p>
+              <p className="text-center text-hint text-sm py-12">No hay estudiantes en este grupo</p>
             ) : (
               <>
                 {/* Action bar above the table — ponderación toggle lives here now
@@ -6208,7 +6208,7 @@ export default function SubjectPage() {
                       {gradeSortOn && (
                         <button type="button" onClick={() => { setGradeSortOn(false); setGradeSortMenuOpen(false) }}
                           aria-label="Volver al orden normal" data-tooltip="Volver al orden normal"
-                          className="p-2 text-slate-400 hover:text-red-500 rounded">
+                          className="p-2 text-hint hover:text-red-500 rounded">
                           <X size={16} />
                         </button>
                       )}
@@ -6294,7 +6294,7 @@ export default function SubjectPage() {
                                 Parcial {p}
                                 {/* Fechas del parcial solo en la web de escritorio. */}
                                 {!IS_NATIVE_APP && !telefonoWeb.telefono && subject?.parcialesFechas?.[p - 1] && (
-                                  <span className="block text-[9px] font-normal text-slate-400 normal-case tabular-nums">
+                                  <span className="block text-[9px] font-normal text-hint normal-case tabular-nums">
                                     ({formatShortDate(subject.parcialesFechas[p - 1].inicio)}–{formatShortDate(subject.parcialesFechas[p - 1].fin)})
                                   </span>
                                 )}
@@ -6306,7 +6306,7 @@ export default function SubjectPage() {
                                 }}
                                 aria-label="Acciones del parcial"
                                 data-tooltip-follow="Acciones del parcial"
-                                className="p-0.5 rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors flex-shrink-0">
+                                className="p-0.5 rounded text-hint hover:text-accent hover:bg-[var(--accent-medium)] transition-colors flex-shrink-0">
                                 <MoreVertical size={15} />
                               </button>
                             </div>
@@ -6429,7 +6429,7 @@ export default function SubjectPage() {
                         const stripeBg = i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'
                         return (
                         <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${gradeSortOn ? 'font-bold text-accent' : 'text-slate-400'} ${hl || stripeBg}`}>
+                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${gradeSortOn ? 'font-bold text-accent' : 'text-hint'} ${hl || stripeBg}`}>
                             {gradeSortOn ? i + 1 : s.orden}
                           </td>
                           {/* data-tooltip goes on an INNER span, never on this td:
@@ -6448,7 +6448,7 @@ export default function SubjectPage() {
                             >
                               {studentFullName(s)}
                               {!s.activado && <span className="text-red-500 text-[10px] font-semibold"> (no se ha activado)</span>}
-                              {s.activado && s.ocultaPorAlumno && <span className="text-slate-400 text-[10px] font-semibold"> (salió)</span>}
+                              {s.activado && s.ocultaPorAlumno && <span className="text-hint text-[10px] font-semibold"> (salió)</span>}
                             </span>
                           </td>
                           {visibleParcials.map(({ p, acts }) => {
@@ -6490,7 +6490,7 @@ export default function SubjectPage() {
                 </div>
 
                 {filteredGradeStudents.length === 0 && searchGrade && (
-                  <p className="text-center text-sm text-slate-400">Sin resultados para &ldquo;{searchGrade}&rdquo;</p>
+                  <p className="text-center text-sm text-hint">Sin resultados para &ldquo;{searchGrade}&rdquo;</p>
                 )}
               </>
             )}
@@ -6513,17 +6513,17 @@ export default function SubjectPage() {
           {loadingAttendance ? (
             <>{nativeAttBar}<div className="flex-1 flex items-center justify-center"><Spinner size="lg" /></div></>
           ) : totalStudents === 0 ? (
-            <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p></>
+            <>{nativeAttBar}<p className="flex-1 grid place-items-center text-hint text-sm px-6 text-center">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p></>
           ) : attendanceRecords.length === 0 ? (
             <>
               {nativeAttBar}
               <div className="flex-1 overflow-auto p-3 space-y-2">
-                <p className="text-slate-400 text-sm text-center py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+                <p className="text-hint text-sm text-center py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
                 {attendanceStudentsRosterJsx}
               </div>
             </>
           ) : attendanceParciales.length === 0 ? (
-            <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Sin días de asistencia en el parcial actual.</p></>
+            <>{nativeAttBar}<p className="flex-1 grid place-items-center text-hint text-sm px-6 text-center">Sin días de asistencia en el parcial actual.</p></>
           ) : (
             <div className="flex-1 overflow-auto bg-surface-card">
               {attendanceTableJsx}
@@ -6546,17 +6546,17 @@ export default function SubjectPage() {
           {loadingAttendance ? (
             <>{tomarListaMovilBar}<div className="flex-1 flex items-center justify-center"><Spinner size="lg" /></div></>
           ) : totalStudents === 0 ? (
-            <>{tomarListaMovilBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p></>
+            <>{tomarListaMovilBar}<p className="flex-1 grid place-items-center text-hint text-sm px-6 text-center">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p></>
           ) : attendanceRecords.length === 0 ? (
             <>
               {tomarListaMovilBar}
               <div className="flex-1 overflow-auto overscroll-contain p-3 space-y-2">
-                <p className="text-slate-400 text-sm text-center py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+                <p className="text-hint text-sm text-center py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
                 {attendanceStudentsRosterJsx}
               </div>
             </>
           ) : attendanceParciales.length === 0 ? (
-            <>{tomarListaMovilBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Sin días de asistencia en el parcial actual.</p></>
+            <>{tomarListaMovilBar}<p className="flex-1 grid place-items-center text-hint text-sm px-6 text-center">Sin días de asistencia en el parcial actual.</p></>
           ) : (
             <>
               {!telefonoWeb.horizontal && tomarListaMovilBar}
@@ -6569,7 +6569,7 @@ export default function SubjectPage() {
       ) : (
         <div className="px-4 py-2 space-y-2">
         {totalStudents === 0 ? (
-          <p className="text-center text-slate-400 text-sm py-12">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p>
+          <p className="text-center text-hint text-sm py-12">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p>
         ) : (
           <>
           <div className="flex items-center justify-between gap-2">
@@ -6693,7 +6693,7 @@ export default function SubjectPage() {
               {attSortOn && (
                 <button type="button" onClick={() => { setAttSortOn(false); setAttSortParcial(null) }}
                   aria-label="Volver al orden normal" data-tooltip="Volver al orden normal"
-                  className="p-2 text-slate-400 hover:text-red-500 rounded">
+                  className="p-2 text-hint hover:text-red-500 rounded">
                   <X size={16} />
                 </button>
               )}
@@ -6704,11 +6704,11 @@ export default function SubjectPage() {
             <div className="flex justify-center py-12"><Spinner size="lg" /></div>
           ) : attendanceRecords.length === 0 ? (
             <>
-              <p className="text-center text-slate-400 text-sm py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+              <p className="text-center text-hint text-sm py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
               {attendanceStudentsRosterJsx}
             </>
           ) : attendanceParciales.length === 0 ? (
-            <p className="text-center text-slate-400 text-sm py-12">Sin días de asistencia en el parcial actual — toca &quot;Todo el curso&quot; para ver los demás.</p>
+            <p className="text-center text-hint text-sm py-12">Sin días de asistencia en el parcial actual — toca &quot;Todo el curso&quot; para ver los demás.</p>
           ) : (
             <>
               <div className="overflow-auto max-h-[65vh] rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
@@ -6717,7 +6717,7 @@ export default function SubjectPage() {
               {attendanceLegend}
               {attendanceLegendObservaciones}
               {filteredAttendanceStudents.length === 0 && searchAttendance && (
-                <p className="text-center text-sm text-slate-400">Sin resultados para &quot;{searchAttendance}&quot;</p>
+                <p className="text-center text-sm text-hint">Sin resultados para &quot;{searchAttendance}&quot;</p>
               )}
             </>
           )}
@@ -7142,7 +7142,7 @@ export default function SubjectPage() {
           {!groupStudentsLoaded ? (
             <div className="flex justify-center py-10"><Spinner /></div>
           ) : filteredAlumnos.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 text-sm">
+            <div className="text-center py-10 text-hint text-sm">
               {searchAlumnos || filtroActivacion !== 'todos' ? 'Sin resultados' : 'No hay estudiantes en esta asignatura'}
             </div>
           ) : (
@@ -7222,7 +7222,7 @@ export default function SubjectPage() {
                   </div>
                   <button type="button"
                     onClick={() => openEditStudent(s)}
-                    className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
+                    className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
                     aria-label="Editar estudiante"
                   >
                     <Pencil size={16} />
@@ -7277,7 +7277,7 @@ export default function SubjectPage() {
                   {!IS_NATIVE_APP && (
                     <button type="button"
                       onClick={() => openEditStudent(s)}
-                      className="w-9 flex-shrink-0 p-2 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
+                      className="w-9 flex-shrink-0 p-2 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
                       aria-label="Editar estudiante"
                       data-tooltip="Editar estudiante"
                     >
@@ -7312,7 +7312,7 @@ export default function SubjectPage() {
           {!resourcesLoaded || loadingResources ? (
             <div className="flex justify-center py-10"><Spinner /></div>
           ) : resources.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 text-sm">
+            <div className="text-center py-10 text-hint text-sm">
               Aún no hay recursos en esta asignatura
             </div>
           ) : (
@@ -7330,7 +7330,7 @@ export default function SubjectPage() {
                         {r.descripcion && (
                           <p className="text-xs text-slate-500 truncate">{r.descripcion}</p>
                         )}
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-xs text-hint mt-0.5">
                           {isLink ? 'Enlace · ' : `${formatFileSize(r.tamano)}${r.tamano ? ' · ' : ''}`}{formatResourceDate(r.fechaPublicacion)}
                         </p>
                       </div>
@@ -7338,28 +7338,28 @@ export default function SubjectPage() {
                         <button type="button" onClick={() => setPreviewResourceId(isPreviewOpen ? null : r.id)}
                           aria-label="Vista previa"
                           data-tooltip="Vista previa"
-                          className={`p-2 rounded transition-colors flex-shrink-0 ${isPreviewOpen ? 'text-accent bg-[var(--accent-medium)]' : 'text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
+                          className={`p-2 rounded transition-colors flex-shrink-0 ${isPreviewOpen ? 'text-accent bg-[var(--accent-medium)]' : 'text-hint hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
                           <FileSearch size={18} />
                         </button>
                       )}
                       <a href={isLink ? r.url : (isImageDeliveredPdf(r.url) ? pdfPageImageUrl(r.url, 1) : r.url)} target="_blank" rel="noreferrer"
                         aria-label={isLink ? 'Abrir enlace' : (isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva')}
                         data-tooltip={isLink ? 'Abrir enlace' : (isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva')}
-                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                         <ExternalLink size={18} />
                       </a>
                       {!isLink && (
                         <a href={downloadUrl(r.url, r.nombreArchivo || r.nombre)} download={r.nombreArchivo || r.nombre} rel="noreferrer" aria-label="Descargar" data-tooltip="Descargar"
-                          className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                           <Download size={18} />
                         </a>
                       )}
                       <button type="button" onClick={() => openEditResource(r)} aria-label="Editar" data-tooltip="Editar"
-                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                         <Pencil size={18} />
                       </button>
                       <button type="button" onClick={() => setDeleteResourceConfirm(r)} aria-label="Eliminar" data-tooltip="Eliminar"
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+                        className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -7431,7 +7431,7 @@ export default function SubjectPage() {
                     ? `${tipoActividad === 'entregable' ? 'Entregable' : tipoActividad === 'cuestionario' ? 'Cuestionario' : 'Examen'} — Parcial ${modalParcial}`
                     : 'Editar actividad'}
               </h3>
-              <button type="button" onClick={() => setShowModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
             </div>
 
             {/* ── Tipo picker (only on create, before choosing type) ──
@@ -7447,7 +7447,7 @@ export default function SubjectPage() {
                   <>
                     <p className="text-sm text-muted mb-3">¿Qué quieres que haga tu estudiante?</p>
                     {[
-                      { key: 'entregable', label: 'Entregable', desc: 'El estudiante entrega uno o varios archivos.', Icon: FileText, iconColor: 'text-slate-400', iconBg: 'bg-slate-100' },
+                      { key: 'entregable', label: 'Entregable', desc: 'El estudiante entrega uno o varios archivos.', Icon: FileText, iconColor: 'text-hint', iconBg: 'bg-slate-100' },
                       { key: 'evaluacion', label: 'Evaluación', desc: 'Cuestionarios y exámenes con reactivos y calificación.', Icon: ListChecks, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
                       { key: 'observacion', label: 'Observación', desc: 'Tú observas y calificas el desempeño del estudiante.', Icon: ClipboardCheck, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
                       { key: 'interactiva', label: 'Actividad interactiva', desc: 'El estudiante realiza una actividad directamente en Evalúa Fácil, generada con IA.', Icon: Gamepad2, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
@@ -7475,7 +7475,7 @@ export default function SubjectPage() {
                     <button type="button" onClick={() => elegirCreacion(menuPaso, 'manual')}
                       className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-slate-100">
-                        <Pencil size={20} className="text-slate-400" />
+                        <Pencil size={20} className="text-hint" />
                       </div>
                       <div>
                         <p className="font-semibold text-on-surface">Crear manualmente</p>
@@ -7524,7 +7524,7 @@ export default function SubjectPage() {
                     <button type="button" onClick={() => elegirCreacion(menuPaso, 'manual')}
                       className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-slate-100">
-                        <Pencil size={20} className="text-slate-400" />
+                        <Pencil size={20} className="text-hint" />
                       </div>
                       <div>
                         <p className="font-semibold text-on-surface">Crear manualmente</p>
@@ -7633,10 +7633,10 @@ export default function SubjectPage() {
               {form.visibilidadMode !== 'hide' && (
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">
-                    {form.fechaLimite ? 'Modificar fecha límite' : <>Fecha límite <span className="text-slate-400 font-normal">(opcional)</span></>}
+                    {form.fechaLimite ? 'Modificar fecha límite' : <>Fecha límite <span className="text-hint font-normal">(opcional)</span></>}
                   </label>
                   {form.visibilidadMode === 'schedule' && !form.publishAt ? (
-                    <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
+                    <p className="text-xs text-hint px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
                     <>
                       <EFDateTimePicker
@@ -7660,11 +7660,11 @@ export default function SubjectPage() {
                           />
                           <span className="text-xs text-muted leading-snug">
                             Seguir recibiendo entregas después de la fecha límite
-                            <span className="text-slate-400"> (se marcarán como <strong>entrega tarde</strong>). Si no la marcas, al pasar la fecha ya no se reciben.</span>
+                            <span className="text-hint"> (se marcarán como <strong>entrega tarde</strong>). Si no la marcas, al pasar la fecha ya no se reciben.</span>
                           </span>
                         </label>
                       ) : (
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="text-xs text-hint mt-1">
                           Luego de esta fecha y hora ya no se reciben entregas.
                         </p>
                       )}
@@ -7733,7 +7733,7 @@ export default function SubjectPage() {
               {moveConfirm.changes.map((c) => (
                 <li key={c.id} className="flex items-center gap-1.5 min-w-0">
                   <span className="text-muted tabular-nums flex-shrink-0">{c.de}</span>
-                  <ChevronRight size={14} className="text-slate-400 flex-shrink-0" />
+                  <ChevronRight size={14} className="text-hint flex-shrink-0" />
                   <span className="text-accent font-semibold tabular-nums flex-shrink-0">{c.hacia}</span>
                   <span className="truncate">{c.nombre}</span>
                 </li>
@@ -7827,9 +7827,9 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">
                 {materialModalMode === 'create' ? `Nuevo material de apoyo — Parcial ${materialParcial}` : 'Editar material de apoyo'}
               </h3>
-              <button type="button" onClick={() => setShowMaterialModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowMaterialModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
             </div>
-            <p className="text-xs text-slate-400 -mt-2 mb-3">Este material queda solo en el Parcial {materialParcial} y no genera entrega ni número de actividad. Para materiales de toda la asignatura usa la pestaña Recursos.</p>
+            <p className="text-xs text-hint -mt-2 mb-3">Este material queda solo en el Parcial {materialParcial} y no genera entrega ni número de actividad. Para materiales de toda la asignatura usa la pestaña Recursos.</p>
             <form onSubmit={handleSaveMaterial} className="space-y-2">
               <div>
                 <label htmlFor="material-nombre" className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
@@ -7839,7 +7839,7 @@ export default function SubjectPage() {
                   placeholder="Ej: Libro de texto, Video introductorio, Guía de laboratorio" />
               </div>
               <div>
-                <p className="block text-sm font-medium text-muted mb-1">Descripción <span className="text-slate-400 font-normal">(opcional)</span></p>
+                <p className="block text-sm font-medium text-muted mb-1">Descripción <span className="text-hint font-normal">(opcional)</span></p>
                 <RichTextEditor
                   value={materialForm.descripcion}
                   onChange={(html) => setMaterialForm((f) => ({ ...f, descripcion: html }))}
@@ -7857,12 +7857,12 @@ export default function SubjectPage() {
                   <div className="space-y-1 mt-2">
                     {materialExistingFiles.map((f, i) => (
                       <div key={f.url || `existing-${f.nombre}-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant">
-                        <Paperclip size={16} className="text-slate-400 flex-shrink-0" />
+                        <Paperclip size={16} className="text-hint flex-shrink-0" />
                         <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
-                        <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.tamano)}</span>
+                        <span className="text-xs text-hint flex-shrink-0">{formatFileSize(f.tamano)}</span>
                         <button type="button" onClick={() => setMaterialExistingFiles((prev) => prev.filter((_, idx) => idx !== i))}
                           aria-label="Quitar archivo"
-                          className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                          className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0">
                           <X size={15} />
                         </button>
                       </div>
@@ -7871,10 +7871,10 @@ export default function SubjectPage() {
                       <div key={`new-${f.name}-${f.size}-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-accent bg-[var(--accent-tint)]">
                         <Paperclip size={16} className="text-accent flex-shrink-0" />
                         <span className="text-sm text-on-surface truncate flex-1">{f.name}</span>
-                        <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.size)}</span>
+                        <span className="text-xs text-hint flex-shrink-0">{formatFileSize(f.size)}</span>
                         <button type="button" onClick={() => setMaterialNewFiles((prev) => prev.filter((_, idx) => idx !== i))}
                           aria-label="Quitar archivo"
-                          className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                          className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0">
                           <X size={15} />
                         </button>
                       </div>
@@ -7944,7 +7944,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Agregar estudiante</h3>
-              <button type="button" onClick={() => setShowAddStudent(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowAddStudent(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
             </div>
             <form onSubmit={addStudent} className="space-y-3">
               {/* Antes solo tenían placeholder ("Prueba", "No tengo", "Pepito"
@@ -7962,7 +7962,7 @@ export default function SubjectPage() {
               ].map(({ field, label, placeholder, optional }) => (
                 <div key={field}>
                   <label htmlFor={`add-student-${field}`} className="block text-sm font-medium text-muted mb-1">
-                    {label} {optional && <span className="text-slate-400 font-normal">(opcional)</span>}
+                    {label} {optional && <span className="text-hint font-normal">(opcional)</span>}
                   </label>
                   <input
                     id={`add-student-${field}`}
@@ -8001,7 +8001,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar estudiante</h3>
-              <button type="button" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
             </div>
             {studentToEdit.uid && (
               <p className="text-xs text-muted mb-3">
@@ -8204,13 +8204,13 @@ export default function SubjectPage() {
               disabled={activityMenuIdx <= 0}
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); requestMoveActivity(a, -1) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
-              <ArrowUp size={16} className="text-slate-400 flex-shrink-0" /> Subir un lugar
+              <ArrowUp size={16} className="text-hint flex-shrink-0" /> Subir un lugar
             </button>
             <button type="button"
               disabled={activityMenuIdx < 0 || activityMenuIdx >= activityMenuSiblings.length - 1}
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); requestMoveActivity(a, 1) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-b border-outline-variant disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
-              <ArrowDown size={16} className="text-slate-400 flex-shrink-0" /> Bajar un lugar
+              <ArrowDown size={16} className="text-hint flex-shrink-0" /> Bajar un lugar
             </button>
             {/* Un juego sin confirmar no se puede duplicar: la copia nacería
                 sin la reserva de créditos del original (que nunca se copia) y
@@ -8220,7 +8220,7 @@ export default function SubjectPage() {
               data-tooltip={!esCopiable(activityMenu.a) ? 'Termina y confirma el juego para poder duplicarlo' : undefined}
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDuplicateConfirm(a) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
-              <Copy size={16} className="text-slate-400 flex-shrink-0" /> Duplicar como borrador
+              <Copy size={16} className="text-hint flex-shrink-0" /> Duplicar como borrador
             </button>
             <button type="button"
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDeleteConfirm(a) }}
@@ -8306,7 +8306,7 @@ export default function SubjectPage() {
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left"
               >
-                <ClipboardCheck size={15} className="text-slate-400 flex-shrink-0" />
+                <ClipboardCheck size={15} className="text-hint flex-shrink-0" />
                 Asignar calificación a no entregadas ({activityContextMenu.missingCount})
               </button>
             ) : (
@@ -8398,7 +8398,7 @@ export default function SubjectPage() {
               {importSrc && (
                 <button type="button" onClick={() => { setImportSrc(null); setImportSrcActs([]); setImportSel(new Set()) }}
                   aria-label="Volver"
-                  className="p-2 -ml-1 text-slate-400 hover:text-accent rounded flex-shrink-0"><ArrowLeft size={18} /></button>
+                  className="p-2 -ml-1 text-hint hover:text-accent rounded flex-shrink-0"><ArrowLeft size={18} /></button>
               )}
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-semibold text-on-surface truncate">Traer al Parcial {importFor}</h3>
@@ -8406,7 +8406,7 @@ export default function SubjectPage() {
                   {importSrc ? `De: ${subjectDisplayName(importSrc)}` : 'Elige de cuál de tus asignaturas'}
                 </p>
               </div>
-              <button type="button" onClick={() => !importing && setImportFor(null)} aria-label="Cerrar" className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
+              <button type="button" onClick={() => !importing && setImportFor(null)} aria-label="Cerrar" className="p-2 text-hint rounded flex-shrink-0"><X size={20} /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3">
@@ -8414,7 +8414,7 @@ export default function SubjectPage() {
                 <div className="flex justify-center py-10"><Spinner size="lg" /></div>
               ) : !importSrc ? (
                 importSubjects.length === 0 ? (
-                  <p className="text-center text-sm text-slate-400 py-8">No tienes otras asignaturas de dónde traer.</p>
+                  <p className="text-center text-sm text-hint py-8">No tienes otras asignaturas de dónde traer.</p>
                 ) : (
                   <div className="space-y-1.5">
                     {importSubjects.map((s) => (
@@ -8434,7 +8434,7 @@ export default function SubjectPage() {
                 )
               ) : (
                 importSrcActs.length === 0 ? (
-                  <p className="text-center text-sm text-slate-400 py-8">Esta asignatura no tiene actividades publicadas para traer.</p>
+                  <p className="text-center text-sm text-hint py-8">Esta asignatura no tiene actividades publicadas para traer.</p>
                 ) : (
                   <div className="space-y-3">
                     {[...new Set(importSrcActs.map((a) => a.parcial))].sort((a, b) => a - b).map((pp) => (
@@ -8448,7 +8448,7 @@ export default function SubjectPage() {
                               <label key={a.id} className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors ${checked ? 'border-accent bg-[var(--accent-tint)]' : 'border-outline-variant hover:border-accent'}`}>
                                 <input type="checkbox" checked={checked} onChange={() => toggleImportSel(a.id)} className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
                                 <span className="flex-1 min-w-0 text-sm text-on-surface truncate">{a.nombre}</span>
-                                <span className="text-xs text-slate-400 flex-shrink-0">{tipoLbl}</span>
+                                <span className="text-xs text-hint flex-shrink-0">{tipoLbl}</span>
                               </label>
                             )
                           })}
@@ -8512,7 +8512,7 @@ export default function SubjectPage() {
                       aria-disabled={!atencionOk}
                       onClick={() => { if (!atencionOk) return; setParcialMenu(null); setAtencionParcialConfirm(p) }}
                       data-tooltip={!atencionOk ? `La ponderación del Parcial ${p} suma ${totalAtencion} de 10 — debe sumar exactamente 10 para iniciar la atención de inquietudes` : undefined}
-                      className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors text-left rounded-card ${atencionOk ? 'text-on-surface hover:bg-[var(--accent-tint)]' : 'text-slate-400 cursor-not-allowed'}`}>
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors text-left rounded-card ${atencionOk ? 'text-on-surface hover:bg-[var(--accent-tint)]' : 'text-hint cursor-not-allowed'}`}>
                       <MessageCircleQuestion size={16} className={`flex-shrink-0 ${atencionOk ? 'text-accent' : 'text-slate-300'}`} />
                       <span className="flex-1">Iniciar atención de inquietudes</span>
                       {!atencionOk && <span className="text-[10px] font-semibold text-amber-600">{totalAtencion}/10</span>}
@@ -8522,7 +8522,7 @@ export default function SubjectPage() {
                     onClick={() => { setParcialMenu(null); requestCloseParcial(p) }}
                     data-tooltip={!sumOk ? `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para poder cerrar` : undefined}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-card">
-                    <Lock size={16} className="text-slate-400 flex-shrink-0" />
+                    <Lock size={16} className="text-hint flex-shrink-0" />
                     <span className="flex-1">Cerrar definitivamente</span>
                     {!sumOk && <span className="text-[10px] font-semibold text-amber-600">{total}/10</span>}
                   </button>
@@ -8817,7 +8817,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-lg rounded-t-card sm:rounded-card shadow-2xl flex flex-col max-h-[85vh]">
             <div className="p-4 border-b border-outline-variant flex-shrink-0 flex items-center justify-between">
               <h3 className="text-base font-semibold text-on-surface">Revisa antes de importar</h3>
-              <button type="button" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" className="p-2 text-slate-400 hover:text-muted rounded"><X size={18} /></button>
+              <button type="button" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" className="p-2 text-hint hover:text-muted rounded"><X size={18} /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {excelPreview.invalid.length > 0 && (
@@ -8993,7 +8993,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-md rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
-              <button type="button" onClick={() => setShowEditSubjectModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowEditSubjectModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleEditSubject} className="space-y-2">
               <div>
@@ -9047,7 +9047,7 @@ export default function SubjectPage() {
                 />
               )}
               <div>
-                <p className="block text-sm font-medium text-muted mb-2">Color de la asignatura <span className="text-slate-400 font-normal text-xs">(elige el color base que identificará a la asignatura)</span></p>
+                <p className="block text-sm font-medium text-muted mb-2">Color de la asignatura <span className="text-hint font-normal text-xs">(elige el color base que identificará a la asignatura)</span></p>
                 <PaletteSelect value={editSubjectForm.colorPalette} onChange={(p) => setEditSubjectForm((f) => ({ ...f, colorPalette: p }))} />
               </div>
               <div {...subjectPaletteProps(editSubjectForm.colorPalette)}>
@@ -9074,7 +9074,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-md rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
-              <button type="button" onClick={() => setShowCopyModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowCopyModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleCopySubject} className="space-y-2">
               <div>
@@ -9110,7 +9110,7 @@ export default function SubjectPage() {
                 </div>
               </div>
               <div>
-                <p className="block text-sm font-medium text-muted mb-2">Color de la asignatura <span className="text-slate-400 font-normal text-xs">(elige el color base que identificará a la asignatura)</span></p>
+                <p className="block text-sm font-medium text-muted mb-2">Color de la asignatura <span className="text-hint font-normal text-xs">(elige el color base que identificará a la asignatura)</span></p>
                 <PaletteSelect value={copyForm.colorPalette} onChange={(p) => setCopyForm((f) => ({ ...f, colorPalette: p }))} />
               </div>
               <div {...subjectPaletteProps(copyForm.colorPalette)}>
@@ -9180,7 +9180,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
-              <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-3">
               Archivar solo la saca de tus asignaturas activas. <strong>No se borra nada</strong>:
@@ -9247,7 +9247,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-md rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
-              <button type="button" onClick={() => setShowUnarchiveModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowUnarchiveModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-2">Puedes editar los datos y elegir cómo restaurar:</p>
 
@@ -9289,7 +9289,7 @@ export default function SubjectPage() {
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Color de la asignatura <span className="normal-case font-normal text-slate-400">(el color base que la identificará)</span></p>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Color de la asignatura <span className="normal-case font-normal text-hint">(el color base que la identificará)</span></p>
                 <PaletteSelect value={unarchiveEdits.colorPalette} onChange={(p) => setUnarchiveEdits((f) => ({ ...f, colorPalette: p }))} />
               </div>
 
@@ -9353,7 +9353,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{resourceModalMode === 'create' ? 'Agregar recurso' : 'Editar recurso'}</h3>
-              <button type="button" onClick={() => setShowResourceModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowResourceModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleSaveResource} className="space-y-2">
               <div>
@@ -9404,7 +9404,7 @@ export default function SubjectPage() {
                     onChange={(e) => setResourceFile(e.target.files?.[0] || null)}
                     className="w-full text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-accent-light file:text-accent file:text-sm file:font-medium"
                   />
-                  <p className="text-xs text-slate-400 mt-1">PDF, Word, Excel, Power Point, JPG o PNG · máximo 15 MB</p>
+                  <p className="text-xs text-hint mt-1">PDF, Word, Excel, Power Point, JPG o PNG · máximo 15 MB</p>
                 </div>
               ) : (
                 <div>
@@ -9417,7 +9417,7 @@ export default function SubjectPage() {
                     className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder="https://..."
                   />
-                  <p className="text-xs text-slate-400 mt-1">Video de YouTube, documento de Google Drive, sitio externo, etc.</p>
+                  <p className="text-xs text-hint mt-1">Video de YouTube, documento de Google Drive, sitio externo, etc.</p>
                 </div>
               )}
               <button

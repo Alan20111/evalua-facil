@@ -287,7 +287,7 @@ const TONO_REGALO = {
 function CeldaRegalo({ uid, cuentaEliminada, registro, creditos, tieneComprasAcreditadas, sinPermiso }) {
   // Una cuenta dada de baja ya no tiene nada que contar: sus documentos de
   // créditos se borraron con ella (ver api/admin/delete-account).
-  if (!uid || cuentaEliminada) return <span className="text-slate-400">&mdash;</span>
+  if (!uid || cuentaEliminada) return <span className="text-hint">&mdash;</span>
 
   // Las reglas negaron la lectura. Se dice, no se disimula: la alternativa
   // sería pintar a todo el padrón como "sin registro" y que nadie se entere de
@@ -672,7 +672,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               <span className="text-muted">{rows.length} registros</span>
             )}
           </p>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-hint mt-0.5">
             Una suscripción por docente. <strong>Regalo IA</strong> es qué pasó con los
             créditos de bienvenida; <strong>Saldo IA</strong> es el saldo total de hoy.
           </p>
@@ -761,7 +761,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
           <tbody className="divide-y divide-slate-100">
             {visible.length === 0 ? (
               <tr>
-                <td colSpan={COLS.length} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={COLS.length} className="px-4 py-8 text-center text-hint">
                   {rows.length === 0
                     ? 'Sin suscripciones'
                     : 'Ninguna suscripción cumple con lo que se está filtrando'}
@@ -770,7 +770,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             ) : (
               visible.map((r) => (
                 <tr key={r.id} className="hover:bg-[var(--accent-tint)]">
-                  <td className="px-3 py-2 text-right text-slate-400 tabular-nums">
+                  <td className="px-3 py-2 text-right text-hint tabular-nums">
                     {r.rank}
                   </td>
                   <td className="px-3 py-2 font-medium text-on-surface truncate" title={r.docente}>{r.docente}</td>
@@ -804,7 +804,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       días es cuando el docente-dueño decide si elimina la
                       cuenta o intenta traer de vuelta a esa persona. */}
                   <td className={`px-3 py-2 text-right tabular-nums ${
-                    r.sinAcceder === null ? 'text-slate-400'
+                    r.sinAcceder === null ? 'text-hint'
                       : r.sinAcceder >= 60 ? 'text-red-600 font-semibold'
                       : r.sinAcceder >= 30 ? 'text-amber-600 font-semibold'
                       : 'text-muted'
@@ -817,7 +817,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       <button
                         type="button"
                         onClick={() => handleDeleteBaja(r.sub.docenteId)}
-                        className="p-2 text-slate-400 hover:text-red-600 rounded"
+                        className="p-2 text-hint hover:text-red-600 rounded"
                         aria-label="Eliminar constancia"
                         title="Eliminar constancia"
                       >
@@ -830,7 +830,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                             type="button"
                             onClick={() => openAjuste(r.sub, r.docente)}
                             disabled={ajusteModal?.subId === r.sub.id && ajusteModal?.saving}
-                            className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"
+                            className="p-1.5 text-hint hover:text-accent rounded disabled:opacity-40"
                             aria-label="Ajustar créditos de IA"
                             title="Ajustar créditos de IA"
                           >
@@ -841,7 +841,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                           <button
                             type="button"
                             onClick={() => openDeleteModal(r.uid, r.docente, r.correo)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 rounded"
+                            className="p-1.5 text-hint hover:text-red-600 rounded"
                             aria-label="Eliminar cuenta"
                             title="Eliminar cuenta del docente"
                           >
@@ -886,7 +886,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-on-surface">Eliminar cuenta</h3>
               <button type="button" onClick={() => !deleteModal.saving && setDeleteModal(null)} aria-label="Cerrar">
-                <X size={20} className="text-slate-400" />
+                <X size={20} className="text-hint" />
               </button>
             </div>
             <p className="text-sm text-muted mb-0.5">
@@ -931,7 +931,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-on-surface">Ajustar créditos de IA</h3>
               <button type="button" onClick={() => setAjusteModal(null)} aria-label="Cerrar">
-                <X size={20} className="text-slate-400" />
+                <X size={20} className="text-hint" />
               </button>
             </div>
             <p className="text-sm text-muted mb-4 truncate" title={ajusteModal.docente}>

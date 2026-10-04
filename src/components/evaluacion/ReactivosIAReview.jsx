@@ -108,7 +108,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
                       className="flex-1 px-2 py-1 rounded border border-outline-variant text-sm bg-surface disabled:opacity-60" />
                   </div>
                 ))}
-                <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>
+                <p className="text-xs text-hint">Deja seleccionada la correcta</p>
               </div>
             )}
 
@@ -136,7 +136,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
             )}
 
             {r.tipo === 'subir_archivo' && (
-              <p className="text-xs text-slate-400 italic">El alumno sube un documento — calificación manual.</p>
+              <p className="text-xs text-hint italic">El alumno sube un documento — calificación manual.</p>
             )}
           </div>
         ))}

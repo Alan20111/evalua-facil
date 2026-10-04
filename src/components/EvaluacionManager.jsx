@@ -147,7 +147,7 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
                 onChange(next)
                 if (respuestaCorrecta === o.id) onChangeCorrecta(next.find((x) => !x.esOtra)?.id ?? null)
               }}
-              className="p-2 text-slate-400 hover:text-error rounded flex-shrink-0">
+              className="p-2 text-hint hover:text-error rounded flex-shrink-0">
               <X size={16} />
             </button>
           )}
@@ -1376,7 +1376,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       <div className="px-4 py-2">
         <div className={IS_NATIVE_APP ? '' : TEACHER_CONTAINER_NARROW}>
           <div className="flex items-center gap-2">
-            <button type="button" aria-label="Volver" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
+            <button type="button" aria-label="Volver" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} className="p-2 -ml-2 text-hint hover:text-muted rounded">
               <ArrowLeft size={22} />
             </button>
             <div className="flex-1 min-w-0">
@@ -1404,7 +1404,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   onClick={() => setShowEvalEditor(true)}
                   data-tooltip="Editar actividad"
                   aria-label="Editar actividad"
-                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                  className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                 >
                   <Pencil size={18} />
                 </button>
@@ -1475,7 +1475,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <div className="flex justify-center py-10"><Spinner /></div>
             ) : (
               <div className="space-y-2 mb-3">
-                {preguntas.length === 0 && <p className="text-sm text-slate-400 text-center py-6">Aún no hay preguntas</p>}
+                {preguntas.length === 0 && <p className="text-sm text-hint text-center py-6">Aún no hay preguntas</p>}
                 {grupos.map((grupo) => (
                   <div key={grupo.seccion?.id || 'sueltas'} className="space-y-3">
                     {grupo.seccion && (
@@ -1525,7 +1525,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             radioName={`edit-p-${p.id}`}
                           />
                         )}
-                        {preguntaEditForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>}
+                        {preguntaEditForm.tipo === 'opcion_multiple' && <p className="text-xs text-hint">Deja seleccionada la correcta</p>}
                         {preguntaEditForm.tipo === 'verdadero_falso' && (
                           <div className="flex gap-3">
                             {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
@@ -1572,12 +1572,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           </div>
                           <div className="flex gap-0.5 flex-shrink-0">
                             <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
-                              className="p-2 text-slate-400 hover:text-accent disabled:opacity-40 rounded"><ChevronUp size={15} /></button>
+                              className="p-2 text-hint hover:text-accent disabled:opacity-40 rounded"><ChevronUp size={15} /></button>
                             <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
-                              className="p-2 text-slate-400 hover:text-accent disabled:opacity-40 rounded"><ChevronDown size={15} /></button>
-                            <button type="button" aria-label="Editar pregunta" onClick={() => openEditPregunta(p)} className="p-2 text-slate-400 hover:text-accent rounded"><Pencil size={15} /></button>
-                            <button type="button" aria-label="Duplicar pregunta" onClick={() => handleDuplicatePregunta(p)} className="p-2 text-slate-400 hover:text-accent rounded"><Copy size={15} /></button>
-                            <button type="button" aria-label="Eliminar pregunta" onClick={() => handleDeletePregunta(p.id)} className="p-2 text-slate-400 hover:text-error rounded"><Trash2 size={15} /></button>
+                              className="p-2 text-hint hover:text-accent disabled:opacity-40 rounded"><ChevronDown size={15} /></button>
+                            <button type="button" aria-label="Editar pregunta" onClick={() => openEditPregunta(p)} className="p-2 text-hint hover:text-accent rounded"><Pencil size={15} /></button>
+                            <button type="button" aria-label="Duplicar pregunta" onClick={() => handleDuplicatePregunta(p)} className="p-2 text-hint hover:text-accent rounded"><Copy size={15} /></button>
+                            <button type="button" aria-label="Eliminar pregunta" onClick={() => handleDeletePregunta(p.id)} className="p-2 text-hint hover:text-error rounded"><Trash2 size={15} /></button>
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-32 rounded border border-outline-variant" />}
@@ -1590,9 +1590,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             ))}
                           </div>
                         )}
-                        {p.tipo === 'respuesta_corta' && <p className="text-xs text-slate-400 mt-1 italic">Respuesta de texto libre — se califica manualmente</p>}
-                        {p.tipo === 'subir_archivo' && <p className="text-xs text-slate-400 mt-1 italic">El alumno sube un documento — se califica manualmente</p>}
-                        <p className="text-xs text-slate-400 mt-1">Ponderación: {p.ponderacion}{p.retroalimentacion ? ' · con retroalimentación' : ''}</p>
+                        {p.tipo === 'respuesta_corta' && <p className="text-xs text-hint mt-1 italic">Respuesta de texto libre — se califica manualmente</p>}
+                        {p.tipo === 'subir_archivo' && <p className="text-xs text-hint mt-1 italic">El alumno sube un documento — se califica manualmente</p>}
+                        <p className="text-xs text-hint mt-1">Ponderación: {p.ponderacion}{p.retroalimentacion ? ' · con retroalimentación' : ''}</p>
                       </>
                     )}
                   </div>
@@ -1668,7 +1668,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     radioName="respuestaCorrecta"
                   />
                 )}
-                {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>}
+                {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-hint">Deja seleccionada la correcta</p>}
 
                 {preguntaForm.tipo === 'verdadero_falso' && (
                   <div className="flex gap-3">
@@ -1683,10 +1683,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 )}
 
                 {preguntaForm.tipo === 'respuesta_corta' && (
-                  <p className="text-xs text-slate-400 italic">El alumno responderá con texto libre. Tú asignas los puntos al revisar su entrega.</p>
+                  <p className="text-xs text-hint italic">El alumno responderá con texto libre. Tú asignas los puntos al revisar su entrega.</p>
                 )}
                 {preguntaForm.tipo === 'subir_archivo' && (
-                  <p className="text-xs text-slate-400 italic">El alumno subirá un documento (PDF, Word, imágenes, etc.). Tú asignas los puntos al revisar su entrega.</p>
+                  <p className="text-xs text-hint italic">El alumno subirá un documento (PDF, Word, imágenes, etc.). Tú asignas los puntos al revisar su entrega.</p>
                 )}
 
                 <div>
@@ -1766,7 +1766,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     </div>
                   )}
                   {bancoFiltrado.length === 0 ? (
-                    <p className="text-sm text-slate-400 text-center py-6">
+                    <p className="text-sm text-hint text-center py-6">
                       {banco.length === 0 ? 'Aún no tienes preguntas guardadas en tu banco' : 'Sin resultados'}
                     </p>
                   ) : (
@@ -1838,16 +1838,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 className="flex-1 text-left text-sm hover:text-accent transition-colors disabled:opacity-60">
                                 {item.enunciado}
                                 {(item.materia || item.tema) && (
-                                  <span className="block text-xs text-slate-400 mt-0.5">
+                                  <span className="block text-xs text-hint mt-0.5">
                                     {item.materia && <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded mr-1.5">{item.materia}</span>}
                                     {item.tema}
                                   </span>
                                 )}
                               </button>
                               <div className="flex gap-1 flex-shrink-0">
-                                <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-2 text-slate-400 hover:text-accent rounded"><Pencil size={14} /></button>
-                                <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-2 text-slate-400 hover:text-accent rounded"><Copy size={14} /></button>
-                                <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-2 text-slate-400 hover:text-error rounded"><Trash2 size={14} /></button>
+                                <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-2 text-hint hover:text-accent rounded"><Pencil size={14} /></button>
+                                <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-2 text-hint hover:text-accent rounded"><Copy size={14} /></button>
+                                <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-2 text-hint hover:text-error rounded"><Trash2 size={14} /></button>
                               </div>
                             </div>
                           )}
@@ -2213,7 +2213,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   los filtros y la búsqueda de arriba no se muevan de lugar. */}
               <div className="max-h-[60vh] overflow-y-auto">
               {visibles.length === 0 ? (
-                <p className="text-center text-slate-400 text-sm py-8 flex items-center justify-center gap-2"><Users size={16} /> {students.length === 0 ? 'Sin estudiantes' : 'Sin estudiantes en esta categoría'}</p>
+                <p className="text-center text-hint text-sm py-8 flex items-center justify-center gap-2"><Users size={16} /> {students.length === 0 ? 'Sin estudiantes' : 'Sin estudiantes en esta categoría'}</p>
               ) : (
                 visibles.map((s, i) => {
                   const sub = submissions[s.id]
@@ -2489,8 +2489,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   />
                 ) : (
                   <div className="text-center py-20">
-                    <p className="text-2xl font-bold text-slate-400">No realizado</p>
-                    <p className="text-sm text-slate-400 mt-1">Este estudiante aún no ha realizado la evaluación.</p>
+                    <p className="text-2xl font-bold text-hint">No realizado</p>
+                    <p className="text-sm text-hint mt-1">Este estudiante aún no ha realizado la evaluación.</p>
                   </div>
                 )}
               </div>
@@ -2535,7 +2535,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 })()}
                 {/* Reserve the line even when not done so Anterior/Siguiente never move (web only — en Android no se muestran fechas/intentos) */}
                 {!IS_NATIVE_APP && (
-                  <p className={`text-xs text-slate-400 mt-0.5 min-h-4 ${done ? '' : 'invisible'}`}>
+                  <p className={`text-xs text-hint mt-0.5 min-h-4 ${done ? '' : 'invisible'}`}>
                     {done
                       ? `${fmtDuracion(sub.tiempoInicio, sub.fechaEntrega)} · Enviado ${fmtHora(sub.fechaEntrega)} · Intento ${sub.intentoActual || 1}`
                       : ' '}
@@ -2632,7 +2632,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         className="w-full text-sm text-slate-500 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
                         Modificar fecha de entrega para este estudiante
                       </button>
-                      <p className="text-xs text-slate-400">{MENSAJE_PRORROGA_CON_ENTREGA}</p>
+                      <p className="text-xs text-hint">{MENSAJE_PRORROGA_CON_ENTREGA}</p>
                     </div>
                   ) : !extendMode ? (
                     <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setExtendMode(true) }}

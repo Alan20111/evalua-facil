@@ -533,7 +533,7 @@ export default function EntregableEditor({
 
             <div>
               <label className="block text-sm font-medium text-muted mb-1">
-                Instrucciones{isObservacion && <span className="text-slate-400 font-normal"> (opcional)</span>}
+                Instrucciones{isObservacion && <span className="text-hint font-normal"> (opcional)</span>}
               </label>
               <RichTextEditor
                 value={form.instrucciones}
@@ -569,7 +569,7 @@ export default function EntregableEditor({
               <div>
                 <h2 className="text-sm font-semibold text-on-surface flex items-center gap-1.5">
                   <ClipboardList size={16} className="text-accent" /> Rúbrica de evaluación
-                  <span className="text-slate-400 font-normal">(opcional)</span>
+                  <span className="text-hint font-normal">(opcional)</span>
                 </h2>
                 <InfoDisclosure className="mt-0.5">
                   <p className="text-xs text-muted">
@@ -599,7 +599,7 @@ export default function EntregableEditor({
                     <button type="button"
                       onClick={() => setForm((f) => ({ ...f, rubrica: null, rubricaId: null }))}
                       aria-label="Quitar rúbrica" data-tooltip="Quitar rúbrica"
-                      className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                      className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0">
                       <X size={17} />
                     </button>
                   </div>
@@ -695,7 +695,7 @@ export default function EntregableEditor({
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">{form.fechaLimite ? 'Fecha límite de entrega' : 'Fecha límite (opcional)'}</label>
                   {form.visibilidadMode === 'schedule' && !form.publishAt ? (
-                    <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
+                    <p className="text-xs text-hint px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
                     <EFDateTimePicker
                       mode="datetime"

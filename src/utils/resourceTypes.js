@@ -37,7 +37,7 @@ export function resourceExtension(filename) {
 // to legacy/unexpected extensions instead of crashing).
 export function getResourceIcon(filename) {
   const ext = resourceExtension(filename)
-  return RESOURCE_FILE_TYPES[ext] || { icon: FileIcon, color: 'text-slate-400' }
+  return RESOURCE_FILE_TYPES[ext] || { icon: FileIcon, color: 'text-hint' }
 }
 
 export function isResourceFileAllowed(file) {

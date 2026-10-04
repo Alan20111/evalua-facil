@@ -541,7 +541,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                           {j >= MIN_NIVELES && (
                             <button type="button" onClick={() => removeNivel(j)}
                               aria-label={`Eliminar nivel ${nv.nombre || j + 1}`} data-tooltip="Eliminar nivel"
-                              className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                              className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0">
                               <Trash2 size={14} />
                             </button>
                           )}
@@ -589,7 +589,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                           {i >= MIN_CRITERIOS && (
                             <button type="button" onClick={() => removeCriterio(i)}
                               aria-label={`Eliminar criterio ${i + 1}`} data-tooltip="Eliminar criterio"
-                              className="p-2 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                              className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0">
                               <Trash2 size={14} />
                             </button>
                           )}
@@ -612,13 +612,13 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                                 aria-label={`Puntos de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
                                 data-tooltip={j === 0 ? 'Lo que vale este criterio (recalcula el renglón)' : 'Editable — la columna debe sumar los puntos del nivel'}
                                 className={`w-14 px-1 py-0.5 text-center text-xs font-bold border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${j === 0 ? 'text-accent' : ''}`} />
-                              <span className="text-[10px] text-slate-400">pts</span>
+                              <span className="text-[10px] text-hint">pts</span>
                             </div>
                           </div>
                         </td>
                       ))}
                       <td className="border-0"></td>
-                      <td className="border border-outline-variant px-2 py-2 text-[10px] text-slate-400 italic align-middle leading-snug">
+                      <td className="border border-outline-variant px-2 py-2 text-[10px] text-hint italic align-middle leading-snug">
                         Aquí caerán los puntos del nivel que elijas al calificar
                       </td>
                     </tr>
