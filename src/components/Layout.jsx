@@ -37,7 +37,7 @@ import AvatarNav from './AvatarNav'
 import CanalYouTubeLink from './CanalYouTubeLink'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
-import { SkeletonList } from './ui'
+import { EsqueletoFilasLateral } from './esqueletos'
 
 // Indicador de pestaña activa en la barra inferior — un rectángulo de
 // esquinas ovaladas relleno de color detrás del ícono (pedido explícito,
@@ -133,7 +133,7 @@ export default function TeacherLayout({ children }) {
           en escritorio (md:hidden). El WebView de Android a veces reporta un
           viewport ≥768px activando el breakpoint md: de Tailwind, lo que
           mostraría el sidebar en lugar de la navegación móvil. */}
-      <header className={`${IS_NATIVE_APP ? '' : 'md:hidden'} sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2 flex items-center justify-between shadow-card safe-top`}>
+      <header data-esq="sesion-encabezado-movil" className={`${IS_NATIVE_APP ? '' : 'md:hidden'} sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2 flex items-center justify-between shadow-card safe-top`}>
         <div className="flex items-center gap-2 min-w-0">
           <EFLogo subtitle={false} className="h-8 w-auto flex-shrink-0" />
           {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de PortalBadge, no un atributo ARIA */}
@@ -168,7 +168,7 @@ export default function TeacherLayout({ children }) {
       <div className={IS_NATIVE_APP ? '' : 'flex'}>
         {/* Sidebar — en la app nativa siempre oculto (el WebView puede reportar
             viewport ≥768px activando md:flex); en la web solo en escritorio. */}
-        <aside className={`${IS_NATIVE_APP ? 'hidden' : 'hidden md:flex'} flex-col w-[300px] h-screen overflow-y-auto sticky top-0 bg-accent text-white flex-shrink-0 z-20`}>
+        <aside data-esq="sesion-lateral" className={`${IS_NATIVE_APP ? 'hidden' : 'hidden md:flex'} flex-col w-[300px] h-screen overflow-y-auto sticky top-0 bg-accent text-white flex-shrink-0 z-20`}>
           {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
           {/* px-2 (no px-3): el recuadro blanco tiene que arrancar en la misma
               vertical que las píldoras de abajo, que van con mx-2. */}
@@ -246,12 +246,12 @@ export default function TeacherLayout({ children }) {
           {/* Subject list */}
           <div className="flex-1 min-h-32 overflow-y-auto px-2 pb-2 space-y-1">
             {loadingSidebar ? (
-              <SkeletonList rows={3} sobreColor className="px-4 py-2.5" />
+              <EsqueletoFilasLateral />
             ) : activeSubjects.length === 0 ? (
               <p className="text-body-sm text-white/70 px-4 py-2.5">Sin asignaturas aún</p>
             ) : (
               activeSubjects.map((s) => (
-                <NavLink
+                <NavLink data-esq="sb-fila"
                   key={s.id}
                   to={`/subject/${s.id}`}
                   className={({ isActive }) =>
@@ -436,7 +436,7 @@ export default function TeacherLayout({ children }) {
           `w-full` + `left-0 right-0`, así llena el 100% de CUALQUIER pantalla
           (sin ellos la barra `fixed` se encoge a su contenido y queda cortada).
           Esquinas de ARRIBA redondeadas, como el encabezado lleva las de abajo. */}
-      <nav
+      <nav data-esq="nav-inferior"
         aria-label="Navegación principal"
         style={IS_NATIVE_APP ? { width: 'var(--layout-w)' } : undefined}
         className={`${IS_NATIVE_APP ? '' : 'w-full right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant rounded-t-card safe-bottom`}

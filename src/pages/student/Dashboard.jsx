@@ -421,7 +421,7 @@ export default function StudentDashboard() {
             barra superior). Ya NO navega al perfil: la barra inferior tiene su
             propio botón "Perfil" — dos caminos al mismo destino desde la misma
             pantalla era la redundancia que Don't Make Me Think prohíbe. */}
-        <div className={`${IS_NATIVE_APP ? '' : 'md:hidden'} bg-surface-card rounded-card shadow-card overflow-hidden mb-4`}>
+        <div data-esq="dash-alu-perfil" className={`${IS_NATIVE_APP ? '' : 'md:hidden'} bg-surface-card rounded-card shadow-card overflow-hidden mb-4`}>
           <div className="w-full flex items-center gap-3 px-4 py-4">
             {/* Pedido explícito: en la App se puede tocar la foto para
                 cambiarla al vuelo, sin entrar al perfil (en la web sigue
@@ -476,7 +476,7 @@ export default function StudentDashboard() {
           />
         )}
 
-        <h1 className="text-xl font-bold text-on-surface mb-1">Mis asignaturas</h1>
+        <h1 data-esq="dash-alu-titulo" className="text-xl font-bold text-on-surface mb-1">Mis asignaturas</h1>
         <p className="text-hint text-sm mb-4">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's activas' : ' activa'}</p>
 
         {activeSubjects.length === 0 ? (
@@ -486,9 +486,9 @@ export default function StudentDashboard() {
             <p className="text-hint text-sm">Usa el botón de abajo para unirte a una.</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div data-esq="dash-alu-lista" className="space-y-2">
             {displayActiveSubjects.map((s, i) => (
-              <div
+              <div data-esq="dash-alu-fila"
                 key={s.id}
                 ref={(el) => { dragCardRefs.current[i] = el }}
                 {...subjectPaletteProps(s.colorPalette)}
@@ -533,12 +533,12 @@ export default function StudentDashboard() {
                     </div>
                   )
                 )}
-                <button
+                <button data-esq="dash-alu-fila-boton"
                   type="button"
                   onClick={() => navigate(`/alumno/materia/${s.id}`)}
                   className="flex-1 min-w-0 text-left flex items-center gap-3 p-1.5"
                 >
-                  <div className="w-12 h-12 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                  <div data-esq="dash-alu-icono" className="w-12 h-12 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                     <SubjectIcon iconKey={s.icon} size={22} className="text-accent" />
                   </div>
                   <div className="flex-1 min-w-0">

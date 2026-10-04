@@ -12,6 +12,7 @@
 - [ ] Targets táctiles ≥ 44×44px, o al menos 24×24px (WCAG 2.5.8) — si agrega un botón/ícono clicable
 - [ ] Contraste de texto verificado si se usa un color nuevo (4.5:1 texto, 3:1 UI)
 - [ ] `npm run lint` y `npm run check:design` pasan en local (o el hallazgo nuevo está justificado en el PR)
+- [ ] Si toqué el layout de una pantalla que tiene esqueleto de carga, su esqueleto (`src/components/esqueletos/`) mide lo mismo (`npm run check:esqueletos`)
 - [ ] Si toca un modal: usa `components/ui/Modal.jsx`, no un `fixed inset-0` a mano
 - [ ] Si toca un input/select/table en `pages/`: usa `components/ui/` (Input/Select/Table), no la etiqueta cruda
 

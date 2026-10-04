@@ -1434,10 +1434,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             </div>
           )}
           {editingTabsVisible && (
-            <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
+            <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full">
               {TABS.map((t) => (
                 <button type="button" key={t.key} onClick={() => { setTab(t.key); if (t.key === 'preguntas') loadBanco() }}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${tab === t.key ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-full transition-colors ${tab === t.key ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
                   {t.label}
                 </button>
               ))}
@@ -2184,10 +2184,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Entregas</h2>
               </div>
               <div className="p-3 pb-2 space-y-2">
-                <div className={IS_NATIVE_APP ? 'grid grid-cols-2 gap-1 bg-surface-container p-1 rounded' : 'flex gap-1 bg-surface-container p-1 rounded'}>
+                <div className={IS_NATIVE_APP ? 'grid grid-cols-2 gap-1 bg-surface-container p-1 rounded-card' : 'flex gap-1 bg-surface-container p-1 rounded-full'}>
                   {FILTRO_TABS.map(([k, lbl]) => (
                     <button type="button" key={k} onClick={() => setFiltroResultados(k)}
-                      className={`${IS_NATIVE_APP ? '' : 'flex-1'} py-1.5 text-xs font-medium rounded transition-colors ${
+                      className={`${IS_NATIVE_APP ? '' : 'flex-1'} py-1.5 text-xs font-medium rounded-full transition-colors ${
                         filtroResultados === k ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                       }`}>
                       {lbl} ({resultCounts[k]})

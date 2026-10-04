@@ -311,7 +311,7 @@ export default function TeacherDashboard() {
 
   return (
     <>
-      <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
+      <div data-esq="dash-doc-contenedor" className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
         {/* Saludo — "Hola {nombre}". La foto de perfil ya no vive aquí: es el
             primer botón de la barra inferior (a la izquierda) y se cambia en
@@ -340,7 +340,7 @@ export default function TeacherDashboard() {
                 dato. Es la misma forma que ya usa "Archivadas (1)" más abajo.
                 Con cero no se pone "(0)": la tarjeta de abajo ya dice que
                 todavía no hay asignaturas. */}
-            <h2 className="text-lg font-semibold text-on-surface mb-2">
+            <h2 data-esq="dash-doc-titulo" className="text-lg font-semibold text-on-surface mb-2">
               Mis asignaturas{mainList.length > 0 ? ` (${mainList.length})` : ''}
             </h2>
 
@@ -360,9 +360,9 @@ export default function TeacherDashboard() {
                 </button>
               </div>
             ) : (
-              <div className="space-y-2 mb-4">
+              <div data-esq="dash-doc-lista" className="space-y-2 mb-4">
                 {displaySubjects.map((s, i) => (
-                  <div
+                  <div data-esq="dash-doc-fila"
                     key={s.id}
                     ref={(el) => { dragCardRefs.current[i] = el }}
                     {...subjectPaletteProps(s.colorPalette)}
@@ -410,7 +410,7 @@ export default function TeacherDashboard() {
                       onClick={() => navigate(`/subject/${s.id}`)}
                       className="flex-1 min-w-0 text-left flex items-center gap-2"
                     >
-                      <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                      <div data-esq="dash-doc-icono" className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                         <SubjectIcon iconKey={s.icon} size={21} className="text-accent" />
                       </div>
                       <div className="flex-1 min-w-0">

@@ -20,8 +20,9 @@ const PULSO = 'animate-pulse motion-reduce:animate-none'
 // Barra suelta. El tamaño lo pone quien la usa (h-4 w-1/2, h-10 w-10…).
 // `sobreColor`: para fondos de color sólido (la barra lateral azul o
 // naranja), donde el gris oscuro no se distingue; ahí va blanco translúcido.
-export function Skeleton({ className = '', sobreColor = false }) {
-  return <span aria-hidden="true" className={cn('block rounded', sobreColor ? 'bg-white/20' : 'bg-skeleton', PULSO, className)} />
+// Los demás props (p. ej. data-esq, ver scripts/check-esqueletos.mjs) pasan al <span>.
+export function Skeleton({ className = '', sobreColor = false, ...rest }) {
+  return <span aria-hidden="true" className={cn('block rounded', sobreColor ? 'bg-white/20' : 'bg-skeleton', PULSO, className)} {...rest} />
 }
 
 // Contenedor accesible común a todos los presets. Se exporta como
@@ -74,9 +75,9 @@ export function SkeletonList({ rows = 4, icon = true, sobreColor = false, classN
 // delgada que el renglón, como la tinta de la letra.
 //   texto   clases de tipografía del texto real (ej. 'text-xl font-bold')
 //   className  ancho (w-…) y márgenes del renglón
-export function SkeletonLine({ texto = 'text-base', className = '', sobreColor = false }) {
+export function SkeletonLine({ texto = 'text-base', className = '', sobreColor = false, ...rest }) {
   return (
-    <span aria-hidden="true" className={cn('flex items-center h-[1lh]', texto, className)}>
+    <span aria-hidden="true" className={cn('flex items-center h-[1lh]', texto, className)} {...rest}>
       <Skeleton sobreColor={sobreColor} className="h-[0.7em] w-full" />
     </span>
   )

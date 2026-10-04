@@ -138,6 +138,15 @@ Después de cualquier deploy de Cloud Functions que toque IA:
 
 ---
 
+### Esqueletos de carga (candado de diseño)
+
+Cada pantalla con estado de carga tiene un esqueleto en `src/components/esqueletos/`
+que debe medir lo mismo que la pantalla real. Se enlazan con `data-esq="id"` en ambos
+lados y `npm run check:esqueletos` (incluido en `check:design` y en CI) falla si las
+medidas no coinciden. **Si cambias el layout de una pantalla (padding, gap, esquinas,
+tamaños) o creas una con carga, actualiza/crea su esqueleto en el mismo PR.** Detalle
+en `docs/DESIGN_SYSTEM.md` §6.9.
+
 ### Candado de suscripción (servidor)
 
 Un docente sin suscripción vigente puede leer y exportar, pero no escribir. El

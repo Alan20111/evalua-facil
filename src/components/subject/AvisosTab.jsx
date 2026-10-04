@@ -417,13 +417,13 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
 
       {/* Todos / Guardados — pedido explícito: poder guardar avisos y ver los
           guardados aparte. */}
-      <div className="flex gap-1 bg-surface-container p-1 rounded w-fit">
+      <div className="flex gap-1 bg-surface-container p-1 rounded-full w-fit">
         <button type="button" onClick={() => setSoloGuardados(false)}
-          className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${!soloGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+          className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${!soloGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
           Todos ({avisos.length - avisosGuardados.length})
         </button>
         <button type="button" onClick={() => setSoloGuardados(true)}
-          className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${soloGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+          className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${soloGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
           <Bookmark size={13} /> Guardados ({avisosGuardados.length})
         </button>
       </div>
