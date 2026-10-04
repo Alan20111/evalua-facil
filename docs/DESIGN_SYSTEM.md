@@ -203,7 +203,7 @@ Un contenedor abierto, un punteado o una barra lateral NUNCA llevan el color de 
 
 - **Submenú «Ajustes y ayuda» (barra lateral del docente):** un solo botón (disclosure con `aria-expanded`/`aria-controls`) agrupa Perfil para IA, QR, Notificaciones, Ayuda y Tutoriales; se abre solo si estás en una de esas pantallas. Para añadir otra herramienta de apoyo, ponla dentro del submenú, no como fila suelta.
 - **Barra lateral del docente (escritorio):** UNA fila estándar para todo (`src/config/sidebar.js` → `SB_FILA`): `px-4 py-2.5 gap-3 rounded-full`, icono 20 px, `text-body-sm`. Horario y Agenda, cada asignatura, Nueva asignatura, los enlaces secundarios, Archivadas, créditos y Cerrar sesión miden lo mismo (≈ 285 × 38 px), con el icono en la misma vertical. Gutter `px-2`, `space-y-1` dentro de un grupo, divisoria `border-t border-white/15` entre grupos. Para añadir una fila nueva, usa `SB_FILA` — no inventes padding.
-- **Barra inferior móvil (footer):** cuatro botones iguales (`NAV_ITEM`: `flex-1 px-1 py-2 gap-1`), contenedor `px-2`, iconos de 24 px. Llena el 100% del ancho de cualquier pantalla (`w-full left-0 right-0`) y lleva **esquinas de arriba redondeadas** (`rounded-t-card`). **Perfil va al final (derecha) y su icono es la foto** (`AvatarNav`, con la inicial si no hay foto; anillo de acento al estar activo). La foto ya no aparece en el saludo del tablero; se cambia desde Perfil. Docente y alumno usan el mismo estándar.
+- **Barra inferior móvil (footer):** cuatro botones iguales (`NAV_ITEM`: `flex-1 px-1 py-2 gap-1`), contenedor `px-2`, iconos de 24 px. Llena el 100% del ancho de cualquier pantalla (`w-full left-0 right-0`), sin borde ni sombra (se separa por contraste de superficie), y lleva **esquinas de arriba redondeadas** (`rounded-t-card`). **Perfil va al final (derecha) y su icono es la foto, sin texto debajo (más grande, 40 px; nombre accesible por `aria-label`)** (`AvatarNav`, con la inicial si no hay foto; anillo de acento al estar activo). La foto ya no aparece en el saludo del tablero; se cambia desde Perfil. Docente y alumno usan el mismo estándar.
 - **Encabezado de la asignatura (docente):** el bloque blanco ocupa TODO el ancho del área de contenido, con esquinas de **abajo** redondeadas (`rounded-b-card`); su contenido sí va en `TEACHER_CONTAINER`.
 - Barra superior móvil: `px-4 py-2`; botones de icono `rounded-full` con anillo de foco.
 
@@ -325,6 +325,10 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 | **Underline** (alumno) barra `border-b px-4 flex gap-1 overflow-x-auto`, tab `px-3 py-2.5 text-sm font-medium border-b-2` | `border-accent text-accent` | `border-transparent text-muted hover:bg-[var(--accent-tint)]` |
 
 El "segmented sólido" del panel de evaluar (ActivityPage) se migró a la variante segmented estándar. El selector de opción tipo "píldora" (CheckoutModal, NuevaFechaEntregaModal) se unificó a `border-accent bg-accent-light text-accent` activo / `border-outline-variant text-muted hover:bg-[var(--accent-tint)]` inactivo — documentado como el mismo patrón que **Outline Accent** (§6.1), no una tercera variante de tab.
+
+### 6.4b Pestaña que requiere atención (oct-2026)
+
+Una pestaña que necesita que el usuario haga algo se marca en **rojo**: texto `text-red-700 font-semibold`, fondo `bg-red-50` (si no es la activa) y un punto `w-2 h-2 rounded-full bg-red-600` antes de la etiqueta. Cada pestaña marcada declara QUÉ hay que hacer en ella (`atencionPestanas` en `SubjectPage.jsx`): sale como globo (`data-tooltip`) y como texto para lectores de pantalla («: requiere atención. …»). No se usan frases rojas sueltas bajo el encabezado. Hoy: **Estudiantes** cuando la asignatura aún no tiene estudiantes. Para añadir otra, agrega su motivo a `atencionPestanas`.
 
 ### 6.5 Badges / chips
 

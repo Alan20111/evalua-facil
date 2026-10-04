@@ -1298,6 +1298,14 @@ export default function SubjectPage() {
   // (a mano o por Excel) actualizaba la lista pero NO el conteo: el aviso de
   // "aún no tienes estudiantes" seguía ahí hasta recargar la página.
   const totalStudents = groupStudentsLoaded ? groupStudents.length : studentCountAtLoad
+  // Pestañas que piden atención (se marcan en rojo con un punto) y QUÉ hay que
+  // hacer en ellas. Añade aquí otra pestaña con su motivo y el diseño es el
+  // mismo (ver DESIGN_SYSTEM §6.4 «Pestaña que requiere atención»).
+  const atencionPestanas = {
+    alumnos: totalStudents === 0
+      ? `Aún no hay estudiantes. Agrégalos aquí${IS_NATIVE_APP ? ' (la plantilla de Excel se usa desde la web)' : ' a mano o con la plantilla de Excel'} para poder compartir el código de acceso.`
+      : null,
+  }
 
   // Copy feedback
   const [copiedCode, setCopiedCode] = useState(false)
@@ -5617,16 +5625,6 @@ export default function SubjectPage() {
             {subjectHeaderRightIcons}
           </div>
 
-          {/* Aún sin estudiantes: aviso debajo del código de acceso. totalStudents
-              se calcula al cargar la materia (no depende de haber visitado la
-              pestaña Estudiantes), así que está listo desde el primer render. */}
-          {totalStudents === 0 && (
-            <p className="text-xs text-red-500 mt-1">
-              Antes de compartir estos datos, agrega estudiantes manualmente o mediante la
-              plantilla de Excel en la pestaña Estudiantes{IS_NATIVE_APP ? ' en la web' : ''}.
-            </p>
-          )}
-
           {/* Tabs — Calificaciones/Estudiantes solo en la web; Asistencia en ambos
               (en nativo va entre Actividades y Recursos, único hueco disponible). */}
           {/* overflow-x-auto + sin flex-1 forzado en móvil (mismo patrón que
@@ -5663,10 +5661,21 @@ export default function SubjectPage() {
               // precheckDiagnosticoBase) y la UI lo avisa antes de intentarlo.
               ).map((t) => (
                 <button data-esq="subj-doc-pestana" type="button" key={t} onClick={() => switchTab(t)}
+                  data-tooltip={atencionPestanas[t] || undefined}
                   className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded-full transition-colors ${
-                    activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
+                    activeTab === t ? 'bg-surface-card shadow-card' : 'hover:bg-[var(--accent-medium)]'
+                  } ${
+                    atencionPestanas[t]
+                      ? (activeTab === t ? 'text-red-700 font-semibold' : 'text-red-700 font-semibold bg-red-50')
+                      : activeTab === t ? 'text-on-surface' : 'text-muted'
                   }`}>
-                  {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Planeación Didáctica'}
+                  <span className="inline-flex items-center justify-center gap-1.5">
+                    {atencionPestanas[t] && <span aria-hidden="true" className="w-2 h-2 rounded-full bg-red-600 flex-shrink-0" />}
+                    {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Planeación Didáctica'}
+                  </span>
+                  {/* Qué hay que hacer en esta pestaña — lo lee el lector de pantalla
+                      y sale como globo al pasar el cursor/enfocar (data-tooltip). */}
+                  {atencionPestanas[t] && <span className="sr-only">: requiere atención. {atencionPestanas[t]}</span>}
                 </button>
               ))}
             </div>

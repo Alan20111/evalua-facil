@@ -240,7 +240,7 @@ export default function TeacherLayout({ children }) {
           </div>
 
           {/* Subjects header → goes to the full subjects list */}
-          <NavLink to="/dashboard" className="mx-2 px-4 pt-3 pb-1 flex items-center justify-between rounded-full hover:bg-white/10 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
+          <NavLink to="/dashboard" className="mx-2 mt-2 px-4 py-2 flex items-center justify-between rounded-full hover:bg-white/10 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
             {/* De ~14 a 22 px (pedido explícito): pasaba desapercibida pese a
                 ser un link a la lista completa. Se quita `uppercase` — en
                 mayúsculas a este tamaño se lee como un GRITO, no como
@@ -469,7 +469,7 @@ export default function TeacherLayout({ children }) {
       <nav data-esq="nav-inferior"
         aria-label="Navegación principal"
         style={IS_NATIVE_APP ? { width: 'var(--layout-w)' } : undefined}
-        className={`${IS_NATIVE_APP ? '' : 'w-full right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant rounded-t-card safe-bottom`}
+        className={`${IS_NATIVE_APP ? '' : 'w-full right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card rounded-t-card safe-bottom`}
       >
         {/* Estándar de espaciado: px-2 en la barra y px-1 py-2 gap-1 por botón
             (misma escala que el resto de la app). Cuatro botones iguales
@@ -493,13 +493,15 @@ export default function TeacherLayout({ children }) {
               <span>Notificaciones</span>
             </>)}
           </NavLink>
-          <NavLink to="/profile" className={NAV_ITEM}>
-            {({ isActive }) => (<>
+          {/* Perfil: solo la foto (sin texto) para que sea más grande; su nombre
+              accesible es aria-label. justify-center la centra en la altura de
+              la barra, igual que los iconos con etiqueta de al lado. */}
+          <NavLink to="/profile" aria-label="Perfil" className={(e) => `${NAV_ITEM(e)} justify-center`}>
+            {({ isActive }) => (
               <span className={navIconPillCls(isActive)}>
                 <AvatarNav foto={userProfile?.photoURL} nombre={teacherDisplayName(userProfile)} activo={isActive} />
               </span>
-              <span>Perfil</span>
-            </>)}
+            )}
           </NavLink>
         </div>
       </nav>
