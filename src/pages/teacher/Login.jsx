@@ -15,6 +15,7 @@ import Input from '../../components/ui/Input'
 import { createTeacherAccountIfNew, signInWithGoogle, googleErrorInfo } from '../../utils/googleAuth'
 import LinkAccountModal from '../../components/LinkAccountModal'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
+import YouTubeIcon from '../../components/YouTubeIcon'
 
 export default function TeacherLogin() {
   const [email, setEmail] = useState('')
@@ -145,21 +146,18 @@ export default function TeacherLogin() {
         </div>
 
         <p className="text-center text-sm text-muted mt-6">
-          ¿No tienes cuenta de docente?{' '}
-          <Link to="/register" className="text-accent font-semibold hover:underline">Crear cuenta de docente</Link>
+          <Link to="/register" className="text-accent font-semibold hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full px-1">¿No tienes cuenta de docente?</Link>
         </p>
         <p className="text-center text-sm text-muted mt-2">
-          ¿Eres estudiante?{' '}
-          <Link to="/alumno" className="text-accent font-semibold hover:underline">Entra aquí</Link>
+          <Link to="/alumno" className="text-accent font-semibold hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full px-1">¿Eres estudiante?</Link>
         </p>
         {/* Sin <p> envolvente: en la app nativa el componente no pinta nada, y
             así tampoco queda un renglón vacío. */}
-        <CanalYouTubeLink className="block w-fit mx-auto text-sm mt-2 text-accent font-semibold hover:underline">
-          Evalúa Fácil en YouTube
+        <CanalYouTubeLink className="mx-auto mt-4 w-fit flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-on-surface hover:bg-surface-card transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+          <YouTubeIcon className="w-6 h-auto flex-shrink-0" />
+          Tutoriales
+          <span className="sr-only"> (abre YouTube en una pestaña nueva)</span>
         </CanalYouTubeLink>
-        <p className="text-center text-xs text-hint mt-4">
-          Para una mejor experiencia recomendamos utilizar Evalúa Fácil Docente desde una laptop o computadora de escritorio.
-        </p>
       </div>
 
       {showLinkAccount && <LinkAccountModal onClose={() => setShowLinkAccount(false)} />}
