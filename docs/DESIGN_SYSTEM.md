@@ -147,11 +147,13 @@ Color de calificación (`gradeColor`): alta `text-emerald-700` · media `text-am
 
 ### 4.1 Radios — escala cerrada (oct-2026)
 
+Desde oct-2026 docente, admin y alumno comparten las mismas esquinas redondas (antes el docente usaba 8/14px). El rol solo cambia el acento y la escala de letra.
+
 | Token | Docente | Alumno | Uso — **regla** |
 |---|---|---|---|
 | `rounded-sm` | 2px | 2px | Solo micro-elementos ≤ 12px: muestras de leyenda, chips del calendario mensual |
-| `rounded` (DEFAULT) | 8px | 16px | Contenedores medianos que **no** son control: cuadros de icono, avisos internos, items de nav, eventos del calendario, celdas |
-| `rounded-card` | 14px | 32px | **Contenedores**: cards, modales, tablas, secciones, banners de estado. Nunca en un botón de acción |
+| `rounded` (DEFAULT) | 16px | 16px | Contenedores medianos que **no** son control: cuadros de icono, avisos internos, items de nav, eventos del calendario, celdas |
+| `rounded-card` | 32px | 32px | **Contenedores**: cards, modales, tablas, secciones, banners de estado. Nunca en un botón de acción |
 | `rounded-full` / `rounded-pill` | 9999px | 9999px | **Todo control que se toca (oct-2026, patrón Apple):** botones de cualquier variante (incluidos los de icono, que en hover muestran un círculo), campos de una línea, selects y buscadores. También badges, chips, avatares, FAB, swatches y toggles. Los `<textarea>` siguen en `rounded` (varias líneas no caben en una píldora) y los controles segmentados conservan `rounded-l`/`rounded-r` |
 
 Prohibidos (candado en `check:design`): `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`, `rounded-3xl`. Variantes laterales (`rounded-l`, `rounded-r`, `rounded-t-card`) solo para controles segmentados y hojas inferiores.
@@ -339,6 +341,10 @@ El "segmented sólido" del panel de evaluar (ActivityPage) se migró a la varian
 - Item: `flex items-center gap-3 rounded px-4 py-2.5 shadow-lg text-white text-sm` — success `bg-emerald-500` (CheckCircle 20) · warning `bg-amber-500` (AlertTriangle) · error `bg-red-500` (XCircle) + cerrar `X 16`. Auto-dismiss 3500ms. Warning/error suenan (2 beeps WebAudio 740/554Hz). ⚠ Sin animación de entrada/salida.
 - Aviso contextual (`notify.showNear`): flotante junto al elemento, radius 8, `padding 6px 12px`, 12px w600, auto-oculta 2600ms — warning `#FFFBEB/#B45309/#FCD34D`, error `#FEF2F2/#B91C1C/#FCA5A5`.
 - Tooltips: atributo `data-tooltip` (CSS puro) — caja `#F5F5F5` texto `#111`, borde `#C0C0C0`, 11px, radius 2, max 340px, delay 250ms; variantes `nowrap`, `pos=left`, `pos=bottom`.
+
+### 6.8b Pantallas de acceso — tareas secundarias como vistas
+
+En el login del alumno, «¿Olvidaste tu contraseña?» y «¿Primera vez? Activa tu cuenta» son **botones píldora** (`BotonVista`) que abren SOLO su pantalla (`PanelVista`), en vez de acordeones apilados. La vista vive en la URL (`/alumno?vista=recuperar|activar`): el atrás del navegador y el de Android regresan a «entrar»; el foco va al título de la vista al abrir y vuelve al botón que la abrió al regresar. Los enlaces del pie son la pregunta misma en azul (`¿Eres estudiante?`), sin una segunda frase tipo «Entra aquí».
 
 ### 6.9 Estados vacíos / carga / resultado
 

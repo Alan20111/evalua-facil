@@ -350,8 +350,7 @@ export default function Register() {
         </div>
 
         <p className="text-center text-sm text-muted mt-6">
-          ¿Ya tienes cuenta?{' '}
-          <Link to="/docente" className="text-accent font-semibold hover:underline">Iniciar sesión</Link>
+          <Link to="/docente" className="text-accent font-semibold hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full px-1">¿Ya tienes cuenta?</Link>
         </p>
       </div>
     </div>
