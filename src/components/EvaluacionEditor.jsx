@@ -1895,7 +1895,7 @@ export default function EvaluacionEditor({
       {showBanco && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card shadow-2xl flex flex-col" style={{height: 'min(90vh, 700px)'}}>
+          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-3xl hoja rounded-card shadow-2xl flex flex-col" style={{height: 'min(90vh, 700px)'}}>
             {/* Header fijo */}
             <div className="p-4 border-b border-outline-variant flex-shrink-0">
               <h3 className="text-base font-semibold mb-3">Mi banco de reactivos</h3>

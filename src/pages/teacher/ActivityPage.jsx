@@ -2640,7 +2640,7 @@ export default function ActivityPage() {
                       <button
                         type="button"
                         onClick={() => changeFilterInView('todos')}
-                        className={`h-9 min-w-[104px] pl-3 pr-2 rounded-r border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
+                        className={`h-9 min-w-[104px] pl-3 pr-2 ml-1 rounded-full border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
                           filter === 'todos' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
                         }`}
                       >
@@ -2649,7 +2649,7 @@ export default function ActivityPage() {
                       <button
                         type="button"
                         onClick={() => changeFilterInView('entregado')}
-                        className={`h-9 min-w-[104px] pl-3 pr-2 rounded-r border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
+                        className={`h-9 min-w-[104px] pl-3 pr-2 ml-1 rounded-full border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
                           filter === 'entregado' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
                         }`}
                       >
@@ -2705,7 +2705,7 @@ export default function ActivityPage() {
                             disabled={parcialCerrado || prorrogaBloqueada}
                             aria-label="Modificar fecha de entrega"
                             data-tooltip={prorrogaBloqueada ? MENSAJE_PRORROGA_CON_ENTREGA : 'Modificar fecha de entrega'}
-                            className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40"
+                            className="h-9 pl-2 pr-3 rounded-full border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40"
                           >
                             <CalendarDays size={17} />
                           </button>
@@ -2716,7 +2716,7 @@ export default function ActivityPage() {
                               disabled={parcialCerrado}
                               aria-label="Anular la entrega"
                               data-tooltip="Anular la entrega"
-                              className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors disabled:opacity-40"
+                              className="h-9 pl-2 pr-3 rounded-full border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors disabled:opacity-40"
                             >
                               <Trash2 size={17} />
                             </button>

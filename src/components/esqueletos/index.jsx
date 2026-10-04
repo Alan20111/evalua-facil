@@ -57,7 +57,7 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
   return (
     <div>
       <SkeletonGroup etiqueta="Cargando la asignatura…">
-        <div data-esq="subj-doc-encabezado" className="bg-surface-card rounded-b-card">
+        <div data-esq="subj-doc-encabezado" className="mx-2 mt-2 bg-surface-card rounded-card">
           <div data-esq="subj-doc-encabezado-interior" className={`${TEACHER_CONTAINER} px-4 py-2`}>
           <div className="flex items-center gap-2">
             <span className="p-2 -ml-2 flex-shrink-0"><Skeleton className="w-[1.528rem] h-[1.528rem]" /></span>
@@ -282,7 +282,7 @@ export function EsqueletoSesion({ rol = 'docente', contenido = 'tablero' }) {
     <div data-role={rol} className="min-h-dvh bg-surface">
       {/* Barra superior del móvil — mismas medidas que la real de Layout */}
       {!IS_NATIVE_APP && (
-        <div aria-hidden="true" data-esq="sesion-encabezado-movil" className="md:hidden bg-surface-card border-b border-outline-variant px-4 h-[var(--barra-alto)] flex items-center justify-between">
+        <div aria-hidden="true" data-esq="sesion-encabezado-movil" className="md:hidden sticky barra-flotante-sup z-30 mx-2 rounded-full bg-surface-card px-4 h-[var(--barra-alto)] flex items-center justify-between shadow-barra">
           <Skeleton className="h-8 w-28" />
           <span className="flex items-center gap-1">
             <span className="p-2"><Skeleton className="w-[1.389rem] h-[1.389rem]" /></span>
@@ -314,7 +314,7 @@ export function EsqueletoSesion({ rol = 'docente', contenido = 'tablero' }) {
       </div>
       {/* Barra inferior del móvil: 100% de ancho, esquinas de arriba redondeadas */}
       {!IS_NATIVE_APP && (
-        <div aria-hidden="true" data-esq="nav-inferior" className="md:hidden fixed bottom-0 left-0 right-0 w-full bg-surface-card rounded-t-card shadow-barra-sup">
+        <div aria-hidden="true" data-esq="nav-inferior" className="md:hidden fixed barra-flotante-inf left-2 right-2 bg-surface-card rounded-full shadow-barra">
           <div data-esq="nav-inferior-fila" className="flex px-2 h-[var(--barra-alto)]">
             {Array.from({ length: 4 }, (_, i) => (
               <span key={i} className="flex-1 min-w-0 flex flex-col items-center justify-center px-1 gap-1">

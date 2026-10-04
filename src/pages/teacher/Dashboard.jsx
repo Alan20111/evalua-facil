@@ -585,7 +585,7 @@ export default function TeacherDashboard() {
           type="button"
           onClick={openSubjectModal}
           aria-label="Nueva asignatura"
-          className="md:hidden fixed bottom-[calc(var(--barra-alto)+0.5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-accent hover:bg-accent-hover text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
+          className="md:hidden fixed bottom-[calc(var(--barra-alto)+1.5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-accent hover:bg-accent-hover text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
         >
           <Plus size={26} />
         </button>
@@ -595,7 +595,7 @@ export default function TeacherDashboard() {
       {showSubjectModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowSubjectModal(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-full max-w-md rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
               <button type="button" onClick={() => setShowSubjectModal(false)} aria-label="Cerrar" className="p-2 text-hint hover:text-muted rounded-full">

@@ -1723,7 +1723,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             {showBanco && (
               <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
                 <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} aria-label="Cerrar" />
-                <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[85vh] overflow-y-auto">
+                <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[85vh] overflow-y-auto">
                   <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
                   <div className="flex gap-2 mb-3">
                     <div className="flex-1">
@@ -2573,13 +2573,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <div className="flex items-center gap-2">
                   <div className="flex flex-col gap-2 flex-shrink-0 -ml-3">
                     <button type="button" onClick={() => changeReviewFilter('todos')}
-                      className={`h-9 min-w-[104px] pl-3 pr-2 rounded-r border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
+                      className={`h-9 min-w-[104px] pl-3 pr-2 ml-1 rounded-full border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
                         reviewFilter === 'todos' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
                       }`}>
                       Todos ({reviewCounts.todos})
                     </button>
                     <button type="button" onClick={() => changeReviewFilter('porCalificar')}
-                      className={`h-9 min-w-[104px] pl-3 pr-2 rounded-r border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
+                      className={`h-9 min-w-[104px] pl-3 pr-2 ml-1 rounded-full border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
                         reviewFilter === 'porCalificar' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
                       }`}>
                       {FILTRO_TABS.find(([k]) => k === 'porCalificar')[1]} ({reviewCounts.porCalificar})
@@ -2595,11 +2595,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setExtendMode(true) }} aria-label="Modificar fecha de entrega"
                       disabled={reviewProrrogaBloqueada}
                       data-tooltip={reviewProrrogaBloqueada ? MENSAJE_PRORROGA_CON_ENTREGA : 'Modificar fecha de entrega'}
-                      className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40">
+                      className="h-9 pl-2 pr-3 rounded-full border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40">
                       <CalendarDays size={17} />
                     </button>
                     <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setCancelConfirm({ student: st, sub }) }} aria-label="Anular la entrega" data-tooltip="Anular la entrega"
-                      className={`h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors ${done ? '' : 'invisible'}`}>
+                      className={`h-9 pl-2 pr-3 rounded-full border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors ${done ? '' : 'invisible'}`}>
                       <Trash2 size={17} />
                     </button>
                   </div>

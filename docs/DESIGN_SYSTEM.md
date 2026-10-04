@@ -156,7 +156,7 @@ Desde oct-2026 docente, admin y alumno comparten las mismas esquinas redondas (a
 | `rounded-card` | 32px | 32px | **Contenedores**: cards, modales, tablas, secciones, banners de estado. Nunca en un botón de acción |
 | `rounded-full` / `rounded-pill` | 9999px | 9999px | **Todo control que se toca (oct-2026, patrón Apple):** botones de cualquier variante (incluidos los de icono, que en hover muestran un círculo), campos de una línea, selects y buscadores. También badges, chips, avatares, FAB, swatches y toggles. Los `<textarea>` siguen en `rounded` (varias líneas no caben en una píldora) y los controles segmentados conservan `rounded-l`/`rounded-r` |
 
-Prohibidos (candado en `check:design`): `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`, `rounded-3xl`. Variantes laterales (`rounded-l`, `rounded-r`, `rounded-t-card`) solo para controles segmentados y hojas inferiores.
+Prohibidos (candado en `check:design`): `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`, `rounded-3xl` **y cualquier esquina a medias** (`rounded-t/b/l/r…`, oct-2026): todo es 100% redondo. Las hojas inferiores usan `hoja rounded-card` (flotan sobre el borde en móvil); los botones pegados son dos píldoras separadas; las barras móviles son cápsulas flotantes.
 
 ### 4.2 Sombras — escala cerrada (oct-2026)
 
@@ -399,6 +399,13 @@ En el login del alumno, «¿Olvidaste tu contraseña?» y «¿Primera vez? Activ
 - Revisión (EvaluacionRevision): opción correcta `border-emerald-300 bg-emerald-50 text-emerald-700`; elegida `border-accent bg-accent-light` + `CheckCircle2 15 text-emerald-600` / `XCircle 15 text-error`; retro docente en `bg-surface rounded p-2.5` itálica.
 
 ### 6.12 Calendario (docente)
+
+**Rediseño oct-2026 — patrón del Calendario de Apple** (sin tocar colores: hoy va en el acento, no en rojo):
+- **Niveles Año → Mes → Día.** Vista **Año** nueva (`components/calendar/VistasApple.jsx` → `VistaAnio`): 12 meses en miniatura (3 columnas en teléfono, 4 en laptop), mes actual en acento, hoy en círculo; tocar un mes abre su Mes.
+- **Mes:** letra del día arriba, número grande, hoy en círculo de acento, elegido con anillo, fin de semana en gris; SIN cuadrícula, solo una línea fina entre semanas. Pastillas de eventos/clases `rounded-full`. En el teléfono, tocar un día abre su Día.
+- **Teléfono:** arriba, cápsula «‹ Año»/«‹ Mes» para subir de nivel y cápsula de acciones (horas, +evento); título grande (año en acento / nombre del mes); en Día, `TiraSemana` (L…D, deslizable) + la fecha completa. Abajo, flotando sobre la barra: «Hoy» a la izquierda y el cambio de vista (Día, 3 días, Mes, Año) a la derecha. Sin Semana en el teléfono.
+- **Laptop:** título grande con flechas (toca el título para elegir fecha), y a la derecha Hoy, Evento, horas y el control segmentado (cápsula gris, opción elegida en blanco), con Año. El calendario va en una tarjeta `rounded-card`.
+
 
 - Toolbars flotantes `bg-surface-card border rounded-card shadow-card px-1 py-1`; botón "Hoy" `text-xs px-3 py-1.5 rounded border`; switcher activo `bg-accent text-white`.
 - Grid mes `grid-cols-7`, celda `min-h-[88px]` hover `hover:bg-accent-tint`; "hoy" círculo `bg-accent text-white`; semana `grid-cols-8 min-w-[560px]` con header sticky.
