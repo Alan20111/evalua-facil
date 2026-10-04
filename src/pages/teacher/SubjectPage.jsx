@@ -46,7 +46,7 @@ import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade, es
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { formatShortDate, formatShortDateRange } from '../../utils/dateRange'
-import { IS_NATIVE_APP } from '../../utils/platform'
+import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../utils/platform'
 import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
 import PaletteSelect from '../../components/PaletteSelect'
@@ -6134,7 +6134,7 @@ export default function SubjectPage() {
               value={searchGrade}
               onChange={setSearchGrade}
               placeholder="Buscar por nombre o por número de lista…"
-              autoFocus
+              autoFocus={PUEDE_AUTOFOCUS}
             />
 
             {loadingGrades ? (
@@ -6667,7 +6667,7 @@ export default function SubjectPage() {
             value={searchAttendance}
             onChange={setSearchAttendance}
             placeholder="Buscar por nombre o por número de lista…"
-            autoFocus
+            autoFocus={PUEDE_AUTOFOCUS}
           />
 
           {!IS_NATIVE_APP && (
@@ -7115,7 +7115,7 @@ export default function SubjectPage() {
                 value={searchAlumnos}
                 onChange={setSearchAlumnos}
                 placeholder="Buscar por nombre o por número de lista…"
-                autoFocus
+                autoFocus={PUEDE_AUTOFOCUS}
               />
             </div>
             {/* data-tooltip-follow, no data-tooltip: esta fila lleva overflow-hidden
@@ -7970,9 +7970,9 @@ export default function SubjectPage() {
                     value={newStudent[field]}
                     onChange={(e) => setNewStudent((f) => ({ ...f, [field]: e.target.value }))}
                     required={!optional}
-                    // autoFocus intencional: primer campo del modal, se abre
+                    // autoFocus intencional (solo en escritorio): primer campo del modal, se abre
                     // una sola vez por apertura — no hay nada más que esperar.
-                    autoFocus={field === 'apellidoPaterno'}
+                    autoFocus={PUEDE_AUTOFOCUS && field === 'apellidoPaterno'}
                     className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder={placeholder}
                   />

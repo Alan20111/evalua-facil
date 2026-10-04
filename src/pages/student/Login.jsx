@@ -9,6 +9,7 @@ import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { apiUrl } from '../../utils/apiBase'
+import { PUEDE_AUTOFOCUS } from '../../utils/platform'
 
 export default function StudentLogin() {
   const [username, setUsername] = useState('')
@@ -242,9 +243,9 @@ export default function StudentLogin() {
                 value={username}
                 onChange={(e) => { setUsername(e.target.value); setError('') }}
                 required
-                // autoFocus intencional: primer campo del formulario de login,
+                // autoFocus intencional (solo en escritorio): primer campo del formulario de login,
                 // pantalla de entrada única — no es un modal reabrible.
-                autoFocus
+                autoFocus={PUEDE_AUTOFOCUS}
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="none"
