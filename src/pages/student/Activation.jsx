@@ -24,6 +24,7 @@ import { subjectPeriodLabel } from '../../utils/dateRange'
 import { capitalizarNombre } from '../../utils/nombres'
 import { studentFullName } from '../../utils/studentSearch'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { PUEDE_AUTOFOCUS } from '../../utils/platform'
 
 export default function StudentActivation() {
   const { accessCode } = useParams()
@@ -551,9 +552,9 @@ export default function StudentActivation() {
                     value={linkPassword}
                     onChange={(e) => { setLinkPassword(e.target.value); setPasswordError('') }}
                     required
-                    // autoFocus intencional: único campo de este paso (contraseña para vincular cuenta existente),
+                    // autoFocus intencional (solo en escritorio): único campo de este paso (contraseña para vincular cuenta existente),
                     // se muestra una sola vez por sesión de activación — no es un modal reabrible.
-                    autoFocus
+                    autoFocus={PUEDE_AUTOFOCUS}
                     className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Tu contraseña de Evalúa Fácil"
                   />
@@ -589,9 +590,9 @@ export default function StudentActivation() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
-                  // autoFocus intencional: único campo de este paso (buscar alumno por username),
+                  // autoFocus intencional (solo en escritorio): único campo de este paso (buscar alumno por username),
                   // se muestra una sola vez por sesión de activación — no es un modal reabrible.
-                  autoFocus
+                  autoFocus={PUEDE_AUTOFOCUS}
                   autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="none"
@@ -634,9 +635,9 @@ export default function StudentActivation() {
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setPasswordError('') }}
                     required
-                    // autoFocus intencional: primer campo de este paso (elegir contraseña),
+                    // autoFocus intencional (solo en escritorio): primer campo de este paso (elegir contraseña),
                     // se muestra una sola vez por sesión de activación — no es un modal reabrible.
-                    autoFocus
+                    autoFocus={PUEDE_AUTOFOCUS}
                     className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Mínimo 8 caracteres"
                   />

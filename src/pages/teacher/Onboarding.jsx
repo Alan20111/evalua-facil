@@ -22,6 +22,7 @@ import SchoolPicker from '../../components/SchoolPicker'
 import { resolveSchoolSelection } from '../../utils/schoolSelection'
 import { escuelaValida } from '../../utils/escuela'
 import { School } from 'lucide-react'
+import { PUEDE_AUTOFOCUS } from '../../utils/platform'
 
 // Ventana para el "presiona de nuevo" de abajo — la misma que usa
 // AndroidBackButton para salir de la app desde la pantalla raíz.
@@ -191,7 +192,7 @@ export default function Onboarding() {
               // intención de escribir, no de explorar la pantalla. Es el caso
               // que la propia regla admite como excepción razonable.
               // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus
+              autoFocus={PUEDE_AUTOFOCUS}
               placeholder="Ej. Laura"
             />
             {/* Las dos etiquetas tienen que caber en UN renglón para que los

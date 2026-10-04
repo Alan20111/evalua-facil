@@ -33,7 +33,7 @@ import ZoomableImage from '../../components/ZoomableImage'
 import { downloadUrl } from '../../utils/cloudinary'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { IS_NATIVE_APP } from '../../utils/platform'
+import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../utils/platform'
 import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
 import { abrirArchivoNativo } from '../../utils/nativeSave'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
@@ -1587,7 +1587,7 @@ export default function ActivityPage() {
             value={searchStudents}
             onChange={setSearchStudents}
             placeholder="Buscar por nombre o por número de lista…"
-            autoFocus={!IS_NATIVE_APP}
+            autoFocus={PUEDE_AUTOFOCUS}
           />
           <p className="text-xs text-red-600 text-center mt-1.5">Presiona un nombre para evaluar</p>
         </div>
@@ -2057,7 +2057,7 @@ export default function ActivityPage() {
                           step="0.1"
                           placeholder="—"
                           // Primer campo del panel de calificación, abierto con intención de escribir.
-                          autoFocus={!parcialCerrado}
+                          autoFocus={PUEDE_AUTOFOCUS && !parcialCerrado}
                           disabled={parcialCerrado}
                           className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
                         />
@@ -2354,7 +2354,7 @@ export default function ActivityPage() {
                             max={activity?.maxCalif}
                             step="0.1"
                             // Primer campo del panel "Evaluar sin entrega", abierto con intención de escribir.
-                            autoFocus
+                            autoFocus={PUEDE_AUTOFOCUS}
                             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface"
                           />
                         </div>

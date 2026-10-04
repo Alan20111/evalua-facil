@@ -16,7 +16,7 @@ import { nowIsoLocal as toIsoNow } from '../utils/nowIso'
 import { fechaLimiteTimestamp } from '../utils/deadline'
 import { tieneEntregaReal, leerEntregasReales, MENSAJE_PRORROGA_CON_ENTREGA } from '../utils/extensiones'
 import { matchesStudentSearch, studentFullName } from '../utils/studentSearch'
-import { IS_NATIVE_APP } from '../utils/platform'
+import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../utils/platform'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import EFDateTimePicker from './EFDateTimePicker'
 import SearchInput from './SearchInput'
@@ -2202,7 +2202,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   value={searchResultados}
                   onChange={setSearchResultados}
                   placeholder="Buscar por nombre o por número de lista…"
-                  autoFocus={!IS_NATIVE_APP}
+                  autoFocus={PUEDE_AUTOFOCUS}
                 />
                 <p className="text-xs text-red-600 text-center mt-1.5">Presiona un nombre para ver resultado</p>
               </div>

@@ -47,7 +47,7 @@ import { EVALUACION_DEFAULTS } from '../utils/evaluacionDefaults'
 import { minDeadline, nowIsoLocal, isoLocalFromDate } from '../utils/nowIso'
 import { isActivityPublished, resolveVisibilidad, isDraftActivity, formatDeadline } from '../utils/activityVisibility'
 import { groupExtensions } from '../utils/extensiones'
-import { IS_NATIVE_APP } from '../utils/platform'
+import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../utils/platform'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
@@ -1693,7 +1693,7 @@ export default function EvaluacionEditor({
                           <div>
                             <label htmlFor={`preg-new-enunciado-${grupo.seccion.id}`} className="block text-sm font-medium text-muted mb-1">Enunciado</label>
                             <textarea id={`preg-new-enunciado-${grupo.seccion.id}`} value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
-                              rows={2} required autoFocus className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                              rows={2} required autoFocus={PUEDE_AUTOFOCUS} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
                           </div>
                           {preguntaForm.tipo === 'opcion_multiple' && (
                             <OpcionesEditor opciones={preguntaForm.opciones} respuestaCorrecta={preguntaForm.respuestaCorrecta}

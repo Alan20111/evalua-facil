@@ -21,6 +21,7 @@ import { PREFIJOS } from '../../utils/prefijos'
 import SchoolPicker from '../../components/SchoolPicker'
 import { resolveSchoolSelection } from '../../utils/schoolSelection'
 import { School } from 'lucide-react'
+import { PUEDE_AUTOFOCUS } from '../../utils/platform'
 
 // Registro en dos pasos, SIN crear ninguna cuenta hasta el paso final.
 //
@@ -158,7 +159,7 @@ export default function Register() {
                   value={realNombre}
                   onChange={(e) => setRealNombre(e.target.value)}
                   required
-                  autoFocus
+                  autoFocus={PUEDE_AUTOFOCUS}
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej. Laura"
                 />

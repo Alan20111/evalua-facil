@@ -336,3 +336,25 @@ input.no-spinner {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* ── Campos de texto: 16 px mínimo en pantallas táctiles ─────────────────────
+   Safari en iOS hace zoom al enfocar cualquier campo con letra menor a 16 px,
+   y no lo deshace al salir: la persona queda con la pantalla ampliada y
+   corrida. Con la raíz al 90 %, `text-sm` deja los campos en ~12.6 px, así que
+   pasaba en TODOS (Web Interface Guidelines de Vercel: "input font size ≥ 16px
+   on mobile").
+
+   Va aquí y no en ui/Input para cubrir también los campos que todavía se
+   escriben a mano. Los :not() suben la especificidad por encima de una clase
+   de Tailwind (.text-sm), así que gana sin !important. Casillas, radios,
+   rangos y archivos no muestran texto y no hacen zoom: se excluyen.
+
+   `pointer: coarse` = se maneja con el dedo: celulares y tablets. En
+   escritorio los campos conservan su tamaño de siempre. */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
