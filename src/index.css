@@ -112,19 +112,10 @@
   /* Admin comparte el chrome del docente (esquinas y escala tipográfica): es
      igual una herramienta de escritorio de uso prolongado. Lo único que
      cambia es el acento — guinda, más abajo. */
-  [data-role='docente'],
-  [data-role='admin'] {
-    --radius: 0.5rem;
-    --radius-card: 0.875rem;
-  }
-  /* [data-forma='acceso']: login docente y login alumno llevan la MISMA
-     forma para los dos roles — las esquinas redondas del alumno (pedido
-     explícito) y la escala de letra del docente (bloque de abajo). Son la
-     puerta de entrada del mismo producto; solo cambia el acento. */
-  [data-forma='acceso'] {
-    --radius: 1rem;
-    --radius-card: 2rem;
-  }
+  /* Oct-2026: docente y admin usan ya las MISMAS esquinas redondas que el
+     alumno (pedido explícito) — antes llevaban 8/14px para "leerse como
+     herramienta de trabajo". Toda la app comparte ahora --radius/--radius-card
+     de :root; el rol solo cambia el acento y la escala de letra. */
   /* Campos de las pantallas de acceso: píldora completa (pedido explícito).
      Solo campos de una línea; los botones y las tarjetas siguen el radio de
      arriba. Va por CSS y no por clase porque los campos salen de varios

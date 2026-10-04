@@ -1,10 +1,10 @@
-import { useState, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../../firebase'
 import Spinner from '../../components/Spinner'
 import { studentEmail } from '../../utils/generate'
-import { Hash, ChevronDown } from 'lucide-react'
+import { Hash, ChevronRight, ArrowLeft, KeyRound, UserPlus } from 'lucide-react'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import { useBackHandler } from '../../hooks/useBackHandler'
@@ -17,12 +17,21 @@ export default function StudentLogin() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Tres vistas, una a la vez: entrar (por defecto), restablecer contraseña y
+  // activar cuenta. Viven en la URL (?vista=…) para que el botón atrás del
+  // navegador y el de Android regresen a "entrar" en vez de salir de la app,
+  // y para poder compartir el enlace directo a una vista.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const vista = ['recuperar', 'activar'].includes(searchParams.get('vista')) ? searchParams.get('vista') : 'entrar'
+  const tituloVistaRef = useRef(null)
+  const botonOrigenRef = useRef({})
+  const vistaAnterior = useRef(vista)
+
   // Manual access-code entry for first-time activation
-  const [showCodeSection, setShowCodeSection] = useState(false)
   const [codeInput, setCodeInput] = useState('')
+  const [avisoActivar, setAvisoActivar] = useState('')
 
   // Self-service password recovery
-  const [showResetSection, setShowResetSection] = useState(false)
   const [resetUsername, setResetUsername] = useState('')
   const [resetNewPwd, setResetNewPwd] = useState('')
   const [resetConfirmPwd, setResetConfirmPwd] = useState('')
@@ -33,8 +42,25 @@ export default function StudentLogin() {
   const submitting = useRef(false) // guards against double-submit (rapid taps)
   const submittingReset = useRef(false)
 
-  // En modo login no se registra nada: cae al fallback global de "presiona de nuevo para salir".
-  useBackHandler(null, false)
+  const irA = (nueva) => {
+    if (nueva === vista) return
+    if (nueva === 'entrar') setSearchParams({})
+    else setSearchParams({ vista: nueva })
+  }
+
+  // En "entrar" no se registra nada: cae al fallback global de "presiona de
+  // nuevo para salir". En las otras dos, el atrás de Android regresa a entrar.
+  useBackHandler(() => irA('entrar'), vista !== 'entrar')
+
+  // Foco: al abrir una vista va a su título (el lector de pantalla anuncia en
+  // dónde quedó); al volver, regresa al botón que la abrió.
+  useEffect(() => {
+    if (vistaAnterior.current === vista) return
+    const de = vistaAnterior.current
+    vistaAnterior.current = vista
+    if (vista === 'entrar') botonOrigenRef.current[de]?.focus()
+    else tituloVistaRef.current?.focus()
+  }, [vista])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -142,8 +168,8 @@ export default function StudentLogin() {
       // No activated account yet: this form is only for students who already
       // activated. First-time access happens exclusively via "¿Primera vez?
       // Activa tu cuenta" below (código/QR/link) → /activate/:code.
-      setError('Todavía no activas tu cuenta. Usa "¿Primera vez? Activa tu cuenta" más abajo.')
-      setShowCodeSection(true)
+      setAvisoActivar('Todavía no activas tu cuenta. Actívala aquí con el código de tu asignatura.')
+      irA('activar')
     } catch (err) {
       // Red de seguridad: los casos de arriba ya cubren usuario, contraseña,
       // activación y red. Lo que llegue aquí es un fallo inesperado, y se dice
@@ -232,87 +258,22 @@ export default function StudentLogin() {
           <h1 className="text-2xl font-bold text-on-surface">Acceso Estudiantes</h1>
         </div>
 
-        {/* ── Login form ── */}
-        <div className="bg-surface-card rounded-card shadow-card p-5">
-          <form onSubmit={handleLogin} className="space-y-3">
-            <div>
-              <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
-              <input
-                id="login-username"
-                type="text"
-                value={username}
-                onChange={(e) => { setUsername(e.target.value); setError('') }}
-                required
-                // autoFocus intencional (solo en escritorio): primer campo del formulario de login,
-                // pantalla de entrada única — no es un modal reabrible.
-                autoFocus={PUEDE_AUTOFOCUS}
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide "
-                maxLength={40}
-              />
-            </div>
-            <div>
-              <label htmlFor="login-password" className="block text-sm font-medium text-muted mb-1">Contraseña</label>
-              <PasswordInput
-                id="login-password"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setError('') }}
-                required
-                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-              />
-            </div>
-            {error && (
-              <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
-                {error}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {loading ? <Spinner size="sm" /> : null}
-              {loading ? 'Entrando…' : 'Iniciar sesión'}
-            </button>
-          </form>
-        </div>
-
-        {/* ── Password recovery ── */}
-        <div className="mt-3 bg-surface-card rounded-card shadow-card overflow-hidden">
-          <button
-            type="button"
-            onClick={() => {
-              const opening = !showResetSection
-              setShowResetSection(opening)
-              if (opening && username && !resetUsername) setResetUsername(username)
-            }}
-            className="w-full flex items-center justify-between px-5 py-3 text-left"
-          >
-            <span className="text-sm font-semibold text-muted">¿Olvidaste tu contraseña? Restablécela</span>
-            <ChevronDown
-              size={19}
-              className={`text-hint transition-transform duration-200 ${showResetSection ? 'rotate-180' : ''}`}
-            />
-          </button>
-
-          {showResetSection && (
-            <div className="px-5 pb-5 border-t border-outline-variant pt-4">
-              <p className="text-xs text-muted mb-3 leading-relaxed">
-                Tu maestro debe haber pulsado &ldquo;Restablecer contraseña&rdquo; primero.
-                Luego introduce tu usuario y la nueva contraseña que quieres usar.
-              </p>
-              <form onSubmit={handleRecover} className="space-y-3">
+        {vista === 'entrar' && (
+          <>
+            {/* ── Login form ── */}
+            <div className="bg-surface-card rounded-card shadow-card p-5">
+              <form onSubmit={handleLogin} className="space-y-3">
                 <div>
-                  <label htmlFor="recover-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
+                  <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
                   <input
-                    id="recover-username"
+                    id="login-username"
                     type="text"
-                    value={resetUsername}
-                    onChange={(e) => { setResetUsername(e.target.value); setResetError('') }}
+                    value={username}
+                    onChange={(e) => { setUsername(e.target.value); setError('') }}
                     required
+                    // autoFocus intencional (solo en escritorio): primer campo del formulario de login,
+                    // pantalla de entrada única — no es un modal reabrible.
+                    autoFocus={PUEDE_AUTOFOCUS}
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="none"
@@ -322,102 +283,198 @@ export default function StudentLogin() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="recover-new-pwd" className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
+                  <label htmlFor="login-password" className="block text-sm font-medium text-muted mb-1">Contraseña</label>
                   <PasswordInput
-                    id="recover-new-pwd"
-                    value={resetNewPwd}
-                    onChange={(e) => { setResetNewPwd(e.target.value); setResetError('') }}
+                    id="login-password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setError('') }}
                     required
                     className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   />
                 </div>
-                <div>
-                  <label htmlFor="recover-confirm-pwd" className="block text-sm font-medium text-muted mb-1">Confirmar nueva contraseña</label>
-                  <PasswordInput
-                    id="recover-confirm-pwd"
-                    value={resetConfirmPwd}
-                    onChange={(e) => { setResetConfirmPwd(e.target.value); setResetError('') }}
-                    required
-                    className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  />
-                </div>
-                {resetError && (
+                {error && (
                   <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
-                    {resetError}
+                    {error}
                   </p>
                 )}
                 <button
                   type="submit"
-                  disabled={resetLoading}
+                  disabled={loading}
                   className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {resetLoading ? <Spinner size="sm" /> : null}
-                  {resetLoading ? 'Restableciendo…' : 'Restablecer contraseña'}
+                  {loading ? <Spinner size="sm" /> : null}
+                  {loading ? 'Entrando…' : 'Iniciar sesión'}
                 </button>
               </form>
             </div>
-          )}
-        </div>
 
-        {/* ── First-time activation ── */}
-        <div className="mt-3 bg-surface-card rounded-card shadow-card overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowCodeSection((v) => !v)}
-            className="w-full flex items-center justify-between px-5 py-3 text-left"
-          >
-            <span className="text-sm font-semibold text-muted">¿Primera vez? Activa tu cuenta</span>
-            <ChevronDown
-              size={19}
-              className={`text-hint transition-transform duration-200 ${showCodeSection ? 'rotate-180' : ''}`}
-            />
-          </button>
+            {/* Las otras dos tareas son botones píldora: cada uno abre SOLO su
+                pantalla, en vez de acordeones que apilaban todo en una. */}
+            <nav aria-label="Otras opciones de acceso" className="mt-3 space-y-2">
+              <BotonVista
+                refBoton={(el) => { botonOrigenRef.current.recuperar = el }}
+                icono={KeyRound}
+                onClick={() => {
+                  if (username && !resetUsername) setResetUsername(username)
+                  irA('recuperar')
+                }}
+              >
+                ¿Olvidaste tu contraseña?
+              </BotonVista>
+              <BotonVista
+                refBoton={(el) => { botonOrigenRef.current.activar = el }}
+                icono={UserPlus}
+                onClick={() => irA('activar')}
+              >
+                ¿Primera vez? Activa tu cuenta
+              </BotonVista>
+            </nav>
+          </>
+        )}
 
-          {showCodeSection && (
-            <div className="px-5 pb-5 border-t border-outline-variant pt-4">
-              <p className="text-xs text-muted mb-3 leading-relaxed">
-                <strong>MUY IMPORTANTE:</strong>
-                <br />
-                1. Asegúrate de que tu Maestro(a) te haya agregado a su grupo
-                <br />
-                2. Pídele que te comparta tu nombre de usuario
-                <br />
-                3. Pídele el <strong>Código de su Asignatura</strong> e ingrésalo AQUÍ:
-              </p>
-              <form onSubmit={handleActivateWithCode} className="flex gap-2">
+        {vista === 'recuperar' && (
+          <PanelVista titulo="Restablece tu contraseña" tituloRef={tituloVistaRef} onVolver={() => irA('entrar')}>
+            <p className="text-sm text-muted mb-4 leading-relaxed">
+              Tu maestro debe haber pulsado &ldquo;Restablecer contraseña&rdquo; primero.
+              Luego escribe tu usuario y la nueva contraseña que quieres usar.
+            </p>
+            <form onSubmit={handleRecover} className="space-y-3">
+              <div>
+                <label htmlFor="recover-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
                 <input
+                  id="recover-username"
                   type="text"
-                  value={codeInput}
-                  onChange={(e) => setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                  value={resetUsername}
+                  onChange={(e) => { setResetUsername(e.target.value); setResetError('') }}
+                  required
                   autoComplete="off"
                   autoCorrect="off"
-                  autoCapitalize="characters"
+                  autoCapitalize="none"
                   spellCheck={false}
-                  maxLength={8}
-                  aria-label="Ej: A3B7K2"
-                  className="flex-1 min-w-0 px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest "
+                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide "
+                  maxLength={40}
                 />
-                <button
-                  type="submit"
-                  disabled={!codeInput.trim()}
-                  className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center gap-1.5 flex-shrink-0"
-                >
-                  <Hash size={18} />
-                  Ir
-                </button>
-              </form>
-            </div>
-          )}
-        </div>
+              </div>
+              <div>
+                <label htmlFor="recover-new-pwd" className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
+                <PasswordInput
+                  id="recover-new-pwd"
+                  value={resetNewPwd}
+                  onChange={(e) => { setResetNewPwd(e.target.value); setResetError('') }}
+                  required
+                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                />
+              </div>
+              <div>
+                <label htmlFor="recover-confirm-pwd" className="block text-sm font-medium text-muted mb-1">Confirmar nueva contraseña</label>
+                <PasswordInput
+                  id="recover-confirm-pwd"
+                  value={resetConfirmPwd}
+                  onChange={(e) => { setResetConfirmPwd(e.target.value); setResetError('') }}
+                  required
+                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                />
+              </div>
+              {resetError && (
+                <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
+                  {resetError}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={resetLoading}
+                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {resetLoading ? <Spinner size="sm" /> : null}
+                {resetLoading ? 'Restableciendo…' : 'Restablecer contraseña'}
+              </button>
+            </form>
+          </PanelVista>
+        )}
+
+        {vista === 'activar' && (
+          <PanelVista titulo="Activa tu cuenta" tituloRef={tituloVistaRef} onVolver={() => { setAvisoActivar(''); irA('entrar') }}>
+            {avisoActivar && (
+              <p role="alert" className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-4 py-2.5 mb-4">
+                {avisoActivar}
+              </p>
+            )}
+            <ol className="text-sm text-muted mb-4 leading-relaxed list-decimal pl-5 space-y-1">
+              <li>Asegúrate de que tu maestro(a) te haya agregado a su grupo.</li>
+              <li>Pídele que te comparta tu usuario.</li>
+              <li>Pídele el <strong className="text-on-surface">código de su asignatura</strong> y escríbelo aquí.</li>
+            </ol>
+            <label htmlFor="activar-codigo" className="block text-sm font-medium text-muted mb-1">Código de la asignatura</label>
+            <form onSubmit={handleActivateWithCode} className="flex gap-2">
+              <input
+                type="text"
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                maxLength={8}
+                id="activar-codigo"
+                className="flex-1 min-w-0 px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest "
+              />
+              <button
+                type="submit"
+                disabled={!codeInput.trim()}
+                className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center gap-1.5 flex-shrink-0"
+              >
+                <Hash size={18} />
+                Ir
+              </button>
+            </form>
+          </PanelVista>
+        )}
 
         <p className="text-center text-sm text-muted mt-6 px-2">
           Tu maestro te otorgará tus datos de acceso.
         </p>
         <p className="text-center text-sm text-muted mt-2 px-2">
-          ¿Eres Docente?{' '}
-          <Link to="/docente" className="text-accent font-semibold hover:underline">Entra aquí</Link>
+          <Link to="/docente" className="text-accent font-semibold hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full px-1">¿Eres Docente?</Link>
         </p>
       </div>
     </div>
+  )
+}
+
+// Botón píldora que abre una de las vistas secundarias (restablecer, activar).
+function BotonVista({ icono: Icono, onClick, refBoton, children }) {
+  return (
+    <button
+      ref={refBoton}
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-5 py-3 rounded-full bg-surface-card shadow-card hover:shadow-card-hover hover:bg-[var(--accent-tint)] text-left transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      <Icono size={19} className="text-accent flex-shrink-0" aria-hidden="true" />
+      <span className="flex-1 text-sm font-semibold text-on-surface">{children}</span>
+      <ChevronRight size={19} className="text-hint flex-shrink-0" aria-hidden="true" />
+    </button>
+  )
+}
+
+// Tarjeta de una vista secundaria: botón Volver + título que recibe el foco.
+function PanelVista({ titulo, tituloRef, onVolver, children }) {
+  return (
+    <section aria-labelledby="vista-titulo" className="bg-surface-card rounded-card shadow-card p-5">
+      <div className="flex items-center gap-2 mb-3 -ml-2">
+        <button
+          type="button"
+          onClick={onVolver}
+          aria-label="Volver a iniciar sesión"
+          className="p-2 rounded-full text-hint hover:text-accent hover:bg-[var(--accent-tint)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <ArrowLeft size={20} aria-hidden="true" />
+        </button>
+        <h2 id="vista-titulo" ref={tituloRef} tabIndex={-1} className="text-lg font-bold text-on-surface focus:outline-none">
+          {titulo}
+        </h2>
+      </div>
+      {children}
+    </section>
   )
 }

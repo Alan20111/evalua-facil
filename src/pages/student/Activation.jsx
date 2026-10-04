@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection,
   query,
@@ -667,15 +667,8 @@ export default function StudentActivation() {
           )}
         </div>
 
-        <p className="text-center text-sm text-slate-500 mt-4">
-          ¿Ya tienes cuenta?{' '}
-          <button
-            type="button"
-            onClick={() => navigate('/alumno')}
-            className="underline hover:text-muted transition-colors"
-          >
-            Accede por aquí
-          </button>
+        <p className="text-center text-sm mt-6">
+          <Link to="/alumno" className="text-accent font-semibold hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full px-1">¿Ya tienes cuenta?</Link>
         </p>
       </div>
     </div>
