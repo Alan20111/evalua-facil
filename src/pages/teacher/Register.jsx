@@ -141,10 +141,10 @@ export default function Register() {
 
   if (step === 'perfil') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
+      <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+            <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
             <h1 className="text-2xl font-bold text-on-surface">Un último dato</h1>
             <p className="text-muted text-sm mt-1">Cuéntanos quién eres</p>
           </div>
@@ -261,7 +261,7 @@ export default function Register() {
               <button
                 type="submit"
                 disabled={saving || !plantel}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : null}
                 {saving ? 'Creando tu cuenta…' : 'Entrar al panel'}
@@ -291,10 +291,10 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
+    <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+          <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
           <h1 className="text-2xl font-bold text-on-surface">Crear cuenta</h1>
         </div>
 
