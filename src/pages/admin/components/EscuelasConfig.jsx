@@ -5,6 +5,7 @@ import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import Input from '../../../components/ui/Input'
+import { SkeletonTable } from '../../../components/ui'
 
 export default function EscuelasConfig() {
   const [schools, setSchools] = useState([])
@@ -48,7 +49,7 @@ export default function EscuelasConfig() {
       (s.claveSEP || '').toLowerCase().includes(q)
   })
 
-  if (loading) return <div className="flex justify-center py-20"><Spinner /></div>
+  if (loading) return <SkeletonTable rows={8} cols={3} className="py-6" />
 
   return (
     <div className="space-y-4">

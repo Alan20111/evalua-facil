@@ -34,6 +34,7 @@ import { PREFIJOS } from '../../utils/prefijos'
 import { capitalizarNombre } from '../../utils/nombres'
 import Select from '../../components/ui/Select'
 import InfoDisclosure from '../../components/ui/InfoDisclosure'
+import { SkeletonText } from '../../components/ui'
 
 
 const inputCls =
@@ -277,7 +278,7 @@ export default function Profile() {
             <Sparkles size={19} className="text-hint" /> Créditos de IA
           </h2>
           {!creditosIA.listo ? (
-            <div className="flex justify-center py-2"><Spinner /></div>
+            <SkeletonText lines={2} className="py-2" />
           ) : (
             <div className="space-y-2">
               <p className="text-2xl font-bold text-accent tabular-nums">{creditosIA.saldo}</p>

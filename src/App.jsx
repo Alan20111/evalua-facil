@@ -10,6 +10,7 @@ import { installDraggableOverlays } from './utils/draggableOverlays'
 import { installFollowTooltips } from './utils/followTooltip'
 import { installWheelStep } from './utils/wheelStep'
 import TeacherLayout from './components/Layout'
+import { SkeletonPage } from './components/ui'
 
 import Landing from './pages/Landing'
 import TeacherLogin from './pages/teacher/Login'
@@ -48,7 +49,7 @@ import { docenteSinEscuela } from './utils/escuela'
 
 function ProtectedAdmin({ children }) {
   const { currentUser, userProfile, loading } = useAuth()
-  if (loading) return null
+  if (loading) return <SkeletonPage />
   if (!currentUser) return <Navigate to="/" replace />
   if (userProfile?.role !== 'admin') return <Navigate to="/" replace />
   return children
@@ -80,7 +81,7 @@ function ProfileErrorScreen() {
 
 function ProtectedTeacher({ children }) {
   const { currentUser, userProfile, loading } = useAuth()
-  if (loading) return null
+  if (loading) return <SkeletonPage />
   if (!currentUser) return <Navigate to="/" replace />
   if (userProfile?.role === 'admin') return <Navigate to="/Admin" replace />
   if (userProfile && userProfile.role !== 'docente') return <Navigate to="/alumno" replace />
@@ -110,7 +111,7 @@ function ProtectedTeacher({ children }) {
 // redirect — used only by /onboarding itself, to avoid a redirect loop.
 function ProtectedTeacherOnboarding({ children }) {
   const { currentUser, userProfile, loading } = useAuth()
-  if (loading) return null
+  if (loading) return <SkeletonPage />
   if (!currentUser) return <Navigate to="/" replace />
   if (userProfile?.role === 'admin') return <Navigate to="/Admin" replace />
   if (userProfile && userProfile.role !== 'docente') return <Navigate to="/alumno" replace />
@@ -122,7 +123,7 @@ function ProtectedTeacherOnboarding({ children }) {
 // redirect — used only by /protect-account itself, to avoid a redirect loop.
 function ProtectedTeacherProtectAccount({ children }) {
   const { currentUser, userProfile, loading } = useAuth()
-  if (loading) return null
+  if (loading) return <SkeletonPage />
   if (!currentUser) return <Navigate to="/" replace />
   if (userProfile?.role === 'admin') return <Navigate to="/Admin" replace />
   if (userProfile && userProfile.role !== 'docente') return <Navigate to="/alumno" replace />
@@ -146,7 +147,7 @@ function TeacherLayoutRoute() {
 
 function ProtectedStudent({ children }) {
   const { currentUser, userProfile, loading } = useAuth()
-  if (loading) return null
+  if (loading) return <SkeletonPage />
   if (!currentUser) return <Navigate to="/alumno" replace />
   if (userProfile && userProfile.role !== 'alumno') return <Navigate to="/dashboard" replace />
   return children

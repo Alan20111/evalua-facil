@@ -27,6 +27,7 @@ import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import AvisoPerfilIA from './AvisoPerfilIA'
 import { Sparkles, ClipboardList, ExternalLink, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { SkeletonText } from '../ui'
 
 function millisDe(ts) {
   return ts?.toMillis?.() || 0
@@ -196,7 +197,7 @@ function DiagnosticoActividadBloque({
       </div>
 
       {!loaded ? (
-        <div className="flex justify-center py-4"><Spinner size="sm" /></div>
+        <SkeletonText lines={3} className="mt-3" />
       ) : (
         <div className="mt-3 space-y-2">
           {actividades.length === 0 ? (

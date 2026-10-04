@@ -22,6 +22,7 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 import { apiUrl } from '../../utils/apiBase'
 import { capitalizarNombre } from '../../utils/nombres'
 import AppVersionInfo from '../../components/AppVersionInfo'
+import { SkeletonForm } from '../../components/ui'
 
 // El espacio para subir la foto mide distinto en la web y en la app — pedido
 // explícito, y por eso esta pantalla (que es la misma en las dos) tiene que
@@ -215,7 +216,7 @@ export default function StudentProfile() {
 
   if (loading) return (
     <StudentLayout>
-      <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
+      <SkeletonForm fields={4} className="p-4 sm:p-6 max-w-xl mx-auto" />
     </StudentLayout>
   )
 

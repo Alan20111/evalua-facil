@@ -13,6 +13,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { getEnrollments } from '../../utils/studentLookup'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { capitalizarNombre } from '../../utils/nombres'
+import { SkeletonForm } from '../../components/ui'
 
 // Pantalla completa (no usa StudentLayout — mismo patrón que EvaluacionRunner:
 // un overlay fixed inset-0 con SOLO un encabezado del estudiante, sin la barra
@@ -238,7 +239,7 @@ export default function NotificationSettings() {
       </header>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
+        <SkeletonForm fields={4} className="py-6" />
       ) : (
         // pb extra: que la última tarjeta no quede tapada por la barra inferior
         <div className={`px-4 py-5 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-5 space-y-4 ${STUDENT_CONTAINER_NARROW}`}>

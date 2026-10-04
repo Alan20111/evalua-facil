@@ -51,6 +51,7 @@ import ConsideracionesSection from './ConsideracionesSection'
 import DiagnosticoGrupoSection from './DiagnosticoGrupoSection'
 import PlaneacionInicialSection from './PlaneacionInicialSection'
 import ProgramaEstudiosSection from './ProgramaEstudiosSection'
+import { SkeletonText } from '../ui'
 
 // Las fuentes generales del curso: lista + botón para subir hasta
 // MAX_FUENTES a la vez, con un tope de MAX_FUENTES_POR_GRUPO documentos
@@ -260,9 +261,7 @@ export default function PlaneacionDidacticaTab({ subjectId, docenteId, asignatur
 
   if (!loaded) {
     return (
-      <div className="flex justify-center py-10">
-        <Spinner />
-      </div>
+      <SkeletonText lines={6} className="py-4" />
     )
   }
 
@@ -278,7 +277,7 @@ export default function PlaneacionDidacticaTab({ subjectId, docenteId, asignatur
       <ProgramaEstudiosSection subjectId={subjectId} docenteId={docenteId} onEstadoCargado={setProgramaListo} />
 
       {programaListo === null ? (
-        <div className="flex justify-center py-6"><Spinner size="sm" /></div>
+        <SkeletonText lines={2} className="px-1" />
       ) : !programaListo ? (
         <p className="text-sm text-muted px-1">
           Sube primero el programa de estudios (arriba). Con él podrás continuar con tu

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
-import { Button, Input } from '../../../components/ui'
+import { Button, Input, Skeleton, SkeletonList, SkeletonText } from '../../../components/ui'
 import { exportAppQRPDF } from '../../../utils/pdf'
 import { apiUrl } from '../../../utils/apiBase'
 import { auth } from '../../../firebase'
@@ -195,7 +195,7 @@ export default function DownloadLinks() {
         </h2>
 
         {cargando ? (
-          <div className="flex justify-center py-6"><Spinner /></div>
+          <SkeletonText lines={2} className="mt-3" />
         ) : vigente ? (
           <div className="mt-3">
             <div className="flex items-center gap-2 flex-wrap">
@@ -264,9 +264,7 @@ export default function DownloadLinks() {
                   className="w-40 h-40 rounded border border-outline-variant"
                 />
               ) : (
-                <div className="w-40 h-40 flex items-center justify-center bg-slate-50 rounded border border-outline-variant">
-                  <Spinner />
-                </div>
+                <Skeleton className="w-40 h-40 rounded" />
               )}
             </div>
             <div className="flex-1 min-w-0">
@@ -334,7 +332,7 @@ export default function DownloadLinks() {
         </h2>
 
         {cargando ? (
-          <div className="flex justify-center py-8"><Spinner /></div>
+          <SkeletonList rows={3} icon={false} className="mt-4" />
         ) : links.length === 0 ? (
           <p className="text-sm text-muted mt-4">
             Todavía no hay versiones publicadas desde este panel.

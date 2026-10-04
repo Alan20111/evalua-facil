@@ -44,6 +44,7 @@ import { calcularTarifaExamen } from '../../utils/tarifaExamen'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { MessageCircle, Send, Sparkles, Trash2, Globe, ClipboardList, CheckCircle2 } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { SkeletonList } from '../../components/ui'
 
 const ETIQUETA_ACCION = {
   CREAR_ACTIVIDAD_ENTREGABLE: 'Actividad entregable',
@@ -741,7 +742,7 @@ export default function ChatAsistente() {
       {/* Conversación */}
       <div className="flex-1 min-h-0 bg-surface-card rounded-card shadow-card p-3 mb-3 overflow-y-auto space-y-3">
         {!historialCargado ? (
-          <div className="h-full flex items-center justify-center"><Spinner size="sm" /></div>
+          <SkeletonList rows={3} icon={false} />
         ) : historial.length === 0 && !enviando ? (
           <div className="h-full flex flex-col items-center justify-center text-center py-6 gap-3">
             {esGeneral ? <Globe size={28} className="text-accent" /> : <Sparkles size={28} className="text-accent" />}

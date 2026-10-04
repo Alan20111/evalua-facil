@@ -13,6 +13,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12 } from '../../utils/formatHora'
 import InfoDisclosure from '../../components/ui/InfoDisclosure'
+import { SkeletonForm } from '../../components/ui'
 
 // Colección `notificationSettings/{uid}` (misma colección que usan los
 // estudiantes, distinta por uid):
@@ -403,7 +404,7 @@ export default function TeacherNotificationSettings() {
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
+          <SkeletonForm fields={4} className="py-6" />
         ) : (
           <>
             {/* "Tus notificaciones" PRIMERO — orden natural de ajustes (lo

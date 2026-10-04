@@ -5,6 +5,7 @@ import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import { usePaymentConfig, DEFAULT_PAYMENT_CONFIG } from '../../../hooks/usePaymentConfig'
+import { SkeletonForm } from '../../../components/ui'
 
 const inputCls =
   'w-full px-3.5 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm'
@@ -113,9 +114,7 @@ export default function PaymentConfig() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <Spinner />
-      </div>
+      <SkeletonForm fields={4} className="py-6" />
     )
   }
 

@@ -3,6 +3,7 @@ import { X, Check } from 'lucide-react'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { IS_NATIVE_APP } from '../utils/platform'
 import Spinner from './Spinner'
+import { Skeleton } from './ui'
 
 // Pedido explícito: al elegir una foto de perfil (docente o alumno), poder
 // acercar/alejar con la rueda del mouse y que solo se guarde lo que se ve
@@ -189,7 +190,7 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
               }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center"><Spinner size="md" /></div>
+            <Skeleton className="w-full h-full" />
           )}
         </div>
         <div className="flex gap-2 mt-4">

@@ -13,12 +13,12 @@ import { useNavigate } from 'react-router-dom'
 import { collection, query, where, getDocs, getDocsFromServer, doc, writeBatch, deleteDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
-import Spinner from './Spinner'
 import ConfirmModal from './ConfirmModal'
 import { History, ChevronUp, ChevronDown, Trash2 } from 'lucide-react'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { formatHora12FromDate } from '../utils/formatHora'
+import { SkeletonList } from './ui'
 
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
@@ -164,7 +164,7 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
         {logOpen && (
           <div className="border-t border-outline-variant">
             {logLoading ? (
-              <div className="flex justify-center py-6"><Spinner size="sm" /></div>
+              <SkeletonList rows={3} icon={false} className="p-4" />
             ) : !logEntries?.length ? (
               <p className="text-center text-muted text-sm py-6">{emptyLabel}</p>
             ) : (

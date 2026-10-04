@@ -12,6 +12,7 @@ import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { SkeletonText } from '../ui'
 
 const VACIO = {
   temasDomina: '',
@@ -103,9 +104,7 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
 
   if (!loaded) {
     return (
-      <div className="bg-surface-card rounded-card shadow-card p-3 flex justify-center py-6">
-        <Spinner size="sm" />
-      </div>
+      <div className="bg-surface-card rounded-card shadow-card p-4"><SkeletonText lines={3} /></div>
     )
   }
 

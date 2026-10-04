@@ -10,6 +10,7 @@ import { setDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
+import { SkeletonText } from '../ui'
 
 const PLACEHOLDER =
   'Escribe información real sobre tu grupo y su entorno que quieras que la IA tome en cuenta ' +
@@ -76,9 +77,7 @@ export default function ComentariosGrupoSection({ subjectId, docenteId }) {
 
   if (!loaded) {
     return (
-      <div className="bg-surface-card rounded-card shadow-card p-3 flex justify-center py-6">
-        <Spinner size="sm" />
-      </div>
+      <div className="bg-surface-card rounded-card shadow-card p-4"><SkeletonText lines={3} /></div>
     )
   }
 

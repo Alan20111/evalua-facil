@@ -10,6 +10,7 @@ import { SLICE_COLORS, esGraficable, cargarRespuestasEvaluacion } from '../utils
 import { membreteDe } from '../utils/membrete'
 import { useAuth } from '../context/AuthContext'
 import Spinner from './Spinner'
+import { SkeletonCards } from './ui'
 
 function polarPoint(cx, cy, r, angleDeg) {
   const rad = ((angleDeg - 90) * Math.PI) / 180
@@ -150,7 +151,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto p-4 space-y-4">
           {loading ? (
-            <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+            <SkeletonCards count={2} className="sm:grid-cols-1 lg:grid-cols-1" />
           ) : graficables.length === 0 ? (
             <div className="flex flex-col items-center gap-2 text-center text-muted py-16">
               <PieChartIcon size={28} className="text-slate-300" />

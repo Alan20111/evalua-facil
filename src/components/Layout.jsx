@@ -22,7 +22,6 @@ import {
 } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import Spinner from './Spinner'
 import { configurarBloqueoExportacion } from '../utils/exportGuard'
 import { subjectDisplayName } from '../utils/subjectName'
 import { teacherDisplayName } from '../utils/studentSearch'
@@ -37,6 +36,7 @@ import CreditosBar from './CreditosBar'
 import CanalYouTubeLink from './CanalYouTubeLink'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
+import { SkeletonList } from './ui'
 
 // Indicador de pestaña activa en la barra inferior — un rectángulo de
 // esquinas ovaladas relleno de color detrás del ícono (pedido explícito,
@@ -246,9 +246,7 @@ export default function TeacherLayout({ children }) {
           {/* Subject list */}
           <div className="flex-1 min-h-32 overflow-y-auto px-2 pb-2">
             {loadingSidebar ? (
-              <div className="flex justify-center py-3">
-                <Spinner size="sm" />
-              </div>
+              <SkeletonList rows={3} sobreColor className="px-3 py-2" />
             ) : activeSubjects.length === 0 ? (
               <p className="text-body-sm text-white/70 px-3 py-2">Sin asignaturas aún</p>
             ) : (

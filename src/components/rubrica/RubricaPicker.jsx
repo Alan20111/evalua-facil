@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
-import Spinner from '../Spinner'
 import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, ClipboardList, ListChecks, Check } from 'lucide-react'
 import RubricaEditor from './RubricaEditor'
 import ListaCotejoEditor from './ListaCotejoEditor'
@@ -13,6 +12,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import SearchInput from '../SearchInput'
 import Select from '../ui/Select'
+import { SkeletonList } from '../ui'
 
 // Banco de rúbricas del docente: elegir una para la actividad, crear nuevas,
 // editarlas o eliminarlas. Pantalla completa sobre el editor de entregables
@@ -121,7 +121,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
         )}
 
         {loading ? (
-          <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+          <SkeletonList rows={5} className="py-4" />
         ) : rubricas.length === 0 ? (
           <div className="bg-surface-card rounded-card shadow-card p-10 text-center">
             <ClipboardList size={32} className="text-slate-300 mx-auto mb-3" />

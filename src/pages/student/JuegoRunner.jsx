@@ -30,6 +30,7 @@ import { studentFullName } from '../../utils/studentSearch'
 import { formatTiempo } from '../../utils/formatTiempo'
 import CrucigramaBoard from '../../components/juego/CrucigramaBoard'
 import SopaDeLetrasBoard from '../../components/juego/SopaDeLetrasBoard'
+import { SkeletonList } from '../../components/ui'
 
 export default function JuegoRunner() {
   const { activityId } = useParams()
@@ -182,9 +183,7 @@ export default function JuegoRunner() {
   }, [inicioMs])
 
   if (loading || !activity) return (
-    <div className="fixed inset-0 z-50 bg-surface flex items-center justify-center">
-      <Spinner size="lg" />
-    </div>
+    <div className="fixed inset-0 z-50 bg-surface p-4 overflow-y-auto"><div className="max-w-2xl mx-auto pt-8"><SkeletonList rows={5} icon={false} /></div></div>
   )
 
   const estructura = activity.juego?.estructura
