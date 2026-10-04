@@ -81,7 +81,7 @@ const RANGO_PREGUNTAS = {
 function DiagnosticoActividadBloque({
   subjectId, docenteId, asignaturaNombre, existingActivitiesCountP1,
   diagnosticoTipo, titulo, descripcion, operacion, ponderarReactivos,
-  mostrarCantidad, mostrarPeticion, placeholderPeticion, costoDefault, descripcionModal,
+  mostrarCantidad, mostrarPeticion, costoDefault, descripcionModal,
   configKey, perfilIACompleto = false,
 }) {
   const toast = useToast()
@@ -287,7 +287,6 @@ function DiagnosticoActividadBloque({
                 disabled={generando}
                 rows={3}
                 onChange={(e) => setPeticion(e.target.value)}
-                placeholder={placeholderPeticion}
                 className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               />
             </div>
@@ -433,7 +432,6 @@ export default function DiagnosticoGrupoSection({ subjectId, docenteId, asignatu
         ponderarReactivos={false}
         mostrarCantidad
         mostrarPeticion
-        placeholderPeticion="Ej: Me interesa saber si tienen computadora o internet en casa, y qué tanto usan el celular para estudiar."
         costoDefault={5}
       />
       <DiagnosticoActividadBloque

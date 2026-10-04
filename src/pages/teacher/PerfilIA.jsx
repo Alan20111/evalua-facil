@@ -16,31 +16,26 @@ const CAMPOS = [
   {
     key: 'estiloClase',
     label: 'Estilo de facilitar clase',
-    placeholder: 'Ej. Clases muy participativas, con dinámicas grupales y poca exposición teórica. Prefiero que los alumnos trabajen en equipo la mayor parte del tiempo.',
     rows: 3,
   },
   {
     key: 'habilidades',
     label: 'Habilidades como docente',
-    placeholder: 'Ej. Manejo bien el trabajo por proyectos, la gamificación y el uso de herramientas digitales en clase.',
     rows: 3,
   },
   {
     key: 'experiencia',
     label: 'Experiencia y características relevantes',
-    placeholder: 'Ej. 8 años dando clase en bachillerato tecnológico, la mayoría en grupos numerosos (40+ alumnos) del turno vespertino.',
     rows: 3,
   },
   {
     key: 'contextoEscuela',
     label: 'Contexto de la escuela (opcional)',
-    placeholder: 'Ej. Plantel semiurbano, alumnos que en su mayoría también trabajan, acceso limitado a internet fuera de la escuela.',
     rows: 3,
   },
   {
     key: 'contextoGeneral',
     label: 'Otro contexto general de trabajo (opcional)',
-    placeholder: 'Cualquier otra información general que te gustaría que la IA de Evalúa Fácil tuviera siempre presente.',
     rows: 3,
   },
 ]
@@ -130,7 +125,6 @@ export default function PerfilIA() {
               id={c.key}
               className={inputCls}
               rows={c.rows}
-              placeholder={c.placeholder}
               value={form[c.key]}
               onChange={(e) => setForm((f) => ({ ...f, [c.key]: e.target.value }))}
               maxLength={1000}

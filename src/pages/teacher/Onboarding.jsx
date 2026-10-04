@@ -193,7 +193,6 @@ export default function Onboarding() {
               // que la propia regla admite como excepción razonable.
               // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus={PUEDE_AUTOFOCUS}
-              placeholder="Ej. Laura"
             />
             {/* Las dos etiquetas tienen que caber en UN renglón para que los
                 dos campos empiecen a la misma altura. En una tarjeta max-w-sm
@@ -209,7 +208,6 @@ export default function Onboarding() {
                 value={apellidoPaterno}
                 onChange={(e) => setApellidoPaterno(e.target.value)}
                 required
-                placeholder="Ej. García"
                 wrapperClassName="flex-1 min-w-0"
               />
               <Input
@@ -219,7 +217,6 @@ export default function Onboarding() {
                 type="text"
                 value={apellidoMaterno}
                 onChange={(e) => setApellidoMaterno(e.target.value)}
-                placeholder="Ej. Pérez"
                 wrapperClassName="flex-1 min-w-0"
               />
             </div>
@@ -257,7 +254,7 @@ export default function Onboarding() {
                       type="text"
                       value={prefijoCustom}
                       onChange={(e) => setPrefijoCustom(e.target.value)}
-                      placeholder="Escribe el prefijo"
+                      aria-label="Escribe el prefijo"
                       wrapperClassName="mt-2"
                     />
                   )}
@@ -269,7 +266,6 @@ export default function Onboarding() {
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
                   required
-                  placeholder="Ej. Profa. Laura"
                   wrapperClassName="flex-1 min-w-0"
                 />
               </div>

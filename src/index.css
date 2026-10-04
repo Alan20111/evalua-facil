@@ -96,6 +96,29 @@
     --radius: 0.5rem;
     --radius-card: 0.875rem;
   }
+  /* [data-forma='acceso']: login docente y login alumno llevan la MISMA
+     forma para los dos roles — las esquinas redondas del alumno (pedido
+     explícito) y la escala de letra del docente (bloque de abajo). Son la
+     puerta de entrada del mismo producto; solo cambia el acento. */
+  [data-forma='acceso'] {
+    --radius: 1rem;
+    --radius-card: 2rem;
+  }
+  /* Campos de las pantallas de acceso: píldora completa (pedido explícito).
+     Solo campos de una línea; los botones y las tarjetas siguen el radio de
+     arriba. Va por CSS y no por clase porque los campos salen de varios
+     componentes (Input, PasswordInput, inputs propios de cada pantalla). */
+  /* Sin texto gris dentro de los campos, nunca (pedido explícito): la app
+     no usa placeholder — cada campo se nombra con su etiqueta o aria-label.
+     Red de seguridad por si algo (una librería, un descuido) pinta uno. El
+     candado de scripts/check-ui-standards.sh impide escribirlos. */
+  ::placeholder {
+    color: transparent;
+    opacity: 0;
+  }
+  [data-forma='acceso'] :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), select) {
+    border-radius: 9999px;
+  }
 
   /* ── Teacher-only type-scale nudge ────────────────────────────────
      tailwind.config.js's fontSize.{xs..6xl} resolve through var(--fs-*)
@@ -109,7 +132,8 @@
      exactly as-is while every white-card/table/form/list screen (all
      built on raw text-xs…text-6xl) gets this final, subtle reduction. */
   [data-role='docente'],
-  [data-role='admin'] {
+  [data-role='admin'],
+  [data-forma='acceso'] {
     /* Octava pasada: --fs-xs quedó demasiado chica para texto de lectura
        (descripciones, no solo etiquetas de chrome) — "apenas legible" en la
        práctica. +30% sobre el valor de la séptima pasada (0.765625rem),

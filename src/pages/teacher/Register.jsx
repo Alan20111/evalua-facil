@@ -141,10 +141,10 @@ export default function Register() {
 
   if (step === 'perfil') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
+      <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+            <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
             <h1 className="text-2xl font-bold text-on-surface">Un último dato</h1>
             <p className="text-muted text-sm mt-1">Cuéntanos quién eres</p>
           </div>
@@ -161,7 +161,6 @@ export default function Register() {
                   required
                   autoFocus={PUEDE_AUTOFOCUS}
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej. Laura"
                 />
               </div>
               <div className="flex gap-2">
@@ -174,7 +173,6 @@ export default function Register() {
                     onChange={(e) => setApellidoPaterno(e.target.value)}
                     required
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Ej. García"
                   />
                 </div>
                 <div className="flex-1">
@@ -185,7 +183,6 @@ export default function Register() {
                     value={apellidoMaterno}
                     onChange={(e) => setApellidoMaterno(e.target.value)}
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Ej. Pérez"
                   />
                   <p className="text-xs text-hint mt-1">(opcional)</p>
                 </div>
@@ -218,7 +215,7 @@ export default function Register() {
                         value={prefijoCustom}
                         onChange={(e) => setPrefijoCustom(e.target.value)}
                         className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mt-2"
-                        placeholder="Escribe el prefijo"
+                        aria-label="Escribe el prefijo"
                       />
                     )}
                   </div>
@@ -231,7 +228,6 @@ export default function Register() {
                       onChange={(e) => setNombre(e.target.value)}
                       required
                       className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                      placeholder="Ej. Laura García"
                     />
                   </div>
                 </div>
@@ -261,7 +257,7 @@ export default function Register() {
               <button
                 type="submit"
                 disabled={saving || !plantel}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : null}
                 {saving ? 'Creando tu cuenta…' : 'Entrar al panel'}
@@ -291,10 +287,10 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
+    <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+          <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
           <h1 className="text-2xl font-bold text-on-surface">Crear cuenta</h1>
         </div>
 
@@ -321,7 +317,6 @@ export default function Register() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              placeholder="nombre@correo.com"
             />
 
             <div>
@@ -334,7 +329,6 @@ export default function Register() {
                 minLength={6}
                 autoComplete="new-password"
                 className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                placeholder="Mínimo 6 caracteres"
               />
             </div>
             <div>
@@ -346,7 +340,6 @@ export default function Register() {
                 required
                 autoComplete="new-password"
                 className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                placeholder="Repite la contraseña"
               />
             </div>
 

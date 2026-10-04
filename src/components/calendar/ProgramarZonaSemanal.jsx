@@ -554,7 +554,7 @@ export default function ProgramarZonaSemanal({
                 <input
                   type="text" value={placing.lugar || ''}
                   onChange={e => setPlacing(p => ({ ...p, lugar: e.target.value }))}
-                  placeholder="Aula, Centro de cómputo…"
+                  aria-label="Aula, Centro de cómputo…"
                   className={`${inputCls} flex-1`}
                 />
               </div>
@@ -642,7 +642,7 @@ export default function ProgramarZonaSemanal({
                 <input
                   type="text" value={editP.lugar}
                   onChange={e => updatePatron(editP.id, { lugar: e.target.value })}
-                  placeholder="Aula, Centro de cómputo…"
+                  aria-label="Aula, Centro de cómputo…"
                   className={`${inputCls} flex-1`}
                 />
               </div>
@@ -698,7 +698,7 @@ export default function ProgramarZonaSemanal({
                     type="number" min={0} max={120}
                     value={editP.alarma.minutosAntes ?? 10}
                     onChange={e => updatePatron(editP.id, { alarma: { ...editP.alarma, minutosAntes: Math.max(0, Number(e.target.value) || 0) } })}
-                    className={`${inputCls} w-full`} placeholder="min antes"
+                    className={`${inputCls} w-full`} aria-label="min antes"
                   />
                 </div>
               )}

@@ -145,7 +145,7 @@ function CeldaFiltro({ col, valor, onChange, sugerencias }) {
               reduce las escuelas que se sugieren. */}
           <input
             type="text" value={valor} onChange={(e) => onChange(e.target.value)}
-            list={listId} placeholder="Buscar…" autoComplete="off"
+            list={listId} autoComplete="off"
             aria-label={`Filtrar por ${col.label}`} className={base}
           />
           <datalist id={listId}>
@@ -294,7 +294,7 @@ export default function StudentsTable({ stats }) {
           <SearchInput
             value={search}
             onChange={(v) => { setSearch(v); setLimit(PAGE) }}
-            placeholder="Buscar por cualquier dato…"
+            etiqueta="Buscar por cualquier dato…"
           />
           <button
             type="button"

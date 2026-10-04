@@ -62,7 +62,8 @@ export function installWheelStep() {
     let next
     if (input.value === '') {
       // First wheel on an empty box lands on the suggested remainder
-      const suggested = parseFloat(input.placeholder)
+      // (data-sugerido; la app ya no usa placeholder — DESIGN_SYSTEM §6.2)
+      const suggested = parseFloat(input.dataset.sugerido)
       next = isNaN(suggested) ? (dir > 0 ? step : 0) : suggested
     } else {
       // Wheel DOWN increases, wheel UP decreases

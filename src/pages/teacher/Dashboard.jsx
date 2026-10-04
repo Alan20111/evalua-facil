@@ -694,7 +694,6 @@ export default function TeacherDashboard() {
                   onChange={(e) => setNewSubjectName(e.target.value)}
                   required
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej: Matemáticas, Física, Historia"
                 />
               </div>
               {/* Grupo */}
@@ -707,7 +706,6 @@ export default function TeacherDashboard() {
                   onChange={(e) => setNewSubjectGrupo(e.target.value)}
                   required
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej: 1A, 2B, 3C"
                 />
               </div>
 

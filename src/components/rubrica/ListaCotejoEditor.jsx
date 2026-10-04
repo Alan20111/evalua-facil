@@ -18,11 +18,6 @@ import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
 // puede pasar de 10. Se guarda como rúbrica con `tipo: 'cotejo'`.
 // `initial` = { id, ...cotejo } para editar, null para crear.
 
-// Un ejemplo distinto por renglón — mismo criterio que RubricaEditor.jsx.
-const EJEMPLOS_CRITERIO = [
-  'Entregó a tiempo', 'Incluye portada', 'Usa el formato solicitado',
-  'Cita sus fuentes', 'Ortografía sin errores', 'Cumple la extensión mínima',
-]
 
 function estadoInicial(initial) {
   if (!initial) {
@@ -187,18 +182,17 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
               <input id="cot-titulo" type="text" value={r.titulo}
                 onChange={(e) => setR((prev) => ({ ...prev, titulo: e.target.value }))}
                 required
-                placeholder="Ej: Reporte de práctica, Exposición, Portafolio"
                 className="flex-1 min-w-0 px-2 py-1 border-b-2 border-outline-variant focus:border-accent focus:outline-none text-sm bg-transparent" />
             </div>
             <input type="text" value={r.descripcion}
               onChange={(e) => setR((prev) => ({ ...prev, descripcion: e.target.value }))}
-              placeholder="Descripción de la tarea (opcional)…"
+              aria-label="Descripción de la tarea (opcional)…"
               className="w-full px-2 py-1 text-xs text-muted border-b border-outline-variant focus:border-accent focus:outline-none bg-transparent" />
             {/* Tema — etiqueta libre para encontrarla rápido en el banco
                 (mismo patrón que el tema de los reactivos). */}
             <input type="text" value={r.tema}
               onChange={(e) => setR((prev) => ({ ...prev, tema: e.target.value }))}
-              placeholder="Tema (opcional) — para buscarla rápido en tu banco"
+              aria-label="Tema (opcional) — para buscarla rápido en tu banco"
               className="w-full px-2 py-1 text-xs text-muted border-b border-outline-variant focus:border-accent focus:outline-none bg-transparent" />
           </div>
 
@@ -229,7 +223,6 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                         <textarea value={c.nombre}
                           onChange={(e) => setCriterioNombre(i, e.target.value)}
                           rows={2}
-                          placeholder={`Criterio ${i + 1} — ej: ${EJEMPLOS_CRITERIO[i] || EJEMPLOS_CRITERIO[EJEMPLOS_CRITERIO.length - 1]}`}
                           aria-label={`Nombre del criterio ${i + 1}`}
                           className={`w-full min-w-0 text-base font-semibold text-on-surface resize-none ${inputCell}`} />
                         {i >= MIN_CRITERIOS && (
@@ -247,7 +240,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                           onChange={(e) => setCriterioPuntos(i, e.target.value)}
                           aria-label={`Puntos del criterio ${i + 1}`}
                           data-tooltip="Puntos que suma si el estudiante cumple este criterio"
-                          className="w-16 px-1 py-0.5 text-center text-sm font-bold text-accent border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+                          className="w-16 px-1 py-0.5 text-sm font-bold text-accent border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
                         <span className="text-[10px] text-hint">pts</span>
                       </div>
                     </td>

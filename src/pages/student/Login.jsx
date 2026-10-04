@@ -225,10 +225,10 @@ export default function StudentLogin() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-surface">
+    <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 py-8 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+          <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
           <h1 className="text-2xl font-bold text-on-surface">Acceso Estudiantes</h1>
         </div>
 
@@ -236,7 +236,7 @@ export default function StudentLogin() {
         <div className="bg-surface-card rounded-card shadow-card p-5">
           <form onSubmit={handleLogin} className="space-y-3">
             <div>
-              <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Username</label>
+              <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
               <input
                 id="login-username"
                 type="text"
@@ -250,8 +250,7 @@ export default function StudentLogin() {
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
-                placeholder="Ej: mendez.enrique"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide "
                 maxLength={40}
               />
             </div>
@@ -263,7 +262,6 @@ export default function StudentLogin() {
                 onChange={(e) => { setPassword(e.target.value); setError('') }}
                 required
                 className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                placeholder="••••••••"
               />
             </div>
             {error && (
@@ -274,7 +272,7 @@ export default function StudentLogin() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loading ? <Spinner size="sm" /> : null}
               {loading ? 'Entrando…' : 'Iniciar sesión'}
@@ -308,7 +306,7 @@ export default function StudentLogin() {
               </p>
               <form onSubmit={handleRecover} className="space-y-3">
                 <div>
-                  <label htmlFor="recover-username" className="block text-sm font-medium text-muted mb-1">Username</label>
+                  <label htmlFor="recover-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
                   <input
                     id="recover-username"
                     type="text"
@@ -319,8 +317,7 @@ export default function StudentLogin() {
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
-                    placeholder="Ej: mendez.enrique"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide "
                     maxLength={40}
                   />
                 </div>
@@ -332,7 +329,6 @@ export default function StudentLogin() {
                     onChange={(e) => { setResetNewPwd(e.target.value); setResetError('') }}
                     required
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Mínimo 8 caracteres"
                   />
                 </div>
                 <div>
@@ -343,7 +339,6 @@ export default function StudentLogin() {
                     onChange={(e) => { setResetConfirmPwd(e.target.value); setResetError('') }}
                     required
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="Repite la nueva contraseña"
                   />
                 </div>
                 {resetError && (
@@ -354,7 +349,7 @@ export default function StudentLogin() {
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {resetLoading ? <Spinner size="sm" /> : null}
                   {resetLoading ? 'Restableciendo…' : 'Restablecer contraseña'}
@@ -399,13 +394,13 @@ export default function StudentLogin() {
                   autoCapitalize="characters"
                   spellCheck={false}
                   maxLength={8}
-                  placeholder="Ej: A3B7K2"
-                  className="flex-1 min-w-0 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
+                  aria-label="Ej: A3B7K2"
+                  className="flex-1 min-w-0 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest "
                 />
                 <button
                   type="submit"
                   disabled={!codeInput.trim()}
-                  className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-1.5 flex-shrink-0"
+                  className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-1.5 flex-shrink-0"
                 >
                   <Hash size={18} />
                   Ir
@@ -415,7 +410,7 @@ export default function StudentLogin() {
           )}
         </div>
 
-        <p className="text-center text-sm text-slate-500 mt-4 px-2">
+        <p className="text-center text-sm text-muted mt-6 px-2">
           Tu maestro te otorgará tus datos de acceso.
         </p>
         <p className="text-center text-sm text-muted mt-2 px-2">

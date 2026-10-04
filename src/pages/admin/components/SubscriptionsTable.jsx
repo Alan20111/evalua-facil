@@ -238,7 +238,7 @@ function CeldaFiltro({ col, valor, onChange, sugerencias }) {
               que todavía cumplen con lo demás que ya está filtrado. */}
           <input
             type="text" value={valor} onChange={(e) => onChange(e.target.value)}
-            list={listId} placeholder="Buscar…" autoComplete="off"
+            list={listId} autoComplete="off"
             aria-label={`Filtrar por ${col.label}`} className={base}
           />
           <datalist id={listId}>
@@ -682,7 +682,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
           <SearchInput
             value={search}
             onChange={(v) => { setSearch(v); setLimit(PAGE) }}
-            placeholder="Buscar por cualquier dato…"
+            etiqueta="Buscar por cualquier dato…"
           />
           <div className="flex items-center justify-end gap-2">
             <button
@@ -948,7 +948,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   value={ajusteModal.cantidad}
                   onChange={(e) => setAjusteModal((m) => ({ ...m, cantidad: e.target.value }))}
                   required
-                  placeholder="Ej. 50 para agregar, -20 para descontar"
                   className={inputCls}
                 />
                 <p className="text-xs text-slate-500 mt-1">
@@ -965,7 +964,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   value={ajusteModal.motivo}
                   onChange={(e) => setAjusteModal((m) => ({ ...m, motivo: e.target.value }))}
                   required
-                  placeholder="Ej. Cuenta de prueba, bonificación por falla…"
                   className={inputCls}
                 />
               </div>

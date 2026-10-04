@@ -827,7 +827,7 @@ export default function ChatAsistente() {
               if (!enviando && mensaje.trim() && !sinCreditos && !limiteAlcanzado) enviar()
             }
           }}
-          placeholder="Escribe tu pregunta…"
+          aria-label="Escribe tu pregunta…"
           disabled={enviando || sinCreditos || limiteAlcanzado}
           maxLength={2000}
           rows={1}

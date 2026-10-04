@@ -164,7 +164,6 @@ export default function ComprarCreditosModal({ open, onClose }) {
                     type="text"
                     value={referencia}
                     onChange={(e) => setReferencia(e.target.value)}
-                    placeholder="Ej. 123456789"
                     className="w-full border border-outline-variant rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </div>

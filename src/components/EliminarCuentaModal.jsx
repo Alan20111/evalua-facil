@@ -133,7 +133,6 @@ export default function EliminarCuentaModal({ onClose }) {
             onChange={(e) => setPalabra(e.target.value)}
             autoComplete="off"
             className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-            placeholder={PALABRA}
           />
         </div>
 
@@ -148,7 +147,6 @@ export default function EliminarCuentaModal({ onClose }) {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-              placeholder="••••••••"
             />
           </div>
         ) : (

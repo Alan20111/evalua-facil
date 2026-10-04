@@ -481,7 +481,6 @@ export default function EntregableEditor({
               <label htmlFor="ent-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
               <input id="ent-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                 required
-                placeholder={isObservacion ? 'Ej: Actitud, Exposición de tema, Participación' : 'Ej: Tarea 1, Proyecto final'}
                 className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
             </div>
 
@@ -538,7 +537,7 @@ export default function EntregableEditor({
               <RichTextEditor
                 value={form.instrucciones}
                 onChange={(html) => setForm((f) => ({ ...f, instrucciones: html }))}
-                placeholder={isObservacion ? 'Describe qué vas a observar y cómo lo calificas…' : 'Describe la tarea para tus estudiantes…'}
+                etiqueta={isObservacion ? 'Describe qué vas a observar y cómo lo calificas…' : 'Describe la tarea para tus estudiantes…'}
                 attachments={[
                   ...existingFiles,
                   ...newFiles.map((f) => ({ nombre: f.name, tamano: f.size })),
@@ -702,7 +701,7 @@ export default function EntregableEditor({
                       headerLabel="Fecha y hora límite"
                       value={form.fechaLimite}
                       onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
-                      placeholder="Sin fecha límite…"
+                      textoVacio="Sin fecha límite…"
                       clearable
                       defaultTime="23:59"
                       defaultDate={
@@ -975,7 +974,6 @@ export default function EntregableEditor({
                 value={iaConsideraciones}
                 disabled={iaTrabajando}
                 onChange={(e) => setIaConsideraciones(e.target.value)}
-                placeholder="Por ejemplo: que cada respuesta del ejercicio sea un criterio de evaluación"
                 rows={2}
                 maxLength={400}
                 className="w-full px-2 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none"

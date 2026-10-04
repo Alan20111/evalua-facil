@@ -35,13 +35,6 @@ const NIVELES_NUEVA = [
   { nombre: 'Insuficiente', valor: '5' },
 ]
 
-// Un ejemplo distinto por renglón (no el mismo repetido con solo el número
-// cambiando) — pedido explícito, para que se note que son sugerencias y no
-// texto copiado. Solo el placeholder: el valor sigue vacío (ver criterioNuevo).
-const EJEMPLOS_CRITERIO = [
-  'Ortografía y redacción', 'Autenticidad', 'Creatividad',
-  'Cumplimiento de instrucciones', 'Puntualidad en la entrega', 'Presentación y orden',
-]
 
 // Anchos de columna redimensionables con el mouse — con límites para no
 // exagerarlas ni encogerlas de más
@@ -485,18 +478,17 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
               <input id="rub-titulo" type="text" value={r.titulo}
                 onChange={(e) => setR((prev) => ({ ...prev, titulo: e.target.value }))}
                 required
-                placeholder="Ej: Ensayo escrito, Maqueta, Proyecto final"
                 className="flex-1 min-w-0 px-2 py-1 border-b-2 border-outline-variant focus:border-accent focus:outline-none text-sm bg-transparent" />
             </div>
             <input type="text" value={r.descripcion}
               onChange={(e) => setR((prev) => ({ ...prev, descripcion: e.target.value }))}
-              placeholder="Descripción de la tarea (opcional)…"
+              aria-label="Descripción de la tarea (opcional)…"
               className="w-full px-2 py-1 text-xs text-muted border-b border-outline-variant focus:border-accent focus:outline-none bg-transparent" />
             {/* Tema — etiqueta libre para encontrarla rápido en el banco
                 (mismo patrón que el tema de los reactivos). */}
             <input type="text" value={r.tema}
               onChange={(e) => setR((prev) => ({ ...prev, tema: e.target.value }))}
-              placeholder="Tema (opcional) — para buscarla rápido en tu banco"
+              aria-label="Tema (opcional) — para buscarla rápido en tu banco"
               className="w-full px-2 py-1 text-xs text-muted border-b border-outline-variant focus:border-accent focus:outline-none bg-transparent" />
           </div>
 
@@ -534,9 +526,8 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                         <div className="flex items-center gap-1">
                           <input type="text" value={nv.nombre}
                             onChange={(e) => setNivelNombre(j, e.target.value)}
-                            placeholder="Editar"
                             aria-label={`Nombre del nivel ${j + 1}`}
-                            className={`w-full min-w-0 text-center text-sm font-bold text-accent ${inputCell}`} />
+                            className={`w-full min-w-0 text-sm font-bold text-accent ${inputCell}`} />
                           {/* Los primeros 3 niveles son el mínimo — no se pueden eliminar */}
                           {j >= MIN_NIVELES && (
                             <button type="button" onClick={() => removeNivel(j)}
@@ -556,7 +547,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                               onChange={(e) => setNivelValor(j, e.target.value)}
                               aria-label={`Puntos del nivel ${nv.nombre || j + 1}`}
                               data-tooltip="Menor que el nivel anterior — el nivel más bajo puede ser 0 (para quien no entrega nada)"
-                              className="w-14 px-1 py-0.5 text-center text-xs font-bold text-on-surface border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+                              className="w-14 px-1 py-0.5 text-xs font-bold text-on-surface border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
                             <span className="text-[10px] font-normal text-muted">puntos</span>
                           </div>
                         )}
@@ -581,7 +572,6 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                         <div className="flex items-start gap-1 h-full">
                           <textarea value={c.nombre}
                             onChange={(e) => setCriterioNombre(i, e.target.value)}
-                            placeholder={`Criterio ${i + 1} — ej: ${EJEMPLOS_CRITERIO[i] || EJEMPLOS_CRITERIO[EJEMPLOS_CRITERIO.length - 1]}`}
                             aria-label={`Nombre del criterio ${i + 1}`}
                             className={`w-full min-w-0 h-full text-base font-semibold text-on-surface resize-none ${inputCell}`}
                             style={{ minHeight: '110px' }} />
@@ -603,7 +593,6 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                             <textarea value={c.descriptores[j]}
                               onChange={(e) => setDescriptor(i, j, e.target.value)}
                               rows={4}
-                              placeholder="Editar"
                               aria-label={`Descriptor de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
                               className={`w-full flex-1 text-sm text-muted resize-none ${inputCell}`} />
                             <div className="flex items-center justify-end gap-1 mt-auto pt-1.5 flex-shrink-0">
@@ -611,7 +600,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                                 onChange={(e) => (j === 0 ? setExc(i, e.target.value) : setPunto(i, j, e.target.value))}
                                 aria-label={`Puntos de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
                                 data-tooltip={j === 0 ? 'Lo que vale este criterio (recalcula el renglón)' : 'Editable — la columna debe sumar los puntos del nivel'}
-                                className={`w-14 px-1 py-0.5 text-center text-xs font-bold border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${j === 0 ? 'text-accent' : ''}`} />
+                                className={`w-14 px-1 py-0.5 text-xs font-bold border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${j === 0 ? 'text-accent' : ''}`} />
                               <span className="text-[10px] text-hint">pts</span>
                             </div>
                           </div>

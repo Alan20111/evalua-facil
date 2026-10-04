@@ -129,12 +129,12 @@ export default function ContenidoJuegoEditor({ activity, onConstruido }) {
           <div key={i} className="flex items-start gap-2">
             <input value={it.palabra} disabled={trabajando}
               onChange={(e) => actualizar(i, 'palabra', e.target.value)}
-              placeholder="Palabra"
+              aria-label="Palabra"
               className="w-32 sm:w-40 px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
             {mostrarDescripcion && (
               <input value={it.descripcion} disabled={trabajando}
                 onChange={(e) => actualizar(i, 'descripcion', e.target.value)}
-                placeholder={activity.tipoJuego === 'crucigrama' ? 'Pista (obligatoria)' : 'Pista / descripción'}
+                aria-label={activity.tipoJuego === 'crucigrama' ? 'Pista (obligatoria)' : 'Pista / descripción'}
                 className="flex-1 px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
             )}
             <button type="button" onClick={() => eliminar(i)} disabled={trabajando}

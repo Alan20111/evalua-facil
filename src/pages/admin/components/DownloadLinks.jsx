@@ -307,7 +307,6 @@ export default function DownloadLinks() {
             optional
             value={versionAuto}
             onChange={(e) => setVersionAuto(e.target.value)}
-            placeholder="1.0.7"
             hint="Vacío = sube sola el último dígito"
             wrapperClassName="flex-1 min-w-0"
           />

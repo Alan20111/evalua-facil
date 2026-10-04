@@ -20,7 +20,7 @@ const TRIGGER_BASE =
 
 export default function Select({
   label, hint, error, id, options = [], value, onChange, required = false, optional = false,
-  placeholder = 'Seleccionar…', className = '', wrapperClassName = '', disabled = false,
+  textoVacio = 'Seleccionar…', className = '', wrapperClassName = '', disabled = false,
 }) {
   const [open, setOpen] = useState(false)
   useBackHandler(() => setOpen(false), open)
@@ -49,7 +49,7 @@ export default function Select({
         )}
       >
         <span className={`truncate ${current ? 'text-on-surface' : 'text-hint'}`}>
-          {current?.label || placeholder}
+          {current?.label || textoVacio}
         </span>
         <ChevronDown size={16} className="text-muted flex-shrink-0" />
       </button>

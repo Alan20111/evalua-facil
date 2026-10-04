@@ -1166,7 +1166,6 @@ export default function StudentActivityPage() {
                       onBlur={() => setEnlaceTocado(true)}
                       disabled={files.length > 0 || uploading}
                       maxLength={LINK_MAX_LENGTH}
-                      placeholder="Pega aquí el enlace de tu entrega"
                       autoComplete="off"
                       autoCapitalize="off"
                       spellCheck={false}

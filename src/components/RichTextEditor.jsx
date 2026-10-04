@@ -8,7 +8,6 @@ import { Color } from '@tiptap/extension-color'
 import TextAlign from '@tiptap/extension-text-align'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
-import Placeholder from '@tiptap/extension-placeholder'
 import {
   Bold, Italic, Underline as UnderlineIcon, Baseline, List, ListOrdered,
   AlignLeft, AlignCenter, AlignRight, Link2, Image as ImageIcon,
@@ -126,7 +125,7 @@ async function insertImageFile(editor, file) {
 // only (no italic, underline, color, link, image, clear-format or attach
 // button) — used for "Instrucciones" fields on Android, where the full
 // toolbar is more than needed on a small screen.
-export default function RichTextEditor({ value, onChange, placeholder, attachments, onAttachFiles, onRemoveAttachment, simple = false }) {
+export default function RichTextEditor({ value, onChange, etiqueta, attachments, onAttachFiles, onRemoveAttachment, simple = false }) {
 
   const editor = useEditor({
     extensions: [
@@ -147,12 +146,11 @@ export default function RichTextEditor({ value, onChange, placeholder, attachmen
       TextAlign.configure({ types: ['paragraph'] }),
       Link.configure({ openOnClick: false, autolink: false }),
       Image.configure({ HTMLAttributes: { class: 'max-w-full rounded' } }),
-      Placeholder.configure({ placeholder: placeholder || 'Escribe aquí…' }),
     ],
     content: value || '',
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
-      attributes: { class: `focus:outline-none min-h-[160px] ${richTextContentClass}` },
+      attributes: { class: `focus:outline-none min-h-[160px] ${richTextContentClass}`, 'aria-label': etiqueta || 'Texto' },
       handleDrop: (_view, event) => {
         const file = event.dataTransfer?.files?.[0]
         if (file && file.type.startsWith('image/')) {

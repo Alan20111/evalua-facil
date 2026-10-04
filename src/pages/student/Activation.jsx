@@ -386,11 +386,11 @@ export default function StudentActivation() {
   }
 
   if (initLoading) return (
-    <div className="min-h-screen flex items-center justify-center px-4"><div className="w-full max-w-sm"><SkeletonForm fields={2} /></div></div>
+    <div data-forma="acceso" className="min-h-dvh flex items-center justify-center px-4 bg-surface py-8"><div className="w-full max-w-sm"><SkeletonForm fields={2} /></div></div>
   )
 
   if (!subject) return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
+    <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm text-center">
         <div className="w-16 h-16 rounded-card bg-red-100 flex items-center justify-center mx-auto mb-3">
           <GraduationCap size={32} className="text-red-500" />
@@ -402,7 +402,7 @@ export default function StudentActivation() {
         <button
           type="button"
           onClick={() => navigate('/alumno')}
-          className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
+          className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors"
         >
           Volver al inicio
         </button>
@@ -411,7 +411,7 @@ export default function StudentActivation() {
   )
 
   if (step === 'checking_session') return (
-    <div className="min-h-screen flex items-center justify-center px-4"><div className="w-full max-w-sm"><SkeletonForm fields={2} /></div></div>
+    <div data-forma="acceso" className="min-h-dvh flex items-center justify-center px-4 bg-surface py-8"><div className="w-full max-w-sm"><SkeletonForm fields={2} /></div></div>
   )
 
   // Caso simple y frecuente: el maestro todavía no agregó a este alumno a
@@ -425,9 +425,9 @@ export default function StudentActivation() {
   if (step === 'left_needs_teacher') {
     const panelPath = userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
+      <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
         <div className="w-full max-w-sm text-center">
-          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+          <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
           <div className="w-16 h-16 rounded-card bg-amber-100 flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-amber-600" />
           </div>
@@ -439,7 +439,7 @@ export default function StudentActivation() {
           <button
             type="button"
             onClick={() => navigate(panelPath)}
-            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
+            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors"
           >
             Volver a mi panel
           </button>
@@ -451,9 +451,9 @@ export default function StudentActivation() {
   if (step === 'not_enrolled') {
     const panelPath = userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
+      <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
         <div className="w-full max-w-sm text-center">
-          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+          <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
           <div className="w-16 h-16 rounded-card bg-accent-light flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-accent" />
           </div>
@@ -465,7 +465,7 @@ export default function StudentActivation() {
           <button
             type="button"
             onClick={() => navigate(panelPath)}
-            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
+            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors"
           >
             Volver a mi panel
           </button>
@@ -480,9 +480,9 @@ export default function StudentActivation() {
       : ([userProfile?.nombre, userProfile?.apellidoPaterno].map(capitalizarNombre).filter(Boolean).join(' ') || userProfile?.username || 'otra cuenta')
     const panelPath = userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
+      <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
         <div className="w-full max-w-sm text-center">
-          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+          <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
           <div className="w-16 h-16 rounded-card bg-amber-100 flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-amber-600" />
           </div>
@@ -498,7 +498,7 @@ export default function StudentActivation() {
             <button
               type="button"
               onClick={handleSignOutToSwitchAccount}
-              className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
+              className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded transition-colors"
             >
               Cerrar sesión
             </button>
@@ -516,10 +516,10 @@ export default function StudentActivation() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
+    <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+          <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
           <h1 className="text-2xl font-bold text-on-surface">Activar cuenta</h1>
           {subject && (
             <p className="text-muted text-sm mt-1 break-words">
@@ -553,7 +553,6 @@ export default function StudentActivation() {
                     // se muestra una sola vez por sesión de activación — no es un modal reabrible.
                     autoFocus={PUEDE_AUTOFOCUS}
                     className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
-                    placeholder="Tu contraseña de Evalúa Fácil"
                   />
                 </div>
                 {passwordError && (
@@ -567,7 +566,7 @@ export default function StudentActivation() {
                   onMouseDown={(e) => e.preventDefault()}
                   disabled={loading || !linkPassword}
                   style={{ touchAction: 'manipulation' }}
-                  className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <Check size={18} />}
                   {loading ? 'Vinculando…' : 'Agregar asignatura'}
@@ -578,9 +577,9 @@ export default function StudentActivation() {
             <form onSubmit={handleFindStudent} className="space-y-3">
               <div>
                 <p className="text-sm text-muted mb-3">
-                  Introduce tu <strong>username</strong> (tu maestro te lo proporcionó).
+                  Introduce tu <strong>usuario</strong> (tu maestro te lo proporcionó).
                 </p>
-                <label htmlFor="activation-username" className="block text-sm font-medium text-muted mb-1">Username</label>
+                <label htmlFor="activation-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
                 <input
                   id="activation-username"
                   type="text"
@@ -594,8 +593,7 @@ export default function StudentActivation() {
                   autoCorrect="off"
                   autoCapitalize="none"
                   spellCheck={false}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
-                  placeholder="Ej: mendez.enrique"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest "
                   maxLength={40}
                 />
               </div>
@@ -605,7 +603,7 @@ export default function StudentActivation() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={loading || !username.trim()}
                 style={{ touchAction: 'manipulation' }}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? <Spinner size="sm" /> : null}
                 {loading ? 'Buscando…' : 'Continuar'}
@@ -636,7 +634,6 @@ export default function StudentActivation() {
                     // se muestra una sola vez por sesión de activación — no es un modal reabrible.
                     autoFocus={PUEDE_AUTOFOCUS}
                     className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
-                    placeholder="Mínimo 8 caracteres"
                   />
                 </div>
                 <div>
@@ -647,7 +644,6 @@ export default function StudentActivation() {
                     onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
                     required
                     className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
-                    placeholder="Repite tu contraseña"
                   />
                 </div>
                 {passwordError && (
@@ -661,7 +657,7 @@ export default function StudentActivation() {
                   onMouseDown={(e) => e.preventDefault()}
                   disabled={loading}
                   style={{ touchAction: 'manipulation' }}
-                  className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <Check size={18} />}
                   {loading ? 'Activando…' : 'Activar cuenta'}

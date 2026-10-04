@@ -60,7 +60,7 @@ export default function EscuelasConfig() {
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Buscar por nombre, clave o short name…"
+        aria-label="Buscar por nombre, clave o short name…"
       />
       {filtered.length === 0 && (
         <p className="text-sm text-hint text-center py-8">Sin resultados</p>
@@ -83,7 +83,7 @@ export default function EscuelasConfig() {
                 value={umbrales[s.id] ?? '20'}
                 onChange={(e) => setUmbrales((p) => ({ ...p, [s.id]: e.target.value }))}
                 wrapperClassName="flex items-center gap-1.5"
-                className="w-16 text-center"
+                className="w-16 "
               />
               <button
                 type="button"

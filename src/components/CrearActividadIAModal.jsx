@@ -108,9 +108,6 @@ export default function CrearActividadIAModal({
             <label htmlFor="ia-act-peticion" className="block text-sm text-on-surface mb-1">¿Qué quieres trabajar?</label>
             <textarea id="ia-act-peticion" value={peticion} disabled={trabajando} rows={4}
               onChange={(e) => setPeticion(e.target.value)}
-              placeholder={isObservacion
-                ? 'Describe qué vas a observar en tus estudiantes: actitud, participación, exposición de un tema, realización de un ejercicio…'
-                : 'Describe la tarea o producto que quieres que tus estudiantes entreguen.'}
               className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
           </div>
 

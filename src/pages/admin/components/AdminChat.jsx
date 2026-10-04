@@ -190,7 +190,7 @@ export default function AdminChat() {
               if (!enviando && mensaje.trim()) enviar()
             }
           }}
-          placeholder="Pregunta sobre el negocio…"
+          aria-label="Pregunta sobre el negocio…"
           disabled={enviando}
           maxLength={2000}
           rows={1}

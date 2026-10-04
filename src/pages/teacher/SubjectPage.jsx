@@ -6135,7 +6135,7 @@ export default function SubjectPage() {
             <SearchInput
               value={searchGrade}
               onChange={setSearchGrade}
-              placeholder="Buscar por nombre o por número de lista…"
+              etiqueta="Buscar por nombre o por número de lista…"
               autoFocus={PUEDE_AUTOFOCUS}
             />
 
@@ -6341,7 +6341,6 @@ export default function SubjectPage() {
                                 <input id={`peso-${a.id}`} type="text" inputMode="decimal" min="0" max="10"
                                   autoComplete="off"
                                   value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
-                                  placeholder="0"
                                   onChange={(e) => {
                                     let raw = e.target.value
                                     const n = parseFloat(raw)
@@ -6668,7 +6667,7 @@ export default function SubjectPage() {
           <SearchInput
             value={searchAttendance}
             onChange={setSearchAttendance}
-            placeholder="Buscar por nombre o por número de lista…"
+            etiqueta="Buscar por nombre o por número de lista…"
             autoFocus={PUEDE_AUTOFOCUS}
           />
 
@@ -6752,7 +6751,7 @@ export default function SubjectPage() {
                 <label htmlFor="att-fecha" className="block text-xs font-medium text-muted mb-1">Día</label>
                 <EFDateTimePicker mode="date" value={newAttendanceForm.fecha}
                   onChange={(v) => setNewAttendanceForm((f) => ({ ...f, fecha: v }))}
-                  placeholder="Elige el día…" clearable={false}
+                  textoVacio="Elige el día…" clearable={false}
                   shortcutLabels={modalAsistenciaHorizontal ? ['Hoy', 'Mañana', 'Pasado mañana'] : undefined} />
               </div>
               <div className={modalAsistenciaHorizontal ? 'flex-1 min-w-0' : undefined}>
@@ -6932,7 +6931,6 @@ export default function SubjectPage() {
                       <label htmlFor="att-motivo" className="block text-[9px] font-medium text-muted mb-1">Motivo ✍️</label>
                       <textarea id="att-motivo" value={reasonText} rows={2}
                         onChange={(e) => setReasonText(e.target.value)}
-                        placeholder="Escribe el motivo…"
                         className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
                     </div>
                   </div>
@@ -6964,7 +6962,6 @@ export default function SubjectPage() {
                   <label htmlFor="att-motivo" className="block text-sm font-medium text-muted mb-1.5">Motivo ✍️</label>
                   <textarea id="att-motivo" value={reasonText} rows={3}
                     onChange={(e) => setReasonText(e.target.value)}
-                    placeholder="Escribe el motivo…"
                     className="w-full px-3 py-2.5 rounded border border-outline-variant text-base bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
                 </div>
                 <div className="flex gap-2 pt-1">
@@ -7116,7 +7113,7 @@ export default function SubjectPage() {
               <SearchInput
                 value={searchAlumnos}
                 onChange={setSearchAlumnos}
-                placeholder="Buscar por nombre o por número de lista…"
+                etiqueta="Buscar por nombre o por número de lista…"
                 autoFocus={PUEDE_AUTOFOCUS}
               />
             </div>
@@ -7586,15 +7583,14 @@ export default function SubjectPage() {
                 <label htmlFor="act-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
                 <input id="act-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej: Tarea 1, Examen parcial" />
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               <div>
                 <p className="block text-sm font-medium text-muted mb-1">Instrucciones</p>
                 <RichTextEditor
                   value={form.instrucciones}
                   onChange={(html) => setForm((f) => ({ ...f, instrucciones: html }))}
-                  placeholder="Describe la tarea para tus estudiantes…"
+                  etiqueta="Describe la tarea para tus estudiantes…"
                   attachments={[
                     ...activityExistingFiles,
                     ...activityNewFiles.map((f) => ({ nombre: f.name, tamano: f.size })),
@@ -7646,7 +7642,7 @@ export default function SubjectPage() {
                         headerLabel="Fecha y hora límite"
                         value={form.fechaLimite}
                         onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
-                        placeholder="Sin fecha límite…"
+                        textoVacio="Sin fecha límite…"
                         clearable
                         minDateTime={minDeadline(
                           form.visibilidadMode === 'schedule' ? form.publishAt : form.publishedAt
@@ -7837,15 +7833,14 @@ export default function SubjectPage() {
                 <label htmlFor="material-nombre" className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
                 <input id="material-nombre" type="text" value={materialForm.nombre} onChange={(e) => setMaterialForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej: Libro de texto, Video introductorio, Guía de laboratorio" />
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               <div>
                 <p className="block text-sm font-medium text-muted mb-1">Descripción <span className="text-hint font-normal">(opcional)</span></p>
                 <RichTextEditor
                   value={materialForm.descripcion}
                   onChange={(html) => setMaterialForm((f) => ({ ...f, descripcion: html }))}
-                  placeholder="Explica brevemente este material para tus estudiantes…"
+                  etiqueta="Explica brevemente este material para tus estudiantes…"
                 />
               </div>
 
@@ -7955,13 +7950,13 @@ export default function SubjectPage() {
                   nombre correspondía cada campo. Con label fijo arriba, el
                   campo se sigue identificando aunque ya tenga texto. */}
               {[
-                { field: 'apellidoPaterno', label: 'Apellido paterno', placeholder: 'Ej: García' },
+                { field: 'apellidoPaterno', label: 'Apellido paterno' },
                 // No todos los estudiantes tienen segundo apellido — pedir que
                 // escriban "No tengo" o algo así sería innecesariamente
                 // incómodo, así que este campo no es obligatorio.
-                { field: 'apellidoMaterno', label: 'Apellido materno', placeholder: 'Ej: López', optional: true },
-                { field: 'nombre', label: 'Nombre(s)', placeholder: 'Ej: Juan Carlos' },
-              ].map(({ field, label, placeholder, optional }) => (
+                { field: 'apellidoMaterno', label: 'Apellido materno', optional: true },
+                { field: 'nombre', label: 'Nombre(s)' },
+              ].map(({ field, label, optional }) => (
                 <div key={field}>
                   <label htmlFor={`add-student-${field}`} className="block text-sm font-medium text-muted mb-1">
                     {label} {optional && <span className="text-hint font-normal">(opcional)</span>}
@@ -7976,7 +7971,6 @@ export default function SubjectPage() {
                     // una sola vez por apertura — no hay nada más que esperar.
                     autoFocus={PUEDE_AUTOFOCUS && field === 'apellidoPaterno'}
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder={placeholder}
                   />
                 </div>
               ))}
@@ -8048,7 +8042,7 @@ export default function SubjectPage() {
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, [field]: e.target.value }))}
                   required={field !== 'apellidoMaterno'}
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder={
+                  aria-label={
                     field === 'apellidoPaterno' ? 'Apellido paterno'
                       : field === 'apellidoMaterno' ? 'Apellido materno'
                       : 'Nombre(s)'
@@ -8063,7 +8057,6 @@ export default function SubjectPage() {
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, comentarios: e.target.value }))}
                   rows={3}
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
-                  placeholder="Ej: necesita apoyo extra, cambió de grupo, etc."
                 />
               </div>
               <button
@@ -8662,7 +8655,6 @@ export default function SubjectPage() {
                     value={closeParcialSesiones}
                     onChange={(e) => setCloseParcialSesiones(e.target.value)}
                     disabled={closingParcial}
-                    placeholder="—"
                     className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   />
                 </div>
@@ -9002,15 +8994,13 @@ export default function SubjectPage() {
                 <label htmlFor="edit-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input id="edit-subject-nombre" type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej: Matemáticas I" />
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               <div>
                 <label htmlFor="edit-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input id="edit-subject-grupo" type="text" value={editSubjectForm.grupo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej: 1A, 2B, 3C" />
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               <div>
                 <p className="block text-sm font-medium text-muted mb-1">
@@ -9083,15 +9073,13 @@ export default function SubjectPage() {
                 <label htmlFor="copy-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input id="copy-subject-nombre" type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej: Matemáticas II" />
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               <div>
                 <label htmlFor="copy-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input id="copy-subject-grupo" type="text" value={copyForm.grupo} onChange={(e) => setCopyForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej: 1A, 2B, 3C" />
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               <div>
                 <p className="block text-sm font-medium text-muted mb-1">
@@ -9158,7 +9146,7 @@ export default function SubjectPage() {
               value={deleteSubjectConfirmText}
               onChange={(e) => setDeleteSubjectConfirmText(e.target.value)}
               className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 text-sm bg-surface mb-2"
-              placeholder={subject?.nombre}
+              aria-label={subject?.nombre}
             />
             <div className="flex gap-2">
               <button type="button" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
@@ -9258,9 +9246,9 @@ export default function SubjectPage() {
                 <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Datos</p>
                 <div className="space-y-2">
                   <input type="text" value={unarchiveEdits.nombre} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, nombre: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" placeholder="Asignatura" />
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" aria-label="Asignatura" />
                   <input type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" placeholder="Grupo (ej: 1A)" />
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" aria-label="Grupo (ej: 1A)" />
                   <div className="space-y-2">
                     <div>
                       <span className="block text-sm text-slate-500 mb-1">Inicio</span>
@@ -9367,7 +9355,6 @@ export default function SubjectPage() {
                   onChange={(e) => setResourceForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder="Ej: Programa de la asignatura"
                 />
               </div>
               <div>
@@ -9378,7 +9365,6 @@ export default function SubjectPage() {
                   onChange={(e) => setResourceForm((f) => ({ ...f, descripcion: e.target.value }))}
                   rows={2}
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
-                  placeholder="Ej: Consulta este documento antes del primer parcial"
                 />
               </div>
               <div>
@@ -9417,7 +9403,6 @@ export default function SubjectPage() {
                     value={resourceForm.enlace}
                     onChange={(e) => setResourceForm((f) => ({ ...f, enlace: e.target.value }))}
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    placeholder="https://..."
                   />
                   <p className="text-xs text-hint mt-1">Video de YouTube, documento de Google Drive, sitio externo, etc.</p>
                 </div>

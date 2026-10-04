@@ -573,7 +573,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     <label htmlFor="aviso-mensaje" className="block text-sm font-medium text-on-surface">Mensaje <span className="font-normal text-muted">(opcional)</span></label>
                   </div>
                   <textarea id="aviso-mensaje" value={form.mensaje} onChange={(e) => setForm((f) => ({ ...f, mensaje: e.target.value }))}
-                    rows={5} placeholder="Deja este campo vacío si el título ya lo dice todo"
+                    rows={5}
                     className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
@@ -700,13 +700,12 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   </div>
                   <div>
                     <label htmlFor="plantilla-label" className="block text-sm font-medium text-on-surface mb-1">Nombre</label>
-                    <input id="plantilla-label" type="text" value={plantillaForm.label} onChange={(e) => setPlantillaForm((f) => ({ ...f, label: e.target.value }))}
-                      placeholder="Ej. No habrá clase" className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm" />
+                    <input id="plantilla-label" type="text" value={plantillaForm.label} onChange={(e) => setPlantillaForm((f) => ({ ...f, label: e.target.value }))} className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm" />
                   </div>
                   <div>
                     <label htmlFor="plantilla-mensaje" className="block text-sm font-medium text-on-surface mb-1">Mensaje sugerido (opcional)</label>
                     <textarea id="plantilla-mensaje" value={plantillaForm.mensaje} onChange={(e) => setPlantillaForm((f) => ({ ...f, mensaje: e.target.value }))}
-                      rows={3} placeholder="Se precarga al elegir esta plantilla — puedes ajustarlo cada vez"
+                      rows={3}
                       className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
                   </div>
                 </div>

@@ -93,7 +93,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
 
             <textarea value={r.enunciado} disabled={!r.incluir || guardando}
               onChange={(e) => update(i, { enunciado: e.target.value })}
-              rows={2} placeholder="Enunciado del reactivo"
+              rows={2} aria-label="Enunciado del reactivo"
               className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface disabled:opacity-60" />
 
             {r.tipo === 'opcion_multiple' && (
@@ -104,7 +104,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
                       onChange={() => update(i, { correcta: j })} className="accent-[var(--accent)] flex-shrink-0" />
                     <input type="text" value={texto} disabled={!r.incluir || guardando}
                       onChange={(e) => updateOpcion(i, j, e.target.value)}
-                      placeholder={`Opción ${String.fromCharCode(65 + j)}`}
+                      aria-label={`Opción ${String.fromCharCode(65 + j)}`}
                       className="flex-1 px-2 py-1 rounded border border-outline-variant text-sm bg-surface disabled:opacity-60" />
                   </div>
                 ))}

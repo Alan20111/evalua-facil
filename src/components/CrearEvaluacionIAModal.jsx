@@ -148,14 +148,12 @@ export default function CrearEvaluacionIAModal({
             <label htmlFor="ia-eval-nombre" className="block text-sm text-on-surface mb-1">Nombre de la evaluación</label>
             <input id="ia-eval-nombre" type="text" value={nombre} disabled={trabajando}
               onChange={(e) => setNombre(e.target.value)}
-              placeholder={`Ej: ${tipoLabel} — Unidad 2`}
               className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
           </div>
           <div>
             <label htmlFor="ia-eval-quiere" className="block text-sm text-on-surface mb-1">¿Qué quieres evaluar?</label>
             <textarea id="ia-eval-quiere" value={quiereEvaluar} disabled={trabajando} rows={4}
               onChange={(e) => setQuiereEvaluar(e.target.value)}
-              placeholder="Describe con el mayor detalle posible el tema, contenidos, conceptos, procedimientos, habilidades o aspectos que quieres evaluar."
               className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
           </div>
           <div className="flex items-center justify-between gap-3">

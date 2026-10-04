@@ -85,6 +85,8 @@ check "text-slate-400 (no pasa contraste — usar text-hint) — WCAG 1.4.3" '(^
 check "Radio fuera de escala (rounded-md/lg/xl/2xl/3xl) — DESIGN_SYSTEM.md §4.1" '(^|[^a-z-])rounded-(md|lg|xl|2xl|3xl)([^a-z0-9-]|$)' '-E'
 check "Sombra fuera de escala (shadow-sm/md/xl) — DESIGN_SYSTEM.md §4.2" '(^|[^a-z-])shadow-(sm|md|xl)([^a-z0-9-]|$)' '-E'
 check "Separación fuera de escala (gap/space-y 2.5 o 5, mt/mb-5) — DESIGN_SYSTEM.md §4.4" '(^|[^a-z-])((gap|gap-x|gap-y|space-y)-(2\.5|5)|m[tb]-5)([^a-z0-9.-]|$)' '-E'
+check "placeholder (texto gris en campos — prohibido; usa etiqueta o aria-label) — DESIGN_SYSTEM.md §6.2" '(^|[^A-Za-z.])placeholder(=|:)' '-E'
+check "Texto centrado en campos (los campos alinean a la izquierda) — DESIGN_SYSTEM.md §6.2" '<(input|textarea)[^>]*text-center' '-E'
 
 echo ""
 echo "=== Candados de accesibilidad — docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 1 ==="
@@ -109,7 +111,7 @@ fi
 ratchet "Modales a mano (fixed inset-0 fuera de ui/Modal.jsx) — migrar a ui/Modal en Fase 3" \
   'fixed inset-0' 42 'components/ui/Modal.jsx' files
 ratchet "h-screen (rompe con la barra de URL de Chrome Android, usar dvh) — Fase 5 paso 5.3" \
-  '\bh-screen\b' 27
+  '\bh-screen\b' 25
 ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
   '([0-9]+)(vh)\b' 58
 # Presupuesto subido de 52 a 54 (Fase 2, paso 2.8): min-h-[44px]/min-w-[44px]

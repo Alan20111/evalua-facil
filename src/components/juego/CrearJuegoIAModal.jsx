@@ -117,7 +117,6 @@ export default function CrearJuegoIAModal({
             <label htmlFor="ia-juego-contexto" className="block text-sm text-on-surface mb-1">Tema / contexto</label>
             <textarea id="ia-juego-contexto" value={contexto} disabled={trabajando} rows={3}
               onChange={(e) => setContexto(e.target.value)}
-              placeholder="Describe el tema del que quieres las palabras (opcional si adjuntas un documento)."
               className="w-full px-2.5 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
           </div>
 

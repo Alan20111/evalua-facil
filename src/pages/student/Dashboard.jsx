@@ -726,8 +726,7 @@ export default function StudentDashboard() {
                 autoCapitalize="characters"
                 spellCheck={false}
                 maxLength={8}
-                placeholder="A3B7K2"
-                className="w-full px-4 py-3.5 rounded-card border-2 border-outline-variant focus:border-accent focus:outline-none text-2xl font-mono font-bold tracking-[0.25em] indent-[0.25em] text-center bg-surface text-on-surface placeholder:text-slate-300 placeholder:font-normal transition-colors"
+                className="w-full px-4 py-3.5 rounded-card border-2 border-outline-variant focus:border-accent focus:outline-none text-2xl font-mono font-bold tracking-[0.25em] indent-[0.25em] bg-surface text-on-surface transition-colors"
               />
               <p className="text-xs text-hint mt-2 text-center">
                 Son 6 caracteres, entre letras y números

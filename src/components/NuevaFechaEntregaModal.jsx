@@ -150,7 +150,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
           {mode === 'algunos' && (
             <div className="mt-3">
               <div className="mb-2">
-                <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nombre o número de lista…" />
+                <SearchInput value={search} onChange={setSearch} etiqueta="Buscar por nombre o número de lista…" />
               </div>
               {errorEntregas ? (
                 <p className="text-xs text-red-600 mb-2">No se pudieron revisar las entregas. Cierra y vuelve a abrir esta ventana.</p>
@@ -184,7 +184,6 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
               <div className="mt-2">
                 <label htmlFor="motivo-extension" className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-hint">(opcional)</span></label>
                 <textarea id="motivo-extension" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
-                  placeholder="Ej.: Falta justificada por duelo familiar"
                   className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
               </div>
             </div>

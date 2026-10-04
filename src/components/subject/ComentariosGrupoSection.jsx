@@ -90,7 +90,7 @@ export default function ComentariosGrupoSection({ subjectId, docenteId }) {
       <textarea
         className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
         rows={4}
-        placeholder={PLACEHOLDER}
+        aria-label={PLACEHOLDER}
         value={comentarios}
         onChange={(e) => setComentarios(e.target.value)}
         maxLength={2000}

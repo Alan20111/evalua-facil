@@ -22,10 +22,10 @@ const VACIO = {
 }
 
 const PREGUNTAS = [
-  { campo: 'temasDomina', texto: '¿Qué temas de esta asignatura dominas mejor?', placeholder: 'Ej. Álgebra y trigonometría.' },
-  { campo: 'temasFortalecer', texto: '¿Qué temas consideras que necesitas fortalecer?', placeholder: 'Ej. Estadística y probabilidad.' },
-  { campo: 'temasFacilExplicar', texto: '¿Qué temas se te facilitan más para explicar?', placeholder: '' },
-  { campo: 'temasDificilExplicar', texto: '¿Qué temas se te dificultan más para explicar?', placeholder: '' },
+  { campo: 'temasDomina', texto: '¿Qué temas de esta asignatura dominas mejor?' },
+  { campo: 'temasFortalecer', texto: '¿Qué temas consideras que necesitas fortalecer?' },
+  { campo: 'temasFacilExplicar', texto: '¿Qué temas se te facilitan más para explicar?' },
+  { campo: 'temasDificilExplicar', texto: '¿Qué temas se te dificultan más para explicar?' },
 ]
 
 const MAX_LARGO = 500
@@ -144,14 +144,13 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
             generar la Planeación Didáctica Inicial.
           </p>
           <div className="space-y-3">
-            {PREGUNTAS.map(({ campo, texto, placeholder }) => (
+            {PREGUNTAS.map(({ campo, texto }) => (
               <div key={campo}>
                 <label htmlFor={`autoanalisis-${campo}`} className="block text-sm text-on-surface mb-1">{texto}</label>
                 <textarea
                   id={`autoanalisis-${campo}`}
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
                   rows={2}
-                  placeholder={placeholder}
                   value={respuestas[campo]}
                   onChange={(e) => setRespuestas((prev) => ({ ...prev, [campo]: e.target.value }))}
                   maxLength={MAX_LARGO}
