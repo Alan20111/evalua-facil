@@ -227,20 +227,23 @@ export function EsqueletoAsignaturaAlumno({ parciales = 3 }) {
   return (
     <SkeletonGroup etiqueta="Cargando la asignatura…" className="bg-surface">
       <div data-esq="subj-alu-encabezado" className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
+        <span className="md:hidden p-2 -ml-2 flex-shrink-0"><Skeleton className="w-[1.528rem] h-[1.528rem]" /></span>
         <Skeleton data-esq="subj-alu-icono" className="w-9 h-9 rounded flex-shrink-0" />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
           <SkeletonLine texto="text-lg font-bold" className="w-48 max-w-full" />
           <SkeletonLine texto="text-sm font-medium" className="w-32" />
         </div>
-        <span className="p-2"><Skeleton className="w-[1.389rem] h-[1.389rem]" /></span>
+        <span className="p-2"><Skeleton className="w-[1.319rem] h-[1.319rem]" /></span>
       </div>
       <div data-esq="subj-alu-pestanas-fondo" className="relative bg-surface-card border-b border-outline-variant">
         <div data-esq="subj-alu-pestanas" className="px-4 flex gap-1 overflow-hidden">
-        {Array.from({ length: 4 }, (_, i) => (
-          <span key={i} data-esq="subj-alu-pestana" className={cn('px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 flex-shrink-0', i === 0 ? 'border-skeleton' : 'border-transparent')}>
-            <SkeletonLine texto="text-sm font-medium" className="w-20" />
-          </span>
-        ))}
+          {/* Con los textos REALES de las pestañas, en transparente: cada barra mide
+              exactamente el ancho de su etiqueta, sin adivinar. */}
+          {['Actividades y calificaciones', 'Asistencias', 'Recursos', 'Avisos'].map((t, i) => (
+            <span key={t} data-esq="subj-alu-pestana" className={cn('px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 flex-shrink-0', i === 0 ? 'border-skeleton' : 'border-transparent')}>
+              <span className="rounded-full bg-skeleton animate-pulse motion-reduce:animate-none text-transparent select-none">{t}</span>
+            </span>
+          ))}
         </div>
       </div>
       <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
@@ -311,7 +314,7 @@ export function EsqueletoSesion({ rol = 'docente', contenido = 'tablero' }) {
       </div>
       {/* Barra inferior del móvil: 100% de ancho, esquinas de arriba redondeadas */}
       {!IS_NATIVE_APP && (
-        <div aria-hidden="true" data-esq="nav-inferior" className="md:hidden fixed bottom-0 left-0 right-0 w-full bg-surface-card border-t border-outline-variant rounded-t-card">
+        <div aria-hidden="true" data-esq="nav-inferior" className="md:hidden fixed bottom-0 left-0 right-0 w-full bg-surface-card rounded-t-card">
           <div className="flex px-2">
             {Array.from({ length: 4 }, (_, i) => (
               <span key={i} className="flex-1 min-w-0 flex flex-col items-center px-1 py-2 gap-1">

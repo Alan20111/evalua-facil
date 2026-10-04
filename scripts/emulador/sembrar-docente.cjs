@@ -32,5 +32,17 @@ const CLAVE = 'PruebaEmu-2026!'
   for (const [n, ap] of [['Ana', 'López'], ['Luis', 'Pérez'], ['Eva', 'Ruiz']]) {
     await db.collection('students').add({ asignaturaId: ids[0], docenteId: uid, escuelaId: 'CBTIS255', nombre: n, apellidoPaterno: ap, username: (n.slice(0,2)+ap.slice(0,2)).toUpperCase(), activado: false, orden: 1 })
   }
-  console.log(JSON.stringify({ uid, ids, actividad: a.id }))
+  // Segunda actividad publicada y un alumno de prueba inscrito en 2 asignaturas
+  await db.collection('activities').add({
+    asignaturaId: ids[0], docenteId: uid, parcial: 1, tipo: 'tarea', titulo: 'Tarea 2', nombre: 'Tarea 2', maxCalif: 10,
+    descripcion: '<p>Lee el capítulo 2.</p>', publicado: true, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  })
+  const al = await auth.createUser({ email: 'anlo.cbtis255@evalua.local', password: CLAVE, emailVerified: true })
+  for (const [k, i] of [[0, 1], [2, 2]]) {
+    await db.collection('students').add({
+      uid: al.uid, asignaturaId: ids[k], docenteId: uid, escuelaId: 'CBTIS255', nombre: 'Ana', apellidoPaterno: 'López',
+      username: 'ANLO', activado: true, orden: i,
+    })
+  }
+  console.log(JSON.stringify({ uid, ids, actividad: a.id, alumno: al.uid }))
 })().catch((e) => { console.error(e); process.exit(1) })

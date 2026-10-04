@@ -218,7 +218,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           {/* Subjects heading — links to dashboard */}
           <NavLink
             to="/alumno/dashboard"
-            className="mx-2 px-2 pt-4 pb-1 flex items-center justify-between rounded hover:bg-white/10 transition-colors group"
+            className="mx-2 mt-2 px-4 py-2 flex items-center justify-between rounded-full hover:bg-white/10 transition-colors group"
           >
             {/* Mismo tamaño y tratamiento que "Asignaturas" en el panel del
                 docente (Layout.jsx): 22px, sin `uppercase` — "Asignaturas"
