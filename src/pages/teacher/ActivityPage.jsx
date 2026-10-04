@@ -1441,8 +1441,8 @@ export default function ActivityPage() {
             </div>
           )}
           {activity?.instrucciones && (
-            <div className="mt-2 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
-              <div className="px-4 py-2 bg-accent-light border-b border-accent">
+            <div className="mt-2 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
+              <div className="px-4 py-2 bg-accent-light border-b border-accent-soft">
                 <h2 className="font-semibold text-sm text-accent">Instrucciones</h2>
               </div>
               <div
@@ -1470,8 +1470,8 @@ export default function ActivityPage() {
         </div>
 
         {/* ── Entregas — same accent container as Preguntas/Configuración ── */}
-        <div id="entregas-container" className="mx-4 my-4 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
-          <div className="px-4 py-3 bg-accent-light border-b border-accent">
+        <div id="entregas-container" className="mx-4 my-4 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
+          <div className="px-4 py-3 bg-accent-light border-b border-accent-soft">
             <h2 className="font-semibold text-accent">Entregas</h2>
           </div>
 

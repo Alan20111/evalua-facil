@@ -23,8 +23,8 @@ export default function FileDropzone({ onFilesSelected, multiple = true, accept,
         setDragOver(false)
         handleFiles(e.dataTransfer.files)
       }}
-      className={`w-full border-2 border-dashed rounded p-4 text-center cursor-pointer transition-colors block ${
-        dragOver ? 'border-accent bg-[var(--accent-tint)]' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
+      className={`w-full border border-dashed rounded p-4 text-center cursor-pointer transition-colors block ${
+        dragOver ? 'border-accent-soft bg-[var(--accent-tint)]' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
       }`}
     >
       <Upload size={22} className="mx-auto text-accent mb-1" />

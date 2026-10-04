@@ -98,7 +98,7 @@ export default function IconSelect({ value = 'book', onChange }) {
           data-tooltip="Ícono propio · sube una imagen cuadrada de 64×64 px (PNG, JPG, WebP o SVG, máx. 1 MB)"
           data-tooltip-pos="left"
           aria-label="Subir ícono propio"
-          className={`aspect-square rounded flex items-center justify-center transition-colors border-2 border-dashed ${isCustom ? 'border-[var(--accent)] bg-[var(--accent-tint)]' : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
+          className={`aspect-square rounded flex items-center justify-center transition-colors border border-dashed ${isCustom ? 'border-[var(--accent)] bg-[var(--accent-tint)]' : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
         >
           {uploading
             ? <Loader2 size={IS_NATIVE_APP ? 15 : 19} className="animate-spin" />

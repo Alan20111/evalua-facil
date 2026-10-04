@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   LogOut,
-  User,
   Plus,
   Archive,
   ChevronRight,
@@ -24,7 +23,6 @@ import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { configurarBloqueoExportacion } from '../utils/exportGuard'
 import { subjectDisplayName } from '../utils/subjectName'
-import { teacherDisplayName } from '../utils/studentSearch'
 import { IS_NATIVE_APP } from '../utils/platform'
 import SubjectIcon from './SubjectIcon'
 import PortalBadge from './PortalBadge'
@@ -33,6 +31,9 @@ import AppQRButton from './AppQRButton'
 import ConfirmModal from './ConfirmModal'
 import SkipLink from './SkipLink'
 import CreditosBar from './CreditosBar'
+import { teacherDisplayName } from '../utils/studentSearch'
+import { SB_FILA, SB_INACTIVA, SB_ACTIVA, SB_ACTIVA_SUAVE, SB_GRUPO, SB_ICONO, NAV_ITEM } from '../config/sidebar'
+import AvatarNav from './AvatarNav'
 import CanalYouTubeLink from './CanalYouTubeLink'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -46,10 +47,9 @@ import { SkeletonList } from './ui'
 // suya y habían divergido —py-1.5 en unos, py-2 en otros—, así que los
 // renglones no medían igual. gap-2 y px-3 son los mismos del menú
 // principal, para que TODO el sidebar alinee su texto en una vertical.
-const ITEM_SECUNDARIO =
-  'flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm font-medium transition-colors'
-const ITEM_SEC_INACTIVO = 'text-white/80 hover:bg-white/10 hover:text-white'
-const ITEM_SEC_ACTIVO = 'bg-white/15 text-white'
+const ITEM_SECUNDARIO = SB_FILA
+const ITEM_SEC_INACTIVO = SB_INACTIVA
+const ITEM_SEC_ACTIVO = SB_ACTIVA_SUAVE
 
 function navIconPillCls(isActive) {
   if (!IS_NATIVE_APP) return ''
@@ -133,7 +133,7 @@ export default function TeacherLayout({ children }) {
           en escritorio (md:hidden). El WebView de Android a veces reporta un
           viewport ≥768px activando el breakpoint md: de Tailwind, lo que
           mostraría el sidebar en lugar de la navegación móvil. */}
-      <header className={`${IS_NATIVE_APP ? '' : 'md:hidden'} sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top`}>
+      <header className={`${IS_NATIVE_APP ? '' : 'md:hidden'} sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2 flex items-center justify-between shadow-card safe-top`}>
         <div className="flex items-center gap-2 min-w-0">
           <EFLogo subtitle={false} className="h-8 w-auto flex-shrink-0" />
           {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de PortalBadge, no un atributo ARIA */}
@@ -145,7 +145,7 @@ export default function TeacherLayout({ children }) {
           <NavLink
             to="/ayuda"
             aria-label="Ayuda para comenzar"
-            className="p-2 text-muted hover:text-accent rounded transition-colors"
+            className="p-2 text-muted hover:text-accent rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <BookOpen size={20} />
           </NavLink>
@@ -153,7 +153,7 @@ export default function TeacherLayout({ children }) {
             type="button"
             onClick={requestLogout}
             aria-label="Cerrar sesión"
-            className="p-2 text-muted hover:text-error rounded transition-colors"
+            className="p-2 text-muted hover:text-error rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <LogOut size={20} />
           </button>
@@ -195,7 +195,7 @@ export default function TeacherLayout({ children }) {
               para aprovechar mejor el espacio del panel. */}
           <NavLink
             to="/profile"
-            className="flex items-center gap-3 px-3 py-2 mx-2 rounded hover:bg-white/10 transition-colors group"
+            className="flex items-center gap-3 px-4 py-2 mx-2 rounded-card hover:bg-white/10 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             {/* 65px pedido explícito. */}
             <div className="w-[65px] h-[65px] rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
@@ -215,23 +215,23 @@ export default function TeacherLayout({ children }) {
             <ChevronRight size={16} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
           </NavLink>
 
-          {/* Horario y Agenda */}
-          <NavLink
-            to="/calendario"
-            className={({ isActive }) =>
-              `flex items-center gap-2 mx-2 px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
-                isActive
-                  ? 'bg-white text-accent shadow-card'
-                  : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
-              }`
-            }
-          >
-            <CalendarDays size={20} className="flex-shrink-0" />
-            Horario y Agenda
-          </NavLink>
+          {/* Horario y Agenda — misma fila estándar; se distingue por su fondo */}
+          <div className="px-2">
+            <NavLink
+              to="/calendario"
+              className={({ isActive }) =>
+                `${SB_FILA} font-semibold ${
+                  isActive ? SB_ACTIVA : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
+                }`
+              }
+            >
+              <CalendarDays size={SB_ICONO} className="flex-shrink-0" />
+              Horario y Agenda
+            </NavLink>
+          </div>
 
           {/* Subjects header → goes to the full subjects list */}
-          <NavLink to="/dashboard" className="mx-2 px-3 pt-3 pb-1 flex items-center justify-between rounded hover:bg-white/10 transition-colors group">
+          <NavLink to="/dashboard" className="mx-2 px-4 pt-3 pb-1 flex items-center justify-between rounded-full hover:bg-white/10 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
             {/* De ~14 a 22 px (pedido explícito): pasaba desapercibida pese a
                 ser un link a la lista completa. Se quita `uppercase` — en
                 mayúsculas a este tamaño se lee como un GRITO, no como
@@ -244,27 +244,25 @@ export default function TeacherLayout({ children }) {
           </NavLink>
 
           {/* Subject list */}
-          <div className="flex-1 min-h-32 overflow-y-auto px-2 pb-2">
+          <div className="flex-1 min-h-32 overflow-y-auto px-2 pb-2 space-y-1">
             {loadingSidebar ? (
-              <SkeletonList rows={3} sobreColor className="px-3 py-2" />
+              <SkeletonList rows={3} sobreColor className="px-4 py-2.5" />
             ) : activeSubjects.length === 0 ? (
-              <p className="text-body-sm text-white/70 px-3 py-2">Sin asignaturas aún</p>
+              <p className="text-body-sm text-white/70 px-4 py-2.5">Sin asignaturas aún</p>
             ) : (
               activeSubjects.map((s) => (
                 <NavLink
                   key={s.id}
                   to={`/subject/${s.id}`}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 px-3 py-2.5 rounded transition-colors ${
-                      isActive ? 'bg-white text-accent font-bold shadow-lg' : 'text-white/90 hover:bg-white/15'
-                    }`
+                    `${SB_FILA} ${isActive ? SB_ACTIVA : SB_INACTIVA}`
                   }
                 >
-                  <SubjectIcon iconKey={s.icon} size={20} className="flex-shrink-0" />
+                  <SubjectIcon iconKey={s.icon} size={SB_ICONO} className="flex-shrink-0" />
                   {/* 14 px pedido explícito — antes text-body-sm (13.5 px, por
                       la raíz de 14.4 del proyecto). Solo el nombre de la
                       asignatura, no el resto del panel. */}
-                  <span className="truncate text-[14px]">{subjectDisplayName(s)}</span>
+                  <span className="truncate">{subjectDisplayName(s)}</span>
                 </NavLink>
               ))
             )}
@@ -273,7 +271,7 @@ export default function TeacherLayout({ children }) {
             <button
               type="button"
               onClick={() => navigate('/dashboard', { state: { openCreate: true } })}
-              className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm font-medium text-white hover:bg-white/10 transition-colors mt-1"
+              className={`${SB_FILA} text-white hover:bg-white/10`}
             >
               <Plus size={20} className="flex-shrink-0" />
               Nueva asignatura…
@@ -301,7 +299,7 @@ export default function TeacherLayout({ children }) {
               se ve igual que antes. min-h-12: nunca menos que el botón de
               Archivadas. */}
           <div className="mt-2 min-h-12 overflow-y-auto border-t border-white/15">
-            <div className="px-2 py-2 space-y-0.5">
+            <div className={SB_GRUPO}>
               {/* Perfil para IA del docente — arriba del QR, pedido explícito
                   (FASE 2-BIS del Plan Maestro de IA). Contexto general del
                   docente, se captura una sola vez y se reutiliza en todas las
@@ -313,7 +311,7 @@ export default function TeacherLayout({ children }) {
                   `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
                 }
               >
-                <Sparkles size={20} className="flex-shrink-0" />
+                <Sparkles size={SB_ICONO} className="flex-shrink-0" />
                 Perfil para IA del docente
               </NavLink>
 
@@ -327,7 +325,7 @@ export default function TeacherLayout({ children }) {
                   `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
                 }
               >
-                <Bell size={20} className="flex-shrink-0" />
+                <Bell size={SB_ICONO} className="flex-shrink-0" />
                 Notificaciones
               </NavLink>
 
@@ -337,7 +335,7 @@ export default function TeacherLayout({ children }) {
                   `${ITEM_SECUNDARIO} ${isActive ? ITEM_SEC_ACTIVO : ITEM_SEC_INACTIVO}`
                 }
               >
-                <BookOpen size={20} className="flex-shrink-0" />
+                <BookOpen size={SB_ICONO} className="flex-shrink-0" />
                 Ayuda para comenzar
               </NavLink>
 
@@ -345,7 +343,7 @@ export default function TeacherLayout({ children }) {
                   NavLink ni tiene estado activo. Solo vive en el sidebar: la
                   barra superior del móvil no lleva un ícono más. */}
               <CanalYouTubeLink className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}>
-                <CirclePlay size={20} className="flex-shrink-0" />
+                <CirclePlay size={SB_ICONO} className="flex-shrink-0" />
                 Canal de YouTube
               </CanalYouTubeLink>
             </div>
@@ -364,16 +362,16 @@ export default function TeacherLayout({ children }) {
                     aria-expanded={showArchived}
                     className={`${ITEM_SECUNDARIO} text-white/60 hover:bg-white/10 hover:text-white`}
                   >
-                    <Archive size={20} className="flex-shrink-0" />
+                    <Archive size={SB_ICONO} className="flex-shrink-0" />
                     <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
                     {/* La flecha va a la DERECHA de la palabra (pedido explícito)
                         y gira al desplegar — mismo lenguaje que un <details>, sin
                         serlo, para no perder el estilo propio del botón. */}
-                    <ChevronRight size={14} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
+                    <ChevronRight size={16} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
                   </button>
                 </div>
                 {showArchived && (
-                  <div className="px-2 pt-0.5 pb-2 space-y-0.5">
+                  <div className="px-2 pt-1 pb-2 space-y-1">
                     {archivedSubjects.map((s) => (
                       // pl-10: el nombre (tras el ícono) debe empezar más a la
                       // derecha de donde arranca la palabra "Archivadas" en el
@@ -385,12 +383,10 @@ export default function TeacherLayout({ children }) {
                         key={s.id}
                         to={`/subject/${s.id}`}
                         className={({ isActive }) =>
-                          `flex items-center gap-2 pl-10 pr-3 py-2 rounded text-body-sm transition-colors ${
-                            isActive ? 'bg-white text-accent font-bold shadow-lg' : 'text-white/70 hover:bg-white/15'
-                          }`
+                          `${SB_FILA} pl-12 ${isActive ? SB_ACTIVA : SB_INACTIVA}`
                         }
                       >
-                        <SubjectIcon iconKey={s.icon} size={20} className="flex-shrink-0" />
+                        <SubjectIcon iconKey={s.icon} size={SB_ICONO} className="flex-shrink-0" />
                         <span className="truncate">{subjectDisplayName(s)}</span>
                       </NavLink>
                     ))}
@@ -413,7 +409,7 @@ export default function TeacherLayout({ children }) {
               onClick={requestLogout}
               className={`${ITEM_SECUNDARIO} ${ITEM_SEC_INACTIVO}`}
             >
-              <LogOut size={20} className="flex-shrink-0" />
+              <LogOut size={SB_ICONO} className="flex-shrink-0" />
               Cerrar sesión
             </button>
           </div>
@@ -436,63 +432,42 @@ export default function TeacherLayout({ children }) {
 
       {/* Mobile bottom nav — en la app nativa siempre visible; en la web se
           oculta en escritorio (md:hidden). Misma razón que el <header>.
-          Ancho: en la app lo fija --layout-w (Samsung S23); en la web lo da
-          `right-0` — sin él la barra `fixed` se encoge a su contenido y queda
-          cortada (~204 de 375px). */}
+          Ancho: en la app lo fija --layout-w (Samsung S23); en la web es
+          `w-full` + `left-0 right-0`, así llena el 100% de CUALQUIER pantalla
+          (sin ellos la barra `fixed` se encoge a su contenido y queda cortada).
+          Esquinas de ARRIBA redondeadas, como el encabezado lleva las de abajo. */}
       <nav
+        aria-label="Navegación principal"
         style={IS_NATIVE_APP ? { width: 'var(--layout-w)' } : undefined}
-        className={`${IS_NATIVE_APP ? '' : 'right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}
+        className={`${IS_NATIVE_APP ? '' : 'w-full right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant rounded-t-card safe-bottom`}
       >
-        <div className="flex">
-          <NavLink
-            to="/dashboard"
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
-                isActive ? 'text-accent' : 'text-muted'
-              }`
-            }
-          >
+        {/* Estándar de espaciado: px-2 en la barra y px-1 py-2 gap-1 por botón
+            (misma escala que el resto de la app). Cuatro botones iguales
+            (flex-1); el de perfil va al final, a la derecha, con la foto. */}
+        <div className="flex px-2">
+          <NavLink to="/dashboard" className={NAV_ITEM}>
             {({ isActive }) => (<>
               <span className={navIconPillCls(isActive)}><LayoutDashboard size={24} /></span>
               <span>Asignaturas</span>
             </>)}
           </NavLink>
-          <NavLink
-            to="/calendario"
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
-                isActive ? 'text-accent' : 'text-muted'
-              }`
-            }
-          >
+          <NavLink to="/calendario" className={NAV_ITEM}>
             {({ isActive }) => (<>
               <span className={navIconPillCls(isActive)}><CalendarDays size={24} /></span>
               <span>Horario</span>
             </>)}
           </NavLink>
-          <NavLink
-            to="/notificaciones"
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
-                isActive ? 'text-accent' : 'text-muted'
-              }`
-            }
-          >
+          <NavLink to="/notificaciones" className={NAV_ITEM}>
             {({ isActive }) => (<>
               <span className={navIconPillCls(isActive)}><Bell size={24} /></span>
               <span>Notificaciones</span>
             </>)}
           </NavLink>
-          <NavLink
-            to="/profile"
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
-                isActive ? 'text-accent' : 'text-muted'
-              }`
-            }
-          >
+          <NavLink to="/profile" className={NAV_ITEM}>
             {({ isActive }) => (<>
-              <span className={navIconPillCls(isActive)}><User size={24} /></span>
+              <span className={navIconPillCls(isActive)}>
+                <AvatarNav foto={userProfile?.photoURL} nombre={teacherDisplayName(userProfile)} activo={isActive} />
+              </span>
               <span>Perfil</span>
             </>)}
           </NavLink>

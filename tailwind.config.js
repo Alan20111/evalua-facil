@@ -12,6 +12,7 @@ export default {
           DEFAULT: 'var(--accent)',
           hover: 'var(--accent-hover)',
           light: 'var(--accent-light)',
+          soft: 'var(--accent-soft)',
         },
         // Luminous neutral/surface tokens (CSS vars in src/index.css)
         surface: {

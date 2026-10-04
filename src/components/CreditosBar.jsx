@@ -10,6 +10,7 @@
 // 10 / 3 / 0 créditos restantes. Cada umbral se anuncia UNA vez por saldo
 // (marca en localStorage por uid+saldo) — discreto y sin repetirse.
 
+import { SB_FILA, SB_INACTIVA, SB_ICONO } from '../config/sidebar'
 import { useEffect, useState } from 'react'
 import { Sparkles, Gift } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -96,20 +97,20 @@ export default function CreditosBar({ variant = 'sidebar' }) {
           aria-label={c.mostrarCTAActivarBienvenida ? 'Activa tus 30 créditos IA de regalo' : `Créditos de IA: ${c.saldo} disponibles. Ver detalle`}
           className={
             c.mostrarCTAActivarBienvenida
-              ? 'w-full px-3 py-2 rounded text-left bg-white text-accent font-semibold shadow-lg hover:bg-white/90 transition-colors'
-              : 'w-full px-3 py-2 rounded text-left hover:bg-white/10 transition-colors'
+              ? `${SB_FILA} text-left bg-white text-accent font-semibold shadow-card hover:bg-white/90`
+              : `${SB_FILA} text-left ${SB_INACTIVA}`
           }
         >
           {c.mostrarCTAActivarBienvenida ? (
-            <div className="flex items-center gap-2 text-body-sm">
-              <Gift size={16} className="flex-shrink-0" />
+            <>
+              <Gift size={SB_ICONO} className="flex-shrink-0" />
               <span className="flex-1">Activa tus 30 créditos IA de regalo</span>
-            </div>
+            </>
           ) : (
-            <div className="flex items-center gap-2 text-body-sm text-white/90">
-              <Sparkles size={15} className={`flex-shrink-0 ${critico ? 'text-red-300' : bajo ? 'text-amber-300' : ''}`} />
+            <>
+              <Sparkles size={SB_ICONO} className={`flex-shrink-0 ${critico ? 'text-red-300' : bajo ? 'text-amber-300' : ''}`} />
               <span className="flex-1">IA · <span className="font-semibold tabular-nums">{c.saldo}</span> créditos</span>
-            </div>
+            </>
           )}
         </button>
       </div>

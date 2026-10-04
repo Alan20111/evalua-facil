@@ -923,7 +923,7 @@ export default function StudentActivityPage() {
         {/* Status */}
         <div className={`rounded-card p-4 flex items-center gap-3 ${
           isGraded ? 'bg-emerald-50 border border-emerald-200' :
-          isDelivered ? 'bg-accent-light border border-accent' :
+          isDelivered ? 'bg-accent-light border border-accent-soft' :
           'bg-surface border border-outline-variant'
         }`}>
           {isGraded ? <CheckCircle size={26} className="text-emerald-500 flex-shrink-0" />
@@ -1087,10 +1087,10 @@ export default function StudentActivityPage() {
                   punteada y se recortaba a media letra en pantallas angostas o
                   con la fuente del sistema en grande. Así conserva el mismo alto
                   cuando el contenido cabe, y crece cuando no. */}
-              <label className={`flex flex-col items-center justify-center w-full min-h-[7rem] sm:min-h-[8rem] px-3 py-3 border-2 border-dashed rounded transition-colors ${
+              <label className={`flex flex-col items-center justify-center w-full min-h-[7rem] sm:min-h-[8rem] px-3 py-3 border border-dashed rounded transition-colors ${
                 hayEnlace
                   ? 'border-outline-variant opacity-50 cursor-not-allowed'
-                  : files.length ? 'border-accent bg-accent-light cursor-pointer' : 'border-outline-variant hover:border-accent hover:bg-surface cursor-pointer'
+                  : files.length ? 'border-accent-soft bg-accent-light cursor-pointer' : 'border-outline-variant hover:border-accent hover:bg-surface cursor-pointer'
               }`}>
                 <input
                   type="file"

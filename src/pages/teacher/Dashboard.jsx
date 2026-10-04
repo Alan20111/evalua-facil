@@ -9,15 +9,13 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
-import { addDoc, writeBatch, updateDoc } from '../../utils/firestoreGuard'
+import { addDoc, writeBatch } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import Select from '../../components/ui/Select'
-import AvatarCropModal from '../../components/AvatarCropModal'
-import { uploadToCloudinary } from '../../utils/cloudinary'
-import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe, Smartphone, Sparkles, CirclePlay } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Archive, Globe, Smartphone, Sparkles, CirclePlay } from 'lucide-react'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
@@ -34,7 +32,6 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 import AppQRButton from '../../components/AppQRButton'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
-import { syncPublicProfile } from '../../utils/publicProfile'
 import { EsqueletoTableroDocente } from '../../components/esqueletos'
 
 function generateAccessCode() {
@@ -44,15 +41,12 @@ function generateAccessCode() {
 export default function TeacherDashboard() {
   // Teléfono abierto en el navegador (siempre false en la app).
   const telefonoWeb = useTelefonoWeb()
-  const { currentUser, userProfile, setUserProfile } = useAuth()
+  const { currentUser, userProfile } = useAuth()
   const location = useLocation()
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
   // Pedido explícito: en la App (no en la web) se puede tocar la foto del
   // saludo para cambiarla al vuelo, sin entrar al perfil.
-  const [cropFile, setCropFile] = useState(null)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const photoInputRef = useRef(null)
 
   // Modelo de créditos puros (20-ago-2026): crear contenido ya no depende de
   // ninguna suscripción — todo lo no-IA es gratis para cualquier docente.
@@ -90,29 +84,6 @@ export default function TeacherDashboard() {
   // abierto, cae al comportamiento default (doble tap para salir).
   useBackHandler(() => setShowSubjectModal(false), showSubjectModal)
   useScrollLock(showSubjectModal)
-
-  function handlePhotoChange(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setCropFile(file)
-    if (photoInputRef.current) photoInputRef.current.value = ''
-  }
-
-  async function handleCropConfirm(croppedFile) {
-    setUploadingPhoto(true)
-    try {
-      const url = await uploadToCloudinary(croppedFile, 'evalua-facil/avatars')
-      await updateDoc(doc(db, 'users', currentUser.uid), { photoURL: url })
-      await syncPublicProfile(currentUser.uid, { photoURL: url })
-      setUserProfile((p) => ({ ...p, photoURL: url }))
-      setCropFile(null)
-      toast('Foto actualizada')
-    } catch (err) {
-      toast('Error al subir foto: ' + err.message, 'error')
-    } finally {
-      setUploadingPhoto(false)
-    }
-  }
 
   // Datos en vivo — mismo mecanismo (onSnapshot) que usa el sidebar en
   // Layout.jsx, en vez de una carga única propia: antes ambos podían
@@ -342,74 +313,22 @@ export default function TeacherDashboard() {
     <>
       <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
-        {/* Greeting — "Hola {nombre}" en un solo renglón cuando cabe (con
-            la foto a la derecha del nombre si el docente dejó activado "Los
-            estudiantes pueden ver mi foto de perfil" en su Perfil) — pedido
-            explícito: así el docente ve tal cual lo que verían sus alumnos.
-            "{prefijo} {nombre visible}" es el mismo que ven los alumnos
-            (teacherDisplayName, misma fuente de verdad que en sus pantallas).
-            El nombre va en un inline-block y SIN truncate: si no cabe junto a
-            "Hola", baja entero al siguiente renglón en vez de cortarse a
-            media palabra. Un nombre largo nunca se recorta — que se lea
-            completo importa más que dejarlo en una sola línea. */}
+        {/* Saludo — "Hola {nombre}". La foto de perfil ya no vive aquí: es el
+            primer botón de la barra inferior (a la izquierda) y se cambia en
+            Perfil. "{prefijo} {nombre visible}" es el mismo que ven los
+            alumnos (teacherDisplayName). El nombre va en un inline-block y
+            SIN truncate: si no cabe junto a "Hola", baja entero al siguiente
+            renglón en vez de cortarse a media palabra. */}
         <div className="mb-4">
           <div className="flex items-center gap-2 min-w-0">
             <h1 className="text-lg font-bold text-on-surface min-w-0">
               Hola <span className="inline-block">{teacherGreetingName}</span>
             </h1>
-            {/* Pedido explícito: en la App se puede tocar la foto para
-                cambiarla al vuelo, sin entrar al perfil — por eso ahí se
-                muestra siempre (con iniciales si aún no hay foto), aunque en
-                la web solo aparezca cuando ya hay foto y está visible para
-                alumnos. */}
-            {IS_NATIVE_APP ? (
-              // 48px: el 75% de los 64px que medía. Solo en la app — en la
-              // web esta foto se queda como estaba (pedido explícito).
-              <button
-                type="button"
-                onClick={() => photoInputRef.current?.click()}
-                aria-label="Cambiar foto de perfil"
-                className="relative w-12 h-12 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0"
-              >
-                {userProfile?.photoURL ? (
-                  <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-lg font-bold text-accent">{teacherGreetingName.charAt(0).toUpperCase()}</span>
-                )}
-                {/* Insignia en la esquina, NO tapa la foto — pedido explícito:
-                    se tiene que poder ver al estudiante/docente sin el ícono encima. */}
-                <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-accent border-2 border-surface-card flex items-center justify-center">
-                  <Camera size={10} className="text-white" />
-                </span>
-              </button>
-            ) : (
-              userProfile?.mostrarFotoAlumnos !== false && userProfile?.photoURL && (
-                <img src={userProfile.photoURL} alt="" className="w-16 h-16 rounded-full object-cover flex-shrink-0" />
-              )
-            )}
           </div>
           {userProfile?.schoolName && (
             <p className="text-hint text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
           )}
         </div>
-        {IS_NATIVE_APP && (
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={handlePhotoChange}
-          />
-        )}
-        {cropFile && (
-          <AvatarCropModal
-            file={cropFile}
-            onCancel={() => setCropFile(null)}
-            onConfirm={handleCropConfirm}
-            saving={uploadingPhoto}
-          />
-        )}
-
         {loading ? (
           <EsqueletoTableroDocente />
         ) : (
@@ -524,7 +443,7 @@ export default function TeacherDashboard() {
               <button
                 type="button"
                 onClick={openSubjectModal}
-                className="mb-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
+                className="mb-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-dashed border-accent-soft text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
               >
                 <Plus size={18} /> Nueva asignatura
               </button>

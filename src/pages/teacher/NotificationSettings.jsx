@@ -414,8 +414,8 @@ export default function TeacherNotificationSettings() {
                 verla; eso ya está resuelto (navigate a /notificaciones al
                 tocar, más el orden por disparadoEn — ver entryDate abajo),
                 así que ya no hace falta el workaround. */}
-            <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
-              <div className="px-4 py-3 bg-accent-light border-b border-accent flex items-center gap-2">
+            <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
+              <div className="px-4 py-3 bg-accent-light border-b border-accent-soft flex items-center gap-2">
                 <Bell size={18} className="text-accent flex-shrink-0" />
                 <h2 className="font-semibold text-accent">Tus notificaciones</h2>
               </div>
@@ -448,7 +448,7 @@ export default function TeacherNotificationSettings() {
 
             {/* Sonido, volumen y repetición los controla el teléfono, no la
                 app — aquí solo explicamos cómo activarlas ahí. */}
-            <div className="bg-surface-card rounded-card shadow-card border border-accent p-4">
+            <div className="bg-surface-card rounded-card shadow-card border border-accent-soft p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Settings size={16} className="text-accent flex-shrink-0" />
                 <p className="text-sm font-semibold text-on-surface">Cómo activar las notificaciones en tu celular</p>

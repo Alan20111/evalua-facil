@@ -530,8 +530,8 @@ export default function EvaluacionRunner() {
                     <CheckCircle2 size={16} className="flex-shrink-0" />
                   </div>
                 )}
-                <label className={`flex flex-col items-center justify-center gap-1.5 p-5 rounded border-2 border-dashed cursor-pointer transition-colors ${
-                  uploadingPregunta === pregunta.id ? 'border-outline-variant opacity-60 pointer-events-none' : 'border-accent/40 hover:bg-[var(--accent-tint)]'
+                <label className={`flex flex-col items-center justify-center gap-1.5 p-5 rounded border border-dashed cursor-pointer transition-colors ${
+                  uploadingPregunta === pregunta.id ? 'border-outline-variant opacity-60 pointer-events-none' : 'border-accent-soft hover:bg-[var(--accent-tint)]'
                 }`}>
                   {uploadingPregunta === pregunta.id ? <Spinner size="sm" /> : <Upload size={22} className="text-accent" />}
                   <span className="text-sm font-medium text-on-surface">

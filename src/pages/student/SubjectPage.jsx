@@ -746,7 +746,7 @@ export default function StudentSubjectPage() {
 
                 {isOpen && (
                   <div className="border-t border-outline-variant pr-4 py-2">
-                    <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
+                    <div className="ml-3 pl-3 border-l-2 border-accent-soft space-y-1.5">
                     {unified.length === 0 && (
                       <p className="text-hint text-sm text-center py-2">{filtrando ? 'Sin actividades que se califiquen' : 'Sin actividades'}</p>
                     )}

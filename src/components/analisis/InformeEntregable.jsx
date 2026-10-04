@@ -30,7 +30,7 @@ function EditorTexto({ vigente, guardando, onGuardar, onCancelar, puedeRestaurar
   )
   const unaPorRenglon = 'Una idea por renglón.'
   return (
-    <div className="rounded-card border border-accent p-3 space-y-3">
+    <div className="rounded-card border border-accent-soft p-3 space-y-3">
       <p className="text-sm text-muted">Corrige o completa el texto. Los datos calculados no se editan y el texto original de la IA se conserva.</p>
       {campo('ent-resumen', 'Resumen ejecutivo', resumen, setResumen, 4)}
       {campo('ent-fortalezas', 'Fortalezas', fortalezas, setFortalezas, 4, unaPorRenglon)}

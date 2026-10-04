@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { NAV_ITEM } from '../config/sidebar'
 import { LayoutDashboard, CalendarDays, Bell, User } from 'lucide-react'
 import { IS_NATIVE_APP } from '../utils/platform'
 
@@ -20,20 +21,18 @@ export default function StudentBottomNav() {
     // Samsung S23 Capacitor resuelve al visual viewport de ~410px, causando el hueco).
     // En la web ese ancho no se aplica, así que el ancho lo da `right-0`: sin él
     // la barra `fixed` se encoge a su contenido (~204 de 375px) y queda cortada.
+    // `w-full` + left/right-0 la hace llenar el 100% de cualquier pantalla.
     <nav
+      aria-label="Navegación principal"
       style={IS_NATIVE_APP ? { width: 'var(--layout-w)' } : undefined}
-      className={`${IS_NATIVE_APP ? '' : 'right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom`}
+      className={`${IS_NATIVE_APP ? '' : 'w-full right-0 md:hidden'} fixed bottom-0 left-0 z-30 bg-surface-card border-t border-outline-variant rounded-t-card safe-bottom`}
     >
-      <div className="flex">
+      <div className="flex px-2">
         {NAV_TABS.map(({ to, label, Icon }) => (
           <NavLink
             key={to}
             to={to}
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
-                isActive ? 'text-accent' : 'text-muted'
-              }`
-            }
+            className={NAV_ITEM}
           >
             {({ isActive }) => (<>
               <span className={navIconPillCls(isActive)}><Icon size={24} /></span>

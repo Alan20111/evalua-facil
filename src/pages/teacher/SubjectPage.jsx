@@ -5551,14 +5551,16 @@ export default function SubjectPage() {
   return (
     <>
       <div {...subjectPaletteProps(subject?.colorPalette)}>
-      <div className={TEACHER_CONTAINER}>
+
 
         {/* ── Header ──
-            Esquinas de ABAJO redondeadas (arriba no: ahí topa con la barra
+            A TODO EL ANCHO del área de contenido (sin importar la pantalla) y con
+            esquinas de ABAJO redondeadas (arriba no: ahí topa con la barra
             superior). Con el lienzo azul, este bloque blanco pasó a leerse como
             una tarjeta, y una tarjeta que termina en canto recto se ve cortada,
             no terminada. */}
-        <div className="bg-surface-card border-b border-outline-variant rounded-b-card px-4 py-2">
+        <div className="bg-surface-card border-b border-outline-variant rounded-b-card">
+          <div className={`${TEACHER_CONTAINER} px-4 py-2`}>
           <div className="flex items-center gap-2">
             <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
               <ArrowLeft size={22} />
@@ -5687,7 +5689,10 @@ export default function SubjectPage() {
               Para ver Calificaciones, usa la web.
             </p>
           )}
+          </div>
         </div>
+
+        <div className={TEACHER_CONTAINER}>
 
         {/* ══════════════════════════════════════════════════════════
             TAB: ACTIVIDADES
@@ -5709,8 +5714,8 @@ export default function SubjectPage() {
               return (
                 // Open parcial gets the same accent container treatment as the
                 // Preguntas/Configuración sections — it's obvious you're inside it
-                <div key={p} className={`bg-surface-card rounded-card overflow-hidden shadow-card ${isOpen ? 'border border-accent' : ''}`}>
-                  <div className={isOpen ? 'bg-accent-light border-b border-accent' : ''}>
+                <div key={p} className={`bg-surface-card rounded-card overflow-hidden shadow-card ${isOpen ? 'border border-accent-soft' : ''}`}>
+                  <div className={isOpen ? 'bg-accent-light border-b border-accent-soft' : ''}>
                   <div className="w-full flex items-center gap-1">
                     <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
                       className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-medium)] transition-colors text-left">
@@ -5757,7 +5762,7 @@ export default function SubjectPage() {
 
                   {isOpen && (
                     <div className="border-t border-outline-variant pr-4 py-2">
-                      <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
+                      <div className="ml-3 pl-3 border-l-2 border-accent-soft space-y-1.5">
                       {(() => {
                         const unified = buildUnifiedParcial(acts, mats)
                         // Con el filtro solo se OMITEN filas al pintar; cada fila conserva su
@@ -6036,8 +6041,8 @@ export default function SubjectPage() {
                       {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openAdd(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevas actividades'}
-                        className={`w-full py-2.5 border-2 border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
+                        className={`w-full py-2.5 border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                          canCreate ? 'border-accent-soft text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Plus size={17} /> Agregar actividad
                       </button>
@@ -6045,8 +6050,8 @@ export default function SubjectPage() {
                       {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openAddMaterial(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevo material de apoyo'}
-                        className={`w-full py-2.5 border-2 border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
+                        className={`w-full py-2.5 border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                          canCreate ? 'border-accent-soft text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <BookOpen size={17} /> Agregar material de apoyo
                       </button>
@@ -6054,8 +6059,8 @@ export default function SubjectPage() {
                       {!IS_NATIVE_APP && (
                       <button type="button" onClick={() => openImport(p)}
                         data-tooltip="Copia actividades de otra de tus asignaturas a este parcial"
-                        className={`w-full py-2.5 border-2 border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
+                        className={`w-full py-2.5 border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                          canCreate ? 'border-accent-soft text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Copy size={17} /> Traer de otra asignatura
                       </button>
@@ -7015,7 +7020,7 @@ export default function SubjectPage() {
                 onClick={downloadStudentTemplate}
                 data-tooltip="Descargar plantilla en Excel para pegar datos de estudiantes"
                 data-tooltip-nowrap=""
-                className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors text-left"
+                className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent-soft bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors text-left"
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">1</span>
                 <div className="min-w-0">
@@ -7028,7 +7033,7 @@ export default function SubjectPage() {
               <label
                 data-tooltip="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
                 data-tooltip-nowrap=""
-                className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors cursor-pointer"
+                className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent-soft bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors cursor-pointer"
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">2</span>
                 <div className="min-w-0">
@@ -7042,7 +7047,7 @@ export default function SubjectPage() {
               <button
                 type="button"
                 onClick={() => setShowCredentialsModal(true)}
-                className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors text-left"
+                className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent-soft bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors text-left"
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">3</span>
                 <div className="min-w-0">
@@ -8083,7 +8088,7 @@ export default function SubjectPage() {
                   type="button"
                   onClick={() => { handleAllowRejoin(studentToEdit); setStudentToEdit(null) }}
                   disabled={savingStudent}
-                  className="w-full py-2.5 rounded border border-accent/30 text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 rounded border border-accent-soft text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   <LogIn size={17} />
                   Permitir reingreso — salió de la asignatura

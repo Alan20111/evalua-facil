@@ -76,7 +76,7 @@ export function SeccionHeader({
   onMover, onEditar, onEliminar, onAgregarReactivo, disabled,
 }) {
   return (
-    <div className="rounded-card px-3 py-2" style={{ background: 'var(--accent-light)', border: '1px solid var(--accent)' }}>
+    <div className="rounded-card px-3 py-2" style={{ background: 'var(--accent-light)', border: '1px solid var(--accent-soft)' }}>
       <div className="flex items-start gap-2">
         <FolderOpen size={17} className="text-accent flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
@@ -115,7 +115,7 @@ export function SeccionHeader({
       </div>
       {onAgregarReactivo && (
         <button type="button" onClick={onAgregarReactivo} disabled={disabled}
-          className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-2 rounded-full border border-dashed border-accent text-accent text-xs font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40">
+          className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-2 rounded-full border border-dashed border-accent-soft text-accent text-xs font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40">
           <Plus size={14} /> Agregar reactivo a esta sección
         </button>
       )}
