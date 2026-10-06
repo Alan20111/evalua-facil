@@ -35,8 +35,8 @@ const db = admin.firestore()
 const dryRun = process.argv.includes('--dry-run')
 
 const TARIFAS = {
-  version: 8,
-  actualizadoEl: '2026-10-02',
+  version: 9,
+  actualizadoEl: '2026-10-05',
   // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
   // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
   chatAsistenteActivo: false,
@@ -77,10 +77,11 @@ const TARIFAS = {
     resumen_grupo: 1,
     rubrica: 2,
     // Generar reactivos (banco de un cuestionario/examen ya guardado) —
-    // 0.25 crédito por REACTIVO realmente generado (unidadesReales en
-    // ejecutarReactivos, functions/ia.js) — mismo criterio unitario que
-    // crear_evaluacion_ia.
-    reactivos: 0.25,
+    // 1 crédito por REACTIVO realmente generado (unidadesReales en
+    // ejecutarReactivos, functions/ia.js). Corregido el 5-oct-2026 (PO): era
+    // 0.25 y el modal mostraba/cobraba 1.25 por 5 reactivos. El modal
+    // (estimar) y el cobro (creditosDe) leen ESTE mismo valor.
+    reactivos: 1,
     // OP-11: calificar una entrega con IA. Tarifa diferenciada por tipo de
     // evidencia (tope 3 archivos, ver evidenciasEntrega.js):
     //   · Documentos (PDF o Word): 0.25 créditos
