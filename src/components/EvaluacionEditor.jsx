@@ -2136,7 +2136,7 @@ export default function EvaluacionEditor({
         <ConfirmacionCreditosModal
           titulo="Generar reactivos con IA"
           descripcion="El asistente redacta los reactivos a partir de lo que describas abajo; tú los revisas, editas y decides cuáles agregar."
-          costoMin={creditosIA.estimar('reactivos', iaCantidad) ?? 0.25 * iaCantidad}
+          costoMin={creditosIA.estimar('reactivos', iaCantidad) ?? iaCantidad}
           ejecutando={iaTrabajando}
           continuarDeshabilitado={iaTiposSeleccionados.length === 0}
           onCancelar={() => { if (!iaTrabajando) setIaConfirmando(false) }}
