@@ -6533,7 +6533,7 @@ export default function SubjectPage() {
             <>
               {nativeAttBar}
               <div className="flex-1 overflow-auto p-3 space-y-2">
-                <p className="text-hint text-sm text-center py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+                <p className="text-hint text-sm text-center py-4">Aún no hay días de asistencia. Configura primero el horario de esta asignatura.</p>
                 {attendanceStudentsRosterJsx}
               </div>
             </>
@@ -6566,7 +6566,7 @@ export default function SubjectPage() {
             <>
               {tomarListaMovilBar}
               <div className="flex-1 overflow-auto overscroll-contain p-3 space-y-2">
-                <p className="text-hint text-sm text-center py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+                <p className="text-hint text-sm text-center py-4">Aún no hay días de asistencia. Configura primero el horario de esta asignatura.</p>
                 {attendanceStudentsRosterJsx}
               </div>
             </>
@@ -6719,7 +6719,7 @@ export default function SubjectPage() {
             <SkeletonTable rows={8} cols={5} className="py-6" />
           ) : attendanceRecords.length === 0 ? (
             <>
-              <p className="text-center text-hint text-sm py-4">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+              <p className="text-center text-hint text-sm py-4">Aún no hay días de asistencia. Configura primero el horario de esta asignatura.</p>
               {attendanceStudentsRosterJsx}
             </>
           ) : attendanceParciales.length === 0 ? (
