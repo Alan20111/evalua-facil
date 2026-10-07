@@ -21,7 +21,7 @@ import { resolverFuentes, avisarFuentesOmitidas } from '../utils/fuentesIA'
 import FuentesIAInput from './ia/FuentesIAInput'
 import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
 import {
-  MIN_REACTIVOS, MAX_REACTIVOS_EVALUACION,
+  MIN_REACTIVOS_CREAR_EVALUACION, MAX_REACTIVOS_EVALUACION,
   TIPOS_REACTIVO_IA_CHECKBOXES, TIPOS_REACTIVO_IA_DEFAULT,
 } from '../utils/reactivosIA'
 import Checkbox from './ui/Checkbox'
@@ -161,7 +161,7 @@ export default function CrearEvaluacionIAModal({
             <select id="ia-eval-cantidad" value={cantidad} disabled={trabajando}
               onChange={(e) => setCantidad(Number(e.target.value))}
               className="px-2 py-1 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-              {Array.from({ length: tope - MIN_REACTIVOS + 1 }, (_, i) => MIN_REACTIVOS + i).map((n) => (
+              {Array.from({ length: tope - MIN_REACTIVOS_CREAR_EVALUACION + 1 }, (_, i) => MIN_REACTIVOS_CREAR_EVALUACION + i).map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>

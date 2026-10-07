@@ -34,9 +34,6 @@ import SearchInput from './SearchInput'
 import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ReactivosIAReview from './evaluacion/ReactivosIAReview'
-import FuentesIAInput from './ia/FuentesIAInput'
-import { resolverFuentes, avisarFuentesOmitidas } from '../utils/fuentesIA'
-import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
 import {
   MIN_REACTIVOS, MAX_REACTIVOS, DEFAULT_REACTIVOS,
   TIPOS_REACTIVO_IA_CHECKBOXES, TIPOS_REACTIVO_IA_DEFAULT,
@@ -279,10 +276,6 @@ export default function EvaluacionEditor({
   // reactivos. Marcado por default en ese caso: usar la evaluación en curso
   // como referencia de tema es el gesto natural cuando ya hay contenido.
   const [iaMismoTema, setIaMismoTema] = useState(true)
-  // Fuentes opcionales (hasta 3 PDF/Word) — mismo mecanismo que OP-03/OP-04:
-  // fuente ADICIONAL a "qué quieres evaluar", nunca la sustituye.
-  const [iaArchivos, setIaArchivos] = useState([])
-  const fuentesGuardadas = useFuentesAsignatura(subjectId, docenteId)
   useBackHandler(() => setIaConfirmando(false), iaConfirmando)
   useBackHandler(() => setIaPropuesta(null), !!iaPropuesta)
 
@@ -782,7 +775,7 @@ export default function EvaluacionEditor({
   // ── OP-09 · Generar reactivos con IA ──────────────────────────────────────
   function pedirReactivosIA() {
     if (!currentActivityId) { toast('Guarda la información antes de generar reactivos', 'error'); return }
-    setIaTema(''); setIaQuiereEvaluar(''); setIaCantidad(DEFAULT_REACTIVOS); setIaTiposSeleccionados(TIPOS_REACTIVO_IA_DEFAULT); setIaArchivos([])
+    setIaTema(''); setIaQuiereEvaluar(''); setIaCantidad(DEFAULT_REACTIVOS); setIaTiposSeleccionados(TIPOS_REACTIVO_IA_DEFAULT)
     // Si hay reactivos previos, "mismo tema" arranca marcado (comportamiento
     // por defecto pedido). Si no los hay, el checkbox no se muestra y su
     // valor da igual — se resetea a true para dejar el estado consistente.
@@ -800,7 +793,6 @@ export default function EvaluacionEditor({
     }
     setIaTrabajando(true)
     try {
-      const urls = iaArchivos.length ? await resolverFuentes(iaArchivos) : []
       // "Mismo tema": solo aplica si de verdad hay reactivos previos. Se manda
       // la lista mínima (tipo + enunciado) — sin opciones, sin clave — como
       // referencia del tema para el servidor. Cuando NO está activo, el
@@ -816,7 +808,6 @@ export default function EvaluacionEditor({
         quiereEvaluar: usarMismoTema ? '' : iaQuiereEvaluar,
         cantidad: iaCantidad,
         tipos: iaTiposSeleccionados,
-        fuentes: urls,
         mismoTema: usarMismoTema,
         reactivosExistentes: usarMismoTema
           ? preguntas.map((p) => ({ tipo: p.tipo, enunciado: p.enunciado }))
@@ -827,7 +818,6 @@ export default function EvaluacionEditor({
       const propuesta = reactivosDesdePropuesta(r?.resultado, iaCantidad)
       setIaPropuesta(propuesta)
       setIaConfirmando(false)
-      avisarFuentesOmitidas(toast, r?.resultado?.avisos)
     } catch (err) {
       toast(err.message, 'error')
     } finally {
@@ -2215,8 +2205,6 @@ export default function EvaluacionEditor({
                 <p className="text-xs text-amber-700 mt-1.5">Selecciona al menos un tipo de reactivo.</p>
               )}
             </div>
-            <FuentesIAInput files={iaArchivos} onChange={setIaArchivos} disabled={iaTrabajando} fuentesGuardadas={fuentesGuardadas}
-              mostrarLimiteVisual />
           </div>
         </ConfirmacionCreditosModal>
       )}

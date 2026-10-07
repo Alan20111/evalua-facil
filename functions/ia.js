@@ -2012,11 +2012,16 @@ const REACTIVOS_PADRES_VALIDOS = { cuestionario: 'cuestionario', examen: 'examen
 const MIN_QUIERE_EVALUAR = 40
 const MAX_QUIERE_EVALUAR = 4000
 const MIN_REACTIVOS = 2 // SOLO el examen que propone el Chat (sanearPropuestaAccionChat): no se toca
-// Mínimo de reactivos al GENERAR con IA (6-oct-2026, decisión de Kike): desde
-// 1 reactivo = 1 crédito, tanto en 'reactivos' (dentro de una evaluación ya
-// guardada) como en 'crear_evaluacion_ia'. El cliente lo espeja en
-// src/utils/reactivosIA.js (MIN_REACTIVOS); una prueba los compara.
+// Mínimo de reactivos al AGREGAR con IA a una evaluación que ya existe
+// ('reactivos'): desde 1 reactivo = 1 crédito (6-oct-2026, decisión de Kike).
+// El cliente lo espeja en src/utils/reactivosIA.js (MIN_REACTIVOS); una
+// prueba los compara.
 const MIN_REACTIVOS_GENERACION_IA = 1
+// Mínimo de reactivos al CREAR un cuestionario o examen completo con IA
+// ('crear_evaluacion_ia'): 2 (7-oct-2026, decisión de Kike). Un 1 se RECHAZA
+// antes de reservar créditos; no se sube en silencio a 2 (se cobraría de menos).
+// El cliente lo espeja en src/utils/reactivosIA.js (MIN_REACTIVOS_CREAR_EVALUACION).
+const MIN_REACTIVOS_CREAR_EVALUACION_IA = 2
 const MAX_REACTIVOS = 10
 const TIPOS_REACTIVO = ['opcion_multiple', 'verdadero_falso', 'respuesta_corta', 'subir_archivo']
 
@@ -2103,15 +2108,12 @@ async function precheckReactivos({ uid, params }) {
       { codigo: 'TIPOS_VACIOS' })
   }
 
-  // Fuentes permanentes de la asignatura (generales + las del parcial de esta
-  // actividad, nunca las de otro parcial) + hasta 3 PDF/Word que el docente
-  // adjuntó a mano aquí — mismo mecanismo que crear_evaluacion_ia: fuente
-  // ADICIONAL, "qué quiere evaluar" sigue siendo la fuente principal (ver
-  // REACTIVOS_SISTEMA/promptReactivos más abajo).
-  const fuentes = await bloqueFuentesOperacion(db, {
-    asignaturaId: act.asignaturaId, parcial: act.parcial, fuentesManual: params?.fuentes,
-    limiteVisualFijo: true,
-  })
+  // Agregar reactivos a una evaluación que ya existe NO lee documentos (7-oct-2026,
+  // decisión de Kike): ni los que el docente adjuntaba, ni los materiales
+  // permanentes de la asignatura. `params.fuentes` se IGNORA — una pestaña vieja
+  // todavía puede mandarlo. El contexto es el de siempre: los reactivos que ya
+  // tiene la evaluación (`mismoTema` + `reactivosExistentes`) y lo que el docente
+  // describe. Sin fuentes, el prompt es exactamente el de "sin adjuntos".
 
   return {
     clase,
@@ -2123,9 +2125,9 @@ async function precheckReactivos({ uid, params }) {
     cantidad,
     tipoSolicitado: seleccion.modo === 'legado' ? seleccion.tipos[0] : (seleccion.modo === 'arreglo' ? seleccion.tipos : 'mixto'),
     tipos: tiposParaLote(seleccion.modo === 'arreglo' ? seleccion.tipos : (seleccion.modo === 'legado' ? seleccion.tipos[0] : 'mixto'), cantidad),
-    bloqueFuentes: fuentes.texto,
-    fuentesBloques: fuentes.bloques,
-    fuentesAvisos: fuentes.avisos,
+    bloqueFuentes: null,
+    fuentesBloques: [],
+    fuentesAvisos: [],
   }
 }
 
@@ -2880,7 +2882,16 @@ async function precheckCrearEvaluacion({ uid, params }) {
       { codigo: 'CONTEXTO_INSUFICIENTE' })
   }
 
-  const cantidad = clampInt(params?.cantidad, 10, MIN_REACTIVOS_GENERACION_IA, MAX_REACTIVOS_EVALUACION)
+  // Lo que el docente pidió, tal cual: menos de 2 se RECHAZA (no se corrige en
+  // silencio a 2, porque el cobro se calcula con las unidades que reservó el
+  // cliente). Sin cantidad válida se conserva el valor por omisión de siempre.
+  const cantidadPedida = Number.isInteger(params?.cantidad) ? params.cantidad : parseInt(params?.cantidad, 10)
+  if (Number.isFinite(cantidadPedida) && cantidadPedida < MIN_REACTIVOS_CREAR_EVALUACION_IA) {
+    throw new HttpsError('failed-precondition',
+      `Un cuestionario o examen con IA necesita al menos ${MIN_REACTIVOS_CREAR_EVALUACION_IA} reactivos. No se descontaron créditos.`,
+      { codigo: 'MINIMO_REACTIVOS' })
+  }
+  const cantidad = clampInt(params?.cantidad, 10, MIN_REACTIVOS_CREAR_EVALUACION_IA, MAX_REACTIVOS_EVALUACION)
   // Contrato dual (idéntico a precheckReactivos): `params.tipos: string[]`
   // (nuevo cliente, checkboxes) o `params.tipoSolicitado` legado. Arreglo vacío
   // se rechaza sin cobrar.
@@ -6820,7 +6831,7 @@ exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
 exports._pruebas = {
   pedirJSON,
   contextoDeActividad, condicionesEntregable, esCriterioTemporal, elementosTemporales, peticionTemporalExplicita, sistemaInstrumento, bloqueContexto, bloqueConsideraciones, INSTRUMENTO_SISTEMA, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
-  precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MIN_REACTIVOS_GENERACION_IA, MAX_REACTIVOS,
+  precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MIN_REACTIVOS_GENERACION_IA, MIN_REACTIVOS_CREAR_EVALUACION_IA, MAX_REACTIVOS,
   promptReactivos, sanitizarReactivosExistentes,
   agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
   agregarResultadosEncuesta, normalizarAnalisisEncuestaContexto, promptAnalisisEncuestaContexto, ENCUESTA_CONTEXTO_SISTEMA,

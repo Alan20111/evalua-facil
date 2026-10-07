@@ -26,7 +26,10 @@ import {
   rubricaDesdePropuesta, cotejoDesdePropuesta, esCotejo,
   propuestaFueEditada, trazaIA,
 } from '../src/utils/rubrica.js'
-import { reactivosDesdePropuesta, reactivoValido, MIN_REACTIVOS as MIN_REACTIVOS_CLIENTE } from '../src/utils/reactivosIA.js'
+import {
+  reactivosDesdePropuesta, reactivoValido, MIN_REACTIVOS as MIN_REACTIVOS_CLIENTE,
+  MIN_REACTIVOS_CREAR_EVALUACION as MIN_CREAR_EVALUACION_CLIENTE,
+} from '../src/utils/reactivosIA.js'
 import {
   presupuestoPaginasVisual as limiteVisualCliente, DOCUMENTOS_VISUALES as DOCUMENTOS_VISUALES_CLIENTE,
 } from '../src/utils/limiteDocumentosVisuales.js'
@@ -2147,13 +2150,24 @@ caso('indicador de la pantalla: solo «Documentos visuales: máximo {30} página
   for (const prohibido of ['puedes usar hasta', 'cantidadReactivos', 'creditosOperacion', 'presupuestoPaginasVisual', 'más reactivos', 'Son los PDF hechos de imágenes']) {
     assert.ok(!input.includes(prohibido), `FuentesIAInput no debe contener «${prohibido}»`)
   }
-  for (const modal of ['../src/components/CrearEvaluacionIAModal.jsx', '../src/components/EvaluacionEditor.jsx']) {
-    const t = leer(modal)
-    assert.ok(/mostrarLimiteVisual\s*\/>/.test(t), `${modal} solo pide el indicador`)
-    assert.ok(!t.includes('cantidadReactivos'), `${modal} no pasa la cantidad de reactivos al indicador`)
+  const crear = leer('../src/components/CrearEvaluacionIAModal.jsx')
+  assert.ok(/mostrarLimiteVisual\s*\/>/.test(crear), 'crear examen solo pide el indicador')
+  assert.ok(!crear.includes('cantidadReactivos'), 'crear examen no pasa la cantidad de reactivos al indicador')
+  assert.ok(crear.includes('MIN_REACTIVOS_CREAR_EVALUACION'), 'el selector de crear examen arranca en el mínimo de 2')
+})
+caso('agregar reactivos (EvaluacionEditor): sin archivos ni documentos, y conserva «mismo tema» y reactivosExistentes', () => {
+  const t = readFileSync(require.resolve('../src/components/EvaluacionEditor.jsx'), 'utf8')
+  for (const prohibido of ['FuentesIAInput', 'iaArchivos', 'resolverFuentes', 'avisarFuentesOmitidas', 'useFuentesAsignatura', 'fuentesGuardadas', 'fuentes: urls', 'mostrarLimiteVisual']) {
+    assert.ok(!t.includes(prohibido), `EvaluacionEditor no debe contener «${prohibido}»`)
+  }
+  for (const requerido of ['iaMismoTema', 'reactivosExistentes', 'Mismo tema', 'usarMismoTema']) {
+    assert.ok(t.includes(requerido), `EvaluacionEditor debe conservar «${requerido}»`)
   }
 })
-caso('mínimo de reactivos al generar: 1 en cliente y servidor; el examen del Chat conserva su mínimo de 2', () => {
+caso('mínimo de reactivos: crear examen 2, agregar reactivos 1 (cliente y servidor coinciden); el examen del Chat conserva su mínimo de 2', () => {
+  assert.strictEqual(MIN_CREAR_EVALUACION_CLIENTE, 2)
+  assert.strictEqual(FIA.MIN_REACTIVOS_CREAR_EVALUACION_IA, 2)
+  assert.strictEqual(MIN_CREAR_EVALUACION_CLIENTE, FIA.MIN_REACTIVOS_CREAR_EVALUACION_IA, 'cliente y servidor deben coincidir')
   assert.strictEqual(MIN_REACTIVOS_CLIENTE, 1)
   assert.strictEqual(FIA.MIN_REACTIVOS_GENERACION_IA, 1)
   assert.strictEqual(MIN_REACTIVOS_CLIENTE, FIA.MIN_REACTIVOS_GENERACION_IA, 'cliente y servidor deben coincidir')
