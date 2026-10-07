@@ -78,6 +78,10 @@ const ARCHIVOS = [
   // informe del análisis de asignatura lo guarda ya con el mismo formato
   // que el resto de la plataforma.
   'nombres.js',
+  // Límite de páginas de los documentos visuales (6-oct-2026): la pantalla del
+  // docente lo muestra ANTES de generar y el servidor lo exige con ESTA misma
+  // constante y fórmula — un solo número, nunca dos copias que se desfasen.
+  'limiteDocumentosVisuales.js',
 ]
 
 function fallar(mensaje) {

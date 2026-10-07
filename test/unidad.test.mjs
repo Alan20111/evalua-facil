@@ -14,6 +14,7 @@
 
 import assert from 'node:assert'
 import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
 import { extraerAssets } from '../api/_lib/cloudinary.js'
 import {
   promedioParcial, ponderacionActivaEnParcial, normalizeGrade,
@@ -25,7 +26,10 @@ import {
   rubricaDesdePropuesta, cotejoDesdePropuesta, esCotejo,
   propuestaFueEditada, trazaIA,
 } from '../src/utils/rubrica.js'
-import { reactivosDesdePropuesta, reactivoValido } from '../src/utils/reactivosIA.js'
+import { reactivosDesdePropuesta, reactivoValido, MIN_REACTIVOS as MIN_REACTIVOS_CLIENTE } from '../src/utils/reactivosIA.js'
+import {
+  presupuestoPaginasVisual as limiteVisualCliente, DOCUMENTOS_VISUALES as DOCUMENTOS_VISUALES_CLIENTE,
+} from '../src/utils/limiteDocumentosVisuales.js'
 import { estaRespondida } from '../src/utils/evaluacionRespondida.js'
 import { diasInformativosAsistencia, esSesionInformativa, PREFIJO_INFORMATIVA } from '../src/utils/asistenciaInformativa.js'
 import {
@@ -2117,6 +2121,38 @@ caso('presupuestoPaginasVisual: nunca rebasa el tope aunque la operación sea ca
   assert.strictEqual(FUENTES.presupuestoPaginasVisual(1000), FUENTES.MAX_PAGINAS_VISUAL)
 })
 
+// ── Límite de páginas visuales (6-oct-2026): UNA definición para cliente y servidor ──
+caso('límite visual con 1 crédito por reactivo: 1→6, 2→12, 3→19, 4→25, 5 o más→30 (32 sin tope; el tope de 30 manda)', () => {
+  const porReactivos = (n) => FUENTES.presupuestoPaginasVisual(n * 1)
+  assert.deepStrictEqual([1, 2, 3, 4, 5, 6, 10, 20, 100].map(porReactivos), [6, 12, 19, 25, 30, 30, 30, 30, 30])
+  // El 32 que sale de la fórmula con 5 créditos NUNCA se alcanza: el tope es duro.
+  assert.strictEqual(Math.floor((5 * DOCUMENTOS_VISUALES_CLIENTE.mxnPorCredito * DOCUMENTOS_VISUALES_CLIENTE.fraccionIngreso) / DOCUMENTOS_VISUALES_CLIENTE.costoMxnPorPagina), 32)
+  assert.strictEqual(FUENTES.presupuestoPaginasVisual(5), 30)
+  assert.strictEqual(DOCUMENTOS_VISUALES_CLIENTE.maxPaginas, 30)
+})
+caso('límite visual: el cliente (src) y el servidor (functions/_shared) dan el MISMO número para cualquier costo', () => {
+  assert.strictEqual(FUENTES.MAX_PAGINAS_VISUAL, DOCUMENTOS_VISUALES_CLIENTE.maxPaginas)
+  assert.strictEqual(FUENTES.MIN_PAGINAS_VISUAL, DOCUMENTOS_VISUALES_CLIENTE.minPaginas)
+  for (let c = 0; c <= 200; c += 0.25) {
+    assert.strictEqual(limiteVisualCliente(c), FUENTES.presupuestoPaginasVisual(c), `créditos=${c}`)
+  }
+  assert.strictEqual(limiteVisualCliente(null), DOCUMENTOS_VISUALES_CLIENTE.minPaginas)
+  assert.strictEqual(limiteVisualCliente(undefined), DOCUMENTOS_VISUALES_CLIENTE.minPaginas)
+})
+caso('mínimo de reactivos al generar: 1 en cliente y servidor; el examen del Chat conserva su mínimo de 2', () => {
+  assert.strictEqual(MIN_REACTIVOS_CLIENTE, 1)
+  assert.strictEqual(FIA.MIN_REACTIVOS_GENERACION_IA, 1)
+  assert.strictEqual(MIN_REACTIVOS_CLIENTE, FIA.MIN_REACTIVOS_GENERACION_IA, 'cliente y servidor deben coincidir')
+  assert.strictEqual(FIA.MIN_REACTIVOS, 2, 'MIN_REACTIVOS es del Chat (chat_crear_examen): no se toca')
+  assert.strictEqual(reactivosDesdePropuesta({ reactivos: [{ tipo: 'opcion_multiple', enunciado: 'a' }, { tipo: 'opcion_multiple', enunciado: 'b' }] }, 1).length, 1)
+})
+caso('tarifas comerciales en el seed: crear_evaluacion_ia y reactivos cobran 1 crédito por reactivo (nunca 0.25)', () => {
+  const seed = readFileSync(require.resolve('../seeds-db/seed-ia-tarifas.js'), 'utf8')
+  assert.ok(/^\s+reactivos: 1,\s*$/m.test(seed), 'reactivos debe valer 1 en el seed')
+  assert.ok(/^\s+crear_evaluacion_ia: 1,\s*$/m.test(seed), 'crear_evaluacion_ia debe valer 1 en el seed')
+  assert.ok(!/^\s+(reactivos|crear_evaluacion_ia): 0\.25/m.test(seed), 'ninguna de las dos puede volver a 0.25')
+})
+
 caso('MAX_PAGINAS_VISUAL de fuentes NO es el 3 de las entregas (OP-11) — esa regresión es justo lo que se evita', () => {
   const evidencias = require('../functions/evidenciasEntrega.js')
   assert.strictEqual(evidencias.MAX_EVIDENCIAS, 3) // OP-11 intacto
@@ -2246,10 +2282,11 @@ await (async () => {
   // ── La capa común: fuentesManualRequeridas (todas las operaciones con PDF) ──
   const restaurar = fx.servirDocumentos({
     'texto.pdf': fx.pdfTexto(2), 'visual.pdf': fx.pdfImagen(3), 'mixto.pdf': fx.pdfMixto(2),
-    'blanco.pdf': fx.pdfEnBlanco(2), 'visual20.pdf': fx.pdfImagen(20), 'apuntes.docx': await fx.docxTexto('Apuntes de clase sobre la celula.'),
+    'blanco.pdf': fx.pdfEnBlanco(2), 'visual20.pdf': fx.pdfImagen(20), 'visual30.pdf': fx.pdfImagen(30), 'visual31.pdf': fx.pdfImagen(31), 'apuntes.docx': await fx.docxTexto('Apuntes de clase sobre la celula.'),
   })
   const intentar = (p) => p.then((r) => ({ r }), (e) => ({ e }))
   let soloTexto, soloVisual, mixtos, soloBlanco, blancoMasTexto, excede, excedeConOtro, conWord, generales
+  let estrictoExcede, estrictoSuma, estrictoCabe, estrictoPermanente, estricto30, estricto31
   try {
     soloTexto = await FUENTES.fuentesManualRequeridas([fx.urlFixture('texto.pdf')], { maxPaginasVisual: 19 })
     soloVisual = await FUENTES.fuentesManualRequeridas([fx.urlFixture('visual.pdf')], { maxPaginasVisual: 19 })
@@ -2259,6 +2296,15 @@ await (async () => {
     excede = await intentar(FUENTES.fuentesManualRequeridas([fx.urlFixture('visual20.pdf')], { maxPaginasVisual: 19 }))
     excedeConOtro = await FUENTES.fuentesManualRequeridas([fx.urlFixture('visual20.pdf'), fx.urlFixture('visual.pdf')], { maxPaginasVisual: 19 })
     conWord = await FUENTES.fuentesManualRequeridas([fx.urlFixture('apuntes.docx')], { maxPaginasVisual: 19 })
+    // Crear evaluación / reactivos: lo que el docente adjuntó rebasa el límite → se rechaza SIN cobrar.
+    estrictoExcede = await intentar(FUENTES.fuentesManualRequeridas([fx.urlFixture('visual20.pdf')], { maxPaginasVisual: 19, rechazarExcedente: true }))
+    estrictoSuma = await intentar(FUENTES.fuentesManualRequeridas([fx.urlFixture('visual.pdf'), fx.urlFixture('visual20.pdf')], { maxPaginasVisual: 19, rechazarExcedente: true }))
+    estrictoCabe = await FUENTES.fuentesManualRequeridas([fx.urlFixture('visual.pdf'), fx.urlFixture('texto.pdf')], { maxPaginasVisual: 19, rechazarExcedente: true })
+    // El límite AUTORIZADO es 30 páginas (con 5 reactivos o más): 30 pasa, 31 se rechaza.
+    const limite30 = FUENTES.presupuestoPaginasVisual(5)
+    estricto30 = await FUENTES.fuentesManualRequeridas([fx.urlFixture('visual30.pdf')], { maxPaginasVisual: limite30, rechazarExcedente: true })
+    estricto31 = await intentar(FUENTES.fuentesManualRequeridas([fx.urlFixture('visual31.pdf')], { maxPaginasVisual: limite30, rechazarExcedente: true }))
+    estrictoPermanente = await FUENTES.fuentesGenerales([fx.urlFixture('visual20.pdf'), fx.urlFixture('visual.pdf')], { maxPaginasVisual: 19 })
     generales = await FUENTES.fuentesGenerales([fx.urlFixture('visual.pdf')], { maxPaginasVisual: 19 })
   } finally {
     restaurar()
@@ -2309,6 +2355,48 @@ await (async () => {
     assert.strictEqual(excedeConOtro.bloques.length, 1)
     assert.strictEqual(excedeConOtro.bloques[0].source.url, fx.urlFixture('visual.pdf'))
     assert.strictEqual(excedeConOtro.avisos.length, 1)
+  })
+  caso('límite visual estricto · un PDF visual que rebasa el máximo se rechaza con el máximo en el mensaje y sin cobrar', () => {
+    assert.ok(estrictoExcede.e, 'debe lanzar')
+    assert.ok(String(estrictoExcede.e.code).includes('failed-precondition'), estrictoExcede.e.code)
+    assert.strictEqual(estrictoExcede.e.details?.codigo, 'EXCEDE_PAGINAS_VISUALES')
+    assert.ok(estrictoExcede.e.message.includes('suman 20 páginas'), estrictoExcede.e.message)
+    assert.ok(estrictoExcede.e.message.includes('máximo es de 19 páginas'), estrictoExcede.e.message)
+    assert.ok(estrictoExcede.e.message.includes('hasta 30 páginas'), 'con 19 (<30) avisa que con más reactivos sube: ' + estrictoExcede.e.message)
+    assert.ok(estrictoExcede.e.message.includes('No se descontaron créditos'))
+  })
+  caso('límite visual estricto · el máximo autorizado es 30 páginas: un documento de EXACTAMENTE 30 se procesa', () => {
+    assert.strictEqual(FUENTES.presupuestoPaginasVisual(5), 30)
+    assert.strictEqual(estricto30.bloques.length, 1)
+    assert.strictEqual(estricto30.paginasVisuales, 30)
+    assert.strictEqual(estricto30.avisos.length, 0)
+  })
+  caso('límite visual estricto · un documento de 31 páginas se rechaza, con el máximo de 30 en el mensaje y sin cobrar', () => {
+    assert.ok(estricto31.e, 'debe lanzar')
+    assert.ok(String(estricto31.e.code).includes('failed-precondition'), estricto31.e.code)
+    assert.ok(estricto31.e.message.includes('suman 31 páginas'), estricto31.e.message)
+    assert.ok(estricto31.e.message.includes('el máximo es de 30 páginas'), estricto31.e.message)
+    assert.ok(estricto31.e.message.includes('No se descontaron créditos'))
+  })
+  caso('límite visual estricto · el conjunto cuenta: 3 + 20 páginas rechaza TODO, no solo el que sobra', () => {
+    assert.ok(estrictoSuma.e, 'debe lanzar aunque uno de los dos cabe')
+    assert.ok(estrictoSuma.e.message.includes('suman 23 páginas'), estrictoSuma.e.message)
+  })
+  caso('límite visual estricto · lo que cabe pasa igual que siempre (documento visual + texto)', () => {
+    assert.strictEqual(estrictoCabe.bloques.length, 1)
+    assert.strictEqual(estrictoCabe.avisos.length, 0)
+    assert.ok(estrictoCabe.texto.includes('La celula'))
+  })
+  caso('límite visual estricto · con el tope de 30 el mensaje no promete que sube', () => {
+    assert.ok(!FUENTES.mensajeExcedePaginas(45, 30).includes('Con más reactivos'))
+    assert.ok(FUENTES.mensajeExcedePaginas(45, 25).includes('hasta 30 páginas'))
+  })
+  caso('límite visual estricto · los materiales PERMANENTES nunca bloquean: lo que no cabe se omite y se avisa (sin jerga)', () => {
+    assert.strictEqual(estrictoPermanente.bloques.length, 1)
+    assert.strictEqual(estrictoPermanente.avisos.length, 1)
+    assert.strictEqual(estrictoPermanente.avisos[0].codigo, FUENTES.CODIGO_EXCEDE_PAGINAS)
+    assert.ok(estrictoPermanente.avisos[0].motivo.includes('máximo de 19 páginas'), estrictoPermanente.avisos[0].motivo)
+    assert.ok(!/token|budget|ventana de contexto|operación individual/i.test(estrictoPermanente.avisos[0].motivo), 'sin términos técnicos')
   })
   caso('capa común · Word: texto, como siempre', () => {
     assert.strictEqual(conWord.bloques.length, 0)

@@ -142,7 +142,7 @@ function excluirUrlsPermanentes(fuentesManual, permanentesUrls) {
 // docente acaba de adjuntar a mano: lo eligió para esta operación en
 // concreto, así que no puede quedarse fuera porque la biblioteca permanente
 // ya se haya comido el presupuesto.
-async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual, creditosOperacion = 1 }) {
+async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual, creditosOperacion = 1, rechazarExcedente = false }) {
   const urlsPermanentes = await urlsFuentesPermanentes(db, asignaturaId, parcial)
   const manualSinDuplicar = excluirUrlsPermanentes(fuentesManual, urlsPermanentes)
   const maxPaginasVisual = fuentesIA.presupuestoPaginasVisual(creditosOperacion)
@@ -150,7 +150,14 @@ async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual
   // Lo que el docente adjuntó a mano SÍ bloquea si nada de ello sirvió: lo
   // acaba de elegir y merece enterarse, en vez de que la evaluación salga en
   // silencio sin el material que él creía haber aportado.
-  const manual = await fuentesIA.fuentesManualRequeridas(manualSinDuplicar, { maxPaginasVisual })
+  //
+  // `rechazarExcedente` (solo crear evaluación y reactivos): si lo que adjuntó
+  // rebasa el límite de páginas visuales, la operación se detiene aquí, ANTES de
+  // reservar créditos, con el máximo en el mensaje — en vez de omitir el
+  // documento en silencio y cobrar. Los materiales permanentes NO bloquean:
+  // el docente no los eligió en esta operación, así que lo que no cabe de ellos
+  // se omite y se avisa, como siempre.
+  const manual = await fuentesIA.fuentesManualRequeridas(manualSinDuplicar, { maxPaginasVisual, rechazarExcedente })
 
   const permanentes = await bloqueFuentesPermanentes(
     db, asignaturaId, parcial,
@@ -1998,7 +2005,12 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
 const REACTIVOS_PADRES_VALIDOS = { cuestionario: 'cuestionario', examen: 'examen' }
 const MIN_QUIERE_EVALUAR = 40
 const MAX_QUIERE_EVALUAR = 4000
-const MIN_REACTIVOS = 2
+const MIN_REACTIVOS = 2 // SOLO el examen que propone el Chat (sanearPropuestaAccionChat): no se toca
+// Mínimo de reactivos al GENERAR con IA (6-oct-2026, decisión de Kike): desde
+// 1 reactivo = 1 crédito, tanto en 'reactivos' (dentro de una evaluación ya
+// guardada) como en 'crear_evaluacion_ia'. El cliente lo espeja en
+// src/utils/reactivosIA.js (MIN_REACTIVOS); una prueba los compara.
+const MIN_REACTIVOS_GENERACION_IA = 1
 const MAX_REACTIVOS = 10
 const TIPOS_REACTIVO = ['opcion_multiple', 'verdadero_falso', 'respuesta_corta', 'subir_archivo']
 
@@ -2074,7 +2086,7 @@ async function precheckReactivos({ uid, params, tarifas }) {
       { codigo: 'CONTEXTO_INSUFICIENTE' })
   }
 
-  const cantidad = clampInt(params?.cantidad, 5, MIN_REACTIVOS, MAX_REACTIVOS)
+  const cantidad = clampInt(params?.cantidad, 5, MIN_REACTIVOS_GENERACION_IA, MAX_REACTIVOS)
   // Cliente nuevo manda `params.tipos: string[]` (checkboxes independientes);
   // cliente viejo/caché sigue mandando `params.tipoSolicitado` string. Un
   // arreglo con cero válidos ES un error del cliente: se rechaza sin cobrar.
@@ -2093,6 +2105,7 @@ async function precheckReactivos({ uid, params, tarifas }) {
   const fuentes = await bloqueFuentesOperacion(db, {
     asignaturaId: act.asignaturaId, parcial: act.parcial, fuentesManual: params?.fuentes,
     creditosOperacion: creditosDe(tarifas, 'reactivos', cantidad),
+    rechazarExcedente: true,
   })
 
   return {
@@ -2272,9 +2285,9 @@ async function ejecutarReactivos({ params, modelo, apiKey }) {
     bloquesPrefijo: ctx.fuentesBloques || [],
   })
 
-  // Tarifa comercial (decisión PO, 23-ago-2026): 0.5 crédito por reactivo
-  // REALMENTE generado — mismo criterio que crear_evaluacion_ia, ya no es
-  // una tarifa fija por llamada. Se descarta lo no aprovechable (regla de
+  // Tarifa comercial (config/iaTarifas, decisión de Kike del 6-oct-2026):
+  // 1 crédito por reactivo REALMENTE generado — mismo criterio que
+  // crear_evaluacion_ia; no es una tarifa fija por llamada. Se descarta lo no aprovechable (regla de
   // no invención, T.7) ANTES de contar, para no cobrar por reactivos vacíos.
   const reactivos = normalizarReactivos(datos, ctx).filter((r) => r.enunciado)
   if (!reactivos.length) {
@@ -2862,7 +2875,7 @@ async function precheckCrearEvaluacion({ uid, params, tarifas }) {
       { codigo: 'CONTEXTO_INSUFICIENTE' })
   }
 
-  const cantidad = clampInt(params?.cantidad, 10, MIN_REACTIVOS, MAX_REACTIVOS_EVALUACION)
+  const cantidad = clampInt(params?.cantidad, 10, MIN_REACTIVOS_GENERACION_IA, MAX_REACTIVOS_EVALUACION)
   // Contrato dual (idéntico a precheckReactivos): `params.tipos: string[]`
   // (nuevo cliente, checkboxes) o `params.tipoSolicitado` legado. Arreglo vacío
   // se rechaza sin cobrar.
@@ -2880,6 +2893,7 @@ async function precheckCrearEvaluacion({ uid, params, tarifas }) {
   const fuentes = await bloqueFuentesOperacion(db, {
     asignaturaId: act.asignaturaId, parcial: act.parcial, fuentesManual: params?.fuentes,
     creditosOperacion: creditosDe(tarifas, 'crear_evaluacion_ia', cantidad),
+    rechazarExcedente: true,
   })
 
   return {
@@ -6802,7 +6816,7 @@ exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
 exports._pruebas = {
   pedirJSON,
   contextoDeActividad, condicionesEntregable, esCriterioTemporal, elementosTemporales, peticionTemporalExplicita, sistemaInstrumento, bloqueContexto, bloqueConsideraciones, INSTRUMENTO_SISTEMA, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
-  precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MAX_REACTIVOS,
+  precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MIN_REACTIVOS_GENERACION_IA, MAX_REACTIVOS,
   promptReactivos, sanitizarReactivosExistentes,
   agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
   agregarResultadosEncuesta, normalizarAnalisisEncuestaContexto, promptAnalisisEncuestaContexto, ENCUESTA_CONTEXTO_SISTEMA,

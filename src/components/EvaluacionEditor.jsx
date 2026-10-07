@@ -2215,7 +2215,9 @@ export default function EvaluacionEditor({
                 <p className="text-xs text-amber-700 mt-1.5">Selecciona al menos un tipo de reactivo.</p>
               )}
             </div>
-            <FuentesIAInput files={iaArchivos} onChange={setIaArchivos} disabled={iaTrabajando} fuentesGuardadas={fuentesGuardadas} />
+            <FuentesIAInput files={iaArchivos} onChange={setIaArchivos} disabled={iaTrabajando} fuentesGuardadas={fuentesGuardadas}
+              mostrarLimiteVisual cantidadReactivos={iaCantidad}
+              creditosOperacion={creditosIA.estimar('reactivos', iaCantidad)} />
           </div>
         </ConfirmacionCreditosModal>
       )}

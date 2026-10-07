@@ -2411,13 +2411,15 @@ grupo('Fuentes PDF para IA — todas las operaciones, créditos incluidos')
 const FX = await import('./helpers/pdfFixtures.mjs')
 const DOCS_FX = {
   'texto.pdf': FX.pdfTexto(2), 'visual.pdf': FX.pdfImagen(14), 'mixto.pdf': FX.pdfMixto(2),
-  'blanco.pdf': FX.pdfEnBlanco(2), 'visual20.pdf': FX.pdfImagen(20), 'visual31.pdf': FX.pdfImagen(31),
+  'blanco.pdf': FX.pdfEnBlanco(2), 'visual20.pdf': FX.pdfImagen(20), 'visual30.pdf': FX.pdfImagen(30), 'visual31.pdf': FX.pdfImagen(31),
 }
 const conDocs = () => FX.servirDocumentos(DOCS_FX)
 const U = FX.urlFixture
 
-// Tarifas VIGENTES de producción (config/iaTarifas v6, leídas el 17-sep-2026):
-// de ellas sale el presupuesto de páginas de cada operación.
+// Tarifas de config/iaTarifas v6 (leídas el 17-sep-2026) — FIXTURE histórica:
+// de ellas sale el presupuesto de páginas de las pruebas de ESTA sección. Las
+// tarifas comerciales vigentes de generar reactivos (1 crédito por reactivo)
+// están en TARIFAS_REACTIVOS_1CR, más abajo.
 const TARIFAS_FUENTES = {
   version: 6,
   tarifas: {
@@ -2723,6 +2725,131 @@ await caso('Planeación Inicial (20 créditos → tope 30): un programa escanead
     const e = await precheckPlan().then(() => null, (x) => x)
     assert.ok(e?.message.includes('máximo de 30 páginas'), e?.message)
   } finally { restaurar() }
+})
+
+// ── Crear evaluación y reactivos: 1 crédito por reactivo + límite de 30 páginas visuales ──
+// Decisión de Kike (6-oct-2026): ambas operaciones cobran 1 crédito por reactivo
+// desde 1 reactivo, y los documentos visuales topan en 30 páginas — sin recargo:
+// lo que excede se rechaza ANTES de reservar, sin cobrar.
+grupo('Crear evaluación y reactivos — 1 crédito por reactivo y máximo 30 páginas visuales')
+
+const TARIFAS_REACTIVOS_1CR = {
+  version: 10,
+  tarifas: { crear_evaluacion_ia: 1, reactivos: 1 },
+  categorias: { crear_evaluacion_ia: 'Evaluaciones', reactivos: 'Evaluaciones' },
+  modeloPorOperacion: { crear_evaluacion_ia: 'claude-haiku-4-5', reactivos: 'claude-haiku-4-5' },
+}
+let reactivosPedidos = 1
+const reactivosFalsos = () => ({
+  reactivos: Array.from({ length: reactivosPedidos }, (_, i) => ({
+    tipo: 'opcion_multiple', enunciado: `Pregunta ${i + 1}`, opciones: ['a', 'b', 'c', 'd'], correcta: 0,
+  })),
+  instruccionesHtml: '<p>Contesta con calma.</p>',
+})
+async function reiniciarReactivos({ saldo = 100 } = {}) {
+  await limpiar()
+  await db.doc(`users/${DOCENTE}`).set({ role: 'docente', nombre: 'Prueba', escuelaId: 'E1', perfilIA: PERFIL_IA_COMPLETO })
+  await db.doc('config/iaTarifas').set(TARIFAS_REACTIVOS_1CR)
+  await darSaldo(DOCENTE, saldo)
+  await db.doc('subjects/sub_eval').set({ docenteId: DOCENTE, nombre: 'Informática', parciales: 2 })
+  await db.doc('activities/act_eval_30').set({ docenteId: DOCENTE, categoria: 'cuestionario', nombre: 'Windows', asignaturaId: 'sub_eval', parcial: 1 })
+  pedidosIA.length = 0
+}
+const generarEvaluacionIA = ({ operacion, cantidad, fuentes = [], k = clave() }) => {
+  reactivosPedidos = cantidad
+  respuestaIA = reactivosFalsos
+  return IA_FN.ejecutarOperacionIA.run({
+    auth: { uid: DOCENTE },
+    data: {
+      operacion, idempotencyKey: k, unidades: cantidad,
+      params: {
+        actividadId: 'act_eval_30', asignaturaId: 'sub_eval', asignaturaNombre: 'Informática',
+        quiereEvaluar: QUIERE_EVALUAR_OK, cantidad, tipos: ['opcion_multiple'], fuentes,
+      },
+    },
+  })
+}
+const sinCobro = async () => {
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 0, 'no se reservó ni un crédito')
+  assert.strictEqual(pedidosIA.length, 0, 'no se llamó a la IA')
+  assert.strictEqual((await creditosDe()).saldo, 100, 'el saldo quedó intacto')
+}
+
+for (const operacion of ['crear_evaluacion_ia', 'reactivos']) {
+  await caso(`${operacion}: 1 reactivo cuesta exactamente 1 crédito (mínimo 1, ya no 2)`, async () => {
+    await reiniciarReactivos()
+    const k = clave()
+    await generarEvaluacionIA({ operacion, cantidad: 1, k })
+    assert.strictEqual((await consumoDe(k)).creditosReales, 1)
+    assert.strictEqual((await creditosDe()).saldo, 99)
+  })
+
+  await caso(`${operacion}: 5 reactivos cuestan 5 créditos (1 por reactivo, no 1.25)`, async () => {
+    await reiniciarReactivos()
+    const k = clave()
+    await generarEvaluacionIA({ operacion, cantidad: 5, k })
+    assert.strictEqual((await consumoDe(k)).creditosReales, 5)
+    assert.strictEqual((await creditosDe()).saldo, 95)
+  })
+
+  await caso(`${operacion}: un documento visual de EXACTAMENTE 30 páginas se procesa (5 reactivos) y llega al modelo`, async () => {
+    await reiniciarReactivos()
+    const k = clave()
+    const restaurar = conDocs()
+    try { await generarEvaluacionIA({ operacion, cantidad: 5, fuentes: [U('visual30.pdf')], k }) } finally { restaurar() }
+    assert.deepStrictEqual(documentosDelPedido(pedidosIA[0]).map((b) => b.source.url), [U('visual30.pdf')])
+    assert.strictEqual((await consumoDe(k)).creditosReales, 5, 'sin recargo por páginas: solo los 5 reactivos')
+    assert.strictEqual((await creditosDe()).saldo, 95)
+  })
+
+  await caso(`${operacion}: un documento visual de 31 páginas se rechaza ANTES de reservar — sin llamar a la IA y sin descontar créditos`, async () => {
+    await reiniciarReactivos()
+    const restaurar = conDocs()
+    let err = null
+    try { await generarEvaluacionIA({ operacion, cantidad: 5, fuentes: [U('visual31.pdf')] }) } catch (e) { err = e } finally { restaurar() }
+    assert.ok(codigoDe(err).includes('failed-precondition'), codigoDe(err))
+    assert.strictEqual(err.details?.codigo, 'EXCEDE_PAGINAS_VISUALES')
+    assert.ok(err.message.includes('suman 31 páginas'), err.message)
+    assert.ok(err.message.includes('el máximo es de 30 páginas'), err.message)
+    assert.ok(err.message.includes('No se descontaron créditos'), err.message)
+    assert.ok(!err.message.includes('Con más reactivos'), 'con 30 ya no hay un máximo mayor que prometer')
+    await sinCobro()
+  })
+
+  await caso(`${operacion}: con pocos reactivos el máximo es menor (3 reactivos → 19 páginas) y lo dice, sin cobrar`, async () => {
+    await reiniciarReactivos()
+    const restaurar = conDocs()
+    let err = null
+    try { await generarEvaluacionIA({ operacion, cantidad: 3, fuentes: [U('visual20.pdf')] }) } catch (e) { err = e } finally { restaurar() }
+    assert.ok(err?.message.includes('el máximo es de 19 páginas'), err?.message)
+    assert.ok(err.message.includes('hasta 30 páginas'), err.message)
+    await sinCobro()
+  })
+}
+
+await caso('crear_evaluacion_ia: un material PERMANENTE de la asignatura que no cabe NO bloquea — se omite, se avisa y se cobra solo por reactivos', async () => {
+  await reiniciarReactivos()
+  await db.doc('materials/mat_grande').set({
+    asignaturaId: 'sub_eval', parcial: 1, docenteId: DOCENTE, archivos: [{ nombre: 'Archivos 77 - 102.pdf', url: U('visual31.pdf') }],
+  })
+  const k = clave()
+  const restaurar = conDocs()
+  let r
+  try { r = await generarEvaluacionIA({ operacion: 'crear_evaluacion_ia', cantidad: 5, k }) } finally { restaurar() }
+  assert.strictEqual(r.resultado.avisos.length, 1)
+  assert.strictEqual(r.resultado.avisos[0].codigo, 'EXCEDE_PAGINAS')
+  assert.strictEqual(documentosDelPedido(pedidosIA[0]).length, 0, 'el documento que no cabe no viaja')
+  assert.strictEqual((await consumoDe(k)).creditosReales, 5)
+})
+
+await caso('otras operaciones NO cambian: Crucigrama con 20 páginas y 3 créditos sigue rechazando con su propio máximo (19)', async () => {
+  await reiniciarFuentes()
+  const id = await sembrarJuegoIA()
+  const restaurar = conDocs()
+  let err = null
+  try { await generarJuego({ actividadId: id, fuentes: [U('visual20.pdf')] }) } catch (e) { err = e } finally { restaurar() }
+  assert.ok(err?.message.includes('máximo de 19 páginas'), err?.message)
+  assert.ok(!err.message.includes('suman'), 'sin el mensaje nuevo: esa operación no usa el rechazo estricto')
 })
 
 // ── Rúbrica / lista de cotejo: candado de lo temporal, flujo COMPLETO ────────
