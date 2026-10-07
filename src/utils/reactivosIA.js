@@ -6,9 +6,13 @@
 // espera el editor de evaluaciones (EvaluacionEditor.jsx), que es quien luego
 // arma las opciones con id y llama a crearPreguntasEnLote.
 
-// Desde 1 reactivo = 1 crédito (6-oct-2026). El servidor lo espeja en
-// functions/ia.js (MIN_REACTIVOS_GENERACION_IA); una prueba los compara.
+// AGREGAR reactivos con IA a una evaluación que ya existe: desde 1 reactivo = 1
+// crédito (6-oct-2026). El servidor lo espeja en functions/ia.js
+// (MIN_REACTIVOS_GENERACION_IA); una prueba los compara.
 export const MIN_REACTIVOS = 1
+// CREAR un cuestionario o examen completo con IA: mínimo 2 (7-oct-2026). El
+// servidor rechaza 1 (MIN_REACTIVOS_CREAR_EVALUACION_IA); una prueba los compara.
+export const MIN_REACTIVOS_CREAR_EVALUACION = 2
 export const MAX_REACTIVOS = 10
 export const DEFAULT_REACTIVOS = 5
 
