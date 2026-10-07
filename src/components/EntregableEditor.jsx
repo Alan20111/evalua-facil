@@ -527,7 +527,7 @@ export default function EntregableEditor({
                 onChange={(e) => setForm((f) => ({ ...f, comentarioVisibleAlumno: e.target.checked }))}
                 className="w-4 h-4 rounded border-outline-variant text-accent focus:ring-accent"
               />
-              Permitir que los estudiantes vean los comentarios
+              Permitir que cada estudiante pueda ver el comentario que el docente le otorga al calificarlo
             </label>
 
             <div>
