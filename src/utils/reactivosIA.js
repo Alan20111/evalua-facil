@@ -6,7 +6,9 @@
 // espera el editor de evaluaciones (EvaluacionEditor.jsx), que es quien luego
 // arma las opciones con id y llama a crearPreguntasEnLote.
 
-export const MIN_REACTIVOS = 2
+// Desde 1 reactivo = 1 crédito (6-oct-2026). El servidor lo espeja en
+// functions/ia.js (MIN_REACTIVOS_GENERACION_IA); una prueba los compara.
+export const MIN_REACTIVOS = 1
 export const MAX_REACTIVOS = 10
 export const DEFAULT_REACTIVOS = 5
 

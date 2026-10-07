@@ -35,8 +35,8 @@ const db = admin.firestore()
 const dryRun = process.argv.includes('--dry-run')
 
 const TARIFAS = {
-  version: 9,
-  actualizadoEl: '2026-10-05',
+  version: 10,
+  actualizadoEl: '2026-10-06',
   // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
   // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
   chatAsistenteActivo: false,
@@ -94,11 +94,14 @@ const TARIFAS = {
     // La clave efectiva la determina el servidor en precheckCalificarEntregableLote.
     calificar_entregable_ia_lote: 0.25,
     calificar_entregable_ia_lote_imagenes: 0.5,
-    // Crear examen/cuestionario completo con IA — 0.25 crédito por
-    // REACTIVO realmente generado (unidadesReales), misma tarifa
-    // comercial por unidad que 'reactivos'. Sin cobro adicional por
-    // instrucciones/configuración del examen — eso va incluido.
-    crear_evaluacion_ia: 0.25,
+    // Crear examen/cuestionario completo con IA — 1 crédito por REACTIVO
+    // realmente generado (unidadesReales), la MISMA tarifa por reactivo que
+    // 'reactivos' (regla comercial de Kike, 6-oct-2026: ambas operaciones
+    // cobran 1 crédito por reactivo, desde 1 reactivo). Era 0.25 hasta v9.
+    // Sin cobro adicional por instrucciones/configuración del examen — eso va
+    // incluido — ni por páginas de documentos: el límite de páginas visuales
+    // (src/utils/limiteDocumentosVisuales.js) rechaza, no cobra recargo.
+    crear_evaluacion_ia: 1,
     // Crear entregable/observación completa con IA — incluye la actividad
     // de Observación con IA (no existe "guía de observación" aparte).
     crear_actividad_ia: 1,

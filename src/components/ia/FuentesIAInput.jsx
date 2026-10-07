@@ -11,14 +11,26 @@ import { Paperclip, Trash2, RefreshCw } from 'lucide-react'
 import { useToast } from '../Toast'
 import { MAX_FUENTES, MAX_FUENTE_BYTES, FUENTES_ACCEPT } from '../../utils/fuentesIA'
 import { esMismaFuente } from '../../utils/fuentesAsignatura'
+import { DOCUMENTOS_VISUALES, presupuestoPaginasVisual } from '../../utils/limiteDocumentosVisuales'
 
 // Un elemento de `files` es un File nuevo por subir, o una referencia
 // { nombre, storedUrl, stored: true } que reutiliza una fuente ya guardada en
 // Fuentes de la Asignatura (ver fuentesGuardadas) — nunca se sube dos veces.
 function nombreDe(f) { return f instanceof File ? f.name : f.nombre }
 
-export default function FuentesIAInput({ files, onChange, disabled = false, fuentesGuardadas = [] }) {
+// `mostrarLimiteVisual` (opt-in, solo las operaciones que lo aplican: crear
+// evaluación y reactivos): muestra ANTES de generar el máximo de páginas de los
+// documentos visuales. El número sale de la MISMA definición que valida el
+// servidor (utils/limiteDocumentosVisuales.js). `creditosOperacion` es lo que
+// costará la generación (null si las tarifas aún no cargan); con pocos
+// reactivos el máximo real es menor a 30 y se dice.
+export default function FuentesIAInput({
+  files, onChange, disabled = false, fuentesGuardadas = [],
+  mostrarLimiteVisual = false, creditosOperacion = null, cantidadReactivos = null,
+}) {
   const toast = useToast()
+  const maxVisual = DOCUMENTOS_VISUALES.maxPaginas
+  const limiteConEstaCantidad = creditosOperacion != null ? presupuestoPaginasVisual(creditosOperacion) : null
 
   function addArchivos(nuevos) {
     if (files.length + nuevos.length > MAX_FUENTES) {
@@ -56,6 +68,21 @@ export default function FuentesIAInput({ files, onChange, disabled = false, fuen
         Las Fuentes para todo el curso y las de este parcial (pestaña Planeación Didáctica) ya se usan
         automáticamente — aquí puedes agregar hasta 3 documentos extra (PDF o Word) solo para esta operación.
       </p>
+      {mostrarLimiteVisual && (
+        <div role="note" className="rounded border border-outline-variant bg-surface-container px-2.5 py-2 mb-1.5">
+          <p className="text-sm font-semibold text-on-surface">Documentos visuales: máximo {maxVisual} páginas</p>
+          <p className="text-xs text-muted mt-0.5">
+            Son los PDF hechos de imágenes (escaneos, infografías, capturas). El máximo suma los que adjuntas aquí
+            y los materiales de la asignatura que se usan solos. Los documentos con texto no cuentan.
+          </p>
+          {limiteConEstaCantidad != null && limiteConEstaCantidad < maxVisual && cantidadReactivos != null && (
+            <p className="text-xs text-on-surface mt-0.5">
+              Con {cantidadReactivos} {cantidadReactivos === 1 ? 'reactivo' : 'reactivos'} puedes usar hasta {limiteConEstaCantidad} páginas;
+              con más reactivos el máximo sube hasta {maxVisual}.
+            </p>
+          )}
+        </div>
+      )}
       <div className="space-y-1.5">
         {files.map((f, i) => (
           <div key={`${nombreDe(f)}-${i}`} className="flex items-center gap-2 px-2.5 py-1.5 rounded border border-outline-variant bg-surface text-sm">

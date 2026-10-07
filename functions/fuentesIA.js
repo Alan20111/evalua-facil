@@ -18,53 +18,23 @@ const MAX_FUENTES = 3
 // Presupuesto de páginas que se mandan a análisis VISUAL (bloque `document`
 // nativo) sumando TODOS los documentos de una operación (3-sep-2026).
 //
-// De dónde sale el número — es un techo de costo, no una cifra al azar:
-// una página escaneada cuesta ~2,100 tokens de entrada (fórmula de Anthropic
-// (ancho×alto)/750 sobre páginas A4 reales), o sea ~$0.039 MXN con la tarifa
-// de claude-haiku-4-5 en config/iaTarifas. Una evaluación de 20 reactivos
-// ingresa 5 créditos ≈ $5.00 MXN. Topando el gasto documental en ~25% del
-// ingreso: $1.25 ÷ $0.039 ≈ 32 páginas → 30, redondeando hacia lo seguro.
-//
-// Los otros cuatro criterios quedan holgados con ese mismo número: caben en
-// la ventana de 200K de Haiku 4.5 (30 × 2,100 ≈ 63K, sobra el 68%), están muy
-// por debajo del tope de 100 páginas por PDF del proveedor para modelos de
-// 200K, cubren de sobra los materiales reales de un docente (infografías,
-// cuadernillos, exámenes escaneados: el caso que originó esto usa 4), y
-// cierran el escenario de 3 documentos × 30 páginas que costaría 144% del
-// ingreso — es decir, generar a pérdida.
+// La definición (tope de 30 páginas, piso de 4 y la fórmula que escala con los
+// créditos de la operación) vive en UN solo archivo que comparten el cliente y
+// el servidor: src/utils/limiteDocumentosVisuales.js (aquí llega por
+// functions/_shared/, que genera scripts/sync-functions-shared.mjs). El porqué
+// de cada número está documentado ahí; aquí solo se reexporta.
 //
 // NO confundir con MAX_PAGINAS_PDF_NATIVO (functions/evidenciasEntrega.js),
 // que vale 3 y se queda como está: ese topa la ENTREGA DE UN ALUMNO en
 // OP-11, cuyo objetivo de costo es ~$0.25 MXN por entrega — otra operación,
-// otra economía. Reusar aquel 3 aquí habría rechazado una infografía de 4
-// páginas, justo la regresión que este cambio existe para evitar.
-const MAX_PAGINAS_VISUAL = 30
+// otra economía.
+const { DOCUMENTOS_VISUALES, presupuestoPaginasVisual } = require('./_shared/limiteDocumentosVisuales')
+const MAX_PAGINAS_VISUAL = DOCUMENTOS_VISUALES.maxPaginas
+const MIN_PAGINAS_VISUAL = DOCUMENTOS_VISUALES.minPaginas
 
-// Costo real de mandar UNA página a análisis visual, con la tarifa vigente de
-// claude-haiku-4-5 en config/iaTarifas ($1 USD/MTok de entrada, TC 18.50):
-// ~2,100 tokens/página × $1/1M × 18.50 ≈ $0.039 MXN.
-const COSTO_MXN_POR_PAGINA_VISUAL = 0.039
-// Techo de gasto documental como fracción del ingreso de la operación.
-const FRACCION_INGRESO_PARA_DOCUMENTOS = 0.25
-// 1 crédito = $1 MXN (paquete base de config/iaTarifas.paquetesCreditos).
-const MXN_POR_CREDITO = 1
-// Piso irrenunciable: el caso real que originó todo esto es una infografía de
-// 4 páginas. Ninguna operación, por barata que sea, debe rechazarla — eso
-// sería exactamente la regresión que este cambio existe para impedir.
-const MIN_PAGINAS_VISUAL = 4
-
-/**
- * Cuántas páginas puede permitirse mandar a visión una operación que cobra
- * `creditos`. El presupuesto ESCALA CON EL INGRESO en vez de ser una
- * constante: 30 páginas son razonables en una evaluación de 20 reactivos
- * (5 créditos), pero arruinarían una operación de tarifa plana de 1 crédito,
- * donde el documento costaría más que lo cobrado.
- */
-function presupuestoPaginasVisual(creditos) {
-  const ingreso = Math.max(0, Number(creditos) || 0) * MXN_POR_CREDITO
-  const paginas = Math.floor((ingreso * FRACCION_INGRESO_PARA_DOCUMENTOS) / COSTO_MXN_POR_PAGINA_VISUAL)
-  return Math.min(MAX_PAGINAS_VISUAL, Math.max(MIN_PAGINAS_VISUAL, paginas))
-}
+// Código con el que `prepararFuentes` marca un aviso por exceso de páginas;
+// lo usa `fuentesManualRequeridas` para rechazar sin cobrar.
+const CODIGO_EXCEDE_PAGINAS = 'EXCEDE_PAGINAS'
 
 /** Clasifica cada URL en paralelo; un fallo se convierte en 'invalido' con su motivo, nunca tumba al resto. */
 async function clasificarTodos(urls) {
@@ -90,37 +60,41 @@ async function clasificarTodos(urls) {
  *   · lo demás         → aviso con el motivo REAL; nunca un "PDF inválido" genérico
  *                        (incluye 'vacio': un PDF en blanco no viaja, no cuesta).
  *
- * Devuelve `{ texto, bloques, avisos, paginasVisuales }`. NUNCA lanza: decidir
+ * Devuelve `{ texto, bloques, avisos, paginasVisuales, paginasVisualesSolicitadas }`
+ * (esta última cuenta también las páginas que no cupieron). NUNCA lanza: decidir
  * si se puede continuar es del llamador, que es quien sabe si le basta con lo
  * que sí se pudo leer.
  */
 async function prepararFuentes(urls, { etiqueta = 'Documento', maxPaginasVisual = MAX_PAGINAS_VISUAL } = {}) {
   const lista = (Array.isArray(urls) ? urls : []).filter(Boolean)
-  if (!lista.length) return { texto: null, textoSinBloques: null, bloques: [], avisos: [], paginasVisuales: 0 }
+  if (!lista.length) return { texto: null, textoSinBloques: null, bloques: [], avisos: [], paginasVisuales: 0, paginasVisualesSolicitadas: 0 }
 
   const clasificados = await clasificarTodos(lista)
   const textos = []
   const bloques = []
   const avisos = []
   let paginasVisuales = 0
+  let paginasVisualesSolicitadas = 0
 
   for (const d of clasificados) {
     if (d.tipo === 'texto') { textos.push(d.texto); continue }
 
     if (d.tipo === 'visual' || d.tipo === 'mixto') {
+      paginasVisualesSolicitadas += d.paginas
       if (paginasVisuales + d.paginas <= maxPaginasVisual) {
         bloques.push({ type: 'document', source: { type: 'url', url: d.url } })
         paginasVisuales += d.paginas
         continue
       }
-      // No cabe en el presupuesto visual. Si trae algo de texto se aprovecha
-      // (mejor eso que nada); si no, se reporta con la cifra concreta para
-      // que el docente sepa exactamente qué pasó y pueda partir el archivo.
+      // No cabe en el límite de páginas visuales. Si trae algo de texto se
+      // aprovecha (mejor eso que nada); si no, se reporta con la cifra
+      // concreta para que el docente sepa exactamente qué pasó.
+      const base = `Tiene ${d.paginas} páginas y los documentos visuales (PDF hechos de imágenes) admiten un máximo de ${maxPaginasVisual} páginas`
       if (d.texto) {
         textos.push(d.texto)
-        avisos.push({ url: d.url, motivo: `Tiene ${d.paginas} páginas y se superó el máximo de ${maxPaginasVisual} páginas para análisis visual: solo se usó el texto que se pudo extraer.` })
+        avisos.push({ url: d.url, codigo: CODIGO_EXCEDE_PAGINAS, paginas: d.paginas, motivo: `${base}: solo se usó el texto que se pudo extraer.` })
       } else {
-        avisos.push({ url: d.url, motivo: `Tiene ${d.paginas} páginas y se superó el máximo de ${maxPaginasVisual} páginas para análisis visual en una sola operación.` })
+        avisos.push({ url: d.url, codigo: CODIGO_EXCEDE_PAGINAS, paginas: d.paginas, motivo: `${base}.` })
       }
       continue
     }
@@ -131,7 +105,7 @@ async function prepararFuentes(urls, { etiqueta = 'Documento', maxPaginasVisual 
   const texto = textos.length
     ? textos.map((t, i) => `"""[${etiqueta} ${i + 1}]\n${t}\n"""`).join('\n\n')
     : null
-  return { texto, bloques, avisos, paginasVisuales }
+  return { texto, bloques, avisos, paginasVisuales, paginasVisualesSolicitadas }
 }
 
 /**
@@ -171,7 +145,7 @@ async function prepararBloqueFuentes(urls) {
 /** Igual que prepararBloqueFuentes pero conservando los bloques nativos y los avisos. */
 async function fuentesManual(urls, opciones = {}) {
   const lista = (Array.isArray(urls) ? urls : []).filter(Boolean).slice(0, MAX_FUENTES)
-  if (!lista.length) return { texto: null, textoSinBloques: null, bloques: [], avisos: [], paginasVisuales: 0 }
+  if (!lista.length) return { texto: null, textoSinBloques: null, bloques: [], avisos: [], paginasVisuales: 0, paginasVisualesSolicitadas: 0 }
   const r = await prepararFuentes(lista, { ...opciones, etiqueta: 'Documento' })
   return { ...r, texto: conIntro(INTRO_MANUAL, r, { exigirLectura: true }), textoSinBloques: soloTexto(INTRO_MANUAL, r) }
 }
@@ -193,14 +167,34 @@ async function fuentesManual(urls, opciones = {}) {
  * de reservar créditos.
  */
 async function fuentesManualRequeridas(urls, opciones = {}) {
+  const { rechazarExcedente = false, ...opcionesFuentes } = opciones
   const lista = (Array.isArray(urls) ? urls : []).filter(Boolean)
-  const r = await fuentesManual(lista, opciones)
+  const r = await fuentesManual(lista, opcionesFuentes)
+  // Con `rechazarExcedente` (crear evaluación y reactivos, 6-oct-2026) los
+  // documentos que el docente adjuntó a mano NO se descartan en silencio si
+  // rebasan el límite de páginas visuales: la operación se detiene ANTES de
+  // reservar créditos y se le dice cuánto es el máximo. Los demás usos
+  // conservan su comportamiento de siempre (se omite el documento y se avisa).
+  if (rechazarExcedente && r.avisos.some((a) => a.codigo === CODIGO_EXCEDE_PAGINAS)) {
+    throw new HttpsError('failed-precondition',
+      mensajeExcedePaginas(r.paginasVisualesSolicitadas, opcionesFuentes.maxPaginasVisual ?? MAX_PAGINAS_VISUAL),
+      { codigo: 'EXCEDE_PAGINAS_VISUALES' })
+  }
   if (lista.length && !r.texto && !r.bloques.length) {
     const motivo = r.avisos[0]?.motivo || 'No se pudo procesar el documento.'
     throw new HttpsError('failed-precondition',
       `No se pudo usar ninguno de los documentos que adjuntaste. ${motivo} Corrígelo o continúa sin adjuntarlos. No se descontaron créditos.`)
   }
   return r
+}
+
+/** El mensaje que ve el docente cuando lo que adjuntó rebasa el límite de páginas visuales. */
+function mensajeExcedePaginas(paginas, max) {
+  const que = `Los documentos visuales (PDF hechos de imágenes, como escaneos o infografías) que adjuntaste suman ${paginas} páginas y el máximo es de ${max} páginas`
+  const mas = max < MAX_PAGINAS_VISUAL
+    ? ` Con más reactivos el máximo sube, hasta ${MAX_PAGINAS_VISUAL} páginas.`
+    : ''
+  return `${que}.${mas} Quita alguno o adjunta solo las secciones que necesites. No se descontaron créditos.`
 }
 
 /**
@@ -219,7 +213,7 @@ async function prepararBloqueFuentesGenerales(urls) {
 /** Igual que prepararBloqueFuentesGenerales pero conservando bloques nativos y avisos. Nunca lanza. */
 async function fuentesGenerales(urls, opciones = {}) {
   const lista = (Array.isArray(urls) ? urls : []).filter(Boolean)
-  if (!lista.length) return { texto: null, textoSinBloques: null, bloques: [], avisos: [], paginasVisuales: 0 }
+  if (!lista.length) return { texto: null, textoSinBloques: null, bloques: [], avisos: [], paginasVisuales: 0, paginasVisualesSolicitadas: 0 }
   const r = await prepararFuentes(lista, { ...opciones, etiqueta: 'Fuente general' })
   return { ...r, texto: conIntro(INTRO_GENERAL, r), textoSinBloques: soloTexto(INTRO_GENERAL, r) }
 }
@@ -282,6 +276,6 @@ function combinarBloquesFuentes(...bloques) {
 module.exports = {
   prepararBloqueFuentes, prepararBloqueFuentesGenerales, combinarBloquesFuentes, MAX_FUENTES,
   prepararFuentes, fuentesManual, fuentesManualRequeridas, fuentesGenerales,
-  MAX_PAGINAS_VISUAL, MIN_PAGINAS_VISUAL, presupuestoPaginasVisual,
+  MAX_PAGINAS_VISUAL, MIN_PAGINAS_VISUAL, presupuestoPaginasVisual, CODIGO_EXCEDE_PAGINAS, mensajeExcedePaginas,
   notaDocumentosVisuales, CLAVE_DOCUMENTO_ILEGIBLE, MENSAJE_DOCUMENTO_ILEGIBLE,
 }
