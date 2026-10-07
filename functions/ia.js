@@ -22,7 +22,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { defineSecret } = require('firebase-functions/params')
-const { getFirestore, FieldValue } = require('firebase-admin/firestore')
+const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { logger } = require('firebase-functions')
 const ledger = require('./creditosLedger')
 const { resolverIntentoGanador, respuestasVivasSonDelIntentoGanador } = require('./calificacionIntentos')
@@ -5023,7 +5023,11 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
     return out
   }
 
-  for (const parcialCtx of ctx.parciales) {
+  // Cada parcial es independiente de los demás: su prompt solo depende de `ctx` y
+  // de su propio periodo, y no lee nada de lo que genere otro. Se genera uno por
+  // llamada y se corrige por su cuenta. Lo único compartido son los contadores
+  // de arriba, que se suman de forma síncrona (JS no los parte a mitad).
+  const generarParcial = async (parcialCtx) => {
     // Presupuesto de tokens por Secuencia esperada — si el docente pidió un
     // número, se usa ese; si no, un estimado generoso por si la IA decide
     // varias. Cada Secuencia trae 23 campos (5 de identidad + 3 momentos ×
@@ -5136,13 +5140,39 @@ async function generarSecuenciasPorParciales({ ctx, modelo, apiKey, cantidadSoli
       .filter((s) => s && tieneContenido(s))
       .map((s) => ({ id: crypto.randomUUID(), ...limpiarSecuencia(s) }))
 
+    let fuentes = null
     if (esPrimerParcial && Array.isArray(datos?.fuentesInformacion)) {
       const limpias = datos.fuentesInformacion.map((f) => limpiarCampo(f)).filter(Boolean).slice(0, 5)
-      if (limpias.length) fuentesInformacion = [...limpias, ...FUENTES_INFORMACION_VACIAS].slice(0, 5)
+      if (limpias.length) fuentes = [...limpias, ...FUENTES_INFORMACION_VACIAS].slice(0, 5)
     }
 
-    porParcial.push({ numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, secuencias })
+    return { parcial: { numero: parcialCtx.numero, periodo: parcialCtx.periodoTexto, secuencias }, fuentes }
   }
+
+  // Sin PDF visual, todos los parciales a la vez. Con PDF visual, el primero va
+  // SOLO: es el que escribe el prefijo en caché (1.25×) y los demás lo leen
+  // (0.1×) — lanzados juntos, cada uno escribiría el suyo y el costo real de la
+  // operación subiría sin que el docente pague más. `allSettled` y no `all`: si
+  // uno falla, se espera a los demás para no dejar llamadas vivas tras el
+  // reembolso, y se relanza el primer error EN ORDEN de parcial.
+  const [primero, ...resto] = ctx.parciales
+  const resultados = []
+  if (pdfsVisuales.length && primero) {
+    resultados.push(...await Promise.allSettled([generarParcial(primero)]))
+    if (resultados[0].status === 'rejected') throw resultados[0].reason
+    resultados.push(...await Promise.allSettled(resto.map(generarParcial)))
+  } else {
+    resultados.push(...await Promise.allSettled(ctx.parciales.map(generarParcial)))
+  }
+  const fallido = resultados.find((r) => r.status === 'rejected')
+  if (fallido) throw fallido.reason
+  // Promise.allSettled conserva el orden de entrada: los parciales quedan en el
+  // orden original aunque terminen desordenados.
+  for (const { value } of resultados) {
+    porParcial.push(value.parcial)
+    if (value.fuentes) fuentesInformacion = value.fuentes
+  }
+
 
   return { porParcial, fuentesInformacion, reintentos, fragmentosProcesados, interno: { modelo, tokensEntrada, tokensSalida, cacheEscritura, cacheLectura, ms } }
 }
@@ -6582,9 +6612,57 @@ function claveAnthropic() {
 // timeoutSeconds 300: los lotes de C-02 (p. ej. 50 estudiantes × 3 abiertas)
 // toman ~2 min con la concurrencia limitada; las operaciones unitarias no
 // cambian. El cliente ajusta su propio timeout al llamar (useCreditosIA).
-exports.ejecutarOperacionIA = onCall(
-  { secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 300 },
-  async (request) => {
+// ── Un solo intento activo por (docente, operación, asignatura) ─────────────
+// Incidente 7-oct-2026: la Planeación tarda ~4 min, el cliente se rindió a los
+// 240 s con "deadline-exceeded" aunque el servidor terminó bien, y el docente
+// volvió a pulsar el botón: la clave de idempotencia es una por clic, así que
+// el segundo intento fue una operación NUEVA y cobró otros 20 créditos por una
+// planeación que ya existía. La idempotencia del ledger no puede evitarlo (no
+// es la misma clave); lo evita este bloqueo, que se toma ANTES de reservar y
+// por lo tanto no cobra ni toca el ledger. Transacción: dos peticiones
+// simultáneas no pueden tomarlo las dos. Vence solo (10 min > los 540 s de la
+// función más larga) para que una función muerta no bloquee para siempre.
+const BLOQUEO_OPERACION_MINUTOS = 10
+
+async function adquirirBloqueoOperacion({ uid, operacion, asignaturaId, idempotencyKey }) {
+  const db = getFirestore()
+  const asignatura = String(asignaturaId || '').trim()
+  const ref = db.doc(`iaBloqueos/${uid}_${operacion}_${asignatura.replace(/\//g, '_') || 'sin-asignatura'}`)
+  const ahora = Date.now()
+  const propio = await db.runTransaction(async (tx) => {
+    const b = (await tx.get(ref)).data()
+    if (b && b.expiraEn?.toMillis?.() > ahora) {
+      // Misma clave = reintento del SDK de ESA operación: no es un intento
+      // nuevo, y el ledger ya responde por ella (reserva.repetida).
+      if (b.idempotencyKey === idempotencyKey) return false
+      throw new HttpsError('aborted',
+        'Ya hay una planeación generándose para esta asignatura. Espera a que termine — no se descontaron créditos por este intento.',
+        { codigo: 'GENERACION_EN_CURSO' })
+    }
+    tx.set(ref, { uid, operacion, asignaturaId: asignatura, idempotencyKey, expiraEn: Timestamp.fromMillis(ahora + BLOQUEO_OPERACION_MINUTOS * 60000) })
+    return true
+  })
+  return {
+    liberar: async () => {
+      if (!propio) return
+      // Solo si sigue siendo el nuestro: si venció y otro intento lo tomó, no se le quita.
+      await db.runTransaction(async (tx) => {
+        const b = (await tx.get(ref)).data()
+        if (b?.idempotencyKey === idempotencyKey) tx.delete(ref)
+      }).catch((err) => logger.error(`liberar bloqueo(${idempotencyKey}) falló (vence solo):`, err))
+    },
+  }
+}
+
+// Creado dos veces a propósito: `timeoutSeconds` es por función, no por
+// operación. La Planeación Didáctica (una llamada por parcial) es la única que
+// necesita más de 300 s de margen, y subirlo para todas alargaría el peor caso
+// de las demás. Mismo cuerpo, mismo ledger; `soloOperacion` impide usar la
+// variante larga para cualquier otra cosa.
+function crearCallableIA(opciones, { soloOperacion = null } = {}) {
+  return onCall(
+    opciones,
+    async (request) => {
     const uid = request.auth?.uid
     if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar la IA')
 
@@ -6596,7 +6674,7 @@ exports.ejecutarOperacionIA = onCall(
 
     const { operacion, idempotencyKey, params = {}, unidades = 1 } = request.data || {}
     const ejecutor = OPERACIONES[operacion]
-    if (!ejecutor) {
+    if (!ejecutor || (soloOperacion && operacion !== soloOperacion)) {
       throw new HttpsError('unimplemented', 'Esta operación de IA aún no está disponible')
     }
     const unidadesCliente = Number.isInteger(unidades) && unidades > 0 && unidades <= 500 ? unidades : 1
@@ -6652,157 +6730,173 @@ exports.ejecutarOperacionIA = onCall(
       return operacion
     })()
 
-    let reserva
-    try {
-      reserva = await ledger.reservar({ uid, operacion: operacionEfectiva, idempotencyKey, unidades: n, asignaturaId: params.asignaturaId || null, tarifas })
-    } catch (e) {
-      throw comoHttpsError(e)
-    }
+    // Un solo intento activo por asignatura: ver adquirirBloqueoOperacion.
+    const bloqueo = operacion === 'planeacion_didactica_inicial'
+      ? await adquirirBloqueoOperacion({ uid, operacion, asignaturaId: params.subjectId || params.asignaturaId, idempotencyKey })
+      : null
 
-    // Reintento de una clave ya vista: no se cobra de nuevo.
-    if (reserva.repetida) {
-      const c = reserva.consumo
-      if (c.estado === 'ejecutado') {
-        const creditos = await db.doc(`iaCreditos/${uid}`).get()
-        return { repetida: true, resultado: c.resultado, creditosReales: c.creditosReales, saldo: creditos.data()?.saldo ?? null }
+    try {
+      let reserva
+      try {
+        reserva = await ledger.reservar({ uid, operacion: operacionEfectiva, idempotencyKey, unidades: n, asignaturaId: params.asignaturaId || null, tarifas })
+      } catch (e) {
+        throw comoHttpsError(e)
       }
-      if (c.estado === 'reservado') {
-        throw new HttpsError('aborted', 'Esta operación ya está en proceso. Espera un momento.')
+
+      // Reintento de una clave ya vista: no se cobra de nuevo.
+      if (reserva.repetida) {
+        const c = reserva.consumo
+        if (c.estado === 'ejecutado') {
+          const creditos = await db.doc(`iaCreditos/${uid}`).get()
+          return { repetida: true, resultado: c.resultado, creditosReales: c.creditosReales, saldo: creditos.data()?.saldo ?? null }
+        }
+        if (c.estado === 'reservado') {
+          throw new HttpsError('aborted', 'Esta operación ya está en proceso. Espera un momento.')
+        }
+        throw new HttpsError('failed-precondition', 'Esta operación falló antes. Intenta de nuevo.', { estadoPrevio: c.estado })
       }
-      throw new HttpsError('failed-precondition', 'Esta operación falló antes. Intenta de nuevo.', { estadoPrevio: c.estado })
-    }
 
-    // Ejecución de la IA. Cualquier fallo → reembolso íntegro de la reserva.
-    let salida
-    try {
-      const modelo = tarifas.modeloPorOperacion?.[operacion]
-      if (!modelo) throw new HttpsError('failed-precondition', 'La operación no tiene modelo configurado')
-      // __uid, __idempotencyKey y __contexto los pone el servidor — cualquier
-      // valor que mandara el cliente se sobreescribe aquí. En particular
-      // __contexto es el contenido REAL de la actividad, leído de Firestore
-      // por el precheck: el ejecutor nunca usa texto pedagógico del cliente.
-      salida = await ejecutor({
-        params: { ...params, __uid: uid, __idempotencyKey: idempotencyKey, __contexto: precontexto },
-        modelo, apiKey, unidades: n,
-      })
-    } catch (e) {
-      await ledger.reembolsar({ uid, idempotencyKey, motivo: String(e.message || e).slice(0, 300) })
-        .catch((err) => logger.error(`reembolso(${idempotencyKey}) falló:`, err))
-      if (e instanceof HttpsError) throw e
-      logger.error(`IA(${operacion}) falló:`, e)
-      throw new HttpsError('unavailable', 'El asistente de IA no está disponible en este momento. No se descontaron créditos.')
-    }
-
-    // Consumo REAL: unidades procesadas × tarifa — lo calcula el código,
-    // jamás la IA.
-    //
-    // Se computa AQUÍ, antes de la métrica interna (26-ago-2026): antes vivía
-    // después del `.set()`, así que `iaConsumosInterno` guardaba tokens pero
-    // NO cuántas unidades se procesaron ni cuántos créditos se cobraron. Sin
-    // esos tres campos no se puede calcular el margen de las operaciones que
-    // cobran POR UNIDAD (`reactivos` y `crear_evaluacion_ia` cobran por
-    // reactivo generado; `calificar_entregable_ia_lote`, por entrega) — el
-    // registro decía cuánto costó, pero no cuánto se cobró por ello. Es
-    // también lo que necesita `rentabilidad_creditos` en adminChat.js para
-    // sacar el costo por crédito.
-    const porUso = tarifas.tarifas[operacionEfectiva]
-    // Defensivo: hoy TODOS los ejecutores devuelven `unidadesReales` (ver
-    // OPERACIONES arriba). Si uno nuevo lo olvidara, `unidadesRealesMetrica`
-    // se registra como null (dato ausente, que las herramientas saben
-    // excluir) — pero el COBRO nunca puede caer en ese hueco: `Math.max(null,
-    // 0)` se evalúa a 0 en JS, así que pasar null a ledger.liquidar cobraría
-    // 0 créditos EN SILENCIO por una operación que sí se ejecutó (peor que un
-    // NaN visible, que era el comportamiento anterior). Por eso el cobro usa
-    // `unidadesParaCobro`, que cae a `n` (el tope ya reservado) en vez de a
-    // cero — el docente paga lo que reservó, nunca menos por un defecto.
-    const unidadesRealesMetrica = Number.isFinite(salida.unidadesReales) ? salida.unidadesReales : null
-    if (unidadesRealesMetrica == null) {
-      logger.error(`ejecutarOperacionIA(${operacion}): el ejecutor no devolvió unidadesReales — se cobra el tope reservado (${n})`)
-    }
-    const unidadesParaCobro = unidadesRealesMetrica ?? n
-    const creditosReales = Math.min(unidadesParaCobro, n) * porUso
-
-    // Métricas internas (tokens, modelo, unidades y créditos): fuera del
-    // alcance del cliente.
-    //
-    // CORRECCIÓN 28-ago-2026: los campos `operacionEfectiva` y
-    // `tipoEvidenciaTarifa` solo existen en operaciones con tarifa
-    // diferenciada (calificar_entregable_ia con imágenes). Para todas las
-    // demás el valor era `undefined`, que Firestore rechaza síncronamente
-    // en `WriteBatch.set()` ANTES de devolver la Promise — el `.catch()`
-    // nunca llegaba a interceptarlo, el throw síncrono propagaba por el
-    // handler y Cloud Functions devolvía INTERNAL al cliente en TODAS las
-    // operaciones de IA. Fix: spread condicional omite el campo cuando no
-    // aplica (Firestore solo almacena los campos presentes).
-    try {
-      db.doc(`iaConsumosInterno/${idempotencyKey}`)
-        .set({
-          uid, operacion,
-          ...(operacionEfectiva !== operacion && { operacionEfectiva }),
-          ...(precontexto?.tipoEvidenciaTarifa && { tipoEvidenciaTarifa: precontexto.tipoEvidenciaTarifa }),
-          ...salida.interno,
-          // Lo que de verdad se procesó (reactivos generados, entregas
-          // evaluadas, respuestas sugeridas…). Es el denominador del costo
-          // unitario real. null si el ejecutor no lo reportó (ver arriba) —
-          // nunca se rellena con el tope reservado aquí, a diferencia del cobro.
-          unidadesReales: unidadesRealesMetrica,
-          // El tope que se reservó. `n` puede ser mayor que `unidadesReales`
-          // (se reserva la estimación máxima y se liquida lo real), así que
-          // guardar ambos deja ver cuánto se sobre-reserva por operación.
-          unidadesCobradas: n,
-          // Lo que se cobró en créditos. En el camino diferido todavía no se
-          // sabe: lo liquida `confirmarJuego` (functions/juego.js), que
-          // completa este mismo documento al hacerlo.
-          // Se completa en functions/juego.js: `creditosReales` real cuando el
-          // docente confirma (confirmarJuego), o 0 si cancela el borrador
-          // (cancelarBorradorJuego). HUECO CONOCIDO: si la reserva expira SOLA
-          // (limpiarReservasHuerfanas en creditosLedger.js, sin que el docente
-          // confirme ni cancele) este registro se queda en null para siempre —
-          // no se tocó esa limpieza porque es infraestructura compartida por
-          // TODAS las operaciones, no solo el juego, y expandirla ahí es un
-          // cambio aparte.
-          creditosReales: salida.diferirLiquidacion ? null : creditosReales,
-          liquidacionDiferida: !!salida.diferirLiquidacion,
-          createdAt: FieldValue.serverTimestamp(),
+      // Ejecución de la IA. Cualquier fallo → reembolso íntegro de la reserva.
+      let salida
+      try {
+        const modelo = tarifas.modeloPorOperacion?.[operacion]
+        if (!modelo) throw new HttpsError('failed-precondition', 'La operación no tiene modelo configurado')
+        // __uid, __idempotencyKey y __contexto los pone el servidor — cualquier
+        // valor que mandara el cliente se sobreescribe aquí. En particular
+        // __contexto es el contenido REAL de la actividad, leído de Firestore
+        // por el precheck: el ejecutor nunca usa texto pedagógico del cliente.
+        salida = await ejecutor({
+          params: { ...params, __uid: uid, __idempotencyKey: idempotencyKey, __contexto: precontexto },
+          modelo, apiKey, unidades: n,
         })
-        .catch((err) => logger.error('iaConsumosInterno (async):', err))
-    } catch (err) {
-      // Protección defensiva: si el SDK lanza síncronamente (p. ej. un campo
-      // inválido que escapó la validación previa), solo se pierde la métrica
-      // — la operación de IA ya completó y el crédito se liquida igualmente.
-      logger.error('iaConsumosInterno (sync throw):', err)
-    }
+      } catch (e) {
+        await ledger.reembolsar({ uid, idempotencyKey, motivo: String(e.message || e).slice(0, 300) })
+          .catch((err) => logger.error(`reembolso(${idempotencyKey}) falló:`, err))
+        if (e instanceof HttpsError) throw e
+        logger.error(`IA(${operacion}) falló:`, e)
+        throw new HttpsError('unavailable', 'El asistente de IA no está disponible en este momento. No se descontaron créditos.')
+      }
 
-    // CORRECCIÓN 23-ago-2026 (Crucigrama/Sopa de letras, decisión de Kike):
-    // si el ejecutor pide diferir la liquidación (hoy solo
-    // generar_contenido_juego), la reserva se queda EN 'reservado' —
-    // ninguna otra operación toca este camino. El docente ya vio descontado
-    // su saldo (reservar() ya lo restó), pero el cobro definitivo espera a
-    // que confirme el juego terminado (functions/juego.js → confirmarJuego)
-    // o se libera si cancela/expira. Sin esto, cada regeneración de
-    // contenido tendría que cobrar de nuevo para poder "deshacer" un cobro
-    // ya liquidado — con la reserva viva, no hace falta deshacer nada.
-    if (salida.diferirLiquidacion) {
-      return { resultado: salida.resultado, reservado: true, idempotencyKey }
-    }
+      // Consumo REAL: unidades procesadas × tarifa — lo calcula el código,
+      // jamás la IA.
+      //
+      // Se computa AQUÍ, antes de la métrica interna (26-ago-2026): antes vivía
+      // después del `.set()`, así que `iaConsumosInterno` guardaba tokens pero
+      // NO cuántas unidades se procesaron ni cuántos créditos se cobraron. Sin
+      // esos tres campos no se puede calcular el margen de las operaciones que
+      // cobran POR UNIDAD (`reactivos` y `crear_evaluacion_ia` cobran por
+      // reactivo generado; `calificar_entregable_ia_lote`, por entrega) — el
+      // registro decía cuánto costó, pero no cuánto se cobró por ello. Es
+      // también lo que necesita `rentabilidad_creditos` en adminChat.js para
+      // sacar el costo por crédito.
+      const porUso = tarifas.tarifas[operacionEfectiva]
+      // Defensivo: hoy TODOS los ejecutores devuelven `unidadesReales` (ver
+      // OPERACIONES arriba). Si uno nuevo lo olvidara, `unidadesRealesMetrica`
+      // se registra como null (dato ausente, que las herramientas saben
+      // excluir) — pero el COBRO nunca puede caer en ese hueco: `Math.max(null,
+      // 0)` se evalúa a 0 en JS, así que pasar null a ledger.liquidar cobraría
+      // 0 créditos EN SILENCIO por una operación que sí se ejecutó (peor que un
+      // NaN visible, que era el comportamiento anterior). Por eso el cobro usa
+      // `unidadesParaCobro`, que cae a `n` (el tope ya reservado) en vez de a
+      // cero — el docente paga lo que reservó, nunca menos por un defecto.
+      const unidadesRealesMetrica = Number.isFinite(salida.unidadesReales) ? salida.unidadesReales : null
+      if (unidadesRealesMetrica == null) {
+        logger.error(`ejecutarOperacionIA(${operacion}): el ejecutor no devolvió unidadesReales — se cobra el tope reservado (${n})`)
+      }
+      const unidadesParaCobro = unidadesRealesMetrica ?? n
+      const creditosReales = Math.min(unidadesParaCobro, n) * porUso
 
-    let liquidacion
-    try {
-      liquidacion = await ledger.liquidar({ uid, idempotencyKey, creditosReales, resultado: salida.resultado })
-    } catch (e) {
-      // El resultado existe pero la liquidación falló: NO se reembolsa (el
-      // trabajo se hizo). La reserva quedará 'reservada' y con el resultado
-      // en mano del cliente; la limpieza la expira y devuelve la diferencia.
-      logger.error(`liquidar(${idempotencyKey}) falló:`, e)
-      return { resultado: salida.resultado, creditosReales, saldo: null, advertencia: 'liquidacion-pendiente' }
-    }
+      // Métricas internas (tokens, modelo, unidades y créditos): fuera del
+      // alcance del cliente.
+      //
+      // CORRECCIÓN 28-ago-2026: los campos `operacionEfectiva` y
+      // `tipoEvidenciaTarifa` solo existen en operaciones con tarifa
+      // diferenciada (calificar_entregable_ia con imágenes). Para todas las
+      // demás el valor era `undefined`, que Firestore rechaza síncronamente
+      // en `WriteBatch.set()` ANTES de devolver la Promise — el `.catch()`
+      // nunca llegaba a interceptarlo, el throw síncrono propagaba por el
+      // handler y Cloud Functions devolvía INTERNAL al cliente en TODAS las
+      // operaciones de IA. Fix: spread condicional omite el campo cuando no
+      // aplica (Firestore solo almacena los campos presentes).
+      try {
+        db.doc(`iaConsumosInterno/${idempotencyKey}`)
+          .set({
+            uid, operacion,
+            ...(operacionEfectiva !== operacion && { operacionEfectiva }),
+            ...(precontexto?.tipoEvidenciaTarifa && { tipoEvidenciaTarifa: precontexto.tipoEvidenciaTarifa }),
+            ...salida.interno,
+            // Lo que de verdad se procesó (reactivos generados, entregas
+            // evaluadas, respuestas sugeridas…). Es el denominador del costo
+            // unitario real. null si el ejecutor no lo reportó (ver arriba) —
+            // nunca se rellena con el tope reservado aquí, a diferencia del cobro.
+            unidadesReales: unidadesRealesMetrica,
+            // El tope que se reservó. `n` puede ser mayor que `unidadesReales`
+            // (se reserva la estimación máxima y se liquida lo real), así que
+            // guardar ambos deja ver cuánto se sobre-reserva por operación.
+            unidadesCobradas: n,
+            // Lo que se cobró en créditos. En el camino diferido todavía no se
+            // sabe: lo liquida `confirmarJuego` (functions/juego.js), que
+            // completa este mismo documento al hacerlo.
+            // Se completa en functions/juego.js: `creditosReales` real cuando el
+            // docente confirma (confirmarJuego), o 0 si cancela el borrador
+            // (cancelarBorradorJuego). HUECO CONOCIDO: si la reserva expira SOLA
+            // (limpiarReservasHuerfanas en creditosLedger.js, sin que el docente
+            // confirme ni cancele) este registro se queda en null para siempre —
+            // no se tocó esa limpieza porque es infraestructura compartida por
+            // TODAS las operaciones, no solo el juego, y expandirla ahí es un
+            // cambio aparte.
+            creditosReales: salida.diferirLiquidacion ? null : creditosReales,
+            liquidacionDiferida: !!salida.diferirLiquidacion,
+            createdAt: FieldValue.serverTimestamp(),
+          })
+          .catch((err) => logger.error('iaConsumosInterno (async):', err))
+      } catch (err) {
+        // Protección defensiva: si el SDK lanza síncronamente (p. ej. un campo
+        // inválido que escapó la validación previa), solo se pierde la métrica
+        // — la operación de IA ya completó y el crédito se liquida igualmente.
+        logger.error('iaConsumosInterno (sync throw):', err)
+      }
 
-    return {
-      resultado: salida.resultado,
-      creditosReales: liquidacion.repetida ? liquidacion.consumo.creditosReales : liquidacion.creditosReales,
-      saldo: liquidacion.repetida ? null : liquidacion.saldo,
+      // CORRECCIÓN 23-ago-2026 (Crucigrama/Sopa de letras, decisión de Kike):
+      // si el ejecutor pide diferir la liquidación (hoy solo
+      // generar_contenido_juego), la reserva se queda EN 'reservado' —
+      // ninguna otra operación toca este camino. El docente ya vio descontado
+      // su saldo (reservar() ya lo restó), pero el cobro definitivo espera a
+      // que confirme el juego terminado (functions/juego.js → confirmarJuego)
+      // o se libera si cancela/expira. Sin esto, cada regeneración de
+      // contenido tendría que cobrar de nuevo para poder "deshacer" un cobro
+      // ya liquidado — con la reserva viva, no hace falta deshacer nada.
+      if (salida.diferirLiquidacion) {
+        return { resultado: salida.resultado, reservado: true, idempotencyKey }
+      }
+
+      let liquidacion
+      try {
+        liquidacion = await ledger.liquidar({ uid, idempotencyKey, creditosReales, resultado: salida.resultado })
+      } catch (e) {
+        // El resultado existe pero la liquidación falló: NO se reembolsa (el
+        // trabajo se hizo). La reserva quedará 'reservada' y con el resultado
+        // en mano del cliente; la limpieza la expira y devuelve la diferencia.
+        logger.error(`liquidar(${idempotencyKey}) falló:`, e)
+        return { resultado: salida.resultado, creditosReales, saldo: null, advertencia: 'liquidacion-pendiente' }
+      }
+
+      return {
+        resultado: salida.resultado,
+        creditosReales: liquidacion.repetida ? liquidacion.consumo.creditosReales : liquidacion.creditosReales,
+        saldo: liquidacion.repetida ? null : liquidacion.saldo,
+      }
+    } finally {
+      if (bloqueo) await bloqueo.liberar()
     }
   }
+  )
+}
+
+exports.ejecutarOperacionIA = crearCallableIA({ secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 300 })
+exports.ejecutarPlaneacionIA = crearCallableIA(
+  { secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 540 },
+  { soloOperacion: 'planeacion_didactica_inicial' }
 )
 
 // Mantenimiento diario: en créditos puros ya no hay ciclos que renovar ni
