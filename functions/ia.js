@@ -142,22 +142,28 @@ function excluirUrlsPermanentes(fuentesManual, permanentesUrls) {
 // docente acaba de adjuntar a mano: lo eligió para esta operación en
 // concreto, así que no puede quedarse fuera porque la biblioteca permanente
 // ya se haya comido el presupuesto.
-async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual, creditosOperacion = 1, rechazarExcedente = false }) {
+async function bloqueFuentesOperacion(db, { asignaturaId, parcial, fuentesManual, creditosOperacion = 1, limiteVisualFijo = false }) {
   const urlsPermanentes = await urlsFuentesPermanentes(db, asignaturaId, parcial)
   const manualSinDuplicar = excluirUrlsPermanentes(fuentesManual, urlsPermanentes)
-  const maxPaginasVisual = fuentesIA.presupuestoPaginasVisual(creditosOperacion)
+  // `limiteVisualFijo` (SOLO crear evaluación y reactivos, decisión de Kike del
+  // 6-oct-2026): el máximo de páginas visuales es SIEMPRE 30, sin depender de
+  // cuántos reactivos pide el docente ni de cuántos créditos cobra la operación.
+  // Las demás operaciones que usan esta función conservan el presupuesto que
+  // escala con su tarifa (presupuestoPaginasVisual), tal cual estaba.
+  const maxPaginasVisual = limiteVisualFijo
+    ? fuentesIA.MAX_PAGINAS_VISUAL
+    : fuentesIA.presupuestoPaginasVisual(creditosOperacion)
 
   // Lo que el docente adjuntó a mano SÍ bloquea si nada de ello sirvió: lo
   // acaba de elegir y merece enterarse, en vez de que la evaluación salga en
   // silencio sin el material que él creía haber aportado.
   //
-  // `rechazarExcedente` (solo crear evaluación y reactivos): si lo que adjuntó
-  // rebasa el límite de páginas visuales, la operación se detiene aquí, ANTES de
-  // reservar créditos, con el máximo en el mensaje — en vez de omitir el
-  // documento en silencio y cobrar. Los materiales permanentes NO bloquean:
-  // el docente no los eligió en esta operación, así que lo que no cabe de ellos
-  // se omite y se avisa, como siempre.
-  const manual = await fuentesIA.fuentesManualRequeridas(manualSinDuplicar, { maxPaginasVisual, rechazarExcedente })
+  // Con `limiteVisualFijo`, si lo que adjuntó rebasa las 30 páginas la operación
+  // se detiene aquí, ANTES de reservar créditos y sin llamar a la IA, con el
+  // máximo en el mensaje — en vez de omitir el documento en silencio y cobrar.
+  // Los materiales permanentes NO bloquean: el docente no los eligió en esta
+  // operación, así que lo que no cabe de ellos se omite y se avisa, como siempre.
+  const manual = await fuentesIA.fuentesManualRequeridas(manualSinDuplicar, { maxPaginasVisual, rechazarExcedente: limiteVisualFijo })
 
   const permanentes = await bloqueFuentesPermanentes(
     db, asignaturaId, parcial,
@@ -2050,7 +2056,7 @@ function resolverSeleccionTipos(params) {
 }
 
 // Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
-async function precheckReactivos({ uid, params, tarifas }) {
+async function precheckReactivos({ uid, params }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) {
@@ -2104,8 +2110,7 @@ async function precheckReactivos({ uid, params, tarifas }) {
   // REACTIVOS_SISTEMA/promptReactivos más abajo).
   const fuentes = await bloqueFuentesOperacion(db, {
     asignaturaId: act.asignaturaId, parcial: act.parcial, fuentesManual: params?.fuentes,
-    creditosOperacion: creditosDe(tarifas, 'reactivos', cantidad),
-    rechazarExcedente: true,
+    limiteVisualFijo: true,
   })
 
   return {
@@ -2849,7 +2854,7 @@ function repartirPonderacion(cantidad) {
 }
 
 // Precheck: todo lo que puede rechazar la operación SIN gastar un crédito.
-async function precheckCrearEvaluacion({ uid, params, tarifas }) {
+async function precheckCrearEvaluacion({ uid, params }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) {
@@ -2892,8 +2897,7 @@ async function precheckCrearEvaluacion({ uid, params, tarifas }) {
   // crear_actividad_ia (OP-05): ver fuentesIA.js.
   const fuentes = await bloqueFuentesOperacion(db, {
     asignaturaId: act.asignaturaId, parcial: act.parcial, fuentesManual: params?.fuentes,
-    creditosOperacion: creditosDe(tarifas, 'crear_evaluacion_ia', cantidad),
-    rechazarExcedente: true,
+    limiteVisualFijo: true,
   })
 
   return {

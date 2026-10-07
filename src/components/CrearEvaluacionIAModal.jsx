@@ -194,8 +194,7 @@ export default function CrearEvaluacionIAModal({
           </div>
 
           <FuentesIAInput files={archivos} onChange={setArchivos} disabled={trabajando} fuentesGuardadas={fuentesGuardadas}
-            mostrarLimiteVisual cantidadReactivos={cantidad}
-            creditosOperacion={creditosIA.estimar('crear_evaluacion_ia', cantidad)} />
+            mostrarLimiteVisual />
         </div>
 
         <p className="text-sm text-on-surface mt-3 mb-1">

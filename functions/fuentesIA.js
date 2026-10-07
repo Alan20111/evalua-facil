@@ -188,13 +188,10 @@ async function fuentesManualRequeridas(urls, opciones = {}) {
   return r
 }
 
-/** El mensaje que ve el docente cuando lo que adjuntó rebasa el límite de páginas visuales. */
+/** El mensaje que ve el docente cuando lo que adjuntó rebasa el límite de páginas visuales (30 en crear evaluación y reactivos). */
 function mensajeExcedePaginas(paginas, max) {
   const que = `Los documentos visuales (PDF hechos de imágenes, como escaneos o infografías) que adjuntaste suman ${paginas} páginas y el máximo es de ${max} páginas`
-  const mas = max < MAX_PAGINAS_VISUAL
-    ? ` Con más reactivos el máximo sube, hasta ${MAX_PAGINAS_VISUAL} páginas.`
-    : ''
-  return `${que}.${mas} Quita alguno o adjunta solo las secciones que necesites. No se descontaron créditos.`
+  return `${que}. Quita alguno o adjunta solo las secciones que necesites. No se descontaron créditos.`
 }
 
 /**

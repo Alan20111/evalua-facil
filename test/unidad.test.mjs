@@ -2122,7 +2122,7 @@ caso('presupuestoPaginasVisual: nunca rebasa el tope aunque la operación sea ca
 })
 
 // ── Límite de páginas visuales (6-oct-2026): UNA definición para cliente y servidor ──
-caso('límite visual con 1 crédito por reactivo: 1→6, 2→12, 3→19, 4→25, 5 o más→30 (32 sin tope; el tope de 30 manda)', () => {
+caso('presupuestoPaginasVisual se conserva para las demás operaciones (crear_actividad_ia, juegos, diagnóstico, planeación): 1 cr→6, 2→12, 3→19, 4→25, 5 o más→30', () => {
   const porReactivos = (n) => FUENTES.presupuestoPaginasVisual(n * 1)
   assert.deepStrictEqual([1, 2, 3, 4, 5, 6, 10, 20, 100].map(porReactivos), [6, 12, 19, 25, 30, 30, 30, 30, 30])
   // El 32 que sale de la fórmula con 5 créditos NUNCA se alcanza: el tope es duro.
@@ -2138,6 +2138,20 @@ caso('límite visual: el cliente (src) y el servidor (functions/_shared) dan el 
   }
   assert.strictEqual(limiteVisualCliente(null), DOCUMENTOS_VISUALES_CLIENTE.minPaginas)
   assert.strictEqual(limiteVisualCliente(undefined), DOCUMENTOS_VISUALES_CLIENTE.minPaginas)
+})
+caso('indicador de la pantalla: solo «Documentos visuales: máximo {30} páginas», sin texto que dependa de los reactivos', () => {
+  const leer = (ruta) => readFileSync(require.resolve(ruta), 'utf8')
+  const input = leer('../src/components/ia/FuentesIAInput.jsx')
+  assert.ok(input.includes('Documentos visuales: máximo {maxVisual} páginas'))
+  assert.ok(input.includes('const maxVisual = DOCUMENTOS_VISUALES.maxPaginas'), 'el número sale de la constante compartida')
+  for (const prohibido of ['puedes usar hasta', 'cantidadReactivos', 'creditosOperacion', 'presupuestoPaginasVisual', 'más reactivos', 'Son los PDF hechos de imágenes']) {
+    assert.ok(!input.includes(prohibido), `FuentesIAInput no debe contener «${prohibido}»`)
+  }
+  for (const modal of ['../src/components/CrearEvaluacionIAModal.jsx', '../src/components/EvaluacionEditor.jsx']) {
+    const t = leer(modal)
+    assert.ok(/mostrarLimiteVisual\s*\/>/.test(t), `${modal} solo pide el indicador`)
+    assert.ok(!t.includes('cantidadReactivos'), `${modal} no pasa la cantidad de reactivos al indicador`)
+  }
 })
 caso('mínimo de reactivos al generar: 1 en cliente y servidor; el examen del Chat conserva su mínimo de 2', () => {
   assert.strictEqual(MIN_REACTIVOS_CLIENTE, 1)
@@ -2362,7 +2376,7 @@ await (async () => {
     assert.strictEqual(estrictoExcede.e.details?.codigo, 'EXCEDE_PAGINAS_VISUALES')
     assert.ok(estrictoExcede.e.message.includes('suman 20 páginas'), estrictoExcede.e.message)
     assert.ok(estrictoExcede.e.message.includes('máximo es de 19 páginas'), estrictoExcede.e.message)
-    assert.ok(estrictoExcede.e.message.includes('hasta 30 páginas'), 'con 19 (<30) avisa que con más reactivos sube: ' + estrictoExcede.e.message)
+    assert.ok(!estrictoExcede.e.message.includes('Con más reactivos'), 'el mensaje nunca promete un máximo mayor: ' + estrictoExcede.e.message)
     assert.ok(estrictoExcede.e.message.includes('No se descontaron créditos'))
   })
   caso('límite visual estricto · el máximo autorizado es 30 páginas: un documento de EXACTAMENTE 30 se procesa', () => {
@@ -2387,9 +2401,13 @@ await (async () => {
     assert.strictEqual(estrictoCabe.avisos.length, 0)
     assert.ok(estrictoCabe.texto.includes('La celula'))
   })
-  caso('límite visual estricto · con el tope de 30 el mensaje no promete que sube', () => {
-    assert.ok(!FUENTES.mensajeExcedePaginas(45, 30).includes('Con más reactivos'))
-    assert.ok(FUENTES.mensajeExcedePaginas(45, 25).includes('hasta 30 páginas'))
+  caso('límite visual estricto · el mensaje de rechazo nunca depende de los reactivos, sea cual sea el máximo', () => {
+    for (const max of [30, 25, 19]) {
+      const m = FUENTES.mensajeExcedePaginas(45, max)
+      assert.ok(m.includes(`el máximo es de ${max} páginas`), m)
+      assert.ok(!m.includes('Con más reactivos'), m)
+      assert.ok(!m.includes('hasta 30 páginas'), m)
+    }
   })
   caso('límite visual estricto · los materiales PERMANENTES nunca bloquean: lo que no cabe se omite y se avisa (sin jerga)', () => {
     assert.strictEqual(estrictoPermanente.bloques.length, 1)
