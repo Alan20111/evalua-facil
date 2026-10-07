@@ -45,6 +45,8 @@ initializeApp()
 const creditosLedger = require('./creditosLedger')
 const ia = require('./ia')
 exports.ejecutarOperacionIA = ia.ejecutarOperacionIA
+// Misma lógica con 540 s de margen, solo para la Planeación Didáctica.
+exports.ejecutarPlaneacionIA = ia.ejecutarPlaneacionIA
 exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
 // Análisis integral de asignatura con IA (functions/analisisAcademico.js): la
 // preparación gratuita del diálogo (qué fuentes tienen datos y cuánto cuesta

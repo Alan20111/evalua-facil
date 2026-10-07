@@ -17,7 +17,7 @@
 // VERSE COMO SE VEIA, COMO UN WORD EN EL CUAL SE ESTA EDITANDO") — nunca en
 // un panel aparte.
 import { useEffect, useRef, useState } from 'react'
-import { collection, doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, onSnapshot, query, serverTimestamp, where } from 'firebase/firestore'
 import { updateDoc } from '../../utils/firestoreGuard'
 import { auth, db } from '../../firebase'
 import { useToast } from '../Toast'
@@ -43,6 +43,14 @@ import { Skeleton, SkeletonList, SkeletonText } from '../ui'
 
 const CLAVES_MOMENTO = MOMENTOS.map((m) => m.clave)
 const FUENTES_VACIAS = ['', '', '', '', '']
+
+// Cuánto se considera "en curso" una reserva sin liquidar: la función de la
+// Planeación vive hasta 540 s, así que 10 min es el mismo tope que usa el
+// servidor para su bloqueo (functions/ia.js, BLOQUEO_OPERACION_MINUTOS).
+const VENTANA_RESERVA_MS = 10 * 60 * 1000
+// Margen entre que la reserva se cierra y que el listener de planeacionesIA
+// entrega la planeación (son dos listeners, no llegan en orden garantizado).
+const GRACIA_RESOLUCION_MS = 6000
 
 function millisDe(ts) {
   return ts?.toMillis?.() || 0
@@ -597,6 +605,13 @@ function Planeacion({
   const [modoCantidad, setModoCantidad] = useState('ia')
   const [cantidadManual, setCantidadManual] = useState(3)
   const [generando, setGenerando] = useState(false)
+  // Hay una reserva de ESTA operación y asignatura sin liquidar (la propia, la de
+  // otra pestaña o la que quedó corriendo en el servidor tras un timeout).
+  const [generacionActiva, setGeneracionActiva] = useState(false)
+  // Instante del clic cuya espera expiró en el cliente mientras el servidor sigue
+  // (o acaba de terminar). null = no estamos esperando nada.
+  const [esperandoDesde, setEsperandoDesde] = useState(null)
+  const historialRef = useRef([])
   const [parcialActivo, setParcialActivo] = useState(1)
   // Copia editable — solo existe/importa ANTES de aceptar (una vez
   // aceptada, la Planeación queda bloqueada, ver `contenidoActivo` más
@@ -643,6 +658,60 @@ function Planeacion({
     }, () => setHistLoaded(true))
     return unsub
   }, [subjectId])
+
+  useEffect(() => { historialRef.current = historial })
+
+  // ── Generación en curso en el servidor ────────────────────────────────
+  // El botón no puede depender de `generando` (estado de ESTA llamada): tras un
+  // timeout del cliente, un recargo de la página o en otra pestaña, la llamada ya
+  // no existe aquí pero el servidor sigue trabajando y ya cobró la reserva. La
+  // fuente de verdad es esa reserva (iaConsumos, estado 'reservado'). Es solo la
+  // capa amable: la que de verdad impide el segundo cobro es el bloqueo del
+  // servidor (adquirirBloqueoOperacion en functions/ia.js).
+  useEffect(() => {
+    const uid = auth.currentUser?.uid
+    if (!uid) return undefined
+    let vence = null
+    const q = query(
+      collection(db, 'iaConsumos'),
+      where('uid', '==', uid),
+      where('operacion', '==', 'planeacion_didactica_inicial'),
+      where('estado', '==', 'reservado'),
+    )
+    const unsub = onSnapshot(q, (snap) => {
+      clearTimeout(vence)
+      const desde = snap.docs.map((d) => d.data())
+        .filter((c) => c.asignaturaId === subjectId)
+        .reduce((max, c) => Math.max(max, millisDe(c.createdAt)), 0)
+      const restante = desde ? desde + VENTANA_RESERVA_MS - Date.now() : 0
+      setGeneracionActiva(restante > 0)
+      // Una reserva huérfana (función muerta) no se liquida sola hasta el
+      // barrido diario: pasada la ventana deja de bloquear, igual que en el servidor.
+      if (restante > 0) vence = setTimeout(() => setGeneracionActiva(false), restante)
+    }, () => setGeneracionActiva(false))
+    return () => { clearTimeout(vence); unsub() }
+  }, [subjectId])
+
+  // Resuelve la espera tras un timeout del cliente: cuando la reserva ya no está
+  // activa, o bien la planeación llegó (éxito, aunque el cliente no lo supo) o
+  // bien no llegó (el servidor falló y reembolsó, o venció la reserva).
+  useEffect(() => {
+    if (esperandoDesde == null || generacionActiva) return undefined
+    const llego = () => historialRef.current.some((h) => millisDe(h.generadoEn) >= esperandoDesde - 120000)
+    const resolver = () => {
+      setEsperandoDesde(null)
+      if (llego()) {
+        toast('Planeación generada — revísala y acéptala cuando estés conforme.', 'info')
+        setAbrirTrasGenerar(true)
+      } else {
+        toast('No se pudo confirmar la generación. Si se descontaron créditos sin entregarte la planeación, se devuelven automáticamente.', 'error')
+      }
+    }
+    if (llego()) { resolver(); return undefined }
+    const t = setTimeout(resolver, GRACIA_RESOLUCION_MS)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toast no cambia de identidad con significado
+  }, [esperandoDesde, generacionActiva, historial])
 
   // ── Planeación VIGENTE vs GENERACIÓN IA PENDIENTE ─────────────────────
   // Dos conceptos distintos (1-sep-2026, ver src/utils/planeacionVigente.js).
@@ -718,10 +787,13 @@ function Planeacion({
   const guardadoRaw = !!pendiente && subjectPlaneacion?.planeacionBorrador?.planeacionId === pendiente.id
     ? extraerContenido(subjectPlaneacion.planeacionBorrador) : null
   const guardado = guardadoRaw?.porParcial?.length ? guardadoRaw : (pendiente ? extraerContenido(pendiente) : null)
+  const bloqueada = generando || generacionActiva || esperandoDesde != null
   const sinGuardar = !!pendiente && JSON.stringify(edicion) !== JSON.stringify(guardado)
 
   async function generar() {
     if (nuncaAprobado) { onPago(); return }
+    if (generacionActiva) return
+    const inicio = Date.now()
     setGenerando(true)
     try {
       // La función misma guarda el resultado (ver ejecutarPlaneacionDidacticaInicial
@@ -730,7 +802,7 @@ function Planeacion({
       const data = await creditosIA.ejecutar('planeacion_didactica_inicial', {
         subjectId, asignaturaId: subjectId, asignaturaNombre, incluir: incluirInsumos,
         cantidadSecuencias: modoCantidad === 'manual' ? cantidadManual : null,
-      }, 1, { timeoutMs: 240000 })
+      }, 1, { timeoutMs: 560000, callable: 'ejecutarPlaneacionIA' })
       setConfirmando(false)
       if (data?.resultado?.porParcial?.length) {
         toast(data.repetida ? 'Se recuperó la generación ya hecha (sin costo adicional) — revísala y acéptala cuando estés conforme.'
@@ -743,7 +815,13 @@ function Planeacion({
       }
     } catch (err) {
       setConfirmando(false)
-      if (err.codigo === 'SALDO_INSUFICIENTE') toast('No tienes suficientes créditos de IA para esta acción', 'error')
+      // El cliente dejó de esperar, no la operación: el servidor sigue y guarda la
+      // planeación por su cuenta. NO es un fallo — se resuelve en el efecto de arriba.
+      if (err.codigoSDK === 'functions/deadline-exceeded') {
+        setEsperandoDesde(inicio)
+        toast('La planeación sigue generándose. Te avisaremos cuando esté lista.', 'info')
+      } else if (err.codigo === 'GENERACION_EN_CURSO') toast(err.message, 'info')
+      else if (err.codigo === 'SALDO_INSUFICIENTE') toast('No tienes suficientes créditos de IA para esta acción', 'error')
       else if (err.codigo === 'PERFIL_IA_INCOMPLETO') toast('Marcaste incluir tu Perfil IA, pero todavía no lo completas — complétalo o desmarca esa casilla', 'error')
       else if (err.codigo === 'SIN_PROGRAMA_ESTUDIOS') toast('Sube primero el programa de estudios', 'error')
       else if (err.codigo === 'SIN_DIAGNOSTICO_CONTEXTO') toast('Marcaste incluir el Diagnóstico de contexto, pero todavía no tiene resultados analizados — genera y analiza el instrumento, o desmarca esa casilla', 'error')
@@ -1171,11 +1249,11 @@ function Planeacion({
               <button
                 type="button"
                 onClick={() => (nuncaAprobado ? onPago() : setConfirmando(true))}
-                disabled={generando || !perfilIACompleto}
-                title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar con Evalúa Fácil' : undefined}
+                disabled={bloqueada || !perfilIACompleto}
+                title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar con Evalúa Fácil' : bloqueada ? 'Tu planeación se está generando — aparecerá aquí al terminar' : undefined}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
               >
-                {generando ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : pendiente ? <RotateCcw size={14} /> : <Sparkles size={14} />}
+                {bloqueada ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : pendiente ? <RotateCcw size={14} /> : <Sparkles size={14} />}
                 {pendiente ? 'Generar de nuevo (con IA)' : 'Generar mi planeación'}
               </button>
             )}

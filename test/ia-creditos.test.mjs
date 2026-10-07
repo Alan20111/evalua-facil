@@ -2448,7 +2448,7 @@ require.cache[rutaSdk].exports = class AnthropicFalso {
     this.messages = {
       create: async (req) => {
         pedidosIA.push(req)
-        return { content: [{ type: 'text', text: JSON.stringify(respuestaIA(req)) }], usage: { input_tokens: 10, output_tokens: 10 } }
+        return { content: [{ type: 'text', text: JSON.stringify(await respuestaIA(req)) }], usage: { input_tokens: 10, output_tokens: 10 } }
       },
     }
   }
@@ -3107,6 +3107,229 @@ await caso('rúbrica: un descriptor o un nivel temporal también dispara el rein
   respuestaIA = () => (pedidosIA.length === 1 ? { ...propRubrica(), niveles: ['Entrega oportuna', 'Bien', 'Mal'] } : propRubrica())
   await generarInstrumento({ operacion: 'rubrica' })
   assert.strictEqual(pedidosIA.length, 2)
+})
+
+
+// ── Planeación Didáctica: sin doble cobro tras un timeout del cliente + parciales en paralelo ──
+// Incidente 7-oct-2026: la generación tarda ~4 min, el cliente se rindió a los 240 s con
+// "deadline-exceeded" aunque el servidor terminó bien, y el reintento (clave nueva) cobró otros
+// 20 créditos por una planeación que ya existía. Ahora: un solo intento activo por asignatura
+// (bloqueo transaccional, antes de reservar), los parciales se generan a la vez y en su orden.
+grupo('Planeación Didáctica — un solo intento activo, parciales en paralelo')
+
+const TARIFAS_PLAN_PAR = {
+  ...TARIFAS_FUENTES,
+  tarifas: { ...TARIFAS_FUENTES.tarifas, rubrica: 1 },
+  categorias: { ...TARIFAS_FUENTES.categorias, rubrica: 'Instrumentos' },
+  modeloPorOperacion: { planeacion_didactica_inicial: 'claude-haiku-4-5', rubrica: 'claude-haiku-4-5' },
+}
+const secuenciaFalsa = (n) => {
+  const mom = (p) => ({ actividades: `• Sesión ${n}: x`, recursos: 'r', estrategiaEvaluacion: 'e', evidencias: 'ev', tipoInstrumento: 't', ponderacion: p })
+  return {
+    nombre: `Secuencia del parcial ${n}`, aprendizajesEsperados: 'a', proposito: 'p', sesiones: `Sesión ${n}`, contenidosRelacionados: 'c',
+    apertura: mom('10%'), desarrollo: mom('60%'), cierre: mom('30%'),
+  }
+}
+const parcialDelPedido = (req) => Number(/PARCIAL (\d+) de/.exec(textoDelPedido(req))?.[1])
+let enVuelo = 0, maxEnVuelo = 0, retrasoPorParcial = () => 0
+const respuestaPlaneacionFalsa = async (req) => {
+  const n = parcialDelPedido(req)
+  enVuelo++; maxEnVuelo = Math.max(maxEnVuelo, enVuelo)
+  try {
+    await new Promise((r) => setTimeout(r, retrasoPorParcial(n)))
+    return { bloquesTematicos: 1, temasFuente: [{ titulo: 't', cubierto: true }], secuenciasDidacticas: [secuenciaFalsa(n)], fuentesInformacion: [`Programa (pedido del parcial ${n})`] }
+  } finally { enVuelo-- }
+}
+async function reiniciarPlaneacionPar({ saldo = 100, parciales = 2, programa = 'texto.pdf' } = {}) {
+  await limpiar()
+  await db.doc(`users/${DOCENTE}`).set({ role: 'docente', nombre: 'Prueba', escuelaId: 'E1', perfilIA: PERFIL_IA_COMPLETO })
+  await db.doc('config/iaTarifas').set(TARIFAS_PLAN_PAR)
+  await darSaldo(DOCENTE, saldo)
+  await sembrarProgramaPdf(U(programa))
+  await db.doc('subjects/sub_pdf').set({ docenteId: DOCENTE, nombre: 'Informática', parciales })
+  pedidosIA.length = 0
+  enVuelo = 0; maxEnVuelo = 0; retrasoPorParcial = () => 0
+  respuestaIA = respuestaPlaneacionFalsa
+}
+const generarPlaneacion = ({ k = clave(), fn = 'ejecutarPlaneacionIA' } = {}) =>
+  IA_FN[fn].run({ auth: { uid: DOCENTE }, data: { operacion: 'planeacion_didactica_inicial', idempotencyKey: k, params: { subjectId: 'sub_pdf', asignaturaId: 'sub_pdf', asignaturaNombre: 'Informática', incluir: {} } } })
+const codigoDetalle = (e) => e?.details?.codigo
+const bloqueosActivos = async () => (await db.collection('iaBloqueos').get()).size
+const planeacionesGuardadas = async () => (await db.collection('subjects/sub_pdf/planeacionesIA').get()).docs.map((d) => d.data())
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms))
+// Espera a que la operación ya esté reservada (pasó el precheck, que baja y lee los PDF).
+async function esperarReserva(k) {
+  for (let i = 0; i < 100; i++) { if ((await consumoDe(k))?.estado === 'reservado') return; await esperar(50) }
+  throw new Error('la reserva nunca apareció')
+}
+
+await caso('2 parciales: se generan a la vez, quedan en su orden aunque el 1º termine último, y se cobran 20 una sola vez', async () => {
+  await reiniciarPlaneacionPar()
+  retrasoPorParcial = (n) => (n === 1 ? 120 : 10)
+  const restaurar = conDocs()
+  const k = clave()
+  let r
+  try { r = await generarPlaneacion({ k }) } finally { restaurar() }
+  assert.strictEqual(maxEnVuelo, 2, 'las dos llamadas estuvieron en vuelo al mismo tiempo')
+  assert.strictEqual(pedidosIA.length, 2)
+  assert.deepStrictEqual(r.resultado.porParcial.map((p) => p.numero), [1, 2])
+  assert.deepStrictEqual(r.resultado.porParcial.map((p) => p.secuencias[0].nombre), ['Secuencia del parcial 1', 'Secuencia del parcial 2'])
+  assert.strictEqual(r.resultado.fuentesInformacion[0], 'Programa (pedido del parcial 1)', 'la bibliografía sale solo del primer parcial')
+  assert.ok(!textoDelPedido(pedidosIA.find((q) => parcialDelPedido(q) === 2)).includes('FUENTES DE INFORMACIÓN / BIBLIOGRAFÍA'), 'el parcial 2 no pide bibliografía')
+  assert.strictEqual(r.creditosReales, 20)
+  assert.strictEqual((await consumoDe(k)).estado, 'ejecutado')
+  assert.strictEqual((await creditosDe()).saldo, 80)
+  const guardadas = await planeacionesGuardadas()
+  assert.strictEqual(guardadas.length, 1, 'el servidor guardó la planeación él mismo')
+  assert.deepStrictEqual(guardadas[0].porParcial.map((p) => p.numero), [1, 2])
+  assert.strictEqual(await bloqueosActivos(), 0, 'el bloqueo se libera al terminar')
+})
+
+await caso('4 parciales: las 4 llamadas a la vez y el resultado en orden 1→4', async () => {
+  await reiniciarPlaneacionPar({ parciales: 4 })
+  retrasoPorParcial = (n) => (5 - n) * 30 // el último termina primero
+  const restaurar = conDocs()
+  let r
+  try { r = await generarPlaneacion() } finally { restaurar() }
+  assert.strictEqual(maxEnVuelo, 4)
+  assert.deepStrictEqual(r.resultado.porParcial.map((p) => p.numero), [1, 2, 3, 4])
+  assert.strictEqual((await creditosDe()).saldo, 80)
+})
+
+await caso('Con PDF visual el parcial 1 va SOLO (escribe el caché) y los demás se lanzan juntos después', async () => {
+  await reiniciarPlaneacionPar({ parciales: 3, programa: 'visual.pdf' })
+  retrasoPorParcial = () => 40
+  const restaurar = conDocs()
+  let r
+  try { r = await generarPlaneacion() } finally { restaurar() }
+  assert.strictEqual(parcialDelPedido(pedidosIA[0]), 1, 'la primera llamada es la del parcial 1')
+  assert.strictEqual(maxEnVuelo, 2, 'el 1º solo; luego el 2º y el 3º juntos (nunca los 3)')
+  assert.deepStrictEqual(r.resultado.porParcial.map((p) => p.numero), [1, 2, 3])
+})
+
+await caso('Doble clic / otra pestaña: dos intentos simultáneos (claves distintas) → UNO se ejecuta, el otro se rechaza SIN reservar', async () => {
+  await reiniciarPlaneacionPar()
+  retrasoPorParcial = () => 150
+  const restaurar = conDocs()
+  let rs
+  try { rs = await Promise.allSettled([generarPlaneacion({ k: clave() }), generarPlaneacion({ k: clave() })]) } finally { restaurar() }
+  const ok = rs.filter((r) => r.status === 'fulfilled'), mal = rs.filter((r) => r.status === 'rejected')
+  assert.strictEqual(ok.length, 1)
+  assert.strictEqual(mal.length, 1)
+  assert.strictEqual(codigoDetalle(mal[0].reason), 'GENERACION_EN_CURSO')
+  assert.strictEqual(mal[0].reason.code, 'aborted')
+  assert.strictEqual(pedidosIA.length, 2, 'una sola operación: 2 parciales, no 4')
+  assert.strictEqual((await creditosDe()).saldo, 80, 'UN solo cobro de 20')
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 1, 'el rechazado nunca llegó a reservar')
+  assert.strictEqual((await planeacionesGuardadas()).length, 1)
+})
+
+await caso('Timeout del cliente: el servidor sigue y guarda; el REINTENTO con otra clave no cobra y, al terminar, el bloqueo se libera', async () => {
+  await reiniciarPlaneacionPar()
+  retrasoPorParcial = () => 600
+  const restaurar = conDocs()
+  const kPrimero = clave()
+  try {
+    // El cliente "se rinde" (no espera la promesa), pero la función sigue viva.
+    const enServidor = generarPlaneacion({ k: kPrimero })
+    await esperarReserva(kPrimero)
+    assert.strictEqual((await consumoDe(kPrimero)).estado, 'reservado', 'a mitad de camino: reserva viva')
+    assert.strictEqual(await bloqueosActivos(), 1)
+    // El docente (asustado por el rojo) pulsa de nuevo: clave nueva.
+    const e = await generarPlaneacion({ k: clave() }).then(() => null, (x) => x)
+    assert.strictEqual(codigoDetalle(e), 'GENERACION_EN_CURSO')
+    assert.strictEqual((await creditosDe()).saldo, 80, 'sigue en 80: el reintento no reservó nada')
+    await enServidor
+  } finally { restaurar() }
+  assert.strictEqual((await consumoDe(kPrimero)).estado, 'ejecutado')
+  assert.strictEqual((await planeacionesGuardadas()).length, 1, 'la planeación existe aunque el cliente nunca recibió respuesta')
+  assert.strictEqual((await creditosDe()).saldo, 80)
+  assert.strictEqual(await bloqueosActivos(), 0)
+  // Terminada la anterior, regenerar a propósito sí es un intento nuevo (y se cobra).
+  const restaurar2 = conDocs()
+  try { await generarPlaneacion() } finally { restaurar2() }
+  assert.strictEqual((await creditosDe()).saldo, 60)
+})
+
+await caso('Reintento del SDK con LA MISMA clave mientras corre: no cobra otra vez y no suelta el bloqueo de la operación viva', async () => {
+  await reiniciarPlaneacionPar()
+  retrasoPorParcial = () => 600
+  const restaurar = conDocs()
+  const k = clave()
+  try {
+    const viva = generarPlaneacion({ k })
+    await esperarReserva(k)
+    const e = await generarPlaneacion({ k }).then(() => null, (x) => x)
+    assert.strictEqual(e?.code, 'aborted', e?.message)
+    assert.strictEqual(await bloqueosActivos(), 1, 'el duplicado no liberó el bloqueo de la operación viva')
+    await viva
+  } finally { restaurar() }
+  assert.strictEqual((await creditosDe()).saldo, 80)
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 1)
+})
+
+await caso('Fallo real de la IA: se reembolsan los 20, el bloqueo se libera y un reintento es posible', async () => {
+  await reiniciarPlaneacionPar()
+  respuestaIA = async (req) => { if (parcialDelPedido(req) === 2) throw new Error('Anthropic caído'); return respuestaPlaneacionFalsa(req) }
+  const restaurar = conDocs()
+  const k = clave()
+  try {
+    const e = await generarPlaneacion({ k }).then(() => null, (x) => x)
+    assert.strictEqual(e?.code, 'unavailable')
+    assert.ok(e.message.includes('No se descontaron créditos'))
+  } finally { restaurar() }
+  assert.strictEqual((await consumoDe(k)).estado, 'fallido')
+  assert.strictEqual((await creditosDe()).saldo, 100, 'reembolso íntegro')
+  assert.strictEqual(await bloqueosActivos(), 0)
+  assert.strictEqual((await planeacionesGuardadas()).length, 0, 'sin planeación a medias')
+  respuestaIA = respuestaPlaneacionFalsa
+  const restaurar2 = conDocs()
+  try { await generarPlaneacion() } finally { restaurar2() }
+  assert.strictEqual((await creditosDe()).saldo, 80)
+})
+
+await caso('Saldo insuficiente: se rechaza como antes (SALDO_INSUFICIENTE), sin llamar a la IA y sin dejar bloqueo', async () => {
+  await reiniciarPlaneacionPar({ saldo: 10 })
+  const restaurar = conDocs()
+  try {
+    const e = await generarPlaneacion().then(() => null, (x) => x)
+    assert.strictEqual(codigoDetalle(e), 'SALDO_INSUFICIENTE')
+  } finally { restaurar() }
+  assert.strictEqual(pedidosIA.length, 0)
+  assert.strictEqual((await creditosDe()).saldo, 10)
+  assert.strictEqual(await bloqueosActivos(), 0)
+})
+
+await caso('Un bloqueo VENCIDO (función muerta) no bloquea para siempre', async () => {
+  await reiniciarPlaneacionPar()
+  await db.doc(`iaBloqueos/${DOCENTE}_planeacion_didactica_inicial_sub_pdf`).set({
+    uid: DOCENTE, operacion: 'planeacion_didactica_inicial', asignaturaId: 'sub_pdf', idempotencyKey: 'muerta-muerta',
+    expiraEn: Timestamp.fromMillis(Date.now() - 1000),
+  })
+  const restaurar = conDocs()
+  try { await generarPlaneacion() } finally { restaurar() }
+  assert.strictEqual((await creditosDe()).saldo, 80)
+})
+
+await caso('El bloqueo es por asignatura: una operación viva de OTRA asignatura del mismo docente no estorba', async () => {
+  await reiniciarPlaneacionPar()
+  await db.doc(`iaBloqueos/${DOCENTE}_planeacion_didactica_inicial_otra`).set({
+    uid: DOCENTE, operacion: 'planeacion_didactica_inicial', asignaturaId: 'otra', idempotencyKey: 'otra-op-viva',
+    expiraEn: Timestamp.fromMillis(Date.now() + 60000),
+  })
+  const restaurar = conDocs()
+  try { await generarPlaneacion() } finally { restaurar() }
+  assert.strictEqual((await creditosDe()).saldo, 80)
+})
+
+await caso('ejecutarPlaneacionIA (540 s) NO sirve para otras operaciones; ejecutarOperacionIA sigue atendiendo la planeación (clientes en caché)', async () => {
+  await reiniciarPlaneacionPar()
+  const e = await IA_FN.ejecutarPlaneacionIA.run({ auth: { uid: DOCENTE }, data: { operacion: 'rubrica', idempotencyKey: clave(), params: {} } }).then(() => null, (x) => x)
+  assert.strictEqual(e?.code, 'unimplemented')
+  assert.strictEqual((await creditosDe()).saldo, 100)
+  const restaurar = conDocs()
+  try { await generarPlaneacion({ fn: 'ejecutarOperacionIA' }) } finally { restaurar() }
+  assert.strictEqual((await creditosDe()).saldo, 80)
 })
 
 require.cache[rutaSdk].exports = SDK_REAL

@@ -129,18 +129,33 @@ export function useCreditosIA() {
       // `timeoutMs` (opcional): los lotes de C-02 pueden tardar minutos; el
       // timeout por omisión del SDK (70 s) los cortaría a la mitad. Las
       // operaciones unitarias no lo necesitan.
-      async ejecutar(operacion, params = {}, unidades = 1, { timeoutMs } = {}) {
+      // `callable` (opcional): nombre de la función que atiende la operación,
+      // para la que necesita más margen en el servidor que las demás.
+      async ejecutar(operacion, params = {}, unidades = 1, { timeoutMs, callable = 'ejecutarOperacionIA' } = {}) {
         const idempotencyKey = crypto.randomUUID()
-        const llamar = httpsCallable(functions, 'ejecutarOperacionIA', timeoutMs ? { timeout: timeoutMs } : undefined)
+        const llamar = httpsCallable(functions, callable, timeoutMs ? { timeout: timeoutMs } : undefined)
         try {
           const { data } = await llamar({ operacion, idempotencyKey, params, unidades })
           return data
-        } catch (e) {
+        } catch (primero) {
+          // Función dedicada aún sin desplegar (el front y las functions se
+          // publican por separado): se atiende por la general, MISMA clave, así
+          // que si algo llegó a correr el ledger no cobra dos veces.
+          let e = primero
+          if (primero?.code === 'functions/not-found' && callable !== 'ejecutarOperacionIA') {
+            try {
+              const { data } = await httpsCallable(functions, 'ejecutarOperacionIA', timeoutMs ? { timeout: timeoutMs } : undefined)({ operacion, idempotencyKey, params, unidades })
+              return data
+            } catch (segundo) { e = segundo }
+          }
           // El SDK entrega code tipo "functions/failed-precondition" y
           // details con el código del ledger — se normaliza para la UI.
           const codigo = e?.details?.codigo || null
           const err = new Error(e?.message || 'No se pudo completar la operación')
           err.codigo = codigo
+          // Código del SDK sin tocar ("functions/deadline-exceeded"): distingue
+          // que el cliente dejó de esperar de que la operación falló.
+          err.codigoSDK = e?.code || null
           err.saldo = e?.details?.saldo
           err.costo = e?.details?.costo
           throw err
