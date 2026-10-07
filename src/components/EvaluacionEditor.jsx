@@ -2216,8 +2216,7 @@ export default function EvaluacionEditor({
               )}
             </div>
             <FuentesIAInput files={iaArchivos} onChange={setIaArchivos} disabled={iaTrabajando} fuentesGuardadas={fuentesGuardadas}
-              mostrarLimiteVisual cantidadReactivos={iaCantidad}
-              creditosOperacion={creditosIA.estimar('reactivos', iaCantidad)} />
+              mostrarLimiteVisual />
           </div>
         </ConfirmacionCreditosModal>
       )}

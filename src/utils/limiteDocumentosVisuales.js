@@ -5,28 +5,26 @@
 // scripts/sync-functions-shared.mjs) y la pantalla del docente la importa
 // directo de aquí — nunca se escribe el número en otro lado.
 //
-// REGLA (matemática, exacta):
+// DOS REGLAS (6-oct-2026, decisión de Kike):
 //
-//   límite(créditos) = min( MAX, max( MIN, floor( créditos × MXN_POR_CRÉDITO
-//                                                  × FRACCIÓN / COSTO_POR_PÁGINA ) ) )
+// 1) crear_evaluacion_ia y reactivos: el máximo es SIEMPRE `maxPaginas` (30),
+//    sin importar cuántos reactivos pida el docente. Más de 30 se rechaza ANTES
+//    de reservar créditos y no hay recargo por páginas: el único cobro es 1
+//    crédito por reactivo. Estas dos operaciones NO usan la fórmula de abajo.
 //
-// con MAX = 30, MIN = 4, FRACCIÓN = 0.25, COSTO_POR_PÁGINA = 0.039 MXN y
-// MXN_POR_CRÉDITO = 1. `créditos` es lo que cobra la operación (tarifa × reactivos),
-// leído de config/iaTarifas — jamás escrito a mano.
+// 2) Las demás operaciones que leen documentos visuales (crear_actividad_ia,
+//    Crucigrama y Sopa de letras, diagnóstico, planeación) conservan el
+//    presupuesto que escala con lo que cobran:
 //
-// De dónde sale: una página escaneada cuesta ~2,100 tokens de entrada según la
-// fórmula de Anthropic ((ancho×alto)/750 sobre A4), o ~$0.039 MXN con la tarifa
-// de claude-haiku-4-5 (medido con Anthropic real: ~1,588 tokens/página, así que
-// la cifra es conservadora). Se topa el gasto en documentos en ~25% del ingreso
-// de la operación. Con 1 crédito por reactivo el resultado es:
+//      límite(créditos) = min( MAX, max( MIN, floor( créditos × MXN_POR_CRÉDITO
+//                                                     × FRACCIÓN / COSTO_POR_PÁGINA ) ) )
 //
-//     1 reactivo → 6    2 → 12    3 → 19    4 → 25    5 o más → 30
-//
-// (5 reactivos darían 32 sin tope; el tope MAX = 30 manda — 32 nunca se alcanza).
-// MAX = 30 es además un límite duro: aunque la operación sea carísima, nunca se
-// mandan más de 30 páginas visuales. Con 30 páginas y 5 reactivos la IA cuesta
-// ~24% del ingreso; por encima de 30 dejaría de ser sostenible, por eso el
-// límite es 30 y no hay recargo por páginas adicionales: se rechaza, sin cobrar.
+//    con MAX = 30, MIN = 4, FRACCIÓN = 0.25, COSTO_POR_PÁGINA = 0.039 MXN y
+//    MXN_POR_CRÉDITO = 1. `créditos` sale de config/iaTarifas — jamás escrito a
+//    mano. Una página escaneada cuesta ~2,100 tokens de entrada según la fórmula
+//    de Anthropic, o ~$0.039 MXN con la tarifa de claude-haiku-4-5 (medido: ~1,588
+//    tokens/página, así que la cifra es conservadora); se topa el gasto en
+//    documentos en ~25% del ingreso de la operación.
 //
 // NO confundir con el límite de la ENTREGA de un alumno en OP-11
 // (functions/evidenciasEntrega.js, 3 páginas): otra operación, otra economía.

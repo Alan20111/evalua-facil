@@ -2729,8 +2729,8 @@ await caso('Planeación Inicial (20 créditos → tope 30): un programa escanead
 
 // ── Crear evaluación y reactivos: 1 crédito por reactivo + límite de 30 páginas visuales ──
 // Decisión de Kike (6-oct-2026): ambas operaciones cobran 1 crédito por reactivo
-// desde 1 reactivo, y los documentos visuales topan en 30 páginas — sin recargo:
-// lo que excede se rechaza ANTES de reservar, sin cobrar.
+// desde 1 reactivo, y los documentos visuales topan SIEMPRE en 30 páginas (con 1
+// reactivo o con 10) — sin recargo: lo que excede se rechaza ANTES de reservar, sin cobrar.
 grupo('Crear evaluación y reactivos — 1 crédito por reactivo y máximo 30 páginas visuales')
 
 const TARIFAS_REACTIVOS_1CR = {
@@ -2792,39 +2792,35 @@ for (const operacion of ['crear_evaluacion_ia', 'reactivos']) {
     assert.strictEqual((await creditosDe()).saldo, 95)
   })
 
-  await caso(`${operacion}: un documento visual de EXACTAMENTE 30 páginas se procesa (5 reactivos) y llega al modelo`, async () => {
-    await reiniciarReactivos()
-    const k = clave()
-    const restaurar = conDocs()
-    try { await generarEvaluacionIA({ operacion, cantidad: 5, fuentes: [U('visual30.pdf')], k }) } finally { restaurar() }
-    assert.deepStrictEqual(documentosDelPedido(pedidosIA[0]).map((b) => b.source.url), [U('visual30.pdf')])
-    assert.strictEqual((await consumoDe(k)).creditosReales, 5, 'sin recargo por páginas: solo los 5 reactivos')
-    assert.strictEqual((await creditosDe()).saldo, 95)
-  })
+  // El límite es SIEMPRE de 30 páginas, sin importar cuántos reactivos pida el docente (decisión
+  // de Kike, 6-oct-2026): 30 páginas se procesan y cobran solo 1 crédito por reactivo; 31 se
+  // rechazan antes de reservar, sin llamar a la IA.
+  for (const n of [1, 2, 5, 10]) {
+    await caso(`${operacion}: ${n} reactivo(s) con un documento visual de EXACTAMENTE 30 páginas → aceptado, cobra exactamente ${n} crédito(s)`, async () => {
+      await reiniciarReactivos()
+      const k = clave()
+      const restaurar = conDocs()
+      try { await generarEvaluacionIA({ operacion, cantidad: n, fuentes: [U('visual30.pdf')], k }) } finally { restaurar() }
+      assert.deepStrictEqual(documentosDelPedido(pedidosIA[0]).map((b) => b.source.url), [U('visual30.pdf')], 'el documento llegó al modelo')
+      assert.strictEqual((await consumoDe(k)).creditosReales, n, 'sin recargo por páginas: solo 1 crédito por reactivo')
+      assert.strictEqual((await creditosDe()).saldo, 100 - n)
+    })
 
-  await caso(`${operacion}: un documento visual de 31 páginas se rechaza ANTES de reservar — sin llamar a la IA y sin descontar créditos`, async () => {
-    await reiniciarReactivos()
-    const restaurar = conDocs()
-    let err = null
-    try { await generarEvaluacionIA({ operacion, cantidad: 5, fuentes: [U('visual31.pdf')] }) } catch (e) { err = e } finally { restaurar() }
-    assert.ok(codigoDe(err).includes('failed-precondition'), codigoDe(err))
-    assert.strictEqual(err.details?.codigo, 'EXCEDE_PAGINAS_VISUALES')
-    assert.ok(err.message.includes('suman 31 páginas'), err.message)
-    assert.ok(err.message.includes('el máximo es de 30 páginas'), err.message)
-    assert.ok(err.message.includes('No se descontaron créditos'), err.message)
-    assert.ok(!err.message.includes('Con más reactivos'), 'con 30 ya no hay un máximo mayor que prometer')
-    await sinCobro()
-  })
-
-  await caso(`${operacion}: con pocos reactivos el máximo es menor (3 reactivos → 19 páginas) y lo dice, sin cobrar`, async () => {
-    await reiniciarReactivos()
-    const restaurar = conDocs()
-    let err = null
-    try { await generarEvaluacionIA({ operacion, cantidad: 3, fuentes: [U('visual20.pdf')] }) } catch (e) { err = e } finally { restaurar() }
-    assert.ok(err?.message.includes('el máximo es de 19 páginas'), err?.message)
-    assert.ok(err.message.includes('hasta 30 páginas'), err.message)
-    await sinCobro()
-  })
+    await caso(`${operacion}: ${n} reactivo(s) con un documento visual de 31 páginas → rechazado ANTES de reservar: sin reserva, sin llamar a la IA y sin descontar créditos`, async () => {
+      await reiniciarReactivos()
+      const restaurar = conDocs()
+      let err = null
+      try { await generarEvaluacionIA({ operacion, cantidad: n, fuentes: [U('visual31.pdf')] }) } catch (e) { err = e } finally { restaurar() }
+      assert.ok(codigoDe(err).includes('failed-precondition'), codigoDe(err))
+      assert.strictEqual(err.details?.codigo, 'EXCEDE_PAGINAS_VISUALES')
+      assert.ok(err.message.includes('suman 31 páginas'), err.message)
+      assert.ok(err.message.includes('el máximo es de 30 páginas'), err.message)
+      assert.ok(err.message.includes('No se descontaron créditos'), err.message)
+      assert.ok(!err.message.includes('Con más reactivos'), 'nunca promete un máximo mayor: ' + err.message)
+      assert.ok(!/hasta \d+ páginas/.test(err.message), 'sin límites que dependan de los reactivos: ' + err.message)
+      await sinCobro()
+    })
+  }
 }
 
 await caso('crear_evaluacion_ia: un material PERMANENTE de la asignatura que no cabe NO bloquea — se omite, se avisa y se cobra solo por reactivos', async () => {
