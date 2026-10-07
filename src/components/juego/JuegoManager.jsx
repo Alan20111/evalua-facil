@@ -41,7 +41,8 @@ import { groupExtensions, tieneEntregaReal, MENSAJE_PRORROGA_CON_ENTREGA } from 
 import { fechaLimiteTimestamp } from '../../utils/deadline'
 import NuevaFechaEntregaModal from '../NuevaFechaEntregaModal'
 import { nowIsoLocal } from '../../utils/nowIso'
-import { studentFullName } from '../../utils/studentSearch'
+import { studentFullName, matchesStudentSearch } from '../../utils/studentSearch'
+import SearchInput from '../SearchInput'
 import { EVALUACION_DEFAULTS } from '../../utils/evaluacionDefaults'
 import { formatTiempo } from '../../utils/formatTiempo'
 import { cargarClaveJuego, estructuraConClave, esEstructuraHeredada } from '../../utils/juegoClave'
@@ -322,6 +323,8 @@ function JuegoConfiguracion({
 }) {
   const toast = useToast()
   const evalDefaults = EVALUACION_DEFAULTS.juego
+  const [searchResultados, setSearchResultados] = useState('')
+  const estudiantesVisibles = students.filter((st) => matchesStudentSearch(st, searchResultados))
   const [form, setForm] = useState({
     // El nombre NO vive aquí: se edita arriba (NombreJuego), disponible desde
     // el borrador. Tenerlo también en este formulario significaba dos campos
@@ -723,11 +726,23 @@ function JuegoConfiguracion({
             </div>
           )}
         </div>
+        {students.length > 0 && (
+          <div className="p-3 pb-2">
+            <SearchInput
+              value={searchResultados}
+              onChange={setSearchResultados}
+              etiqueta="Buscar por nombre o por número de lista…"
+            />
+          </div>
+        )}
         <div className="divide-y divide-outline-variant">
           {students.length === 0 && (
             <p className="text-sm text-hint text-center py-6">Sin estudiantes en esta asignatura</p>
           )}
-          {students.map((st) => {
+          {students.length > 0 && estudiantesVisibles.length === 0 && (
+            <p className="text-sm text-hint text-center py-6">Sin estudiantes en esta categoría</p>
+          )}
+          {estudiantesVisibles.map((st) => {
             const sub = submissions?.[st.id]
             // Solo hay resolución que consultar cuando el intento ya fue
             // calificado por el servidor (onJuegoFinalizado) — un intento
