@@ -604,12 +604,20 @@ export default function StudentActivityPage() {
               </div>
             )}
 
-            {activity?.instrucciones && (
+            {(activity?.instrucciones || activity?.archivosAdjuntos?.length > 0) && (
               <div className="bg-surface-card rounded-card p-4 shadow-card">
-                <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
-                <div
-                  className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+                {activity?.instrucciones && (
+                  <>
+                    <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
+                    <div
+                      className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+                    />
+                  </>
+                )}
+                <AttachmentList
+                  files={activity?.archivosAdjuntos}
+                  title={activity?.instrucciones ? 'Archivos adjuntos' : null}
                 />
               </div>
             )}
@@ -788,12 +796,20 @@ export default function StudentActivityPage() {
               </>
             )}
 
-            {activity?.instrucciones && (
+            {(activity?.instrucciones || activity?.archivosAdjuntos?.length > 0) && (
               <div className="bg-surface-card rounded-card p-4 shadow-card">
-                <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
-                <div
-                  className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+                {activity?.instrucciones && (
+                  <>
+                    <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
+                    <div
+                      className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+                    />
+                  </>
+                )}
+                <AttachmentList
+                  files={activity?.archivosAdjuntos}
+                  title={activity?.instrucciones ? 'Archivos adjuntos' : null}
                 />
               </div>
             )}
@@ -1007,14 +1023,21 @@ export default function StudentActivityPage() {
         )}
 
         {/* Instructions */}
-        {activity?.instrucciones && (
+        {(activity?.instrucciones || activity?.archivosAdjuntos?.length > 0) && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
-            <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
-            <div
-              className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+            {activity?.instrucciones && (
+              <>
+                <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
+                <div
+                  className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+                />
+              </>
+            )}
+            <AttachmentList
+              files={activity?.archivosAdjuntos}
+              title={activity?.instrucciones ? 'Archivos adjuntos' : null}
             />
-            <AttachmentList files={activity?.archivosAdjuntos} />
           </div>
         )}
 
