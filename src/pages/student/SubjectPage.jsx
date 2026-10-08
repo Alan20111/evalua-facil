@@ -40,7 +40,7 @@ import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno, pesosVisiblesAlumno } from '../../utils/ponderacion'
 import PonderacionPendiente from '../../components/PonderacionPendiente'
-import { STUDENT_CONTAINER } from '../../config/layout'
+import { STUDENT_CONTAINER_LISTA } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde } from '../../utils/avisos'
 import AsistenciaSemanal from '../../components/student/AsistenciaSemanal'
@@ -565,8 +565,12 @@ export default function StudentSubjectPage() {
     <StudentLayout>
     <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
 
-      {/* Page header */}
-      <header data-esq="subj-alu-encabezado" className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
+      {/* Encabezado + pestañas en UNA tarjeta a todo lo ancho (patrón Google
+          Classroom, igual que la asignatura del docente); el contenido, abajo,
+          va limitado y centrado (STUDENT_CONTAINER_LISTA). */}
+      <div className="px-4 pt-2">
+      <div data-esq="subj-alu-tarjeta" className="bg-surface-card rounded-card">
+      <header data-esq="subj-alu-encabezado" className="px-4 py-3 flex items-center gap-3">
         <button
           type="button"
           aria-label="Volver"
@@ -654,17 +658,19 @@ export default function StudentSubjectPage() {
           "Avisos" queda fuera de vista sin ningún indicio de que hay más a
           la derecha. El desvanecido + flecha avisan que se puede deslizar, y
           desaparecen solos en cuanto el estudiante ya llegó al final. */}
-      <div data-esq="subj-alu-pestanas-fondo" className="relative bg-surface-card border-b border-outline-variant">
-        <div data-esq="subj-alu-pestanas" ref={tabsScrollRef} className="px-4 flex gap-1 overflow-x-auto">
+      <div data-esq="subj-alu-pestanas-fondo" className="relative px-4 pb-3">
+        <div data-esq="subj-alu-pestanas" ref={tabsScrollRef} className="flex gap-1 bg-surface-container p-1 rounded-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Secciones de la asignatura">
           {tabs.map((tab) => (
             <button data-esq="subj-alu-pestana"
               key={tab}
               type="button"
+              role="tab"
+              aria-selected={activeTab === tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              className={`flex-shrink-0 sm:flex-1 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-full transition-colors ${
                 activeTab === tab
-                  ? 'border-accent text-accent'
-                  : 'border-transparent text-muted hover:text-on-surface hover:bg-[var(--accent-tint)]'
+                  ? 'bg-surface-card text-on-surface shadow-card'
+                  : 'text-muted hover:bg-[var(--accent-medium)]'
               }`}
             >
               {tab}
@@ -672,15 +678,17 @@ export default function StudentSubjectPage() {
           ))}
         </div>
         {tabsOverflow && (
-          <div className="absolute right-0 top-0 bottom-0 flex items-center pointer-events-none bg-gradient-to-l from-surface-card via-surface-card to-transparent pl-6 pr-1">
+          <div className="absolute right-4 top-0 bottom-3 flex items-center pointer-events-none bg-gradient-to-l from-surface-container via-surface-container to-transparent pl-6 pr-2 rounded-full">
             <ChevronRight size={16} className="text-accent animate-pulse" />
           </div>
         )}
       </div>
+      </div>
+      </div>
 
       {/* Tab: Actividades y calificaciones */}
       {activeTab === 'Actividades y calificaciones' && (
-        <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 cascada ${STUDENT_CONTAINER}`}>
+        <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 cascada ${STUDENT_CONTAINER_LISTA}`}>
           {PARCIALES.length === 0 && (
             <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
               <p className="text-muted text-sm">El docente aún no ha publicado contenido.</p>
@@ -980,7 +988,7 @@ export default function StudentSubjectPage() {
         }).filter(Boolean)
 
         return (
-        <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
+        <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER_LISTA}`}>
           {tarjetas.length === 0 ? (
             <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
               <p className="text-muted text-sm">Tu maestro aún no ha registrado asistencia.</p>
@@ -992,7 +1000,7 @@ export default function StudentSubjectPage() {
 
       {/* Tab: Recursos */}
       {activeTab === 'Recursos' && (
-        <div className={`px-4 py-5 ${STUDENT_CONTAINER}`}>
+        <div className={`px-4 py-5 ${STUDENT_CONTAINER_LISTA}`}>
           {resources.length === 0 ? (
             <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
               <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />
@@ -1030,7 +1038,7 @@ export default function StudentSubjectPage() {
         const guardadosList = avisosVisibles.filter((a) => avisosGuardados[a.id])
         const avisosMostrados = soloAvisosGuardados ? guardadosList : avisosVisibles.filter((a) => !avisosGuardados[a.id])
         return (
-        <div className={`px-4 py-5 ${STUDENT_CONTAINER}`}>
+        <div className={`px-4 py-5 ${STUDENT_CONTAINER_LISTA}`}>
           <div className="flex gap-1 bg-surface-container p-1 rounded-full w-fit mb-3">
             <button type="button" onClick={() => setSoloAvisosGuardados(false)}
               className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${!soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>

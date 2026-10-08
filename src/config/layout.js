@@ -36,6 +36,9 @@ export const TEACHER_CONTAINER_NARROW =
 // Listing screens (Dashboard, SubjectPage tabs) stack several cards, so they
 // get a bit more breathing room.
 export const STUDENT_CONTAINER = 'max-w-2xl mx-auto'
+// Asignatura del alumno, patrón Google Classroom (igual que el docente): el
+// encabezado va a todo lo ancho y el contenido limitado y centrado (≈920px).
+export const STUDENT_CONTAINER_LISTA = 'w-full max-w-3xl md:max-w-4xl lg:max-w-5xl mx-auto'
 
 // Detail screens (ActivityPage, EvaluacionRunner, EvaluacionRevision) show a
 // single item's reading/form content, so they stay narrower for comfortable

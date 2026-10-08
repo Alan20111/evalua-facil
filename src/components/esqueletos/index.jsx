@@ -9,7 +9,7 @@
 // la regla es que se puedan encimar y coincidan.
 import { Skeleton, SkeletonGroup, SkeletonLine } from '../ui'
 import { cn } from '../ui/cn'
-import { TEACHER_CONTAINER_NARROW, TEACHER_CONTAINER_LISTA, STUDENT_CONTAINER } from '../../config/layout'
+import { TEACHER_CONTAINER_NARROW, TEACHER_CONTAINER_LISTA, STUDENT_CONTAINER, STUDENT_CONTAINER_LISTA } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { SB_FILA } from '../../config/sidebar'
 
@@ -228,7 +228,9 @@ export function EsqueletoTableroAlumno({ filas = 3 }) {
 export function EsqueletoAsignaturaAlumno({ parciales = 3 }) {
   return (
     <SkeletonGroup etiqueta="Cargando la asignatura…" className="bg-surface">
-      <div data-esq="subj-alu-encabezado" className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
+      <div className="px-4 pt-2">
+      <div data-esq="subj-alu-tarjeta" className="bg-surface-card rounded-card">
+      <div data-esq="subj-alu-encabezado" className="px-4 py-3 flex items-center gap-3">
         <span className="md:hidden p-2 -ml-2 flex-shrink-0"><Skeleton className="w-[1.528rem] h-[1.528rem]" /></span>
         <Skeleton data-esq="subj-alu-icono" className="w-9 h-9 rounded flex-shrink-0" />
         <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
@@ -237,18 +239,20 @@ export function EsqueletoAsignaturaAlumno({ parciales = 3 }) {
         </div>
         <span className="p-2"><Skeleton className="w-[1.319rem] h-[1.319rem]" /></span>
       </div>
-      <div data-esq="subj-alu-pestanas-fondo" className="relative bg-surface-card border-b border-outline-variant">
-        <div data-esq="subj-alu-pestanas" className="px-4 flex gap-1 overflow-hidden">
+      <div data-esq="subj-alu-pestanas-fondo" className="relative px-4 pb-3">
+        <div data-esq="subj-alu-pestanas" className="flex gap-1 bg-surface-container p-1 rounded-full overflow-x-auto">
           {/* Con los textos REALES de las pestañas, en transparente: cada barra mide
               exactamente el ancho de su etiqueta, sin adivinar. */}
           {['Actividades y calificaciones', 'Asistencias', 'Recursos', 'Avisos'].map((t, i) => (
-            <span key={t} data-esq="subj-alu-pestana" className={cn('px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 flex-shrink-0', i === 0 ? 'border-skeleton' : 'border-transparent')}>
+            <span key={t} data-esq="subj-alu-pestana" className={cn('flex-shrink-0 sm:flex-1 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-full flex justify-center', i === 0 && 'bg-surface-card')}>
               <span className="rounded-full bg-skeleton animate-pulse motion-reduce:animate-none text-transparent select-none">{t}</span>
             </span>
           ))}
         </div>
       </div>
-      <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
+      </div>
+      </div>
+      <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER_LISTA}`}>
         {Array.from({ length: parciales }, (_, i) => (
           <div key={i} data-esq="subj-alu-parcial" className="bg-surface-card rounded-card overflow-hidden shadow-card">
             <div className="w-full px-4 py-3 flex items-center gap-3">
