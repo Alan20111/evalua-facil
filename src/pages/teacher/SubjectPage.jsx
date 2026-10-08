@@ -1886,9 +1886,15 @@ export default function SubjectPage() {
       // load with it (it did once: the whole page fell back to defaults —
       // generic icon, blue palette, 3 parciales — because setSubject() was
       // never reached).
-      const [subSnap, actsSnap] = await Promise.all([
+      // Todo lo que no depende de las actividades va en la MISMA vuelta de red
+      // (antes eran tres en fila; en datos móviles cada vuelta cuesta ~0.6 s).
+      // materials y students llevan su propio .catch: una lectura denegada en
+      // una asignatura ajena no debe tapar el aviso de «no pertenece».
+      const [subSnap, actsSnap, matsSnap, studSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId), where('docenteId', '==', currentUser.uid))),
+        getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId), where('docenteId', '==', currentUser.uid))).catch(() => ({ docs: [] })),
+        getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))).catch(() => ({ size: 0 })),
       ])
       // Una asignatura ajena jamás se muestra: subjects es de lectura pública
       // (activación por QR) así que sin este guard cualquier cuenta con la URL
@@ -1898,7 +1904,6 @@ export default function SubjectPage() {
         navigate('/dashboard')
         return
       }
-      const matsSnap = await getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId), where('docenteId', '==', currentUser.uid))).catch(() => ({ docs: [] }))
       let subData = { id: subSnap.id, ...subSnap.data() }
       if (!subData.accessCode) {
         const newCode = Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -1935,10 +1940,7 @@ export default function SubjectPage() {
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       )
 
-      const [subDocs, studSnap] = await Promise.all([
-        fetchSubmissionsForActivities(acts.map((a) => a.id)),
-        getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
-      ])
+      const subDocs = await fetchSubmissionsForActivities(acts.map((a) => a.id))
       setStudentCountAtLoad(studSnap.size)
 
       const counts = {}

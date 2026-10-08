@@ -302,21 +302,7 @@ export function EsqueletoSesion({ rol = 'docente', contenido = 'tablero' }) {
           <div className="flex-1 min-w-0">
             {contenido === 'asignatura' ? <EsqueletoAsignaturaAlumno /> : <EsqueletoTableroAlumno />}
           </div>
-        ) : contenido === 'asignatura' ? (
-          <div className="flex-1 min-w-0"><EsqueletoAsignaturaDocente /></div>
-        ) : contenido === 'actividad' ? (
-          <div className="flex-1 min-w-0"><EsqueletoActividadDocente /></div>
-        ) : (
-          <div data-esq="dash-doc-contenedor" className={`flex-1 min-w-0 px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
-            <div data-esq="dash-doc-saludo" className="mb-4">
-              <div className="flex items-center gap-2 min-w-0">
-                <SkeletonLine data-esq="dash-doc-saludo-nombre" texto="text-lg font-bold" className="w-40 min-w-0" />
-              </div>
-              <SkeletonLine data-esq="dash-doc-saludo-escuela" texto="text-xs" className="w-52 mt-0.5" />
-            </div>
-            <EsqueletoTableroDocente />
-          </div>
-        )}
+        ) : <ContenidoDocente contenido={contenido} />}
       </div>
       {/* Barra inferior del móvil: 100% de ancho, esquinas de arriba redondeadas */}
       {!IS_NATIVE_APP && (
@@ -331,6 +317,24 @@ export function EsqueletoSesion({ rol = 'docente', contenido = 'tablero' }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// Solo el contenido del docente (sin barras): es lo que se ve dentro del
+// TeacherLayout mientras llega el código de una página (App.jsx, Suspense).
+export function ContenidoDocente({ contenido = 'tablero' }) {
+  if (contenido === 'asignatura') return <div className="flex-1 min-w-0"><EsqueletoAsignaturaDocente /></div>
+  if (contenido === 'actividad') return <div className="flex-1 min-w-0"><EsqueletoActividadDocente /></div>
+  return (
+    <div data-esq="dash-doc-contenedor" className={`flex-1 min-w-0 px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
+      <div data-esq="dash-doc-saludo" className="mb-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <SkeletonLine data-esq="dash-doc-saludo-nombre" texto="text-lg font-bold" className="w-40 min-w-0" />
+        </div>
+        <SkeletonLine data-esq="dash-doc-saludo-escuela" texto="text-xs" className="w-52 mt-0.5" />
+      </div>
+      <EsqueletoTableroDocente />
     </div>
   )
 }
