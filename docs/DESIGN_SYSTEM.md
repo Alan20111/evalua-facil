@@ -331,7 +331,7 @@ El "segmented sólido" del panel de evaluar (ActivityPage) se migró a la varian
 
 ### 6.4a Asignatura del docente — tres cabeceras (oct-2026)
 
-**Actividades** (sin submenú) · **Estudiantes** (Lista · Asistencias · Calificaciones) · **Clase** (Recursos · Avisos · Planeación). Las cabeceras usan el control de pestañas (`bg-surface-container` + píldoras); el submenú es una fila de píldoras centrada debajo (la elegida en acento). Al volver a una cabecera se abre la última sección usada en ella. Las secciones por plataforma no cambian (sin Calificaciones en teléfono/app, sin Planeación en teléfono web). Encabezado y contenido comparten `TEACHER_CONTAINER` + `px-4`: mismos bordes en cualquier pantalla. Definición en `GRUPOS_SECCIONES` (`SubjectPage.jsx`).
+**Actividades** (sin submenú) · **Estudiantes** (Lista · Asistencias · Calificaciones) · **Clase** (Recursos · Avisos · Planeación). Las cabeceras usan el control de pestañas (`bg-surface-container` + píldoras); el submenú es una fila de píldoras centrada debajo (la elegida en acento). Al volver a una cabecera se abre la última sección usada en ella. Las secciones por plataforma no cambian (sin Calificaciones en teléfono/app, sin Planeación en teléfono web). Encabezado y contenido comparten el mismo contenedor + `px-4` (mismos bordes): angosto (`TEACHER_CONTAINER_NARROW`) en las secciones de lista, ancho (`TEACHER_CONTAINER`) solo en Asistencias y Calificaciones (tablas). Los parciales se abren y cierran animados: fila de grid `0fr → 1fr` en 350 ms con la curva firma + fundido; cerrado queda `inert`. Definición en `GRUPOS_SECCIONES` (`SubjectPage.jsx`).
 
 ### 6.4b Pestaña que requiere atención (oct-2026)
 

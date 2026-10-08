@@ -65,7 +65,7 @@ import { EntregaCambio, tieneEvidencia, elegibleSinEntrega, crearSiNoExiste, act
 import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
-import { TEACHER_CONTAINER } from '../../config/layout'
+import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { uploadToCloudinary, downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../../utils/cloudinary'
 import { RESOURCE_ACCEPT, getResourceIcon, getLinkResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
@@ -1322,6 +1322,14 @@ export default function SubjectPage() {
     .map((g) => ({ ...g, tabs: g.tabs.filter((t) => seccionesVisibles.includes(t)) }))
     .filter((g) => g.tabs.length > 0)
   const grupoActivo = gruposVisibles.find((g) => g.tabs.includes(activeTab))
+  // Parciales que ya se abrieron alguna vez: su contenido se queda montado para
+  // poder animar el cierre (ver «Abrir/cerrar animado»).
+  const parcialesVistos = useRef(new Set())
+  if (openParcial) parcialesVistos.current.add(openParcial)
+  // Ancho de la asignatura: angosto (como antes) en las secciones de lista;
+  // ancho completo solo donde hay tablas (Asistencias y Calificaciones).
+  // Encabezado y contenido usan el MISMO, así sus bordes siempre coinciden.
+  const anchoSeccion = activeTab === 'asistencia' || activeTab === 'calificaciones' ? TEACHER_CONTAINER : TEACHER_CONTAINER_NARROW
   // Al volver a una cabecera se abre la última sección que usaste en ella.
   const ultimaDeGrupo = useRef({})
   if (grupoActivo) ultimaDeGrupo.current[grupoActivo.id] = activeTab
@@ -5595,11 +5603,11 @@ export default function SubjectPage() {
             superior). Con el lienzo azul, este bloque blanco pasó a leerse como
             una tarjeta, y una tarjeta que termina en canto recto se ve cortada,
             no terminada. */}
-        {/* Encabezado y contenido comparten contenedor (TEACHER_CONTAINER) y
+        {/* Encabezado y contenido comparten contenedor (anchoSeccion) y
             gutter (px-4): sus bordes izquierdo y derecho coinciden en cualquier
             pantalla (antes el encabezado iba a todo lo ancho y la lista era
             más angosta). */}
-        <div className={`${TEACHER_CONTAINER} px-4 pt-2`}>
+        <div className={`${anchoSeccion} px-4 pt-2`}>
         <div data-esq="subj-doc-encabezado" className="bg-surface-card rounded-card">
           <div data-esq="subj-doc-encabezado-interior" className="px-4 py-2">
           <div className="flex items-center gap-2">
@@ -5738,7 +5746,7 @@ export default function SubjectPage() {
         </div>
 
         {/* key=activeTab: cada sección entra con un fundido (solo opacidad). */}
-        <div key={activeTab} className={`${TEACHER_CONTAINER} animate-pagina motion-reduce:animate-none`}>
+        <div key={activeTab} className={`${anchoSeccion} animate-pagina motion-reduce:animate-none`}>
 
         {/* ══════════════════════════════════════════════════════════
             TAB: ACTIVIDADES
@@ -5806,8 +5814,15 @@ export default function SubjectPage() {
                   )}
                   </div>
 
-                  {isOpen && (
-                    <div data-esq="subj-doc-parcial-cuerpo" className="border-t border-outline-variant pr-4 py-2 animate-aparece motion-reduce:animate-none">
+                  {/* Abrir/cerrar animado: la fila del grid pasa de 0fr a 1fr (la
+                      altura real del contenido, sin medirla) en 350ms con la curva
+                      firma, y el contenido se desvanece a la par. Cerrado queda
+                      `inert` (ni foco ni lector de pantalla). Se monta la primera
+                      vez que se abre y después solo se pliega. */}
+                  {(isOpen || parcialesVistos.current.has(p)) && (
+                  <div inert={!isOpen} className={`grid transition-[grid-template-rows] duration-lenta ease-firma motion-reduce:transition-none ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                  <div className="min-h-0 overflow-hidden">
+                    <div data-esq="subj-doc-parcial-cuerpo" className={`border-t border-outline-variant pr-4 py-2 transition-opacity duration-estandar ease-firma ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
                       <div data-esq="subj-doc-parcial-lista" className="ml-3 pl-3 border-l-2 border-accent-soft space-y-1.5">
                       {(() => {
                         const unified = buildUnifiedParcial(acts, mats)
@@ -6113,6 +6128,8 @@ export default function SubjectPage() {
                       )}
                       </div>
                     </div>
+                  </div>
+                  </div>
                   )}
                 </div>
               )
