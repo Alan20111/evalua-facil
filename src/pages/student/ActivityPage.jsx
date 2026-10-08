@@ -11,6 +11,7 @@ import {
   doc,
   onSnapshot,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { submissionDocId } from '../../utils/submissionId'
@@ -47,6 +48,8 @@ import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { formatHora12FromDate } from '../../utils/formatHora'
 import { SkeletonText } from '../../components/ui'
+import VistaPreviaEntrega from '../../components/VistaPreviaEntrega'
+import { tieneEvidencia } from '../../utils/submissionGuard'
 
 
 function fmtDate(dateStr) {
@@ -82,6 +85,10 @@ export default function StudentActivityPage() {
   // artificiales?" en su lugar.
   const [showFireworks, setShowFireworks] = useState(false)
   const [solucionJuegoAbierta, setSolucionJuegoAbierta] = useState(false)
+  // Anulación de la entrega por el propio estudiante
+  const [confirmandoAnular, setConfirmandoAnular] = useState(false)
+  const [anulando, setAnulando] = useState(false)
+  const [recienAnulada, setRecienAnulada] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
@@ -327,6 +334,51 @@ export default function StudentActivityPage() {
       toast(err.message || 'Ocurrió un error al entregar. Inténtalo de nuevo.', 'error')
     } finally {
       setUploading(false)
+    }
+  }
+
+  // Anula la entrega vigente (solo si aún se puede: ver `puedeAnular` abajo y
+  // firestore.rules). La entrega NO se pierde: se copia a `entregasAnuladas`
+  // (con su fecha original y la fecha de anulación) y se borra el documento
+  // vigente, igual que cuando la anula el docente — la ausencia del documento
+  // ES "pendiente de entrega" en toda la plataforma. El plazo no cambia. El
+  // archivo en Cloudinary no se toca. Copia + borrado van en un solo lote.
+  async function anularEntrega() {
+    if (!submission || !student) return
+    setAnulando(true)
+    try {
+      const traza = {
+        actividadId: activityId,
+        alumnoId: student.id,
+        submissionId: submission.id,
+        fechaEntrega: submission.fechaEntrega ?? null,
+        tarde: submission.tarde === true,
+        fechaAnulacion: serverTimestamp(),
+        anuladaPor: 'estudiante',
+      }
+      if (submission.archivoURL != null) traza.archivoURL = submission.archivoURL
+      if (submission.nombreArchivo != null) traza.nombreArchivo = submission.nombreArchivo
+      if (Array.isArray(submission.archivos)) traza.archivos = submission.archivos
+      if (submission.enlaceURL != null) traza.enlaceURL = submission.enlaceURL
+      const batch = writeBatch(db)
+      batch.set(doc(collection(db, 'entregasAnuladas')), traza)
+      batch.delete(doc(db, 'submissions', submission.id))
+      await batch.commit()
+      setSubmission(null)
+      setConfirmandoAnular(false)
+      setRecienAnulada(true)
+      toast('Entrega anulada')
+    } catch (err) {
+      setConfirmandoAnular(false)
+      toast(
+        err?.code === 'permission-denied'
+          ? 'Ya no se puede anular esta entrega (fue calificada o el plazo terminó).'
+          : (err.message || 'No se pudo anular la entrega. Inténtalo de nuevo.'),
+        'error'
+      )
+      loadOther()
+    } finally {
+      setAnulando(false)
     }
   }
 
@@ -899,6 +951,12 @@ export default function StudentActivityPage() {
     !!activity?.cerradaManual || (isPastDeadline && !activity?.recibirTarde)
   ))
 
+  // El estudiante puede anular SOLO si: hay entrega de archivo/enlace, la
+  // actividad sigue recibiendo entregas (`!cerrada`: la misma regla que le
+  // permite entregar, con prórroga incluida) y el docente aún no la evalúa.
+  const puedeAnular = !isObservacion && isDelivered && !cerrada && !noFile &&
+    tieneEvidencia(submission) && submission.sinEntrega !== true && !submission.estadoEvaluacion
+
   return (
     <StudentLayout>
     <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
@@ -998,6 +1056,46 @@ export default function StudentActivityPage() {
           </div>
         )}
 
+        {puedeAnular && (
+          <div className="bg-surface-card rounded-card p-4 shadow-card">
+            {confirmandoAnular ? (
+              <div role="alertdialog" aria-labelledby="anular-titulo" className="space-y-3">
+                <p id="anular-titulo" className="font-semibold text-on-surface text-sm">¿Anular esta entrega?</p>
+                <p className="text-sm text-muted">
+                  La entrega dejará de ser tu entrega actual y podrás realizar una nueva mientras la actividad siga disponible.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoAnular(false)}
+                    disabled={anulando}
+                    className="flex-1 py-2 border border-outline-variant text-muted font-semibold rounded-full disabled:opacity-60"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={anularEntrega}
+                    disabled={anulando}
+                    className="flex-1 py-2 bg-red-600 text-white font-semibold rounded-full disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    {anulando && <Spinner size="sm" />}
+                    Anular entrega
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmandoAnular(true)}
+                className="w-full py-2 border border-red-200 text-red-600 font-semibold rounded-full hover:bg-red-50 transition-colors"
+              >
+                Anular entrega
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Grade */}
         {isGraded && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
@@ -1081,8 +1179,27 @@ export default function StudentActivityPage() {
               : 'El plazo de entrega para esta actividad ya cerró.'}
           </div>
         )}
+        {!isObservacion && !submission && recienAnulada && (
+          <div className="bg-amber-50 border border-amber-200 rounded-card p-4 text-sm">
+            <p className="font-semibold text-on-surface">Entrega anulada</p>
+            <p className="text-muted mt-0.5">
+              {cerrada
+                ? 'El plazo de entrega ya cerró, así que no se puede realizar una nueva.'
+                : 'Puedes realizar una nueva entrega mientras la actividad permanezca disponible.'}
+            </p>
+            {!cerrada && (
+              <button
+                type="button"
+                onClick={() => document.getElementById('subir-entrega')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="mt-3 w-full py-2 bg-accent text-white font-semibold rounded-full"
+              >
+                Realizar nueva entrega
+              </button>
+            )}
+          </div>
+        )}
         {!isObservacion && !submission && !cerrada && (
-          <div className="bg-surface-card rounded-card p-4 shadow-card">
+          <div id="subir-entrega" className="bg-surface-card rounded-card p-4 shadow-card">
             <h2 className="font-semibold text-on-surface mb-1">Subir entrega</h2>
             {isPastDeadline && (
               <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mb-3">
@@ -1169,6 +1286,7 @@ export default function StudentActivityPage() {
                   )}
                 </div>
               )}
+              {files.length > 0 && <VistaPreviaEntrega files={files} />}
               {hayEnlace && (
                 <p className="text-xs text-muted text-center">Para subir un archivo, primero borra el enlace.</p>
               )}
@@ -1217,6 +1335,15 @@ export default function StudentActivityPage() {
                   )}
                 </div>
               )}
+              {files.length > 0 && !uploading && (
+                <button
+                  type="button"
+                  onClick={() => setFiles([])}
+                  className="w-full py-2.5 border border-outline-variant text-muted font-semibold rounded-full"
+                >
+                  {files.length > 1 ? 'Cambiar archivos' : 'Cambiar archivo'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleUpload}
@@ -1226,7 +1353,7 @@ export default function StudentActivityPage() {
                 className="w-full py-2.5 bg-accent text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {uploading ? <Spinner size="sm" /> : <Upload size={18} />}
-                {uploading ? 'Subiendo…' : files.length > 1 ? `Entregar ${files.length} imágenes` : 'Entregar'}
+                {uploading ? 'Subiendo…' : files.length > 1 ? `Entregar ${files.length} imágenes` : files.length === 1 ? 'Entregar actividad' : 'Entregar'}
               </button>
             </div>
           </div>

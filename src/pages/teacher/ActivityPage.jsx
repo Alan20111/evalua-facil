@@ -206,6 +206,8 @@ export default function ActivityPage() {
   const [subject, setSubject] = useState(null)
   const [students, setStudents] = useState([])
   const [submissions, setSubmissions] = useState({})
+  // Entregas que el estudiante anuló por su cuenta, por alumnoId (trazabilidad)
+  const [anuladasPorAlumno, setAnuladasPorAlumno] = useState({})
   const [filter, setFilter] = useState('todos')
   const [selected, setSelected] = useState(null)
   // Full grading view overlay: locks background scroll while it's open.
@@ -443,6 +445,13 @@ export default function ActivityPage() {
       const subsMap = {}
       subsSnap.docs.forEach((d) => { subsMap[d.data().alumnoId] = { id: d.id, ...d.data() } })
       setSubmissions(subsMap)
+      // Solo informativo: si esta lectura falla, la pantalla funciona igual.
+      try {
+        const anSnap = await getDocs(query(collection(db, 'entregasAnuladas'), where('actividadId', '==', activityId)))
+        const porAlumno = {}
+        anSnap.docs.forEach((d) => { (porAlumno[d.data().alumnoId] ||= []).push({ id: d.id, ...d.data() }) })
+        setAnuladasPorAlumno(porAlumno)
+      } catch { setAnuladasPorAlumno({}) }
     } catch (err) {
       toast('Error al cargar: ' + err.message, 'error')
     } finally {
@@ -2195,6 +2204,28 @@ export default function ActivityPage() {
                   <p className="text-sm text-hint text-center py-2">
                     El estudiante aún no ha entregado esta tarea.
                   </p>
+                )}
+
+                {/* Entregas que el propio estudiante anuló (quedan registradas) */}
+                {anuladasPorAlumno[selected.student.id]?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-hint mb-2">Entregas anuladas por el estudiante</p>
+                    <div className="space-y-1.5">
+                      {[...anuladasPorAlumno[selected.student.id]]
+                        .sort((a, b) => (a.fechaAnulacion?.seconds ?? 0) - (b.fechaAnulacion?.seconds ?? 0))
+                        .map((a) => {
+                          const fmt = (t) => t?.seconds
+                            ? (d => `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`)(new Date(t.seconds * 1000))
+                            : '—'
+                          return (
+                            <div key={a.id} className="px-3 py-2 bg-surface rounded border border-outline-variant text-xs space-y-0.5">
+                              <p className="text-muted truncate">{a.enlaceURL ? 'Enlace o URL' : (a.nombreArchivo || 'Archivo')}</p>
+                              <p className="text-hint">Entregada: {fmt(a.fechaEntrega)} · Anulada: {fmt(a.fechaAnulacion)}</p>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  </div>
                 )}
 
                 {/* Submission history */}
