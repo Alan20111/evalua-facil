@@ -48,6 +48,7 @@ import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { formatHora12FromDate } from '../../utils/formatHora'
 import { SkeletonText } from '../../components/ui'
+import { entregaAbiertaParaAlumno } from '../../utils/entregaAbierta'
 import VistaPreviaEntrega from '../../components/VistaPreviaEntrega'
 import { tieneEvidencia } from '../../utils/submissionGuard'
 
@@ -937,19 +938,13 @@ export default function StudentActivityPage() {
   const isPastDeadline = !!displayDate && new Date(
     displayDate.includes('T') ? displayDate : `${displayDate}T23:59:59`
   ).getTime() < Date.now()
-  // A student inside their own extension can always deliver, even if the
-  // activity was closed for everyone else.
-  const withinExtension = !!extendedDate && !isPastDeadline
-  // Activity is closed to new submissions when the teacher closed it manually,
-  // or the deadline passed and late delivery is NOT enabled.
-  // Asignatura archivada = ciclo cerrado. Va ANTES del `withinExtension`, no
-  // dentro: una prórroga individual no puede reabrir una materia que ya
-  // terminó. Antes nada de esto miraba el estado de la asignatura, así que el
-  // alumno podía seguir entregando en una materia archivada meses atrás.
+  // Asignatura archivada = ciclo cerrado: una prórroga individual no puede
+  // reabrir una materia que ya terminó. El resto (cierre manual, plazo,
+  // prórroga, recibirTarde) lo decide entregaAbiertaParaAlumno, el espejo de
+  // la regla del servidor — el mismo criterio habilita "Entregar" y "Anular".
   const asignaturaArchivada = !!subject?.archived
-  const cerrada = asignaturaArchivada || parcialCerrado(subject, activity?.parcial) || (!withinExtension && (
-    !!activity?.cerradaManual || (isPastDeadline && !activity?.recibirTarde)
-  ))
+  const cerrada = asignaturaArchivada || parcialCerrado(subject, activity?.parcial) ||
+    !entregaAbiertaParaAlumno(activity, student?.id)
 
   // El estudiante puede anular SOLO si: hay entrega de archivo/enlace, la
   // actividad sigue recibiendo entregas (`!cerrada`: la misma regla que le
