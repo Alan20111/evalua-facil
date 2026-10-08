@@ -130,7 +130,7 @@ export default function CrearEvaluacionIAModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default"
+      <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
         onClick={() => { if (!trabajando) onClose?.() }} aria-label="Cerrar" />
       <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-5 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center gap-2 mb-3">

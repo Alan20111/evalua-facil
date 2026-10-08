@@ -423,6 +423,19 @@ Nacieron en `main` después del trabajo original de este documento y se auditaro
 
 ---
 
+## 6.14 Movimiento (oct-2026, skill `motion-design` de LottieFiles)
+
+Personalidad **corporativa**: limpia, decidida, sin rebotes en la UI. Tokens en `tailwind.config.js`:
+
+| Token | Valor | Uso |
+|---|---|---|
+| Curva firma (`ease` por defecto, `ease-firma`) | `cubic-bezier(0.2, 0, 0, 1)` | 80% de las transiciones: hover, colores, chevrons |
+| `ease-entrada` | `cubic-bezier(0.05, 0.7, 0.1, 1)` | Lo que aparece: desacelera |
+| `ease-salida` | `cubic-bezier(0.3, 0, 1, 1)` | Lo que se va: acelera |
+| `duration-rapida` (por defecto) / `-estandar` / `-lenta` | 150 / 250 / 350 ms | Hover y presión / iconos, tarjetas, diálogos / hojas que suben |
+
+Animaciones: `animate-velo` (fondo oscuro de modales: solo se desvanece, 200 ms), `.hoja` (en el teléfono **sube** 24 px, 350 ms; en escritorio **crece** desde 96%, 250 ms), `animate-dialogo` (diálogo centrado de `ui/Modal`), `animate-aviso` (toast: baja 8 px), `animate-pop` (éxito, p. ej. «Copiado»: un leve sobrepaso), `animate-aparece` (cambio de vista del calendario), `animate-atencion` (latido seno de 2.2 s para lo que requiere atención). `Button` se encoge a 97% al presionar. **«Reducir movimiento» del sistema se respeta en toda la app** (`index.css`). Regla: nada lineal para movimiento espacial; un fondo nuevo de modal lleva `animate-velo`.
+
 ## 7. Iconografía (lucide-react)
 
 **Escala de tamaños (convención observada):**

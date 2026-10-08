@@ -881,7 +881,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       </div>
 
       {deleteModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-50 bg-black/40 animate-velo flex items-center justify-center px-4">
           <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-2xl">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-on-surface">Eliminar cuenta</h3>
@@ -926,7 +926,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       )}
 
       {ajusteModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-50 bg-black/40 animate-velo flex items-center justify-center px-4">
           <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-2xl">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-on-surface">Ajustar créditos de IA</h3>

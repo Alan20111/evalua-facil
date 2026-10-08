@@ -623,7 +623,7 @@ export default function StudentSubjectPage() {
           handleRemoveArchived, mismo campo ocultaPorAlumno). */}
       {showLeaveConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !leaving && setShowLeaveConfirm(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !leaving && setShowLeaveConfirm(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Salir de esta asignatura?</h3>
             <p className="text-sm text-muted mb-2">
@@ -1109,7 +1109,7 @@ export default function StudentSubjectPage() {
               compañeros lo siguen viendo igual, solo desaparece de aquí. */}
           {deleteAvisoConfirm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-              <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !deletingAviso && setDeleteAvisoConfirm(null)} aria-label="Cerrar" />
+              <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !deletingAviso && setDeleteAvisoConfirm(null)} aria-label="Cerrar" />
               <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
                 <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar este aviso?</h3>
                 <p className="text-sm text-muted mb-4">

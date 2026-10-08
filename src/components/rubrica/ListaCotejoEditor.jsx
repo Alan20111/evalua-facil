@@ -309,7 +309,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
       {/* Confirmación al salir con cambios sin guardar — mismo criterio que RubricaEditor.jsx */}
       {confirmSalir && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !saving && setConfirmSalir(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !saving && setConfirmSalir(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">{iaGenerada ? 'Tienes una lista de cotejo sin guardar' : '¿Guardar los cambios?'}</h3>
             <p className="text-sm text-muted mb-3">

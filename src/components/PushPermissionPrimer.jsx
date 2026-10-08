@@ -29,7 +29,7 @@ export default function PushPermissionPrimer() {
 
   if (!visible) return null
   return (
-    <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-[70] bg-black/60 animate-velo flex items-center justify-center px-4">
       <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-5 text-center">
         <div className="w-14 h-14 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3">
           <Bell size={26} className="text-accent" />

@@ -41,7 +41,7 @@ export default function ConfirmacionCreditosModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={onCancelar} aria-label="Cerrar" />
+      <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={onCancelar} aria-label="Cerrar" />
       <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-5 drop-shadow-2xl">
         <div className="flex items-center gap-2 mb-3">
           <Sparkles size={18} className="text-accent flex-shrink-0" />

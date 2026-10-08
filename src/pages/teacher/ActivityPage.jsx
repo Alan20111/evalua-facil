@@ -1281,7 +1281,7 @@ export default function ActivityPage() {
   // funcione desde cualquiera de los dos tipos.
   const deleteActivityModal = deleteConfirm && activity && (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
-      <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteConfirm(false)} aria-label="Cerrar" />
+      <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteConfirm(false)} aria-label="Cerrar" />
       <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
         <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar actividad?</h3>
         <p className="text-sm text-muted mb-4">
@@ -2788,7 +2788,7 @@ export default function ActivityPage() {
           (Android), no empujan el contenido de la vista de evaluar. */}
       {selected && IS_NATIVE_APP && annulMode && selected.sub && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setAnnulMode(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setAnnulMode(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
             <p className="text-sm text-red-700">
               ¿Anular la entrega de <strong>{studentFullName(selected.student)}</strong>?
@@ -2819,7 +2819,7 @@ export default function ActivityPage() {
 
       {selected && IS_NATIVE_APP && extendMode && !prorrogaBloqueada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setExtendMode(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setExtendMode(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
             <p className="text-sm font-medium text-on-surface">Nueva fecha y hora límite para este estudiante</p>
             <EFDateTimePicker

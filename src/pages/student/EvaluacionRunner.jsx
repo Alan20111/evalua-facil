@@ -462,7 +462,7 @@ export default function EvaluacionRunner() {
         </header>
 
         {showExitModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-velo px-4">
             <div className="bg-surface-card rounded-card shadow-2xl p-5 max-w-sm w-full">
               <h3 className="text-base font-bold text-on-surface mb-2">¿Salir de la evaluación?</h3>
               <p className="text-sm text-muted mb-1">

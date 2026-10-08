@@ -30,7 +30,7 @@ export default function AvisoLecturaModal({ avisos, teacherNames = {}, subjectNa
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-[60] bg-black/60 animate-velo flex items-center justify-center px-4">
       <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-md p-5 text-center">
         {avisos.length > 1 && (
           <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-2">

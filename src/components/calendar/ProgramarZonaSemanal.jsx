@@ -524,7 +524,7 @@ export default function ProgramarZonaSemanal({
       {/* ── Popover: colocar bloque(s) ──────────────────────────────────── */}
       {placing && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setPlacing(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setPlacing(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-on-surface text-sm">Colocar bloque</h3>
@@ -601,7 +601,7 @@ export default function ProgramarZonaSemanal({
       {/* ── Popover: editar bloque colocado ─────────────────────────────── */}
       {editP && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setEditing(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setEditing(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-on-surface text-sm">Editar bloque</h3>
@@ -738,7 +738,7 @@ export default function ProgramarZonaSemanal({
       {/* ── Confirmar salida con bloques colocados ─────────────────────── */}
       {confirmSalir && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setConfirmSalir(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setConfirmSalir(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3">
             <h3 className="font-semibold text-on-surface text-sm">¿Salir sin guardar?</h3>
             <p className="text-sm text-muted">
