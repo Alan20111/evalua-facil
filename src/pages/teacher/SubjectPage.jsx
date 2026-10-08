@@ -5682,7 +5682,7 @@ export default function SubjectPage() {
                 pestañas internas (activeTab) no cambian: solo se agrupan. Qué
                 sección cabe en cada plataforma sigue igual (sin Calificaciones
                 en el teléfono ni en la app; sin Planeación en el teléfono web). */}
-            <div data-esq="subj-doc-pestanas" ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-x-auto" role="tablist" aria-label="Secciones de la asignatura">
+            <div data-esq="subj-doc-pestanas" ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Secciones de la asignatura">
               {gruposVisibles.map((g) => {
                 const activo = g.tabs.includes(activeTab)
                 const atencion = g.tabs.some((t) => atencionPestanas[t])
