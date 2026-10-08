@@ -117,7 +117,7 @@ function ZoomOverlay({ src, alt, onClose }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[70] bg-black/90 flex flex-col"
+      className="fixed inset-0 z-[70] bg-black/90 animate-velo flex flex-col"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

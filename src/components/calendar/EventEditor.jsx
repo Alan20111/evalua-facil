@@ -196,7 +196,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
         onClick={onClose}
         aria-label="Cerrar"
       />

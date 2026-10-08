@@ -165,7 +165,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
         {mobileOpen && (
           <button
             type="button"
-            className="fixed inset-0 bg-black/30 z-30 md:hidden border-none cursor-default"
+            className="fixed inset-0 bg-black/30 animate-velo z-30 md:hidden border-none cursor-default"
             onClick={() => setMobileOpen(false)}
             aria-label="Cerrar menú"
           />

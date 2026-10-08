@@ -680,7 +680,7 @@ export default function StudentDashboard() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40 border-none cursor-default"
+            className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
             onClick={() => setShowJoin(false)}
             aria-label="Cerrar"
           />
@@ -752,7 +752,7 @@ export default function StudentDashboard() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40 border-none cursor-default"
+            className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
             onClick={() => !removing && setSubjectToRemove(null)}
             aria-label="Cerrar"
           />

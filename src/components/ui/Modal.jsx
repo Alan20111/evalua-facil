@@ -92,7 +92,7 @@ export default function Modal({
   )
   const panel = cn(
     'relative bg-surface-card drop-shadow-2xl max-h-[92vh] overflow-y-auto',
-    sheet ? 'hoja w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] rounded-card' : 'w-full rounded-card',
+    sheet ? 'hoja w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] rounded-card' : 'w-full rounded-card animate-dialogo',
     SIZES[size] || SIZES.sm,
     padding,
     className
@@ -102,7 +102,7 @@ export default function Modal({
     <div className={wrapper}>
       <button
         type="button"
-        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
         onClick={closeOnBackdrop ? requestClose : undefined}
         aria-label="Cerrar"
       />

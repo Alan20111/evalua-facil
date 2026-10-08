@@ -5,7 +5,20 @@
 //    borde + el área segura (como posición/margen, así miden EXACTO --barra-alto).
 //  · hoja: hoja inferior (modal tipo sheet) 100% redonda que flota sobre el borde
 //    inferior en móvil; en escritorio no hace nada (modal centrado).
-const formaApp = ({ addComponents }) => addComponents({
+const formaApp = ({ addComponents, addBase }) => {
+  // Los @keyframes que usa `.hoja` se declaran aquí: Tailwind solo emite los de
+  // `theme.keyframes` cuando alguna clase animate-* los usa.
+  addBase({
+    '@keyframes hoja-sube': {
+      from: { opacity: '0', transform: 'translateY(24px)' },
+      to: { opacity: '1', transform: 'translateY(0)' },
+    },
+    '@keyframes dialogo': {
+      from: { opacity: '0', transform: 'scale(0.96)' },
+      to: { opacity: '1', transform: 'scale(1)' },
+    },
+  })
+  addComponents({
   '.barra-flotante-sup': {
     top: 'calc(0.5rem + env(safe-area-inset-top, 0px))',
     marginTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))',
@@ -13,12 +26,17 @@ const formaApp = ({ addComponents }) => addComponents({
   '.barra-flotante-inf': {
     bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
   },
+  // Entrada: en el teléfono la hoja SUBE (viene del borde inferior); en
+  // escritorio es un diálogo centrado y CRECE desde 96%.
   '.hoja': {
+    animation: 'dialogo 250ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
     '@media (max-width: 639.98px)': {
       marginBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
+      animation: 'hoja-sube 350ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
     },
   },
-})
+  })
+}
 
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
@@ -64,17 +82,71 @@ export default {
         card: 'var(--radius-card)',    // large cards / dashboard containers
         pill: '9999px',
       },
-      // Latido suave para lo que pide atención (pestaña/botón rojos): un halo que
-      // se expande y se desvanece. Máximo 6px de alcance: los contenedores con
-      // overflow-hidden deben dejar p-2 de sitio. Se apaga con motion-reduce.
+      // ── Movimiento (oct-2026, skill motion-design) ──────────────────────
+      // Personalidad CORPORATIVA: limpia y decidida, sin rebotes en la UI.
+      //  · Curva firma (80% de las transiciones): cubic-bezier(0.2, 0, 0, 1)
+      //  · Entradas: desaceleran (emphasized 0.05,0.7,0.1,1). Salidas: aceleran.
+      //  · Duraciones: rápida 150ms (hover, presión), estándar 250ms (iconos,
+      //    tarjetas, diálogos centrados), lenta 350ms (hojas que suben).
+      //  · Bucles ambientales: seno (0.37,0,0.63,1), sin cortes.
+      // Todo se apaga con prefers-reduced-motion (index.css).
+      transitionTimingFunction: {
+        DEFAULT: 'cubic-bezier(0.2, 0, 0, 1)',
+        firma: 'cubic-bezier(0.2, 0, 0, 1)',
+        entrada: 'cubic-bezier(0.05, 0.7, 0.1, 1)',
+        salida: 'cubic-bezier(0.3, 0, 1, 1)',
+      },
+      transitionDuration: {
+        DEFAULT: '150ms',
+        rapida: '150ms',
+        estandar: '250ms',
+        lenta: '350ms',
+      },
       keyframes: {
+        // Latido de atención (pestaña/botón rojos): halo de 6px que respira.
+        // Los contenedores con overflow-hidden deben dejar p-2 de sitio.
         atencion: {
           '0%, 100%': { boxShadow: '0 0 0 0 rgba(220, 38, 38, 0.45)' },
           '50%': { boxShadow: '0 0 0 6px rgba(220, 38, 38, 0)' },
         },
+        // Fondo oscuro de modales y hojas: solo se desvanece (no se mueve).
+        velo: { from: { opacity: '0' }, to: { opacity: '1' } },
+        // Hoja inferior (teléfono): sube 24px y aparece; posición = primaria,
+        // opacidad = secundaria.
+        'hoja-sube': {
+          from: { opacity: '0', transform: 'translateY(24px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        // Diálogo centrado: crece desde 96% (peso pesado: sin rebote).
+        dialogo: {
+          from: { opacity: '0', transform: 'scale(0.96)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
+        // Aviso (toast): baja 8px desde arriba, de donde viene.
+        aviso: {
+          from: { opacity: '0', transform: 'translateY(-8px) scale(0.98)' },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        // Éxito (p. ej. «Copiado»): pop de escala, un solo leve sobrepaso.
+        pop: {
+          '0%': { transform: 'scale(0.6)', opacity: '0' },
+          '60%': { transform: 'scale(1.12)', opacity: '1' },
+          '100%': { transform: 'scale(1)' },
+        },
+        // Cambio de vista (calendario): aparece subiendo 8px.
+        aparece: {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
-        atencion: 'atencion 2.2s ease-in-out infinite',
+        atencion: 'atencion 2.2s cubic-bezier(0.37, 0, 0.63, 1) infinite',
+        velo: 'velo 200ms cubic-bezier(0.2, 0, 0, 1) both',
+        'hoja-sube': 'hoja-sube 350ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
+        dialogo: 'dialogo 250ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
+        aviso: 'aviso 250ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
+        pop: 'pop 300ms cubic-bezier(0.2, 0, 0, 1) both',
+        aparece: 'aparece 250ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
       },
       boxShadow: {
         // Elevación plana (oct-2026, referencia Apple): las tarjetas se

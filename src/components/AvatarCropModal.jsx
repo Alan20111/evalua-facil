@@ -154,7 +154,7 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 px-4">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 animate-velo px-4">
       <button type="button" className="absolute inset-0 border-none cursor-default bg-transparent" onClick={onCancel} aria-label="Cancelar" />
       <div className="ef-nodrag relative bg-surface-card rounded-card shadow-2xl p-4 w-full max-w-sm">
         <div className="flex items-center justify-between mb-3">

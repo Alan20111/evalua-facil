@@ -594,7 +594,7 @@ export default function TeacherDashboard() {
       {/* ── Nueva asignatura modal ── */}
       {showSubjectModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowSubjectModal(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowSubjectModal(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>

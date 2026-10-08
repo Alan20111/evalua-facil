@@ -1722,7 +1722,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
             {showBanco && (
               <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-                <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} aria-label="Cerrar" />
+                <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} aria-label="Cerrar" />
                 <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[85vh] overflow-y-auto">
                   <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
                   <div className="flex gap-2 mb-3">
@@ -2664,7 +2664,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           aside — y por lo tanto el de la zona de respuestas — no varíe. */}
       {reviewing && IS_NATIVE_APP && extendMode && !reviewProrrogaBloqueada && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setExtendMode(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setExtendMode(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
             <p className="text-sm font-medium text-on-surface flex items-center gap-1.5"><CalendarDays size={15} className="text-accent" /> Nueva fecha y hora límite para este estudiante</p>
             <EFDateTimePicker mode="datetime" value={extendDate} onChange={setExtendDate} clearable={false} defaultTime="23:59" minDateTime={toIsoNow()} />
@@ -2714,7 +2714,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       {/* Anular-entrega confirmation */}
       {cancelConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !cancelling && setCancelConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !cancelling && setCancelConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
             <h3 className="text-base font-semibold text-on-surface">¿Anular la entrega?</h3>
             <p className="text-sm text-muted mt-2">

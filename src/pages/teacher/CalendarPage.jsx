@@ -2147,9 +2147,11 @@ export default function CalendarPage() {
             WeekView (`md:min-w-[620px]`, pensado para arrastrar con mouse):
             un teléfono girado pasa de 768px y, con la barra lateral, deja
             menos de 620px — la vista se salía de lado en vez de caber. */}
-        <div className={IS_NATIVE_APP
-          ? 'bg-surface-card rounded-card shadow-card overflow-x-hidden'
-          : `bg-surface-card rounded-card shadow-card overflow-hidden ${soloConsulta
+        {/* key={view}: al cambiar de vista el calendario entra con «aparece»
+            (sube 8px y aparece, 250ms) — continuidad entre Año, Mes y Día. */}
+        <div key={view} className={IS_NATIVE_APP
+          ? 'bg-surface-card rounded-card shadow-card overflow-x-hidden animate-aparece motion-reduce:animate-none'
+          : `bg-surface-card rounded-card shadow-card overflow-hidden animate-aparece motion-reduce:animate-none ${soloConsulta
             ? (view === 'agenda' ? '[&_[style*=touch-action]:not(.cursor-grab)]:!touch-auto'
               : view === '3dias' ? '[&_[style*=touch-action]:not(.cursor-grab)]:!touch-auto [&>div>div]:!min-w-0' : '')
             : view === 'agenda' ? 'w-1/2 mx-auto' : view === '3dias' ? 'w-3/4 mx-auto' : ''}`
@@ -2313,7 +2315,7 @@ export default function CalendarPage() {
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40 border-none cursor-default"
+            className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
             onClick={() => setShowModificarPicker(false)}
             aria-label="Cerrar"
           />
@@ -2476,7 +2478,7 @@ export default function CalendarPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button
               type="button"
-              className="absolute inset-0 bg-black/40 border-none cursor-default"
+              className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
               onClick={() => setPendingMove(null)}
               aria-label="Cerrar"
             />
@@ -2622,7 +2624,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       <button
         type="button"
-        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
         onClick={onClose}
         aria-label="Cerrar"
       />
@@ -2743,7 +2745,7 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       <button
         type="button"
-        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
         onClick={onClose}
         aria-label="Cerrar"
       />

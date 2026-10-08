@@ -57,7 +57,7 @@ export function ToastProvider({ children }) {
             <Tag
               key={t.id}
               role={t.type === 'error' ? 'alert' : undefined}
-              className={`flex items-center gap-3 rounded px-4 py-2.5 shadow-lg text-white text-sm ${bg}`}
+              className={`flex items-center gap-3 rounded-full px-4 py-2.5 shadow-lg text-white text-sm animate-aviso ${bg}`}
             >
               <Icon size={20} />
               <span className="flex-1">{t.msg}</span>

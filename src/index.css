@@ -45,6 +45,20 @@
     @apply min-h-screen;
   }
 
+  /* «Reducir movimiento» del sistema: se respeta en TODA la app (skill
+     motion-design, accesibilidad). Las animaciones y transiciones quedan
+     prácticamente instantáneas; nada parpadea ni late. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   /* ── Pulido tipográfico (oct-2026, patrones de referencia Apple) ──────
      Sin tocar fuente ni colores. Los títulos se aprietan un poco (tracking
      negativo y línea corta): a tamaño grande el espaciado por defecto se

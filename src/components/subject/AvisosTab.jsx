@@ -518,7 +518,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {/* ── Nuevo / editar aviso ── */}
       {step && (step === 'picker' || step === 'form') && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setStep(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStep(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             {step === 'picker' ? (
               <>
@@ -607,7 +607,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {/* ── Gestionar plantillas ── */}
       {(step === 'plantillas' || step === 'plantilla-form') && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setStep(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStep(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             {step === 'plantillas' ? (
               <>
@@ -728,7 +728,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {/* ── Detalle del aviso ── */}
       {detailAviso && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDetailAviso(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDetailAviso(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Detalle del aviso</h3>
@@ -803,7 +803,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {/* ── Confirmación de borrado de aviso ── */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-lg font-semibold mb-2">¿Deseas eliminar este aviso?</h3>
             <p className="text-sm text-muted mb-4">Se eliminará permanentemente, junto con el avance de lectura registrado.</p>
@@ -824,7 +824,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {/* ── Confirmación de borrado de plantilla ── */}
       {deletePlantillaConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeletePlantillaConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeletePlantillaConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-lg font-semibold mb-2">¿Eliminar esta plantilla?</h3>
             <p className="text-sm text-muted mb-4">&ldquo;<strong>{deletePlantillaConfirm.label}</strong>&rdquo; ya no aparecerá al crear un aviso nuevo. Los avisos ya publicados con ella no cambian.</p>

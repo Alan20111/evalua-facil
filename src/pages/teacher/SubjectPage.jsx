@@ -5486,7 +5486,7 @@ export default function SubjectPage() {
         data-tooltip={IS_NATIVE_APP ? 'Copiar código de acceso para estudiantes' : 'Copiar'}
         className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
         {copiedCode
-          ? <><CheckIcon size={22} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
+          ? <><CheckIcon size={22} className="animate-pop motion-reduce:animate-none flex-shrink-0" /><span>Copiado</span></>
           : <span>{subject?.accessCode}</span>}
       </button>
       {/* Leyenda del código: solo en la web de ESCRITORIO. En la app nunca
@@ -6745,7 +6745,7 @@ export default function SubjectPage() {
           de columnas (una asistencia por sesión de clase). */}
       {showAddAttendance && (
         <div className={`fixed inset-0 z-[80] flex justify-center px-4 ${modalAsistenciaHorizontal ? 'items-start pt-1' : 'items-center'}`}>
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowAddAttendance(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowAddAttendance(false)} aria-label="Cerrar" />
           <form onSubmit={handleCreateAttendanceDay} className={`relative bg-surface-card rounded-card shadow-2xl w-full ${modalAsistenciaHorizontal ? 'max-w-3xl p-3 space-y-2' : 'max-w-sm p-4 space-y-3'}`}>
             <h3 className={`font-semibold text-on-surface ${modalAsistenciaHorizontal ? 'text-sm' : 'text-base'}`}>Agregar día de asistencia</h3>
             {/* En la app (y en el teléfono horizontal, web): campos en fila y
@@ -6813,7 +6813,7 @@ export default function SubjectPage() {
           quitó pero siguen siendo válidos según el horario. */}
       {showRestoreAttendance && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowRestoreAttendance(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowRestoreAttendance(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
             <h3 className="text-base font-semibold text-on-surface mb-1">Restaurar día de asistencia</h3>
             <p className="text-sm text-muted mb-3">
@@ -6843,7 +6843,7 @@ export default function SubjectPage() {
       {/* Confirmar borrado de un día completo (todas sus horas/slots) */}
       {deleteAttendanceConfirm && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteAttendanceConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteAttendanceConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
             <h3 className="text-base font-semibold text-on-surface mb-2">¿Eliminar este día de asistencia?</h3>
             <p className="text-sm text-muted mb-4">
@@ -6907,7 +6907,7 @@ export default function SubjectPage() {
       </>
       {reasonModal && (
         <div className={`fixed inset-0 z-[80] flex justify-center ${modalAsistenciaHorizontal ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={cancelReasonModal} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={cancelReasonModal} aria-label="Cerrar" />
           <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${modalAsistenciaHorizontal ? 'max-w-none p-3 space-y-1.5' : 'max-w-lg p-5 space-y-4'}`}>
             {modalAsistenciaHorizontal ? null : (
               // Web: nombre del estudiante en su propio renglón (evita truncar
@@ -7438,7 +7438,7 @@ export default function SubjectPage() {
       {/* ── Activity create/edit modal ── */}
       {showModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowModal(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowModal(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-3xl hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">
@@ -7715,7 +7715,7 @@ export default function SubjectPage() {
       {/* ── Duplicate activity confirmation ── */}
       {duplicateConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDuplicateConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDuplicateConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">Duplicar actividad</h3>
             <p className="text-sm text-muted mb-4">
@@ -7738,7 +7738,7 @@ export default function SubjectPage() {
       {/* ── Move activity confirmation (renumbering + aviso al grupo) ── */}
       {moveConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !moving && setMoveConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !moving && setMoveConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Cambiar de lugar la actividad?</h3>
             <p className="text-sm text-muted mb-3">
@@ -7780,7 +7780,7 @@ export default function SubjectPage() {
       {/* ── Publish draft confirmation ── */}
       {publishDraftConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setPublishDraftConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setPublishDraftConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Publicar actividad?</h3>
             <p className="text-sm text-muted mb-2">
@@ -7815,7 +7815,7 @@ export default function SubjectPage() {
           igual que NuevaFechaEntregaModal — sin esto quedaba tapado detrás. */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar actividad?</h3>
             <p className="text-sm text-muted mb-4">
@@ -7837,7 +7837,7 @@ export default function SubjectPage() {
       {/* ── Material de apoyo create/edit modal ── */}
       {showMaterialModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowMaterialModal(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowMaterialModal(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-3xl hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">
@@ -7933,7 +7933,7 @@ export default function SubjectPage() {
       {/* ── Delete material confirmation ── */}
       {deleteMaterialConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteMaterialConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteMaterialConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar material de apoyo?</h3>
             <p className="text-sm text-muted mb-4">
@@ -7955,7 +7955,7 @@ export default function SubjectPage() {
       {/* ── Add student modal ── */}
       {showAddStudent && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowAddStudent(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowAddStudent(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Agregar estudiante</h3>
@@ -8011,7 +8011,7 @@ export default function SubjectPage() {
       {/* ── Edit student modal ── */}
       {studentToEdit && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar estudiante</h3>
@@ -8124,7 +8124,7 @@ export default function SubjectPage() {
       {/* ── Reset password confirmation ── */}
       {studentToReset && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setStudentToReset(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStudentToReset(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-2">
               <KeyRound size={24} className="text-amber-500" />
@@ -8158,7 +8158,7 @@ export default function SubjectPage() {
       {/* ── Generate credentials modal (R16) ── */}
       {showCredentialsModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !generatingCredentials && setShowCredentialsModal(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !generatingCredentials && setShowCredentialsModal(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
               <KeyRound size={24} className="text-accent" />
@@ -8339,7 +8339,7 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40 border-none cursor-default"
+            className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
             onClick={() => { if (!savingBulkGrade) { setBulkGradeModal(null); setBulkGradeValue('') } }}
             aria-label="Cerrar"
           />
@@ -8405,7 +8405,7 @@ export default function SubjectPage() {
       {/* ── Traer actividad de otra asignatura ── */}
       {importFor != null && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !importing && setImportFor(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !importing && setImportFor(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md hoja rounded-card shadow-2xl max-h-[85vh] flex flex-col">
             <div className="px-4 py-3 border-b border-outline-variant flex items-center gap-2">
               {importSrc && (
@@ -8549,7 +8549,7 @@ export default function SubjectPage() {
       {/* ── Revertir ponderación (todos los parciales) ── */}
       {confirmRevertPonderacion && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setConfirmRevertPonderacion(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setConfirmRevertPonderacion(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Volver a promedio simple?</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -8572,7 +8572,7 @@ export default function SubjectPage() {
       {/* ── Revertir ponderación de UN parcial ── */}
       {confirmRevertParcial != null && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setConfirmRevertParcial(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setConfirmRevertParcial(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Parcial {confirmRevertParcial} con promedio simple?</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -8595,7 +8595,7 @@ export default function SubjectPage() {
       {/* ── Cerrar parcial: requires everything graded; no-entregas → 0 on proceed ── */}
       {closeParcialConfirm && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !closingParcial && setCloseParcialConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !closingParcial && setCloseParcialConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-center text-on-surface">Cerrar definitivamente el Parcial {closeParcialConfirm.p}</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -8695,7 +8695,7 @@ export default function SubjectPage() {
       {/* ── Reabrir el parcial: vuelve a atención de inquietudes y borra las calificaciones del cierre ── */}
       {revertParcialConfirm != null && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !revertingParcial && setRevertParcialConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !revertingParcial && setRevertParcialConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Reabrir el Parcial {revertParcialConfirm} para atención de inquietudes?</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -8718,7 +8718,7 @@ export default function SubjectPage() {
       {/* ── Iniciar atención de inquietudes: publica el resultado del parcial ── */}
       {atencionParcialConfirm != null && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !iniciandoAtencion && setAtencionParcialConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !iniciandoAtencion && setAtencionParcialConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Iniciar la atención de inquietudes del Parcial {atencionParcialConfirm}?</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -8744,7 +8744,7 @@ export default function SubjectPage() {
       {/* ── Same-name found: link to existing account or create new ── */}
       {linkCandidate && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !savingStudent && setLinkCandidate(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !savingStudent && setLinkCandidate(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
               <UserPlus size={24} className="text-accent" />
@@ -8825,7 +8825,7 @@ export default function SubjectPage() {
           desaparezcan en silencio. */}
       {excelPreview && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full sm:w-[calc(100%-2rem)] max-w-lg hoja rounded-card shadow-2xl flex flex-col max-h-[85vh]">
             <div className="p-4 border-b border-outline-variant flex-shrink-0 flex items-center justify-between">
               <h3 className="text-base font-semibold text-on-surface">Revisa antes de importar</h3>
@@ -8945,7 +8945,7 @@ export default function SubjectPage() {
       {/* ── Reset password result ── */}
       {resetPwdResult && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setResetPwdResult(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setResetPwdResult(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-2">
               <KeyRound size={24} className="text-green-600" />
@@ -8968,7 +8968,7 @@ export default function SubjectPage() {
       {/* ── Delete student confirmation ── */}
       {studentToDelete && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setStudentToDelete(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStudentToDelete(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
               <Trash2 size={24} className="text-red-500" />
@@ -9001,7 +9001,7 @@ export default function SubjectPage() {
       {/* ── Edit subject modal ── */}
       {showEditSubjectModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowEditSubjectModal(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowEditSubjectModal(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
@@ -9080,7 +9080,7 @@ export default function SubjectPage() {
       {/* ── Copy subject modal ── */}
       {showCopyModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowCopyModal(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowCopyModal(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
@@ -9148,7 +9148,7 @@ export default function SubjectPage() {
       {/* ── Delete subject confirm modal ── */}
       {showDeleteSubjectConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
               <Trash2 size={24} className="text-red-500" />
@@ -9184,7 +9184,7 @@ export default function SubjectPage() {
       {/* ── Archive modal ── */}
       {showArchiveModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
@@ -9251,7 +9251,7 @@ export default function SubjectPage() {
       {/* ── Unarchive (restore) modal ── */}
       {showUnarchiveModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowUnarchiveModal(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowUnarchiveModal(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
@@ -9357,7 +9357,7 @@ export default function SubjectPage() {
       {/* ── Add/Edit resource modal ── */}
       {showResourceModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowResourceModal(false)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowResourceModal(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{resourceModalMode === 'create' ? 'Agregar recurso' : 'Editar recurso'}</h3>
@@ -9441,7 +9441,7 @@ export default function SubjectPage() {
       {/* ── Delete resource confirm ── */}
       {deleteResourceConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteResourceConfirm(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteResourceConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar recurso?</h3>
             <p className="text-sm text-muted mb-4">
