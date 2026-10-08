@@ -27,12 +27,16 @@ if (IS_NATIVE_APP) document.documentElement.classList.add('is-native-app')
 // los chunks actuales. event.preventDefault() suprime el error original
 // antes de que llegue al catch de cada módulo (de lo contrario aparece
 // "No se pudo iniciar sesión con Google" aunque Google no sea la causa).
-// El flag de sessionStorage evita un loop si el deployment en sí está roto:
-// si tras la recarga el chunk sigue sin existir, el error llega al usuario.
+// La marca de sessionStorage evita un loop si el deployment en sí está roto:
+// si tras la recarga el chunk sigue sin existir, el error llega al usuario
+// (y CargaFallida le ofrece «Reintentar»). La marca guarda la HORA y vence a
+// los 60 s: antes era un '1' que nunca se borraba, así que el SEGUNDO deploy
+// con la pestaña abierta ya no recargaba y la página se quedaba pegada.
 window.addEventListener('vite:preloadError', (event) => {
-  if (sessionStorage.getItem('vite_reload') === '1') return
+  const ultima = Number(sessionStorage.getItem('vite_reload')) || 0
+  if (Date.now() - ultima < 60000) return
   event.preventDefault()
-  sessionStorage.setItem('vite_reload', '1')
+  sessionStorage.setItem('vite_reload', String(Date.now()))
   window.location.reload()
 })
 

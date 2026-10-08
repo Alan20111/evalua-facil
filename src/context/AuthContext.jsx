@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { EsqueletoSesion } from '../components/esqueletos'
+import { esqueletoDeSesion } from '../components/esqueletos/porRuta'
+import { Espera } from '../components/carga/Espera'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -14,17 +15,25 @@ import { refreshTeacherReminders, installReminderResumeListener, installReminder
 const AuthContext = createContext(null)
 
 // Mientras se resuelve la sesión NO se deja la pantalla en blanco: en las rutas
-// privadas se dibuja el esqueleto del shell (barra lateral/superior/inferior
-// + lista), que mide lo mismo que la app ya cargada (check:esqueletos). En las
-// públicas (login, registro, descarga…) se sigue sin pintar nada.
-const RUTAS_DOCENTE = ['/dashboard', '/subject/', '/activity/', '/profile', '/perfil-ia', '/calendario', '/notificaciones', '/ayuda']
-function esqueletoDeSesion(pathname) {
-  if (pathname.startsWith('/alumno/')) {
-    return <EsqueletoSesion rol="alumno" contenido={pathname.startsWith('/alumno/materia/') ? 'asignatura' : 'tablero'} />
-  }
-  if (!RUTAS_DOCENTE.some((r) => pathname === r || pathname.startsWith(r))) return null
-  const contenido = pathname.startsWith('/subject/') ? 'asignatura' : pathname.startsWith('/activity/') ? 'actividad' : 'tablero'
-  return <EsqueletoSesion contenido={contenido} />
+// privadas se dibuja el esqueleto del shell (ver esqueletos/porRuta.jsx), y si
+// tarda demasiado, Espera ofrece «Reintentar».
+
+// getDoc no tiene tiempo límite: con una red que «conecta» pero no responde
+// (datos móviles flojos, wifi de la escuela) se quedaba esperando minutos y la
+// app entera seguía en el esqueleto. A los 15 s se da por fallida y la persona
+// ve la pantalla de error con «Recargar» en vez de huesos eternos.
+const LIMITE_PERFIL_MS = 15000
+function conLimite(promesa) {
+  let t
+  return Promise.race([
+    promesa,
+    new Promise((_, rechaza) => { t = setTimeout(() => rechaza(new Error('tiempo-agotado')), LIMITE_PERFIL_MS) }),
+  ]).finally(() => clearTimeout(t))
+}
+
+function EsperaSesion({ pathname }) {
+  const esqueleto = esqueletoDeSesion(pathname)
+  return esqueleto ? <Espera>{esqueleto}</Espera> : null
 }
 
 export function AuthProvider({ children }) {
@@ -40,7 +49,7 @@ export function AuthProvider({ children }) {
       if (user) {
         let snap
         try {
-          snap = await getDoc(doc(db, 'users', user.uid))
+          snap = await conLimite(getDoc(doc(db, 'users', user.uid)))
         } catch {
           // Una lectura denegada/fallida no debe dejar `loading` en true para
           // siempre (AuthProvider no renderiza children mientras carga).
@@ -52,7 +61,7 @@ export function AuthProvider({ children }) {
           const profile = snap.data()
           if (profile.escuelaId && profile.role !== 'alumno') {
             try {
-              const schoolSnap = await getDoc(doc(db, 'schools', profile.escuelaId))
+              const schoolSnap = await conLimite(getDoc(doc(db, 'schools', profile.escuelaId)))
               if (schoolSnap.exists()) {
                 const schoolData = schoolSnap.data()
                 // El docente elige/escribe el nombre completo, pero lo que se
@@ -145,18 +154,18 @@ export function AuthProvider({ children }) {
           // usernames lowercase).
           try {
             let docs = []
-            const byUid = await getDocs(
+            const byUid = await conLimite(getDocs(
               query(collection(db, 'students'), where('uid', '==', user.uid))
-            )
+            ))
             docs = byUid.docs.map((d) => ({ id: d.id, ...d.data() }))
             if (docs.length === 0) {
               const emailPart = user.email.split('@')[0]
               const dot = emailPart.lastIndexOf('.')
               const username = dot >= 0 ? emailPart.slice(0, dot) : emailPart
               const escuelaId = dot >= 0 ? emailPart.slice(dot + 1) : null
-              const snaps = await Promise.all(usernameCandidates(username).map((u) =>
+              const snaps = await conLimite(Promise.all(usernameCandidates(username).map((u) =>
                 getDocs(query(collection(db, 'students'), where('username', '==', u)))
-              ))
+              )))
               docs = snaps.flatMap((s) => s.docs).map((d) => ({ id: d.id, ...d.data() }))
               // escuelaId viene del correo de Auth, que Firebase siempre guarda en
               // minúsculas — pero el escuelaId real en Firestore es un ID
@@ -199,7 +208,7 @@ export function AuthProvider({ children }) {
             const provider = user.providerData?.some((p) => p.providerId === 'google.com')
               ? 'google'
               : 'password'
-            await createTeacherAccount(user.uid, user.email, user.photoURL || null, provider, false)
+            await conLimite(createTeacherAccount(user.uid, user.email, user.photoURL || null, provider, false))
             setUserProfile({
               role: 'docente',
               email: user.email.trim().toLowerCase(),
@@ -228,7 +237,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{ currentUser, userProfile, loading, setUserProfile }}>
-      {loading ? esqueletoDeSesion(pathname) : children}
+      {loading ? <EsperaSesion pathname={pathname} /> : children}
     </AuthContext.Provider>
   )
 }

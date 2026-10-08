@@ -1,3 +1,4 @@
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './components/Toast'
@@ -11,41 +12,100 @@ import { installFollowTooltips } from './utils/followTooltip'
 import { installWheelStep } from './utils/wheelStep'
 import TeacherLayout from './components/Layout'
 import { EsqueletoSesion } from './components/esqueletos'
+import { esqueletoDeContenidoDocente, esqueletoDeSesion } from './components/esqueletos/porRuta'
+import { CargaFallida, Espera } from './components/carga/Espera'
 
 import Landing from './pages/Landing'
 import TeacherLogin from './pages/teacher/Login'
-import TeacherRegister from './pages/teacher/Register'
-import ResetPassword from './pages/teacher/ResetPassword'
-import Onboarding from './pages/teacher/Onboarding'
-import ProtectAccount from './pages/teacher/ProtectAccount'
-import TeacherDashboard from './pages/teacher/Dashboard'
-import SubjectPage from './pages/teacher/SubjectPage'
-import ActivityPage from './pages/teacher/ActivityPage'
-import Profile from './pages/teacher/Profile'
-import PerfilIA from './pages/teacher/PerfilIA'
-import CalendarPage from './pages/teacher/CalendarPage'
-import VerifyEmail from './pages/teacher/VerifyEmail'
-import Privacidad from './pages/Privacidad'
-import DescargaApp from './pages/DescargaApp'
-import TeacherNotificationSettings from './pages/teacher/NotificationSettings'
-import AyudaPage from './pages/teacher/AyudaPage'
 
-import StudentActivation from './pages/student/Activation'
 import StudentLogin from './pages/student/Login'
-import StudentDashboard from './pages/student/Dashboard'
-import StudentSubjectPage from './pages/student/SubjectPage'
-import StudentActivityPage from './pages/student/ActivityPage'
-import EvaluacionRunner from './pages/student/EvaluacionRunner'
-import JuegoRunner from './pages/student/JuegoRunner'
-import EvaluacionRevision from './pages/student/EvaluacionRevision'
-import NotificationSettings from './pages/student/NotificationSettings'
-import StudentAgenda from './pages/student/Agenda'
-import StudentProfile from './pages/student/Profile'
-import StudentTipsPage from './pages/student/TipsPage'
-import StudentMiEspacio from './pages/student/MiEspacio'
 
-import AdminDashboard from './pages/admin/Dashboard'
 import { docenteSinEscuela } from './utils/escuela'
+
+// Cada página es su propio archivo de JS y se descarga al entrar a ella
+// (antes todo iba en un solo paquete de 4 MB / 1.1 MB comprimido: en un
+// teléfono con 4G tardaba ~7 s solo en llegar, oct-2026). Login y portada
+// siguen en el paquete inicial porque son la primera pantalla de quien no
+// tiene sesión. Tras entrar, precargarPaginas() baja en segundo plano las
+// del rol para que navegar siga siendo instantáneo.
+const paginas = {
+  TeacherRegister: () => import('./pages/teacher/Register'),
+  ResetPassword: () => import('./pages/teacher/ResetPassword'),
+  Onboarding: () => import('./pages/teacher/Onboarding'),
+  ProtectAccount: () => import('./pages/teacher/ProtectAccount'),
+  TeacherDashboard: () => import('./pages/teacher/Dashboard'),
+  SubjectPage: () => import('./pages/teacher/SubjectPage'),
+  ActivityPage: () => import('./pages/teacher/ActivityPage'),
+  Profile: () => import('./pages/teacher/Profile'),
+  PerfilIA: () => import('./pages/teacher/PerfilIA'),
+  CalendarPage: () => import('./pages/teacher/CalendarPage'),
+  VerifyEmail: () => import('./pages/teacher/VerifyEmail'),
+  Privacidad: () => import('./pages/Privacidad'),
+  DescargaApp: () => import('./pages/DescargaApp'),
+  TeacherNotificationSettings: () => import('./pages/teacher/NotificationSettings'),
+  AyudaPage: () => import('./pages/teacher/AyudaPage'),
+  StudentActivation: () => import('./pages/student/Activation'),
+  StudentDashboard: () => import('./pages/student/Dashboard'),
+  StudentSubjectPage: () => import('./pages/student/SubjectPage'),
+  StudentActivityPage: () => import('./pages/student/ActivityPage'),
+  EvaluacionRunner: () => import('./pages/student/EvaluacionRunner'),
+  JuegoRunner: () => import('./pages/student/JuegoRunner'),
+  EvaluacionRevision: () => import('./pages/student/EvaluacionRevision'),
+  NotificationSettings: () => import('./pages/student/NotificationSettings'),
+  StudentAgenda: () => import('./pages/student/Agenda'),
+  StudentProfile: () => import('./pages/student/Profile'),
+  StudentTipsPage: () => import('./pages/student/TipsPage'),
+  StudentMiEspacio: () => import('./pages/student/MiEspacio'),
+  AdminDashboard: () => import('./pages/admin/Dashboard'),
+}
+// La página de la URL con la que se abrió la app se pide YA, a la par de la
+// sesión. Si se esperara a que React llegue a la ruta, su código no saldría
+// hasta resolver Auth + perfil (~6 s en 4G) y luego aún habría que bajarlo.
+const PAGINA_INICIAL = [
+  [/^\/dashboard$/, 'TeacherDashboard'],
+  [/^\/subject\//, 'SubjectPage'],
+  [/^\/activity\//, 'ActivityPage'],
+  [/^\/calendario$/, 'CalendarPage'],
+  [/^\/profile$/, 'Profile'],
+  [/^\/ayuda$/, 'AyudaPage'],
+  [/^\/Admin$/, 'AdminDashboard'],
+  [/^\/register$/, 'TeacherRegister'],
+  [/^\/activate\//, 'StudentActivation'],
+  [/^\/alumno\/dashboard$/, 'StudentDashboard'],
+  [/^\/alumno\/materia\//, 'StudentSubjectPage'],
+  [/^\/alumno\/actividad\//, 'StudentActivityPage'],
+  [/^\/alumno\/agenda$/, 'StudentAgenda'],
+  [/^\/alumno\/perfil$/, 'StudentProfile'],
+].find(([re]) => re.test(window.location.pathname))?.[1]
+if (PAGINA_INICIAL) paginas[PAGINA_INICIAL]().catch(() => {})
+const TeacherRegister = lazy(paginas.TeacherRegister)
+const ResetPassword = lazy(paginas.ResetPassword)
+const Onboarding = lazy(paginas.Onboarding)
+const ProtectAccount = lazy(paginas.ProtectAccount)
+const TeacherDashboard = lazy(paginas.TeacherDashboard)
+const SubjectPage = lazy(paginas.SubjectPage)
+const ActivityPage = lazy(paginas.ActivityPage)
+const Profile = lazy(paginas.Profile)
+const PerfilIA = lazy(paginas.PerfilIA)
+const CalendarPage = lazy(paginas.CalendarPage)
+const VerifyEmail = lazy(paginas.VerifyEmail)
+const Privacidad = lazy(paginas.Privacidad)
+const DescargaApp = lazy(paginas.DescargaApp)
+const TeacherNotificationSettings = lazy(paginas.TeacherNotificationSettings)
+const AyudaPage = lazy(paginas.AyudaPage)
+const StudentActivation = lazy(paginas.StudentActivation)
+const StudentDashboard = lazy(paginas.StudentDashboard)
+const StudentSubjectPage = lazy(paginas.StudentSubjectPage)
+const StudentActivityPage = lazy(paginas.StudentActivityPage)
+const EvaluacionRunner = lazy(paginas.EvaluacionRunner)
+const JuegoRunner = lazy(paginas.JuegoRunner)
+const EvaluacionRevision = lazy(paginas.EvaluacionRevision)
+const NotificationSettings = lazy(paginas.NotificationSettings)
+const StudentAgenda = lazy(paginas.StudentAgenda)
+const StudentProfile = lazy(paginas.StudentProfile)
+const StudentTipsPage = lazy(paginas.StudentTipsPage)
+const StudentMiEspacio = lazy(paginas.StudentMiEspacio)
+const AdminDashboard = lazy(paginas.AdminDashboard)
 
 function ProtectedAdmin({ children }) {
   const { currentUser, userProfile, loading } = useAuth()
@@ -138,11 +198,50 @@ function ProtectedTeacherProtectAccount({ children }) {
 // navegación — el sidebar se vaciaba y se volvía a llenar (spinner, refetch
 // de asignaturas, banner de prueba) en cada clic, el parpadeo reportado.
 function TeacherLayoutRoute() {
+  const { pathname } = useLocation()
   return (
     <TeacherLayout>
-      <Outlet />
+      {/* Mientras llega el código de la página, su esqueleto DENTRO del layout
+          (las barras ya están pintadas y no parpadean). */}
+      <CargaFallida key={pathname}>
+        <Suspense fallback={<Espera>{esqueletoDeContenidoDocente(pathname)}</Espera>}>
+          <Outlet />
+        </Suspense>
+      </CargaFallida>
     </TeacherLayout>
   )
+}
+
+// Fuera del layout del docente (alumno, admin, registro…): pantalla completa.
+function EsperaPagina() {
+  const { pathname } = useLocation()
+  const esqueleto = esqueletoDeSesion(pathname)
+  return esqueleto ? <Espera>{esqueleto}</Espera> : null
+}
+
+// Ya con sesión, baja en segundo plano las páginas de su rol (cuando el
+// navegador está desocupado) para que el primer clic a cada una no espere red.
+const PAGINAS_POR_ROL = {
+  docente: ['TeacherDashboard', 'SubjectPage', 'ActivityPage', 'CalendarPage', 'Profile', 'AyudaPage', 'TeacherNotificationSettings', 'PerfilIA'],
+  alumno: ['StudentDashboard', 'StudentSubjectPage', 'StudentActivityPage', 'StudentAgenda', 'StudentProfile', 'EvaluacionRunner', 'NotificationSettings', 'StudentMiEspacio', 'StudentTipsPage'],
+  admin: ['AdminDashboard'],
+}
+function PrecargaPaginas() {
+  const { userProfile } = useAuth()
+  const rol = userProfile?.role
+  useEffect(() => {
+    const lista = PAGINAS_POR_ROL[rol]
+    if (!lista) return
+    // 4 s de gracia: que la página actual termine de traer SUS datos antes de
+    // gastar red en las demás (en 4G compiten por el mismo ancho de banda).
+    let idle
+    const t = setTimeout(() => {
+      const enReposo = window.requestIdleCallback || ((fn) => setTimeout(fn, 0))
+      idle = enReposo(() => { for (const n of lista) paginas[n]().catch(() => {}) })
+    }, 4000)
+    return () => { clearTimeout(t); if (idle != null) (window.cancelIdleCallback || clearTimeout)(idle) }
+  }, [rol])
+  return null
 }
 
 function ProtectedStudent({ children }) {
@@ -211,6 +310,9 @@ export default function App() {
           <AndroidBackButton />
           <EscKeyHandler />
           <UpdateChecker />
+          <PrecargaPaginas />
+          <CargaFallida>
+          <Suspense fallback={<EsperaPagina />}>
           <Routes>
             {/* Public */}
             <Route path="/" element={<RootRedirect guest={<Landing />} />} />
@@ -269,6 +371,8 @@ export default function App() {
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
+          </CargaFallida>
           <PwaInstallPrompt />
           </RoleWrapper>
         </ToastProvider>
