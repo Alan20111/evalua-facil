@@ -1841,7 +1841,7 @@ export default function CalendarPage() {
             onClick={() => setShowDatePicker(false)}
             aria-label="Cerrar selector de fecha"
           />
-          <div className="absolute left-0 top-12 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
+          <div className="absolute left-0 top-12 z-30 origin-top-left animate-dialogo motion-reduce:animate-none bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
             <div className="flex items-center justify-between mb-2">
               <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-2 rounded-full hover:bg-accent-tint text-muted">
                 <ChevronLeft size={15} />
@@ -1947,7 +1947,7 @@ export default function CalendarPage() {
             onClick={() => setShowHoras(false)}
             aria-label="Cerrar selector de horas"
           />
-          <div className="absolute right-0 top-12 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
+          <div className="absolute right-0 top-12 z-40 origin-top-right animate-dialogo motion-reduce:animate-none bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted w-12 flex-shrink-0">Desde</span>
@@ -2154,7 +2154,7 @@ export default function CalendarPage() {
           : `bg-surface-card rounded-card shadow-card overflow-hidden animate-aparece motion-reduce:animate-none ${soloConsulta
             ? (view === 'agenda' ? '[&_[style*=touch-action]:not(.cursor-grab)]:!touch-auto'
               : view === '3dias' ? '[&_[style*=touch-action]:not(.cursor-grab)]:!touch-auto [&>div>div]:!min-w-0' : '')
-            : view === 'agenda' ? 'w-1/2 mx-auto' : view === '3dias' ? 'w-3/4 mx-auto' : ''}`
+            : ''}`
         }>
           {loading ? (
             <SkeletonList rows={6} className="py-6" />

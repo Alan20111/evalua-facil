@@ -17,7 +17,7 @@ export function installFollowTooltips() {
     'position:fixed', 'z-index:99999', 'pointer-events:none',
     'background:#f5f5f5', 'color:#111111', 'border:1px solid #c0c0c0',
     'box-shadow:0 1px 3px rgba(0,0,0,.12)', 'font-size:11px', 'line-height:1.3',
-    'padding:3px 8px', 'border-radius:2px', 'width:max-content', 'max-width:340px',
+    'padding:4px 10px', 'border-radius:9999px', 'width:max-content', 'max-width:340px',
     'opacity:0',
     // Centered above the cursor with a comfortable gap, like the others
     'transform:translate(-50%, -100%)',
@@ -51,10 +51,10 @@ export function installFollowTooltips() {
       tip.textContent = el.getAttribute('data-tooltip-follow')
       move(e)
       // Slightly slower to appear than the CSS tooltips (.25s), instant to hide
-      tip.style.transition = 'opacity .12s ease .35s'
+      tip.style.transition = 'opacity .15s cubic-bezier(0.2,0,0,1) .35s'
       tip.style.opacity = '1'
     } else {
-      tip.style.transition = 'opacity .06s ease 0s'
+      tip.style.transition = 'opacity .1s cubic-bezier(0.3,0,1,1) 0s'
       tip.style.opacity = '0'
     }
   }

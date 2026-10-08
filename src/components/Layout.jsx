@@ -327,7 +327,7 @@ export default function TeacherLayout({ children }) {
                 <ChevronRight size={16} className={`flex-shrink-0 transition-transform ${ajustesAbierto ? 'rotate-90' : ''}`} />
               </button>
               {ajustesAbierto && (
-                <div id="submenu-ajustes" className="space-y-1">
+                <div id="submenu-ajustes" className="space-y-1 animate-aparece motion-reduce:animate-none">
                 {/* Perfil para IA del docente — arriba del QR, pedido explícito
                     (FASE 2-BIS del Plan Maestro de IA). Contexto general del
                     docente, se captura una sola vez y se reutiliza en todas las
@@ -456,7 +456,9 @@ export default function TeacherLayout({ children }) {
           tabIndex={-1}
           className={`${IS_NATIVE_APP ? 'w-full overflow-x-hidden' : 'flex-1 min-w-0'} min-h-screen pb-[calc(var(--barra-alto)+1.5rem+env(safe-area-inset-bottom,0px))] ${IS_NATIVE_APP ? '' : 'md:pb-0'} focus:outline-none`}
         >
-          {children}
+          {/* key=pathname: cada página entra con un fundido de 200ms (solo
+              opacidad, para no alterar los elementos fixed de dentro). */}
+          <div key={pathname} className="animate-pagina motion-reduce:animate-none">{children}</div>
         </main>
       </div>
 

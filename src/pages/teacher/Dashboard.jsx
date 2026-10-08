@@ -360,7 +360,7 @@ export default function TeacherDashboard() {
                 </button>
               </div>
             ) : (
-              <div data-esq="dash-doc-lista" className="space-y-2 mb-4">
+              <div data-esq="dash-doc-lista" className="space-y-2 mb-4 cascada">
                 {displaySubjects.map((s, i) => (
                   <div data-esq="dash-doc-fila"
                     key={s.id}
