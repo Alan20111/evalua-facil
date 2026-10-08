@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { LogOut, ChevronRight, CalendarDays, Plus, Archive, Lightbulb, Cloud } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { getDoc, doc } from 'firebase/firestore'
@@ -30,6 +30,7 @@ import { EsqueletoFilasLateralAlumno } from './esqueletos'
 export default function StudentLayout({ children, refreshKey = 0 }) {
   const { currentUser, userProfile } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [schoolName, setSchoolName] = useState('')
@@ -374,7 +375,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           tabIndex={-1}
           className={`${IS_NATIVE_APP ? 'w-full overflow-x-hidden' : 'flex-1 min-w-0'} min-h-screen pb-[calc(var(--barra-alto)+1.5rem+env(safe-area-inset-bottom,0px))] ${IS_NATIVE_APP ? '' : 'md:pb-0'} focus:outline-none`}
         >
-          {children}
+          <div key={pathname} className="animate-pagina motion-reduce:animate-none">{children}</div>
         </main>
       </div>
 

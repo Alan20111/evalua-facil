@@ -13,6 +13,10 @@ const formaApp = ({ addComponents, addBase }) => {
       from: { opacity: '0', transform: 'translateY(24px)' },
       to: { opacity: '1', transform: 'translateY(0)' },
     },
+    '@keyframes aparece': {
+      from: { opacity: '0', transform: 'translateY(8px)' },
+      to: { opacity: '1', transform: 'translateY(0)' },
+    },
     '@keyframes dialogo': {
       from: { opacity: '0', transform: 'scale(0.96)' },
       to: { opacity: '1', transform: 'scale(1)' },
@@ -26,13 +30,24 @@ const formaApp = ({ addComponents, addBase }) => {
   '.barra-flotante-inf': {
     bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
   },
+  // Cascada (listas: asignaturas, parciales): cada hijo entra subiendo 8px,
+  // 30ms después del anterior (micro cascada de la skill: < 200ms en total).
+  '.cascada > *': {
+    animation: 'aparece 250ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
+  },
+  '.cascada > *:nth-child(2)': { animationDelay: '30ms' },
+  '.cascada > *:nth-child(3)': { animationDelay: '60ms' },
+  '.cascada > *:nth-child(4)': { animationDelay: '90ms' },
+  '.cascada > *:nth-child(5)': { animationDelay: '120ms' },
+  '.cascada > *:nth-child(6)': { animationDelay: '150ms' },
+  '.cascada > *:nth-child(n+7)': { animationDelay: '180ms' },
   // Entrada: en el teléfono la hoja SUBE (viene del borde inferior); en
   // escritorio es un diálogo centrado y CRECE desde 96%.
   '.hoja': {
-    animation: 'dialogo 250ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
+    animation: 'dialogo 250ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
     '@media (max-width: 639.98px)': {
       marginBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
-      animation: 'hoja-sube 350ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
+      animation: 'hoja-sube 350ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
     },
   },
   })
@@ -89,7 +104,9 @@ export default {
       //  · Duraciones: rápida 150ms (hover, presión), estándar 250ms (iconos,
       //    tarjetas, diálogos centrados), lenta 350ms (hojas que suben).
       //  · Bucles ambientales: seno (0.37,0,0.63,1), sin cortes.
-      // Todo se apaga con prefers-reduced-motion (index.css).
+      // Todo se apaga con prefers-reduced-motion (index.css). Modo de relleno
+      // `backwards`: al terminar no queda ningún transform puesto (un transform
+      // permanente rompe los position:fixed de dentro: menús, flotantes).
       transitionTimingFunction: {
         DEFAULT: 'cubic-bezier(0.2, 0, 0, 1)',
         firma: 'cubic-bezier(0.2, 0, 0, 1)',
@@ -133,6 +150,9 @@ export default {
           '60%': { transform: 'scale(1.12)', opacity: '1' },
           '100%': { transform: 'scale(1)' },
         },
+        // Cambio de página: SOLO opacidad. Un transform en el contenedor de la
+        // página volvería relativos a él los elementos fixed de dentro.
+        pagina: { from: { opacity: '0' }, to: { opacity: '1' } },
         // Cambio de vista (calendario): aparece subiendo 8px.
         aparece: {
           from: { opacity: '0', transform: 'translateY(8px)' },
@@ -141,12 +161,13 @@ export default {
       },
       animation: {
         atencion: 'atencion 2.2s cubic-bezier(0.37, 0, 0.63, 1) infinite',
-        velo: 'velo 200ms cubic-bezier(0.2, 0, 0, 1) both',
-        'hoja-sube': 'hoja-sube 350ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
-        dialogo: 'dialogo 250ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
-        aviso: 'aviso 250ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
-        pop: 'pop 300ms cubic-bezier(0.2, 0, 0, 1) both',
-        aparece: 'aparece 250ms cubic-bezier(0.05, 0.7, 0.1, 1) both',
+        velo: 'velo 200ms cubic-bezier(0.2, 0, 0, 1) backwards',
+        'hoja-sube': 'hoja-sube 350ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
+        dialogo: 'dialogo 250ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
+        aviso: 'aviso 250ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
+        pop: 'pop 300ms cubic-bezier(0.2, 0, 0, 1) backwards',
+        aparece: 'aparece 250ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
+        pagina: 'pagina 200ms cubic-bezier(0.2, 0, 0, 1) backwards',
       },
       boxShadow: {
         // Elevación plana (oct-2026, referencia Apple): las tarjetas se

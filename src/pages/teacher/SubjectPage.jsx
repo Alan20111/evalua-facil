@@ -65,7 +65,7 @@ import { EntregaCambio, tieneEvidencia, elegibleSinEntrega, crearSiNoExiste, act
 import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
-import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import { uploadToCloudinary, downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../../utils/cloudinary'
 import { RESOURCE_ACCEPT, getResourceIcon, getLinkResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
@@ -1052,6 +1052,17 @@ function buildDenominadoresPorParcial(subject, sesionesPorParcialCliente = {}) {
   return den
 }
 
+// Tres cabeceras de la asignatura y su submenú (ver gruposVisibles).
+const GRUPOS_SECCIONES = [
+  { id: 'actividades', label: 'Actividades', tabs: ['actividades'] },
+  { id: 'estudiantes', label: 'Estudiantes', tabs: ['alumnos', 'asistencia', 'calificaciones'] },
+  { id: 'clase', label: 'Clase', tabs: ['recursos', 'avisos', 'asistente-ia'] },
+]
+const ETIQUETA_SECCION = {
+  actividades: 'Actividades', alumnos: 'Lista', asistencia: 'Asistencias', calificaciones: 'Calificaciones',
+  recursos: 'Recursos', avisos: 'Avisos', 'asistente-ia': 'Planeación',
+}
+
 export default function SubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
@@ -1298,6 +1309,23 @@ export default function SubjectPage() {
   // (a mano o por Excel) actualizaba la lista pero NO el conteo: el aviso de
   // "aún no tienes estudiantes" seguía ahí hasta recargar la página.
   const totalStudents = groupStudentsLoaded ? groupStudents.length : studentCountAtLoad
+  // Agrupación de las secciones en tres cabeceras (oct-2026, opción B):
+  // Actividades · Estudiantes (Lista, Asistencias, Calificaciones) · Clase
+  // (Recursos, Avisos, Planeación). Se filtran por lo que cada plataforma
+  // permite ver; una cabecera sin secciones visibles no se muestra.
+  const seccionesVisibles = IS_NATIVE_APP
+    ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos', 'asistente-ia']
+    : telefonoWeb.telefono
+      ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
+      : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos', 'asistente-ia']
+  const gruposVisibles = GRUPOS_SECCIONES
+    .map((g) => ({ ...g, tabs: g.tabs.filter((t) => seccionesVisibles.includes(t)) }))
+    .filter((g) => g.tabs.length > 0)
+  const grupoActivo = gruposVisibles.find((g) => g.tabs.includes(activeTab))
+  // Al volver a una cabecera se abre la última sección que usaste en ella.
+  const ultimaDeGrupo = useRef({})
+  if (grupoActivo) ultimaDeGrupo.current[grupoActivo.id] = activeTab
+
   // Pestañas que piden atención (se marcan en rojo con un punto) y QUÉ hay que
   // hacer en ellas. Añade aquí otra pestaña con su motivo y el diseño es el
   // mismo (ver DESIGN_SYSTEM §6.4 «Pestaña que requiere atención»).
@@ -5567,8 +5595,13 @@ export default function SubjectPage() {
             superior). Con el lienzo azul, este bloque blanco pasó a leerse como
             una tarjeta, y una tarjeta que termina en canto recto se ve cortada,
             no terminada. */}
-        <div data-esq="subj-doc-encabezado" className="mx-2 mt-2 bg-surface-card rounded-card">
-          <div data-esq="subj-doc-encabezado-interior" className={`${TEACHER_CONTAINER} px-4 py-2`}>
+        {/* Encabezado y contenido comparten contenedor (TEACHER_CONTAINER) y
+            gutter (px-4): sus bordes izquierdo y derecho coinciden en cualquier
+            pantalla (antes el encabezado iba a todo lo ancho y la lista era
+            más angosta). */}
+        <div className={`${TEACHER_CONTAINER} px-4 pt-2`}>
+        <div data-esq="subj-doc-encabezado" className="bg-surface-card rounded-card">
+          <div data-esq="subj-doc-encabezado-interior" className="px-4 py-2">
           <div className="flex items-center gap-2">
             <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
               <ArrowLeft size={22} />
@@ -5634,51 +5667,53 @@ export default function SubjectPage() {
               esta fila. sm:flex-1 restaura el ancho igual de siempre en
               escritorio, donde sí caben cómodas. */}
           <div className="relative">
-            <div data-esq="subj-doc-pestanas" ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-x-auto">
-              {(IS_NATIVE_APP
-                ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos', 'asistente-ia']
-                // Teléfono (web): sin Calificaciones ni Planeación Didáctica.
-                : telefonoWeb.telefono
-                  ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
-                  : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos', 'asistente-ia']
-              // "Planeación Didáctica" YA TAMBIÉN en la app (1-sep-2026): se
-              // excluía porque la revisión del Word necesita pantalla ancha
-              // (Kike, 15-ago-2026), pero eso solo aplica a UN paso del camino
-              // de IA. El camino de la planeación propia —subir, ver,
-              // descargar, reemplazar— cabe perfectamente en un celular, y
-              // dejarlo fuera de la app era negarle ese camino entero al
-              // docente que solo usa el teléfono. El candado de ancho sigue
-              // vivo donde corresponde: useIsDesktop deja la revisión/edición
-              // del documento solo en escritorio, con su aviso.
-              //
-              // YA NO exige tener el Perfil IA completo (1-sep-2026): la
-              // Planeación tiene DOS caminos y solo uno usa IA. Obligar a
-              // escribir el Perfil para poder subir un PDF propio dejaba fuera
-              // al docente que ya trae su planeación hecha — que es
-              // exactamente a quien esta pestaña debe servir primero. El
-              // Perfil sigue siendo requisito de las OPERACIONES de IA, donde
-              // el servidor lo revalida (precheckPlaneacionInicial,
-              // precheckDiagnosticoBase) y la UI lo avisa antes de intentarlo.
-              ).map((t) => (
-                <button data-esq="subj-doc-pestana" type="button" key={t} onClick={() => switchTab(t)}
-                  data-tooltip={atencionPestanas[t] || undefined}
-                  className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded-full transition-colors ${
-                    activeTab === t ? 'bg-surface-card shadow-card' : 'hover:bg-[var(--accent-medium)]'
-                  } ${
-                    atencionPestanas[t]
-                      ? (activeTab === t ? 'text-red-700 font-semibold' : 'text-red-700 font-semibold bg-red-50')
-                      : activeTab === t ? 'text-on-surface' : 'text-muted'
-                  }`}>
-                  <span className="inline-flex items-center justify-center gap-1.5">
-                    {atencionPestanas[t] && <span aria-hidden="true" className="w-2 h-2 rounded-full bg-red-600 flex-shrink-0 animate-atencion motion-reduce:animate-none" />}
-                    {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : t === 'avisos' ? 'Avisos' : 'Planeación'}
-                  </span>
-                  {/* Qué hay que hacer en esta pestaña — lo lee el lector de pantalla
-                      y sale como globo al pasar el cursor/enfocar (data-tooltip). */}
-                  {atencionPestanas[t] && <span className="sr-only">: requiere atención. {atencionPestanas[t]}</span>}
-                </button>
-              ))}
+            {/* Tres cabeceras (oct-2026): Actividades · Estudiantes · Clase. Cada
+                cabecera con más de una sección muestra su submenú debajo. Las
+                pestañas internas (activeTab) no cambian: solo se agrupan. Qué
+                sección cabe en cada plataforma sigue igual (sin Calificaciones
+                en el teléfono ni en la app; sin Planeación en el teléfono web). */}
+            <div data-esq="subj-doc-pestanas" ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-x-auto" role="tablist" aria-label="Secciones de la asignatura">
+              {gruposVisibles.map((g) => {
+                const activo = g.tabs.includes(activeTab)
+                const atencion = g.tabs.some((t) => atencionPestanas[t])
+                const motivo = g.tabs.map((t) => atencionPestanas[t]).find(Boolean)
+                return (
+                  <button data-esq="subj-doc-pestana" type="button" key={g.id} role="tab" aria-selected={activo}
+                    onClick={() => switchTab(activo ? activeTab : (ultimaDeGrupo.current[g.id] && g.tabs.includes(ultimaDeGrupo.current[g.id]) ? ultimaDeGrupo.current[g.id] : g.tabs[0]))}
+                    data-tooltip={motivo || undefined}
+                    className={`flex-1 whitespace-nowrap px-3 py-2 text-sm font-medium rounded-full transition-colors ${
+                      activo ? 'bg-surface-card shadow-card' : 'hover:bg-[var(--accent-medium)]'
+                    } ${
+                      atencion
+                        ? (activo ? 'text-red-700 font-semibold' : 'text-red-700 font-semibold bg-red-50')
+                        : activo ? 'text-on-surface' : 'text-muted'
+                    }`}>
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      {atencion && <span aria-hidden="true" className="w-2 h-2 rounded-full bg-red-600 flex-shrink-0 animate-atencion motion-reduce:animate-none" />}
+                      {g.label}
+                    </span>
+                    {atencion && <span className="sr-only">: requiere atención. {motivo}</span>}
+                  </button>
+                )
+              })}
             </div>
+            {/* Submenú de la cabecera activa (si tiene más de una sección) */}
+            {grupoActivo && grupoActivo.tabs.length > 1 && (
+              <div className="flex justify-center gap-1 mt-2 animate-aparece motion-reduce:animate-none" role="tablist" aria-label={`Secciones de ${grupoActivo.label}`}>
+                {grupoActivo.tabs.map((t) => (
+                  <button key={t} type="button" role="tab" aria-selected={activeTab === t} onClick={() => switchTab(t)}
+                    data-tooltip={atencionPestanas[t] || undefined}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                      activeTab === t
+                        ? (atencionPestanas[t] ? 'bg-red-600 text-white' : 'bg-accent text-white')
+                        : atencionPestanas[t] ? 'text-red-700 font-semibold bg-red-50 hover:bg-red-100' : 'text-muted hover:bg-[var(--accent-tint)]'
+                    }`}>
+                    {ETIQUETA_SECCION[t]}
+                    {atencionPestanas[t] && <span className="sr-only">: requiere atención. {atencionPestanas[t]}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
             {/* Desvanecido + flecha: mismo indicio que la barra del alumno,
                 solo aparece si de verdad hay pestañas fuera de vista y
                 desaparece en cuanto el docente ya deslizó hasta el final. */}
@@ -5700,14 +5735,16 @@ export default function SubjectPage() {
           )}
           </div>
         </div>
+        </div>
 
-        <div className={TEACHER_CONTAINER}>
+        {/* key=activeTab: cada sección entra con un fundido (solo opacidad). */}
+        <div key={activeTab} className={`${TEACHER_CONTAINER} animate-pagina motion-reduce:animate-none`}>
 
         {/* ══════════════════════════════════════════════════════════
             TAB: ACTIVIDADES
         ══════════════════════════════════════════════════════════ */}
         {activeTab === 'actividades' && (
-          <div data-esq="subj-doc-parciales" className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
+          <div data-esq="subj-doc-parciales" className="px-4 py-2 space-y-2 cascada">
             {PARCIALES.map((p) => {
               const acts = activities.filter((a) => a.parcial === p)
               const numeradas = acts.filter((a) => activityLabelById[a.id]).length
@@ -5770,7 +5807,7 @@ export default function SubjectPage() {
                   </div>
 
                   {isOpen && (
-                    <div data-esq="subj-doc-parcial-cuerpo" className="border-t border-outline-variant pr-4 py-2">
+                    <div data-esq="subj-doc-parcial-cuerpo" className="border-t border-outline-variant pr-4 py-2 animate-aparece motion-reduce:animate-none">
                       <div data-esq="subj-doc-parcial-lista" className="ml-3 pl-3 border-l-2 border-accent-soft space-y-1.5">
                       {(() => {
                         const unified = buildUnifiedParcial(acts, mats)
@@ -7003,7 +7040,7 @@ export default function SubjectPage() {
           TAB: ALUMNOS
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'alumnos' && (
-        <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
+        <div className="px-4 py-2 space-y-2">
           {/* En la App esta pestaña se simplifica a propósito (pedido
               explícito): solo buscar y ver/editar — sin plantilla de Excel,
               sin PDF de códigos, sin el interruptor de notificación, y sin
@@ -7312,7 +7349,7 @@ export default function SubjectPage() {
           TAB: RECURSOS
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'recursos' && (
-        <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
+        <div className="px-4 py-2 space-y-2">
           <div className="flex items-start justify-between gap-3">
             <InfoDisclosure>
               <p className="text-sm text-muted leading-relaxed">
@@ -7399,7 +7436,7 @@ export default function SubjectPage() {
           TAB: AVISOS
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'avisos' && (
-        <div className={TEACHER_CONTAINER_NARROW}>
+        <div>
           <AvisosTab
             subjectId={subjectId}
             docenteId={currentUser.uid}
@@ -7422,7 +7459,7 @@ export default function SubjectPage() {
           aportaría nada y sí rompería cualquier enlace guardado.
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'asistente-ia' && (
-        <div className={TEACHER_CONTAINER_NARROW}>
+        <div>
           <PlaneacionDidacticaTab
             subjectId={subjectId}
             docenteId={currentUser.uid}

@@ -680,7 +680,7 @@ export default function StudentSubjectPage() {
 
       {/* Tab: Actividades y calificaciones */}
       {activeTab === 'Actividades y calificaciones' && (
-        <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
+        <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 cascada ${STUDENT_CONTAINER}`}>
           {PARCIALES.length === 0 && (
             <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
               <p className="text-muted text-sm">El docente aún no ha publicado contenido.</p>

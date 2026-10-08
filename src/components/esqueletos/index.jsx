@@ -57,8 +57,9 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
   return (
     <div>
       <SkeletonGroup etiqueta="Cargando la asignatura…">
-        <div data-esq="subj-doc-encabezado" className="mx-2 mt-2 bg-surface-card rounded-card">
-          <div data-esq="subj-doc-encabezado-interior" className={`${TEACHER_CONTAINER} px-4 py-2`}>
+        <div className={`${TEACHER_CONTAINER} px-4 pt-2`}>
+        <div data-esq="subj-doc-encabezado" className="bg-surface-card rounded-card">
+          <div data-esq="subj-doc-encabezado-interior" className="px-4 py-2">
           <div className="flex items-center gap-2">
             <span className="p-2 -ml-2 flex-shrink-0"><Skeleton className="w-[1.528rem] h-[1.528rem]" /></span>
             <Skeleton className="w-9 h-9 rounded flex-shrink-0" />
@@ -71,17 +72,18 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
               {Array.from({ length: 4 }, (_, i) => <span key={i} className="p-2"><Skeleton className="w-[1.458rem] h-[1.458rem]" /></span>)}
             </span>
           </div>
-          <div data-esq="subj-doc-pestanas" className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-hidden">
-            {Array.from({ length: 7 }, (_, i) => (
-              <span key={i} data-esq="subj-doc-pestana" className={cn('flex-shrink-0 sm:flex-1 px-3 sm:px-0 py-2 text-xs sm:text-sm rounded-full flex justify-center', i === 0 && 'bg-surface-card')}>
-                <SkeletonLine texto="text-xs sm:text-sm" className="w-16 sm:w-20" />
+          <div data-esq="subj-doc-pestanas" className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-x-auto">
+            {['Actividades', 'Estudiantes', 'Clase'].map((t, i) => (
+              <span key={t} data-esq="subj-doc-pestana" className={cn('flex-1 whitespace-nowrap px-3 py-2 text-sm font-medium rounded-full flex justify-center', i === 0 && 'bg-surface-card')}>
+                <SkeletonLine texto="text-sm" className="w-20" />
               </span>
             ))}
           </div>
           </div>
         </div>
+        </div>
         <div className={TEACHER_CONTAINER}>
-        <div data-esq="subj-doc-parciales" className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
+        <div data-esq="subj-doc-parciales" className="px-4 py-2 space-y-2">
           {Array.from({ length: parciales }, (_, i) => {
             // El Parcial 1 llega ABIERTO en la pantalla real (borde tenue, fondo
             // en la cabecera y la lista con sus tres botones punteados).

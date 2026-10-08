@@ -486,7 +486,7 @@ export default function StudentDashboard() {
             <p className="text-hint text-sm">Usa el botón de abajo para unirte a una.</p>
           </div>
         ) : (
-          <div data-esq="dash-alu-lista" className="space-y-2">
+          <div data-esq="dash-alu-lista" className="space-y-2 cascada">
             {displayActiveSubjects.map((s, i) => (
               <div data-esq="dash-alu-fila"
                 key={s.id}
