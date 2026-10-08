@@ -15,6 +15,7 @@ import {
 } from '@firebase/rules-unit-testing'
 import { doc, collection, addDoc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, deleteField } from 'firebase/firestore'
 import { EntregaCambio, elegibleSinEntrega, tieneEvidencia, crearSiNoExiste, actualizarSiNoCambio, borrarSiNoCambio, sinEntregaEnLote } from '../src/utils/submissionGuard.js'
+import { entregaAbiertaParaAlumno } from '../src/utils/entregaAbierta.js'
 import { esNotaAutomaticaDeCierre } from '../src/utils/ponderacion.js'
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')
@@ -3365,6 +3366,49 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('ANULAR · el docente dueño lee la traza; un docente ajeno no')
   await assertFails(updateDoc(doc(asJuan, 'entregasAnuladas', 'EA1'), { archivoURL: 'z' }))
   ok('ANULAR · la traza no se edita')
+}
+
+// ── Anular entrega: la pantalla y el servidor deciden lo mismo ───────────────
+// Para cada situación de disponibilidad, `entregaAbiertaParaAlumno` (lo que
+// usa la pantalla del estudiante para ofrecer "Anular entrega" y el formulario)
+// tiene que coincidir con lo que el servidor autoriza de verdad.
+{
+  const ahora = Date.now()
+  const pasado = Timestamp.fromMillis(ahora - 24 * 3600 * 1000)
+  const futuro = Timestamp.fromMillis(ahora + 24 * 3600 * 1000)
+  const casos = [
+    ['abierta, sin fecha', {}, true],
+    ['abierta, con fecha futura', { fechaLimiteTS: futuro }, true],
+    ['plazo vencido sin prórroga', { fechaLimiteTS: pasado }, false],
+    ['plazo vencido + prórroga vigente', { fechaLimiteTS: pasado, extensionesTS: { ST_JUAN: futuro } }, true],
+    ['plazo vencido + prórroga también vencida', { fechaLimiteTS: pasado, extensionesTS: { ST_JUAN: pasado } }, false],
+    ['plazo vencido + recibirTarde', { fechaLimiteTS: pasado, recibirTarde: true }, true],
+    ['cierre manual', { cerradaManual: true }, false],
+    ['cierre manual + prórroga vigente', { cerradaManual: true, fechaLimiteTS: pasado, extensionesTS: { ST_JUAN: futuro } }, false],
+    ['cierre manual + recibirTarde', { cerradaManual: true, recibirTarde: true }, false],
+    ['solo prórroga vigente (sin fecha del grupo)', { extensionesTS: { ST_JUAN: futuro } }, true],
+    ['solo prórroga vencida (sin fecha del grupo)', { extensionesTS: { ST_JUAN: pasado } }, false],
+    ['prórroga de OTRO estudiante', { fechaLimiteTS: pasado, extensionesTS: { OTRO: futuro } }, false],
+  ]
+  for (const [nombre, extra, abierta] of casos) {
+    const act = 'A_ANULAR_' + nombre.replace(/\W+/g, '_')
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const d = ctx.firestore()
+      await setDoc(doc(d, 'activities', act), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', ...extra })
+      await setDoc(doc(d, 'submissions', `${act}_ST_JUAN`), {
+        alumnoId: 'ST_JUAN', actividadId: act, archivoURL: 'x', calificacion: null, estado: 'entregado',
+      })
+    })
+    assert.equal(entregaAbiertaParaAlumno({ ...extra }, 'ST_JUAN'), abierta, `pantalla: ${nombre}`)
+    const b = writeBatch(asJuan)
+    b.set(doc(collection(asJuan, 'entregasAnuladas')), {
+      actividadId: act, alumnoId: 'ST_JUAN', submissionId: `${act}_ST_JUAN`, anuladaPor: 'estudiante',
+      archivoURL: 'x', fechaEntrega: Timestamp.now(), fechaAnulacion: serverTimestamp(),
+    })
+    b.delete(doc(asJuan, 'submissions', `${act}_ST_JUAN`))
+    await (abierta ? assertSucceeds(b.commit()) : assertFails(b.commit()))
+    ok(`ANULAR · pantalla y servidor coinciden — ${nombre}: ${abierta ? 'se puede' : 'NO se puede'}`)
+  }
 }
 
 await testEnv.cleanup()
