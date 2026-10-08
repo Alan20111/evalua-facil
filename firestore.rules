@@ -1256,10 +1256,25 @@ service cloud.firestore {
       // Parcial cerrado definitivamente: sus calificaciones no se borran, salvo
       // las de un estudiante que ya se dio de baja (eliminar estudiante borra
       // primero su inscripción y después sus entregas).
-      allow delete: if isDocente() &&
+      allow delete: if (isDocente() &&
         ownsActivity(resource.data.actividadId) &&
         (!actividadEnParcialCerrado(resource.data.actividadId) ||
-          !exists(/databases/$(database)/documents/students/$(resource.data.alumnoId)));
+          !exists(/databases/$(database)/documents/students/$(resource.data.alumnoId)))) ||
+        // El ESTUDIANTE anula su propia entrega (ver `anularEntrega` en
+        // student/ActivityPage.jsx), solo si TODAVÍA puede entregar y el
+        // docente aún no la evalúa: entrega de archivo o enlace (no
+        // cuestionario/juego, no "sin entrega" ni "completada" del docente),
+        // sin calificación, actividad no vencida ni cerrada, parcial abierto.
+        (request.auth != null &&
+          ownsStudentDoc(resource.data.alumnoId) &&
+          resource.data.get('calificacion', null) == null &&
+          resource.data.get('estado', '') != 'calificado' &&
+          resource.data.get('sinEntrega', false) != true &&
+          resource.data.get('completadoSinArchivo', false) != true &&
+          resource.data.get('estadoEvaluacion', null) == null &&
+          tieneEvidencia(resource.data) &&
+          !actividadVencidaParaAlumno(resource.data.actividadId, resource.data.alumnoId) &&
+          !actividadEnParcialCerrado(resource.data.actividadId));
 
       // Evaluación answers (autosave + teacher revision). Only the student who
       // owns the parent submission, or the teacher who owns the parent activity,
@@ -1327,6 +1342,27 @@ service cloud.firestore {
           ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId);
         allow write: if false;
       }
+    }
+
+    // Entregas que el estudiante anuló (trazabilidad para el docente). Una fila
+    // por anulación, con el archivo/enlace, la fecha original de la entrega y la
+    // fecha de anulación. La crea el estudiante en el mismo lote que borra la
+    // entrega vigente (la entrega todavía existe y es suya al evaluar la regla);
+    // nadie la edita. El docente dueño de la actividad la lee y puede limpiarla.
+    // OJO clientes: consultar con actividadId `==` (ownsActivity).
+    match /entregasAnuladas/{anuladaId} {
+      allow read: if isAdmin() ||
+        (isDocente() && ownsActivity(resource.data.actividadId)) ||
+        (request.auth != null && ownsStudentDoc(resource.data.alumnoId));
+      allow create: if request.auth != null &&
+        request.resource.data.anuladaPor == 'estudiante' &&
+        ownsStudentDoc(request.resource.data.alumnoId) &&
+        request.resource.data.submissionId == request.resource.data.actividadId + '_' + request.resource.data.alumnoId &&
+        request.resource.data.fechaAnulacion == request.time &&
+        exists(/databases/$(database)/documents/submissions/$(request.resource.data.submissionId));
+      allow update: if false;
+      allow delete: if isAdmin() ||
+        (isDocente() && ownsActivity(resource.data.actividadId));
     }
 
     match /plans/{planId} {

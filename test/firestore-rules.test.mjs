@@ -3292,5 +3292,80 @@ ok('F-05 · admin CAN read publicProfiles')
   }
 }
 
+// ── Anular entrega (estudiante) ───────────────────────────────────────────────
+{
+  const trazaDe = (act) => ({
+    actividadId: act, alumnoId: 'ST_JUAN', submissionId: `${act}_ST_JUAN`, anuladaPor: 'estudiante',
+    archivoURL: 'x', fechaEntrega: Timestamp.now(), fechaAnulacion: serverTimestamp(),
+  })
+  const seed = async (act, extra = {}) => testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'submissions', `${act}_ST_JUAN`), {
+      alumnoId: 'ST_JUAN', actividadId: act, archivoURL: 'x', calificacion: null, estado: 'entregado', ...extra,
+    })
+  })
+  const anular = async (db, act) => {
+    const b = writeBatch(db)
+    b.set(doc(collection(db, 'entregasAnuladas')), trazaDe(act))
+    b.delete(doc(db, 'submissions', `${act}_ST_JUAN`))
+    return b.commit()
+  }
+
+  // Entrega vigente, sin evaluar, actividad abierta → puede anular (y deja traza)
+  await seed('A_FUTURA')
+  await assertSucceeds(anular(asJuan, 'A_FUTURA'))
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    assert.equal((await getDoc(doc(ctx.firestore(), 'submissions', 'A_FUTURA_ST_JUAN'))).exists(), false)
+  })
+  ok('ANULAR · estudiante anula su entrega sin evaluar con la actividad abierta (traza + borrado)')
+
+  // …y vuelve a entregar como una entrega normal
+  await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_FUTURA_ST_JUAN'), {
+    alumnoId: 'ST_JUAN', actividadId: 'A_FUTURA', archivoURL: 'y', calificacion: null, estado: 'entregado',
+  }))
+  ok('ANULAR · después de anular puede entregar de nuevo')
+
+  // Evaluada → no puede anular
+  await seed('A_FUTURA', { calificacion: 8, estado: 'calificado' })
+  await assertFails(anular(asJuan, 'A_FUTURA'))
+  ok('ANULAR · entrega ya calificada NO se puede anular')
+
+  // Plazo vencido (sin recibirTarde) → no puede anular
+  await seed('A_VENCIDA')
+  await assertFails(anular(asJuan, 'A_VENCIDA'))
+  ok('ANULAR · plazo vencido NO se puede anular')
+
+  // Cerrada manualmente → no
+  await seed('A_CERRADA_MANUAL')
+  await assertFails(anular(asJuan, 'A_CERRADA_MANUAL'))
+  ok('ANULAR · actividad cerrada por el docente NO se puede anular')
+
+  // Prórroga vigente → sí
+  await seed('A_EXTENSION')
+  await assertSucceeds(anular(asJuan, 'A_EXTENSION'))
+  ok('ANULAR · dentro de una prórroga vigente SÍ se puede anular')
+
+  // "Completada sin archivo" (la pone el docente) → no
+  await seed('A_FUTURA', { archivoURL: null, completadoSinArchivo: true })
+  await assertFails(anular(asJuan, 'A_FUTURA'))
+  ok('ANULAR · "completada sin archivo" del docente NO se puede anular')
+
+  // Otro estudiante no puede anular ni crear la traza ajena
+  await seed('A_FUTURA')
+  await assertFails(anular(asMallory, 'A_FUTURA'))
+  ok('ANULAR · otro estudiante NO puede anular la entrega ajena')
+  await assertFails(addDoc(collection(asMallory, 'entregasAnuladas'), trazaDe('A_FUTURA')))
+  ok('ANULAR · otro estudiante NO puede crear la traza ajena')
+
+  // Lectura de la traza: docente dueño sí, docente ajeno no
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'entregasAnuladas', 'EA1'), { ...trazaDe('A1'), fechaAnulacion: Timestamp.now() })
+  })
+  await assertSucceeds(getDocs(query(collection(asT1, 'entregasAnuladas'), where('actividadId', '==', 'A1'))))
+  await assertFails(getDocs(query(collection(asT2, 'entregasAnuladas'), where('actividadId', '==', 'A1'))))
+  ok('ANULAR · el docente dueño lee la traza; un docente ajeno no')
+  await assertFails(updateDoc(doc(asJuan, 'entregasAnuladas', 'EA1'), { archivoURL: 'z' }))
+  ok('ANULAR · la traza no se edita')
+}
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
