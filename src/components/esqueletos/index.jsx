@@ -9,7 +9,7 @@
 // la regla es que se puedan encimar y coincidan.
 import { Skeleton, SkeletonGroup, SkeletonLine } from '../ui'
 import { cn } from '../ui/cn'
-import { TEACHER_CONTAINER_NARROW, STUDENT_CONTAINER } from '../../config/layout'
+import { TEACHER_CONTAINER_NARROW, TEACHER_CONTAINER_LISTA, STUDENT_CONTAINER } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { SB_FILA } from '../../config/sidebar'
 
@@ -57,7 +57,7 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
   return (
     <div>
       <SkeletonGroup etiqueta="Cargando la asignatura…">
-        <div className={`${TEACHER_CONTAINER_NARROW} px-4 pt-2`}>
+        <div className="px-4 pt-2">
         <div data-esq="subj-doc-encabezado" className="bg-surface-card rounded-card">
           <div data-esq="subj-doc-encabezado-interior" className="px-4 py-2">
           <div className="flex items-center gap-2">
@@ -82,7 +82,7 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
           </div>
         </div>
         </div>
-        <div className={TEACHER_CONTAINER_NARROW}>
+        <div className={TEACHER_CONTAINER_LISTA}>
         <div data-esq="subj-doc-parciales" className="px-4 py-2 space-y-2">
           {Array.from({ length: parciales }, (_, i) => {
             // El Parcial 1 llega ABIERTO en la pantalla real (borde tenue, fondo

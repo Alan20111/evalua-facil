@@ -18,6 +18,13 @@ export const TEACHER_CONTAINER =
 // of cards/fields, not a table or grid — growing them as aggressively as
 // TEACHER_CONTAINER would just stretch short form rows across empty space.
 // Same "grows with the viewport" principle, capped earlier.
+// Contenido de LISTA con encabezado a todo lo ancho (patrón Google Classroom):
+// el encabezado de la pantalla ocupa el 100% y el contenido (parciales,
+// estudiantes, recursos) va limitado y centrado — un poco más ancho que
+// TEACHER_CONTAINER_NARROW (máx. 64rem ≈ 920px, como Classroom).
+export const TEACHER_CONTAINER_LISTA =
+  'w-full max-w-3xl md:max-w-4xl lg:max-w-5xl mx-auto'
+
 export const TEACHER_CONTAINER_NARROW =
   'w-full max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto'
 

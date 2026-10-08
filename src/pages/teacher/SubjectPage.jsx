@@ -65,7 +65,7 @@ import { EntregaCambio, tieneEvidencia, elegibleSinEntrega, crearSiNoExiste, act
 import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
-import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { TEACHER_CONTAINER, TEACHER_CONTAINER_LISTA } from '../../config/layout'
 import { uploadToCloudinary, downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../../utils/cloudinary'
 import { RESOURCE_ACCEPT, getResourceIcon, getLinkResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
@@ -1326,10 +1326,11 @@ export default function SubjectPage() {
   // poder animar el cierre (ver «Abrir/cerrar animado»).
   const parcialesVistos = useRef(new Set())
   if (openParcial) parcialesVistos.current.add(openParcial)
-  // Ancho de la asignatura: angosto (como antes) en las secciones de lista;
-  // ancho completo solo donde hay tablas (Asistencias y Calificaciones).
-  // Encabezado y contenido usan el MISMO, así sus bordes siempre coinciden.
-  const anchoSeccion = activeTab === 'asistencia' || activeTab === 'calificaciones' ? TEACHER_CONTAINER : TEACHER_CONTAINER_NARROW
+  // Patrón Google Classroom: el encabezado (nombre, código, cabeceras) ocupa
+  // TODO el ancho; el contenido va limitado y centrado (TEACHER_CONTAINER_LISTA,
+  // ≈920px) y solo las tablas (Asistencias y Calificaciones) usan el ancho
+  // completo.
+  const anchoSeccion = activeTab === 'asistencia' || activeTab === 'calificaciones' ? TEACHER_CONTAINER : TEACHER_CONTAINER_LISTA
   // Al volver a una cabecera se abre la última sección que usaste en ella.
   const ultimaDeGrupo = useRef({})
   if (grupoActivo) ultimaDeGrupo.current[grupoActivo.id] = activeTab
@@ -5603,11 +5604,12 @@ export default function SubjectPage() {
             superior). Con el lienzo azul, este bloque blanco pasó a leerse como
             una tarjeta, y una tarjeta que termina en canto recto se ve cortada,
             no terminada. */}
-        {/* Encabezado y contenido comparten contenedor (anchoSeccion) y
+        {/* Encabezado a TODO lo ancho (patrón Classroom); el contenido, abajo,
+            va limitado y centrado (anchoSeccion). Antes:
             gutter (px-4): sus bordes izquierdo y derecho coinciden en cualquier
             pantalla (antes el encabezado iba a todo lo ancho y la lista era
             más angosta). */}
-        <div className={`${anchoSeccion} px-4 pt-2`}>
+        <div className="px-4 pt-2">
         <div data-esq="subj-doc-encabezado" className="bg-surface-card rounded-card">
           <div data-esq="subj-doc-encabezado-interior" className="px-4 py-2">
           <div className="flex items-center gap-2">
