@@ -11,6 +11,7 @@ import PropuestasVideoPanel from './video/PropuestasVideoPanel'
 import GeneracionPendienteVideo from './video/GeneracionPendienteVideo'
 import { intentoPendiente } from '../utils/videoGeneracion'
 import { esVideoInteractivo } from '../utils/videoInteractivo'
+import { opcionesConfigVisibles, opcionesNavegacion, textoNavegacionResumen } from '../utils/configEvaluacionVideo'
 import VisibilitySelect from './VisibilitySelect'
 import Select from './ui/Select'
 import RichTextEditor from './RichTextEditor'
@@ -572,6 +573,10 @@ export default function EvaluacionEditor({
 
   const ponderacionUsada = preguntas.reduce((s, p) => s + (parseFloat(p.ponderacion) || 0), 0)
   const ponderacionRestante = Math.max(0, parseFloat((10 - ponderacionUsada).toFixed(2)))
+  // Video interactivo: solo las opciones de configuración que tienen sentido con el reproductor.
+  // Ocultar no toca lo guardado (ver utils/configEvaluacionVideo.js).
+  const esVideo = !!videoMeta
+  const visibles = opcionesConfigVisibles({ esVideo, config: configForm })
 
   async function handleAddPregunta(e) {
     e.preventDefault()
@@ -1203,17 +1208,19 @@ export default function EvaluacionEditor({
                 <span className="text-muted flex items-center gap-1.5"><ListChecks size={16} /> Número de preguntas</span>
                 <span className="font-semibold text-on-surface">{preguntas.length}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted flex items-center gap-1.5"><Timer size={16} /> Tiempo disponible</span>
-                <span className="font-semibold text-on-surface">{configForm.tiempoLimiteMin ? `${configForm.tiempoLimiteMin} min` : 'Sin límite'}</span>
-              </div>
+              {visibles.tiempoLimite && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted flex items-center gap-1.5"><Timer size={16} /> Tiempo disponible</span>
+                  <span className="font-semibold text-on-surface">{configForm.tiempoLimiteMin ? `${configForm.tiempoLimiteMin} min` : 'Sin límite'}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted flex items-center gap-1.5"><RotateCcw size={16} /> Intentos</span>
                 <span className="font-semibold text-on-surface">{configForm.intentosPermitidos ? configForm.intentosPermitidos : 'Ilimitados'}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted">Navegación</span>
-                <span className="font-semibold text-on-surface">{configForm.navegacion === 'secuencial' ? 'Secuencial — no puede regresar' : 'Libre'}</span>
+                <span className="font-semibold text-on-surface">{textoNavegacionResumen(esVideo, configForm.navegacion)}</span>
               </div>
             </div>
           </div>
@@ -1292,18 +1299,20 @@ export default function EvaluacionEditor({
             <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Configuración</h2>
           </div>
           <form onSubmit={handleSaveConfig} className="px-4 py-4 space-y-3">
-            <div>
-              <Select
-                id="config-orden-preguntas"
-                label="Orden de las preguntas"
-                value={configForm.ordenPreguntas}
-                onChange={(v) => setConfigForm((f) => ({ ...f, ordenPreguntas: v }))}
-                options={[
-                  { value: 'creacion', label: 'Orden de creación' },
-                  { value: 'aleatorio', label: 'Aleatorio' },
-                ]}
-              />
-            </div>
+            {visibles.ordenPreguntas && (
+              <div>
+                <Select
+                  id="config-orden-preguntas"
+                  label="Orden de las preguntas"
+                  value={configForm.ordenPreguntas}
+                  onChange={(v) => setConfigForm((f) => ({ ...f, ordenPreguntas: v }))}
+                  options={[
+                    { value: 'creacion', label: 'Orden de creación' },
+                    { value: 'aleatorio', label: 'Aleatorio' },
+                  ]}
+                />
+              </div>
+            )}
             <label className="flex items-center gap-2 text-sm text-muted">
               <input type="checkbox" checked={!!configForm.barajarRespuestas}
                 onChange={(e) => setConfigForm((f) => ({ ...f, barajarRespuestas: e.target.checked }))} className="accent-[var(--accent)]" />
@@ -1326,17 +1335,22 @@ export default function EvaluacionEditor({
                 label="Navegación"
                 value={configForm.navegacion}
                 onChange={(v) => setConfigForm((f) => ({ ...f, navegacion: v }))}
-                options={[
-                  { value: 'libre', label: 'Libre — puede regresar' },
-                  { value: 'secuencial', label: 'Secuencial — no puede regresar' },
-                ]}
+                options={opcionesNavegacion(esVideo)}
               />
             </div>
-            <div>
-              <label htmlFor="config-tiempo-limite" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
-              <input id="config-tiempo-limite" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
-            </div>
+            {visibles.tiempoLimite && (
+              <div>
+                <label htmlFor="config-tiempo-limite" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
+                <input id="config-tiempo-limite" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
+                  onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
+                {esVideo && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    Este video ya tiene un límite guardado. En un Video interactivo el cronómetro sigue corriendo
+                    con el video en pausa y puede impedir terminarlo: vacíalo para quitarlo.
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <label htmlFor="config-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
               <input id="config-intentos" type="number" min="1" value={configForm.intentosPermitidos ?? ''}
