@@ -78,6 +78,17 @@ export PATH="$JAVA_HOME/bin:$PATH"
    determine backend specification. Timeout after 10000": cargar este
    codebase tarda más de los 10 s que da firebase-tools por defecto. No es
    un error del código ni del secreto (visto el 9-sep-2026).
+
+   > ⚠️ **Mientras el secreto `GEMINI_API_KEY` NO exista en Secret Manager, no se puede
+   > desplegar `ejecutarOperacionIA`**: `functions/ia.js` lo enlaza y el deploy falla.
+   > Comprobarlo antes: `firebase functions:secrets:describe GEMINI_API_KEY`.
+   > Una emergencia con Anthropic no debe quedar bloqueada por eso:
+   > - `chatAdmin` solo usa `ANTHROPIC_API_KEY_PROD`: `firebase deploy --only functions:chatAdmin`
+   >   no depende de Gemini.
+   > - Para `ejecutarOperacionIA`, o se carga antes el secreto de Gemini con la clave
+   >   definitiva (ver «Credencial de Gemini»), o —con autorización de Kike— se quita
+   >   `GEMINI_API_KEY` de `secrets:` en `functions/ia.js` solo para ese despliegue y se
+   >   restituye después. Nunca crear una clave de Gemini de relleno para destrabar el deploy.
 4. Esperar 60 segundos; verificar en Firebase Console → Functions → Logs que no hay errores 401.
 5. Realizar una prueba manual en producción: generar una rúbrica u otra operación de IA.
 6. Solo si la prueba es exitosa: revocar la key anterior en Anthropic Console.
@@ -94,6 +105,9 @@ Señal: los logs de Firebase muestran `AuthenticationError: 401 / API key is inv
    ```
 3. Ir a Anthropic Console y comprobar que la key activa no fue revocada/expirada.
 4. Si fue revocada: crear nueva key y seguir el procedimiento de rotación (arriba).
+   **Ojo con el paso 3 de la rotación:** si el secreto `GEMINI_API_KEY` aún no existe, el
+   deploy de `ejecutarOperacionIA` falla; aplicar ahí la advertencia (desplegar `chatAdmin`
+   por separado y resolver lo de Gemini como allí se indica). No retrasar el arreglo del 401.
 5. Si sigue activa: abrir soporte con Anthropic.
 
 ### Ante `invalid x-api-key header` / `APIConnectionError: Connection error`
@@ -135,6 +149,53 @@ Después de cualquier deploy de Cloud Functions que toque IA:
 2. Generar una rúbrica (operación IA más común).
 3. Confirmar que se obtiene respuesta y que el crédito se descuenta.
 4. Revisar Firebase Console → Functions → Logs: ausencia de `AuthenticationError`.
+
+### Credencial de Gemini (Video interactivo con IA)
+
+Gemini **solo lee el video** (`functions/extraccionVideoGemini.js`); las preguntas las
+sigue generando Claude Haiku 4.5. Es una credencial DISTINTA de la de Anthropic.
+
+- **Secreto en GCP Secret Manager:** `GEMINI_API_KEY` (proyecto `evalua-facil-app`).
+- **Función que lo recibe:** solo `ejecutarOperacionIA` (declarado en `functions/ia.js`).
+  `ejecutarPlaneacionIA` y `chatAdmin` NO lo reciben. El extractor lo lee únicamente de la
+  variable de entorno `GEMINI_API_KEY`; nunca va al cliente, a los logs ni a un mensaje de error.
+- **Dónde se crea:** https://aistudio.google.com/apikey, restringida a la *Generative Language API*.
+  Para uso real, de un proyecto con facturación: en el nivel gratuito Google usa lo enviado
+  para mejorar sus productos. Sin fecha de expiración.
+- **No se crean claves temporales de prueba.** El secreto definitivo se carga UNA vez y la
+  validación real usa ese mismo secreto (paso 4), sin archivos con claves. Las claves de
+  diagnóstico de oct-2026 están revocadas; el archivo `gemini-key.txt` es de ellas y el script
+  de carga se niega a usarlo.
+- **Sin el secreto, el Video interactivo no opera, pero no cobra nada:** el extractor devuelve un
+  error controlado ("Avisa al administrador") antes de reservar créditos.
+
+**Orden de la puesta en marcha** (el orden importa: `firebase deploy` falla si el secreto
+referenciado no existe, y eso también bloquearía rotar la clave de Anthropic):
+
+1. Guardar la clave definitiva (y nada más) en `C:\Users\Kike\gemini-key-definitiva.txt` y correr
+   ```bash
+   bash scripts/cargar-clave-gemini.sh
+   ```
+   Verifica la forma, sube con `--data-file`, comprueba la ida y vuelta y borra el archivo.
+2. Sembrar la tarifa de `generar_preguntas_video` (sin ella la operación rechaza sin cobrar):
+   `cd seeds-db && node seed-ia-tarifas.js --dry-run`, revisar, y luego sin `--dry-run`.
+3. Desplegar solo la función que lo usa (con el tiempo de descubrimiento ampliado):
+   ```bash
+   export FUNCTIONS_DISCOVERY_TIMEOUT=120
+   firebase deploy --only functions:ejecutarOperacionIA
+   ```
+   Se despliega lo que haya en el árbol de trabajo: fusionar antes lo que deba subir.
+4. Validación real del extractor (una llamada por video; no usa créditos ni Claude):
+   ```bash
+   GEMINI_API_KEY="$(firebase functions:secrets:access GEMINI_API_KEY)" \
+     node scripts/validar-extractor-gemini.mjs <url-de-youtube> <duracion-en-segundos>
+   ```
+   Compara contra la duración que muestra YouTube y revisa a mano el contenido extraído.
+
+Variables opcionales del extractor: `GEMINI_VIDEO_MODELO` (por omisión `gemini-3.5-flash-lite`),
+`GEMINI_VIDEO_TIMEOUT_MS` (90 000 por llamada) y `GEMINI_VIDEO_PRESUPUESTO_MS` (150 000 en total).
+Rotar la clave: igual que la de Anthropic (nueva versión con `--data-file` y **redesplegar**
+`ejecutarOperacionIA`, porque la versión queda fijada en el despliegue).
 
 ---
 

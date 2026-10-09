@@ -7,6 +7,10 @@ import { addDoc, updateDoc, deleteDoc, writeBatch } from '../utils/firestoreGuar
 import { db, auth } from '../firebase'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
+import PropuestasVideoPanel from './video/PropuestasVideoPanel'
+import GeneracionPendienteVideo from './video/GeneracionPendienteVideo'
+import { intentoPendiente } from '../utils/videoGeneracion'
+import { esVideoInteractivo } from '../utils/videoInteractivo'
 import VisibilitySelect from './VisibilitySelect'
 import Select from './ui/Select'
 import RichTextEditor from './RichTextEditor'
@@ -222,6 +226,11 @@ export default function EvaluacionEditor({
   // ── Preguntas state ───────────────────────────────────────────────
   const [preguntas, setPreguntas] = useState([])
   const [loadingPreguntas, setLoadingPreguntas] = useState(false)
+  // Video interactivo con IA: solo si la actividad lo es. Habilita la revisión de las
+  // preguntas que propuso la IA (PropuestasVideoPanel); en cuestionarios y exámenes
+  // normales queda en null y no se monta nada.
+  const [videoMeta, setVideoMeta] = useState(null)
+  const [propuestasVersion, setPropuestasVersion] = useState(0)
   const [showPreguntaForm, setShowPreguntaForm] = useState(false)
   const [preguntaForm, setPreguntaForm] = useState(emptyPregunta)
   const [editingPreguntaId, setEditingPreguntaId] = useState(null)
@@ -304,6 +313,7 @@ export default function EvaluacionEditor({
           cerrarEntregasEnFecha: !(d.recibirTarde ?? false),
         }
         setInfoForm(loaded)
+        setVideoMeta(esVideoInteractivo(d) ? { duracionSeg: d.videoInteractivo?.duracionSeg ?? null, intento: intentoPendiente(d) } : null)
         setExtensiones(d.extensiones || {})
         setExtensionesMotivo(d.extensionesMotivo || {})
         loadedSnapshot.current = JSON.stringify(loaded)
@@ -867,6 +877,14 @@ export default function EvaluacionEditor({
     }
   }
 
+  // Una propuesta de la IA fue aprobada (ya se escribió, en un lote, la pregunta y su
+  // clave; las demás preguntas no se tocan): se refleja aquí sin volver a leer Firestore.
+  function handlePropuestaAprobada(plan) {
+    const updated = [...preguntas.filter((p) => p.id !== plan.preguntaId), { id: plan.preguntaId, ...plan.pregunta }]
+    setPreguntas(updated)
+    syncNumPreguntas(updated.length).catch(() => {})
+  }
+
   // "Repartir parejo" — pedido explícito: reparte los 10 puntos entre todas
   // las preguntas existentes en partes iguales, en vez de tener que calcular
   // y escribir la ponderación de cada una a mano.
@@ -1383,6 +1401,25 @@ export default function EvaluacionEditor({
             )}
           </form>
         </div>
+
+        {/* ── Video interactivo: preguntas propuestas por la IA, pendientes de revisión ── */}
+        {videoMeta?.intento && currentActivityId && (
+          <GeneracionPendienteVideo
+            actividadId={currentActivityId}
+            intento={videoMeta.intento}
+            onResuelta={() => { setVideoMeta((m) => (m ? { ...m, intento: null } : m)); setPropuestasVersion((v) => v + 1) }}
+          />
+        )}
+        {videoMeta && currentActivityId && (
+          <PropuestasVideoPanel
+            activityId={currentActivityId}
+            activas={preguntas}
+            duracionSeg={videoMeta.duracionSeg}
+            bloqueado={cerrado}
+            version={propuestasVersion}
+            onAprobada={handlePropuestaAprobada}
+          />
+        )}
 
         {/* ── Sección 3: Preguntas ── */}
         <div className="bg-surface-card rounded-card shadow-card overflow-hidden" style={{ border: '1px solid var(--accent-soft)' }}>

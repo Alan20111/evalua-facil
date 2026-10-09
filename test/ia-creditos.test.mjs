@@ -3332,6 +3332,368 @@ await caso('ejecutarPlaneacionIA (540 s) NO sirve para otras operaciones; ejecut
   assert.strictEqual((await creditosDe()).saldo, 80)
 })
 
+// ── Video interactivo con IA (etapa 2): generar_preguntas_video ──
+// 2 créditos por pregunta ENTREGADA. Gemini extrae el contenido en el precheck: si no se
+// puede leer el video, la operación termina ANTES de reservar y el saldo no se toca.
+grupo('Video interactivo con IA: generar_preguntas_video')
+
+const TARIFAS_VIDEO = {
+  version: 11,
+  tarifas: { generar_preguntas_video: 2 },
+  categorias: { generar_preguntas_video: 'Evaluaciones' },
+  modeloPorOperacion: { generar_preguntas_video: 'claude-haiku-4-5' },
+}
+const URL_YT = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+// Gemini falso (el extractor llama a la API REST oficial). Contenido: 20 segmentos [m:ss] cada 15 s
+// en un video de 5:00 (27 000 tokens de video ≈ 300 s: la duración declarada y la de tokens coinciden).
+const segmentosGemini = (n = 20, paso = 15) => Array.from({ length: n }, (_, i) => `[${Math.floor((i * paso) / 60)}:${String((i * paso) % 60).padStart(2, '0')}] Se explica el concepto número ${i + 1} con un ejemplo concreto del tema y sus consecuencias.`).join('\n')
+const textoGeminiOk = ({ n = 20, paso = 15, habla = 'si', dur = '5:00' } = {}) => `IDIOMA: es\nHABLA: ${habla}\nDURACION: ${dur}\n${segmentosGemini(n, paso)}`
+const respGeminiOk = (texto = textoGeminiOk()) => ({ ok: true, status: 200, json: async () => ({
+  candidates: [{ content: { parts: [{ text: texto }] }, finishReason: 'STOP' }],
+  usageMetadata: { promptTokenCount: 27300, candidatesTokenCount: 900, thoughtsTokenCount: 0, promptTokensDetails: [{ modality: 'VIDEO', tokenCount: 27000 }, { modality: 'TEXT', tokenCount: 300 }] },
+}) })
+const respGeminiError = (status, message) => ({ ok: false, status, json: async () => ({ error: { code: status, message, status: 'X' } }) })
+const CLAVE_GEMINI_FALSA = 'zzt-clave-falsa-' + 'k'.repeat(30)
+const EXTRACTOR = require('../functions/extraccionVideoGemini.js')._pruebas
+let llamadasGemini = 0
+let comportamientoGemini = async () => respGeminiOk()
+// OJO: `caso()` restaura el fetch tras cada prueba y `limpiar()` usa el fetch global para
+// hablar con el emulador, así que el simulador se instala DENTRO de cada prueba (después de
+// limpiar) y solo intercepta Gemini; todo lo demás va al fetch real.
+const fetchRealVideo = globalThis.fetch
+const instalarGeminiFalso = () => {
+  globalThis.fetch = async (url, opts) => {
+    if (!/generativelanguage\.googleapis\.com/.test(String(url))) return fetchRealVideo(url, opts)
+    llamadasGemini += 1
+    return comportamientoGemini(url, opts)
+  }
+}
+
+// El modelo falso lee del PROMPT cuántas preguntas de cada tipo se le piden y las produce.
+let vueltaIA = 0 // cuántas veces se ha llamado al modelo en la prueba en curso
+let generosoIA = (n) => n // cuántas devuelve de las que se le piden: (pedidas, vuelta) => entregadas
+const preguntasSegunPrompt = (req) => {
+  vueltaIA += 1
+  const texto = textoDelPedido(req)
+  const pide = (tipo) => generosoIA(Number((new RegExp(`(\\d+) × ${tipo}`).exec(texto) || [0, 0])[1]), vueltaIA)
+  const out = []
+  let t = 10
+  const nuevo = (o) => { out.push({ enunciado: `Pregunta ${vueltaIA}.${out.length + 1} (${o.tipo})`, timestampSeg: t, retroalimentacion: 'Porque el video lo explica.', ...o }); t += 12 }
+  const cuantas_verdadero_falso = pide('verdadero_falso'), cuantas_opcion_multiple = pide('opcion_multiple'), cuantas_respuesta_corta = pide('respuesta_corta')
+  for (let i = 0; i < cuantas_verdadero_falso; i += 1) nuevo({ tipo: 'verdadero_falso', correcta: i % 2 ? 'f' : 'v' })
+  for (let i = 0; i < cuantas_opcion_multiple; i += 1) nuevo({ tipo: 'opcion_multiple', opciones: ['uno', 'dos', 'tres', 'cuatro'], correcta: i % 4 })
+  for (let i = 0; i < cuantas_respuesta_corta; i += 1) nuevo({ tipo: 'respuesta_corta', retroalimentacion: 'Debe mencionar el concepto central.' })
+  return { preguntas: out.reverse() } // desordenadas a propósito: el servidor las ordena por tiempo
+}
+async function reiniciarVideo({ saldo = 100, tarifas = TARIFAS_VIDEO } = {}) {
+  await limpiar()
+  await db.doc(`users/${DOCENTE}`).set({ role: 'docente', nombre: 'Prueba', escuelaId: 'E1' })
+  await db.doc('config/iaTarifas').set(tarifas)
+  await darSaldo(DOCENTE, saldo)
+  await db.doc('subjects/sub_video').set({ docenteId: DOCENTE, nombre: 'Informática', parciales: 2 })
+  await db.doc('subjects/sub_ajena').set({ docenteId: OTRO_DOCENTE, nombre: 'Ajena', parciales: 2 })
+  pedidosIA.length = 0
+  llamadasGemini = 0
+  generosoIA = (n) => n
+  vueltaIA = 0
+  respuestaIA = preguntasSegunPrompt
+  comportamientoGemini = async () => respGeminiOk()
+  process.env.GEMINI_API_KEY = CLAVE_GEMINI_FALSA
+  EXTRACTOR.restaurar()
+  EXTRACTOR.sobreescribir({ esperasMs: [1, 1] }) // las esperas entre reintentos, en milisegundos
+  instalarGeminiFalso()
+}
+const generarVideo = ({ distribucion = { vf: 4, om: 4, abiertas: 2 }, url = URL_YT, asignaturaId = 'sub_video', extra = {}, unidades, k = clave() } = {}) =>
+  IA_FN.ejecutarOperacionIA.run({
+    auth: { uid: DOCENTE },
+    data: { operacion: 'generar_preguntas_video', idempotencyKey: k, ...(unidades !== undefined && { unidades }), params: { asignaturaId, url, distribucion, ...extra } },
+  })
+const sinCobroVideo = async (saldo = 100) => {
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 0, 'no se reservó ni un crédito')
+  assert.strictEqual(pedidosIA.length, 0, 'no se llamó a la IA')
+  assert.strictEqual((await creditosDe()).saldo, saldo, 'el saldo quedó intacto')
+}
+
+await caso('video: 10 preguntas (4 V/F + 4 opción múltiple + 2 abiertas) → exactamente esa distribución, 20 créditos, todas «propuesta»', async () => {
+  await reiniciarVideo()
+  const k = clave()
+  const r = await generarVideo({ k })
+  const res = r.resultado
+  assert.strictEqual(res.preguntas.length, 10)
+  const cuenta = (t) => res.preguntas.filter((p) => p.tipo === t).length
+  assert.deepStrictEqual([cuenta('verdadero_falso'), cuenta('opcion_multiple'), cuenta('respuesta_corta')], [4, 4, 2])
+  assert.ok(res.preguntas.every((p) => p.estado === 'propuesta' && p.origen === 'ia'), 'todas nacen propuestas')
+  assert.deepStrictEqual(res.preguntas.map((p) => p.timestampSeg), [...res.preguntas.map((p) => p.timestampSeg)].sort((a, b) => a - b), 'ordenadas por tiempo')
+  assert.ok(res.preguntas.every((p) => Number.isInteger(p.timestampSeg) && p.timestampSeg >= 0 && p.timestampSeg <= 300))
+  assert.ok(res.preguntas.filter((p) => p.tipo === 'respuesta_corta').every((p) => p.respuestaCorrecta === null), 'abierta: sin respuesta correcta automática')
+  assert.ok(res.preguntas.filter((p) => p.tipo !== 'respuesta_corta').every((p) => p.respuestaCorrecta), 'V/F y opción múltiple traen la correcta')
+  // datos permanentes del video SEPARADOS de los datos de la generación
+  assert.deepStrictEqual(res.videoInteractivo, { proveedor: 'youtube', videoId: 'dQw4w9WgXcQ', url: URL_YT, duracionSeg: 300 })
+  assert.strictEqual(res.generacion.numeroPreguntas, 10); assert.strictEqual(res.generacion.creditosConsumidos, 20)
+  assert.deepStrictEqual(res.generacion.distribucion, { vf: 4, om: 4, abiertas: 2 })
+  assert.strictEqual(res.generacion.modeloIA, 'claude-haiku-4-5'); assert.strictEqual(res.generacion.estado, 'completa')
+  assert.ok(!Number.isNaN(Date.parse(res.generacion.fechaGeneracion)))
+  assert.ok(!('modeloIA' in res.videoInteractivo) && !('creditosConsumidos' in res.videoInteractivo))
+  // cobro: 2 cr × 10, con el ledger de siempre
+  assert.strictEqual(r.creditosReales, 20); assert.strictEqual((await creditosDe()).saldo, 80)
+  const c = await consumoDe(k)
+  assert.strictEqual(c.estado, 'ejecutado'); assert.strictEqual(c.creditosReales, 20)
+  assert.strictEqual(pedidosIA.length, 1, 'una sola llamada al modelo'); assert.strictEqual(pedidosIA[0].model, 'claude-haiku-4-5')
+  assert.strictEqual(llamadasGemini, 1, 'una sola extracción')
+  // el contenido del video viajó al modelo como dato, con sus minutos
+  assert.ok(textoDelPedido(pedidosIA[0]).includes('[0:00] Se explica el concepto número 1'))
+  assert.ok(/NO una transcripción literal/.test(textoDelPedido(pedidosIA[0])))
+  // de dónde salió el contenido, sin pretender que sea una transcripción
+  assert.deepStrictEqual(
+    [res.generacion.fuenteContenido.tipo, res.generacion.fuenteContenido.modelo, res.generacion.fuenteContenido.segmentos, res.generacion.fuenteContenido.duracionConfiable],
+    ['extraccion_gemini', 'gemini-3.5-flash-lite', 20, true])
+  // y el costo de la extracción queda en las métricas internas (no en el libro de créditos)
+  let interno = null
+  for (let i = 0; i < 20 && !interno; i += 1) { interno = (await db.doc(`iaConsumosInterno/${k}`).get()).data(); if (!interno) await new Promise((r) => setTimeout(r, 150)) }
+  assert.deepStrictEqual([interno.geminiTokensEntrada, interno.geminiTokensSalida, interno.geminiIntentos], [27300, 900, 1])
+  assert.ok(!JSON.stringify(res).includes(CLAVE_GEMINI_FALSA))
+  assert.ok(!JSON.stringify(res).includes('undefined'))
+})
+
+for (const [n, d, esperado] of [[5, { vf: 5, om: 0, abiertas: 0 }, 10], [15, { vf: 5, om: 5, abiertas: 5 }, 30], [20, { vf: 0, om: 20, abiertas: 0 }, 40], [1, { vf: 0, om: 0, abiertas: 1 }, 2]]) {
+  await caso(`video: ${n} pregunta(s) → cobra exactamente ${esperado} créditos`, async () => {
+    await reiniciarVideo()
+    await generarVideo({ distribucion: d })
+    assert.strictEqual((await creditosDe()).saldo, 100 - esperado)
+  })
+}
+
+// ── Recuperar una generación ya pagada: misma clave, sin cobrar y sin volver a leer el video ──
+await caso('video: reintento con la MISMA clave tras generar → devuelve lo generado, sin cobrar, sin releer el video ni llamar a la IA (aunque Gemini ya no responda)', async () => {
+  await reiniciarVideo()
+  const k = clave()
+  const r1 = await generarVideo({ k })
+  assert.strictEqual((await creditosDe()).saldo, 80)
+  assert.strictEqual(llamadasGemini, 1)
+  assert.strictEqual(pedidosIA.length, 1)
+  // El video ya no se puede leer (retirado, servicio caído): da igual, lo pagado se recupera.
+  comportamientoGemini = async () => respGeminiError(503, 'The model is overloaded')
+  const r2 = await generarVideo({ k })
+  assert.strictEqual(r2.repetida, true)
+  assert.deepStrictEqual(r2.resultado.preguntas, r1.resultado.preguntas, 'las MISMAS preguntas')
+  assert.strictEqual(llamadasGemini, 1, 'no se volvió a leer el video')
+  assert.strictEqual(pedidosIA.length, 1, 'no se volvió a llamar al modelo')
+  assert.strictEqual((await creditosDe()).saldo, 80, 'no se cobró de nuevo')
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 1, 'un solo consumo')
+})
+
+await caso('video: una clave que ya terminó para OTRO docente no salta la lectura del video (se hace el flujo normal)', async () => {
+  await reiniciarVideo()
+  const k = clave()
+  await db.doc(`iaConsumos/${k}`).set({ uid: OTRO_DOCENTE, operacion: 'generar_preguntas_video', estado: 'ejecutado', creditosReales: 4, resultado: { preguntas: [] } })
+  await generarVideo({ k }).catch(() => null)
+  assert.strictEqual(llamadasGemini, 1, 'el precheck normal sí leyó el video')
+})
+
+await caso('video: reintentar una clave que falló antes (reembolsada) → «falló antes», sin cobrar; se puede volver a generar con una clave nueva', async () => {
+  await reiniciarVideo()
+  const k = clave()
+  await db.doc(`iaConsumos/${k}`).set({ uid: DOCENTE, operacion: 'generar_preguntas_video', estado: 'reembolsado', creditosReales: 0 })
+  const e = await generarVideo({ k }).then(() => null, (x) => x)
+  assert.strictEqual(codigoDe(e), 'failed-precondition', e?.message)
+  assert.strictEqual(e.details?.estadoPrevio, 'reembolsado', 'el cliente puede saber que no hay nada que recuperar')
+  assert.strictEqual((await creditosDe()).saldo, 100, 'no se cobró')
+  const r = await generarVideo({ k: clave() })
+  assert.strictEqual(r.resultado.preguntas.length, 10)
+  assert.strictEqual((await creditosDe()).saldo, 80)
+})
+
+await caso('video: Gemini no puede leer el video (privado / no listado / inaccesible) → se detiene ANTES de reservar: mensaje claro, cero créditos, sin reintentos', async () => {
+  await reiniciarVideo()
+  comportamientoGemini = async () => respGeminiError(400, 'Failed to fetch the YouTube video: it is private')
+  const e = await generarVideo().then(() => null, (x) => x)
+  assert.strictEqual(codigoDe(e), 'failed-precondition', e?.message); assert.strictEqual(e.details?.codigo, 'VIDEO_INACCESIBLE'); assert.strictEqual(e.details?.reintentable, false)
+  assert.ok(e.message.includes('No fue posible leer el contenido del video') && e.message.includes('público') && e.message.includes('No se descontaron créditos'), e.message)
+  assert.strictEqual(llamadasGemini, 1, 'un error permanente no se reintenta')
+  await sinCobroVideo()
+})
+
+await caso('video: Gemini saturado (503 en los 3 intentos) → error TEMPORAL (unavailable, reintentable), cero créditos', async () => {
+  await reiniciarVideo()
+  comportamientoGemini = async () => respGeminiError(503, 'This model is currently experiencing high demand.')
+  const e = await generarVideo().then(() => null, (x) => x)
+  assert.strictEqual(codigoDe(e), 'unavailable', e?.message); assert.strictEqual(e.details?.codigo, 'EXTRACCION_NO_DISPONIBLE'); assert.strictEqual(e.details?.reintentable, true)
+  assert.ok(e.message.includes('saturado') && e.message.includes('No se descontaron créditos') && !/privado|no listado/i.test(e.message), e.message)
+  assert.strictEqual(llamadasGemini, 3, 'máximo 3 llamadas')
+  await sinCobroVideo()
+})
+
+await caso('video: un 503 seguido de éxito → la operación sale bien, cobra lo normal y usó 2 llamadas a Gemini', async () => {
+  await reiniciarVideo()
+  let n = 0
+  comportamientoGemini = async () => (++n === 1 ? respGeminiError(503, 'high demand') : respGeminiOk())
+  const r = await generarVideo()
+  assert.strictEqual(r.resultado.preguntas.length, 10); assert.strictEqual(r.creditosReales, 20); assert.strictEqual((await creditosDe()).saldo, 80)
+  assert.strictEqual(llamadasGemini, 2); assert.strictEqual(pedidosIA.length, 1)
+})
+
+await caso('video: tiempo de espera agotado en la lectura del video → error temporal y cero créditos', async () => {
+  await reiniciarVideo()
+  EXTRACTOR.sobreescribir({ timeoutLlamadaMs: 40, esperasMs: [1, 1] })
+  comportamientoGemini = (url, opts) => new Promise((_, rechazar) => { opts.signal.addEventListener('abort', () => rechazar(opts.signal.reason)) })
+  const e = await generarVideo().then(() => null, (x) => x)
+  assert.strictEqual(codigoDe(e), 'unavailable', e?.message); assert.strictEqual(e.details?.codigo, 'EXTRACCION_TIEMPO_AGOTADO'); assert.strictEqual(e.details?.reintentable, true)
+  assert.strictEqual(llamadasGemini, 3)
+  await sinCobroVideo()
+})
+
+await caso('video: sin GEMINI_API_KEY → error controlado, ninguna llamada a Gemini, cero créditos y sin exponer detalles de configuración', async () => {
+  await reiniciarVideo()
+  delete process.env.GEMINI_API_KEY
+  const e = await generarVideo().then(() => null, (x) => x)
+  assert.strictEqual(codigoDe(e), 'failed-precondition', e?.message); assert.strictEqual(e.details?.codigo, 'GEMINI_NO_CONFIGURADO')
+  assert.ok(e.message.includes('administrador') && e.message.includes('No se descontaron créditos') && !e.message.includes('GEMINI_API_KEY'), e.message)
+  assert.strictEqual(llamadasGemini, 0)
+  await sinCobroVideo()
+  process.env.GEMINI_API_KEY = CLAVE_GEMINI_FALSA
+})
+
+await caso('video: clave rechazada por Gemini (400/401/403) → error permanente sin reintentos, cero créditos, sin filtrar la clave', async () => {
+  for (const resp of [respGeminiError(400, 'API key not valid. Please pass a valid API key.'), respGeminiError(401, 'unauthenticated'), respGeminiError(403, 'permission denied')]) {
+    await reiniciarVideo()
+    comportamientoGemini = async () => resp
+    const e = await generarVideo().then(() => null, (x) => x)
+    assert.strictEqual(e.details?.codigo, 'GEMINI_AUTENTICACION', e?.message); assert.strictEqual(llamadasGemini, 1)
+    assert.ok(!JSON.stringify([e.message, e.details]).includes(CLAVE_GEMINI_FALSA))
+    await sinCobroVideo()
+  }
+})
+
+await caso('video: respuesta vacía o sin marcas de tiempo → se reintenta y, si persiste, error temporal sin cobro', async () => {
+  for (const resp of [respGeminiOk(''), respGeminiOk('No puedo acceder a este video.')]) {
+    await reiniciarVideo()
+    comportamientoGemini = async () => resp
+    const e = await generarVideo().then(() => null, (x) => x)
+    assert.deepStrictEqual([codigoDe(e), e.details?.codigo, e.details?.reintentable, llamadasGemini], ['unavailable', 'RESPUESTA_INVALIDA', true, 3])
+    await sinCobroVideo()
+  }
+})
+
+await caso('video: contenido insuficiente para las preguntas pedidas → se detiene sin cobrar y dice cuántas SÍ alcanzan; con menos preguntas sí procede', async () => {
+  await reiniciarVideo()
+  // un video de 19 s con un solo tramo de ~100 caracteres: no hay para 10 preguntas
+  const corto = 'IDIOMA: es\nHABLA: si\nDURACION: 0:19\n[0:00] Un joven describe frente a unos elefantes lo largas que son sus trompas y lo genial que le parece.'
+  comportamientoGemini = async () => ({ ...respGeminiOk(corto), json: async () => ({ candidates: [{ content: { parts: [{ text: corto }] }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 1800, promptTokensDetails: [{ modality: 'VIDEO', tokenCount: 1700 }] } }) })
+  const e = await generarVideo().then(() => null, (x) => x)
+  assert.strictEqual(codigoDe(e), 'failed-precondition', e?.message); assert.strictEqual(e.details?.codigo, 'CONTENIDO_INSUFICIENTE'); assert.strictEqual(e.details?.reintentable, false)
+  assert.ok(/unas 2 preguntas/.test(e.message) && /pediste 10/.test(e.message) && e.message.includes('No se descontaron créditos'), e.message)
+  await sinCobroVideo()
+  const r = await generarVideo({ distribucion: { vf: 1, om: 0, abiertas: 0 } })
+  assert.strictEqual(r.resultado.preguntas.length, 1); assert.strictEqual((await creditosDe()).saldo, 98)
+})
+
+await caso('video: distribución inválida (vacía, >20, negativa, decimal, texto) → rechazada sin tocar Gemini, sin IA, sin cobro', async () => {
+  for (const distribucion of [{ vf: 0, om: 0, abiertas: 0 }, { vf: 11, om: 10, abiertas: 0 }, { vf: -1, om: 5, abiertas: 0 }, { vf: 1.5, om: 1, abiertas: 0 }, { vf: '4', om: 4, abiertas: 2 }, {}, null]) {
+    await reiniciarVideo()
+    const e = await generarVideo({ distribucion }).then(() => null, (x) => x)
+    assert.strictEqual(e?.details?.codigo, 'DISTRIBUCION_INVALIDA', JSON.stringify(distribucion))
+    assert.strictEqual(llamadasGemini, 0)
+    await sinCobroVideo()
+  }
+})
+
+await caso('video: URL que no es de YouTube, o asignatura ajena → rechazado sin cobro ni consultas', async () => {
+  await reiniciarVideo()
+  const e1 = await generarVideo({ url: 'https://evil.example.com/watch?v=dQw4w9WgXcQ' }).then(() => null, (x) => x)
+  assert.strictEqual(e1?.details?.codigo, 'URL_INVALIDA')
+  const e2 = await generarVideo({ asignaturaId: 'sub_ajena' }).then(() => null, (x) => x)
+  assert.strictEqual(codigoDe(e2), 'permission-denied')
+  const e3 = await generarVideo({ asignaturaId: 'no_existe' }).then(() => null, (x) => x)
+  assert.strictEqual(codigoDe(e3), 'not-found')
+  assert.strictEqual(llamadasGemini, 0)
+  await sinCobroVideo()
+})
+
+await caso('video: si la tarifa configurada no es 2 créditos/pregunta NO se opera (la pantalla prometería otro costo)', async () => {
+  await reiniciarVideo({ tarifas: { ...TARIFAS_VIDEO, tarifas: { generar_preguntas_video: 1 } } })
+  const e = await generarVideo().then(() => null, (x) => x)
+  assert.strictEqual(e?.details?.codigo, 'TARIFA_NO_CONFIGURADA')
+  await sinCobroVideo()
+  await reiniciarVideo({ tarifas: { ...TARIFAS_VIDEO, modeloPorOperacion: {} } })
+  assert.strictEqual((await generarVideo().then(() => null, (x) => x))?.details?.codigo, 'TARIFA_NO_CONFIGURADA')
+  await sinCobroVideo()
+})
+
+await caso('video: saldo insuficiente (5 cr para 10 preguntas) → no se llama a la IA ni se descuenta', async () => {
+  await reiniciarVideo({ saldo: 5 })
+  const e = await generarVideo().then(() => null, (x) => x)
+  assert.ok(e, 'debe rechazarse')
+  assert.strictEqual(pedidosIA.length, 0); assert.strictEqual((await creditosDe()).saldo, 5)
+})
+
+await caso('video: el cliente no puede abaratar — unidades:1 con 10 preguntas igual cobra 20', async () => {
+  await reiniciarVideo()
+  await generarVideo({ unidades: 1 })
+  assert.strictEqual((await creditosDe()).saldo, 80)
+})
+
+await caso('video: si la IA entrega menos de lo pedido, se cobra SOLO lo entregado y la generación queda «incompleta»', async () => {
+  await reiniciarVideo()
+  generosoIA = (n, vuelta) => (vuelta === 1 ? Math.min(n, 3) : 0) // entrega 3 de 5 y en la reparación ninguna
+  const k = clave()
+  const r = await generarVideo({ distribucion: { vf: 5, om: 0, abiertas: 0 }, k })
+  assert.strictEqual(r.resultado.preguntas.length, 3)
+  assert.strictEqual(r.resultado.generacion.estado, 'incompleta'); assert.strictEqual(r.resultado.generacion.faltantes, 2)
+  assert.strictEqual(r.resultado.generacion.numeroPreguntas, 3); assert.strictEqual(r.resultado.generacion.solicitado.numeroPreguntas, 5)
+  assert.strictEqual(r.creditosReales, 6); assert.strictEqual((await creditosDe()).saldo, 94)
+  assert.strictEqual(pedidosIA.length, 2, 'una pasada normal + una de reparación')
+})
+
+await caso('video: la pasada de reparación completa lo que faltó sin cobrar de más', async () => {
+  await reiniciarVideo()
+  generosoIA = (n, vuelta) => (vuelta === 1 ? Math.min(n, 2) : n)
+  // primera vuelta: 2 de 5 V/F; la reparación pide 3 y las recibe
+  const r = await generarVideo({ distribucion: { vf: 5, om: 0, abiertas: 0 } })
+  assert.strictEqual(r.resultado.preguntas.length, 5); assert.strictEqual(r.resultado.generacion.estado, 'completa')
+  assert.strictEqual((await creditosDe()).saldo, 90)
+  assert.ok(textoDelPedido(pedidosIA[1]).includes('YA PROPUESTAS'), 'la reparación recibe lo ya generado para no repetirlo')
+})
+
+await caso('video: si la IA no produce NINGUNA pregunta utilizable → se reembolsa todo', async () => {
+  await reiniciarVideo()
+  respuestaIA = () => ({ preguntas: [{ tipo: 'verdadero_falso', enunciado: 'sin tiempo ni clave' }] })
+  const k = clave()
+  const e = await generarVideo({ k }).then(() => null, (x) => x)
+  assert.ok(e, 'debe fallar')
+  assert.strictEqual((await creditosDe()).saldo, 100, 'reembolso íntegro')
+  assert.notStrictEqual((await consumoDe(k)).estado, 'ejecutado')
+})
+
+await caso('video: reintento con la misma clave devuelve las MISMAS preguntas y no cobra otra vez', async () => {
+  await reiniciarVideo()
+  const k = clave()
+  const a = await generarVideo({ k })
+  const b = await generarVideo({ k })
+  assert.strictEqual(b.repetida, true)
+  assert.deepStrictEqual(b.resultado.preguntas, a.resultado.preguntas)
+  assert.strictEqual((await creditosDe()).saldo, 80); assert.strictEqual(pedidosIA.length, 1)
+})
+
+await caso('video: preguntas adicionales — las ya propuestas viajan al prompt (sin repetir) y solo se cobran las nuevas', async () => {
+  await reiniciarVideo()
+  await generarVideo({ distribucion: { vf: 3, om: 0, abiertas: 0 } })
+  assert.strictEqual((await creditosDe()).saldo, 94)
+  await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 }, extra: { yaGeneradas: ['¿Qué es un sistema operativo?', 'Otra ya hecha'] } })
+  assert.strictEqual((await creditosDe()).saldo, 90, 'solo 2 nuevas × 2 cr')
+  const ultimo = textoDelPedido(pedidosIA[pedidosIA.length - 1])
+  assert.ok(ultimo.includes('¿Qué es un sistema operativo?') && ultimo.includes('Otra ya hecha'))
+})
+
+await caso('video: la operación NO escribe actividades ni preguntas (solo propone)', async () => {
+  await reiniciarVideo()
+  await generarVideo()
+  assert.strictEqual((await db.collection('activities').get()).size, 0)
+})
+
+globalThis.fetch = fetchRealVideo
+delete process.env.GEMINI_API_KEY
+EXTRACTOR.restaurar()
+
 require.cache[rutaSdk].exports = SDK_REAL
 
 resumen('pruebas del ledger de créditos IA')

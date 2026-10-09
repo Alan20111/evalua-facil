@@ -368,3 +368,33 @@ export function EsqueletoFilasLateralAlumno({ filas = 3 }) {
     </SkeletonGroup>
   )
 }
+
+// ── Alumno · Video interactivo (mientras se lee el progreso del intento) ──
+// Mismas cajas que VideoInteractivoRunner: contenedor, rejilla, recuadro 16:9
+// del video y panel. Lo de dentro son barras.
+export function EsqueletoVideoInteractivo() {
+  return (
+    <SkeletonGroup etiqueta="Cargando el video…">
+      <div data-esq="video-contenedor" className="px-4 py-4 w-full max-w-xl lg:max-w-6xl [@media(orientation:landscape)_and_(max-height:500px)]:max-w-none mx-auto">
+        <div data-esq="video-rejilla" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start [@media(orientation:landscape)_and_(max-height:500px)]:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <Skeleton className="h-8 w-36 rounded-full" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+            <Skeleton data-esq="video-reproductor" className="w-full aspect-video min-h-[14rem] rounded-card" />
+            <Skeleton className="h-3 w-full rounded-full mt-4" />
+          </div>
+          <div data-esq="video-panel" className="bg-surface-card rounded-card p-4 shadow-card">
+            <div className="space-y-3">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-3.5 w-full" />
+              <Skeleton className="h-3.5 w-2/3" />
+              <Skeleton className="h-12 w-full rounded-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </SkeletonGroup>
+  )
+}

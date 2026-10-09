@@ -35,7 +35,7 @@ const db = admin.firestore()
 const dryRun = process.argv.includes('--dry-run')
 
 const TARIFAS = {
-  version: 10,
+  version: 11,
   actualizadoEl: '2026-10-06',
   // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
   // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
@@ -102,6 +102,11 @@ const TARIFAS = {
     // incluido — ni por páginas de documentos: el límite de páginas visuales
     // (src/utils/limiteDocumentosVisuales.js) rechaza, no cobra recargo.
     crear_evaluacion_ia: 1,
+    // Video interactivo con IA (etapa 2): 2 créditos por PREGUNTA realmente
+    // generada (unidadesReales). Debe coincidir con VIDEO_CFG.CREDITOS_POR_PREGUNTA
+    // de src/utils/videoInteractivo.js: el precheck rechaza la operación si no
+    // coinciden, para que la pantalla nunca prometa un costo distinto al cobrado.
+    generar_preguntas_video: 2,
     // Crear entregable/observación completa con IA — incluye la actividad
     // de Observación con IA (no existe "guía de observación" aparte).
     crear_actividad_ia: 1,
@@ -183,6 +188,7 @@ const TARIFAS = {
     calificar_entregable_ia: 'Calificación de evidencias',
     calificar_entregable_ia_lote: 'Calificación de evidencias',
     crear_evaluacion_ia: 'Evaluaciones',
+    generar_preguntas_video: 'Evaluaciones',
     crear_actividad_ia: 'Actividades',
     analizar_resultados: 'Evaluaciones',
     diagnostico_contexto: 'Diagnóstico',
@@ -219,6 +225,8 @@ const TARIFAS = {
     calificar_entregable_ia_lote: 'claude-haiku-4-5',
     // OP-03/OP-04 (11-ago-2026): crear examen/cuestionario completo con IA.
     crear_evaluacion_ia: 'claude-haiku-4-5',
+    // Video interactivo (etapa 2): mismo modelo que el resto de las operaciones de evaluación.
+    generar_preguntas_video: 'claude-haiku-4-5',
     // OP-05 (11-ago-2026): crear entregable/observación completo con IA.
     crear_actividad_ia: 'claude-haiku-4-5',
     // OP-10 (11-ago-2026): análisis de resultados de un cuestionario o examen.

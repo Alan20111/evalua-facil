@@ -91,6 +91,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import EvaluacionEditor from '../../components/EvaluacionEditor'
 import EntregableEditor from '../../components/EntregableEditor'
 import CrearEvaluacionIAModal from '../../components/CrearEvaluacionIAModal'
+import CrearVideoInteractivoModal from '../../components/video/CrearVideoInteractivoModal'
 import CrearActividadIAModal from '../../components/CrearActividadIAModal'
 import CrearJuegoIAModal from '../../components/juego/CrearJuegoIAModal'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
@@ -1128,6 +1129,8 @@ export default function SubjectPage() {
   const [crearActividadIA, setCrearActividadIA] = useState(null)
   // Crucigrama/Sopa de letras con IA: null | { tipoJuego }
   const [crearJuegoIA, setCrearJuegoIA] = useState(null)
+  // Video interactivo con IA: false | true
+  const [crearVideoIA, setCrearVideoIA] = useState(false)
   // Full-screen evaluación editor (cuestionario / examen)
   const [evalEditor, setEvalEditor] = useState(null) // null | { activityId, categoria, parcial }
   // Full-screen entregable editor
@@ -3328,6 +3331,18 @@ export default function SubjectPage() {
   // `metodo`: 'manual'|'ia'. Reutiliza EXACTAMENTE los mismos setters que
   // ya abrían cada modal antes de la reorganización — "con IA" nunca fue
   // un tipo de actividad guardado, solo decide qué modal de creación abrir.
+  // Video interactivo: la actividad la crea el modal (oculta). Se relee y se suma a la lista local
+  // para que se vea sin recargar, tanto al terminar la generación como si falló y quedó borrador.
+  async function anexarActividadVideo(activityId) {
+    try {
+      const snap = await getDoc(doc(db, 'activities', activityId))
+      if (!snap.exists()) return
+      const activity = { id: snap.id, ...snap.data() }
+      setActivities((prev) => prev.some((a) => a.id === activity.id) ? prev : [...prev, activity])
+      setSubmissionCounts((prev) => ({ ...prev, [activity.id]: { delivered: 0, graded: 0 } }))
+    } catch { /* si falla, aparece al recargar */ }
+  }
+
   function elegirCreacion(tipo, metodo) {
     setShowModal(false)
     if (metodo === 'ia') {
@@ -7639,6 +7654,17 @@ export default function SubjectPage() {
                         </div>
                       </button>
                     ))}
+                    <button type="button" aria-label="Video interactivo"
+                      onClick={() => { setShowModal(false); setCrearVideoIA(true) }}
+                      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-100">
+                        <Sparkles size={20} className="text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-on-surface">Video interactivo</p>
+                        <p className="text-xs text-muted mt-0.5">Pega un video de YouTube y el asistente propone preguntas que se hacen en el momento justo del video.</p>
+                      </div>
+                    </button>
                     <p className="text-xs text-muted text-center pt-2">Próximamente más actividades interactivas</p>
                   </>
                 )}
@@ -9672,6 +9698,29 @@ export default function SubjectPage() {
           onCreated={(activityId) => {
             setCrearJuegoIA(null)
             navigate(`/activity/${activityId}`)
+          }}
+        />
+      )}
+
+      {/* ── Video interactivo con IA: crea la actividad y genera las propuestas de preguntas ── */}
+      {crearVideoIA && (
+        <CrearVideoInteractivoModal
+          open={crearVideoIA}
+          asignaturaId={subjectId}
+          asignaturaNombre={subjectDisplayName(subject)}
+          parcial={modalParcial}
+          docenteId={currentUser?.uid}
+          existingActivitiesCountInParcial={activities.filter((a) => a.parcial === modalParcial).length}
+          onClose={() => setCrearVideoIA(false)}
+          onBorrador={anexarActividadVideo}
+          onCreated={async (activityId) => {
+            const label = `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.`
+            setCrearVideoIA(false)
+            // La actividad la creó el modal (oculta, con sus propuestas ya guardadas): se
+            // relee fresca para que aparezca en la lista sin recargar y se abre el editor,
+            // donde está el panel para revisar, editar y aprobar las preguntas.
+            await anexarActividadVideo(activityId)
+            setEvalEditor({ activityId, categoria: 'cuestionario', parcial: modalParcial, activityLabel: label })
           }}
         />
       )}

@@ -17,6 +17,7 @@ import { doc, collection, addDoc, getDoc, getDocs, query, where, setDoc, updateD
 import { EntregaCambio, elegibleSinEntrega, tieneEvidencia, crearSiNoExiste, actualizarSiNoCambio, borrarSiNoCambio, sinEntregaEnLote } from '../src/utils/submissionGuard.js'
 import { entregaAbiertaParaAlumno } from '../src/utils/entregaAbierta.js'
 import { esNotaAutomaticaDeCierre } from '../src/utils/ponderacion.js'
+import { propuestaDesdeIA, planAprobacion, idPropuesta, aplicarEdicion } from '../src/utils/propuestasVideo.js'
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')
 
@@ -3409,6 +3410,224 @@ ok('F-05 · admin CAN read publicProfiles')
     await (abierta ? assertSucceeds(b.commit()) : assertFails(b.commit()))
     ok(`ANULAR · pantalla y servidor coinciden — ${nombre}: ${abierta ? 'se puede' : 'NO se puede'}`)
   }
+}
+
+// ── Video interactivo: propuestasVideo (la IA propone, el docente valida) ─────
+// activities/{id}/propuestasVideo/{pid}. Solo el docente dueño; solo en actividades
+// de modalidad video_interactivo; `aprobada` es terminal y la aprobación es UN lote
+// atómico (pregunta + clave + puntos + estado). Una propuesta pendiente o rechazada
+// jamás está en `preguntas`.
+{
+  const base = { docenteId: T1, asignaturaId: 'S1', tipo: 'evaluacion', categoria: 'cuestionario' }
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'activities', 'A_VID'), { ...base, modalidad: 'video_interactivo' })
+    await setDoc(doc(db, 'activities', 'A_VID_AJENA'), { ...base, docenteId: T2, modalidad: 'video_interactivo' })
+    await setDoc(doc(db, 'activities', 'A_QUIZ_NORMAL'), base)
+  })
+  const comun = { enunciado: '¿Qué es una fracción?', timestampSeg: 37, retroalimentacion: null, estado: 'propuesta', origen: 'ia' }
+  const deIA = [
+    { ...comun, tipo: 'opcion_multiple', opciones: [{ id: 'oa', texto: 'Una parte de un todo' }, { id: 'ob', texto: 'Un número primo' }, { id: 'oc', texto: 'Una recta' }, { id: 'od', texto: 'Un ángulo' }], respuestaCorrecta: 'oa' },
+    { ...comun, enunciado: 'Una pizza en 4 partes iguales da cuartos.', timestampSeg: 80, tipo: 'verdadero_falso', opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }], respuestaCorrecta: 'v' },
+    { ...comun, enunciado: 'Explica con tus palabras qué es 1/4.', timestampSeg: 120, tipo: 'respuesta_corta', opciones: null, respuestaCorrecta: null },
+  ]
+  const props = deIA.map((p, i) => ({ id: idPropuesta('g1', i), ...propuestaDesdeIA(p, 'g1') }))
+  const pRef = (db, act, id) => doc(db, 'activities', act, 'propuestasVideo', id)
+  const anon = testEnv.unauthenticatedContext().firestore()
+  const nuevoDoc = (p) => { const { id, ...resto } = p; return { ...resto, creadoEl: serverTimestamp() } }
+  const batchCrear = (db, act, lista) => { const b = writeBatch(db); lista.forEach((p) => b.set(pRef(db, act, p.id), nuevoDoc(p))); return b.commit() }
+
+  // Crear y leer
+  await assertSucceeds(batchCrear(asT1, 'A_VID', props))
+  ok('PROPUESTAS · el docente dueño guarda las 3 propuestas como pendientes')
+  await assertSucceeds(getDoc(pRef(asT1, 'A_VID', props[0].id)))
+  for (const [quien, db] of [['estudiante', asJuan], ['docente ajeno', asT2], ['sin sesión', anon]]) {
+    await assertFails(getDoc(pRef(db, 'A_VID', props[0].id)))
+    await assertFails(setDoc(pRef(db, 'A_VID', 'x1'), nuevoDoc(props[0])))
+    await assertFails(updateDoc(pRef(db, 'A_VID', props[0].id), { enunciado: 'hackeada' }))
+    ok(`PROPUESTAS · ${quien}: no lee (trae la respuesta correcta) ni escribe`)
+  }
+  await assertFails(setDoc(pRef(asT1, 'A_VID_AJENA', 'x2'), nuevoDoc(props[0])))
+  ok('PROPUESTAS · el docente no escribe propuestas en la actividad de otro')
+  await assertFails(setDoc(pRef(asT1, 'A_QUIZ_NORMAL', 'x3'), nuevoDoc(props[0])))
+  ok('PROPUESTAS · un cuestionario/examen convencional no admite propuestas de video')
+  await assertFails(setDoc(pRef(asT1, 'A_VID', 'x4'), { ...nuevoDoc(props[0]), estado: 'aprobada' }))
+  await assertFails(setDoc(pRef(asT1, 'A_VID', 'x5'), { ...nuevoDoc(props[0]), tipo: 'subir_archivo' }))
+  ok('PROPUESTAS · no nace aprobada ni con un tipo que el video no admite')
+
+  // Nada entra a `preguntas` mientras está pendiente
+  const idsActivas = async () => (await getDocs(collection(asT1, 'activities', 'A_VID', 'preguntas'))).docs.map((d) => d.id).sort()
+  assert.deepStrictEqual(await idsActivas(), [])
+  ok('PROPUESTAS · con 3 pendientes, la evaluación no tiene ninguna pregunta activa')
+
+  // Edición (solo mientras está pendiente) y registro de lo que cambió
+  const ed = aplicarEdicion(props[0], { enunciado: '¿Qué representa una fracción?', timestampSeg: 40 })
+  await assertSucceeds(updateDoc(pRef(asT1, 'A_VID', props[0].id), { ...ed.campos, editadoEl: serverTimestamp() }))
+  const editada = (await getDoc(pRef(asT1, 'A_VID', props[0].id))).data()
+  assert.strictEqual(editada.editada, true)
+  assert.deepStrictEqual(editada.cambios, { enunciado: '¿Qué es una fracción?', timestampSeg: 37 })
+  ok('PROPUESTAS · la edición se guarda y deja registrado lo que propuso la IA')
+  await assertFails(updateDoc(pRef(asT1, 'A_VID', props[0].id), { tipo: 'verdadero_falso' }))
+  ok('PROPUESTAS · el tipo de la pregunta no cambia')
+
+  // Rechazar / restaurar
+  await assertSucceeds(updateDoc(pRef(asT1, 'A_VID', props[2].id), { estado: 'rechazada', revisadoEl: serverTimestamp() }))
+  await assertFails(updateDoc(pRef(asT1, 'A_VID', props[2].id), { enunciado: 'editada estando rechazada' }))
+  await assertFails(updateDoc(pRef(asT1, 'A_VID', props[2].id), { estado: 'aprobada' }))
+  ok('PROPUESTAS · rechazada no se edita ni se aprueba sin restaurarla antes')
+  assert.deepStrictEqual(await idsActivas(), [])
+  ok('PROPUESTAS · una propuesta rechazada tampoco forma parte de la evaluación')
+  await assertSucceeds(updateDoc(pRef(asT1, 'A_VID', props[2].id), { estado: 'pendiente', revisadoEl: serverTimestamp() }))
+  ok('PROPUESTAS · restaurar una rechazada la devuelve a pendiente')
+  await assertSucceeds(updateDoc(pRef(asT1, 'A_VID', props[2].id), { estado: 'rechazada', revisadoEl: serverTimestamp() }))
+
+  // Aprobar: un solo lote (pregunta + clave + estado)
+  const leerProp = async (i) => ({ id: props[i].id, ...(await getDoc(pRef(asT1, 'A_VID', props[i].id))).data() })
+  const aplicar = async (db, plan, propId) => {
+    const { respuestaCorrecta, respuestaEsperada = null, ...publico } = plan.pregunta
+    const b = writeBatch(db)
+    b.set(doc(db, 'activities', 'A_VID', 'preguntas', plan.preguntaId), publico)
+    b.set(doc(db, 'activities', 'A_VID', 'clave', plan.preguntaId), { respuestaCorrecta: respuestaCorrecta ?? null, respuestaEsperada })
+    b.update(pRef(db, 'A_VID', propId), { estado: 'aprobada', preguntaId: plan.preguntaId, revisadoEl: serverTimestamp() })
+    return b.commit()
+  }
+  const plan1 = planAprobacion({ propuesta: await leerProp(0), activas: [], pendientes: 2, duracionSeg: 487 })
+  await assertFails(aplicar(asT2, plan1, props[0].id))
+  await assertFails(aplicar(asJuan, plan1, props[0].id))
+  ok('PROPUESTAS · ni un docente ajeno ni un estudiante pueden aprobar')
+  await assertSucceeds(aplicar(asT1, plan1, props[0].id))
+  assert.deepStrictEqual(await idsActivas(), [props[0].id])
+  const activa = (await getDoc(doc(asT1, 'activities', 'A_VID', 'preguntas', props[0].id))).data()
+  assert.strictEqual(activa.estado, 'aprobada')
+  assert.strictEqual(activa.timestampSeg, 40)
+  assert.strictEqual(activa.ponderacion, 5, '10 puntos libres entre las 2 pendientes')
+  assert.ok(!('respuestaCorrecta' in activa), 'la respuesta correcta NO va en el documento público')
+  assert.strictEqual((await getDoc(doc(asT1, 'activities', 'A_VID', 'clave', props[0].id))).data().respuestaCorrecta, 'oa')
+  ok('PROPUESTAS · aprobar crea la pregunta activa (con el minuto editado) y su clave aparte, y marca la propuesta')
+  await assertFails(getDoc(doc(asJuan, 'activities', 'A_VID', 'clave', props[0].id)))
+  ok('PROPUESTAS · el estudiante sigue sin poder leer la clave de la pregunta aprobada')
+
+  // Duplicados: la misma aprobación otra vez (doble clic, otra pestaña con estado viejo)
+  await assertFails(aplicar(asT1, plan1, props[0].id))
+  assert.deepStrictEqual(await idsActivas(), [props[0].id])
+  ok('PROPUESTAS · repetir la aprobación con la pantalla desactualizada falla completa y no duplica ni cambia nada')
+  const otraVez = planAprobacion({ propuesta: await leerProp(0), activas: [], pendientes: 1, duracionSeg: 487 })
+  assert.strictEqual(otraVez.yaAprobada, true)
+  ok('PROPUESTAS · con el estado al día, aprobar de nuevo no tiene nada que escribir')
+
+  // `aprobada` es terminal
+  await assertFails(updateDoc(pRef(asT1, 'A_VID', props[0].id), { estado: 'rechazada' }))
+  await assertFails(updateDoc(pRef(asT1, 'A_VID', props[0].id), { estado: 'pendiente' }))
+  await assertFails(deleteDoc(pRef(asT1, 'A_VID', props[0].id)))
+  ok('PROPUESTAS · una aprobada no se rechaza, no vuelve a pendiente ni se borra desde la lista de propuestas')
+
+  // Segunda aprobación: toma lo que queda libre y NO cambia la ponderación de la primera
+  const activasAhora = (await getDocs(collection(asT1, 'activities', 'A_VID', 'preguntas'))).docs.map((d) => ({ id: d.id, ...d.data() }))
+  const plan2 = planAprobacion({ propuesta: await leerProp(1), activas: activasAhora, pendientes: 1, duracionSeg: 487 })
+  assert.strictEqual(plan2.pregunta.ponderacion, 5)
+  await assertSucceeds(aplicar(asT1, plan2, props[1].id))
+  const fin = (await getDocs(collection(asT1, 'activities', 'A_VID', 'preguntas'))).docs.map((d) => d.data())
+  assert.strictEqual(fin.length, 2)
+  assert.strictEqual(Math.round(fin.reduce((s, p) => s + p.ponderacion, 0) * 100) / 100, 10)
+  assert.strictEqual((await getDoc(doc(asT1, 'activities', 'A_VID', 'preguntas', props[0].id))).data().ponderacion, 5, 'la ponderación de la primera no se tocó')
+  assert.deepStrictEqual(await idsActivas(), [props[0].id, props[1].id].sort())
+  ok('PROPUESTAS · la segunda aprobación toma los 5 puntos libres (5 + 5) sin tocar la primera, y la rechazada sigue fuera')
+  // Un docente que ya fijó pesos a mano: aprobar no los pisa (la regla de preguntas lo permite escribir, el código no lo hace)
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'activities', 'A_VID', 'preguntas', props[0].id), { ponderacion: 7.5 }, { merge: true })
+  })
+  assert.strictEqual((await getDoc(doc(asT1, 'activities', 'A_VID', 'preguntas', props[0].id))).data().ponderacion, 7.5)
+  const sinHueco = [{ id: props[0].id, ponderacion: 7.5, orden: 0 }, { id: props[1].id, ponderacion: 2.5, orden: 1 }]
+  assert.throws(() => planAprobacion({ propuesta: { ...props[2], estado: 'pendiente' }, activas: sinHueco, pendientes: 1, duracionSeg: 487 }), /10 puntos/)
+  ok('PROPUESTAS · con los 10 puntos ya usados a mano no se aprueba otra (mismo criterio que agregar un reactivo manual)')
+
+  // Borrar una pendiente sí
+  await assertSucceeds(updateDoc(pRef(asT1, 'A_VID', props[2].id), { estado: 'pendiente', revisadoEl: serverTimestamp() }))
+  await assertSucceeds(deleteDoc(pRef(asT1, 'A_VID', props[2].id)))
+  ok('PROPUESTAS · el docente puede borrar una propuesta que no aprobó')
+}
+
+// ── Video interactivo: progresoVideo ─────────────────────────────────────
+// submissions/{id}/progresoVideo/{intento}. El avance no puede ir más rápido que el
+// reloj del servidor; solo el estudiante dueño del intento en curso lo escribe.
+{
+  const ahora = Date.now()
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    const base = { alumnoId: 'ST_JUAN', actividadId: 'A1', estadoEvaluacion: 'en_progreso', intentoActual: 1, tiempoInicio: Timestamp.fromMillis(ahora - 60000) }
+    for (const id of ['SV_A', 'SV_B', 'SV_C', 'SV_D', 'SV_E', 'SV_F', 'SV_G', 'SV_H', 'SV_I']) await setDoc(doc(db, 'submissions', id), base)
+    await setDoc(doc(db, 'submissions', 'SV_FIN'), { ...base, estadoEvaluacion: 'finalizado' })
+    await setDoc(doc(db, 'submissions', 'SV_INT2'), { ...base, intentoActual: 2 })
+    await setDoc(doc(db, 'activities', 'A_LIM'), { docenteId: T1, asignaturaId: 'S1', nombre: 'Con límite', tipo: 'evaluacion', categoria: 'cuestionario', evaluacion: { tiempoLimiteMin: 1 } })
+    await setDoc(doc(db, 'submissions', 'SV_LIM'), { ...base, actividadId: 'A_LIM', tiempoInicio: Timestamp.fromMillis(ahora - 10 * 60000) })
+    await setDoc(doc(db, 'submissions', 'SV_UPD'), base)
+    await setDoc(doc(db, 'submissions', 'SV_UPD', 'progresoVideo', '1'), { intento: 1, maxVistoSeg: 100, posicionSeg: 100, actualizadoEn: Timestamp.fromMillis(ahora - 10000) })
+  })
+  const prog = (extra = {}) => ({ intento: 1, maxVistoSeg: 30, posicionSeg: 30, actualizadoEn: serverTimestamp(), ...extra })
+  const pRef = (db, sub, n = 1) => doc(db, 'submissions', sub, 'progresoVideo', String(n))
+  const anon = testEnv.unauthenticatedContext().firestore()
+
+  // Forma y dueño
+  await assertSucceeds(setDoc(pRef(asJuan, 'SV_A'), prog()))
+  ok('VIDEO · el estudiante dueño guarda su avance (30 s con 60 s de intento)')
+  await assertSucceeds(getDoc(pRef(asJuan, 'SV_A')))
+  await assertSucceeds(getDoc(pRef(asT1, 'SV_A')))
+  ok('VIDEO · lo leen el estudiante dueño y el docente dueño de la actividad')
+  for (const [quien, db] of [['otro estudiante', asMallory], ['alumno ajeno con cuenta', asIntruso], ['docente ajeno', asT2], ['sin sesión', anon]]) {
+    await assertFails(getDoc(pRef(db, 'SV_A')))
+    await assertFails(setDoc(pRef(db, 'SV_B'), prog()))
+    ok(`VIDEO · ${quien}: no lee ni escribe el avance de otro`)
+  }
+  await assertFails(setDoc(pRef(asT1, 'SV_B'), prog()))
+  await assertFails(updateDoc(pRef(asT1, 'SV_A'), { maxVistoSeg: 31, actualizadoEn: serverTimestamp() }))
+  ok('VIDEO · el docente solo lee: no escribe el avance del alumno')
+
+  // Campos
+  await assertFails(setDoc(pRef(asJuan, 'SV_B'), { ...prog(), calificacion: 10 }))
+  await assertFails(setDoc(pRef(asJuan, 'SV_B'), { intento: 1, maxVistoSeg: 30, actualizadoEn: serverTimestamp() }))
+  await assertFails(setDoc(pRef(asJuan, 'SV_B'), prog({ maxVistoSeg: '30' })))
+  await assertFails(setDoc(pRef(asJuan, 'SV_B'), prog({ maxVistoSeg: -1, posicionSeg: 0 })))
+  await assertFails(setDoc(pRef(asJuan, 'SV_B'), prog({ posicionSeg: 40 })))
+  await assertFails(setDoc(pRef(asJuan, 'SV_B'), prog({ maxVistoSeg: 90000, posicionSeg: 90000 })))
+  ok('VIDEO · rechaza campos de más o faltantes, tipos que no son número, negativos, posición pasada del máximo y valores absurdos')
+  await assertFails(setDoc(pRef(asJuan, 'SV_B'), prog({ actualizadoEn: Timestamp.now() })))
+  ok('VIDEO · `actualizadoEn` solo puede ser la hora del servidor (no la del teléfono)')
+
+  // Identidad del intento
+  await assertFails(setDoc(pRef(asJuan, 'SV_B', 2), prog()))
+  await assertFails(setDoc(pRef(asJuan, 'SV_INT2', 1), prog()))
+  await assertSucceeds(setDoc(pRef(asJuan, 'SV_INT2', 2), prog({ intento: 2 })))
+  ok('VIDEO · el documento se llama como el intento y es el intento en curso (no el anterior ni uno inventado)')
+
+  // Rapidez de la primera escritura: 60 s de intento → hasta 95 s
+  await assertFails(setDoc(pRef(asJuan, 'SV_C'), prog({ maxVistoSeg: 200, posicionSeg: 200 })))
+  await assertFails(setDoc(pRef(asJuan, 'SV_C'), prog({ maxVistoSeg: 96, posicionSeg: 96 })))
+  await assertSucceeds(setDoc(pRef(asJuan, 'SV_C'), prog({ maxVistoSeg: 90, posicionSeg: 90 })))
+  ok('VIDEO · la primera escritura no puede ir más lejos de lo que permite el tiempo del intento (96 s ✗ · 90 s ✓ con 60 s)')
+
+  // Avance entre escrituras: la anterior fue hace 10 s (100 s vistos) → hasta +20 s
+  await assertFails(updateDoc(pRef(asJuan, 'SV_UPD'), { maxVistoSeg: 90, posicionSeg: 90, actualizadoEn: serverTimestamp() }))
+  ok('VIDEO · el avance nunca baja')
+  await assertFails(updateDoc(pRef(asJuan, 'SV_UPD'), { maxVistoSeg: 140, posicionSeg: 140, actualizadoEn: serverTimestamp() }))
+  await assertFails(updateDoc(pRef(asJuan, 'SV_UPD'), { maxVistoSeg: 1000, posicionSeg: 1000, actualizadoEn: serverTimestamp() }))
+  ok('VIDEO · adelantar de golpe se rechaza: +40 s en 10 s reales ✗')
+  await assertFails(updateDoc(pRef(asJuan, 'SV_UPD'), { intento: 2, actualizadoEn: serverTimestamp() }))
+  ok('VIDEO · no se cambia de intento en un documento existente')
+  await assertSucceeds(updateDoc(pRef(asJuan, 'SV_UPD'), { maxVistoSeg: 112, posicionSeg: 112, actualizadoEn: serverTimestamp() }))
+  ok('VIDEO · un avance acorde al tiempo real sí se acepta (+12 s en 10 s)')
+  await assertSucceeds(updateDoc(pRef(asJuan, 'SV_UPD'), { maxVistoSeg: 112, posicionSeg: 60, actualizadoEn: serverTimestamp() }))
+  ok('VIDEO · retroceder la posición (volver a ver algo) no es problema')
+
+  // Estado del intento y plazo
+  await assertFails(setDoc(pRef(asJuan, 'SV_FIN'), prog()))
+  ok('VIDEO · con el intento ya entregado no se guarda más avance')
+  await assertFails(setDoc(pRef(asJuan, 'SV_LIM'), prog()))
+  ok('VIDEO · con el tiempo límite vencido tampoco (mismo plazo que las respuestas)')
+
+  // Borrado
+  await assertFails(deleteDoc(pRef(asJuan, 'SV_A')))
+  await assertFails(deleteDoc(pRef(asT1, 'SV_A')))
+  ok('VIDEO · nadie borra el avance desde el cliente')
 }
 
 await testEnv.cleanup()
