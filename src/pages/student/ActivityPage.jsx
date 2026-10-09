@@ -44,6 +44,7 @@ import RubricaTable from '../../components/rubrica/RubricaTable'
 import { ClipboardList } from 'lucide-react'
 import { PlayCircle, ListChecks, Timer, RotateCcw, BookOpen, Video } from 'lucide-react'
 import { esVideoInteractivo } from '../../utils/videoInteractivo'
+import { mostrarFilaTiempo, textoNavegacionResumen } from '../../utils/configEvaluacionVideo'
 import { formatearTiempo } from '../../utils/videoProgreso'
 import SolucionJuegoModal from '../../components/juego/SolucionJuegoModal'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
@@ -689,10 +690,12 @@ export default function StudentActivityPage() {
                   <span className="font-semibold text-on-surface">{activity.videoInteractivo?.duracionSeg ? formatearTiempo(activity.videoInteractivo.duracionSeg) : '—'}</span>
                 </div>
               )}
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted flex items-center gap-1.5"><Timer size={16} /> Tiempo disponible</span>
-                <span className="font-semibold text-on-surface">{ev.tiempoLimiteMin ? `${ev.tiempoLimiteMin} min` : 'Sin límite'}</span>
-              </div>
+              {mostrarFilaTiempo(activity, ev) && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted flex items-center gap-1.5"><Timer size={16} /> Tiempo disponible</span>
+                  <span className="font-semibold text-on-surface">{ev.tiempoLimiteMin ? `${ev.tiempoLimiteMin} min` : 'Sin límite'}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted flex items-center gap-1.5"><RotateCcw size={16} /> Intentos</span>
                 <span className="font-semibold text-on-surface">
@@ -701,7 +704,7 @@ export default function StudentActivityPage() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted">Navegación</span>
-                <span className="font-semibold text-on-surface">{ev.navegacion === 'secuencial' ? 'Secuencial — no puedes regresar' : 'Libre'}</span>
+                <span className="font-semibold text-on-surface">{textoNavegacionResumen(esVideoInteractivo(activity), ev.navegacion, { alumno: true })}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted">Calificación a conservar</span>

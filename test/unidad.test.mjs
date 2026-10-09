@@ -6382,6 +6382,128 @@ caso('clasificación de errores: solo lo que el servidor garantiza sin cobro se 
   assert.strictEqual(VG.clasificarErrorGeneracion(null), 'incierto')
 })
 
+// ── Video interactivo: opciones de «Configuración» que se muestran (configEvaluacionVideo.js) ──
+const CV = await import('../src/utils/configEvaluacionVideo.js')
+const { EVALUACION_DEFAULTS: EVD } = await import('../src/utils/evaluacionDefaults.js')
+const { calcularCalificacion: CALIF } = await import('../src/utils/evaluacionGrading.js')
+const congelar = (o) => { Object.values(o).forEach((v) => { if (v && typeof v === 'object') congelar(v) }); return Object.freeze(o) }
+const OPCIONES_TODAS = ['ordenPreguntas', 'barajarRespuestas', 'navegacion', 'tiempoLimite', 'intentos', 'conservar', 'sinCalificacion', 'publicacion']
+
+caso('configuración: una evaluación convencional (cuestionario/examen) sigue mostrando TODAS sus opciones', () => {
+  for (const base of [EVD.cuestionario, EVD.examen]) {
+    const v = CV.opcionesConfigVisibles({ esVideo: false, config: base })
+    for (const k of OPCIONES_TODAS) {
+      // «conservar» sigue su regla de siempre: solo importa con más de un intento (el examen trae 1).
+      if (k === 'conservar') assert.strictEqual(v.conservar, base.intentosPermitidos !== 1)
+      else assert.strictEqual(v[k], true, `${k} debe verse en una evaluación convencional`)
+    }
+  }
+  // Aunque tenga límite de tiempo guardado o no: el convencional siempre lo muestra.
+  assert.strictEqual(CV.opcionesConfigVisibles({ esVideo: false, config: { tiempoLimiteMin: null } }).tiempoLimite, true)
+  assert.strictEqual(CV.opcionesConfigVisibles({ esVideo: false, config: { tiempoLimiteMin: 30 } }).tiempoLimite, true)
+  assert.strictEqual(CV.opcionesConfigVisibles({}).ordenPreguntas, true, 'sin datos = comportamiento de siempre')
+})
+
+caso('configuración: Video interactivo oculta SOLO orden de preguntas y tiempo límite; conserva el resto', () => {
+  const v = CV.opcionesConfigVisibles({ esVideo: true, config: EVD.cuestionario })
+  assert.deepStrictEqual(
+    OPCIONES_TODAS.filter((k) => !v[k]).sort(),
+    ['ordenPreguntas', 'tiempoLimite'],
+    'lo único que se oculta',
+  )
+  for (const k of ['barajarRespuestas', 'navegacion', 'intentos', 'sinCalificacion', 'publicacion']) assert.strictEqual(v[k], true, `${k} se conserva`)
+  assert.strictEqual(v.conservar, true, 'con intentos ilimitados, «conservar» tiene sentido')
+})
+
+caso('configuración: «conservar» sigue la regla de intentos también en video (con 1 intento no aplica)', () => {
+  assert.strictEqual(CV.opcionesConfigVisibles({ esVideo: true, config: { intentosPermitidos: 1 } }).conservar, false)
+  assert.strictEqual(CV.opcionesConfigVisibles({ esVideo: true, config: { intentosPermitidos: 3 } }).conservar, true)
+  assert.strictEqual(CV.opcionesConfigVisibles({ esVideo: true, config: { intentosPermitidos: null } }).conservar, true)
+})
+
+caso('configuración: un video que YA tiene límite de tiempo lo sigue mostrando (aplica y hay que poder quitarlo)', () => {
+  assert.strictEqual(CV.opcionesConfigVisibles({ esVideo: true, config: { tiempoLimiteMin: 15 } }).tiempoLimite, true)
+  assert.strictEqual(CV.opcionesConfigVisibles({ esVideo: true, config: { tiempoLimiteMin: null } }).tiempoLimite, false)
+  assert.strictEqual(CV.opcionesConfigVisibles({ esVideo: true, config: {} }).tiempoLimite, false)
+  assert.strictEqual(CV.opcionesConfigVisibles({ esVideo: true, config: { tiempoLimiteMin: '' } }).tiempoLimite, false)
+  // y la fila «Tiempo disponible» del resumen sigue la misma regla
+  const video = { tipo: 'evaluacion', modalidad: 'video_interactivo' }
+  const quiz = { tipo: 'evaluacion', categoria: 'cuestionario' }
+  assert.strictEqual(CV.mostrarFilaTiempo(video, { tiempoLimiteMin: null }), false)
+  assert.strictEqual(CV.mostrarFilaTiempo(video, { tiempoLimiteMin: 20 }), true)
+  assert.strictEqual(CV.mostrarFilaTiempo(quiz, { tiempoLimiteMin: null }), true, 'un cuestionario muestra «Sin límite»')
+})
+
+caso('configuración: ocultar NO modifica lo guardado (la función es pura y los valores ocultos se conservan)', () => {
+  const guardada = congelar({ ...EVD.cuestionario, ordenPreguntas: 'aleatorio', tiempoLimiteMin: 12, conservar: 'promedio', navegacion: 'secuencial' })
+  const antes = JSON.stringify(guardada)
+  const v = CV.opcionesConfigVisibles({ esVideo: true, config: guardada })
+  CV.mostrarFilaTiempo({ modalidad: 'video_interactivo', tipo: 'evaluacion' }, guardada)
+  assert.strictEqual(JSON.stringify(guardada), antes, 'no se tocó ni un campo')
+  assert.strictEqual(v.ordenPreguntas, false)
+  // «Guardar configuración» escribe el objeto ENTERO (…configForm), así lo oculto se conserva.
+  const fuenteEditor = readFileSync(new globalThis.URL('../src/components/EvaluacionEditor.jsx', import.meta.url), 'utf8')
+  const fuenteManager = readFileSync(new globalThis.URL('../src/components/EvaluacionManager.jsx', import.meta.url), 'utf8')
+  assert.ok(/const toSave = \{ \.\.\.configForm/.test(fuenteEditor), 'el editor guarda {...configForm}')
+  assert.ok(/const toSave = \{ \.\.\.configForm/.test(fuenteManager), 'el Manager guarda {...configForm}')
+})
+
+caso('configuración: los valores por omisión de un video no provocan efectos al ocultarse', () => {
+  const d = EVD.cuestionario
+  assert.strictEqual(d.tiempoLimiteMin, null, 'sin cronómetro')
+  assert.strictEqual(d.ordenPreguntas, 'creacion', 'sin barajado de preguntas')
+  assert.strictEqual(d.intentosPermitidos, null)
+  assert.strictEqual(d.navegacion, 'libre')
+  assert.strictEqual(d.sinCalificacion === true, false, 'cuenta para la calificación salvo que el docente diga otra cosa')
+})
+
+caso('configuración: las opciones de navegación conservan sus valores guardados; solo cambia el texto en video', () => {
+  const quiz = CV.opcionesNavegacion(false)
+  const video = CV.opcionesNavegacion(true)
+  assert.deepStrictEqual(quiz.map((o) => o.value), ['libre', 'secuencial'])
+  assert.deepStrictEqual(video.map((o) => o.value), ['libre', 'secuencial'], 'mismos valores: nada guardado cambia de significado')
+  assert.deepStrictEqual(quiz.map((o) => o.label), ['Libre — puede regresar', 'Secuencial — no puede regresar'], 'el convencional, idéntico a siempre')
+  assert.ok(/cambiar sus respuestas/.test(video[0].label) && !/regresar/.test(video[0].label))
+  assert.ok(/ya no se cambian/.test(video[1].label))
+  assert.strictEqual(CV.textoNavegacionResumen(false, 'secuencial'), 'Secuencial — no puede regresar')
+  assert.strictEqual(CV.textoNavegacionResumen(false, 'libre'), 'Libre')
+  assert.strictEqual(CV.textoNavegacionResumen(false, 'secuencial', { alumno: true }), 'Secuencial — no puedes regresar')
+  assert.strictEqual(CV.textoNavegacionResumen(false, 'libre', { alumno: true }), 'Libre')
+  assert.ok(/no cambias respuestas/.test(CV.textoNavegacionResumen(true, 'secuencial', { alumno: true })))
+})
+
+caso('configuración: los dos formularios (Editor y Manager) protegen EXACTAMENTE esos dos controles', () => {
+  for (const archivo of ['EvaluacionEditor.jsx', 'EvaluacionManager.jsx']) {
+    const src = readFileSync(new globalThis.URL(`../src/components/${archivo}`, import.meta.url), 'utf8')
+    assert.ok(/visibles\.ordenPreguntas && \(\s*[\s\S]{0,200}?Orden de las preguntas/.test(src), `${archivo}: «Orden de las preguntas» detrás de visibles.ordenPreguntas`)
+    assert.ok(/visibles\.tiempoLimite && \(\s*[\s\S]{0,200}?Tiempo límite \(minutos\)/.test(src), `${archivo}: «Tiempo límite» detrás de visibles.tiempoLimite`)
+    assert.strictEqual((src.match(/visibles\.ordenPreguntas/g) || []).length, 1)
+    assert.strictEqual((src.match(/visibles\.tiempoLimite/g) || []).length, archivo === 'EvaluacionEditor.jsx' ? 2 : 1, 'el editor también la usa en la vista previa')
+    assert.ok(/options=\{opcionesNavegacion\(esVideo\)\}/.test(src), `${archivo}: navegación con texto por modalidad`)
+    // Lo que se conserva NO está condicionado a la modalidad.
+    for (const id of ['config-publicar-resultados', 'config-publicar-respuestas', 'config-intentos']) {
+      const i = src.indexOf(`id="${id}"`)
+      assert.ok(i > 0, `${archivo}: ${id} existe`)
+      assert.ok(!/visibles\.\w+ && \(\s*$/.test(src.slice(Math.max(0, i - 160), i)), `${archivo}: ${id} NO está oculto en video`)
+    }
+    assert.ok(/<SinCalificacionConfig/.test(src) && /Barajar el orden de las opciones/.test(src))
+    const iSin = src.indexOf('<SinCalificacionConfig')
+    assert.ok(!/visibles\.\w+ && \(\s*$/.test(src.slice(Math.max(0, iSin - 160), iSin)), `${archivo}: «Sin calificación» sigue visible`)
+  }
+  const alumno = readFileSync(new globalThis.URL('../src/pages/student/ActivityPage.jsx', import.meta.url), 'utf8')
+  assert.ok(/mostrarFilaTiempo\(activity, ev\)/.test(alumno) && /textoNavegacionResumen\(esVideoInteractivo\(activity\), ev\.navegacion, \{ alumno: true \}\)/.test(alumno))
+})
+
+caso('configuración: la calificación NO depende de las opciones de configuración (misma nota con o sin ellas)', () => {
+  const preguntas = [{ id: 'a', tipo: 'verdadero_falso', ponderacion: 4 }, { id: 'b', tipo: 'verdadero_falso', ponderacion: 6 }]
+  const respuestas = { a: { puntosObtenidos: 4 }, b: { puntosObtenidos: 0 } }
+  const nota = CALIF(preguntas, respuestas, 10)
+  // calcularCalificacion solo recibe preguntas, respuestas y la calificación máxima: ninguna opción oculta puede alterarla.
+  assert.strictEqual(CALIF.length <= 3, true)
+  assert.strictEqual(CALIF(preguntas, respuestas, 10), nota)
+  assert.strictEqual(nota, 4)
+})
+
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
   fallos.forEach((f) => console.log(`  ✗ ${f.nombre}\n    ${f.e.message}`))

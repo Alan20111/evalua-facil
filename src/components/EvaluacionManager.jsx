@@ -8,6 +8,8 @@ import { addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from '../utils/fires
 import { EntregaCambio, borrarSiNoCambio } from '../utils/submissionGuard'
 import { db, auth } from '../firebase'
 import { useToast } from './Toast'
+import { opcionesConfigVisibles, opcionesNavegacion } from '../utils/configEvaluacionVideo'
+import { esVideoInteractivo } from '../utils/videoInteractivo'
 import Spinner from './Spinner'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../utils/sanitizeHtml'
 import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
@@ -248,6 +250,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
   const [configForm, setConfigForm] = useState(activity.evaluacion)
+  // Video interactivo: solo las opciones de configuración que tienen sentido con el reproductor.
+  // Ocultar no toca lo guardado (ver utils/configEvaluacionVideo.js).
+  const esVideo = esVideoInteractivo(activity)
+  const visibles = opcionesConfigVisibles({ esVideo, config: configForm })
   const [savingConfig, setSavingConfig] = useState(false)
   const [filtroResultados, setFiltroResultados] = useState('todos')
   const [searchResultados, setSearchResultados] = useState('')
@@ -1864,16 +1870,18 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
         {tab === 'config' && configForm && (
           <form onSubmit={handleSaveConfig} className="bg-surface-card rounded-card shadow-card p-3 space-y-3">
-            <Select
-              id="config-orden"
-              label="Orden de las preguntas"
-              value={configForm.ordenPreguntas}
-              onChange={(v) => setConfigForm((f) => ({ ...f, ordenPreguntas: v }))}
-              options={[
-                { value: 'creacion', label: 'Orden de creación' },
-                { value: 'aleatorio', label: 'Aleatorio' },
-              ]}
-            />
+            {visibles.ordenPreguntas && (
+              <Select
+                id="config-orden"
+                label="Orden de las preguntas"
+                value={configForm.ordenPreguntas}
+                onChange={(v) => setConfigForm((f) => ({ ...f, ordenPreguntas: v }))}
+                options={[
+                  { value: 'creacion', label: 'Orden de creación' },
+                  { value: 'aleatorio', label: 'Aleatorio' },
+                ]}
+              />
+            )}
             <label className="flex items-center gap-2 text-sm text-muted">
               <input type="checkbox" checked={!!configForm.barajarRespuestas}
                 onChange={(e) => setConfigForm((f) => ({ ...f, barajarRespuestas: e.target.checked }))} className="accent-[var(--accent)]" />
@@ -1895,16 +1903,21 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               label="Navegación"
               value={configForm.navegacion}
               onChange={(v) => setConfigForm((f) => ({ ...f, navegacion: v }))}
-              options={[
-                { value: 'libre', label: 'Libre — puede regresar' },
-                { value: 'secuencial', label: 'Secuencial — no puede regresar' },
-              ]}
+              options={opcionesNavegacion(esVideo)}
             />
-            <div>
-              <label htmlFor="config-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
-              <input id="config-tiempo" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
-            </div>
+            {visibles.tiempoLimite && (
+              <div>
+                <label htmlFor="config-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
+                <input id="config-tiempo" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
+                  onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
+                {esVideo && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    Este video ya tiene un límite guardado. En un Video interactivo el cronómetro sigue corriendo
+                    con el video en pausa y puede impedir terminarlo: vacíalo para quitarlo.
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <label htmlFor="config-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
               <input id="config-intentos" type="number" min="1" value={configForm.intentosPermitidos ?? ''}
