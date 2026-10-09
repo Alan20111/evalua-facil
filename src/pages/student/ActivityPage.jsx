@@ -42,7 +42,9 @@ import StudentLayout from '../../components/StudentLayout'
 import Fireworks from '../../components/Fireworks'
 import RubricaTable from '../../components/rubrica/RubricaTable'
 import { ClipboardList } from 'lucide-react'
-import { PlayCircle, ListChecks, Timer, RotateCcw, BookOpen } from 'lucide-react'
+import { PlayCircle, ListChecks, Timer, RotateCcw, BookOpen, Video } from 'lucide-react'
+import { esVideoInteractivo } from '../../utils/videoInteractivo'
+import { formatearTiempo } from '../../utils/videoProgreso'
 import SolucionJuegoModal from '../../components/juego/SolucionJuegoModal'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
@@ -681,6 +683,12 @@ export default function StudentActivityPage() {
                 <span className="text-muted flex items-center gap-1.5"><ListChecks size={16} /> Número de preguntas</span>
                 <span className="font-semibold text-on-surface">{ev.numPreguntas || 0}</span>
               </div>
+              {esVideoInteractivo(activity) && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted flex items-center gap-1.5"><Video size={16} /> Duración del video</span>
+                  <span className="font-semibold text-on-surface">{activity.videoInteractivo?.duracionSeg ? formatearTiempo(activity.videoInteractivo.duracionSeg) : '—'}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted flex items-center gap-1.5"><Timer size={16} /> Tiempo disponible</span>
                 <span className="font-semibold text-on-surface">{ev.tiempoLimiteMin ? `${ev.tiempoLimiteMin} min` : 'Sin límite'}</span>
@@ -705,7 +713,9 @@ export default function StudentActivityPage() {
 
             {!enProgreso && !finalizado && (
               <p className="text-xs text-muted bg-surface-container rounded p-3">
-                Una vez que inicies, el cronómetro comenzará y tus respuestas se guardarán automáticamente.
+                {esVideoInteractivo(activity)
+                  ? 'Verás un video que se detiene en cada pregunta. Responde para seguir; puedes regresar a lo que ya viste, pero no adelantarte. Tus respuestas y tu avance se guardan automáticamente.'
+                  : 'Una vez que inicies, el cronómetro comenzará y tus respuestas se guardarán automáticamente.'}
               </p>
             )}
 

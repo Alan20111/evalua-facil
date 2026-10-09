@@ -82,6 +82,10 @@ const ARCHIVOS = [
   // docente lo muestra ANTES de generar y el servidor lo exige con ESTA misma
   // constante y fórmula — un solo número, nunca dos copias que se desfasen.
   'limiteDocumentosVisuales.js',
+  // Video interactivo con IA (etapa 1): costo por pregunta, validación de la
+  // distribución y de la URL de YouTube — mismas reglas en pantalla y en el
+  // servidor que cobrará.
+  'videoInteractivo.js',
 ]
 
 function fallar(mensaje) {

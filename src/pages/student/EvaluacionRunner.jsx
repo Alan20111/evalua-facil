@@ -22,6 +22,8 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName, studentFullName } from '../../utils/studentSearch'
 import { SkeletonList } from '../../components/ui'
+import VideoInteractivoRunner from '../../components/video/VideoInteractivoRunner'
+import { esVideoInteractivo } from '../../utils/videoInteractivo'
 
 // Extensiones aceptadas para preguntas de tipo "subir documento": las mismas
 // que maneja toda la app (imágenes, PDF, Word, PowerPoint, Excel, ZIP/RAR).
@@ -390,6 +392,10 @@ export default function EvaluacionRunner() {
   const pregunta = preguntas[idx]
   const mostrarSecciones = mostrarSeccionesAlEstudiante(activity?.evaluacion)
   const isLast = idx === preguntas.length - 1
+  // Modalidad «Video interactivo con IA»: misma carga, mismo guardado y misma
+  // entrega que un cuestionario (todo lo de arriba), pero el cuerpo de la
+  // pantalla es el del video. Los cuestionarios y exámenes NO pasan por aquí.
+  const esVideo = esVideoInteractivo(activity)
 
   // Toda pregunta se responde. NO es un ajuste que el docente prenda o apague
   // en la Configuración de la evaluación: es cómo funciona una evaluación aquí,
@@ -490,6 +496,14 @@ export default function EvaluacionRunner() {
           </div>
         )}
 
+        {esVideo ? (
+          <VideoInteractivoRunner
+            activity={activity} submission={submission} preguntas={preguntas}
+            respuestas={respuestas} otraTextos={otraTextos} estaRespondida={estaRespondida}
+            onSelectOpcion={handleSelectOpcion} onTextoChange={handleTextoChange}
+            onOtraTextoChange={handleOtraTextoChange} onFinalizar={handleFinalizarClick}
+            finishing={finishing} />
+        ) : (
         <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
           {/* Nombre de la sección a la que pertenece esta pregunta. Se apaga
               entero con "Mostrar las secciones al estudiante": ahí el
@@ -603,6 +617,7 @@ export default function EvaluacionRunner() {
             )}
           </div>
         </div>
+        )}
     </div>
   )
 }

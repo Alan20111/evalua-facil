@@ -37,6 +37,7 @@ const juegoFns = require('./juego')
 // módulo; aquí solo se registra la operación. analisisAcademico.js no
 // requiere ia.js de vuelta — recibe pedirJSON/textoPlano por parámetro.
 const analisisAcademico = require('./analisisAcademico')
+const videoInteractivoIA = require('./videoInteractivoIA')
 // Lógica PURA de calendario/sesiones, compartida con el cliente — ver
 // src/utils/sesionesReales.js (fuente real) y scripts/sync-functions-shared.mjs
 // (genera esta copia en cada predeploy; también hay que correrlo a mano antes
@@ -51,6 +52,12 @@ const { EVALUACION_DEFAULTS } = require('./_shared/evaluacionDefaults.js')
 const { calcularTarifaExamen } = require('./_shared/tarifaExamen.js')
 
 const ANTHROPIC_API_KEY_PROD = defineSecret('ANTHROPIC_API_KEY_PROD')
+// Video interactivo con IA: Gemini lee el video (functions/extraccionVideoGemini.js).
+// Esta declaración SOLO existe para que Firebase enlace el secreto a
+// `ejecutarOperacionIA` al desplegar: en ejecución llega como variable de entorno
+// GEMINI_API_KEY, que es lo único que lee el extractor (nunca se pasa a otro lado).
+// El secreto debe EXISTIR en Secret Manager antes de desplegar — ver CLAUDE.md.
+const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
 
 // Extensiones que docExtract sabe leer DE VERDAD. Antes esto incluía
 // .doc/.ppt/.pptx/.xls/.xlsx "porque docExtract también los acepta" —
@@ -332,6 +339,9 @@ const OPERACIONES = {
   analizar_asignatura: (args) => analisisAcademico.ejecutarAnalizarAsignatura({ ...args, pedirJSON }),
   // Análisis de UN entregable, «solo resultados» (Fase 1). Tarifa fija.
   analizar_entregable: (args) => analisisAcademico.ejecutarAnalizarEntregable({ ...args, pedirJSON }),
+  // Video interactivo con IA (etapa 2): 2 créditos por pregunta entregada.
+  // Solo propone; no escribe nada (functions/videoInteractivoIA.js).
+  generar_preguntas_video: (args) => videoInteractivoIA.ejecutarGenerarPreguntasVideo({ ...args, pedirJSON }),
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -354,6 +364,8 @@ const PRECHECKS = {
   generar_contenido_juego: precheckGenerarContenidoJuego,
   analizar_asignatura: (args) => analisisAcademico.precheckAnalizarAsignatura({ ...args, textoPlano }),
   analizar_entregable: (args) => analisisAcademico.precheckAnalizarEntregable({ ...args, textoPlano }),
+  // El contenido del video lo extrae Gemini AQUÍ, antes de reservar: sin contenido, sin cobro.
+  generar_preguntas_video: (args) => videoInteractivoIA.precheckGenerarPreguntasVideo(args),
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
@@ -6701,7 +6713,9 @@ function crearCallableIA(opciones, { soloOperacion = null } = {}) {
 
     let precontexto = null
     if (PRECHECKS[operacion]) {
-      precontexto = await PRECHECKS[operacion]({ uid, params, tarifas })
+      // `idempotencyKey` solo lo usan los prechecks que saben reconocer un reintento ya
+      // ejecutado (generar_preguntas_video: no vuelve a pagarle a Gemini por leer el video).
+      precontexto = await PRECHECKS[operacion]({ uid, params, tarifas, idempotencyKey })
     }
 
     // El precheck puede saber, ANTES de reservar, que esta operación va a
@@ -6893,7 +6907,7 @@ function crearCallableIA(opciones, { soloOperacion = null } = {}) {
   )
 }
 
-exports.ejecutarOperacionIA = crearCallableIA({ secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 300 })
+exports.ejecutarOperacionIA = crearCallableIA({ secrets: [ANTHROPIC_API_KEY_PROD, GEMINI_API_KEY], timeoutSeconds: 300 })
 exports.ejecutarPlaneacionIA = crearCallableIA(
   { secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 540 },
   { soloOperacion: 'planeacion_didactica_inicial' }

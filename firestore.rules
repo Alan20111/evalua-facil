@@ -540,6 +540,44 @@ service cloud.firestore {
         request.time < sub.tiempoInicio + duration.value(limite, 'm') + duration.value(1, 'm');
     }
 
+    // ── Video interactivo: el progreso del estudiante en SU intento ────────
+    //
+    // submissions/{id}/progresoVideo/{intento} = { intento, maxVistoSeg,
+    // posicionSeg, actualizadoEn }. `maxVistoSeg` es hasta dónde ha visto el
+    // video de verdad; la pantalla no deja adelantar más allá de él, pero eso
+    // solo lo hace cumplir el navegador. Lo que NO se puede rodear desde un
+    // cliente modificado es esto:
+    //   · solo avanza (nunca baja),
+    //   · y NO puede avanzar más rápido que el tiempo real: entre dos
+    //     escrituras suma, como mucho, 1.5× los segundos que de verdad pasaron
+    //     (reloj del servidor, `request.time`) + 5 s de holgura. Para llegar al
+    //     minuto 10 hay que dejar pasar ~10 minutos.
+    //   · la primera escritura se mide contra el inicio del intento.
+    // El documento se llama como el intento (uno por intento: un intento nuevo
+    // parte de cero sin borrar nada) y `actualizadoEn` solo puede ser la hora
+    // del servidor.
+    function progresoVideoValido(submissionId, intentoId) {
+      let d = request.resource.data;
+      let sub = get(/databases/$(database)/documents/submissions/$(submissionId)).data;
+      let forma = d.keys().hasOnly(['intento', 'maxVistoSeg', 'posicionSeg', 'actualizadoEn']) &&
+        d.keys().hasAll(['intento', 'maxVistoSeg', 'posicionSeg', 'actualizadoEn']) &&
+        d.intento is number && d.maxVistoSeg is number && d.posicionSeg is number &&
+        d.actualizadoEn == request.time &&
+        d.maxVistoSeg >= 0 && d.maxVistoSeg <= 86400 && d.posicionSeg >= 0 &&
+        d.posicionSeg <= d.maxVistoSeg + 2 &&
+        string(d.intento) == intentoId &&
+        d.intento == sub.get('intentoActual', 1);
+      return forma && (
+        resource == null
+          ? (sub.get('tiempoInicio', null) != null &&
+             d.maxVistoSeg * 1000 <= (request.time.toMillis() - sub.tiempoInicio.toMillis()) * 1.5 + 5000)
+          : (d.intento == resource.data.intento &&
+             d.maxVistoSeg >= resource.data.maxVistoSeg &&
+             (d.maxVistoSeg - resource.data.maxVistoSeg) * 1000 <=
+               (request.time.toMillis() - resource.data.actualizadoEn.toMillis()) * 1.5 + 5000)
+      );
+    }
+
     match /schools/{schoolId} {
       allow read: if request.auth != null;
       // Schools are created/edited only from teacher flows (Register/Onboarding
@@ -866,6 +904,34 @@ service cloud.firestore {
         allow write: if isDocente() &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId &&
           !reactivosCongelados(activityId);
+      }
+
+      // Video interactivo con IA: lo que PROPONE la IA, antes de que el docente
+      // lo revise. Solo el docente dueño lo ve (trae la respuesta correcta) y
+      // nada de aquí lo lee el motor de calificación: una propuesta entra a
+      // `preguntas` solo cuando se aprueba (lote atómico con la pregunta y su
+      // clave). Transiciones permitidas:
+      //   pendiente → pendiente (edición) | aprobada | rechazada
+      //   rechazada → pendiente (restaurar)
+      // `aprobada` es terminal: ya es una pregunta activa y se edita allá. Eso
+      // además cierra la carrera de dos pestañas (rechazar algo ya aprobado
+      // falla) sin depender de lo que muestre la pantalla.
+      match /propuestasVideo/{propuestaId} {
+        allow read: if isDocente() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow create: if isDocente() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId &&
+          get(/databases/$(database)/documents/activities/$(activityId)).data.get('modalidad', null) == 'video_interactivo' &&
+          request.resource.data.estado == 'pendiente' &&
+          request.resource.data.tipo in ['verdadero_falso', 'opcion_multiple', 'respuesta_corta'];
+        allow update: if isDocente() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId &&
+          request.resource.data.tipo == resource.data.tipo &&
+          ((resource.data.estado == 'pendiente' && request.resource.data.estado in ['pendiente', 'aprobada', 'rechazada']) ||
+           (resource.data.estado == 'rechazada' && request.resource.data.estado == 'pendiente'));
+        allow delete: if isDocente() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId &&
+          resource.data.estado != 'aprobada';
       }
 
       // Sugerencias de calificación de C-02 (piloto IA). Las CREA únicamente
@@ -1324,6 +1390,25 @@ service cloud.firestore {
             dentroDelPlazo(submissionId)
           )
         );
+      }
+
+      // Video interactivo: avance del estudiante en su intento (ver
+      // progresoVideoValido). Lo lee el estudiante dueño y el docente dueño de
+      // la actividad; solo lo escribe el estudiante, con el intento en curso y
+      // dentro del plazo. Nadie lo borra desde el cliente.
+      match /progresoVideo/{intentoId} {
+        allow read: if request.auth != null &&
+          exists(/databases/$(database)/documents/submissions/$(submissionId)) && (
+            ownsStudentDoc(get(/databases/$(database)/documents/submissions/$(submissionId)).data.alumnoId) ||
+            ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId)
+          );
+        allow create, update: if request.auth != null &&
+          exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
+          ownsStudentDoc(get(/databases/$(database)/documents/submissions/$(submissionId)).data.alumnoId) &&
+          get(/databases/$(database)/documents/submissions/$(submissionId)).data.get('estadoEvaluacion', null) == 'en_progreso' &&
+          dentroDelPlazo(submissionId) &&
+          progresoVideoValido(submissionId, intentoId);
+        allow delete: if false;
       }
 
       // Capa 2 de OP-10 — fotografía inmutable de las respuestas de un

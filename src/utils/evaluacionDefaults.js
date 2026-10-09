@@ -18,6 +18,17 @@ export const EVALUACION_DEFAULTS = {
     publicarRespuestas: 'inmediato', publicarRespuestasFecha: null, respuestasPublicadas: false,
     mostrarRetroalimentacion: true, mostrarRespuestasCorrectas: false, mostrarPorcentaje: true, barajarRespuestas: false,
   },
+  // modalidad: 'video_interactivo' (etapa 1) — misma config que un cuestionario
+  // (la actividad conserva categoria 'cuestionario'/'examen'); se parte del
+  // cuestionario y solo cambia la navegación, que sigue el orden del video.
+  // Nadie lo consume todavía: la creación llega en una etapa posterior.
+  video_interactivo: {
+    numPreguntas: 0, ordenPreguntas: 'creacion', navegacion: 'secuencial',
+    tiempoLimiteMin: null, intentosPermitidos: null, conservar: 'mejor',
+    publicarResultados: 'inmediato', publicarResultadosFecha: null, resultadosPublicados: false,
+    publicarRespuestas: 'inmediato', publicarRespuestasFecha: null, respuestasPublicadas: false,
+    mostrarRetroalimentacion: true, mostrarRespuestasCorrectas: false, mostrarPorcentaje: true, barajarRespuestas: false,
+  },
   // categoria: 'juego' (Crucigrama / Sopa de letras) — decisión de producto
   // #3 aprobada: sin límite de intentos, se conserva la mejor calificación,
   // 15 minutos de tiempo límite por default.

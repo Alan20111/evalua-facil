@@ -131,8 +131,12 @@ export function useCreditosIA() {
       // operaciones unitarias no lo necesitan.
       // `callable` (opcional): nombre de la función que atiende la operación,
       // para la que necesita más margen en el servidor que las demás.
-      async ejecutar(operacion, params = {}, unidades = 1, { timeoutMs, callable = 'ejecutarOperacionIA' } = {}) {
-        const idempotencyKey = crypto.randomUUID()
+      // `idempotencyKey` (opcional): para RECUPERAR una operación cuyo resultado no
+      // llegó (se cayó la red, se cerró la pestaña). Quien la pasa es responsable de
+      // generarla UNA vez por confirmación y de guardarla; el servidor devuelve el
+      // resultado ya guardado sin cobrar de nuevo. Sin ella, una nueva por llamada.
+      async ejecutar(operacion, params = {}, unidades = 1, { timeoutMs, callable = 'ejecutarOperacionIA', idempotencyKey: claveDada } = {}) {
+        const idempotencyKey = claveDada || crypto.randomUUID()
         const llamar = httpsCallable(functions, callable, timeoutMs ? { timeout: timeoutMs } : undefined)
         try {
           const { data } = await llamar({ operacion, idempotencyKey, params, unidades })
@@ -158,6 +162,9 @@ export function useCreditosIA() {
           err.codigoSDK = e?.code || null
           err.saldo = e?.details?.saldo
           err.costo = e?.details?.costo
+          // Solo al reintentar con la misma clave: en qué quedó la operación anterior
+          // ('reservado' = sigue en proceso; 'reembolsado'/'fallido' = falló y no se cobró).
+          err.estadoPrevio = e?.details?.estadoPrevio || null
           throw err
         }
       },

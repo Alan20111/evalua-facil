@@ -5359,6 +5359,1029 @@ caso('normalizador: solo texto, recortado; sin resumen no hay informe', () => {
   assert.strictEqual(FAA.normalizarInformeEntregable({}).resumenEjecutivo, '')
 })
 
+grupo('Video interactivo con IA (etapa 1)')
+const VI = await import('../src/utils/videoInteractivo.js')
+const { EVALUACION_DEFAULTS: ED } = await import('../src/utils/evaluacionDefaults.js')
+const VI_CJS = require('../functions/_shared/videoInteractivo.js')
+
+caso('video: reconoce la modalidad sin tocar cuestionarios ni exámenes existentes', () => {
+  assert.strictEqual(VI.esVideoInteractivo({ tipo: 'evaluacion', modalidad: 'video_interactivo', categoria: 'cuestionario' }), true)
+  assert.strictEqual(VI.esVideoInteractivo({ tipo: 'evaluacion', categoria: 'cuestionario' }), false)
+  assert.strictEqual(VI.esVideoInteractivo({ tipo: 'evaluacion', categoria: 'examen' }), false)
+  assert.strictEqual(VI.esVideoInteractivo({ tipo: 'juego', modalidad: 'video_interactivo' }), false)
+  assert.strictEqual(VI.esVideoInteractivo(null), false)
+})
+
+caso('video: URLs de YouTube válidas se reducen al id; lo demás se rechaza', () => {
+  const id = 'dQw4w9WgXcQ'
+  for (const u of [`https://www.youtube.com/watch?v=${id}&t=30s`, `https://youtu.be/${id}?si=x`, `https://m.youtube.com/watch?v=${id}`,
+    `https://www.youtube.com/embed/${id}`, `https://www.youtube.com/shorts/${id}`, `  https://youtube.com/watch?v=${id}  `]) {
+    assert.strictEqual(VI.extraerVideoIdYouTube(u), id, u)
+  }
+  for (const u of ['', null, 'hola', `https://evil.com/watch?v=${id}`, `https://youtube.com.evil.com/watch?v=${id}`,
+    'https://www.youtube.com/watch?v=corto', 'https://www.youtube.com/', `javascript:alert(1)//youtu.be/${id}`, `ftp://youtu.be/${id}`]) {
+    assert.strictEqual(VI.extraerVideoIdYouTube(u), null, String(u))
+  }
+  assert.strictEqual(VI.urlCanonicaYouTube(id), `https://www.youtube.com/watch?v=${id}`)
+})
+
+caso('video: 2 créditos por pregunta generada (5→10, 10→20, 15→30, 20→40)', () => {
+  assert.deepStrictEqual([5, 10, 15, 20].map(VI.costoGeneracionVideo), [10, 20, 30, 40])
+  assert.strictEqual(VI.costoGeneracionVideo(0), 0)
+  assert.strictEqual(VI.costoGeneracionVideo('10'), 0, 'un string del cliente no cuenta como número')
+})
+
+caso('video: la distribución se valida y el costo sale del total real', () => {
+  const ok = VI.validarDistribucionVideo({ vf: 4, om: 4, abiertas: 2 })
+  assert.strictEqual(ok.ok, true); assert.strictEqual(ok.total, 10); assert.strictEqual(ok.creditos, 20)
+  assert.deepStrictEqual(ok.distribucion, { vf: 4, om: 4, abiertas: 2 })
+  assert.strictEqual(VI.validarDistribucionVideo({ vf: 0, om: 0, abiertas: 0 }).ok, false)
+  assert.strictEqual(VI.validarDistribucionVideo({ vf: 21, om: 0, abiertas: 0 }).ok, false)
+  assert.strictEqual(VI.validarDistribucionVideo({ vf: 20, om: 0, abiertas: 0 }).ok, true)
+  assert.strictEqual(VI.validarDistribucionVideo({ vf: -1, om: 5, abiertas: 0 }).ok, false)
+  assert.strictEqual(VI.validarDistribucionVideo({ vf: 1.5, om: 5, abiertas: 0 }).ok, false)
+  assert.strictEqual(VI.validarDistribucionVideo({ vf: '4', om: 4, abiertas: 2 }).ok, false)
+  assert.strictEqual(VI.validarDistribucionVideo({}).ok, false)
+})
+
+caso('video: solo las preguntas aprobadas (o sin estado, de siempre) forman la actividad', () => {
+  const ps = [{ id: 'a' }, { id: 'b', estado: 'aprobada' }, { id: 'c', estado: 'propuesta' }, { id: 'd', estado: 'rechazada' }]
+  assert.deepStrictEqual(VI.preguntasAprobadas(ps).map((p) => p.id), ['a', 'b'])
+  assert.deepStrictEqual(VI.preguntasAprobadas(undefined), [])
+})
+
+caso('video: timestamps enteros, no negativos y dentro de la duración', () => {
+  assert.strictEqual(VI.timestampValido(0), true); assert.strictEqual(VI.timestampValido(95, 100), true)
+  assert.strictEqual(VI.timestampValido(101, 100), false); assert.strictEqual(VI.timestampValido(-1), false)
+  assert.strictEqual(VI.timestampValido(1.5), false); assert.strictEqual(VI.timestampValido('5'), false)
+})
+
+caso('video: estructura inicial sin video almacenado y con defaults de cuestionario', () => {
+  const v = VI.crearVideoInteractivoInicial('https://youtu.be/dQw4w9WgXcQ')
+  assert.strictEqual(v.proveedor, 'youtube'); assert.strictEqual(v.videoId, 'dQw4w9WgXcQ')
+  assert.strictEqual(v.generacion.creditosCobrados, 0)
+  assert.ok(!/cloudinary|blob|storage/i.test(JSON.stringify(v)))
+  assert.strictEqual(VI.crearVideoInteractivoInicial('https://evil.com/x'), null)
+  // misma forma de configuración que un cuestionario: mismas llaves, nada extra
+  assert.deepStrictEqual(Object.keys(ED.video_interactivo).sort(), Object.keys(ED.cuestionario).sort())
+  // y los defaults existentes quedaron intactos
+  assert.strictEqual(ED.cuestionario.navegacion, 'libre'); assert.strictEqual(ED.examen.intentosPermitidos, 1)
+})
+
+caso('video: la copia de Cloud Functions coincide con la del cliente', () => {
+  assert.strictEqual(VI_CJS.costoGeneracionVideo(7), VI.costoGeneracionVideo(7))
+  assert.strictEqual(VI_CJS.extraerVideoIdYouTube('https://youtu.be/dQw4w9WgXcQ'), 'dQw4w9WgXcQ')
+  assert.deepStrictEqual(Object.keys(VI_CJS).sort(), Object.keys(VI).sort())
+})
+
+grupo('Video interactivo con IA — extractor de contenido con Gemini y generación (todo con mocks: sin llamadas reales)')
+const EX = require('../functions/extraccionVideoGemini.js')
+const EXP = EX._pruebas
+const VIA = require('../functions/videoInteractivoIA.js')._pruebas
+const CLAVE_FALSA = 'zzt-clave-falsa-' + 'k'.repeat(30)
+const URL_VIDEO = 'https://youtu.be/dQw4w9WgXcQ'
+const falla = (fn) => fn().then(() => null, (e) => e)
+
+// Una respuesta de Gemini con segmentos [m:ss] cada `paso` segundos.
+const segs = (n = 20, paso = 15) => Array.from({ length: n }, (_, i) => `[${Math.floor((i * paso) / 60)}:${String((i * paso) % 60).padStart(2, '0')}] Se explica el concepto número ${i + 1} con un ejemplo concreto del tema y sus consecuencias.`).join('\n')
+const textoGemini = ({ n = 20, paso = 15, habla = 'si', dur = '5:00', idioma = 'es' } = {}) => `IDIOMA: ${idioma}\nHABLA: ${habla}\nDURACION: ${dur}\n${segs(n, paso)}`
+const respOk = (texto, tokensVideo = 27000) => ({ ok: true, status: 200, json: async () => ({
+  candidates: [{ content: { parts: [{ text: texto }] }, finishReason: 'STOP' }],
+  usageMetadata: { promptTokenCount: tokensVideo + 300, candidatesTokenCount: 900, thoughtsTokenCount: 0, promptTokensDetails: [{ modality: 'VIDEO', tokenCount: tokensVideo }, { modality: 'TEXT', tokenCount: 300 }] },
+}) })
+const respError = (status, message) => ({ ok: false, status, json: async () => ({ error: { code: status, message, status: 'X' } }) })
+// fetch falso: cada llamada toma el siguiente paso (el último se repite).
+function falsoGemini(...pasos) {
+  const llamadas = []
+  const f = async (url, opts) => {
+    llamadas.push({ url: String(url), opts })
+    const p = pasos[Math.min(llamadas.length - 1, pasos.length - 1)]
+    return typeof p === 'function' ? p(opts) : p
+  }
+  f.llamadas = llamadas
+  return f
+}
+async function conGemini(f, fn, { clave = CLAVE_FALSA } = {}) {
+  const real = globalThis.fetch
+  const antes = process.env.GEMINI_API_KEY
+  globalThis.fetch = f
+  if (clave === null) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = clave
+  try { return await fn() } finally {
+    globalThis.fetch = real
+    if (antes === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = antes
+    EXP.restaurar()
+  }
+}
+const sinEsperas = () => { const esperas = []; return { esperas, dormir: async (ms) => { esperas.push(ms) } } }
+
+caso('extractor · lectura de la respuesta: marcas [m:ss], [h:mm:ss], rangos, viñetas, negritas, continuaciones y encabezados', () => {
+  const p = EXP.parsearRespuesta([
+    'IDIOMA: es', 'HABLA: sí', 'DURACION: 1:05:00',
+    '[00:12] Primer tramo.', '* **[1:02:05]** Tramo de más de una hora.', '[00:40-01:10] Con rango.', 'sigue la misma idea en otra línea',
+    '[00:12] Misma marca que la primera.', 'texto basura sin marca antes de nada útil', '[xx:yy] no es una marca', '[00:50]',
+  ].join('\n'))
+  assert.deepStrictEqual(p.segmentos.map((s) => s.inicioSeg), [12, 40, 3725])
+  assert.ok(p.segmentos[0].texto.includes('Primer tramo.') && p.segmentos[0].texto.includes('Misma marca'), 'misma marca = un solo segmento')
+  assert.ok(p.segmentos[1].texto.includes('Con rango.') && p.segmentos[1].texto.includes('sigue la misma idea'), 'la línea sin marca continúa el segmento anterior')
+  assert.deepStrictEqual([p.idioma, p.habla, p.duracionDeclaradaSeg], ['es', true, 3900])
+  assert.deepStrictEqual(EXP.parsearRespuesta('No puedo acceder al video.').segmentos, [])
+  assert.deepStrictEqual(EXP.parsearRespuesta('').segmentos, [])
+  assert.strictEqual(EXP.parsearRespuesta('IDIOMA: ninguno\nHABLA: no\n[0:00] Un conejo.').habla, false)
+})
+
+caso('extractor · duración: se contrasta lo que dice Gemini con los tokens de video; nunca es menor que la última marca', () => {
+  const d = (declaradaSeg, tokensVideo, ultimaMarcaSeg) => EXP.resolverDuracion({ declaradaSeg, tokensVideo, ultimaMarcaSeg })
+  assert.deepStrictEqual(d(300, 27000, 285), { duracionSeg: 300, duracionFuente: 'declarada_por_gemini', duracionConfiable: true })
+  assert.deepStrictEqual(d(300, 27900, 285), { duracionSeg: 300, duracionFuente: 'declarada_por_gemini', duracionConfiable: true }, 'dentro de ±10 %')
+  assert.deepStrictEqual(d(900, 27000, 285), { duracionSeg: 300, duracionFuente: 'estimada_por_tokens', duracionConfiable: false }, 'discrepan → manda la de tokens')
+  assert.deepStrictEqual(d(null, 27000, 285), { duracionSeg: 300, duracionFuente: 'estimada_por_tokens', duracionConfiable: false })
+  assert.deepStrictEqual(d(300, 0, 285), { duracionSeg: 300, duracionFuente: 'declarada_por_gemini', duracionConfiable: false })
+  assert.deepStrictEqual(d(null, 0, 285), { duracionSeg: 285, duracionFuente: 'ultima_marca', duracionConfiable: false })
+  assert.strictEqual(d(120, 10800, 400).duracionSeg, 120, 'una marca más allá del final no alarga el video (se descarta aparte)')
+})
+
+await caso('extractor · video público: segmentos con marcas de tiempo, contrato completo y petición bien formada', async () => {
+  const f = falsoGemini(respOk(textoGemini()))
+  const c = await conGemini(f, () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.strictEqual(f.llamadas.length, 1)
+  assert.strictEqual(c.videoId, 'dQw4w9WgXcQ'); assert.strictEqual(c.fuente, 'gemini'); assert.strictEqual(c.modelo, 'gemini-3.5-flash-lite')
+  assert.strictEqual(c.segmentos.length, 20); assert.deepStrictEqual(c.segmentos.slice(0, 3).map((s) => s.inicioSeg), [0, 15, 30])
+  assert.ok(c.texto.startsWith('[0:00] Se explica el concepto número 1') && c.texto.includes('\n[4:45] '), 'texto con minutos para el prompt de Haiku')
+  assert.deepStrictEqual([c.duracionSeg, c.duracionConfiable, c.duracionFuente], [300, true, 'declarada_por_gemini'])
+  assert.deepStrictEqual([c.habla, c.idioma, c.titulo], [true, 'es', null])
+  assert.deepStrictEqual([c.cobertura.primeraMarcaSeg, c.cobertura.ultimaMarcaSeg, c.cobertura.proporcion], [0, 285, 0.95])
+  assert.deepStrictEqual([c.uso.tokensEntrada, c.uso.tokensVideo, c.uso.tokensSalida, c.uso.intentos], [27300, 27000, 900, 1])
+  assert.strictEqual(c.descartados, 0)
+  // la petición: URL pública canónica, clave SOLO en la cabecera, sin pedir preguntas
+  const { url, opts } = f.llamadas[0]
+  const cuerpo = JSON.parse(opts.body)
+  assert.ok(url.startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent'))
+  assert.ok(!url.includes(CLAVE_FALSA) && !opts.body.includes(CLAVE_FALSA), 'la clave no va en la URL ni en el cuerpo')
+  assert.strictEqual(opts.headers['x-goog-api-key'], CLAVE_FALSA)
+  assert.strictEqual(cuerpo.contents[0].parts[0].fileData.fileUri, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+  assert.ok(/NO escribas preguntas/.test(cuerpo.contents[0].parts[1].text), 'Gemini no genera preguntas')
+})
+
+await caso('extractor · video en español: conserva acentos y ñ, idioma y habla', async () => {
+  const texto = 'IDIOMA: es\nHABLA: si\nDURACION: 0:40\n[0:00] La fotosíntesis convierte la luz en energía química: ocurre en los cloroplastos de la planta.\n[0:20] El niño explica cómo la clorofila absorbe luz roja y azul, no verde.'
+  const c = await conGemini(falsoGemini(respOk(texto, 3600)), () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.ok(c.segmentos[0].texto.includes('fotosíntesis') && c.segmentos[0].texto.includes('energía') && c.segmentos[1].texto.includes('niño'))
+  assert.deepStrictEqual([c.idioma, c.habla, c.duracionSeg], ['es', true, 40])
+})
+
+await caso('extractor · 503 y luego éxito: espera creciente entre intentos, sin esperas reales en la prueba', async () => {
+  const e = sinEsperas()
+  const f = falsoGemini(respError(503, 'high demand'), respError(503, 'high demand'), respOk(textoGemini()))
+  const c = await conGemini(f, () => EX.extraerContenidoVideo(URL_VIDEO, { dormir: e.dormir }))
+  assert.strictEqual(f.llamadas.length, 3); assert.strictEqual(c.uso.intentos, 3)
+  assert.deepStrictEqual(e.esperas, [5000, 15000], 'la espera crece')
+  const g = falsoGemini(respError(500, 'x'), respOk(textoGemini()))
+  assert.strictEqual((await conGemini(g, () => EX.extraerContenidoVideo(URL_VIDEO, { dormir: sinEsperas().dormir }))).uso.intentos, 2, 'también se reintenta un 500')
+})
+
+await caso('extractor · reintentos agotados: error TRANSITORIO («intenta de nuevo»), nunca «video no apto»; máx. 3 llamadas', async () => {
+  const f = falsoGemini(respError(503, 'high demand'))
+  const e = await conGemini(f, () => falla(() => EX.extraerContenidoVideo(URL_VIDEO, { dormir: sinEsperas().dormir })))
+  assert.ok(e instanceof EX.ErrorExtraccion)
+  assert.deepStrictEqual([e.codigo, e.transitorio, f.llamadas.length], ['EXTRACCION_NO_DISPONIBLE', true, 3])
+  assert.strictEqual(e.detalle.intentos, 3)
+  assert.ok(/saturado/.test(e.message) && !/privado|no listado|no es público/i.test(e.message))
+  const g = falsoGemini(respError(429, 'quota'))
+  assert.strictEqual((await conGemini(g, () => falla(() => EX.extraerContenidoVideo(URL_VIDEO, { dormir: sinEsperas().dormir })))).codigo, 'EXTRACCION_NO_DISPONIBLE', '429 también es temporal')
+})
+
+await caso('extractor · timeout de la llamada: reintenta y, si persiste, EXTRACCION_TIEMPO_AGOTADO (transitorio)', async () => {
+  const colgado = (opts) => new Promise((_, rechazar) => { opts.signal.addEventListener('abort', () => rechazar(opts.signal.reason)) })
+  const f = falsoGemini(colgado)
+  EXP.sobreescribir({ timeoutLlamadaMs: 30, esperasMs: [1, 1] })
+  const t0 = Date.now()
+  const e = await conGemini(f, () => falla(() => EX.extraerContenidoVideo(URL_VIDEO)))
+  assert.deepStrictEqual([e.codigo, e.transitorio, f.llamadas.length], ['EXTRACCION_TIEMPO_AGOTADO', true, 3])
+  assert.ok(Date.now() - t0 < 3000)
+  // y un timeout seguido de éxito se recupera
+  EXP.sobreescribir({ timeoutLlamadaMs: 30, esperasMs: [1, 1] })
+  const g = falsoGemini(colgado, respOk(textoGemini()))
+  assert.strictEqual((await conGemini(g, () => EX.extraerContenidoVideo(URL_VIDEO))).uso.intentos, 2)
+})
+
+await caso('extractor · presupuesto total de tiempo: no se inicia otro intento si ya no alcanza (la Cloud Function tiene 300 s)', async () => {
+  let t = 0
+  const f = falsoGemini(respError(503, 'x'))
+  const e = await conGemini(f, () => falla(() => EX.extraerContenidoVideo(URL_VIDEO, { dormir: sinEsperas().dormir, ahora: () => (t += 70000) })))
+  assert.strictEqual(e.codigo, 'EXTRACCION_NO_DISPONIBLE'); assert.ok(f.llamadas.length < 3, `intentos: ${f.llamadas.length}`)
+  assert.strictEqual(EXP.DEFAULTS.presupuestoTotalMs, 150000)
+  assert.ok(EXP.DEFAULTS.presupuestoTotalMs + 60000 < 300000, 'deja margen a Haiku dentro de los 300 s')
+})
+
+await caso('extractor · sin credencial (o mal formada): error controlado ANTES de cualquier llamada, sin filtrar nada', async () => {
+  for (const clave of [null, '', '   ', 'corta', `con espacio ${'x'.repeat(30)}`, `salto\n${'x'.repeat(30)}`]) {
+    const f = falsoGemini(respOk(textoGemini()))
+    const e = await conGemini(f, () => falla(() => EX.extraerContenidoVideo(URL_VIDEO)), { clave })
+    assert.deepStrictEqual([e?.codigo, e?.transitorio, f.llamadas.length], ['GEMINI_NO_CONFIGURADO', false, 0], JSON.stringify(clave))
+    assert.ok(!e.message.includes('GEMINI_API_KEY') && /administrador/.test(e.message), 'el docente no ve detalles de configuración')
+  }
+})
+
+await caso('extractor · URL inválida: se rechaza sin llamar a Gemini', async () => {
+  for (const url of ['', null, 'hola', 'https://evil.example.com/watch?v=dQw4w9WgXcQ', 'https://www.youtube.com/watch?v=corto']) {
+    const f = falsoGemini(respOk(textoGemini()))
+    const e = await conGemini(f, () => falla(() => EX.extraerContenidoVideo(url)))
+    assert.deepStrictEqual([e.codigo, f.llamadas.length], ['URL_INVALIDA', 0], String(url))
+  }
+})
+
+await caso('extractor · errores PERMANENTES: una sola llamada, sin reintentos, con su código', async () => {
+  const casos = [
+    [respError(400, 'API key not valid. Please pass a valid API key.'), 'GEMINI_AUTENTICACION'],
+    [respError(401, 'unauthenticated'), 'GEMINI_AUTENTICACION'],
+    [respError(403, 'The caller does not have permission'), 'GEMINI_AUTENTICACION'],
+    [respError(402, 'Your prepayment credits are depleted.'), 'GEMINI_AUTENTICACION'],
+    [respError(400, 'Failed to fetch the YouTube video: it is private'), 'VIDEO_INACCESIBLE'],
+    [respError(403, 'Video unavailable or not accessible'), 'VIDEO_INACCESIBLE'],
+    [respError(400, 'Request contains an invalid argument.'), 'SOLICITUD_RECHAZADA'],
+    [respError(404, 'models/gemini-xyz is not found for API version v1beta'), 'SOLICITUD_RECHAZADA'],
+    [{ ok: true, status: 200, json: async () => ({ promptFeedback: { blockReason: 'SAFETY' } }) }, 'CONTENIDO_BLOQUEADO'],
+    [{ ok: true, status: 200, json: async () => ({ candidates: [{ finishReason: 'PROHIBITED_CONTENT' }] }) }, 'CONTENIDO_BLOQUEADO'],
+  ]
+  for (const [resp, codigo] of casos) {
+    const f = falsoGemini(resp)
+    const e = await conGemini(f, () => falla(() => EX.extraerContenidoVideo(URL_VIDEO, { dormir: sinEsperas().dormir })))
+    assert.deepStrictEqual([e.codigo, e.transitorio, f.llamadas.length], [codigo, false, 1], codigo)
+    assert.ok(!JSON.stringify([e.message, e.detalle]).includes(CLAVE_FALSA))
+  }
+})
+
+await caso('extractor · respuesta vacía o sin marcas de tiempo: se reintenta y, si persiste, RESPUESTA_INVALIDA (no «video no apto»)', async () => {
+  for (const resp of [respOk(''), respOk('No puedo acceder al contenido de este video.'), { ok: true, status: 200, json: async () => { throw new Error('json') } },
+    { ok: true, status: 200, json: async () => ({ candidates: [{ finishReason: 'STOP' }] }) }]) {
+    const f = falsoGemini(resp)
+    const e = await conGemini(f, () => falla(() => EX.extraerContenidoVideo(URL_VIDEO, { dormir: sinEsperas().dormir })))
+    assert.deepStrictEqual([e.codigo, e.transitorio, f.llamadas.length], ['RESPUESTA_INVALIDA', true, 3])
+  }
+})
+
+await caso('extractor · marcas fuera del video se descartan (no se inventan ni se «corrigen»)', async () => {
+  const texto = 'IDIOMA: es\nHABLA: si\nDURACION: 1:00\n[0:10] Tramo uno con contenido suficiente para ser útil.\n[0:30] Tramo dos con contenido suficiente para ser útil.\n[8:20] Una marca imposible en un video de un minuto.'
+  const c = await conGemini(falsoGemini(respOk(texto, 5400)), () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.deepStrictEqual(c.segmentos.map((s) => s.inicioSeg), [10, 30]); assert.strictEqual(c.descartados, 1)
+  const todo = 'IDIOMA: es\nHABLA: si\nDURACION: 1:00\n[9:00] Fuera.\n[9:30] También fuera.'
+  const e = await conGemini(falsoGemini(respOk(todo, 5400)), () => falla(() => EX.extraerContenidoVideo(URL_VIDEO, { dormir: sinEsperas().dormir })))
+  assert.ok(e.codigo === 'RESPUESTA_INVALIDA' || e.codigo === 'EXTRACCION_NO_DISPONIBLE', e.codigo)
+})
+
+caso('extractor · suficiencia: depende de segmentos, densidad y cobertura — no de un mínimo fijo de caracteres', () => {
+  const seg = (t, n = 100) => ({ inicioSeg: t, texto: 'x'.repeat(n) })
+  const mk = (segmentos, duracionSeg = 300) => {
+    const u = segmentos[0]?.inicioSeg ?? 0; const l = segmentos[segmentos.length - 1]?.inicioSeg ?? 0
+    return { segmentos, duracionSeg, cobertura: { proporcion: duracionSeg ? Math.min(1, (l - u) / duracionSeg) : 0 } }
+  }
+  // un video de 19 s con UN segmento de ~100 caracteres alcanza para 1 pregunta (con un mínimo de 600 no habría pasado)
+  const corto = mk([seg(0, 103)], 19)
+  assert.strictEqual(EX.evaluarSuficiencia(corto, 1).suficiente, true)
+  assert.strictEqual(EX.evaluarSuficiencia(corto, 10).suficiente, false)
+  assert.strictEqual(EX.evaluarSuficiencia(corto, 10).maximoPreguntas, 2)
+  // 20 segmentos bien cubiertos: alcanza para 20
+  const rico = mk(Array.from({ length: 20 }, (_, i) => seg(i * 15, 100)))
+  assert.deepStrictEqual([EX.evaluarSuficiencia(rico, 20).suficiente, EX.evaluarSuficiencia(rico, 20).maximoPreguntas], [true, 20])
+  // pocos segmentos o poca densidad
+  assert.strictEqual(EX.evaluarSuficiencia(mk([seg(0, 100), seg(60, 100), seg(120, 100)]), 8).suficiente, false)
+  assert.strictEqual(EX.evaluarSuficiencia(mk(Array.from({ length: 10 }, (_, i) => seg(i * 20, 22))), 10).suficiente, false)
+  // segmentos casi vacíos no cuentan
+  assert.strictEqual(EX.evaluarSuficiencia(mk([seg(0, 5), seg(10, 8), seg(20, 3)]), 1).suficiente, false)
+  // cobertura: 10 segmentos solo en el primer 30 % de un video de 10 minutos → no para 5 preguntas, sí para 2
+  const parcial = mk(Array.from({ length: 10 }, (_, i) => seg(i * 18, 100)), 600)
+  assert.deepStrictEqual([EX.evaluarSuficiencia(parcial, 5).suficiente, EX.evaluarSuficiencia(parcial, 5).motivo], [false, 'COBERTURA_BAJA'])
+  assert.strictEqual(EX.evaluarSuficiencia(parcial, 2).suficiente, true)
+  // el error trae un mensaje útil para el docente y no es transitorio
+  const e = (() => { try { EX.exigirSuficiencia(corto, 10) } catch (x) { return x } return null })()
+  assert.deepStrictEqual([e.codigo, e.transitorio], ['CONTENIDO_INSUFICIENTE', false])
+  assert.ok(/unas 2 preguntas/.test(e.message) && /pediste 10/.test(e.message))
+})
+
+caso('extractor · compatibilidad con la operación de preguntas: el contrato llega completo al prompt de Haiku', async () => {
+  const c = await conGemini(falsoGemini(respOk(textoGemini())), () => EX.extraerContenidoVideo(URL_VIDEO))
+  const prompt = VIA.promptPreguntasVideo({ asignatura: 'Informática', contenido: c }, { verdadero_falso: 2, opcion_multiple: 2, respuesta_corta: 1 }, [])
+  assert.ok(prompt.includes(c.texto) && prompt.includes('[4:45]'), 'viajan los segmentos con su minuto')
+  assert.ok(prompt.includes('entre 0 y 300') && /NO una transcripción literal/.test(prompt))
+  assert.ok(!/NO tiene habla/.test(prompt))
+  const mudo = VIA.promptPreguntasVideo({ asignatura: 'X', contenido: { ...c, habla: false } }, { verdadero_falso: 1, opcion_multiple: 0, respuesta_corta: 0 }, [])
+  assert.ok(/NO tiene habla/.test(mudo), 'si el video no tiene habla se le dice a Haiku')
+  assert.ok(/no es una transcripción literal/.test(VIA.SISTEMA))
+})
+
+caso('extractor · el mecanismo antiguo de YouTube ya no existe ni como ruta alternativa', () => {
+  assert.throws(() => require.resolve('../functions/transcripcionYouTube.js'))
+  for (const f of ['extraccionVideoGemini.js', 'videoInteractivoIA.js', 'ia.js', 'index.js']) {
+    const src = readFileSync(new globalThis.URL(`../functions/${f}`, import.meta.url), 'utf8')
+    assert.ok(!/youtubei|timedtext|transcripcionYouTube|obtenerTranscripcion|captionTracks/.test(src), `${f} aún menciona el mecanismo antiguo`)
+  }
+  const ext = readFileSync(new globalThis.URL('../functions/extraccionVideoGemini.js', import.meta.url), 'utf8')
+  assert.ok(!/AIza[0-9A-Za-z_-]{20,}/.test(ext), 'ninguna clave en el código')
+  assert.ok(!/process\.env\.GEMINI_API_KEY[^)]*(console|logger)/.test(ext))
+})
+
+caso('extractor · el secreto GEMINI_API_KEY se enlaza SOLO a ejecutarOperacionIA; la clave no sale del entorno', () => {
+  process.env.GCLOUD_PROJECT ||= 'demo-test'
+  const llaves = (f) => (f.__endpoint?.secretEnvironmentVariables || []).map((v) => v.key).sort()
+  const ia = require('../functions/ia.js')
+  assert.deepStrictEqual(llaves(ia.ejecutarOperacionIA), ['ANTHROPIC_API_KEY_PROD', 'GEMINI_API_KEY'])
+  assert.deepStrictEqual(llaves(ia.ejecutarPlaneacionIA), ['ANTHROPIC_API_KEY_PROD'], 'la planeación larga no recibe Gemini')
+  assert.deepStrictEqual(llaves(require('../functions/adminChat.js').chatAdmin), ['ANTHROPIC_API_KEY_PROD'], 'el chat de admin no recibe Gemini')
+  assert.strictEqual(ia.ejecutarOperacionIA.__endpoint.timeoutSeconds, 300, 'el tiempo de la función no cambió')
+  // La clave solo se lee en el extractor (como variable de entorno): ningún otro archivo la toca.
+  for (const f of ['ia.js', 'videoInteractivoIA.js', 'index.js']) {
+    const src = readFileSync(new globalThis.URL(`../functions/${f}`, import.meta.url), 'utf8')
+    assert.ok(!/GEMINI_API_KEY\.value\(\)|process\.env\.GEMINI_API_KEY/.test(src), `${f} no debe leer la clave`)
+  }
+  const ext = readFileSync(new globalThis.URL('../functions/extraccionVideoGemini.js', import.meta.url), 'utf8')
+  assert.strictEqual((ext.match(/process\.env\.GEMINI_API_KEY/g) || []).length, 1, 'una sola lectura de la clave, en leerClave()')
+})
+
+const CTX_VIDEO = { asignatura: 'Informática', contenido: { duracionSeg: 300, texto: '[0:00] hola', habla: true } }
+const preg = (o) => ({ tipo: 'verdadero_falso', enunciado: 'Enunciado 1', timestampSeg: 30, correcta: 'v', retroalimentacion: 'Porque sí.', ...o })
+
+caso('generación: el prompt lleva la distribución exacta, el tope de tiempo y trata la transcripción como dato', () => {
+  const p = VIA.promptPreguntasVideo(CTX_VIDEO, { verdadero_falso: 4, opcion_multiple: 4, respuesta_corta: 2 }, [])
+  assert.ok(p.includes('EXACTAMENTE 10 preguntas'))
+  assert.ok(p.includes('4 × verdadero_falso') && p.includes('4 × opcion_multiple') && p.includes('2 × respuesta_corta'))
+  assert.ok(p.includes('entre 0 y 300'))
+  assert.ok(/no instrucciones/i.test(p) && /ignórala/.test(VIA.SISTEMA))
+  assert.ok(!p.includes('YA PROPUESTAS'))
+  assert.ok(VIA.promptPreguntasVideo(CTX_VIDEO, { verdadero_falso: 1, opcion_multiple: 0, respuesta_corta: 0 }, ['Algo previo']).includes('"Algo previo"'))
+})
+
+caso('generación: acepta lo válido y descarta lo que no cumple (tipo, tiempo, opciones, clave, duplicados)', () => {
+  const restante = { verdadero_falso: 2, opcion_multiple: 1, respuesta_corta: 1 }
+  const om = (o) => ({ tipo: 'opcion_multiple', enunciado: 'OM', timestampSeg: 60, opciones: ['a', 'b', 'c', 'd'], correcta: 2, ...o })
+  const crudas = { preguntas: [
+    preg({ enunciado: 'VF buena' }),
+    preg({ enunciado: 'VF fuera de tiempo', timestampSeg: 999 }),
+    preg({ enunciado: 'VF sin tiempo', timestampSeg: undefined }),
+    preg({ enunciado: 'VF negativa', timestampSeg: -4 }),
+    preg({ enunciado: 'VF sin clave', correcta: 'tal vez' }),
+    preg({ enunciado: 'vf BUENA' }), // duplicada de la primera
+    om({ enunciado: 'OM 3 opciones', opciones: ['a', 'b', 'c'] }),
+    om({ enunciado: 'OM repetidas', opciones: ['a', 'a', 'b', 'c'] }),
+    om({ enunciado: 'OM clave 9', correcta: 9 }),
+    om({ enunciado: 'OM buena', correcta: '3' }),
+    { tipo: 'subir_archivo', enunciado: 'tipo no permitido', timestampSeg: 10 },
+    { tipo: 'respuesta_corta', enunciado: 'Abierta', timestampSeg: 120, correcta: 'x', retroalimentacion: 'Debe mencionar X.' },
+    preg({ enunciado: 'VF segunda', timestampSeg: 302 }), // dentro de la tolerancia de 2 s → se ajusta al final
+    preg({ enunciado: 'VF de más', timestampSeg: 5 }), // ya no caben más VF
+  ] }
+  const r = VIA.normalizarPreguntasVideo(crudas, { restante, duracionSeg: 300 })
+  assert.deepStrictEqual(r.preguntas.map((q) => q.enunciado), ['VF buena', 'OM buena', 'Abierta', 'VF segunda'])
+  assert.deepStrictEqual(r.faltan, { verdadero_falso: 0, opcion_multiple: 0, respuesta_corta: 0 })
+  assert.strictEqual(r.preguntas[3].timestampSeg, 300)
+  assert.strictEqual(r.preguntas[1].correcta, 3)
+  // basura total: nada aceptado, todo sigue faltando
+  for (const basura of [null, {}, { preguntas: 'x' }, { preguntas: [null, 1, 'a'] }]) {
+    const b = VIA.normalizarPreguntasVideo(basura, { restante, duracionSeg: 300 })
+    assert.strictEqual(b.preguntas.length, 0); assert.deepStrictEqual(b.faltan, restante)
+  }
+  // lo ya propuesto antes cuenta como duplicado
+  assert.strictEqual(VIA.normalizarPreguntasVideo({ preguntas: [preg({ enunciado: 'Ya existía' })] }, { restante, duracionSeg: 300, enunciadosPrevios: ['ya existía'] }).preguntas.length, 0)
+})
+
+caso('generación: toda pregunta sale como «propuesta» de origen IA; la abierta no trae respuesta correcta automática', () => {
+  const [vf, om, ab] = [
+    { tipo: 'verdadero_falso', enunciado: 'a', timestampSeg: 1, retroalimentacion: 'r', correcta: 'f' },
+    { tipo: 'opcion_multiple', enunciado: 'b', timestampSeg: 2, retroalimentacion: null, opciones: ['w', 'x', 'y', 'z'], correcta: 1 },
+    { tipo: 'respuesta_corta', enunciado: 'c', timestampSeg: 3, retroalimentacion: 'guía' },
+  ].map(VIA.aPropuesta)
+  for (const q of [vf, om, ab]) { assert.strictEqual(q.estado, 'propuesta'); assert.strictEqual(q.origen, 'ia') }
+  assert.strictEqual(vf.respuestaCorrecta, 'f'); assert.deepStrictEqual(vf.opciones.map((o) => o.id), ['v', 'f'])
+  assert.strictEqual(om.opciones.length, 4); assert.strictEqual(om.respuestaCorrecta, om.opciones[1].id)
+  assert.strictEqual(ab.respuestaCorrecta, null); assert.strictEqual(ab.opciones, null); assert.strictEqual(ab.retroalimentacion, 'guía')
+  assert.ok(!/undefined/.test(JSON.stringify([vf, om, ab])), 'ningún campo undefined (Firestore lo rechaza)')
+  assert.deepStrictEqual(VIA.sanearYaGeneradas(['  a  b ', 5, '', null, 'x'.repeat(500)]).map((x) => x.length), [3, 300])
+})
+
+grupo('Video interactivo · runner del estudiante (lógica pura de compuertas, avance, saltos y reanudación)')
+const VP = await import('../src/utils/videoProgreso.js')
+const q = (id, ts, orden) => ({ id, timestampSeg: ts, orden })
+const nadaRespondido = () => false
+const respondidas = (...ids) => { const s = new Set(ids); return (p) => s.has(p.id) }
+// Simula `n` lecturas del sondeo, una cada 250 ms, avanzando `paso` s por lectura.
+function reproducir(estado, n, { desde, paso = 0.25, ...resto }) {
+  let e = estado
+  let pos = desde
+  let t = e.ultimoT ?? 1000
+  const eventos = []
+  for (let i = 0; i < n; i += 1) {
+    pos += paso
+    t += 250
+    const r = VP.tick(e, { pos, ahora: t, jugando: true, visible: true, ...resto })
+    eventos.push(r)
+    e = { maxVisto: r.maxVisto, ultimaPos: r.ultimaPos, ultimoT: r.ultimoT }
+    if (r.accion !== 'nada') break
+    pos = r.ultimaPos
+  }
+  return { estado: e, eventos, ultimo: eventos[eventos.length - 1] }
+}
+const E0 = { maxVisto: 0, ultimaPos: 0, ultimoT: 1000 }
+
+caso('video · orden: por segundo, empate por `orden` y luego id; sin segundo válido va al final y nada se pierde', () => {
+  const o = VP.ordenarPreguntasVideo([q('c', 50, 1), q('a', 10, 2), q('b', 10, 1), q('x', null, 0), q('y', 'abc', 9), q('n', -4, 3), q('z', 999, 4)], 100)
+  assert.deepStrictEqual(o.map((p) => p.id), ['b', 'a', 'c', 'x', 'n', 'z', 'y'])
+  assert.deepStrictEqual(o.map((p) => p.timestampSeg), [10, 10, 50, 100, 100, 100, 100], 'sin segundo válido o pasado de la duración → al final del video')
+  const entrada = [q('b', 5), q('a', 5)]
+  const copia = JSON.stringify(entrada)
+  VP.ordenarPreguntasVideo(entrada, 60)
+  assert.strictEqual(JSON.stringify(entrada), copia, 'no muta lo que recibe')
+  assert.deepStrictEqual(VP.ordenarPreguntasVideo([], 60), [])
+  assert.deepStrictEqual(VP.ordenarPreguntasVideo(undefined, 60), [])
+})
+
+caso('video · pregunta en el segundo 0: se contesta ANTES de reproducir y no vuelve a salir', () => {
+  const ord = VP.ordenarPreguntasVideo([q('p0', 0), q('p1', 40)], 100)
+  assert.strictEqual(VP.antesDeReproducir(ord, nadaRespondido, 0)?.id, 'p0')
+  assert.strictEqual(VP.antesDeReproducir(ord, respondidas('p0'), 0), null)
+  const r = VP.tick(E0, { pos: 0, ahora: 1250, jugando: true, visible: true, duracion: 100, ordenadas: ord, respondida: nadaRespondido })
+  assert.strictEqual(r.accion, 'pregunta'); assert.strictEqual(r.pregunta.id, 'p0'); assert.strictEqual(r.irA, 0)
+  const ya = VP.tick(E0, { pos: 0.25, ahora: 1250, jugando: true, visible: true, duracion: 100, ordenadas: ord, respondida: respondidas('p0') })
+  assert.strictEqual(ya.accion, 'nada')
+})
+
+caso('video · pregunta al final: no interrumpe a mitad, sale al llegar al final y al terminar', () => {
+  const ord = VP.ordenarPreguntasVideo([q('fin', 100), q('sin', null)], 100)
+  const mitad = reproducir({ ...E0, maxVisto: 49.5, ultimaPos: 49.5 }, 1, { desde: 49.5, duracion: 100, ordenadas: ord, respondida: nadaRespondido })
+  assert.strictEqual(mitad.ultimo.accion, 'nada')
+  const casi = reproducir({ maxVisto: 99.5, ultimaPos: 99.5, ultimoT: 1000 }, 1, { desde: 99.5, duracion: 100, ordenadas: ord, respondida: nadaRespondido })
+  assert.strictEqual(casi.ultimo.accion, 'pregunta'); assert.strictEqual(casi.ultimo.pregunta.id, 'fin')
+  assert.strictEqual(VP.alTerminar(ord, nadaRespondido).id, 'fin')
+  assert.strictEqual(VP.alTerminar(ord, respondidas('fin', 'sin')), null, 'todo respondido → ya se puede entregar')
+})
+
+caso('video · mismo segundo para varias preguntas: salen en cola, una tras otra, sin reproducir entre ellas', () => {
+  const ord = VP.ordenarPreguntasVideo([q('b', 30, 2), q('a', 30, 1), q('c', 30, 3)], 100)
+  const a1 = reproducir({ maxVisto: 29, ultimaPos: 29, ultimoT: 1000 }, 8, { desde: 29, duracion: 100, ordenadas: ord, respondida: nadaRespondido })
+  assert.strictEqual(a1.ultimo.pregunta.id, 'a')
+  const aun = (...ids) => VP.tick({ maxVisto: 30, ultimaPos: 30, ultimoT: 1000 }, { pos: 30, ahora: 1250, jugando: true, visible: true, duracion: 100, ordenadas: ord, respondida: respondidas(...ids) })
+  assert.strictEqual(aun('a').pregunta.id, 'b'); assert.strictEqual(aun('a', 'b').pregunta.id, 'c'); assert.strictEqual(aun('a', 'b', 'c').accion, 'nada')
+})
+
+caso('video · avance: solo suma maxVisto lo que se ve reproduciéndose, con pestaña visible y a ritmo real', () => {
+  const ord = VP.ordenarPreguntasVideo([], 600)
+  const a = reproducir(E0, 40, { desde: 0, duracion: 600, ordenadas: ord, respondida: nadaRespondido })
+  assert.ok(Math.abs(a.estado.maxVisto - 10) < 0.01, `10 s de video visto (fue ${a.estado.maxVisto})`)
+  // pausado: la posición cambia pero no hay mérito
+  const pausado = VP.tick({ maxVisto: 10, ultimaPos: 10, ultimoT: 5000 }, { pos: 10.0, ahora: 5250, jugando: false, visible: true, duracion: 600, ordenadas: ord, respondida: nadaRespondido })
+  assert.strictEqual(pausado.maxVisto, 10)
+  // pestaña oculta: tampoco suma
+  const oculto = VP.tick({ maxVisto: 10, ultimaPos: 10, ultimoT: 5000 }, { pos: 10.25, ahora: 5250, jugando: true, visible: false, duracion: 600, ordenadas: ord, respondida: nadaRespondido })
+  assert.strictEqual(oculto.maxVisto, 10)
+  // retroceder y volver a pasar por lo ya visto no cambia maxVisto
+  const atras = reproducir({ maxVisto: 50, ultimaPos: 20, ultimoT: 1000 }, 8, { desde: 20, duracion: 600, ordenadas: ord, respondida: nadaRespondido })
+  assert.strictEqual(atras.estado.maxVisto, 50)
+})
+
+caso('video · saltos: adelantarse más allá de lo visto se revierte a maxVisto; retroceder es libre', () => {
+  const ord = VP.ordenarPreguntasVideo([], 600)
+  const base = { maxVisto: 100, ultimaPos: 100, ultimoT: 5000 }
+  const lectura = (pos, extra = {}) => VP.tick(base, { pos, ahora: 5250, jugando: true, visible: true, duracion: 600, ordenadas: ord, respondida: nadaRespondido, ...extra })
+  const adelante = lectura(160)
+  assert.strictEqual(adelante.accion, 'salto'); assert.strictEqual(adelante.irA, 100); assert.strictEqual(adelante.maxVisto, 100)
+  assert.strictEqual(lectura(160, { jugando: false }).accion, 'salto', 'también con el video en pausa (arrastrar la línea de tiempo)')
+  assert.strictEqual(lectura(600).irA, 100, 'ir de golpe al final tampoco')
+  assert.strictEqual(lectura(30).accion, 'nada', 'retroceder se permite'); assert.strictEqual(lectura(30).maxVisto, 100)
+  assert.strictEqual(lectura(101, { jugando: false }).accion, 'nada', 'dentro de la tolerancia no es salto')
+  // la pestaña dormida 60 s no regala esos 60 s
+  const dormida = VP.tick({ maxVisto: 100, ultimaPos: 100, ultimoT: 5000 }, { pos: 145, ahora: 65000, jugando: true, visible: true, duracion: 600, ordenadas: ord, respondida: nadaRespondido })
+  assert.strictEqual(dormida.accion, 'salto'); assert.strictEqual(dormida.irA, 100)
+  assert.strictEqual(VP.acotarSalto(250, 100), 100); assert.strictEqual(VP.acotarSalto(-8, 100), 0); assert.strictEqual(VP.acotarSalto(40, 100), 40)
+})
+
+caso('video · compuerta: el video se detiene en cada pregunta sin responder y no vuelve a detenerse en las respondidas', () => {
+  const ord = VP.ordenarPreguntasVideo([q('p1', 10), q('p2', 20)], 100)
+  const r = reproducir(E0, 60, { desde: 0, duracion: 100, ordenadas: ord, respondida: nadaRespondido })
+  assert.strictEqual(r.ultimo.accion, 'pregunta'); assert.strictEqual(r.ultimo.pregunta.id, 'p1'); assert.strictEqual(r.ultimo.irA, 10)
+  const tras = reproducir({ maxVisto: 10, ultimaPos: 10, ultimoT: 1000 }, 60, { desde: 10, duracion: 100, ordenadas: ord, respondida: respondidas('p1') })
+  assert.strictEqual(tras.ultimo.pregunta.id, 'p2')
+  // repasar el tramo ya respondido: no vuelve a pausar
+  const repaso = reproducir({ maxVisto: 20, ultimaPos: 5, ultimoT: 1000 }, 60, { desde: 5, duracion: 100, ordenadas: ord, respondida: respondidas('p1', 'p2') })
+  assert.ok(repaso.eventos.every((e) => e.accion === 'nada'))
+  assert.strictEqual(VP.tick({ maxVisto: 9, ultimaPos: 9.5, ultimoT: 1000 }, { pos: 9.75, ahora: 1250, jugando: false, visible: true, duracion: 100, ordenadas: ord, respondida: nadaRespondido }).accion, 'nada', 'en pausa no interrumpe')
+})
+
+caso('video · siguiente pregunta: la próxima sin responder y cuántos segundos faltan', () => {
+  const ord = VP.ordenarPreguntasVideo([q('a', 10), q('b', 40), q('c', 80)], 100)
+  const s = VP.siguientePregunta(ord, respondidas('a'), 12)
+  assert.strictEqual(s.pregunta.id, 'b'); assert.strictEqual(s.enSeg, 28)
+  assert.strictEqual(VP.siguientePregunta(ord, respondidas('a', 'b', 'c'), 0), null)
+  assert.strictEqual(VP.siguientePregunta(ord, nadaRespondido, 90), null, 'ya pasó la última')
+})
+
+caso('video · reanudación: posición, maxVisto, respuestas y pregunta pendiente', () => {
+  const ord = VP.ordenarPreguntasVideo([q('a', 20), q('b', 60)], 100)
+  const nuevo = VP.reanudar({ progreso: null, ordenadas: ord, respondida: nadaRespondido, duracion: 100 })
+  assert.deepStrictEqual([nuevo.maxVisto, nuevo.posicion, nuevo.pendiente, nuevo.completado], [0, 0, null, false])
+  const sigue = VP.reanudar({ progreso: { maxVistoSeg: 40, posicionSeg: 33 }, ordenadas: ord, respondida: respondidas('a'), duracion: 100 })
+  assert.deepStrictEqual([sigue.maxVisto, sigue.posicion, sigue.pendiente], [40, 33, null])
+  // salió con la pregunta a en pantalla sin contestarla: al volver, esa pregunta, no el video
+  const pend = VP.reanudar({ progreso: { maxVistoSeg: 20, posicionSeg: 20 }, ordenadas: ord, respondida: nadaRespondido, duracion: 100 })
+  assert.strictEqual(pend.pendiente.id, 'a'); assert.strictEqual(pend.posicion, 20)
+  // si su posición quedó después de la pregunta sin responder, vuelve a ella
+  const retro = VP.reanudar({ progreso: { maxVistoSeg: 70, posicionSeg: 70 }, ordenadas: ord, respondida: respondidas('b'), duracion: 100 })
+  assert.strictEqual(retro.pendiente.id, 'a'); assert.strictEqual(retro.posicion, 20)
+  // una pregunta que aún no alcanzó no está pendiente
+  assert.strictEqual(VP.reanudar({ progreso: { maxVistoSeg: 19, posicionSeg: 19 }, ordenadas: ord, respondida: nadaRespondido, duracion: 100 }).pendiente, null)
+  // vio todo y contestó todo → directo a entregar
+  const fin = VP.reanudar({ progreso: { maxVistoSeg: 100, posicionSeg: 100 }, ordenadas: ord, respondida: respondidas('a', 'b'), duracion: 100 })
+  assert.strictEqual(fin.completado, true)
+  assert.strictEqual(VP.reanudar({ progreso: { maxVistoSeg: 100, posicionSeg: 100 }, ordenadas: ord, respondida: respondidas('a'), duracion: 100 }).completado, false)
+  // datos corruptos o fuera de rango se acotan
+  const raro = VP.reanudar({ progreso: { maxVistoSeg: 'x', posicionSeg: -5 }, ordenadas: [], respondida: nadaRespondido, duracion: 100 })
+  assert.deepStrictEqual([raro.maxVisto, raro.posicion], [0, 0])
+  const mucho = VP.reanudar({ progreso: { maxVistoSeg: 9999, posicionSeg: 99999 }, ordenadas: [], respondida: nadaRespondido, duracion: 100 })
+  assert.deepStrictEqual([mucho.maxVisto, mucho.posicion], [100, 100])
+})
+
+caso('video · porcentaje, tiempo y resumen', () => {
+  assert.strictEqual(VP.porcentajeVisto(50, 100), 50); assert.strictEqual(VP.porcentajeVisto(99.5, 100), 100); assert.strictEqual(VP.porcentajeVisto(98, 200), 49)
+  assert.strictEqual(VP.porcentajeVisto(0, 0), 0); assert.strictEqual(VP.porcentajeVisto(95, 100), 95)
+  assert.strictEqual(VP.videoCompletado(95, 100), true); assert.strictEqual(VP.videoCompletado(94, 100), false); assert.strictEqual(VP.videoCompletado(5, 0), false)
+  assert.deepStrictEqual([0, 75, 3725, 59.6].map(VP.formatearTiempo), ['0:00', '1:15', '1:02:05', '1:00'])
+  assert.deepStrictEqual(VP.resumenRespuestas([q('a', 1), q('b', 2), q('c', 3)], respondidas('a', 'c')), { total: 3, contestadas: 2, pendientes: 1 })
+})
+
+caso('video · recorrido completo de un alumno: 0 s, dos en el mismo segundo y una al final', () => {
+  const ord = VP.ordenarPreguntasVideo([q('ini', 0), q('m1', 30, 1), q('m2', 30, 2), q('fin', 100)], 100)
+  const hechas = new Set()
+  const resp = (p) => hechas.has(p.id)
+  const vistas = []
+  let est = { maxVisto: 0, ultimaPos: 0, ultimoT: 1000 }
+  let pos = 0
+  for (let vuelta = 0; vuelta < 10; vuelta += 1) {
+    const pre = VP.antesDeReproducir(ord, resp, pos)
+    if (pre) { vistas.push(pre.id); hechas.add(pre.id); continue }
+    const r = reproducir(est, 600, { desde: pos, duracion: 100, ordenadas: ord, respondida: resp })
+    est = r.estado
+    pos = est.ultimaPos
+    if (r.ultimo.accion === 'pregunta') { vistas.push(r.ultimo.pregunta.id); hechas.add(r.ultimo.pregunta.id); pos = r.ultimo.irA; est = { ...est, ultimaPos: pos } } else break
+  }
+  assert.deepStrictEqual(vistas, ['ini', 'm1', 'm2', 'fin'], 'las cuatro, en orden, cada una una sola vez')
+  assert.strictEqual(VP.alTerminar(ord, resp), null)
+  assert.strictEqual(VP.videoCompletado(est.maxVisto, 100), true)
+})
+
+// ── Video interactivo: propuestas de la IA y revisión del docente (propuestasVideo.js) ──
+const PV = await import('../src/utils/propuestasVideo.js')
+const iaOM = { tipo: 'opcion_multiple', enunciado: '¿Qué es una fracción?', timestampSeg: 37, retroalimentacion: 'Parte de un todo.', estado: 'propuesta', origen: 'ia', opciones: [{ id: 'oa', texto: 'Una parte de un todo' }, { id: 'ob', texto: 'Un número primo' }, { id: 'oc', texto: 'Una recta' }, { id: 'od', texto: 'Un ángulo' }], respuestaCorrecta: 'oa' }
+const iaVF = { tipo: 'verdadero_falso', enunciado: 'Una pizza en 4 partes iguales da cuartos.', timestampSeg: 80, retroalimentacion: null, estado: 'propuesta', origen: 'ia', opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }], respuestaCorrecta: 'v' }
+const iaRC = { tipo: 'respuesta_corta', enunciado: 'Explica con tus palabras qué es 1/4.', timestampSeg: 120, retroalimentacion: null, estado: 'propuesta', origen: 'ia', opciones: null, respuestaCorrecta: null }
+const propDe = (ia, i = 0) => ({ id: PV.idPropuesta('g1', i), ...PV.propuestaDesdeIA(ia, 'g1') })
+
+caso('propuestas: lo que entrega la IA nace PENDIENTE, sin editar y sin pregunta activa asociada', () => {
+  for (const ia of [iaOM, iaVF, iaRC]) {
+    const p = PV.propuestaDesdeIA(ia, 'g1')
+    assert.strictEqual(p.estado, 'pendiente')
+    assert.strictEqual(p.origen, 'ia')
+    assert.strictEqual(p.editada, false)
+    assert.deepStrictEqual(p.cambios, {})
+    assert.strictEqual(p.preguntaId, null)
+    assert.strictEqual(p.tipo, ia.tipo)
+    assert.strictEqual(p.timestampSeg, ia.timestampSeg)
+  }
+  const om = PV.propuestaDesdeIA(iaOM, 'g1')
+  assert.strictEqual(om.respuestaCorrecta, 'oa')
+  assert.strictEqual(om.opciones.length, 4)
+  assert.strictEqual(PV.propuestaDesdeIA(iaRC, 'g1').respuestaCorrecta, null, 'la abierta no trae respuesta correcta automática')
+  assert.strictEqual(PV.propuestaDesdeIA({ ...iaRC, retroalimentacion: '   ' }, 'g1').retroalimentacion, null)
+})
+
+caso('propuestas: los ids salen de la generación, así recuperar la misma generación no duplica', () => {
+  assert.strictEqual(PV.idPropuesta('g1', 0), 'g1_00')
+  assert.strictEqual(PV.idPropuesta('g1', 12), 'g1_12')
+  assert.strictEqual(PV.idPropuesta('g1', 0), PV.idPropuesta('g1', 0))
+  assert.notStrictEqual(PV.idPropuesta('g1', 0), PV.idPropuesta('g2', 0))
+  assert.ok(!/[^A-Za-z0-9_-]/.test(PV.idPropuesta('a/b c.d', 3)), 'un id nunca lleva / ni espacios')
+})
+
+caso('propuestas: validarPropuesta rechaza lo que no puede ser una pregunta activa', () => {
+  assert.strictEqual(PV.validarPropuesta(propDe(iaOM), 487).ok, true)
+  assert.strictEqual(PV.validarPropuesta(propDe(iaVF), 487).ok, true)
+  assert.strictEqual(PV.validarPropuesta(propDe(iaRC), 487).ok, true)
+  const mal = (p) => PV.validarPropuesta(p, 487).ok
+  assert.strictEqual(mal({ ...propDe(iaOM), enunciado: '   ' }), false, 'enunciado vacío')
+  assert.strictEqual(mal({ ...propDe(iaOM), respuestaCorrecta: 'zz' }), false, 'la correcta debe ser una de las opciones')
+  assert.strictEqual(mal({ ...propDe(iaOM), opciones: propDe(iaOM).opciones.map((o, i) => (i === 1 ? { ...o, texto: '' } : o)) }), false, 'opción vacía')
+  assert.strictEqual(mal({ ...propDe(iaOM), opciones: propDe(iaOM).opciones.map((o, i) => (i === 1 ? { ...o, texto: 'una parte de un todo' } : o)) }), false, 'opciones repetidas')
+  assert.strictEqual(mal({ ...propDe(iaOM), opciones: propDe(iaOM).opciones.slice(0, 1) }), false, 'menos de 2 opciones')
+  assert.strictEqual(mal({ ...propDe(iaVF), respuestaCorrecta: 'x' }), false)
+  assert.strictEqual(mal({ ...propDe(iaOM), timestampSeg: 9999 }), false, 'más allá de la duración del video')
+  assert.strictEqual(mal({ ...propDe(iaOM), timestampSeg: -1 }), false)
+  assert.strictEqual(mal({ ...propDe(iaOM), timestampSeg: null }), false)
+  assert.strictEqual(mal({ ...propDe(iaOM), tipo: 'subir_archivo' }), false, 'el video no admite subir documento')
+  assert.strictEqual(PV.validarPropuesta({ ...propDe(iaOM), timestampSeg: 9999 }, null).ok, true, 'sin duración conocida no se puede acotar')
+})
+
+caso('propuestas: editar registra lo que propuso la IA (solo la primera vez) y no inventa cambios', () => {
+  const p = propDe(iaOM)
+  assert.strictEqual(PV.aplicarEdicion(p, { enunciado: p.enunciado }), null, 'sin cambios reales no hay escritura')
+  assert.strictEqual(PV.aplicarEdicion(p, { enunciado: `  ${p.enunciado}  ` }), null, 'espacios de más no cuentan')
+  const e1 = PV.aplicarEdicion(p, { enunciado: '¿Qué representa una fracción?', timestampSeg: 40 })
+  assert.deepStrictEqual(e1.campos.cambios, { enunciado: '¿Qué es una fracción?', timestampSeg: 37 })
+  assert.strictEqual(e1.campos.editada, true)
+  const p2 = { ...p, ...e1.campos }
+  const e2 = PV.aplicarEdicion(p2, { enunciado: 'Definición de fracción' })
+  assert.strictEqual(e2.campos.cambios.enunciado, '¿Qué es una fracción?', 'el original sigue siendo el de la IA, no la edición anterior')
+  assert.strictEqual(e2.campos.cambios.timestampSeg, 37)
+  const e3 = PV.aplicarEdicion({ ...p2, ...e2.campos }, { enunciado: '¿Qué es una fracción?', timestampSeg: 37 })
+  assert.strictEqual(e3.campos.editada, false, 'volver al texto original deja de contar como editada')
+  assert.deepStrictEqual(e3.campos.cambios, {})
+  const eOps = PV.aplicarEdicion(p, { opciones: p.opciones.map((o, i) => (i === 2 ? { ...o, texto: 'Un segmento' } : o)), respuestaCorrecta: 'ob' })
+  assert.strictEqual(eOps.campos.respuestaCorrecta, 'ob')
+  assert.ok(eOps.campos.cambios.opciones && eOps.campos.cambios.respuestaCorrecta === 'oa')
+})
+
+caso('propuestas: el tipo no se edita, una aprobada no se edita aquí, y una abierta ignora opciones', () => {
+  const p = propDe(iaOM)
+  assert.strictEqual(PV.aplicarEdicion(p, { tipo: 'verdadero_falso' }), null, 'el tipo no es un campo editable')
+  assert.throws(() => PV.aplicarEdicion({ ...p, estado: 'aprobada' }, { enunciado: 'x' }), /ya fue aprobada/)
+  assert.strictEqual(PV.aplicarEdicion(propDe(iaRC), { opciones: [{ id: 'a', texto: 'x' }] }), null)
+})
+
+caso('propuestas: aprobar crea la pregunta ACTIVA con el id de la propuesta y clave aparte (una sola propuesta pendiente → los 10 puntos)', () => {
+  for (const [ia, correcta] of [[iaOM, 'oa'], [iaVF, 'v'], [iaRC, null]]) {
+    const p = propDe(ia)
+    const plan = PV.planAprobacion({ propuesta: p, activas: [], duracionSeg: 487 })
+    assert.strictEqual(plan.yaAprobada, false)
+    assert.strictEqual(plan.preguntaId, p.id, 'mismo id: repetir la aprobación escribe el mismo documento')
+    assert.strictEqual(plan.pregunta.estado, 'aprobada')
+    assert.strictEqual(plan.pregunta.propuestaId, p.id)
+    assert.strictEqual(plan.pregunta.origen, 'ia')
+    assert.strictEqual(plan.pregunta.timestampSeg, ia.timestampSeg)
+    assert.strictEqual(plan.pregunta.respuestaCorrecta, correcta)
+    assert.strictEqual(plan.pregunta.ponderacion, 10)
+    assert.strictEqual(plan.pregunta.orden, 0)
+    assert.ok(!('reponderar' in plan), 'aprobar ya no reescribe ninguna otra pregunta')
+    if (ia.tipo === 'verdadero_falso') assert.deepStrictEqual(plan.pregunta.opciones.map((o) => o.id), ['v', 'f'])
+    if (ia.tipo === 'respuesta_corta') assert.strictEqual(plan.pregunta.opciones, null)
+  }
+})
+
+caso('ponderaciones: aprobar NO toca las que ya existen (manuales o no); la nueva toma una parte pareja de lo que queda libre', () => {
+  const P = PV.ponderacionParaAprobada
+  // 10 propuestas pendientes y ninguna activa → 1 punto cada una (aprobar todas suma justo 10).
+  assert.strictEqual(P({ activas: [], pendientes: 10 }).ponderacion, 1)
+  assert.strictEqual(P({ activas: [], pendientes: 3 }).ponderacion, 3.33, 'redondea hacia abajo: nunca se pasa de 10')
+  assert.strictEqual(3.33 * 3 <= 10, true)
+  assert.strictEqual(P({ activas: [], pendientes: 1 }).ponderacion, 10)
+  // Con preguntas que el docente ya pesó a mano, se respeta lo que puso y solo se reparte lo que queda.
+  const manual = [{ id: 'a1', ponderacion: 4 }, { id: 'a2', ponderacion: 2 }] // 6 usados
+  const r = P({ activas: manual, pendientes: 2 })
+  assert.strictEqual(r.restante, 4)
+  assert.strictEqual(r.ponderacion, 2, 'lo libre (4) entre las 2 pendientes')
+  // Rechazar propuestas reparte más puntos a las que siguen: 4 libres entre 1 pendiente.
+  assert.strictEqual(P({ activas: manual, pendientes: 1 }).ponderacion, 4)
+  assert.strictEqual(P({ activas: [{ id: 'a1', ponderacion: 9 }], pendientes: 4 }).ponderacion, 0.25)
+  assert.strictEqual(P({ activas: [], pendientes: undefined }).ponderacion, 10, 'sin dato de pendientes se asume solo esta')
+})
+
+caso('ponderaciones: el plan de aprobación deja intactas las ponderaciones existentes y la suma nunca pasa de 10', () => {
+  const activas = [{ id: 'a1', ponderacion: 3.5, orden: 0 }, { id: 'a2', ponderacion: 1.25, orden: 1 }]
+  const copia = JSON.stringify(activas)
+  const plan = PV.planAprobacion({ propuesta: propDe(iaVF, 1), activas, pendientes: 3, duracionSeg: 487 })
+  assert.strictEqual(JSON.stringify(activas), copia, 'las activas no se modifican')
+  assert.strictEqual(plan.pregunta.orden, 2, 'va al final')
+  assert.strictEqual(plan.pregunta.ponderacion, 1.75, '5.25 libres entre 3 pendientes')
+  assert.strictEqual(plan.total, 3)
+  const suma = activas.reduce((s2, a) => s2 + a.ponderacion, 0) + plan.pregunta.ponderacion
+  assert.ok(suma <= 10.0001, `suma ${suma}`)
+  // Aprobar TODAS las pendientes de una en una nunca rebasa el tope, ni con pesos manuales previos.
+  for (const manualPrevio of [[], [{ id: 'm1', ponderacion: 2.4 }], [{ id: 'm1', ponderacion: 3 }, { id: 'm2', ponderacion: 3 }]]) {
+    let activasNow = manualPrevio.map((m, i) => ({ ...m, orden: i }))
+    let pendientes = 6
+    for (let i = 0; i < 6; i += 1) {
+      const pl = PV.planAprobacion({ propuesta: propDe(iaVF, i), activas: activasNow, pendientes, duracionSeg: 487 })
+      activasNow = [...activasNow, { id: pl.preguntaId, ponderacion: pl.pregunta.ponderacion, orden: pl.pregunta.orden }]
+      pendientes -= 1
+    }
+    const total = activasNow.reduce((s2, a) => s2 + a.ponderacion, 0)
+    assert.ok(total <= 10.0001, 'el tope de 10 se respeta')
+    assert.ok(total >= 9.9, `aprobar todo usa (casi) los 10 puntos: ${total}`)
+  }
+})
+
+caso('ponderaciones: sin puntos libres NO se aprueba (como agregar un reactivo a mano que excede 10) y el mensaje dice qué hacer', () => {
+  const lleno = [{ id: 'a1', ponderacion: 6, orden: 0 }, { id: 'a2', ponderacion: 4, orden: 1 }]
+  assert.throws(() => PV.planAprobacion({ propuesta: propDe(iaVF, 1), activas: lleno, pendientes: 1, duracionSeg: 487 }), /10 puntos.*Repartir/s)
+  const casi = [{ id: 'a1', ponderacion: 9.996, orden: 0 }]
+  assert.throws(() => PV.planAprobacion({ propuesta: propDe(iaVF, 1), activas: casi, pendientes: 1, duracionSeg: 487 }), /10 puntos/, 'menos de 0.01 libre')
+})
+
+const G = await import('../src/utils/evaluacionGrading.js')
+caso('ponderaciones: es compatible con el motor — la calificación se normaliza por el total, así que un total distinto de 10 no cambia la nota', () => {
+  const pre = (id, ponderacion) => ({ id, ponderacion })
+  // Mismos aciertos con pesos que suman 10 y con pesos que suman 6: misma calificación sobre 10.
+  const respuestas = { a: true, b: false, c: true }
+  const nota = (preguntas) => {
+    const total = preguntas.reduce((s2, p) => s2 + p.ponderacion, 0)
+    const obtenida = preguntas.filter((p) => respuestas[p.id]).reduce((s2, p) => s2 + p.ponderacion, 0)
+    return Math.round((obtenida / total) * 10 * 10) / 10
+  }
+  assert.strictEqual(nota([pre('a', 5), pre('b', 2.5), pre('c', 2.5)]), nota([pre('a', 3), pre('b', 1.5), pre('c', 1.5)]))
+  assert.strictEqual(typeof G.repartirPonderacionParejo, 'function', 'el botón «Repartir parejo» del editor sigue disponible')
+  assert.deepStrictEqual(G.repartirPonderacionParejo(3), [3.33, 3.33, 3.34])
+})
+
+caso('propuestas: aprobar dos veces no duplica (ya aprobada = nada que escribir; misma id si la pantalla estaba vieja)', () => {
+  const p = propDe(iaOM)
+  assert.deepStrictEqual(PV.planAprobacion({ propuesta: { ...p, estado: 'aprobada' }, activas: [], duracionSeg: 487 }), { yaAprobada: true })
+  // Pantalla desactualizada: la pregunta ya está entre las activas pero la propuesta aún figura pendiente.
+  const plan = PV.planAprobacion({ propuesta: p, activas: [{ id: p.id, ponderacion: 10, orden: 0 }], duracionSeg: 487 })
+  assert.strictEqual(plan.total, 1, 'cuenta una sola vez')
+  assert.strictEqual(plan.pregunta.ponderacion, 10, 'su propio peso anterior no cuenta contra el tope')
+  assert.strictEqual(plan.preguntaId, p.id)
+})
+
+caso('propuestas: una rechazada o inválida NO se puede aprobar', () => {
+  assert.throws(() => PV.planAprobacion({ propuesta: { ...propDe(iaOM), estado: 'rechazada' }, activas: [], duracionSeg: 487 }), /rechazada/)
+  assert.throws(() => PV.planAprobacion({ propuesta: { ...propDe(iaOM), respuestaCorrecta: 'zz' }, activas: [], duracionSeg: 487 }), /correcta/)
+  assert.throws(() => PV.planAprobacion({ propuesta: { ...propDe(iaOM), timestampSeg: 9999 }, activas: [], duracionSeg: 487 }), /minuto/)
+  assert.throws(() => PV.planAprobacion({ propuesta: null, activas: [] }), /propuesta/)
+})
+
+caso('propuestas: solo lo aprobado cuenta como pregunta del video; pendientes y rechazadas nunca se califican', () => {
+  const activa = PV.planAprobacion({ propuesta: propDe(iaOM), activas: [], duracionSeg: 487 }).pregunta
+  const convencional = { id: 'c1', tipo: 'opcion_multiple', enunciado: 'Pregunta de siempre' } // sin `estado`: cuestionario/examen normal
+  const conjunto = [
+    { id: 'p1', ...propDe(iaVF), estado: 'pendiente' },
+    { id: 'p2', ...propDe(iaRC), estado: 'rechazada' },
+    { id: 'p3', ...iaOM, estado: 'propuesta' },
+    { id: 'p4', ...iaOM, estado: 'rechazada' },
+    { id: 'ok', ...activa },
+    convencional,
+  ]
+  assert.deepStrictEqual(VI.preguntasAprobadas(conjunto).map((q) => q.id), ['ok', 'c1'])
+  // El plan de aprobación nunca produce una pregunta en estado distinto de «aprobada».
+  for (const ia of [iaOM, iaVF, iaRC]) assert.strictEqual(PV.planAprobacion({ propuesta: propDe(ia), activas: [], duracionSeg: 487 }).pregunta.estado, 'aprobada')
+})
+
+caso('propuestas: conteo por estado, orden por minuto, tope de preguntas y formato/lectura del minuto', () => {
+  const lista = [{ id: 'b', estado: 'aprobada', timestampSeg: 90 }, { id: 'a', estado: 'pendiente', timestampSeg: 30 }, { id: 'c', estado: 'rechazada', timestampSeg: 30 }, { id: 'd', estado: 'pendiente', timestampSeg: 5 }]
+  assert.deepStrictEqual(PV.contarPorEstado(lista), { pendiente: 2, aprobada: 1, rechazada: 1 })
+  assert.deepStrictEqual(PV.ordenarPropuestas(lista).map((p) => p.id), ['d', 'a', 'c', 'b'])
+  assert.strictEqual(PV.cabeOtraPregunta(Array(19).fill({})), true)
+  assert.strictEqual(PV.cabeOtraPregunta(Array(20).fill({})), false)
+  assert.strictEqual(PV.formatearMinuto(65), '1:05')
+  assert.strictEqual(PV.formatearMinuto(3725), '1:02:05')
+  assert.strictEqual(PV.formatearMinuto(null), '—')
+  assert.strictEqual(PV.parsearMinuto('1:05'), 65)
+  assert.strictEqual(PV.parsearMinuto('01:05'), 65)
+  assert.strictEqual(PV.parsearMinuto('1:02:05'), 3725)
+  assert.strictEqual(PV.parsearMinuto('65'), 65)
+  for (const malo of ['', 'abc', '1:75', '-3', '1:2:3:4', '1,5']) assert.strictEqual(PV.parsearMinuto(malo), null, `«${malo}» no es un minuto`)
+})
+
+// `caso` de arriba es síncrono: no espera promesas. Estas pruebas son asíncronas y deben fallar de verdad.
+const casoA = async (nombre, fn) => {
+  try { await fn(); console.log('  ✓', nombre); pasadas++ } catch (e) { console.log('  ✗', nombre); console.log('     ', e.message.split('\n')[0]); fallos.push({ nombre, e }) }
+}
+
+// ── Video interactivo: configuración, costo, generación, guardado, reintentos y errores (videoGeneracion.js) ──
+const VG = await import('../src/utils/videoGeneracion.js')
+const URL_VID = 'https://www.youtube.com/watch?v=uVGsyX2e-kk'
+const CFG_OK = { nombre: 'Fracciones en video', url: URL_VID, distribucion: { vf: 2, om: 2, abiertas: 1 }, asignaturaId: 'sub1', parcial: 1, docenteId: 'doc1', orden: 3 }
+const iaPregunta = (i, tipo = 'verdadero_falso') => ({
+  tipo, enunciado: `Pregunta ${i}`, timestampSeg: 10 + i, retroalimentacion: null, estado: 'propuesta', origen: 'ia',
+  opciones: tipo === 'respuesta_corta' ? null : [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }], respuestaCorrecta: tipo === 'respuesta_corta' ? null : 'v',
+})
+const respuestaServidor = (n = 5, extra = {}) => ({
+  resultado: {
+    videoInteractivo: { proveedor: 'youtube', videoId: 'uVGsyX2e-kk', url: URL_VID, duracionSeg: 487 },
+    generacion: { estado: 'completa', faltantes: 0, modeloIA: 'claude-haiku-4-5', fechaGeneracion: '2026-10-08T10:00:00.000Z', creditosConsumidos: n * 2 },
+    preguntas: Array.from({ length: n }, (_, i) => iaPregunta(i)),
+  },
+  creditosReales: n * 2, saldo: 90, ...extra,
+})
+// Dependencias falsas: anotan todo lo que pasa para poder afirmar «qué se cobró / qué se guardó».
+function depsFalsas({ ejecutar, guardar, actualizar, crear } = {}) {
+  const reg = { ejecuciones: [], guardados: [], parches: [], creadas: [], claves: [] }
+  let seq = 0
+  return {
+    reg,
+    ejecutar: async (op, params, unidades, opts) => { reg.ejecuciones.push({ op, params, unidades, opts }); return (ejecutar || (async () => respuestaServidor(unidades)))(op, params, unidades, opts) },
+    crearActividad: async (doc) => { reg.creadas.push(doc); if (crear) return crear(doc); return 'act1' },
+    actualizarActividad: async (id, parches) => { reg.parches.push({ id, parches }); if (actualizar) return actualizar(id, parches); return undefined },
+    guardarPropuestas: async (id, preguntas, gen) => { reg.guardados.push({ id, n: preguntas.length, gen }); if (guardar) return guardar(id, preguntas, gen); return preguntas.length },
+    nuevaClave: () => { const k = `clave-${(seq += 1)}-abcdefgh`; reg.claves.push(k); return k },
+    extraActividad: () => ({ evaluacion: { numPreguntas: 0 } }),
+  }
+}
+const errorServidor = (props) => Object.assign(new Error(props.message || 'falló'), props)
+
+caso('generación: la configuración valida nombre, enlace de YouTube y cantidades (1–20)', () => {
+  assert.strictEqual(VG.validarConfiguracion(CFG_OK).ok, true)
+  const sin = (cambio) => VG.validarConfiguracion({ ...CFG_OK, ...cambio })
+  assert.ok(sin({ nombre: '  ' }).errores.nombre)
+  assert.ok(sin({ nombre: 'x'.repeat(VG.MAX_NOMBRE + 1) }).errores.nombre)
+  assert.ok(sin({ url: 'https://vimeo.com/123' }).errores.url)
+  assert.ok(sin({ url: 'https://evil.com/watch?v=uVGsyX2e-kk' }).errores.url)
+  assert.ok(sin({ url: '' }).errores.url)
+  assert.ok(sin({ distribucion: { vf: 0, om: 0, abiertas: 0 } }).errores.distribucion, 'cero preguntas')
+  assert.ok(sin({ distribucion: { vf: 10, om: 10, abiertas: 1 } }).errores.distribucion, 'más de 20')
+  assert.ok(sin({ distribucion: { vf: 1.5, om: 1, abiertas: 0 } }).errores.distribucion, 'solo enteros')
+  assert.strictEqual(sin({ distribucion: { vf: 0, om: 0, abiertas: 20 } }).ok, true, 'el tope exacto sí')
+  assert.strictEqual(sin({ url: 'https://youtu.be/uVGsyX2e-kk' }).videoId, 'uVGsyX2e-kk')
+})
+
+caso('generación: el costo mostrado sale del total y de la tarifa vigente (2 créditos por pregunta)', () => {
+  const v = VG.validarConfiguracion(CFG_OK)
+  assert.strictEqual(v.total, 5)
+  assert.strictEqual(v.creditos, 10)
+  assert.strictEqual(VG.validarConfiguracion({ ...CFG_OK, distribucion: { vf: 0, om: 20, abiertas: 0 } }).creditos, 40)
+  assert.strictEqual(VG.validarConfiguracion(CFG_OK, 1.5).creditos, 7.5, 'usa la tarifa que se le pase (config/iaTarifas)')
+  assert.strictEqual(VG.validarConfiguracion({ ...CFG_OK, distribucion: { vf: 0, om: 0, abiertas: 0 } }).creditos, 0, 'sin preguntas no hay costo')
+  const t = VG.textoCostoGeneracion(5)
+  assert.ok(t.includes('5 preguntas') && t.includes('10 créditos') && t.includes('2 por pregunta'))
+  assert.ok(/solo se cobran las preguntas que realmente se entreguen/i.test(t), 'avisa que solo se cobra lo entregado')
+  assert.ok(VG.textoCostoGeneracion(1).includes('1 pregunta:') && VG.textoCostoGeneracion(1).includes('2 créditos'))
+})
+
+caso('generación: validar o armar la configuración NO cobra ni toca nada (solo crearYGenerar llama a la IA)', () => {
+  VG.validarConfiguracion(CFG_OK)
+  VG.textoCostoGeneracion(5)
+  const doc = VG.documentoActividadVideo({ ...CFG_OK, intento: VG.nuevoIntento({ clave: 'k-12345678', url: URL_VID, distribucion: { vf: 2, om: 2, abiertas: 1 }, asignaturaId: 'sub1' }), evaluacion: { numPreguntas: 0 } })
+  assert.strictEqual(doc.modalidad, 'video_interactivo')
+  assert.strictEqual(doc.tipo, 'evaluacion')
+  assert.strictEqual(doc.oculta, true, 'nace oculta: el docente revisa y publica')
+  assert.strictEqual(doc.videoInteractivo.videoId, 'uVGsyX2e-kk')
+  assert.strictEqual(doc.videoInteractivo.generacion.intento.idempotencyKey, 'k-12345678')
+  assert.strictEqual(doc.videoInteractivo.generacion.creditosCobrados, 0, 'nace sin cobros')
+  assert.throws(() => VG.documentoActividadVideo({ ...CFG_OK, url: 'https://vimeo.com/1', intento: {} }), /YouTube/)
+})
+
+await casoA('generación: flujo completo → crea la actividad con el intento ANTES de generar, llama a la operación real con su contrato, guarda y cierra el intento', async () => {
+  const d = depsFalsas()
+  const r = await VG.crearYGenerar(d, CFG_OK)
+  assert.deepStrictEqual(d.reg.creadas.length, 1)
+  assert.strictEqual(d.reg.creadas[0].videoInteractivo.generacion.intento.idempotencyKey, d.reg.claves[0], 'la clave ya estaba guardada en la actividad al llamar a la IA')
+  assert.strictEqual(d.reg.ejecuciones.length, 1)
+  const e = d.reg.ejecuciones[0]
+  assert.strictEqual(e.op, 'generar_preguntas_video')
+  assert.deepStrictEqual(e.params, { asignaturaId: 'sub1', url: URL_VID, distribucion: { vf: 2, om: 2, abiertas: 1 } }, 'solo los parámetros que el servidor lee')
+  assert.strictEqual(e.unidades, 5)
+  assert.strictEqual(e.opts.idempotencyKey, d.reg.claves[0])
+  assert.ok(e.opts.timeoutMs >= 240000, 'margen suficiente para leer el video')
+  assert.deepStrictEqual(d.reg.guardados, [{ id: 'act1', n: 5, gen: d.reg.claves[0] }], 'las propuestas se guardan con la MISMA clave como generación')
+  assert.strictEqual(r.entregadas, 5)
+  assert.strictEqual(r.estado, 'completa')
+  assert.strictEqual(r.creditos, 10)
+  assert.strictEqual(r.recuperada, false)
+  const cierre = d.reg.parches.at(-1).parches
+  assert.strictEqual(cierre['videoInteractivo.duracionSeg'], 487)
+  assert.strictEqual(cierre['videoInteractivo.generacion'].estado, 'completa')
+  assert.strictEqual(cierre['videoInteractivo.generacion'].creditosCobrados, 10)
+  assert.ok(!('intento' in cierre['videoInteractivo.generacion']), 'el intento se cierra: ya no hay nada que recuperar')
+})
+
+await casoA('generación: la IA entrega menos de lo pedido → «incompleta», se guarda lo entregado y se cobra solo eso', async () => {
+  const d = depsFalsas({ ejecutar: async () => ({ ...respuestaServidor(3), resultado: { ...respuestaServidor(3).resultado, generacion: { estado: 'incompleta', faltantes: 2, creditosConsumidos: 6 } } }) })
+  const r = await VG.crearYGenerar(d, CFG_OK)
+  assert.strictEqual(r.estado, 'incompleta')
+  assert.strictEqual(r.entregadas, 3)
+  assert.strictEqual(r.pedidas, 5)
+  assert.strictEqual(r.creditos, 6)
+  assert.strictEqual(d.reg.parches.at(-1).parches['videoInteractivo.generacion'].faltantes, 2)
+})
+
+await casoA('generación: datos inválidos NO llegan a la IA ni crean la actividad', async () => {
+  const d = depsFalsas()
+  const e = await VG.crearYGenerar(d, { ...CFG_OK, url: 'https://vimeo.com/1' }).then(() => null, (x) => x)
+  assert.ok(e instanceof VG.ErrorGeneracionVideo)
+  assert.strictEqual(e.clase, 'sin_cobro')
+  assert.strictEqual(d.reg.ejecuciones.length, 0)
+  assert.strictEqual(d.reg.creadas.length, 0)
+})
+
+await casoA('generación: si no se puede crear la actividad no se llama a la IA (nada que cobrar)', async () => {
+  const d = depsFalsas({ crear: async () => { throw new Error('permission-denied') } })
+  const e = await VG.crearYGenerar(d, CFG_OK).then(() => null, (x) => x)
+  assert.strictEqual(e.clase, 'sin_cobro')
+  assert.strictEqual(e.reintentable, false)
+  assert.strictEqual(d.reg.ejecuciones.length, 0)
+})
+
+await casoA('errores: los que el servidor declara «sin cobro» borran el intento y permiten volver a generar con otra clave', async () => {
+  for (const props of [
+    { codigo: 'VIDEO_INACCESIBLE', message: 'El video es privado. No se descontaron créditos.', codigoSDK: 'functions/failed-precondition' },
+    { codigo: 'SALDO_INSUFICIENTE', message: 'No tienes suficientes créditos' },
+    { message: 'El asistente de IA no está disponible en este momento. No se descontaron créditos.', codigoSDK: 'functions/unavailable' },
+    { message: 'Esta operación falló antes. Intenta de nuevo.', estadoPrevio: 'reembolsado', codigoSDK: 'functions/failed-precondition' },
+  ]) {
+    const d = depsFalsas({ ejecutar: async () => { throw errorServidor(props) } })
+    const e = await VG.crearYGenerar(d, CFG_OK).then(() => null, (x) => x)
+    assert.strictEqual(e.clase, 'sin_cobro', JSON.stringify(props))
+    assert.strictEqual(e.reintentable, false)
+    assert.strictEqual(e.actividadId, 'act1', 'la actividad queda como borrador para reintentar sobre ella')
+    assert.strictEqual(d.reg.guardados.length, 0, 'sin resultado no se guarda nada')
+    assert.strictEqual(d.reg.parches.at(-1).parches['videoInteractivo.generacion.intento'], null, 'el intento se limpia')
+  }
+  // «Generar de nuevo» tras un fallo sin cobro: misma actividad, clave NUEVA.
+  const d = depsFalsas()
+  const r = await VG.reintentarConClaveNueva(d, 'act1', CFG_OK)
+  assert.strictEqual(r.actividadId, 'act1')
+  assert.strictEqual(d.reg.creadas.length, 0, 'no se crea otra actividad')
+  assert.strictEqual(d.reg.ejecuciones[0].opts.idempotencyKey, d.reg.claves[0])
+  assert.strictEqual(d.reg.parches[0].parches['videoInteractivo.generacion.intento'].idempotencyKey, d.reg.claves[0], 'la clave nueva se guarda antes de llamar')
+})
+
+await casoA('errores: red caída o tiempo agotado = INCIERTO → se conserva la clave y reintentar es seguro', async () => {
+  for (const props of [{ message: 'deadline-exceeded', codigoSDK: 'functions/deadline-exceeded' }, { message: 'Failed to fetch' }, { message: 'internal', codigoSDK: 'functions/internal' }]) {
+    const d = depsFalsas({ ejecutar: async () => { throw errorServidor(props) } })
+    const e = await VG.crearYGenerar(d, CFG_OK).then(() => null, (x) => x)
+    assert.strictEqual(e.clase, 'incierto', JSON.stringify(props))
+    assert.strictEqual(e.reintentable, true)
+    assert.strictEqual(e.intento.idempotencyKey, d.reg.claves[0], 'el error trae la clave para reintentar')
+    assert.ok(!d.reg.parches.some((p) => p.parches['videoInteractivo.generacion.intento'] === null), 'NO se borra el intento')
+    assert.ok(/no se cobrar[aá] dos veces|sin volver a cobrar/i.test(e.message))
+  }
+})
+
+await casoA('reintentos: tras un fallo incierto, reintentar con la MISMA clave recupera lo ya generado sin cobrar de nuevo', async () => {
+  let llamada = 0
+  const d = depsFalsas({
+    ejecutar: async (op, p, unidades) => {
+      llamada += 1
+      if (llamada === 1) throw errorServidor({ message: 'deadline-exceeded', codigoSDK: 'functions/deadline-exceeded' })
+      return { ...respuestaServidor(unidades), repetida: true } // el servidor ya había ejecutado: devuelve lo guardado
+    },
+  })
+  const e = await VG.crearYGenerar(d, CFG_OK).then(() => null, (x) => x)
+  const r = await VG.generarEnActividad(d, e.actividadId, e.intento)
+  assert.strictEqual(r.recuperada, true)
+  assert.strictEqual(r.entregadas, 5)
+  assert.strictEqual(d.reg.ejecuciones.length, 2)
+  assert.strictEqual(d.reg.ejecuciones[0].opts.idempotencyKey, d.reg.ejecuciones[1].opts.idempotencyKey, 'MISMA clave en el reintento')
+  assert.strictEqual(d.reg.creadas.length, 1, 'la actividad no se vuelve a crear')
+})
+
+await casoA('reintentos: «en proceso» (otra pestaña, otra llamada) se avisa y se puede reintentar; nada se guarda a medias', async () => {
+  for (const props of [{ message: 'Esta operación ya está en proceso', codigoSDK: 'functions/aborted' }, { message: 'en proceso', estadoPrevio: 'reservado' }]) {
+    const d = depsFalsas({ ejecutar: async () => { throw errorServidor(props) } })
+    const e = await VG.crearYGenerar(d, CFG_OK).then(() => null, (x) => x)
+    assert.strictEqual(e.clase, 'en_proceso')
+    assert.strictEqual(e.reintentable, true)
+    assert.strictEqual(d.reg.guardados.length, 0)
+  }
+})
+
+await casoA('guardado: si falla guardar las propuestas NO se pierde lo pagado → clase «guardado», clave conservada, y reintentar guarda sin cobrar', async () => {
+  let intentos = 0
+  const d = depsFalsas({ guardar: async (id, preguntas) => { intentos += 1; if (intentos === 1) throw new Error('unavailable'); return preguntas.length } })
+  const e = await VG.crearYGenerar(d, CFG_OK).then(() => null, (x) => x)
+  assert.strictEqual(e.clase, 'guardado')
+  assert.strictEqual(e.reintentable, true)
+  assert.ok(/no se vuelve a cobrar|sin volver a cobrar/i.test(e.message))
+  assert.ok(!d.reg.parches.some((p) => p.parches['videoInteractivo.generacion.intento'] === null), 'el intento sigue en la actividad (recuperable aunque se cierre la pestaña)')
+  const r = await VG.generarEnActividad(d, e.actividadId, e.intento)
+  assert.strictEqual(r.entregadas, 5)
+  assert.strictEqual(d.reg.ejecuciones[1].opts.idempotencyKey, d.reg.ejecuciones[0].opts.idempotencyKey)
+  assert.strictEqual(d.reg.guardados.at(-1).gen, d.reg.ejecuciones[0].opts.idempotencyKey, 'los ids de las propuestas salen de la misma clave: guardar dos veces no duplica')
+})
+
+await casoA('guardado: si falla cerrar el intento las propuestas ya están guardadas y NO se reporta error', async () => {
+  const d = depsFalsas({ actualizar: async (id, parches) => { if ('videoInteractivo.generacion' in parches) throw new Error('offline') } })
+  const r = await VG.crearYGenerar(d, CFG_OK)
+  assert.strictEqual(r.entregadas, 5)
+  assert.strictEqual(d.reg.guardados.length, 1)
+})
+
+await casoA('errores: una respuesta ilegible o vacía se trata como incierta (no se pierde, se reintenta)', async () => {
+  for (const data of [{}, { resultado: {} }, { resultado: { preguntas: [] } }, null]) {
+    const d = depsFalsas({ ejecutar: async () => data })
+    const e = await VG.crearYGenerar(d, CFG_OK).then(() => null, (x) => x)
+    assert.strictEqual(e.clase, 'incierto')
+    assert.strictEqual(d.reg.guardados.length, 0)
+  }
+})
+
+caso('recuperación: el editor solo ofrece recuperar cuando el intento está completo', () => {
+  const intento = { idempotencyKey: 'k-12345678', url: URL_VID, distribucion: { vf: 1, om: 1, abiertas: 0 }, asignaturaId: 'sub1' }
+  assert.deepStrictEqual(VG.intentoPendiente({ videoInteractivo: { generacion: { intento } } }), intento)
+  assert.strictEqual(VG.intentoPendiente({ videoInteractivo: { generacion: { intento: null } } }), null, 'tras un fallo sin cobro')
+  assert.strictEqual(VG.intentoPendiente({ videoInteractivo: { generacion: { estado: 'completa' } } }), null)
+  assert.strictEqual(VG.intentoPendiente({ videoInteractivo: { generacion: { intento: { idempotencyKey: 'k' } } } }), null, 'datos a medias no se ofrecen')
+  assert.strictEqual(VG.intentoPendiente({}), null)
+  assert.strictEqual(VG.intentoPendiente(null), null)
+})
+
+caso('clasificación de errores: solo lo que el servidor garantiza sin cobro se da por cerrado', () => {
+  const c = (props) => VG.clasificarErrorGeneracion(errorServidor(props))
+  assert.strictEqual(c({ codigo: 'EXTRACCION_NO_DISPONIBLE', codigoSDK: 'functions/unavailable' }), 'sin_cobro')
+  assert.strictEqual(c({ codigoSDK: 'functions/invalid-argument' }), 'sin_cobro')
+  assert.strictEqual(c({ codigoSDK: 'functions/permission-denied' }), 'sin_cobro')
+  assert.strictEqual(c({ estadoPrevio: 'reembolsado' }), 'sin_cobro')
+  assert.strictEqual(c({ estadoPrevio: 'reservado' }), 'en_proceso')
+  assert.strictEqual(c({ codigoSDK: 'functions/aborted' }), 'en_proceso')
+  assert.strictEqual(c({ codigoSDK: 'functions/deadline-exceeded' }), 'incierto')
+  assert.strictEqual(c({ codigoSDK: 'functions/unavailable', message: 'El servicio no responde' }), 'incierto', 'unavailable sin la garantía del servidor no es seguro')
+  assert.strictEqual(c({}), 'incierto')
+  assert.strictEqual(VG.clasificarErrorGeneracion(null), 'incierto')
+})
+
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
   fallos.forEach((f) => console.log(`  ✗ ${f.nombre}\n    ${f.e.message}`))
