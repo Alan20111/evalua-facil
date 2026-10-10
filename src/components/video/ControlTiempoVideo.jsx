@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Play, RotateCcw } from 'lucide-react'
-import { PASOS_TIEMPO, ajustarTiempo, formatearMinuto, interpretarTiempo, validarTiempo } from './revisionVideo'
+import { GLOBO_DESDE_IZQ, PASOS_TIEMPO, ajustarTiempo, formatearMinuto, interpretarTiempo, validarTiempo } from './revisionVideo'
 
 const PASO = 'min-h-[2.75rem] min-w-[3rem] px-2.5 rounded-full border border-outline-variant text-sm font-semibold tabular-nums text-on-surface hover:bg-surface-container disabled:opacity-60 disabled:hover:bg-transparent'
 
@@ -31,8 +31,10 @@ export default function ControlTiempoVideo({ item, duracionSeg, disabled = false
     <div className="space-y-1" data-testid="control-tiempo">
       <div className="flex flex-wrap items-center gap-1.5">
         {PASOS_TIEMPO.filter((d) => d < 0).map((d) => (
-          <button key={d} type="button" disabled={disabled} onClick={() => mover(d)} className={PASO} aria-label={`Aparece ${Math.abs(d)} segundos antes`}>−{Math.abs(d)}</button>
+          <button key={d} type="button" disabled={disabled} onClick={() => mover(d)} className={`${PASO} ${GLOBO_DESDE_IZQ}`} aria-label={`Aparece ${Math.abs(d)} segundos antes`}
+            data-tooltip={`Que aparezca ${Math.abs(d)} ${Math.abs(d) === 1 ? 'segundo' : 'segundos'} antes`}>−{Math.abs(d)}</button>
         ))}
+        <span data-tooltip="Escribe el minuto exacto, por ejemplo 2:34" className={`inline-flex ${GLOBO_DESDE_IZQ}`}>
         <input
           key={`t-${seg}`} type="text" inputMode="numeric" defaultValue={formatearMinuto(seg)} disabled={disabled}
           aria-label="Minuto en que aparece la pregunta (m:ss)" aria-invalid={!v.ok || !!errorTexto}
@@ -40,10 +42,13 @@ export default function ControlTiempoVideo({ item, duracionSeg, disabled = false
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmarTexto(e.currentTarget.value) } }}
           className="w-20 min-h-[2.75rem] px-2 text-center rounded-full border border-outline-variant bg-surface text-base font-bold tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         />
+        </span>
         {PASOS_TIEMPO.filter((d) => d > 0).map((d) => (
-          <button key={d} type="button" disabled={disabled} onClick={() => mover(d)} className={PASO} aria-label={`Aparece ${d} segundos después`}>+{d}</button>
+          <button key={d} type="button" disabled={disabled} onClick={() => mover(d)} className={`${PASO} ${GLOBO_DESDE_IZQ}`} aria-label={`Aparece ${d} segundos después`}
+            data-tooltip={`Que aparezca ${d} ${d === 1 ? 'segundo' : 'segundos'} después`}>+{d}</button>
         ))}
         <button type="button" onClick={onComprobar} disabled={!puedeComprobar || !v.ok} data-testid="comprobar-momento"
+          data-tooltip="Reproduce unos segundos antes y se detiene donde aparecería la pregunta"
           className="inline-flex items-center gap-1.5 min-h-[2.75rem] px-3 rounded-full border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] disabled:opacity-60">
           <Play size={14} /> {comprobando ? 'Repetir' : 'Comprobar'}
         </button>
@@ -53,7 +58,7 @@ export default function ControlTiempoVideo({ item, duracionSeg, disabled = false
           <span data-testid="sugerido-ia">
             Sugerido por la IA: <span className="font-semibold tabular-nums text-on-surface">{formatearMinuto(sugerido)}</span>
             {sugerido !== seg && (
-              <button type="button" disabled={disabled} onClick={() => { setErrorTexto(null); onCambiar(sugerido) }} data-testid="usar-sugerido"
+              <button type="button" disabled={disabled} onClick={() => { setErrorTexto(null); onCambiar(sugerido) }} data-testid="usar-sugerido" data-tooltip="Volver al momento que propuso la IA"
                 className="ml-2 inline-flex items-center gap-1 min-h-[2.5rem] px-2 text-accent font-semibold hover:underline disabled:opacity-60">
                 <RotateCcw size={12} /> Usar
               </button>

@@ -7218,6 +7218,53 @@ caso('ventana de revisión: el marcador azul es el tiempo REAL del video y la ma
   assert.ok(!/LineaTiempoVideo/.test(lt + col))
 })
 
+caso('ventana de revisión: los controles llevan tooltip (data-tooltip, solo escritorio) y conservan su nombre accesible', () => {
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
+  const ct = leerFuente('src/components/video/ControlTiempoVideo.jsx')
+  const todo = v + col + lt + ct
+  // se reutiliza el mecanismo del proyecto: nada de title= ni bibliotecas nuevas
+  assert.ok(!/\btitle=/.test(v + col + ct), 'sin title= (se usa data-tooltip)')
+  assert.ok(!/from 'react-tooltip'|from '@radix-ui\/react-tooltip'|tippy|popper/i.test(todo))
+  // cada control interactivo de la lista lleva su globo
+  const conGlobo = [
+    [v, /aria-label="Pregunta anterior" data-tooltip="Ir a la pregunta anterior"/],
+    [v, /aria-label="Pregunta siguiente" data-tooltip="Ir a la siguiente pregunta"/],
+    [v, /aria-label="Vista previa docente"\s+data-tooltip="Probar el video como lo verá el estudiante"/],
+    [v, /aria-label="Cerrar la revisión"\s+data-tooltip="Cerrar la revisión"/],
+    [v, /data-tooltip=\{ayuda\}/], [v, /Pendientes y aprobadas/], [v, /Solo las que aún no revisas/], [v, /Las que descartaste; puedes restaurarlas/],
+    [v, /data-tooltip=\{`Pregunta \$\{i \+ 1\}/],
+    [v, /data-tooltip=\{editando \? 'Volver a la vista de la pregunta' : 'Corregir el texto, las opciones y la respuesta correcta'\}/],
+    [v, /data-tooltip="Marcar como respuesta correcta"/],
+    [v, /data-tooltip="Guardar los cambios de esta pregunta"/], [v, /data-tooltip="Quitar los cambios sin guardar de esta pregunta">Deshacer/],
+    [v, /data-tooltip="Guardar los cambios de todas las preguntas"/], [v, /data-tooltip="Descartar esta pregunta; podrás restaurarla"/],
+    [v, /data-tooltip="Aprobar y agregar a la evaluación"/], [v, /data-tooltip="Volver a ponerla como pendiente"/],
+    [col, /data-tooltip=\{reproduciendo \? 'Pausar el video' : 'Reproducir el video'\}/],
+    [lt, /data-tooltip="Arrastra para mover el video y fijar cuándo aparece la pregunta"/],
+    [ct, /data-tooltip=\{`Que aparezca \$\{Math\.abs\(d\)\}/], [ct, /data-tooltip=\{`Que aparezca \$\{d\} /],
+    [ct, /data-tooltip="Escribe el minuto exacto, por ejemplo 2:34"/],
+    [ct, /data-testid="comprobar-momento"\s+data-tooltip="Reproduce unos segundos antes y se detiene donde aparecería la pregunta"/],
+    [ct, /data-testid="usar-sugerido" data-tooltip="Volver al momento que propuso la IA"/],
+  ]
+  for (const [fuente, re] of conGlobo) assert.ok(re.test(fuente), String(re))
+  // los <input> no generan ::after: su globo va en un envoltorio, no en el propio input
+  assert.ok(!/<input[^>]*data-tooltip/.test(todo), 'ningún input lleva data-tooltip directo')
+  // los nombres accesibles y el comportamiento siguen igual
+  for (const a of ['Pregunta anterior', 'Pregunta siguiente', 'Vista previa docente', 'Cerrar la revisión']) assert.ok(v.includes(`aria-label="${a}"`), a)
+  assert.ok(/aria-label=\{reproduciendo \? 'Pausar' : 'Reproducir'\}/.test(col))
+  assert.ok(/aria-label=\{`Aparece \$\{Math\.abs\(d\)\} segundos antes`\}/.test(ct) && /aria-label=\{`Aparece \$\{d\} segundos después`\}/.test(ct))
+  assert.ok(/onClick=\{\(\) => ir\(antes\)\}/.test(v) && /onClick=\{\(\) => resolver\(onAprobar\)\}/.test(v) && /onClick=\{\(\) => onGuardar\(item\)\}/.test(v))
+  // en los controles pegados a un borde, el globo se alinea hacia dentro (solo mueve el globo)
+  assert.ok(/GLOBO_DESDE_IZQ = '\[&::after\]:!left-0 \[&::after\]:!\[transform:none\]'/.test(leerFuente('src/components/video/revisionVideo.js')))
+  assert.ok(/GLOBO_HASTA_DER = '\[&::after\]:!left-auto \[&::after\]:!right-0 \[&::after\]:!\[transform:none\]'/.test(leerFuente('src/components/video/revisionVideo.js')))
+  // el CSS global del globo solo se genera con puntero fino y hover (no hay tooltip en táctil) y no se tocó
+  const css = leerFuente('src/index.css')
+  assert.ok(/@media \(hover: hover\) and \(pointer: fine\) \{\s*\[data-tooltip\]::after \{/.test(css))
+  // no se tocó la vista del estudiante
+  assert.ok(!/data-tooltip/.test(leerFuente('src/components/video/VideoInteractivoPantalla.jsx') + leerFuente('src/components/video/LineaTiempoVideo.jsx')))
+})
+
 caso('ventana de revisión: cerrar con cambios sin guardar ofrece guardar, descartar o seguir editando', () => {
   const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
   assert.ok(/function intentarCerrar\(\) \{ if \(sinGuardar > 0\) setCerrando\(true\); else onCerrar\(\) \}/.test(v), 'sin cambios cierra directo; con cambios pregunta')
