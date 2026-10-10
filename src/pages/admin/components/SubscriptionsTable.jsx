@@ -632,8 +632,11 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     }
   }
 
-  function openAjuste(sub, docente) {
-    setAjusteModal({ docenteId: sub.docenteId, subId: sub.id, docente, cantidad: '', motivo: '', saving: false })
+  // Se identifica al docente por su uid, no por su suscripción: desde el modelo
+  // de créditos puros (20-ago-2026) los docentes nuevos ya no tienen documento
+  // en `subscriptions`, y `ajustarSaldoCreditosIA` solo necesita el docenteId.
+  function openAjuste(docenteId, docente) {
+    setAjusteModal({ docenteId, docente, cantidad: '', motivo: '', saving: false })
   }
 
   async function handleAjusteSubmit(e) {
@@ -825,11 +828,11 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       </button>
                     ) : (
                       <div className="flex items-center gap-0.5">
-                        {r.sub && (
+                        {r.uid && (
                           <button
                             type="button"
-                            onClick={() => openAjuste(r.sub, r.docente)}
-                            disabled={ajusteModal?.subId === r.sub.id && ajusteModal?.saving}
+                            onClick={() => openAjuste(r.uid, r.docente)}
+                            disabled={ajusteModal?.docenteId === r.uid && ajusteModal?.saving}
                             className="p-1.5 text-hint hover:text-accent rounded-full disabled:opacity-40"
                             aria-label="Ajustar créditos de IA"
                             title="Ajustar créditos de IA"
