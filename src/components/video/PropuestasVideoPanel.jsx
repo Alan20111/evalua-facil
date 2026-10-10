@@ -1,40 +1,59 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Check, Pencil, RotateCcw, Sparkles, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Check, Eye, Pencil, RotateCcw, Sparkles, X } from 'lucide-react'
 import Spinner from '../Spinner'
 import { useToast } from '../Toast'
 import {
-  ESTADO_PROPUESTA, cabeOtraPregunta, contarPorEstado, formatearMinuto, parsearMinuto, validarPropuesta,
+  ESTADO_PROPUESTA, cabeOtraPregunta, validarPropuesta,
 } from '../../utils/propuestasVideo'
 import {
   aprobarPropuesta, cargarPropuestas, editarPropuesta, rechazarPropuesta, restaurarPropuesta,
 } from '../../utils/propuestasVideoDb'
+import { actualizarPregunta } from '../../utils/evaluacionClave'
+import RecomendacionesVideo from './RecomendacionesVideo'
+import ControlTiempoVideo from './ControlTiempoVideo'
+import EvidenciaVideo from './EvidenciaVideo'
+import VistaPreviaDocenteVideo from './VistaPreviaDocenteVideo'
+import {
+  ESTADO_REVISION, construirItems, contarPorEstadoRevision, formatearMinuto, inicioDePrueba, requiereConfirmacion, validarTiempo,
+} from './revisionVideo'
 
 const ETIQUETA_TIPO = { opcion_multiple: 'Opción múltiple', verdadero_falso: 'Verdadero / Falso', respuesta_corta: 'Respuesta abierta' }
 const ESTADOS = {
-  [ESTADO_PROPUESTA.PENDIENTE]: { texto: 'Pendiente', clase: 'bg-amber-100 text-amber-800' },
-  [ESTADO_PROPUESTA.APROBADA]: { texto: 'Aprobada', clase: 'bg-green-100 text-green-800' },
-  [ESTADO_PROPUESTA.RECHAZADA]: { texto: 'Rechazada', clase: 'bg-red-100 text-red-800' },
+  [ESTADO_REVISION.PENDIENTE]: { texto: 'Pendiente de tu revisión', clase: 'bg-amber-100 text-amber-800' },
+  [ESTADO_REVISION.APROBADA]: { texto: 'Aprobada por ti', clase: 'bg-green-100 text-green-800' },
+  [ESTADO_REVISION.DESCARTADA]: { texto: 'Descartada', clase: 'bg-red-100 text-red-800' },
 }
-const FILTROS = [['todas', 'Todas'], [ESTADO_PROPUESTA.PENDIENTE, 'Pendientes'], [ESTADO_PROPUESTA.APROBADA, 'Aprobadas'], [ESTADO_PROPUESTA.RECHAZADA, 'Rechazadas']]
-const BOTON = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] px-4 rounded-full text-sm font-semibold transition-colors'
+const FILTROS = [['todas', 'Todas'], [ESTADO_REVISION.PENDIENTE, 'Pendientes'], [ESTADO_REVISION.APROBADA, 'Aprobadas'], [ESTADO_REVISION.DESCARTADA, 'Descartadas']]
+const BOTON = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] px-4 rounded-full text-sm font-semibold transition-colors disabled:opacity-60'
 
-// Revisión de las preguntas que PROPUSO la IA para un Video interactivo. La IA
-// nunca agrega nada por su cuenta: una propuesta pasa a las preguntas de la
-// evaluación solo cuando el docente la aprueba (propuestasVideoDb.aprobarPropuesta).
-//   activas      preguntas que YA están en la evaluación (para repartir los puntos)
+// Revisión de las preguntas de un Video interactivo: las que PROPUSO la IA (pendientes, descartadas) y las que ya están
+// aprobadas en la evaluación. LA IA PROPONE; EL DOCENTE REVISA, CORRIGE, PRUEBA, APRUEBA O DESCARTA. Aprobar es una decisión
+// del docente, no una verificación del sistema.
+//
+// Los cambios (texto, opciones, respuesta, momento de aparición) son un BORRADOR: se ven de inmediato aquí y en la vista previa,
+// pero no se guardan hasta que el docente pulsa «Guardar» en esa pregunta. Una propuesta pasa a las preguntas de la evaluación
+// solo al aprobarla (propuestasVideoDb.aprobarPropuesta); las descartadas y las pendientes nunca se publican.
+//
+//   activas      preguntas que YA están en la evaluación, con su clave (también reparten los puntos)
+//   activasListas  el editor ya terminó de leerlas (sin eso no se sabe si una aprobada sigue en la evaluación)
 //   duracionSeg  duración del video, si se conoce
-//   bloqueado    parcial cerrado: se puede leer, no aprobar
+//   bloqueado    parcial cerrado: se puede leer y probar, no aprobar ni cambiar preguntas ya aprobadas
 //   version      al cambiar (p. ej. tras recuperar una generación) se vuelve a leer la lista
+//   videoId / nombreActividad   para la vista previa docente
 //   onAprobada   (plan) → el editor suma la pregunta a la lista (no toca las demás)
-export default function PropuestasVideoPanel({ activityId, activas, duracionSeg = null, bloqueado = false, version = 0, onAprobada }) {
+//   onPreguntaActualizada  (id, campos) → el editor refleja el cambio guardado en una pregunta ya aprobada
+export default function PropuestasVideoPanel({
+  activityId, activas, activasListas = true, duracionSeg = null, bloqueado = false, version = 0, onAprobada, onPreguntaActualizada, videoId = null, nombreActividad = '',
+}) {
   const toast = useToast()
   const [propuestas, setPropuestas] = useState(null)
-  const [filtro, setFiltro] = useState(ESTADO_PROPUESTA.PENDIENTE)
-  const [ocupada, setOcupada] = useState(null) // id de la propuesta con una operación en curso
+  const [borradores, setBorradores] = useState({})
+  const [filtro, setFiltro] = useState(null) // null = el que corresponda según lo que haya
+  const [ocupada, setOcupada] = useState(null)
   const [editandoId, setEditandoId] = useState(null)
-  const [borrador, setBorrador] = useState(null)
+  const [confirmados, setConfirmados] = useState({})
+  const [vistaPrevia, setVistaPrevia] = useState(null) // { inicioSeg, reproducir }
 
-  // Lectura única al montar (y al cambiar de actividad); `recargar` la repite tras un conflicto.
   const recargar = useCallback(() => cargarPropuestas(activityId).then(setPropuestas), [activityId])
   useEffect(() => {
     let vivo = true
@@ -44,16 +63,22 @@ export default function PropuestasVideoPanel({ activityId, activas, duracionSeg 
     return () => { vivo = false }
   }, [activityId, toast, version])
 
-  if (propuestas === null) return <div className="flex justify-center py-6"><Spinner /></div>
-  if (propuestas.length === 0) return null
+  const items = useMemo(() => construirItems({ propuestas: propuestas || [], activas: activas || [], borradores, activasListas }), [propuestas, activas, borradores, activasListas])
+  const cuenta = useMemo(() => contarPorEstadoRevision(items), [items])
 
-  const cuenta = contarPorEstado(propuestas)
-  const visibles = filtro === 'todas' ? propuestas : propuestas.filter((p) => p.estado === filtro)
+  if (propuestas === null || !activasListas) return <div className="flex justify-center py-6"><Spinner /></div>
+  if (items.length === 0) return null
+
+  const filtroActivo = filtro ?? (cuenta.pendiente > 0 ? ESTADO_REVISION.PENDIENTE : 'todas')
+  const visibles = filtroActivo === 'todas' ? items : items.filter((it) => it.estado === filtroActivo)
+  const persistida = (id) => (propuestas || []).find((p) => p.id === id)
   const reemplazar = (id, cambios) => setPropuestas((prev) => prev.map((p) => (p.id === id ? { ...p, ...cambios } : p)))
+  const setCampos = (id, campos) => setBorradores((b) => ({ ...b, [id]: { ...b[id], ...campos } }))
+  const quitarBorrador = (id) => setBorradores((b) => Object.fromEntries(Object.entries(b).filter(([k]) => k !== id)))
 
-  async function ejecutar(p, accion, exito) {
+  async function ejecutar(it, accion, exito) {
     if (ocupada) return
-    setOcupada(p.id)
+    setOcupada(it.id)
     try {
       await accion()
       if (exito) toast(exito)
@@ -63,57 +88,97 @@ export default function PropuestasVideoPanel({ activityId, activas, duracionSeg 
     } finally { setOcupada(null) }
   }
 
-  const aprobar = (p) => {
+  // Lo que el docente cambió y no ha guardado, solo los campos que difieren de lo guardado.
+  function camposCambiados(it) {
+    const c = {}
+    for (const k of ['enunciado', 'opciones', 'respuestaCorrecta', 'retroalimentacion', 'timestampSeg']) {
+      if (JSON.stringify(it[k]) !== JSON.stringify(it.guardado[k])) c[k] = it[k]
+    }
+    return c
+  }
+
+  function problema(it) {
+    const t = validarTiempo(it.timestampSeg, duracionSeg)
+    if (!t.ok) return t.error
+    const v = validarPropuesta({ tipo: it.tipo, enunciado: it.enunciado, opciones: it.opciones, respuestaCorrecta: it.respuestaCorrecta, retroalimentacion: it.retroalimentacion, timestampSeg: it.timestampSeg }, duracionSeg)
+    return v.ok ? null : v.errores[0]
+  }
+
+  // Guarda el borrador de una pregunta. Devuelve la propuesta guardada (para aprobar con lo último).
+  async function guardarBorrador(it) {
+    const campos = camposCambiados(it)
+    const err = problema(it)
+    if (err) throw new Error(err)
+    if (!Object.keys(campos).length) return persistida(it.id)
+    if (it.estado === ESTADO_REVISION.APROBADA) {
+      if (bloqueado) throw new Error('El parcial está cerrado: ya no se pueden cambiar preguntas aprobadas.')
+      const publicos = { ...campos }
+      if ('retroalimentacion' in publicos) publicos.retroalimentacion = String(publicos.retroalimentacion || '').trim() || null
+      await actualizarPregunta(activityId, it.id, publicos)
+      onPreguntaActualizada?.(it.id, publicos)
+      quitarBorrador(it.id)
+      return null
+    }
+    const escrito = await editarPropuesta(activityId, persistida(it.id), campos)
+    if (escrito) reemplazar(it.id, escrito)
+    quitarBorrador(it.id)
+    return { ...persistida(it.id), ...(escrito || {}) }
+  }
+
+  const guardar = (it) => ejecutar(it, async () => { await guardarBorrador(it); setEditandoId(null) }, 'Cambios guardados')
+
+  function aprobar(it) {
     if (bloqueado) { toast('El parcial está cerrado: ya no se pueden agregar preguntas.', 'error'); return }
     if (!cabeOtraPregunta(activas)) { toast('El video ya tiene el máximo de preguntas.', 'error'); return }
-    ejecutar(p, async () => {
-      const plan = await aprobarPropuesta({ activityId, propuesta: p, activas, pendientes: cuenta.pendiente, duracionSeg })
-      reemplazar(p.id, { estado: ESTADO_PROPUESTA.APROBADA, preguntaId: p.id })
+    if (requiereConfirmacion(it) && !confirmados[it.id]) { toast('Confirma primero que revisaste esta pregunta contra el video.', 'error'); return }
+    ejecutar(it, async () => {
+      const propuesta = (await guardarBorrador(it)) || persistida(it.id)
+      const plan = await aprobarPropuesta({ activityId, propuesta, activas, pendientes: cuenta.pendiente, duracionSeg })
+      reemplazar(it.id, { estado: ESTADO_PROPUESTA.APROBADA, preguntaId: it.id })
       if (!plan.yaAprobada) onAprobada?.(plan)
     }, 'Pregunta aprobada: ya forma parte de la evaluación')
   }
-  const rechazar = (p) => ejecutar(p, async () => { await rechazarPropuesta(activityId, p); reemplazar(p.id, { estado: ESTADO_PROPUESTA.RECHAZADA }) }, 'Pregunta rechazada: no se agregó a la evaluación')
-  const restaurar = (p) => ejecutar(p, async () => { await restaurarPropuesta(activityId, p); reemplazar(p.id, { estado: ESTADO_PROPUESTA.PENDIENTE }) })
+  const descartar = (it) => ejecutar(it, async () => { await rechazarPropuesta(activityId, persistida(it.id)); reemplazar(it.id, { estado: ESTADO_PROPUESTA.RECHAZADA }); quitarBorrador(it.id) }, 'Pregunta descartada: no se publicará')
+  const restaurar = (it) => ejecutar(it, async () => { await restaurarPropuesta(activityId, persistida(it.id)); reemplazar(it.id, { estado: ESTADO_PROPUESTA.PENDIENTE }) })
 
-  function abrirEdicion(p) {
-    setEditandoId(p.id)
-    setBorrador({
-      enunciado: p.enunciado, minuto: formatearMinuto(p.timestampSeg), retroalimentacion: p.retroalimentacion || '',
-      opciones: (p.opciones || []).map((o) => ({ ...o })), respuestaCorrecta: p.respuestaCorrecta,
-    })
+  const abrirVista = (inicioSeg = 0, reproducir = false) => {
+    if (!videoId) { toast('Esta actividad no tiene un video para reproducir.', 'error'); return }
+    setVistaPrevia({ inicioSeg, reproducir })
   }
-  function guardarEdicion(p) {
-    const seg = parsearMinuto(borrador.minuto)
-    const nueva = {
-      enunciado: borrador.enunciado, timestampSeg: seg, retroalimentacion: borrador.retroalimentacion,
-      ...(p.tipo === 'opcion_multiple' ? { opciones: borrador.opciones } : {}),
-      ...(p.tipo !== 'respuesta_corta' ? { respuestaCorrecta: borrador.respuestaCorrecta } : {}),
-    }
-    const v = validarPropuesta({ ...p, ...nueva }, duracionSeg)
-    if (!v.ok) { toast(v.errores[0], 'error'); return }
-    ejecutar(p, async () => {
-      const campos = await editarPropuesta(activityId, p, nueva)
-      if (campos) reemplazar(p.id, campos)
-      setEditandoId(null)
-    }, 'Cambios guardados')
-  }
+  const hayPreguntasParaProbar = items.some((it) => it.estado !== ESTADO_REVISION.DESCARTADA)
 
   return (
-    <section className="bg-surface-card rounded-card shadow-card p-4 space-y-3" aria-label="Preguntas propuestas por la IA">
+    <section className="bg-surface-card rounded-card shadow-card p-4 space-y-3" aria-label="Revisión de las preguntas del video" data-testid="panel-revision-video">
       <div className="flex items-start gap-2">
         <Sparkles size={18} className="text-accent flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <h3 className="text-base font-semibold">Preguntas propuestas por la IA</h3>
+          <h3 className="text-base font-semibold">Revisión de las preguntas del video</h3>
           <p className="text-sm text-muted">
-            Revisa cada una, edítala si hace falta y apruébala. Solo las aprobadas llegan a tus alumnos; las pendientes y las rechazadas nunca se califican.
+            Revisa cada pregunta, corrígela, elige cuándo aparece, pruébala en el video y apruébala o descártala. Solo las aprobadas llegan a tus alumnos.
           </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filtrar propuestas">
+      <RecomendacionesVideo />
+
+      <div className="rounded-card bg-surface px-3 py-2 space-y-1.5" data-testid="resumen-antes-de-publicar">
+        <p className="text-sm font-semibold text-on-surface">Antes de publicar</p>
+        <ul className="text-sm text-on-surface space-y-0.5">
+          <li><span className="font-semibold text-green-800">{cuenta.aprobada}</span> {cuenta.aprobada === 1 ? 'aprobada: se publicará' : 'aprobadas: se publicarán'}</li>
+          <li><span className="font-semibold text-amber-800">{cuenta.pendiente}</span> {cuenta.pendiente === 1 ? 'pendiente: NO se publica hasta que la apruebes' : 'pendientes: NO se publican hasta que las apruebes'}</li>
+          <li><span className="font-semibold text-red-800">{cuenta.descartada}</span> {cuenta.descartada === 1 ? 'descartada: no se publica' : 'descartadas: no se publican'}</li>
+        </ul>
+        {items.some((it) => it.sinGuardar) && <p className="text-xs font-semibold text-amber-900">Tienes cambios sin guardar. Guárdalos en cada pregunta para que cuenten al publicar.</p>}
+        <button type="button" onClick={() => abrirVista(0, false)} disabled={!hayPreguntasParaProbar || !videoId} data-testid="abrir-vista-previa"
+          className={`${BOTON} border border-accent text-accent hover:bg-[var(--accent-tint)]`}>
+          <Eye size={16} /> Vista previa docente (probar la actividad completa)
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filtrar preguntas">
         {FILTROS.map(([valor, etiqueta]) => {
-          const n = valor === 'todas' ? propuestas.length : cuenta[valor]
-          const activo = filtro === valor
+          const n = valor === 'todas' ? items.length : cuenta[valor]
+          const activo = filtroActivo === valor
           return (
             <button key={valor} type="button" role="tab" aria-selected={activo} onClick={() => setFiltro(valor)}
               className={`min-h-[2.75rem] px-3 rounded-full text-sm font-medium border transition-colors ${activo ? 'bg-accent text-white border-accent' : 'border-outline-variant text-muted hover:bg-surface-container'}`}>
@@ -125,110 +190,142 @@ export default function PropuestasVideoPanel({ activityId, activas, duracionSeg 
 
       {visibles.length === 0 && <p className="text-sm text-muted py-2">No hay preguntas en esta lista.</p>}
 
-      {visibles.map((p) => {
-        const est = ESTADOS[p.estado] || ESTADOS[ESTADO_PROPUESTA.PENDIENTE]
-        const editando = editandoId === p.id
-        const trabajando = ocupada === p.id
+      {visibles.map((it) => {
+        const est = ESTADOS[it.estado]
+        const editando = editandoId === it.id
+        const trabajando = ocupada === it.id
+        const esAprobada = it.estado === ESTADO_REVISION.APROBADA
+        const sinPermiso = esAprobada && bloqueado
+        const err = problema(it)
         return (
-          <article key={p.id} className="border border-outline-variant rounded-card p-3 space-y-2" data-estado={p.estado}>
+          <article key={it.id} className="border border-outline-variant rounded-card p-3 space-y-2" data-estado={it.estado} data-testid="tarjeta-pregunta">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">{formatearMinuto(p.timestampSeg)}</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-surface-container text-muted">{ETIQUETA_TIPO[p.tipo] || p.tipo}</span>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${est.clase}`}>{est.texto}</span>
-              {p.editada && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-surface-container text-muted">Editada por ti</span>}
+              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700 tabular-nums">{Number.isInteger(it.timestampSeg) ? formatearMinuto(it.timestampSeg) : 'Al final'}</span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-surface-container text-muted">{ETIQUETA_TIPO[it.tipo] || it.tipo}</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${est.clase}`}>{it.fueraDeLaEvaluacion ? 'Eliminada de la evaluación' : est.texto}</span>
+              {it.origen === 'manual' && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-surface-container text-muted">Creada por ti</span>}
+              {it.editada && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-surface-container text-muted">Editada por ti</span>}
+              {it.sinGuardar && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900">Cambios sin guardar</span>}
             </div>
 
             {!editando && (
               <>
-                <p className="text-sm whitespace-pre-wrap">{p.enunciado}</p>
-                {p.tipo === 'opcion_multiple' && (
+                <p className="text-sm whitespace-pre-wrap">{it.enunciado}</p>
+                {it.tipo === 'opcion_multiple' && (
                   <ul className="space-y-1 text-sm">
-                    {p.opciones.map((o) => (
-                      <li key={o.id} className={o.id === p.respuestaCorrecta ? 'font-semibold text-green-800' : 'text-muted'}>
-                        {o.id === p.respuestaCorrecta ? '✓ ' : '• '}{o.texto}
+                    {(it.opciones || []).map((o) => (
+                      <li key={o.id} className={o.id === it.respuestaCorrecta ? 'font-semibold text-green-800' : 'text-muted'}>
+                        {o.id === it.respuestaCorrecta ? '✓ ' : '• '}{o.texto}{o.id === it.respuestaCorrecta ? ' (respuesta marcada como correcta)' : ''}
                       </li>
                     ))}
                   </ul>
                 )}
-                {p.tipo === 'verdadero_falso' && <p className="text-sm font-semibold text-green-800">✓ {p.respuestaCorrecta === 'v' ? 'Verdadero' : 'Falso'}</p>}
-                {p.tipo === 'respuesta_corta' && <p className="text-xs text-hint">Respuesta abierta: tú la calificas.</p>}
-                {p.retroalimentacion && <p className="text-xs text-muted">Retroalimentación: {p.retroalimentacion}</p>}
+                {it.tipo === 'verdadero_falso' && <p className="text-sm font-semibold text-green-800">✓ {it.respuestaCorrecta === 'v' ? 'Verdadero' : 'Falso'} (respuesta marcada como correcta)</p>}
+                {it.tipo === 'respuesta_corta' && <p className="text-xs text-hint">Respuesta abierta: tú la calificas.</p>}
+                {it.retroalimentacion && <p className="text-xs text-muted">Retroalimentación: {it.retroalimentacion}</p>}
+                {it.estado === ESTADO_REVISION.PENDIENTE && <p className="text-xs text-hint">La respuesta marcada la propone la IA. Compruébala con el video antes de aprobar.</p>}
               </>
             )}
 
-            {editando && borrador && (
+            {editando && (
               <div className="space-y-2">
-                <label className="block text-xs font-medium text-muted" htmlFor={`pv-enun-${p.id}`}>Pregunta</label>
-                <textarea id={`pv-enun-${p.id}`} value={borrador.enunciado} rows={3} disabled={trabajando}
-                  onChange={(e) => setBorrador((b) => ({ ...b, enunciado: e.target.value }))}
+                <label className="block text-xs font-medium text-muted" htmlFor={`pv-enun-${it.id}`}>Pregunta</label>
+                <textarea id={`pv-enun-${it.id}`} value={it.enunciado} rows={3} disabled={trabajando || sinPermiso}
+                  onChange={(e) => setCampos(it.id, { enunciado: e.target.value })}
                   className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
-                <label className="block text-xs font-medium text-muted" htmlFor={`pv-min-${p.id}`}>Minuto del video en que se pausa (m:ss)</label>
-                <input id={`pv-min-${p.id}`} type="text" inputMode="numeric" value={borrador.minuto} disabled={trabajando}
-                  onChange={(e) => setBorrador((b) => ({ ...b, minuto: e.target.value }))}
-                  className="w-32 px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
-                {p.tipo === 'opcion_multiple' && (
+                {it.tipo === 'opcion_multiple' && (
                   <div className="space-y-1.5">
-                    {borrador.opciones.map((o, j) => (
+                    {(it.opciones || []).map((o, j) => (
                       <div key={o.id} className="flex items-center gap-2">
-                        <input type="radio" name={`pv-ok-${p.id}`} checked={borrador.respuestaCorrecta === o.id} disabled={trabajando}
-                          onChange={() => setBorrador((b) => ({ ...b, respuestaCorrecta: o.id }))} className="accent-[var(--accent)] flex-shrink-0 w-5 h-5"
+                        <input type="radio" name={`pv-ok-${it.id}`} checked={it.respuestaCorrecta === o.id} disabled={trabajando || sinPermiso}
+                          onChange={() => setCampos(it.id, { respuestaCorrecta: o.id })} className="accent-[var(--accent)] flex-shrink-0 w-5 h-5"
                           aria-label={`Marcar la opción ${String.fromCharCode(65 + j)} como correcta`} />
-                        <input type="text" value={o.texto} disabled={trabajando} aria-label={`Opción ${String.fromCharCode(65 + j)}`}
-                          onChange={(e) => setBorrador((b) => ({ ...b, opciones: b.opciones.map((x) => (x.id === o.id ? { ...x, texto: e.target.value } : x)) }))}
+                        <input type="text" value={o.texto} disabled={trabajando || sinPermiso} aria-label={`Opción ${String.fromCharCode(65 + j)}`}
+                          onChange={(e) => setCampos(it.id, { opciones: it.opciones.map((x) => (x.id === o.id ? { ...x, texto: e.target.value } : x)) })}
                           className="flex-1 px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
                       </div>
                     ))}
                     <p className="text-xs text-hint">Deja seleccionada la opción correcta.</p>
                   </div>
                 )}
-                {p.tipo === 'verdadero_falso' && (
+                {it.tipo === 'verdadero_falso' && (
                   <div className="flex gap-4">
                     {[['v', 'Verdadero'], ['f', 'Falso']].map(([val, etiqueta]) => (
                       <label key={val} className="flex items-center gap-2 text-sm min-h-[2.75rem]">
-                        <input type="radio" name={`pv-vf-${p.id}`} checked={borrador.respuestaCorrecta === val} disabled={trabajando}
-                          onChange={() => setBorrador((b) => ({ ...b, respuestaCorrecta: val }))} className="accent-[var(--accent)] w-5 h-5" />
+                        <input type="radio" name={`pv-vf-${it.id}`} checked={it.respuestaCorrecta === val} disabled={trabajando || sinPermiso}
+                          onChange={() => setCampos(it.id, { respuestaCorrecta: val })} className="accent-[var(--accent)] w-5 h-5" />
                         {etiqueta}
                       </label>
                     ))}
                   </div>
                 )}
-                <label className="block text-xs font-medium text-muted" htmlFor={`pv-retro-${p.id}`}>Retroalimentación (opcional)</label>
-                <input id={`pv-retro-${p.id}`} type="text" value={borrador.retroalimentacion} disabled={trabajando}
-                  onChange={(e) => setBorrador((b) => ({ ...b, retroalimentacion: e.target.value }))}
+                <label className="block text-xs font-medium text-muted" htmlFor={`pv-retro-${it.id}`}>Retroalimentación (opcional)</label>
+                <input id={`pv-retro-${it.id}`} type="text" value={it.retroalimentacion} disabled={trabajando || sinPermiso}
+                  onChange={(e) => setCampos(it.id, { retroalimentacion: e.target.value })}
                   className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <button type="button" onClick={() => guardarEdicion(p)} disabled={trabajando} className={`${BOTON} bg-accent text-white`}>
-                    {trabajando ? <Spinner size="sm" /> : <Check size={16} />} Guardar cambios
-                  </button>
-                  <button type="button" onClick={() => setEditandoId(null)} disabled={trabajando} className={`${BOTON} border border-outline-variant text-muted`}>Cancelar</button>
-                </div>
               </div>
             )}
 
-            {!editando && p.estado === ESTADO_PROPUESTA.PENDIENTE && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button type="button" onClick={() => aprobar(p)} disabled={!!ocupada} className={`${BOTON} bg-accent text-white`}>
-                  {trabajando ? <Spinner size="sm" /> : <Check size={16} />} Aprobar
-                </button>
-                <button type="button" onClick={() => abrirEdicion(p)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-on-surface`}>
-                  <Pencil size={16} /> Editar
-                </button>
-                <button type="button" onClick={() => rechazar(p)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-red-700`}>
-                  <X size={16} /> Rechazar
-                </button>
-              </div>
+            <ControlTiempoVideo
+              item={it} items={items} duracionSeg={duracionSeg} disabled={trabajando || sinPermiso || it.estado === ESTADO_REVISION.DESCARTADA}
+              onCambiar={(seg) => setCampos(it.id, { timestampSeg: seg })}
+              onProbar={() => abrirVista(inicioDePrueba(it.timestampSeg, duracionSeg), true)}
+              puedeProbar={!!videoId && Number.isInteger(it.timestampSeg) && it.estado !== ESTADO_REVISION.DESCARTADA}
+            />
+            <EvidenciaVideo item={it} />
+            {sinPermiso && <p className="text-xs text-amber-900">El parcial está cerrado: puedes probar esta pregunta, pero ya no se puede cambiar.</p>}
+            {err && it.estado !== ESTADO_REVISION.DESCARTADA && <p role="alert" className="text-xs text-error">{err}</p>}
+
+            {requiereConfirmacion(it) && it.estado === ESTADO_REVISION.PENDIENTE && (
+              <label className="flex items-start gap-2 text-xs text-amber-950 bg-amber-50 rounded px-2 py-2">
+                <input type="checkbox" checked={!!confirmados[it.id]} onChange={(e) => setConfirmados((c) => ({ ...c, [it.id]: e.target.checked }))} className="mt-0.5 accent-[var(--accent)]" />
+                Vi el video y comprobé que esta pregunta y su respuesta corresponden a lo que se explica antes de este minuto.
+              </label>
             )}
-            {!editando && p.estado === ESTADO_PROPUESTA.RECHAZADA && (
-              <button type="button" onClick={() => restaurar(p)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-accent`}>
-                <RotateCcw size={16} /> Restaurar como pendiente
-              </button>
-            )}
-            {!editando && p.estado === ESTADO_PROPUESTA.APROBADA && (
-              <p className="text-xs text-muted">Ya forma parte de la evaluación. Para cambiarla, edítala en la lista de preguntas.</p>
-            )}
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              {it.sinGuardar && (
+                <>
+                  <button type="button" onClick={() => guardar(it)} disabled={!!ocupada || sinPermiso || !!err} className={`${BOTON} bg-accent text-white`} data-testid="guardar-cambios">
+                    {trabajando ? <Spinner size="sm" /> : <Check size={16} />} Guardar cambios
+                  </button>
+                  <button type="button" onClick={() => quitarBorrador(it.id)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-muted`}>Deshacer cambios</button>
+                </>
+              )}
+              {it.estado !== ESTADO_REVISION.DESCARTADA && (
+                <button type="button" onClick={() => setEditandoId(editando ? null : it.id)} disabled={!!ocupada || sinPermiso} className={`${BOTON} border border-outline-variant text-on-surface`}>
+                  <Pencil size={16} /> {editando ? 'Cerrar edición' : 'Editar texto y respuesta'}
+                </button>
+              )}
+              {it.estado === ESTADO_REVISION.PENDIENTE && (
+                <>
+                  <button type="button" onClick={() => aprobar(it)} disabled={!!ocupada || !!err || (requiereConfirmacion(it) && !confirmados[it.id])} className={`${BOTON} bg-accent text-white`} data-testid="aprobar">
+                    {trabajando ? <Spinner size="sm" /> : <Check size={16} />} Aprobar
+                  </button>
+                  <button type="button" onClick={() => descartar(it)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-red-700`} data-testid="descartar">
+                    <X size={16} /> Descartar
+                  </button>
+                </>
+              )}
+              {it.estado === ESTADO_REVISION.DESCARTADA && !it.fueraDeLaEvaluacion && (
+                <button type="button" onClick={() => restaurar(it)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-accent`}>
+                  <RotateCcw size={16} /> Restaurar como pendiente
+                </button>
+              )}
+            </div>
+            {it.fueraDeLaEvaluacion && <p className="text-xs text-muted">La aprobaste y después la eliminaste de la lista de preguntas: ya no se publica ni se reproduce en la vista previa. Para volver a usarla, agrégala a mano en la lista de preguntas.</p>}
+            {esAprobada && !it.sinGuardar && <p className="text-xs text-muted">Aprobada por ti: ya forma parte de la evaluación. Para quitarla usa «Eliminar» en la lista de preguntas.</p>}
           </article>
         )
       })}
+
+      {vistaPrevia && (
+        <VistaPreviaDocenteVideo
+          videoId={videoId} duracionSeg={duracionSeg} nombre={nombreActividad} items={items}
+          inicioSeg={vistaPrevia.inicioSeg} reproducirAlAbrir={vistaPrevia.reproducir}
+          onCerrar={() => setVistaPrevia(null)}
+        />
+      )}
     </section>
   )
 }

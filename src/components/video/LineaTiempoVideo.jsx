@@ -13,6 +13,7 @@ import { formatearTiempo } from '../../utils/videoProgreso'
 // No hay arrastre: un toque, sin accidentes con el dedo.
 export default function LineaTiempoVideo({
   duracion, posicion, maxVisto, preguntas, respondida, activaId, onSaltar, onMarca,
+  sinLimite = false, // vista previa del docente: sin franja de «lo visto» y todas las marcas se pueden tocar
 }) {
   const pistaRef = useRef(null)
   const d = Math.max(1, duracion || 1)
@@ -32,11 +33,11 @@ export default function LineaTiempoVideo({
         {/* El toque en la pista salta; las marcas son botones aparte. */}
         <div ref={pistaRef} onClick={alTocarPista} aria-hidden="true"
           className="relative w-full h-3 rounded-full bg-surface-container cursor-pointer">
-          <div className="absolute inset-y-0 left-0 rounded-full bg-accent-light" style={{ width: pct(maxVisto) }} />
+          {!sinLimite && <div className="absolute inset-y-0 left-0 rounded-full bg-accent-light" style={{ width: pct(maxVisto) }} />}
           <div className="absolute inset-y-0 left-0 rounded-full bg-accent" style={{ width: pct(posicion) }} />
           {preguntas.map((p) => {
             const lista = respondida(p)
-            const alcanzada = p.timestampSeg <= maxVisto + 0.3
+            const alcanzada = sinLimite || p.timestampSeg <= maxVisto + 0.3
             const activa = p.id === activaId
             return (
               <button key={p.id} type="button"

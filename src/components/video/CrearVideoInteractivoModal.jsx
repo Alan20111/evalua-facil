@@ -16,6 +16,7 @@ import Spinner from '../Spinner'
 import Modal from '../ui/Modal'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
+import RecomendacionesVideo from './RecomendacionesVideo'
 import useVideoGeneracionDeps from '../../hooks/useVideoGeneracionDeps'
 import { VIDEO_CFG } from '../../utils/videoInteractivo'
 import {
@@ -179,6 +180,8 @@ export default function CrearVideoInteractivoModal({
           <p className="text-xs text-hint mt-1">De {VIDEO_CFG.MIN_PREGUNTAS} a {VIDEO_CFG.MAX_PREGUNTAS} preguntas en total. La respuesta abierta la calificas tú.</p>
           {tocado && v.errores.distribucion && <p className="text-xs text-error mt-1">{v.errores.distribucion}</p>}
         </fieldset>
+
+        <RecomendacionesVideo />
 
         <p className="text-sm text-on-surface" data-testid="costo-estimado">
           {v.total > 0

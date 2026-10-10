@@ -227,6 +227,8 @@ export default function EvaluacionEditor({
   // ── Preguntas state ───────────────────────────────────────────────
   const [preguntas, setPreguntas] = useState([])
   const [loadingPreguntas, setLoadingPreguntas] = useState(false)
+  // Ya se leyeron las preguntas de la evaluación (la revisión del video lo necesita para saber cuáles aprobadas siguen en ella).
+  const [preguntasCargadas, setPreguntasCargadas] = useState(false)
   // Video interactivo con IA: solo si la actividad lo es. Habilita la revisión de las
   // preguntas que propuso la IA (PropuestasVideoPanel); en cuestionarios y exámenes
   // normales queda en null y no se monta nada.
@@ -314,7 +316,7 @@ export default function EvaluacionEditor({
           cerrarEntregasEnFecha: !(d.recibirTarde ?? false),
         }
         setInfoForm(loaded)
-        setVideoMeta(esVideoInteractivo(d) ? { duracionSeg: d.videoInteractivo?.duracionSeg ?? null, intento: intentoPendiente(d) } : null)
+        setVideoMeta(esVideoInteractivo(d) ? { duracionSeg: d.videoInteractivo?.duracionSeg ?? null, intento: intentoPendiente(d), videoId: d.videoInteractivo?.videoId ?? null } : null)
         setExtensiones(d.extensiones || {})
         setExtensionesMotivo(d.extensionesMotivo || {})
         loadedSnapshot.current = JSON.stringify(loaded)
@@ -354,6 +356,7 @@ export default function EvaluacionEditor({
       toast('Error al cargar preguntas: ' + err.message, 'error')
     } finally {
       setLoadingPreguntas(false)
+      setPreguntasCargadas(true)
     }
   }
 
@@ -888,6 +891,16 @@ export default function EvaluacionEditor({
     const updated = [...preguntas.filter((p) => p.id !== plan.preguntaId), { id: plan.preguntaId, ...plan.pregunta }]
     setPreguntas(updated)
     syncNumPreguntas(updated.length).catch(() => {})
+  }
+
+  // Una pregunta YA aprobada se cambió desde la revisión del video (momento, texto u opciones) y ya se guardó en Firestore:
+  // se refleja aquí. Si la lista estaba sin tocar, la nueva versión pasa a ser su punto de partida, para no marcar como
+  // «cambios sin guardar» algo que ya está guardado.
+  function handlePreguntaVideoActualizada(id, campos) {
+    const estabaSinTocar = preguntasSnap.current !== null && JSON.stringify(preguntas) === preguntasSnap.current
+    const updated = preguntas.map((p) => (p.id === id ? { ...p, ...campos } : p))
+    setPreguntas(updated)
+    if (estabaSinTocar) preguntasSnap.current = JSON.stringify(updated)
   }
 
   // "Repartir parejo" — pedido explícito: reparte los 10 puntos entre todas
@@ -1428,10 +1441,14 @@ export default function EvaluacionEditor({
           <PropuestasVideoPanel
             activityId={currentActivityId}
             activas={preguntas}
+            activasListas={preguntasCargadas}
             duracionSeg={videoMeta.duracionSeg}
             bloqueado={cerrado}
             version={propuestasVersion}
             onAprobada={handlePropuestaAprobada}
+            onPreguntaActualizada={handlePreguntaVideoActualizada}
+            videoId={videoMeta.videoId}
+            nombreActividad={infoForm.nombre}
           />
         )}
 

@@ -6554,7 +6554,7 @@ await casoA('pantalla completa: pedir y salir usan el método estándar o el pre
 })
 
 caso('reproductor: la pregunta NUNCA se pone encima del video (regla de YouTube) — ni en pantalla completa', () => {
-  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  const runner = leerFuente('src/components/video/VideoInteractivoPantalla.jsx') // el reproductor vive aquí; VideoInteractivoRunner.jsx es solo el contenedor del estudiante
   const panel = runner.slice(runner.indexOf('data-esq="video-panel"'))
   const hasta = panel.indexOf('{yt.error != null')
   const clasesPanel = panel.slice(0, hasta > 0 ? hasta : 600)
@@ -6569,7 +6569,7 @@ caso('reproductor: la pregunta NUNCA se pone encima del video (regla de YouTube)
 })
 
 caso('reproductor: pantalla completa y escritorio no tocan lo que no deben', () => {
-  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  const runner = leerFuente('src/components/video/VideoInteractivoPantalla.jsx') // el reproductor vive aquí; VideoInteractivoRunner.jsx es solo el contenedor del estudiante
   // Mismos manejadores de siempre: respuestas, progreso y entrega son los del runner de cuestionarios.
   for (const c of ['onSelectOpcion', 'onTextoChange', 'onOtraTextoChange', 'onFinalizar', 'guardarProgreso', 'acotarSalto', 'antesDeReproducir']) assert.ok(runner.includes(c), c)
   assert.ok(!/pc\.(alternar|salir)[^\n]*(setPosUI|tickRef|guardarProgreso)/.test(runner), 'alternar pantalla completa no toca posición ni progreso')
@@ -6586,7 +6586,7 @@ caso('reproductor: pantalla completa y escritorio no tocan lo que no deben', () 
 })
 
 caso('reproductor: el escritorio aprovecha el ancho (ya no hay tope de 6xl) y limita el alto al de la ventana', () => {
-  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  const runner = leerFuente('src/components/video/VideoInteractivoPantalla.jsx') // el reproductor vive aquí; VideoInteractivoRunner.jsx es solo el contenedor del estudiante
   assert.ok(!/lg:max-w-6xl/.test(runner), 'sin el tope que lo dejaba en ~600 px a 1440 de ancho')
   assert.ok(/lg:max-w-none/.test(runner))
   // Mecanismo vigente. Sustituye al antiguo `calc((100dvh_-_20rem)*16/9)` (una reserva fija de 20 rem): ahora el alto libre
@@ -6624,7 +6624,7 @@ caso('reproductor: tamanoVideo y altoDisponibleVideo — las cuatro resoluciones
 })
 
 caso('reproductor: lado a lado, la fila de información y el aviso van en el panel y no restan alto al video', () => {
-  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  const runner = leerFuente('src/components/video/VideoInteractivoPantalla.jsx') // el reproductor vive aquí; VideoInteractivoRunner.jsx es solo el contenedor del estudiante
   // La condición del JS es la misma que la de las clases `lg:` y `[@media(orientation:landscape)_and_(max-height:500px)]:`.
   assert.ok(/Q_LADO_A_LADO = '\(min-width: 1024px\), \(orientation: landscape\) and \(max-height: 500px\)'/.test(runner))
   assert.ok(/const lado = useMediaQuery\(Q_LADO_A_LADO\)/.test(runner) && /const ladoALado = lado && !enPC/.test(runner), 'en pantalla completa se conserva su propia distribución')
@@ -6646,7 +6646,7 @@ caso('reproductor: lado a lado, la fila de información y el aviso van en el pan
 })
 
 caso('reproductor: preparado para reutilizarse fuera de la página del alumno (vista previa docente)', () => {
-  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  const runner = leerFuente('src/components/video/VideoInteractivoPantalla.jsx') // el reproductor vive aquí; VideoInteractivoRunner.jsx es solo el contenedor del estudiante
   // El alto libre puede venir de fuera; sin él se mide con la ventana y la cabecera.
   assert.ok(/altoDisponiblePx \?\? altoDisponibleVideo\(/.test(runner))
   assert.ok(/altoDisponiblePx,\s*\/\/ opcional/.test(runner))
@@ -6659,6 +6659,435 @@ caso('línea de tiempo: las marcas de los extremos quedan dentro de su caja y no
   const lt = leerFuente('src/components/video/LineaTiempoVideo.jsx')
   assert.ok(/flex items-center h-11 px-5/.test(lt), 'las marcas miden 40 px y se centran en su segundo: sin relleno sobresalen 20 px')
   assert.ok(/w-10 h-10/.test(lt))
+})
+
+
+
+// ── Video interactivo: revisión docente y VISTA PREVIA DOCENTE ─────────────────────────────────────────────
+// LA IA PROPONE; EL DOCENTE REVISA, CORRIGE, PRUEBA, APRUEBA O DESCARTA. Estas pruebas fijan la lógica pura (revisionVideo.js),
+// la reutilización de la lógica temporal del estudiante, el AISLAMIENTO de la vista previa (no tiene por dónde escribir) y que el
+// flujo del estudiante y los demás tipos de actividad no cambien. La interacción en pantalla se comprobó además en un navegador
+// con el panel y el reproductor reales (ver el informe de la entrega).
+const RVD = await import('../src/components/video/revisionVideo.js')
+const PRV = await import('../src/utils/propuestasVideo.js')
+const VPR = await import('../src/utils/videoProgreso.js')
+const VIN = await import('../src/utils/videoInteractivo.js')
+const RTX = await import('../src/components/video/recomendacionesTexto.js')
+
+const opcsV = (id) => ['A', 'B', 'C', 'D'].map((t) => ({ id: `${id}-${t}`, texto: `Opción ${t}` }))
+const propuestaV = (id, ts, extra = {}) => ({
+  id, tipo: 'opcion_multiple', enunciado: `¿Qué se explicó en ${id}?`, opciones: opcsV(id), respuestaCorrecta: `${id}-B`, retroalimentacion: null,
+  timestampSeg: ts, estado: 'pendiente', origen: 'ia', editada: false, cambios: {}, preguntaId: null, ...extra,
+})
+const DURV = 539
+
+caso('revisión: ajustarTiempo mueve ±1 y ±5 s y nunca sale del video', () => {
+  assert.strictEqual(RVD.ajustarTiempo(60, 5, DURV), 65)
+  assert.strictEqual(RVD.ajustarTiempo(60, -5, DURV), 55)
+  assert.strictEqual(RVD.ajustarTiempo(60, 1, DURV), 61)
+  assert.strictEqual(RVD.ajustarTiempo(60, -1, DURV), 59)
+  assert.deepStrictEqual(RVD.PASOS_TIEMPO, [-5, -1, 1, 5], 'los cuatro botones')
+  assert.strictEqual(RVD.ajustarTiempo(2, -5, DURV), 0, 'no baja de 0')
+  assert.strictEqual(RVD.ajustarTiempo(537, 5, DURV), 539, 'no pasa de la duración')
+  assert.strictEqual(RVD.ajustarTiempo(539, 1, DURV), 539)
+  assert.strictEqual(RVD.ajustarTiempo(null, 5, DURV), 5, 'sin tiempo previo parte de 0')
+  assert.strictEqual(RVD.ajustarTiempo(100, 5, null), 105, 'sin duración conocida solo se garantiza que no sea negativo')
+  assert.strictEqual(RVD.ajustarTiempo(3, -5, null), 0)
+})
+
+caso('revisión: validarTiempo rechaza negativos, texto y minutos posteriores a la duración', () => {
+  assert.strictEqual(RVD.validarTiempo(60, DURV).ok, true)
+  assert.strictEqual(RVD.validarTiempo(0, DURV).ok, true)
+  assert.strictEqual(RVD.validarTiempo(DURV, DURV).ok, true, 'justo la duración es válido (aparece al terminar)')
+  for (const mal of [-1, DURV + 1, 99999, null, undefined, NaN, 'abc', 1.5]) {
+    const v = RVD.validarTiempo(mal, DURV)
+    assert.strictEqual(v.ok, false, String(mal))
+    assert.ok(v.error)
+  }
+  assert.match(RVD.validarTiempo(DURV + 1, DURV).error, /dura 8:59/)
+  assert.strictEqual(RVD.validarTiempo(-3, DURV).error, 'El minuto no puede ser negativo.')
+  assert.strictEqual(RVD.validarTiempo(100000, null).ok, true, 'sin duración conocida no hay tope')
+  assert.match(RVD.validarTiempo(DURV - 1, DURV).aviso, /final del video/)
+  assert.match(RVD.validarTiempo(0, DURV).aviso, /inicio/)
+  assert.strictEqual(RVD.validarTiempo(60, DURV).aviso, null)
+})
+
+caso('revisión: interpretarTiempo (el campo m:ss) entiende m:ss, h:mm:ss y segundos, y rechaza basura', () => {
+  assert.strictEqual(RVD.interpretarTiempo('1:05'), 65)
+  assert.strictEqual(RVD.interpretarTiempo('01:05'), 65)
+  assert.strictEqual(RVD.interpretarTiempo('8:59'), 539)
+  assert.strictEqual(RVD.interpretarTiempo('1:02:03'), 3723)
+  assert.strictEqual(RVD.interpretarTiempo('65'), 65)
+  for (const mal of ['', 'abc', '1:75', '-5', '1:2:3:4', '1.5']) assert.strictEqual(RVD.interpretarTiempo(mal), null, mal)
+  assert.strictEqual(RVD.formatearMinuto(65), '1:05')
+  assert.strictEqual(RVD.formatearMinuto(539), '8:59')
+})
+
+caso('revisión: estados — pendiente, aprobada, descartada; la aprobada toma lo que está en la evaluación', () => {
+  const propuestas = [
+    propuestaV('p1', 60),
+    propuestaV('p2', 200, { estado: 'aprobada', preguntaId: 'p2', cambios: { timestampSeg: 190 } }),
+    propuestaV('p3', 330, { estado: 'rechazada' }),
+  ]
+  // p2 ya está en la evaluación y el docente la movió y la corrigió desde la lista de preguntas.
+  const activas = [{ id: 'p2', tipo: 'opcion_multiple', enunciado: 'Corregida en la lista', opciones: opcsV('p2'), respuestaCorrecta: 'p2-C', timestampSeg: 205 }]
+  const items = RVD.construirItems({ propuestas, activas })
+  const por = Object.fromEntries(items.map((i) => [i.id, i]))
+  assert.deepStrictEqual(items.map((i) => i.id), ['p1', 'p2', 'p3'], 'orden por minuto')
+  assert.strictEqual(por.p1.estado, 'pendiente')
+  assert.strictEqual(por.p2.estado, 'aprobada')
+  assert.strictEqual(por.p3.estado, 'descartada', 'rechazada de la propuesta = descartada en la revisión')
+  assert.strictEqual(por.p2.enunciado, 'Corregida en la lista')
+  assert.strictEqual(por.p2.respuestaCorrecta, 'p2-C')
+  assert.strictEqual(por.p2.timestampSeg, 205, 'el momento vigente es el de la evaluación')
+  assert.strictEqual(por.p2.sugeridoSeg, 190, 'el sugerido por la IA se conserva aparte (cambios guarda el original)')
+  assert.strictEqual(por.p1.sugeridoSeg, 60)
+  assert.deepStrictEqual(RVD.contarPorEstadoRevision(items), { pendiente: 1, aprobada: 1, descartada: 1 })
+  assert.deepStrictEqual(RVD.ESTADO_REVISION, { PENDIENTE: 'pendiente', APROBADA: 'aprobada', DESCARTADA: 'descartada' })
+})
+
+caso('revisión: una aprobada que el docente ELIMINÓ desde la lista de preguntas ya no cuenta como publicada (la propuesta sigue «aprobada»)', () => {
+  // Caso real comprobado contra Firestore: borrarPregunta quita preguntas/{id} y clave/{id} pero NO toca su propuesta, y las reglas
+  // no permiten reabrir una propuesta aprobada. Sin esta regla, el resumen «se publicará» contaría una pregunta que ya no existe.
+  const propuestas = [propuestaV('p1', 60, { estado: 'aprobada', preguntaId: 'p1' }), propuestaV('p2', 120, { estado: 'aprobada', preguntaId: 'p2' })]
+  const activas = [{ id: 'p1', tipo: 'opcion_multiple', enunciado: 'a', opciones: opcsV('p1'), respuestaCorrecta: 'p1-A', timestampSeg: 60 }] // p2 fue eliminada
+  const items = RVD.construirItems({ propuestas, activas })
+  const p2 = items.find((i) => i.id === 'p2')
+  assert.strictEqual(p2.estado, 'descartada')
+  assert.strictEqual(p2.fueraDeLaEvaluacion, true)
+  assert.deepStrictEqual(RVD.contarPorEstadoRevision(items), { pendiente: 0, aprobada: 1, descartada: 1 })
+  assert.deepStrictEqual(RVD.preguntasVistaPrevia(items).map((q) => q.id), ['p1'], 'tampoco se reproduce en la vista previa')
+  // mientras el editor aún lee las preguntas no se puede saber: no se marca como eliminada
+  const cargando = RVD.construirItems({ propuestas, activas: [], activasListas: false })
+  assert.ok(cargando.every((i) => i.estado === 'aprobada' && !i.fueraDeLaEvaluacion))
+  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  assert.ok(/propuestas === null \|\| !activasListas/.test(panel), 'el panel espera a que el editor termine de leer')
+  assert.ok(/!it\.fueraDeLaEvaluacion && \(\s*<button type="button" onClick=\{\(\) => restaurar\(it\)\}/.test(panel), 'sin «Restaurar»: las reglas no permiten reabrir una aprobada')
+  assert.ok(/activasListas=\{preguntasCargadas\}/.test(leerFuente('src/components/EvaluacionEditor.jsx')))
+})
+
+caso('revisión: una pregunta de la evaluación sin propuesta (creada a mano o de antes) también aparece, y no se duplica', () => {
+  const propuestas = [propuestaV('p1', 60, { estado: 'aprobada', preguntaId: 'p1' })]
+  const activas = [
+    { id: 'p1', tipo: 'opcion_multiple', enunciado: 'a', opciones: opcsV('p1'), respuestaCorrecta: 'p1-A', timestampSeg: 60 },
+    { id: 'm1', tipo: 'verdadero_falso', enunciado: 'Manual', respuestaCorrecta: 'f', timestampSeg: null },
+  ]
+  const items = RVD.construirItems({ propuestas, activas })
+  assert.strictEqual(items.length, 2)
+  const m = items.find((i) => i.id === 'm1')
+  assert.strictEqual(m.origen, 'manual')
+  assert.strictEqual(m.estado, 'aprobada')
+  assert.strictEqual(m.timestampSeg, null, 'sin momento: aparece al final')
+  assert.strictEqual(items[items.length - 1].id, 'm1', 'las que no tienen momento van al final')
+})
+
+caso('revisión: el borrador del docente se sobrepone a lo guardado SIN tocarlo, y marca «sin guardar»', () => {
+  const propuestas = [propuestaV('p1', 60)]
+  const sin = RVD.construirItems({ propuestas, activas: [], borradores: {} })[0]
+  assert.strictEqual(sin.sinGuardar, false)
+  const borr = { p1: { timestampSeg: 75, enunciado: 'Reescrita', respuestaCorrecta: 'p1-D' } }
+  const con = RVD.construirItems({ propuestas, activas: [], borradores: borr })[0]
+  assert.strictEqual(con.sinGuardar, true)
+  assert.strictEqual(con.timestampSeg, 75)
+  assert.strictEqual(con.enunciado, 'Reescrita')
+  assert.strictEqual(con.respuestaCorrecta, 'p1-D')
+  assert.strictEqual(con.guardado.timestampSeg, 60, 'lo guardado sigue a la mano')
+  assert.strictEqual(con.guardado.enunciado, '¿Qué se explicó en p1?')
+  assert.strictEqual(propuestas[0].timestampSeg, 60, 'la propuesta guardada no se muta')
+  // un borrador igual a lo guardado no cuenta como cambio
+  const igual = RVD.construirItems({ propuestas, activas: [], borradores: { p1: { timestampSeg: 60 } } })[0]
+  assert.strictEqual(igual.sinGuardar, false)
+})
+
+caso('revisión: edición de enunciado, opciones y respuesta correcta (validación y registro de lo que cambió la IA)', () => {
+  const p = propuestaV('p1', 60)
+  // la edición se aplica con las reglas de siempre y conserva lo que propuso la IA
+  const r = PRV.aplicarEdicion(p, { enunciado: '  Nuevo enunciado  ', respuestaCorrecta: 'p1-C', opciones: p.opciones.map((o) => (o.id === 'p1-A' ? { ...o, texto: 'Opción A corregida' } : o)) })
+  assert.strictEqual(r.campos.enunciado, 'Nuevo enunciado')
+  assert.strictEqual(r.campos.respuestaCorrecta, 'p1-C')
+  assert.strictEqual(r.campos.opciones[0].texto, 'Opción A corregida')
+  assert.strictEqual(r.campos.editada, true)
+  assert.strictEqual(r.campos.cambios.enunciado, '¿Qué se explicó en p1?', 'queda el original de la IA')
+  assert.strictEqual(r.campos.cambios.respuestaCorrecta, 'p1-B')
+  // las reglas de validación que bloquean «Guardar» y «Aprobar»
+  const base = { tipo: p.tipo, enunciado: p.enunciado, opciones: p.opciones, respuestaCorrecta: p.respuestaCorrecta, timestampSeg: 60 }
+  assert.strictEqual(PRV.validarPropuesta(base, DURV).ok, true)
+  assert.strictEqual(PRV.validarPropuesta({ ...base, enunciado: '   ' }, DURV).ok, false)
+  assert.strictEqual(PRV.validarPropuesta({ ...base, respuestaCorrecta: 'no-existe' }, DURV).ok, false, 'hay que marcar una correcta')
+  assert.strictEqual(PRV.validarPropuesta({ ...base, opciones: p.opciones.map((o, i) => (i === 0 ? { ...o, texto: '' } : o)) }, DURV).ok, false, 'opción vacía')
+  assert.strictEqual(PRV.validarPropuesta({ ...base, opciones: p.opciones.map((o, i) => (i < 2 ? { ...o, texto: 'igual' } : o)) }, DURV).ok, false, 'opciones repetidas')
+  assert.strictEqual(PRV.validarPropuesta({ ...base, timestampSeg: DURV + 5 }, DURV).ok, false, 'minuto posterior a la duración')
+  assert.strictEqual(PRV.validarPropuesta({ ...base, timestampSeg: -1 }, DURV).ok, false, 'minuto negativo')
+  // una propuesta ya aprobada se corrige desde la evaluación, no con aplicarEdicion
+  assert.throws(() => PRV.aplicarEdicion({ ...p, estado: 'aprobada' }, { enunciado: 'x' }))
+})
+
+caso('revisión: aprobar y publicar usan las preguntas y los tiempos aprobados; pendientes y descartadas nunca se publican', () => {
+  const p = propuestaV('p1', 60)
+  const editada = { ...p, timestampSeg: 95, enunciado: 'Corregida', respuestaCorrecta: 'p1-C' }
+  const plan = PRV.planAprobacion({ propuesta: editada, activas: [], pendientes: 1, duracionSeg: DURV })
+  assert.strictEqual(plan.pregunta.timestampSeg, 95, 'la pregunta publicada lleva el tiempo que eligió el docente')
+  assert.strictEqual(plan.pregunta.enunciado, 'Corregida')
+  assert.strictEqual(plan.pregunta.respuestaCorrecta, 'p1-C')
+  assert.strictEqual(plan.pregunta.estado, 'aprobada')
+  assert.strictEqual(plan.pregunta.propuestaId, 'p1')
+  // un tiempo inválido o una propuesta descartada NO se pueden aprobar
+  assert.throws(() => PRV.planAprobacion({ propuesta: { ...p, timestampSeg: DURV + 1 }, activas: [], pendientes: 1, duracionSeg: DURV }))
+  assert.throws(() => PRV.planAprobacion({ propuesta: { ...p, estado: 'rechazada' }, activas: [], pendientes: 1, duracionSeg: DURV }), /rechazada/)
+  // lo que se publica: aprobadas + las de antes (sin estado); nunca propuestas ni rechazadas
+  const publicadas = VIN.preguntasAprobadas([
+    { id: 'a', estado: 'aprobada', timestampSeg: 95 }, { id: 'legado' }, { id: 'prop', estado: 'propuesta' }, { id: 'rech', estado: 'rechazada' },
+  ])
+  assert.deepStrictEqual(publicadas.map((x) => x.id), ['a', 'legado'])
+  assert.strictEqual(publicadas[0].timestampSeg, 95)
+})
+
+caso('vista previa: las descartadas NO se reproducen, las pendientes van marcadas como no publicadas', () => {
+  const propuestas = [
+    propuestaV('p1', 60), propuestaV('p2', 120, { estado: 'aprobada', preguntaId: 'p2' }), propuestaV('p3', 200, { estado: 'rechazada' }),
+    { ...propuestaV('p4', 300), tipo: 'verdadero_falso', opciones: null, respuestaCorrecta: 'v' },
+  ]
+  const activas = [{ id: 'p2', tipo: 'opcion_multiple', enunciado: 'e', opciones: opcsV('p2'), respuestaCorrecta: 'p2-A', timestampSeg: 120 }]
+  const vista = RVD.preguntasVistaPrevia(RVD.construirItems({ propuestas, activas }))
+  assert.deepStrictEqual(vista.map((q) => q.id), ['p1', 'p2', 'p4'], 'la descartada p3 queda fuera')
+  assert.strictEqual(vista.find((q) => q.id === 'p1').revision, 'pendiente')
+  assert.strictEqual(vista.find((q) => q.id === 'p2').revision, 'aprobada')
+  const vf = vista.find((q) => q.id === 'p4')
+  assert.deepStrictEqual(vf.opciones, [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }])
+  // lo que ve el estudiante NUNCA lleva la clave: la forma de la pregunta de la vista previa no incluye la respuesta
+  for (const q of vista) {
+    assert.ok(!('respuestaCorrecta' in q) && !('respuestaEsperada' in q), 'la pregunta de la vista previa no lleva la clave')
+    assert.deepStrictEqual(Object.keys(q).sort(), ['enunciado', 'id', 'imagenUrl', 'opciones', 'orden', 'revision', 'tipo', 'timestampSeg'].sort())
+  }
+})
+
+caso('vista previa: refleja al instante lo que el docente cambió y todavía no guardó', () => {
+  const propuestas = [propuestaV('p1', 60)]
+  const guardada = RVD.preguntasVistaPrevia(RVD.construirItems({ propuestas, activas: [] }))[0]
+  const conBorrador = RVD.preguntasVistaPrevia(RVD.construirItems({ propuestas, activas: [], borradores: { p1: { timestampSeg: 120, enunciado: 'Otra' } } }))[0]
+  assert.strictEqual(guardada.timestampSeg, 60)
+  assert.strictEqual(conBorrador.timestampSeg, 120)
+  assert.strictEqual(conBorrador.enunciado, 'Otra')
+  assert.strictEqual(propuestas[0].timestampSeg, 60, 'lo guardado/publicado no cambia mientras se prueba')
+})
+
+caso('vista previa: «probar desde unos segundos antes» y repetir sin perder lo anterior', () => {
+  assert.strictEqual(RVD.PRE_SEG, 8)
+  assert.strictEqual(RVD.inicioDePrueba(60, DURV), 52)
+  assert.strictEqual(RVD.inicioDePrueba(5, DURV), 0, 'no antes del inicio')
+  assert.strictEqual(RVD.inicioDePrueba(0, DURV), 0)
+  assert.strictEqual(RVD.inicioDePrueba(DURV + 100, DURV), DURV, 'nunca más allá de la duración')
+  assert.strictEqual(RVD.clampSeg(-4, DURV), 0)
+  assert.strictEqual(RVD.clampSeg(9999, DURV), DURV)
+  // Al saltar a 100 s, las respuestas de prueba de las preguntas desde ahí se borran (se vuelven a probar); las anteriores quedan.
+  const items = [{ id: 'a', timestampSeg: 60 }, { id: 'b', timestampSeg: 100 }, { id: 'c', timestampSeg: 300 }]
+  const r = RVD.limpiarRespuestasDesde({ a: 'x', b: 'y', c: 'z' }, { b: 'otra', c: 'otra2' }, items, 100)
+  assert.deepStrictEqual(r.respuestas, { a: 'x' })
+  assert.deepStrictEqual(r.otraTextos, {})
+  const r2 = RVD.limpiarRespuestasDesde({ a: 'x', b: 'y' }, {}, items, 0)
+  assert.deepStrictEqual(r2.respuestas, {}, 'saltar al principio vuelve a probarlas todas')
+})
+
+caso('vista previa: navegación libre — saltar adelante NO abre las preguntas anteriores y no hay límite de «lo visto»', () => {
+  const qs = [60, 120, 200, 330, 450].map((ts, i) => ({ id: `q${i}`, timestampSeg: ts, orden: i }))
+  const ordenadas = VPR.ordenarPreguntasVideo(qs, DURV)
+  const sinResponder = () => false
+  // Estudiante (sin cambios): saltar a 450 con un límite de lo visto de 0 es un SALTO INDEBIDO y se corrige.
+  const est = VPR.tick({ maxVisto: 0, ultimaPos: 0, ultimoT: null }, { pos: 450, ahora: 1000, jugando: true, visible: true, duracion: DURV, ordenadas, respondida: sinResponder })
+  assert.strictEqual(est.accion, 'salto', 'el estudiante no puede adelantarse')
+  // Docente: sin límite (LIBRE_SEG) y con las preguntas anteriores al punto de partida contadas como ya pasadas.
+  const paso = 440
+  const pasada = (p) => p.timestampSeg < paso - 0.05
+  const doc = VPR.tick({ maxVisto: RVD.LIBRE_SEG, ultimaPos: 440, ultimoT: 0 }, { pos: 449.9, ahora: 400, jugando: true, visible: true, duracion: DURV, ordenadas, respondida: pasada })
+  assert.strictEqual(doc.accion, 'pregunta', 'al llegar a su minuto se abre la pregunta')
+  assert.strictEqual(doc.pregunta.id, 'q4', 'justo la de ese punto, no q0..q3')
+  // Sin la regla de «pasadas», saltar sí abriría la primera pendiente anterior (lo que NO queremos en la vista previa).
+  const sinRegla = VPR.tick({ maxVisto: RVD.LIBRE_SEG, ultimaPos: 449, ultimoT: 0 }, { pos: 449.9, ahora: 400, jugando: true, visible: true, duracion: DURV, ordenadas, respondida: sinResponder })
+  assert.strictEqual(sinRegla.pregunta.id, 'q0', 'por eso la vista previa cuenta como pasadas las anteriores')
+  // Y ningún salto largo del docente se corrige ni se avisa.
+  const salto = VPR.tick({ maxVisto: RVD.LIBRE_SEG, ultimaPos: 10, ultimoT: 0 }, { pos: 500, ahora: 5000, jugando: false, visible: true, duracion: DURV, ordenadas, respondida: pasada })
+  assert.strictEqual(salto.accion, 'nada')
+  assert.strictEqual(VPR.acotarSalto(500, RVD.LIBRE_SEG), 500)
+})
+
+caso('vista previa: compararConPropuesta solo para el docente (coincide / no coincide / sin responder / abierta)', () => {
+  const item = { tipo: 'opcion_multiple', respuestaCorrecta: 'p1-B' }
+  assert.deepStrictEqual(RVD.compararConPropuesta(item, 'p1-B'), { aplica: true, respondida: true, coincide: true })
+  assert.deepStrictEqual(RVD.compararConPropuesta(item, 'p1-A'), { aplica: true, respondida: true, coincide: false })
+  assert.deepStrictEqual(RVD.compararConPropuesta(item, undefined), { aplica: true, respondida: false })
+  assert.deepStrictEqual(RVD.compararConPropuesta({ tipo: 'respuesta_corta' }, 'texto'), { aplica: false })
+  assert.deepStrictEqual(RVD.compararConPropuesta(null, 'x'), { aplica: false })
+})
+
+caso('evidencia: nunca se inventa — sin datos avisa; con datos advierte si el minuto es anterior al final del tramo', () => {
+  assert.strictEqual(RVD.leerEvidencia(null), null)
+  assert.strictEqual(RVD.leerEvidencia({}), null)
+  assert.strictEqual(RVD.leerEvidencia('x'), null)
+  const sin = RVD.advertenciasDeTiempo({ timestampSeg: 60, respaldo: null })
+  assert.strictEqual(sin.length, 1)
+  assert.match(sin[0], /No hay evidencia guardada/)
+  assert.match(sin[0], /Compruébalo viendo el video/)
+  const ev = RVD.leerEvidencia({ inicioSeg: 50, finSeg: 100, resumen: ' Se explica la IP ', cita: 'x'.repeat(500), verificacion: 'verificado', basura: 1 })
+  assert.deepStrictEqual(Object.keys(ev).sort(), ['cita', 'finSeg', 'inicioSeg', 'resumen', 'verificacion'])
+  assert.strictEqual(ev.resumen, 'Se explica la IP')
+  assert.strictEqual(ev.cita.length, 300, 'se recorta')
+  const antes = RVD.advertenciasDeTiempo({ timestampSeg: 80, respaldo: { inicioSeg: 50, finSeg: 100, verificacion: 'verificado' } })
+  assert.ok(antes.some((a) => /anterior al final del tramo/.test(a)), 'el minuto elegido es anterior al fin del tramo')
+  const despues = RVD.advertenciasDeTiempo({ timestampSeg: 102, respaldo: { inicioSeg: 50, finSeg: 100, verificacion: 'verificado' } })
+  assert.deepStrictEqual(despues, [], 'después del tramo y verificado: sin advertencias, pero la interfaz aclara que el resumen lo escribió una IA')
+  const nv = RVD.advertenciasDeTiempo({ timestampSeg: 120, respaldo: { inicioSeg: 50, finSeg: 100, verificacion: 'no_verificable' } })
+  assert.ok(nv.some((a) => /no pudo respaldar/.test(a)))
+  const sinFin = RVD.advertenciasDeTiempo({ timestampSeg: 120, respaldo: { resumen: 'algo' } })
+  assert.ok(sinFin.some((a) => /No se sabe dónde termina/.test(a)))
+})
+
+caso('evidencia: aprobar NO convierte una pregunta en «verificada» — la no respaldada pide confirmación expresa', () => {
+  assert.strictEqual(RVD.requiereConfirmacion({ respaldo: { verificacion: 'no_verificable', finSeg: 10 } }), true)
+  assert.strictEqual(RVD.requiereConfirmacion({ respaldo: { verificacion: 'verificado', finSeg: 10 } }), false)
+  assert.strictEqual(RVD.requiereConfirmacion({ respaldo: null }), false)
+  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  assert.ok(/requiereConfirmacion\(it\) && !confirmados\[it\.id\]/.test(panel), 'el botón Aprobar espera la confirmación')
+  assert.ok(/Aprobada por ti/.test(panel), 'el estado dice «Aprobada por ti», nunca «verificada»')
+  assert.ok(!/texto: '[^']*[Vv]erificad/.test(panel), 'ninguna etiqueta de estado dice «Verificada»')
+})
+
+caso('recomendaciones: las tres, con su texto, visibles en creación, revisión y vista previa', () => {
+  assert.strictEqual(RTX.RECOMENDACIONES_VIDEO.length, 3)
+  assert.deepStrictEqual(RTX.RECOMENDACIONES_VIDEO.map((r) => r.titulo), [
+    'Asegúrate de que las preguntas ocurren donde corresponden.',
+    'Asegúrate de conocer el video.',
+    'Asegúrate de que las preguntas y sus respuestas sean adecuadas.',
+  ])
+  assert.match(RTX.RECOMENDACIONES_VIDEO[0].texto, /explicación necesaria antes de cada pregunta/)
+  assert.match(RTX.RECOMENDACIONES_VIDEO[1].texto, /No aceptes automáticamente/)
+  assert.match(RTX.RECOMENDACIONES_VIDEO[2].texto, /Corrige o descarta/)
+  assert.match(RTX.REGLA_VIDEO, /^La IA propone; tú revisas, corriges, pruebas, apruebas o descartas\./)
+  assert.match(RTX.REGLA_VIDEO, /no significa que el sistema haya comprobado/)
+  for (const f of ['CrearVideoInteractivoModal', 'PropuestasVideoPanel', 'VistaPreviaDocenteVideo']) {
+    assert.ok(/RecomendacionesVideo/.test(leerFuente(`src/components/video/${f}.jsx`)), `${f} muestra las recomendaciones`)
+  }
+  const comp = leerFuente('src/components/video/RecomendacionesVideo.jsx')
+  assert.ok(!/useState|hidden|collapse/i.test(comp), 'no se pliegan ni se ocultan')
+})
+
+// ── Aislamiento: la vista previa no tiene por dónde escribir ──
+// Recorre las importaciones RELATIVAS de los módulos de la vista previa y su reproductor (de forma transitiva) y exige que ninguno
+// llegue a Firebase, a los servicios de escritura, a los créditos ni a la IA, ni use fetch / setDoc / updateDoc / addDoc / writeBatch.
+const { existsSync } = await import('node:fs')
+const { dirname, join, normalize } = await import('node:path')
+const { fileURLToPath } = await import('node:url')
+const RAIZ_REPO = normalize(fileURLToPath(new globalThis.URL('../', import.meta.url)))
+// El código sin comentarios: los comentarios pueden NOMBRAR lo que no se usa (p. ej. «no importa ejecutarOperacionIA»).
+const sinComentarios = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+function resolverImport(desde, spec) {
+  const base = normalize(join(dirname(desde), spec))
+  for (const c of [base, `${base}.js`, `${base}.jsx`, join(base, 'index.js'), join(base, 'index.jsx')]) if (existsSync(c) && !/[\\/]$/.test(c) && c.match(/\.(jsx?|mjs)$/)) return c
+  return null
+}
+function grafoDe(entradas) {
+  const vistos = new Map()
+  const pila = entradas.map((e) => normalize(join(RAIZ_REPO, e)))
+  while (pila.length) {
+    const f = pila.pop()
+    if (vistos.has(f)) continue
+    const src = readFileSync(f, 'utf8')
+    vistos.set(f, src)
+    for (const m of src.matchAll(/(?:import|export)\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/g)) {
+      const spec = m[1]
+      if (!spec.startsWith('.')) { vistos.set(`paquete:${spec}`, ''); continue }
+      const r = resolverImport(f, spec)
+      if (r) pila.push(r)
+    }
+  }
+  return vistos
+}
+const MODULOS_VISTA_PREVIA = [
+  'src/components/video/VistaPreviaDocenteVideo.jsx',
+  'src/components/video/VideoInteractivoPantalla.jsx',
+  'src/components/video/revisionVideo.js',
+  'src/components/video/RecomendacionesVideo.jsx',
+]
+const PROHIBIDO_MODULO = /(?:^|[\\/])(?:firebase|firestoreGuard|propuestasVideoDb|evaluacionClave|useProgresoVideo|apiContent|useCreditosIA|videoGeneracion|useVideoGeneracionDeps|api[\\/][^\\/]+)(?:\.jsx?)?$/
+const PROHIBIDO_CODIGO = /from\s+['"]firebase\/|\bfetch\s*\(|\bXMLHttpRequest\b|\bsetDoc\s*\(|\bupdateDoc\s*\(|\baddDoc\s*\(|\bdeleteDoc\s*\(|\bwriteBatch\s*\(|\bhttpsCallable\b|\bejecutarOperacionIA\b|\bgenerar_preguntas_video\b|\bnavigator\.sendBeacon\b/
+
+caso('aislamiento: la vista previa y su reproductor NO importan Firebase, escrituras, créditos ni IA (grafo de importaciones completo)', () => {
+  const g = grafoDe(MODULOS_VISTA_PREVIA)
+  const archivos = [...g.keys()].filter((k) => !k.startsWith('paquete:'))
+  assert.ok(archivos.length >= 12, `el grafo debe incluir el reproductor, sus hooks y la lógica temporal (${archivos.length} archivos)`)
+  const necesarios = ['videoProgreso.js', 'useYouTubePlayer.js', 'PreguntaRespuesta.jsx', 'LineaTiempoVideo.jsx', 'usePantallaCompleta.js', 'revisionVideo.js', 'propuestasVideo.js']
+  for (const n of necesarios) assert.ok(archivos.some((a) => a.endsWith(n)), `el grafo recorre ${n}`)
+  for (const a of archivos) {
+    assert.ok(!PROHIBIDO_MODULO.test(a), `módulo prohibido en la vista previa: ${a}`)
+    assert.ok(!PROHIBIDO_CODIGO.test(sinComentarios(g.get(a))), `código de escritura/red/IA en ${a}`)
+  }
+  for (const k of g.keys()) if (k.startsWith('paquete:')) assert.ok(!/^paquete:(firebase|@firebase)/.test(k), `paquete prohibido: ${k}`)
+})
+
+caso('aislamiento: el contenedor del ESTUDIANTE sí escribe (el contraste que hace útil la prueba anterior)', () => {
+  const g = grafoDe(['src/components/video/VideoInteractivoRunner.jsx'])
+  const archivos = [...g.keys()].filter((k) => !k.startsWith('paquete:'))
+  assert.ok(archivos.some((a) => a.endsWith('useProgresoVideo.js')), 'el estudiante guarda su avance con useProgresoVideo')
+  assert.ok([...g.keys()].some((k) => k.startsWith('paquete:firebase')), 'y por eso llega a Firebase')
+  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  assert.ok(/<VideoInteractivoPantalla \{\.\.\.props\} progresoInicial=\{inicial\} guardarProgreso=\{guardar\} \/>/.test(runner))
+  assert.ok(!/modoRevision/.test(runner), 'el estudiante nunca activa el modo revisión')
+})
+
+caso('aislamiento: la vista previa recibe manejadores que solo cambian estado local (sin entregas, respuestas ni progreso reales)', () => {
+  const v = leerFuente('src/components/video/VistaPreviaDocenteVideo.jsx')
+  assert.ok(/guardarProgreso=\{guardarProgresoNulo\}/.test(v) && /const guardarProgresoNulo = \(\) => \{\}/.test(v), 'el progreso no se guarda')
+  assert.ok(/progresoInicial=\{null\}/.test(v), 'parte de cero, nunca del avance de un alumno')
+  assert.ok(/onSelectOpcion=\{\(preguntaId, opcionId\) => setRespuestas\(/.test(v), 'la respuesta de prueba es estado local')
+  assert.ok(/onFinalizar=\{onCerrar\}/.test(v), 'no hay entrega: «terminar» solo cierra')
+  assert.ok(/modoRevision/.test(v))
+  assert.ok(/respuestas, setRespuestas\] = useState\(\{\}\)/.test(v), 'las respuestas de prueba viven en este estado y se pierden al cerrar')
+  // Cerrar solo desmonta: ningún efecto de limpieza escribe.
+  assert.ok(!/return \(\) => \{[^}]*(guardar|escrib|set(Doc)?)/.test(v))
+})
+
+caso('aislamiento: la revisión (panel) no llama a la IA ni toca créditos al editar, probar o repetir', () => {
+  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  assert.ok(!/ejecutarOperacionIA|useCreditosIA|generar_preguntas_video|httpsCallable|fetch\s*\(/.test(sinComentarios(panel)))
+  const imports = [...panel.matchAll(/from '([^']+)'/g)].map((m) => m[1])
+  assert.ok(!imports.some((i) => /videoGeneracion|useCreditosIA|ConfirmacionCreditos|firebase\/functions/.test(i)))
+  // Los cambios son borrador: setCampos solo toca el estado local; escribir solo ocurre en guardarBorrador / aprobar / descartar / restaurar.
+  assert.ok(/const setCampos = \(id, campos\) => setBorradores\(/.test(panel))
+  assert.ok(/onCambiar=\{\(seg\) => setCampos\(it\.id, \{ timestampSeg: seg \}\)\}/.test(panel), 'mover el tiempo solo cambia el borrador')
+  assert.ok(/actualizarPregunta\(activityId, it\.id, publicos\)/.test(panel) && /editarPropuesta\(activityId, persistida\(it\.id\), campos\)/.test(panel))
+  assert.ok(/if \(bloqueado\) throw new Error\('El parcial está cerrado/.test(panel), 'el candado de parcial cerrado se respeta al cambiar una aprobada')
+})
+
+caso('estudiante: con el modo revisión apagado el reproductor se comporta como siempre', () => {
+  const p = leerFuente('src/components/video/VideoInteractivoPantalla.jsx')
+  assert.ok(/modoRevision = false/.test(p), 'apagado por omisión')
+  assert.ok(/const respondida = useCallback\(\(p\) => respondidaRef\.current\(p\) \|\| \(revisionRef\.current && p\.timestampSeg < pasoRef\.current - 0\.05\), \[\]\)/.test(p), 'sin revisión, respondida es exactamente la del estudiante')
+  assert.ok(/: reanudar\(\{ progreso: progresoInicial, ordenadas, respondida: estaRespondida, duracion \}\)/.test(p), 'el estudiante sigue reanudando donde se quedó')
+  assert.ok(/const d = acotarSalto\(destino, tickRef\.current\.maxVisto\)/.test(p), 'el límite de avance del estudiante sigue')
+  assert.ok(/avisar\('Solo puedes ver hasta donde llegaste\.'\)/.test(p))
+  assert.ok(/if \(!revision && !estaRespondida\(p\)\)/.test(p), 'el estudiante sigue sin poder continuar sin responder')
+  assert.ok(/const bloqueadoNav = !yt\.listo \|\| \(!revision && fase === 'pregunta'\)/.test(p))
+  assert.ok(/if \(revision\) \{ irRevision\(destino\); return \}/.test(p), 'la navegación libre solo existe en revisión')
+  // La lógica temporal compartida NO se tocó (vive en src/utils y un cambio ahí desplegaría las Functions).
+  const lt = leerFuente('src/utils/videoProgreso.js')
+  assert.ok(!/revision|LIBRE_SEG/i.test(lt))
+  const lineaTiempo = leerFuente('src/components/video/LineaTiempoVideo.jsx')
+  assert.ok(/sinLimite = false/.test(lineaTiempo), 'la línea de tiempo del estudiante conserva su límite por omisión')
+})
+
+caso('otros tipos de actividad: solo un video interactivo monta la revisión, y el runner de cuestionarios no sabe de la vista previa', () => {
+  const ed = leerFuente('src/components/EvaluacionEditor.jsx')
+  assert.ok(/\{videoMeta && currentActivityId && \(\s*<PropuestasVideoPanel/.test(ed), 'solo con videoMeta (video interactivo)')
+  assert.ok(/setVideoMeta\(esVideoInteractivo\(d\) \? \{/.test(ed) && /\} : null\)/.test(ed), 'en cualquier otra actividad videoMeta queda en null')
+  const runnerEval = leerFuente('src/pages/student/EvaluacionRunner.jsx')
+  assert.ok(!/VistaPreviaDocenteVideo|modoRevision|revisionVideo/.test(runnerEval))
+  assert.ok(/esVideo \? \(\s*<VideoInteractivoRunner/.test(runnerEval))
+  for (const otro of ['src/components/EntregableEditor.jsx', 'src/components/juego/JuegoManager.jsx']) assert.ok(!/VistaPreviaDocenteVideo|PropuestasVideoPanel/.test(leerFuente(otro)), otro)
+})
+
+caso('despliegue: la revisión y la vista previa no tocan src/utils ni functions (un cambio ahí despliega las Functions)', () => {
+  for (const f of ['revisionVideo.js', 'recomendacionesTexto.js', 'VistaPreviaDocenteVideo.jsx', 'VideoInteractivoPantalla.jsx', 'ControlTiempoVideo.jsx', 'EvidenciaVideo.jsx', 'RecomendacionesVideo.jsx']) {
+    assert.ok(existsSync(join(RAIZ_REPO, 'src/components/video', f)), `${f} vive en components/video`)
+  }
 })
 
 if (fallos.length) {
