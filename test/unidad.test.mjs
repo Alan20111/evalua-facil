@@ -7180,7 +7180,7 @@ caso('ventana de revisión: ajuste del tiempo — marcador, ±5/−1/+1/+5, suge
   const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
   const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
   const ct = leerFuente('src/components/video/ControlTiempoVideo.jsx')
-  assert.ok(/onChange=\{\(e\) => onCambiar\(Number\(e\.target\.value\)\)\}/.test(lt), 'arrastrar solo llama a onCambiar (borrador)')
+  assert.ok(/onChange=\{\(e\) => onCambiar\(Math\.min\(dur, Math\.max\(0, Math\.round\(Number\(e\.target\.value\)\)\)\)\)\}/.test(lt), 'arrastrar solo llama a onCambiar (borrador), con un segundo entero dentro del video')
   assert.ok(!/setDoc|updateDoc|firebase|fetch\(/.test(lt + col + ct), 'moverlo no escribe nada')
   assert.ok(/PASOS_TIEMPO\.filter/.test(ct) && RVD.PASOS_TIEMPO.join() === '-5,-1,1,5', 'los cuatro botones')
   assert.ok(/data-testid="usar-sugerido"/.test(ct) && /onCambiar\(sugerido\)/.test(ct), 'recuperar lo sugerido por la IA')
@@ -7194,6 +7194,28 @@ caso('ventana de revisión: ajuste del tiempo — marcador, ±5/−1/+1/+5, suge
   // validaciones de siempre (revisionVideo) siguen siendo la única fuente
   assert.strictEqual(RVD.ajustarTiempo(4, -5, DURV), 0)
   assert.strictEqual(RVD.ajustarTiempo(DURV, 5, DURV), DURV)
+})
+
+caso('ventana de revisión: el marcador azul es el tiempo REAL del video y la marca de la pregunta no se mueve al reproducir', () => {
+  const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
+  // el marcador (input range) lee la posición del reproductor, no el tiempo guardado de la pregunta
+  assert.ok(/<LineaTiempoRevision [^>]*posicion=\{yt\.listo \? posicion : null\}[^>]*valor=\{seg\}/.test(col), 'la línea recibe el tiempo real Y el de la pregunta por separado')
+  assert.ok(/<input type="range"[^>]*value=\{real\}/.test(lt), 'el marcador azul vale el tiempo real')
+  assert.ok(/const real = Number\.isFinite\(posicion\) \? Math\.min\(Math\.max\(0, posicion\), dur\) : v/.test(lt), 'sin reproductor, cae en el momento de la pregunta')
+  assert.ok(/style=\{\{ width: pct\(real\) \}\}/.test(lt), 'el relleno azul sigue al tiempo real')
+  // la marca de la pregunta actual sale de `valor` (fija), no de la posición
+  const marca = lt.match(/data-testid="marca-pregunta"[\s\S]*?\/>/)
+  assert.ok(marca && /left: pct\(v\)/.test(marca[0]) && !/real|posicion/.test(marca[0]), 'la marca fija usa solo el tiempo de la pregunta')
+  // el sondeo solo LEE el reproductor: no llama a onCambiar ni escribe el borrador
+  const sondeo = col.slice(col.indexOf('const id = setInterval'), col.indexOf('}, 100)'))
+  assert.ok(sondeo.length > 100 && !/onCambiar|setCampos/.test(sondeo), 'reproducir nunca cambia el tiempo propuesto')
+  assert.ok(/setPosicion\(real\)/.test(sondeo) && /}, 100\)/.test(col), 'el marcador sigue al reproductor cada 100 ms')
+  // arrastrar: el borrador cambia (onCambiar) y el video salta; el marcador no vuelve atrás mientras el video llega
+  assert.ok(/function alCambiar\(nuevo\) \{[\s\S]*?setPosicion\(nuevo\)[\s\S]*?onCambiar\(nuevo\)[\s\S]*?yt\.saltarA\(nuevo\)/.test(col))
+  assert.ok(/Math\.abs\(real - h\.seg\) > 1\.2\) setPosicion\(h\.seg\)/.test(sondeo))
+  // el estudiante y el reproductor compartido no se tocan
+  assert.ok(!/LineaTiempoVideo/.test(lt + col))
 })
 
 caso('ventana de revisión: cerrar con cambios sin guardar ofrece guardar, descartar o seguir editando', () => {
