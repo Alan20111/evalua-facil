@@ -6659,6 +6659,11 @@ caso('línea de tiempo: las marcas de los extremos quedan dentro de su caja y no
   const lt = leerFuente('src/components/video/LineaTiempoVideo.jsx')
   assert.ok(/flex items-center h-11 px-5/.test(lt), 'las marcas miden 40 px y se centran en su segundo: sin relleno sobresalen 20 px')
   assert.ok(/w-10 h-10/.test(lt))
+  // preguntas SUPERADAS: punto verde sólido, algo más grande, con borde blanco y halo (visible sobre la barra azul); pendientes siguen blancos
+  assert.ok(/lista \? 'w-4 h-4 bg-emerald-600 border-white ring-2 ring-emerald-600\/40'/.test(lt), 'superadas: verde sólido con borde y halo')
+  assert.ok(/alcanzada \? 'w-3\.5 h-3\.5 bg-surface-card border-accent'/.test(lt), 'pendientes: blancas con borde azul, sin cambios')
+  assert.ok(/'w-3\.5 h-3\.5 bg-surface-card border-outline-variant'/.test(lt), 'las que aún no llegan, sin cambios')
+  assert.ok(/style=\{\{ left: pct\(p\.timestampSeg\) \}\}/.test(lt), 'cada punto sigue en el segundo de su pregunta')
 })
 
 

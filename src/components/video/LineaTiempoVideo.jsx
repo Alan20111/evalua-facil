@@ -4,8 +4,8 @@ import { formatearTiempo } from '../../utils/videoProgreso'
 // Línea de tiempo propia del Video interactivo (los controles nativos de
 // YouTube están apagados). Muestra tres cosas:
 //   · lo ya visto (franja suave) y la posición actual (franja fuerte),
-//   · una marca por pregunta: hueca = pendiente, rellena = respondida,
-//     con aro = la que está en pantalla, gris = aún no llega,
+//   · una marca por pregunta: hueca (blanca) = pendiente; SUPERADA (respondida) = punto verde sólido, algo más grande, con borde
+//     blanco y halo verde para que no se pierda sobre la barra azul; con aro = la que está en pantalla, gris = aún no llega,
 //   · y solo deja tocar hasta donde el estudiante ya llegó.
 //
 // Va FUERA del recuadro del video, nunca encima (regla de YouTube). Tocar la
@@ -45,10 +45,10 @@ export default function LineaTiempoVideo({
                 aria-label={`Pregunta en ${formatearTiempo(p.timestampSeg)}: ${lista ? 'respondida' : alcanzada ? 'pendiente' : 'aún no llegas'}`}
                 className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center"
                 style={{ left: pct(p.timestampSeg) }}>
-                <span className={`block w-3.5 h-3.5 rounded-full border-2 ${
-                  lista ? 'bg-accent border-accent'
-                    : alcanzada ? 'bg-surface-card border-accent'
-                      : 'bg-surface-card border-outline-variant'
+                <span className={`block rounded-full border-2 ${
+                  lista ? 'w-4 h-4 bg-emerald-600 border-white ring-2 ring-emerald-600/40'
+                    : alcanzada ? 'w-3.5 h-3.5 bg-surface-card border-accent'
+                      : 'w-3.5 h-3.5 bg-surface-card border-outline-variant'
                 } ${activa ? 'ring-4 ring-[var(--accent-light)]' : ''}`} />
               </button>
             )
