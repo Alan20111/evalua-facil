@@ -3,9 +3,11 @@ import { AlertTriangle, Pause, Play } from 'lucide-react'
 import useYouTubePlayer, { ESTADO_YT, mensajeErrorYouTube } from '../../hooks/useYouTubePlayer'
 import ControlTiempoVideo from './ControlTiempoVideo'
 import LineaTiempoRevision from './LineaTiempoRevision'
-import { GLOBO_DESDE_IZQ, formatearMinuto } from './revisionVideo'
+import { GLOBO_DESDE_IZQ, formatearMinuto, paradaDePregunta } from './revisionVideo'
 
 // Lado del VIDEO de la ventana de revisión: el reproductor, la única línea de tiempo y el control del momento.
+// Al reproducir, el video SE DETIENE en el segundo guardado de cada pregunta y la muestra (como el estudiante: paradaDePregunta usa
+// su misma regla); al reanudar, sigue hasta la siguiente.
 // Dos acciones distintas: RECORRER el video (triángulo, tocar la línea: `saltar`, solo mueve el video) y ELEGIR el segundo de la
 // pregunta (bolita blanca, botones ±, campo m:ss: `alCambiar`, cambia el borrador y lleva el video ahí, en pausa). Nada de esto
 // escribe aquí: el borrador lo guarda el panel (la bolita avisa con `onSoltar` al soltarse).
@@ -19,11 +21,18 @@ const ESPERA_SALTO_MS = 1500
 export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items, disabled = false, onCambiar, onSoltar, onIr }) {
   const contenedorRef = useRef(null)
   const sostenidoRef = useRef(null) // {seg, hasta}: el marcador se queda en lo que eligió el docente mientras el video llega ahí
+  const baseRef = useRef(0) // desde dónde se reproduce: las preguntas anteriores ya cuentan como pasadas
+  const pasadasRef = useRef(new Set()) // preguntas en las que el video ya se detuvo (o en cuyo segundo se está parado)
+  const vivoRef = useRef({}) // lo último que se ve (el sondeo vive todo el tiempo y no debe leer valores viejos)
   const [durReproductor, setDurReproductor] = useState(0)
   const [reproduciendo, setReproduciendo] = useState(false)
   const [posicion, setPosicion] = useState(0) // tiempo REAL del reproductor, con decimales
   const dur = duracionSeg > 0 ? duracionSeg : durReproductor
   const seg = item.timestampSeg
+  useEffect(() => { vivoRef.current = { items, item, onIr, dur } })
+  // Un salto (a otra pregunta, al soltar un punto, tocar la línea): lo anterior a ese segundo cuenta como pasado; la pregunta en la
+  // que se queda parado (`idActual`) también, para que al reproducir siga a la siguiente.
+  const marcarSalto = (segundo, idActual = null) => { baseRef.current = segundo; pasadasRef.current = new Set(idActual ? [idActual] : []) }
 
   const yt = useYouTubePlayer({ videoId, contenedorRef, inicioSeg: Number.isInteger(seg) ? seg : 0 })
 
@@ -31,6 +40,7 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
   useEffect(() => {
     if (!yt.listo || !Number.isInteger(item.timestampSeg)) return
     sostenidoRef.current = { seg: item.timestampSeg, hasta: Date.now() + ESPERA_SALTO_MS }
+    marcarSalto(item.timestampSeg, item.id)
     yt.saltarA(item.timestampSeg)
     yt.pausar()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar de pregunta o cuando el reproductor queda listo
@@ -54,6 +64,19 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
         const d = Math.floor(yt.duracion() || 0)
         if (d > 0) setDurReproductor((p) => (p === d ? p : d))
       }
+      // La parada de la pregunta: la regla del estudiante (pausar y volver a su segundo exacto) y se muestra esa pregunta.
+      if (jugando) {
+        const v = vivoRef.current
+        const parada = paradaDePregunta({ items: v.items, duracionSeg: v.dur, pos: real, base: baseRef.current, pasadas: pasadasRef.current })
+        if (parada) {
+          yt.pausar()
+          yt.saltarA(parada.timestampSeg)
+          pasadasRef.current.add(parada.id)
+          sostenidoRef.current = { seg: parada.timestampSeg, hasta: Date.now() + ESPERA_SALTO_MS }
+          setPosicion(parada.timestampSeg)
+          if (parada.id !== v.item?.id) v.onIr?.(parada.id)
+        }
+      }
     }, 100)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- un solo sondeo por reproductor
@@ -61,12 +84,14 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
 
   // Recorrer el video (triángulo, tocar la línea): solo mueve el video; el tiempo de la pregunta no cambia.
   function saltar(nuevo) {
+    marcarSalto(nuevo)
     sostenidoRef.current = { seg: nuevo, hasta: Date.now() + ESPERA_SALTO_MS }
     setPosicion(nuevo)
     if (yt.listo) yt.saltarA(nuevo)
   }
   // Elegir el segundo de la pregunta (bolita blanca, botones ±, campo m:ss): borrador + video en ese segundo, en pausa.
   function alCambiar(nuevo) {
+    marcarSalto(nuevo, item.id)
     sostenidoRef.current = { seg: nuevo, hasta: Date.now() + ESPERA_SALTO_MS }
     setPosicion(nuevo)
     onCambiar(nuevo)

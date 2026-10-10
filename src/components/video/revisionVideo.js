@@ -12,6 +12,7 @@
 // importa Firebase, ni fetch, ni los servicios de escritura: la vista previa no tiene por dónde
 // escribir. Lo comprueba una prueba que recorre sus importaciones (test/unidad.test.mjs).
 import { formatearMinuto, parsearMinuto } from '../../utils/propuestasVideo'
+import { ordenarPreguntasVideo, preguntaPendiente } from '../../utils/videoProgreso'
 
 // Segundos antes de la pregunta desde los que arranca «probar desde aquí».
 export const PRE_SEG = 8
@@ -274,4 +275,20 @@ export function accionEscape({ vistaPreviaAbierta = false, cerrando = false, sin
   if (vistaPreviaAbierta) return 'nada'
   if (cerrando) return 'cerrar-aviso'
   return sinGuardar > 0 ? 'pedir-confirmacion' : 'cerrar'
+}
+
+// ¿En qué pregunta debe detenerse el video de la REVISIÓN? Es EXACTAMENTE la regla del estudiante (videoProgreso): el mismo orden
+// (`ordenarPreguntasVideo`) y la misma condición de activación (`preguntaPendiente`: la primera pregunta sin pasar cuyo segundo ya
+// llegó), con el mismo adelanto (ADELANTO_PREGUNTA_SEG); aquí no hay tolerancia propia. Lo único del docente es qué cuenta como
+// «ya pasada» (en el estudiante es «respondida»): las anteriores al punto desde el que se reproduce (`base`) y las que ya se
+// detuvieron (`pasadas`, ids).
+//   items        preguntas con el borrador aplicado (las descartadas no se publican: no detienen el video)
+//   duracionSeg  largo del video (sin él no se puede ordenar: no hay parada)
+//   pos          segundo actual del reproductor
+//   devuelve la pregunta (con su `timestampSeg` ya acotado al video) o null
+export function paradaDePregunta({ items, duracionSeg, pos, base = 0, pasadas = new Set() }) {
+  if (!(duracionSeg > 0)) return null
+  const candidatas = (items || []).filter((o) => o.estado !== ESTADO_REVISION.DESCARTADA && Number.isInteger(o.timestampSeg))
+  const ordenadas = ordenarPreguntasVideo(candidatas, duracionSeg)
+  return preguntaPendiente(ordenadas, (p) => pasadas.has(p.id) || p.timestampSeg < base, pos)
 }

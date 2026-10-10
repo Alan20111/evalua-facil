@@ -7366,6 +7366,69 @@ caso('ventana de revisión: Anterior/Siguiente van encima del enunciado, que se 
   assert.ok(/<ul className="space-y-0\.5 text-sm">/.test(v) && /<p className="text-xs text-muted">Retroalimentación: /.test(v))
 })
 
+caso('ventana de revisión: el video SE DETIENE en el segundo guardado de cada pregunta (la regla del estudiante), la muestra y sigue a la siguiente', () => {
+  const pr = (id, ts, estado = 'pendiente', orden = 0) => ({ id, timestampSeg: ts, estado, orden })
+  const DUR = 600
+  // Reproduce desde `desde` con lecturas cada 0,1 s (el sondeo de la revisión) aplicando EXACTAMENTE lo que hace ColumnaVideoRevision:
+  // paradaDePregunta → pausar, volver al segundo exacto, marcarla como pasada y mostrarla. `reanudar` = «dar Play» otra vez.
+  function recorrer(items, { desde = 0, base = desde, pasadas = new Set(), hasta = DUR } = {}) {
+    const paradas = []
+    let pos = desde
+    const paso = 0.1
+    while (pos < hasta) {
+      pos = +(pos + paso).toFixed(2)
+      const pa = RVD.paradaDePregunta({ items, duracionSeg: DUR, pos, base, pasadas })
+      if (pa) {
+        paradas.push({ id: pa.id, pos, ts: pa.timestampSeg })
+        pasadas.add(pa.id)
+        pos = pa.timestampSeg // pausar() + saltarA(ts): el video queda exactamente en el segundo guardado
+        // «Play» otra vez: el sondeo sigue desde ahí
+      }
+    }
+    return paradas
+  }
+  const items = [pr('a', 60), pr('b', 100, 'descartada'), pr('c', 150, 'aprobada'), pr('d', 200), pr('e', 200, 'pendiente', 1), pr('f', 330)]
+  const r = recorrer(items)
+  // en orden, una vez cada una, sin las descartadas, y con las dos del mismo segundo una tras otra (como el estudiante: «en cola»)
+  assert.deepStrictEqual(r.map((x) => x.id), ['a', 'c', 'd', 'e', 'f'])
+  // NUNCA antes de su segundo (sin adelanto) y como mucho una lectura del sondeo después; y el video queda en su segundo exacto
+  for (const x of r) { assert.ok(x.pos >= x.ts, `${x.id}: no antes de ${x.ts} (fue ${x.pos})`); assert.ok(x.pos - x.ts <= 0.1 + 1e-9, `${x.id}: a lo más 0,1 s tarde (fue ${x.pos})`) }
+  // «el mismo segundo»: d y e salen sin avanzar el video entre ellas
+  assert.deepStrictEqual(r.filter((x) => x.ts === 200).map((x) => x.id), ['d', 'e'])
+  // desde un punto: lo anterior ya no detiene; la pregunta en la que se está parado tampoco (sigue a la siguiente)
+  assert.deepStrictEqual(recorrer(items, { desde: 140 }).map((x) => x.id), ['c', 'd', 'e', 'f'])
+  assert.deepStrictEqual(recorrer(items, { desde: 150, pasadas: new Set(['c']) }).map((x) => x.id), ['d', 'e', 'f'], 'parado en c (ya mostrada): sigue a d')
+  assert.deepStrictEqual(recorrer(items, { desde: 200, pasadas: new Set(['d']) }).map((x) => x.id), ['e', 'f'], 'parado en d: todavía queda e (mismo segundo)')
+  // el borrador manda: si el docente mueve una pregunta, el video se detiene donde la dejó
+  const movida = items.map((x) => (x.id === 'f' ? { ...x, timestampSeg: 400 } : x))
+  assert.strictEqual(recorrer(movida).at(-1).ts, 400)
+  // sin duración o sin preguntas activas no hay parada
+  assert.strictEqual(RVD.paradaDePregunta({ items, duracionSeg: 0, pos: 60 }), null)
+  assert.strictEqual(RVD.paradaDePregunta({ items: [pr('x', 5, 'descartada')], duracionSeg: DUR, pos: 10 }), null)
+  // MISMA regla que el estudiante: con la misma lista, la misma pregunta a la misma posición (sin duplicar la condición ni el adelanto)
+  const ord = VP.ordenarPreguntasVideo(items.filter((x) => x.estado !== 'descartada'), DUR)
+  for (const pos of [0, 59.99, 60, 60.05, 149.9, 150, 199.99, 200, 330, 599]) {
+    assert.strictEqual(RVD.paradaDePregunta({ items, duracionSeg: DUR, pos })?.id ?? null, VP.preguntaPendiente(ord, () => false, pos)?.id ?? null, `pos ${pos}`)
+  }
+  assert.strictEqual(RVD.paradaDePregunta({ items, duracionSeg: DUR, pos: 59.99 }), null, 'a 59,99 s todavía no')
+  // implementación: reutiliza videoProgreso (sin tolerancia propia) y la columna hace lo mismo que el estudiante al detenerse
+  const rv = leerFuente('src/components/video/revisionVideo.js')
+  const fn = rv.slice(rv.indexOf('export function paradaDePregunta'))
+  assert.ok(/import \{ ordenarPreguntasVideo, preguntaPendiente \} from '\.\.\/\.\.\/utils\/videoProgreso'/.test(rv))
+  assert.ok(/ordenarPreguntasVideo\(candidatas, duracionSeg\)/.test(fn) && /preguntaPendiente\(ordenadas, /.test(fn))
+  assert.ok(!/ADELANTO|0\.[0-9]|TOLERANCIA/.test(fn.replace(/Pasadas|pasadas/g, '')), 'sin adelanto ni tolerancia propios')
+  const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  const bloque = col.slice(col.indexOf('// La parada de la pregunta'), col.indexOf('}, 100)'))
+  assert.ok(/if \(jugando\) \{/.test(bloque) && /paradaDePregunta\(\{ items: v\.items, duracionSeg: v\.dur, pos: real, base: baseRef\.current, pasadas: pasadasRef\.current \}\)/.test(bloque))
+  assert.ok(/yt\.pausar\(\)\s+yt\.saltarA\(parada\.timestampSeg\)/.test(bloque), 'pausa y vuelve a su segundo exacto, igual que el estudiante')
+  assert.ok(/if \(parada\.id !== v\.item\?\.id\) v\.onIr\?\.\(parada\.id\)/.test(bloque), 'muestra la pregunta correspondiente')
+  assert.ok(!/onCambiar|onSoltar|setCampos/.test(bloque), 'detenerse no cambia ningún tiempo guardado')
+  // lo anterior a cada salto cuenta como pasado (a otra pregunta, al soltar un punto, tocar la línea o el triángulo)
+  assert.ok(/marcarSalto\(item\.timestampSeg, item\.id\)/.test(col) && /function saltar\(nuevo\) \{\s*marcarSalto\(nuevo\)/.test(col) && /function alCambiar\(nuevo\) \{\s*marcarSalto\(nuevo, item\.id\)/.test(col))
+  // no se tocó la lógica del estudiante
+  assert.ok(!/paradaDePregunta/.test(leerFuente('src/components/video/VideoInteractivoPantalla.jsx') + leerFuente('src/utils/videoProgreso.js')))
+})
+
 caso('ventana de revisión: tocar un punto verde de la línea de tiempo lleva a esa pregunta y no hay puntos duplicados arriba', () => {
   const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
   const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
