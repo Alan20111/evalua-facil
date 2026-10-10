@@ -3,7 +3,7 @@ import { AlertTriangle, Pause, Play } from 'lucide-react'
 import useYouTubePlayer, { ESTADO_YT, mensajeErrorYouTube } from '../../hooks/useYouTubePlayer'
 import ControlTiempoVideo from './ControlTiempoVideo'
 import LineaTiempoRevision from './LineaTiempoRevision'
-import { PRE_SEG, formatearMinuto } from './revisionVideo'
+import { GLOBO_DESDE_IZQ, PRE_SEG, formatearMinuto } from './revisionVideo'
 
 // Lado del VIDEO de la ventana de revisión: el reproductor, la única línea de tiempo y el control del momento.
 // Elegir el segundo y VERLO es lo mismo: mover el marcador (o los botones ±) lleva el video a ese segundo, en pausa, para ver
@@ -111,7 +111,8 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
       )}
       <div className="flex items-center gap-2">
         <button type="button" onClick={alternar} disabled={!yt.listo} aria-label={reproduciendo ? 'Pausar' : 'Reproducir'}
-          className="w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white flex items-center justify-center disabled:opacity-60">
+          data-tooltip={reproduciendo ? 'Pausar el video' : 'Reproducir el video'} data-tooltip-pos="bottom"
+          className={`w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white flex items-center justify-center disabled:opacity-60 ${GLOBO_DESDE_IZQ}`}>
           {reproduciendo ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
         </button>
         <div className="flex-1 min-w-0">

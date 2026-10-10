@@ -22,6 +22,14 @@ export const PASOS_TIEMPO = [-5, -1, 1, 5]
 // Si falta menos que esto para el final, la pregunta aparece al terminar el video.
 export const AVISO_FINAL_SEG = 2
 
+// El globo `data-tooltip` (CSS global) sale centrado sobre el control; en los pegados a un borde de la ventana se saldría de la
+// pantalla. Estas clases solo mueven el globo (en táctil no existe: el CSS global no lo genera) y no cambian el control.
+export const GLOBO_DESDE_IZQ = '[&::after]:!left-0 [&::after]:![transform:none]'
+export const GLOBO_HASTA_DER = '[&::after]:!left-auto [&::after]:!right-0 [&::after]:![transform:none]'
+// Para botones que cambian de lugar al acomodarse en una fila (la alineación fija no sirve): el globo se angosta (el texto baja a
+// 2-3 líneas) y, centrado, cabe aunque el botón quede pegado a un borde.
+export const GLOBO_ANGOSTO = '[&::after]:!max-w-[130px]'
+
 export const ESTADO_REVISION = { PENDIENTE: 'pendiente', APROBADA: 'aprobada', DESCARTADA: 'descartada' }
 
 const ESTADO_DE_PROPUESTA = { pendiente: ESTADO_REVISION.PENDIENTE, aprobada: ESTADO_REVISION.APROBADA, rechazada: ESTADO_REVISION.DESCARTADA }
