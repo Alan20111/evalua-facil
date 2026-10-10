@@ -6760,9 +6760,9 @@ caso('revisión: una aprobada que el docente ELIMINÓ desde la lista de pregunta
   // mientras el editor aún lee las preguntas no se puede saber: no se marca como eliminada
   const cargando = RVD.construirItems({ propuestas, activas: [], activasListas: false })
   assert.ok(cargando.every((i) => i.estado === 'aprobada' && !i.fueraDeLaEvaluacion))
-  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx') + leerFuente('src/components/video/RevisionVideoModal.jsx') // estado y guardado en el panel; una pregunta a la vez en la ventana
   assert.ok(/propuestas === null \|\| !activasListas/.test(panel), 'el panel espera a que el editor termine de leer')
-  assert.ok(/!it\.fueraDeLaEvaluacion && \(\s*<button type="button" onClick=\{\(\) => restaurar\(it\)\}/.test(panel), 'sin «Restaurar»: las reglas no permiten reabrir una aprobada')
+  assert.ok(/!item\.fueraDeLaEvaluacion && \(\s*<button type="button" onClick=\{\(\) => resolver\(onRestaurar\)\}/.test(panel), 'sin «Restaurar»: las reglas no permiten reabrir una aprobada')
   assert.ok(/activasListas=\{preguntasCargadas\}/.test(leerFuente('src/components/EvaluacionEditor.jsx')))
 })
 
@@ -6945,8 +6945,8 @@ caso('evidencia: aprobar NO convierte una pregunta en «verificada» — la no r
   assert.strictEqual(RVD.requiereConfirmacion({ respaldo: { verificacion: 'no_verificable', finSeg: 10 } }), true)
   assert.strictEqual(RVD.requiereConfirmacion({ respaldo: { verificacion: 'verificado', finSeg: 10 } }), false)
   assert.strictEqual(RVD.requiereConfirmacion({ respaldo: null }), false)
-  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
-  assert.ok(/requiereConfirmacion\(it\) && !confirmados\[it\.id\]/.test(panel), 'el botón Aprobar espera la confirmación')
+  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx') + leerFuente('src/components/video/RevisionVideoModal.jsx') // estado y guardado en el panel; una pregunta a la vez en la ventana
+  assert.ok(/requiereConfirmacion\(item\) && !confirmados\[item\.id\]/.test(panel), 'el botón Aprobar espera la confirmación')
   assert.ok(/Aprobada por ti/.test(panel), 'el estado dice «Aprobada por ti», nunca «verificada»')
   assert.ok(!/texto: '[^']*[Vv]erificad/.test(panel), 'ninguna etiqueta de estado dice «Verificada»')
 })
@@ -7046,13 +7046,13 @@ caso('aislamiento: la vista previa recibe manejadores que solo cambian estado lo
 })
 
 caso('aislamiento: la revisión (panel) no llama a la IA ni toca créditos al editar, probar o repetir', () => {
-  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx') + leerFuente('src/components/video/RevisionVideoModal.jsx') // estado y guardado en el panel; una pregunta a la vez en la ventana
   assert.ok(!/ejecutarOperacionIA|useCreditosIA|generar_preguntas_video|httpsCallable|fetch\s*\(/.test(sinComentarios(panel)))
   const imports = [...panel.matchAll(/from '([^']+)'/g)].map((m) => m[1])
   assert.ok(!imports.some((i) => /videoGeneracion|useCreditosIA|ConfirmacionCreditos|firebase\/functions/.test(i)))
   // Los cambios son borrador: setCampos solo toca el estado local; escribir solo ocurre en guardarBorrador / aprobar / descartar / restaurar.
   assert.ok(/const setCampos = \(id, campos\) => setBorradores\(/.test(panel))
-  assert.ok(/onCambiar=\{\(seg\) => setCampos\(it\.id, \{ timestampSeg: seg \}\)\}/.test(panel), 'mover el tiempo solo cambia el borrador')
+  assert.ok(/onCambiar=\{\(seg\) => setCampos\(item\.id, \{ timestampSeg: seg \}\)\}/.test(panel), 'mover el tiempo solo cambia el borrador')
   assert.ok(/actualizarPregunta\(activityId, it\.id, publicos\)/.test(panel) && /editarPropuesta\(activityId, persistida\(it\.id\), campos\)/.test(panel))
   assert.ok(/if \(bloqueado\) throw new Error\('El parcial está cerrado/.test(panel), 'el candado de parcial cerrado se respeta al cambiar una aprobada')
 })
@@ -7088,6 +7088,205 @@ caso('despliegue: la revisión y la vista previa no tocan src/utils ni functions
   for (const f of ['revisionVideo.js', 'recomendacionesTexto.js', 'VistaPreviaDocenteVideo.jsx', 'VideoInteractivoPantalla.jsx', 'ControlTiempoVideo.jsx', 'EvidenciaVideo.jsx', 'RecomendacionesVideo.jsx']) {
     assert.ok(existsSync(join(RAIZ_REPO, 'src/components/video', f)), `${f} vive en components/video`)
   }
+})
+
+
+// ── Video interactivo: ventana única de revisión (una pregunta a la vez) ────────────────────────────────────
+// La lógica de navegación es pura (revisionVideo.js) y se prueba aquí con números; la interacción en pantalla se comprobó además en un
+// navegador con el editor real contra el emulador de Firestore (ver el informe de la entrega).
+const itemsVentana = (borradores = {}) => RVD.construirItems({
+  propuestas: [
+    propuestaV('a', 300), propuestaV('b', 60), propuestaV('c', 120, { estado: 'aprobada', preguntaId: 'c' }),
+    propuestaV('d', 200, { estado: 'rechazada' }), propuestaV('e', 450),
+  ],
+  activas: [{ id: 'c', tipo: 'opcion_multiple', enunciado: 'c', opciones: opcsV('c'), respuestaCorrecta: 'c-A', timestampSeg: 120 }],
+  borradores,
+})
+const mapaDe = (items) => Object.fromEntries(items.map((i) => [i.id, i]))
+
+caso('ventana de revisión: las preguntas se ordenan por tiempo y se empieza en la primera pendiente', () => {
+  const items = itemsVentana()
+  const orden = RVD.ordenRevision(items)
+  assert.deepStrictEqual(orden, ['b', 'c', 'd', 'a', 'e'], 'por el momento guardado')
+  assert.strictEqual(RVD.primeraParaRevisar(orden, mapaDe(items)), 'b', 'la primera PENDIENTE (b a 1:00), no la primera de la lista')
+  // sin pendientes: la primera que se revise; sin nada: null
+  const sin = RVD.construirItems({ propuestas: [propuestaV('x', 30, { estado: 'aprobada', preguntaId: 'x' })], activas: [{ id: 'x', tipo: 'opcion_multiple', enunciado: 'x', opciones: opcsV('x'), respuestaCorrecta: 'x-A', timestampSeg: 30 }] })
+  assert.strictEqual(RVD.primeraParaRevisar(RVD.ordenRevision(sin), mapaDe(sin)), 'x')
+  assert.strictEqual(RVD.primeraParaRevisar([], {}), null)
+})
+
+caso('ventana de revisión: arrastrar el marcador NO cambia el lugar de la pregunta en la lista («Pregunta 3 de 8» no salta)', () => {
+  const base = RVD.ordenRevision(itemsVentana())
+  // el docente arrastra «b» hasta el minuto 8:00, más allá de todas: con el borrador aplicado, b pasa a ser la última por tiempo…
+  const conBorrador = itemsVentana({ b: { timestampSeg: 480 } })
+  assert.strictEqual(conBorrador.find((i) => i.id === 'b').timestampSeg, 480)
+  assert.strictEqual(conBorrador.at(-1).id, 'b', 'construirItems sí reordena con el borrador')
+  // …pero el orden de la ventana se calculó una vez con lo GUARDADO y no se mueve
+  assert.deepStrictEqual(RVD.ordenRevision(conBorrador), base, 'ordenRevision usa el momento guardado, no el borrador')
+})
+
+caso('ventana de revisión: «Anterior» y «Siguiente» respetan el filtro y los extremos', () => {
+  const items = itemsVentana(); const por = mapaDe(items); const orden = RVD.ordenRevision(items)
+  const F = RVD.FILTRO_REVISION
+  // «Todas» = pendientes + aprobadas (las descartadas tienen su propio filtro)
+  assert.deepStrictEqual(RVD.visiblesRevision(orden, por, F.ACTIVAS, 'b'), ['b', 'c', 'a', 'e'])
+  assert.deepStrictEqual(RVD.visiblesRevision(orden, por, F.PENDIENTES, 'b'), ['b', 'a', 'e'])
+  assert.deepStrictEqual(RVD.visiblesRevision(orden, por, F.DESCARTADAS, 'd'), ['d'])
+  assert.strictEqual(RVD.moverId(orden, por, F.ACTIVAS, 'b', 1), 'c')
+  assert.strictEqual(RVD.moverId(orden, por, F.ACTIVAS, 'c', 1), 'a', 'se salta la descartada d')
+  assert.strictEqual(RVD.moverId(orden, por, F.PENDIENTES, 'b', 1), 'a', 'solo pendientes: se salta la aprobada c')
+  assert.strictEqual(RVD.moverId(orden, por, F.ACTIVAS, 'e', 1), null, 'no hay siguiente después de la última')
+  assert.strictEqual(RVD.moverId(orden, por, F.ACTIVAS, 'b', -1), null, 'ni anterior antes de la primera')
+  assert.strictEqual(RVD.moverId(orden, por, F.ACTIVAS, 'zzz', 1), null)
+  // «Pregunta X de N»: la actual siempre cuenta aunque ya no cumpla el filtro (p. ej. recién aprobada en «Pendientes»)
+  const aprobadaAhora = { ...por, b: { ...por.b, estado: 'aprobada' } }
+  assert.deepStrictEqual(RVD.visiblesRevision(orden, aprobadaAhora, F.PENDIENTES, 'b'), ['b', 'a', 'e'])
+  assert.deepStrictEqual(RVD.visiblesRevision(orden, aprobadaAhora, F.PENDIENTES, 'a'), ['a', 'e'], 'al avanzar, la aprobada sale de «Pendientes»')
+})
+
+caso('ventana de revisión: los cambios sin guardar se cuentan y sobreviven al ir y volver entre preguntas', () => {
+  assert.strictEqual(RVD.contarSinGuardar(itemsVentana()), 0)
+  const items = itemsVentana({ a: { timestampSeg: 310 }, e: { enunciado: 'Otra' }, b: { timestampSeg: 60 } })
+  assert.strictEqual(RVD.contarSinGuardar(items), 2, 'b quedó igual que lo guardado: no cuenta')
+  // el borrador vive en el panel, no en la ventana: ir a «e» y volver a «a» lee el mismo borrador
+  const a1 = items.find((i) => i.id === 'a'); const a2 = itemsVentana({ a: { timestampSeg: 310 }, e: { enunciado: 'Otra' } }).find((i) => i.id === 'a')
+  assert.strictEqual(a1.timestampSeg, a2.timestampSeg)
+  assert.strictEqual(a1.guardado.timestampSeg, 300, 'lo guardado queda a la mano para «Deshacer»')
+  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  assert.ok(/const \[borradores, setBorradores\] = useState\(\{\}\)/.test(panel), 'los borradores son estado del PANEL (la ventana solo los muestra)')
+  const ventana = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  assert.ok(!/useState\(\{\}\)/.test(ventana), 'la ventana no guarda borradores propios')
+})
+
+caso('ventana de revisión: una sola ventana, una pregunta a la vez, una sola línea de tiempo', () => {
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  assert.ok(/Pregunta \{pos\} de \{visibles\.length\}/.test(v), '«Pregunta X de N»')
+  assert.ok(/data-testid="anterior"/.test(v) && /data-testid="siguiente"/.test(v) && /Anterior/.test(v) && /Siguiente/.test(v))
+  assert.ok(/data-testid=\{`filtro-\$\{valor\}`\}/.test(v) && /FILTRO_REVISION\.PENDIENTES/.test(v), 'filtro de pendientes')
+  assert.ok(/primeraParaRevisar\(/.test(v), 'abre en la primera pendiente')
+  // el panel ya no pinta una tarjeta por pregunta: solo la tarjeta-resumen y la ventana
+  const p = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  assert.ok(!/visibles\.map|items\.map/.test(p), 'sin una tarjeta repetida por pregunta')
+  assert.ok(/<RevisionVideoModal/.test(p) && /data-testid="abrir-revision"/.test(p))
+  // una sola línea de tiempo (el deslizador) y ningún control por pregunta repetido
+  const fuentes = ['RevisionVideoModal', 'ColumnaVideoRevision', 'LineaTiempoRevision', 'ControlTiempoVideo', 'EvidenciaVideo'].map((f) => leerFuente(`src/components/video/${f}.jsx`)).join('\n')
+  assert.strictEqual((fuentes.match(/type="range"/g) || []).length, 1, 'un solo type="range"')
+  assert.strictEqual((fuentes.match(/<LineaTiempoRevision/g) || []).length, 1)
+  assert.ok(!/type="range"/.test(leerFuente('src/components/video/ControlTiempoVideo.jsx')), 'el control del tiempo ya no trae su propio deslizador ni mini línea')
+  assert.ok(!/<LineaTiempoVideo/.test(fuentes), 'no se reutiliza la línea de tiempo del estudiante (no se modifica)')
+})
+
+caso('ventana de revisión: ajuste del tiempo — marcador, ±5/−1/+1/+5, sugerido de la IA recuperable, sin guardar en cada movimiento', () => {
+  const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
+  const ct = leerFuente('src/components/video/ControlTiempoVideo.jsx')
+  assert.ok(/onChange=\{\(e\) => onCambiar\(Number\(e\.target\.value\)\)\}/.test(lt), 'arrastrar solo llama a onCambiar (borrador)')
+  assert.ok(!/setDoc|updateDoc|firebase|fetch\(/.test(lt + col + ct), 'moverlo no escribe nada')
+  assert.ok(/PASOS_TIEMPO\.filter/.test(ct) && RVD.PASOS_TIEMPO.join() === '-5,-1,1,5', 'los cuatro botones')
+  assert.ok(/data-testid="usar-sugerido"/.test(ct) && /onCambiar\(sugerido\)/.test(ct), 'recuperar lo sugerido por la IA')
+  assert.ok(/Sugerido por la IA:/.test(ct))
+  assert.ok(/yt\.saltarA\(nuevo\)/.test(col), 'el video salta al segundo elegido')
+  assert.ok(/data-testid="comprobar-momento"/.test(ct) && /seg - PRE_SEG/.test(col) && /yt\.tiempo\(\) >= obj - 0\.15/.test(col), '«Comprobar»: desde unos segundos antes y se detiene en el momento')
+  // el límite superior viene de la duración guardada o, si falta, del reproductor (solo visual)
+  assert.ok(/duracionSeg > 0 \? duracionSeg : durReproductor/.test(col))
+  // la línea no se dibuja sin duración; el campo m:ss sigue funcionando
+  assert.ok(/if \(!dur\) return null/.test(lt))
+  // validaciones de siempre (revisionVideo) siguen siendo la única fuente
+  assert.strictEqual(RVD.ajustarTiempo(4, -5, DURV), 0)
+  assert.strictEqual(RVD.ajustarTiempo(DURV, 5, DURV), DURV)
+})
+
+caso('ventana de revisión: cerrar con cambios sin guardar ofrece guardar, descartar o seguir editando', () => {
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  assert.ok(/function intentarCerrar\(\) \{ if \(sinGuardar > 0\) setCerrando\(true\); else onCerrar\(\) \}/.test(v), 'sin cambios cierra directo; con cambios pregunta')
+  for (const id of ['cierre-guardar', 'cierre-descartar', 'cierre-seguir']) assert.ok(new RegExp(`data-testid="${id}"`).test(v), id)
+  assert.ok(/Guardar y cerrar/.test(v) && /Descartar los cambios y cerrar/.test(v) && /Seguir editando/.test(v))
+  assert.ok(/if \(await onGuardarTodos\(\)\) onCerrar\(\); else setCerrando\(false\)/.test(v), 'si algo no se pudo guardar, NO se cierra')
+  assert.ok(/onDeshacerTodo\(\); onCerrar\(\)/.test(v))
+  // Escape y el botón «atrás» pasan por el mismo aviso
+  assert.ok(/e\.key !== 'Escape'/.test(v) && /accionEscape\(/.test(v) && /useBackHandler\(/.test(v))
+  const p = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  assert.ok(/onDeshacerTodo=\{\(\) => setBorradores\(\{\}\)\}/.test(p))
+})
+
+caso('ventana de revisión: guardar la actual, guardar todo y aprobar con cambios pendientes (guarda primero) usan la lógica de siempre', () => {
+  const p = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  assert.ok(/async function guardarTodos\(\)/.test(p) && /for \(const it of sucias\)/.test(p), 'guardar todo')
+  assert.ok(/const propuesta = \(await guardarBorrador\(it\)\) \|\| persistida\(it\.id\)\s*\n\s*const plan = await aprobarPropuesta\(/.test(p), 'aprobar: primero guardar, después aprobar')
+  assert.ok(/actualizarPregunta\(activityId, it\.id, publicos\)/.test(p) && /editarPropuesta\(activityId, persistida\(it\.id\), campos\)/.test(p), 'los mismos mecanismos de escritura de antes')
+  assert.ok(/const \[confirmados, setConfirmados\]/.test(p) && /ejecutar\(it, async \(\) => \{ await rechazarPropuesta/.test(p) && /restaurarPropuesta\(activityId/.test(p), 'descartar y restaurar siguen igual')
+  // no hay guardado automático en el arrastre: el único camino a Firestore pasa por guardarBorrador/aprobar/descartar/restaurar
+  assert.ok(!/useEffect\([^)]*guardarBorrador/.test(p))
+  // la ventana y el video no importan nada que escriba: todo sale por manejadores del panel
+  const g = grafoDe(['src/components/video/RevisionVideoModal.jsx'])
+  const archivos = [...g.keys()].filter((k) => !k.startsWith('paquete:'))
+  for (const n of ['ColumnaVideoRevision.jsx', 'LineaTiempoRevision.jsx', 'ControlTiempoVideo.jsx', 'EvidenciaVideo.jsx', 'RecomendacionesVideo.jsx', 'useYouTubePlayer.js']) assert.ok(archivos.some((a) => a.endsWith(n)), n)
+  for (const a of archivos) {
+    assert.ok(!PROHIBIDO_MODULO.test(a), `módulo prohibido en la ventana: ${a}`)
+    assert.ok(!PROHIBIDO_CODIGO.test(sinComentarios(g.get(a))), `código de escritura/red/IA en ${a}`)
+  }
+})
+
+caso('ventana de revisión: sin bloques de evidencia vacíos, y las recomendaciones conservan su comportamiento', () => {
+  const ev = leerFuente('src/components/video/EvidenciaVideo.jsx')
+  assert.ok(/if \(!ev\) return null/.test(ev), 'sin evidencia no se dibuja nada')
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  assert.strictEqual((v.match(/data-testid="sin-evidencia"/g) || []).length, 1, 'un solo aviso de una línea, no un recuadro por pregunta')
+  assert.ok(/leerEvidencia\(item\.respaldo\)\s*\n\s*\? <EvidenciaVideo item=\{item\} \/>/.test(v))
+  // las recomendaciones: completas en la tarjeta del editor y en la creación (como antes), cortas en la ventana y en la vista previa
+  const p = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  assert.ok(/<RecomendacionesVideo \/>/.test(p) && /<RecomendacionesVideo compacto \/>/.test(v) && !/<RecomendacionesVideo \/>/.test(v), 'sin repetir el bloque largo en cada pregunta')
+  assert.ok(/<RecomendacionesVideo \/>/.test(leerFuente('src/components/video/CrearVideoInteractivoModal.jsx')))
+  assert.ok(/<RecomendacionesVideo compacto \/>/.test(leerFuente('src/components/video/VistaPreviaDocenteVideo.jsx')))
+})
+
+caso('ventana de revisión: el reproductor y la experiencia del estudiante no se tocan', () => {
+  // La ventana usa el reproductor de YouTube del proyecto (useYouTubePlayer) pero NO el runner del estudiante ni su línea de tiempo.
+  const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  assert.ok(!/VideoInteractivoPantalla|VideoInteractivoRunner|LineaTiempoVideo|useProgresoVideo/.test(col))
+  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  assert.ok(/<VideoInteractivoPantalla \{\.\.\.props\} progresoInicial=\{inicial\} guardarProgreso=\{guardar\} \/>/.test(runner))
+  assert.ok(/const d = acotarSalto\(destino, tickRef\.current\.maxVisto\)/.test(leerFuente('src/components/video/VideoInteractivoPantalla.jsx')), 'el límite de avance del estudiante sigue')
+})
+
+
+caso('ventana de revisión: Escape con la vista previa abierta NO hace nada en la ventana (el defecto del PR #1553)', () => {
+  // El defecto: la vista previa y la ventana escuchaban Escape a la vez; pulsarlo con la vista previa encima cerraba también la
+  // ventana (o abría detrás el aviso de cambios sin guardar). Con la vista previa abierta, la ventana no debe reaccionar.
+  for (const cerrando of [false, true]) {
+    for (const sinGuardar of [0, 1, 3]) {
+      assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: true, cerrando, sinGuardar }), 'nada', `vista previa abierta (aviso=${cerrando}, sin guardar=${sinGuardar})`)
+    }
+  }
+})
+
+caso('ventana de revisión: Escape con la vista previa cerrada conserva su comportamiento (aviso, confirmación, cierre)', () => {
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: true, sinGuardar: 2 }), 'cerrar-aviso', 'con el aviso abierto, lo cierra (y no cierra la ventana)')
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: true, sinGuardar: 0 }), 'cerrar-aviso')
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: false, sinGuardar: 1 }), 'pedir-confirmacion', 'con cambios sin guardar, pide confirmación')
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: false, sinGuardar: 5 }), 'pedir-confirmacion')
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: false, sinGuardar: 0 }), 'cerrar', 'sin cambios, cierra la ventana')
+  // Sin argumentos: ventana abierta, sin aviso ni cambios → cierra (igual que antes).
+  assert.strictEqual(RVD.accionEscape(), 'cerrar')
+  // Es la misma decisión que tomaba el código anterior con la vista previa cerrada: aviso → cerrar aviso; si no, intentarCerrar().
+  const anterior = (cerrando, sinGuardar) => (cerrando ? 'cerrar-aviso' : (sinGuardar > 0 ? 'pedir-confirmacion' : 'cerrar'))
+  for (const c of [false, true]) for (const n of [0, 1, 4]) assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: c, sinGuardar: n }), anterior(c, n), `c=${c} n=${n}`)
+})
+
+caso('ventana de revisión: el manejador de Escape usa accionEscape con el estado de la vista previa y no pierde los cambios', () => {
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  assert.ok(/accionEscape\(\{ vistaPreviaAbierta: pausarVideo, cerrando, sinGuardar \}\)/.test(v), 'la ventana pregunta a accionEscape con la vista previa abierta (pausarVideo)')
+  assert.ok(/if \(e\.key !== 'Escape'\) return/.test(v))
+  assert.ok(/accion === 'cerrar-aviso'\) setCerrando\(false\)/.test(v) && /accion === 'pedir-confirmacion'\) setCerrando\(true\)/.test(v) && /accion === 'cerrar'\) onCerrar\(\)/.test(v))
+  // Escape nunca descarta cambios por su cuenta: solo 'cerrar' llama a onCerrar y solo ocurre con sinGuardar = 0; el descarte es del botón del aviso.
+  assert.ok(!/accion === '[a-z-]+'\) onDeshacerTodo/.test(v))
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: false, sinGuardar: 2 }) === 'cerrar', false)
+  // La vista previa conserva SU Escape (cierra, salvo pantalla completa) y el botón «atrás» sigue usando la pila.
+  const vp = leerFuente('src/components/video/VistaPreviaDocenteVideo.jsx')
+  assert.ok(/if \(e\.key !== 'Escape'\) return/.test(vp) && /document\.querySelector\('\[data-pantalla="completa"\]'\)\) return/.test(vp) && /onCerrar\(\)\s*\n\s*\}/.test(vp))
+  assert.ok(/useBackHandler\(onCerrar, true\)/.test(vp) && /useBackHandler\(\(\) => \{ if \(cerrando\) setCerrando\(false\); else intentarCerrar\(\) \}, true\)/.test(v))
+  // La ventana recibe «vista previa abierta» del panel (el mismo dato que ya desmontaba su video).
+  assert.ok(/pausarVideo=\{!!vistaPrevia\}/.test(leerFuente('src/components/video/PropuestasVideoPanel.jsx')))
 })
 
 if (fallos.length) {

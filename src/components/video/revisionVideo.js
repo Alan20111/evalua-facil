@@ -213,3 +213,57 @@ export function compararConPropuesta(item, respuesta) {
   if (respuesta === undefined || respuesta === null || respuesta === '') return { aplica: true, respondida: false }
   return { aplica: true, respondida: true, coincide: respuesta === item.respuestaCorrecta }
 }
+
+// ── Navegación de la ventana de revisión (una pregunta a la vez) ───────────────────────────────────────────
+// La lista se ORDENA UNA SOLA VEZ, con los momentos ya guardados (`guardado`): si se ordenara con el borrador, al arrastrar el
+// marcador la pregunta cambiaría de lugar y «Pregunta 3 de 8» saltaría a otra. Los ids quedan fijos mientras la ventana está abierta.
+export const FILTRO_REVISION = { ACTIVAS: 'activas', PENDIENTES: 'pendientes', DESCARTADAS: 'descartadas' }
+
+export function ordenRevision(items) {
+  const t = (it) => (Number.isInteger(it.guardado?.timestampSeg) ? it.guardado.timestampSeg : Infinity)
+  return [...(items || [])].sort((a, b) => t(a) - t(b) || String(a.id).localeCompare(String(b.id))).map((it) => it.id)
+}
+
+// «Todas» = lo que se revisa o ya está aprobado (sin las descartadas, que tienen su propio filtro).
+export function coincideFiltro(item, filtro) {
+  if (!item) return false
+  if (filtro === FILTRO_REVISION.PENDIENTES) return item.estado === ESTADO_REVISION.PENDIENTE
+  if (filtro === FILTRO_REVISION.DESCARTADAS) return item.estado === ESTADO_REVISION.DESCARTADA
+  return item.estado !== ESTADO_REVISION.DESCARTADA
+}
+
+// Ids visibles con el filtro, en orden. La pregunta actual siempre se incluye: si el docente la aprueba estando en «Pendientes»,
+// no desaparece de golpe de la ventana.
+export function visiblesRevision(orden, porId, filtro, actualId) {
+  return (orden || []).filter((id) => id === actualId || coincideFiltro(porId[id], filtro))
+}
+
+// Siguiente (delta 1) o anterior (delta −1) que cumpla el filtro; null si no hay.
+export function moverId(orden, porId, filtro, actualId, delta) {
+  const lista = orden || []
+  let i = lista.indexOf(actualId)
+  if (i === -1) return null
+  for (i += delta; i >= 0 && i < lista.length; i += delta) if (coincideFiltro(porId[lista[i]], filtro)) return lista[i]
+  return null
+}
+
+// Con qué pregunta abre la ventana: la primera pendiente; si no hay, la primera que se revise.
+export function primeraParaRevisar(orden, porId, filtro = FILTRO_REVISION.ACTIVAS) {
+  const lista = orden || []
+  return lista.find((id) => porId[id]?.estado === ESTADO_REVISION.PENDIENTE)
+    ?? lista.find((id) => coincideFiltro(porId[id], filtro))
+    ?? lista[0] ?? null
+}
+
+export const contarSinGuardar = (items) => (items || []).filter((it) => it.sinGuardar).length
+
+// ── Escape en la ventana de revisión ──────────────────────────────────────────────────────────────────────
+// Qué hace la ventana de revisión cuando se pulsa Escape. Con la vista previa docente abierta ENCIMA, Escape es de la vista previa
+// (que se cierra por su cuenta): la ventana no hace nada, ni se cierra ni muestra detrás el aviso de cambios sin guardar.
+// Con la vista previa cerrada: aviso abierto → se cierra el aviso; con cambios sin guardar → pide confirmación; sin cambios → se cierra.
+//   devuelve 'nada' | 'cerrar-aviso' | 'pedir-confirmacion' | 'cerrar'
+export function accionEscape({ vistaPreviaAbierta = false, cerrando = false, sinGuardar = 0 } = {}) {
+  if (vistaPreviaAbierta) return 'nada'
+  if (cerrando) return 'cerrar-aviso'
+  return sinGuardar > 0 ? 'pedir-confirmacion' : 'cerrar'
+}
