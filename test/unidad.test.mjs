@@ -6963,7 +6963,7 @@ caso('recomendaciones: las tres, con su texto, visibles en creación, revisión 
   assert.match(RTX.RECOMENDACIONES_VIDEO[2].texto, /Corrige o descarta/)
   assert.match(RTX.REGLA_VIDEO, /^La IA propone; tú revisas, corriges, pruebas, apruebas o descartas\./)
   assert.match(RTX.REGLA_VIDEO, /no significa que el sistema haya comprobado/)
-  for (const f of ['CrearVideoInteractivoModal', 'PropuestasVideoPanel', 'VistaPreviaDocenteVideo']) {
+  for (const f of ['CrearVideoInteractivoModal', 'VistaPreviaDocenteVideo']) {
     assert.ok(/RecomendacionesVideo/.test(leerFuente(`src/components/video/${f}.jsx`)), `${f} muestra las recomendaciones`)
   }
   const comp = leerFuente('src/components/video/RecomendacionesVideo.jsx')
@@ -7429,6 +7429,27 @@ caso('ventana de revisión: el video SE DETIENE en el segundo guardado de cada p
   assert.ok(!/paradaDePregunta/.test(leerFuente('src/components/video/VideoInteractivoPantalla.jsx') + leerFuente('src/utils/videoProgreso.js')))
 })
 
+caso('tarjeta «Revisión de las preguntas del video»: bloque informativo breve con el texto acordado (Momento / Contenido / Calidad)', () => {
+  const p = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  // el texto exacto, sin numeración ni el texto anterior
+  assert.ok(/<h3 className="text-base font-semibold">Revisión de las preguntas del video<\/h3>/.test(p))
+  assert.ok(p.includes('Revisa cada pregunta en el video y aprueba solo las que sean correctas y pertinentes.'))
+  assert.ok(/<h4 className="text-sm font-semibold text-amber-900">Antes de aprobar<\/h4>/.test(p))
+  assert.ok(p.includes('<span className="font-semibold">Momento:</span> verifica que la pregunta aparezca cuando corresponde.'))
+  assert.ok(p.includes('<span className="font-semibold">Contenido:</span> comprueba que coincida con el video y que las respuestas sean correctas.'))
+  assert.ok(p.includes('<span className="font-semibold">Calidad:</span> corrige o descarta preguntas confusas, repetidas o inadecuadas.'))
+  assert.ok(p.includes('La IA propone; tú revisas y decides. Aprobar una pregunta no garantiza que sea correcta.'))
+  assert.ok(!/<ol|list-decimal/.test(p), 'sin numeración')
+  assert.ok(!/Solo las aprobadas llegan a tus alumnos|Antes de publicar, ten presente|Asegúrate de/.test(p), 'sin el texto anterior')
+  // misma identidad visual: icono Sparkles, bombilla, caja ámbar con borde; y compacta (tres viñetas en fila desde sm)
+  assert.ok(/<Sparkles size=\{18\} className="text-accent/.test(p) && /<Lightbulb size=\{16\} className="text-amber-700/.test(p))
+  assert.ok(/rounded-card border border-amber-200 bg-amber-50 px-3 py-2 space-y-1/.test(p) && /sm:grid-cols-3/.test(p))
+  assert.ok(/data-testid="recomendaciones-video"/.test(p))
+  // los textos largos siguen en el modal de creación (no se tocaron) y la lógica de la tarjeta sigue igual
+  assert.ok(/<RecomendacionesVideo \/>/.test(leerFuente('src/components/video/CrearVideoInteractivoModal.jsx')))
+  assert.ok(/data-testid="abrir-revision"/.test(p) && /data-testid="abrir-vista-previa"/.test(p) && /data-testid="resumen-antes-de-publicar"/.test(p))
+})
+
 caso('ventana de revisión: tocar un punto verde de la línea de tiempo lleva a esa pregunta y no hay puntos duplicados arriba', () => {
   const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
   const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
@@ -7487,7 +7508,7 @@ caso('ventana de revisión: sin bloques de evidencia vacíos, y las recomendacio
   assert.ok(/leerEvidencia\(item\.respaldo\)\s*\n\s*\? <EvidenciaVideo item=\{item\} \/>/.test(v))
   // las recomendaciones: completas en la tarjeta del editor y en la creación (como antes), cortas en la ventana y en la vista previa
   const p = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
-  assert.ok(/<RecomendacionesVideo \/>/.test(p) && /<RecomendacionesVideo compacto \/>/.test(v) && !/<RecomendacionesVideo \/>/.test(v), 'sin repetir el bloque largo en cada pregunta')
+  assert.ok(!/RecomendacionesVideo/.test(p) && /<RecomendacionesVideo compacto \/>/.test(v) && !/<RecomendacionesVideo \/>/.test(v), 'sin repetir el bloque largo en cada pregunta (la tarjeta del editor tiene su bloque breve propio)')
   assert.ok(/<RecomendacionesVideo \/>/.test(leerFuente('src/components/video/CrearVideoInteractivoModal.jsx')))
   assert.ok(/<RecomendacionesVideo compacto \/>/.test(leerFuente('src/components/video/VistaPreviaDocenteVideo.jsx')))
 })

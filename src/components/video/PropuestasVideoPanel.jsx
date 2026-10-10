@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Eye, ListChecks, Sparkles } from 'lucide-react'
+import { Eye, Lightbulb, ListChecks, Sparkles } from 'lucide-react'
 import Spinner from '../Spinner'
 import { useToast } from '../Toast'
 import {
@@ -9,7 +9,6 @@ import {
   aprobarPropuesta, cargarPropuestas, editarPropuesta, rechazarPropuesta, restaurarPropuesta,
 } from '../../utils/propuestasVideoDb'
 import { actualizarPregunta } from '../../utils/evaluacionClave'
-import RecomendacionesVideo from './RecomendacionesVideo'
 import RevisionVideoModal from './RevisionVideoModal'
 import VistaPreviaDocenteVideo from './VistaPreviaDocenteVideo'
 import { ESTADO_REVISION, construirItems, contarPorEstadoRevision, validarTiempo } from './revisionVideo'
@@ -171,13 +170,22 @@ export default function PropuestasVideoPanel({
         <Sparkles size={18} className="text-accent flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <h3 className="text-base font-semibold">Revisión de las preguntas del video</h3>
-          <p className="text-sm text-muted">
-            Revisa cada pregunta, elige cuándo aparece, pruébala en el video y apruébala o descártala. Solo las aprobadas llegan a tus alumnos.
-          </p>
+          <p className="text-sm text-muted">Revisa cada pregunta en el video y aprueba solo las que sean correctas y pertinentes.</p>
         </div>
       </div>
 
-      <RecomendacionesVideo />
+      <section className="rounded-card border border-amber-200 bg-amber-50 px-3 py-2 space-y-1" aria-label="Antes de aprobar" data-testid="recomendaciones-video">
+        <div className="flex items-center gap-2">
+          <Lightbulb size={16} className="text-amber-700 flex-shrink-0" />
+          <h4 className="text-sm font-semibold text-amber-900">Antes de aprobar</h4>
+        </div>
+        <ul className="grid gap-x-4 gap-y-0.5 text-sm text-amber-900 list-disc pl-6 sm:grid-cols-3">
+          <li><span className="font-semibold">Momento:</span> verifica que la pregunta aparezca cuando corresponde.</li>
+          <li><span className="font-semibold">Contenido:</span> comprueba que coincida con el video y que las respuestas sean correctas.</li>
+          <li><span className="font-semibold">Calidad:</span> corrige o descarta preguntas confusas, repetidas o inadecuadas.</li>
+        </ul>
+        <p className="text-xs font-semibold text-amber-900">La IA propone; tú revisas y decides. Aprobar una pregunta no garantiza que sea correcta.</p>
+      </section>
 
       <div className="rounded-card bg-surface px-3 py-2 space-y-2" data-testid="resumen-antes-de-publicar">
         <p className="text-sm text-on-surface">
