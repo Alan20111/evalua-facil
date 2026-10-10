@@ -13,9 +13,9 @@ import {
 } from './revisionVideo'
 
 const ESTADOS = {
-  [ESTADO_REVISION.PENDIENTE]: { texto: 'Pendiente', clase: 'bg-amber-100 text-amber-800', punto: 'bg-amber-400' },
-  [ESTADO_REVISION.APROBADA]: { texto: 'Aprobada por ti', clase: 'bg-green-100 text-green-800', punto: 'bg-emerald-500' },
-  [ESTADO_REVISION.DESCARTADA]: { texto: 'Descartada', clase: 'bg-red-100 text-red-800', punto: 'bg-red-300' },
+  [ESTADO_REVISION.PENDIENTE]: { texto: 'Pendiente', clase: 'bg-amber-100 text-amber-800' },
+  [ESTADO_REVISION.APROBADA]: { texto: 'Aprobada por ti', clase: 'bg-green-100 text-green-800' },
+  [ESTADO_REVISION.DESCARTADA]: { texto: 'Descartada', clase: 'bg-red-100 text-red-800' },
 }
 const FILTROS = [
   [FILTRO_REVISION.ACTIVAS, 'Todas', 'Pendientes y aprobadas'],
@@ -36,7 +36,7 @@ const BOTON = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] p
 //   pausarVideo   la vista previa está abierta encima: se desmonta el reproductor de esta ventana (no puede haber dos)
 export default function RevisionVideoModal({
   items, duracionSeg, videoId, bloqueado, ocupada, confirmados, onConfirmar, setCampos, quitarBorrador, problema,
-  onGuardar, onGuardarTodos, onDeshacerTodo, onAprobar, onDescartar, onRestaurar, onVistaPrevia, onCerrar, pausarVideo = false,
+  onGuardar, onGuardarTiempo, onGuardarTodos, onDeshacerTodo, onAprobar, onDescartar, onRestaurar, onVistaPrevia, onCerrar, pausarVideo = false,
 }) {
   const porId = useMemo(() => Object.fromEntries(items.map((it) => [it.id, it])), [items])
   const [orden] = useState(() => ordenRevision(items)) // fijo mientras la ventana está abierta
@@ -99,12 +99,6 @@ export default function RevisionVideoModal({
             {item.editada && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-surface-container text-muted">Editada por ti</span>}
             {item.sinGuardar && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900" data-testid="sin-guardar">● Sin guardar</span>}
             <div className="ml-auto flex items-center gap-1.5">
-              <button type="button" onClick={() => ir(antes)} disabled={!antes} data-testid="anterior" aria-label="Pregunta anterior" data-tooltip="Ir a la pregunta anterior" data-tooltip-pos="bottom" className={`${BOTON} border border-outline-variant text-on-surface max-sm:px-3`}>
-                <ChevronLeft size={16} /> <span className="max-sm:hidden">Anterior</span>
-              </button>
-              <button type="button" onClick={() => ir(despues)} disabled={!despues} data-testid="siguiente" aria-label="Pregunta siguiente" data-tooltip="Ir a la siguiente pregunta" data-tooltip-pos="bottom" className={`${BOTON} border border-outline-variant text-on-surface max-sm:px-3`}>
-                <span className="max-sm:hidden">Siguiente</span> <ChevronRight size={16} />
-              </button>
               <button type="button" onClick={() => onVistaPrevia(0, false)} data-testid="vista-previa-desde-ventana"
                 className={`${BOTON} border border-outline-variant text-accent ${GLOBO_HASTA_DER}`} aria-label="Vista previa docente"
                 data-tooltip="Probar el video como lo verá el estudiante" data-tooltip-pos="bottom"><Eye size={16} /><span className="max-sm:hidden">Vista previa</span></button>
@@ -124,16 +118,6 @@ export default function RevisionVideoModal({
                 </button>
               )
             })}
-            <fieldset className="flex items-center gap-1 ml-1 min-w-0 border-0 p-0 m-0">
-              <legend className="sr-only">Ir a una pregunta</legend>
-              {visibles.map((id, i) => (
-                <button key={id} type="button" onClick={() => ir(id)} aria-label={`Pregunta ${i + 1}${porId[id].sinGuardar ? ', con cambios sin guardar' : ''}`} aria-current={id === actualId}
-                  data-tooltip={`Pregunta ${i + 1}${porId[id].sinGuardar ? ' · sin guardar' : ''}`} data-tooltip-pos="bottom"
-                  className={`relative w-3.5 h-3.5 rounded-full ${ESTADOS[porId[id].estado].punto} ${id === actualId ? 'ring-2 ring-accent ring-offset-1' : 'opacity-70'}`}>
-                  {porId[id].sinGuardar && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-accent border border-white" />}
-                </button>
-              ))}
-            </fieldset>
           </div>
         </header>
 
@@ -142,15 +126,24 @@ export default function RevisionVideoModal({
             {pausarVideo
               ? <div className="min-w-0 rounded-card bg-surface-container p-6 text-sm text-muted text-center">La vista previa está abierta. Ciérrala para volver al video.</div>
               : (
-                <ColumnaVideoRevision videoId={videoId} duracionSeg={duracionSeg} item={item} items={items}
+                <ColumnaVideoRevision videoId={videoId} duracionSeg={duracionSeg} item={item} items={items} onIr={ir} onSoltar={(seg) => onGuardarTiempo(item.id, seg)}
                   disabled={trabajando || sinPermiso || item.estado === ESTADO_REVISION.DESCARTADA}
                   onCambiar={(seg) => setCampos(item.id, { timestampSeg: seg })} />
               )}
 
             <div className="min-w-0 space-y-2" data-testid="pregunta-actual">
+              {/* Anterior / Siguiente: justo encima del enunciado (la navegación entre preguntas también está en los puntos de la línea). */}
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => ir(antes)} disabled={!antes} data-testid="anterior" aria-label="Pregunta anterior" data-tooltip="Ir a la pregunta anterior" data-tooltip-pos="bottom" className={`${BOTON} border border-outline-variant text-on-surface max-sm:px-3`}>
+                  <ChevronLeft size={16} /> <span className="max-sm:hidden">Anterior</span>
+                </button>
+                <button type="button" onClick={() => ir(despues)} disabled={!despues} data-testid="siguiente" aria-label="Pregunta siguiente" data-tooltip="Ir a la siguiente pregunta" data-tooltip-pos="bottom" className={`${BOTON} border border-outline-variant text-on-surface max-sm:px-3`}>
+                  <span className="max-sm:hidden">Siguiente</span> <ChevronRight size={16} />
+                </button>
+              </div>
               {!editando && (
                 <div className="space-y-1.5">
-                  <p className="text-sm font-medium text-on-surface whitespace-pre-wrap">{item.enunciado}</p>
+                  <p className="text-base lg:text-[20px] leading-snug font-medium text-on-surface whitespace-pre-wrap" data-testid="enunciado-actual">{item.enunciado}</p>
                   {item.tipo === 'opcion_multiple' && (
                     <ul className="space-y-0.5 text-sm">
                       {(item.opciones || []).map((o) => (

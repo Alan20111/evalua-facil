@@ -15,9 +15,10 @@
 // `respondida(p)` la inyecta quien llama (en la app es `estaRespondida` del
 // runner, la MISMA regla de siempre: así no se duplica qué cuenta como respuesta).
 
-// La pregunta salta un poco ANTES de su segundo exacto, para que el sondeo del
-// reproductor (cada ~250 ms) no la deje pasar de largo.
-export const ADELANTO_PREGUNTA_SEG = 0.3
+// La pregunta sale al LLEGAR a su segundo, nunca antes (lo que el docente guardó es lo que el
+// estudiante ve). El sondeo del reproductor (cada 100 ms) puede dejarla pasar hasta ~0,1 s; al
+// detenerse, el video vuelve a su segundo exacto.
+export const ADELANTO_PREGUNTA_SEG = 0
 // Cuánto por encima de `maxVisto` se tolera antes de considerarlo un salto.
 export const TOLERANCIA_SALTO_SEG = 1.5
 // El avance entre dos lecturas no puede ser más de esto sobre el tiempo real

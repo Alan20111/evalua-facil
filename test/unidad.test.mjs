@@ -5807,7 +5807,7 @@ caso('video · pregunta al final: no interrumpe a mitad, sale al llegar al final
   const ord = VP.ordenarPreguntasVideo([q('fin', 100), q('sin', null)], 100)
   const mitad = reproducir({ ...E0, maxVisto: 49.5, ultimaPos: 49.5 }, 1, { desde: 49.5, duracion: 100, ordenadas: ord, respondida: nadaRespondido })
   assert.strictEqual(mitad.ultimo.accion, 'nada')
-  const casi = reproducir({ maxVisto: 99.5, ultimaPos: 99.5, ultimoT: 1000 }, 1, { desde: 99.5, duracion: 100, ordenadas: ord, respondida: nadaRespondido })
+  const casi = reproducir({ maxVisto: 99.5, ultimaPos: 99.5, ultimoT: 1000 }, 2, { desde: 99.5, duracion: 100, ordenadas: ord, respondida: nadaRespondido })
   assert.strictEqual(casi.ultimo.accion, 'pregunta'); assert.strictEqual(casi.ultimo.pregunta.id, 'fin')
   assert.strictEqual(VP.alTerminar(ord, nadaRespondido).id, 'fin')
   assert.strictEqual(VP.alTerminar(ord, respondidas('fin', 'sin')), null, 'todo respondido → ya se puede entregar')
@@ -6898,7 +6898,7 @@ caso('vista previa: navegación libre — saltar adelante NO abre las preguntas 
   // Docente: sin límite (LIBRE_SEG) y con las preguntas anteriores al punto de partida contadas como ya pasadas.
   const paso = 440
   const pasada = (p) => p.timestampSeg < paso - 0.05
-  const doc = VPR.tick({ maxVisto: RVD.LIBRE_SEG, ultimaPos: 440, ultimoT: 0 }, { pos: 449.9, ahora: 400, jugando: true, visible: true, duracion: DURV, ordenadas, respondida: pasada })
+  const doc = VPR.tick({ maxVisto: RVD.LIBRE_SEG, ultimaPos: 440, ultimoT: 0 }, { pos: 450, ahora: 400, jugando: true, visible: true, duracion: DURV, ordenadas, respondida: pasada })
   assert.strictEqual(doc.accion, 'pregunta', 'al llegar a su minuto se abre la pregunta')
   assert.strictEqual(doc.pregunta.id, 'q4', 'justo la de ese punto, no q0..q3')
   // Sin la regla de «pasadas», saltar sí abriría la primera pendiente anterior (lo que NO queremos en la vista previa).
@@ -7176,44 +7176,50 @@ caso('ventana de revisión: una sola ventana, una pregunta a la vez, una sola l�
   assert.ok(!/<LineaTiempoVideo/.test(fuentes), 'no se reutiliza la línea de tiempo del estudiante (no se modifica)')
 })
 
-caso('ventana de revisión: ajuste del tiempo — marcador, ±5/−1/+1/+5, sugerido de la IA recuperable, sin guardar en cada movimiento', () => {
+caso('ventana de revisión: controles de tiempo ±5/−1/+1/+5 y m:ss siguen; ya no hay «Comprobar», «Usar» ni «Sugerido por la IA»', () => {
   const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
   const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
   const ct = leerFuente('src/components/video/ControlTiempoVideo.jsx')
-  assert.ok(/onChange=\{\(e\) => onCambiar\(Math\.min\(dur, Math\.max\(0, Math\.round\(Number\(e\.target\.value\)\)\)\)\)\}/.test(lt), 'arrastrar solo llama a onCambiar (borrador), con un segundo entero dentro del video')
-  assert.ok(!/setDoc|updateDoc|firebase|fetch\(/.test(lt + col + ct), 'moverlo no escribe nada')
+  assert.ok(!/setDoc|updateDoc|firebase|fetch\(/.test(lt + col + ct), 'moverlo no escribe nada aquí (el panel guarda)')
   assert.ok(/PASOS_TIEMPO\.filter/.test(ct) && RVD.PASOS_TIEMPO.join() === '-5,-1,1,5', 'los cuatro botones')
-  assert.ok(/data-testid="usar-sugerido"/.test(ct) && /onCambiar\(sugerido\)/.test(ct), 'recuperar lo sugerido por la IA')
-  assert.ok(/Sugerido por la IA:/.test(ct))
+  assert.ok(/aria-label="Minuto en que aparece la pregunta \(m:ss\)"/.test(ct) && /onBlur=\{\(e\) => confirmarTexto/.test(ct), 'el campo m:ss')
+  assert.ok(/onClick=\{\(\) => mover\(d\)\}/.test(ct) && /function ControlTiempoVideo\(\{ item, duracionSeg, disabled = false, onCambiar \}\)/.test(ct))
+  // fuera «Comprobar», «Usar» y «Sugerido por la IA», con el código que era solo suyo
+  assert.ok(!/Comprobar|Repetir|comprobar|usar-sugerido|Usar|Sugerido por la IA|sugerido-ia|onComprobar/.test(ct + col + leerFuente('src/components/video/RevisionVideoModal.jsx')) && !/RotateCcw/.test(ct), 'sin Comprobar / Usar / Sugerido')
+  assert.ok(!/objetivoRef|mostrarAviso|avisoT|setComprobado|PRE_SEG|Aquí aparecería/.test(col), 'sin el código de «Comprobar»')
+  // elegir el segundo de la pregunta lleva el video ahí
   assert.ok(/yt\.saltarA\(nuevo\)/.test(col), 'el video salta al segundo elegido')
-  assert.ok(/data-testid="comprobar-momento"/.test(ct) && /seg - PRE_SEG/.test(col) && /yt\.tiempo\(\) >= obj - 0\.15/.test(col), '«Comprobar»: desde unos segundos antes y se detiene en el momento')
   // el límite superior viene de la duración guardada o, si falta, del reproductor (solo visual)
   assert.ok(/duracionSeg > 0 \? duracionSeg : durReproductor/.test(col))
-  // la línea no se dibuja sin duración; el campo m:ss sigue funcionando
   assert.ok(/if \(!dur\) return null/.test(lt))
   // validaciones de siempre (revisionVideo) siguen siendo la única fuente
   assert.strictEqual(RVD.ajustarTiempo(4, -5, DURV), 0)
   assert.strictEqual(RVD.ajustarTiempo(DURV, 5, DURV), DURV)
 })
 
-caso('ventana de revisión: el marcador azul es el tiempo REAL del video y la marca de la pregunta no se mueve al reproducir', () => {
+caso('ventana de revisión: el TRIÁNGULO verde es el tiempo REAL del video y recorrerlo NO cambia el tiempo de la pregunta', () => {
   const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
   const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
-  // el marcador (input range) lee la posición del reproductor, no el tiempo guardado de la pregunta
-  assert.ok(/<LineaTiempoRevision [^>]*posicion=\{yt\.listo \? posicion : null\}[^>]*valor=\{seg\}/.test(col), 'la línea recibe el tiempo real Y el de la pregunta por separado')
-  assert.ok(/<input type="range"[^>]*value=\{real\}/.test(lt), 'el marcador azul vale el tiempo real')
+  // la línea recibe por separado el tiempo real (triángulo) y el de la pregunta (bolita blanca)
+  assert.ok(/<LineaTiempoRevision [^>]*posicion=\{yt\.listo \? posicion : null\}[^>]*valor=\{seg\}[^>]*onCambiar=\{alCambiar\}[^>]*onSoltar=\{onSoltar\}[^>]*onSaltar=\{saltar\}/.test(col))
   assert.ok(/const real = Number\.isFinite\(posicion\) \? Math\.min\(Math\.max\(0, posicion\), dur\) : v/.test(lt), 'sin reproductor, cae en el momento de la pregunta')
-  assert.ok(/style=\{\{ width: pct\(real\) \}\}/.test(lt), 'el relleno azul sigue al tiempo real')
-  // la marca de la pregunta actual sale de `valor` (fija), no de la posición
-  const marca = lt.match(/data-testid="marca-pregunta"[\s\S]*?\/>/)
-  assert.ok(marca && /left: pct\(v\)/.test(marca[0]) && !/real|posicion/.test(marca[0]), 'la marca fija usa solo el tiempo de la pregunta')
-  // el sondeo solo LEE el reproductor: no llama a onCambiar ni escribe el borrador
+  assert.ok(/style=\{\{ width: pct\(real\) \}\}/.test(lt), 'el relleno de avance sigue al tiempo real')
+  const tri = lt.match(/data-testid="marca-video"[\s\S]*?style=\{\{ left: pct\(real\) \}\}/)
+  assert.ok(tri, 'el triángulo se dibuja en el tiempo real')
+  const bol = lt.match(/data-testid="bolita-pregunta"[\s\S]*?style=\{\{ left: pct\(v\) \}\}/)
+  assert.ok(bol && !/real|posicion/.test(bol[0].replace(/\{\.\.\.agarrar\(elegir, !disabled, soltarBolita\)\}/, '')), 'la bolita usa solo el tiempo de la pregunta')
+  // recorrer el video (triángulo, tocar la línea, flechas) solo SALTA: nunca llama a onCambiar
+  assert.ok(/\{\.\.\.agarrar\(saltar, true\)\}/.test(lt) && /onChange=\{\(e\) => saltar\(Math\.min\(dur, Math\.max\(0, Math\.round\(Number\(e\.target\.value\)\)\)\)\)\}/.test(lt))
+  assert.ok(/saltar\(Math\.min\(dur, Math\.max\(0, Math\.round\(real\) \+ paso\)\)\)/.test(lt))
+  const saltarCol = col.slice(col.indexOf('function saltar('), col.indexOf('// Elegir el segundo'))
+  assert.ok(saltarCol.length > 60 && /yt\.saltarA\(nuevo\)/.test(saltarCol) && !/onCambiar|setCampos|onSoltar/.test(saltarCol), 'saltar solo mueve el video')
+  // el sondeo solo LEE el reproductor: reproducir nunca cambia el tiempo propuesto
   const sondeo = col.slice(col.indexOf('const id = setInterval'), col.indexOf('}, 100)'))
-  assert.ok(sondeo.length > 100 && !/onCambiar|setCampos/.test(sondeo), 'reproducir nunca cambia el tiempo propuesto')
-  assert.ok(/setPosicion\(real\)/.test(sondeo) && /}, 100\)/.test(col), 'el marcador sigue al reproductor cada 100 ms')
-  // arrastrar: el borrador cambia (onCambiar) y el video salta; el marcador no vuelve atrás mientras el video llega
+  assert.ok(sondeo.length > 100 && !/onCambiar|setCampos|onSoltar/.test(sondeo), 'reproducir nunca cambia el tiempo propuesto')
+  assert.ok(/setPosicion\(real\)/.test(sondeo) && /}, 100\)/.test(col), 'el triángulo sigue al reproductor cada 100 ms')
+  assert.ok(/Math\.abs\(real - h\.seg\) > 1\.2\) setPosicion\(h\.seg\)/.test(sondeo), 'no vuelve atrás mientras el video llega')
+  // elegir el segundo de la pregunta (alCambiar): borrador + el video salta
   assert.ok(/function alCambiar\(nuevo\) \{[\s\S]*?setPosicion\(nuevo\)[\s\S]*?onCambiar\(nuevo\)[\s\S]*?yt\.saltarA\(nuevo\)/.test(col))
-  assert.ok(/Math\.abs\(real - h\.seg\) > 1\.2\) setPosicion\(h\.seg\)/.test(sondeo))
   // el estudiante y el reproductor compartido no se tocan
   assert.ok(!/LineaTiempoVideo/.test(lt + col))
 })
@@ -7234,7 +7240,6 @@ caso('ventana de revisión: los controles llevan tooltip (data-tooltip, solo esc
     [v, /aria-label="Vista previa docente"\s+data-tooltip="Probar el video como lo verá el estudiante"/],
     [v, /aria-label="Cerrar la revisión"\s+data-tooltip="Cerrar la revisión"/],
     [v, /data-tooltip=\{ayuda\}/], [v, /Pendientes y aprobadas/], [v, /Solo las que aún no revisas/], [v, /Las que descartaste; puedes restaurarlas/],
-    [v, /data-tooltip=\{`Pregunta \$\{i \+ 1\}/],
     [v, /data-tooltip=\{editando \? 'Volver a la vista de la pregunta' : 'Corregir el texto, las opciones y la respuesta correcta'\}/],
     [v, /data-tooltip="Marcar como respuesta correcta"/],
     [v, /data-tooltip="Guardar los cambios de esta pregunta"/], [v, /data-tooltip="Quitar los cambios sin guardar de esta pregunta">Deshacer/],
@@ -7244,8 +7249,6 @@ caso('ventana de revisión: los controles llevan tooltip (data-tooltip, solo esc
     [lt, /data-tooltip="Arrastra para mover el video y fijar cuándo aparece la pregunta"/],
     [ct, /data-tooltip=\{`Que aparezca \$\{Math\.abs\(d\)\}/], [ct, /data-tooltip=\{`Que aparezca \$\{d\} /],
     [ct, /data-tooltip="Escribe el minuto exacto, por ejemplo 2:34"/],
-    [ct, /data-testid="comprobar-momento"\s+data-tooltip="Reproduce unos segundos antes y se detiene donde aparecería la pregunta"/],
-    [ct, /data-testid="usar-sugerido" data-tooltip="Volver al momento que propuso la IA"/],
   ]
   for (const [fuente, re] of conGlobo) assert.ok(re.test(fuente), String(re))
   // los <input> no generan ::after: su globo va en un envoltorio, no en el propio input
@@ -7276,6 +7279,110 @@ caso('ventana de revisión: los controles llevan tooltip (data-tooltip, solo esc
   assert.ok(/data-tooltip="Arrastra para mover el video y fijar cuándo aparece la pregunta" data-tooltip-pos="bottom"/.test(lt))
   // no se tocó la vista del estudiante
   assert.ok(!/data-tooltip/.test(leerFuente('src/components/video/VideoInteractivoPantalla.jsx') + leerFuente('src/components/video/LineaTiempoVideo.jsx')))
+})
+
+caso('video · la pregunta aparece EN el segundo guardado, nunca antes (ni 0,3 s)', () => {
+  assert.strictEqual(VP.ADELANTO_PREGUNTA_SEG, 0, 'sin adelanto')
+  const ord = VP.ordenarPreguntasVideo([q('a', 60), q('b', 190)], 600)
+  assert.strictEqual(VP.preguntaPendiente(ord, nadaRespondido, 59.99), null, 'a 59,99 s todavía no')
+  assert.strictEqual(VP.preguntaPendiente(ord, nadaRespondido, 60)?.id, 'a', 'a 60 s sí')
+  assert.strictEqual(VP.siguientePregunta(ord, nadaRespondido, 60)?.pregunta.id, 'b', 'ya en su segundo, la «siguiente» es la que viene después')
+  // sondeo real de la pantalla: una lectura cada 100 ms; la posición AVANZA como en el video. Para varios segundos guardados, la primera lectura que abre
+  // la pregunta está en [segundo, segundo + 0,1] — nunca antes — y el video vuelve a su segundo exacto.
+  for (const ts of [60, 190, 7, 333]) {
+    const un = VP.ordenarPreguntasVideo([q('x', ts)], 600)
+    let est = { maxVisto: ts - 3, ultimaPos: ts - 3, ultimoT: 1000 }
+    let pos = ts - 3
+    let abierta = null
+    for (let i = 0; i < 80 && !abierta; i += 1) {
+      pos = +(pos + 0.1).toFixed(2)
+      const r = VP.tick(est, { pos, ahora: 1000 + (i + 1) * 100, jugando: true, visible: true, duracion: 600, ordenadas: un, respondida: nadaRespondido })
+      est = { maxVisto: r.maxVisto, ultimaPos: r.ultimaPos, ultimoT: r.ultimoT }
+      if (r.accion === 'pregunta') abierta = { pos, irA: r.irA }
+    }
+    assert.ok(abierta, `la pregunta de ${ts} s sale`)
+    assert.ok(abierta.pos >= ts - 1e-9 && abierta.pos <= ts + 0.1 + 1e-9, `sale en [${ts}, ${ts + 0.1}] y no antes (fue ${abierta.pos})`)
+    assert.strictEqual(abierta.irA, ts, 'el video vuelve a su segundo exacto')
+  }
+  // reanudar: una pregunta a la que NO llegó (maxVisto menor a su segundo) no está pendiente; a la que sí llegó, sí
+  const o2 = VP.ordenarPreguntasVideo([q('a', 20)], 100)
+  assert.strictEqual(VP.reanudar({ progreso: { maxVistoSeg: 19.9, posicionSeg: 19.9 }, ordenadas: o2, respondida: nadaRespondido, duracion: 100 }).pendiente, null)
+  assert.strictEqual(VP.reanudar({ progreso: { maxVistoSeg: 20, posicionSeg: 20 }, ordenadas: o2, respondida: nadaRespondido, duracion: 100 }).pendiente?.id, 'a')
+  // el sondeo de la pantalla del estudiante es de 100 ms
+  const pantalla = leerFuente('src/components/video/VideoInteractivoPantalla.jsx')
+  assert.ok(/}, 100\)\s*\n\s*return \(\) => clearInterval\(id\)/.test(pantalla) && /Sondeo del reproductor \(10 veces por segundo\)/.test(pantalla))
+})
+
+caso('ventana de revisión: la BOLITA BLANCA de la pregunta se arrastra, lleva el video y guarda sola al soltarla', () => {
+  const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
+  const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  // la bolita blanca (borde azul) es el punto de ESTA pregunta; el triángulo verde NO: es el tiempo del video
+  assert.ok(/<span className="block w-3\.5 h-3\.5 rounded-full border-2 border-accent bg-surface-card" \/>/.test(lt), 'bolita blanca con borde azul')
+  assert.ok(/<span className="block w-0 h-0 border-x-\[8px\] border-x-transparent border-t-\[11px\] border-t-emerald-600" aria-hidden="true" \/>/.test(lt), 'triángulo verde')
+  assert.ok(!/sugeridoSeg|marca-pregunta/.test(lt + col), 'sin anillo de referencia del sugerido ni punto duplicado')
+  // YA NO HAY PUNTO AZUL: la «bolita» del control deslizante es transparente (el control sigue: tocar la línea salta, relleno de avance)
+  assert.ok(/\[&::-webkit-slider-thumb\]:bg-transparent \[&::-webkit-slider-thumb\]:border-4 \[&::-webkit-slider-thumb\]:border-transparent/.test(lt) && /\[&::-moz-range-thumb\]:bg-transparent/.test(lt))
+  assert.ok(!/slider-thumb\]:bg-accent|range-thumb\]:bg-accent|slider-thumb\]:border-white|range-thumb\]:border-white/.test(lt), 'sin bolita azul ni borde blanco')
+  assert.ok(/<input type="range" min=\{0\} max=\{dur\} step="any" value=\{real\}/.test(lt) && /bg-accent-light/.test(lt), 'el control y el relleno de avance siguen')
+  // los puntos van encima del control de la línea: nada los tapa
+  assert.ok(lt.indexOf('<input type="range"') < lt.indexOf('items.filter(') && lt.indexOf('<input type="range"') < lt.indexOf('data-testid="bolita-pregunta"') && lt.indexOf('data-testid="bolita-pregunta"') < lt.indexOf('data-testid="marca-video"'))
+  // arrastre con captura de puntero; el agarre se comparte (la bolita elige el segundo de la pregunta, el triángulo salta el video)
+  assert.ok(/onPointerDown: \(e\) => \{\s*if \(!habilitado\) return\s*e\.preventDefault\(\)\s*e\.currentTarget\.setPointerCapture\(e\.pointerId\)/.test(lt))
+  assert.ok(/e\.currentTarget\.dataset\.agarre = String\(e\.clientX - \(r\.left \+ r\.width \/ 2\)\)/.test(lt), 'no salta al tomarla de la orilla')
+  assert.ok(/accion\(segEn\(e\.clientX - \(Number\(e\.currentTarget\.dataset\.agarre\) \|\| 0\), e\.currentTarget\.parentElement\), e\.currentTarget\)/.test(lt))
+  assert.ok(/\{\.\.\.agarrar\(elegir, !disabled, soltarBolita\)\}/.test(lt) && /touch-none/.test(lt) && /w-7 h-7/.test(lt) && /w-8 h-5/.test(lt))
+  assert.ok(/Math\.min\(dur, Math\.max\(0, Math\.round\(\(\(clientX - r\.left\) \/ r\.width\) \* dur\)\)\)/.test(lt), 'entero y acotado al video')
+  // elegir = borrador + el video salta (ColumnaVideoRevision.alCambiar); no escribe nada en la línea ni en la columna
+  assert.ok(/const elegir = \(s, el\) => \{ if \(!disabled && s !== v\) \{ el\.dataset\.ultimo = String\(s\); onCambiar\(s\) \} \}/.test(lt))
+  assert.ok(!/setDoc|updateDoc|firebase|fetch\(/.test(lt + col))
+  // al SOLTAR se guarda solo: línea → columna → ventana → panel, por la ruta de siempre (guardarBorrador), con las demás ediciones pendientes
+  assert.ok(/const soltarBolita = \(el\) => \{\s*const s = el\.dataset\.ultimo\s*delete el\.dataset\.ultimo\s*if \(s !== undefined\) onSoltar\?\.\(Number\(s\)\)/.test(lt), 'solo guarda si se movió')
+  assert.ok(/onSoltar=\{\(seg\) => onGuardarTiempo\(item\.id, seg\)\}/.test(v) && /onGuardarTiempo=\{guardarTiempo\}/.test(panel))
+  assert.ok(/const guardarTiempo = \(id, seg\) => \{\s*const it = itemsRef\.current\.find\(\(x\) => x\.id === id\)\s*if \(it\) guardar\(\{ \.\.\.it, timestampSeg: seg \}\)/.test(panel))
+  assert.ok(/useEffect\(\(\) => \{ itemsRef\.current = items \}\)/.test(panel), 'lee lo último que se ve en pantalla')
+  // inhabilitado (pregunta descartada / parcial cerrado): la bolita no se arrastra; el triángulo (recorrer el video) sí
+  assert.ok(/cursor-not-allowed/.test(lt) && /\{\.\.\.agarrar\(saltar, true\)\}/.test(lt))
+  // flechas del triángulo: 1 s exacto, RePág/AvPág 5 s, solo mueven el video
+  assert.ok(/\{ ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -5, PageUp: 5 \}\[e\.key\]/.test(lt))
+  // el control de la línea es solo para el puntero (el triángulo es el control con teclado y lector de pantalla)
+  assert.ok(/<input type="range"[^>]*aria-hidden="true" tabIndex=\{-1\}/.test(lt) && /aria-label="Posición del video: arrastra o usa las flechas"/.test(lt))
+  // el tooltip de la línea no cambia
+  assert.ok(/data-tooltip="Arrastra para mover el video y fijar cuándo aparece la pregunta" data-tooltip-pos="bottom"/.test(lt))
+})
+
+caso('ventana de revisión: Anterior/Siguiente van encima del enunciado, que se lee a ~20 px; Vista previa y Cerrar siguen en el encabezado', () => {
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  const cab = v.slice(v.indexOf('<header'), v.indexOf('</header>'))
+  assert.ok(!/data-testid="anterior"|data-testid="siguiente"/.test(cab), 'ya no están en el encabezado')
+  assert.ok(/data-testid="vista-previa-desde-ventana"/.test(cab) && /data-testid="cerrar-ventana"/.test(cab), 'Vista previa y Cerrar se quedan')
+  const col = v.slice(v.indexOf('data-testid="pregunta-actual"'))
+  const iAnt = col.indexOf('data-testid="anterior"'), iSig = col.indexOf('data-testid="siguiente"'), iEnun = col.indexOf('data-testid="enunciado-actual"')
+  assert.ok(iAnt > 0 && iSig > iAnt && iEnun > iSig, 'Anterior, Siguiente y luego el enunciado, en la columna de la pregunta')
+  assert.ok(/onClick=\{\(\) => ir\(antes\)\} disabled=\{!antes\}/.test(v) && /onClick=\{\(\) => ir\(despues\)\} disabled=\{!despues\}/.test(v), 'siguen funcionando igual')
+  // el enunciado a ~20 px en escritorio; las opciones y la retroalimentación no cambian
+  assert.ok(/<p className="text-base lg:text-\[20px\] leading-snug font-medium text-on-surface whitespace-pre-wrap" data-testid="enunciado-actual">\{item\.enunciado\}<\/p>/.test(v))
+  assert.ok(/<ul className="space-y-0\.5 text-sm">/.test(v) && /<p className="text-xs text-muted">Retroalimentación: /.test(v))
+})
+
+caso('ventana de revisión: tocar un punto verde de la línea de tiempo lleva a esa pregunta y no hay puntos duplicados arriba', () => {
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
+  // la tira de puntos del encabezado (duplicada) ya no existe: la navegación por puntos vive en la línea de tiempo
+  assert.ok(!/<fieldset|Ir a una pregunta/.test(v), 'sin la tira de puntos del encabezado')
+  assert.ok(!/punto:/.test(v), 'sin colores de puntos huérfanos')
+  // cada otra pregunta es un botón que llama a onIr(id); el modal le pasa `ir` (la misma función de Anterior/Siguiente)
+  assert.ok(/<button key=\{o\.id\} type="button" onClick=\{\(\) => onIr\?\.\(o\.id\)\} data-testid="punto-pregunta"/.test(lt))
+  assert.ok(/aria-label=\{`Ir a la pregunta del minuto \$\{formatearMinuto\(o\.timestampSeg\)\}/.test(lt))
+  assert.ok(/onIr=\{ir\}/.test(v) && /onIr=\{onIr\}/.test(col) && /const ir = \(id\) => \{ if \(id\) \{ setActualId\(id\); setEditando\(false\) \} \}/.test(v))
+  // el punto es clicable aunque la pregunta actual esté deshabilitada (descartada / parcial cerrado): ir a otra no depende de `disabled`
+  assert.ok(!/onClick=\{\(\) => onIr\?\.\(o\.id\)\}[^>]*disabled/.test(lt))
+  // los cambios sin guardar se siguen viendo en el punto
+  assert.ok(/o\.sinGuardar && <span className="absolute -top-1 -right-1/.test(lt))
+  // el control de la línea va debajo de los puntos: no los tapa
+  assert.ok(lt.indexOf('<input type="range"') < lt.indexOf('data-testid="punto-pregunta"'))
 })
 
 caso('ventana de revisión: cerrar con cambios sin guardar ofrece guardar, descartar o seguir editando', () => {

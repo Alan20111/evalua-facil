@@ -218,7 +218,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
     irA: (seg) => { if (revisionRef.current) irRevision(seg) },
   }))
 
-  // Sondeo del reproductor (4 veces por segundo): avance, saltos y preguntas.
+  // Sondeo del reproductor (10 veces por segundo): avance, saltos y preguntas.
   // La pantalla solo se actualiza cuando hay un cambio visible.
   useEffect(() => {
     if (!yt.listo) return undefined
@@ -250,7 +250,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
       setPosUI((p) => (Math.abs(p - r.ultimaPos) >= 0.5 ? r.ultimaPos : p))
       setMaxUI((m) => (Math.abs(m - r.maxVisto) >= 0.5 ? r.maxVisto : m))
       if (est === ESTADO_YT.REPRODUCIENDO) guardarProgreso(r.maxVisto, r.ultimaPos)
-    }, 250)
+    }, 100)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- un solo sondeo por reproductor
   }, [yt.listo])
