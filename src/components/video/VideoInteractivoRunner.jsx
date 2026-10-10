@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCircle2, ChevronRight, Pause, Play, RotateCcw, RotateCw, AlertTriangle } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { CheckCircle2, ChevronRight, Maximize, Minimize, Pause, Play, RotateCcw, RotateCw, AlertTriangle } from 'lucide-react'
 import Spinner from '../Spinner'
 import { useToast } from '../Toast'
 import { EsqueletoVideoInteractivo } from '../esqueletos'
 import useYouTubePlayer, { ESTADO_YT, mensajeErrorYouTube } from '../../hooks/useYouTubePlayer'
 import useProgresoVideo from '../../hooks/useProgresoVideo'
+import usePantallaCompleta from '../../hooks/usePantallaCompleta'
+import useMediaQuery from '../../hooks/useMediaQuery'
+import { panelVisibleEnPantallaCompleta, altoDisponibleVideo } from './pantallaCompletaVideo'
 import {
   ordenarPreguntasVideo, tick, reanudar, antesDeReproducir, alTerminar, siguientePregunta, acotarSalto,
   videoCompletado, porcentajeVisto, formatearTiempo, resumenRespuestas,
@@ -25,9 +28,22 @@ import PreguntaRespuesta from './PreguntaRespuesta'
 // encima: YouTube prohíbe poner elementos sobre su reproductor. En pantallas
 // anchas (y en teléfono horizontal) el panel pasa a la derecha.
 //
+// Escritorio: el video usa todo el ancho útil (menos el panel) y su alto se limita al de la
+// ventana, para que controles e indicaciones queden siempre a la vista.
+//
+// Pantalla completa (botón en la fila de arriba): el MISMO contenedor —video + controles +
+// pregunta— ocupa toda la pantalla. La pregunta no se pone encima del video (lo prohíbe YouTube,
+// ver pantallaCompletaVideo.js): el panel aparece AL LADO en horizontal o ABAJO en vertical
+// y el reproductor se encoge; el video queda a la vista, en pausa. Entrar, salir y girar el
+// teléfono solo cambian clases CSS: no se remonta nada, así el progreso, la posición y la
+// respuesta en curso se conservan.
+//
 // Fases: listo → reproduciendo ⇄ pausado → pregunta → … → final.
 
 const TIEMPO_AVISO_MS = 4000
+// Pantallas donde el video y el panel van lado a lado (escritorio y teléfono horizontal). Es la misma condición que
+// usan las clases `lg:` y `[@media(orientation:landscape)_and_(max-height:500px)]:` de abajo.
+const Q_LADO_A_LADO = '(min-width: 1024px), (orientation: landscape) and (max-height: 500px)'
 
 export default function VideoInteractivoRunner(props) {
   const { submission } = props
@@ -46,6 +62,7 @@ function VideoInteractivoPantalla({
   activity, preguntas, respuestas, otraTextos, estaRespondida,
   onSelectOpcion, onTextoChange, onOtraTextoChange, onFinalizar, finishing,
   progresoInicial, guardarProgreso,
+  altoDisponiblePx, // opcional: alto en px que el reproductor puede usar. Sin él se mide desde la ventana y la cabecera.
 }) {
   const toast = useToast()
   const vi = activity.videoInteractivo || {}
@@ -76,6 +93,30 @@ function VideoInteractivoPantalla({
   const contenedorRef = useRef(null)
   const infoRef = useRef(null)
   const tituloPanelRef = useRef(null)
+  const pantallaRef = useRef(null)
+  const pc = usePantallaCompleta(pantallaRef)
+  const enPC = pc.activa
+  // Lado a lado (escritorio y teléfono horizontal) la fila «Pregunta N de M · Video visto» y los avisos se muestran en el
+  // panel y no debajo del video: la columna del video queda solo con video + controles, y el video no se encoge ni crece
+  // cuando sale un mensaje. Con una pregunta abierta la fila sobra (el panel ya dice «Pregunta N de M»). En pantalla
+  // completa se conserva su propia distribución.
+  const lado = useMediaQuery(Q_LADO_A_LADO)
+  const ladoALado = lado && !enPC
+
+  // Alto que queda libre bajo la cabecera del estudiante: en escritorio (y en teléfono horizontal) la
+  // pantalla del video mide justo eso, así el video crece hasta el borde y no sobra espacio vacío abajo.
+  // Se escribe como variable CSS directamente en el elemento (sin estado: no hay que volver a pintar).
+  useLayoutEffect(() => {
+    const el = pantallaRef.current
+    const cabecera = el?.parentElement?.closest('.fixed')?.querySelector('header')
+    const medir = () => el?.style.setProperty('--vi-alto', `${altoDisponiblePx ?? altoDisponibleVideo({ ventana: window.innerHeight, cabecera: cabecera?.offsetHeight || 0 })}px`)
+    medir()
+    window.addEventListener('resize', medir)
+    window.addEventListener('orientationchange', medir)
+    const ro = typeof ResizeObserver === 'function' && cabecera ? new ResizeObserver(medir) : null
+    ro?.observe(cabecera)
+    return () => { window.removeEventListener('resize', medir); window.removeEventListener('orientationchange', medir); ro?.disconnect() }
+  }, [altoDisponiblePx])
 
   function avisar(texto) {
     setAviso(texto)
@@ -244,7 +285,8 @@ function VideoInteractivoPantalla({
   function continuar() {
     const p = ordenadasRef.current.find((q) => q.id === activaId)
     if (!p) return
-    if (!estaRespondida(p)) { toast('Responde esta pregunta para continuar.', 'warning'); return }
+    // En pantalla completa los avisos del toast quedan fuera del contenedor: se usa el aviso propio.
+    if (!estaRespondida(p)) { avisar('Responde esta pregunta para continuar.'); if (!enPC) toast('Responde esta pregunta para continuar.', 'warning'); return }
     setActivaId(null)
     // Sale de «pregunta» ya: si no, el evento de «reproduciendo» se tomaría por un
     // intento de seguir sin contestar y volvería a pausar el video.
@@ -260,7 +302,8 @@ function VideoInteractivoPantalla({
 
   function entregar() {
     if (!videoCompletado(tickRef.current.maxVisto, duracionRef.current)) {
-      toast('Termina de ver el video para entregar.', 'warning')
+      avisar('Termina de ver el video para entregar.')
+      if (!enPC) toast('Termina de ver el video para entregar.', 'warning')
       return
     }
     onFinalizar()
@@ -276,48 +319,76 @@ function VideoInteractivoPantalla({
   const puedeEntregar = resumen.pendientes === 0 && videoCompletado(maxUI, duracion)
   const jugando = fase === 'reproduciendo'
   const bloqueado = !yt.listo || fase === 'pregunta'
+  // En pantalla completa el panel solo se ve cuando hay algo que decirle al estudiante
+  // (comenzar, responder, entregar); si no, el video ocupa todo.
+  const panelOculto = enPC && yt.error == null && !panelVisibleEnPantallaCompleta(fase)
+
+  // Fila «Pregunta N de M · Video visto · pantalla completa». Se pinta debajo/encima del video o arriba del panel.
+  const filaInfo = (extra) => (
+    <div ref={infoRef} className={`flex flex-wrap items-center justify-between gap-x-2 gap-y-1 scroll-mt-24 ${extra}`}>
+      <span className="inline-flex items-center gap-1.5 bg-accent-light text-accent text-sm font-bold px-3 py-1 rounded-full">
+        Pregunta {numeroActual} <span className="font-medium opacity-70">de {resumen.total}</span>
+      </span>
+      <span className="flex items-center gap-2">
+        <span className="text-sm text-muted tabular-nums">Video visto {visto} %</span>
+        <button type="button" onClick={pc.alternar} aria-pressed={enPC} data-testid="pantalla-completa"
+          aria-label={enPC ? 'Salir de pantalla completa' : 'Ver en pantalla completa'}
+          className="w-11 h-11 shrink-0 rounded-full border border-outline-variant text-muted flex items-center justify-center hover:bg-surface-container">
+          {enPC ? <Minimize size={20} /> : <Maximize size={20} />}
+        </button>
+      </span>
+    </div>
+  )
 
   return (
-    <div style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-      <div data-esq="video-contenedor" className="px-4 py-4 w-full max-w-xl lg:max-w-6xl [@media(orientation:landscape)_and_(max-height:500px)]:max-w-none mx-auto">
-        <div data-esq="video-rejilla" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start [@media(orientation:landscape)_and_(max-height:500px)]:grid-cols-[minmax(0,1fr)_320px]">
+    <div ref={pantallaRef} data-pantalla={enPC ? 'completa' : 'normal'}
+      className={enPC ? 'fixed top-0 left-0 w-full h-dvh z-[80] bg-surface overflow-hidden' : ''}
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      <div data-esq="video-contenedor" className={enPC ? 'w-full h-full' : 'px-3 py-2 w-full max-w-xl md:max-w-3xl mx-auto lg:max-w-none [@media(orientation:landscape)_and_(max-height:500px)]:max-w-none lg:h-[var(--vi-alto,auto)] [@media(orientation:landscape)_and_(max-height:500px)]:h-[var(--vi-alto,auto)] lg:px-4 [@media(orientation:landscape)_and_(max-height:500px)]:px-4 lg:py-2 [@media(orientation:landscape)_and_(max-height:500px)]:py-2'}>
+        <div data-esq="video-rejilla" className={enPC ? 'h-full flex flex-col [@media(orientation:landscape)]:flex-row' : 'grid gap-3 lg:h-full [@media(orientation:landscape)_and_(max-height:500px)]:h-full lg:gap-4 [@media(orientation:landscape)_and_(max-height:500px)]:gap-4 lg:grid-cols-[minmax(0,72fr)_minmax(16rem,28fr)] [@media(orientation:landscape)_and_(max-height:500px)]:grid-cols-[minmax(0,1fr)_minmax(16rem,19rem)]'}>
           {/* ── Columna del video ── */}
-          <div className="min-w-0 space-y-3">
-            <div ref={infoRef} className="flex items-center justify-between gap-2 scroll-mt-24">
-              <span className="inline-flex items-center gap-1.5 bg-accent-light text-accent text-sm font-bold px-3 py-1 rounded-full">
-                Pregunta {numeroActual} <span className="font-medium opacity-70">de {resumen.total}</span>
-              </span>
-              <span className="text-sm text-muted tabular-nums">Video visto {visto} %</span>
-            </div>
+          <div className={enPC ? `min-w-0 min-h-0 flex flex-col gap-1 p-2 ${panelOculto ? 'flex-1' : 'flex-none [@media(orientation:landscape)]:flex-1'} [@media(orientation:landscape)]:grid [@media(orientation:landscape)]:grid-cols-[minmax(0,1fr)_auto] [@media(orientation:landscape)]:grid-rows-[minmax(0,1fr)_auto] [@media(orientation:landscape)]:gap-x-3` : 'min-w-0 space-y-3 lg:space-y-0 [@media(orientation:landscape)_and_(max-height:500px)]:space-y-0 lg:h-full [@media(orientation:landscape)_and_(max-height:500px)]:h-full lg:flex [@media(orientation:landscape)_and_(max-height:500px)]:flex lg:flex-col [@media(orientation:landscape)_and_(max-height:500px)]:flex-col lg:gap-2 [@media(orientation:landscape)_and_(max-height:500px)]:gap-2 lg:min-h-0 [@media(orientation:landscape)_and_(max-height:500px)]:min-h-0'}>
+            {!ladoALado && filaInfo(enPC ? '[@media(orientation:landscape)]:col-start-2 [@media(orientation:landscape)]:row-start-2' : '')}
 
             {/* Nada va encima de este recuadro: lo llena el reproductor de YouTube. */}
-            <div data-esq="video-reproductor" ref={contenedorRef} className="w-full aspect-video min-h-[14rem] bg-black rounded-card overflow-hidden" />
+            <div className={enPC ? 'flex-1 min-h-0 flex flex-col justify-center [@media(orientation:landscape)]:col-span-2 [@media(orientation:landscape)]:row-start-1 [@media(orientation:landscape)]:flex-row [@media(orientation:landscape)]:items-center [@media(orientation:landscape)]:justify-center [@media(orientation:landscape)]:[container-type:size]' : 'lg:flex-1 [@media(orientation:landscape)_and_(max-height:500px)]:flex-1 lg:min-h-0 [@media(orientation:landscape)_and_(max-height:500px)]:min-h-0 lg:[container-type:size] [@media(orientation:landscape)_and_(max-height:500px)]:[container-type:size] lg:flex [@media(orientation:landscape)_and_(max-height:500px)]:flex lg:items-center [@media(orientation:landscape)_and_(max-height:500px)]:items-center lg:justify-center [@media(orientation:landscape)_and_(max-height:500px)]:justify-center'}>
+              <div data-esq="video-reproductor" ref={contenedorRef}
+                className={enPC ? 'w-full aspect-video bg-black overflow-hidden [@media(orientation:landscape)]:w-[min(100cqw,calc(100cqh*16/9))] [@media(orientation:landscape)]:shrink-0' : 'w-full aspect-video min-h-[14rem] bg-black rounded-card overflow-hidden mx-auto portrait:max-md:-mx-3 portrait:max-md:w-[calc(100%+1.5rem)] portrait:max-md:rounded-none lg:w-[min(100cqw,calc(100cqh*16/9))] [@media(orientation:landscape)_and_(max-height:500px)]:w-[min(100cqw,calc(100cqh*16/9))] lg:min-h-0 [@media(orientation:landscape)_and_(max-height:500px)]:min-h-0 lg:shrink-0 [@media(orientation:landscape)_and_(max-height:500px)]:shrink-0'} />
+            </div>
 
-            <div className={fase === 'pregunta' ? 'max-lg:hidden' : ''}>
-              <LineaTiempoVideo
-                duracion={duracion} posicion={posUI} maxVisto={maxUI} preguntas={ordenadas}
-                respondida={estaRespondida} activaId={activaId} onSaltar={saltar} onMarca={tocarMarca} />
-              <div className="flex items-center justify-center gap-4 mt-1">
+            {/* En pantalla completa y horizontal, botones y línea de tiempo van en UNA fila (botones primero)
+                para dejarle al video todo el alto posible. */}
+            <div className={`${fase === 'pregunta' ? (enPC ? 'max-lg:hidden' : lado ? '' : 'hidden') : ''} ${enPC ? '[@media(orientation:landscape)]:flex [@media(orientation:landscape)]:flex-row-reverse [@media(orientation:landscape)]:items-center [@media(orientation:landscape)]:gap-3 [@media(orientation:landscape)]:col-start-1 [@media(orientation:landscape)]:row-start-2' : 'lg:flex [@media(orientation:landscape)_and_(max-height:500px)]:flex lg:flex-row-reverse [@media(orientation:landscape)_and_(max-height:500px)]:flex-row-reverse lg:items-center [@media(orientation:landscape)_and_(max-height:500px)]:items-center lg:gap-3 [@media(orientation:landscape)_and_(max-height:500px)]:gap-3'}`}>
+              <div className={enPC ? '[@media(orientation:landscape)]:flex-1 [@media(orientation:landscape)]:min-w-0' : 'lg:flex-1 [@media(orientation:landscape)_and_(max-height:500px)]:flex-1 lg:min-w-0 [@media(orientation:landscape)_and_(max-height:500px)]:min-w-0'}>
+                <LineaTiempoVideo
+                  duracion={duracion} posicion={posUI} maxVisto={maxUI} preguntas={ordenadas}
+                  respondida={estaRespondida} activaId={activaId} onSaltar={saltar} onMarca={tocarMarca} />
+              </div>
+              <div className={`flex items-center justify-center gap-4 ${enPC ? '[@media(orientation:landscape)]:mt-0 [@media(orientation:landscape)]:flex-none' : 'mt-1 lg:mt-0 [@media(orientation:landscape)_and_(max-height:500px)]:mt-0 lg:flex-none [@media(orientation:landscape)_and_(max-height:500px)]:flex-none'}`}>
                 <button type="button" disabled={bloqueado} onClick={() => saltar(posUI - 10)} aria-label="Retroceder 10 segundos"
-                  className="w-14 h-14 rounded-full border border-outline-variant text-muted flex items-center justify-center disabled:opacity-60">
+                  className={`${enPC ? 'w-11 h-11' : 'w-14 h-14 lg:w-11 [@media(orientation:landscape)_and_(max-height:500px)]:w-11 lg:h-11 [@media(orientation:landscape)_and_(max-height:500px)]:h-11'} rounded-full border border-outline-variant text-muted flex items-center justify-center disabled:opacity-60`}>
                   <RotateCcw size={20} />
                 </button>
                 <button type="button" disabled={bloqueado} onClick={alternarReproduccion}
                   aria-label={jugando ? 'Pausar' : 'Reproducir'}
-                  className="w-16 h-16 rounded-full bg-accent text-white flex items-center justify-center disabled:opacity-60">
+                  className={`${enPC ? 'w-12 h-12' : 'w-16 h-16 lg:w-12 [@media(orientation:landscape)_and_(max-height:500px)]:w-12 lg:h-12 [@media(orientation:landscape)_and_(max-height:500px)]:h-12'} rounded-full bg-accent text-white flex items-center justify-center disabled:opacity-60`}>
                   {jugando ? <Pause size={26} /> : <Play size={26} className="ml-0.5" />}
                 </button>
                 <button type="button" disabled={bloqueado || posUI >= maxUI - 0.5} onClick={() => saltar(posUI + 10)} aria-label="Adelantar 10 segundos"
-                  className="w-14 h-14 rounded-full border border-outline-variant text-muted flex items-center justify-center disabled:opacity-60">
+                  className={`${enPC ? 'w-11 h-11' : 'w-14 h-14 lg:w-11 [@media(orientation:landscape)_and_(max-height:500px)]:w-11 lg:h-11 [@media(orientation:landscape)_and_(max-height:500px)]:h-11'} rounded-full border border-outline-variant text-muted flex items-center justify-center disabled:opacity-60`}>
                   <RotateCw size={20} />
                 </button>
               </div>
             </div>
-            <p className="min-h-[1.25rem] text-xs text-amber-700 text-center" aria-live="polite">{aviso}</p>
+            {/* Lado a lado el aviso va en el panel: si ocupara lugar bajo el video, el video se encogería (y volvería a crecer) cada vez que sale un mensaje. */}
+            {!ladoALado && <p className={`text-xs text-amber-700 text-center ${enPC ? '[@media(orientation:landscape)]:col-span-2 [@media(orientation:landscape)]:row-start-3' : 'min-h-[1.25rem] lg:min-h-0 [@media(orientation:landscape)_and_(max-height:500px)]:min-h-0'}`} aria-live="polite">{aviso}</p>}
           </div>
 
           {/* ── Panel: instrucciones / pregunta / entrega ── */}
-          <div data-esq="video-panel" className="bg-surface-card rounded-card p-4 shadow-card" aria-live="polite">
+          <div data-esq="video-panel" aria-live="polite"
+            className={enPC ? `bg-surface-card p-4 overflow-y-auto min-h-0 flex-1 [@media(orientation:landscape)]:flex-none [@media(orientation:landscape)]:w-[min(46vw,28rem)] ${panelOculto ? 'hidden' : ''}` : 'bg-surface-card rounded-card p-4 shadow-card lg:h-full [@media(orientation:landscape)_and_(max-height:500px)]:h-full lg:overflow-y-auto [@media(orientation:landscape)_and_(max-height:500px)]:overflow-y-auto lg:min-h-0 [@media(orientation:landscape)_and_(max-height:500px)]:min-h-0'}>
+            {ladoALado && aviso && <p className="text-xs text-amber-700 text-center pb-2">{aviso}</p>}
+            {ladoALado && fase !== 'pregunta' && filaInfo('pb-3 mb-3 border-b border-outline-variant')}
             {yt.error != null ? (
               <div className="space-y-3 text-center">
                 <AlertTriangle size={28} className="mx-auto text-amber-600" />
@@ -333,7 +404,7 @@ function VideoInteractivoPantalla({
                 {activa.imagenUrl && (
                   <img src={activa.imagenUrl} alt="" className="w-full max-h-56 object-contain rounded border border-outline-variant" />
                 )}
-                <p className="text-base font-medium text-on-surface break-words">{activa.enunciado}</p>
+                <p className={`${enPC ? 'text-lg' : 'text-base'} font-medium text-on-surface break-words`}>{activa.enunciado}</p>
                 <PreguntaRespuesta
                   pregunta={activa} respuesta={respuestas[activa.id]} otraTexto={otraTextos[activa.id]}
                   onSelectOpcion={onSelectOpcion} onTextoChange={onTextoChange} onOtraTextoChange={onOtraTextoChange} />
