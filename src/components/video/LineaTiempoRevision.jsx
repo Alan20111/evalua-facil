@@ -21,7 +21,7 @@ export default function LineaTiempoRevision({ duracionSeg, posicion = null, valo
   const pct = (s) => `${(Math.min(Math.max(s, 0), dur) / dur) * 100}%`
   return (
     <div data-testid="linea-tiempo-revision">
-      <div className="relative h-10 flex items-center" data-tooltip="Arrastra para mover el video y fijar cuándo aparece la pregunta">
+      <div className="relative h-10 flex items-center" data-tooltip="Arrastra para mover el video y fijar cuándo aparece la pregunta" data-tooltip-pos="bottom">
         <div className="absolute inset-x-3.5 top-1/2 -translate-y-1/2 h-2 rounded-full bg-surface-container" aria-hidden="true">
           <div className="absolute inset-y-0 left-0 rounded-full bg-accent-light" style={{ width: pct(real) }} />
           {items.filter((o) => o.id !== itemId && Number.isInteger(o.timestampSeg) && o.timestampSeg <= dur).map((o) => (

@@ -8,7 +8,7 @@ import RecomendacionesVideo from './RecomendacionesVideo'
 import ColumnaVideoRevision from './ColumnaVideoRevision'
 import EvidenciaVideo from './EvidenciaVideo'
 import {
-  ESTADO_REVISION, FILTRO_REVISION, GLOBO_DESDE_IZQ, GLOBO_HASTA_DER, accionEscape, coincideFiltro, contarSinGuardar, leerEvidencia, moverId, ordenRevision, primeraParaRevisar,
+  ESTADO_REVISION, FILTRO_REVISION, GLOBO_ANGOSTO, GLOBO_DESDE_IZQ, GLOBO_HASTA_DER, accionEscape, coincideFiltro, contarSinGuardar, leerEvidencia, moverId, ordenRevision, primeraParaRevisar,
   requiereConfirmacion, visiblesRevision,
 } from './revisionVideo'
 
@@ -210,7 +210,7 @@ export default function RevisionVideoModal({
               {item.estado !== ESTADO_REVISION.DESCARTADA && (
                 <button type="button" onClick={() => setEditando((v) => !v)} disabled={trabajando || sinPermiso} aria-expanded={editando} data-testid="alternar-edicion"
                   data-tooltip={editando ? 'Volver a la vista de la pregunta' : 'Corregir el texto, las opciones y la respuesta correcta'}
-                  className="inline-flex items-center gap-1.5 min-h-[2.5rem] px-3 rounded-full border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-60">
+                  className={`inline-flex items-center gap-1.5 min-h-[2.5rem] px-3 rounded-full border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-60 ${GLOBO_DESDE_IZQ}`}>
                   <Pencil size={14} /> {editando ? 'Cerrar edición' : 'Editar pregunta'}
                 </button>
               )}
@@ -235,12 +235,12 @@ export default function RevisionVideoModal({
                       data-tooltip="Guardar los cambios de esta pregunta">
                       {trabajando ? <Spinner size="sm" /> : <Check size={16} />} Guardar
                     </button>
-                    <button type="button" onClick={() => quitarBorrador(item.id)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-muted ${GLOBO_DESDE_IZQ}`}
+                    <button type="button" onClick={() => quitarBorrador(item.id)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-muted ${GLOBO_ANGOSTO}`}
                       data-tooltip="Quitar los cambios sin guardar de esta pregunta">Deshacer</button>
                   </>
                 )}
                 {sinGuardar > (item.sinGuardar ? 1 : 0) && (
-                  <button type="button" onClick={onGuardarTodos} disabled={!!ocupada} className={`${BOTON} border border-accent text-accent ${GLOBO_DESDE_IZQ}`} data-testid="guardar-todo"
+                  <button type="button" onClick={onGuardarTodos} disabled={!!ocupada} className={`${BOTON} border border-accent text-accent ${GLOBO_ANGOSTO}`} data-testid="guardar-todo"
                     data-tooltip="Guardar los cambios de todas las preguntas">
                     Guardar todo ({sinGuardar})
                   </button>

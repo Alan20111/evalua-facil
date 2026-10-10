@@ -7261,6 +7261,19 @@ caso('ventana de revisión: los controles llevan tooltip (data-tooltip, solo esc
   // el CSS global del globo solo se genera con puntero fino y hover (no hay tooltip en táctil) y no se tocó
   const css = leerFuente('src/index.css')
   assert.ok(/@media \(hover: hover\) and \(pointer: fine\) \{\s*\[data-tooltip\]::after \{/.test(css))
+  // ventanas estrechas (medido a 1280, 1180, 1100, 1024, 900 y 768 px): ningún globo se sale de la pantalla
+  const rv = leerFuente('src/components/video/revisionVideo.js')
+  assert.ok(/GLOBO_ANGOSTO = '\[&::after\]:!max-w-\[130px\]'/.test(rv), 'globo angosto para botones que cambian de lugar al acomodarse')
+  //  · «Editar pregunta» queda pegado al borde izquierdo cuando la ventana pasa a una columna: globo alineado hacia dentro
+  assert.ok(/data-testid="alternar-edicion"[\s\S]*?\$\{GLOBO_DESDE_IZQ\}`\}>\s*<Pencil/.test(v), '«Editar pregunta» alinea su globo a la izquierda')
+  //  · «Guardar» es siempre el primero de la fila (pegado al borde izquierdo): globo alineado hacia dentro
+  assert.ok(/\$\{GLOBO_DESDE_IZQ\}`\} data-testid="guardar-actual"/.test(v))
+  //  · «Deshacer» y «Guardar todo» cambian de lugar al acomodarse según el ancho: globo angosto (cabe centrado en cualquier lugar)
+  assert.ok(/\$\{GLOBO_ANGOSTO\}`\}\s+data-tooltip="Quitar los cambios/.test(v) && /\$\{GLOBO_ANGOSTO\}`\} data-testid="guardar-todo"/.test(v))
+  assert.ok(!/GLOBO_DESDE_IZQ\}`\} data-testid="guardar-todo"/.test(v), 'Guardar todo ya no lleva alineación fija')
+  //  · Reproducir y la línea de tiempo salen hacia abajo: arriba los recortaría el borde de la zona con scroll
+  assert.ok(/data-tooltip=\{reproduciendo \? 'Pausar el video' : 'Reproducir el video'\} data-tooltip-pos="bottom"/.test(col))
+  assert.ok(/data-tooltip="Arrastra para mover el video y fijar cuándo aparece la pregunta" data-tooltip-pos="bottom"/.test(lt))
   // no se tocó la vista del estudiante
   assert.ok(!/data-tooltip/.test(leerFuente('src/components/video/VideoInteractivoPantalla.jsx') + leerFuente('src/components/video/LineaTiempoVideo.jsx')))
 })

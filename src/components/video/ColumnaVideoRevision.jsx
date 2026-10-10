@@ -111,7 +111,7 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
       )}
       <div className="flex items-center gap-2">
         <button type="button" onClick={alternar} disabled={!yt.listo} aria-label={reproduciendo ? 'Pausar' : 'Reproducir'}
-          data-tooltip={reproduciendo ? 'Pausar el video' : 'Reproducir el video'}
+          data-tooltip={reproduciendo ? 'Pausar el video' : 'Reproducir el video'} data-tooltip-pos="bottom"
           className={`w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white flex items-center justify-center disabled:opacity-60 ${GLOBO_DESDE_IZQ}`}>
           {reproduciendo ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
         </button>
