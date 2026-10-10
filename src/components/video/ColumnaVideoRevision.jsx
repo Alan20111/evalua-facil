@@ -3,29 +3,25 @@ import { AlertTriangle, Pause, Play } from 'lucide-react'
 import useYouTubePlayer, { ESTADO_YT, mensajeErrorYouTube } from '../../hooks/useYouTubePlayer'
 import ControlTiempoVideo from './ControlTiempoVideo'
 import LineaTiempoRevision from './LineaTiempoRevision'
-import { GLOBO_DESDE_IZQ, PRE_SEG, formatearMinuto } from './revisionVideo'
+import { GLOBO_DESDE_IZQ, formatearMinuto } from './revisionVideo'
 
 // Lado del VIDEO de la ventana de revisión: el reproductor, la única línea de tiempo y el control del momento.
-// Elegir el segundo y VERLO es lo mismo: mover el marcador (o los botones ±) lleva el video a ese segundo, en pausa, para ver
-// y oír justo ese punto; «Comprobar» reproduce desde unos segundos antes y se detiene en el momento elegido («aquí aparecería
-// la pregunta»). Nada de esto escribe: solo cambia el borrador de la pregunta actual (`onCambiar`).
+// Dos acciones distintas: RECORRER el video (triángulo, tocar la línea: `saltar`, solo mueve el video) y ELEGIR el segundo de la
+// pregunta (bolita blanca, botones ±, campo m:ss: `alCambiar`, cambia el borrador y lleva el video ahí, en pausa). Nada de esto
+// escribe aquí: el borrador lo guarda el panel (la bolita avisa con `onSoltar` al soltarse).
 //
 // No importa Firebase ni nada que escriba (lo comprueba una prueba que recorre las importaciones de la ventana).
 //   item         pregunta actual (con el borrador aplicado)
-//   items        todas, para los puntos de referencia de la línea de tiempo
+//   items        todas, para los puntos de la línea de tiempo (tocar uno lleva a esa pregunta: `onIr(id)`)
 //   duracionSeg  largo guardado del video; si falta se toma del reproductor (solo como tope visual, no se guarda)
 const ESPERA_SALTO_MS = 1500
 
-export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items, disabled = false, onCambiar }) {
+export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items, disabled = false, onCambiar, onSoltar, onIr }) {
   const contenedorRef = useRef(null)
-  const objetivoRef = useRef(null) // segundo en que se detiene «Comprobar»
-  const avisoT = useRef(null)
   const sostenidoRef = useRef(null) // {seg, hasta}: el marcador se queda en lo que eligió el docente mientras el video llega ahí
   const [durReproductor, setDurReproductor] = useState(0)
   const [reproduciendo, setReproduciendo] = useState(false)
   const [posicion, setPosicion] = useState(0) // tiempo REAL del reproductor, con decimales
-  const [comprobado, setComprobado] = useState(false)
-  const [aviso, setAviso] = useState('')
   const dur = duracionSeg > 0 ? duracionSeg : durReproductor
   const seg = item.timestampSeg
 
@@ -34,14 +30,13 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
   // Al cambiar de pregunta el video va a su momento (en pausa). Es un efecto sobre el reproductor, no estado de la pantalla.
   useEffect(() => {
     if (!yt.listo || !Number.isInteger(item.timestampSeg)) return
-    objetivoRef.current = null
     sostenidoRef.current = { seg: item.timestampSeg, hasta: Date.now() + ESPERA_SALTO_MS }
     yt.saltarA(item.timestampSeg)
     yt.pausar()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar de pregunta o cuando el reproductor queda listo
   }, [item.id, yt.listo])
 
-  // Sondeo: estado de reproducción, tiempo real, duración del reproductor y parada de «Comprobar». Solo LEE el reproductor: el
+  // Sondeo: estado de reproducción, tiempo real y duración del reproductor. Solo LEE el reproductor: el
   // tiempo de la pregunta (borrador) lo cambia únicamente el docente (alCambiar), nunca la reproducción.
   useEffect(() => {
     if (!yt.listo) return undefined
@@ -59,42 +54,25 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
         const d = Math.floor(yt.duracion() || 0)
         if (d > 0) setDurReproductor((p) => (p === d ? p : d))
       }
-      const obj = objetivoRef.current
-      if (obj !== null && jugando && yt.tiempo() >= obj - 0.15) {
-        yt.pausar()
-        objetivoRef.current = null
-        mostrarAviso('Aquí aparecería la pregunta.')
-      }
     }, 100)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- un solo sondeo por reproductor
   }, [yt.listo])
-  useEffect(() => () => clearTimeout(avisoT.current), [])
 
-  function mostrarAviso(texto) {
-    setAviso(texto)
-    clearTimeout(avisoT.current)
-    avisoT.current = setTimeout(() => setAviso(''), 3500)
+  // Recorrer el video (triángulo, tocar la línea): solo mueve el video; el tiempo de la pregunta no cambia.
+  function saltar(nuevo) {
+    sostenidoRef.current = { seg: nuevo, hasta: Date.now() + ESPERA_SALTO_MS }
+    setPosicion(nuevo)
+    if (yt.listo) yt.saltarA(nuevo)
   }
-
-  // Mover el marcador (o los botones): borrador + video en ese segundo, en pausa.
+  // Elegir el segundo de la pregunta (bolita blanca, botones ±, campo m:ss): borrador + video en ese segundo, en pausa.
   function alCambiar(nuevo) {
-    objetivoRef.current = null
     sostenidoRef.current = { seg: nuevo, hasta: Date.now() + ESPERA_SALTO_MS }
     setPosicion(nuevo)
     onCambiar(nuevo)
     if (yt.listo) { yt.saltarA(nuevo); if (reproduciendo) yt.pausar() }
   }
-  function comprobar() {
-    if (!yt.listo || !Number.isInteger(seg)) return
-    setComprobado(true)
-    sostenidoRef.current = null
-    if (seg <= 0) { yt.saltarA(0); yt.pausar(); mostrarAviso('Aquí aparecería la pregunta.'); return }
-    objetivoRef.current = seg
-    yt.saltarA(Math.max(0, seg - PRE_SEG))
-    yt.reproducir()
-  }
-  const alternar = () => { objetivoRef.current = null; if (reproduciendo) yt.pausar(); else yt.reproducir() }
+  const alternar = () => { if (reproduciendo) yt.pausar(); else yt.reproducir() }
 
   return (
     <div className="space-y-2 min-w-0" data-testid="columna-video-revision">
@@ -116,14 +94,13 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
           {reproduciendo ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
         </button>
         <div className="flex-1 min-w-0">
-          <LineaTiempoRevision duracionSeg={dur} posicion={yt.listo ? posicion : null} valor={seg} onCambiar={alCambiar} items={items} itemId={item.id} sugeridoSeg={item.sugeridoSeg} disabled={disabled} />
+          <LineaTiempoRevision duracionSeg={dur} posicion={yt.listo ? posicion : null} valor={seg} onCambiar={alCambiar} onSoltar={onSoltar} onSaltar={saltar} items={items} onIr={onIr} itemId={item.id} disabled={disabled} />
         </div>
       </div>
       <p className="text-xs text-muted tabular-nums" aria-live="polite">
-        Video en {formatearMinuto(Math.floor(posicion))}{aviso && <span className="ml-2 font-semibold text-amber-800">{aviso}</span>}
+        Video en {formatearMinuto(Math.floor(posicion))}
       </p>
-      <ControlTiempoVideo item={item} duracionSeg={dur || null} disabled={disabled} onCambiar={alCambiar} onComprobar={comprobar}
-        comprobando={comprobado} puedeComprobar={yt.listo && Number.isInteger(seg)} />
+      <ControlTiempoVideo item={item} duracionSeg={dur || null} disabled={disabled} onCambiar={alCambiar} />
     </div>
   )
 }

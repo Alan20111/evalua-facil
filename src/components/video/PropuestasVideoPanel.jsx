@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Eye, ListChecks, Sparkles } from 'lucide-react'
 import Spinner from '../Spinner'
 import { useToast } from '../Toast'
@@ -57,6 +57,8 @@ export default function PropuestasVideoPanel({
 
   const items = useMemo(() => construirItems({ propuestas: propuestas || [], activas: activas || [], borradores, activasListas }), [propuestas, activas, borradores, activasListas])
   const cuenta = useMemo(() => contarPorEstadoRevision(items), [items])
+  const itemsRef = useRef(items) // lo último que se ve en pantalla, para guardar al soltar la bolita sin depender de un cierre viejo
+  useEffect(() => { itemsRef.current = items })
 
   if (propuestas === null || !activasListas) return <div className="flex justify-center py-6"><Spinner /></div>
   if (items.length === 0) return null
@@ -119,6 +121,12 @@ export default function PropuestasVideoPanel({
   }
 
   const guardar = (it) => ejecutar(it, async () => { await guardarBorrador(it) }, 'Cambios guardados')
+  // La bolita blanca de la línea se soltó en `seg`: el tiempo se guarda solo por la ruta de siempre (guardarBorrador), junto con
+  // cualquier otra edición pendiente de esa pregunta (así no se pierde nada).
+  const guardarTiempo = (id, seg) => {
+    const it = itemsRef.current.find((x) => x.id === id)
+    if (it) guardar({ ...it, timestampSeg: seg })
+  }
 
   // Guarda todas las preguntas con cambios. Las que tengan un error de validación se saltan y se avisa cuál; devuelve true solo si
   // todas se guardaron.
@@ -194,7 +202,7 @@ export default function PropuestasVideoPanel({
           items={items} duracionSeg={duracionSeg} videoId={videoId} bloqueado={bloqueado} ocupada={ocupada}
           confirmados={confirmados} onConfirmar={(id, v) => setConfirmados((c) => ({ ...c, [id]: v }))}
           setCampos={setCampos} quitarBorrador={quitarBorrador} problema={problema}
-          onGuardar={guardar} onGuardarTodos={guardarTodos} onDeshacerTodo={() => setBorradores({})}
+          onGuardar={guardar} onGuardarTiempo={guardarTiempo} onGuardarTodos={guardarTodos} onDeshacerTodo={() => setBorradores({})}
           onAprobar={aprobar} onDescartar={descartar} onRestaurar={restaurar}
           onVistaPrevia={abrirVista} pausarVideo={!!vistaPrevia}
           onCerrar={() => setRevisando(false)}
