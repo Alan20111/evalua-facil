@@ -437,21 +437,24 @@ export default function EvaluacionRunner() {
 
   return (
     <div className="fixed inset-0 z-50 bg-surface overflow-y-auto" {...subjectPaletteProps(subject?.colorPalette)}>
-        <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10 safe-top">
+        <header className={`bg-accent text-white px-4 ${esVideo ? 'py-1.5' : 'py-3'} shadow-lg sticky top-0 z-10 safe-top`}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               {student && (
-                <p className="text-xl font-bold truncate">
+                <p className={`${esVideo ? 'text-base' : 'text-xl'} font-bold truncate`}>
                   {studentFullName(student)}
                 </p>
               )}
               <p className="text-xs text-white/60 truncate">
                 {subject ? `${subject.nombre}${subject.grupo ? ` — ${subject.grupo}` : ''}` : ''}
                 {teacherName ? ` · ${teacherName}` : ''}
+                {esVideo ? ` · ${activity.nombre}` : ''}
               </p>
-              <p className="text-xs text-white/60 mt-0.5 truncate">
-                {activity.nombre}
-              </p>
+              {!esVideo && (
+                <p className="text-xs text-white/60 mt-0.5 truncate">
+                  {activity.nombre}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {secondsLeft != null && (

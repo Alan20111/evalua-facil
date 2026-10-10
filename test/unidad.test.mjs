@@ -6504,6 +6504,163 @@ caso('configuración: la calificación NO depende de las opciones de configuraci
   assert.strictEqual(nota, 4)
 })
 
+// ── Video interactivo: reproductor ampliado y pantalla completa (pantallaCompletaVideo.js) ──
+const PC = await import('../src/components/video/pantallaCompletaVideo.js')
+const leerFuente = (ruta) => readFileSync(new globalThis.URL(`../${ruta}`, import.meta.url), 'utf8')
+
+caso('pantalla completa: hay modo NATIVO solo con el método Y el permiso del documento (Android, escritorio, iPad)', () => {
+  const el = { requestFullscreen() {} }
+  assert.strictEqual(PC.modoPantallaCompleta({ elemento: el, documento: { fullscreenEnabled: true } }), 'nativa')
+  assert.strictEqual(PC.modoPantallaCompleta({ elemento: { webkitRequestFullscreen() {} }, documento: { webkitFullscreenEnabled: true } }), 'nativa', 'Safari de iPad (con prefijo)')
+})
+
+caso('pantalla completa: sin API real (iPhone, WebViews) cae a la SIMULADA — no finge ser nativa', () => {
+  assert.strictEqual(PC.modoPantallaCompleta({ elemento: {}, documento: {} }), 'simulada', 'iPhone: el elemento no tiene requestFullscreen')
+  assert.strictEqual(PC.modoPantallaCompleta({ elemento: { requestFullscreen() {} }, documento: { fullscreenEnabled: false } }), 'simulada', 'método presente pero el documento no lo permite')
+  assert.strictEqual(PC.modoPantallaCompleta({ elemento: { requestFullscreen() {} }, documento: {} }), 'simulada', 'permiso sin declarar = no se asume')
+  assert.strictEqual(PC.modoPantallaCompleta(), 'simulada')
+})
+
+caso('pantalla completa: solo en TELÉFONOS se intenta fijar la orientación horizontal', () => {
+  assert.strictEqual(PC.esTelefono({ tactil: true, ancho: 412, alto: 915 }), true)
+  assert.strictEqual(PC.esTelefono({ tactil: true, ancho: 915, alto: 412 }), true, 'ya girado: sigue siendo teléfono')
+  assert.strictEqual(PC.esTelefono({ tactil: true, ancho: 820, alto: 1180 }), false, 'tablet: no se le quita su orientación')
+  assert.strictEqual(PC.esTelefono({ tactil: false, ancho: 400, alto: 800 }), false, 'sin pantalla táctil (ventana angosta de escritorio)')
+  assert.strictEqual(PC.esTelefono({ tactil: true, ancho: 0, alto: 0 }), false)
+  assert.strictEqual(PC.esTelefono(), false)
+})
+
+caso('pantalla completa: el panel solo se ve cuando hay algo que decirle al estudiante (comenzar, responder, entregar)', () => {
+  for (const f of ['listo', 'pregunta', 'final']) assert.strictEqual(PC.panelVisibleEnPantallaCompleta(f), true, f)
+  for (const f of ['reproduciendo', 'pausado']) assert.strictEqual(PC.panelVisibleEnPantallaCompleta(f), false, f)
+  assert.strictEqual(PC.panelVisibleEnPantallaCompleta('otra'), false)
+})
+
+await casoA('pantalla completa: pedir y salir usan el método estándar o el prefijado, y fallan limpio si no hay', async () => {
+  const llamadas = []
+  await PC.pedirPantallaCompleta({ requestFullscreen: (o) => { llamadas.push(['std', o]); return Promise.resolve() } })
+  assert.deepStrictEqual(llamadas[0], ['std', { navigationUI: 'hide' }])
+  await PC.pedirPantallaCompleta({ webkitRequestFullscreen: () => llamadas.push(['webkit']) })
+  assert.strictEqual(llamadas[1][0], 'webkit')
+  await assert.rejects(() => PC.pedirPantallaCompleta({}), /Sin pantalla completa/)
+  let salio = 0
+  await PC.salirDePantallaCompleta({ exitFullscreen: () => { salio += 1; return Promise.resolve() } })
+  await PC.salirDePantallaCompleta({ webkitExitFullscreen: () => { salio += 1 } })
+  await PC.salirDePantallaCompleta({})
+  assert.strictEqual(salio, 2)
+  assert.strictEqual(PC.elementoEnPantallaCompleta({ fullscreenElement: 'a' }), 'a')
+  assert.strictEqual(PC.elementoEnPantallaCompleta({ webkitFullscreenElement: 'b' }), 'b')
+  assert.strictEqual(PC.elementoEnPantallaCompleta({}), null)
+})
+
+caso('reproductor: la pregunta NUNCA se pone encima del video (regla de YouTube) — ni en pantalla completa', () => {
+  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  const panel = runner.slice(runner.indexOf('data-esq="video-panel"'))
+  const hasta = panel.indexOf('{yt.error != null')
+  const clasesPanel = panel.slice(0, hasta > 0 ? hasta : 600)
+  assert.ok(!/\babsolute\b|\bfixed\b|-translate-|inset-/.test(clasesPanel), 'el panel no se posiciona sobre el video')
+  // El recuadro del video no tiene hermanos ni hijos propios: lo llena YouTube.
+  assert.ok(/Nada va encima de este recuadro/.test(runner))
+  const yt = leerFuente('src/hooks/useYouTubePlayer.js')
+  assert.ok(/fs: 0/.test(yt), 'sin el botón nativo de pantalla completa de YouTube: pondría solo el iframe y desaparecerían la línea de tiempo y la pregunta')
+  assert.ok(/NADA puede ir encima del reproductor/.test(yt))
+  const doc = leerFuente('src/components/video/pantallaCompletaVideo.js')
+  assert.ok(/in front of any part of a YouTube embedded player/.test(doc), 'la regla de YouTube queda citada junto a la decisión')
+})
+
+caso('reproductor: pantalla completa y escritorio no tocan lo que no deben', () => {
+  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  // Mismos manejadores de siempre: respuestas, progreso y entrega son los del runner de cuestionarios.
+  for (const c of ['onSelectOpcion', 'onTextoChange', 'onOtraTextoChange', 'onFinalizar', 'guardarProgreso', 'acotarSalto', 'antesDeReproducir']) assert.ok(runner.includes(c), c)
+  assert.ok(!/pc\.(alternar|salir)[^\n]*(setPosUI|tickRef|guardarProgreso)/.test(runner), 'alternar pantalla completa no toca posición ni progreso')
+  // No se remonta el contenedor: el estado vive en el mismo componente y solo cambian las clases.
+  assert.ok(/data-pantalla=\{enPC \? 'completa' : 'normal'\}/.test(runner))
+  assert.strictEqual((runner.match(/ref=\{contenedorRef\}/g) || []).length, 1, 'un solo contenedor del reproductor')
+  // El runner de cuestionarios convencionales no sabe de pantalla completa.
+  const conv = leerFuente('src/pages/student/EvaluacionRunner.jsx')
+  assert.ok(!/pantallaCompleta|usePantallaCompleta/.test(conv))
+  // El hook limita la espera (WebViews que no contestan) y siempre sale al desmontar.
+  const hook = leerFuente('src/hooks/usePantallaCompleta.js')
+  assert.ok(/ESPERA_MS/.test(hook) && /conLimite/.test(hook) && /MODO_PANTALLA\.SIMULADA/.test(hook))
+  assert.ok(/orientation\?\.unlock/.test(hook), 'suelta el bloqueo de orientación al salir')
+})
+
+caso('reproductor: el escritorio aprovecha el ancho (ya no hay tope de 6xl) y limita el alto al de la ventana', () => {
+  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  assert.ok(!/lg:max-w-6xl/.test(runner), 'sin el tope que lo dejaba en ~600 px a 1440 de ancho')
+  assert.ok(/lg:max-w-none/.test(runner))
+  // Mecanismo vigente. Sustituye al antiguo `calc((100dvh_-_20rem)*16/9)` (una reserva fija de 20 rem): ahora el alto libre
+  // se MIDE y se publica como --vi-alto, y el video es el mayor 16:9 que cabe en su caja (unidades de contenedor).
+  assert.ok(/--vi-alto/.test(runner) && /altoDisponibleVideo\(/.test(runner), 'el alto libre se mide, no se supone')
+  assert.ok(/lg:h-\[var\(--vi-alto,auto\)\]/.test(runner), 'el contenedor ocupa el alto libre')
+  assert.ok(/aspect-video/.test(runner) && /w-\[min\(100cqw,calc\(100cqh\*16\/9\)\)\]/.test(runner), 'el ancho se limita por el alto: 16:9 sin deformar')
+  assert.ok(/lg:\[container-type:size\]/.test(runner), 'la caja del video es un contenedor de tamaño (cqw/cqh)')
+  // El esqueleto de carga mide lo mismo (lo exige check:esqueletos; aquí se fija la misma regla).
+  const esq = leerFuente('src/components/esqueletos/index.jsx')
+  assert.ok(/lg:h-\[var\(--vi-alto,auto\)\]/.test(esq) && /w-\[min\(100cqw,calc\(100cqh\*16\/9\)\)\]/.test(esq) && /lg:\[container-type:size\]/.test(esq))
+})
+
+caso('reproductor: tamanoVideo y altoDisponibleVideo — las cuatro resoluciones previstas, con números', () => {
+  // altoDisponibleVideo: ventana − cabecera, nunca negativo ni NaN.
+  assert.strictEqual(PC.altoDisponibleVideo({ ventana: 860, cabecera: 41 }), 819)
+  assert.strictEqual(PC.altoDisponibleVideo({ ventana: 390, cabecera: 41 }), 349)
+  assert.strictEqual(PC.altoDisponibleVideo({ ventana: 100, cabecera: 300 }), 0)
+  assert.strictEqual(PC.altoDisponibleVideo({ ventana: 'x', cabecera: undefined }), 0)
+  assert.strictEqual(PC.altoDisponibleVideo(), 0)
+  // tamanoVideo: el mayor 16:9 que cabe. Cajas medidas en el banco de pruebas (1550×860, 1366×768, 844×390, 390×844).
+  const casos = [
+    [{ ancho: 1085, alto: 700 }, 1085], // escritorio: manda el ancho de la columna
+    [{ ancho: 952, alto: 640 }, 952],
+    [{ ancho: 570, alto: 273 }, 273 * 16 / 9], // teléfono horizontal: manda el alto
+    [{ ancho: 390, alto: 800 }, 390], // teléfono vertical: manda el ancho
+  ]
+  for (const [caja, ancho] of casos) {
+    const t = PC.tamanoVideo(caja)
+    assert.ok(Math.abs(t.ancho - ancho) < 1e-9, JSON.stringify(caja))
+    assert.ok(Math.abs(t.ancho / t.alto - 16 / 9) < 1e-9, '16:9 siempre')
+    assert.ok(t.ancho <= caja.ancho + 1e-9 && t.alto <= caja.alto + 1e-9, 'cabe en su caja')
+  }
+  assert.deepStrictEqual(PC.tamanoVideo({ ancho: -5, alto: 'a' }), { ancho: 0, alto: 0 })
+})
+
+caso('reproductor: lado a lado, la fila de información y el aviso van en el panel y no restan alto al video', () => {
+  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  // La condición del JS es la misma que la de las clases `lg:` y `[@media(orientation:landscape)_and_(max-height:500px)]:`.
+  assert.ok(/Q_LADO_A_LADO = '\(min-width: 1024px\), \(orientation: landscape\) and \(max-height: 500px\)'/.test(runner))
+  assert.ok(/const lado = useMediaQuery\(Q_LADO_A_LADO\)/.test(runner) && /const ladoALado = lado && !enPC/.test(runner), 'en pantalla completa se conserva su propia distribución')
+  // Con una pregunta abierta solo se esconden los controles cuando el panel va debajo (apilado); lado a lado siguen a la vista
+  // para que el video no cambie de tamaño al abrir y cerrar cada pregunta.
+  assert.ok(/fase === 'pregunta' \? \(enPC \? 'max-lg:hidden' : lado \? '' : 'hidden'\) : ''/.test(runner))
+  assert.ok(/\{!ladoALado && filaInfo\(/.test(runner), 'fuera de lado a lado la fila queda junto al video (vertical)')
+  assert.ok(/\{ladoALado && fase !== 'pregunta' && filaInfo\(/.test(runner), 'lado a lado va arriba del panel, y no cuando hay una pregunta abierta (el panel ya dice «Pregunta N de M»)')
+  assert.ok(/\{ladoALado && aviso && /.test(runner) && /\{!ladoALado && <p /.test(runner), 'el aviso no ocupa lugar bajo el video: lo hacía encogerse y crecer con cada mensaje')
+  assert.strictEqual((runner.match(/ref=\{infoRef\}/g) || []).length, 1, 'un solo punto con la referencia de la fila (se pinta en un lugar a la vez)')
+  // El botón de pantalla completa no se encoge en un panel angosto (medido: 27 px de ancho en 844×390 antes de este ajuste).
+  assert.ok(/w-11 h-11 shrink-0 rounded-full/.test(runner))
+  // Teléfono vertical: el video llega de borde a borde (el contenedor tiene px-3).
+  assert.ok(/portrait:max-md:-mx-3 portrait:max-md:w-\[calc\(100%\+1\.5rem\)\]/.test(runner))
+  // Y el esqueleto lo refleja.
+  const esq = leerFuente('src/components/esqueletos/index.jsx')
+  assert.ok(/portrait:max-md:-mx-3 portrait:max-md:w-\[calc\(100%\+1\.5rem\)\]/.test(esq))
+  assert.ok(/lg:hidden \[@media\(orientation:landscape\)_and_\(max-height:500px\)\]:hidden/.test(esq), 'el esqueleto también saca la fila de la columna del video')
+})
+
+caso('reproductor: preparado para reutilizarse fuera de la página del alumno (vista previa docente)', () => {
+  const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
+  // El alto libre puede venir de fuera; sin él se mide con la ventana y la cabecera.
+  assert.ok(/altoDisponiblePx \?\? altoDisponibleVideo\(/.test(runner))
+  assert.ok(/altoDisponiblePx,\s*\/\/ opcional/.test(runner))
+  // El hook de media query no truena sin matchMedia (pruebas, navegadores raros).
+  const mq = leerFuente('src/hooks/useMediaQuery.js')
+  assert.ok(/typeof window\.matchMedia === 'function'/.test(mq) && /removeEventListener\('change'/.test(mq))
+})
+
+caso('línea de tiempo: las marcas de los extremos quedan dentro de su caja y no tapan al botón vecino', () => {
+  const lt = leerFuente('src/components/video/LineaTiempoVideo.jsx')
+  assert.ok(/flex items-center h-11 px-5/.test(lt), 'las marcas miden 40 px y se centran en su segundo: sin relleno sobresalen 20 px')
+  assert.ok(/w-10 h-10/.test(lt))
+})
+
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
   fallos.forEach((f) => console.log(`  ✗ ${f.nombre}\n    ${f.e.message}`))

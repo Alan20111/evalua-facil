@@ -26,7 +26,9 @@ export default function LineaTiempoVideo({
 
   return (
     <div>
-      <div className="flex items-center h-11">
+      {/* px-5: las marcas miden 40 px y se centran en su segundo; la de 0:00 y la del final sobresaldrían 20 px de la pista
+          y taparían al botón vecino (lo vio la medición de cajas en 1550×860). El relleno las deja dentro de su caja. */}
+      <div className="flex items-center h-11 px-5">
         {/* El toque en la pista salta; las marcas son botones aparte. */}
         <div ref={pistaRef} onClick={alTocarPista} aria-hidden="true"
           className="relative w-full h-3 rounded-full bg-surface-container cursor-pointer">

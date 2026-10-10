@@ -375,17 +375,23 @@ export function EsqueletoFilasLateralAlumno({ filas = 3 }) {
 export function EsqueletoVideoInteractivo() {
   return (
     <SkeletonGroup etiqueta="Cargando el video…">
-      <div data-esq="video-contenedor" className="px-4 py-4 w-full max-w-xl lg:max-w-6xl [@media(orientation:landscape)_and_(max-height:500px)]:max-w-none mx-auto">
-        <div data-esq="video-rejilla" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start [@media(orientation:landscape)_and_(max-height:500px)]:grid-cols-[minmax(0,1fr)_320px]">
+      <div data-esq="video-contenedor" className="px-3 py-2 w-full max-w-xl md:max-w-3xl mx-auto lg:max-w-none [@media(orientation:landscape)_and_(max-height:500px)]:max-w-none lg:h-[var(--vi-alto,auto)] [@media(orientation:landscape)_and_(max-height:500px)]:h-[var(--vi-alto,auto)] lg:px-4 [@media(orientation:landscape)_and_(max-height:500px)]:px-4 lg:py-2 [@media(orientation:landscape)_and_(max-height:500px)]:py-2">
+        <div data-esq="video-rejilla" className="grid gap-3 lg:h-full [@media(orientation:landscape)_and_(max-height:500px)]:h-full lg:gap-4 [@media(orientation:landscape)_and_(max-height:500px)]:gap-4 lg:grid-cols-[minmax(0,72fr)_minmax(16rem,28fr)] [@media(orientation:landscape)_and_(max-height:500px)]:grid-cols-[minmax(0,1fr)_minmax(16rem,19rem)]">
           <div className="min-w-0 space-y-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 lg:hidden [@media(orientation:landscape)_and_(max-height:500px)]:hidden">
               <Skeleton className="h-8 w-36 rounded-full" />
               <Skeleton className="h-4 w-28" />
             </div>
-            <Skeleton data-esq="video-reproductor" className="w-full aspect-video min-h-[14rem] rounded-card" />
+            <div className="lg:flex-1 [@media(orientation:landscape)_and_(max-height:500px)]:flex-1 lg:min-h-0 [@media(orientation:landscape)_and_(max-height:500px)]:min-h-0 lg:[container-type:size] [@media(orientation:landscape)_and_(max-height:500px)]:[container-type:size] lg:flex [@media(orientation:landscape)_and_(max-height:500px)]:flex lg:items-center [@media(orientation:landscape)_and_(max-height:500px)]:items-center lg:justify-center [@media(orientation:landscape)_and_(max-height:500px)]:justify-center">
+              <Skeleton data-esq="video-reproductor" className="w-full aspect-video min-h-[14rem] rounded-card mx-auto portrait:max-md:-mx-3 portrait:max-md:w-[calc(100%+1.5rem)] portrait:max-md:rounded-none lg:w-[min(100cqw,calc(100cqh*16/9))] [@media(orientation:landscape)_and_(max-height:500px)]:w-[min(100cqw,calc(100cqh*16/9))] lg:min-h-0 [@media(orientation:landscape)_and_(max-height:500px)]:min-h-0 lg:shrink-0 [@media(orientation:landscape)_and_(max-height:500px)]:shrink-0" />
+            </div>
             <Skeleton className="h-3 w-full rounded-full mt-4" />
           </div>
           <div data-esq="video-panel" className="bg-surface-card rounded-card p-4 shadow-card">
+            <div className="hidden lg:flex [@media(orientation:landscape)_and_(max-height:500px)]:flex items-center justify-between gap-2 pb-3 mb-3 border-b border-outline-variant">
+              <Skeleton className="h-8 w-36 rounded-full" />
+              <Skeleton className="h-4 w-28" />
+            </div>
             <div className="space-y-3">
               <Skeleton className="h-5 w-40" />
               <Skeleton className="h-3.5 w-full" />
