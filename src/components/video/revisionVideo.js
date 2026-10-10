@@ -256,3 +256,14 @@ export function primeraParaRevisar(orden, porId, filtro = FILTRO_REVISION.ACTIVA
 }
 
 export const contarSinGuardar = (items) => (items || []).filter((it) => it.sinGuardar).length
+
+// ── Escape en la ventana de revisión ──────────────────────────────────────────────────────────────────────
+// Qué hace la ventana de revisión cuando se pulsa Escape. Con la vista previa docente abierta ENCIMA, Escape es de la vista previa
+// (que se cierra por su cuenta): la ventana no hace nada, ni se cierra ni muestra detrás el aviso de cambios sin guardar.
+// Con la vista previa cerrada: aviso abierto → se cierra el aviso; con cambios sin guardar → pide confirmación; sin cambios → se cierra.
+//   devuelve 'nada' | 'cerrar-aviso' | 'pedir-confirmacion' | 'cerrar'
+export function accionEscape({ vistaPreviaAbierta = false, cerrando = false, sinGuardar = 0 } = {}) {
+  if (vistaPreviaAbierta) return 'nada'
+  if (cerrando) return 'cerrar-aviso'
+  return sinGuardar > 0 ? 'pedir-confirmacion' : 'cerrar'
+}

@@ -7204,7 +7204,7 @@ caso('ventana de revisión: cerrar con cambios sin guardar ofrece guardar, desca
   assert.ok(/if \(await onGuardarTodos\(\)\) onCerrar\(\); else setCerrando\(false\)/.test(v), 'si algo no se pudo guardar, NO se cierra')
   assert.ok(/onDeshacerTodo\(\); onCerrar\(\)/.test(v))
   // Escape y el botón «atrás» pasan por el mismo aviso
-  assert.ok(/e\.key === 'Escape'/.test(v) && /useBackHandler\(/.test(v))
+  assert.ok(/e\.key !== 'Escape'/.test(v) && /accionEscape\(/.test(v) && /useBackHandler\(/.test(v))
   const p = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
   assert.ok(/onDeshacerTodo=\{\(\) => setBorradores\(\{\}\)\}/.test(p))
 })
@@ -7247,6 +7247,46 @@ caso('ventana de revisión: el reproductor y la experiencia del estudiante no se
   const runner = leerFuente('src/components/video/VideoInteractivoRunner.jsx')
   assert.ok(/<VideoInteractivoPantalla \{\.\.\.props\} progresoInicial=\{inicial\} guardarProgreso=\{guardar\} \/>/.test(runner))
   assert.ok(/const d = acotarSalto\(destino, tickRef\.current\.maxVisto\)/.test(leerFuente('src/components/video/VideoInteractivoPantalla.jsx')), 'el límite de avance del estudiante sigue')
+})
+
+
+caso('ventana de revisión: Escape con la vista previa abierta NO hace nada en la ventana (el defecto del PR #1553)', () => {
+  // El defecto: la vista previa y la ventana escuchaban Escape a la vez; pulsarlo con la vista previa encima cerraba también la
+  // ventana (o abría detrás el aviso de cambios sin guardar). Con la vista previa abierta, la ventana no debe reaccionar.
+  for (const cerrando of [false, true]) {
+    for (const sinGuardar of [0, 1, 3]) {
+      assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: true, cerrando, sinGuardar }), 'nada', `vista previa abierta (aviso=${cerrando}, sin guardar=${sinGuardar})`)
+    }
+  }
+})
+
+caso('ventana de revisión: Escape con la vista previa cerrada conserva su comportamiento (aviso, confirmación, cierre)', () => {
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: true, sinGuardar: 2 }), 'cerrar-aviso', 'con el aviso abierto, lo cierra (y no cierra la ventana)')
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: true, sinGuardar: 0 }), 'cerrar-aviso')
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: false, sinGuardar: 1 }), 'pedir-confirmacion', 'con cambios sin guardar, pide confirmación')
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: false, sinGuardar: 5 }), 'pedir-confirmacion')
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: false, sinGuardar: 0 }), 'cerrar', 'sin cambios, cierra la ventana')
+  // Sin argumentos: ventana abierta, sin aviso ni cambios → cierra (igual que antes).
+  assert.strictEqual(RVD.accionEscape(), 'cerrar')
+  // Es la misma decisión que tomaba el código anterior con la vista previa cerrada: aviso → cerrar aviso; si no, intentarCerrar().
+  const anterior = (cerrando, sinGuardar) => (cerrando ? 'cerrar-aviso' : (sinGuardar > 0 ? 'pedir-confirmacion' : 'cerrar'))
+  for (const c of [false, true]) for (const n of [0, 1, 4]) assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: c, sinGuardar: n }), anterior(c, n), `c=${c} n=${n}`)
+})
+
+caso('ventana de revisión: el manejador de Escape usa accionEscape con el estado de la vista previa y no pierde los cambios', () => {
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  assert.ok(/accionEscape\(\{ vistaPreviaAbierta: pausarVideo, cerrando, sinGuardar \}\)/.test(v), 'la ventana pregunta a accionEscape con la vista previa abierta (pausarVideo)')
+  assert.ok(/if \(e\.key !== 'Escape'\) return/.test(v))
+  assert.ok(/accion === 'cerrar-aviso'\) setCerrando\(false\)/.test(v) && /accion === 'pedir-confirmacion'\) setCerrando\(true\)/.test(v) && /accion === 'cerrar'\) onCerrar\(\)/.test(v))
+  // Escape nunca descarta cambios por su cuenta: solo 'cerrar' llama a onCerrar y solo ocurre con sinGuardar = 0; el descarte es del botón del aviso.
+  assert.ok(!/accion === '[a-z-]+'\) onDeshacerTodo/.test(v))
+  assert.strictEqual(RVD.accionEscape({ vistaPreviaAbierta: false, cerrando: false, sinGuardar: 2 }) === 'cerrar', false)
+  // La vista previa conserva SU Escape (cierra, salvo pantalla completa) y el botón «atrás» sigue usando la pila.
+  const vp = leerFuente('src/components/video/VistaPreviaDocenteVideo.jsx')
+  assert.ok(/if \(e\.key !== 'Escape'\) return/.test(vp) && /document\.querySelector\('\[data-pantalla="completa"\]'\)\) return/.test(vp) && /onCerrar\(\)\s*\n\s*\}/.test(vp))
+  assert.ok(/useBackHandler\(onCerrar, true\)/.test(vp) && /useBackHandler\(\(\) => \{ if \(cerrando\) setCerrando\(false\); else intentarCerrar\(\) \}, true\)/.test(v))
+  // La ventana recibe «vista previa abierta» del panel (el mismo dato que ya desmontaba su video).
+  assert.ok(/pausarVideo=\{!!vistaPrevia\}/.test(leerFuente('src/components/video/PropuestasVideoPanel.jsx')))
 })
 
 if (fallos.length) {

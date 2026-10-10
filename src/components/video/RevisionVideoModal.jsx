@@ -8,7 +8,7 @@ import RecomendacionesVideo from './RecomendacionesVideo'
 import ColumnaVideoRevision from './ColumnaVideoRevision'
 import EvidenciaVideo from './EvidenciaVideo'
 import {
-  ESTADO_REVISION, FILTRO_REVISION, coincideFiltro, contarSinGuardar, leerEvidencia, moverId, ordenRevision, primeraParaRevisar,
+  ESTADO_REVISION, FILTRO_REVISION, accionEscape, coincideFiltro, contarSinGuardar, leerEvidencia, moverId, ordenRevision, primeraParaRevisar,
   requiereConfirmacion, visiblesRevision,
 } from './revisionVideo'
 
@@ -49,7 +49,14 @@ export default function RevisionVideoModal({
   useScrollLock(true)
   useBackHandler(() => { if (cerrando) setCerrando(false); else intentarCerrar() }, true)
   useEffect(() => {
-    const alTeclear = (e) => { if (e.key === 'Escape') { if (cerrando) setCerrando(false); else intentarCerrar() } }
+    // Con la vista previa abierta encima, Escape es de ella: aquí no se hace nada (ver accionEscape).
+    const alTeclear = (e) => {
+      if (e.key !== 'Escape') return
+      const accion = accionEscape({ vistaPreviaAbierta: pausarVideo, cerrando, sinGuardar })
+      if (accion === 'cerrar-aviso') setCerrando(false)
+      else if (accion === 'pedir-confirmacion') setCerrando(true)
+      else if (accion === 'cerrar') onCerrar()
+    }
     window.addEventListener('keydown', alTeclear)
     return () => window.removeEventListener('keydown', alTeclear)
   })
