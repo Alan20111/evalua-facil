@@ -1,10 +1,25 @@
-// Librería de primitivos reutilizables (Etapa 0 del plan de componentización).
-// Cada uno extraído literal del patrón ya auditado en docs/DESIGN_SYSTEM.md §6.
+// Librería de componentes de la app (docs/PLAN_NORMALIZACION_UI.md §3).
+// Toda pantalla nueva o migrada arma su interfaz con estas piezas: así todos
+// los controles miden lo mismo, tienen la misma forma y se mueven igual.
+// Catálogo con todos sus estados: /dev/componentes (solo en desarrollo).
 export { default as Button } from './Button'
-export { default as Input } from './Input'
-export { default as Checkbox } from './Checkbox'
-export { default as FieldMark } from './FieldMark'
+export { default as IconButton } from './IconButton'
+export { default as Field } from './Field'
+export { default as Input, CAMPO_BASE } from './Input'
+export { default as Textarea } from './Textarea'
 export { default as Select } from './Select'
+export { default as Checkbox } from './Checkbox'
+export { default as Radio, RadioGroup } from './Radio'
+export { default as Switch } from './Switch'
+export { Tabs, SubTabs } from './Tabs'
+export { Chip, Badge } from './Chip'
+export { default as Card } from './Card'
+export { default as ListRow, ListGroup, FlechaFila, FILA_LISTA } from './ListRow'
+export { default as IconTile } from './IconTile'
+export { default as Avatar } from './Avatar'
+export { default as EmptyState } from './EmptyState'
+export { default as Disclosure } from './Disclosure'
+export { default as FieldMark } from './FieldMark'
 export { default as Modal } from './Modal'
 export { default as InfoDisclosure } from './InfoDisclosure'
 export { default as Table } from './Table'

@@ -318,6 +318,23 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 
 ## 6. Biblioteca de componentes (anatomía + clases exactas)
 
+> **Desde oct-2026 la fuente de verdad es `src/components/ui/`** (PLAN_NORMALIZACION_UI §3). Las clases de esta sección describen lo que esos componentes ya hacen: en código nuevo o migrado **se importa el componente**, no se copian las clases. El catálogo con todos los estados está en `/dev/componentes` (solo en desarrollo).
+>
+> | Necesitas | Usa |
+> |---|---|
+> | Botón de texto | `Button` (variant, size, icon, iconRight, busy) |
+> | Botón de solo ícono | `IconButton` (icon, label obligatorio) |
+> | Campo, área de texto, select | `Input`, `Textarea`, `Select` (envueltos en `Field`) |
+> | Casilla, opción, interruptor | `Checkbox`, `Radio`/`RadioGroup`, `Switch` |
+> | Pestañas | `Tabs` (barra, píldora que se desliza) y `SubTabs` |
+> | Filtro / etiqueta | `Chip` / `Badge` |
+> | Tarjeta | `Card` (padding sm/md/lg, interactive) |
+> | Fila navegable y grupo | `ListRow` / `ListGroup` |
+> | Fondo de ícono / foto | `IconTile` / `Avatar` |
+> | Sección desplegable | `Disclosure` (animada), `InfoDisclosure` |
+> | Sin datos | `EmptyState` |
+> | Modal / hoja | `Modal` (ver §6.7) |
+
 ### 6.1 Botones
 
 | Variante | Clases canónicas |

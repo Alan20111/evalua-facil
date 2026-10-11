@@ -15,7 +15,7 @@ import ConfirmModal from '../../components/ConfirmModal'
 import PasswordInput from '../../components/PasswordInput'
 import { resolveSchoolSelection } from '../../utils/schoolSelection'
 import { Camera, Lock, User, Sparkles, School, Trash2, Settings, Bell, BookOpen, ShieldCheck } from 'lucide-react'
-import { Pestanas, SubPestanas, GrupoAjustes, FilaAjuste, FlechaAjuste, FILA_AJUSTE } from '../../components/perfil/Pestanas'
+import { Tabs, SubTabs, ListRow, ListGroup, FlechaFila, FILA_LISTA } from '../../components/ui'
 import AppQRButton from '../../components/AppQRButton'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import SchoolPicker from '../../components/SchoolPicker'
@@ -52,14 +52,14 @@ const FOTO = IS_NATIVE_APP ? 'w-24 h-24' : 'w-16 h-16'       // 96px en app, 64p
 const FOTO_INICIAL = IS_NATIVE_APP ? 'text-3xl' : 'text-2xl'
 
 const SECCIONES = [
-  { id: 'perfil', etiqueta: 'Perfil', icono: User },
-  { id: 'ia', etiqueta: 'Créditos IA', icono: Sparkles },
-  { id: 'ajustes', etiqueta: 'Ajustes', icono: Settings },
+  { value: 'perfil', label: 'Perfil', icon: User },
+  { value: 'ia', label: 'Créditos IA', icon: Sparkles },
+  { value: 'ajustes', label: 'Ajustes', icon: Settings },
 ]
 const SUBSECCIONES = [
-  { id: 'datos', etiqueta: 'Datos' },
-  { id: 'escuela', etiqueta: 'Escuela' },
-  { id: 'cuenta', etiqueta: 'Cuenta' },
+  { value: 'datos', label: 'Datos' },
+  { value: 'escuela', label: 'Escuela' },
+  { value: 'cuenta', label: 'Cuenta' },
 ]
 // Enlaces de la versión anterior (cinco pestañas sueltas) siguen sirviendo.
 const ANTIGUAS = { escuela: ['perfil', 'escuela'], cuenta: ['perfil', 'cuenta'], acerca: ['ajustes'] }
@@ -67,8 +67,8 @@ const ANTIGUAS = { escuela: ['perfil', 'escuela'], cuenta: ['perfil', 'cuenta'],
 export default function Profile() {
   const [params, setParams] = useSearchParams()
   const [secURL, subURL] = ANTIGUAS[params.get('seccion')] || [params.get('seccion'), params.get('sub')]
-  const seccion = SECCIONES.some((x) => x.id === secURL) ? secURL : 'perfil'
-  const sub = SUBSECCIONES.some((x) => x.id === subURL) ? subURL : 'datos'
+  const seccion = SECCIONES.some((x) => x.value === secURL) ? secURL : 'perfil'
+  const sub = SUBSECCIONES.some((x) => x.value === subURL) ? subURL : 'datos'
   const elegir = (sec, sb = 'datos') => setParams(
     sec === 'perfil' ? (sb === 'datos' ? {} : { sub: sb }) : { seccion: sec },
     { replace: true },
@@ -299,7 +299,7 @@ export default function Profile() {
             acceso, separados por subpestañas; Créditos IA aparte; y Ajustes
             junta lo que antes solo estaba en el submenú «Ajustes y ayuda» de
             la barra lateral. Viven en la URL (?seccion=&sub=). */}
-        <Pestanas opciones={SECCIONES} valor={seccion} onCambio={(id) => elegir(id)} etiqueta="Secciones de la cuenta" />
+        <Tabs options={SECCIONES} value={seccion} onChange={(id) => elegir(id)} label="Secciones de la cuenta" />
 
         <div key={seccion} role="tabpanel" className="space-y-4 animate-pagina motion-reduce:animate-none">
           {seccion === 'perfil' && (<>
@@ -348,7 +348,7 @@ export default function Profile() {
               </label>
             </div>
 
-            <SubPestanas opciones={SUBSECCIONES} valor={sub} onCambio={(id) => elegir('perfil', id)} etiqueta="Partes del perfil" />
+            <SubTabs options={SUBSECCIONES} value={sub} onChange={(id) => elegir('perfil', id)} label="Partes del perfil" />
 
             <div key={sub} role="tabpanel" className="space-y-4 animate-aparece motion-reduce:animate-none">
               {sub === 'datos' && (<>
@@ -584,28 +584,28 @@ export default function Profile() {
             </div>
           </>)}
           {seccion === 'ajustes' && (<>
-            <GrupoAjustes titulo="Herramientas">
-              <FilaAjuste to="/perfil-ia" icono={Sparkles} titulo="Perfil para IA del docente" detalle="Necesario para generar planeación y diagnósticos con IA" />
-              <AppQRButton className={`${FILA_AJUSTE} [&>svg:first-child]:text-accent`} iconSize={19}>
+            <ListGroup title="Herramientas">
+              <ListRow to="/perfil-ia" icon={Sparkles} title="Perfil para IA del docente" detail="Necesario para generar planeación y diagnósticos con IA" />
+              <AppQRButton className={`group ${FILA_LISTA} [&>svg:first-child]:text-accent`} iconSize={20}>
                 <span className="flex-1 font-semibold">QR de Evalúa Fácil</span>
-                <FlechaAjuste />
+                <FlechaFila />
               </AppQRButton>
-              <FilaAjuste to="/notificaciones" icono={Bell} titulo="Notificaciones" />
-            </GrupoAjustes>
-            <GrupoAjustes titulo="Ayuda">
-              <FilaAjuste to="/ayuda" icono={BookOpen} titulo="Ayuda para comenzar" />
-              <CanalYouTubeLink className={FILA_AJUSTE}>
+              <ListRow to="/notificaciones" icon={Bell} title="Notificaciones" />
+            </ListGroup>
+            <ListGroup title="Ayuda">
+              <ListRow to="/ayuda" icon={BookOpen} title="Ayuda para comenzar" />
+              <CanalYouTubeLink className={`group ${FILA_LISTA}`}>
                 <YouTubeIcon className="w-5 h-auto flex-shrink-0" />
                 <span className="flex-1 font-semibold">Canal de YouTube</span>
-                <FlechaAjuste externa />
+                <FlechaFila external />
               </CanalYouTubeLink>
-            </GrupoAjustes>
-            <GrupoAjustes titulo="Acerca de">
-              <FilaAjuste to="/privacidad" icono={ShieldCheck} titulo="Aviso de privacidad" />
+            </ListGroup>
+            <ListGroup title="Acerca de">
+              <ListRow to="/privacidad" icon={ShieldCheck} title="Aviso de privacidad" />
               <div className="px-3 py-3">
                 <AppVersionInfo />
               </div>
-            </GrupoAjustes>
+            </ListGroup>
           </>)}
         </div>
 

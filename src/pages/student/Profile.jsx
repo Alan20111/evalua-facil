@@ -15,7 +15,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus, AlertTriangle, Cloud, User, Settings, Bell, Lightbulb, ShieldCheck } from 'lucide-react'
-import { Pestanas, SubPestanas, GrupoAjustes, FilaAjuste, FlechaAjuste, FILA_AJUSTE } from '../../components/perfil/Pestanas'
+import { Tabs, SubTabs, ListRow, ListGroup, FlechaFila, FILA_LISTA } from '../../components/ui'
 import AppQRButton from '../../components/AppQRButton'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
@@ -39,8 +39,8 @@ const FOTO_CAMARA = IS_NATIVE_APP ? 24 : 18
 // contraseña y correo de recuperación. Las asignaturas, notificaciones y
 // agenda tienen su casa en el dashboard; cerrar sesión, en el layout.
 const SECCIONES = [
-  { id: 'perfil', etiqueta: 'Perfil', icono: User },
-  { id: 'ajustes', etiqueta: 'Ajustes', icono: Settings },
+  { value: 'perfil', label: 'Perfil', icon: User },
+  { value: 'ajustes', label: 'Ajustes', icon: Settings },
 ]
 
 export default function StudentProfile() {
@@ -226,13 +226,13 @@ export default function StudentProfile() {
   // tiene asignaturas (ver el bloque «Mi cuenta»). Si llegó a fijar su
   // contraseña, se abre directo en esa subpestaña.
   const subsecciones = [
-    { id: 'usuario', etiqueta: 'Usuario' },
-    { id: 'contrasena', etiqueta: 'Contraseña' },
-    ...(enrollments.length === 0 ? [{ id: 'cuenta', etiqueta: 'Cuenta' }] : []),
+    { value: 'usuario', label: 'Usuario' },
+    { value: 'contrasena', label: 'Contraseña' },
+    ...(enrollments.length === 0 ? [{ value: 'cuenta', label: 'Cuenta' }] : []),
   ]
   const subPorDefecto = debeEstablecerContrasena ? 'contrasena' : 'usuario'
-  const seccion = SECCIONES.some((x) => x.id === params.get('seccion')) ? params.get('seccion') : 'perfil'
-  const sub = subsecciones.some((x) => x.id === params.get('sub')) ? params.get('sub') : subPorDefecto
+  const seccion = SECCIONES.some((x) => x.value === params.get('seccion')) ? params.get('seccion') : 'perfil'
+  const sub = subsecciones.some((x) => x.value === params.get('sub')) ? params.get('sub') : subPorDefecto
   const elegir = (sec, sb = subPorDefecto) => setParams(
     sec === 'perfil' ? (sb === subPorDefecto ? {} : { sub: sb }) : { seccion: sec },
     { replace: true },
@@ -283,7 +283,7 @@ export default function StudentProfile() {
             (con subpestañas) y Ajustes, que junta lo que antes vivía suelto en
             la barra lateral (Mi espacio, Tips, QR) y las notificaciones. */}
         <div className="space-y-4">
-        <Pestanas opciones={SECCIONES} valor={seccion} onCambio={(id) => elegir(id)} etiqueta="Secciones de mi perfil" />
+        <Tabs options={SECCIONES} value={seccion} onChange={(id) => elegir(id)} label="Secciones de mi perfil" />
 
         <div key={seccion} role="tabpanel" className="space-y-4 animate-pagina motion-reduce:animate-none">
           {seccion === 'perfil' && (<>
@@ -334,7 +334,7 @@ export default function StudentProfile() {
               </div>
             </div>
 
-            <SubPestanas opciones={subsecciones} valor={sub} onCambio={(id) => elegir('perfil', id)} etiqueta="Partes del perfil" />
+            <SubTabs options={subsecciones} value={sub} onChange={(id) => elegir('perfil', id)} label="Partes del perfil" />
 
             <div key={sub} role="tabpanel" className="space-y-4 animate-aparece motion-reduce:animate-none">
               {sub === 'usuario' && (<>
@@ -460,24 +460,24 @@ export default function StudentProfile() {
             </div>
           </>)}
           {seccion === 'ajustes' && (<>
-            <GrupoAjustes titulo="Herramientas">
+            <ListGroup title="Herramientas">
               {/* Mi espacio no existe en la app nativa. */}
-              {!IS_NATIVE_APP && <FilaAjuste to="/alumno/mi-espacio" icono={Cloud} titulo="Mi espacio" detalle="Guarda tus archivos personales aquí" />}
-              <AppQRButton className={`${FILA_AJUSTE} [&>svg:first-child]:text-accent`} iconSize={19}>
+              {!IS_NATIVE_APP && <ListRow to="/alumno/mi-espacio" icon={Cloud} title="Mi espacio" detail="Guarda tus archivos personales aquí" />}
+              <AppQRButton className={`group ${FILA_LISTA} [&>svg:first-child]:text-accent`} iconSize={20}>
                 <span className="flex-1 font-semibold">QR de Evalúa Fácil</span>
-                <FlechaAjuste />
+                <FlechaFila />
               </AppQRButton>
-              <FilaAjuste to="/alumno/notificaciones" icono={Bell} titulo="Notificaciones" />
-            </GrupoAjustes>
-            <GrupoAjustes titulo="Ayuda">
-              <FilaAjuste to="/alumno/tips" icono={Lightbulb} titulo="Tips" />
-            </GrupoAjustes>
-            <GrupoAjustes titulo="Acerca de">
-              <FilaAjuste to="/privacidad" icono={ShieldCheck} titulo="Aviso de privacidad" />
+              <ListRow to="/alumno/notificaciones" icon={Bell} title="Notificaciones" />
+            </ListGroup>
+            <ListGroup title="Ayuda">
+              <ListRow to="/alumno/tips" icon={Lightbulb} title="Tips" />
+            </ListGroup>
+            <ListGroup title="Acerca de">
+              <ListRow to="/privacidad" icon={ShieldCheck} title="Aviso de privacidad" />
               <div className="px-3 py-3">
                 <AppVersionInfo />
               </div>
-            </GrupoAjustes>
+            </ListGroup>
           </>)}
         </div>
         </div>

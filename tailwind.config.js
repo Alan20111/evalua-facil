@@ -195,6 +195,15 @@ export default {
           from: { opacity: '0', transform: 'translateY(8px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
+        // Palomita que se DIBUJA (casillas, guardado con éxito): el trazo
+        // recorre su largo (stroke-dasharray:16 en el <path>).
+        trazo: { from: { strokeDashoffset: '16' }, to: { strokeDashoffset: '0' } },
+        // Menú emergente: crece desde su botón (transform-origin lo pone el
+        // componente según el lado) — PLAN_NORMALIZACION_UI §6.1.
+        menu: {
+          from: { opacity: '0', transform: 'scale(0.95) translateY(-4px)' },
+          to: { opacity: '1', transform: 'scale(1) translateY(0)' },
+        },
       },
       animation: {
         atencion: 'atencion 2.2s cubic-bezier(0.37, 0, 0.63, 1) infinite',
@@ -205,6 +214,8 @@ export default {
         pop: 'pop 300ms cubic-bezier(0.2, 0, 0, 1) backwards',
         aparece: 'aparece 250ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
         pagina: 'pagina 200ms cubic-bezier(0.2, 0, 0, 1) backwards',
+        trazo: 'trazo 250ms cubic-bezier(0.2, 0, 0, 1) 60ms backwards',
+        menu: 'menu 200ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
       },
       boxShadow: {
         // Elevación plana (oct-2026, referencia Apple): las tarjetas se

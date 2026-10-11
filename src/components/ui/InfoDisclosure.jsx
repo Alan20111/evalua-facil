@@ -1,24 +1,19 @@
-// Texto explicativo que se puede mostrar u ocultar — pedido explícito: varias
-// pantallas siempre mostraban su explicación ("qué hace esto"), y eso estorba
-// a un docente que ya la leyó antes. El título/etiqueta de la sección sigue
-// visible siempre; solo la explicación entra o sale con este botón.
-import { useState } from 'react'
-import { HelpCircle, ChevronDown, ChevronUp } from 'lucide-react'
+// «¿Qué es esto?» que despliega una explicación. Usa Disclosure, así abre y
+// cierra animado como todo lo demás (antes aparecía de golpe).
+import { HelpCircle } from 'lucide-react'
+import Disclosure from './Disclosure'
+import { ICONO } from '../../config/iconos'
 
 export default function InfoDisclosure({ children, label = '¿Qué es esto?', className = '' }) {
-  const [open, setOpen] = useState(false)
   return (
-    <div className={className}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
-      >
-        <HelpCircle size={13} />
-        {label}
-        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-      </button>
-      {open && <div className="mt-1">{children}</div>}
-    </div>
+    <Disclosure
+      className={className}
+      inline
+      buttonClassName="text-xs font-medium text-accent hover:underline [&>svg]:text-accent"
+      panelClassName="pt-1"
+      summary={<span className="inline-flex items-center gap-1"><HelpCircle size={ICONO.xs} aria-hidden="true" />{label}</span>}
+    >
+      {children}
+    </Disclosure>
   )
 }
