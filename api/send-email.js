@@ -38,8 +38,6 @@ export default async function handler(req, res) {
   //   2. El destinatario tiene que ser TU PROPIO correo. Es la invariante real
   //      de los dos únicos usos (bienvenida y avisos de cuenta, ver
   //      welcomeEmail.js y accountEmails.js): siempre se le escribe al titular.
-  // El cron de recordatorios no pasa por aquí — usa _lib/email.js del lado del
-  // servidor — así que no le afecta.
   let quien
   try {
     quien = await verifyRequest(req)
