@@ -35,7 +35,7 @@ function CotejoGradeTable({ rubrica, seleccion, onSelect, disabled, compact = fa
                 <td className="border border-outline-variant text-center align-middle px-2 py-2 bg-surface-card">
                   <button type="button" disabled={disabled} onClick={() => onSelect(ci, cumple ? null : 0)}
                     aria-pressed={cumple} aria-label={`Marcar "${c.nombre}" como cumplido`}
-                    className={`inline-flex items-center justify-center w-8 h-8 rounded border-2 transition-colors disabled:cursor-not-allowed ${
+                    className={`inline-flex items-center justify-center w-8 h-8 rounded-full border-2 transition-colors disabled:cursor-not-allowed ${
                       cumple ? 'bg-accent border-accent text-white' : 'border-outline-variant text-transparent hover:border-accent'
                     }`}>
                     <Check size={18} />

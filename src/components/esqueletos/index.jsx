@@ -39,7 +39,7 @@ export function EsqueletoTableroDocente({ filas = 4 }) {
           <div key={i} data-esq="dash-doc-fila" className="w-full bg-surface-card rounded-card p-1.5 shadow-card flex items-center gap-1">
             <Reordenar />
             <div className="flex-1 min-w-0 flex items-center gap-2">
-              <Skeleton data-esq="dash-doc-icono" className="w-11 h-11 rounded flex-shrink-0" />
+              <Skeleton data-esq="dash-doc-icono" className="w-11 h-11 rounded-full flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <SkeletonLine texto="text-base font-semibold" className={ancho(i)} />
               </div>
@@ -62,7 +62,7 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
           <div data-esq="subj-doc-encabezado-interior" className="px-4 py-2">
           <div className="flex items-center gap-2">
             <span className="p-2 -ml-2 flex-shrink-0"><Skeleton className="w-[1.528rem] h-[1.528rem]" /></span>
-            <Skeleton className="w-9 h-9 rounded flex-shrink-0" />
+            <Skeleton className="w-9 h-9 rounded-full flex-shrink-0" />
             <SkeletonLine texto="text-xl font-bold" className="w-56 max-w-[60%]" />
           </div>
           <div className="flex flex-wrap items-center gap-1 mt-2">
@@ -93,7 +93,7 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
                 <div data-esq="subj-doc-parcial-cabecera-fondo" className={abierto ? 'bg-accent-light border-b border-accent-soft' : ''}>
                   <div className="flex items-center gap-1">
                     <div data-esq="subj-doc-parcial-cabecera" className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2">
-                      <Skeleton data-esq="subj-doc-parcial-icono" className="w-10 h-10 rounded flex-shrink-0" />
+                      <Skeleton data-esq="subj-doc-parcial-icono" className="w-10 h-10 rounded-full flex-shrink-0" />
                       <div className="min-w-0 w-40">
                         <SkeletonLine texto="text-base font-semibold leading-tight" className="w-24" />
                         <SkeletonLine texto="text-sm leading-tight" className="w-20 -mt-0.5" />
@@ -205,7 +205,7 @@ export function EsqueletoTableroAlumno({ filas = 3 }) {
             <div key={i} data-esq="dash-alu-fila" className="w-full bg-surface-card rounded-card p-1.5 shadow-card flex items-center gap-1">
               <Reordenar />
               <div data-esq="dash-alu-fila-boton" className="flex-1 min-w-0 flex items-center gap-3 p-1.5">
-                <Skeleton data-esq="dash-alu-icono" className="w-12 h-12 rounded flex-shrink-0" />
+                <Skeleton data-esq="dash-alu-icono" className="w-12 h-12 rounded-full flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <SkeletonLine texto="text-base font-semibold" className={ancho(i)} />
                   <SkeletonLine texto="text-sm font-medium" className={cn('mt-0.5', ancho(i, 3))} />
@@ -232,7 +232,7 @@ export function EsqueletoAsignaturaAlumno({ parciales = 3 }) {
       <div data-esq="subj-alu-tarjeta" className="bg-surface-card rounded-card">
       <div data-esq="subj-alu-encabezado" className="px-4 py-3 flex items-center gap-3">
         <span className="md:hidden p-2 -ml-2 flex-shrink-0"><Skeleton className="w-[1.528rem] h-[1.528rem]" /></span>
-        <Skeleton data-esq="subj-alu-icono" className="w-9 h-9 rounded flex-shrink-0" />
+        <Skeleton data-esq="subj-alu-icono" className="w-9 h-9 rounded-full flex-shrink-0" />
         <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
           <SkeletonLine texto="text-lg font-bold" className="w-48 max-w-full" />
           <SkeletonLine texto="text-sm font-medium" className="w-32" />
@@ -256,7 +256,7 @@ export function EsqueletoAsignaturaAlumno({ parciales = 3 }) {
         {Array.from({ length: parciales }, (_, i) => (
           <div key={i} data-esq="subj-alu-parcial" className="bg-surface-card rounded-card overflow-hidden shadow-card">
             <div className="w-full px-4 py-3 flex items-center gap-3">
-              <Skeleton data-esq="subj-alu-parcial-icono" className="w-9 h-9 rounded flex-shrink-0" />
+              <Skeleton data-esq="subj-alu-parcial-icono" className="w-9 h-9 rounded-full flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <SkeletonLine texto="text-base font-semibold" className="w-24" />
                 <SkeletonLine texto="text-sm" className="w-20" />

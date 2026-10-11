@@ -579,7 +579,7 @@ export default function StudentSubjectPage() {
         >
           <ArrowLeft size={22} />
         </button>
-        <div data-esq="subj-alu-icono" className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+        <div data-esq="subj-alu-icono" className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
           <SubjectIcon iconKey={subject?.icon} size={20} className="text-accent" />
         </div>
         <div className="min-w-0 flex items-center gap-2 flex-wrap">
@@ -711,7 +711,7 @@ export default function StudentSubjectPage() {
                 {(() => {
                   const cabecera = (
                     <>
-                      <div data-esq="subj-alu-parcial-icono" className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                      <div data-esq="subj-alu-parcial-icono" className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                         <span className="text-accent font-bold text-sm">{p}</span>
                       </div>
                       <div className="flex-1 text-left min-w-0">

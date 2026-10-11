@@ -61,7 +61,7 @@ export function SkeletonList({ rows = 4, icon = true, sobreColor = false, classN
     <SkeletonGroup etiqueta={etiqueta} className={cn('space-y-3', className)}>
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="flex items-center gap-3">
-          {icon && <Skeleton sobreColor={sobreColor} className="h-10 w-10 rounded flex-none" />}
+          {icon && <Skeleton sobreColor={sobreColor} className="h-10 w-10 rounded-full flex-none" />}
           <div className="flex-1 min-w-0 space-y-2">
             <Skeleton sobreColor={sobreColor} className={cn('h-3.5', ['w-2/3', 'w-1/2', 'w-3/5', 'w-2/5'].at(i % 4))} />
             <Skeleton sobreColor={sobreColor} className={cn('h-3', ['w-1/3', 'w-1/4', 'w-2/5', 'w-1/3'].at(i % 4))} />
@@ -93,7 +93,7 @@ export function SkeletonCards({ count = 6, className = '', etiqueta }) {
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
           <div className="flex items-center gap-3">
-            <Skeleton className="h-11 w-11 rounded flex-none" />
+            <Skeleton className="h-11 w-11 rounded-full flex-none" />
             <Skeleton className={cn('h-4', ['w-2/3', 'w-1/2', 'w-3/5'].at(i % 3))} />
           </div>
           <Skeleton className="h-3 w-full" />
