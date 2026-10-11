@@ -1,7 +1,7 @@
 // Envío de correo desde el servidor, vía la API de Brevo — mismo proveedor
 // que api/send-email.js (que existe para que el CLIENTE mande correos sin
-// exponer la clave). El cron ya corre en el servidor, así que llama a Brevo
-// directo en vez de dar la vuelta por ese endpoint HTTP.
+// exponer la clave). Es para código que ya corre en el servidor y puede llamar
+// a Brevo directo, sin dar la vuelta por ese endpoint HTTP.
 const REMITENTE = { email: 'soporte@evaluafacil.mx', name: 'Evalúa Fácil' }
 
 export async function enviarCorreo({ to, toName, subject, html }) {
