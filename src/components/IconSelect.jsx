@@ -5,6 +5,7 @@ import SubjectIcon from './SubjectIcon'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { useToast } from './Toast'
 import { IS_NATIVE_APP } from '../utils/platform'
+import { MUESTRA, REJILLA_MUESTRAS } from '../config/layout'
 
 const MAX_ICON_BYTES = 1024 * 1024 // 1 MB
 
@@ -47,7 +48,7 @@ export default function IconSelect({ value = 'book', onChange }) {
           en escritorio (8 columnas, sin hueco al final) y en móvil quedan
           igualmente alineadas con los íconos, columna por columna. Es la opción
           más fácil de reconocer, y por eso encabeza el banco. */}
-      <div className={`grid gap-1.5 ${IS_NATIVE_APP ? 'grid-cols-8' : 'grid-cols-6 sm:grid-cols-8'}`}>
+      <div className={REJILLA_MUESTRAS}>
         {SUBJECT_DOTS.map((d) => {
           const selected = !isCustom && value === d.key
           return (
@@ -57,7 +58,7 @@ export default function IconSelect({ value = 'book', onChange }) {
               onClick={() => onChange(d.key)}
               data-tooltip={d.label}
               aria-label={`Bolita ${d.label.toLowerCase()}`}
-              className={`aspect-square rounded flex items-center justify-center transition-colors ${
+              className={`${MUESTRA} rounded flex items-center justify-center transition-colors ${
                 selected
                   ? 'bg-[var(--accent-light)] ring-2 ring-[var(--accent)]'
                   : 'bg-surface-container hover:bg-[var(--accent-tint)]'
@@ -71,7 +72,7 @@ export default function IconSelect({ value = 'book', onChange }) {
           )
         })}
       </div>
-      <div className={`grid gap-1.5 ${IS_NATIVE_APP ? 'grid-cols-8' : 'grid-cols-6 sm:grid-cols-8'}`}>
+      <div className={REJILLA_MUESTRAS}>
         {SUBJECT_ICON_KEYS.map((key) => {
           const Icon = getSubjectIcon(key)
           const selected = !isCustom && (value || 'book') === key
@@ -81,7 +82,7 @@ export default function IconSelect({ value = 'book', onChange }) {
               type="button"
               onClick={() => onChange(key)}
               aria-label={key}
-              className={`aspect-square rounded flex items-center justify-center transition-colors ${selected ? 'bg-accent text-white' : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'}`}
+              className={`${MUESTRA} rounded flex items-center justify-center transition-colors ${selected ? 'bg-accent text-white' : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'}`}
             >
               <Icon size={IS_NATIVE_APP ? 15 : 19} />
             </button>
@@ -98,7 +99,7 @@ export default function IconSelect({ value = 'book', onChange }) {
           data-tooltip="Ícono propio · sube una imagen cuadrada de 64×64 px (PNG, JPG, WebP o SVG, máx. 1 MB)"
           data-tooltip-pos="left"
           aria-label="Subir ícono propio"
-          className={`aspect-square rounded flex items-center justify-center transition-colors border border-dashed ${isCustom ? 'border-[var(--accent)] bg-[var(--accent-tint)]' : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
+          className={`${MUESTRA} rounded flex items-center justify-center transition-colors border border-dashed ${isCustom ? 'border-[var(--accent)] bg-[var(--accent-tint)]' : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
         >
           {uploading
             ? <Loader2 size={IS_NATIVE_APP ? 15 : 19} className="animate-spin" />

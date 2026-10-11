@@ -60,6 +60,18 @@ const formaApp = ({ addComponents, addBase }) => {
   //     seguras: el fondo de la hoja los cubre y el contenido no queda bajo
   //     el notch ni la barra de inicio, sin tocar el padding de cada hoja.
   // Selectores de dos clases: le ganan a w-*/max-h-*/rounded-* de cada hoja.
+  // Encabezado SIEMPRE visible: la primera fila de una hoja que lleva el
+  // título (h2/h3) y la X se queda pegada arriba al desplazar, así siempre
+  // se sabe qué formulario es y siempre se puede cerrar (accesibilidad). La
+  // sombra sólida del color de la hoja tapa el padding de arriba y de los
+  // lados, para que el contenido no se asome por detrás al pasar.
+  '.hoja > :first-child:has(> :is(h2, h3))': {
+    position: 'sticky',
+    top: '0',
+    zIndex: '10',
+    backgroundColor: 'var(--surface-card)',
+    boxShadow: '0 -1.25rem 0 1.25rem var(--surface-card)',
+  },
   '.hoja:is(.max-w-md, .max-w-lg, .max-w-xl)': {
     '@media (min-width: 640px)': { maxWidth: '42rem' },
   },

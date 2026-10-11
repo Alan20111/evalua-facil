@@ -361,6 +361,8 @@ Una pestaña que necesita que el usuario haga algo se marca en **rojo**: texto `
 - `hoja` + `max-w-md`/`lg`/`xl` → **formularios**: en laptop se abren a 42rem; en el teléfono ocupan la pantalla completa (sin margen ni esquinas, con las zonas seguras respetadas).
 - `hoja` + `max-w-3xl` → ya anchas en laptop; pantalla completa en el teléfono.
 Un modal nuevo de formulario no necesita nada más que `hoja` y su `max-w-md`; uno chico, `max-w-sm`.
+- **Encabezado fijo:** la primera fila de una `hoja` que contiene el `h2`/`h3` del título (con la X) se queda pegada arriba al desplazar. Mantén el título y la X en esa primera fila.
+- **Muestras de selección** (colores, bolitas, íconos): `REJILLA_MUESTRAS` + `MUESTRA` de `config/layout.js` — celdas fijas de 2.5rem, nunca `aspect-square w-full` (crecen con la ventana).
 
 **Patrón objetivo (bottom-sheet responsive):**
 - Wrapper `fixed inset-0 z-50 flex items-end sm:items-center justify-center`
