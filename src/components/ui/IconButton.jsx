@@ -4,10 +4,12 @@
 //
 //   size     md (size-control, default) · sm (size-control-sm)
 //   variant  soft (default) · accent · danger · onColor (sobre fondos de color)
+//   effect   microanimación al pasar (ver Animado)
 import { forwardRef } from 'react'
 import { cn } from './cn'
 import Spinner from '../Spinner'
 import { ICONO } from '../../config/iconos'
+import Animado from './Animado'
 
 const VARIANTS = {
   soft: 'text-muted hover:text-accent hover:bg-[var(--accent-tint)]',
@@ -18,7 +20,7 @@ const VARIANTS = {
 const SIZES = { sm: 'size-control-sm', md: 'size-control' }
 
 const IconButton = forwardRef(function IconButton(
-  { icon: Icono, label, size = 'md', variant = 'soft', tooltip = true, busy = false, className = '', children, ...rest },
+  { icon: Icono, label, size = 'md', variant = 'soft', effect, tooltip = true, busy = false, className = '', children, ...rest },
   ref
 ) {
   return (
@@ -29,14 +31,16 @@ const IconButton = forwardRef(function IconButton(
       data-tooltip={tooltip ? label : undefined}
       disabled={rest.disabled || busy}
       className={cn(
-        'inline-flex items-center justify-center flex-shrink-0 rounded-full transition active:scale-[0.94] disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        'group inline-flex items-center justify-center flex-shrink-0 rounded-full transition active:scale-[0.94] disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
         SIZES[size] || SIZES.md,
         VARIANTS[variant] || VARIANTS.soft,
         className
       )}
       {...rest}
     >
-      {busy ? <Spinner size="sm" current /> : children || <Icono size={size === 'sm' ? ICONO.sm : ICONO.md} aria-hidden="true" />}
+      {busy ? <Spinner size="sm" current /> : children || (effect
+        ? <Animado efecto={effect}><Icono size={size === 'sm' ? ICONO.sm : ICONO.md} /></Animado>
+        : <Icono size={size === 'sm' ? ICONO.sm : ICONO.md} aria-hidden="true" />)}
     </button>
   )
 })

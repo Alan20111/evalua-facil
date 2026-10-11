@@ -4,10 +4,10 @@
 // mismo y se mueva igual (docs/PLAN_NORMALIZACION_UI.md §3, componente 25).
 // Al agregar o cambiar un componente de ui/, agrégalo aquí.
 import { useState } from 'react'
-import { Bell, BookOpen, Cloud, Copy, Inbox, Mail, Pencil, Plus, Search, Settings, Sparkles, Trash2, User } from 'lucide-react'
+import { Bell, BookOpen, Check, Cloud, Copy, Download, Eye, Inbox, Mail, Pencil, Plus, RefreshCw, Search, Send, Settings, Sparkles, Trash2, Upload, User } from 'lucide-react'
 import {
-  Avatar, Badge, Button, Card, Checkbox, Chip, Disclosure, EmptyState, IconButton, IconTile, InfoDisclosure,
-  Input, ListGroup, ListRow, RadioGroup, Select, SubTabs, Switch, Tabs, Textarea,
+  Animado, Avatar, Badge, Button, Card, Checkbox, Chip, Disclosure, EmptyState, IconButton, IconTile, InfoDisclosure,
+  Input, ListGroup, ListRow, Menu, Modal, Popover, Progress, RadioGroup, Select, SubTabs, Switch, Tabs, Textarea,
 } from '../../components/ui'
 import YouTubeIcon from '../../components/YouTubeIcon'
 
@@ -30,6 +30,10 @@ export default function Catalogo() {
   const [sw, setSw] = useState(true)
   const [sel, setSel] = useState('3')
   const [texto, setTexto] = useState('')
+  const [aviso, setAviso] = useState(0)
+  const [generando, setGenerando] = useState(false)
+  const [modal, setModal] = useState(false)
+  const [progreso, setProgreso] = useState(0.35)
 
   return (
     <div data-role={rol} className="min-h-dvh bg-surface">
@@ -126,6 +130,52 @@ export default function Catalogo() {
           <InfoDisclosure>
             <p className="text-xs text-muted">Explicación que antes aparecía de golpe.</p>
           </InfoDisclosure>
+        </Seccion>
+
+        <Seccion titulo="Movimiento — íconos (pasa el ratón)">
+          <Fila>
+            <Button icon={Plus} iconEffect="gira90">Crear</Button>
+            <Button variant="secondary" icon={Upload} iconEffect="empujaArriba">Subir</Button>
+            <Button variant="secondary" icon={Download} iconEffect="empujaAbajo">Descargar</Button>
+            <Button variant="danger-outline" icon={Trash2} iconEffect="balanceo">Eliminar</Button>
+            <IconButton icon={RefreshCw} label="Actualizar" effect="gira" />
+            <IconButton icon={Sparkles} label="IA" effect="destello" />
+          </Fila>
+          <Fila>
+            <Button variant="secondary" onClick={() => setAviso((n) => n + 1)}>Llega un aviso</Button>
+            <Animado efecto="sacude" cuando="una" disparador={aviso}><Bell size={20} className="text-accent" /></Animado>
+            <Button variant="secondary" onClick={() => setGenerando((g) => !g)}>{generando ? 'Detener' : 'Generar con IA'}</Button>
+            <Animado efecto="destello" cuando="activo" activo={generando}><Sparkles size={20} className="text-accent" /></Animado>
+            <Animado efecto="despega" cuando="una" disparador={aviso}><Send size={20} className="text-accent" /></Animado>
+            <Animado efecto="pop" cuando="una" disparador={aviso}><Check size={20} className="text-emerald-600" /></Animado>
+            <Animado efecto="parpadeo" cuando="una" disparador={aviso}><Eye size={20} className="text-muted" /></Animado>
+          </Fila>
+        </Seccion>
+
+        <Seccion titulo="Menús, progreso y hojas">
+          <Fila>
+            <Menu items={[
+              { label: 'Editar', icon: Pencil, onClick: () => {} },
+              { label: 'Duplicar', icon: Copy, onClick: () => {} },
+              { label: 'Eliminar', icon: Trash2, danger: true, onClick: () => {} },
+            ]} />
+            <Popover align="start" trigger={(props) => <Button variant="secondary" {...props}>Popover</Button>}>
+              <p className="p-3 text-sm text-muted max-w-xs">Crece desde su botón y se encoge más rápido al cerrar.</p>
+            </Popover>
+            <Button variant="secondary" onClick={() => setModal(true)}>Abrir hoja</Button>
+          </Fila>
+          <Progress value={progreso} label="Subiendo" />
+          <Fila>
+            <Button size="sm" variant="secondary" onClick={() => setProgreso((v) => Math.min(1, v + 0.2))}>+20 %</Button>
+            <Button size="sm" variant="secondary" onClick={() => setProgreso(0)}>Reiniciar</Button>
+          </Fila>
+          <Progress label="Generando" />
+          <Modal open={modal} onClose={() => setModal(false)} title="Nueva actividad" size="md"
+            footer={<><Button variant="secondary" className="flex-1" onClick={() => setModal(false)}>Cancelar</Button><Button className="flex-1" icon={Plus} iconEffect="gira90">Crear</Button></>}>
+            <div className="space-y-3">
+              {Array.from({ length: 8 }, (_, i) => <Input key={i} label={`Campo ${i + 1}`} />)}
+            </div>
+          </Modal>
         </Seccion>
 
         <Seccion titulo="Estado vacío">
