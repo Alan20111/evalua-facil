@@ -12,10 +12,8 @@ import { useToast } from '../../components/Toast'
 import { CheckCircle2 } from 'lucide-react'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
-import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { SkeletonText } from '../../components/ui'
+import { SkeletonText, Input, Button } from '../../components/ui'
 
 // Action-handler for Firebase's password-reset email links. actionCodeSettings.url
 // (set in Login.jsx) is used by Firebase's OWN hosted reset page as its "continue"
@@ -156,29 +154,23 @@ export default function ResetPassword() {
                 disabled
                 className="text-muted"
               />
-              <div>
-                <label htmlFor="reset-password" className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
-                <PasswordInput
-                  id="reset-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={isGoogleLinking ? 8 : 6}
-                  autoComplete="new-password"
-                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                />
-              </div>
-              <div>
-                <label htmlFor="reset-confirm-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
-                <PasswordInput
-                  id="reset-confirm-password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  autoComplete="new-password"
-                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                />
-              </div>
+              <PasswordInput
+                label="Nueva contraseña"
+                id="reset-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={isGoogleLinking ? 8 : 6}
+                autoComplete="new-password"
+              />
+              <PasswordInput
+                label="Confirmar contraseña"
+                id="reset-confirm-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+              />
               <Button type="submit" fullWidth busy={saving}>
                 {saving ? 'Guardando…' : (isGoogleLinking ? 'Guardar y entrar' : 'Guardar nueva contraseña')}
               </Button>

@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext'
 import Spinner from '../../components/Spinner'
 import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { Button } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams()
@@ -74,9 +76,9 @@ export default function VerifyEmail() {
 
         {status === 'success' && (
           <>
-            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <CheckCircle2 size={32} className="text-emerald-500" />
-            </div>
+            <span aria-hidden="true" className="size-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3 animate-pop motion-reduce:animate-none">
+              <CheckCircle2 size={ICONO.xl} className="text-emerald-500" />
+            </span>
             <h2 className="text-xl font-bold text-on-surface mb-2">¡Cuenta activada!</h2>
             <p className="text-muted text-sm">Tu cuenta está verificada. Redirigiendo…</p>
           </>
@@ -84,41 +86,29 @@ export default function VerifyEmail() {
 
         {status === 'error' && (
           <>
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <XCircle size={32} className="text-red-500" />
-            </div>
+            <span aria-hidden="true" className="size-20 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3 animate-aparece motion-reduce:animate-none">
+              <XCircle size={ICONO.xl} className="text-red-500" />
+            </span>
             <h2 className="text-xl font-bold text-on-surface mb-2">Enlace no válido</h2>
             <p className="text-muted text-sm mb-4">
               El enlace ya fue utilizado o expiró.<br/>
               Puedes pedir uno nuevo desde el dashboard.
             </p>
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard', { replace: true })}
-              className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors"
-            >
-              Ir al dashboard
-            </button>
+            <Button size="lg" onClick={() => navigate('/dashboard', { replace: true })}>Ir al dashboard</Button>
           </>
         )}
 
         {status === 'wrongUser' && (
           <>
-            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <AlertTriangle size={32} className="text-amber-500" />
-            </div>
+            <span aria-hidden="true" className="size-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3 animate-aparece motion-reduce:animate-none">
+              <AlertTriangle size={ICONO.xl} className="text-amber-500" />
+            </span>
             <h2 className="text-xl font-bold text-on-surface mb-2">Cuenta incorrecta</h2>
             <p className="text-muted text-sm mb-4">
               Este enlace es para otra cuenta.<br/>
               Inicia sesión con la cuenta correcta.
             </p>
-            <button
-              type="button"
-              onClick={() => navigate('/docente', { replace: true })}
-              className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors"
-            >
-              Iniciar sesión
-            </button>
+            <Button size="lg" onClick={() => navigate('/docente', { replace: true })}>Iniciar sesión</Button>
           </>
         )}
 

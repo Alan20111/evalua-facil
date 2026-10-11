@@ -13,7 +13,6 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } f
 import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
 import { studentEmail, usernameCandidates } from '../../utils/generate'
 import { apiUrl } from '../../utils/apiBase'
 import { GraduationCap, Check } from 'lucide-react'
@@ -25,7 +24,8 @@ import { capitalizarNombre } from '../../utils/nombres'
 import { studentFullName } from '../../utils/studentSearch'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { PUEDE_AUTOFOCUS } from '../../utils/platform'
-import { SkeletonForm } from '../../components/ui'
+import { SkeletonForm, Input, Button, IconTile } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 export default function StudentActivation() {
   const { accessCode } = useParams()
@@ -392,20 +392,14 @@ export default function StudentActivation() {
   if (!subject) return (
     <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm text-center">
-        <div className="w-16 h-16 rounded-card bg-red-100 flex items-center justify-center mx-auto mb-3">
-          <GraduationCap size={32} className="text-red-500" />
-        </div>
+        <span aria-hidden="true" className="size-20 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3 animate-aparece motion-reduce:animate-none">
+  <GraduationCap size={ICONO.xl} className="text-red-500" />
+</span>
         <h1 className="text-xl font-bold text-on-surface mb-2">Código no válido</h1>
         <p className="text-muted text-sm mb-6">
           {loadError || 'No encontramos una asignatura con ese código de acceso.'}
         </p>
-        <button
-          type="button"
-          onClick={() => navigate('/alumno')}
-          className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors"
-        >
-          Volver al inicio
-        </button>
+        <Button size="lg" onClick={() => navigate('/alumno')}>Volver al inicio</Button>
       </div>
     </div>
   )
@@ -428,21 +422,15 @@ export default function StudentActivation() {
       <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
         <div className="w-full max-w-sm text-center">
           <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
-          <div className="w-16 h-16 rounded-card bg-amber-100 flex items-center justify-center mx-auto mb-3">
-            <GraduationCap size={32} className="text-amber-600" />
-          </div>
+          <span aria-hidden="true" className="size-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3 animate-aparece motion-reduce:animate-none">
+  <GraduationCap size={ICONO.xl} className="text-amber-600" />
+</span>
           <h1 className="text-xl font-bold text-on-surface mb-2">Saliste de esta asignatura</h1>
           <p className="text-muted text-sm mb-6">
             Antes saliste de {subject ? <strong>{subjectDisplayName(subject)}</strong> : 'esta asignatura'} por tu cuenta.
             Para volver a entrar, pídele a tu maestro(a) que te dé permiso de reingresar.
           </p>
-          <button
-            type="button"
-            onClick={() => navigate(panelPath)}
-            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors"
-          >
-            Volver a mi panel
-          </button>
+          <Button size="lg" fullWidth onClick={() => navigate(panelPath)}>Volver a mi panel</Button>
         </div>
       </div>
     )
@@ -454,21 +442,15 @@ export default function StudentActivation() {
       <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
         <div className="w-full max-w-sm text-center">
           <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
-          <div className="w-16 h-16 rounded-card bg-accent-light flex items-center justify-center mx-auto mb-3">
-            <GraduationCap size={32} className="text-accent" />
-          </div>
+          <span aria-hidden="true" className="size-20 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3 animate-aparece motion-reduce:animate-none">
+  <GraduationCap size={ICONO.xl} className="text-accent" />
+</span>
           <h1 className="text-xl font-bold text-on-surface mb-2">Aún no estás inscrito ahí</h1>
           <p className="text-muted text-sm mb-6">
             Tu maestro todavía no te agregó a {subject ? <strong>{subjectDisplayName(subject)}</strong> : 'esta asignatura'} con
             tu usuario (<strong>{userProfile?.username}</strong>). Pídele que te agregue y vuelve a intentarlo.
           </p>
-          <button
-            type="button"
-            onClick={() => navigate(panelPath)}
-            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors"
-          >
-            Volver a mi panel
-          </button>
+          <Button size="lg" fullWidth onClick={() => navigate(panelPath)}>Volver a mi panel</Button>
         </div>
       </div>
     )
@@ -483,9 +465,9 @@ export default function StudentActivation() {
       <div data-forma="acceso" className="min-h-dvh flex flex-col items-center justify-center px-4 bg-surface py-8">
         <div className="w-full max-w-sm text-center">
           <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
-          <div className="w-16 h-16 rounded-card bg-amber-100 flex items-center justify-center mx-auto mb-3">
-            <GraduationCap size={32} className="text-amber-600" />
-          </div>
+          <span aria-hidden="true" className="size-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3 animate-aparece motion-reduce:animate-none">
+  <GraduationCap size={ICONO.xl} className="text-amber-600" />
+</span>
           <h1 className="text-xl font-bold text-on-surface mb-2">Ya iniciaste sesión</h1>
           <p className="text-muted text-sm mb-1">
             Estás conectado como <strong>{who}</strong> y esta asignatura no corresponde a esa cuenta
@@ -495,20 +477,8 @@ export default function StudentActivation() {
             Si quieres activar o unir otra cuenta, cierra sesión primero.
           </p>
           <div className="space-y-2">
-            <button
-              type="button"
-              onClick={handleSignOutToSwitchAccount}
-              className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors"
-            >
-              Cerrar sesión
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(panelPath)}
-              className="w-full px-5 py-2.5 border border-outline-variant text-muted font-semibold rounded-full transition-colors hover:bg-surface-container"
-            >
-              Volver a mi panel
-            </button>
+            <Button size="lg" fullWidth onClick={handleSignOutToSwitchAccount}>Cerrar sesión</Button>
+            <Button variant="secondary" size="lg" fullWidth onClick={() => navigate(panelPath)}>Volver a mi panel</Button>
           </div>
         </div>
       </div>
@@ -533,44 +503,40 @@ export default function StudentActivation() {
           {step === 'link_existing' ? (
             <div>
               <div className="flex items-center gap-3 p-3 bg-accent-light rounded mb-3">
-                <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-                  <Check size={18} className="text-accent" />
-                </div>
+                <IconTile icon={Check} />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-on-surface">Ya tienes cuenta</p>
                   <p className="text-xs text-muted">Escribe tu contraseña para agregar esta asignatura</p>
                 </div>
               </div>
               <form onSubmit={handleLinkExisting} className="space-y-3">
-                <div>
-                  <label htmlFor="activation-link-password" className="block text-sm font-medium text-muted mb-1">Tu contraseña actual</label>
-                  <PasswordInput
-                    id="activation-link-password"
-                    value={linkPassword}
-                    onChange={(e) => { setLinkPassword(e.target.value); setPasswordError('') }}
-                    required
-                    // autoFocus intencional (solo en escritorio): único campo de este paso (contraseña para vincular cuenta existente),
-                    // se muestra una sola vez por sesión de activación — no es un modal reabrible.
-                    autoFocus={PUEDE_AUTOFOCUS}
-                    className={`w-full px-4 py-2.5 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
-                  />
-                </div>
+                <PasswordInput
+                  label="Tu contraseña actual"
+                  id="activation-link-password"
+                  value={linkPassword}
+                  onChange={(e) => { setLinkPassword(e.target.value); setPasswordError('') }}
+                  required
+                  // autoFocus intencional (solo en escritorio): único campo de este paso (contraseña para vincular cuenta existente),
+                  // se muestra una sola vez por sesión de activación — no es un modal reabrible.
+                  autoFocus={PUEDE_AUTOFOCUS}
+                  className={passwordError ? '!border-red-400' : ''}
+                />
                 {passwordError && (
                   <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
                     {passwordError}
                   </p>
                 )}
-                <button
-                  type="button"
+                <Button
+                  size="lg"
+                  fullWidth icon={Check}
+                  busy={loading}
+                  disabled={loading || !linkPassword}
                   onClick={handleLinkExisting}
                   onMouseDown={(e) => e.preventDefault()}
-                  disabled={loading || !linkPassword}
                   style={{ touchAction: 'manipulation' }}
-                  className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {loading ? <Spinner size="sm" /> : <Check size={18} />}
                   {loading ? 'Vinculando…' : 'Agregar asignatura'}
-                </button>
+                </Button>
               </form>
             </div>
           ) : step === 'username' ? (
@@ -579,8 +545,8 @@ export default function StudentActivation() {
                 <p className="text-sm text-muted mb-3">
                   Introduce tu <strong>usuario</strong> (tu maestro te lo proporcionó).
                 </p>
-                <label htmlFor="activation-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
-                <input
+                <Input
+                  label="Usuario"
                   id="activation-username"
                   type="text"
                   value={username}
@@ -593,28 +559,26 @@ export default function StudentActivation() {
                   autoCorrect="off"
                   autoCapitalize="none"
                   spellCheck={false}
-                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest "
+                  className="font-mono tracking-widest"
                   maxLength={40}
                 />
               </div>
-              <button
-                type="button"
-                onClick={handleFindStudent}
-                onMouseDown={(e) => e.preventDefault()}
-                disabled={loading || !username.trim()}
-                style={{ touchAction: 'manipulation' }}
-                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {loading ? <Spinner size="sm" /> : null}
-                {loading ? 'Buscando…' : 'Continuar'}
-              </button>
+              <Button
+                  size="lg"
+                  fullWidth
+                  busy={loading}
+                  disabled={loading || !username.trim()}
+                  onClick={handleFindStudent}
+                  onMouseDown={(e) => e.preventDefault()}
+                  style={{ touchAction: 'manipulation' }}
+                >
+                  {loading ? 'Buscando…' : 'Continuar'}
+                </Button>
             </form>
           ) : (
             <div>
               <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded mb-3">
-                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                  <Check size={18} className="text-emerald-600" />
-                </div>
+                <IconTile icon={Check} tone="success" />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-on-surface break-words">
                     {studentFullName(student)}
@@ -623,45 +587,41 @@ export default function StudentActivation() {
                 </div>
               </div>
               <form onSubmit={handleActivate} className="space-y-3">
-                <div>
-                  <label htmlFor="activation-password" className="block text-sm font-medium text-muted mb-1">Elige tu contraseña</label>
-                  <PasswordInput
-                    id="activation-password"
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); setPasswordError('') }}
-                    required
-                    // autoFocus intencional (solo en escritorio): primer campo de este paso (elegir contraseña),
-                    // se muestra una sola vez por sesión de activación — no es un modal reabrible.
-                    autoFocus={PUEDE_AUTOFOCUS}
-                    className={`w-full px-4 py-2.5 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="activation-confirm-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
-                  <PasswordInput
-                    id="activation-confirm-password"
-                    value={confirmPassword}
-                    onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
-                    required
-                    className={`w-full px-4 py-2.5 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
-                  />
-                </div>
+                <PasswordInput
+                  label="Elige tu contraseña"
+                  id="activation-password"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setPasswordError('') }}
+                  required
+                  // autoFocus intencional (solo en escritorio): primer campo de este paso (elegir contraseña),
+                  // se muestra una sola vez por sesión de activación — no es un modal reabrible.
+                  autoFocus={PUEDE_AUTOFOCUS}
+                  className={passwordError ? '!border-red-400' : ''}
+                />
+                <PasswordInput
+                  label="Confirmar contraseña"
+                  id="activation-confirm-password"
+                  value={confirmPassword}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
+                  required
+                  className={passwordError ? '!border-red-400' : ''}
+                />
                 {passwordError && (
                   <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
                     {passwordError}
                   </p>
                 )}
-                <button
-                  type="button"
+                <Button
+                  size="lg"
+                  fullWidth icon={Check}
+                  busy={loading}
+                  disabled={loading}
                   onClick={handleActivate}
                   onMouseDown={(e) => e.preventDefault()}
-                  disabled={loading}
                   style={{ touchAction: 'manipulation' }}
-                  className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {loading ? <Spinner size="sm" /> : <Check size={18} />}
                   {loading ? 'Activando…' : 'Activar cuenta'}
-                </button>
+                </Button>
               </form>
             </div>
           )}

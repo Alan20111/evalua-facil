@@ -6,12 +6,9 @@ import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import { createTeacherAccount } from '../../utils/teacherAccount'
 import { createTeacherAccountIfNew, signInWithGoogle, googleErrorInfo } from '../../utils/googleAuth'
-import Spinner from '../../components/Spinner'
 import GoogleIcon from '../../components/GoogleIcon'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
-import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
 import Select from '../../components/ui/Select'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
@@ -19,9 +16,11 @@ import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
 import { PREFIJOS } from '../../utils/prefijos'
 import SchoolPicker from '../../components/SchoolPicker'
+import BotonEscuela from '../../components/BotonEscuela'
 import { resolveSchoolSelection } from '../../utils/schoolSelection'
-import { School } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { PUEDE_AUTOFOCUS } from '../../utils/platform'
+import { Input, Button } from '../../components/ui'
 
 // Registro en dos pasos, SIN crear ninguna cuenta hasta el paso final.
 //
@@ -151,41 +150,34 @@ export default function Register() {
 
           <div className="bg-surface-card rounded-card shadow-card p-5">
             <form onSubmit={finish} className="space-y-3">
-              <div>
-                <label htmlFor="register-real-nombre" className="block text-sm font-medium text-muted mb-1">Nombre(s)</label>
-                <input
-                  id="register-real-nombre"
-                  type="text"
-                  value={realNombre}
-                  onChange={(e) => setRealNombre(e.target.value)}
-                  required
-                  autoFocus={PUEDE_AUTOFOCUS}
-                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                />
-              </div>
+              <Input
+                label="Nombre(s)"
+                id="register-real-nombre"
+                type="text"
+                value={realNombre}
+                onChange={(e) => setRealNombre(e.target.value)}
+                required
+                autoFocus={PUEDE_AUTOFOCUS}
+              />
               <div className="flex gap-2">
-                <div className="flex-1">
-                  <label htmlFor="register-apellido-paterno" className="block text-sm font-medium text-muted mb-1">Apellido paterno</label>
-                  <input
-                    id="register-apellido-paterno"
-                    type="text"
-                    value={apellidoPaterno}
-                    onChange={(e) => setApellidoPaterno(e.target.value)}
-                    required
-                    className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label htmlFor="register-apellido-materno" className="block text-sm font-medium text-muted mb-1">Apellido materno</label>
-                  <input
-                    id="register-apellido-materno"
-                    type="text"
-                    value={apellidoMaterno}
-                    onChange={(e) => setApellidoMaterno(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  />
-                  <p className="text-xs text-hint mt-1">(opcional)</p>
-                </div>
+                <Input
+                  label="Apellido paterno"
+                  wrapperClassName="flex-1"
+                  id="register-apellido-paterno"
+                  type="text"
+                  value={apellidoPaterno}
+                  onChange={(e) => setApellidoPaterno(e.target.value)}
+                  required
+                />
+                <Input
+                  label="Apellido materno"
+                  wrapperClassName="flex-1"
+                  optional
+                  id="register-apellido-materno"
+                  type="text"
+                  value={apellidoMaterno}
+                  onChange={(e) => setApellidoMaterno(e.target.value)}
+                />
               </div>
               <CodigoPostalField
                 id="register-cp"
@@ -210,26 +202,24 @@ export default function Register() {
                       ]}
                     />
                     {prefijoOption === '__otro__' && (
-                      <input
+                      <Input
                         type="text"
                         value={prefijoCustom}
                         onChange={(e) => setPrefijoCustom(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mt-2"
+                        className="mt-2"
                         aria-label="Escribe el prefijo"
                       />
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <label htmlFor="register-nombre-mostrar" className="block text-xs font-medium text-muted mb-1">Nombre</label>
-                    <input
-                      id="register-nombre-mostrar"
-                      type="text"
-                      value={nombre}
-                      onChange={(e) => setNombre(e.target.value)}
-                      required
-                      className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                    />
-                  </div>
+                  <Input
+                    label="Nombre"
+                    wrapperClassName="flex-1 min-w-0"
+                    id="register-nombre-mostrar"
+                    type="text"
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                    required
+                  />
                 </div>
                 <p className="text-sm text-muted mt-1">Puede ser distinto a tu nombre real — un apodo, un título, como prefieras.</p>
               </div>
@@ -238,41 +228,17 @@ export default function Register() {
                   suya no está en el catálogo, la da de alta desde el mismo
                   selector, sin necesidad de saberse la Clave del Centro de
                   Trabajo. */}
-              <div>
-                <span className="block text-sm font-medium text-muted mb-1">Tu escuela</span>
-                <button
-                  type="button"
-                  onClick={() => setShowSchoolPicker(true)}
-                  disabled={saving}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 rounded-full border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-60"
-                >
-                  <School size={17} className="text-accent flex-shrink-0" />
-                  <span className={`text-sm truncate flex-1 ${plantelLabel ? 'text-on-surface font-medium' : 'text-slate-500'}`}>
-                    {plantelLabel || 'Elige tu escuela'}
-                  </span>
-                  <span className="text-xs text-accent font-semibold flex-shrink-0">{plantelLabel ? 'Cambiar' : 'Buscar'}</span>
-                </button>
-              </div>
+              <BotonEscuela etiqueta={plantelLabel} onClick={() => setShowSchoolPicker(true)} disabled={saving} />
 
-              <button
-                type="submit"
-                disabled={saving || !plantel}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {saving ? <Spinner size="sm" /> : null}
+              <Button type="submit" size="lg" fullWidth busy={saving} disabled={saving || !plantel}>
                 {saving ? 'Creando tu cuenta…' : 'Entrar al panel'}
-              </button>
+              </Button>
             </form>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setStep('cuenta')}
-            disabled={saving}
-            className="w-full text-center text-sm text-muted hover:text-accent mt-4 transition-colors disabled:opacity-60"
-          >
-            ← Atrás
-          </button>
+          <Button variant="quiet" icon={ArrowLeft} fullWidth className="mt-4" onClick={() => setStep('cuenta')} disabled={saving}>
+            Atrás
+          </Button>
         </div>
 
         {showSchoolPicker && (
@@ -295,8 +261,8 @@ export default function Register() {
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-5 space-y-3">
-          <Button variant="secondary" fullWidth onClick={handleGoogleSignUp} disabled={googleLoading}>
-            {googleLoading ? <Spinner size="sm" /> : <GoogleIcon />}
+          <Button variant="secondary" size="lg" fullWidth onClick={handleGoogleSignUp} busy={googleLoading}>
+            {!googleLoading && <GoogleIcon />}
             {googleLoading ? 'Conectando…' : 'Continuar con Google'}
           </Button>
 
@@ -319,31 +285,25 @@ export default function Register() {
               autoComplete="email"
             />
 
-            <div>
-              <label htmlFor="register-password" className="block text-sm font-medium text-muted mb-1">Contraseña</label>
-              <PasswordInput
-                id="register-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-              />
-            </div>
-            <div>
-              <label htmlFor="register-confirm-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
-              <PasswordInput
-                id="register-confirm-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-              />
-            </div>
+            <PasswordInput
+              label="Contraseña"
+              id="register-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              autoComplete="new-password"
+            />
+            <PasswordInput
+              label="Confirmar contraseña"
+              id="register-confirm-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              autoComplete="new-password"
+            />
 
-            <Button type="submit" fullWidth>
+            <Button type="submit" size="lg" fullWidth>
               Continuar
             </Button>
           </form>

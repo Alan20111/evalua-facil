@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../../firebase'
-import Spinner from '../../components/Spinner'
 import { studentEmail } from '../../utils/generate'
-import { Hash, ChevronRight, ArrowLeft, KeyRound, UserPlus } from 'lucide-react'
+import { Hash, ArrowLeft, KeyRound, UserPlus } from 'lucide-react'
+import { Button, IconButton, Input, FILA_LISTA, FlechaFila } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import { useBackHandler } from '../../hooks/useBackHandler'
@@ -263,9 +264,8 @@ export default function StudentLogin() {
             {/* ── Login form ── */}
             <div className="bg-surface-card rounded-card shadow-card p-5">
               <form onSubmit={handleLogin} className="space-y-3">
-                <div>
-                  <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
-                  <input
+                <Input
+                  label="Usuario"
                     id="login-username"
                     type="text"
                     value={username}
@@ -278,33 +278,24 @@ export default function StudentLogin() {
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide "
+                    className="font-mono tracking-wide"
                     maxLength={40}
                   />
-                </div>
-                <div>
-                  <label htmlFor="login-password" className="block text-sm font-medium text-muted mb-1">Contraseña</label>
-                  <PasswordInput
+                <PasswordInput
+                  label="Contraseña"
                     id="login-password"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError('') }}
                     required
-                    className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   />
-                </div>
                 {error && (
                   <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
                     {error}
                   </p>
                 )}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {loading ? <Spinner size="sm" /> : null}
+                <Button type="submit" size="lg" fullWidth busy={loading}>
                   {loading ? 'Entrando…' : 'Iniciar sesión'}
-                </button>
+                </Button>
               </form>
             </div>
 
@@ -339,9 +330,8 @@ export default function StudentLogin() {
               Luego escribe tu usuario y la nueva contraseña que quieres usar.
             </p>
             <form onSubmit={handleRecover} className="space-y-3">
-              <div>
-                <label htmlFor="recover-username" className="block text-sm font-medium text-muted mb-1">Usuario</label>
-                <input
+              <Input
+                  label="Usuario"
                   id="recover-username"
                   type="text"
                   value={resetUsername}
@@ -351,43 +341,31 @@ export default function StudentLogin() {
                   autoCorrect="off"
                   autoCapitalize="none"
                   spellCheck={false}
-                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide "
+                  className="font-mono tracking-wide"
                   maxLength={40}
                 />
-              </div>
-              <div>
-                <label htmlFor="recover-new-pwd" className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
-                <PasswordInput
+              <PasswordInput
+                  label="Nueva contraseña"
                   id="recover-new-pwd"
                   value={resetNewPwd}
                   onChange={(e) => { setResetNewPwd(e.target.value); setResetError('') }}
                   required
-                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                 />
-              </div>
-              <div>
-                <label htmlFor="recover-confirm-pwd" className="block text-sm font-medium text-muted mb-1">Confirmar nueva contraseña</label>
-                <PasswordInput
+              <PasswordInput
+                  label="Confirmar nueva contraseña"
                   id="recover-confirm-pwd"
                   value={resetConfirmPwd}
                   onChange={(e) => { setResetConfirmPwd(e.target.value); setResetError('') }}
                   required
-                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                 />
-              </div>
               {resetError && (
                 <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
                   {resetError}
                 </p>
               )}
-              <button
-                type="submit"
-                disabled={resetLoading}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {resetLoading ? <Spinner size="sm" /> : null}
-                {resetLoading ? 'Restableciendo…' : 'Restablecer contraseña'}
-              </button>
+              <Button type="submit" size="lg" fullWidth busy={resetLoading}>
+                  {resetLoading ? 'Restableciendo…' : 'Restablecer contraseña'}
+                </Button>
             </form>
           </PanelVista>
         )}
@@ -406,7 +384,7 @@ export default function StudentLogin() {
             </ol>
             <label htmlFor="activar-codigo" className="block text-sm font-medium text-muted mb-1">Código de la asignatura</label>
             <form onSubmit={handleActivateWithCode} className="flex gap-2">
-              <input
+              <Input
                 type="text"
                 value={codeInput}
                 onChange={(e) => setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
@@ -416,16 +394,12 @@ export default function StudentLogin() {
                 spellCheck={false}
                 maxLength={8}
                 id="activar-codigo"
-                className="flex-1 min-w-0 px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest "
+                wrapperClassName="flex-1 min-w-0"
+                className="font-mono tracking-widest"
               />
-              <button
-                type="submit"
-                disabled={!codeInput.trim()}
-                className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center gap-1.5 flex-shrink-0"
-              >
-                <Hash size={18} />
+              <Button type="submit" icon={Hash} className="flex-shrink-0" disabled={!codeInput.trim()}>
                 Ir
-              </button>
+              </Button>
             </form>
           </PanelVista>
         )}
@@ -448,11 +422,11 @@ function BotonVista({ icono: Icono, onClick, refBoton, children }) {
       ref={refBoton}
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-5 py-3 rounded-full bg-surface-card shadow-card hover:shadow-card-hover hover:bg-[var(--accent-tint)] text-left transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className={`group ${FILA_LISTA} px-5 bg-surface-card shadow-card hover:shadow-card-hover`}
     >
-      <Icono size={19} className="text-accent flex-shrink-0" aria-hidden="true" />
-      <span className="flex-1 text-sm font-semibold text-on-surface">{children}</span>
-      <ChevronRight size={19} className="text-hint flex-shrink-0" aria-hidden="true" />
+      <Icono size={ICONO.md} className="text-accent flex-shrink-0" aria-hidden="true" />
+      <span className="flex-1 font-semibold">{children}</span>
+      <FlechaFila />
     </button>
   )
 }
@@ -462,14 +436,7 @@ function PanelVista({ titulo, tituloRef, onVolver, children }) {
   return (
     <section aria-labelledby="vista-titulo" className="bg-surface-card rounded-card shadow-card p-5">
       <div className="flex items-center gap-2 mb-3 -ml-2">
-        <button
-          type="button"
-          onClick={onVolver}
-          aria-label="Volver a iniciar sesión"
-          className="p-2 rounded-full text-hint hover:text-accent hover:bg-[var(--accent-tint)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <ArrowLeft size={20} aria-hidden="true" />
-        </button>
+        <IconButton icon={ArrowLeft} label="Volver a iniciar sesión" tooltip={false} onClick={onVolver} />
         <h2 id="vista-titulo" ref={tituloRef} tabIndex={-1} className="text-lg font-bold text-on-surface focus:outline-none">
           {titulo}
         </h2>

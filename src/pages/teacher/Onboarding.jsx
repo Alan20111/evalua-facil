@@ -6,7 +6,6 @@ import { auth, db } from '../../firebase'
 import { syncPublicProfile } from '../../utils/publicProfile'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
 import { GraduationCap, Trash2 } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -15,14 +14,15 @@ import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
 import { PREFIJOS } from '../../utils/prefijos'
 import Select from '../../components/ui/Select'
-import Input from '../../components/ui/Input'
 import ConfirmModal from '../../components/ConfirmModal'
 import { apiUrl } from '../../utils/apiBase'
 import SchoolPicker from '../../components/SchoolPicker'
+import BotonEscuela from '../../components/BotonEscuela'
 import { resolveSchoolSelection } from '../../utils/schoolSelection'
 import { escuelaValida } from '../../utils/escuela'
-import { School } from 'lucide-react'
 import { PUEDE_AUTOFOCUS } from '../../utils/platform'
+import { Input, Button } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 // Ventana para el "presiona de nuevo" de abajo — la misma que usa
 // AndroidBackButton para salir de la app desde la pantalla raíz.
@@ -165,9 +165,9 @@ export default function Onboarding() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
-            <GraduationCap size={32} className="text-white" />
-          </div>
+          <span aria-hidden="true" className="size-20 rounded-full bg-accent flex items-center justify-center mx-auto mb-3 animate-aparece motion-reduce:animate-none">
+  <GraduationCap size={ICONO.xl} className="text-white" />
+</span>
           {/* Un solo título para los dos casos (perfil nuevo o cuenta vieja a
               la que le falta la escuela): el formulario es el mismo y los
               campos ya dicen qué se pide. El párrafo que explicaba por qué se
@@ -275,41 +275,17 @@ export default function Onboarding() {
                 suya no está en el catálogo, la da de alta desde el mismo
                 selector, sin necesidad de saberse la Clave del Centro de
                 Trabajo. */}
-            <div>
-              <span className="block text-sm font-medium text-muted mb-1">Tu escuela</span>
-              <button
-                type="button"
-                onClick={() => setShowSchoolPicker(true)}
-                disabled={saving}
-                className="w-full flex items-center gap-2 px-4 py-2.5 rounded-full border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-60"
-              >
-                <School size={17} className="text-accent flex-shrink-0" />
-                <span className={`text-sm truncate flex-1 ${plantelLabel ? 'text-on-surface font-medium' : 'text-slate-500'}`}>
-                  {plantelLabel || 'Elige tu escuela'}
-                </span>
-                <span className="text-xs text-accent font-semibold flex-shrink-0">{plantelLabel ? 'Cambiar' : 'Buscar'}</span>
-              </button>
-            </div>
+            <BotonEscuela etiqueta={plantelLabel} onClick={() => setShowSchoolPicker(true)} disabled={saving} />
 
-            <button
-              type="submit"
-              disabled={saving || (!plantel && !escuelaValida(userProfile?.escuelaId))}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {saving ? <Spinner size="sm" /> : null}
+            <Button type="submit" size="lg" fullWidth busy={saving} disabled={saving || (!plantel && !escuelaValida(userProfile?.escuelaId))}>
               {saving ? 'Guardando…' : 'Entrar al panel'}
-            </button>
+            </Button>
           </form>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowNoContinuar(true)}
-          disabled={saving}
-          className="w-full text-center text-sm text-muted hover:text-error mt-4 transition-colors disabled:opacity-60"
-        >
+        <Button variant="quiet" fullWidth className="mt-4" onClick={() => setShowNoContinuar(true)} disabled={saving}>
           No continuar
-        </button>
+        </Button>
       </div>
 
       {showSchoolPicker && (
