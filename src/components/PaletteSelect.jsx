@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { Check, Pipette } from 'lucide-react'
 import { isCustomPalette, customPaletteHex, ensureVisibleOnWhite, PALETTES } from '../utils/subjectPalette'
 import { IS_NATIVE_APP } from '../utils/platform'
+import { MUESTRA, REJILLA_MUESTRAS } from '../config/layout'
 
 // El catálogo vive en utils/subjectPalette (lo comparten estos cuadros y las
 // bolitas del banco de íconos); se re-exporta para no romper importaciones.
@@ -26,7 +27,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
     // lo sacaba de su columna (medido: 1.2 px por lado) y era justo el cuadro
     // que se veía desalineado con el ícono de abajo. El hover sí escala,
     // porque es pasajero y no deja nada torcido.
-    <div className={`grid gap-1.5 ${IS_NATIVE_APP ? 'grid-cols-8' : 'grid-cols-6 sm:grid-cols-8'}`}>
+    <div className={REJILLA_MUESTRAS}>
       {PALETTES.map((p) => {
         const selected = !custom && (value || 'default') === p.key
         return (
@@ -36,7 +37,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
             onClick={() => onChange(p.key)}
             data-tooltip={p.label}
             aria-label={p.label}
-            className={`aspect-square w-full rounded flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
+            className={`${MUESTRA} rounded flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
             style={{ backgroundColor: p.color }}
           >
             {selected && <Check size={IS_NATIVE_APP ? 12 : 16} className="text-white" />}
@@ -53,7 +54,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
         data-tooltip="Elige tu propio color (se ajusta solo para notarse sobre blanco)"
         data-tooltip-pos="left"
         aria-label="Color personalizado"
-        className={`aspect-square w-full rounded flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
+        className={`${MUESTRA} rounded flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
         style={custom
           ? { backgroundColor: customColor }
           : { background: 'conic-gradient(#ef4444, #f97316, #eab308, #16a34a, #06b6d4, #2563eb, #9333ea, #ef4444)' }}

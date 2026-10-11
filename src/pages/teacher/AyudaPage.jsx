@@ -2,10 +2,11 @@ import { useState } from 'react'
 import {
   GraduationCap, Users, QrCode, ClipboardList, UserCheck, ArrowRight,
   BarChart2, CalendarCheck, Megaphone, Sparkles, FolderOpen, Coins,
-  ChevronDown, UserCircle, CirclePlay, ChevronRight,
+  ChevronDown, UserCircle, ChevronRight,
 } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
+import YouTubeIcon from '../../components/YouTubeIcon'
 
 // ─── Primeros pasos ──────────────────────────────────────────────────────────
 
@@ -302,7 +303,7 @@ export default function AyudaPage() {
           abajo, pero es un enlace: la flecha apunta a la derecha (lleva a
           otro lado) en vez de girar. */}
       <CanalYouTubeLink className="mb-6 flex items-center gap-3 px-5 py-4 bg-surface-card rounded-card shadow-card hover:bg-[var(--accent-tint)] transition-colors">
-        <CirclePlay size={18} className="text-accent flex-shrink-0" />
+        <YouTubeIcon className="w-5 h-auto flex-shrink-0" />
         <span className="flex-1 text-[15px] font-semibold text-on-surface">Evalúa Fácil en YouTube</span>
         <ChevronRight size={16} className="text-muted flex-shrink-0" />
       </CanalYouTubeLink>

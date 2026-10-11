@@ -663,7 +663,7 @@ export default function StudentDashboard() {
               className="w-full flex items-center gap-2 px-4 py-3 hover:bg-accent-tint transition-colors text-left"
             >
               <Smartphone size={17} className="text-accent flex-shrink-0" />
-              <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">📱 Evalúa Fácil en tu celular</span>
+              <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">Evalúa Fácil en tu celular</span>
               <ChevronDown size={15} className={`text-hint flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-180' : ''}`} />
             </button>
             {showAppInfo && (

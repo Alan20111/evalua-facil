@@ -50,3 +50,14 @@ export const STUDENT_CONTAINER_NARROW = 'max-w-xl mx-auto'
 // espacio disponible... no debe ser una copia de la App"). Se queda de una
 // sola columna angosta en móvil, igual que el resto del módulo.
 export const STUDENT_CONTAINER_WIDE = 'w-full max-w-xl md:max-w-4xl lg:max-w-5xl mx-auto'
+
+// Muestras de selección (colores, bolitas e íconos de la asignatura): celdas
+// de TAMAÑO FIJO (2.5rem ≈ 36 px: caben las 8 de una fila en un teléfono de
+// 375 px) en una rejilla que mete tantas columnas como quepan y las reparte
+// a todo lo ancho (justify-between), sin hueco suelto a la derecha. Antes eran `aspect-square w-full` en 6/8
+// columnas, así que crecían con el ancho de la ventana: al ensanchar los
+// formularios (oct-2026) cada cuadro llegó a medir ~120 px, mucho más que los
+// botones y campos de alrededor. Colores e íconos usan la MISMA rejilla, así
+// que caen en las mismas columnas.
+export const REJILLA_MUESTRAS = 'grid grid-cols-[repeat(auto-fill,2.5rem)] justify-between gap-1.5'
+export const MUESTRA = 'size-10'
