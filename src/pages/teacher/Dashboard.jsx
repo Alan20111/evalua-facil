@@ -411,7 +411,7 @@ export default function TeacherDashboard() {
                       onClick={() => navigate(`/subject/${s.id}`)}
                       className="flex-1 min-w-0 text-left flex items-center gap-2"
                     >
-                      <div data-esq="dash-doc-icono" className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                      <div data-esq="dash-doc-icono" className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                         <SubjectIcon iconKey={s.icon} size={21} className="text-accent" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -522,7 +522,7 @@ export default function TeacherDashboard() {
                   aria-expanded={showWebInfo}
                   className="w-full p-1.5 flex items-center gap-2 text-left hover:bg-[var(--accent-tint)] transition-colors"
                 >
-                  <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                     <Globe size={21} className="text-accent" />
                   </div>
                   <p className="flex-1 min-w-0 font-semibold text-on-surface">🚀 Lleva tu productividad al siguiente nivel</p>
@@ -549,7 +549,7 @@ export default function TeacherDashboard() {
                   aria-expanded={showAppInfo}
                   className="w-full p-1.5 flex items-center gap-2 text-left hover:bg-[var(--accent-tint)] transition-colors"
                 >
-                  <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                     <Smartphone size={21} className="text-accent" />
                   </div>
                   <p className="flex-1 min-w-0 font-semibold text-on-surface">Evalúa Fácil en tu celular</p>
@@ -567,7 +567,7 @@ export default function TeacherDashboard() {
                 pinta en la app). Misma tarjeta que la de arriba, pero esta SÍ
                 navega: por eso la flecha queda fija a la derecha, sin girar. */}
             <CanalYouTubeLink className="w-full mt-3 bg-surface-card rounded-card shadow-card p-1.5 flex items-center gap-2 text-left hover:bg-[var(--accent-tint)] transition-colors">
-              <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+              <div className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                 <YouTubeIcon className="w-6 h-auto" />
               </div>
               <p className="flex-1 min-w-0 font-semibold text-on-surface">Evalúa Fácil en YouTube</p>

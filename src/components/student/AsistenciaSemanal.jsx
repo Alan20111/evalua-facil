@@ -126,7 +126,7 @@ export default function AsistenciaSemanal({
       {/* ── Resumen del parcial ── */}
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
             <span className="text-accent font-bold">{parcial}</span>
           </div>
           <p className="font-semibold text-lg text-on-surface flex-1 min-w-0">Parcial {parcial}</p>

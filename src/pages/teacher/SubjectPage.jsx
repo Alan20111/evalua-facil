@@ -5633,7 +5633,7 @@ export default function SubjectPage() {
             <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
-            <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
               <SubjectIcon iconKey={subject?.icon} size={20} className="text-accent" />
             </div>
             <div className="flex-1 min-w-0">
@@ -5792,7 +5792,7 @@ export default function SubjectPage() {
                   <div className="w-full flex items-center gap-1">
                     <button data-esq="subj-doc-parcial-cabecera" type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
                       className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-medium)] transition-colors text-left">
-                      <div data-esq="subj-doc-parcial-icono" className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
+                      <div data-esq="subj-doc-parcial-icono" className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
                         <span className={`font-bold text-sm ${parcialOculto ? 'text-hint' : 'text-accent'}`}>{p}</span>
                       </div>
                       <div className="text-left min-w-0">
@@ -7312,7 +7312,7 @@ export default function SubjectPage() {
                   </div>
                   <button type="button"
                     onClick={() => openEditStudent(s)}
-                    className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
+                    className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors duration-200"
                     aria-label="Editar estudiante"
                   >
                     <Pencil size={16} />
@@ -8517,7 +8517,7 @@ export default function SubjectPage() {
                     {importSubjects.map((s) => (
                       <button key={s.id} type="button" onClick={() => pickImportSubject(s)}
                         className="w-full flex items-center gap-3 p-3 rounded border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
-                        <div className="w-8 h-8 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                           <SubjectIcon iconKey={s.icon} size={18} className="text-accent" />
                         </div>
                         <div className="min-w-0 flex-1">

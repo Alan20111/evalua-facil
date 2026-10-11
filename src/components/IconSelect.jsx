@@ -58,7 +58,7 @@ export default function IconSelect({ value = 'book', onChange }) {
               onClick={() => onChange(d.key)}
               data-tooltip={d.label}
               aria-label={`Bolita ${d.label.toLowerCase()}`}
-              className={`${MUESTRA} rounded flex items-center justify-center transition-colors ${
+              className={`${MUESTRA} rounded-full flex items-center justify-center transition-colors ${
                 selected
                   ? 'bg-[var(--accent-light)] ring-2 ring-[var(--accent)]'
                   : 'bg-surface-container hover:bg-[var(--accent-tint)]'
@@ -82,7 +82,7 @@ export default function IconSelect({ value = 'book', onChange }) {
               type="button"
               onClick={() => onChange(key)}
               aria-label={key}
-              className={`${MUESTRA} rounded flex items-center justify-center transition-colors ${selected ? 'bg-accent text-white' : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'}`}
+              className={`${MUESTRA} rounded-full flex items-center justify-center transition-colors ${selected ? 'bg-accent text-white' : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'}`}
             >
               <Icon size={IS_NATIVE_APP ? 15 : 19} />
             </button>
@@ -99,7 +99,7 @@ export default function IconSelect({ value = 'book', onChange }) {
           data-tooltip="Ícono propio · sube una imagen cuadrada de 64×64 px (PNG, JPG, WebP o SVG, máx. 1 MB)"
           data-tooltip-pos="left"
           aria-label="Subir ícono propio"
-          className={`${MUESTRA} rounded flex items-center justify-center transition-colors border border-dashed ${isCustom ? 'border-[var(--accent)] bg-[var(--accent-tint)]' : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
+          className={`${MUESTRA} rounded-full flex items-center justify-center transition-colors border border-dashed ${isCustom ? 'border-[var(--accent)] bg-[var(--accent-tint)]' : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
         >
           {uploading
             ? <Loader2 size={IS_NATIVE_APP ? 15 : 19} className="animate-spin" />

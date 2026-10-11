@@ -58,7 +58,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
       <SkipLink />
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top">
         <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded bg-[var(--admin-plane)] flex items-center justify-center text-white text-sm font-bold">
+          <div className="w-9 h-9 rounded-full bg-[var(--admin-plane)] flex items-center justify-center text-white text-sm font-bold">
             AD
           </div>
           <span className="font-semibold text-on-surface text-base">Admin</span>
@@ -85,7 +85,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
           } md:flex flex-col w-64 md:w-[var(--admin-sidebar-w)] h-screen fixed md:sticky top-0 flex-shrink-0 overflow-hidden z-40 md:z-20 bg-[var(--admin-plane)]`}
         >
           <div className="px-5 py-3.5 border-b border-white/10 flex items-center gap-3 bg-[var(--admin-plane-dark)]">
-            <div className="w-10 h-10 rounded bg-white flex items-center justify-center text-sm font-bold flex-shrink-0 text-[var(--admin-plane)]">
+            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-sm font-bold flex-shrink-0 text-[var(--admin-plane)]">
               AD
             </div>
             <div className="min-w-0">

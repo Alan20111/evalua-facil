@@ -539,7 +539,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
           <button
             type="button"
             onClick={() => zoomBy(1.4, { x: VIEW_W / 2, y: VIEW_H / 2 })}
-            className="w-8 h-8 flex items-center justify-center bg-surface-card shadow-card rounded text-on-surface hover:bg-[var(--accent-tint)]"
+            className="w-8 h-8 flex items-center justify-center bg-surface-card shadow-card rounded-full text-on-surface hover:bg-[var(--accent-tint)]"
             aria-label="Acercar"
           >
             <ZoomIn size={16} />
@@ -547,7 +547,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
           <button
             type="button"
             onClick={() => zoomBy(1 / 1.4, { x: VIEW_W / 2, y: VIEW_H / 2 })}
-            className="w-8 h-8 flex items-center justify-center bg-surface-card shadow-card rounded text-on-surface hover:bg-[var(--accent-tint)]"
+            className="w-8 h-8 flex items-center justify-center bg-surface-card shadow-card rounded-full text-on-surface hover:bg-[var(--accent-tint)]"
             aria-label="Alejar"
           >
             <ZoomOut size={16} />
@@ -555,7 +555,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
           <button
             type="button"
             onClick={reset}
-            className="w-8 h-8 flex items-center justify-center bg-surface-card shadow-card rounded text-on-surface hover:bg-[var(--accent-tint)]"
+            className="w-8 h-8 flex items-center justify-center bg-surface-card shadow-card rounded-full text-on-surface hover:bg-[var(--accent-tint)]"
             aria-label="Restablecer vista"
           >
             <RotateCcw size={16} />

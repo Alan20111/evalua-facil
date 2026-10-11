@@ -147,6 +147,8 @@ Color de calificación (`gradeColor`): alta `text-emerald-700` · media `text-am
 
 ### 4.1 Radios — escala cerrada (oct-2026)
 
+**Fondos de ícono y muestras = círculo.** Todo cuadro chico (de `w-5` a `w-16`, ancho = alto) que lleva un ícono, una inicial o un color — fondos de ícono de asignatura, de tarjetas, muestras de color/ícono, botones de ícono — va `rounded-full`, nunca `rounded`. Sus esqueletos también.
+
 Desde oct-2026 docente, admin y alumno comparten las mismas esquinas redondas (antes el docente usaba 8/14px). El rol solo cambia el acento y la escala de letra.
 
 | Token | Docente | Alumno | Uso — **regla** |

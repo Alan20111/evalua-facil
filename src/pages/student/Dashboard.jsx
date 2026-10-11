@@ -538,7 +538,7 @@ export default function StudentDashboard() {
                   onClick={() => navigate(`/alumno/materia/${s.id}`)}
                   className="flex-1 min-w-0 text-left flex items-center gap-3 p-1.5"
                 >
-                  <div data-esq="dash-alu-icono" className="w-12 h-12 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                  <div data-esq="dash-alu-icono" className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                     <SubjectIcon iconKey={s.icon} size={22} className="text-accent" />
                   </div>
                   <div className="flex-1 min-w-0">

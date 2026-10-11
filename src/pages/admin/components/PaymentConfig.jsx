@@ -135,7 +135,7 @@ export default function PaymentConfig() {
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded bg-sky-50 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-full bg-sky-50 flex items-center justify-center">
               <Wallet size={20} className="text-sky-500" />
             </div>
             <div>
@@ -168,7 +168,7 @@ export default function PaymentConfig() {
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center">
+            <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center">
               <Wallet size={20} className="text-accent" />
             </div>
             <div>
@@ -198,7 +198,7 @@ export default function PaymentConfig() {
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded bg-emerald-50 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center">
               <Landmark size={20} className="text-emerald-500" />
             </div>
             <div>
