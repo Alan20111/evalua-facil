@@ -5,7 +5,7 @@ import {
   deleteDoc,
   getDocs,
 } from 'firebase/firestore'
-import { Trash2, X, RotateCcw, Zap, UserX } from 'lucide-react'
+import { Trash2, X, RotateCcw, Zap, UserX, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { httpsCallable } from 'firebase/functions'
 import SearchInput from '../../../components/SearchInput'
 import { db, functions } from '../../../firebase'
@@ -13,11 +13,17 @@ import { useAuth } from '../../../context/AuthContext'
 import { apiUrl } from '../../../utils/apiBase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
+import { SkeletonTable } from '../../../components/ui'
 import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import { normalizeName } from '../../../utils/schoolSelection'
-import { capitalizarNombre } from '../../../utils/nombres'
+import {
+  nombreCompletoDocente,
+  saldoIAVisible,
+  compararNumerico,
+  siguienteOrden,
+} from '../../../utils/suscripcionesTabla'
 import {
   PAYMENT_STATUS,
   calcDaysRemaining,
@@ -41,6 +47,11 @@ const ALTO_TABLA = 'calc(100vh - 290px)'
 
 const WIDTHS_KEY = 'admin-suscripciones-cols-v6'
 
+// Cuánto se espera la respuesta de último acceso antes de pintar la tabla con
+// el orden de respaldo. Es un tope de error, no una pausa: si la respuesta
+// llega antes, la tabla sale en cuanto llega.
+const ACCESOS_TIMEOUT_MS = 15000
+
 // Columnas. `filtro` = tipo de caja bajo el título:
 //   'texto' → se escribe y filtra, con sugerencias de los valores que todavía
 //             cumplen (sirve con cientos de escuelas)
@@ -50,7 +61,6 @@ const WIDTHS_KEY = 'admin-suscripciones-cols-v6'
 const COLS = [
   { key: 'num', label: 'No.', w: 65, align: 'right' },
   { key: 'docente', label: 'Nombre del docente', w: 185 },
-  { key: 'usuario', label: 'Usuario', w: 130 },
   { key: 'correo', label: 'Correo electrónico', w: 200 },
   // Ubicación del DOCENTE (no de la escuela): se resuelve desde su código
   // postal al completar el perfil y se guarda ya desglosada en users/{uid}
@@ -104,7 +114,7 @@ const COLS = [
     label: 'Saldo IA',
     w: 110,
     align: 'right',
-    ayuda: 'Saldo TOTAL de créditos de IA del docente hoy — regalo, compras y ajustes juntos, no solo el regalo (leído de iaCreditos en tiempo de carga). Muestra 0 si no tiene doc en iaCreditos; guion solo en cuentas eliminadas.',
+    ayuda: 'Saldo TOTAL de créditos de IA del docente hoy — regalo, compras y ajustes juntos, no solo el regalo (leído de iaCreditos en tiempo de carga). Guion: el docente todavía no activa sus créditos de bienvenida, la información aún se está cargando, o la cuenta ya no existe. Un 0 significa saldo cero confirmado.',
   },
   {
     key: 'sinAcceder',
@@ -112,7 +122,8 @@ const COLS = [
     w: 120,
     align: 'right',
     wrap: true,
-    ayuda: 'Cuántos días lleva el docente sin iniciar sesión (lo que Firebase Auth registra como su último acceso, no una fecha que guardemos nosotros). En ámbar a partir de 30 días y en rojo a partir de 60. Guion: nunca ha entrado, o su cuenta ya no existe.',
+    ordenable: true,
+    ayuda: 'Cuántos días lleva el docente sin iniciar sesión (lo que Firebase Auth registra como su último acceso, no una fecha que guardemos nosotros). En ámbar a partir de 30 días y en rojo a partir de 60. Guion: nunca ha entrado, o su cuenta ya no existe. Clic en el título para ordenar: de menos a más días, de más a menos, y otro clic quita el orden.',
   },
   {
     key: 'ultimoPago',
@@ -173,13 +184,6 @@ function contarEstudiantesPorDocente(students, subjectsMap) {
 const isoLocal = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-// El docente se muestra por su nombre real; si todavía no completó su perfil
-// queda el usuario o el correo, que es lo único que hay.
-function teacherName(teacher) {
-  // El username va sin capitalizar: es identificador (CBTIS255-01), no nombre.
-  return capitalizarNombre(teacher?.nombreMostrar || teacher?.nombre) || teacher?.username || ''
-}
-
 // ¿Esta fila pasa los filtros? `excepto` deja fuera un campo a propósito, para
 // calcular qué sugerir en ESA columna sin que su propio texto a medio escribir
 // recorte la lista.
@@ -190,7 +194,7 @@ function pasaFiltros(r, filtros, search, excepto) {
   if (t('ciudad') && !r.buscarCiudad.includes(t('ciudad'))) return false
   if (t('escuela') && !r.buscarEscuela.includes(t('escuela'))) return false
   if (excepto !== 'alta' && filtros.alta && r.altaISO !== filtros.alta) return false
-  // La caja de arriba busca en TODO el renglón (docente, usuario, correo,
+  // La caja de arriba busca en TODO el renglón (docente, correo,
   // ciudad, escuela, plan, situación, fechas…), no solo en el nombre:
   // quien escribe "guanajuato" o "vencida" ahí espera encontrarlo.
   const q = normalizeName(search)
@@ -336,9 +340,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   // metadata de OTRO usuario. Si falla, la columna se queda en guion: es un
   // dato de apoyo, no debe tumbar la tabla.
   const [accesos, setAccesos] = useState({})
+  // `true` cuando la petición de último acceso TERMINÓ (con éxito o con fallo).
+  // El orden de la tabla depende de las fechas de alta que trae esa respuesta;
+  // pintar filas antes mostraba un orden provisional que luego se reacomodaba.
+  const [accesosResueltos, setAccesosResueltos] = useState(false)
+  const [orden, setOrden] = useState(null)
   const [creadoEnMap, setCreadoEnMap] = useState({})
   const [creditosMap, setCreditosMap] = useState({})
+  const [creditosListos, setCreditosListos] = useState(false)
   const [regaloMap, setRegaloMap] = useState({})
+  const [regaloListo, setRegaloListo] = useState(false)
   // `true` solo cuando las reglas negaron la lectura, para que la columna lo
   // diga en vez de fingir que nadie tiene regalo.
   const [regaloSinPermiso, setRegaloSinPermiso] = useState(false)
@@ -350,20 +361,45 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   useEffect(() => {
     if (!currentUser || teachers.length === 0) return undefined
     let cancelado = false
+    // `agotado`: pasó el tope de espera. La tabla ya se pintó con el orden de
+    // respaldo, así que una respuesta tardía se ignora: aplicarla reacomodaría
+    // las filas frente al usuario, justo lo que esta espera evita.
+    let agotado = false
+    const controlador = new AbortController()
+    const temporizador = setTimeout(() => {
+      agotado = true
+      controlador.abort()
+      setAccesosResueltos(true)
+    }, ACCESOS_TIMEOUT_MS)
     currentUser.getIdToken()
       .then((token) => fetch(apiUrl('/api/admin/last-access'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ uids: teachers.map((t) => t.id) }),
+        signal: controlador.signal,
       }))
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!cancelado && data?.accesos) setAccesos(data.accesos)
-        if (!cancelado && data?.creadoEn) setCreadoEnMap(data.creadoEn)
+        if (cancelado || agotado) return
+        if (data?.accesos) setAccesos(data.accesos)
+        if (data?.creadoEn) setCreadoEnMap(data.creadoEn)
       })
       .catch(() => {})
-    return () => { cancelado = true }
+      .finally(() => {
+        clearTimeout(temporizador)
+        if (!cancelado) setAccesosResueltos(true)
+      })
+    return () => {
+      cancelado = true
+      clearTimeout(temporizador)
+      controlador.abort()
+    }
   }, [currentUser, teachers])
+
+  // Una vez resuelta, nunca vuelve a "cargando": «Actualizar» conserva la tabla
+  // en pantalla mientras llegan los datos nuevos. Sin docentes o sin sesión no
+  // hay nada que esperar.
+  const accesosListos = accesosResueltos || teachers.length === 0 || !currentUser
 
   // Créditos de IA por docente — una lectura por sesión del panel, igual que
   // el resto de los datos de apoyo de la tabla. Se guarda el documento
@@ -377,6 +413,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         const m = {}
         snap.forEach((d) => { m[d.id] = d.data() })
         setCreditosMap(m)
+        setCreditosListos(true)
       })
       .catch(() => {})
   }, [teachers])
@@ -397,8 +434,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         snap.forEach((d) => { m[d.id] = d.data() })
         setRegaloMap(m)
         setRegaloSinPermiso(false)
+        setRegaloListo(true)
       })
-      .catch(() => setRegaloSinPermiso(true))
+      .catch(() => { setRegaloSinPermiso(true); setRegaloListo(true) })
   }, [teachers])
 
   // Docentes con al menos una compra de créditos ya acreditada: a partir de
@@ -455,8 +493,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       // effectiveVencimiento) en vez de confiar en el campo guardado.
       const vencValor = sub ? effectiveVencimiento(sub) : null
       const venc = toDate(vencValor)
-      const docente = teacherName(teacher) || '—'
-      const usuario = teacher?.username || '—'
+      const docente = nombreCompletoDocente(teacher) || '—'
       const correo = teacher?.email || '—'
       const pago = ultimoPagoPorDocente[teacher?.id]
       const ultimoPago = pago
@@ -486,7 +523,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         id: sub ? (sub.id ?? `baja-${teacher?.id}`) : `sin-suscripcion-${teacher?.id}`,
         sub,
         docente,
-        usuario,
         correo,
         codigoPostal,
         estado: estadoUbicacion,
@@ -501,7 +537,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         // Todo el renglón en una sola cadena para la caja de búsqueda de
         // arriba, que busca por cualquier motivo (ciudad, escuela, nombre…).
         buscarTodo: normalizeName(
-          [docente, usuario, correo, codigoPostal, estadoUbicacion, ciudad, escuela,
+          [docente, correo, codigoPostal, estadoUbicacion, ciudad, escuela,
             String(estudiantes), altaTexto, vencTexto, ultimoPago].join(' ')
         ),
         alta: altaTexto,
@@ -548,14 +584,18 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     return todasLasFilas.map((r) => ({ ...r, rank: rankMap.get(r.id) || 0 }))
   }, [stats, teachers, teachersMap, accesos, creadoEnMap, estudiantesPorDocente])
 
-  // Orden fijo: la suscripción más reciente hasta arriba; dentro del mismo día
-  // desempata el nombre del docente.
+  // Orden predeterminado: la suscripción más reciente hasta arriba; dentro del
+  // mismo día desempata el nombre del docente. Si se ordena por una columna, ese
+  // criterio manda y el predeterminado queda como desempate.
   const filtered = useMemo(
     () =>
       rows
         .filter((r) => pasaFiltros(r, filtros, search, null))
-        .sort((a, b) => b.rank - a.rank || a.docente.localeCompare(b.docente, 'es')),
-    [rows, filtros, search]
+        .sort((a, b) =>
+          (orden ? compararNumerico(a[orden.key], b[orden.key], orden.dir) : 0) ||
+          b.rank - a.rank ||
+          a.docente.localeCompare(b.docente, 'es')),
+    [rows, filtros, search, orden]
   )
 
   // Sugerencias por columna: los valores que TODAVÍA cumplen con lo demás que
@@ -578,6 +618,11 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
 
   function setFiltro(campo, valor) {
     setFiltros((f) => ({ ...f, [campo]: valor }))
+    setLimit(PAGE)
+  }
+
+  function alternarOrden(key) {
+    setOrden((o) => siguienteOrden(o, key))
     setLimit(PAGE)
   }
 
@@ -713,21 +758,40 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
           <thead>
             <tr className="text-left text-[11.5px] tracking-wide uppercase">
               {COLS.map((col) => {
-                const { key, label, filtro, align, ayuda, wrap } = col
+                const { key, label, filtro, align, ayuda, wrap, ordenable } = col
+                const ordenActivo = ordenable && orden?.key === key ? orden.dir : null
                 const filtrada = filtro && filtros[key] !== ''
                 return (
                   <th
                     key={key}
+                    aria-sort={ordenable ? (ordenActivo === 'asc' ? 'ascending' : ordenActivo === 'desc' ? 'descending' : 'none') : undefined}
                     className={`sticky top-0 z-10 relative px-3 py-2 align-top select-none transition-colors ${
                       filtrada ? 'bg-accent-light text-accent' : 'bg-surface text-accent'
                     }`}
                   >
-                    <span
-                      title={ayuda}
-                      className={`block font-semibold ${wrap ? 'whitespace-normal leading-tight' : 'truncate'} ${align === 'right' ? 'text-right' : ''} ${ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}`}
-                    >
-                      {label}
-                    </span>
+                    {(() => {
+                      const titulo = (
+                        <span
+                          title={ayuda}
+                          className={`block font-semibold ${wrap ? 'whitespace-normal leading-tight' : 'truncate'} ${align === 'right' ? 'text-right' : ''} ${ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}`}
+                        >
+                          {label}
+                        </span>
+                      )
+                      if (!ordenable) return titulo
+                      const Flecha = ordenActivo === 'asc' ? ArrowUp : ordenActivo === 'desc' ? ArrowDown : ArrowUpDown
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => alternarOrden(key)}
+                          aria-label={`Ordenar por ${label}`}
+                          className="flex w-full items-start gap-1 text-left uppercase tracking-wide focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                        >
+                          <span className="min-w-0 flex-1">{titulo}</span>
+                          <Flecha size={14} className={`mt-px shrink-0 ${ordenActivo ? '' : 'opacity-50'}`} aria-hidden="true" />
+                        </button>
+                      )
+                    })()}
 
                     {filtro && (
                       <CeldaFiltro
@@ -762,7 +826,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {visible.length === 0 ? (
+            {!accesosListos ? (
+              // Las fechas de alta (y con ellas el orden y la columna No.)
+              // llegan de la petición de último acceso: hasta que termina no se
+              // pintan filas, para no enseñar un orden provisional.
+              <tr>
+                <td colSpan={COLS.length} className="px-4 py-4">
+                  <SkeletonTable rows={8} cols={7} etiqueta="Cargando suscripciones…" />
+                </td>
+              </tr>
+            ) : visible.length === 0 ? (
               <tr>
                 <td colSpan={COLS.length} className="px-4 py-8 text-center text-hint">
                   {rows.length === 0
@@ -777,7 +850,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     {r.rank}
                   </td>
                   <td className="px-3 py-2 font-medium text-on-surface truncate" title={r.docente}>{r.docente}</td>
-                  <td className="px-3 py-2 font-mono text-xs font-semibold text-on-surface truncate">{r.usuario}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.correo}>{r.correo}</td>
                   <td className="px-3 py-2 text-muted truncate tabular-nums">{r.codigoPostal}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.estado}>{r.estado}</td>
@@ -798,9 +870,19 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     />
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-on-surface">
-                    {r.uid && !r.sub?.cuentaEliminada
-                      ? formatCreditos(creditosMap[r.uid]?.saldo ?? 0)
-                      : '—'}
+                    {(() => {
+                      const saldo = saldoIAVisible({
+                        uid: r.uid,
+                        cuentaEliminada: !!r.sub?.cuentaEliminada,
+                        creditosListos,
+                        regaloListo,
+                        regaloSinPermiso,
+                        registro: regaloMap[r.uid],
+                        creditos: creditosMap[r.uid],
+                        tieneComprasAcreditadas: comprasAcreditadas.has(r.uid),
+                      })
+                      return saldo === null ? '—' : formatCreditos(saldo)
+                    })()}
                   </td>
                   {/* Mismo criterio de lectura rápida que la columna Días:
                       lo que hay que cazar de un vistazo va en color. A los 60
