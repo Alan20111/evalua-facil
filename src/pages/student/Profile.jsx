@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { getDoc, doc, updateDoc } from 'firebase/firestore'
 import {
   EmailAuthProvider, reauthenticateWithCredential, updatePassword,
@@ -14,7 +14,9 @@ import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus, AlertTriangle, Cloud, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus, AlertTriangle, Cloud, User, Settings, Bell, Lightbulb, ShieldCheck } from 'lucide-react'
+import { Pestanas, SubPestanas, GrupoAjustes, FilaAjuste, FlechaAjuste, FILA_AJUSTE } from '../../components/perfil/Pestanas'
+import AppQRButton from '../../components/AppQRButton'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModal'
@@ -36,9 +38,15 @@ const FOTO_CAMARA = IS_NATIVE_APP ? 24 : 18
 // Don't Make Me Think: cero redundancia): identidad + foto, usuario, cambio de
 // contraseña y correo de recuperación. Las asignaturas, notificaciones y
 // agenda tienen su casa en el dashboard; cerrar sesión, en el layout.
+const SECCIONES = [
+  { id: 'perfil', etiqueta: 'Perfil', icono: User },
+  { id: 'ajustes', etiqueta: 'Ajustes', icono: Settings },
+]
+
 export default function StudentProfile() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
   const location = useLocation()
+  const [params, setParams] = useSearchParams()
   // Viene de login cuando el alumno entró con una contraseña de reset activa.
   const [debeEstablecerContrasena, setDebeEstablecerContrasena] = useState(
     !!location.state?.debeEstablecerContrasena
@@ -214,6 +222,22 @@ export default function StudentProfile() {
   const photoURL = userProfile?.photoURL || studentInfo?.photoURL
   const username = studentInfo?.username || userProfile?.username || ''
 
+  // Pestañas en la URL (?seccion=&sub=). «Cuenta» solo existe cuando ya no
+  // tiene asignaturas (ver el bloque «Mi cuenta»). Si llegó a fijar su
+  // contraseña, se abre directo en esa subpestaña.
+  const subsecciones = [
+    { id: 'usuario', etiqueta: 'Usuario' },
+    { id: 'contrasena', etiqueta: 'Contraseña' },
+    ...(enrollments.length === 0 ? [{ id: 'cuenta', etiqueta: 'Cuenta' }] : []),
+  ]
+  const subPorDefecto = debeEstablecerContrasena ? 'contrasena' : 'usuario'
+  const seccion = SECCIONES.some((x) => x.id === params.get('seccion')) ? params.get('seccion') : 'perfil'
+  const sub = subsecciones.some((x) => x.id === params.get('sub')) ? params.get('sub') : subPorDefecto
+  const elegir = (sec, sb = subPorDefecto) => setParams(
+    sec === 'perfil' ? (sb === subPorDefecto ? {} : { sub: sb }) : { seccion: sec },
+    { replace: true },
+  )
+
   if (loading) return (
     <StudentLayout>
       <SkeletonForm fields={4} className="p-4 sm:p-6 max-w-xl mx-auto" />
@@ -255,191 +279,207 @@ export default function StudentProfile() {
           <h1 className="text-xl font-bold text-on-surface">Mi perfil</h1>
         </div>
 
-        {/* ── Identidad ── */}
-        <div className="bg-surface-card rounded-card shadow-card p-4 mb-4 flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className={`relative ${FOTO} rounded-full flex-shrink-0 group focus:outline-none`}
-            data-tooltip="Cambiar foto"
-            aria-label="Cambiar foto"
-          >
-            <div className={`${FOTO} rounded-full bg-accent-tint overflow-hidden flex items-center justify-center`}>
-              {uploadingPhoto ? (
-                <Spinner size="sm" />
-              ) : photoURL ? (
-                <img src={photoURL} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className={`${FOTO_INICIAL} font-bold text-accent`}>{initials}</span>
-              )}
-            </div>
-            <span className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              <Camera size={FOTO_CAMARA} className="text-white" />
-            </span>
-          </button>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-on-surface leading-snug">{displayName}</p>
-            {schoolName && <p className="text-sm text-muted truncate mt-0.5">{schoolName}</p>}
-            <p className="text-xs text-hint mt-1">Toca la foto para cambiarla</p>
-            {/* "Sin foto" solo aparece si hay foto que quitar — un botón para
-                borrar algo que no existe nomás hace dudar. */}
-            {photoURL && (
+        {/* Dos pestañas (oct-2026), igual que el perfil del docente: Perfil
+            (con subpestañas) y Ajustes, que junta lo que antes vivía suelto en
+            la barra lateral (Mi espacio, Tips, QR) y las notificaciones. */}
+        <div className="space-y-4">
+        <Pestanas opciones={SECCIONES} valor={seccion} onCambio={(id) => elegir(id)} etiqueta="Secciones de mi perfil" />
+
+        <div key={seccion} role="tabpanel" className="space-y-4 animate-pagina motion-reduce:animate-none">
+          {seccion === 'perfil' && (<>
+            {/* ── Identidad ── */}
+            <div className="bg-surface-card rounded-card shadow-card p-4 flex items-center gap-4">
               <button
                 type="button"
-                onClick={() => setConfirm({
-                  title: 'Quedarte sin foto',
-                  message: 'Se borra tu foto del sistema — no queda guardada en ningún lado. Vas a aparecer con tu inicial, y puedes subir otra cuando quieras. ¿La quitamos?',
-                  confirmLabel: 'Sí, quitar mi foto',
-                  danger: true,
-                  onConfirm: quitarFoto,
-                })}
-                disabled={quitandoFoto}
-                className="mt-1 text-xs font-semibold text-accent hover:underline disabled:opacity-60"
+                onClick={() => fileInputRef.current?.click()}
+                className={`relative ${FOTO} rounded-full flex-shrink-0 group focus:outline-none`}
+                data-tooltip="Cambiar foto"
+                aria-label="Cambiar foto"
               >
-                {quitandoFoto ? 'Quitando…' : 'Sin foto'}
+                <div className={`${FOTO} rounded-full bg-accent-tint overflow-hidden flex items-center justify-center`}>
+                  {uploadingPhoto ? (
+                    <Spinner size="sm" />
+                  ) : photoURL ? (
+                    <img src={photoURL} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className={`${FOTO_INICIAL} font-bold text-accent`}>{initials}</span>
+                  )}
+                </div>
+                <span className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <Camera size={FOTO_CAMARA} className="text-white" />
+                </span>
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* ── Mi espacio ── Solo en el teléfono (web): en escritorio su casa es
-            la barra lateral, y la app nativa no lo tiene. */}
-        {!IS_NATIVE_APP && (
-          <button
-            type="button"
-            onClick={() => navigate('/alumno/mi-espacio')}
-            className="md:hidden w-full bg-surface-card rounded-card shadow-card p-4 mb-4 flex items-center gap-3 text-left hover:bg-[var(--accent-tint)] transition-colors"
-          >
-            <Cloud size={20} className="text-accent flex-shrink-0" />
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-on-surface">Mi espacio</span>
-              <span className="block text-xs text-muted mt-0.5">Guarda tus archivos personales aquí</span>
-            </span>
-            <ChevronRight size={18} className="text-muted flex-shrink-0" />
-          </button>
-        )}
-
-        {/* ── Datos de acceso ── */}
-        <div className="bg-surface-card rounded-card shadow-card p-4 mb-4">
-          <h2 className="text-sm font-semibold text-on-surface mb-3">Datos de acceso</h2>
-          <p className="text-xs text-muted mb-1.5">
-            Entras a Evalúa Fácil con este usuario, y <strong>solo con este</strong>. Te lo dio tu
-            maestro y no cambia nunca:
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 px-3 py-2 rounded bg-surface border border-outline-variant text-sm font-mono text-on-surface truncate">
-              {username}
-            </code>
-            <button
-              type="button"
-              onClick={handleCopyUsername}
-              className="p-2.5 rounded-full border border-outline-variant text-muted hover:bg-accent-tint hover:text-accent transition-colors flex-shrink-0"
-              aria-label="Copiar usuario"
-              data-tooltip={copied ? 'Copiado' : 'Copiar'}
-            >
-              {copied ? <Check size={17} className="text-green-600" /> : <Copy size={17} />}
-            </button>
-          </div>
-          <p className="text-xs text-hint mt-2">
-            Tu nombre lo administra tu maestro — si hay un error, pídele que lo corrija.
-          </p>
-        </div>
-
-        {/* ── Cambiar contraseña ── */}
-        <div className="bg-surface-card rounded-card shadow-card p-4 mb-4">
-          <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
-            <KeyRound size={16} className="text-accent" />
-            {debeEstablecerContrasena ? 'Establece tu contraseña personal' : 'Cambiar contraseña'}
-          </h2>
-
-          {debeEstablecerContrasena && (
-            <div className="mb-3 rounded border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
-              <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-on-surface leading-relaxed">
-                <strong className="text-amber-700">Tu maestro restableció tu contraseña.</strong>{' '}
-                Ingresa la contraseña de reset que te dio como «Contraseña actual», luego elige
-                una nueva contraseña personal.
-              </p>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-on-surface leading-snug">{displayName}</p>
+                {schoolName && <p className="text-sm text-muted truncate mt-0.5">{schoolName}</p>}
+                <p className="text-xs text-hint mt-1">Toca la foto para cambiarla</p>
+                {/* "Sin foto" solo aparece si hay foto que quitar — un botón para
+                    borrar algo que no existe nomás hace dudar. */}
+                {photoURL && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirm({
+                      title: 'Quedarte sin foto',
+                      message: 'Se borra tu foto del sistema — no queda guardada en ningún lado. Vas a aparecer con tu inicial, y puedes subir otra cuando quieras. ¿La quitamos?',
+                      confirmLabel: 'Sí, quitar mi foto',
+                      danger: true,
+                      onConfirm: quitarFoto,
+                    })}
+                    disabled={quitandoFoto}
+                    className="mt-1 text-xs font-semibold text-accent hover:underline disabled:opacity-60"
+                  >
+                    {quitandoFoto ? 'Quitando…' : 'Sin foto'}
+                  </button>
+                )}
+              </div>
             </div>
-          )}
 
-          <form onSubmit={handleChangePassword} className="space-y-3">
-            <PasswordInput
-              value={passActual}
-              onChange={(e) => setPassActual(e.target.value)}
-              aria-label={debeEstablecerContrasena ? 'Contraseña de reset (la que te dio tu maestro)' : 'Contraseña actual'}
-              autoComplete="current-password"
-              required
-              className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-            />
-            <PasswordInput
-              value={passNueva}
-              onChange={(e) => setPassNueva(e.target.value)}
-              aria-label="Contraseña nueva (mínimo 8 caracteres)"
-              autoComplete="new-password"
-              required
-              className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-            />
-            <PasswordInput
-              value={passConfirm}
-              onChange={(e) => setPassConfirm(e.target.value)}
-              aria-label="Repite la contraseña nueva"
-              autoComplete="new-password"
-              required
-              className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-            />
-            <button
-              type="submit"
-              disabled={savingPass || !passActual || !passNueva || !passConfirm}
-              className="w-full py-2.5 rounded-full bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {savingPass ? <Spinner size="sm" /> : 'Guardar contraseña nueva'}
-            </button>
-          </form>
-          {/* Aquí vivía "Correo de recuperación". Se quitó: guardar el correo
-              de un menor solo se justifica si de verdad le sirve para
-              recuperar su cuenta, y esa recuperación por correo no existe. El
-              único camino es su maestro. */}
-          {!debeEstablecerContrasena && (
-            <div className="mt-3 rounded border border-red-300 bg-red-50 p-3 flex items-start gap-2">
-              <AlertTriangle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-on-surface leading-relaxed">
-                <strong className="text-red-700">SUGERENCIA MUY IMPORTANTE:</strong>{' '}
-                Anota tu contraseña en un lugar seguro, es tu responsabilidad cuidarla.
-                Si la pierdes, pídele a tu Maestra o Maestro que restablezca tu contraseña.
-              </p>
+            <SubPestanas opciones={subsecciones} valor={sub} onCambio={(id) => elegir('perfil', id)} etiqueta="Partes del perfil" />
+
+            <div key={sub} role="tabpanel" className="space-y-4 animate-aparece motion-reduce:animate-none">
+              {sub === 'usuario' && (<>
+                {/* ── Datos de acceso ── */}
+                <div className="bg-surface-card rounded-card shadow-card p-4">
+                  <h2 className="text-sm font-semibold text-on-surface mb-3">Datos de acceso</h2>
+                  <p className="text-xs text-muted mb-1.5">
+                    Entras a Evalúa Fácil con este usuario, y <strong>solo con este</strong>. Te lo dio tu
+                    maestro y no cambia nunca:
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-3 py-2 rounded bg-surface border border-outline-variant text-sm font-mono text-on-surface truncate">
+                      {username}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={handleCopyUsername}
+                      className="p-2.5 rounded-full border border-outline-variant text-muted hover:bg-accent-tint hover:text-accent transition-colors flex-shrink-0"
+                      aria-label="Copiar usuario"
+                      data-tooltip={copied ? 'Copiado' : 'Copiar'}
+                    >
+                      {copied ? <Check size={17} className="text-green-600" /> : <Copy size={17} />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-hint mt-2">
+                    Tu nombre lo administra tu maestro — si hay un error, pídele que lo corrija.
+                  </p>
+                </div>
+              </>)}
+              {sub === 'contrasena' && (<>
+                {/* ── Cambiar contraseña ── */}
+                <div className="bg-surface-card rounded-card shadow-card p-4">
+                  <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
+                    <KeyRound size={16} className="text-accent" />
+                    {debeEstablecerContrasena ? 'Establece tu contraseña personal' : 'Cambiar contraseña'}
+                  </h2>
+
+                  {debeEstablecerContrasena && (
+                    <div className="mb-3 rounded border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
+                      <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-on-surface leading-relaxed">
+                        <strong className="text-amber-700">Tu maestro restableció tu contraseña.</strong>{' '}
+                        Ingresa la contraseña de reset que te dio como «Contraseña actual», luego elige
+                        una nueva contraseña personal.
+                      </p>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleChangePassword} className="space-y-3">
+                    <PasswordInput
+                      value={passActual}
+                      onChange={(e) => setPassActual(e.target.value)}
+                      aria-label={debeEstablecerContrasena ? 'Contraseña de reset (la que te dio tu maestro)' : 'Contraseña actual'}
+                      autoComplete="current-password"
+                      required
+                      className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    />
+                    <PasswordInput
+                      value={passNueva}
+                      onChange={(e) => setPassNueva(e.target.value)}
+                      aria-label="Contraseña nueva (mínimo 8 caracteres)"
+                      autoComplete="new-password"
+                      required
+                      className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    />
+                    <PasswordInput
+                      value={passConfirm}
+                      onChange={(e) => setPassConfirm(e.target.value)}
+                      aria-label="Repite la contraseña nueva"
+                      autoComplete="new-password"
+                      required
+                      className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    />
+                    <button
+                      type="submit"
+                      disabled={savingPass || !passActual || !passNueva || !passConfirm}
+                      className="w-full py-2.5 rounded-full bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                    >
+                      {savingPass ? <Spinner size="sm" /> : 'Guardar contraseña nueva'}
+                    </button>
+                  </form>
+                  {/* Aquí vivía "Correo de recuperación". Se quitó: guardar el correo
+                      de un menor solo se justifica si de verdad le sirve para
+                      recuperar su cuenta, y esa recuperación por correo no existe. El
+                      único camino es su maestro. */}
+                  {!debeEstablecerContrasena && (
+                    <div className="mt-3 rounded border border-red-300 bg-red-50 p-3 flex items-start gap-2">
+                      <AlertTriangle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-on-surface leading-relaxed">
+                        <strong className="text-red-700">SUGERENCIA MUY IMPORTANTE:</strong>{' '}
+                        Anota tu contraseña en un lugar seguro, es tu responsabilidad cuidarla.
+                        Si la pierdes, pídele a tu Maestra o Maestro que restablezca tu contraseña.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>)}
+              {sub === 'cuenta' && (<>
+                {/* ── Mi cuenta ──
+                  Toda la sección aparece SOLO si ya no está inscrito en ninguna
+                  asignatura. Mientras tenga clases no hay nada que ofrecerle aquí ni
+                  nada que explicarle: no tiene que pedirle la baja a nadie, y si
+                  solo quiere dejar de usar Evalúa Fácil, desinstala la app como
+                  cualquier otra. Contarle por qué "todavía no puede" era hacerlo
+                  pensar en un problema que no tiene. */}
+                <div className="bg-surface-card rounded-card shadow-card p-4">
+                  <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
+                    <UserMinus size={16} className="text-accent" /> Mi cuenta
+                  </h2>
+                  <p className="text-xs text-muted mb-2 leading-relaxed">
+                    Ya no estás inscrito en ninguna asignatura, así que puedes eliminar tu cuenta.
+                    Se borra tu usuario, tu foto y tus notificaciones, y no se puede deshacer.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowEliminar(true)}
+                    className="w-full py-2.5 rounded-full border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={16} /> Eliminar mi cuenta
+                  </button>
+                </div>
+              </>)}
             </div>
-          )}
+          </>)}
+          {seccion === 'ajustes' && (<>
+            <GrupoAjustes titulo="Herramientas">
+              {/* Mi espacio no existe en la app nativa. */}
+              {!IS_NATIVE_APP && <FilaAjuste to="/alumno/mi-espacio" icono={Cloud} titulo="Mi espacio" detalle="Guarda tus archivos personales aquí" />}
+              <AppQRButton className={`${FILA_AJUSTE} [&>svg:first-child]:text-accent`} iconSize={19}>
+                <span className="flex-1 font-semibold">QR de Evalúa Fácil</span>
+                <FlechaAjuste />
+              </AppQRButton>
+              <FilaAjuste to="/alumno/notificaciones" icono={Bell} titulo="Notificaciones" />
+            </GrupoAjustes>
+            <GrupoAjustes titulo="Ayuda">
+              <FilaAjuste to="/alumno/tips" icono={Lightbulb} titulo="Tips" />
+            </GrupoAjustes>
+            <GrupoAjustes titulo="Acerca de">
+              <FilaAjuste to="/privacidad" icono={ShieldCheck} titulo="Aviso de privacidad" />
+              <div className="px-3 py-3">
+                <AppVersionInfo />
+              </div>
+            </GrupoAjustes>
+          </>)}
         </div>
-
-        {/* ── Mi cuenta ──
-            Toda la sección aparece SOLO si ya no está inscrito en ninguna
-            asignatura. Mientras tenga clases no hay nada que ofrecerle aquí ni
-            nada que explicarle: no tiene que pedirle la baja a nadie, y si
-            solo quiere dejar de usar Evalúa Fácil, desinstala la app como
-            cualquier otra. Contarle por qué "todavía no puede" era hacerlo
-            pensar en un problema que no tiene. */}
-        {enrollments.length === 0 && (
-          <div className="bg-surface-card rounded-card shadow-card p-4 mt-4">
-            <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
-              <UserMinus size={16} className="text-accent" /> Mi cuenta
-            </h2>
-            <p className="text-xs text-muted mb-2 leading-relaxed">
-              Ya no estás inscrito en ninguna asignatura, así que puedes eliminar tu cuenta.
-              Se borra tu usuario, tu foto y tus notificaciones, y no se puede deshacer.
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowEliminar(true)}
-              className="w-full py-2.5 rounded-full border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
-            >
-              <Trash2 size={16} /> Eliminar mi cuenta
-            </button>
-          </div>
-        )}
-
-        <div className="mt-3 text-center flex flex-col items-center">
-          <AppVersionInfo />
         </div>
       </div>
 
