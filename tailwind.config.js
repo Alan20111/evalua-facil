@@ -50,6 +50,31 @@ const formaApp = ({ addComponents, addBase }) => {
       animation: 'hoja-sube 350ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
     },
   },
+  // Hojas de FORMULARIO (oct-2026): toda hoja más ancha que max-w-sm es un
+  // formulario (Nueva asignatura, actividad, evento…); las max-w-sm son
+  // selectores y confirmaciones cortas y se quedan como estaban.
+  //   · Laptop: más anchas (42rem, antes 28–36rem) para que el formulario
+  //     respire y no se pelee por el espacio. Las 3xl ya son anchas.
+  //   · Teléfono: pantalla completa, sin margen ni esquinas (es la pantalla
+  //     entera, no una tarjeta). Bordes transparentes con el alto de las zonas
+  //     seguras: el fondo de la hoja los cubre y el contenido no queda bajo
+  //     el notch ni la barra de inicio, sin tocar el padding de cada hoja.
+  // Selectores de dos clases: le ganan a w-*/max-h-*/rounded-* de cada hoja.
+  '.hoja:is(.max-w-md, .max-w-lg, .max-w-xl)': {
+    '@media (min-width: 640px)': { maxWidth: '42rem' },
+  },
+  '.hoja:not(.max-w-sm):not(.sm\\:max-w-sm)': {
+    '@media (max-width: 639.98px)': {
+      width: '100%',
+      maxWidth: 'none',
+      height: '100dvh',
+      maxHeight: '100dvh',
+      margin: '0',
+      borderRadius: '0',
+      borderTop: 'env(safe-area-inset-top, 0px) solid transparent',
+      borderBottom: 'env(safe-area-inset-bottom, 0px) solid transparent',
+    },
+  },
   })
 }
 

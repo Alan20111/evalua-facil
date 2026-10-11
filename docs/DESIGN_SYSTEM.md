@@ -356,6 +356,12 @@ Una pestaña que necesita que el usuario haga algo se marca en **rojo**: texto `
 
 ### 6.7 Modales
 
+**Tamaño de las hojas (oct-2026).** El ancho decide el comportamiento, sin código por modal (`tailwind.config.js`, plugin `formaApp`):
+- `hoja` + `max-w-sm` (o `sm:max-w-sm`) → selectores y confirmaciones cortas: hoja flotante abajo en el teléfono, diálogo chico en laptop.
+- `hoja` + `max-w-md`/`lg`/`xl` → **formularios**: en laptop se abren a 42rem; en el teléfono ocupan la pantalla completa (sin margen ni esquinas, con las zonas seguras respetadas).
+- `hoja` + `max-w-3xl` → ya anchas en laptop; pantalla completa en el teléfono.
+Un modal nuevo de formulario no necesita nada más que `hoja` y su `max-w-md`; uno chico, `max-w-sm`.
+
 **Patrón objetivo (bottom-sheet responsive):**
 - Wrapper `fixed inset-0 z-50 flex items-end sm:items-center justify-center`
 - Backdrop — ✅ **patrón canónico fijado (jul-2026), no usar otra solución:** `<button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={cerrar} aria-label="Cerrar" />`, hermano del panel (nunca lo envuelve). Es un `<button>` real y enfocable — no `<div role="presentation">` ni `aria-hidden` — para que el cierre por teclado/lector de pantalla funcione sin depender de que exista otro botón de cierre visible. El panel ya no necesita `onClick={e => e.stopPropagation()}` porque es hermano del backdrop, no su hijo.
