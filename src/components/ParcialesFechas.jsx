@@ -47,7 +47,7 @@ export default function ParcialesFechas({ fechaInicio, fechaFin, numParciales, v
   return (
     <div>
       <p className="block text-sm font-medium text-muted mb-1">Fechas por parcial</p>
-      <div className="w-full rounded border border-outline-variant divide-y divide-outline-variant overflow-hidden">
+      <div className="w-full rounded-card border border-outline-variant divide-y divide-outline-variant overflow-hidden">
         {rows.map((row, i) => {
           const isFirst = i === 0
           const isLast = i === numParciales - 1
@@ -60,11 +60,11 @@ export default function ParcialesFechas({ fechaInicio, fechaFin, numParciales, v
                 <div>
                   <span className="block text-xs text-slate-500 mb-1">Inicio</span>
                   {isFirst ? (
-                    <div className="w-full px-3 py-2 rounded border border-outline-variant bg-surface-variant text-sm text-slate-500">
+                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-slate-500">
                       {formatLong(inicio) || '—'}
                     </div>
                   ) : (
-                    <div className="w-full px-3 py-2 rounded border border-outline-variant bg-surface-variant text-sm text-slate-500">
+                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-slate-500">
                       {formatLong(inicio) || '— (se define al elegir el fin del parcial anterior)'}
                     </div>
                   )}
@@ -72,7 +72,7 @@ export default function ParcialesFechas({ fechaInicio, fechaFin, numParciales, v
                 <div>
                   <span className="block text-xs text-slate-500 mb-1">Fin</span>
                   {isLast ? (
-                    <div className="w-full px-3 py-2 rounded border border-outline-variant bg-surface-variant text-sm text-slate-500">
+                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-slate-500">
                       {formatLong(fin) || '—'}
                     </div>
                   ) : (
