@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
@@ -14,7 +14,10 @@ import Spinner from '../../components/Spinner'
 import ConfirmModal from '../../components/ConfirmModal'
 import PasswordInput from '../../components/PasswordInput'
 import { resolveSchoolSelection } from '../../utils/schoolSelection'
-import { Camera, Lock, User, Sparkles, School, Trash2, Info } from 'lucide-react'
+import { Camera, Lock, User, Sparkles, School, Trash2, Settings, Bell, BookOpen, CirclePlay, ShieldCheck } from 'lucide-react'
+import { Pestanas, SubPestanas, GrupoAjustes, FilaAjuste, FlechaAjuste, FILA_AJUSTE } from '../../components/perfil/Pestanas'
+import AppQRButton from '../../components/AppQRButton'
+import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import SchoolPicker from '../../components/SchoolPicker'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import ComprarCreditosModal from '../../components/ComprarCreditosModal'
@@ -49,16 +52,26 @@ const FOTO_INICIAL = IS_NATIVE_APP ? 'text-3xl' : 'text-2xl'
 
 const SECCIONES = [
   { id: 'perfil', etiqueta: 'Perfil', icono: User },
-  { id: 'escuela', etiqueta: 'Escuela', icono: School },
-  { id: 'cuenta', etiqueta: 'Cuenta', icono: Lock },
-  { id: 'ia', etiqueta: 'Créditos IA', corta: 'IA', icono: Sparkles },
-  { id: 'acerca', etiqueta: 'Acerca de', corta: 'Acerca', icono: Info },
+  { id: 'ia', etiqueta: 'Créditos IA', icono: Sparkles },
+  { id: 'ajustes', etiqueta: 'Ajustes', icono: Settings },
 ]
+const SUBSECCIONES = [
+  { id: 'datos', etiqueta: 'Datos' },
+  { id: 'escuela', etiqueta: 'Escuela' },
+  { id: 'cuenta', etiqueta: 'Cuenta' },
+]
+// Enlaces de la versión anterior (cinco pestañas sueltas) siguen sirviendo.
+const ANTIGUAS = { escuela: ['perfil', 'escuela'], cuenta: ['perfil', 'cuenta'], acerca: ['ajustes'] }
 
 export default function Profile() {
   const [params, setParams] = useSearchParams()
-  const seccion = SECCIONES.some((s) => s.id === params.get('seccion')) ? params.get('seccion') : 'perfil'
-  const elegirSeccion = (id) => setParams(id === 'perfil' ? {} : { seccion: id }, { replace: true })
+  const [secURL, subURL] = ANTIGUAS[params.get('seccion')] || [params.get('seccion'), params.get('sub')]
+  const seccion = SECCIONES.some((x) => x.id === secURL) ? secURL : 'perfil'
+  const sub = SUBSECCIONES.some((x) => x.id === subURL) ? subURL : 'datos'
+  const elegir = (sec, sb = 'datos') => setParams(
+    sec === 'perfil' ? (sb === 'datos' ? {} : { sub: sb }) : { seccion: sec },
+    { replace: true },
+  )
   const { currentUser, userProfile, setUserProfile } = useAuth()
   const toast = useToast()
   const fileRef = useRef(null)
@@ -281,25 +294,13 @@ export default function Profile() {
     <>
       <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER_NARROW}`}>
 
-        {/* Una pestaña por tema, para no tener que bajar por toda la página
-            (oct-2026). Mismas píldoras que las cabeceras de la asignatura. La
-            pestaña vive en la URL (?seccion=) para poder enlazarla y para que
-            recargar no te regrese a la primera. */}
-        <div className="flex gap-1 bg-surface-container p-1 rounded-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Secciones de la cuenta">
-          {SECCIONES.map((s) => (
-            <button key={s.id} type="button" role="tab" id={`perfil-pestana-${s.id}`} aria-selected={seccion === s.id} aria-controls="perfil-panel"
-              onClick={() => elegirSeccion(s.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 whitespace-nowrap px-2.5 sm:px-3 py-2 text-sm font-medium rounded-full transition-colors ${
-                seccion === s.id ? 'bg-surface-card shadow-card' : 'hover:bg-[var(--accent-medium)]'
-              }`}>
-              {/* En el teléfono no caben las cinco con icono: solo texto corto. */}
-              <s.icono size={15} aria-hidden="true" className={`hidden sm:block ${seccion === s.id ? 'text-accent' : 'text-hint'}`} />
-              {s.corta ? (<><span className="sm:hidden">{s.corta}</span><span className="hidden sm:inline">{s.etiqueta}</span></>) : s.etiqueta}
-            </button>
-          ))}
-        </div>
+        {/* Tres pestañas (oct-2026): Perfil reúne quién eres, tu escuela y tu
+            acceso, separados por subpestañas; Créditos IA aparte; y Ajustes
+            junta lo que antes solo estaba en el submenú «Ajustes y ayuda» de
+            la barra lateral. Viven en la URL (?seccion=&sub=). */}
+        <Pestanas opciones={SECCIONES} valor={seccion} onCambio={(id) => elegir(id)} etiqueta="Secciones de la cuenta" />
 
-        <div key={seccion} id="perfil-panel" role="tabpanel" aria-labelledby={`perfil-pestana-${seccion}`} className="space-y-4 animate-pagina motion-reduce:animate-none">
+        <div key={seccion} role="tabpanel" className="space-y-4 animate-pagina motion-reduce:animate-none">
           {seccion === 'perfil' && (<>
             {/* Photo + identity */}
             <div className="bg-surface-card rounded-card shadow-card p-4 flex flex-col items-center gap-2">
@@ -346,191 +347,194 @@ export default function Profile() {
               </label>
             </div>
 
+            <SubPestanas opciones={SUBSECCIONES} valor={sub} onCambio={(id) => elegir('perfil', id)} etiqueta="Partes del perfil" />
 
-            {/* Nombre visible */}
-            <div className="bg-surface-card rounded-card shadow-card p-3">
-              <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-                <User size={19} className="text-hint" /> Nombre visible
-              </h2>
-              <p className="text-sm text-muted -mt-1 mb-2">Así te verán tus estudiantes — puede ser distinto a tu nombre real.</p>
-              <form onSubmit={handleSaveNombre} className="space-y-2">
-                <div className="flex gap-2 items-start">
-                  <div className="w-32 sm:w-36 flex-shrink-0">
-                    <Select
-                      id="prof-prefijo"
-                      label="Prefijo"
-                      hint="(opcional)"
-                      value={prefijoOption}
-                      onChange={setPrefijoOption}
-                      options={[
-                        { value: '', label: 'Sin prefijo (predeterminado)' },
-                        ...PREFIJOS.map((p) => ({ value: p, label: p })),
-                        { value: '__otro__', label: 'Otro… (escríbelo)' },
-                      ]}
-                    />
-                    {prefijoOption === '__otro__' && (
-                      <input type="text" value={prefijoCustom} onChange={(e) => setPrefijoCustom(e.target.value)}
-                        className={`${inputCls} mt-2`} aria-label="Escribe el prefijo" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <label htmlFor="prof-nombre" className="block text-xs font-medium text-muted mb-1">Nombre</label>
-                    <input id="prof-nombre" type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
-                      className={inputCls} />
-                  </div>
-                </div>
-                <button type="submit" disabled={savingNombre || !nombreChanged}
-                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                  {savingNombre ? <Spinner size="sm" /> : null}
-                  {savingNombre ? 'Guardando…' : 'Guardar nombre'}
-                </button>
-              </form>
-            </div>
-
-
-            {/* Datos personales — nombre real, distinto del nombre visible/alias */}
-            <div className="bg-surface-card rounded-card shadow-card p-3">
-              <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-                <User size={19} className="text-hint" /> Datos personales
-              </h2>
-              <form onSubmit={handleSaveDatosPersonales} className="space-y-2">
-                <div>
-                  <label htmlFor="prof-real-nombre" className="block text-xs font-medium text-muted mb-1">Nombre(s)</label>
-                  <input id="prof-real-nombre" type="text" value={realNombre} onChange={(e) => setRealNombre(e.target.value)}
-                    className={inputCls} />
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <label htmlFor="prof-apellido-paterno" className="block text-xs font-medium text-muted mb-1">Apellido paterno</label>
-                    <input id="prof-apellido-paterno" type="text" value={apellidoPaterno} onChange={(e) => setApellidoPaterno(e.target.value)}
-                      className={inputCls} />
-                  </div>
-                  <div className="flex-1">
-                    <label htmlFor="prof-apellido-materno" className="block text-xs font-medium text-muted mb-1">Apellido materno</label>
-                    <input id="prof-apellido-materno" type="text" value={apellidoMaterno} onChange={(e) => setApellidoMaterno(e.target.value)}
-                      className={inputCls} />
-                  </div>
-                </div>
-                <CodigoPostalField
-                  id="prof-cp"
-                  value={codigoPostal}
-                  onChange={setCodigoPostal}
-                />
-                <button type="submit" disabled={savingDatosPersonales || !datosPersonalesChanged}
-                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                  {savingDatosPersonales ? <Spinner size="sm" /> : null}
-                  {savingDatosPersonales ? 'Guardando…' : 'Guardar datos personales'}
-                </button>
-              </form>
-            </div>
-
-          </>)}
-          {seccion === 'escuela' && (<>
-            {/* Escuela */}
-            <div className="bg-surface-card rounded-card shadow-card p-3">
-              <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-                <School size={19} className="text-hint" /> Escuela
-              </h2>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
-                  <InfoDisclosure className="mt-0.5">
-                    <p className="text-sm text-slate-500">Los docentes de la misma escuela comparten el mismo registro — pero cada quien da de alta a sus propios alumnos por separado.</p>
-                  </InfoDisclosure>
-                </div>
-                <button type="button" onClick={() => setShowSchoolPicker(true)}
-                  className="text-accent text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
-              </div>
-            </div>
-
-          </>)}
-          {seccion === 'cuenta' && (<>
-            {/* Acceso — correo y contraseña, cerca de arriba: es lo que más se
-                busca (cambiar la contraseña) y antes quedaba hasta el fondo. */}
-            <div className="bg-surface-card rounded-card shadow-card p-3">
-              <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-                <Lock size={19} className="text-hint" /> Acceso
-              </h2>
-              <div className="space-y-1">
-
-                {/* ── Correo (solo lectura) ── */}
-                <div className="py-2 border-b border-outline-variant">
-                  <p className="text-sm text-slate-500 mb-0.5">Correo electrónico</p>
-                  <p className="text-sm text-on-surface truncate">{currentUser?.email}</p>
-                </div>
-
-                {/* ── Contraseña ── */}
-                <div className="py-2 border-b border-outline-variant">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-on-surface">Contraseña</p>
-                      {!hasEmailProvider && (
-                        <p className="text-sm text-slate-500 mt-0.5">Solo disponible si tu cuenta usa correo y contraseña</p>
+            <div key={sub} role="tabpanel" className="space-y-4 animate-aparece motion-reduce:animate-none">
+              {sub === 'datos' && (<>
+              {/* Nombre visible */}
+              <div className="bg-surface-card rounded-card shadow-card p-3">
+                <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
+                  <User size={19} className="text-hint" /> Nombre visible
+                </h2>
+                <p className="text-sm text-muted -mt-1 mb-2">Así te verán tus estudiantes — puede ser distinto a tu nombre real.</p>
+                <form onSubmit={handleSaveNombre} className="space-y-2">
+                  <div className="flex gap-2 items-start">
+                    <div className="w-32 sm:w-36 flex-shrink-0">
+                      <Select
+                        id="prof-prefijo"
+                        label="Prefijo"
+                        hint="(opcional)"
+                        value={prefijoOption}
+                        onChange={setPrefijoOption}
+                        options={[
+                          { value: '', label: 'Sin prefijo (predeterminado)' },
+                          ...PREFIJOS.map((p) => ({ value: p, label: p })),
+                          { value: '__otro__', label: 'Otro… (escríbelo)' },
+                        ]}
+                      />
+                      {prefijoOption === '__otro__' && (
+                        <input type="text" value={prefijoCustom} onChange={(e) => setPrefijoCustom(e.target.value)}
+                          className={`${inputCls} mt-2`} aria-label="Escribe el prefijo" />
                       )}
                     </div>
-                    {hasEmailProvider && (
-                      <button type="button" onClick={() => setShowPwdForm((v) => !v)}
-                        className="text-accent text-sm font-semibold hover:underline flex-shrink-0">
-                        {showPwdForm ? 'Cancelar' : 'Cambiar'}
-                      </button>
+                    <div className="flex-1 min-w-0">
+                      <label htmlFor="prof-nombre" className="block text-xs font-medium text-muted mb-1">Nombre</label>
+                      <input id="prof-nombre" type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
+                        className={inputCls} />
+                    </div>
+                  </div>
+                  <button type="submit" disabled={savingNombre || !nombreChanged}
+                    className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    {savingNombre ? <Spinner size="sm" /> : null}
+                    {savingNombre ? 'Guardando…' : 'Guardar nombre'}
+                  </button>
+                </form>
+              </div>
+
+
+              {/* Datos personales — nombre real, distinto del nombre visible/alias */}
+              <div className="bg-surface-card rounded-card shadow-card p-3">
+                <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
+                  <User size={19} className="text-hint" /> Datos personales
+                </h2>
+                <form onSubmit={handleSaveDatosPersonales} className="space-y-2">
+                  <div>
+                    <label htmlFor="prof-real-nombre" className="block text-xs font-medium text-muted mb-1">Nombre(s)</label>
+                    <input id="prof-real-nombre" type="text" value={realNombre} onChange={(e) => setRealNombre(e.target.value)}
+                      className={inputCls} />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label htmlFor="prof-apellido-paterno" className="block text-xs font-medium text-muted mb-1">Apellido paterno</label>
+                      <input id="prof-apellido-paterno" type="text" value={apellidoPaterno} onChange={(e) => setApellidoPaterno(e.target.value)}
+                        className={inputCls} />
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="prof-apellido-materno" className="block text-xs font-medium text-muted mb-1">Apellido materno</label>
+                      <input id="prof-apellido-materno" type="text" value={apellidoMaterno} onChange={(e) => setApellidoMaterno(e.target.value)}
+                        className={inputCls} />
+                    </div>
+                  </div>
+                  <CodigoPostalField
+                    id="prof-cp"
+                    value={codigoPostal}
+                    onChange={setCodigoPostal}
+                  />
+                  <button type="submit" disabled={savingDatosPersonales || !datosPersonalesChanged}
+                    className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    {savingDatosPersonales ? <Spinner size="sm" /> : null}
+                    {savingDatosPersonales ? 'Guardando…' : 'Guardar datos personales'}
+                  </button>
+                </form>
+              </div>
+              </>)}
+              {sub === 'escuela' && (<>
+              {/* Escuela */}
+              <div className="bg-surface-card rounded-card shadow-card p-3">
+                <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
+                  <School size={19} className="text-hint" /> Escuela
+                </h2>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
+                    <InfoDisclosure className="mt-0.5">
+                      <p className="text-sm text-slate-500">Los docentes de la misma escuela comparten el mismo registro — pero cada quien da de alta a sus propios alumnos por separado.</p>
+                    </InfoDisclosure>
+                  </div>
+                  <button type="button" onClick={() => setShowSchoolPicker(true)}
+                    className="text-accent text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
+                </div>
+              </div>
+              </>)}
+              {sub === 'cuenta' && (<>
+              {/* Acceso — correo y contraseña, cerca de arriba: es lo que más se
+                  busca (cambiar la contraseña) y antes quedaba hasta el fondo. */}
+              <div className="bg-surface-card rounded-card shadow-card p-3">
+                <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
+                  <Lock size={19} className="text-hint" /> Acceso
+                </h2>
+                <div className="space-y-1">
+
+                  {/* ── Correo (solo lectura) ── */}
+                  <div className="py-2 border-b border-outline-variant">
+                    <p className="text-sm text-slate-500 mb-0.5">Correo electrónico</p>
+                    <p className="text-sm text-on-surface truncate">{currentUser?.email}</p>
+                  </div>
+
+                  {/* ── Contraseña ── */}
+                  <div className="py-2 border-b border-outline-variant">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-on-surface">Contraseña</p>
+                        {!hasEmailProvider && (
+                          <p className="text-sm text-slate-500 mt-0.5">Solo disponible si tu cuenta usa correo y contraseña</p>
+                        )}
+                      </div>
+                      {hasEmailProvider && (
+                        <button type="button" onClick={() => setShowPwdForm((v) => !v)}
+                          className="text-accent text-sm font-semibold hover:underline flex-shrink-0">
+                          {showPwdForm ? 'Cancelar' : 'Cambiar'}
+                        </button>
+                      )}
+                    </div>
+
+                    {showPwdForm && (
+                      <form onSubmit={requestPwdChange} className="mt-2 space-y-2">
+                        <div>
+                          <label htmlFor="prof-pwd-actual" className="block text-xs font-medium text-muted mb-1">Contraseña actual</label>
+                          <PasswordInput id="prof-pwd-actual" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
+                            required autoComplete="current-password" className={inputCls} />
+                        </div>
+                        <div>
+                          <label htmlFor="prof-pwd-nueva" className="block text-xs font-medium text-muted mb-1">Nueva contraseña</label>
+                          <PasswordInput id="prof-pwd-nueva" value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
+                            required autoComplete="new-password" className={inputCls} />
+                        </div>
+                        <div>
+                          <label htmlFor="prof-pwd-confirmar" className="block text-xs font-medium text-muted mb-1">Confirmar nueva contraseña</label>
+                          <PasswordInput id="prof-pwd-confirmar" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)}
+                            required autoComplete="new-password" className={inputCls} />
+                        </div>
+                        {/* No hay "original" con qué comparar una contraseña (vive
+                            hasheada) — aquí "nada que guardar" es que los campos
+                            todavía no formen una combinación válida para enviar,
+                            las mismas reglas que ya revisa requestPwdChange al
+                            hacer clic. */}
+                        <button type="submit" disabled={savingPwd || !currentPwd || newPwd.length < 6 || newPwd !== confirmPwd}
+                          className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                          {savingPwd ? <Spinner size="sm" /> : <Lock size={17} />}
+                          {savingPwd ? 'Actualizando…' : 'Cambiar contraseña'}
+                        </button>
+                      </form>
                     )}
                   </div>
 
-                  {showPwdForm && (
-                    <form onSubmit={requestPwdChange} className="mt-2 space-y-2">
-                      <div>
-                        <label htmlFor="prof-pwd-actual" className="block text-xs font-medium text-muted mb-1">Contraseña actual</label>
-                        <PasswordInput id="prof-pwd-actual" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
-                          required autoComplete="current-password" className={inputCls} />
-                      </div>
-                      <div>
-                        <label htmlFor="prof-pwd-nueva" className="block text-xs font-medium text-muted mb-1">Nueva contraseña</label>
-                        <PasswordInput id="prof-pwd-nueva" value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
-                          required autoComplete="new-password" className={inputCls} />
-                      </div>
-                      <div>
-                        <label htmlFor="prof-pwd-confirmar" className="block text-xs font-medium text-muted mb-1">Confirmar nueva contraseña</label>
-                        <PasswordInput id="prof-pwd-confirmar" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)}
-                          required autoComplete="new-password" className={inputCls} />
-                      </div>
-                      {/* No hay "original" con qué comparar una contraseña (vive
-                          hasheada) — aquí "nada que guardar" es que los campos
-                          todavía no formen una combinación válida para enviar,
-                          las mismas reglas que ya revisa requestPwdChange al
-                          hacer clic. */}
-                      <button type="submit" disabled={savingPwd || !currentPwd || newPwd.length < 6 || newPwd !== confirmPwd}
-                        className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                        {savingPwd ? <Spinner size="sm" /> : <Lock size={17} />}
-                        {savingPwd ? 'Actualizando…' : 'Cambiar contraseña'}
-                      </button>
-                    </form>
-                  )}
                 </div>
-
               </div>
-            </div>
 
 
-            {/* Eliminar cuenta — hasta el fondo y en rojo, la única parte de la
-                app que no usa el azul del docente: es lo que la separa de todo lo
-                demás que se puede tocar sin miedo. */}
-            <div className="bg-surface-card rounded-card shadow-card p-3">
-              <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-                <Trash2 size={19} className="text-hint" /> Eliminar mi cuenta
-              </h2>
-              <InfoDisclosure className="mb-2">
-                <p className="text-sm text-muted">
-                  Borra para siempre tu cuenta y todo tu trabajo: asignaturas, estudiantes, actividades,
-                  calificaciones y asistencias. No se puede deshacer.
-                </p>
-              </InfoDisclosure>
-              <button
-                type="button"
-                onClick={() => setShowEliminarCuenta(true)}
-                className="w-full py-2.5 rounded-full border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors"
-              >
-                Eliminar mi cuenta
-              </button>
+              {/* Eliminar cuenta — hasta el fondo y en rojo, la única parte de la
+                  app que no usa el azul del docente: es lo que la separa de todo lo
+                  demás que se puede tocar sin miedo. */}
+              <div className="bg-surface-card rounded-card shadow-card p-3">
+                <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
+                  <Trash2 size={19} className="text-hint" /> Eliminar mi cuenta
+                </h2>
+                <InfoDisclosure className="mb-2">
+                  <p className="text-sm text-muted">
+                    Borra para siempre tu cuenta y todo tu trabajo: asignaturas, estudiantes, actividades,
+                    calificaciones y asistencias. No se puede deshacer.
+                  </p>
+                </InfoDisclosure>
+                <button
+                  type="button"
+                  onClick={() => setShowEliminarCuenta(true)}
+                  className="w-full py-2.5 rounded-full border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors"
+                >
+                  Eliminar mi cuenta
+                </button>
+              </div>
+              </>)}
             </div>
           </>)}
           {seccion === 'ia' && (<>
@@ -578,18 +582,29 @@ export default function Profile() {
               </button>
             </div>
           </>)}
-          {seccion === 'acerca' && (<>
-            {/* Aviso de privacidad */}
-            <div className="bg-surface-card rounded-card shadow-card p-3">
-              <Link to="/privacidad" className="text-sm text-accent font-semibold hover:underline">
-                Aviso de privacidad
-              </Link>
-            </div>
-
-            {/* Versiones */}
-            <div className="bg-surface-card rounded-card shadow-card p-3">
-              <AppVersionInfo />
-            </div>
+          {seccion === 'ajustes' && (<>
+            <GrupoAjustes titulo="Herramientas">
+              <FilaAjuste to="/perfil-ia" icono={Sparkles} titulo="Perfil para IA del docente" detalle="Necesario para generar planeación y diagnósticos con IA" />
+              <AppQRButton className={`${FILA_AJUSTE} [&>svg:first-child]:text-accent`} iconSize={19}>
+                <span className="flex-1 font-semibold">QR de Evalúa Fácil</span>
+                <FlechaAjuste />
+              </AppQRButton>
+              <FilaAjuste to="/notificaciones" icono={Bell} titulo="Notificaciones" />
+            </GrupoAjustes>
+            <GrupoAjustes titulo="Ayuda">
+              <FilaAjuste to="/ayuda" icono={BookOpen} titulo="Ayuda para comenzar" />
+              <CanalYouTubeLink className={FILA_AJUSTE}>
+                <CirclePlay size={19} aria-hidden="true" className="text-accent flex-shrink-0" />
+                <span className="flex-1 font-semibold">Canal de YouTube</span>
+                <FlechaAjuste externa />
+              </CanalYouTubeLink>
+            </GrupoAjustes>
+            <GrupoAjustes titulo="Acerca de">
+              <FilaAjuste to="/privacidad" icono={ShieldCheck} titulo="Aviso de privacidad" />
+              <div className="px-3 py-3">
+                <AppVersionInfo />
+              </div>
+            </GrupoAjustes>
           </>)}
         </div>
 
