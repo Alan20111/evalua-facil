@@ -72,6 +72,17 @@ const formaApp = ({ addComponents, addBase }) => {
     backgroundColor: 'var(--surface-card)',
     boxShadow: '0 -1.25rem 0 1.25rem var(--surface-card)',
   },
+  // Pie fijo de hoja: la fila del botón principal se queda pegada ABAJO al
+  // desplazar, así «Crear/Guardar» siempre está a la vista. Misma sombra
+  // sólida que el encabezado, hacia abajo.
+  '.hoja > .pie-hoja': {
+    position: 'sticky',
+    bottom: '0',
+    zIndex: '10',
+    backgroundColor: 'var(--surface-card)',
+    boxShadow: '0 1.25rem 0 1.25rem var(--surface-card)',
+    paddingTop: '0.75rem',
+  },
   '.hoja:is(.max-w-md, .max-w-lg, .max-w-xl)': {
     '@media (min-width: 640px)': { maxWidth: '42rem' },
   },
@@ -204,6 +215,41 @@ export default {
           from: { opacity: '0', transform: 'scale(0.95) translateY(-4px)' },
           to: { opacity: '1', transform: 'scale(1) translateY(0)' },
         },
+        // ── Microanimaciones de ícono (PLAN_NORMALIZACION_UI §6.2) ──
+        // Solo al interactuar o cuando ocurre algo; ningún bucle salvo lo que
+        // avisa que algo está EN CURSO (destello de la IA, giro al sincronizar).
+        sacude: { // campana: 2 oscilaciones que se apagan
+          '0%, 100%': { transform: 'rotate(0)' },
+          '20%': { transform: 'rotate(14deg)' },
+          '40%': { transform: 'rotate(-12deg)' },
+          '60%': { transform: 'rotate(8deg)' },
+          '80%': { transform: 'rotate(-4deg)' },
+        },
+        gira: { from: { transform: 'rotate(0)' }, to: { transform: 'rotate(360deg)' } },
+        balanceo: { // eliminar: advierte sin asustar
+          '0%, 100%': { transform: 'rotate(0)' },
+          '30%': { transform: 'rotate(-10deg)' },
+          '65%': { transform: 'rotate(8deg)' },
+        },
+        destello: { // ✨ IA
+          '0%, 100%': { transform: 'scale(1) rotate(0)', opacity: '1' },
+          '50%': { transform: 'scale(1.18) rotate(8deg)', opacity: '0.75' },
+        },
+        parpadeo: { '0%, 100%': { transform: 'scaleY(1)' }, '50%': { transform: 'scaleY(0.1)' } },
+        despega: { // enviar: sale volando y regresa a su sitio
+          '0%': { transform: 'translate(0, 0)', opacity: '1' },
+          '45%': { transform: 'translate(10px, -10px)', opacity: '0' },
+          '55%': { transform: 'translate(-6px, 6px)', opacity: '0' },
+          '100%': { transform: 'translate(0, 0)', opacity: '1' },
+        },
+        late: { // punto de «Hoy», una vez
+          '0%, 100%': { transform: 'scale(1)' },
+          '40%': { transform: 'scale(1.5)' },
+        },
+        progreso: { // barra indeterminada
+          from: { transform: 'translateX(-100%)' },
+          to: { transform: 'translateX(250%)' },
+        },
       },
       animation: {
         atencion: 'atencion 2.2s cubic-bezier(0.37, 0, 0.63, 1) infinite',
@@ -216,6 +262,17 @@ export default {
         pagina: 'pagina 200ms cubic-bezier(0.2, 0, 0, 1) backwards',
         trazo: 'trazo 250ms cubic-bezier(0.2, 0, 0, 1) 60ms backwards',
         menu: 'menu 200ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
+        'menu-sale': 'menu 120ms cubic-bezier(0.3, 0, 1, 1) reverse forwards',
+        sacude: 'sacude 600ms cubic-bezier(0.37, 0, 0.63, 1)',
+        gira: 'gira 500ms cubic-bezier(0.2, 0, 0, 1)',
+        'gira-continuo': 'gira 1s linear infinite',
+        balanceo: 'balanceo 350ms cubic-bezier(0.37, 0, 0.63, 1)',
+        destello: 'destello 600ms cubic-bezier(0.37, 0, 0.63, 1)',
+        'destello-continuo': 'destello 1.2s cubic-bezier(0.37, 0, 0.63, 1) infinite',
+        parpadeo: 'parpadeo 220ms cubic-bezier(0.2, 0, 0, 1)',
+        despega: 'despega 450ms cubic-bezier(0.2, 0, 0, 1)',
+        late: 'late 600ms cubic-bezier(0.2, 0, 0, 1)',
+        progreso: 'progreso 1.2s cubic-bezier(0.37, 0, 0.63, 1) infinite',
       },
       boxShadow: {
         // Elevación plana (oct-2026, referencia Apple): las tarjetas se
@@ -240,14 +297,15 @@ export default {
         control: 'var(--control)',
         'control-lg': 'var(--control-lg)',
       },
-      // Capas (PLAN_NORMALIZACION_UI §2.4): seis, con nombre. Un menú dentro de
-      // una hoja va en portal con z-menu, no con un número más alto.
+      // Capas (PLAN_NORMALIZACION_UI §2.4): seis, con nombre. Los menús
+      // emergentes viven en portal (document.body) y van SOBRE las hojas, para
+      // que un menú abierto desde un modal no quede debajo de él.
       zIndex: {
         contenido: '10',
         barra: '30',
-        menu: '40',
         hoja: '50',
         aviso: '60',
+        menu: '70',
         tope: '90',
       },
       // Legibility, second pass: the first round (+10–15%) was judged too timid for

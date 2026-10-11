@@ -416,6 +416,7 @@ Una pestaña que necesita que el usuario haga algo se marca en **rojo**: texto `
 - `hoja` + `max-w-md`/`lg`/`xl` → **formularios**: en laptop se abren a 42rem; en el teléfono ocupan la pantalla completa (sin margen ni esquinas, con las zonas seguras respetadas).
 - `hoja` + `max-w-3xl` → ya anchas en laptop; pantalla completa en el teléfono.
 Un modal nuevo de formulario no necesita nada más que `hoja` y su `max-w-md`; uno chico, `max-w-sm`.
+- **Pie fijo:** la fila del botón principal lleva `pie-hoja` (el `footer` de `Modal` ya la usa) y se queda pegada abajo al desplazar: «Crear/Guardar» siempre está a la vista.
 - **Encabezado fijo:** la primera fila de una `hoja` que contiene el `h2`/`h3` del título (con la X) se queda pegada arriba al desplazar. Mantén el título y la X en esa primera fila.
 - **Muestras de selección** (colores, bolitas, íconos): `REJILLA_MUESTRAS` + `MUESTRA` de `config/layout.js` — celdas fijas de 2.5rem, nunca `aspect-square w-full` (crecen con la ventana).
 
@@ -505,6 +506,32 @@ Personalidad **corporativa**: limpia, decidida, sin rebotes en la UI. Tokens en 
 
 Todas las animaciones usan relleno `backwards` (al terminar no queda ningún `transform`, que rompería los `position: fixed` de dentro). Además: `animate-pagina` (fundido de 200 ms, solo opacidad, al cambiar de página y de sección), `cascada` (en el contenedor de una lista: cada hijo entra subiendo 8 px, 30 ms tras el anterior, máx. 180 ms), despliegues (`animate-aparece`) y menús emergentes (`animate-dialogo` + `origin-top-*`); globos de ayuda redondos. Animaciones: `animate-velo` (fondo oscuro de modales: solo se desvanece, 200 ms), `.hoja` (en el teléfono **sube** 24 px, 350 ms; en escritorio **crece** desde 96%, 250 ms), `animate-dialogo` (diálogo centrado de `ui/Modal`), `animate-aviso` (toast: baja 8 px), `animate-pop` (éxito, p. ej. «Copiado»: un leve sobrepaso), `animate-aparece` (cambio de vista del calendario), `animate-atencion` (latido seno de 2.2 s para lo que requiere atención). `Button` se encoge a 97% al presionar. **«Reducir movimiento» del sistema se respeta en toda la app** (`index.css`). Regla: nada lineal para movimiento espacial; un fondo nuevo de modal lleva `animate-velo`.
 
+
+### 6.14a Microanimaciones de ícono y despliegues (oct-2026, PLAN_NORMALIZACION_UI §6)
+
+- **Despliegues** — todo lo que aparece se mueve:
+  - Menús y popovers: `ui/Popover`, `ui/Menu`. Crecen desde su botón con `animate-menu` y se encogen al cerrar con `animate-menu-sale`.
+  - Secciones que se abren: `ui/Disclosure`, con `grid-rows` y el chevron que gira.
+  - Pestañas: `ui/Tabs`, con la píldora que se desliza.
+  - Barras de progreso: `ui/Progress`.
+- **Íconos** (`ui/Animado`, o las props `iconEffect` de `Button` y `effect` de `IconButton`):
+
+  | Efecto | Ícono / acción |
+  |---|---|
+  | `gira90` | ＋ crear |
+  | `sacude` | Campana |
+  | `gira` | Actualizar (`activo` = sincronizando) |
+  | `empujaArriba` / `empujaAbajo` | Subir / descargar |
+  | `destello` | IA (`activo` = generando) |
+  | `balanceo` | Eliminar |
+  | `parpadeo` | Ver contraseña |
+  | `despega` | Enviar |
+  | `pop` | Éxito |
+  | `late` | Punto de «Hoy» |
+
+- **Cuándo se activan:** solo al pasar el ratón, al enfocar (`cuando="hover"`) o cuando ocurre algo (`cuando="una"`, con `disparador`). Nunca en bucle, salvo `activo` mientras algo está en curso.
+- Con movimiento reducido no se mueve nada.
+- Los `@keyframes` viven en `tailwind.config.js`; ninguna pantalla define los suyos.
 ## 7. Iconografía (lucide-react)
 
 **Escala de tamaños (convención observada):**

@@ -38,6 +38,7 @@
 import { useEffect, useId } from 'react'
 import FocusLock from 'react-focus-lock'
 import { X } from 'lucide-react'
+import IconButton from './IconButton'
 import { cn } from './cn'
 import { useScrollLock } from '../../hooks/useScrollLock'
 
@@ -129,18 +130,12 @@ export default function Modal({
               <h3 id={titleId} className="text-lg font-bold text-on-surface">
                 {title}
               </h3>
-              <button
-                type="button"
-                onClick={requestClose}
-                aria-label="Cerrar"
-                className="p-3 -m-1 text-hint hover:text-error rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                <X size={20} />
-              </button>
+              <IconButton icon={X} label="Cerrar" tooltip={false} onClick={requestClose} className="-mr-2" />
             </div>
           )}
           {children}
-          {footer && <div className="flex gap-2 mt-4">{footer}</div>}
+          {/* pie-hoja: en una hoja que se desplaza, el botón principal queda fijo abajo. */}
+          {footer && <div className="pie-hoja flex gap-2 mt-4">{footer}</div>}
         </div>
       </FocusLock>
     </div>

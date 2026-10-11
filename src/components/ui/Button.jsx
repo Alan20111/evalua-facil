@@ -9,15 +9,18 @@
 //   size     sm (zonas densas) · md (default) · lg (acción principal de
 //            pantallas de acceso y botón fijo de formulario)
 //   icon / iconRight   componente de lucide (u otro) a la izquierda / derecha
+//   iconEffect   microanimación del ícono al pasar (ver Animado: gira90,
+//                empujaArriba, balanceo, destello…)
 //   busy     muestra el spinner en lugar del ícono y deshabilita
 //   fullWidth, as ('button' | Link | 'a'…), className
 import { forwardRef } from 'react'
 import { cn } from './cn'
 import Spinner from '../Spinner'
 import { ICONO } from '../../config/iconos'
+import Animado from './Animado'
 
 const BASE =
-  'inline-flex items-center justify-center gap-2 rounded-full text-sm font-semibold whitespace-nowrap select-none transition active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2'
+  'group inline-flex items-center justify-center gap-2 rounded-full text-sm font-semibold whitespace-nowrap select-none transition active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2'
 
 const VARIANTS = {
   primary: 'bg-accent hover:bg-accent-hover text-white',
@@ -43,7 +46,7 @@ const SIZES = {
 const ICONO_POR_TAMANO = { sm: ICONO.xs, md: ICONO.sm, lg: ICONO.sm }
 
 const Button = forwardRef(function Button(
-  { variant = 'primary', size = 'md', fullWidth = false, busy = false, icon: Icono, iconRight: IconoDer, as = 'button', className = '', disabled, children, ...rest },
+  { variant = 'primary', size = 'md', fullWidth = false, busy = false, icon: Icono, iconRight: IconoDer, iconEffect, as = 'button', className = '', disabled, children, ...rest },
   ref
 ) {
   const Tag = as
@@ -64,7 +67,9 @@ const Button = forwardRef(function Button(
       {...(Tag === 'button' && !rest.type ? { type: 'button' } : {})}
       {...rest}
     >
-      {busy ? <Spinner size="sm" current /> : Icono && <Icono size={tamIcono} aria-hidden="true" className="flex-shrink-0" />}
+      {busy ? <Spinner size="sm" current /> : Icono && (iconEffect
+        ? <Animado efecto={iconEffect}><Icono size={tamIcono} /></Animado>
+        : <Icono size={tamIcono} aria-hidden="true" className="flex-shrink-0" />)}
       {children}
       {IconoDer && !busy && <IconoDer size={tamIcono} aria-hidden="true" className="flex-shrink-0" />}
     </Tag>
