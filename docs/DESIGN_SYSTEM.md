@@ -242,9 +242,45 @@ Padding de página: `px-4 py-4` (docente) / `px-4 py-5–6` (alumno).
 - `lg`/`xl`/`2xl`: solo el ladder de anchos del contenedor docente.
 - Safe-area iOS/Android: utilidad `.safe-bottom` (`padding-bottom: env(safe-area-inset-bottom)`), solo en bottom-navs.
 
-### 4.6 Escala z-index observada (sin sistema — normalizar)
+### 4.6 Capas (z-index) — escala con nombre (oct-2026)
 
-`z-10` sticky internos · `z-20` sidebar · `z-30` topbar/bottom-nav/overlay drawer · `z-40` modales de página · `z-50` modales globales/toasts/runner · `z-[60]` sub-modales · `9999` tooltips y datetime picker.
+Seis capas, como tokens de Tailwind (`tailwind.config.js` → `zIndex`):
+
+| Clase | Valor | Uso |
+|---|---|---|
+| `z-contenido` | 10 | Encabezados fijos dentro de una tarjeta o lista |
+| `z-barra` | 30 | Barra lateral, encabezado y footer móviles |
+| `z-menu` | 40 | Menús emergentes y popovers (en portal si viven dentro de una hoja) |
+| `z-hoja` | 50 | Modales, hojas, runner de evaluación |
+| `z-aviso` | 60 | Toasts y avisos sobre una hoja |
+| `z-tope` | 90 | Tooltips y selector de fecha/hora |
+
+Los `z-[NN]` con número están congelados por candado (50 hoy) y se migran al pasar cada pantalla a `ui/`.
+
+### 4.7 Altura de control — una sola (oct-2026)
+
+Todo lo que se toca en una línea (botón, campo, select, buscador, pestaña, chip con acción, botón de ícono) mide **lo mismo**, con altura **fija** (`h-control`), no sacada del padding:
+
+| Clase | Escritorio | Táctil (`pointer: coarse`) | Uso |
+|---|---|---|---|
+| `h-control-sm` | 2.25rem ≈ 32px | 2.75rem ≈ 40px | Solo zonas densas: tablas, barras de herramientas, chips |
+| `h-control` | 2.75rem ≈ 40px | 3rem ≈ 43px | **Todo lo demás** |
+| `h-control-lg` | 3.25rem ≈ 47px | igual | Acción principal de pantallas de acceso y botón fijo de formulario |
+
+- Las variables viven en `src/index.css` (`--control-sm/--control/--control-lg`) y suben solas en pantallas táctiles.
+- El texto de control es siempre `text-sm font-semibold`. El padding solo da aire lateral: `px-4`, o `px-3` en `sm`. Los botones de ícono son `size-control`.
+
+### 4.8 Íconos — cinco tamaños (oct-2026)
+
+`src/config/iconos.js` → `ICONO = { xs: 14, sm: 16, md: 20, lg: 24, xl: 40 }`:
+
+- `xs`: dentro de chips y controles chicos.
+- `sm`: dentro de botones y junto a texto.
+- `md`: navegación, fondos de ícono y botones de ícono.
+- `lg`: encabezados de sección.
+- `xl`: estados vacíos.
+
+**Fondos de ícono**, siempre en círculo: `FONDO_ICONO = { sm: 'size-8', md: 'size-10', lg: 'size-12' }`, con su ícono `ICONO_EN_FONDO`. Un `size={N}` fuera de la escala está congelado por candado y solo puede bajar.
 
 ---
 

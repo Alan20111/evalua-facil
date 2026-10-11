@@ -430,14 +430,14 @@ lint igual y navegación completa en el emulador.
 
 ---
 
-## 10. Decisiones que necesito de ti antes de empezar
+## 10. Decisiones tomadas (10-oct-2026)
 
-| # | Decisión | Mi recomendación |
-|---|---|---|
-| 1 | **Altura base de los controles** | 40 px en compu y 43 px en táctil (sección 2.1). La otra opción es 44 px en todo: más grande en escritorio. |
-| 2 | **Rebote extra en el alumno** | Sí, solo en éxitos (entregar, terminar). Al docente se le queda sobrio. |
-| 3 | **Preselecciones concretas** (sección 5.2) | Las valido contigo en cada PR de pantalla, no todas por adelantado. |
-| 4 | **Cómo se ejecuta** | Ola por ola, fusionando a main después de cada PR. Las olas grandes (2.6–2.10) con agentes en paralelo por archivo, si lo autorizas. |
+Las cuatro se aprobaron como se recomendaron:
+
+1. **Altura base:** 40 px en compu y 43 px en táctil (`--control`, §2.1).
+2. **Alumno:** un poco más de rebote (3–5 %) solo en los éxitos. El docente queda sobrio.
+3. **Preselecciones:** se validan en el PR de cada pantalla.
+4. **Ejecución:** ola por ola, fusionando a main tras cada PR. Las olas grandes (2.6–2.10) van con agentes en paralelo por archivo.
 
 ---
 

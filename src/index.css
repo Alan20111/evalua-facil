@@ -258,6 +258,21 @@
      todas. El área segura de Android se suma aparte (.safe-top/.safe-bottom). */
   :root {
     --barra-alto: 64px;
+    /* Altura de control (docs/PLAN_NORMALIZACION_UI.md §2.1): botones, campos,
+       selects, buscadores, pestañas, chips con acción y botones de ícono miden
+       LO MISMO. Es fija (no sale del padding ni del tamaño de letra). Raíz de
+       14.4px: 2.25rem ≈ 32px, 2.75rem ≈ 40px, 3.25rem ≈ 47px. */
+    --control-sm: 2.25rem;
+    --control: 2.75rem;
+    --control-lg: 3.25rem;
+  }
+  /* Pantallas táctiles: el dedo necesita más área (objetivo ≈ 44px). Sube sola,
+     sin `md:` por pantalla. */
+  @media (pointer: coarse) {
+    :root {
+      --control-sm: 2.75rem;
+      --control: 3rem;
+    }
   }
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);

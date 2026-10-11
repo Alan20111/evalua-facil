@@ -129,6 +129,27 @@ ratchet "Anchos/altos en píxeles duros (w-[Npx]/h-[Npx]) — evitar nuevos, usa
   '(min-)?[wh]-\[[0-9]+px\]' 53
 
 echo ""
+echo "=== Normalización de la interfaz — docs/PLAN_NORMALIZACION_UI.md §7 ==="
+echo ""
+# Trinquetes de la normalización (oct-2026): congelan la deuda de hoy y solo
+# dejan que baje mientras las pantallas pasan a components/ui/. Lo que vive
+# DENTRO de components/ui/ no cuenta: ahí es donde la pieza debe estar.
+ratchet "Control con esquina a medias (rounded + borde, debe ser rounded-full o ui/) — §2.2" \
+  '(^|[^a-z:-])rounded border' 218 'components/ui/'
+ratchet "Botón primario a mano (bg-accent hover:bg-accent-hover text-white → ui/Button) — §3" \
+  'bg-accent hover:bg-accent-hover text-white' 42 'components/ui/'
+ratchet "Ícono fuera de la escala 14/16/20/24/40 (config/iconos.js) — §2.3" \
+  'size=\{([0-9]|1[0-35789]|2[1-35-9]|3[0-9])\}' 502 'components/ui/'
+ratchet "Duración cruda (duration-NNN → duration-rapida/estandar/lenta) — §2.5" \
+  '(^|[^a-z-])duration-[0-9]+' 26 'components/ui/'
+ratchet "transition-all (anima de más; usa transition-colors/transform) — §2.5" \
+  '(^|[^a-z-])transition-all' 16 'components/ui/'
+ratchet "Casilla/opción a mano (type=checkbox|radio fuera de ui/) — §3" \
+  'type="(checkbox|radio)"' 61 'components/ui/'
+ratchet "z-index con número (z-[NN] → z-contenido/barra/menu/hoja/aviso/tope) — §2.4" \
+  'z-\[[0-9]+\]' 50 'components/ui/'
+
+echo ""
 # Esqueletos de carga: deben medir lo mismo que su pantalla real
 # (data-esq en pantalla y en components/esqueletos/ — ver check-esqueletos.mjs).
 node scripts/check-esqueletos.mjs || FAIL=1
