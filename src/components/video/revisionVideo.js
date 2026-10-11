@@ -292,3 +292,17 @@ export function paradaDePregunta({ items, duracionSeg, pos, base = 0, pasadas = 
   const ordenadas = ordenarPreguntasVideo(candidatas, duracionSeg)
   return preguntaPendiente(ordenadas, (p) => pasadas.has(p.id) || p.timestampSeg < base, pos)
 }
+
+// ¿Esta pregunta YA NO debe detener el video en la pasada actual? Es el predicado que recibe `tick` / `antesDeReproducir` del
+// estudiante (donde «respondida» las excluía siempre). En navegación SECUENCIAL no cambia: una respondida se salta. En navegación
+// LIBRE («puede cambiar sus respuestas») una respondida solo se salta si ya se activó en esta pasada (`pasadas`: ids) o queda antes
+// del punto desde el que se reproduce (`base`); así, al retroceder y reproducir su tramo, vuelve a aparecer, y no se repite mientras
+// el video está detenido en su segundo ni al responder y continuar. Una SIN responder nunca se salta (sigue bloqueando el video).
+//   p            pregunta ({ id, timestampSeg })
+//   libre        navegación libre
+//   respondida   ¿ya tiene respuesta? (estaRespondida)
+export function yaSuperadaAlReproducir(p, { libre, respondida, pasadas, base }) {
+  if (!respondida) return false
+  if (!libre) return true
+  return pasadas.has(p.id) || p.timestampSeg < base
+}

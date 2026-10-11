@@ -7455,6 +7455,69 @@ caso('tarjeta «Revisión de las preguntas del video»: bloque informativo breve
   assert.ok(/data-testid="abrir-revision"/.test(p) && /data-testid="abrir-vista-previa"/.test(p) && /data-testid="resumen-antes-de-publicar"/.test(p))
 })
 
+caso('video estudiante · navegación libre: una pregunta respondida vuelve a activarse al repetir su tramo y no se repite al continuar', () => {
+  const preg = [{ id: 'a', timestampSeg: 60, orden: 0 }, { id: 'b', timestampSeg: 200, orden: 1 }, { id: 'c', timestampSeg: 400, orden: 2 }]
+  const ord = VP.ordenarPreguntasVideo(preg, 600)
+  // Simula lo que hace VideoInteractivoPantalla: tick con el predicado paraActivar (yaSuperadaAlReproducir), pasadas/base, y los saltos.
+  function alumno(libre) {
+    const e = { respondidas: new Set(), pasadas: new Set(), base: 0, pos: 0, est: { maxVisto: 0, ultimaPos: 0, ultimoT: 1000 }, ahora: 1000, paradas: [] }
+    const pred = (q) => RVD.yaSuperadaAlReproducir(q, { libre, respondida: e.respondidas.has(q.id), pasadas: e.pasadas, base: e.base })
+    e.reproducirHasta = (fin) => {
+      while (e.pos < fin) {
+        e.pos = +(e.pos + 0.1).toFixed(2); e.ahora += 100
+        const r = VP.tick(e.est, { pos: e.pos, ahora: e.ahora, jugando: true, visible: true, duracion: 600, ordenadas: ord, respondida: pred })
+        e.est = { maxVisto: r.maxVisto, ultimaPos: r.ultimaPos, ultimoT: r.ultimoT }
+        if (r.accion === 'pregunta') { e.paradas.push(r.pregunta.id); e.pasadas.add(r.pregunta.id); e.pos = r.irA; e.est = { ...e.est, ultimaPos: r.irA }; return r.pregunta.id }
+      }
+      return null
+    }
+    // responder y «Continuar»: antesDeReproducir (como el componente) no debe volver a abrir la misma pregunta
+    e.responderYContinuar = (id) => { e.respondidas.add(id); return VP.antesDeReproducir(ord, pred, e.pos) }
+    e.retroceder = (x) => { e.pos = x; e.est = { ...e.est, ultimaPos: x, ultimoT: null }; e.base = x; e.pasadas = new Set() } // saltar / tocarMarca / reinicio
+    return e
+  }
+  // —— LIBRE
+  const a = alumno(true)
+  assert.strictEqual(a.reproducirHasta(300), 'a'); assert.strictEqual(a.pos, 60, 'se detiene en su segundo')
+  assert.strictEqual(a.responderYContinuar('a'), null, 'responder y continuar NO la vuelve a abrir')
+  assert.strictEqual(a.reproducirHasta(150), null, 'sigue de largo hasta la siguiente')
+  assert.strictEqual(a.reproducirHasta(300), 'b'); assert.strictEqual(a.pos, 200)
+  assert.strictEqual(a.responderYContinuar('b'), null)
+  assert.strictEqual(a.reproducirHasta(300), null, 'sin retroceder, ninguna reaparece')
+  // retrocede antes de «a» y reproduce: AMBAS (respondidas) vuelven, en orden, una vez cada una
+  a.retroceder(40)
+  assert.strictEqual(a.reproducirHasta(300), 'a'); assert.strictEqual(a.pos, 60)
+  assert.strictEqual(a.responderYContinuar('a'), null, 'sin repetirse tras continuar')
+  assert.strictEqual(a.reproducirHasta(300), 'b'); assert.strictEqual(a.pos, 200)
+  assert.deepStrictEqual(a.paradas, ['a', 'b', 'a', 'b'])
+  // retroceder a MEDIO tramo (después de «a») no la abre; solo las siguientes
+  a.responderYContinuar('b'); a.retroceder(100)
+  assert.strictEqual(a.reproducirHasta(300), 'b', 'a (60) queda antes del punto de partida')
+  // una pregunta SIN responder sigue bloqueando como siempre
+  assert.strictEqual(a.responderYContinuar('b'), null)
+  assert.strictEqual(a.reproducirHasta(500), 'c'); assert.strictEqual(a.pos, 400)
+  assert.strictEqual(RVD.yaSuperadaAlReproducir(preg[2], { libre: true, respondida: false, pasadas: new Set(), base: 999 }), false, 'sin responder nunca se salta')
+  // —— SECUENCIAL: sin cambios (una respondida se salta siempre)
+  const sq = alumno(false)
+  assert.strictEqual(sq.reproducirHasta(300), 'a'); sq.responderYContinuar('a')
+  assert.strictEqual(sq.reproducirHasta(300), 'b'); sq.responderYContinuar('b')
+  sq.retroceder(40)
+  assert.strictEqual(sq.reproducirHasta(300), null, 'secuencial: no reaparecen')
+  assert.strictEqual(RVD.yaSuperadaAlReproducir(preg[0], { libre: false, respondida: true, pasadas: new Set(), base: 0 }), true)
+  // implementación: los tres puntos de activación usan el predicado; un solo mecanismo (tick/antesDeReproducir de siempre)
+  const pan = leerFuente('src/components/video/VideoInteractivoPantalla.jsx')
+  assert.ok(/respondida: paraActivar,\s*\}\)/.test(pan), 'tick')
+  assert.ok(/antesDeReproducir\(ordenadasRef\.current, paraActivar, pos\)/.test(pan) && (pan.match(/antesDeReproducir\(ordenadasRef\.current, paraActivar, pos\)/g) || []).length === 2, 'alternarReproduccion y continuar')
+  assert.ok(/function abrirPregunta\(p\) \{\s*pasadasRef\.current\.add\(p\.id\)/.test(pan), 'toda pregunta abierta queda en la pasada')
+  assert.ok((pan.match(/marcarSalto\(/g) || []).length === 3, 'se reinicia la pasada al volver a empezar, al saltar y al tocar un punto')
+  assert.ok(/if \(revisionRef\.current\) return respondida\(p\)/.test(pan), 'la vista previa del docente conserva su lógica')
+  assert.ok(/const libre = activity\.evaluacion\?\.navegacion !== 'secuencial'/.test(pan))
+  // lo respondido y el resumen siguen usando «respondida» (no cambian)
+  assert.ok(/resumenRespuestas\(ordenadas, respondida\)/.test(pan) && /respondida=\{respondida\}/.test(pan))
+  // la lógica temporal compartida no se tocó
+  assert.ok(!/pasadas|marcarSalto/.test(leerFuente('src/utils/videoProgreso.js')))
+})
+
 caso('ventana de revisión: tocar un punto verde de la línea de tiempo lleva a esa pregunta y no hay puntos duplicados arriba', () => {
   const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
   const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')

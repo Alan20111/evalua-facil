@@ -12,7 +12,7 @@ import {
 } from '../../utils/videoProgreso'
 import LineaTiempoVideo from './LineaTiempoVideo'
 import PreguntaRespuesta from './PreguntaRespuesta'
-import { LIBRE_SEG, PRE_SEG, clampSeg } from './revisionVideo'
+import { LIBRE_SEG, PRE_SEG, clampSeg, yaSuperadaAlReproducir } from './revisionVideo'
 
 // Video interactivo · pantalla del reproductor (la del estudiante y, con `modoRevision`, la vista previa del docente).
 //
@@ -85,6 +85,18 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
   const [reanud] = useState(() => (revision
     ? { maxVisto: LIBRE_SEG, posicion: clampSeg(inicioSeg, duracion), pendiente: null, completado: false }
     : reanudar({ progreso: progresoInicial, ordenadas, respondida: estaRespondida, duracion })))
+  // Pasada actual (navegación libre): desde dónde se reproduce y qué preguntas ya se activaron, para que una respondida vuelva a
+  // aparecer al reproducir de nuevo su tramo, sin repetirse mientras el video está detenido en ella. Ver yaSuperadaAlReproducir.
+  const libreRef = useRef(libre)
+  const baseRef = useRef(reanud.posicion)
+  const pasadasRef = useRef(new Set())
+  const marcarSalto = (segundo) => { baseRef.current = segundo; pasadasRef.current = new Set() }
+  // Lo que reciben tick y antesDeReproducir para decidir si una pregunta detiene el video. La vista previa del docente conserva su
+  // lógica (`respondida` + pasoRef).
+  const paraActivar = useCallback((p) => {
+    if (revisionRef.current) return respondida(p)
+    return yaSuperadaAlReproducir(p, { libre: libreRef.current, respondida: respondidaRef.current(p), pasadas: pasadasRef.current, base: baseRef.current })
+  }, [respondida])
   const yaEmpezo = Number(progresoInicial?.maxVistoSeg) > 0 || Number(progresoInicial?.posicionSeg) > 0 // ya había visto algo en este intento
   const tickRef = useRef({ maxVisto: reanud.maxVisto, ultimaPos: reanud.posicion, ultimoT: null })
 
@@ -153,6 +165,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
   useEffect(() => () => clearTimeout(arranqueT.current), [])
 
   function abrirPregunta(p) {
+    pasadasRef.current.add(p.id)
     setActivaId(p.id)
     cambiarFase('pregunta')
     guardarProgreso(tickRef.current.maxVisto, tickRef.current.ultimaPos, { forzar: true })
@@ -235,7 +248,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
         visible: typeof document === 'undefined' ? true : !document.hidden,
         duracion: duracionRef.current,
         ordenadas: ordenadasRef.current,
-        respondida,
+        respondida: paraActivar,
       })
       tickRef.current = { maxVisto: r.maxVisto, ultimaPos: r.ultimaPos, ultimoT: r.ultimoT }
       if (r.accion === 'salto') {
@@ -275,10 +288,11 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
     if (f === 'pregunta') return
     if (f === 'reproduciendo') { yt.pausar(); return }
     const pos = f === 'listo' ? reanud.posicion : yt.tiempo()
-    const pre = antesDeReproducir(ordenadasRef.current, respondida, pos)
+    const pre = antesDeReproducir(ordenadasRef.current, paraActivar, pos)
     if (pre) { yt.saltarA(pre.timestampSeg); abrirPregunta(pre); return }
     if (f === 'final' || pos >= duracionRef.current - 1) {
       yt.saltarA(0); tickRef.current = { ...tickRef.current, ultimaPos: 0, ultimoT: null }
+      marcarSalto(0)
       if (revision) { pasoRef.current = 0; onReubicarRef.current?.(0) }
     }
     iniciarReproduccion()
@@ -308,6 +322,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
     yt.saltarA(d)
     if (!estaba) yt.pausar()
     tickRef.current = { ...tickRef.current, ultimaPos: d, ultimoT: null }
+    marcarSalto(d)
     setPosUI(d)
     if (faseRef.current === 'listo') cambiarFase('pausado')
   }
@@ -320,6 +335,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
     yt.pausar()
     yt.saltarA(p.timestampSeg)
     tickRef.current = { ...tickRef.current, ultimaPos: p.timestampSeg, ultimoT: null }
+    marcarSalto(p.timestampSeg)
     setPosUI(p.timestampSeg)
     // Una pregunta pendiente siempre se abre. Una ya contestada solo en navegación
     // libre (para cambiar la respuesta); en secuencial solo se repasa el video.
@@ -341,7 +357,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
     guardarProgreso(tickRef.current.maxVisto, tickRef.current.ultimaPos, { forzar: true })
     const pos = tickRef.current.ultimaPos
     // ¿Otra pregunta en el mismo punto (o pendiente al terminar)?
-    const siguiente = antesDeReproducir(ordenadasRef.current, respondida, pos)
+    const siguiente = antesDeReproducir(ordenadasRef.current, paraActivar, pos)
     if (siguiente) { abrirPregunta(siguiente); return }
     if (pos >= duracionRef.current - 0.5) { alTerminarVideo(); return }
     iniciarReproduccion()
