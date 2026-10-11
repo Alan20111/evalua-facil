@@ -4,10 +4,11 @@ import { EmailAuthProvider, linkWithCredential } from 'firebase/auth'
 import { doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
 import { ShieldCheck } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { ICONO } from '../../config/iconos'
+import { Button } from '../../components/ui'
 
 // Shown once right after a teacher's first Google sign-in (see App.jsx's
 // ProtectedTeacher gate, driven by utils/authLinking.needsPasswordSetup).
@@ -58,9 +59,9 @@ export default function ProtectAccount() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
-            <ShieldCheck size={32} className="text-white" />
-          </div>
+          <span aria-hidden="true" className="size-20 rounded-full bg-accent flex items-center justify-center mx-auto mb-3 animate-aparece motion-reduce:animate-none">
+  <ShieldCheck size={ICONO.xl} className="text-white" />
+</span>
           <h1 className="text-2xl font-bold text-on-surface">Protege el acceso a tu cuenta</h1>
           <p className="text-muted text-sm mt-2">
             Además de ingresar con Google, podrás acceder desde cualquier computadora utilizando tu correo
@@ -70,47 +71,32 @@ export default function ProtectAccount() {
 
         <div className="bg-surface-card rounded-card shadow-card p-5">
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label htmlFor="protect-password" className="block text-sm font-medium text-muted mb-1">Crear contraseña</label>
-              <PasswordInput
-                id="protect-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-              />
-            </div>
-            <div>
-              <label htmlFor="protect-confirm-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
-              <PasswordInput
-                id="protect-confirm-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {loading ? <Spinner size="sm" /> : null}
+            <PasswordInput
+              label="Crear contraseña"
+              id="protect-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              autoComplete="new-password"
+            />
+            <PasswordInput
+              label="Confirmar contraseña"
+              id="protect-confirm-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              autoComplete="new-password"
+            />
+            <Button type="submit" size="lg" fullWidth busy={loading}>
               {loading ? 'Guardando…' : 'Crear contraseña'}
-            </button>
+            </Button>
           </form>
         </div>
 
-        <button
-          type="button"
-          onClick={handleSkip}
-          className="block w-full text-center text-sm text-muted hover:underline mt-6"
-        >
+        <Button variant="quiet" fullWidth className="mt-4" onClick={handleSkip}>
           Lo haré después
-        </button>
+        </Button>
       </div>
     </div>
   )

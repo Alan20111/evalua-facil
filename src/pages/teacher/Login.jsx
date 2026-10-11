@@ -6,7 +6,6 @@ import {
 } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
 import GoogleIcon from '../../components/GoogleIcon'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
@@ -88,18 +87,14 @@ export default function TeacherLogin() {
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-5 space-y-3">
-          <Button variant="secondary" fullWidth onClick={handleGoogleSignIn} disabled={googleLoading}>
-            {googleLoading ? <Spinner size="sm" /> : <GoogleIcon />}
+          <Button variant="secondary" size="lg" fullWidth onClick={handleGoogleSignIn} busy={googleLoading}>
+            {!googleLoading && <GoogleIcon />}
             {googleLoading ? 'Conectando…' : 'Continuar con Google'}
           </Button>
 
-          <button
-            type="button"
-            onClick={() => setShowLinkAccount(true)}
-            className="w-full text-center text-xs text-accent hover:underline"
-          >
+          <Button variant="link" className="w-full justify-center text-xs" onClick={() => setShowLinkAccount(true)}>
             ¿Normalmente entras con Google y hoy usarás otra computadora?
-          </button>
+          </Button>
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-outline-variant" />
@@ -121,14 +116,9 @@ export default function TeacherLogin() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label htmlFor="login-password" className="block text-sm font-medium text-muted">Contraseña</label>
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  disabled={resetLoading}
-                  className="text-xs text-accent hover:underline disabled:opacity-60"
-                >
+                <Button variant="link" className="text-xs disabled:opacity-60" onClick={handleForgotPassword} disabled={resetLoading}>
                   ¿Olvidaste tu contraseña?
-                </button>
+                </Button>
               </div>
               <PasswordInput
                 id="login-password"
@@ -136,10 +126,10 @@ export default function TeacherLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:border-transparent text-sm bg-surface"
+                className="focus:border-transparent"
               />
             </div>
-            <Button type="submit" fullWidth busy={loading}>
+            <Button type="submit" size="lg" fullWidth busy={loading}>
               {loading ? 'Entrando…' : 'Iniciar sesión'}
             </Button>
           </form>
@@ -153,7 +143,7 @@ export default function TeacherLogin() {
         </p>
         {/* Sin <p> envolvente: en la app nativa el componente no pinta nada, y
             así tampoco queda un renglón vacío. */}
-        <CanalYouTubeLink className="mx-auto mt-4 w-fit flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-on-surface hover:bg-surface-card transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+        <CanalYouTubeLink className="mx-auto mt-4 w-fit flex items-center gap-2 h-control px-4 rounded-full text-sm font-semibold text-on-surface hover:bg-surface-card transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
           <YouTubeIcon className="w-6 h-auto flex-shrink-0" />
           Tutoriales
           <span className="sr-only"> (abre YouTube en una pestaña nueva)</span>

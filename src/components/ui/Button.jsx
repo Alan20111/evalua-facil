@@ -5,7 +5,8 @@
 //
 // Props:
 //   variant  primary (default) · secondary · outline-accent · danger ·
-//            danger-outline · ghost · link · icon · cta-dashed · fab
+//            danger-outline · ghost · quiet (acción secundaria discreta:
+//            «Atrás», «Lo haré después») · link · icon · cta-dashed · fab
 //   size     sm (zonas densas) · md (default) · lg (acción principal de
 //            pantallas de acceso y botón fijo de formulario)
 //   icon / iconRight   componente de lucide (u otro) a la izquierda / derecha
@@ -29,6 +30,7 @@ const VARIANTS = {
   danger: 'bg-red-600 hover:bg-red-700 text-white',
   'danger-outline': 'border border-red-300 text-red-600 hover:bg-red-50',
   ghost: 'text-accent hover:bg-[var(--accent-tint)]',
+  quiet: 'text-muted hover:text-on-surface hover:bg-surface-container',
   // Enlace dentro de un texto: sin altura propia ni relleno.
   link: 'text-accent hover:underline underline-offset-2',
   icon: 'size-control text-muted hover:text-accent hover:bg-[var(--accent-tint)]',
@@ -37,7 +39,7 @@ const VARIANTS = {
 }
 
 // Variantes con altura de control y relleno lateral.
-const CON_ALTURA = new Set(['primary', 'secondary', 'outline-accent', 'danger', 'danger-outline', 'ghost', 'cta-dashed'])
+const CON_ALTURA = new Set(['primary', 'secondary', 'outline-accent', 'danger', 'danger-outline', 'ghost', 'quiet', 'cta-dashed'])
 const SIZES = {
   sm: 'h-control-sm px-3',
   md: 'h-control px-4',
@@ -52,7 +54,7 @@ const Button = forwardRef(function Button(
   const Tag = as
   const tamIcono = variant === 'icon' || variant === 'fab' ? ICONO.md : ICONO_POR_TAMANO[size]
   const classes = cn(
-    variant === 'link' ? 'inline-flex items-center gap-1 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full' : BASE,
+    variant === 'link' ? 'inline-flex items-center gap-1 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full' : BASE,
     VARIANTS[variant] || VARIANTS.primary,
     CON_ALTURA.has(variant) && (SIZES[size] || SIZES.md),
     fullWidth && 'w-full',
