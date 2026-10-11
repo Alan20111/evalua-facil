@@ -2215,7 +2215,7 @@ export default function EvaluacionEditor({
                   onChange={(e) => setIaMismoTema(e.target.checked)}
                 />
                 {iaMismoTema && (
-                  <p className="text-xs text-muted mt-1 pl-6">
+                  <p className="text-xs text-muted mt-1 pl-8">
                     El asistente usará los {preguntas.length} reactivo{preguntas.length !== 1 ? 's' : ''} existente{preguntas.length !== 1 ? 's' : ''} como referencia y generará reactivos NUEVOS sobre el mismo tema, con enunciados distintos.
                   </p>
                 )}

@@ -124,9 +124,10 @@ ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
 # Button.jsx de esta fase — 54 (main) + 2 (Button.jsx) = 56.
 # Bajó a 55 en fix/responsive-movil-p0-p1: se eliminó min-w-[640px] de
 # NotificationLog.jsx al unificar los branches de la bitácora.
-# Bajó a 53 en refactor/estandares-espaciado (oct-2026).
+# Bajó a 53 en refactor/estandares-espaciado (oct-2026) y a 48 con ui/Button
+# (variante icon = size-control, ya sin min-h-[44px]) en la normalización.
 ratchet "Anchos/altos en píxeles duros (w-[Npx]/h-[Npx]) — evitar nuevos, usar tokens de layout.js" \
-  '(min-)?[wh]-\[[0-9]+px\]' 53
+  '(min-)?[wh]-\[[0-9]+px\]' 48
 
 echo ""
 echo "=== Normalización de la interfaz — docs/PLAN_NORMALIZACION_UI.md §7 ==="
@@ -139,7 +140,7 @@ ratchet "Control con esquina a medias (rounded + borde, debe ser rounded-full o 
 ratchet "Botón primario a mano (bg-accent hover:bg-accent-hover text-white → ui/Button) — §3" \
   'bg-accent hover:bg-accent-hover text-white' 42 'components/ui/'
 ratchet "Ícono fuera de la escala 14/16/20/24/40 (config/iconos.js) — §2.3" \
-  'size=\{([0-9]|1[0-35789]|2[1-35-9]|3[0-9])\}' 502 'components/ui/'
+  'size=\{([0-9]|1[0-35789]|2[1-35-9]|3[0-9])\}' 499 'components/ui/'
 ratchet "Duración cruda (duration-NNN → duration-rapida/estandar/lenta) — §2.5" \
   '(^|[^a-z-])duration-[0-9]+' 26 'components/ui/'
 ratchet "transition-all (anima de más; usa transition-colors/transform) — §2.5" \

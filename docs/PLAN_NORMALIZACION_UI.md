@@ -441,6 +441,15 @@ Las cuatro se aprobaron como se recomendaron:
 
 ---
 
+### Hallazgo pendiente de decidir (Fase 1, 10-oct-2026)
+
+**Escala de letra invertida en el docente.** `text-xs` mide 14.3 px y `text-sm` 12.8 px: la «chica» es más grande que la «normal». Viene de la octava pasada (#325), que agrandó solo `xs` un 30 % porque no se leía. Por eso las ayudas bajo un campo se ven más grandes que su etiqueta. Hay dos salidas:
+
+- **(a)** Subir `sm` para que quede por encima de `xs`. Agranda casi todo el texto del docente.
+- **(b)** Bajar `xs` a ≈ 12.5 px y, donde `xs` se usa como texto de lectura, cambiarlo a `sm`.
+
+Se decide antes de la ola 2.3.
+
 ## 11. Orden de ejecución y entregables
 
 | Paso | PRs | Entregable | Etiqueta de respaldo |

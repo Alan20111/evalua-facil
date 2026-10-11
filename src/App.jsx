@@ -58,6 +58,10 @@ const paginas = {
   StudentMiEspacio: () => import('./pages/student/MiEspacio'),
   AdminDashboard: () => import('./pages/admin/Dashboard'),
 }
+// Catálogo de componentes: solo en desarrollo. En el build de producción
+// `import.meta.env.DEV` es false y el import desaparece (no genera archivo).
+const Catalogo = import.meta.env.DEV ? lazy(() => import('./pages/dev/Catalogo')) : null
+
 // La página de la URL con la que se abrió la app se pide YA, a la par de la
 // sesión. Si se esperara a que React llegue a la ruta, su código no saldría
 // hasta resolver Auth + perfil (~6 s en 4G) y luego aún habría que bajarlo.
@@ -367,6 +371,8 @@ export default function App() {
             <Route path="/alumno/perfil" element={<ProtectedStudent><StudentProfile /></ProtectedStudent>} />
             <Route path="/alumno/tips" element={<ProtectedStudent><StudentTipsPage /></ProtectedStudent>} />
             <Route path="/alumno/mi-espacio" element={<ProtectedStudent><StudentMiEspacio /></ProtectedStudent>} />
+
+            {Catalogo && <Route path="/dev/componentes" element={<Catalogo />} />}
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

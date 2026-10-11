@@ -1,63 +1,57 @@
-// Botón canónico — extraído literal de docs/DESIGN_SYSTEM.md §6.1 (8 variantes).
-// Al presionar se encoge a 97% (150ms, curva firma) — retroalimentación táctil
-// de la skill motion-design. Forma de píldora (rounded-full) en todas las variantes desde oct-2026: los
-// controles que se tocan son píldoras; las tarjetas, rectángulos redondeados.
-// NO inventa estilos: cada `variant` es la cadena de clases ya documentada.
+// Botón de la app (docs/PLAN_NORMALIZACION_UI.md §2.1 y §3). Todos los botones
+// de texto miden LO MISMO: la altura es fija (h-control), no sale del padding
+// ni del tamaño de letra, y el texto es siempre text-sm font-semibold. El
+// padding solo da aire a los lados.
 //
 // Props:
-//   variant  'primary' (default) | 'secondary' | 'outline-accent' | 'danger'
-//            | 'ghost' | 'icon' | 'cta-dashed' | 'fab'
-//   size     'sm' | 'md' (default) | 'lg'  — solo aplica a las variantes con
-//            texto (primary/secondary/outline-accent/danger); icon/ghost/
-//            cta-dashed/fab traen su propio tamaño.
-//   fullWidth  agrega w-full.
-//   busy       muestra Spinner y deshabilita (para acciones async).
-//   as         'button' (default) | 'a'  — para links con aspecto de botón.
-// El resto de props (onClick, type, disabled, href, aria-*, etc.) pasan tal cual.
+//   variant  primary (default) · secondary · outline-accent · danger ·
+//            danger-outline · ghost · link · icon · cta-dashed · fab
+//   size     sm (zonas densas) · md (default) · lg (acción principal de
+//            pantallas de acceso y botón fijo de formulario)
+//   icon / iconRight   componente de lucide (u otro) a la izquierda / derecha
+//   busy     muestra el spinner en lugar del ícono y deshabilita
+//   fullWidth, as ('button' | Link | 'a'…), className
 import { forwardRef } from 'react'
 import { cn } from './cn'
 import Spinner from '../Spinner'
+import { ICONO } from '../../config/iconos'
+
+const BASE =
+  'inline-flex items-center justify-center gap-2 rounded-full text-sm font-semibold whitespace-nowrap select-none transition active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2'
 
 const VARIANTS = {
-  primary:
-    'bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2',
-  secondary:
-    'border border-outline-variant rounded-full font-semibold text-on-surface hover:bg-surface transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2',
-  'outline-accent':
-    'border border-accent text-accent rounded-full hover:bg-[var(--accent-tint)] font-semibold transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2',
-  danger:
-    'bg-red-600 hover:bg-red-700 text-white font-semibold rounded-full transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2',
-  ghost:
-    'text-accent hover:underline font-semibold transition active:scale-[0.97] disabled:opacity-60',
-  // Icon-button: disabled:opacity-40 (convención de toolbars de puro icono).
-  // Alto/ancho mínimo de 44 px reales, en corchetes (no en la escala rem de
-  // Tailwind): con html{font-size:90%} del proyecto, el equivalente en la
-  // escala (ej. min-h-11) daría 39.6px reales, no 44 — WCAG 2.5.8 pide el
-  // tamaño real del target, no el nominal. docs/PLAN_ACCESIBILIDAD_Y_ADAPTABILIDAD.md Fase 2, paso 2.8.
-  icon:
-    'p-2 min-h-[44px] min-w-[44px] rounded-full text-hint hover:text-accent hover:bg-[var(--accent-medium)] transition active:scale-[0.97] disabled:opacity-40 inline-flex items-center justify-center',
-  'cta-dashed':
-    'w-full py-2.5 rounded-full border-2 border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2',
-  fab:
-    'w-14 h-14 rounded-full bg-accent text-white shadow-lg flex items-center justify-center',
+  primary: 'bg-accent hover:bg-accent-hover text-white',
+  secondary: 'border border-outline-variant bg-surface-card text-on-surface hover:bg-surface',
+  'outline-accent': 'border border-accent text-accent hover:bg-[var(--accent-tint)]',
+  danger: 'bg-red-600 hover:bg-red-700 text-white',
+  'danger-outline': 'border border-red-300 text-red-600 hover:bg-red-50',
+  ghost: 'text-accent hover:bg-[var(--accent-tint)]',
+  // Enlace dentro de un texto: sin altura propia ni relleno.
+  link: 'text-accent hover:underline underline-offset-2',
+  icon: 'size-control text-muted hover:text-accent hover:bg-[var(--accent-tint)]',
+  'cta-dashed': 'w-full border-2 border-dashed border-accent text-accent hover:bg-accent-light',
+  fab: 'size-14 bg-accent text-white shadow-lg hover:bg-accent-hover',
 }
 
-// El tamaño (padding + texto) solo modula las variantes de botón "de texto".
-const SIZED = new Set(['primary', 'secondary', 'outline-accent', 'danger'])
+// Variantes con altura de control y relleno lateral.
+const CON_ALTURA = new Set(['primary', 'secondary', 'outline-accent', 'danger', 'danger-outline', 'ghost', 'cta-dashed'])
 const SIZES = {
-  sm: 'px-3 py-2 text-sm',
-  md: 'px-4 py-2.5 text-sm',
-  lg: 'px-5 py-2.5 text-base',
+  sm: 'h-control-sm px-3',
+  md: 'h-control px-4',
+  lg: 'h-control-lg px-5',
 }
+const ICONO_POR_TAMANO = { sm: ICONO.xs, md: ICONO.sm, lg: ICONO.sm }
 
 const Button = forwardRef(function Button(
-  { variant = 'primary', size = 'md', fullWidth = false, busy = false, as = 'button', className = '', disabled, children, ...rest },
+  { variant = 'primary', size = 'md', fullWidth = false, busy = false, icon: Icono, iconRight: IconoDer, as = 'button', className = '', disabled, children, ...rest },
   ref
 ) {
   const Tag = as
+  const tamIcono = variant === 'icon' || variant === 'fab' ? ICONO.md : ICONO_POR_TAMANO[size]
   const classes = cn(
+    variant === 'link' ? 'inline-flex items-center gap-1 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full' : BASE,
     VARIANTS[variant] || VARIANTS.primary,
-    SIZED.has(variant) && SIZES[size],
+    CON_ALTURA.has(variant) && (SIZES[size] || SIZES.md),
     fullWidth && 'w-full',
     className
   )
@@ -66,11 +60,13 @@ const Button = forwardRef(function Button(
       ref={ref}
       className={classes}
       disabled={Tag === 'button' ? disabled || busy : undefined}
+      aria-busy={busy || undefined}
       {...(Tag === 'button' && !rest.type ? { type: 'button' } : {})}
       {...rest}
     >
-      {busy && <Spinner size="sm" />}
+      {busy ? <Spinner size="sm" current /> : Icono && <Icono size={tamIcono} aria-hidden="true" className="flex-shrink-0" />}
       {children}
+      {IconoDer && !busy && <IconoDer size={tamIcono} aria-hidden="true" className="flex-shrink-0" />}
     </Tag>
   )
 })

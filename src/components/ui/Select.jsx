@@ -15,8 +15,9 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { cn } from './cn'
 import FieldMark from './FieldMark'
 
+// Mismo alto que todo control (h-control, PLAN_NORMALIZACION_UI §2.1).
 const TRIGGER_BASE =
-  'w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface text-left'
+  'w-full flex items-center justify-between gap-2 h-control px-4 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface text-left transition-colors'
 
 export default function Select({
   label, hint, error, id, options = [], value, onChange, required = false, optional = false,
@@ -53,7 +54,7 @@ export default function Select({
         <span className="truncate text-on-surface">
           {current?.label || <><span aria-hidden="true">&nbsp;</span><span className="sr-only">Seleccionar</span></>}
         </span>
-        <ChevronDown size={16} className="text-muted flex-shrink-0" />
+        <ChevronDown size={16} aria-hidden="true" className={`text-muted flex-shrink-0 transition-transform duration-estandar ${open ? 'rotate-180' : ''}`} />
       </button>
       {error ? (
         <p className="text-red-500 text-xs mt-1">{error}</p>
@@ -71,7 +72,7 @@ export default function Select({
                 <X size={18} />
               </button>
             </div>
-            <div className="p-2">
+            <div className="p-2 space-y-1">
               {options.map((o) => {
                 const selected = o.value === value
                 return (
@@ -79,12 +80,13 @@ export default function Select({
                     key={o.value}
                     type="button"
                     onClick={() => { onChange(o.value); setOpen(false) }}
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded text-left text-sm transition-colors ${
-                      selected ? 'bg-[var(--accent-tint)] text-accent font-medium' : 'text-on-surface hover:bg-[var(--accent-tint)]'
+                    aria-pressed={selected}
+                    className={`w-full flex items-center justify-between gap-2 min-h-control px-4 py-2 rounded-full text-left text-sm transition-colors ${
+                      selected ? 'bg-[var(--accent-tint)] text-accent font-semibold' : 'text-on-surface hover:bg-[var(--accent-tint)]'
                     }`}
                   >
                     <span>{o.label}</span>
-                    {selected && <Check size={16} className="flex-shrink-0" />}
+                    {selected && <Check size={16} aria-hidden="true" className="flex-shrink-0 animate-pop motion-reduce:animate-none" />}
                   </button>
                 )
               })}
