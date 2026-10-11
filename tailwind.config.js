@@ -222,6 +222,23 @@ export default {
       maxWidth: {
         container: '1200px',
       },
+      // Altura de control (PLAN_NORMALIZACION_UI §2.1) — h-control, size-control,
+      // min-h-control… Leen las variables de src/index.css (suben en táctil).
+      spacing: {
+        'control-sm': 'var(--control-sm)',
+        control: 'var(--control)',
+        'control-lg': 'var(--control-lg)',
+      },
+      // Capas (PLAN_NORMALIZACION_UI §2.4): seis, con nombre. Un menú dentro de
+      // una hoja va en portal con z-menu, no con un número más alto.
+      zIndex: {
+        contenido: '10',
+        barra: '30',
+        menu: '40',
+        hoja: '50',
+        aviso: '60',
+        tope: '90',
+      },
       // Legibility, second pass: the first round (+10–15%) was judged too timid for
       // the actual audience — teachers in their 40s–60s reading this for hours, not
       // developers glancing at a dashboard. This replaces it with a meaningfully
