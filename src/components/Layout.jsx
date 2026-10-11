@@ -11,7 +11,6 @@ import {
   BookOpen,
   Sparkles,
   Settings,
-  CirclePlay,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -39,6 +38,7 @@ import CanalYouTubeLink from './CanalYouTubeLink'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { EsqueletoFilasLateral } from './esqueletos'
+import YouTubeIcon from './YouTubeIcon'
 
 // Indicador de pestaña activa en la barra inferior — un rectángulo de
 // esquinas ovaladas relleno de color detrás del ícono (pedido explícito,
@@ -371,7 +371,7 @@ export default function TeacherLayout({ children }) {
                     NavLink ni tiene estado activo. Solo vive en el sidebar: la
                     barra superior del móvil no lleva un ícono más. */}
                 <CanalYouTubeLink className={`${ITEM_SECUNDARIO} pl-8 ${ITEM_SEC_INACTIVO}`}>
-                  <CirclePlay size={SB_ICONO} className="flex-shrink-0" />
+                  <YouTubeIcon className="w-5 h-auto flex-shrink-0" />
                   Canal de YouTube
                 </CanalYouTubeLink>
                 </div>

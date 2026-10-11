@@ -15,7 +15,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import Select from '../../components/ui/Select'
-import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Archive, Globe, Smartphone, Sparkles, CirclePlay } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Archive, Globe, Smartphone, Sparkles } from 'lucide-react'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
@@ -33,6 +33,7 @@ import AppQRButton from '../../components/AppQRButton'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { EsqueletoTableroDocente } from '../../components/esqueletos'
+import YouTubeIcon from '../../components/YouTubeIcon'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -551,7 +552,7 @@ export default function TeacherDashboard() {
                   <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                     <Smartphone size={21} className="text-accent" />
                   </div>
-                  <p className="flex-1 min-w-0 font-semibold text-on-surface">📱 Evalúa Fácil en tu celular</p>
+                  <p className="flex-1 min-w-0 font-semibold text-on-surface">Evalúa Fácil en tu celular</p>
                   <ChevronRight size={20} className={`text-slate-300 flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-90' : ''}`} />
                 </button>
                 {showAppInfo && (
@@ -567,7 +568,7 @@ export default function TeacherDashboard() {
                 navega: por eso la flecha queda fija a la derecha, sin girar. */}
             <CanalYouTubeLink className="w-full mt-3 bg-surface-card rounded-card shadow-card p-1.5 flex items-center gap-2 text-left hover:bg-[var(--accent-tint)] transition-colors">
               <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-                <CirclePlay size={21} className="text-accent" />
+                <YouTubeIcon className="w-6 h-auto" />
               </div>
               <p className="flex-1 min-w-0 font-semibold text-on-surface">Evalúa Fácil en YouTube</p>
               <ChevronRight size={20} className="text-slate-300 flex-shrink-0" />

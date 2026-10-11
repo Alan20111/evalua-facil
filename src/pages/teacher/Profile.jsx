@@ -14,7 +14,7 @@ import Spinner from '../../components/Spinner'
 import ConfirmModal from '../../components/ConfirmModal'
 import PasswordInput from '../../components/PasswordInput'
 import { resolveSchoolSelection } from '../../utils/schoolSelection'
-import { Camera, Lock, User, Sparkles, School, Trash2, Settings, Bell, BookOpen, CirclePlay, ShieldCheck } from 'lucide-react'
+import { Camera, Lock, User, Sparkles, School, Trash2, Settings, Bell, BookOpen, ShieldCheck } from 'lucide-react'
 import { Pestanas, SubPestanas, GrupoAjustes, FilaAjuste, FlechaAjuste, FILA_AJUSTE } from '../../components/perfil/Pestanas'
 import AppQRButton from '../../components/AppQRButton'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
@@ -38,6 +38,7 @@ import { capitalizarNombre } from '../../utils/nombres'
 import Select from '../../components/ui/Select'
 import InfoDisclosure from '../../components/ui/InfoDisclosure'
 import { SkeletonText } from '../../components/ui'
+import YouTubeIcon from '../../components/YouTubeIcon'
 
 
 const inputCls =
@@ -594,7 +595,7 @@ export default function Profile() {
             <GrupoAjustes titulo="Ayuda">
               <FilaAjuste to="/ayuda" icono={BookOpen} titulo="Ayuda para comenzar" />
               <CanalYouTubeLink className={FILA_AJUSTE}>
-                <CirclePlay size={19} aria-hidden="true" className="text-accent flex-shrink-0" />
+                <YouTubeIcon className="w-5 h-auto flex-shrink-0" />
                 <span className="flex-1 font-semibold">Canal de YouTube</span>
                 <FlechaAjuste externa />
               </CanalYouTubeLink>
