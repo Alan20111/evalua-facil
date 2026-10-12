@@ -279,6 +279,11 @@ export default defineConfig([
       'src/pages/teacher/Profile.jsx',
       'src/pages/teacher/Register.jsx',
       'src/pages/teacher/SubjectPage.jsx',
+      // Fase 5 de PLAN_NORMALIZACION_UI: las partes que salieron de los
+      // monolitos se llevan su deuda tal cual (sin cambio de código).
+      'src/pages/teacher/subject/**/*.jsx',
+      'src/pages/teacher/activity/**/*.jsx',
+      'src/pages/teacher/calendar/**/*.jsx',
     ],
     rules: {
       'no-restricted-syntax': 'off',
