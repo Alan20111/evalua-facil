@@ -649,7 +649,7 @@ export const AttendanceTable = memo(function AttendanceTable({
       {tabla}
       {createPortal(
         <div ref={obsPopRef} role="tooltip"
-          className="hidden fixed z-[94] max-w-xs px-3 py-2 bg-surface-card text-on-surface text-xs leading-snug whitespace-pre-wrap break-words border border-outline-variant rounded shadow-lg pointer-events-none" />,
+          className="hidden fixed z-flotante max-w-xs px-3 py-2 bg-surface-card text-on-surface text-xs leading-snug whitespace-pre-wrap break-words border border-outline-variant rounded shadow-lg pointer-events-none" />,
         document.body,
       )}
     </>

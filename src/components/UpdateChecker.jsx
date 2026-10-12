@@ -47,7 +47,7 @@ export default function UpdateChecker() {
   if (IS_NATIVE_APP || !hayVersionNueva) return null
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-4 py-3 rounded-card shadow-2xl bg-surface-card border border-outline-variant max-w-[calc(100vw-2rem)]">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-sistema flex items-center gap-3 px-4 py-3 rounded-card shadow-2xl bg-surface-card border border-outline-variant max-w-[calc(100vw-2rem)]">
       <RefreshCw size={ICONO.md} className="flex-shrink-0 text-accent" />
       <p className="text-sm text-on-surface">Hay una versión nueva de Evalúa Fácil. Recarga para actualizar.</p>
       <Button className="flex-shrink-0"

@@ -93,7 +93,7 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, nombre, 
           role="dialog" + aria-modal es el patrón de la guía WAI-ARIA para diálogos propios, el mismo de ui/Modal.jsx; esta capa
           ocupa toda la pantalla (la del reproductor) y por eso no puede ser el Modal de max-w-3xl. */}
       <div role="dialog" aria-modal="true" aria-label="Vista previa docente del video interactivo" data-testid="vista-previa-docente"
-        className="fixed top-0 left-0 w-full h-dvh z-[75] bg-surface flex flex-col">
+        className="fixed top-0 left-0 w-full h-dvh z-pantalla bg-surface flex flex-col">
         <header className="bg-amber-100 text-amber-950 px-3 py-1.5 flex items-center gap-2 border-b border-amber-300">
           <span className="text-xs font-extrabold uppercase tracking-wide bg-amber-900 text-white rounded-full px-2.5 py-1 flex-shrink-0">Vista previa docente</span>
           <p className="text-sm truncate flex-1 min-w-0">

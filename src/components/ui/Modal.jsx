@@ -43,7 +43,7 @@ import { cn } from './cn'
 import { useScrollLock } from '../../hooks/useScrollLock'
 
 const SIZES = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-xl', '2xl': 'max-w-2xl', '3xl': 'max-w-3xl', '4xl': 'max-w-4xl', full: '' }
-const Z = { 40: 'z-40', 50: 'z-hoja', 60: 'z-aviso', 70: 'z-menu', 80: 'z-[80]', 90: 'z-tope', 110: 'z-[110]' }
+const Z = { 40: 'z-40', 50: 'z-hoja', 60: 'z-aviso', 70: 'z-menu', 80: 'z-pantalla', 90: 'z-tope', 110: 'z-maximo' }
 
 export default function Modal({
   open,

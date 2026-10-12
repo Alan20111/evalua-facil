@@ -297,16 +297,30 @@ export default {
         control: 'var(--control)',
         'control-lg': 'var(--control-lg)',
       },
-      // Capas (PLAN_NORMALIZACION_UI §2.4): seis, con nombre. Los menús
-      // emergentes viven en portal (document.body) y van SOBRE las hojas, para
-      // que un menú abierto desde un modal no quede debajo de él.
+      // Capas (PLAN_NORMALIZACION_UI §2.4), todas con nombre — ya no hay
+      // z-[NN] sueltos. Los menús emergentes viven en portal (document.body) y
+      // van SOBRE las hojas, para que un menú abierto desde un modal no quede
+      // debajo de él.
+      //   pantalla  capas de pantalla completa sobre todo lo anterior (video a
+      //             pantalla completa, diálogos de asistencia, hoja de Select)
+      //   flotante  menús y globos que se abren DESDE una pantalla (clic
+      //             derecho en asistencia, nota de observación)
+      //   efecto    animaciones que tapan todo sin capturar clics (fuegos)
+      //   maximo    lo que debe quedar encima de cualquier diálogo (logo ampliado)
+      //   sistema   avisos del sistema y ayudas de teclado (nueva versión,
+      //             «Saltar al contenido», globo de nombre de actividad)
       zIndex: {
         contenido: '10',
         barra: '30',
         hoja: '50',
         aviso: '60',
         menu: '70',
+        pantalla: '80',
         tope: '90',
+        flotante: '95',
+        efecto: '100',
+        maximo: '110',
+        sistema: '9999',
       },
       // Legibility, second pass: the first round (+10–15%) was judged too timid for
       // the actual audience — teachers in their 40s–60s reading this for hours, not

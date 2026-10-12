@@ -99,7 +99,7 @@ export default function MenuContextualAsistencia({ menu, onClose }) {
       // Antes de acomodarlo se mide en la esquina (oculto): junto al borde
       // derecho mediría angosto y luego crecería fuera de la pantalla.
       style={pos ? { left: pos.left, top: pos.top } : { left: 0, top: 0, visibility: 'hidden' }}
-      className={`fixed z-[95] min-w-[12rem] py-1 bg-surface-card border border-outline-variant rounded-card shadow-2xl ${menu.resumen ? 'max-w-xs' : ''}`}
+      className={`fixed z-flotante min-w-[12rem] py-1 bg-surface-card border border-outline-variant rounded-card shadow-2xl ${menu.resumen ? 'max-w-xs' : ''}`}
     >
       {menu.resumen && (
         <p className="px-3 pt-1.5 pb-2 mb-1 text-sm text-on-surface whitespace-pre-wrap break-words line-clamp-4 border-b border-outline-variant">
