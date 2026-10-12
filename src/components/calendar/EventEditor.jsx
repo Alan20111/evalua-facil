@@ -4,15 +4,12 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../Toast'
 import EFDateTimePicker from '../EFDateTimePicker'
-import Spinner from '../Spinner'
 import Select from '../ui/Select'
-import { X, Trash2, Copy } from 'lucide-react'
+import { Trash2, Copy } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { useScrollLock } from '../../hooks/useScrollLock'
 import { refreshTeacherReminders } from '../../utils/localReminders'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { Input, Button } from '../ui'
-import { ICONO } from '../../config/iconos'
+import { Input, Button, IconButton, Modal, MotivoApagado, Tabs, Textarea } from '../ui'
 
 export const EVENT_COLORS = [
   { id: 'slate',  bg: '#f1f5f9', text: '#475569', label: 'Gris' },
@@ -21,7 +18,7 @@ export const EVENT_COLORS = [
   { id: 'orange', bg: '#ffedd5', text: '#c2410c', label: 'Naranja' },
   { id: 'purple', bg: '#f3e8ff', text: '#7e22ce', label: 'Morado' },
   { id: 'rose',   bg: '#ffe4e6', text: '#be123c', label: 'Rojo' },
-  { id: 'teal',   bg: '#ccfbf1', text: '#0d9488', label: 'Teal' },
+  { id: 'teal',   bg: '#ccfbf1', text: '#0d9488', label: 'Turquesa' },
 ]
 
 // Contenido de UN tipo de evento. Personal y académico son tipos distintos, no
@@ -51,7 +48,8 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
   // devuelve su contenido tal como se dejó (es su borrador, no una copia).
   const [borradores, setBorradores] = useState(() => ({
     personal:  nuevoBorrador('personal',  tipoOriginal === 'personal'  ? event : null),
-    academico: nuevoBorrador('academico', tipoOriginal === 'academico' ? event : null),
+    // Con una sola asignatura activa no hay nada que elegir: ya viene puesta.
+    academico: nuevoBorrador('academico', tipoOriginal === 'academico' ? event : (subjects.length === 1 ? { asignaturaId: subjects[0].id } : null)),
   }))
 
   // Compartidos entre ambos tipos a propósito: la fecha/hora es la ranura que
@@ -84,12 +82,18 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
     color !== (event?.color || 'blue')
   )
 
+  // Lo obligatorio que falta (PLAN_NORMALIZACION_UI §5.2, regla 6): el botón
+  // se apaga y lo dice, en vez de esperar al aviso de faltaAlgo().
+  const faltan = [
+    !contenido.titulo.trim() && 'el título',
+    !fechas.inicio && 'la fecha de inicio',
+    tipo === 'academico' && !contenido.asignaturaId && 'la asignatura',
+  ].filter(Boolean)
+
   // Botón atrás físico (Android): si está pidiendo confirmación de borrado,
   // solo la cancela (no cierra todo el editor).
   useBackHandler(() => setConfirmDelete(false), confirmDelete)
 
-  // Este componente solo se monta mientras está abierto (lo controla el padre).
-  useScrollLock(true)
 
   // Personal y académico viven en colecciones DISTINTAS — ver el comentario
   // en firestore.rules sobre por qué `academicEvents` no puede ser solo un
@@ -195,84 +199,54 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
-        onClick={onClose}
-        aria-label="Cerrar"
-      />
-      <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col">
-        {/* Encabezado fijo: no se desplaza aunque el teclado empuje el campo
-            enfocado hacia arriba (el body con overflow-y-auto es lo único
-            que se desplaza). */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-2 flex-shrink-0">
-          <h2 className="font-semibold text-on-surface">{isNew ? 'Nuevo evento' : 'Editar evento'}</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors">
-            <X size={ICONO.md} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSave} className="px-4 pb-4 space-y-3 overflow-y-auto flex-1">
-          {/* Color strip — pt-1: la bolita seleccionada crece (scale-110) y sin
-              este espacio su borde superior se recortaba contra el borde del
-              contenedor con scroll. */}
-          <div className="flex gap-2 flex-wrap pt-1">
+    <Modal open onClose={onClose} variant="centered" size="sm" busy={saving} title={isNew ? 'Nuevo evento' : 'Editar evento'}>
+        <form onSubmit={handleSave} className="space-y-3">
+          {/* Color: lo elegido es el aro con separación (PLAN_NORMALIZACION_UI
+              §5.1); la bolita ya no crece, así nada se mueve ni se recorta. */}
+          <fieldset className="grid grid-cols-7 gap-1 justify-items-center p-1">
+            <legend className="sr-only">Color del evento</legend>
             {EVENT_COLORS.map(c => (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => setColor(c.id)}
-                className={`w-6 h-6 rounded-full border-2 transition ${color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
+                aria-pressed={color === c.id}
+                className={`size-control-sm rounded-full border border-outline-variant transition ${color === c.id ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
                 style={{ background: c.bg }}
                 data-tooltip={c.label}
                 aria-label={c.label}
               />
             ))}
-          </div>
+          </fieldset>
 
           <div className="space-y-1">
-            <p className="text-xs text-muted font-medium">Tipo de evento</p>
-            <div className="flex gap-1 bg-surface-container p-1 rounded-full">
-              <button
-                type="button"
-                onClick={() => setTipo('personal')}
-                className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors min-h-control-sm ${
-                  tipo === 'personal' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'
-                }`}
-              >
-                Personal
-              </button>
-              <button
-                type="button"
-                onClick={() => setTipo('academico')}
-                className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors min-h-control-sm ${
-                  tipo === 'academico' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'
-                }`}
-              >
-                Académico
-              </button>
-            </div>
+            <p className="text-sm font-medium text-muted">Tipo de evento</p>
+            <Tabs
+              label="Tipo de evento"
+              value={tipo}
+              onChange={setTipo}
+              options={[{ value: 'personal', label: 'Personal' }, { value: 'academico', label: 'Académico' }]}
+            />
             {tipo === 'academico' && (
               <>
                 <p className="text-sm text-muted">Los estudiantes de esta asignatura lo verán en su Agenda.</p>
                 <Select
+                  id="event-asignatura"
+                  label="Asignatura"
                   value={contenido.asignaturaId}
                   onChange={(v) => patchContenido({ asignaturaId: v })}
-                  options={[
-                    { value: '', label: 'Elige una asignatura…' },
-                    ...subjects.map(s => ({ value: s.id, label: subjectDisplayName(s) })),
-                  ]}
+                  options={subjects.map(s => ({ value: s.id, label: subjectDisplayName(s) }))}
                 />
               </>
             )}
           </div>
 
           <Input
+            label="Título"
+            id="event-titulo"
             type="text"
             value={contenido.titulo}
             onChange={e => patchContenido({ titulo: e.target.value })}
-            aria-label="Título del evento"
             /* Sin autoFocus: en Android (edge-to-edge) enfocar un input y abrir
                el teclado justo al montar el modal deja el WebView con un
                frame en blanco hasta que algo más fuerza un repintado (p. ej.
@@ -282,27 +256,26 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             required
           />
 
-          <textarea
+          <Textarea
+            label="Descripción"
+            id="event-descripcion"
+            optional
             value={contenido.descripcion}
             onChange={e => patchContenido({ descripcion: e.target.value })}
-            aria-label="Descripción (opcional)"
             rows={2}
-            className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+          />
+
+          <Textarea
+            label="Notas"
+            id="event-notas"
+            optional
+            value={contenido.notas}
+            onChange={e => patchContenido({ notas: e.target.value })}
+            rows={3}
           />
 
           <div className="space-y-1">
-            <label htmlFor="event-notas" className="text-xs text-muted font-medium">Notas</label>
-            <textarea
-              id="event-notas"
-              value={contenido.notas}
-              onChange={e => patchContenido({ notas: e.target.value })}
-              rows={3}
-              className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs text-muted font-medium">Inicio</p>
+            <p className="text-sm font-medium text-muted">Inicio</p>
             <EFDateTimePicker
               mode="datetime"
               value={fechas.inicio}
@@ -313,7 +286,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
           </div>
 
           <div className="space-y-1">
-            <p className="text-xs text-muted font-medium">Fin (opcional)</p>
+            <p className="text-sm font-medium text-muted">Fin <span className="font-normal text-hint">(opcional)</span></p>
             <EFDateTimePicker
               mode="datetime"
               value={fechas.fin}
@@ -323,32 +296,27 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             />
           </div>
 
-          <div className="flex gap-2 pt-1">
-            {!isNew && (
-              confirmDelete ? (
-                <button type="button" onClick={handleDelete} disabled={saving}
-                  className="px-3 py-2 bg-error text-white rounded text-sm font-medium">
-                  Confirmar eliminación
-                </button>
-              ) : (
-                <button type="button" onClick={() => setConfirmDelete(true)}
-                  className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors" data-tooltip="Eliminar" aria-label="Eliminar">
-                  <Trash2 size={ICONO.md} />
-                </button>
-              )
-            )}
-            {!isNew && !confirmDelete && (
-              <button type="button" onClick={handleDuplicate} disabled={saving}
-                className="size-control inline-flex items-center justify-center text-muted hover:text-accent rounded-full transition-colors" data-tooltip="Duplicar" aria-label="Duplicar">
-                <Copy size={ICONO.md} />
-              </button>
-            )}
-            <Button className="flex-1" type="submit" disabled={saving || !eventChanged}>
-              {saving ? <Spinner size="sm" /> : isNew ? 'Crear evento' : 'Guardar cambios'}
-            </Button>
+          <div className="pie-hoja">
+            <div className="flex gap-2">
+              {!isNew && (
+                confirmDelete ? (
+                  <Button variant="danger" onClick={handleDelete} busy={saving}>
+                    Confirmar eliminación
+                  </Button>
+                ) : (
+                  <IconButton icon={Trash2} label="Eliminar" variant="danger" onClick={() => setConfirmDelete(true)} />
+                )
+              )}
+              {!isNew && !confirmDelete && (
+                <IconButton icon={Copy} label="Duplicar" onClick={handleDuplicate} disabled={saving} />
+              )}
+              <Button className="flex-1" type="submit" busy={saving} disabled={faltan.length > 0 || !eventChanged}>
+                {isNew ? 'Crear evento' : 'Guardar cambios'}
+              </Button>
+            </div>
+            <MotivoApagado faltan={faltan} sinCambios={!eventChanged} />
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }

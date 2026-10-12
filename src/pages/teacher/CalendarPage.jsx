@@ -407,10 +407,19 @@ export default function CalendarPage() {
     }
     return false
   }
+  function proximaHoraEnPunto(ahora = new Date()) {
+    const d = new Date(ahora)
+    d.setMinutes(0, 0, 0)
+    d.setHours(d.getHours() + 1)
+    return `${toDateStr(d)}T${String(d.getHours()).padStart(2, '0')}:00`
+  }
   function openNewEvent(date) {
     if (date && bloqueadoPorAsueto(toDateStr(date), 'eventos')) return
     setEditingEvent(null)
-    setSelectedDate(date ? `${toDateStr(date)}T08:00` : '')
+    // Sin día elegido (botón «Evento»): la siguiente hora en punto de hoy,
+    // que es casi siempre para cuando se agenda algo (PLAN_NORMALIZACION_UI
+    // §5.2). Con día elegido en el calendario, las 8:00 de ese día.
+    setSelectedDate(date ? `${toDateStr(date)}T08:00` : proximaHoraEnPunto())
     setShowEventEditor(true)
   }
   function openEditEvent(ev) {

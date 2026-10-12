@@ -1542,7 +1542,16 @@ export default function SubjectPage() {
     ? 'Agregar día'
     : (attendanceMissingAutoDias.length > 0 ? 'Restaurar día' : null)
   function handleAddDayClick() {
-    if (!autoAttendanceReady) { setShowAddAttendance(true); return }
+    if (!autoAttendanceReady) {
+      // El día de hoy ya viene puesto (PLAN_NORMALIZACION_UI §5.2): casi
+      // siempre se agrega la clase que se está dando. El parcial se queda en
+      // el último que se usó. Si ya había un día elegido, se respeta.
+      const d = new Date()
+      const hoy = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      setNewAttendanceForm((f) => (f.fecha ? f : { ...f, fecha: hoy }))
+      setShowAddAttendance(true)
+      return
+    }
     setShowRestoreAttendance(true)
   }
   const addDayClickRef = useRef(); addDayClickRef.current = handleAddDayClick
@@ -4810,7 +4819,7 @@ export default function SubjectPage() {
                 />
               </div>
               <div className={modalAsistenciaHorizontal ? 'flex-1 min-w-0' : undefined}>
-                <label htmlFor="att-fecha" className="block text-xs font-medium text-muted mb-1">Día</label>
+                <label htmlFor="att-fecha" className="block text-sm font-medium text-muted mb-1">Día</label>
                 <EFDateTimePicker mode="date" value={newAttendanceForm.fecha}
                   onChange={(v) => setNewAttendanceForm((f) => ({ ...f, fecha: v }))}
                   etiqueta="Elige el día" clearable={false}
@@ -4843,10 +4852,9 @@ export default function SubjectPage() {
               </div>
             )}
             <div className="flex gap-2 pt-1">
-              <button type="button" onClick={() => setShowAddAttendance(false)}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowAddAttendance(false)}>
                 Cancelar
-              </button>
+              </Button>
               <Button icon={CalendarPlus} busy={savingAttendance} className="flex-1" type="submit" disabled={savingAttendance || !newAttendanceForm.fecha || !!avisoSinClase}>
                  Agregar
               </Button>

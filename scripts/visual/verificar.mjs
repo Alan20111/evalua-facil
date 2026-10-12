@@ -69,6 +69,7 @@ const VISTAS = {
     { nombre: 'nuevo-entregable', url: `/subject/${semilla.ids[0]}`, abrir: ['Agregar actividad', 'Entregable', /^Crear manualmente/], captura: '.fixed.inset-0.z-50' },
     { nombre: 'actividad', url: `/activity/${semilla.actividad}` },
     { nombre: 'calendario', url: '/calendario' },
+    { nombre: 'nuevo-evento', url: '/calendario', abrir: /^(Evento|Nuevo evento)$/ },
     { nombre: 'perfil', url: '/profile', pestanas: true },
     { nombre: 'notificaciones', url: '/notificaciones' },
     { nombre: 'catalogo', url: '/dev/componentes' },
