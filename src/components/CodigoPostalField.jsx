@@ -1,6 +1,6 @@
 import { useUbicacionCP } from '../data/useCodigoPostal'
 import { estadoPorCodigoPostal, soloDigitosCP, ubicacionTexto } from '../utils/codigoPostal'
-import Input from './ui/Input'
+import { Input } from './ui'
 
 // Campo de código postal: el docente escribe 5 dígitos y debajo aparece su
 // estado y ciudad (o municipio, si el catálogo no trae ciudad) — no se le

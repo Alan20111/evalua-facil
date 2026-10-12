@@ -94,7 +94,7 @@ def migrar(s):
         oc = f' onClick={{{onclick}}}' if onclick else ''
         disabled = '' if dis.strip() == busy else f' disabled={{{dis}}}'
         ind = re.search(r'([ \t]*)$', s_previo(m)).group(1)
-        return f'<Button type="{tipo}" size="lg" fullWidth busy={{{busy}}}{disabled}{oc}>\n{ind}  {texto.strip()}\n{ind}</Button>'
+        return f'<Button type="{tipo}" fullWidth busy={{{busy}}}{disabled}{oc}>\n{ind}  {texto.strip()}\n{ind}</Button>'
     s_ref[0] = s
     s = pat3.sub(r3, s)
     return s, n
@@ -109,34 +109,36 @@ def s_previo(m):
     ini = t.rfind('\n', 0, m.start()) + 1
     return t[ini:m.start()]
 
-def asegurar_import(s, nombres):
+def ruta_ui(archivo):
+    import os
+    if not archivo:
+        return '../../components/ui'
+    r = os.path.relpath('src/components/ui', os.path.dirname(archivo))
+    return r if r.startswith('.') else './' + r
+
+def asegurar_import(s, nombres, archivo=None):
     usados = [x for x in nombres if re.search(r'<' + x + r'\b', s)]
     if not usados: return s
-    # Los imports por defecto (ui/Button, ui/Input) se cambian por el barril.
+    # Los imports por defecto (…/ui/Button, …/ui/Input) se cambian por el barril.
     for u in usados:
-        s = re.sub(r"import " + u + r" from '((?:\.\./)+components/ui)/" + u + r"'\n", '', s)
-    m = re.search(r"import \{([^}]*)\} from '((?:\.\./)+components/ui)'", s)
+        s = re.sub(r"import " + u + r" from '[./]*(?:components/)?ui/" + u + r"'\n", '', s)
+    m = re.search(r"import \{([^}]*)\} from '([./]*(?:components/)?ui)'", s)
     if m:
         actuales = [x.strip() for x in m.group(1).split(',') if x.strip()]
         faltan = [u for u in usados if u not in actuales]
         if faltan:
             s = s[:m.start(1)] + ' ' + ', '.join(actuales + faltan) + ' ' + s[m.end(1):]
         return s
-    # quitar imports default sueltos de ui/Button, ui/Input
-    for u in usados:
-        s = re.sub(r"import " + u + r" from '((?:\.\./)+components/ui)/" + u + r"'\n", '', s)
-    prof = re.search(r"from '((?:\.\./)+)components/", s)
-    base = prof.group(1) if prof else '../../'
     lineas = s.split('\n')
     ult = max(i for i, l in enumerate(lineas) if l.startswith('import '))
-    lineas.insert(ult + 1, f"import {{ {', '.join(usados)} }} from '{base}components/ui'")
+    lineas.insert(ult + 1, f"import {{ {', '.join(usados)} }} from '{ruta_ui(archivo)}'")
     return '\n'.join(lineas)
 
 if __name__ == '__main__':
     for f in sys.argv[1:]:
         s = open(f).read()
         s2, n = migrar(s)
-        s2 = asegurar_import(s2, ['Input', 'Button'])
+        s2 = asegurar_import(s2, ['Input', 'Button'], f)
         if s2 != s:
             open(f, 'w').write(s2)
         print(f, n)
@@ -147,7 +149,7 @@ VARIANTE_POR_CLASES = [
     (re.compile(r'^(w-full )?px-[45] py-2\.5 border border-outline-variant (text-muted|text-on-surface) (text-sm )?font-semibold rounded-full transition(-colors)? hover:bg-(surface-container|surface)$'), 'secondary'),
 ]
 
-def pasada2(s, tamano='lg'):
+def pasada2(s, tamano='md'):
     n = {'botones2': 0, 'cabeceras': 0}
     pat = re.compile(r'<button\s+type="button"\s+onClick=\{((?:[^{}]|\{[^{}]*\})*)\}(\s+disabled=\{[^}]*\})?\s+className="([^"]+)"\s*>\s*([^<>{}]+?)\s*</button>', re.S)
     def r(m):
@@ -159,7 +161,8 @@ def pasada2(s, tamano='lg'):
                 v = '' if var == 'primary' else f' variant="{var}"'
                 d = dis.strip() if dis else ''
                 d = f' {d}' if d else ''
-                return f'<Button{v} size="{tamano}"{full}{d} onClick={{{onclick}}}>{texto.strip()}</Button>'
+                tam = '' if tamano == 'md' else f' size="{tamano}"'
+                return f'<Button{v}{tam}{full}{d} onClick={{{onclick}}}>{texto.strip()}</Button>'
         return m.group(0)
     s = pat.sub(r, s)
     patc = re.compile(r'<div className="w-16 h-16 rounded-card (bg-[\w-]+) flex items-center justify-center mx-auto mb-3">\s*<(\w+) size=\{32\} className="([^"]+)" />\s*</div>')
@@ -169,13 +172,17 @@ def pasada2(s, tamano='lg'):
     s = patc.sub(rc, s)
     return s, n
 
-def asegurar_icono(s):
+def asegurar_icono(s, archivo=None):
+    import os
     if 'ICONO.' in s and not re.search(r"import \{[^}]*\bICONO\b[^}]*\} from '[./]+config/iconos'", s):
-        prof = re.search(r"from '((?:\.\./)+)components/", s)
-        base = prof.group(1) if prof else '../../'
+        if archivo:
+            ruta = os.path.relpath('src/config/iconos', os.path.dirname(archivo))
+            ruta = ruta if ruta.startswith('.') else './' + ruta
+        else:
+            ruta = '../../config/iconos'
         lineas = s.split('\n')
         ult = max(i for i, l in enumerate(lineas) if l.startswith('import '))
-        lineas.insert(ult + 1, f"import {{ ICONO }} from '{base}config/iconos'")
+        lineas.insert(ult + 1, f"import {{ ICONO }} from '{ruta}'")
         s = '\n'.join(lineas)
     return s
 
@@ -183,8 +190,8 @@ def correr2(archivos):
     for f in archivos:
         s = open(f).read()
         s2, n = pasada2(s)
-        s2 = asegurar_import(s2, ['Input', 'Button'])
-        s2 = asegurar_icono(s2)
+        s2 = asegurar_import(s2, ['Input', 'Button'], f)
+        s2 = asegurar_icono(s2, f)
         if s2 != s:
             open(f, 'w').write(s2)
         print(f, n)
@@ -211,7 +218,88 @@ def correr3(archivos):
     for f in archivos:
         s = open(f).read()
         s2, n = escala_iconos(s)
-        s2 = asegurar_icono(s2)
+        s2 = asegurar_icono(s2, f)
         if s2 != s:
             open(f, 'w').write(s2)
         print(f, {'iconos': n})
+
+# ── Pasada 4: <button> de texto con estilo de botón → <Button variant> ──────
+# Reconoce por sus clases los botones primario, secundario, de peligro y
+# contorno de peligro con className de texto fijo (sin plantillas). Conserva
+# las clases de colocación (márgenes, flex-1, self-*, ml-auto…) y pasa
+# w-full → fullWidth. El patrón {x ? <Spinner/> : <Icono/>} → busy={x} icon.
+ESTILO = re.compile(r'^(?:(?:hover|focus|focus-visible|disabled|active):.*|p[xy]?-[\d.]+|py-[\d.]+|px-[\d.]+|text-(?:sm|xs|base|white|accent|muted|on-surface|red-\d+)|font-(?:semibold|medium|bold)|rounded(?:-full)?|transition(?:-\w+)?|duration-\w+|flex|inline-flex|items-center|justify-center|gap-[\d.]+|bg-[\w/\[\]()-]+|border(?:-[\w/-]+)?|shadow-\w+|whitespace-nowrap|text-center|w-full|cursor-pointer|select-none)$')
+
+def variante_de(tokens):
+    t = set(tokens)
+    if 'bg-accent' in t and 'text-white' in t: return 'primary'
+    if any(x in t for x in ('bg-red-600', 'bg-red-500')) and 'text-white' in t: return 'danger'
+    if 'border-red-300' in t and any(x.startswith('text-red') for x in t): return 'danger-outline'
+    if 'border-outline-variant' in t and 'rounded-full' in t: return 'secondary'
+    if 'border-accent' in t and 'text-accent' in t and 'rounded-full' in t: return 'outline-accent'
+    return None
+
+def fin_tag(s, i):
+    d = 0; q = None; j = i + 1
+    while j < len(s):
+        c = s[j]
+        if q:
+            if c == '\\': j += 2; continue
+            if c == q: q = None
+        elif c in '"\'`' and (d > 0 or c == '"'): q = c
+        elif c == '{': d += 1
+        elif c == '}': d -= 1
+        elif c == '>' and d == 0: return j
+        j += 1
+    return -1
+
+def pasada4(s):
+    n = 0; out = []; pos = 0
+    for m in re.finditer(r'<button\b', s):
+        if m.start() < pos: continue
+        fin = fin_tag(s, m.start())
+        if fin < 0 or s[fin - 1] == '/': continue
+        cierre = s.find('</button>', fin)
+        if cierre < 0 or '<button' in s[fin:cierre]: continue
+        tag = s[m.start():fin + 1]
+        cm = re.search(r'\sclassName="([^"]*)"', tag)
+        if not cm: continue
+        toks = cm.group(1).split()
+        # Botones de solo ícono (w-7 h-7, size-9…) no son botones de texto.
+        if any(re.match(r'^(?:w|h|size)-\d', x) for x in toks): continue
+        var = variante_de(toks)
+        if not var: continue
+        extra = [x for x in toks if not ESTILO.match(x)]
+        full = 'w-full' in toks
+        attrs = tag[len('<button'):-1].replace(cm.group(0), '')
+        attrs = re.sub(r'\s+type="button"', '', attrs)
+        cuerpo = s[fin + 1:cierre]
+        busy = ''
+        sp = re.search(r'\{(\w+) \? <Spinner size="sm" /> : (?:<(\w+) size=\{[^}]+\}(?: className="[^"]*")? />|null)\}', cuerpo)
+        icono = ''
+        if sp:
+            busy = f' busy={{{sp.group(1)}}}'
+            if sp.group(2): icono = f' icon={{{sp.group(2)}}}'
+            cuerpo = cuerpo.replace(sp.group(0), '')
+        else:
+            ic = re.match(r'(\s*)<(\w+) size=\{[^}]+\}(?: className="[^"]*")? />', cuerpo)
+            if ic and ic.group(2)[0].isupper() and ic.group(2) not in ('Spinner',):
+                icono = f' icon={{{ic.group(2)}}}'
+                cuerpo = cuerpo[:ic.start(2) - 1] + cuerpo[ic.end():]
+        v = '' if var == 'primary' else f' variant="{var}"'
+        cls = f' className="{" ".join(extra)}"' if extra else ''
+        attrs = re.sub(r'\n[ \t]*$', '', attrs.rstrip()) if attrs.strip() else ''
+        if attrs and not attrs.startswith((' ', '\n')): attrs = ' ' + attrs
+        nuevo = f'<Button{v}{" fullWidth" if full else ""}{icono}{busy}{cls}{attrs}>{cuerpo}</Button>'
+        out.append(s[pos:m.start()]); out.append(nuevo); pos = cierre + len('</button>'); n += 1
+    out.append(s[pos:])
+    return ''.join(out), n
+
+def correr4(archivos):
+    for f in archivos:
+        s = open(f).read()
+        s2, n = pasada4(s)
+        s2 = asegurar_import(s2, ['Input', 'Button'], f)
+        if s2 != s:
+            open(f, 'w').write(s2)
+        print(f, {'botones4': n})

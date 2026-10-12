@@ -15,7 +15,7 @@ import ConfirmModal from '../../components/ConfirmModal'
 import PasswordInput from '../../components/PasswordInput'
 import { resolveSchoolSelection } from '../../utils/schoolSelection'
 import { Camera, Lock, User, Sparkles, School, Trash2, Settings, Bell, BookOpen, ShieldCheck } from 'lucide-react'
-import { Tabs, SubTabs, ListRow, ListGroup, FlechaFila, FILA_LISTA } from '../../components/ui'
+import { Tabs, SubTabs, ListRow, ListGroup, FlechaFila, FILA_LISTA, Button, Checkbox, Input } from '../../components/ui'
 import AppQRButton from '../../components/AppQRButton'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import SchoolPicker from '../../components/SchoolPicker'
@@ -39,10 +39,8 @@ import Select from '../../components/ui/Select'
 import InfoDisclosure from '../../components/ui/InfoDisclosure'
 import { SkeletonText } from '../../components/ui'
 import YouTubeIcon from '../../components/YouTubeIcon'
+import { ICONO } from '../../config/iconos'
 
-
-const inputCls =
-  'w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
 
 // El espacio para subir la foto mide distinto en la web y en la app — pedido
 // explícito, y por eso el perfil (que es la misma pantalla en las dos) tiene
@@ -318,8 +316,8 @@ export default function Profile() {
                   )}
                 </div>
                 <button type="button" onClick={() => fileRef.current?.click()} disabled={photoUploading} aria-label="Cambiar foto"
-                  className="absolute -bottom-1 -right-1 w-7 h-7 bg-accent rounded-full flex items-center justify-center text-white shadow-lg disabled:opacity-60">
-                  {photoUploading ? <Spinner size="sm" /> : <Camera size={15} />}
+                  className="absolute -bottom-1 -right-1 size-7 bg-accent rounded-full flex items-center justify-center text-white shadow-lg transition active:scale-[0.94] disabled:opacity-60">
+                  {photoUploading ? <Spinner size="sm" current /> : <Camera size={ICONO.xs} />}
                 </button>
               </div>
               <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
@@ -332,20 +330,18 @@ export default function Profile() {
               {/* Ausente/true = visible (opt-out), igual criterio que el resto de
                   interruptores de la app — para que no aparezca "apagada" por
                   defecto en cuentas viejas que nunca tocaron este ajuste. */}
-              <label className="flex items-center gap-2 mt-1 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={userProfile?.mostrarFotoAlumnos !== false}
-                  onChange={(e) => {
+              <Checkbox
+                wrapperClassName="mt-1"
+                label="Los estudiantes pueden ver mi foto de perfil"
+                checked={userProfile?.mostrarFotoAlumnos !== false}
+                onChange={(e) => {
                     const checked = e.target.checked
                     setUserProfile((p) => ({ ...p, mostrarFotoAlumnos: checked }))
                     updateDoc(doc(db, 'users', currentUser.uid), { mostrarFotoAlumnos: checked })
                       .then(() => syncPublicProfile(currentUser.uid, { mostrarFotoAlumnos: checked }))
                       .catch(() => toast('No se pudo guardar: intenta de nuevo', 'error'))
                   }}
-                />
-                <span className="text-sm text-on-surface">Los estudiantes pueden ver mi foto de perfil</span>
-              </label>
+              />
             </div>
 
             <SubTabs options={SUBSECCIONES} value={sub} onChange={(id) => elegir('perfil', id)} label="Partes del perfil" />
@@ -355,7 +351,7 @@ export default function Profile() {
               {/* Nombre visible */}
               <div className="bg-surface-card rounded-card shadow-card p-3">
                 <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-                  <User size={19} className="text-hint" /> Nombre visible
+                  <User size={ICONO.md} className="text-hint" /> Nombre visible
                 </h2>
                 <p className="text-sm text-muted -mt-1 mb-2">Así te verán tus estudiantes — puede ser distinto a tu nombre real.</p>
                 <form onSubmit={handleSaveNombre} className="space-y-2">
@@ -374,21 +370,15 @@ export default function Profile() {
                         ]}
                       />
                       {prefijoOption === '__otro__' && (
-                        <input type="text" value={prefijoCustom} onChange={(e) => setPrefijoCustom(e.target.value)}
-                          className={`${inputCls} mt-2`} aria-label="Escribe el prefijo" />
+                        <Input type="text" value={prefijoCustom} onChange={(e) => setPrefijoCustom(e.target.value)}
+                          className="mt-2" aria-label="Escribe el prefijo" />
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <label htmlFor="prof-nombre" className="block text-xs font-medium text-muted mb-1">Nombre</label>
-                      <input id="prof-nombre" type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
-                        className={inputCls} />
-                    </div>
+                    <Input label="Nombre" wrapperClassName="flex-1 min-w-0" id="prof-nombre" type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} />
                   </div>
-                  <button type="submit" disabled={savingNombre || !nombreChanged}
-                    className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                    {savingNombre ? <Spinner size="sm" /> : null}
+                  <Button type="submit" fullWidth busy={savingNombre} disabled={savingNombre || !nombreChanged}>
                     {savingNombre ? 'Guardando…' : 'Guardar nombre'}
-                  </button>
+                  </Button>
                 </form>
               </div>
 
@@ -396,36 +386,22 @@ export default function Profile() {
               {/* Datos personales — nombre real, distinto del nombre visible/alias */}
               <div className="bg-surface-card rounded-card shadow-card p-3">
                 <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-                  <User size={19} className="text-hint" /> Datos personales
+                  <User size={ICONO.md} className="text-hint" /> Datos personales
                 </h2>
                 <form onSubmit={handleSaveDatosPersonales} className="space-y-2">
-                  <div>
-                    <label htmlFor="prof-real-nombre" className="block text-xs font-medium text-muted mb-1">Nombre(s)</label>
-                    <input id="prof-real-nombre" type="text" value={realNombre} onChange={(e) => setRealNombre(e.target.value)}
-                      className={inputCls} />
-                  </div>
+                  <Input label="Nombre(s)" id="prof-real-nombre" type="text" value={realNombre} onChange={(e) => setRealNombre(e.target.value)} />
                   <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label htmlFor="prof-apellido-paterno" className="block text-xs font-medium text-muted mb-1">Apellido paterno</label>
-                      <input id="prof-apellido-paterno" type="text" value={apellidoPaterno} onChange={(e) => setApellidoPaterno(e.target.value)}
-                        className={inputCls} />
-                    </div>
-                    <div className="flex-1">
-                      <label htmlFor="prof-apellido-materno" className="block text-xs font-medium text-muted mb-1">Apellido materno</label>
-                      <input id="prof-apellido-materno" type="text" value={apellidoMaterno} onChange={(e) => setApellidoMaterno(e.target.value)}
-                        className={inputCls} />
-                    </div>
+                    <Input label="Apellido paterno" wrapperClassName="flex-1" id="prof-apellido-paterno" type="text" value={apellidoPaterno} onChange={(e) => setApellidoPaterno(e.target.value)} />
+                    <Input label="Apellido materno" wrapperClassName="flex-1" id="prof-apellido-materno" type="text" value={apellidoMaterno} onChange={(e) => setApellidoMaterno(e.target.value)} />
                   </div>
                   <CodigoPostalField
                     id="prof-cp"
                     value={codigoPostal}
                     onChange={setCodigoPostal}
                   />
-                  <button type="submit" disabled={savingDatosPersonales || !datosPersonalesChanged}
-                    className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                    {savingDatosPersonales ? <Spinner size="sm" /> : null}
+                  <Button type="submit" fullWidth busy={savingDatosPersonales} disabled={savingDatosPersonales || !datosPersonalesChanged}>
                     {savingDatosPersonales ? 'Guardando…' : 'Guardar datos personales'}
-                  </button>
+                  </Button>
                 </form>
               </div>
               </>)}
@@ -433,17 +409,16 @@ export default function Profile() {
               {/* Escuela */}
               <div className="bg-surface-card rounded-card shadow-card p-3">
                 <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-                  <School size={19} className="text-hint" /> Escuela
+                  <School size={ICONO.md} className="text-hint" /> Escuela
                 </h2>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
                     <InfoDisclosure className="mt-0.5">
-                      <p className="text-sm text-slate-500">Los docentes de la misma escuela comparten el mismo registro — pero cada quien da de alta a sus propios alumnos por separado.</p>
+                      <p className="text-sm text-muted">Los docentes de la misma escuela comparten el mismo registro — pero cada quien da de alta a sus propios alumnos por separado.</p>
                     </InfoDisclosure>
                   </div>
-                  <button type="button" onClick={() => setShowSchoolPicker(true)}
-                    className="text-accent text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
+                  <Button variant="link" className="flex-shrink-0 font-semibold" onClick={() => setShowSchoolPicker(true)}>Cambiar</Button>
                 </div>
               </div>
               </>)}
@@ -452,7 +427,7 @@ export default function Profile() {
                   busca (cambiar la contraseña) y antes quedaba hasta el fondo. */}
               <div className="bg-surface-card rounded-card shadow-card p-3">
                 <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-                  <Lock size={19} className="text-hint" /> Acceso
+                  <Lock size={ICONO.md} className="text-hint" /> Acceso
                 </h2>
                 <div className="space-y-1">
 
@@ -472,40 +447,32 @@ export default function Profile() {
                         )}
                       </div>
                       {hasEmailProvider && (
-                        <button type="button" onClick={() => setShowPwdForm((v) => !v)}
-                          className="text-accent text-sm font-semibold hover:underline flex-shrink-0">
+                        <Button variant="link" className="flex-shrink-0 font-semibold" aria-expanded={showPwdForm} onClick={() => setShowPwdForm((v) => !v)}>
                           {showPwdForm ? 'Cancelar' : 'Cambiar'}
-                        </button>
+                        </Button>
                       )}
                     </div>
 
                     {showPwdForm && (
                       <form onSubmit={requestPwdChange} className="mt-2 space-y-2">
-                        <div>
-                          <label htmlFor="prof-pwd-actual" className="block text-xs font-medium text-muted mb-1">Contraseña actual</label>
-                          <PasswordInput id="prof-pwd-actual" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
-                            required autoComplete="current-password" className={inputCls} />
-                        </div>
-                        <div>
-                          <label htmlFor="prof-pwd-nueva" className="block text-xs font-medium text-muted mb-1">Nueva contraseña</label>
-                          <PasswordInput id="prof-pwd-nueva" value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
-                            required autoComplete="new-password" className={inputCls} />
-                        </div>
-                        <div>
-                          <label htmlFor="prof-pwd-confirmar" className="block text-xs font-medium text-muted mb-1">Confirmar nueva contraseña</label>
-                          <PasswordInput id="prof-pwd-confirmar" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)}
-                            required autoComplete="new-password" className={inputCls} />
-                        </div>
+                        <PasswordInput
+                          label="Contraseña actual" id="prof-pwd-actual" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
+                          required autoComplete="current-password" />
+                        <PasswordInput
+                          label="Nueva contraseña" id="prof-pwd-nueva" value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
+                          required autoComplete="new-password" />
+                        <PasswordInput
+                          label="Confirmar nueva contraseña" id="prof-pwd-confirmar" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)}
+                          required autoComplete="new-password" />
                         {/* No hay "original" con qué comparar una contraseña (vive
                             hasheada) — aquí "nada que guardar" es que los campos
                             todavía no formen una combinación válida para enviar,
                             las mismas reglas que ya revisa requestPwdChange al
                             hacer clic. */}
-                        <button type="submit" disabled={savingPwd || !currentPwd || newPwd.length < 6 || newPwd !== confirmPwd}
-                          className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                          {savingPwd ? <Spinner size="sm" /> : <Lock size={17} />}
+                        <Button fullWidth icon={Lock} busy={savingPwd} type="submit" disabled={savingPwd || !currentPwd || newPwd.length < 6 || newPwd !== confirmPwd}>
+                          
                           {savingPwd ? 'Actualizando…' : 'Cambiar contraseña'}
-                        </button>
+                        </Button>
                       </form>
                     )}
                   </div>
@@ -519,7 +486,7 @@ export default function Profile() {
                   demás que se puede tocar sin miedo. */}
               <div className="bg-surface-card rounded-card shadow-card p-3">
                 <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-                  <Trash2 size={19} className="text-hint" /> Eliminar mi cuenta
+                  <Trash2 size={ICONO.md} className="text-hint" /> Eliminar mi cuenta
                 </h2>
                 <InfoDisclosure className="mb-2">
                   <p className="text-sm text-muted">
@@ -527,13 +494,12 @@ export default function Profile() {
                     calificaciones y asistencias. No se puede deshacer.
                   </p>
                 </InfoDisclosure>
-                <button
-                  type="button"
+                <Button variant="danger-outline" fullWidth
                   onClick={() => setShowEliminarCuenta(true)}
-                  className="w-full py-2.5 rounded-full border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors"
+                 
                 >
                   Eliminar mi cuenta
-                </button>
+                </Button>
               </div>
               </>)}
             </div>
@@ -544,7 +510,7 @@ export default function Profile() {
                 aquí solo vive lo relacionado con IA. */}
             <div className="bg-surface-card rounded-card shadow-card p-3">
               <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-                <Sparkles size={19} className="text-hint" /> Créditos de IA
+                <Sparkles size={ICONO.md} className="text-hint" /> Créditos de IA
               </h2>
               {!creditosIA.listo ? (
                 <SkeletonText lines={2} className="py-2" />
@@ -562,25 +528,23 @@ export default function Profile() {
                 </div>
               )}
               {creditosIA.mostrarCTAActivarBienvenida && (
-                <button
-                  type="button"
+                <Button fullWidth className="mt-3"
                   onClick={() => setShowActivarCreditos(true)}
-                  className="mt-3 w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full text-sm transition-colors"
+                 
                 >
                   Activar mis 30 créditos de regalo
-                </button>
+                </Button>
               )}
-              <button
-                type="button"
+              <Button
+                variant={creditosIA.mostrarCTAActivarBienvenida ? 'secondary' : 'primary'}
+                fullWidth
+                icon={Sparkles}
+                iconEffect="destello"
+                className="mt-2"
                 onClick={() => setShowComprarCreditos(true)}
-                className={`mt-2 w-full py-2.5 font-semibold rounded-full text-sm transition-colors ${
-                  creditosIA.mostrarCTAActivarBienvenida
-                    ? 'border border-outline-variant text-muted hover:bg-surface'
-                    : 'bg-accent hover:bg-accent-hover text-white'
-                }`}
               >
                 Comprar créditos
-              </button>
+              </Button>
             </div>
           </>)}
           {seccion === 'ajustes' && (<>

@@ -7,12 +7,13 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
 import { useBackHandler } from '../hooks/useBackHandler'
 import Modal from './ui/Modal'
-import Spinner from './Spinner'
 import PasswordInput from './PasswordInput'
 import GoogleIcon from './GoogleIcon'
 import { reauthenticateWithGoogle, googleErrorInfo } from '../utils/googleAuth'
 import { sendAccountDeletedEmail } from '../utils/accountEmails'
 import { apiUrl } from '../utils/apiBase'
+import { Input, Button } from './ui'
+import { ICONO } from '../config/iconos'
 
 // Eliminar la cuenta de forma definitiva.
 //
@@ -106,7 +107,7 @@ export default function EliminarCuentaModal({ onClose }) {
     <Modal open onClose={onClose} variant="centered" size="sm" busy={borrando} title="Eliminar mi cuenta">
       <div className="rounded border border-red-200 bg-red-50 p-3 mb-3">
         <p className="flex items-start gap-2 text-sm font-semibold text-red-700">
-          <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+          <AlertTriangle size={ICONO.md} className="flex-shrink-0 mt-0.5" />
           Esto no se puede deshacer. Se borra para siempre:
         </p>
         <ul className="mt-2 ml-1 space-y-0.5">
@@ -126,29 +127,23 @@ export default function EliminarCuentaModal({ onClose }) {
           <label htmlFor="eliminar-palabra" className="block text-xs font-medium text-muted mb-1">
             Escribe <strong>{PALABRA}</strong> para continuar
           </label>
-          <input
+          <Input
             id="eliminar-palabra"
             type="text"
             value={palabra}
             onChange={(e) => setPalabra(e.target.value)}
             autoComplete="off"
-            className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
           />
         </div>
 
         {conPassword ? (
-          <div>
-            <label htmlFor="eliminar-password" className="block text-xs font-medium text-muted mb-1">
-              Confirma tu contraseña
-            </label>
-            <PasswordInput
-              id="eliminar-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              className="w-full px-4 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-            />
-          </div>
+          <PasswordInput
+            label="Confirma tu contraseña"
+            id="eliminar-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
         ) : (
           <p className="flex items-center gap-2 text-sm text-muted">
             <GoogleIcon />
@@ -158,15 +153,13 @@ export default function EliminarCuentaModal({ onClose }) {
       </div>
 
       <div className="flex gap-2 mt-4">
-        <button type="button" onClick={onClose} disabled={borrando}
-          className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+        <Button variant="secondary" className="flex-1" onClick={onClose} disabled={borrando}>
           Mejor no
-        </button>
-        <button type="button" onClick={eliminar} disabled={borrando || !puedeSeguir}
-          className="flex-1 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
-          {borrando ? <Spinner size="sm" /> : <Trash2 size={17} />}
+        </Button>
+        <Button variant="danger" icon={Trash2} busy={borrando} className="flex-1" onClick={eliminar} disabled={borrando || !puedeSeguir}>
+          
           {borrando ? 'Eliminando…' : 'Eliminar para siempre'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

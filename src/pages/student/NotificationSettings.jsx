@@ -13,7 +13,8 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { getEnrollments } from '../../utils/studentLookup'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { capitalizarNombre } from '../../utils/nombres'
-import { SkeletonForm } from '../../components/ui'
+import { SkeletonForm, Switch } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 // Pantalla completa (no usa StudentLayout — mismo patrón que EvaluacionRunner:
 // un overlay fixed inset-0 con SOLO un encabezado del estudiante, sin la barra
@@ -97,33 +98,13 @@ function mergeWithDefaults(data) {
 
 // Interruptor simple — mismo patrón visual que el resto de la app.
 function Toggle({ checked, onChange, label, description, children }) {
+  // ui/Switch: role="switch", perilla que se desliza y toda la fila es su
+  // etiqueta (tocar el texto también alterna). El sub-ajuste (children) entra
+  // animado debajo cuando se enciende.
   return (
     <div className="py-1">
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className="w-full flex items-center gap-3 text-left"
-      >
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-on-surface">{label}</p>
-          {description && <p className="text-xs text-muted mt-0.5">{description}</p>}
-        </div>
-        <span
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-            checked ? 'bg-accent' : 'bg-slate-300'
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-surface-card transition-transform ${
-              checked ? 'translate-x-6' : 'translate-x-1'
-            }`}
-          />
-        </span>
-      </button>
-      {/* Sin línea divisoria: "Avisar" es parte del mismo ajuste que acaba de
-          encenderse, no otra sección. La raya lo hacía ver como si fuera un
-          bloque aparte (la tarjeta ya separa las categorías con divide-y). */}
-      {checked && children && <div className="mt-3">{children}</div>}
+      <Switch label={label} hint={description} checked={checked} onChange={onChange} />
+      {checked && children && <div className="mt-3 animate-aparece motion-reduce:animate-none">{children}</div>}
     </div>
   )
 }
@@ -229,7 +210,7 @@ export default function NotificationSettings() {
           className="p-2 -ml-2 hover:bg-white/10 rounded-full flex-shrink-0 transition-colors"
           aria-label="Regresar"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={ICONO.md} />
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold truncate">Notificaciones</h1>
@@ -291,7 +272,7 @@ export default function NotificationSettings() {
           {settings.avisos.habilitado && subjects.length > 1 && (
             <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4">
               <div className="flex items-center gap-2 mb-1">
-                <Megaphone size={16} className="text-accent flex-shrink-0" />
+                <Megaphone size={ICONO.sm} className="text-accent flex-shrink-0" />
                 <p className="text-sm font-semibold text-on-surface">Avisos por asignatura</p>
               </div>
               <p className="text-xs text-muted mb-3">
@@ -315,7 +296,7 @@ export default function NotificationSettings() {
               app — aquí solo explicamos cómo activarlas ahí. */}
           <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Settings size={16} className="text-accent flex-shrink-0" />
+              <Settings size={ICONO.sm} className="text-accent flex-shrink-0" />
               <p className="text-sm font-semibold text-on-surface">Cómo activar las notificaciones en tu celular</p>
             </div>
             <p className="text-xs text-muted mb-2">

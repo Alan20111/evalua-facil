@@ -12,6 +12,7 @@ import {
 } from '../../config/miEspacio'
 import { formatFileSize } from '../../utils/formatBytes'
 import { listarMiEspacio, subirAMiEspacio, borrarDeMiEspacio } from '../../utils/miEspacio'
+import { ICONO } from '../../config/iconos'
 
 // Mi espacio — almacenamiento personal del estudiante (29-sep-2026).
 // Una sola pantalla con un solo propósito: ver cuánto espacio queda, subir,
@@ -108,9 +109,9 @@ export default function MiEspacio() {
             className="p-2 -ml-2 rounded-full hover:bg-[var(--accent-tint)] text-muted hover:text-accent transition-colors flex-shrink-0"
             aria-label="Regresar"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={ICONO.md} />
           </button>
-          <Cloud size={22} className="text-accent flex-shrink-0" />
+          <Cloud size={ICONO.md} className="text-accent flex-shrink-0" />
           <h1 className="text-xl font-bold text-on-surface">Mi espacio</h1>
         </div>
 
@@ -136,7 +137,7 @@ export default function MiEspacio() {
             disabled={subiendo || !datos}
             busy={subiendo}
           >
-            {!subiendo && <Upload size={18} />}
+            {!subiendo && <Upload size={ICONO.md} />}
             {subiendo ? `Subiendo… ${Math.round(progreso * 100)}%` : 'Subir archivo'}
           </Button>
         </div>
@@ -157,7 +158,7 @@ export default function MiEspacio() {
               const Icono = esImagen(a.tipo) ? ImageIcon : FileText
               return (
                 <li key={a.id} className="flex items-center gap-3 px-4 py-3">
-                  <Icono size={20} className="text-accent flex-shrink-0" />
+                  <Icono size={ICONO.md} className="text-accent flex-shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-on-surface break-words">{a.nombre}</p>
                     <p className="text-xs text-muted mt-0.5">{tamano(a.tamano)} · {fecha(a.creado)}</p>
@@ -178,7 +179,7 @@ export default function MiEspacio() {
                     title="Eliminar"
                     className="p-3 rounded text-muted hover:text-red-600 hover:bg-red-50 transition-colors inline-flex items-center justify-center flex-shrink-0"
                   >
-                    <Trash2 size={22} />
+                    <Trash2 size={ICONO.md} />
                   </button>
                 </li>
               )

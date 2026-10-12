@@ -8,6 +8,8 @@ import Spinner from '../../components/Spinner'
 import { Sparkles, ArrowLeft, CheckCircle2 } from 'lucide-react'
 import { perfilIAVacio, isPerfilIACompleto } from '../../utils/perfilIA'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { ICONO } from '../../config/iconos'
+import { Button } from '../../components/ui'
 
 const inputCls =
   'w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y'
@@ -83,12 +85,12 @@ export default function PerfilIA() {
         onClick={() => navigate(-1)}
         className="flex items-center gap-1.5 text-sm font-medium text-muted hover:text-on-surface mb-4"
       >
-        <ArrowLeft size={16} /> Volver
+        <ArrowLeft size={ICONO.sm} /> Volver
       </button>
 
       <div className="flex items-start gap-3 mb-2">
         <div className="w-10 h-10 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-          <Sparkles size={20} className="text-accent" />
+          <Sparkles size={ICONO.md} className="text-accent" />
         </div>
         <div>
           <h1 className="text-xl font-bold text-on-surface">Perfil para la IA del Docente (para todas las asignaturas)</h1>
@@ -109,7 +111,7 @@ export default function PerfilIA() {
             : 'bg-amber-50 text-amber-700'
         }`}
       >
-        {completo ? <CheckCircle2 size={16} /> : <Sparkles size={16} />}
+        {completo ? <CheckCircle2 size={ICONO.sm} /> : <Sparkles size={ICONO.sm} />}
         {completo
           ? 'Tu perfil está completo.'
           : 'Tu perfil está incompleto. Complétalo para poder generar planeación, diagnósticos y demás contenido con IA en tus asignaturas. No hace falta para subir tu propia planeación.'}
@@ -132,14 +134,13 @@ export default function PerfilIA() {
           </div>
         ))}
 
-        <button
+        <Button fullWidth
           type="submit"
           disabled={saving || !changed}
-          className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {saving && <Spinner size="sm" />}
           {saving ? 'Guardando…' : 'Guardar'}
-        </button>
+        </Button>
       </form>
     </div>
   )
