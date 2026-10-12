@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { ICONO } from '../config/iconos'
 import { NAV_ITEM } from '../config/sidebar'
 import { LayoutDashboard, CalendarDays, Bell, User } from 'lucide-react'
 import { IS_NATIVE_APP } from '../utils/platform'
@@ -36,7 +37,7 @@ export default function StudentBottomNav() {
             className={NAV_ITEM}
           >
             {({ isActive }) => (<>
-              <span className={navIconPillCls(isActive)}><Icon size={24} /></span>
+              <span className={navIconPillCls(isActive)}><Icon size={ICONO.lg} /></span>
               <span>{label}</span>
             </>)}
           </NavLink>

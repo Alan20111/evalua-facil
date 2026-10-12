@@ -291,8 +291,8 @@ export function EsqueletoSesion({ rol = 'docente', contenido = 'tablero' }) {
         <div aria-hidden="true" data-esq="sesion-encabezado-movil" className="md:hidden sticky barra-flotante-sup z-30 mx-2 rounded-full bg-surface-card px-4 h-[var(--barra-alto)] flex items-center justify-between shadow-barra">
           <Skeleton className="h-8 w-28" />
           <span className="flex items-center gap-1">
-            <span className="p-2"><Skeleton className="w-[1.389rem] h-[1.389rem]" /></span>
-            <span className="p-2"><Skeleton className="w-[1.389rem] h-[1.389rem]" /></span>
+            <span className="size-control flex items-center justify-center"><Skeleton className="w-[1.389rem] h-[1.389rem] rounded-full" /></span>
+            <span className="size-control flex items-center justify-center"><Skeleton className="w-[1.389rem] h-[1.389rem] rounded-full" /></span>
           </span>
         </div>
       )}
@@ -358,10 +358,10 @@ export function EsqueletoFilasLateral({ filas = 3 }) {
 // ── Barra lateral del alumno: lista de asignaturas mientras carga ──
 export function EsqueletoFilasLateralAlumno({ filas = 3 }) {
   return (
-    <SkeletonGroup etiqueta="Cargando tus asignaturas…">
+    <SkeletonGroup etiqueta="Cargando tus asignaturas…" className="space-y-1">
       {Array.from({ length: filas }, (_, i) => (
-        <div key={i} data-esq="sba-fila" className="flex items-center gap-2 px-3 py-1.5 rounded text-body-sm">
-          <Skeleton sobreColor className="w-[1.181rem] h-[1.181rem] flex-shrink-0" />
+        <div key={i} data-esq="sba-fila" className={SB_FILA}>
+          <Skeleton sobreColor className="w-[1.389rem] h-[1.389rem] flex-shrink-0" />
           <SkeletonLine sobreColor texto="text-body-sm" className={`${ancho(i)} flex-1`} />
         </div>
       ))}

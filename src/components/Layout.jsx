@@ -29,6 +29,8 @@ import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
 import AppQRButton from './AppQRButton'
 import ConfirmModal from './ConfirmModal'
+import { BOTON_ICONO, IconButton } from './ui'
+import { ICONO } from '../config/iconos'
 import SkipLink from './SkipLink'
 import CreditosBar from './CreditosBar'
 import { teacherDisplayName } from '../utils/studentSearch'
@@ -151,21 +153,10 @@ export default function TeacherLayout({ children }) {
         <div className="flex items-center gap-1">
           {/* Créditos IA — visibles sin entrar a ninguna sección (chip compacto) */}
           <CreditosBar variant="movil" />
-          <NavLink
-            to="/ayuda"
-            aria-label="Ayuda para comenzar"
-            className="p-2 text-muted hover:text-accent rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <BookOpen size={20} />
+          <NavLink to="/ayuda" aria-label="Ayuda para comenzar" className={BOTON_ICONO}>
+            <BookOpen size={ICONO.md} aria-hidden="true" />
           </NavLink>
-          <button
-            type="button"
-            onClick={requestLogout}
-            aria-label="Cerrar sesión"
-            className="p-2 text-muted hover:text-error rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <LogOut size={20} />
-          </button>
+          <IconButton icon={LogOut} label="Cerrar sesión" variant="danger" tooltip={false} onClick={requestLogout} />
         </div>
       </header>
 

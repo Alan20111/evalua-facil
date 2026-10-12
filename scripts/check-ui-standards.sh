@@ -140,7 +140,7 @@ ratchet "Control con esquina a medias (rounded + borde, debe ser rounded-full o 
 ratchet "Botón primario a mano (bg-accent hover:bg-accent-hover text-white → ui/Button) — §3" \
   'bg-accent hover:bg-accent-hover text-white' 32 'components/ui/'
 ratchet "Ícono fuera de la escala 14/16/20/24/40 (config/iconos.js) — §2.3" \
-  'size=\{([0-9]|1[0-35789]|2[1-35-9]|3[0-9])\}' 479 'components/ui/'
+  'size=\{([0-9]|1[0-35789]|2[1-35-9]|3[0-9])\}' 469 'components/ui/'
 ratchet "Duración cruda (duration-NNN → duration-rapida/estandar/lenta) — §2.5" \
   '(^|[^a-z-])duration-[0-9]+' 26 'components/ui/'
 ratchet "transition-all (anima de más; usa transition-colors/transform) — §2.5" \
@@ -148,7 +148,7 @@ ratchet "transition-all (anima de más; usa transition-colors/transform) — §2
 ratchet "Casilla/opción a mano (type=checkbox|radio fuera de ui/) — §3" \
   'type="(checkbox|radio)"' 61 'components/ui/'
 ratchet "z-index con número (z-[NN] → z-contenido/barra/menu/hoja/aviso/tope) — §2.4" \
-  'z-\[[0-9]+\]' 50 'components/ui/'
+  'z-\[[0-9]+\]' 49 'components/ui/'
 
 echo ""
 # Esqueletos de carga: deben medir lo mismo que su pantalla real

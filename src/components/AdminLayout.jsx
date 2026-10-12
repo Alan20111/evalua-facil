@@ -18,6 +18,8 @@ import { useAuth } from '../context/AuthContext'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { useResizableSidebar, SIDEBAR_MIN, SIDEBAR_MAX } from '../hooks/useResizableSidebar'
 import SkipLink from './SkipLink'
+import { IconButton } from './ui'
+import { SB_FILA, SB_ICONO, SB_INACTIVA, SB_GRUPO } from '../config/sidebar'
 
 // Modelo de créditos puros (20-ago-2026): se retira la pestaña "Pagos"
 // (suscripción mensual, flujo eliminado) — "Créditos" pasa a ser la compra
@@ -63,13 +65,13 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
           </div>
           <span className="font-semibold text-on-surface text-base">Admin</span>
         </div>
-        <button
-          type="button"
+        <IconButton
+          icon={mobileOpen ? X : Menu}
+          label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
+          tooltip={false}
+          aria-expanded={mobileOpen}
           onClick={() => setMobileOpen((o) => !o)}
-          className="p-2 text-muted rounded"
-        >
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+        />
       </header>
 
       <div className="flex">
@@ -98,7 +100,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
             <p className="text-sm text-white/65 truncate">{displayName}</p>
           </div>
 
-          <nav className="flex-1 px-2 py-2.5 space-y-0.5 overflow-y-auto">
+          <nav className={`flex-1 ${SB_GRUPO} overflow-y-auto`}>
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -107,25 +109,26 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
                   onTabChange(id)
                   setMobileOpen(false)
                 }}
-                className={`flex items-center gap-3 w-full px-3 py-3 rounded text-base transition-colors ${
+                aria-current={activeTab === id ? 'page' : undefined}
+                className={`${SB_FILA} ${
                   activeTab === id
                     ? 'bg-[var(--admin-plane-active)] text-white font-semibold shadow-card'
-                    : 'text-white/85 hover:bg-white/20 hover:text-white'
+                    : SB_INACTIVA
                 }`}
               >
-                <Icon size={20} className="flex-shrink-0" />
+                <Icon size={SB_ICONO} className="flex-shrink-0" />
                 <span className="truncate">{label}</span>
               </button>
             ))}
           </nav>
 
-          <div className="px-2 py-2.5 border-t border-white/10">
+          <div className={`${SB_GRUPO} border-t border-white/10`}>
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded text-base text-white/80 hover:bg-white/20 hover:text-white transition-colors"
+              className={`${SB_FILA} ${SB_INACTIVA}`}
             >
-              <LogOut size={18} className="flex-shrink-0" />
+              <LogOut size={SB_ICONO} className="flex-shrink-0" />
               <span className="truncate">Cerrar sesión</span>
             </button>
           </div>
