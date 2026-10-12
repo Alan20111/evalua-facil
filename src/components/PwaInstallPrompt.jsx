@@ -95,7 +95,7 @@ export default function PwaInstallPrompt() {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-on-surface">Activa las notificaciones</p>
-            <p className="text-xs text-muted mt-0.5">
+            <p className="text-sm text-muted mt-0.5">
               Recibe avisos de tus clases, entregas y calificaciones directo en este dispositivo.
             </p>
             <button

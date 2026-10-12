@@ -1595,8 +1595,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             ))}
                           </div>
                         )}
-                        {p.tipo === 'respuesta_corta' && <p className="text-xs text-hint mt-1 italic">Respuesta de texto libre — se califica manualmente</p>}
-                        {p.tipo === 'subir_archivo' && <p className="text-xs text-hint mt-1 italic">El alumno sube un documento — se califica manualmente</p>}
+                        {p.tipo === 'respuesta_corta' && <p className="text-sm text-hint mt-1 italic">Respuesta de texto libre — se califica manualmente</p>}
+                        {p.tipo === 'subir_archivo' && <p className="text-sm text-hint mt-1 italic">El alumno sube un documento — se califica manualmente</p>}
                         <p className="text-xs text-hint mt-1">Ponderación: {p.ponderacion}{p.retroalimentacion ? ' · con retroalimentación' : ''}</p>
                       </>
                     )}
@@ -1688,10 +1688,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 )}
 
                 {preguntaForm.tipo === 'respuesta_corta' && (
-                  <p className="text-xs text-hint italic">El alumno responderá con texto libre. Tú asignas los puntos al revisar su entrega.</p>
+                  <p className="text-sm text-hint italic">El alumno responderá con texto libre. Tú asignas los puntos al revisar su entrega.</p>
                 )}
                 {preguntaForm.tipo === 'subir_archivo' && (
-                  <p className="text-xs text-hint italic">El alumno subirá un documento (PDF, Word, imágenes, etc.). Tú asignas los puntos al revisar su entrega.</p>
+                  <p className="text-sm text-hint italic">El alumno subirá un documento (PDF, Word, imágenes, etc.). Tú asignas los puntos al revisar su entrega.</p>
                 )}
 
                 <div>
@@ -1911,7 +1911,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <input id="config-tiempo" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
                   onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
                 {esVideo && (
-                  <p className="text-xs text-amber-700 mt-1">
+                  <p className="text-sm text-amber-700 mt-1">
                     Este video ya tiene un límite guardado. En un Video interactivo el cronómetro sigue corriendo
                     con el video en pausa y puede impedir terminarlo: vacíalo para quitarlo.
                   </p>
@@ -2139,7 +2139,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     {(() => {
                       const pendIA = Object.values(iaSugerencias).reduce((n, m) => n + Object.keys(m).length, 0)
                       return pendIA > 0 ? (
-                        <span className="block text-xs text-accent mt-0.5">
+                        <span className="block text-sm text-accent mt-0.5">
                           <Sparkles size={11} className="inline mr-1" aria-hidden="true" />
                           {pendIA} sugerencia{pendIA !== 1 ? 's' : ''} de IA pendiente{pendIA !== 1 ? 's' : ''} de aplicar — ábrelas al calificar, sin costo adicional.
                         </span>
@@ -2543,7 +2543,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 })()}
                 {/* Reserve the line even when not done so Anterior/Siguiente never move (web only — en Android no se muestran fechas/intentos) */}
                 {!IS_NATIVE_APP && (
-                  <p className={`text-xs text-hint mt-0.5 min-h-4 ${done ? '' : 'invisible'}`}>
+                  <p className={`text-sm text-hint mt-0.5 min-h-4 ${done ? '' : 'invisible'}`}>
                     {done
                       ? `${fmtDuracion(sub.tiempoInicio, sub.fechaEntrega)} · Enviado ${fmtHora(sub.fechaEntrega)} · Intento ${sub.intentoActual || 1}`
                       : ' '}

@@ -460,7 +460,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
               <div className="space-y-3 text-center">
                 <AlertTriangle size={28} className="mx-auto text-amber-600" />
                 <p className="text-sm text-on-surface">{mensajeErrorYouTube(yt.error)}</p>
-                <p className="text-xs text-muted">Tu avance está guardado. Puedes intentar de nuevo o avisarle a tu maestro.</p>
+                <p className="text-sm text-muted">Tu avance está guardado. Puedes intentar de nuevo o avisarle a tu maestro.</p>
                 <button type="button" onClick={yt.reintentar} className="w-full min-h-[3.25rem] bg-accent text-white font-semibold rounded-full">Intentar de nuevo</button>
               </div>
             ) : fase === 'pregunta' && activa ? (
@@ -469,7 +469,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
                   Pregunta {indiceActiva} de {resumen.total} · minuto {formatearTiempo(activa.timestampSeg)}
                 </h2>
                 {revision && activa.revision === 'pendiente' && (
-                  <p className="text-xs font-semibold text-amber-900 bg-amber-100 rounded-card px-3 py-2">PENDIENTE · todavía no está aprobada ni publicada. Los alumnos no la verán hasta que la apruebes.</p>
+                  <p className="text-sm font-semibold text-amber-900 bg-amber-100 rounded-card px-3 py-2">PENDIENTE · todavía no está aprobada ni publicada. Los alumnos no la verán hasta que la apruebes.</p>
                 )}
                 {activa.imagenUrl && (
                   <img src={activa.imagenUrl} alt="" className="w-full max-h-56 object-contain rounded border border-outline-variant" />

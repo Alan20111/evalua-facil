@@ -140,12 +140,12 @@ export default function VentasPorZona({ stats }) {
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <MexicoMap marcadores={marcadores} etiqueta={METRICAS[metrica].etiqueta} />
         {sinMunicipio > 0 && (
-          <p className="text-xs text-muted mt-2">
+          <p className="text-sm text-muted mt-2">
             + {sinMunicipio} con estado pero sin municipio registrado (no aparecen como marcador).
           </p>
         )}
         {sinCoordenadas > 0 && (
-          <p className="text-xs text-muted mt-1">
+          <p className="text-sm text-muted mt-1">
             + {sinCoordenadas} en un municipio que el mapa todavía no ubica (cuentan en el ranking).
           </p>
         )}
@@ -194,7 +194,7 @@ export default function VentasPorZona({ stats }) {
           </div>
         )}
         {metrica === 'docentes' && datos.docentes.sinEstado > 0 && (
-          <p className="text-xs text-muted mt-3">
+          <p className="text-sm text-muted mt-3">
             + {datos.docentes.sinEstado} sin estado registrado (cuentas de antes del 25-jul-2026, no se les asigna zona a ciegas).
           </p>
         )}
@@ -203,7 +203,7 @@ export default function VentasPorZona({ stats }) {
       {metrica !== 'docentes' && (hayNoAtribuible || datos.sinMunicipio.compras > 0 || datos.sinFechaValida.compras > 0) && (
         <div className="bg-surface-card rounded-card shadow-card p-4">
           <h3 className="font-semibold text-on-surface mb-1">Ingresos no atribuibles a una zona</h3>
-          <p className="text-xs text-muted mb-3">
+          <p className="text-sm text-muted mb-3">
             Son ventas válidas: siguen dentro del total. No se reparten entre estados ni se les inventa una ubicación.
           </p>
           <ul className="space-y-1 text-sm">
@@ -225,13 +225,13 @@ export default function VentasPorZona({ stats }) {
             )}
           </ul>
           {datos.sinMunicipio.compras > 0 && (
-            <p className="text-xs text-muted mt-3">
+            <p className="text-sm text-muted mt-3">
               Municipio faltante: {dinero(datos.sinMunicipio.ingresosMXN)} ({datos.sinMunicipio.compras}{' '}
               {datos.sinMunicipio.compras === 1 ? 'compra' : 'compras'}) ya cuentan en su estado; solo les falta el municipio.
             </p>
           )}
           {datos.sinFechaValida.compras > 0 && (
-            <p className="text-xs text-muted mt-1">
+            <p className="text-sm text-muted mt-1">
               Fecha inválida para este mes: {dinero(datos.sinFechaValida.ingresosMXN)} ({datos.sinFechaValida.compras}{' '}
               {datos.sinFechaValida.compras === 1 ? 'compra' : 'compras'}) no tienen fecha de resolución válida; no se asignan a ningún mes,
               pero sí cuentan en «Todo el tiempo».

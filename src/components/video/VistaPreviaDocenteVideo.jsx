@@ -94,7 +94,7 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, nombre, 
         className="fixed top-0 left-0 w-full h-dvh z-[75] bg-surface flex flex-col">
         <header className="bg-amber-100 text-amber-950 px-3 py-1.5 flex items-center gap-2 border-b border-amber-300">
           <span className="text-xs font-extrabold uppercase tracking-wide bg-amber-900 text-white rounded-full px-2.5 py-1 flex-shrink-0">Vista previa docente</span>
-          <p className="text-xs truncate flex-1 min-w-0">
+          <p className="text-sm truncate flex-1 min-w-0">
             {nombre ? `${nombre} · ` : ''}No se guarda nada: ni respuestas, ni progreso, ni entregas, ni créditos.
           </p>
           <button type="button" onClick={() => setBarraElegida(!mostrarBarra)} aria-expanded={mostrarBarra} data-testid="alternar-herramientas"
@@ -112,7 +112,7 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, nombre, 
           <RecomendacionesVideo compacto />
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-muted mr-1">Probar desde unos segundos antes de:</span>
-            {preguntas.length === 0 && <span className="text-xs text-muted">No hay preguntas para probar (las descartadas no se reproducen).</span>}
+            {preguntas.length === 0 && <span className="text-sm text-muted">No hay preguntas para probar (las descartadas no se reproducen).</span>}
             {preguntas.map((p, i) => (
               <button key={p.id} type="button" onClick={() => pantallaRef.current?.probarDesde(inicioDePrueba(p.timestampSeg, duracionSeg))}
                 className={`inline-flex items-center gap-1 min-h-[2.25rem] px-2.5 rounded-full border text-xs font-semibold ${p.revision === 'pendiente' ? 'border-amber-400 bg-amber-50 text-amber-900' : 'border-outline-variant text-on-surface hover:bg-surface-container'}`}
@@ -135,7 +135,7 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, nombre, 
                   {cmp?.respondida && (
                     <p className="text-xs mt-0.5">Tu respuesta de prueba: {textoOpcion(item, respuestas[item.id])} — {cmp.coincide ? 'coincide con la propuesta de la IA.' : 'NO coincide con la propuesta de la IA: revisa cuál es la correcta según el video.'}</p>
                   )}
-                  <p className="text-xs mt-0.5">Esta ayuda es solo para ti: el estudiante nunca la ve.</p>
+                  <p className="text-sm mt-0.5">Esta ayuda es solo para ti: el estudiante nunca la ve.</p>
                 </>
               )}
             </div>

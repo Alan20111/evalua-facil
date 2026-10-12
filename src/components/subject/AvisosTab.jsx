@@ -30,7 +30,7 @@ function ProgressoLectura({ leidos, total }) {
         </div>
         <span className="text-xs font-semibold text-accent flex-shrink-0">{pct}%</span>
       </div>
-      <p className="text-xs text-hint mt-1">
+      <p className="text-sm text-hint mt-1">
         {total === 0 ? 'Sin estudiantes inscritos aún' : `${leidos} de ${total} estudiantes han confirmado la lectura.`}
       </p>
     </div>
@@ -625,7 +625,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     <X size={18} />
                   </button>
                 </div>
-                <p className="text-xs text-muted mb-3">
+                <p className="text-sm text-muted mb-3">
                   Edítalas, cámbiales el ícono, {IS_NATIVE_APP ? 'mantén y arrastra para reordenar' : 'reordénalas'} o crea las tuyas — son tuyas, se usan en todas tus asignaturas.
                 </p>
                 <div className="space-y-1.5">

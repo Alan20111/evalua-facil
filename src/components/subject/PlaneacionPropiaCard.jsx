@@ -130,7 +130,7 @@ export default function PlaneacionPropiaCard({
         </button>
       </div>
 
-      <p className="text-xs text-muted mt-2">
+      <p className="text-sm text-muted mt-2">
         Evalúa Fácil guarda tu archivo tal como lo subiste. No lo lee ni lo analiza, y subirlo no consume créditos.
       </p>
 

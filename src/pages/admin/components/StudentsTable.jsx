@@ -285,7 +285,7 @@ export default function StudentsTable({ stats }) {
               <span className="text-muted">{rows.length} registros</span>
             )}
           </p>
-          <p className="text-xs text-hint mt-0.5">
+          <p className="text-sm text-hint mt-0.5">
             Cada renglón es un estudiante en una asignatura: quien cursa varias aparece una vez por cada una.
           </p>
         </div>

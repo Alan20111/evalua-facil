@@ -164,7 +164,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
                       </span>
                     )}
                     <p className="font-semibold text-on-surface truncate">{r.titulo}</p>
-                    <p className="text-xs text-muted mt-0.5">
+                    <p className="text-sm text-muted mt-0.5">
                       {esCotejo(r)
                         ? `${r.criterios?.length} criterios · lista de cotejo · sobre 10`
                         : `${r.criterios?.length} criterios · ${r.niveles?.length} niveles · se califica sobre 10`}

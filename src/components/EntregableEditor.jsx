@@ -502,14 +502,14 @@ export default function EntregableEditor({
                   Notificarme cuando entreguen esta actividad
                 </label>
                 <InfoDisclosure className="mt-0.5">
-                  <span className="text-muted text-xs block">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante la entregue</span>
+                  <span className="text-muted text-sm block">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante la entregue</span>
                 </InfoDisclosure>
                 {/* Se guarda sola en cuanto se toca (ver handleToggleNotificar)
                     — ya no depende del botón "Guardar" de abajo. Solo al crear
                     una actividad nueva viaja junto con el resto, porque el
                     documento todavía no existe. */}
                 {isNew && (
-                  <span className="text-muted text-xs block mt-1">Se guarda junto con el resto al crear la actividad</span>
+                  <span className="text-muted text-sm block mt-1">Se guarda junto con el resto al crear la actividad</span>
                 )}
               </div>
             </div>
@@ -571,7 +571,7 @@ export default function EntregableEditor({
                   <span className="text-hint font-normal">(opcional)</span>
                 </h2>
                 <InfoDisclosure className="mt-0.5">
-                  <p className="text-xs text-muted">
+                  <p className="text-sm text-muted">
                     Con una rúbrica calificas tocando el nivel de cada criterio y la
                     calificación sobre 10 se calcula sola. Tus estudiantes la ven desde
                     el inicio, para saber cómo serán evaluados.
@@ -589,7 +589,7 @@ export default function EntregableEditor({
                         {esCotejo(form.rubrica) ? 'Lista de cotejo' : 'Rúbrica'}
                       </p>
                       <p className="text-sm font-semibold text-on-surface truncate">{form.rubrica.titulo}</p>
-                      <p className="text-xs text-muted">
+                      <p className="text-sm text-muted">
                         {esCotejo(form.rubrica)
                           ? `${form.rubrica.criterios?.length} criterios · lista de cotejo · sobre 10`
                           : `${form.rubrica.criterios?.length} criterios · ${form.rubrica.niveles?.length} niveles · se califica sobre 10`}
@@ -694,7 +694,7 @@ export default function EntregableEditor({
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">{form.fechaLimite ? 'Fecha límite de entrega' : 'Fecha límite (opcional)'}</label>
                   {form.visibilidadMode === 'schedule' && !form.publishAt ? (
-                    <p className="text-xs text-hint px-1">Primero elige la fecha de publicación arriba.</p>
+                    <p className="text-sm text-hint px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
                     <EFDateTimePicker
                       mode="datetime"
@@ -981,14 +981,14 @@ export default function EntregableEditor({
             </div>
             <div>
               <span className="text-sm text-on-surface block mb-1">Evidencia (opcional)</span>
-              <p className="text-xs text-muted mb-1.5">
+              <p className="text-sm text-muted mb-1.5">
                 Por ejemplo las hojas del ejercicio en PDF — la IA las considera al proponer los criterios.
                 Hasta 5 imágenes, o 1 PDF, o 1 Word.
               </p>
               {iaEvidenciaArchivos.length > 0 && (
                 <ul className="space-y-1 mb-1.5">
                   {iaEvidenciaArchivos.map((file, i) => (
-                    <li key={`${file.name}-${i}`} className="flex items-center justify-between gap-2 px-2 py-1 bg-surface-container rounded text-xs text-on-surface">
+                    <li key={`${file.name}-${i}`} className="flex items-center justify-between gap-2 px-2 py-1 bg-surface-container rounded text-sm text-on-surface">
                       <span className="truncate">{file.name}</span>
                       <button type="button" onClick={() => removeEvidenciaIA(i)} disabled={iaTrabajando}
                         className="flex-shrink-0 text-muted hover:text-error disabled:opacity-60">

@@ -333,7 +333,7 @@ export default function ProgramarZonaSemanal({
                 {esModificar ? 'Reacomodando' : 'Programando'} bloques de {subjectDisplayName(subj) || 'la asignatura'}
               </span>
             </p>
-            <p className="text-xs text-muted">
+            <p className="text-sm text-muted">
               Toca un día para colocar · toca un bloque para editarlo · arrástralo para moverlo
             </p>
           </div>
@@ -469,7 +469,7 @@ export default function ProgramarZonaSemanal({
 
         {/* Footer */}
         <div className="border-t border-outline-variant px-4 py-3 flex items-center gap-3 flex-shrink-0 safe-bottom">
-          <span className="text-xs text-muted flex-1">
+          <span className="text-sm text-muted flex-1">
             {esModificar && !hayCambios
               ? 'No has hecho ningún cambio.'
               : completo
@@ -576,7 +576,7 @@ export default function ProgramarZonaSemanal({
               return (
                 <>
                   {invalido && (
-                    <p className="text-xs text-error flex items-center gap-1">
+                    <p className="text-sm text-error flex items-center gap-1">
                       <AlertCircle size={13} /> Aquí se traslapa con un espacio ocupado o se sale del horario.
                     </p>
                   )}
@@ -667,7 +667,7 @@ export default function ProgramarZonaSemanal({
                 en Notificaciones (llega al celular en segundo plano). Se
                 oculta en la App para no confundir los dos. */}
             {IS_NATIVE_APP ? (
-              <p className="text-xs text-muted rounded-card border border-outline-variant p-2.5">
+              <p className="text-sm text-muted rounded-card border border-outline-variant p-2.5">
                 Para el aviso en tu celular, activa “Antes de una clase” en Notificaciones.
               </p>
             ) : (

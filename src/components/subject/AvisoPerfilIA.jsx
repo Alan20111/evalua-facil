@@ -14,7 +14,7 @@ import { Sparkles } from 'lucide-react'
 
 export default function AvisoPerfilIA({ que = 'generar con Evalúa Fácil' }) {
   return (
-    <div className="flex items-start gap-2 p-2.5 rounded border border-amber-200 bg-amber-50 text-xs text-amber-800">
+    <div className="flex items-start gap-2 p-2.5 rounded border border-amber-200 bg-amber-50 text-sm text-amber-800">
       <Sparkles size={14} className="flex-shrink-0 mt-0.5" />
       <p>
         Para {que} necesitas completar tu <strong>Perfil para IA del docente</strong> — se llena una sola vez y

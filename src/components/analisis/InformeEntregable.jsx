@@ -90,7 +90,7 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
           <div className="min-w-0 space-y-1">
             <p className="text-sm text-on-surface"><span className="font-semibold">Actividad: </span>{plan.actividad}</p>
             <p className="text-sm text-on-surface"><span className="font-semibold">Modalidad: </span>{plan.modalidad} — no se leyeron los archivos entregados</p>
-            {plan.generadoEn && <p className="text-xs text-muted">Generado el {plan.generadoEn} — es una fotografía de ese momento: no cambia aunque después cambien los datos.</p>}
+            {plan.generadoEn && <p className="text-sm text-muted">Generado el {plan.generadoEn} — es una fotografía de ese momento: no cambia aunque después cambien los datos.</p>}
             {plan.editado && <p className="text-xs font-semibold text-accent">El texto fue editado por el docente.</p>}
           </div>
           <div className="flex flex-wrap gap-2">

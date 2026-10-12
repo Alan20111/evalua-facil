@@ -34,7 +34,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
   return (
     <fieldset className="border-0 p-0 m-0">
       <legend className="block text-sm font-medium text-muted mb-1 p-0">Archivos permitidos</legend>
-      <p className="text-xs text-accent font-medium mb-2">
+      <p className="text-sm text-accent font-medium mb-2">
         Ejemplo: al elegir imágenes y 1 Word, el estudiante podrá subir hasta 3 imágenes o un archivo de Word.
       </p>
       <div className="border border-outline-variant rounded divide-y divide-outline-variant overflow-hidden">
@@ -82,7 +82,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
               }`}
             />
             {customExtsMissing && (
-              <p className="mt-1 text-xs text-red-500">Escribe al menos una extensión (ej: pptx, zip, psd)</p>
+              <p className="mt-1 text-sm text-red-500">Escribe al menos una extensión (ej: pptx, zip, psd)</p>
             )}
           </div>
         )}
@@ -95,7 +95,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
           />
           <span className={keys.includes(LINK_KEY) ? 'text-accent font-medium' : 'text-on-surface'}>
             Enlace o URL
-            <span className="block text-xs text-muted font-normal">Úsalo, por ejemplo, para recibir la URL donde está alojado un video.</span>
+            <span className="block text-sm text-muted font-normal">Úsalo, por ejemplo, para recibir la URL donde está alojado un video.</span>
           </span>
         </label>
       </div>

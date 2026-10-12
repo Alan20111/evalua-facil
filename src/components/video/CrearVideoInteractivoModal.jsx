@@ -159,7 +159,7 @@ export default function CrearVideoInteractivoModal({
           <input id="vid-url" type="url" inputMode="url" value={url} disabled={trabajando} autoComplete="off" spellCheck={false}
             onChange={(e) => setUrl(e.target.value)} onBlur={() => setTocado(true)}
             className="w-full px-3 py-2 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
-          {url && v.videoId && <p className="text-xs text-hint mt-1">Video detectado. Debe ser público o no listado.</p>}
+          {url && v.videoId && <p className="text-sm text-hint mt-1">Video detectado. Debe ser público o no listado.</p>}
           {url.trim() && v.errores.url && <p className="text-xs text-error mt-1">{v.errores.url}</p>}
         </div>
 
@@ -177,7 +177,7 @@ export default function CrearVideoInteractivoModal({
               </div>
             ))}
           </div>
-          <p className="text-xs text-hint mt-1">De {VIDEO_CFG.MIN_PREGUNTAS} a {VIDEO_CFG.MAX_PREGUNTAS} preguntas en total. La respuesta abierta la calificas tú.</p>
+          <p className="text-sm text-hint mt-1">De {VIDEO_CFG.MIN_PREGUNTAS} a {VIDEO_CFG.MAX_PREGUNTAS} preguntas en total. La respuesta abierta la calificas tú.</p>
           {tocado && v.errores.distribucion && <p className="text-xs text-error mt-1">{v.errores.distribucion}</p>}
         </fieldset>
 
@@ -188,7 +188,7 @@ export default function CrearVideoInteractivoModal({
             ? <>Total: <span className="font-semibold">{v.total}</span> {v.total === 1 ? 'pregunta' : 'preguntas'} · hasta <span className="font-semibold">{v.creditos}</span> {v.creditos === 1 ? 'crédito' : 'créditos'}</>
             : 'Elige al menos una pregunta.'}
         </p>
-        <p className="text-xs text-muted">Todavía no se cobra nada: te pediremos confirmar el costo antes de generar. Revisar, editar y aprobar tampoco cuestan.</p>
+        <p className="text-sm text-muted">Todavía no se cobra nada: te pediremos confirmar el costo antes de generar. Revisar, editar y aprobar tampoco cuestan.</p>
 
         {fallo && (
           <div role="alert" className="p-3 rounded-card border border-amber-200 bg-amber-50 space-y-2">
@@ -199,10 +199,10 @@ export default function CrearVideoInteractivoModal({
                 <RotateCcw size={16} /> Reintentar sin volver a cobrar
               </button>
             )}
-            {sinCobro && fallo.actividadId && <p className="text-xs text-amber-900">Puedes corregir lo que haga falta y generar de nuevo; la actividad quedó guardada como borrador.</p>}
+            {sinCobro && fallo.actividadId && <p className="text-sm text-amber-900">Puedes corregir lo que haga falta y generar de nuevo; la actividad quedó guardada como borrador.</p>}
           </div>
         )}
-        {trabajando && <p className="text-xs text-muted">La IA está viendo el video; puede tardar un par de minutos. No cierres esta ventana.</p>}
+        {trabajando && <p className="text-sm text-muted">La IA está viendo el video; puede tardar un par de minutos. No cierres esta ventana.</p>}
       </div>
     </Modal>
   )

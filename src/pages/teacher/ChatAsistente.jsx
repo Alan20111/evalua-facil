@@ -295,11 +295,11 @@ function TarjetaPropuesta({ propuesta, contextoVigente, esLaVigente, ejecutando,
         // Refinada por una propuesta más nueva (pedido explícito, 18-ago-2026):
         // deja de ser ejecutable — el servidor la rechaza igual aunque este
         // botón no existiera, esto es solo para que se vea consistente.
-        <p className="text-xs text-muted italic">Versión anterior — ya no disponible, revisa la propuesta más reciente.</p>
+        <p className="text-sm text-muted italic">Versión anterior — ya no disponible, revisa la propuesta más reciente.</p>
       ) : !contextoVigente ? (
-        <p className="text-xs text-error">Cambiaste de asignatura — vuelve a esta asignatura para crearla.</p>
+        <p className="text-sm text-error">Cambiaste de asignatura — vuelve a esta asignatura para crearla.</p>
       ) : descartada ? (
-        <p className="text-xs text-muted italic">Cancelado — no se aplicó ninguna calificación.</p>
+        <p className="text-sm text-muted italic">Cancelado — no se aplicó ninguna calificación.</p>
       ) : (
         <div className="flex items-center gap-2">
           <button
@@ -715,12 +715,12 @@ export default function ChatAsistente() {
           avisa cuando de plano no hay saldo para usarlo (condición de
           acceso, no un costo por mensaje). */}
       {sinCreditos && (
-        <p className="text-xs mb-2 text-error font-medium">
+        <p className="text-sm mb-2 text-error font-medium">
           Necesitas créditos disponibles para seguir usando el Chat con Asistente.
         </p>
       )}
       {limiteAlcanzado && (
-        <p className="text-xs mb-2 text-error font-medium">
+        <p className="text-sm mb-2 text-error font-medium">
           Has alcanzado el límite diario de 50 interacciones con el Chat con Asistente. Podrás continuar mañana.
         </p>
       )}

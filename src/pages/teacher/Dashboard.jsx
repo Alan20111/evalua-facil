@@ -634,7 +634,7 @@ export default function TeacherDashboard() {
                   horario y agenda, las asistencias ni la Planeación Inicial). */}
               <div>
                 <p className="block text-sm font-medium text-muted mb-1">Fechas del curso</p>
-                <p className="text-xs text-muted mb-1.5">Son obligatorias: con ellas se generan los días para marcar asistencia, se organiza cada parcial por periodo, y se arma tu horario y tu Planeación Inicial.</p>
+                <p className="text-sm text-muted mb-1.5">Son obligatorias: con ellas se generan los días para marcar asistencia, se organiza cada parcial por periodo, y se arma tu horario y tu Planeación Inicial.</p>
                 <div className="space-y-2">
                   <div>
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
