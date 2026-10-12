@@ -5,7 +5,7 @@ import {
   deleteDoc,
   getDocs,
 } from 'firebase/firestore'
-import { Trash2, X, RotateCcw, Zap, UserX, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { Trash2, X, RotateCcw, Zap, UserX, ArrowUp, ArrowDown, ArrowUpDown, AlertTriangle } from 'lucide-react'
 import { httpsCallable } from 'firebase/functions'
 import SearchInput from '../../../components/SearchInput'
 import { db, functions } from '../../../firebase'
@@ -18,6 +18,7 @@ import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import { normalizeName } from '../../../utils/schoolSelection'
+import { cuandoConsultaAuth } from '../../../utils/resumenAdmin'
 import {
   nombreCompletoDocente,
   saldoIAVisible,
@@ -47,10 +48,9 @@ const ALTO_TABLA = 'calc(100vh - 290px)'
 
 const WIDTHS_KEY = 'admin-suscripciones-cols-v6'
 
-// Cuánto se espera la respuesta de último acceso antes de pintar la tabla con
-// el orden de respaldo. Es un tope de error, no una pausa: si la respuesta
-// llega antes, la tabla sale en cuanto llega.
-const ACCESOS_TIMEOUT_MS = 15000
+// Mapa vacío compartido: conserva la misma identidad entre renders (es
+// dependencia de useMemo) mientras no hay datos de Auth.
+const SIN_DATOS = Object.freeze({})
 
 // Columnas. `filtro` = tipo de caja bajo el título:
 //   'texto' → se escribe y filtra, con sugerencias de los valores que todavía
@@ -335,17 +335,15 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
 
   // Memoizados aunque parezcan triviales: el `|| []` crea un arreglo nuevo en
   // cada render y eso invalidaría los useMemo que dependen de ellos.
-  // Último acceso de cada docente (Firebase Auth) — se pide una vez por carga
-  // del panel a api/admin/last-access, porque solo el Admin SDK puede leer la
-  // metadata de OTRO usuario. Si falla, la columna se queda en guion: es un
+  // Último acceso y fecha de alta de cada docente (Firebase Auth). Los pide UNA
+  // sola vez useAdminStats a api/admin/last-access (el Resumen también los usa)
+  // y los comparte aquí en stats.authInfo, porque solo el Admin SDK puede leer
+  // la metadata de OTRO usuario. Si fallan, la columna se queda en guion: es un
   // dato de apoyo, no debe tumbar la tabla.
-  const [accesos, setAccesos] = useState({})
-  // `true` cuando la petición de último acceso TERMINÓ (con éxito o con fallo).
-  // El orden de la tabla depende de las fechas de alta que trae esa respuesta;
-  // pintar filas antes mostraba un orden provisional que luego se reacomodaba.
-  const [accesosResueltos, setAccesosResueltos] = useState(false)
+  const authInfo = stats?.authInfo
+  const accesos = authInfo?.accesos ?? SIN_DATOS
+  const creadoEnMap = authInfo?.creadoEn ?? SIN_DATOS
   const [orden, setOrden] = useState(null)
-  const [creadoEnMap, setCreadoEnMap] = useState({})
   const [creditosMap, setCreditosMap] = useState({})
   const [creditosListos, setCreditosListos] = useState(false)
   const [regaloMap, setRegaloMap] = useState({})
@@ -356,50 +354,13 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   const teachers = useMemo(() => stats?.teachers || [], [stats?.teachers])
   const teachersMap = useMemo(() => Object.fromEntries(teachers.map((t) => [t.id, t])), [teachers])
 
-  // Se pide con los uid que ya están en pantalla; el endpoint responde un mapa
-  // { uid: fecha ISO del último acceso }.
-  useEffect(() => {
-    if (!currentUser || teachers.length === 0) return undefined
-    let cancelado = false
-    // `agotado`: pasó el tope de espera. La tabla ya se pintó con el orden de
-    // respaldo, así que una respuesta tardía se ignora: aplicarla reacomodaría
-    // las filas frente al usuario, justo lo que esta espera evita.
-    let agotado = false
-    const controlador = new AbortController()
-    const temporizador = setTimeout(() => {
-      agotado = true
-      controlador.abort()
-      setAccesosResueltos(true)
-    }, ACCESOS_TIMEOUT_MS)
-    currentUser.getIdToken()
-      .then((token) => fetch(apiUrl('/api/admin/last-access'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ uids: teachers.map((t) => t.id) }),
-        signal: controlador.signal,
-      }))
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelado || agotado) return
-        if (data?.accesos) setAccesos(data.accesos)
-        if (data?.creadoEn) setCreadoEnMap(data.creadoEn)
-      })
-      .catch(() => {})
-      .finally(() => {
-        clearTimeout(temporizador)
-        if (!cancelado) setAccesosResueltos(true)
-      })
-    return () => {
-      cancelado = true
-      clearTimeout(temporizador)
-      controlador.abort()
-    }
-  }, [currentUser, teachers])
-
-  // Una vez resuelta, nunca vuelve a "cargando": «Actualizar» conserva la tabla
-  // en pantalla mientras llegan los datos nuevos. Sin docentes o sin sesión no
-  // hay nada que esperar.
-  const accesosListos = accesosResueltos || teachers.length === 0 || !currentUser
+  // `authInfo.resuelto` es true cuando la petición de Auth TERMINÓ (con éxito,
+  // con fallo o por tope de tiempo). El orden de la tabla depende de las fechas
+  // de alta que trae esa respuesta; pintar filas antes mostraba un orden
+  // provisional que luego se reacomodaba. Una vez resuelta, nunca vuelve a
+  // "cargando": «Actualizar» conserva la tabla en pantalla mientras llegan los
+  // datos nuevos. Sin docentes o sin sesión no hay nada que esperar.
+  const accesosListos = !!authInfo?.resuelto || teachers.length === 0 || !currentUser
 
   // Créditos de IA por docente — una lectura por sesión del panel, igual que
   // el resto de los datos de apoyo de la tabla. Se guarda el documento
@@ -724,6 +685,18 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             Una suscripción por docente. <strong>Regalo IA</strong> es qué pasó con los
             créditos de bienvenida; <strong>Saldo IA</strong> es el saldo total de hoy.
           </p>
+          {/* La última consulta a Firebase Authentication falló o se agotó DESPUÉS
+              de una correcta: se conservan esos datos (la tabla no pierde su orden
+              ni parpadea), pero no se presentan como recién confirmados. */}
+          {authInfo?.obsoleto && (
+            <output className="flex items-start gap-1.5 text-xs text-amber-800 mt-1.5">
+              <AlertTriangle size={14} className="mt-px flex-shrink-0" aria-hidden="true" />
+              <span>
+                Fecha de alta y días sin accesar de la consulta {cuandoConsultaAuth(authInfo.actualizadoEn, stats?.cargadoEn) || 'anterior'}:
+                no se pudo actualizar Firebase Authentication.
+              </span>
+            </output>
+          )}
         </div>
 
         <div className="flex flex-col items-stretch gap-2 w-full sm:w-80">
