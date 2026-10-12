@@ -280,7 +280,7 @@ Todo lo que se toca en una línea (botón, campo, select, buscador, pestaña, ch
 - `lg`: encabezados de sección.
 - `xl`: estados vacíos.
 
-**Fondos de ícono**, siempre en círculo: `FONDO_ICONO = { sm: 'size-8', md: 'size-10', lg: 'size-12' }`, con su ícono `ICONO_EN_FONDO`. Un `size={N}` fuera de la escala está congelado por candado y solo puede bajar.
+**Fondos de ícono**, siempre en círculo: `FONDO_ICONO = { sm: 'size-8', md: 'size-11', lg: 'size-14' }` (el `md` mide lo mismo que un control), con su ícono `ICONO_EN_FONDO`. Un `size={N}` fuera de la escala está congelado por candado y solo puede bajar.
 
 ---
 

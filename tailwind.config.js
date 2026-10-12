@@ -72,10 +72,10 @@ const formaApp = ({ addComponents, addBase }) => {
     backgroundColor: 'var(--surface-card)',
     boxShadow: '0 -1.25rem 0 1.25rem var(--surface-card)',
   },
-  // Pie fijo de hoja: la fila del botón principal se queda pegada ABAJO al
-  // desplazar, así «Crear/Guardar» siempre está a la vista. Misma sombra
+  // Pie fijo de hoja: la fila del botón principal (donde esté dentro de la
+  // hoja, p. ej. al final de un <form>) se queda pegada ABAJO al desplazar, así «Crear/Guardar» siempre está a la vista. Misma sombra
   // sólida que el encabezado, hacia abajo.
-  '.hoja > .pie-hoja': {
+  '.hoja .pie-hoja': {
     position: 'sticky',
     bottom: '0',
     zIndex: '10',

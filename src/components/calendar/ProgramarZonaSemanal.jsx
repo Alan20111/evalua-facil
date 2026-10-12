@@ -44,7 +44,7 @@ function solapan(aStart, aEnd, bStart, bEnd) {
 // Selector de hora que salta de 10 en 10 minutos (permite 07:50, 08:10, …).
 function HoraStepper({ value, onChange, minMin, maxMin, step = SNAP_MIN }) {
   const cur = timeToMinutes(value)
-  const btn = 'px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-accent-tint disabled:opacity-40 transition-colors'
+  const btn = 'px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 transition-colors'
   return (
     <div className="flex items-center gap-1.5">
       <button type="button" onClick={() => onChange(minsToTime(Math.max(minMin, cur - step)))} disabled={cur <= minMin} className={btn} aria-label="−10 minutos">
@@ -393,7 +393,7 @@ export default function ProgramarZonaSemanal({
                         type="button"
                         onClick={() => abrirColocar(dia, `${String(hour).padStart(2, '0')}:00`)}
                         disabled={restantes <= 0}
-                        className={`absolute left-0 right-0 border-b border-outline-variant transition-colors text-left ${restantes > 0 ? 'hover:bg-accent-tint cursor-pointer' : 'cursor-default'}`}
+                        className={`absolute left-0 right-0 border-b border-outline-variant transition-colors text-left ${restantes > 0 ? 'hover:bg-[var(--accent-tint)] cursor-pointer' : 'cursor-default'}`}
                         style={{ top: i * ROW_H, height: ROW_H }}
                         aria-label={`Colocar bloque el ${DIAS_SEMANA[dia]} a las ${formatHora12(`${String(hour).padStart(2, '0')}:00`)}`}
                       />
@@ -690,7 +690,7 @@ export default function ProgramarZonaSemanal({
                       options={ALARMA_SONIDOS.map(s => ({ value: s.id, label: s.label }))}
                       wrapperClassName="flex-1"
                     />
-                    <button type="button" onClick={() => reproducirSonido(editP.alarma.sonido || 'campana')} className="px-2 rounded border border-outline-variant text-accent hover:bg-accent-tint" aria-label="Probar">
+                    <button type="button" onClick={() => reproducirSonido(editP.alarma.sonido || 'campana')} className="px-2 rounded border border-outline-variant text-accent hover:bg-[var(--accent-tint)]" aria-label="Probar">
                       <Play size={13} />
                     </button>
                   </div>

@@ -1475,7 +1475,7 @@ export default function EvaluacionEditor({
                 type="button"
                 onClick={handleRepartirParejo}
                 disabled={savingPregunta}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
               >
                 <Scale size={15} /> Repartir 10 pts parejo entre las {preguntas.length} preguntas
               </button>

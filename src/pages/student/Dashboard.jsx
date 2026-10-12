@@ -14,11 +14,7 @@ import {
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
-import {
-  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive, Trash2, Download,
-  ArrowUp, ArrowDown, GripVertical, Globe, Smartphone,
-} from 'lucide-react'
+import { BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive, Trash2, Download, ArrowUp, ArrowDown, GripVertical, Globe, Smartphone,  } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { fetchContentBatch } from '../../utils/apiContent'
@@ -37,6 +33,8 @@ import { teacherDisplayName } from '../../utils/studentSearch'
 import { capitalizarNombre } from '../../utils/nombres'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { EsqueletoTableroAlumno } from '../../components/esqueletos'
+import { Button, Card, DisclosureCard, EmptyState, FlechaFila, IconButton, IconTile, Input } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 // All submissions belonging to a set of student enrollment docs — one `==` query
 // per enrollment, in parallel. NO `in` chunks here: the submissions read rule
@@ -63,12 +61,6 @@ export default function StudentDashboard() {
   const [joinCode, setJoinCode] = useState('')
   const [showArchived, setShowArchived] = useState(false)
 
-  // Recordatorio de la versión web (solo App): arranca colapsado, se ve nada
-  // más el título hasta que el estudiante lo abre.
-  const [showWebInfo, setShowWebInfo] = useState(false)
-
-  // Su espejo en la web: recordatorio de que también existe la app.
-  const [showAppInfo, setShowAppInfo] = useState(false)
   // Incrementa después de cada reorden confirmado — se lo pasa a StudentLayout
   // como `refreshKey` para que la barra lateral recargue su propia lista, que
   // vive en un componente aparte y de otro modo no se enteraría del cambio
@@ -434,7 +426,7 @@ export default function StudentDashboard() {
                 type="button"
                 onClick={() => photoInputRef.current?.click()}
                 aria-label="Cambiar foto de perfil"
-                className="w-20 h-20 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0"
+                className="w-20 h-20 rounded-full bg-[var(--accent-tint)] overflow-hidden flex items-center justify-center flex-shrink-0"
               >
                 {photoURL ? (
                   <img src={photoURL} alt="" className="w-full h-full object-cover" />
@@ -444,7 +436,7 @@ export default function StudentDashboard() {
               </button>
             ) : (
               // En la web también al doble: 44px → 88px.
-              <div className="w-[5.5rem] h-[5.5rem] rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0">
+              <div className="w-[5.5rem] h-[5.5rem] rounded-full bg-[var(--accent-tint)] overflow-hidden flex items-center justify-center flex-shrink-0">
                 {photoURL ? (
                   <img src={photoURL} alt="" className="w-full h-full object-cover" />
                 ) : (
@@ -480,11 +472,11 @@ export default function StudentDashboard() {
         <p className="text-hint text-sm mb-4">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's activas' : ' activa'}</p>
 
         {activeSubjects.length === 0 ? (
-          <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
-            <BookOpen size={32} className="text-slate-300 mx-auto mb-3" />
-            <p className="text-muted mb-1">Aún no tienes asignaturas</p>
-            <p className="text-hint text-sm">Usa el botón de abajo para unirte a una.</p>
-          </div>
+          <Card padding="none">
+            <EmptyState icon={BookOpen} tone="neutral" title="Aún no tienes asignaturas">
+              Usa el botón de abajo para unirte a una.
+            </EmptyState>
+          </Card>
         ) : (
           <div data-esq="dash-alu-lista" className="space-y-2 cascada">
             {displayActiveSubjects.map((s, i) => (
@@ -492,7 +484,7 @@ export default function StudentDashboard() {
                 key={s.id}
                 ref={(el) => { dragCardRefs.current[i] = el }}
                 {...subjectPaletteProps(s.colorPalette)}
-                className={`w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-card-hover transition-all duration-200 flex items-center gap-1 ${dragIndex === i ? 'opacity-60 shadow-lg' : ''}`}
+                className={`w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-card-hover transition flex items-center gap-1 ${dragIndex === i ? 'opacity-60 shadow-lg' : ''}`}
               >
                 {/* Reordenar: flechas en la web, arrastrar en la App — solo si
                     hay más de una asignatura (con una sola no hay nada que
@@ -506,7 +498,7 @@ export default function StudentDashboard() {
                       data-tooltip="Mantén y arrastra para reordenar"
                       className="p-2 -m-1 text-hint hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
                     >
-                      <GripVertical size={18} />
+                      <GripVertical size={ICONO.md} />
                     </button>
                   ) : (
                     <div className="flex flex-col flex-shrink-0">
@@ -518,7 +510,7 @@ export default function StudentDashboard() {
                         aria-label="Subir"
                         className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded-full"
                       >
-                        <ArrowUp size={16} />
+                        <ArrowUp size={ICONO.sm} />
                       </button>
                       <button
                         type="button"
@@ -528,7 +520,7 @@ export default function StudentDashboard() {
                         aria-label="Bajar"
                         className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded-full"
                       >
-                        <ArrowDown size={16} />
+                        <ArrowDown size={ICONO.sm} />
                       </button>
                     </div>
                   )
@@ -536,14 +528,14 @@ export default function StudentDashboard() {
                 <button data-esq="dash-alu-fila-boton"
                   type="button"
                   onClick={() => navigate(`/alumno/materia/${s.id}`)}
-                  className="flex-1 min-w-0 text-left flex items-center gap-3 p-1.5"
+                  className="group flex-1 min-w-0 text-left flex items-center gap-3 p-1.5 rounded-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  <div data-esq="dash-alu-icono" className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-                    <SubjectIcon iconKey={s.icon} size={22} className="text-accent" />
+                  <div data-esq="dash-alu-icono" className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
+                    <SubjectIcon iconKey={s.icon} size={ICONO.md} className="text-accent" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
-                    <p className="text-slate-500 text-sm font-medium mt-0.5 truncate">{s.teacherName}</p>
+                    <p className="text-muted text-sm font-medium mt-0.5 truncate">{s.teacherName}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {s.avgPendiente ? (
@@ -557,7 +549,7 @@ export default function StudentDashboard() {
                         <p className="text-sm text-slate-500">promedio</p>
                       </div>
                     )}
-                    <ChevronRight size={18} className="text-slate-300" />
+                    <FlechaFila />
                   </div>
                 </button>
               </div>
@@ -566,13 +558,9 @@ export default function StudentDashboard() {
         )}
 
         {/* Join another subject */}
-        <button
-          type="button"
-          onClick={openJoinModal}
-          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-dashed border-accent-soft text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
-        >
-          <Plus size={18} /> Unirme a otra asignatura
-        </button>
+        <Button variant="cta-dashed" icon={Plus} iconEffect="gira90" className="mt-3" onClick={openJoinModal}>
+          Unirme a otra asignatura
+        </Button>
 
         {/* Asignaturas archivadas — SOLO si el docente ya archivó alguna.
             Archivar es decisión del maestro: el estudiante no archiva nada, así
@@ -588,11 +576,12 @@ export default function StudentDashboard() {
             <button
               type="button"
               onClick={() => setShowArchived((v) => !v)}
-              className="w-full flex items-center gap-2 px-4 py-3 text-sm text-muted hover:bg-accent-tint transition-colors"
+              aria-expanded={showArchived}
+              className="w-full flex items-center gap-2 h-control px-4 text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors"
             >
-              <Archive size={16} className="flex-shrink-0" />
+              <Archive size={ICONO.sm} className="flex-shrink-0" />
               <span className="flex-1 text-left">Asignaturas archivadas ({archivedSubjects.length})</span>
-              <ChevronDown size={15} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-180' : ''}`} />
+              <ChevronDown size={ICONO.sm} className={`flex-shrink-0 transition-transform duration-estandar ${showArchived ? 'rotate-180' : ''}`} />
             </button>
             {showArchived && (
               <div className="px-2 pb-2 space-y-1">
@@ -604,19 +593,14 @@ export default function StudentDashboard() {
                     <button
                       type="button"
                       onClick={() => navigate(`/alumno/materia/${s.id}`)}
-                      className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm text-muted hover:bg-accent-tint transition-colors text-left"
+                      className="flex-1 min-w-0 flex items-center gap-2 h-control px-3 rounded-full text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors text-left"
                     >
-                      <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
+                      <SubjectIcon iconKey={s.icon} size={ICONO.sm} className="flex-shrink-0" />
                       <span className="truncate">{subjectDisplayName(s)}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setSubjectToRemove(s)}
-                      aria-label={`Quitar ${subjectDisplayName(s)} de mis asignaturas archivadas`}
-                      className="p-2 rounded-full text-hint hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <IconButton icon={Trash2} variant="danger" effect="balanceo" tooltip={false}
+                      label={`Quitar ${subjectDisplayName(s)} de mis asignaturas archivadas`}
+                      onClick={() => setSubjectToRemove(s)} />
                   </div>
                 ))}
               </div>
@@ -630,48 +614,20 @@ export default function StudentDashboard() {
             porque ese es el lenguaje de desplegable del módulo del estudiante,
             no el ChevronRight/rotate-90 del docente. */}
         {IS_NATIVE_APP && (
-          <div className="mt-4 bg-surface-card rounded-card shadow-card overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setShowWebInfo((v) => !v)}
-              aria-expanded={showWebInfo}
-              className="w-full flex items-center gap-2 px-4 py-3 hover:bg-accent-tint transition-colors text-left"
-            >
-              <Globe size={17} className="text-accent flex-shrink-0" />
-              <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">También puedes entrar desde tu computadora</span>
-              <ChevronDown size={15} className={`text-hint flex-shrink-0 transition-transform ${showWebInfo ? 'rotate-180' : ''}`} />
-            </button>
-            {showWebInfo && (
-              <div className="px-4 pb-4 pt-0.5">
-                <p className="text-sm text-muted">Tus asignaturas, tus entregas, tus exámenes y tus calificaciones también están en la versión web. Es útil cuando necesitas subir un trabajo desde la computadora o presentar un examen en pantalla grande.</p>
-                <p className="text-sm text-muted mt-1.5">Es tu misma cuenta: inicia sesión con el mismo usuario y contraseña. Todo lo que hagas en la app se refleja en la versión web, y viceversa.</p>
-                <p className="text-sm font-semibold text-accent mt-1.5">www.evaluafacil.mx</p>
-              </div>
-            )}
-          </div>
+          <DisclosureCard icon={Globe} title="También puedes entrar desde tu computadora" className="mt-4">
+            <p>Tus asignaturas, tus entregas, tus exámenes y tus calificaciones también están en la versión web. Es útil cuando necesitas subir un trabajo desde la computadora o presentar un examen en pantalla grande.</p>
+                <p>Es tu misma cuenta: inicia sesión con el mismo usuario y contraseña. Todo lo que hagas en la app se refleja en la versión web, y viceversa.</p>
+                <p className="font-semibold text-accent">www.evaluafacil.mx</p>
+          </DisclosureCard>
         )}
 
         {/* En la WEB se informa que Evalúa Fácil también funciona en el
             celular mediante el navegador. Colapsado e informativo, sin
             invitar a descargar una app que todavía no existe en tiendas. */}
         {!IS_NATIVE_APP && (
-          <div className="mt-4 bg-surface-card rounded-card shadow-card overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setShowAppInfo((v) => !v)}
-              aria-expanded={showAppInfo}
-              className="w-full flex items-center gap-2 px-4 py-3 hover:bg-accent-tint transition-colors text-left"
-            >
-              <Smartphone size={17} className="text-accent flex-shrink-0" />
-              <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">Evalúa Fácil en tu celular</span>
-              <ChevronDown size={15} className={`text-hint flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-180' : ''}`} />
-            </button>
-            {showAppInfo && (
-              <div className="px-4 pb-4 pt-0.5">
-                <p className="text-sm text-muted">Evalúa Fácil solo funciona en la web por ahora. Puedes abrirla desde el navegador de tu celular igual que en la computadora — es la misma cuenta, todo sincronizado.</p>
-              </div>
-            )}
-          </div>
+          <DisclosureCard icon={Smartphone} title="Evalúa Fácil en tu celular" className="mt-4">
+            <p>Evalúa Fácil solo funciona en la web por ahora. Puedes abrirla desde el navegador de tu celular igual que en la computadora — es la misma cuenta, todo sincronizado.</p>
+          </DisclosureCard>
         )}
       </div>
 
@@ -692,23 +648,14 @@ export default function StudentDashboard() {
               (Math.random().toString(36).slice(2, 8)), de ahí la ayuda de abajo. */}
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card drop-shadow-2xl overflow-hidden">
             <div className="flex items-start gap-3 p-5 pb-4">
-              <div className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-                <Hash size={22} className="text-accent" />
-              </div>
+              <IconTile icon={Hash} />
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-bold text-on-surface leading-tight">Unirme a otra asignatura</h3>
                 <p className="text-sm text-muted mt-1 leading-relaxed">
                   Escribe el código que te dio tu maestro.
                 </p>
               </div>
-              <button
-                type="button"
-                aria-label="Cerrar"
-                onClick={() => setShowJoin(false)}
-                className="p-2 -mt-1 -mr-1 text-hint hover:text-muted hover:bg-surface-container rounded-full transition-colors flex-shrink-0"
-              >
-                <X size={20} />
-              </button>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mt-1 -mr-2" onClick={() => setShowJoin(false)} />
             </div>
             <form onSubmit={handleJoinSubject} className="px-5 pb-5">
               <label htmlFor="joinCode" className="block text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">
@@ -716,7 +663,7 @@ export default function StudentDashboard() {
               </label>
               {/* indent compensa el espacio que `tracking` agrega DESPUÉS de la
                   última letra: sin él el texto se ve descentrado a la izquierda. */}
-              <input
+              <Input
                 id="joinCode"
                 type="text"
                 value={joinCode}
@@ -726,18 +673,14 @@ export default function StudentDashboard() {
                 autoCapitalize="characters"
                 spellCheck={false}
                 maxLength={8}
-                className="w-full px-4 py-3.5 rounded-full border-2 border-outline-variant focus:border-accent focus:outline-none text-2xl font-mono font-bold tracking-[0.25em] indent-[0.25em] bg-surface text-on-surface transition-colors"
+                className="!h-14 border-2 focus:border-accent text-2xl font-mono font-bold tracking-[0.25em] indent-[0.25em] text-center"
               />
               <p className="text-xs text-hint mt-2 text-center">
                 Son 6 caracteres, entre letras y números
               </p>
-              <button
-                type="submit"
-                disabled={!joinCode.trim()}
-                className="mt-4 w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
-              >
-                Continuar <ChevronRight size={18} />
-              </button>
+              <Button type="submit" size="lg" fullWidth className="mt-4" iconRight={ChevronRight} disabled={!joinCode.trim()}>
+                Continuar
+              </Button>
             </form>
           </div>
         </div>
@@ -759,43 +702,31 @@ export default function StudentDashboard() {
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-lg font-semibold text-on-surface truncate">Quitar de mis archivadas</h3>
-              <button type="button" aria-label="Cerrar" onClick={() => !removing && setSubjectToRemove(null)} className="p-2 text-hint rounded-full flex-shrink-0"><X size={20} /></button>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => !removing && setSubjectToRemove(null)} />
             </div>
             <p className="text-sm text-muted mb-3 leading-relaxed">
               <strong className="text-on-surface">{subjectDisplayName(subjectToRemove)}</strong> desaparecerá
               de tus asignaturas y ya no podrás volver a abrirla — <strong>ni para descargar tus archivos</strong>.
             </p>
-            <div className="rounded border border-amber-200 bg-amber-50 p-3 mb-4">
+            <div className="rounded-card border border-amber-200 bg-amber-50 p-3 mb-4">
               <p className="text-sm font-semibold text-amber-800 mb-1">Primero guarda tu trabajo</p>
               <p className="text-xs text-amber-700 leading-relaxed mb-2">
                 Abre la asignatura y usa <strong>Descargar mis entregas</strong> para bajar todos tus archivos.
                 Es tu trabajo y es tu única oportunidad de llevártelo.
               </p>
-              <button
-                type="button"
-                onClick={() => navigate(`/alumno/materia/${subjectToRemove.id}`)}
-                className="w-full py-2.5 rounded-full border border-amber-400 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
-              >
-                <Download size={16} /> Abrir y descargar mis entregas
-              </button>
+              <Button variant="secondary" fullWidth icon={Download} iconEffect="empujaAbajo"
+                className="!border-amber-400 !text-amber-800 !bg-transparent hover:!bg-amber-100"
+                onClick={() => navigate(`/alumno/materia/${subjectToRemove.id}`)}>
+                Abrir y descargar mis entregas
+              </Button>
             </div>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setSubjectToRemove(null)}
-                disabled={removing}
-                className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-semibold hover:bg-surface-container transition-colors disabled:opacity-60"
-              >
+              <Button variant="secondary" className="flex-1" onClick={() => setSubjectToRemove(null)} disabled={removing}>
                 Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleRemoveArchived}
-                disabled={removing}
-                className="flex-1 py-2.5 rounded-full bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {removing ? <Spinner size="sm" /> : <Trash2 size={16} />} Quitar
-              </button>
+              </Button>
+              <Button variant="danger" className="flex-1" icon={Trash2} busy={removing} onClick={handleRemoveArchived}>
+                Quitar
+              </Button>
             </div>
           </div>
         </div>

@@ -188,3 +188,30 @@ def correr2(archivos):
         if s2 != s:
             open(f, 'w').write(s2)
         print(f, n)
+
+# ── Pasada 3: íconos a la escala (config/iconos.js) ─────────────────────────
+# size={N} numérico ≤ 28 → ICONO.xs/sm/md/lg. Los ≥ 30 (ilustración) se
+# deciden a mano. Los size={X ? a : b} no se tocan.
+MAPA_ICONO = {**{n: 'xs' for n in (10, 11, 12, 13, 14)}, **{n: 'sm' for n in (15, 16, 17)},
+              **{n: 'md' for n in (18, 19, 20, 21, 22)}, **{n: 'lg' for n in (23, 24, 25, 26, 27, 28)}}
+
+def escala_iconos(s):
+    n = 0
+    def r(m):
+        nonlocal n
+        v = int(m.group(1))
+        if v not in MAPA_ICONO:
+            return m.group(0)
+        n += 1
+        return f'size={{ICONO.{MAPA_ICONO[v]}}}'
+    s = re.sub(r'size=\{(\d+)\}', r, s)
+    return s, n
+
+def correr3(archivos):
+    for f in archivos:
+        s = open(f).read()
+        s2, n = escala_iconos(s)
+        s2 = asegurar_icono(s2)
+        if s2 != s:
+            open(f, 'w').write(s2)
+        print(f, {'iconos': n})

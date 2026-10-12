@@ -288,7 +288,7 @@ export function AgendaView({
               key={h}
               type="button"
               onClick={() => onSlotClick?.(dateStr, `${String(h).padStart(2, '0')}:00`)}
-              className="absolute left-0 right-0 p-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
+              className="absolute left-0 right-0 p-0 border-b border-outline-variant hover:bg-[var(--accent-tint)] transition-colors cursor-pointer"
               style={{ top: i * AGENDA_ROW_H, height: AGENDA_ROW_H }}
               data-tooltip="Crear evento a esta hora"
               aria-label={`Crear evento a las ${formatHora12(`${String(h).padStart(2, '0')}:00`)}`}
@@ -760,7 +760,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
                     key={hour}
                     type="button"
                     onClick={() => onSlotClick?.(dStr, `${String(hour).padStart(2, '0')}:00`)}
-                    className="absolute left-0 right-0 p-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
+                    className="absolute left-0 right-0 p-0 border-b border-outline-variant hover:bg-[var(--accent-tint)] transition-colors cursor-pointer"
                     style={{ top: i * ROW_H, height: ROW_H }}
                     aria-label={`Crear evento a las ${formatHora12(`${String(hour).padStart(2, '0')}:00`)}`}
                   />
@@ -1822,7 +1822,7 @@ export default function CalendarPage() {
           setPickerMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
           setShowDatePicker(v => !v)
         }}
-        className={`text-2xl font-bold text-on-surface px-3 py-1 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[11rem]'} truncate text-left select-none rounded-full hover:bg-accent-tint transition-colors py-0.5`}
+        className={`text-2xl font-bold text-on-surface px-3 py-1 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[11rem]'} truncate text-left select-none rounded-full hover:bg-[var(--accent-tint)] transition-colors py-0.5`}
         data-tooltip="Ir a otra fecha"
         data-tooltip-pos="bottom"
       >
@@ -1843,13 +1843,13 @@ export default function CalendarPage() {
           />
           <div className="absolute left-0 top-12 z-30 origin-top-left animate-dialogo motion-reduce:animate-none bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
             <div className="flex items-center justify-between mb-2">
-              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-2 rounded-full hover:bg-accent-tint text-muted">
+              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-2 rounded-full hover:bg-[var(--accent-tint)] text-muted">
                 <ChevronLeft size={15} />
               </button>
               <span className="text-sm font-semibold text-on-surface">
                 {MESES[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}
               </span>
-              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, 1))} className="p-2 rounded-full hover:bg-accent-tint text-muted">
+              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, 1))} className="p-2 rounded-full hover:bg-[var(--accent-tint)] text-muted">
                 <ChevronRight size={15} />
               </button>
             </div>
@@ -1869,8 +1869,8 @@ export default function CalendarPage() {
                     onClick={() => { setCurrentDate(cell); setShowDatePicker(false) }}
                     className={`h-7 w-7 mx-auto rounded-full text-xs flex items-center justify-center transition-colors ${
                       sel ? 'bg-accent text-white font-bold'
-                        : isToday(cell) ? 'ring-1 ring-accent text-accent font-semibold hover:bg-accent-tint'
-                        : inMonth ? 'text-on-surface hover:bg-accent-tint' : 'text-muted opacity-40 hover:bg-accent-tint'
+                        : isToday(cell) ? 'ring-1 ring-accent text-accent font-semibold hover:bg-[var(--accent-tint)]'
+                        : inMonth ? 'text-on-surface hover:bg-[var(--accent-tint)]' : 'text-muted opacity-40 hover:bg-[var(--accent-tint)]'
                     }`}
                   >
                     {cell.getDate()}
@@ -2105,7 +2105,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setShowModificarPicker(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors"
                 data-tooltip={(totalBloquesFueraDeRango + totalBloquesEnAsueto) > 0
                   ? `${totalBloquesFueraDeRango + totalBloquesEnAsueto} bloque(s) necesitan revisión (rango o asueto/vacaciones)`
                   : 'Modificar bloques de clase por asignatura'}
@@ -2386,7 +2386,7 @@ export default function CalendarPage() {
                       )}
                       {faltan.length > 0 && (
                         confirmGenerarFaltantes === s.id ? (
-                          <div className="flex items-center gap-2 px-3 py-2 bg-accent-tint border-t border-accent-soft">
+                          <div className="flex items-center gap-2 px-3 py-2 bg-[var(--accent-tint)] border-t border-accent-soft">
                             <span className="text-sm text-accent flex-1">
                               ¿Generar las clases que faltan {faltan.map(t => t.desde === t.hasta
                                 ? `el ${formatLongDate(t.desde)}`
@@ -2399,7 +2399,7 @@ export default function CalendarPage() {
                           <button
                             type="button"
                             onClick={() => setConfirmGenerarFaltantes(s.id)}
-                            className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-accent-tint border-t border-accent-soft text-xs text-accent hover:brightness-95 transition-[filter] text-left"
+                            className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-[var(--accent-tint)] border-t border-accent-soft text-xs text-accent hover:brightness-95 transition-[filter] text-left"
                           >
                             <CalendarClock size={12} className="flex-shrink-0" />
                             {/* El conteo son clases REALES de esta asignatura
@@ -2501,7 +2501,7 @@ export default function CalendarPage() {
                 <span className="text-xs font-semibold text-muted uppercase tracking-wide">Cambiar la hora (el mismo día)</span>
                 <div className="flex items-center gap-1.5">
                   <button type="button" onClick={() => stepHora(-5)}
-                    className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-accent-tint transition-colors" aria-label="−5 minutos">
+                    className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-[var(--accent-tint)] transition-colors" aria-label="−5 minutos">
                     <Minus size={14} />
                   </button>
                   <input
@@ -2510,7 +2510,7 @@ export default function CalendarPage() {
                     className={`${inputCls} flex-1 text-base font-semibold tabular-nums`}
                   />
                   <button type="button" onClick={() => stepHora(5)}
-                    className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-accent-tint transition-colors" aria-label="+5 minutos">
+                    className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-[var(--accent-tint)] transition-colors" aria-label="+5 minutos">
                     <Plus size={14} />
                   </button>
                 </div>
@@ -2541,7 +2541,7 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => reactivarBloqueUnico(b)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent-soft text-accent text-sm hover:bg-accent-tint transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent-soft text-accent text-sm hover:bg-[var(--accent-tint)] transition-colors"
                 >
                   Reactivar esta clase
                 </button>

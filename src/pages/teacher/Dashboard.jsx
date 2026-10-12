@@ -13,8 +13,6 @@ import { addDoc, writeBatch } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
-import Select from '../../components/ui/Select'
 import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Archive, Globe, Smartphone, Sparkles } from 'lucide-react'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -34,6 +32,8 @@ import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { EsqueletoTableroDocente } from '../../components/esqueletos'
 import YouTubeIcon from '../../components/YouTubeIcon'
+import { Animado, Button, Select, DisclosureCard, FlechaFila, IconButton, IconTile, Input, TARJETA_FILA } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -69,13 +69,6 @@ export default function TeacherDashboard() {
   // y con sangrado; en la web viven en el panel lateral. En ninguna de las dos
   // se mezclan ya con las asignaturas vivas de la lista principal.
   const [showArchived, setShowArchived] = useState(false)
-
-  // Recordatorio de la versión web (solo App): arranca colapsado, se ve nada
-  // más el título hasta que el docente lo abre.
-  const [showWebInfo, setShowWebInfo] = useState(false)
-
-  // Su espejo en la web: recordatorio de que también existe la app.
-  const [showAppInfo, setShowAppInfo] = useState(false)
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -348,7 +341,7 @@ export default function TeacherDashboard() {
             {mainList.length === 0 ? (
               <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center mb-4">
                 <div className="w-14 h-14 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
-                  <BookOpen size={28} className="text-accent" />
+                  <BookOpen size={ICONO.lg} className="text-accent" />
                 </div>
                 <p className="text-muted font-medium mb-2">Aún no tienes asignaturas</p>
                 <button
@@ -356,7 +349,7 @@ export default function TeacherDashboard() {
                   onClick={openSubjectModal}
                   className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded-full transition-colors"
                 >
-                  <Plus size={18} />
+                  <Plus size={ICONO.md} />
                   Crear mi primera asignatura
                 </button>
               </div>
@@ -367,7 +360,7 @@ export default function TeacherDashboard() {
                     key={s.id}
                     ref={(el) => { dragCardRefs.current[i] = el }}
                     {...subjectPaletteProps(s.colorPalette)}
-                    className={`w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-card-hover hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-1 ${dragIndex === i ? 'opacity-60 shadow-lg' : ''}`}
+                    className={`w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-card-hover hover:bg-[var(--accent-tint)] transition flex items-center gap-1 ${dragIndex === i ? 'opacity-60 shadow-lg' : ''}`}
                   >
                     {/* Reordenar: flechas en la web, arrastrar en la App
                         (pedido explícito — antes no había forma de
@@ -380,7 +373,7 @@ export default function TeacherDashboard() {
                         data-tooltip="Mantén y arrastra para reordenar"
                         className="p-2 -m-1 text-hint hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
                       >
-                        <GripVertical size={18} />
+                        <GripVertical size={ICONO.md} />
                       </button>
                     ) : (
                       <div className="flex flex-col flex-shrink-0">
@@ -392,7 +385,7 @@ export default function TeacherDashboard() {
                           aria-label="Subir"
                           className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded-full"
                         >
-                          <ArrowUp size={16} />
+                          <ArrowUp size={ICONO.sm} />
                         </button>
                         <button
                           type="button"
@@ -402,17 +395,17 @@ export default function TeacherDashboard() {
                           aria-label="Bajar"
                           className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded-full"
                         >
-                          <ArrowDown size={16} />
+                          <ArrowDown size={ICONO.sm} />
                         </button>
                       </div>
                     )}
                     <button
                       type="button"
                       onClick={() => navigate(`/subject/${s.id}`)}
-                      className="flex-1 min-w-0 text-left flex items-center gap-2"
+                      className="group flex-1 min-w-0 text-left flex items-center gap-2 pr-3 rounded-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       <div data-esq="dash-doc-icono" className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-                        <SubjectIcon iconKey={s.icon} size={21} className="text-accent" />
+                        <SubjectIcon iconKey={s.icon} size={ICONO.md} className="text-accent" />
                       </div>
                       <div className="flex-1 min-w-0">
                         {/* Sin etiqueta "archivada": a esta lista ya solo
@@ -423,10 +416,10 @@ export default function TeacherDashboard() {
                             la App y en el teléfono (web) no deben verse las
                             fechas de inicio y fin junto a las asignaturas. */}
                         {!IS_NATIVE_APP && !telefonoWeb.telefono && subjectPeriodLabel(s) && (
-                          <p className="text-sm text-slate-500 mt-0.5">{subjectPeriodLabel(s)}</p>
+                          <p className="text-sm text-muted mt-0.5">{subjectPeriodLabel(s)}</p>
                         )}
                       </div>
-                      <ChevronRight size={20} className="text-slate-300 flex-shrink-0" />
+                      <FlechaFila />
                     </button>
                   </div>
                 ))}
@@ -441,37 +434,28 @@ export default function TeacherDashboard() {
                 Solo aparece si ya hay asignaturas: cuando la lista está vacía,
                 la tarjeta de "Crear mi primera asignatura" ya cumple ese rol. */}
             {!IS_NATIVE_APP && mainList.length > 0 && (
-              <button
-                type="button"
-                onClick={openSubjectModal}
-                className="mb-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-dashed border-accent-soft text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
-              >
-                <Plus size={18} /> Nueva asignatura
-              </button>
+              <Button variant="cta-dashed" icon={Plus} iconEffect="gira90" className="mb-4" onClick={openSubjectModal}>
+                Nueva asignatura
+              </Button>
             )}
 
             {/* Perfil para IA del docente — arriba del QR, solo en la App
                 (en la web vive en el menú lateral, arriba del QR también).
                 Ver FASE 2-BIS del Plan Maestro de IA. */}
             {IS_NATIVE_APP && (
-              <button
-                type="button"
-                onClick={() => navigate('/perfil-ia')}
-                className="w-full mb-3 bg-surface-card rounded-full p-1.5 shadow-card hover:shadow-card-hover hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-2 text-left text-accent"
-              >
-                <Sparkles size={21} className="flex-shrink-0 ml-1" />
+              <button type="button" onClick={() => navigate('/perfil-ia')} className={`${TARJETA_FILA} mb-3`}>
+                <IconTile><Animado efecto="destello"><Sparkles size={ICONO.md} /></Animado></IconTile>
                 <span className="flex-1 min-w-0 font-semibold text-on-surface">Perfil para IA del docente</span>
+                <FlechaFila />
               </button>
             )}
 
             {/* QR general de Evalúa Fácil — solo en la App, arriba de
                 "Archivadas". En la web el mismo botón vive en el menú lateral. */}
             {IS_NATIVE_APP && (
-              <AppQRButton
-                iconSize={21}
-                className="w-full mb-3 bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-card-hover hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-2 text-left text-accent"
-              >
+              <AppQRButton iconSize={ICONO.md} className={`${TARJETA_FILA} mb-3 [&>svg:first-child]:text-accent [&>svg:first-child]:mx-3`}>
                 <span className="flex-1 min-w-0 font-semibold text-on-surface">QR de Evalúa Fácil</span>
+                <FlechaFila />
               </AppQRButton>
             )}
 
@@ -485,11 +469,11 @@ export default function TeacherDashboard() {
                   type="button"
                   onClick={() => setShowArchived((a) => !a)}
                   aria-expanded={showArchived}
-                  className="flex items-center gap-2 w-full px-3 py-2 rounded text-slate-500 hover:bg-surface-container transition-colors"
+                  className="flex items-center gap-2 w-full h-control px-3 rounded-full text-muted hover:bg-surface-container transition-colors"
                 >
-                  <Archive size={16} className="flex-shrink-0" />
+                  <Archive size={ICONO.sm} className="flex-shrink-0" />
                   <span className="flex-1 text-left text-sm font-semibold">Archivadas ({archivedList.length})</span>
-                  <ChevronRight size={16} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
+                  <ChevronRight size={ICONO.sm} className={`flex-shrink-0 transition-transform duration-estandar ${showArchived ? 'rotate-90' : ''}`} />
                 </button>
                 {showArchived && (
                   <div className="space-y-1 mt-1">
@@ -498,9 +482,9 @@ export default function TeacherDashboard() {
                         key={s.id}
                         type="button"
                         onClick={() => navigate(`/subject/${s.id}`)}
-                        className="w-full flex items-center gap-2 pl-9 pr-3 py-2 rounded text-left text-slate-500 hover:bg-surface-container transition-colors"
+                        className="w-full flex items-center gap-2 pl-9 pr-3 h-control rounded-full text-left text-muted hover:bg-surface-container transition-colors"
                       >
-                        <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
+                        <SubjectIcon iconKey={s.icon} size={ICONO.sm} className="flex-shrink-0" />
                         <span className="truncate text-sm">{subjectDisplayName(s)}</span>
                       </button>
                     ))}
@@ -515,63 +499,29 @@ export default function TeacherDashboard() {
                 el chevron GIRA (mismo lenguaje que "Archivadas" arriba) en vez
                 de apuntar siempre a la derecha, que prometería un destino. */}
             {IS_NATIVE_APP && (
-              <div className="w-full mt-3 bg-surface-card rounded-card shadow-card overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setShowWebInfo((v) => !v)}
-                  aria-expanded={showWebInfo}
-                  className="w-full p-1.5 flex items-center gap-2 text-left hover:bg-[var(--accent-tint)] transition-colors"
-                >
-                  <div className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-                    <Globe size={21} className="text-accent" />
-                  </div>
-                  <p className="flex-1 min-w-0 font-semibold text-on-surface">🚀 Lleva tu productividad al siguiente nivel</p>
-                  <ChevronRight size={20} className={`text-slate-300 flex-shrink-0 transition-transform ${showWebInfo ? 'rotate-90' : ''}`} />
-                </button>
-                {showWebInfo && (
-                  <div className="px-3 pb-3 pt-0.5">
-                    <p className="text-sm text-slate-500">Organiza tus asignaturas, configura actividades, consulta reportes y utiliza todas las herramientas de Evalúa Fácil desde la versión web, diseñada para ofrecerte la mejor experiencia de trabajo en computadora.</p>
-                    <p className="text-sm text-slate-500 mt-1.5">Es tu misma cuenta: inicia sesión con el mismo correo y contraseña. Todo lo que hagas en la app se refleja en la versión web, y viceversa.</p>
-                    <p className="text-sm font-semibold text-accent mt-1.5">www.evaluafacil.mx</p>
-                  </div>
-                )}
-              </div>
+              <DisclosureCard icon={Globe} title="🚀 Lleva tu productividad al siguiente nivel" className="mt-3">
+                <p>Organiza tus asignaturas, configura actividades, consulta reportes y utiliza todas las herramientas de Evalúa Fácil desde la versión web, diseñada para ofrecerte la mejor experiencia de trabajo en computadora.</p>
+                    <p>Es tu misma cuenta: inicia sesión con el mismo correo y contraseña. Todo lo que hagas en la app se refleja en la versión web, y viceversa.</p>
+                    <p className="font-semibold text-accent">www.evaluafacil.mx</p>
+              </DisclosureCard>
             )}
 
             {/* En la WEB se informa que Evalúa Fácil también funciona en el
                 celular mediante el navegador. Colapsado e informativo, sin
                 invitar a descargar una app que todavía no existe en tiendas. */}
             {!IS_NATIVE_APP && (
-              <div className="w-full mt-3 bg-surface-card rounded-card shadow-card overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setShowAppInfo((v) => !v)}
-                  aria-expanded={showAppInfo}
-                  className="w-full p-1.5 flex items-center gap-2 text-left hover:bg-[var(--accent-tint)] transition-colors"
-                >
-                  <div className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-                    <Smartphone size={21} className="text-accent" />
-                  </div>
-                  <p className="flex-1 min-w-0 font-semibold text-on-surface">Evalúa Fácil en tu celular</p>
-                  <ChevronRight size={20} className={`text-slate-300 flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-90' : ''}`} />
-                </button>
-                {showAppInfo && (
-                  <div className="px-3 pb-3 pt-0.5">
-                    <p className="text-sm text-slate-500">Evalúa Fácil solo funciona en la web por ahora. Puedes abrirla desde el navegador de tu celular igual que en la computadora — es la misma cuenta, todo sincronizado.</p>
-                  </div>
-                )}
-              </div>
+              <DisclosureCard icon={Smartphone} title="Evalúa Fácil en tu celular" className="mt-3">
+                <p>Evalúa Fácil solo funciona en la web por ahora. Puedes abrirla desde el navegador de tu celular igual que en la computadora — es la misma cuenta, todo sincronizado.</p>
+              </DisclosureCard>
             )}
 
             {/* Canal oficial de YouTube — solo en la web (el componente no se
                 pinta en la app). Misma tarjeta que la de arriba, pero esta SÍ
                 navega: por eso la flecha queda fija a la derecha, sin girar. */}
-            <CanalYouTubeLink className="w-full mt-3 bg-surface-card rounded-card shadow-card p-1.5 flex items-center gap-2 text-left hover:bg-[var(--accent-tint)] transition-colors">
-              <div className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-                <YouTubeIcon className="w-6 h-auto" />
-              </div>
-              <p className="flex-1 min-w-0 font-semibold text-on-surface">Evalúa Fácil en YouTube</p>
-              <ChevronRight size={20} className="text-slate-300 flex-shrink-0" />
+            <CanalYouTubeLink className={`${TARJETA_FILA} mt-3`}>
+              <IconTile><YouTubeIcon className="w-6 h-auto" /></IconTile>
+              <span className="flex-1 min-w-0 font-semibold text-on-surface">Evalúa Fácil en YouTube</span>
+              <FlechaFila external />
             </CanalYouTubeLink>
 
           </>
@@ -582,14 +532,14 @@ export default function TeacherDashboard() {
           ya están "Nueva asignatura" al pie de la lista y "Crear mi primera
           asignatura" en la tarjeta vacía; el FAB los duplicaba. */}
       {IS_NATIVE_APP && (
-        <button
-          type="button"
+        <Button
+          variant="fab"
+          icon={Plus}
+          iconEffect="gira90"
           onClick={openSubjectModal}
           aria-label="Nueva asignatura"
-          className="md:hidden fixed bottom-[calc(var(--barra-alto)+1.5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-accent hover:bg-accent-hover text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
-        >
-          <Plus size={26} />
-        </button>
+          className="md:hidden fixed bottom-[calc(var(--barra-alto)+1.5rem+env(safe-area-inset-bottom))] right-4 z-20"
+        />
       )}
 
       {/* ── Nueva asignatura modal ── */}
@@ -599,35 +549,27 @@ export default function TeacherDashboard() {
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
-              <button type="button" onClick={() => setShowSubjectModal(false)} aria-label="Cerrar" className="p-2 text-hint hover:text-muted rounded-full">
-                <X size={20} />
-              </button>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowSubjectModal(false)} />
             </div>
             <form onSubmit={handleCreateSubject} className="space-y-2">
               {/* Nombre de la asignatura */}
-              <div>
-                <label htmlFor="dash-asignatura" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
-                <input
-                  id="dash-asignatura"
-                  type="text"
-                  value={newSubjectName}
-                  onChange={(e) => setNewSubjectName(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                />
-              </div>
+              <Input
+                label="Asignatura"
+                id="dash-asignatura"
+                type="text"
+                value={newSubjectName}
+                onChange={(e) => setNewSubjectName(e.target.value)}
+                required
+              />
               {/* Grupo */}
-              <div>
-                <label htmlFor="dash-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
-                <input
-                  id="dash-grupo"
-                  type="text"
-                  value={newSubjectGrupo}
-                  onChange={(e) => setNewSubjectGrupo(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                />
-              </div>
+              <Input
+                label="Grupo"
+                id="dash-grupo"
+                type="text"
+                value={newSubjectGrupo}
+                onChange={(e) => setNewSubjectGrupo(e.target.value)}
+                required
+              />
 
               {/* Fechas (obligatorias — pedido explícito de Kike, 17-ago-2026:
                   sin ellas no funcionan bien los bloques de horario, el
@@ -637,11 +579,11 @@ export default function TeacherDashboard() {
                 <p className="text-sm text-muted mb-1.5">Son obligatorias: con ellas se generan los días para marcar asistencia, se organiza cada parcial por periodo, y se arma tu horario y tu Planeación Inicial.</p>
                 <div className="space-y-2">
                   <div>
-                    <span className="block text-sm text-slate-500 mb-1">Inicio</span>
+                    <span className="block text-sm text-muted mb-1">Inicio</span>
                     <EFDateTimePicker mode="date" value={newSubjectFechaInicio} onChange={setNewSubjectFechaInicio} />
                   </div>
                   <div>
-                    <span className="block text-sm text-slate-500 mb-1">Fin</span>
+                    <span className="block text-sm text-muted mb-1">Fin</span>
                     <EFDateTimePicker mode="date" value={newSubjectFechaFin} onChange={setNewSubjectFechaFin}
                       minDateTime={newSubjectFechaInicio ? addOneDay(newSubjectFechaInicio) : undefined}
                       disabled={!newSubjectFechaInicio} />
@@ -688,16 +630,20 @@ export default function TeacherDashboard() {
                 <IconSelect value={newSubjectIcon} onChange={setNewSubjectIcon} />
               </div>
 
-              <button
-                type="submit"
-                disabled={creatingSubject || !newSubjectFechaInicio || !newSubjectFechaFin}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {creatingSubject ? <Spinner size="sm" /> : <Plus size={18} />}
-                {creatingSubject ? 'Creando…' : 'Crear asignatura'}
-              </button>
-              {/* Mismo aire bajo el botón que en "Editar asignatura". */}
-              <div className="h-6 safe-bottom" />
+              {/* pie-hoja: el botón se queda fijo abajo mientras se llena el formulario. */}
+              <div className="pie-hoja safe-bottom">
+                <Button
+                  type="submit"
+                  size="lg"
+                  fullWidth
+                  icon={Plus}
+                  iconEffect="gira90"
+                  busy={creatingSubject}
+                  disabled={!newSubjectFechaInicio || !newSubjectFechaFin}
+                >
+                  {creatingSubject ? 'Creando…' : 'Crear asignatura'}
+                </Button>
+              </div>
             </form>
           </div>
         </div>

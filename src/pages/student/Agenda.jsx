@@ -24,7 +24,8 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { teacherDisplayName } from '../../utils/studentSearch'
 // STUDENT_CONTAINER_WIDE / TEACHER_CONTAINER solo son necesarios para Web (WEB_CONTAINER_BY_VIEW).
 import { IS_NATIVE_APP } from '../../utils/platform'
-import { SkeletonList } from '../../components/ui'
+import { Animado, Button, IconButton, Popover, SkeletonList } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 // Rediseño: una sola pantalla "Agenda", misma filosofía/experiencia que el
 // Calendario del docente (src/pages/teacher/CalendarPage.jsx) — Día/3 días/
@@ -89,7 +90,6 @@ export default function Agenda() {
     const v = raw == null || raw === '' ? NaN : Number(raw)
     return Number.isInteger(v) && v >= 1 && v <= 24 ? v : DEFAULT_DAY_END
   })
-  const [showHoras, setShowHoras] = useState(false)
   function changeDayStart(v) {
     setDayStart(v)
     localStorage.setItem('alumno_cal_dia_ini', String(v))
@@ -403,7 +403,6 @@ export default function Agenda() {
   const btnText = IS_NATIVE_APP ? 'text-xs' : 'text-sm'
   const btnTextLg = IS_NATIVE_APP ? 'text-sm' : 'text-base'
   const navText = IS_NATIVE_APP ? 'text-sm' : 'text-base'
-  const navIcon = IS_NATIVE_APP ? 18 : 20
 
   return (
     <StudentLayout>
@@ -445,21 +444,15 @@ export default function Agenda() {
               quedar en una rebanada de un solo ícono, imposible de tocar. En
               md+ (la web) vuelve a compartir renglón. */}
           <div className="flex items-center gap-1 min-w-0 w-full md:w-auto md:flex-1">
-            <button
-              type="button"
-              onClick={goBack}
-              className="md:hidden p-2 -ml-2 hover:bg-white/10 rounded-full flex-shrink-0 transition-colors"
-              aria-label="Regresar"
-            >
-              <ArrowLeft size={20} />
-            </button>
+            <IconButton icon={ArrowLeft} label="Regresar" variant="onColor" tooltip={false} className="md:hidden -ml-2" onClick={goBack} />
             <div className="flex gap-0.5 bg-white/10 p-1 rounded-full min-w-0 overflow-x-auto">
               {VIEWS.map((v) => (
                 <button
                   key={v.id}
                   type="button"
                   onClick={() => changeView(v.id)}
-                  className={`flex items-center gap-1 px-2 py-1.5 ${btnText} font-semibold rounded-full whitespace-nowrap transition-colors ${
+                  aria-pressed={view === v.id}
+                  className={`flex items-center gap-1 h-control-sm px-3 ${btnText} font-semibold rounded-full whitespace-nowrap transition-colors ${
                     view === v.id ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
                   }`}
                 >
@@ -475,31 +468,27 @@ export default function Agenda() {
           <button
             type="button"
             onClick={() => openNewEvent(toDateStr(currentDate))}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 ${btnTextLg} font-medium transition-colors`}
+            className={`group flex items-center gap-1.5 h-control-sm px-3 rounded-full bg-white/15 hover:bg-white/25 ${btnTextLg} font-medium transition active:scale-[0.97]`}
           >
-            <Plus size={IS_NATIVE_APP ? 15 : 17} /> Evento
+            <Animado efecto="gira90"><Plus size={ICONO.sm} /></Animado> Evento
           </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowHoras((v) => !v)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 ${btnText} font-medium transition-colors`}
-              data-tooltip="Horas visibles de tu día (Agenda y Semana)"
-              data-tooltip-pos="bottom"
-            >
-              {/* % 24 — dayEnd puede ser 24 (medianoche, límite exclusivo del
-                  rango visible), que formatHora12 debe leer como "12:00 am". */}
-              <Clock size={IS_NATIVE_APP ? 13 : 15} /> {formatHora12(`${String(dayStart % 24).padStart(2, '0')}:00`)}–{formatHora12(`${String(dayEnd % 24).padStart(2, '0')}:00`)}
-            </button>
-            {showHoras && (
-              <>
-                <button
-                  type="button"
-                  className="fixed inset-0 z-30 bg-transparent border-none cursor-default"
-                  onClick={() => setShowHoras(false)}
-                  aria-label="Cerrar selector de horas"
-                />
-                <div className="absolute right-0 top-9 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2 text-left">
+          <Popover
+            label="Horas del día en tu agenda"
+            className="w-64 p-3 space-y-2 text-left"
+            trigger={(props) => (
+              <button
+                type="button"
+                {...props}
+                className={`flex items-center gap-1.5 h-control-sm px-3 rounded-full bg-white/15 hover:bg-white/25 ${btnText} font-medium transition-colors`}
+                data-tooltip="Horas visibles de tu día (Agenda y Semana)"
+                data-tooltip-pos="bottom"
+              >
+                {/* % 24 — dayEnd puede ser 24 (medianoche, límite exclusivo del
+                    rango visible), que formatHora12 debe leer como "12:00 am". */}
+                <Clock size={ICONO.xs} /> {formatHora12(`${String(dayStart % 24).padStart(2, '0')}:00`)}–{formatHora12(`${String(dayEnd % 24).padStart(2, '0')}:00`)}
+              </button>
+            )}
+          >
                   <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted w-12 flex-shrink-0">Desde</span>
@@ -534,10 +523,7 @@ export default function Agenda() {
                       ]}
                     />
                   </div>
-                </div>
-              </>
-            )}
-          </div>
+          </Popover>
           </div>
         </div>
       </header>
@@ -549,16 +535,12 @@ export default function Agenda() {
           renglón era justify-between, así que en una pantalla ancha "‹" y "›"
           terminaban en las orillas, a medio palmo de la fecha que mueven. */}
       <div className="bg-surface-card border-b border-outline-variant px-4 py-2 flex items-center justify-center gap-1">
-        <button type="button" onClick={prev} aria-label="Anterior" className="p-2 text-muted hover:text-accent hover:bg-accent-tint rounded-full transition-colors flex-shrink-0">
-          <ChevronLeft size={navIcon} />
-        </button>
+        <IconButton icon={ChevronLeft} label="Anterior" tooltip={false} onClick={prev} />
         <p className={`${navText} font-semibold text-on-surface truncate min-w-0`}>{navLabel()}</p>
-        <button type="button" onClick={next} aria-label="Siguiente" className="p-2 text-muted hover:text-accent hover:bg-accent-tint rounded-full transition-colors flex-shrink-0">
-          <ChevronRight size={navIcon} />
-        </button>
-        <button type="button" onClick={goToday} className={`${btnText} font-medium text-accent border border-accent rounded-full px-2.5 py-0.5 ml-1 flex-shrink-0 hover:bg-accent-tint transition-colors`}>
+        <IconButton icon={ChevronRight} label="Siguiente" tooltip={false} onClick={next} />
+        <Button variant="outline-accent" size="sm" className="ml-1 flex-shrink-0" onClick={goToday}>
           Hoy
-        </button>
+        </Button>
       </div>
       </div>
 
