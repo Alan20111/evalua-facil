@@ -2,7 +2,7 @@
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Asignatura.
 import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Check as CheckIcon, ChevronRight, ClipboardCheck, Copy, Download, Eye, FileText, Gamepad2, GraduationCap, KeyRound, ListChecks, Lock, LogIn, MessageCircleQuestion, Paperclip, Pencil, Plus, RotateCcw, Sparkles, Trash2, Upload, UserPlus, X } from 'lucide-react'
-import { Button, Input, Modal, SkeletonList } from '../../../components/ui'
+import { Button, Checkbox, IconButton, Input, Modal, MotivoApagado, Radio, SkeletonList } from '../../../components/ui'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import FileDropzone from '../../../components/FileDropzone'
 import FileTypeSelect from '../../../components/FileTypeSelect'
@@ -236,6 +236,20 @@ export default function ModalesAsignatura() {
     zipDownloading,
     zipProgress,
   } = useAsignatura()
+  // Lo que falta para poder guardar (el botón se apaga y lo dice). Las fechas
+  // aquí son recomendadas, no obligatorias: hay asignaturas viejas sin ellas.
+  const faltanEditar = [
+    !editSubjectForm.nombre.trim() && 'el nombre de la asignatura',
+    !editSubjectForm.grupo.trim() && 'el grupo',
+  ].filter(Boolean)
+  const faltanDuplicar = [
+    !copyForm.nombre.trim() && 'el nombre de la asignatura',
+    !copyForm.grupo.trim() && 'el grupo',
+  ].filter(Boolean)
+  const faltanDesarchivar = [
+    !unarchiveEdits.nombre.trim() && 'el nombre de la asignatura',
+    !unarchiveEdits.grupo.trim() && 'el grupo',
+  ].filter(Boolean)
   return (
     <>
       {/* ── Activity create/edit modal ── */}
@@ -1704,7 +1718,7 @@ export default function ModalesAsignatura() {
         <Modal open onClose={() => setShowEditSubjectModal(false)} variant="sheet" size="md" padding="p-4" className="overflow-x-hidden" ariaLabel="Editar asignatura">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
-              <button type="button" onClick={() => setShowEditSubjectModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowEditSubjectModal(false)} />
             </div>
             <form onSubmit={handleEditSubject} className="space-y-2">
               <Input
@@ -1721,11 +1735,11 @@ export default function ModalesAsignatura() {
                 <div className="space-y-2">
                   <div>
                     <span className="block text-sm text-muted mb-1">Inicio</span>
-                    <EFDateTimePicker mode="date" value={editSubjectForm.fechaInicio} onChange={v => setEditSubjectForm(f => ({ ...f, fechaInicio: v }))} />
+                    <EFDateTimePicker mode="date" etiqueta="Inicio del curso" value={editSubjectForm.fechaInicio} onChange={v => setEditSubjectForm(f => ({ ...f, fechaInicio: v }))} />
                   </div>
                   <div>
                     <span className="block text-sm text-muted mb-1">Fin</span>
-                    <EFDateTimePicker mode="date" value={editSubjectForm.fechaFin} onChange={v => setEditSubjectForm(f => ({ ...f, fechaFin: v }))}
+                    <EFDateTimePicker mode="date" etiqueta="Fin del curso" value={editSubjectForm.fechaFin} onChange={v => setEditSubjectForm(f => ({ ...f, fechaFin: v }))}
                       minDateTime={editSubjectForm.fechaInicio ? addOneDay(editSubjectForm.fechaInicio) : undefined}
                       disabled={!editSubjectForm.fechaInicio} />
                   </div>
@@ -1757,13 +1771,15 @@ export default function ModalesAsignatura() {
                 <p className="block text-sm font-medium text-muted mb-2">Icono de la asignatura</p>
                 <IconSelect value={editSubjectForm.icon} onChange={(ic) => setEditSubjectForm((f) => ({ ...f, icon: ic }))} />
               </div>
-              <Button fullWidth icon={Pencil} busy={editingSubject} type="submit" disabled={editingSubject || !editSubjectChanged}>
-                
-                {editingSubject ? 'Guardando…' : 'Guardar cambios'}
-              </Button>
-              {/* Aire bajo el botón: como hoja inferior en móvil quedaba pegado
-                  al borde de la pantalla (y bajo el gesto de inicio). */}
-              <div className="h-6 safe-bottom" />
+              {/* pie-hoja: el botón se queda fijo abajo, igual que en «Nueva
+                  asignatura» (crear y editar se ven y se usan igual). */}
+              <div className="pie-hoja">
+                <Button type="submit" size="lg" fullWidth icon={Pencil} busy={editingSubject}
+                  disabled={editingSubject || faltanEditar.length > 0 || !editSubjectChanged}>
+                  {editingSubject ? 'Guardando…' : 'Guardar cambios'}
+                </Button>
+                <MotivoApagado faltan={faltanEditar} sinCambios={!editSubjectChanged} />
+              </div>
             </form>
           </Modal>
       )}
@@ -1773,7 +1789,7 @@ export default function ModalesAsignatura() {
         <Modal open onClose={() => setShowCopyModal(false)} variant="sheet" size="md" padding="p-4" className="overflow-x-hidden" ariaLabel="Duplicar asignatura">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
-              <button type="button" onClick={() => setShowCopyModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowCopyModal(false)} />
             </div>
             <form onSubmit={handleCopySubject} className="space-y-2">
               <Input
@@ -1790,11 +1806,11 @@ export default function ModalesAsignatura() {
                 <div className="space-y-2">
                   <div>
                     <span className="block text-sm text-muted mb-1">Inicio</span>
-                    <EFDateTimePicker mode="date" value={copyFechas.fechaInicio} onChange={v => setCopyFechas(f => ({ ...f, fechaInicio: v }))} />
+                    <EFDateTimePicker mode="date" etiqueta="Inicio del curso" value={copyFechas.fechaInicio} onChange={v => setCopyFechas(f => ({ ...f, fechaInicio: v }))} />
                   </div>
                   <div>
                     <span className="block text-sm text-muted mb-1">Fin</span>
-                    <EFDateTimePicker mode="date" value={copyFechas.fechaFin} onChange={v => setCopyFechas(f => ({ ...f, fechaFin: v }))}
+                    <EFDateTimePicker mode="date" etiqueta="Fin del curso" value={copyFechas.fechaFin} onChange={v => setCopyFechas(f => ({ ...f, fechaFin: v }))}
                       minDateTime={copyFechas.fechaInicio ? addOneDay(copyFechas.fechaInicio) : undefined}
                       disabled={!copyFechas.fechaInicio} />
                   </div>
@@ -1808,20 +1824,21 @@ export default function ModalesAsignatura() {
                 <p className="block text-sm font-medium text-muted mb-2">Icono de la asignatura</p>
                 <IconSelect value={copyForm.icon} onChange={(ic) => setCopyForm((f) => ({ ...f, icon: ic }))} />
               </div>
-              <label aria-label="Copiar lista de estudiantes" className="flex items-center gap-2 p-3 rounded-card border border-outline-variant cursor-pointer hover:bg-[var(--accent-tint)] transition-colors">
-                <input type="checkbox" checked={copyForm.keepStudents} onChange={(e) => setCopyForm((f) => ({ ...f, keepStudents: e.target.checked }))}
-                  className="accent-[var(--accent)] w-4 h-4" />
-                <div>
-                  <p className="text-sm font-medium text-on-surface">Copiar lista de estudiantes</p>
-                  <p className="text-sm text-muted">Conservan su mismo usuario y cuenta; quienes ya activaron verán esta asignatura al instante</p>
-                </div>
-              </label>
+              <Checkbox
+                checked={copyForm.keepStudents}
+                onChange={(e) => setCopyForm((f) => ({ ...f, keepStudents: e.target.checked }))}
+                label="Copiar lista de estudiantes"
+                hint="Conservan su mismo usuario y cuenta; quienes ya activaron verán esta asignatura al instante"
+                wrapperClassName="p-3 rounded-card border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors"
+              />
               <p className="text-sm text-muted">Se duplicarán todas las actividades. Las calificaciones y entregas no se copian.</p>
-              <Button fullWidth icon={Copy} busy={copyingSubject} type="submit" disabled={copyingSubject}>
-                
-                {copyingSubject ? 'Duplicando…' : 'Duplicar asignatura'}
-              </Button>
-              <div className="h-6 safe-bottom" />
+              <div className="pie-hoja">
+                <Button type="submit" size="lg" fullWidth icon={Copy} busy={copyingSubject}
+                  disabled={copyingSubject || faltanDuplicar.length > 0}>
+                  {copyingSubject ? 'Duplicando…' : 'Duplicar asignatura'}
+                </Button>
+                <MotivoApagado faltan={faltanDuplicar} />
+              </div>
             </form>
           </Modal>
       )}
@@ -1926,7 +1943,7 @@ export default function ModalesAsignatura() {
         <Modal open onClose={() => setShowUnarchiveModal(false)} variant="sheet" size="md" padding="p-4" className="overflow-x-hidden" ariaLabel="Desarchivar asignatura">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
-              <button type="button" onClick={() => setShowUnarchiveModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowUnarchiveModal(false)} />
             </div>
             <p className="text-sm text-muted mb-2">Puedes editar los datos y elegir cómo restaurar:</p>
 
@@ -1934,21 +1951,24 @@ export default function ModalesAsignatura() {
               <div>
                 <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Datos</p>
                 <div className="space-y-2">
-                  <Input type="text" value={unarchiveEdits.nombre} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, nombre: e.target.value }))} aria-label="Asignatura" />
-                  <Input type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))} aria-label="Grupo (ej: 1A)" />
+                  {/* Mismos campos, con su etiqueta, que Nueva y Editar asignatura. */}
+                  <Input label="Asignatura" id="unarchive-subject-nombre" type="text" value={unarchiveEdits.nombre} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, nombre: e.target.value }))} required />
+                  <Input label="Grupo" id="unarchive-subject-grupo" type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))} required />
                   <div className="space-y-2">
                     <div>
                       <span className="block text-sm text-muted mb-1">Inicio</span>
-                      <EFDateTimePicker mode="date" value={unarchiveEdits.fechaInicio} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaInicio: v }))} />
+                      <EFDateTimePicker mode="date" etiqueta="Inicio del curso" value={unarchiveEdits.fechaInicio} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaInicio: v }))} />
                     </div>
                     <div>
                       <span className="block text-sm text-muted mb-1">Fin</span>
-                      <EFDateTimePicker mode="date" value={unarchiveEdits.fechaFin} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaFin: v }))}
+                      <EFDateTimePicker mode="date" etiqueta="Fin del curso" value={unarchiveEdits.fechaFin} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaFin: v }))}
                         minDateTime={unarchiveEdits.fechaInicio ? addOneDay(unarchiveEdits.fechaInicio) : undefined}
                         disabled={!unarchiveEdits.fechaInicio} />
                     </div>
                   </div>
                   <Select
+                    id="unarchive-subject-parciales"
+                    label="Número de parciales"
                     value={unarchiveEdits.parciales}
                     onChange={(v) => setUnarchiveEdits((f) => ({ ...f, parciales: v }))}
                     options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `${n} ${n === 1 ? 'parcial' : 'parciales'}` }))}
@@ -1966,7 +1986,7 @@ export default function ModalesAsignatura() {
               </div>
 
               <div>
-                <p className="text-sm font-semibold text-muted uppercase tracking-wide mb-1.5">Color de la asignatura <span className="normal-case font-normal text-hint">(el color base que la identificará)</span></p>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Color de la asignatura <span className="normal-case font-normal text-hint">(el color base que la identificará)</span></p>
                 <PaletteSelect value={unarchiveEdits.colorPalette} onChange={(p) => setUnarchiveEdits((f) => ({ ...f, colorPalette: p }))} />
               </div>
 
@@ -1982,13 +2002,9 @@ export default function ModalesAsignatura() {
                     { val: 'keep', label: 'Conservar lista', desc: 'Estudiantes y calificaciones se mantienen' },
                     { val: 'reset', label: 'Borrar y empezar de cero', desc: 'Se eliminan estudiantes y sus entregas' },
                   ].map(({ val, label, desc }) => (
-                    <label key={val} aria-label={label} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${unarchiveStudents === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
-                      <input type="radio" name="unarchiveStudents" value={val} checked={unarchiveStudents === val} onChange={() => setUnarchiveStudents(val)} className="accent-[var(--accent)]" />
-                      <div>
-                        <p className="text-sm font-medium text-on-surface">{label}</p>
-                        <p className="text-sm text-muted">{desc}</p>
-                      </div>
-                    </label>
+                    <Radio key={val} name="unarchiveStudents" value={val} checked={unarchiveStudents === val} onChange={() => setUnarchiveStudents(val)}
+                      label={label} hint={desc}
+                      wrapperClassName={`p-3 rounded-card border transition-colors ${unarchiveStudents === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`} />
                   ))}
                 </div>
               </div>
@@ -2001,22 +2017,22 @@ export default function ModalesAsignatura() {
                     { val: 'show', label: 'Mostrar todas' },
                     { val: 'hide', label: 'Ocultar todas' },
                   ].map(({ val, label }) => (
-                    <label key={val} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${unarchiveActivities === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
-                      <input type="radio" name="unarchiveActivities" value={val} checked={unarchiveActivities === val} onChange={() => setUnarchiveActivities(val)} className="accent-[var(--accent)]" />
-                      <p className="text-sm font-medium text-on-surface">{label}</p>
-                    </label>
+                    <Radio key={val} name="unarchiveActivities" value={val} checked={unarchiveActivities === val} onChange={() => setUnarchiveActivities(val)}
+                      label={label}
+                      wrapperClassName={`p-3 rounded-card border transition-colors ${unarchiveActivities === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`} />
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setShowUnarchiveModal(false)}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <Button busy={unarchivedSaving} className="flex-1" onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}>
-                
-                {unarchivedSaving ? 'Guardando…' : 'Desarchivar'}
-              </Button>
+            <div className="pie-hoja">
+              <div className="flex gap-2">
+                <Button variant="secondary" size="lg" className="flex-1" onClick={() => setShowUnarchiveModal(false)}>Cancelar</Button>
+                <Button size="lg" className="flex-1" busy={unarchivedSaving} onClick={handleUnarchiveConfirm} disabled={unarchivedSaving || faltanDesarchivar.length > 0}>
+                  {unarchivedSaving ? 'Guardando…' : 'Desarchivar'}
+                </Button>
+              </div>
+              <MotivoApagado faltan={faltanDesarchivar} />
             </div>
           </Modal>
       )}

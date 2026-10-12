@@ -33,7 +33,7 @@ import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { EsqueletoTableroDocente } from '../../components/esqueletos'
 import YouTubeIcon from '../../components/YouTubeIcon'
-import { Animado, Button, Select, DisclosureCard, FlechaFila, IconButton, IconTile, Input, TARJETA_FILA, Modal } from '../../components/ui'
+import { Animado, Button, Select, DisclosureCard, FlechaFila, IconButton, IconTile, Input, TARJETA_FILA, Modal, MotivoApagado } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
 
 function generateAccessCode() {
@@ -641,7 +641,7 @@ export default function TeacherDashboard() {
               </div>
 
               {/* pie-hoja: el botón se queda fijo abajo mientras se llena el formulario. */}
-              <div className="pie-hoja safe-bottom">
+              <div className="pie-hoja">
                 <Button
                   type="submit"
                   size="lg"
@@ -653,11 +653,7 @@ export default function TeacherDashboard() {
                 >
                   {creatingSubject ? 'Creando…' : 'Crear asignatura'}
                 </Button>
-                {faltan.length > 0 && (
-                  <p className="text-sm text-muted text-center mt-2">
-                    {faltan.length > 1 || faltan[0].startsWith('las ') ? 'Faltan' : 'Falta'} {new Intl.ListFormat('es', { type: 'conjunction' }).format(faltan)}.
-                  </p>
-                )}
+                <MotivoApagado faltan={faltan} />
               </div>
             </form>
           </Modal>
