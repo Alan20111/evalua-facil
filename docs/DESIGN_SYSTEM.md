@@ -325,7 +325,7 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 > | Botón de texto | `Button` (variant, size, icon, iconRight, busy) |
 > | Botón de solo ícono | `IconButton` (icon, label obligatorio) |
 > | Campo, área de texto, select | `Input`, `Textarea`, `Select` (envueltos en `Field`) |
-> | Casilla, opción, interruptor | `Checkbox`, `Radio`/`RadioGroup`, `Switch` |
+> | Casilla, opción, interruptor | `Checkbox`, `Radio`/`RadioGroup`, `Switch` (las `<input type=checkbox|radio>` que quedan a mano toman el mismo aspecto por CSS base en `index.css`: círculo, acento, palomita) |
 > | Pestañas | `Tabs` (barra, píldora que se desliza) y `SubTabs` |
 > | Filtro / etiqueta | `Chip` / `Badge` |
 > | Tarjeta | `Card` (padding sm/md/lg, interactive) |
