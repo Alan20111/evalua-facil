@@ -581,7 +581,7 @@ export default function EntregableEditor({
               </div>
               {form.rubrica ? (
                 <>
-                  <div className={`flex items-center gap-3 rounded border px-3 py-2.5 ${instrumentoColors(form.rubrica).border} ${instrumentoColors(form.rubrica).bg}`}>
+                  <div className={`flex items-center gap-3 rounded-card border px-3 py-2.5 ${instrumentoColors(form.rubrica).border} ${instrumentoColors(form.rubrica).bg}`}>
                     {esCotejo(form.rubrica)
                       ? <ListChecks size={ICONO.md} className={`${instrumentoColors(form.rubrica).icon} flex-shrink-0`} />
                       : <ClipboardList size={ICONO.md} className={`${instrumentoColors(form.rubrica).icon} flex-shrink-0`} />}
@@ -952,7 +952,7 @@ export default function EntregableEditor({
                 onChange={(e) => setIaConsideraciones(e.target.value)}
                 rows={2}
                 maxLength={400}
-                className="w-full px-2 py-1.5 text-sm border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none"
+                className="w-full px-2 py-1.5 text-sm border border-outline-variant rounded-card bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none"
               />
             </div>
             <div>
@@ -974,7 +974,7 @@ export default function EntregableEditor({
                   ))}
                 </ul>
               )}
-              <label className={`flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-dashed border-outline-variant rounded cursor-pointer hover:bg-surface-container transition-colors ${iaTrabajando ? 'opacity-60 pointer-events-none' : ''}`}>
+              <label className={`flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-dashed border-outline-variant rounded-full cursor-pointer hover:bg-surface-container transition-colors ${iaTrabajando ? 'opacity-60 pointer-events-none' : ''}`}>
                 <Paperclip size={ICONO.xs} /> Adjuntar archivo
                 <input
                   type="file"

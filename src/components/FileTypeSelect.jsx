@@ -2,6 +2,7 @@ import {
   FILE_TYPE_BASE_OPTIONS, ALL_FILES_KEY, CUSTOM_FILE_TYPE, LINK_KEY,
   normalizeFileTypeKeys, parseCustomExts,
 } from '../config/fileTypes'
+import { Checkbox } from './ui'
 
 // Inline checklist (part of the activity form's normal layout, not a floating
 // menu) so the teacher can pick several file types at once — at least one
@@ -37,36 +38,34 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
       <p className="text-sm text-accent font-medium mb-2">
         Ejemplo: al elegir imágenes y 1 Word, el estudiante podrá subir hasta 3 imágenes o un archivo de Word.
       </p>
-      <div className="border border-outline-variant rounded divide-y divide-outline-variant overflow-hidden">
+      <div className="border border-outline-variant rounded-card divide-y divide-outline-variant overflow-hidden">
         {FILE_TYPE_BASE_OPTIONS.map((o) => (
-          <label key={o.key} className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)] cursor-pointer">
-            <input
-              type="checkbox"
-              checked={keys.includes(o.key)}
-              onChange={() => toggle(o.key)}
-              className="accent-[var(--accent)]"
-            />
-            <span className={keys.includes(o.key) ? 'text-accent font-medium' : 'text-on-surface'}>{o.label}</span>
-          </label>
+          <Checkbox
+            key={o.key}
+            checked={keys.includes(o.key)}
+            onChange={() => toggle(o.key)}
+            wrapperClassName="items-center px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)]"
+            label={
+              <span className={keys.includes(o.key) ? 'text-accent font-medium' : 'text-on-surface font-normal'}>{o.label}</span>
+            }
+          />
         ))}
-        <label className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)] cursor-pointer">
-          <input
-            type="checkbox"
-            checked={keys.includes(ALL_FILES_KEY)}
-            onChange={() => toggle(ALL_FILES_KEY)}
-            className="accent-[var(--accent)]"
-          />
-          <span className={keys.includes(ALL_FILES_KEY) ? 'text-accent font-medium' : 'text-on-surface'}>1 solo archivo de cualquier extensión</span>
-        </label>
-        <label className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)] cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isCustom}
-            onChange={() => toggle(CUSTOM_FILE_TYPE)}
-            className="accent-[var(--accent)]"
-          />
-          <span className={isCustom ? 'text-accent font-medium' : 'text-on-surface'}>1 archivo personalizado, escribe la extensión</span>
-        </label>
+        <Checkbox
+          checked={keys.includes(ALL_FILES_KEY)}
+          onChange={() => toggle(ALL_FILES_KEY)}
+          wrapperClassName="items-center px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)]"
+          label={
+            <span className={keys.includes(ALL_FILES_KEY) ? 'text-accent font-medium' : 'text-on-surface font-normal'}>1 solo archivo de cualquier extensión</span>
+          }
+        />
+        <Checkbox
+          checked={isCustom}
+          onChange={() => toggle(CUSTOM_FILE_TYPE)}
+          wrapperClassName="items-center px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)]"
+          label={
+            <span className={isCustom ? 'text-accent font-medium' : 'text-on-surface font-normal'}>1 archivo personalizado, escribe la extensión</span>
+          }
+        />
         {isCustom && (
           <div className="px-3 py-2.5 bg-surface">
             <input
@@ -86,18 +85,17 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
             )}
           </div>
         )}
-        <label className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)] cursor-pointer">
-          <input
-            type="checkbox"
-            checked={keys.includes(LINK_KEY)}
-            onChange={() => toggle(LINK_KEY)}
-            className="accent-[var(--accent)]"
-          />
-          <span className={keys.includes(LINK_KEY) ? 'text-accent font-medium' : 'text-on-surface'}>
-            Enlace o URL
-            <span className="block text-sm text-muted font-normal">Úsalo, por ejemplo, para recibir la URL donde está alojado un video.</span>
-          </span>
-        </label>
+        <Checkbox
+          checked={keys.includes(LINK_KEY)}
+          onChange={() => toggle(LINK_KEY)}
+          wrapperClassName="items-center px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)]"
+          label={
+            <span className={keys.includes(LINK_KEY) ? 'text-accent font-medium' : 'text-on-surface font-normal'}>
+              Enlace o URL
+              <span className="block text-sm text-muted font-normal">Úsalo, por ejemplo, para recibir la URL donde está alojado un video.</span>
+            </span>
+          }
+        />
       </div>
     </fieldset>
   )

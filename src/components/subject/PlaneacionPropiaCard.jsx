@@ -58,8 +58,8 @@ export function SelectorArchivoPlaneacion({
         onClick={() => inputRef.current?.click()}
         disabled={disabled || ocupado}
         className={esTarjeta
-          ? 'flex flex-col items-start gap-1 p-3 rounded border border-dashed border-outline-variant text-left hover:bg-[var(--accent-tint)] disabled:opacity-60'
-          : 'flex items-center gap-1.5 px-3 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60'}
+          ? 'flex flex-col items-start gap-1 p-3 rounded-card border border-dashed border-outline-variant text-left hover:bg-[var(--accent-tint)] disabled:opacity-60'
+          : 'flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60'}
       >
         <span className={esTarjeta ? 'flex items-center gap-1.5 font-medium text-accent' : 'flex items-center gap-1.5'}>
           {ocupado ? <Spinner size="sm" /> : <Icono size={esTarjeta ? 16 : 14} />}

@@ -44,7 +44,7 @@ function VistaImagen({ file }) {
       src={url}
       alt={file.name}
       className="block w-full"
-      imgClassName="w-full max-h-72 object-contain rounded border border-outline-variant bg-surface"
+      imgClassName="w-full max-h-72 object-contain rounded-card border border-outline-variant bg-surface"
     />
   )
 }
@@ -75,7 +75,7 @@ function VistaDocx({ file }) {
       {estado === 'cargando' && <p className="text-xs text-muted text-center py-2">Cargando vista previa…</p>}
       <div
         ref={ref}
-        className={`max-h-[60dvh] overflow-auto rounded border border-outline-variant bg-neutral-100 ${estado === 'error' ? 'hidden' : ''}`}
+        className={`max-h-[60dvh] overflow-auto rounded-card border border-outline-variant bg-neutral-100 ${estado === 'error' ? 'hidden' : ''}`}
       />
     </>
   )
@@ -88,7 +88,7 @@ function VistaPdf({ file }) {
   return (
     <div>
       {paginas > 1 && <p className="text-xs text-muted mb-1">{paginas} páginas — desplázate para verlas todas</p>}
-      <div className="rounded overflow-hidden border border-outline-variant">
+      <div className="rounded-card overflow-hidden border border-outline-variant">
         <PdfCanvasPreview key={url} url={url} nombre={file.name} onCountKnown={setPaginas} />
       </div>
     </div>

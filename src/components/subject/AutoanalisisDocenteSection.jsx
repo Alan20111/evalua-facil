@@ -12,7 +12,7 @@ import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { SkeletonText, Button } from '../ui'
+import { SkeletonText, Button, Checkbox } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 const VACIO = {
@@ -127,15 +127,13 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
           </div>
           {abierta ? <ChevronUp size={ICONO.md} className="text-muted flex-shrink-0" /> : <ChevronDown size={ICONO.md} className="text-muted flex-shrink-0" />}
         </button>
-        <label className="flex items-center gap-1.5 text-xs text-on-surface cursor-pointer select-none flex-shrink-0 pt-0.5">
-          <input
-            type="checkbox"
-            checked={incluir}
-            disabled={guardandoIncluir}
-            onChange={(e) => toggleIncluir(e.target.checked)}
-          />
-          Incluir en la Planeación
-        </label>
+        <Checkbox
+          label="Incluir en la Planeación"
+          checked={incluir}
+          disabled={guardandoIncluir}
+          onChange={(e) => toggleIncluir(e.target.checked)}
+          wrapperClassName="flex-shrink-0 pt-0.5"
+        />
       </div>
 
       {abierta && (

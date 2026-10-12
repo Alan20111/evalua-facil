@@ -21,7 +21,7 @@ import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName, studentFullName } from '../../utils/studentSearch'
-import { SkeletonList, Input, Button } from '../../components/ui'
+import { SkeletonList, Input, Button, Radio } from '../../components/ui'
 import VideoInteractivoRunner from '../../components/video/VideoInteractivoRunner'
 import { esVideoInteractivo } from '../../utils/videoInteractivo'
 import { ICONO } from '../../config/iconos'
@@ -547,7 +547,7 @@ export default function EvaluacionRunner() {
                     <CheckCircle2 size={ICONO.sm} className="flex-shrink-0" />
                   </div>
                 )}
-                <label className={`flex flex-col items-center justify-center gap-1.5 p-5 rounded border border-dashed cursor-pointer transition-colors ${
+                <label className={`flex flex-col items-center justify-center gap-1.5 p-5 rounded-card border border-dashed cursor-pointer transition-colors ${
                   uploadingPregunta === pregunta.id ? 'border-outline-variant opacity-60 pointer-events-none' : 'border-accent-soft hover:bg-[var(--accent-tint)]'
                 }`}>
                   {uploadingPregunta === pregunta.id ? <Spinner size="sm" /> : <Upload size={ICONO.md} className="text-accent" />}
@@ -572,16 +572,12 @@ export default function EvaluacionRunner() {
               <div className="space-y-2">
                 {pregunta.opciones.map((o) => (
                   <div key={o.id}>
-                    <label
-                      className="flex items-center gap-3 p-3 rounded-card border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-                      style={{
-                        borderColor: respuestas[pregunta.id] === o.id ? 'var(--accent)' : '#e2e8f0',
-                        background: respuestas[pregunta.id] === o.id ? 'var(--accent-light)' : '',
-                      }}>
-                      <input type="radio" name={`pregunta-${pregunta.id}`} checked={respuestas[pregunta.id] === o.id}
-                        onChange={() => handleSelectOpcion(pregunta.id, o.id, o.esOtra)} className="accent-[var(--accent)] flex-shrink-0" />
-                      <span className="text-sm text-on-surface break-words">{o.esOtra ? 'Otra:' : o.texto}</span>
-                    </label>
+                    <Radio name={`pregunta-${pregunta.id}`} checked={respuestas[pregunta.id] === o.id}
+                      onChange={() => handleSelectOpcion(pregunta.id, o.id, o.esOtra)}
+                      wrapperClassName={`!items-center p-3 rounded-card border transition-colors ${
+                        respuestas[pregunta.id] === o.id ? 'border-accent bg-accent-light' : 'border-[#e2e8f0] hover:bg-[var(--accent-tint)]'
+                      }`}
+                      label={<span className="font-normal break-words">{o.esOtra ? 'Otra:' : o.texto}</span>} />
                     {o.esOtra && respuestas[pregunta.id] === o.id && (
                       <Input type="text" value={otraTextos[pregunta.id] || ''}
                         onChange={(e) => handleOtraTextoChange(pregunta.id, e.target.value)}

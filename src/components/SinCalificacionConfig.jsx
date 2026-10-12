@@ -1,5 +1,6 @@
 import { Scale } from 'lucide-react'
 import { ICONO } from '../config/iconos'
+import { Checkbox, Radio } from './ui'
 
 // "Sin calificación" — para un diagnóstico, una encuesta o un repaso: el
 // estudiante lo contesta y el docente ve todo, pero no vale para la boleta.
@@ -17,20 +18,17 @@ import { ICONO } from '../config/iconos'
 export default function SinCalificacionConfig({ sinCalificacion, ponderarReactivos, onChange }) {
   return (
     <div className="rounded-card border border-outline-variant p-3 space-y-2">
-      {/* El texto va DIRECTO dentro del label (no anidado en otro span): así lo
-          reconoce el lector de pantalla y la regla de accesibilidad. La
-          explicación va debajo, alineada con el texto. */}
-      <label htmlFor="config-sin-calificacion" className="flex items-center gap-2 text-sm font-medium text-on-surface cursor-pointer">
-        <input
-          id="config-sin-calificacion"
-          type="checkbox"
-          checked={!!sinCalificacion}
-          onChange={(e) => onChange({ sinCalificacion: e.target.checked })}
-          className="accent-[var(--accent)]"
-        />
-        Sin calificación
-      </label>
-      <p className="text-sm text-muted ml-6">
+      {/* La casilla de ui/ envuelve el texto en su propio <label>: así lo
+          reconoce el lector de pantalla. La explicación va debajo, alineada
+          con el texto. */}
+      <Checkbox
+        id="config-sin-calificacion"
+        checked={!!sinCalificacion}
+        onChange={(e) => onChange({ sinCalificacion: e.target.checked })}
+        label="Sin calificación"
+        wrapperClassName="items-center"
+      />
+      <p className="text-sm text-muted ml-8">
         No cuenta para el promedio ni aparece en la tabla de calificaciones, y no lleva número.
         Se sigue viendo en Actividades y tú ves todas las respuestas.
       </p>
@@ -41,32 +39,26 @@ export default function SinCalificacionConfig({ sinCalificacion, ponderarReactiv
             <Scale size={ICONO.xs} className="text-accent" /> ¿Los reactivos tendrán ponderación?
           </p>
           <div>
-            <label htmlFor="ponderar-si" className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
-              <input
-                id="ponderar-si"
-                type="radio"
-                name="ponderar-reactivos"
-                checked={ponderarReactivos !== false}
-                onChange={() => onChange({ ponderarReactivos: true })}
-                className="accent-[var(--accent)]"
-              />
-              Sí, con puntos
-            </label>
-            <p className="text-sm text-muted ml-6">Arroja un resultado (por ejemplo 8 de 10) para medir al grupo, sin afectar su calificación.</p>
+            <Radio
+              id="ponderar-si"
+              name="ponderar-reactivos"
+              checked={ponderarReactivos !== false}
+              onChange={() => onChange({ ponderarReactivos: true })}
+              label="Sí, con puntos"
+              wrapperClassName="items-center"
+            />
+            <p className="text-sm text-muted ml-8">Arroja un resultado (por ejemplo 8 de 10) para medir al grupo, sin afectar su calificación.</p>
           </div>
           <div>
-            <label htmlFor="ponderar-no" className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
-              <input
-                id="ponderar-no"
-                type="radio"
-                name="ponderar-reactivos"
-                checked={ponderarReactivos === false}
-                onChange={() => onChange({ ponderarReactivos: false })}
-                className="accent-[var(--accent)]"
-              />
-              No, sin puntos
-            </label>
-            <p className="text-sm text-muted ml-6">Una encuesta: no se cuentan aciertos, solo se registra lo que cada quien contestó.</p>
+            <Radio
+              id="ponderar-no"
+              name="ponderar-reactivos"
+              checked={ponderarReactivos === false}
+              onChange={() => onChange({ ponderarReactivos: false })}
+              label="No, sin puntos"
+              wrapperClassName="items-center"
+            />
+            <p className="text-sm text-muted ml-8">Una encuesta: no se cuentan aciertos, solo se registra lo que cada quien contestó.</p>
           </div>
         </div>
       )}

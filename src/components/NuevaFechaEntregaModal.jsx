@@ -10,7 +10,7 @@ import { fechaLimiteTimestamp } from '../utils/deadline'
 import { leerEntregasReales } from '../utils/extensiones'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
-import { Button, Modal } from './ui'
+import { Button, Checkbox, Modal } from './ui'
 
 // Shared by ActivityPage (grading view) and SubjectPage (activity editor):
 // extends a group's deadline, or gives specific students their own extension.
@@ -156,18 +156,20 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
               ) : !conEntrega && (
                 <p className="text-xs text-hint mb-2">Revisando entregas…</p>
               )}
-              <div className="border border-outline-variant rounded max-h-52 overflow-auto divide-y divide-outline-variant">
+              <div className="border border-outline-variant rounded-card max-h-52 overflow-auto divide-y divide-outline-variant">
                 {students.filter((s) => !search.trim() || matchesStudentSearch(s, search)).map((s) => {
                   const entrego = !!conEntrega?.has(s.id)
                   return (
-                    <label key={s.id} className={`flex items-center gap-2 px-3 py-2 text-sm ${entrego || !conEntrega ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-[var(--accent-tint)]'}`}>
-                      <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleStudent(s.id)}
-                        disabled={entrego || !conEntrega}
-                        className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
-                      <span className="text-sm text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.&nbsp;</span>
-                      <span className="truncate">{studentFullName(s)}</span>
-                      {entrego && <span className="ml-auto text-xs text-hint flex-shrink-0 whitespace-nowrap">Ya entregó</span>}
-                    </label>
+                    <Checkbox key={s.id} checked={selected.has(s.id)} onChange={() => toggleStudent(s.id)}
+                      disabled={entrego || !conEntrega}
+                      wrapperClassName={`items-center gap-2 px-3 py-2 text-sm [&>span:last-child]:flex-1 [&>span:last-child]:min-w-0 ${entrego || !conEntrega ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-[var(--accent-tint)]'}`}
+                      label={
+                        <span className="flex items-center gap-2 min-w-0 font-normal">
+                          <span className="text-sm text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.&nbsp;</span>
+                          <span className="truncate">{studentFullName(s)}</span>
+                          {entrego && <span className="ml-auto text-xs text-hint flex-shrink-0 whitespace-nowrap">Ya entregó</span>}
+                        </span>
+                      } />
                   )
                 })}
               </div>

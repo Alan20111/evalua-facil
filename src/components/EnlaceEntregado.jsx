@@ -10,7 +10,7 @@ import { ICONO } from '../config/iconos'
 export default function EnlaceEntregado({ url, className = '' }) {
   const texto = String(url || '').trim()
   return (
-    <div className={`bg-surface-card rounded border border-outline-variant px-3 py-2.5 text-sm ${className}`}>
+    <div className={`bg-surface-card rounded-card border border-outline-variant px-3 py-2.5 text-sm ${className}`}>
       <p className="text-xs font-medium text-muted mb-1">Enlace o URL</p>
       {isValidDeliveryLink(texto) ? (
         <a

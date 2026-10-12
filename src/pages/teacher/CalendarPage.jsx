@@ -1613,7 +1613,7 @@ export default function CalendarPage() {
           return `${DIAS_LARGO[(d.getDay() + 6) % 7]} ${d.getDate()} de ${MESES[d.getMonth()]}`
         }
         const stepHora = (delta) => setPendingMove(pm => ({ ...pm, hora: addMinutesToTime(pm.hora, delta) }))
-        const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+        const inputCls = 'px-2.5 py-1.5 rounded-full border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
         const cambioHora = hora !== b.horaInicio
         // No permitir encimar con otra clase del MISMO día.
         const iniMin = timeToMinutes(hora)
@@ -1647,7 +1647,7 @@ export default function CalendarPage() {
                 <span className="text-xs font-semibold text-muted uppercase tracking-wide">Cambiar la hora (el mismo día)</span>
                 <div className="flex items-center gap-1.5">
                   <button type="button" onClick={() => stepHora(-5)}
-                    className="px-2 py-1.5 rounded-card border border-outline-variant text-accent hover:bg-[var(--accent-tint)] transition-colors" aria-label="−5 minutos">
+                    className="px-2 py-1.5 rounded-full border border-outline-variant text-accent hover:bg-[var(--accent-tint)] transition-colors" aria-label="−5 minutos">
                     <Minus size={ICONO.xs} />
                   </button>
                   <input
@@ -1656,7 +1656,7 @@ export default function CalendarPage() {
                     className={`${inputCls} flex-1 text-base font-semibold tabular-nums`}
                   />
                   <button type="button" onClick={() => stepHora(5)}
-                    className="px-2 py-1.5 rounded-card border border-outline-variant text-accent hover:bg-[var(--accent-tint)] transition-colors" aria-label="+5 minutos">
+                    className="px-2 py-1.5 rounded-full border border-outline-variant text-accent hover:bg-[var(--accent-tint)] transition-colors" aria-label="+5 minutos">
                     <Plus size={ICONO.xs} />
                   </button>
                 </div>

@@ -61,7 +61,7 @@ import { useBackHandler } from '../hooks/useBackHandler'
 import useTelefonoWeb from '../hooks/useTelefonoWeb'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { formatHora12FromDate } from '../utils/formatHora'
-import { SkeletonList, Input, Button, IconButton, Modal } from './ui'
+import { SkeletonList, Input, Button, IconButton, Modal, Checkbox, Radio } from './ui'
 import { ICONO } from '../config/iconos'
 
 const TIPOS_PREGUNTA = [
@@ -129,19 +129,19 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
         <div key={o.id} className="flex items-center gap-2">
           {o.esOtra ? (
             <>
-              <span className="w-3.5 flex-shrink-0" />
-              <span className={`flex-1 ${inputPad} rounded border border-dashed border-outline-variant text-sm text-muted italic`}>
+              <span className="w-5 flex-shrink-0" />
+              <span className={`flex-1 ${inputPad} rounded-full border border-dashed border-outline-variant text-sm text-muted italic`}>
                 Otra: el alumno escribe su propia respuesta
               </span>
             </>
           ) : (
             <>
-              <input type="radio" name={radioName} checked={respuestaCorrecta === o.id}
-                onChange={() => onChangeCorrecta(o.id)} className="accent-[var(--accent)] flex-shrink-0" />
+              <Radio name={radioName} checked={respuestaCorrecta === o.id}
+                onChange={() => onChangeCorrecta(o.id)} wrapperClassName="flex-shrink-0" />
               <input type="text" value={o.texto}
                 onChange={(e) => onChange(opciones.map((x) => x.id === o.id ? { ...x, texto: e.target.value } : x))}
                 aria-label={`Opción ${String.fromCharCode(65 + idx)}`} required={idx < 2}
-                className={`flex-1 ${inputPad} rounded border border-outline-variant text-sm bg-surface`} />
+                className={`flex-1 ${inputPad} rounded-full border border-outline-variant text-sm bg-surface`} />
             </>
           )}
           {idx >= 2 && (
@@ -1519,11 +1519,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         {preguntaEditForm.tipo === 'verdadero_falso' && (
                           <div className="flex gap-3">
                             {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
-                              <label key={id} className="flex items-center gap-2 text-sm">
-                                <input type="radio" name={`edit-vf-${p.id}`} checked={preguntaEditForm.vfRespuesta === id}
-                                  onChange={() => setPreguntaEditForm((f) => ({ ...f, vfRespuesta: id }))} className="accent-[var(--accent)]" />
-                                {label}
-                              </label>
+                              <Radio key={id} name={`edit-vf-${p.id}`} checked={preguntaEditForm.vfRespuesta === id}
+                                onChange={() => setPreguntaEditForm((f) => ({ ...f, vfRespuesta: id }))} label={label} />
                             ))}
                           </div>
                         )}
@@ -1545,7 +1542,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           {preguntaEditForm.imagenFile && <span className="text-xs text-accent">{preguntaEditForm.imagenFile.name}</span>}
                         </label>
                         <div className="flex gap-2 pt-1">
-                          <button type="button" onClick={() => { setEditingPreguntaId(null); setGlowId(p.id) }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
+                          <Button variant="quiet" className="flex-1" onClick={() => { setEditingPreguntaId(null); setGlowId(p.id) }}>Cancelar</Button>
                           <Button className="flex-1" type="submit" disabled={saving || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current}>
                             {saving ? 'Guardando…' : 'Guardar cambios'}
                           </Button>
@@ -1661,11 +1658,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 {preguntaForm.tipo === 'verdadero_falso' && (
                   <div className="flex gap-3">
                     {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
-                      <label key={id} className="flex items-center gap-2 text-sm text-on-surface">
-                        <input type="radio" name="vfRespuesta" checked={preguntaForm.vfRespuesta === id}
-                          onChange={() => setPreguntaForm((f) => ({ ...f, vfRespuesta: id }))} className="accent-[var(--accent)]" />
-                        {label}
-                      </label>
+                      <Radio key={id} name="vfRespuesta" checked={preguntaForm.vfRespuesta === id}
+                        onChange={() => setPreguntaForm((f) => ({ ...f, vfRespuesta: id }))} label={label} />
                     ))}
                   </div>
                 )}
@@ -1687,19 +1681,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   label="Ponderación" id="preg-nueva-pond" type="number" min="0.1" step="0.1" value={preguntaForm.ponderacion}
                   onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
                   className="py-1.5" />
-                <label className="flex items-center gap-2 text-sm text-muted">
-                  <input type="checkbox" checked={preguntaForm.guardarEnBanco}
-                    onChange={(e) => setPreguntaForm((f) => ({ ...f, guardarEnBanco: e.target.checked }))} className="accent-[var(--accent)]" />
-                  Guardar también en mi banco de reactivos
-                </label>
+                <Checkbox checked={preguntaForm.guardarEnBanco}
+                  onChange={(e) => setPreguntaForm((f) => ({ ...f, guardarEnBanco: e.target.checked }))}
+                  label="Guardar también en mi banco de reactivos" />
                 {preguntaForm.guardarEnBanco && (
                   <Input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
                     required aria-label="Tema (obligatorio, ej. Fracciones)"
                     className="py-1.5" />
                 )}
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(emptyPregunta()) }}
-                    className="flex-1 py-2 text-sm text-muted">Cancelar</button>
+                  <Button variant="quiet" className="flex-1" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(emptyPregunta()) }}>Cancelar</Button>
                   <Button className="flex-1" type="submit" disabled={saving}>
                     {saving ? 'Guardando…' : 'Agregar'}
                   </Button>
@@ -1785,18 +1776,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               {bancoEditForm.tipo === 'verdadero_falso' && (
                                 <div className="flex gap-3">
                                   {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
-                                    <label key={id} className="flex items-center gap-1.5 text-sm">
-                                      <input type="radio" name={`edit-vf-${item.id}`} checked={bancoEditForm.vfRespuesta === id}
-                                        onChange={() => setBancoEditForm((f) => ({ ...f, vfRespuesta: id }))} className="accent-[var(--accent)]" />
-                                      {label}
-                                    </label>
+                                    <Radio key={id} name={`edit-vf-${item.id}`} checked={bancoEditForm.vfRespuesta === id}
+                                      onChange={() => setBancoEditForm((f) => ({ ...f, vfRespuesta: id }))} label={label} />
                                   ))}
                                 </div>
                               )}
                               <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
                                 aria-label="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
                               <div className="flex gap-2">
-                                <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
+                                <Button variant="quiet" className="flex-1" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }}>Cancelar</Button>
                                 <Button className="flex-1" onClick={() => handleSaveBancoEdit(item.id)} disabled={saving || JSON.stringify(bancoEditForm) === bancoEditSnap.current}>Guardar</Button>
                               </div>
                             </div>
@@ -1855,21 +1843,17 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 ]}
               />
             )}
-            <label className="flex items-center gap-2 text-sm text-muted">
-              <input type="checkbox" checked={!!configForm.barajarRespuestas}
-                onChange={(e) => setConfigForm((f) => ({ ...f, barajarRespuestas: e.target.checked }))} className="accent-[var(--accent)]" />
-              Barajar el orden de las opciones dentro de cada pregunta
-            </label>
+            <Checkbox checked={!!configForm.barajarRespuestas}
+              onChange={(e) => setConfigForm((f) => ({ ...f, barajarRespuestas: e.target.checked }))}
+              label="Barajar el orden de las opciones dentro de cada pregunta" />
             {/* Solo tiene sentido cuando el instrumento usa secciones. Apagarlo
                 las oculta por completo: el estudiante ve una lista continua,
                 aunque por dentro los reactivos sigan agrupados (y el orden
                 aleatorio siga barajando dentro de cada sección). */}
             {seccionesCtl.secciones.length > 0 && (
-              <label className="flex items-center gap-2 text-sm text-muted">
-                <input type="checkbox" checked={configForm.mostrarSecciones !== false}
-                  onChange={(e) => setConfigForm((f) => ({ ...f, mostrarSecciones: e.target.checked }))} className="accent-[var(--accent)]" />
-                Mostrar al estudiante el nombre de las secciones
-              </label>
+              <Checkbox checked={configForm.mostrarSecciones !== false}
+                onChange={(e) => setConfigForm((f) => ({ ...f, mostrarSecciones: e.target.checked }))}
+                label="Mostrar al estudiante el nombre de las secciones" />
             )}
             <Select
               id="config-navegacion"

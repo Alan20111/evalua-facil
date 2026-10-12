@@ -453,18 +453,17 @@ export default function ModalesAsignatura() {
                         )}
                       />
                       {form.fechaLimite ? (
-                        <label className="flex items-start gap-2 mt-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={!!form.recibirTarde}
-                            onChange={e => setForm(f => ({ ...f, recibirTarde: e.target.checked }))}
-                            className="w-4 h-4 mt-0.5 accent-[var(--accent)] flex-shrink-0"
-                          />
-                          <span className="text-sm text-muted leading-snug">
-                            Seguir recibiendo entregas después de la fecha límite
-                            <span className="text-hint"> (se marcarán como <strong>entrega tarde</strong>). Si no la marcas, al pasar la fecha ya no se reciben.</span>
-                          </span>
-                        </label>
+                        <Checkbox
+                          checked={!!form.recibirTarde}
+                          onChange={e => setForm(f => ({ ...f, recibirTarde: e.target.checked }))}
+                          wrapperClassName="mt-2"
+                          label={
+                            <span className="font-normal text-muted leading-snug">
+                              Seguir recibiendo entregas después de la fecha límite
+                              <span className="text-hint"> (se marcarán como <strong>entrega tarde</strong>). Si no la marcas, al pasar la fecha ya no se reciben.</span>
+                            </span>
+                          }
+                        />
                       ) : (
                         <p className="text-sm text-hint mt-1">
                           Luego de esta fecha y hora ya no se reciben entregas.
@@ -485,10 +484,10 @@ export default function ModalesAsignatura() {
                   completa, que es donde vive "regresar a borrador" de algo ya
                   publicado), así que aquí nunca hay publishedAt. */}
               {!form.publishedAt && (
-                <button type="button" disabled={saving} onClick={(e) => handleSaveActivity(e, true)}
-                  className="w-full py-2.5 mt-2 border border-accent text-accent font-medium rounded transition-colors hover:bg-[var(--accent-medium)] disabled:opacity-60">
+                <Button variant="outline-accent" fullWidth disabled={saving} onClick={(e) => handleSaveActivity(e, true)}
+                  className="mt-2">
                   Guardar como borrador
-                </button>
+                </Button>
               )}
             </form>
               </>
@@ -505,8 +504,7 @@ export default function ModalesAsignatura() {
               Quedará oculta para estudiantes y sin número hasta que la publiques. Edítala para cambiarle el nombre.
             </p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setDuplicateConfirm(null)}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button variant="secondary" onClick={() => setDuplicateConfirm(null)} className="flex-1">Cancelar</Button>
               <Button icon={Copy} busy={duplicating} className="flex-1" onClick={handleDuplicateActivity} disabled={duplicating}>
                 
                 {duplicating ? 'Duplicando…' : 'Duplicar'}
@@ -543,8 +541,7 @@ export default function ModalesAsignatura() {
               </p>
             )}
             <div className="flex gap-2">
-              <button type="button" onClick={() => setMoveConfirm(null)} disabled={moving}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+              <Button variant="secondary" onClick={() => setMoveConfirm(null)} disabled={moving} className="flex-1">Cancelar</Button>
               <Button icon={ArrowUpDown} busy={moving} className="flex-1" onClick={() => applyMoveActivities(moveConfirm.a.parcial, moveConfirm.newList)} disabled={moving}>
                 
                 {moving ? 'Moviendo…' : 'Mover'}
@@ -566,8 +563,7 @@ export default function ModalesAsignatura() {
               </p>
             )}
             <div className="flex gap-2">
-              <button type="button" onClick={() => setPublishDraftConfirm(null)}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button variant="secondary" onClick={() => setPublishDraftConfirm(null)} className="flex-1">Cancelar</Button>
               {/* Editar is the primary path — a draft usually still needs changes
                   (esp. duplicates); Publicar stays available as secondary */}
               <Button variant="outline-accent" icon={Eye} className="flex-1 min-h-control" onClick={publishDraftNow}>
@@ -591,8 +587,7 @@ export default function ModalesAsignatura() {
               &ldquo;<strong>{deleteConfirm.nombre}</strong>&rdquo; se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button variant="secondary" onClick={() => setDeleteConfirm(null)} className="flex-1">Cancelar</Button>
               <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deleting} className="flex-1" onClick={handleDeleteActivity} disabled={deleting}>
                 
                 {deleting ? 'Eliminando…' : 'Eliminar'}
@@ -698,8 +693,7 @@ export default function ModalesAsignatura() {
               &ldquo;<strong>{deleteMaterialConfirm.nombre}</strong>&rdquo; se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setDeleteMaterialConfirm(null)}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button variant="secondary" onClick={() => setDeleteMaterialConfirm(null)} className="flex-1">Cancelar</Button>
               <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deletingMaterial} className="flex-1" onClick={handleDeleteMaterial} disabled={deletingMaterial}>
                 
                 {deletingMaterial ? 'Eliminando…' : 'Eliminar'}
@@ -998,15 +992,14 @@ export default function ModalesAsignatura() {
                 value={gradeQuickEdit.value}
                 onChange={(e) => setGradeQuickEdit((g) => ({ ...g, value: e.target.value }))}
                 onKeyDown={(e) => { if (e.key === 'Enter') saveGradeQuickEdit(); if (e.key === 'Escape') setGradeQuickEdit(null) }}
-                className="w-16 px-2 py-1.5 text-center text-sm font-bold border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="w-16 px-2 py-1.5 text-center text-sm font-bold border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               />
               <span className="text-xs text-muted">/ {gradeQuickEdit.maxCalif}</span>
             </div>
             <div className="flex gap-1.5">
-              <button type="button" onClick={() => setGradeQuickEdit(null)} disabled={savingQuickGrade}
-                className="flex-1 py-2 rounded-card border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60">
+              <Button variant="secondary" onClick={() => setGradeQuickEdit(null)} disabled={savingQuickGrade} className="flex-1">
                 Cancelar
-              </button>
+              </Button>
               <Button icon={CheckIcon} busy={savingQuickGrade} className="flex-1" onClick={saveGradeQuickEdit} disabled={savingQuickGrade}>
                  Guardar
               </Button>
@@ -1104,14 +1097,11 @@ export default function ModalesAsignatura() {
             </div>
 
             <div className="flex gap-2 mt-4">
-              <button
-                type="button"
+              <Button variant="secondary"
                 onClick={() => { setBulkGradeModal(null); setBulkGradeValue('') }}
-                disabled={savingBulkGrade}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60"
-              >
+                disabled={savingBulkGrade} className="flex-1">
                 Cancelar
-              </button>
+              </Button>
               <Button className="flex-1"
                 onClick={confirmBulkGradeNoEntregadas}
                 disabled={savingBulkGrade || bulkGradeValue === ''}>
@@ -1177,11 +1167,14 @@ export default function ModalesAsignatura() {
                             const tipoLbl = a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : 'Entregable'
                             const checked = importSel.has(a.id)
                             return (
-                              <label key={a.id} className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors ${checked ? 'border-accent bg-[var(--accent-tint)]' : 'border-outline-variant hover:border-accent'}`}>
-                                <input type="checkbox" checked={checked} onChange={() => toggleImportSel(a.id)} className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
-                                <span className="flex-1 min-w-0 text-sm text-on-surface truncate">{a.nombre}</span>
-                                <span className="text-xs text-hint flex-shrink-0">{tipoLbl}</span>
-                              </label>
+                              <Checkbox key={a.id} checked={checked} onChange={() => toggleImportSel(a.id)}
+                                wrapperClassName={`items-center gap-2 px-3 py-2 rounded-card border transition-colors [&>span:last-child]:flex-1 [&>span:last-child]:min-w-0 ${checked ? 'border-accent bg-[var(--accent-tint)]' : 'border-outline-variant hover:border-accent'}`}
+                                label={
+                                  <span className="flex items-center gap-2 min-w-0 font-normal">
+                                    <span className="flex-1 min-w-0 text-sm text-on-surface truncate">{a.nombre}</span>
+                                    <span className="text-xs text-hint flex-shrink-0">{tipoLbl}</span>
+                                  </span>
+                                } />
                             )
                           })}
                         </div>
@@ -1271,10 +1264,9 @@ export default function ModalesAsignatura() {
               Al menos una actividad ya tiene ponderación. Los pesos capturados se borrarán y todas las actividades valdrán lo mismo.
             </p>
             <div className="flex gap-2 mt-4">
-              <button type="button" onClick={() => setConfirmRevertPonderacion(false)}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+              <Button variant="secondary" onClick={() => setConfirmRevertPonderacion(false)} className="flex-1">
                 Cancelar
-              </button>
+              </Button>
               <button type="button" onClick={() => applyPonderacion(false)}
                 className="flex-1 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors">
                 Sí, promedio simple
@@ -1291,10 +1283,9 @@ export default function ModalesAsignatura() {
               El Parcial {confirmRevertParcial} ya tiene pesos capturados. Se borrarán y ese parcial usará promedio simple.
             </p>
             <div className="flex gap-2 mt-4">
-              <button type="button" onClick={() => setConfirmRevertParcial(null)}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+              <Button variant="secondary" onClick={() => setConfirmRevertParcial(null)} className="flex-1">
                 Cancelar
-              </button>
+              </Button>
               <button type="button" onClick={() => applyParcialPonderacion(confirmRevertParcial, false)}
                 className="flex-1 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors">
                 Sí, promedio simple
@@ -1384,10 +1375,9 @@ export default function ModalesAsignatura() {
                   />
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <button type="button" onClick={() => setCloseParcialConfirm(null)} disabled={closingParcial}
-                    className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                  <Button variant="secondary" onClick={() => setCloseParcialConfirm(null)} disabled={closingParcial} className="flex-1">
                     Cancelar
-                  </button>
+                  </Button>
                   <Button className="flex-1" onClick={confirmCloseParcial} disabled={closingParcial}>
                     {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? `Cerrar y poner ${Math.min(Math.max(0, parseFloat(closeParcialGrade) || 0), closeParcialConfirm.topeCalif ?? 10)}` : 'Cerrar parcial')}
                   </Button>
@@ -1405,10 +1395,9 @@ export default function ModalesAsignatura() {
               Tus estudiantes siguen viendo su resultado y podrás corregir calificaciones. Las calificaciones que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
             </p>
             <div className="flex gap-2 mt-4">
-              <button type="button" onClick={() => setRevertParcialConfirm(null)} disabled={revertingParcial}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+              <Button variant="secondary" onClick={() => setRevertParcialConfirm(null)} disabled={revertingParcial} className="flex-1">
                 Cancelar
-              </button>
+              </Button>
               <Button className="flex-1" onClick={revertCloseParcial} disabled={revertingParcial}>
                 {revertingParcial ? 'Reabriendo…' : 'Reabrir'}
               </Button>
@@ -1427,10 +1416,9 @@ export default function ModalesAsignatura() {
               {' '}Podrás seguir corrigiendo calificaciones y después cerrarlo definitivamente.
             </p>
             <div className="flex gap-2 mt-4">
-              <button type="button" onClick={() => setAtencionParcialConfirm(null)} disabled={iniciandoAtencion}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+              <Button variant="secondary" onClick={() => setAtencionParcialConfirm(null)} disabled={iniciandoAtencion} className="flex-1">
                 Cancelar
-              </button>
+              </Button>
               <Button className="flex-1" onClick={confirmIniciarAtencion} disabled={iniciandoAtencion}>
                 {iniciandoAtencion ? 'Iniciando…' : 'Iniciar atención'}
               </Button>
@@ -1560,7 +1548,7 @@ export default function ModalesAsignatura() {
                       desapercibida: es el caso que partió en dos a una alumna
                       real. */}
                   {excelPreview.rows.some((r) => r.parecido) && (
-                    <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 mb-1.5">
+                    <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-card px-2.5 py-1.5 mb-1.5">
                       Los marcados en <strong>ámbar</strong> se parecen mucho a alguien que ya está en la escuela
                       (una letra de diferencia, un nombre de más). Por si acaso se les da una{' '}
                       <strong>cuenta nueva</strong>. Si en realidad es la misma persona, tócalos: así conserva
@@ -1579,7 +1567,7 @@ export default function ModalesAsignatura() {
                   )}
                   <ul className="space-y-1">
                     {excelPreview.rows.map((item, i) => (
-                      <li key={i} className="flex items-center justify-between gap-2 text-sm px-2.5 py-1.5 rounded bg-surface border border-outline-variant">
+                      <li key={i} className="flex items-center justify-between gap-2 text-sm px-2.5 py-1.5 rounded-card bg-surface border border-outline-variant">
                         <span className="text-on-surface truncate">{studentFullName(item.row)}</span>
                         {item.status === 'new' && <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex-shrink-0">Nuevo</span>}
                         {item.status === 'link' && (
@@ -1617,10 +1605,9 @@ export default function ModalesAsignatura() {
               )}
             </div>
             <div className="p-3 border-t border-outline-variant flex-shrink-0 flex gap-2">
-              <button type="button" onClick={() => setExcelPreview(null)} disabled={importingExcel}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+              <Button variant="secondary" onClick={() => setExcelPreview(null)} disabled={importingExcel} className="flex-1">
                 Cancelar
-              </button>
+              </Button>
               <Button icon={CheckIcon} busy={importingExcel} className="flex-1" onClick={confirmExcelImport}
                 disabled={importingExcel || excelPreview.rows.every((r) => r.status === 'skip' || r.status === 'duplicate')}>
                 
@@ -1826,8 +1813,7 @@ export default function ModalesAsignatura() {
               aria-label={subject?.nombre}
             />
             <div className="flex gap-2">
-              <button type="button" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button variant="secondary" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} className="flex-1">Cancelar</Button>
               <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deletingSubject} className="flex-1" onClick={handleDeleteSubject}
                 disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}>
                 
@@ -1877,18 +1863,19 @@ export default function ModalesAsignatura() {
               </div>
             ) : (
               <div className="space-y-2 mb-4">
-                <label className="flex items-start gap-2 p-3 rounded-card border border-outline-variant cursor-pointer hover:bg-[var(--accent-tint)] transition-colors">
-                  <input type="checkbox" checked={archiveConZip} onChange={(e) => setArchiveConZip(e.target.checked)} className="mt-0.5 accent-[var(--accent)]" />
-                  <div>
-                    <p className="text-sm font-medium text-on-surface">Descargar también un respaldo ZIP</p>
-                    <p className="text-sm text-muted">Opcional — las entregas no se van a borrar</p>
-                  </div>
-                </label>
+                <Checkbox checked={archiveConZip} onChange={(e) => setArchiveConZip(e.target.checked)}
+                  wrapperClassName="p-3 rounded-card border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors"
+                  label={
+                    <span className="block">
+                      <span className="block text-sm font-medium text-on-surface">Descargar también un respaldo ZIP</span>
+                      <span className="block text-sm font-normal text-muted">Opcional — las entregas no se van a borrar</span>
+                    </span>
+                  } />
               </div>
             )}
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowArchiveModal(false)} disabled={archiving}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+              <Button variant="secondary" onClick={() => setShowArchiveModal(false)} disabled={archiving}
+                className="flex-1">Cancelar</Button>
               <Button icon={Archive} busy={archiving} className="flex-1" onClick={handleArchiveConfirm} disabled={archiving}>
                 
                 {archiving
@@ -2030,11 +2017,11 @@ export default function ModalesAsignatura() {
                 <p className="block text-xs font-medium text-muted mb-1">Tipo de recurso</p>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setResourceForm((f) => ({ ...f, tipo: 'archivo' }))}
-                    className={`flex-1 py-2.5 rounded border text-sm font-medium transition-colors ${resourceForm.tipo === 'archivo' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted'}`}>
+                    className={`flex-1 py-2.5 rounded-full border text-sm font-medium transition-colors ${resourceForm.tipo === 'archivo' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted'}`}>
                     Archivo
                   </button>
                   <button type="button" onClick={() => setResourceForm((f) => ({ ...f, tipo: 'link' }))}
-                    className={`flex-1 py-2.5 rounded border text-sm font-medium transition-colors ${resourceForm.tipo === 'link' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted'}`}>
+                    className={`flex-1 py-2.5 rounded-full border text-sm font-medium transition-colors ${resourceForm.tipo === 'link' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted'}`}>
                     Enlace o video
                   </button>
                 </div>
@@ -2083,8 +2070,7 @@ export default function ModalesAsignatura() {
               &ldquo;<strong>{deleteResourceConfirm.nombre}</strong>&rdquo; se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setDeleteResourceConfirm(null)}
-                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button variant="secondary" onClick={() => setDeleteResourceConfirm(null)} className="flex-1">Cancelar</Button>
               <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deletingResource} className="flex-1" onClick={handleDeleteResource} disabled={deletingResource}>
                 
                 {deletingResource ? 'Eliminando…' : 'Eliminar'}

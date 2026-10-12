@@ -140,7 +140,7 @@ echo ""
 # catálogo de desarrollo (pages/dev/) tampoco, porque muestra ejemplos. El
 # 4º argumento de ratchet es una expresión regular (grep -E).
 ratchet "Control con esquina a medias (rounded + borde, debe ser rounded-full o ui/) — §2.2" \
-  '(^|[^a-z:-])rounded border' 28 'components/ui/'
+  '(^|[^a-z:-])rounded border' 0 'components/ui/'
 ratchet "Botón primario a mano (bg-accent hover:bg-accent-hover text-white → ui/Button) — §3" \
   'bg-accent hover:bg-accent-hover text-white' 0 'components/ui/'
 ratchet "Ícono fuera de la escala 14/16/20/24/40 (config/iconos.js) — §2.3" \
@@ -150,7 +150,7 @@ ratchet "Duración cruda (duration-NNN → duration-rapida/estandar/lenta) — �
 ratchet "transition-all (anima de más; usa transition-colors/transform) — §2.5" \
   '(^|[^a-z-])transition-all' 0 'components/ui/'
 ratchet "Casilla/opción a mano (type=checkbox|radio fuera de ui/) — §3" \
-  'type="(checkbox|radio)"' 42 'components/ui/|pages/dev/'
+  'type="(checkbox|radio)"' 0 'components/ui/|pages/dev/'
 ratchet "z-index con número (z-[NN] → z-contenido/barra/menu/hoja/aviso/tope) — §2.4" \
   'z-\[[0-9]+\]' 12 'components/ui/'
 

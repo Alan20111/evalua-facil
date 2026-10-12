@@ -26,7 +26,7 @@ import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import AvisoPerfilIA from './AvisoPerfilIA'
 import { Sparkles, ClipboardList, ExternalLink, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
-import { SkeletonText, Button } from '../ui'
+import { SkeletonText, Button, Checkbox } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 function millisDe(ts) {
@@ -184,15 +184,12 @@ function DiagnosticoActividadBloque({
           {loaded && actividades.length > 0 && estadoCargado && (
             <EstadoDiagnosticoBadge estado={estadoDiagnostico} />
           )}
-          <label className="flex items-center gap-1.5 text-xs text-on-surface cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={incluir}
-              disabled={guardandoIncluir}
-              onChange={(e) => toggleIncluir(e.target.checked)}
-            />
-            Incluir en la Planeación
-          </label>
+          <Checkbox
+            label="Incluir en la Planeación"
+            checked={incluir}
+            disabled={guardandoIncluir}
+            onChange={(e) => toggleIncluir(e.target.checked)}
+          />
         </div>
       </div>
 

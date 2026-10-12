@@ -63,7 +63,7 @@ export default function EvaluacionAnswerList({
                   const esCorrecta = mostrarCorrectas && correcta != null && o.id === correcta
                   return (
                     <div key={o.id}
-                      className={`flex items-center gap-2 px-3 py-2 rounded border text-sm ${
+                      className={`flex items-center gap-2 px-3 py-2 rounded-card border text-sm ${
                         esCorrecta ? 'border-emerald-300 bg-emerald-50 text-emerald-700' :
                         esSeleccion ? 'border-accent bg-accent-light' : 'border-outline-variant'
                       }`}>

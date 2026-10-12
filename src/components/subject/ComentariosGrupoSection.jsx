@@ -10,7 +10,7 @@ import { setDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { SkeletonText, Button } from '../ui'
+import { SkeletonText, Button, Checkbox } from '../ui'
 
 const PLACEHOLDER =
   'Escribe información real sobre tu grupo y su entorno que quieras que la IA tome en cuenta ' +
@@ -102,15 +102,13 @@ export default function ComentariosGrupoSection({ subjectId, docenteId }) {
           {guardando && <Spinner size="sm" />}
           {guardando ? 'Guardando…' : 'Guardar'}
         </Button>
-        <label className="flex items-center gap-1.5 text-xs text-on-surface cursor-pointer select-none flex-shrink-0">
-          <input
-            type="checkbox"
-            checked={incluir}
-            disabled={guardandoIncluir}
-            onChange={(e) => toggleIncluir(e.target.checked)}
-          />
-          Incluir en la Planeación
-        </label>
+        <Checkbox
+          label="Incluir en la Planeación"
+          checked={incluir}
+          disabled={guardandoIncluir}
+          onChange={(e) => toggleIncluir(e.target.checked)}
+          wrapperClassName="flex-shrink-0"
+        />
       </div>
     </div>
   )

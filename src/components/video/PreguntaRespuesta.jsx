@@ -1,4 +1,4 @@
-import { Input } from '../ui'
+import { Input, Radio } from '../ui'
 // Tarjeta de una pregunta del Video interactivo: verdadero/falso, opción
 // múltiple (con «Otra») y respuesta abierta. Es el MISMO aspecto y la MISMA
 // semántica de guardado que la pantalla de cuestionario (EvaluacionRunner): los
@@ -37,13 +37,12 @@ export default function PreguntaRespuesta({
         const elegida = respuesta === o.id
         return (
           <div key={o.id}>
-            <label
-              className={`flex items-center gap-3 p-3.5 min-h-[3.25rem] rounded border transition-colors ${bloqueada ? 'opacity-60' : 'cursor-pointer hover:bg-[var(--accent-tint)]'}`}
-              style={{ borderColor: elegida ? 'var(--accent)' : '#e2e8f0', background: elegida ? 'var(--accent-light)' : '' }}>
-              <input type="radio" name={`pregunta-${pregunta.id}`} checked={elegida} disabled={bloqueada}
-                onChange={() => onSelectOpcion(pregunta.id, o.id, o.esOtra)} className="accent-[var(--accent)] flex-shrink-0 w-5 h-5" />
-              <span className="text-sm text-on-surface break-words">{o.esOtra ? 'Otra:' : o.texto}</span>
-            </label>
+            <Radio name={`pregunta-${pregunta.id}`} checked={elegida} disabled={bloqueada}
+              onChange={() => onSelectOpcion(pregunta.id, o.id, o.esOtra)}
+              wrapperClassName={`!items-center p-3.5 min-h-[3.25rem] rounded-card border transition-colors ${
+                elegida ? 'border-accent bg-accent-light' : 'border-[#e2e8f0]'
+              } ${bloqueada ? 'opacity-60' : elegida ? '' : 'hover:bg-[var(--accent-tint)]'}`}
+              label={<span className="font-normal break-words">{o.esOtra ? 'Otra:' : o.texto}</span>} />
             {o.esOtra && elegida && (
               <Input type="text" value={otraTexto || ''} disabled={bloqueada}
                 onChange={(e) => onOtraTextoChange(pregunta.id, e.target.value)}

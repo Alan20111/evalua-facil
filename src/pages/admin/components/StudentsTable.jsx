@@ -126,7 +126,7 @@ function CeldaFiltro({ col, valor, onChange, sugerencias }) {
   const activo = valor !== ''
   if (col.filtro === 'sino') return <BotonesSiNo valor={valor} onChange={onChange} />
 
-  const base = `w-full text-xs normal-case rounded border px-1.5 py-1 pr-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+  const base = `w-full text-xs normal-case rounded-full border px-1.5 py-1 pr-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
     activo
       ? 'border-accent bg-surface-card text-accent font-semibold'
       : 'border-outline-variant bg-surface-card text-muted'

@@ -10,7 +10,7 @@ import { setDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { SkeletonText, Button } from '../ui'
+import { SkeletonText, Button, Checkbox } from '../ui'
 
 const PREGUNTA = '¿Qué quieres agregar que consideres relevante para que la planeación didáctica pueda ser realmente utilizada durante este curso?'
 const MAX_LARGO = 500
@@ -80,15 +80,13 @@ export default function ConsideracionesSection({ subjectId, docenteId }) {
     <div className="bg-surface-card rounded-card shadow-card p-3">
       <div className="flex items-start justify-between gap-2">
         <h2 className="font-bold text-on-surface">Consideraciones</h2>
-        <label className="flex items-center gap-1.5 text-xs text-on-surface cursor-pointer select-none flex-shrink-0 pt-0.5">
-          <input
-            type="checkbox"
-            checked={incluir}
-            disabled={guardandoIncluir}
-            onChange={(e) => toggleIncluir(e.target.checked)}
-          />
-          Incluir en la Planeación
-        </label>
+        <Checkbox
+          label="Incluir en la Planeación"
+          checked={incluir}
+          disabled={guardandoIncluir}
+          onChange={(e) => toggleIncluir(e.target.checked)}
+          wrapperClassName="flex-shrink-0 pt-0.5"
+        />
       </div>
       <label htmlFor="consideraciones-texto" className="block text-sm text-on-surface mt-1.5 mb-1">{PREGUNTA}</label>
       <textarea

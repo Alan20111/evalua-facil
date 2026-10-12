@@ -48,7 +48,7 @@ import { cargarClaveJuego, estructuraConClave, esEstructuraHeredada } from '../.
 import ContenidoJuegoEditor from './ContenidoJuegoEditor'
 import RevisionJuegoBorrador from './RevisionJuegoBorrador'
 import ResolucionJuegoModal from './ResolucionJuegoModal'
-import { Input, Button, IconButton } from '../ui'
+import { Input, Button, IconButton, Checkbox } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 export default function JuegoManager({
@@ -575,12 +575,10 @@ function JuegoConfiguracion({
               en los tres tipos de actividad. */}
           {visForm.fechaLimite && (
             <div className="flex items-start gap-3 px-3 py-2.5 ml-4 border-l-2 border-outline-variant">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="juego-cerrar-entregas"
                 checked={visForm.cerrarEntregasEnFecha ?? true}
                 onChange={(e) => setVisForm((f) => ({ ...f, cerrarEntregasEnFecha: e.target.checked }))}
-                className="mt-0.5"
                 data-tooltip="Desactivar para recibir tarde"
               />
               <label htmlFor="juego-cerrar-entregas" className="text-sm text-on-surface cursor-pointer">
