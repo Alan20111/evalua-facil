@@ -1,7 +1,7 @@
 // Parte del render de SubjectPage.jsx (fase 5 de PLAN_NORMALIZACION_UI:
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Asignatura.
-import { Button, SkeletonList, SkeletonTable } from '../../../components/ui'
+import { Button, Checkbox, SkeletonList, SkeletonTable } from '../../../components/ui'
 import { CalendarPlus, FileSpreadsheet, MoreVertical, X } from 'lucide-react'
 import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../../utils/platform'
@@ -142,18 +142,16 @@ export default function TabAsistencia() {
               Todo el curso
             </button>
           </div>
-          <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={subject?.mostrarAsistenciasEstudiantes !== false}
-              onChange={toggleMostrarAsistenciasEstudiantes}
-            />
-            Mostrar asistencias a estudiantes
-          </label>
+          <Checkbox
+            checked={subject?.mostrarAsistenciasEstudiantes !== false}
+            onChange={toggleMostrarAsistenciasEstudiantes}
+            label="Mostrar asistencias a estudiantes"
+            wrapperClassName="items-center"
+          />
           </div>
 
           {attendanceNoClaseDias.length > 0 && (
-            <div className="text-xs text-muted bg-surface-container border border-outline-variant rounded px-3 py-2">
+            <div className="text-xs text-muted bg-surface-container border border-outline-variant rounded-card px-3 py-2">
               <span className="font-semibold">Sin clase por asueto/vacaciones dentro del curso:</span>{' '}
               {attendanceNoClaseDias.map((d, i) => {
                 const [, m, dd] = d.fecha.split('-')

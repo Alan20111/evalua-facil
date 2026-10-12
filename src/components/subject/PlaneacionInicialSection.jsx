@@ -39,7 +39,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import { apiUrl } from '../../utils/apiBase'
 import { saveBlob } from '../../utils/exportGuard'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
-import { Skeleton, SkeletonList, SkeletonText, Button, IconButton } from '../ui'
+import { Skeleton, SkeletonList, SkeletonText, Button, IconButton, Radio } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 const CLAVES_MOMENTO = MOMENTOS.map((m) => m.clave)
@@ -176,20 +176,24 @@ function SelectorCantidadSecuencias({ modo, onCambiarModo, cantidad, onCambiarCa
   return (
     <fieldset className="mb-2 p-2.5 rounded-card border border-outline-variant" disabled={disabled}>
       <legend className="text-sm text-on-surface px-1">¿Cuántas Secuencias Didácticas quieres por parcial?</legend>
-      <label className="flex items-center gap-2 py-0.5 text-sm text-on-surface cursor-pointer">
-        <input type="radio" name="modoCantidadSecuencias" checked={modo === 'ia'} onChange={() => onCambiarModo('ia')} />
-        Que la IA decida (recomendado)
-      </label>
-      <label className="flex items-center gap-2 py-0.5 text-sm text-on-surface cursor-pointer">
-        <input type="radio" name="modoCantidadSecuencias" checked={modo === 'manual'} onChange={() => onCambiarModo('manual')} />
-        Yo decido:
-        <input
-          type="number" min={1} max={12} value={cantidad}
-          onChange={(e) => onCambiarCantidad(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
-          onFocus={() => onCambiarModo('manual')}
-          className="w-16 px-1.5 py-0.5 rounded-card border border-outline-variant text-sm bg-transparent"
-        />
-      </label>
+      <Radio
+        name="modoCantidadSecuencias" checked={modo === 'ia'} onChange={() => onCambiarModo('ia')}
+        label="Que la IA decida (recomendado)"
+        wrapperClassName="items-center py-0.5"
+      />
+      <Radio
+        name="modoCantidadSecuencias" checked={modo === 'manual'} onChange={() => onCambiarModo('manual')}
+        wrapperClassName="items-center py-0.5"
+        label={<>
+          Yo decido:{' '}
+          <input
+            type="number" min={1} max={12} value={cantidad}
+            onChange={(e) => onCambiarCantidad(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
+            onFocus={() => onCambiarModo('manual')}
+            className="w-16 px-1.5 py-0.5 rounded-full border border-outline-variant text-sm bg-transparent"
+          />
+        </>}
+      />
     </fieldset>
   )
 }

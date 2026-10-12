@@ -484,7 +484,7 @@ que quede transversal.
 | 0. Contrato | ✅ | #1566 |
 | 1. Librería | ✅ `ui/` completa y `/dev/componentes` | #1567, #1568 |
 | 2. Migración | ✅ olas 2.1 a 2.11 | #1569, #1578–#1583 (y escala de letra #1577) |
-| 3. Selección y preselección | ⏳ en curso, pantalla por pantalla (ver «Fase 3 — pantallas») | #1590, #1591, #1592, #1593, este PR |
+| 3. Selección y preselección | ⏳ en curso, pantalla por pantalla (ver «Fase 3 — pantallas») | #1590–#1594, este PR |
 | 4. Movimiento | ✅ despliegues y microanimaciones, casillas nativas con aspecto `ui/` y 53 modales a `ui/Modal` | #1584, #1585, #1586 |
 | 5. Monolitos | ✅ sin cambio visual (mismo HTML en todas las pestañas) | #1587, #1588 |
 | 6. Verificación y candados | ✅ `npm run test:visual` y candados al mínimo | este PR |
@@ -524,6 +524,8 @@ app. Cada una se mide con `node scripts/visual/verificar.mjs --vista=<nombre>`.
 
 | **Nuevo evento** (calendario, `EventEditor`) ✅ | Con el botón «Evento» el inicio es la **siguiente hora en punto de hoy** (antes llegaba vacío). Si se toca un día del calendario, siguen siendo las 8:00 de ese día. Evento académico con una sola asignatura activa: ya viene elegida. El select de asignatura ya no empieza en «Elige una asignatura…». | Color: aro con separación y `aria-pressed`, sin crecer (antes `scale-110`). Personal/Académico con `ui/Tabs` (píldora que se desliza). | Pasa a `ui/Modal` (era un modal a mano). Título, Descripción y Notas con etiqueta visible (`Input`/`Textarea`). Pie fijo con `MotivoApagado`. Eliminar y Duplicar como `IconButton`; «Confirmar eliminación» como `Button danger`. «Teal» → «Turquesa». |
 | **Agregar día de asistencia** (asignatura sin fechas) ✅ | El día ya viene en **hoy** (antes vacío). El parcial se queda en el último usado. | — | «Cancelar» como `Button` (era `rounded-card`, esquinas a medias). La etiqueta «Día» en `text-sm`, como las demás. |
+
+| **Resto de la app** (35 archivos: evaluaciones y video, actividad y asignatura, secciones de planeación, calendario, perfil IA, admin) ✅ | — | **Todas** las casillas y opciones nativas pasan a `ui/Checkbox`/`ui/Radio` (42 → 0), conservando el aspecto de cada tarjeta o fila (FileTypeSelect, VisibilitySelect, respuestas del alumno). | **Ninguna esquina a medias** (28 → 0): controles de una línea en `rounded-full`, tarjetas y cajas en `rounded-card`. «Cancelar» hechos a mano pasan a `Button`. Hecho con 3 agentes en paralelo por archivo y verificado junto. |
 
 `ui/MotivoApagado` es la pieza que dice por qué el botón principal de un
 formulario está apagado (§5.2, regla 6). Va en el pie fijo, bajo el botón.

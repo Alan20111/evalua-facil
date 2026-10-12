@@ -9,7 +9,7 @@ import { formatLongDate } from '../../utils/dateRange'
 import Select from '../ui/Select'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { Button } from '../ui'
+import { Button, Checkbox } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 // Ventana de configuración de una programación (paso 1 de 2).
@@ -122,7 +122,7 @@ export default function ProgramarBloquesModal({
   }
 
   const label = (txt) => <label className="text-xs font-semibold text-muted uppercase tracking-wide">{txt}</label>
-  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+  const inputCls = 'px-2.5 py-1.5 rounded-full border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
@@ -274,20 +274,15 @@ export default function ProgramarBloquesModal({
               independiente de "Continuar" (como las demás casillas
               "Notificarme cuando..." de la app). El aviso en sí usa la
               anticipación y el sonido que ya configuraste en Notificaciones. */}
-          <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-card border border-outline-variant">
-            <input
-              type="checkbox"
-              id="notificar-clase"
-              checked={notificarClase}
-              onChange={toggleNotificarClase}
-              disabled={!esModificar && !asignaturaId}
-              className="mt-1"
-            />
-            <label htmlFor="notificar-clase" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
-              Notificarme antes de que empiecen las clases de esta asignatura
-              <span className="text-muted text-xs block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, según la anticipación que configures en Notificaciones</span>
-            </label>
-          </div>
+          <Checkbox
+            id="notificar-clase"
+            checked={notificarClase}
+            onChange={toggleNotificarClase}
+            disabled={!esModificar && !asignaturaId}
+            label="Notificarme antes de que empiecen las clases de esta asignatura"
+            hint="Aviso para el celular donde tengas instalada la app Evalúa Fácil, según la anticipación que configures en Notificaciones"
+            wrapperClassName="p-3 bg-slate-50 rounded-card border border-outline-variant"
+          />
 
           {/* Borrar toda la programación (solo al modificar) */}
           {esModificar && (

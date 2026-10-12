@@ -3,7 +3,7 @@
 // el contexto Actividad.
 import { AbrirConNativoButton } from './piezas'
 import { ArrowLeft, ChevronLeft, ChevronRight, ClipboardList, Clock, Download, Sparkles, Star } from 'lucide-react'
-import { Button, Input } from '../../../components/ui'
+import { Button, Checkbox, Input } from '../../../components/ui'
 import CalificarConIAModal from '../../../components/rubrica/CalificarConIAModal'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import EnlaceEntregado from '../../../components/EnlaceEntregado'
@@ -514,7 +514,7 @@ export default function PanelCalificar() {
                         {/* All images: icon downloads everything as a ZIP; the
                             name shows them all stacked in the preview */}
                         <div
-                          className={`flex items-center gap-1 rounded border text-xs font-semibold transition-colors ${
+                          className={`flex items-center gap-1 rounded-card border text-xs font-semibold transition-colors ${
                             previewIdx === -1
                               ? 'border-accent bg-[var(--accent-tint)] text-on-surface'
                               : 'border-outline-variant bg-surface text-muted hover:border-accent'
@@ -545,7 +545,7 @@ export default function PanelCalificar() {
                         {selFiles.map((f, i) => (
                           <div
                             key={`${f.url}-${i}`}
-                            className={`flex items-center gap-1 rounded border text-xs transition-colors ${
+                            className={`flex items-center gap-1 rounded-card border text-xs transition-colors ${
                               i === previewIdx
                                 ? 'border-accent bg-[var(--accent-tint)] text-on-surface'
                                 : 'border-outline-variant bg-surface text-muted hover:border-accent'
@@ -595,18 +595,15 @@ export default function PanelCalificar() {
                         comentarioVisibleEsExcepcionRef y persistGrade). Se
                         guarda junto con "Guardar calificación", mismo
                         mecanismo de siempre. */}
-                    <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={gradeForm.comentarioVisibleAlumno !== false}
-                        onChange={(e) => {
-                          comentarioVisibleEsExcepcionRef.current = true
-                          setGradeForm((f) => ({ ...f, comentarioVisibleAlumno: e.target.checked }))
-                        }}
-                        className="w-4 h-4 rounded-card border-outline-variant text-accent focus:ring-accent"
-                      />
-                      Permitir que el estudiante vea este comentario
-                    </label>
+                    <Checkbox
+                      checked={gradeForm.comentarioVisibleAlumno !== false}
+                      onChange={(e) => {
+                        comentarioVisibleEsExcepcionRef.current = true
+                        setGradeForm((f) => ({ ...f, comentarioVisibleAlumno: e.target.checked }))
+                      }}
+                      label="Permitir que el estudiante vea este comentario"
+                      wrapperClassName="items-center"
+                    />
                     {!canCreate && (
                       <p className="text-sm text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
                         Necesitas Créditos IA para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.

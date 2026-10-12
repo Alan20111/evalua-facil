@@ -3,7 +3,7 @@ import { ArrowLeft, Sparkles, Trash2, RotateCcw, Check } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { reactivoValido } from '../../utils/reactivosIA'
-import { Input, Button, IconButton } from '../ui'
+import { Input, Button, IconButton, Radio } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 const ETIQUETA_TIPO = {
@@ -99,8 +99,8 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
               <div className="space-y-1.5">
                 {r.opciones.map((texto, j) => (
                   <div key={j} className="flex items-center gap-2">
-                    <input type="radio" name={`ia-correcta-${i}`} checked={r.correcta === j} disabled={!r.incluir || guardando}
-                      onChange={() => update(i, { correcta: j })} className="accent-[var(--accent)] flex-shrink-0" />
+                    <Radio name={`ia-correcta-${i}`} checked={r.correcta === j} disabled={!r.incluir || guardando}
+                      onChange={() => update(i, { correcta: j })} wrapperClassName="flex-shrink-0" />
                     <input type="text" value={texto} disabled={!r.incluir || guardando}
                       onChange={(e) => updateOpcion(i, j, e.target.value)}
                       aria-label={`Opción ${String.fromCharCode(65 + j)}`}
@@ -114,11 +114,8 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
             {r.tipo === 'verdadero_falso' && (
               <div className="flex gap-3">
                 {[['v', 'Verdadero'], ['f', 'Falso']].map(([val, label]) => (
-                  <label key={val} className="flex items-center gap-2 text-sm">
-                    <input type="radio" name={`ia-vf-${i}`} checked={r.correcta === val} disabled={!r.incluir || guardando}
-                      onChange={() => update(i, { correcta: val })} className="accent-[var(--accent)]" />
-                    {label}
-                  </label>
+                  <Radio key={val} name={`ia-vf-${i}`} checked={r.correcta === val} disabled={!r.incluir || guardando}
+                    onChange={() => update(i, { correcta: val })} label={label} />
                 ))}
               </div>
             )}

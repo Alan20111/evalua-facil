@@ -36,7 +36,7 @@ import {
 import { ICONO } from '../../../config/iconos'
 
 const inputCls =
-  'w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
+  'w-full px-3 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
 
 // Cuántas filas se pintan de golpe, igual que en el padrón de Estudiantes.
 const PAGE = 100
@@ -175,7 +175,7 @@ function CeldaFiltro({ col, valor, onChange, sugerencias }) {
   // "dd/mm/aaaa" de las fechas salían en 700 — más gruesos incluso que el
   // título de su columna. Que un filtro esté puesto ya se ve por el borde y el
   // color guinda; no hacía falta engrosarlo además.
-  const base = `w-full text-xs normal-case font-normal rounded border px-1.5 py-1 pr-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+  const base = `w-full text-xs normal-case font-normal rounded-full border px-1.5 py-1 pr-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
     activo
       ? 'border-accent bg-surface-card text-accent'
       : 'border-outline-variant bg-surface-card text-muted'

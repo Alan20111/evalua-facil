@@ -8,7 +8,7 @@ import { SkeletonForm, Button } from '../../../components/ui'
 import { ICONO } from '../../../config/iconos'
 
 const inputCls =
-  'w-full px-3.5 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm'
+  'w-full px-3.5 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm'
 
 function Toggle({ checked, onChange }) {
   return (

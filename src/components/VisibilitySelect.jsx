@@ -1,4 +1,5 @@
 import EFDateTimePicker from './EFDateTimePicker'
+import { Radio } from './ui'
 import { formatHora12FromDate } from '../utils/formatHora'
 import { nowIsoLocal as toIsoNowLocal } from '../utils/nowIso'
 
@@ -93,48 +94,52 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
       {/* Editing a saved draft: "Borrador" is a selectable option — the
           teacher may only be reviewing/editing and not want to publish yet */}
       {isDraft ? (
-        <label className="flex items-center gap-2 p-3 rounded-card border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-          aria-label="Borrador"
+        <div className="rounded-card border transition-colors"
           style={{ borderColor: mode === 'hide' ? 'var(--accent)' : '#e2e8f0', background: mode === 'hide' ? 'var(--accent-light)' : '' }}>
-          <input type="radio" name="visibilidad" checked={mode === 'hide'}
+          <Radio name="visibilidad" checked={mode === 'hide'}
             onChange={() => onModeChange('hide')}
-            className="accent-[var(--accent)]" />
-          <div>
-            <p className="text-sm font-medium text-on-surface">Borrador</p>
-            <p className="text-xs text-muted">Sigue oculta para estudiantes, sin publicar</p>
-          </div>
-        </label>
+            aria-label="Borrador"
+            wrapperClassName="items-center p-3 rounded-card transition-colors hover:bg-[var(--accent-tint)]"
+            label={
+              <div>
+                <p className="text-sm font-medium text-on-surface">Borrador</p>
+                <p className="text-xs font-normal text-muted">Sigue oculta para estudiantes, sin publicar</p>
+              </div>
+            } />
+        </div>
       ) : mode === 'hide' && (
         <div className="p-3 rounded-card border" style={{ borderColor: '#e2e8f0', background: 'var(--surface-container)' }}>
           <p className="text-sm font-medium text-on-surface">Borrador</p>
           <p className="text-xs text-muted">Oculta para estudiantes. Publícala eligiendo una opción abajo, guárdala de nuevo como borrador, o usa el ojito en la asignatura.</p>
         </div>
       )}
-      <label className="flex items-center gap-2 p-3 rounded-card border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-        aria-label="Publicar ahora"
+      <div className="rounded-card border transition-colors"
         style={{ borderColor: mode === 'show' ? 'var(--accent)' : '#e2e8f0', background: mode === 'show' ? 'var(--accent-light)' : '' }}>
-        <input type="radio" name="visibilidad" checked={mode === 'show'}
+        <Radio name="visibilidad" checked={mode === 'show'}
           onChange={() => onModeChange('show')}
-          className="accent-[var(--accent)]" />
-        <div>
-          <p className="text-sm font-medium text-on-surface">Publicar ahora</p>
-          <p className="text-xs text-muted">Se publica de inmediato al guardar</p>
-        </div>
-      </label>
+          aria-label="Publicar ahora"
+          wrapperClassName="items-center p-3 rounded-card transition-colors hover:bg-[var(--accent-tint)]"
+          label={
+            <div>
+              <p className="text-sm font-medium text-on-surface">Publicar ahora</p>
+              <p className="text-xs font-normal text-muted">Se publica de inmediato al guardar</p>
+            </div>
+          } />
+      </div>
       {/* Radio + date picker share one bordered container so they read as
           a single option, not two separate rows */}
       <div className="rounded-card border transition-colors"
         style={{ borderColor: mode === 'schedule' ? 'var(--accent)' : '#e2e8f0', background: mode === 'schedule' ? 'var(--accent-light)' : '' }}>
-        <label className="flex items-center gap-2 p-3 cursor-pointer hover:bg-[var(--accent-tint)] rounded"
-          aria-label="Programar publicación">
-          <input type="radio" name="visibilidad" checked={mode === 'schedule'}
-            onChange={() => onModeChange('schedule')}
-            className="accent-[var(--accent)]" />
-          <div>
-            <p className="text-sm font-medium text-on-surface">Programar publicación</p>
-            <p className="text-sm text-muted">Se activa automáticamente en la fecha y hora elegidas</p>
-          </div>
-        </label>
+        <Radio name="visibilidad" checked={mode === 'schedule'}
+          onChange={() => onModeChange('schedule')}
+          aria-label="Programar publicación"
+          wrapperClassName="items-center p-3 hover:bg-[var(--accent-tint)] rounded-card"
+          label={
+            <div>
+              <p className="text-sm font-medium text-on-surface">Programar publicación</p>
+              <p className="text-sm font-normal text-muted">Se activa automáticamente en la fecha y hora elegidas</p>
+            </div>
+          } />
         {mode === 'schedule' && (
           <div className="px-3 pb-3">
             <EFDateTimePicker

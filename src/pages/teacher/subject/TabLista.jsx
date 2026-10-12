@@ -2,7 +2,7 @@
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Asignatura.
 import { ArrowUpDown, ChevronRight, Download, KeyRound, Pencil, Upload, UserPlus } from 'lucide-react'
-import { Button, SkeletonList } from '../../../components/ui'
+import { Button, Checkbox, SkeletonList } from '../../../components/ui'
 import { EstadoFiltroHeader } from './piezas'
 import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../../utils/platform'
@@ -110,12 +110,10 @@ export default function TabLista() {
               asignatura. El push solo llega al celular donde esté instalada
               la app — se puede activar desde aquí o desde ahí. */}
           <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-card border border-outline-variant">
-            <input
-              type="checkbox"
+            <Checkbox
               id="notificar-activacion"
               checked={subject?.notificarActivacion !== false}
               onChange={toggleNotificarActivacion}
-              className="mt-1"
             />
             <div className="flex-1 min-w-0">
               <label htmlFor="notificar-activacion" className="text-sm font-medium text-on-surface cursor-pointer block">

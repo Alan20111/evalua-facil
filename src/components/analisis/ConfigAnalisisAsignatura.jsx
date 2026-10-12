@@ -3,7 +3,7 @@ import {
   FUENTES_ANALISIS, CLAVES_FUENTES, fuentesConDatos, fuentesEfectivas, costoAnalisis,
 } from '../../utils/analisisAsignatura'
 import { textoParciales, textoFuentes } from '../../utils/analisisAsignaturaInforme'
-import { Button } from '../ui'
+import { Button, Checkbox } from '../ui'
 
 // Qué explica cada fuente, en una línea — para que el docente sepa qué datos
 // se usarán antes de ver el costo.
@@ -69,8 +69,8 @@ export default function ConfigAnalisisAsignatura({ preparacion, onCancelar, onCo
             const marcado = parciales.includes(p.numero)
             return (
               <div key={p.numero}
-                className={`flex items-center gap-2 px-3 py-2 rounded border text-sm transition-colors ${marcado ? 'border-accent bg-[var(--accent-tint)] text-on-surface' : 'border-outline-variant text-muted'}`}>
-                <input id={id} type="checkbox" className="accent-[var(--accent)]" checked={marcado}
+                className={`flex items-center gap-2 px-3 py-2 rounded-full border text-sm transition-colors ${marcado ? 'border-accent bg-[var(--accent-tint)] text-on-surface' : 'border-outline-variant text-muted'}`}>
+                <Checkbox id={id} checked={marcado}
                   onChange={() => alternar(parciales, setParciales, p.numero)} />
                 <label htmlFor={id} className="cursor-pointer">
                   Parcial {p.numero}{ESTADO_PARCIAL[p.estado] ? ` (${ESTADO_PARCIAL[p.estado]})` : ''}
@@ -90,13 +90,13 @@ export default function ConfigAnalisisAsignatura({ preparacion, onCancelar, onCo
             Seleccionar todos
           </button>
         </div>
-        <ul className="divide-y divide-outline-variant border border-outline-variant rounded">
+        <ul className="divide-y divide-outline-variant border border-outline-variant rounded-card">
           {FUENTES_ANALISIS.map((f) => {
             const hay = !!conDatos[f.clave]
             const id = `analisis-fuente-${f.clave}`
             return (
               <li key={f.clave} className={`flex items-start gap-2 px-3 py-2.5 ${hay ? '' : 'opacity-60'}`}>
-                <input id={id} type="checkbox" className="accent-[var(--accent)] mt-0.5" disabled={!hay}
+                <Checkbox id={id} disabled={!hay}
                   checked={hay && marcadas.includes(f.clave)}
                   aria-describedby={`${id}-desc`}
                   onChange={() => alternar(marcadas, setMarcadas, f.clave)} />
@@ -131,10 +131,9 @@ export default function ConfigAnalisisAsignatura({ preparacion, onCancelar, onCo
       </div>
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancelar}
-          className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+        <Button variant="quiet" onClick={onCancelar}>
           Cancelar
-        </button>
+        </Button>
         <Button disabled={!puedeContinuar}
           onClick={() => onContinuar({ parciales: ordenados, fuentes: efectivas, costo })}>
           Continuar

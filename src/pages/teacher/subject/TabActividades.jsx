@@ -201,7 +201,7 @@ export default function TabActividades() {
                                       draggable={arrastrable || undefined}
                                       onDragStart={arrastrable ? (e) => { e.dataTransfer.effectAllowed = 'move'; setDragDraftId(a.id) } : undefined}
                                       onDragEnd={arrastrable ? () => { setDragDraftId(null); setDropZoneActive(null) } : undefined}
-                                      className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-estandar ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}${dragDraftId === a.id ? ' opacity-40' : ''}`}>
+                                      className={`flex items-center gap-1 w-full rounded-card border bg-surface-card transition-colors duration-estandar ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}${dragDraftId === a.id ? ' opacity-40' : ''}`}>
                                       {arrastrable && (
                                         <div
                                           className="pl-2 py-2 text-hint hover:text-slate-500 cursor-grab active:cursor-grabbing flex-shrink-0"
@@ -321,7 +321,7 @@ export default function TabActividades() {
                                       draggable={!IS_NATIVE_APP}
                                       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragMatId(m.id) }}
                                       onDragEnd={() => { setDragMatId(null); setDropZoneActive(null) }}
-                                      className={`w-full rounded border bg-surface-card transition-colors duration-estandar ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'} ${isBeingDragged ? 'opacity-40' : ''}`}
+                                      className={`w-full rounded-card border bg-surface-card transition-colors duration-estandar ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'} ${isBeingDragged ? 'opacity-40' : ''}`}
                                     >
                                       <div className="flex items-center gap-1">
                                         {!IS_NATIVE_APP && (

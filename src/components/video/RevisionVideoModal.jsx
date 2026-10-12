@@ -12,7 +12,7 @@ import {
   requiereConfirmacion, visiblesRevision,
 } from './revisionVideo'
 
-import { Input } from '../ui'
+import { Input, Checkbox, Radio } from '../ui'
 import { ICONO } from '../../config/iconos'
 const ESTADOS = {
   [ESTADO_REVISION.PENDIENTE]: { texto: 'Pendiente', clase: 'bg-amber-100 text-amber-800' },
@@ -172,8 +172,8 @@ export default function RevisionVideoModal({
                       {(item.opciones || []).map((o, j) => (
                         <div key={o.id} className="flex items-center gap-2">
                           <span data-tooltip="Marcar como respuesta correcta" className={`inline-flex flex-shrink-0 ${GLOBO_DESDE_IZQ}`}>
-                            <input type="radio" name="rv-ok" checked={item.respuestaCorrecta === o.id} disabled={trabajando || sinPermiso}
-                              onChange={() => setCampos(item.id, { respuestaCorrecta: o.id })} className="accent-[var(--accent)] flex-shrink-0 w-5 h-5"
+                            <Radio name="rv-ok" checked={item.respuestaCorrecta === o.id} disabled={trabajando || sinPermiso}
+                              onChange={() => setCampos(item.id, { respuestaCorrecta: o.id })} wrapperClassName="flex-shrink-0"
                               aria-label={`Marcar la opción ${String.fromCharCode(65 + j)} como correcta`} />
                           </span>
                           <Input type="text" value={o.texto} disabled={trabajando || sinPermiso} aria-label={`Opción ${String.fromCharCode(65 + j)}`}
@@ -187,11 +187,9 @@ export default function RevisionVideoModal({
                   {item.tipo === 'verdadero_falso' && (
                     <div className="flex gap-4">
                       {[['v', 'Verdadero'], ['f', 'Falso']].map(([val, etiqueta]) => (
-                        <label key={val} className="flex items-center gap-2 text-sm min-h-[2.75rem]">
-                          <input type="radio" name="rv-vf" checked={item.respuestaCorrecta === val} disabled={trabajando || sinPermiso}
-                            onChange={() => setCampos(item.id, { respuestaCorrecta: val })} className="accent-[var(--accent)] w-5 h-5" />
-                          {etiqueta}
-                        </label>
+                        <Radio key={val} name="rv-vf" checked={item.respuestaCorrecta === val} disabled={trabajando || sinPermiso}
+                          onChange={() => setCampos(item.id, { respuestaCorrecta: val })}
+                          wrapperClassName="!items-center min-h-[2.75rem]" label={etiqueta} />
                       ))}
                     </div>
                   )}
@@ -216,10 +214,9 @@ export default function RevisionVideoModal({
               {item.fueraDeLaEvaluacion && <p className="text-sm text-muted">La aprobaste y después la eliminaste de la lista de preguntas: ya no se publica. Para volver a usarla, agrégala a mano en la lista de preguntas.</p>}
               {err && <p role="alert" className="text-xs text-error">{err}</p>}
               {requiereConfirmacion(item) && item.estado === ESTADO_REVISION.PENDIENTE && (
-                <label className="flex items-start gap-2 text-xs text-amber-950 bg-amber-50 rounded px-2 py-2">
-                  <input type="checkbox" checked={!!confirmados[item.id]} onChange={(e) => onConfirmar(item.id, e.target.checked)} className="mt-0.5 accent-[var(--accent)]" />
-                  Vi el video y comprobé que esta pregunta y su respuesta corresponden a lo que se explica antes de este minuto.
-                </label>
+                <Checkbox checked={!!confirmados[item.id]} onChange={(e) => onConfirmar(item.id, e.target.checked)}
+                  wrapperClassName="bg-amber-50 rounded px-2 py-2"
+                  label={<span className="text-xs font-normal text-amber-950">Vi el video y comprobé que esta pregunta y su respuesta corresponden a lo que se explica antes de este minuto.</span>} />
               )}
 
               <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-outline-variant">

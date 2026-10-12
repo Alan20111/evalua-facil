@@ -12,7 +12,7 @@ import { ICONO } from '../../config/iconos'
 import { Button } from '../../components/ui'
 
 const inputCls =
-  'w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y'
+  'w-full px-4 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y'
 
 const CAMPOS = [
   {

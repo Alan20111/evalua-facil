@@ -46,7 +46,7 @@ function solapan(aStart, aEnd, bStart, bEnd) {
 // Selector de hora que salta de 10 en 10 minutos (permite 07:50, 08:10, …).
 function HoraStepper({ value, onChange, minMin, maxMin, step = SNAP_MIN }) {
   const cur = timeToMinutes(value)
-  const btn = 'px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 transition-colors'
+  const btn = 'px-2 py-1.5 rounded-full border border-outline-variant text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 transition-colors'
   return (
     <div className="flex items-center gap-1.5">
       <button type="button" onClick={() => onChange(minsToTime(Math.max(minMin, cur - step)))} disabled={cur <= minMin} className={btn} aria-label="−10 minutos">
@@ -295,7 +295,7 @@ export default function ProgramarZonaSemanal({
 
   const editP = editing ? patrones.find(p => p.id === editing) : null
   useScrollLock(!!editP)
-  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+  const inputCls = 'px-2.5 py-1.5 rounded-full border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
   const bannerBg = esModificar ? '#fef3c7' : bloqueColor(colorDefault).bg + '66'
 
   return (
