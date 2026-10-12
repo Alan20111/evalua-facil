@@ -20,6 +20,19 @@ export const SUBJECT_ICONS = {
 }
 
 export const SUBJECT_ICON_KEYS = Object.keys(SUBJECT_ICONS)
+
+// Nombre de cada ícono para el lector de pantalla y el globo de ayuda (la
+// clave guardada sigue en inglés; lo que se lee, no).
+export const SUBJECT_ICON_LABELS = {
+  book: 'Libro', calculator: 'Calculadora', flask: 'Matraz', atom: 'Átomo',
+  globe: 'Globo terráqueo', languages: 'Idiomas', music: 'Música', palette: 'Paleta de pintor',
+  dumbbell: 'Pesa', code: 'Código', pen: 'Pluma', microscope: 'Microscopio',
+  landmark: 'Edificio', map: 'Mapa', leaf: 'Hoja', brain: 'Cerebro', camera: 'Cámara',
+  film: 'Película', hammer: 'Martillo', wrench: 'Llave', cpu: 'Procesador', database: 'Base de datos',
+  sigma: 'Sigma', ruler: 'Regla', compass: 'Brújula', rocket: 'Cohete',
+  lightbulb: 'Foco', graduation: 'Birrete', library: 'Biblioteca',
+  pencil: 'Lápiz', trophy: 'Trofeo',
+}
 export const DEFAULT_SUBJECT_ICON = 'book'
 
 export function getSubjectIcon(key) {

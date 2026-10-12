@@ -25,6 +25,7 @@ const CAP = 'test/visual/capturas'
 const args = new Set(process.argv.slice(2))
 const ESCRIBIR_REF = args.has('--referencia')
 const SOLO = [...args].find((a) => a.startsWith('--solo='))?.split('=')[1]
+const VISTA = [...args].find((a) => a.startsWith('--vista='))?.split('=')[1]
 const CHROME = process.env.CHROME_PATH || [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/usr/bin/google-chrome', '/usr/bin/chromium',
@@ -57,6 +58,7 @@ const VIEWPORTS = {
 const VISTAS = {
   docente: [
     { nombre: 'tablero', url: '/dashboard' },
+    { nombre: 'nueva-asignatura', url: '/dashboard', abrir: 'Nueva asignatura' },
     { nombre: 'asignatura', url: `/subject/${semilla.ids[0]}`, pestanas: true },
     { nombre: 'actividad', url: `/activity/${semilla.actividad}` },
     { nombre: 'calendario', url: '/calendario' },
@@ -97,8 +99,12 @@ async function auditar(page) {
     const v = (n) => { const x = getComputedStyle(document.documentElement).getPropertyValue(n).trim(); return x.endsWith('rem') ? parseFloat(x) * raiz : parseFloat(x) }
     const alturas = [v('--control-sm'), v('--control'), v('--control-lg'), v('--control') - 0.5 * raiz]
     const malos = []
-    for (const e of document.querySelectorAll('main button, main input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]), main select, [role=dialog] button')) {
+    const CAMPOS = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=color])'
+    for (const e of document.querySelectorAll(`main button, main ${CAMPOS}, main select, [role=dialog] button, [role=dialog] ${CAMPOS}, [role=dialog] select`)) {
       if (!e.offsetParent || e.getAttribute('role') === 'switch') continue
+      // Muestras de color o ícono: celdas fijas de 2.5rem en su propia
+      // rejilla (REJILLA_MUESTRAS, DESIGN_SYSTEM §6.7) — no son controles.
+      if (e.parentElement?.className?.includes?.('auto-fill,2.5rem')) continue
       const r = e.getBoundingClientRect()
       if (r.height < 20 || r.height > 56) continue // íconos sueltos y filas de varios renglones
       const st = getComputedStyle(e)
@@ -131,16 +137,28 @@ for (const [vp, opts] of Object.entries(VIEWPORTS)) {
   const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: opts.hasTouch ? TACTIL : [] })
   for (const [rol, vistas] of Object.entries(VISTAS)) {
     if (SOLO && SOLO !== rol) continue
+    if (VISTA && !vistas.some((v) => v.nombre === VISTA)) continue
     const ctx = await browser.newContext({ ...opts, reducedMotion: 'reduce' })
+    // Sin el aviso flotante «Activa las notificaciones»: tapa el pie de las
+    // hojas y de la página en todas las capturas.
+    await ctx.addInitScript(() => { try { localStorage.setItem('ef_pwa_notif_dismissed', '1') } catch { /* sin almacenamiento */ } })
     const page = await ctx.newPage()
     await entrar(page, CUENTAS[rol])
     for (const v of vistas) {
+      if (VISTA && v.nombre !== VISTA) continue
       // No 'networkidle': Firestore deja conexiones abiertas y nunca se cumple.
       // Se espera a que no quede ningún esqueleto de carga (aria-busy).
       await page.goto(BASE + v.url, { waitUntil: 'domcontentloaded' })
       await page.waitForSelector('main', { timeout: 15000 }).catch(() => {})
       await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'), null, { timeout: 15000 }).catch(() => {})
       await page.waitForTimeout(800)
+      // Formularios en hoja (fase 3): se abre con su botón y se captura el
+      // diálogo en lugar de la página.
+      if (v.abrir) {
+        await page.getByRole('button', { name: v.abrir, exact: true }).and(page.locator(':visible')).first().click({ timeout: 5000 })
+        await page.waitForSelector('[role=dialog]', { timeout: 5000 })
+        await page.waitForTimeout(600)
+      }
       const tomas = [['', null]]
       if (v.pestanas) {
         const pestanas = await page.locator('[role=tablist]').first().locator('[role=tab]').allTextContents()
@@ -153,7 +171,7 @@ for (const [vp, opts] of Object.entries(VIEWPORTS)) {
           await page.waitForTimeout(700)
         }
         const clave = `${vp}/${v.nombre}${sufijo ? '-' + sufijo.replace(/[^\wáéíóúñ]+/gi, '_') : ''}`
-        const html = normalizar(await page.locator('main').first().innerHTML().catch(() => ''))
+        const html = normalizar(await page.locator(v.abrir ? '[role=dialog]' : 'main').first().innerHTML().catch(() => ''))
         const refArchivo = path.join(REF, clave + '.html')
         fs.mkdirSync(path.dirname(refArchivo), { recursive: true })
         if (ESCRIBIR_REF) fs.writeFileSync(refArchivo, html)
@@ -168,6 +186,12 @@ for (const [vp, opts] of Object.entries(VIEWPORTS)) {
         for (const m of await auditar(page)) auditoria.push({ vista: clave, ...m })
         fs.mkdirSync(path.join(CAP, vp), { recursive: true })
         await page.screenshot({ path: path.join(CAP, clave + '.png'), fullPage: true })
+        if (v.abrir) {
+          // La hoja se desplaza por dentro: segunda captura con su pie.
+          await page.evaluate(() => { for (const el of document.querySelectorAll('[role=dialog], [role=dialog] *')) if (el.scrollHeight > el.clientHeight + 4 && getComputedStyle(el).overflowY !== 'visible') el.scrollTop = el.scrollHeight })
+          await page.waitForTimeout(300)
+          await page.screenshot({ path: path.join(CAP, clave + '-pie.png') })
+        }
       }
     }
     await ctx.close()

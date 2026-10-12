@@ -1,11 +1,17 @@
 import { useRef, useState } from 'react'
 import { ImagePlus, Loader2 } from 'lucide-react'
-import { SUBJECT_ICON_KEYS, getSubjectIcon, SUBJECT_DOTS } from '../utils/subjectIcons'
+import { SUBJECT_ICON_KEYS, SUBJECT_ICON_LABELS, getSubjectIcon, SUBJECT_DOTS } from '../utils/subjectIcons'
 import SubjectIcon from './SubjectIcon'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { useToast } from './Toast'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { MUESTRA, REJILLA_MUESTRAS } from '../config/layout'
+import { ICONO } from '../config/iconos'
+
+// Elegido = aro de 2 px con separación, igual que los colores de PaletteSelect
+// (PLAN_NORMALIZACION_UI §5.1). Cada grupo conserva su relleno; el aro es lo
+// que se lee como «este es el tuyo» en las tres filas.
+const ARO = 'ring-2 ring-offset-2 ring-[var(--accent)]'
 
 const MAX_ICON_BYTES = 1024 * 1024 // 1 MB
 
@@ -58,16 +64,17 @@ export default function IconSelect({ value = 'book', onChange }) {
               onClick={() => onChange(d.key)}
               data-tooltip={d.label}
               aria-label={`Bolita ${d.label.toLowerCase()}`}
+              aria-pressed={selected}
               className={`${MUESTRA} rounded-full flex items-center justify-center transition-colors ${
                 selected
-                  ? 'bg-[var(--accent-light)] ring-2 ring-[var(--accent)]'
+                  ? `bg-[var(--accent-light)] ${ARO}`
                   : 'bg-surface-container hover:bg-[var(--accent-tint)]'
               }`}
             >
               {/* w-full h-full manda sobre el width/height del SVG (CSS gana a
                   los atributos de presentación): la bolita llena la celda de
-                  borde a borde, no los 19 px que usan los íconos de abajo. */}
-              <SubjectIcon iconKey={d.key} size={IS_NATIVE_APP ? 15 : 19} className="w-full h-full" />
+                  borde a borde, no los 20 px que usan los íconos de abajo. */}
+              <SubjectIcon iconKey={d.key} size={IS_NATIVE_APP ? ICONO.sm : ICONO.md} className="w-full h-full" />
             </button>
           )
         })}
@@ -81,10 +88,12 @@ export default function IconSelect({ value = 'book', onChange }) {
               key={key}
               type="button"
               onClick={() => onChange(key)}
-              aria-label={key}
-              className={`${MUESTRA} rounded-full flex items-center justify-center transition-colors ${selected ? 'bg-accent text-white' : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'}`}
+              data-tooltip={SUBJECT_ICON_LABELS[key]}
+              aria-label={SUBJECT_ICON_LABELS[key] || key}
+              aria-pressed={selected}
+              className={`${MUESTRA} rounded-full flex items-center justify-center transition-colors ${selected ? `bg-accent text-white ${ARO}` : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'}`}
             >
-              <Icon size={IS_NATIVE_APP ? 15 : 19} />
+              <Icon size={IS_NATIVE_APP ? ICONO.sm : ICONO.md} />
             </button>
           )
         })}
@@ -99,13 +108,14 @@ export default function IconSelect({ value = 'book', onChange }) {
           data-tooltip="Ícono propio · sube una imagen cuadrada de 64×64 px (PNG, JPG, WebP o SVG, máx. 1 MB)"
           data-tooltip-pos="left"
           aria-label="Subir ícono propio"
-          className={`${MUESTRA} rounded-full flex items-center justify-center transition-colors border border-dashed ${isCustom ? 'border-[var(--accent)] bg-[var(--accent-tint)]' : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
+          aria-pressed={isCustom}
+          className={`${MUESTRA} rounded-full flex items-center justify-center transition-colors border border-dashed ${isCustom ? `border-[var(--accent)] bg-[var(--accent-tint)] ${ARO}` : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
         >
           {uploading
-            ? <Loader2 size={IS_NATIVE_APP ? 15 : 19} className="animate-spin" />
+            ? <Loader2 size={IS_NATIVE_APP ? ICONO.sm : ICONO.md} className="animate-spin" />
             : isCustom
-              ? <img src={value} alt="Ícono propio" className={IS_NATIVE_APP ? 'w-[17px] h-[17px] object-contain' : 'w-[21px] h-[21px] object-contain'} />
-              : <ImagePlus size={IS_NATIVE_APP ? 15 : 19} />}
+              ? <img src={value} alt="Ícono propio" className={IS_NATIVE_APP ? 'size-4 object-contain' : 'size-5 object-contain'} />
+              : <ImagePlus size={IS_NATIVE_APP ? ICONO.sm : ICONO.md} />}
         </button>
       </div>
       <input

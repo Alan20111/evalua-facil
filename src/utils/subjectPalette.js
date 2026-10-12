@@ -11,7 +11,7 @@ export const PALETTES = [
   { key: 'purple', label: 'Morado', color: '#9333ea' },
   { key: 'green', label: 'Verde', color: '#16a34a' },
   { key: 'rose', label: 'Rosa', color: '#e11d48' },
-  { key: 'teal', label: 'Teal', color: '#14b8a6' },
+  { key: 'teal', label: 'Turquesa', color: '#14b8a6' },
   { key: 'slate', label: 'Grafito', color: '#475569' },
 ]
 

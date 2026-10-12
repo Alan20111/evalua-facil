@@ -29,6 +29,10 @@ export function normalizeParcialesFechas(fechaInicio, fechaFin, numParciales, ar
  *
  * `value` es un array de { inicio, fin } de longitud `numParciales`.
  */
+// Fecha que no se elige (la pone el curso o el parcial anterior): mismo alto
+// y forma que el selector de fecha de al lado (alto de control, píldora).
+const CAJA_FIJA = 'w-full flex items-center min-h-control py-1 px-4 rounded-full border border-outline-variant bg-surface-variant text-sm text-muted'
+
 export default function ParcialesFechas({ fechaInicio, fechaFin, numParciales, value, onChange }) {
   if (!fechaInicio || !fechaFin || !numParciales) return null
 
@@ -60,11 +64,11 @@ export default function ParcialesFechas({ fechaInicio, fechaFin, numParciales, v
                 <div>
                   <span className="block text-xs text-muted mb-1">Inicio</span>
                   {isFirst ? (
-                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-muted">
+                    <div className={CAJA_FIJA}>
                       {formatLong(inicio) || '—'}
                     </div>
                   ) : (
-                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-muted">
+                    <div className={CAJA_FIJA}>
                       {formatLong(inicio) || '— (se define al elegir el fin del parcial anterior)'}
                     </div>
                   )}
@@ -72,12 +76,13 @@ export default function ParcialesFechas({ fechaInicio, fechaFin, numParciales, v
                 <div>
                   <span className="block text-xs text-muted mb-1">Fin</span>
                   {isLast ? (
-                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-muted">
+                    <div className={CAJA_FIJA}>
                       {formatLong(fin) || '—'}
                     </div>
                   ) : (
                     <EFDateTimePicker
                       mode="date"
+                      etiqueta={`Fin del parcial ${i + 1}`}
                       value={fin}
                       onChange={(v) => setFin(i, v)}
                       minDateTime={inicio ? addOneDay(inicio) : undefined}
