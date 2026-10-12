@@ -371,8 +371,10 @@ export function estudiantesUnicos(students, { subjectsMap = {}, docentesIds = nu
 
 // Auth entrega la fecha como TEXTO (p. ej. «Tue, 11 Aug 2026 14:03:00 GMT»).
 // Para compras se exige un Timestamp (leerFecha); aquí se acepta además texto
-// que JavaScript sepa leer y que caiga en un rango creíble.
-function leerFechaAuth(valor) {
+// que JavaScript sepa leer y que caiga en un rango creíble. Devuelve un Date, o
+// null si no hay una fecha válida. (Se exporta: la tabla de Registros la usa
+// para leer la fecha de registro.)
+export function leerFechaAuth(valor) {
   if (typeof valor === 'string') {
     const t = valor.trim()
     if (!t) return null
@@ -549,4 +551,36 @@ export function kpisResumen({
     },
     avisos,
   }
+}
+
+/**
+ * Última compra de créditos COMPLETADA de cada docente, para la tabla de
+ * Registros. Sigue las mismas reglas de venta que `resumenCompras` (origen de
+ * venta, id, importe y créditos válidos): lo que ahí no cuenta como venta, aquí
+ * tampoco es «una compra».
+ *
+ * Devuelve { [docenteId]: { id, fecha, creditos } }. `fecha` es la de resolución
+ * (`resueltoEn`) y vale null si esa compra no trae una fecha válida: se dice
+ * «sin fecha», no se inventa. Entre varias gana la de fecha más reciente; una
+ * con fecha gana a una sin fecha; si empatan, la primera que aparece. Los
+ * docentes sin compras completadas no aparecen en el resultado.
+ *
+ * Ni modifica las compras ni toca saldos: solo lee.
+ */
+export function ultimaCompraPorDocente(compras, opciones = {}) {
+  const { aceptadas } = prepararCompras(compras, opciones)
+  const porDocente = {}
+  aceptadas.forEach(({ id, doc, estado }) => {
+    if (estado !== ESTADO.COMPLETADO) return
+    const docenteId = textoLimpio(doc.docenteId)
+    if (!docenteId) return
+    if (!esPositivo(doc.montoMXN) || !esPositivo(doc.creditos)) return
+    const resolucion = leerFecha(doc.resueltoEn)
+    const fecha = resolucion.estado === 'ok' ? resolucion.fecha : null
+    const actual = porDocente[docenteId]
+    if (!actual || (fecha && (!actual.fecha || fecha.getTime() > actual.fecha.getTime()))) {
+      porDocente[docenteId] = { id, fecha, creditos: doc.creditos }
+    }
+  })
+  return porDocente
 }

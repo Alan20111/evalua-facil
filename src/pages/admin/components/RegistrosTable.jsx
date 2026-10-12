@@ -18,22 +18,20 @@ import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import { normalizeName } from '../../../utils/schoolSelection'
-import { cuandoConsultaAuth } from '../../../utils/resumenAdmin'
+import { cuandoConsultaAuth, ultimaCompraPorDocente } from '../../../utils/resumenAdmin'
 import {
-  nombreCompletoDocente,
   saldoIAVisible,
   compararNumerico,
+  compararPorRegistro,
   siguienteOrden,
-} from '../../../utils/suscripcionesTabla'
+  construirFilasRegistros,
+  estudiantesPorDocente,
+  correosDuplicados,
+} from '../../../utils/registrosTabla'
 import {
   PAYMENT_STATUS,
-  calcDaysRemaining,
-  effectiveVencimiento,
   estadoRegaloIA,
   formatCreditos,
-  formatCurrency,
-  formatDate,
-  toDate,
 } from '../../../utils/creditosHelpers'
 
 const inputCls =
@@ -46,7 +44,9 @@ const PAGE = 100
 // desplaza con los encabezados fijos arriba.
 const ALTO_TABLA = 'calc(100vh - 290px)'
 
-const WIDTHS_KEY = 'admin-suscripciones-cols-v6'
+// v7: la tabla cambió de columnas (Registros); los anchos guardados con la
+// versión anterior ya no corresponden y se descartan una sola vez.
+const WIDTHS_KEY = 'admin-registros-cols-v7'
 
 // Mapa vacío compartido: conserva la misma identidad entre renders (es
 // dependencia de useMemo) mientras no hay datos de Auth.
@@ -57,7 +57,7 @@ const SIN_DATOS = Object.freeze({})
 //             cumplen (sirve con cientos de escuelas)
 //   'fecha' → selector de día
 //   'lista' → desplegable con los valores posibles (pocos y fijos)
-// Orden fijo: del alta más nueva a la más antigua, igual que Estudiantes.
+// Orden predeterminado: del registro más nuevo al más antiguo.
 const COLS = [
   { key: 'num', label: 'No.', w: 65, align: 'right' },
   { key: 'docente', label: 'Nombre del docente', w: 185 },
@@ -77,7 +77,7 @@ const COLS = [
     label: 'Estado',
     filtro: 'texto',
     w: 150,
-    ayuda: 'Entidad del docente (no la situación de la suscripción, que es la columna Plan). Si el docente no capturó su código postal, se toma la de su escuela.',
+    ayuda: 'Entidad del docente. Si no la capturó en su perfil, se toma la de su escuela.',
   },
   {
     key: 'ciudad',
@@ -93,14 +93,21 @@ const COLS = [
     w: 105,
     align: 'right',
     wrap: true,
-    ayuda: 'Cuántas PERSONAS distintas tiene inscritas el docente. Quien está en varias de sus asignaturas cuenta una sola vez, así que no es el número de inscripciones. Sale de las asignaturas del docente y de los alumnos inscritos en ellas.',
+    ayuda: 'Cuántas PERSONAS distintas tiene inscritas el docente. Quien está en varias de sus asignaturas cuenta una sola vez, así que no es el número de inscripciones. Una persona inscrita con dos docentes cuenta con cada uno: la suma de la columna puede superar el total de estudiantes de la plataforma. Un 0 es un cero confirmado.',
   },
   {
-    key: 'alta',
-    label: 'Fecha de alta',
+    key: 'registro',
+    label: 'Fecha de registro',
     filtro: 'fecha',
     w: 135,
-    ayuda: 'Cuándo se registró el docente. Si tiene suscripción, se usa la fecha de inicio de ésta; si no, la fecha de creación de su cuenta.',
+    ayuda: 'Cuándo se registró el docente: la fecha de creación de su cuenta en Firebase Authentication (hora de México). Si Auth no la trae, la de su perfil; si no hay ninguna, guion. El número de la primera columna sigue este mismo orden (1 = el registro más antiguo).',
+  },
+  {
+    key: 'metodo',
+    label: 'Se registró con',
+    w: 140,
+    wrap: true,
+    ayuda: 'Cómo creó su cuenta, según el perfil del docente (users.provider). No dice con qué métodos entra hoy: quien se registró con Google puede haber agregado después una contraseña. Guion: el perfil no lo trae.',
   },
   {
     key: 'regalo',
@@ -126,10 +133,11 @@ const COLS = [
     ayuda: 'Cuántos días lleva el docente sin iniciar sesión (lo que Firebase Auth registra como su último acceso, no una fecha que guardemos nosotros). En ámbar a partir de 30 días y en rojo a partir de 60. Guion: nunca ha entrado, o su cuenta ya no existe. Clic en el título para ordenar: de menos a más días, de más a menos, y otro clic quita el orden.',
   },
   {
-    key: 'ultimoPago',
-    label: 'Último pago',
-    w: 165,
-    ayuda: 'Monto y fecha del pago más reciente de ese docente. Venía de la pestaña Usuarios, que se retiró.',
+    key: 'ultimaCompra',
+    label: 'Última compra de créditos',
+    w: 175,
+    wrap: true,
+    ayuda: 'La compra de créditos completada más reciente de ese docente: fecha en que se aprobó y créditos comprados. «Sin compras» si no tiene ninguna completada. No incluye los créditos de regalo ni los ajustes manuales, ni los pagos del modelo anterior.',
   },
   { key: 'acciones', label: 'Acciones', w: 120 },
 ]
@@ -137,52 +145,6 @@ const COLS = [
 const CAMPOS_TEXTO = ['codigoPostal', 'estado', 'ciudad', 'escuela']
 const CAMPOS_FILTRO = COLS.filter((c) => c.filtro).map((c) => c.key)
 const SIN_FILTROS = Object.fromEntries(CAMPOS_FILTRO.map((k) => [k, '']))
-
-// Días completos transcurridos desde el último acceso. `null` cuando no hay
-// dato (nunca entró, o la cuenta ya no existe en Auth).
-function diasSinAccesar(fechaISO) {
-  if (!fechaISO) return null
-  const d = new Date(fechaISO)
-  if (Number.isNaN(d.getTime())) return null
-  return Math.max(0, Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24)))
-}
-
-// Personas distintas inscritas con cada docente, en UNA sola pasada sobre el
-// padrón que el panel ya tiene cargado (stats.students y stats.subjectsMap):
-// ni una consulta más a Firestore, y menos aún una por renglón.
-//
-// Dos reglas prestadas, no reinventadas:
-//   · Quién es el docente de un alumno: `students` no guarda docenteId, sale de
-//     su asignatura (el campo suelto solo sobrevive en documentos viejos y se
-//     usa de respaldo cuando la asignatura ya no existe). Es exactamente lo que
-//     hace la tabla de Estudiantes — ver StudentsTable.jsx.
-//   · Quién es "la misma persona": usuario + escuela, que es la identidad de su
-//     cuenta (de ahí sale su correo de Auth — ver studentEmail en
-//     utils/generate.js, y findStudentIdentity en utils/studentIdentity.js).
-//     Cada inscripción es un documento aparte, uno por asignatura, y todas las
-//     del mismo alumno comparten ese usuario: por eso quien está en tres
-//     asignaturas del mismo docente cuenta UNA vez, no tres.
-function contarEstudiantesPorDocente(students, subjectsMap) {
-  const porDocente = new Map()
-  students.forEach((s) => {
-    const docenteId = subjectsMap[s.asignaturaId]?.docenteId || s.docenteId
-    if (!docenteId) return
-    // Sin usuario (inscripción a medio crear) se cae al id del documento: se
-    // cuenta como una persona en vez de fundir a todos los que no lo tengan.
-    const persona = s.username
-      ? `${String(s.username).toLowerCase()}|${String(s.escuelaId || '').toLowerCase()}`
-      : `doc:${s.id}`
-    let set = porDocente.get(docenteId)
-    if (!set) porDocente.set(docenteId, (set = new Set()))
-    set.add(persona)
-  })
-  const res = {}
-  porDocente.forEach((set, docenteId) => { res[docenteId] = set.size })
-  return res
-}
-
-const isoLocal = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 // ¿Esta fila pasa los filtros? `excepto` deja fuera un campo a propósito, para
 // calcular qué sugerir en ESA columna sin que su propio texto a medio escribir
@@ -193,10 +155,11 @@ function pasaFiltros(r, filtros, search, excepto) {
   if (t('estado') && !r.buscarEstado.includes(t('estado'))) return false
   if (t('ciudad') && !r.buscarCiudad.includes(t('ciudad'))) return false
   if (t('escuela') && !r.buscarEscuela.includes(t('escuela'))) return false
-  if (excepto !== 'alta' && filtros.alta && r.altaISO !== filtros.alta) return false
-  // La caja de arriba busca en TODO el renglón (docente, correo,
-  // ciudad, escuela, plan, situación, fechas…), no solo en el nombre:
-  // quien escribe "guanajuato" o "vencida" ahí espera encontrarlo.
+  // El día se compara en la zona de México (r.registroISO ya viene calculado así).
+  if (excepto !== 'registro' && filtros.registro && r.registroISO !== filtros.registro) return false
+  // La caja de arriba busca en TODO el renglón (docente, correo, ubicación,
+  // escuela, fecha de registro, método, última compra…), no solo en el nombre:
+  // quien escribe "guanajuato" o "google" ahí espera encontrarlo.
   const q = normalizeName(search)
   if (q && !r.buscarTodo.includes(q)) return false
   return true
@@ -318,7 +281,7 @@ function CeldaRegalo({ uid, cuentaEliminada, registro, creditos, tieneComprasAcr
   )
 }
 
-export default function SubscriptionsTable({ stats, onRefresh }) {
+export default function RegistrosTable({ stats, onRefresh }) {
   const toast = useToast()
   const { currentUser } = useAuth()
   const [ajusteModal, setAjusteModal] = useState(null)
@@ -352,7 +315,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   // diga en vez de fingir que nadie tiene regalo.
   const [regaloSinPermiso, setRegaloSinPermiso] = useState(false)
   const teachers = useMemo(() => stats?.teachers || [], [stats?.teachers])
-  const teachersMap = useMemo(() => Object.fromEntries(teachers.map((t) => [t.id, t])), [teachers])
 
   // `authInfo.resuelto` es true cuando la petición de Auth TERMINÓ (con éxito,
   // con fallo o por tope de tiempo). El orden de la tabla depende de las fechas
@@ -412,149 +374,69 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     return set
   }, [stats?.creditPurchases])
 
-  // Una sola pasada por todo el padrón de alumnos, y solo cuando cambia:
-  // el conteo NO se rehace al escribir en los filtros ni al pintar cada fila.
-  const estudiantesPorDocente = useMemo(
-    () => contarEstudiantesPorDocente(stats?.students || [], stats?.subjectsMap || {}),
+  // Personas únicas por docente, en UNA sola pasada sobre el padrón que el panel
+  // ya tiene cargado (stats.students y stats.subjectsMap): ni una consulta más a
+  // Firestore. Solo se rehace cuando cambian esos datos, no al escribir en los
+  // filtros ni al pintar cada fila. La regla vive en utils/registrosTabla.js.
+  const estudiantesMap = useMemo(
+    () => estudiantesPorDocente(stats?.students || [], stats?.subjectsMap || {}),
     [stats?.students, stats?.subjectsMap]
   )
 
-  // Cada suscripción se "aplana" una sola vez a las columnas visibles: así el
-  // filtro trabaja sobre texto ya resuelto en vez de volver a cruzar docente,
-  // escuela y ubicación en cada tecla.
+  // Última compra de créditos COMPLETADA de cada docente (creditPurchases, con
+  // las mismas reglas de venta que el Resumen). Los pagos históricos (payments)
+  // no entran.
+  const ultimaCompra = useMemo(
+    () => ultimaCompraPorDocente(stats?.creditPurchases || []),
+    [stats?.creditPurchases]
+  )
+
+  // Correos que usan dos o más docentes: solo se señalan, no se corrigen.
+  const duplicados = useMemo(() => correosDuplicados(teachers), [teachers])
+
+  // Una fila por docente REGISTRADO (de `users`) más las constancias de baja:
+  // nada depende de que haya comprado créditos ni de suscripciones. Se "aplana"
+  // una sola vez a las columnas visibles, así el filtro trabaja sobre texto ya
+  // resuelto en vez de volver a cruzar docente, escuela y ubicación en cada tecla.
   const rows = useMemo(() => {
     if (!stats) return []
-    const { subscriptions = [], schoolsMap = {}, payments = [] } = stats
-
-    // Último pago por docente. Lo aportaba la pestaña Usuarios, que se retiró
-    // por redundante: 4 de sus 6 columnas ya estaban aquí.
-    const ultimoPagoPorDocente = {}
-    payments.forEach((p) => {
-      const prev = ultimoPagoPorDocente[p.docenteId]
-      if (!prev || (p.createdAt?.toMillis?.() || 0) > (prev.createdAt?.toMillis?.() || 0)) {
-        ultimoPagoPorDocente[p.docenteId] = p
-      }
+    const filas = construirFilasRegistros({
+      docentes: teachers,
+      bajas: stats.bajas || [],
+      schoolsMap: stats.schoolsMap || {},
+      estudiantes: estudiantesMap,
+      creadoEn: creadoEnMap,
+      accesos,
+      ultimaCompra,
+      ahora: new Date(),
     })
+    return filas.map((r) => ({
+      ...r,
+      buscarCodigoPostal: normalizeName(r.codigoPostal),
+      buscarEstado: normalizeName(r.estado),
+      buscarCiudad: normalizeName(r.ciudad),
+      buscarEscuela: normalizeName(r.escuela),
+      // Todo el renglón en una sola cadena para la caja de búsqueda de arriba,
+      // que busca por cualquier motivo (ciudad, escuela, nombre…).
+      buscarTodo: normalizeName(
+        [r.docente, r.correo, r.codigoPostal, r.estado, r.ciudad, r.escuela,
+          r.estudiantes === null ? '' : String(r.estudiantes), r.registroTexto, r.metodo,
+          r.ultimaCompra, r.bajaTexto || ''].join(' ')
+      ),
+    }))
+  }, [stats, teachers, estudiantesMap, creadoEnMap, accesos, ultimaCompra])
 
-    // `sub` puede venir null: son los docentes que no tienen ninguna
-    // suscripción. Antes solo se veían en Usuarios y al quitar esa pestaña
-    // habrían desaparecido del panel, que es justo lo que no debe pasar.
-    const construir = (sub, teacher) => {
-      const school = schoolsMap[teacher?.escuelaId]
-      // Alta: cadena de fallback:
-      //   1. fechaInicio de la suscripción (si la hay)
-      //   2. createdAt del doc users/{uid} (si se guardó al registrar)
-      //   3. creationTime de Firebase Auth (devuelto por el endpoint last-access)
-      let alta = sub
-        ? toDate(sub.fechaInicio || sub.createdAt)
-        : toDate(teacher?.createdAt)
-      if (!alta && creadoEnMap[teacher?.id]) alta = new Date(creadoEnMap[teacher?.id])
-      const altaValor = alta
-      // Vencimiento REAL: en las pruebas se recalcula desde el inicio (ver
-      // effectiveVencimiento) en vez de confiar en el campo guardado.
-      const vencValor = sub ? effectiveVencimiento(sub) : null
-      const venc = toDate(vencValor)
-      const docente = nombreCompletoDocente(teacher) || '—'
-      const correo = teacher?.email || '—'
-      const pago = ultimoPagoPorDocente[teacher?.id]
-      const ultimoPago = pago
-        ? `${formatCurrency(pago.monto)} — ${formatDate(pago.createdAt)}`
-        : '—'
-      // Ubicación del docente. Primero la suya (desglosada desde su código
-      // postal al completar el perfil); si no la ha capturado, se cae a la de
-      // su escuela, que el catálogo de planteles sí trae. Sin ese respaldo la
-      // columna quedaría vacía para todo docente que no pasó por el perfil.
-      // El CP no tiene respaldo: el catálogo de planteles no lo incluye.
-      const codigoPostal = teacher?.codigoPostal || '—'
-      const estadoUbicacion = teacher?.estado || school?.estado || '—'
-      const ciudad = teacher?.ciudad || teacher?.municipio || school?.municipio || '—'
-      const escuela = school?.shortName || school?.nombre || school?.claveSEP || sub?.schoolName || '—'
-      // Siempre un número: un docente sin alumnos tiene 0 alumnos, y eso se
-      // dice con un cero, no con un guion.
-      const estudiantes = estudiantesPorDocente[teacher?.id] || 0
-      const altaTexto = alta ? formatDate(altaValor) : '—'
-      const vencTexto = sub ? formatDate(vencValor) : '—'
-      return {
-        // Bug real (19-ago-2026): las bajas arman un `sub` de constancia SIN
-        // `.id` (no hay documento de suscripción que borrar — nunca existió
-        // o ya se borró junto con la cuenta), así que `sub.id` daba
-        // `undefined` para TODAS las bajas — la key de React quedaba
-        // repetida (`undefined`) en cada una, y por eso se veían como filas
-        // "duplicadas" que no se distinguían entre sí.
-        id: sub ? (sub.id ?? `baja-${teacher?.id}`) : `sin-suscripcion-${teacher?.id}`,
-        sub,
-        docente,
-        correo,
-        codigoPostal,
-        estado: estadoUbicacion,
-        ciudad,
-        escuela,
-        estudiantes,
-        ultimoPago,
-        buscarCodigoPostal: normalizeName(codigoPostal),
-        buscarEstado: normalizeName(estadoUbicacion),
-        buscarCiudad: normalizeName(ciudad),
-        buscarEscuela: normalizeName(escuela),
-        // Todo el renglón en una sola cadena para la caja de búsqueda de
-        // arriba, que busca por cualquier motivo (ciudad, escuela, nombre…).
-        buscarTodo: normalizeName(
-          [docente, correo, codigoPostal, estadoUbicacion, ciudad, escuela,
-            String(estudiantes), altaTexto, vencTexto, ultimoPago].join(' ')
-        ),
-        alta: altaTexto,
-        altaISO: alta ? isoLocal(alta) : '',
-        altaMs: alta ? alta.getTime() : 0,
-        vencimiento: vencTexto,
-        vencimientoISO: venc ? isoLocal(venc) : '',
-        dias: sub ? calcDaysRemaining(vencValor) : null,
-        // Días completos desde el último inicio de sesión. null = nunca ha
-        // entrado o su cuenta ya no está en Auth (una baja, por ejemplo).
-        sinAcceder: diasSinAccesar(accesos[teacher?.id]),
-        uid: teacher?.id || null,
-        // Fecha de creación de la cuenta: se usa para la numeración cronológica
-        // (#1 = más antigua, #N = más nueva) que no cambia al filtrar.
-        // Prioridad: createdAt del doc users/{uid} > fecha de inicio de suscripción.
-        // Las bajas no conservan createdAt (el doc users ya fue borrado); se
-        // usa fechaBaja como aproximación para que queden ordenadas razonablemente.
-        cuentaMs: (() => {
-          const ct = teacher?.createdAt
-          if (ct) {
-            if (typeof ct.toMillis === 'function') return ct.toMillis()
-            if (ct?.seconds) return ct.seconds * 1000
-          }
-          return alta ? alta.getTime() : 0
-        })(),
-      }
-    }
-
-    const conSuscripcion = subscriptions.map((sub) => construir(sub, teachersMap[sub.docenteId]))
-    const conSub = new Set(subscriptions.map((s) => s.docenteId))
-    const sinSuscripcion = teachers.filter((t) => !conSub.has(t.id)).map((t) => construir(null, t))
-    const bajas = (stats.bajas || []).map((b) =>
-      construir(
-        { cuentaEliminada: true, fechaInicio: b.fechaBaja, status: 'eliminada', docenteId: b.docenteId },
-        { id: b.docenteId, nombre: b.nombre, email: b.email }
-      )
-    )
-
-    // Asignar rank cronológico global: #1 = cuenta más antigua, #N = más nueva.
-    // El rank es fijo e independiente de los filtros: no cambia al buscar.
-    const todasLasFilas = [...conSuscripcion, ...sinSuscripcion, ...bajas]
-    const porFechaAsc = [...todasLasFilas].sort((a, b) => (a.cuentaMs || 0) - (b.cuentaMs || 0))
-    const rankMap = new Map(porFechaAsc.map((r, i) => [r.id, i + 1]))
-    return todasLasFilas.map((r) => ({ ...r, rank: rankMap.get(r.id) || 0 }))
-  }, [stats, teachers, teachersMap, accesos, creadoEnMap, estudiantesPorDocente])
-
-  // Orden predeterminado: la suscripción más reciente hasta arriba; dentro del
-  // mismo día desempata el nombre del docente. Si se ordena por una columna, ese
-  // criterio manda y el predeterminado queda como desempate.
+  // Orden predeterminado: el registro más reciente hasta arriba (las filas sin
+  // fecha de registro, y las constancias de baja, al final); desempata el nombre.
+  // Si se ordena por una columna, ese criterio manda y el predeterminado queda
+  // como desempate.
   const filtered = useMemo(
     () =>
       rows
         .filter((r) => pasaFiltros(r, filtros, search, null))
         .sort((a, b) =>
           (orden ? compararNumerico(a[orden.key], b[orden.key], orden.dir) : 0) ||
-          b.rank - a.rank ||
+          compararPorRegistro(a, b) ||
           a.docente.localeCompare(b.docente, 'es')),
     [rows, filtros, search, orden]
   )
@@ -594,12 +476,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   }
 
   // Borra la CONSTANCIA de una cuenta eliminada (colección `bajas`, doc id =
-  // uid del docente — ver api/account/delete.js) — un documento totalmente
-  // distinto al de `handleDelete` (que borra `subscriptions`). Corrección
-  // 19-ago-2026: antes el botón de esta fila intentaba borrar de
-  // `subscriptions` con un `sub.id` que nunca existió ahí (truena en el SDK
-  // de Firestore) — por eso la fila no desaparecía sin importar cuántas
-  // veces se intentara. `firestore.rules` necesita `allow delete: if
+  // uid del docente — ver api/account/delete.js). Es un documento totalmente
+  // distinto al de la cuenta. `firestore.rules` necesita `allow delete: if
   // isAdmin()` en `match /bajas/{docenteId}` para que esto funcione — antes
   // solo tenía `allow read`.
   async function handleDeleteBaja(docenteId) {
@@ -670,7 +548,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-outline-variant flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-semibold text-on-surface">Suscripciones</h2>
+          <h2 className="font-semibold text-on-surface">Registros</h2>
           <p className="text-sm mt-0.5">
             {hayFiltro ? (
               <>
@@ -682,7 +560,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             )}
           </p>
           <p className="text-xs text-hint mt-0.5">
-            Una suscripción por docente. <strong>Regalo IA</strong> es qué pasó con los
+            Una fila por docente registrado. <strong>Regalo IA</strong> es qué pasó con los
             créditos de bienvenida; <strong>Saldo IA</strong> es el saldo total de hoy.
           </p>
           {/* La última consulta a Firebase Authentication falló o se agotó DESPUÉS
@@ -692,8 +570,20 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             <output className="flex items-start gap-1.5 text-xs text-amber-800 mt-1.5">
               <AlertTriangle size={14} className="mt-px flex-shrink-0" aria-hidden="true" />
               <span>
-                Fecha de alta y días sin accesar de la consulta {cuandoConsultaAuth(authInfo.actualizadoEn, stats?.cargadoEn) || 'anterior'}:
+                Fecha de registro y días sin accesar de la consulta {cuandoConsultaAuth(authInfo.actualizadoEn, stats?.cargadoEn) || 'anterior'}:
                 no se pudo actualizar Firebase Authentication.
+              </span>
+            </output>
+          )}
+          {/* Solo si de verdad hay correos repetidos entre docentes. Nada se
+              fusiona ni se corrige: se señala para que alguien lo revise. */}
+          {duplicados.length > 0 && (
+            <output className="flex items-start gap-1.5 text-xs text-amber-800 mt-1.5">
+              <AlertTriangle size={14} className="mt-px flex-shrink-0" aria-hidden="true" />
+              <span>
+                {duplicados.length === 1 ? '1 correo lo usan' : `${duplicados.length} correos los usan`} varios docentes
+                {' '}({duplicados.slice(0, 3).map((d) => `${d.correo} · ${d.cantidad}`).join('; ')}
+                {duplicados.length > 3 ? '…' : ''}). Revísalos: no se unieron ni se corrigieron.
               </span>
             </output>
           )}
@@ -805,37 +695,42 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               // pintan filas, para no enseñar un orden provisional.
               <tr>
                 <td colSpan={COLS.length} className="px-4 py-4">
-                  <SkeletonTable rows={8} cols={7} etiqueta="Cargando suscripciones…" />
+                  <SkeletonTable rows={8} cols={7} etiqueta="Cargando registros…" />
                 </td>
               </tr>
             ) : visible.length === 0 ? (
               <tr>
                 <td colSpan={COLS.length} className="px-4 py-8 text-center text-hint">
                   {rows.length === 0
-                    ? 'Sin suscripciones'
-                    : 'Ninguna suscripción cumple con lo que se está filtrando'}
+                    ? 'Sin registros'
+                    : 'Ningún registro cumple con lo que se está filtrando'}
                 </td>
               </tr>
             ) : (
               visible.map((r) => (
                 <tr key={r.id} className="hover:bg-[var(--accent-tint)]">
                   <td className="px-3 py-2 text-right text-hint tabular-nums">
-                    {r.rank}
+                    {r.rank ?? '—'}
                   </td>
-                  <td className="px-3 py-2 font-medium text-on-surface truncate" title={r.docente}>{r.docente}</td>
+                  <td className="px-3 py-2 font-medium text-on-surface truncate" title={r.docente}>
+                    {r.docente}
+                    {/* La fecha de baja NO es la de registro: se dice aparte. */}
+                    {r.baja && <span className="block text-xs font-normal text-red-600 truncate">{r.bajaTexto}</span>}
+                  </td>
                   <td className="px-3 py-2 text-muted truncate" title={r.correo}>{r.correo}</td>
                   <td className="px-3 py-2 text-muted truncate tabular-nums">{r.codigoPostal}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.estado}>{r.estado}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.ciudad}>{r.ciudad}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-on-surface">
-                    {r.estudiantes.toLocaleString('es-MX')}
+                    {r.estudiantes === null ? '—' : r.estudiantes.toLocaleString('es-MX')}
                   </td>
-                  <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
+                  <td className="px-3 py-2 text-muted truncate">{r.registroTexto}</td>
+                  <td className="px-3 py-2 text-muted truncate" title={r.metodo}>{r.metodo}</td>
                   <td className="px-3 py-2">
                     <CeldaRegalo
                       uid={r.uid}
-                      cuentaEliminada={!!r.sub?.cuentaEliminada}
+                      cuentaEliminada={r.baja}
                       registro={regaloMap[r.uid]}
                       creditos={creditosMap[r.uid]}
                       tieneComprasAcreditadas={comprasAcreditadas.has(r.uid)}
@@ -846,7 +741,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     {(() => {
                       const saldo = saldoIAVisible({
                         uid: r.uid,
-                        cuentaEliminada: !!r.sub?.cuentaEliminada,
+                        cuentaEliminada: r.baja,
                         creditosListos,
                         regaloListo,
                         regaloSinPermiso,
@@ -869,12 +764,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   }`}>
                     {r.sinAcceder === null ? '—' : r.sinAcceder}
                   </td>
-                  <td className="px-3 py-2 text-muted truncate" title={r.ultimoPago}>{r.ultimoPago}</td>
+                  <td className="px-3 py-2 truncate" title={r.ultimaCompra}>
+                    {r.ultimaCompraTipo === 'sin'
+                      ? <span className="text-hint">{r.ultimaCompra}</span>
+                      : <span className="text-muted">{r.ultimaCompra}</span>}
+                  </td>
                   <td className="px-3 py-2">
-                    {r.sub?.cuentaEliminada ? (
+                    {r.baja ? (
                       <button
                         type="button"
-                        onClick={() => handleDeleteBaja(r.sub.docenteId)}
+                        onClick={() => handleDeleteBaja(r.uid)}
                         className="p-2 text-hint hover:text-red-600 rounded-full"
                         aria-label="Eliminar constancia"
                         title="Eliminar constancia"
