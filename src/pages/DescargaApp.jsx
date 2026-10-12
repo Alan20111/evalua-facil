@@ -4,7 +4,7 @@ import { Download, Smartphone, Link2Off, BadgeCheck } from 'lucide-react'
 import EFLogo from '../components/EFLogo'
 import { obtenerLink, obtenerLinkProduccion, fechaCorta } from '../utils/descargaLinks'
 import { downloadUrl } from '../utils/cloudinary'
-import { Skeleton, SkeletonGroup } from '../components/ui'
+import { Skeleton, SkeletonGroup, Button } from '../components/ui'
 
 // Página pública de descarga del APK de Android. Dos formas de llegar:
 //
@@ -112,14 +112,9 @@ export default function DescargaApp() {
         )}
       </div>
 
-      <a
-        href={href}
-        download="evalua-facil.apk"
-        className="mt-8 w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full shadow-card transition-colors"
-      >
-        <Download className="w-5 h-5" />
+      <Button as="a" href={href} download="evalua-facil.apk" size="lg" fullWidth icon={Download} iconEffect="empujaAbajo" className="mt-8 shadow-card">
         Descargar la app
-      </a>
+      </Button>
 
       <p className="mt-4 text-xs text-hint">
         Ábrelo desde tu celular Android

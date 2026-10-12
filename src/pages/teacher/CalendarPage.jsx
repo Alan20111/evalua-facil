@@ -975,7 +975,7 @@ export default function CalendarPage() {
           setPickerMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
           setShowDatePicker(v => !v)
         }}
-        className={`min-h-control-sm text-2xl font-bold text-on-surface px-3 py-1 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[11rem]'} truncate text-left select-none rounded-full hover:bg-[var(--accent-tint)] transition-colors py-0.5`}
+        className={`min-h-control text-2xl font-bold text-on-surface px-3 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[11rem]'} truncate text-left select-none rounded-full hover:bg-[var(--accent-tint)] transition-colors py-0.5`}
         data-tooltip="Ir a otra fecha"
         data-tooltip-pos="bottom"
       >
@@ -1077,14 +1077,14 @@ export default function CalendarPage() {
         onClick={() => setShowHoras(v => !v)}
         aria-label="Horas visibles de tu día"
         className={movil
-          ? 'p-2.5 rounded-full text-on-surface hover:bg-[var(--accent-tint)] transition-colors'
+          ? 'size-control flex items-center justify-center rounded-full text-on-surface hover:bg-[var(--accent-tint)] transition-colors'
           : 'flex items-center gap-1.5 px-4 py-2 rounded-full bg-surface-card shadow-card text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors'}
         data-tooltip="Horas visibles de tu día (Agenda y Semana)"
         data-tooltip-pos="bottom"
       >
         {/* % 24 — dayEnd puede ser 24 (medianoche, límite exclusivo del rango
             visible), que formatHora12 debe leer como "12:00 am", no "24:00". */}
-        <Clock size={movil ? 20 : 14} />
+        <Clock size={movil ? ICONO.md : ICONO.xs} />
         {!movil && <> {formatHora12(`${String(dayStart % 24).padStart(2, '0')}:00`)}–{formatHora12(`${String(dayEnd % 24).padStart(2, '0')}:00`)}</>}
       </button>
       {showHoras && (
@@ -1195,7 +1195,7 @@ export default function CalendarPage() {
               <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-full bg-surface-card shadow-barra" role="group" aria-label="Vista del calendario">
                 {VIEWS.filter((v) => v.id !== 'semana').map(({ id, label, Icon }) => (
                   <button key={id} type="button" onClick={() => changeView(id)} aria-label={label} aria-pressed={view === id}
-                    className={`p-2.5 rounded-full transition-colors ${view === id ? 'bg-accent text-white' : 'text-on-surface hover:bg-[var(--accent-tint)]'}`}>
+                    className={`size-[calc(var(--control)-0.5rem)] flex items-center justify-center rounded-full transition-colors ${view === id ? 'bg-accent text-white' : 'text-on-surface hover:bg-[var(--accent-tint)]'}`}>
                     <Icon size={ICONO.md} />
                   </button>
                 ))}

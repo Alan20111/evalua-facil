@@ -220,7 +220,7 @@ export default function TabActividades() {
                                           }
                                         }}
                                         data-tooltip-follow={isDraftActivity(a) && !esJuego ? 'Editar borrador' : a.tipo === 'evaluacion' ? 'Evaluación' : 'Evaluar'}
-                                        className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
+                                        className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 min-h-control text-left">
                                         <ActIcon size={ICONO.md} className={`flex-shrink-0 ${isHidden ? 'text-hint' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : a.categoria === 'juego' ? 'text-accent' : 'text-hint'}`} />
                                         <div className="flex-1 min-w-0">
                                           <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-hint' : 'text-on-surface'}`}>

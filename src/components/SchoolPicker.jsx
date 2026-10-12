@@ -4,7 +4,6 @@ import { db } from '../firebase'
 import { usePlanteles } from '../data/usePlanteles'
 import { normalizeName, findSimilarSchools } from '../utils/schoolSelection'
 import { Plus } from 'lucide-react'
-import Spinner from './Spinner'
 import SearchInput from './SearchInput'
 import Modal from './ui/Modal'
 import { useToast } from './Toast'
@@ -140,9 +139,6 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
     })
   }
 
-  const btnSec = 'flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60'
-  const btnPri = 'flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2'
-
   return (
     <Modal
       open
@@ -172,7 +168,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
             ))}
           </ul>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setCustomStep('form')} disabled={saving} className={btnSec}>Volver</button>
+            <Button variant="secondary" className="flex-1" onClick={() => setCustomStep('form')} disabled={saving}>Volver</Button>
             <Button className="flex-1" onClick={() => setCustomStep('confirm')} disabled={saving}
              >
               Ninguna, es nueva
@@ -188,11 +184,10 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
             <p className="text-sm text-muted">{customCity.trim()}, {customState.trim()}</p>
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setCustomStep(similares.length ? 'similar' : 'form')} disabled={saving} className={btnSec}>Volver</button>
-            <button type="button" onClick={submitCustom} disabled={saving} className={btnPri}>
-              {saving ? <Spinner size="sm" /> : null}
+            <Button variant="secondary" className="flex-1" onClick={() => setCustomStep(similares.length ? 'similar' : 'form')} disabled={saving}>Volver</Button>
+            <Button className="flex-1" onClick={submitCustom} busy={saving}>
               {saving ? 'Guardando…' : 'Confirmar y agregar'}
-            </button>
+            </Button>
           </div>
         </div>
       ) : addingCustom ? (
@@ -237,8 +232,8 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
             />
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setAddingCustom(false)} disabled={saving} className={btnSec}>Cancelar</button>
-            <button type="submit" disabled={saving} className={btnPri}>Continuar</button>
+            <Button variant="secondary" className="flex-1" onClick={() => setAddingCustom(false)} disabled={saving}>Cancelar</Button>
+            <Button type="submit" className="flex-1" disabled={saving}>Continuar</Button>
           </div>
         </form>
       ) : (

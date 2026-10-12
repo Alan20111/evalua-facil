@@ -12,7 +12,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import SearchInput from '../SearchInput'
 import Select from '../ui/Select'
-import { SkeletonList, Button, IconButton } from '../ui'
+import { SkeletonList, Button, IconButton, EmptyState } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 // Banco de rúbricas del docente: elegir una para la actividad, crear nuevas,
@@ -120,12 +120,11 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
         {loading ? (
           <SkeletonList rows={5} className="py-4" />
         ) : rubricas.length === 0 ? (
-          <div className="bg-surface-card rounded-card shadow-card p-8 text-center">
-            <ClipboardList size={32} className="text-hint mx-auto mb-3" />
-            <p className="text-muted text-sm">
+          <div className="bg-surface-card rounded-card shadow-card">
+            <EmptyState icon={ClipboardList} tone="neutral">
               Aún no tienes rúbricas guardadas. Crea la primera y podrás
               reutilizarla en cualquier actividad entregable.
-            </p>
+            </EmptyState>
           </div>
         ) : (
           <>

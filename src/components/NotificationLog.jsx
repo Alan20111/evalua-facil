@@ -140,7 +140,7 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
           <button
             type="button"
             onClick={() => setLogOpen((v) => !v)}
-            className="flex-1 min-w-0 flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left"
+            className="flex-1 min-w-0 flex items-center gap-2 px-4 min-h-control text-sm font-semibold text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left"
           >
             <History size={ICONO.sm} className="flex-shrink-0 text-accent" />
             <span className="flex-1 text-left truncate">Bitácora de notificaciones</span>

@@ -4553,7 +4553,7 @@ export default function SubjectPage() {
     <>
       <button type="button" onClick={copyAccessCode}
         data-tooltip={IS_NATIVE_APP ? 'Copiar código de acceso para estudiantes' : 'Copiar'}
-        className={`flex items-center gap-2 px-2 py-1.5 rounded transition duration-estandar flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
+        className={`flex items-center gap-2 px-3 min-h-control rounded-full transition duration-estandar flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
         {copiedCode
           ? <><CheckIcon size={ICONO.md} className="animate-pop motion-reduce:animate-none flex-shrink-0" /><span>Copiado</span></>
           : <span>{subject?.accessCode}</span>}
@@ -4575,14 +4575,14 @@ export default function SubjectPage() {
       <button type="button" onClick={openEditSubject}
         aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
         data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
-        className="flex items-center gap-1.5 px-2 py-1.5 text-sm font-medium text-muted hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        className="flex items-center gap-1.5 px-3 min-h-control text-sm font-medium text-muted hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
         <Pencil size={ICONO.md} /> Editar
       </button>
       {subject?.archived && (
         <button type="button" onClick={handleToggleArchive} disabled={archiving}
           aria-label="Restaurar asignatura (vuelve a tus asignaturas activas)"
           data-tooltip="Restaurar asignatura (vuelve a tus asignaturas activas)"
-          className="flex items-center gap-1.5 px-2 py-1.5 text-sm font-medium text-muted hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
+          className="flex items-center gap-1.5 px-3 min-h-control text-sm font-medium text-muted hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors disabled:opacity-40 flex-shrink-0">
           <ArchiveRestore size={ICONO.md} /> Restaurar
         </button>
       )}

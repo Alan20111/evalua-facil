@@ -29,8 +29,10 @@ const CLAVE = 'PruebaEmu-2026!'
     descripcion: '<p>Resuelve los ejercicios.</p>', publicado: true, createdAt: admin.firestore.FieldValue.serverTimestamp(),
   })
   // estudiantes de la primera materia
-  for (const [n, ap] of [['Ana', 'López'], ['Luis', 'Pérez'], ['Eva', 'Ruiz']]) {
-    await db.collection('students').add({ asignaturaId: ids[0], docenteId: uid, escuelaId: 'CBTIS255', nombre: n, apellidoPaterno: ap, username: (n.slice(0,2)+ap.slice(0,2)).toUpperCase(), activado: false, orden: 1 })
+  // Número de lista distinto para cada uno (el 1 es Ana López, la alumna de
+  // prueba de abajo); antes todos llevaban orden 1 y la lista decía «1.» cuatro veces.
+  for (const [n, ap, orden] of [['Carlos', 'Díaz', 2], ['Luis', 'Pérez', 3], ['Eva', 'Ruiz', 4]]) {
+    await db.collection('students').add({ asignaturaId: ids[0], docenteId: uid, escuelaId: 'CBTIS255', nombre: n, apellidoPaterno: ap, username: (n.slice(0,2)+ap.slice(0,2)).toUpperCase(), activado: false, orden })
   }
   // Segunda actividad publicada y un alumno de prueba inscrito en 2 asignaturas
   await db.collection('activities').add({

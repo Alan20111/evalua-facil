@@ -474,3 +474,64 @@ que quede transversal.
 - Comparación visual en verde.
 - DESIGN_SYSTEM §4, §6 y §6.14 actualizados.
 - Ninguna pantalla con un control que no venga de `ui/`, salvo la allowlist documentada.
+
+---
+
+## 12. Avance (12-oct-2026)
+
+| Fase | Estado | PRs |
+|---|---|---|
+| 0. Contrato | ✅ | #1566 |
+| 1. Librería | ✅ `ui/` completa y `/dev/componentes` | #1567, #1568 |
+| 2. Migración | ✅ olas 2.1 a 2.11 | #1569, #1578–#1583 (y escala de letra #1577) |
+| 3. Selección y preselección | ⏳ **pendiente**: va pantalla por pantalla, validando cada una con el usuario | — |
+| 4. Movimiento | ✅ despliegues y microanimaciones, casillas nativas con aspecto `ui/` y 53 modales a `ui/Modal` | #1584, #1585, #1586 |
+| 5. Monolitos | ✅ sin cambio visual (mismo HTML en todas las pestañas) | #1587, #1588 |
+| 6. Verificación y candados | ✅ `npm run test:visual` y candados al mínimo | este PR |
+
+Etiquetas de respaldo: `respaldo-antes-normalizacion`, `respaldo-antes-movimiento`
+(antes de #1584) y `respaldo-antes-division` (antes de #1587).
+
+### Fase 5 — tamaños
+
+| Archivo | Antes | Después | Piezas nuevas |
+|---|---:|---:|---|
+| `teacher/SubjectPage.jsx` | 9 529 | 5 098 | `subject/`: `contexto`, `piezas`, `utilidades`, `TabActividades`, `TabCalificaciones`, `TabAsistencia`, `TabLista`, `TabRecursos`, `ModalesAsignatura`, `EditoresAsignatura` |
+| `teacher/ActivityPage.jsx` | 3 007 | 1 470 | `activity/`: `ListaEntregas`, `PanelCalificar`, `PanelCalificarMovil`, `contexto`, `piezas`, `utilidades` |
+| `teacher/CalendarPage.jsx` | 2 822 | 1 729 | `calendar/`: `piezas` (vistas Año, Mes, Semana, Día), `utilidades` |
+
+Herramientas en `scripts/normalizacion/` (Babel): `mapa.mjs`, `bloques.mjs`,
+`dividir.mjs mover|extraer` y `podar.mjs`. Al dividir afloraron 4 avisos del
+React Compiler que ya existían, ocultos en el monolito (`Date.now` en el render,
+uso antes de declarar, `ref` leído en un handler y `setState` en un efecto). Por
+eso el presupuesto de lint quedó en 190.
+
+### Fase 6 — verificación
+
+`docs/VERIFICACION_VISUAL.md`. El script compara el HTML de 18 vistas en compu y
+en celular contra una referencia local, y audita el contrato de alturas y esquinas.
+La auditoría empezó con 34 hallazgos y quedó en **0**, incluidos 6 que solo existen
+en el teléfono (el botón «Editar» de la asignatura, y el botón de horas y el
+selector de vista del calendario). Esos 6 estaban escondidos porque Chromium
+perdía la emulación táctil en cada captura.
+
+No se ejecutaron del §9 la pasada de axe, la de teclado completo ni la de la app
+nativa. Quedan para la fase 3, pantalla por pantalla.
+
+### Candados al 12-oct-2026
+
+| # | Candado | Inicio | Hoy |
+|---|---|---:|---:|
+| 1 | Control con esquina a medias | 218 | 32 |
+| 2 | Botón primario a mano | 42 | **0** |
+| 4 | Ícono fuera de la escala | 502 | **0** |
+| 5 | Duración cruda | 26 | **0** |
+| 6 | `transition-all` | 16 | **0** |
+| 7 | Casilla u opción a mano (con el aspecto de `ui/` por CSS base) | 62 | 60 |
+| 8 | Modales a mano (ahora se cuentan apariciones, no archivos) | 42 archivos | 62 apariciones |
+| 9 | `z-[NN]` con número | 49 | 12 |
+| — | Lint | 221 | 190 |
+
+Los que no están en 0 son controles con un diseño propio (tarjetas de opción, celdas
+de tabla, pantallas completas) que no encajan en una pieza de `ui/` sin cambiar
+cómo se ven. Se bajan dentro de la fase 3, cuando se revise cada pantalla.

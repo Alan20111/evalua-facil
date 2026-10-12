@@ -29,7 +29,7 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 import FiltroSoloCalificables from '../../components/FiltroSoloCalificables'
 import SubjectIcon from '../../components/SubjectIcon'
 import AttachmentList from '../../components/AttachmentList'
-import { ArrowLeft, ChevronDown, ChevronUp, Clock, Star, FolderOpen, BookOpen, Paperclip, GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone, CheckCircle2, Circle, Bookmark, ChevronRight, Trash2, LogOut, RotateCcw, Sparkles,  } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Clock, Star, FolderOpen, BookOpen, Paperclip, GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone, CheckCircle2, Bookmark, ChevronRight, Trash2, LogOut, RotateCcw, Sparkles,  } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno, pesosVisiblesAlumno } from '../../utils/ponderacion'
@@ -41,7 +41,7 @@ import AsistenciaSemanal from '../../components/student/AsistenciaSemanal'
 import { parcialIniciado, semanasVisiblesParcial } from '../../components/student/semanasAsistencia'
 import { EsqueletoAsignaturaAlumno } from '../../components/esqueletos'
 import { ICONO } from '../../config/iconos'
-import { Button, IconButton, Menu, Modal } from '../../components/ui'
+import { Button, IconButton, Menu, Modal, EmptyState } from '../../components/ui'
 
 // Builds a unified ordered list of activities + positioned materials for one
 // parcial, mirroring the teacher view so both render in the same order.
@@ -959,9 +959,8 @@ export default function StudentSubjectPage() {
       {activeTab === 'Recursos' && (
         <div className={`px-4 py-5 ${STUDENT_CONTAINER_LISTA}`}>
           {resources.length === 0 ? (
-            <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
-              <FolderOpen size={32} className="text-hint mx-auto mb-3" />
-              <p className="text-muted text-sm">El docente no ha compartido recursos aún.</p>
+            <div className="bg-surface-card rounded-card border border-outline-variant">
+              <EmptyState icon={FolderOpen} tone="neutral">El docente no ha compartido recursos aún.</EmptyState>
             </div>
           ) : (
             <div className="bg-surface-card rounded-card overflow-hidden shadow-card">
@@ -1007,9 +1006,8 @@ export default function StudentSubjectPage() {
             </button>
           </div>
           {avisosMostrados.length === 0 ? (
-            <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
-              <Megaphone size={32} className="text-hint mx-auto mb-3" />
-              <p className="text-muted text-sm">{soloAvisosGuardados ? 'No has guardado ningún aviso.' : 'El docente no ha publicado avisos aún.'}</p>
+            <div className="bg-surface-card rounded-card border border-outline-variant">
+              <EmptyState icon={Megaphone} tone="neutral">{soloAvisosGuardados ? 'No has guardado ningún aviso.' : 'El docente no ha publicado avisos aún.'}</EmptyState>
             </div>
           ) : (
             <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
@@ -1030,7 +1028,7 @@ export default function StudentSubjectPage() {
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-xs text-accent font-medium">
-                              <Circle size={8} className="fill-current" /> Nuevo
+                              <span aria-hidden="true" className="size-2 rounded-full bg-current" /> Nuevo
                             </span>
                           )}
                         </div>
