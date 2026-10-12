@@ -110,7 +110,7 @@ export default function ConfigAnalisisAsignatura({ preparacion, onCancelar, onCo
             )
           })}
         </ul>
-        <p className="text-xs text-muted mt-1.5">Lo que desmarques queda completamente fuera del análisis. Las calificaciones se toman de las actividades de los tipos marcados.</p>
+        <p className="text-sm text-muted mt-1.5">Lo que desmarques queda completamente fuera del análisis. Las calificaciones se toman de las actividades de los tipos marcados.</p>
       </fieldset>
 
       <div className="rounded border border-outline-variant bg-surface-container px-3 py-2.5 mb-4">

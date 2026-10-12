@@ -297,7 +297,7 @@ export default function CostosIAPanel() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
                 <h3 className="font-semibold text-on-surface text-sm">Saldo capturado</h3>
-                <p className="text-xs text-muted mt-0.5 max-w-xl">
+                <p className="text-sm text-muted mt-0.5 max-w-xl">
                   Anthropic no publica el saldo disponible por API, así que este dato no se consulta:
                   lo capturas tú de su consola. Sirve para estimar cuánto durará al ritmo de gasto actual.
                 </p>
@@ -311,7 +311,7 @@ export default function CostosIAPanel() {
                         <span className="font-normal text-muted"> (estimación basada en el saldo capturado y el costo promedio diario)</span>
                       </span>
                     ) : (
-                      <span className="text-xs text-muted">
+                      <span className="text-sm text-muted">
                         Sin gasto en el periodo: no hay ritmo con el cual estimar los días restantes.
                       </span>
                     )}

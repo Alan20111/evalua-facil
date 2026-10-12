@@ -123,7 +123,7 @@ export default function PaymentConfig() {
       {/* Security notice */}
       <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-card px-4 py-3.5">
         <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
-        <div className="text-xs text-amber-800 leading-relaxed">
+        <div className="text-sm text-amber-800 leading-relaxed">
           <p className="font-semibold mb-0.5">Las llaves secretas NO van aquí</p>
           Aquí solo se guardan datos públicos (Public Key de Mercado Pago, Client ID de PayPal, datos
           bancarios). El <strong>Access Token</strong> de Mercado Pago y el <strong>Secret</strong> de
@@ -156,7 +156,7 @@ export default function PaymentConfig() {
               onChange={(v) => patch('mercadoPago', 'publicKey', v)}
               hint="Panel de Mercado Pago → Tus integraciones → Credenciales de producción."
             />
-            <p className="text-xs text-hint flex items-center gap-1">
+            <p className="text-sm text-hint flex items-center gap-1">
               <ExternalLink size={13} />
               El Access Token (secreto) va en Vercel como MP_ACCESS_TOKEN.
             </p>

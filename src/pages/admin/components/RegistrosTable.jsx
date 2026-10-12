@@ -559,7 +559,7 @@ export default function RegistrosTable({ stats, onRefresh }) {
               <span className="text-muted">{rows.length} registros</span>
             )}
           </p>
-          <p className="text-xs text-hint mt-0.5">
+          <p className="text-sm text-hint mt-0.5">
             Una fila por docente registrado. <strong>Regalo IA</strong> es qué pasó con los
             créditos de bienvenida; <strong>Saldo IA</strong> es el saldo total de hoy.
           </p>
@@ -907,7 +907,7 @@ export default function RegistrosTable({ stats, onRefresh }) {
                   required
                   className={inputCls}
                 />
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-sm text-slate-500 mt-1">
                   Número <strong>positivo</strong> para agregar créditos. Número <strong>negativo</strong> para descontarlos.
                 </p>
               </div>

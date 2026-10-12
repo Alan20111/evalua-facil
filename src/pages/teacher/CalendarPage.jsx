@@ -2336,7 +2336,7 @@ export default function CalendarPage() {
               </p>
             ) : (
               <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
-                <p className="text-xs text-muted">Elige la asignatura cuyos bloques quieres reacomodar:</p>
+                <p className="text-sm text-muted">Elige la asignatura cuyos bloques quieres reacomodar:</p>
                 {subjectsConBloques.map(s => {
                   const delSubj = bloques.filter(b => b.asignaturaId === s.id)
                   const n = delSubj.length
@@ -2387,7 +2387,7 @@ export default function CalendarPage() {
                       {faltan.length > 0 && (
                         confirmGenerarFaltantes === s.id ? (
                           <div className="flex items-center gap-2 px-3 py-2 bg-accent-tint border-t border-accent-soft">
-                            <span className="text-xs text-accent flex-1">
+                            <span className="text-sm text-accent flex-1">
                               ¿Generar las clases que faltan {faltan.map(t => t.desde === t.hasta
                                 ? `el ${formatLongDate(t.desde)}`
                                 : `del ${formatLongDate(t.desde)} al ${formatLongDate(t.hasta)}`).join(' y ')}?
@@ -2414,7 +2414,7 @@ export default function CalendarPage() {
                       {enAsueto.length > 0 && (
                         confirmLimpiarAsueto === s.id ? (
                           <div className="flex items-center gap-2 px-3 py-2 bg-error/10 border-t border-error/30">
-                            <span className="text-xs text-error flex-1">¿Quitar los {enAsueto.length} bloque(s) en día de asueto/vacaciones?</span>
+                            <span className="text-sm text-error flex-1">¿Quitar los {enAsueto.length} bloque(s) en día de asueto/vacaciones?</span>
                             <button type="button" onClick={() => setConfirmLimpiarAsueto(null)} className="text-xs text-muted px-2 py-1">Cancelar</button>
                             <button type="button" onClick={() => limpiarBloquesEnAsueto(s.id)} className="text-xs bg-error text-white rounded px-2.5 py-1 font-medium">Quitar</button>
                           </div>
@@ -2516,7 +2516,7 @@ export default function CalendarPage() {
                 </div>
                 <p className="text-xs text-muted">Termina a las <strong className="text-on-surface">{formatHora12(addMinutesToTime(hora, durMin))}</strong></p>
                 {seEncima && (
-                  <p className="text-xs text-error flex items-center gap-1">
+                  <p className="text-sm text-error flex items-center gap-1">
                     <AlertTriangle size={13} className="flex-shrink-0" /> A esa hora se encima con otra clase. Elige otra hora.
                   </p>
                 )}
@@ -2533,7 +2533,7 @@ export default function CalendarPage() {
               </>)}
 
               {soloBorrar && !cancelada && (
-                <p className="text-xs text-muted">En la vista Mes las clases no se cambian de hora ni de día. Para eso, usa <strong className="text-on-surface">Modificar bloques</strong>.</p>
+                <p className="text-sm text-muted">En la vista Mes las clases no se cambian de hora ni de día. Para eso, usa <strong className="text-on-surface">Modificar bloques</strong>.</p>
               )}
 
               {cancelada ? (
@@ -2559,7 +2559,7 @@ export default function CalendarPage() {
                 {/* ELIMINAR: el bloque se creó por error, no debió existir. */}
                 {confirmDel ? (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-error/10 border border-error/30">
-                    <span className="text-xs text-error flex-1">¿Borrar solo esta clase? Las demás clases no se tocan.</span>
+                    <span className="text-sm text-error flex-1">¿Borrar solo esta clase? Las demás clases no se tocan.</span>
                     <button type="button" onClick={() => setPendingMove(pm => ({ ...pm, confirmDel: false }))} className="text-xs text-muted px-2 py-1">No</button>
                     <button type="button" onClick={() => borrarBloqueUnico(b)} className="text-xs bg-error text-white rounded px-2.5 py-1 font-medium">Sí, borrar</button>
                   </div>
@@ -2778,7 +2778,7 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
               </div>
             </div>
             {fechaInicio && fechaFin && fechaFin < fechaInicio && (
-              <p className="text-xs text-error">La fecha de fin debe ser igual o posterior a la de inicio.</p>
+              <p className="text-sm text-error">La fecha de fin debe ser igual o posterior a la de inicio.</p>
             )}
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted uppercase tracking-wide">¿A qué afecta?</span>

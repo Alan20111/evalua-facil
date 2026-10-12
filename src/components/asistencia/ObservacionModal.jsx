@@ -55,7 +55,7 @@ export default function ObservacionModal({ estudiante, fecha, original = '', onG
         className="w-full px-3 py-2.5 rounded border border-outline-variant text-base bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-y"
       />
       {!esNueva && (
-        <p className="text-xs text-muted mt-1">Para quitar la observación, borra el texto y guarda.</p>
+        <p className="text-sm text-muted mt-1">Para quitar la observación, borra el texto y guarda.</p>
       )}
       <div className="flex gap-2 mt-4">
         <button type="button" onClick={onClose} disabled={guardando}

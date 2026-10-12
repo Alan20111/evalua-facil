@@ -158,7 +158,7 @@ export default function ProgramarBloquesModal({
               <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">
                 {subjectName}
               </div>
-              <p className="text-xs text-muted">Estás modificando toda esta asignatura. Al guardar se reemplazan sus bloques de clases que muevas, para todo el rango de fechas.</p>
+              <p className="text-sm text-muted">Estás modificando toda esta asignatura. Al guardar se reemplazan sus bloques de clases que muevas, para todo el rango de fechas.</p>
             </div>
           ) : sinDisponibles ? (
             <div className="rounded-card border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
@@ -194,7 +194,7 @@ export default function ProgramarBloquesModal({
                   <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">{formatLongDate(fechaInicio)}</div>
                   <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">{formatLongDate(fechaFin)}</div>
                 </div>
-                <p className="text-xs text-muted">Son las fechas de inicio y fin del curso — se cambian editando la asignatura, no aquí.</p>
+                <p className="text-sm text-muted">Son las fechas de inicio y fin del curso — se cambian editando la asignatura, no aquí.</p>
               </>
             ) : faltanFechasCurso ? (
               <div className="rounded-card border border-amber-300 bg-amber-50 p-3 space-y-2">
@@ -241,7 +241,7 @@ export default function ProgramarBloquesModal({
           {/* En rojo (pedido explícito): es lo que más se malentiende — que un
               bloque colocado no es una clase suelta, sino el patrón que se
               repite cada semana hasta la fecha de fin de la asignatura. */}
-          <p className={`text-xs -mt-3 ${esModificar ? 'text-muted' : 'text-error'}`}>
+          <p className={`text-sm -mt-3 ${esModificar ? 'text-muted' : 'text-error'}`}>
             {esModificar
               ? 'En el siguiente paso reacomodas los bloques en la semana.'
               : `En el siguiente paso colocarás estos ${bloquesPorSemana} bloque(s) en los días y horas de la semana que tú elijas; y se repetirán de forma automática semana a semana, hasta la fecha de finalización que has establecido para la asignatura arriba en Rango de fechas.`}
@@ -264,7 +264,7 @@ export default function ProgramarBloquesModal({
               ))}
             </div>
             {esModificar && (
-              <p className="text-xs text-muted">Si cambias el color aquí, se aplica a todos los bloques de la asignatura.</p>
+              <p className="text-sm text-muted">Si cambias el color aquí, se aplica a todos los bloques de la asignatura.</p>
             )}
           </div>
 
@@ -293,7 +293,7 @@ export default function ProgramarBloquesModal({
               <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-3 pb-1.5">Zona de riesgo</p>
               {confirmDel ? (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-error/10 border border-error/30">
-                  <span className="text-xs text-error flex-1">
+                  <span className="text-sm text-error flex-1">
                     ¿Borrar TODA la programación de {subjectName}? La asignatura quedará libre para programarse de nuevo.
                   </span>
                   <button type="button" onClick={() => setConfirmDel(false)} className="text-xs text-muted px-2 py-1">Cancelar</button>

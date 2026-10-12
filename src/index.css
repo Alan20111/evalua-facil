@@ -165,7 +165,12 @@
        práctica. +30% sobre el valor de la séptima pasada (0.765625rem),
        línea de altura ajustada proporcional. Único tier tocado — el resto
        de la escala se queda igual. */
-    --fs-xs: 0.9953125rem; --lh-xs: 1.340625rem;
+    /* Novena pasada (oct-2026, PLAN_NORMALIZACION_UI): la octava dejó xs
+       MÁS GRANDE que sm (14.3px vs 12.8px) y la jerarquía quedó al revés
+       (las ayudas se veían más grandes que su etiqueta). xs vuelve a quedar
+       debajo de sm (≈12.4px) y el texto de LECTURA que vivía en xs pasó a
+       text-sm, que era lo que de verdad pedía la octava pasada. */
+    --fs-xs: 0.859375rem; --lh-xs: 1.15625rem;
     --fs-sm: 0.890625rem;   --lh-sm: 1.25rem;
     --fs-base: 1.015625rem; --lh-base: 1.46875rem;
     --fs-lg: 1.140625rem;   --lh-lg: 1.6875rem;

@@ -1064,13 +1064,13 @@ export default function EvaluacionEditor({
                 />
                 <label htmlFor="eval-notificar-docente" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
                   Notificarme cuando entreguen esta evaluación
-                  <span className="text-muted text-xs block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante la finalice</span>
+                  <span className="text-muted text-sm block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante la finalice</span>
                   {/* Se guarda sola en cuanto se toca (ver handleToggleNotificar)
                       — ya no depende del botón "Guardar" de abajo. Solo al
                       crear una evaluación nueva viaja junto con el resto,
                       porque el documento todavía no existe. */}
                   {isNew && (
-                    <span className="text-muted text-xs block mt-1">Se guarda junto con el resto al crear la evaluación</span>
+                    <span className="text-muted text-sm block mt-1">Se guarda junto con el resto al crear la evaluación</span>
                   )}
                 </label>
               </div>
@@ -1112,7 +1112,7 @@ export default function EvaluacionEditor({
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">{infoForm.fechaLimite ? 'Fecha límite de entrega' : 'Fecha límite de entrega (opcional)'}</label>
                   {infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
-                    <p className="text-xs text-hint px-1">Primero elige la fecha de publicación arriba.</p>
+                    <p className="text-sm text-hint px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
                     <EFDateTimePicker
                       mode="datetime"
@@ -1285,7 +1285,7 @@ export default function EvaluacionEditor({
               preguntas: lo que se trabajó ya está a salvo, el botón solo
               cierra el ciclo. */}
           {preguntasTocadas && !isDirty && !savingInfo && (
-            <p className="text-xs text-muted text-center px-2">
+            <p className="text-sm text-muted text-center px-2">
               Tus preguntas ya quedaron guardadas — el botón te regresa a la asignatura.
             </p>
           )}
@@ -1357,7 +1357,7 @@ export default function EvaluacionEditor({
                 <input id="config-tiempo-limite" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
                   onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
                 {esVideo && (
-                  <p className="text-xs text-amber-700 mt-1">
+                  <p className="text-sm text-amber-700 mt-1">
                     Este video ya tiene un límite guardado. En un Video interactivo el cronómetro sigue corriendo
                     con el video en pausa y puede impedir terminarlo: vacíalo para quitarlo.
                   </p>
@@ -1424,7 +1424,7 @@ export default function EvaluacionEditor({
               {savingConfig ? 'Guardando…' : 'Guardar configuración'}
             </button>
             {!currentActivityId && (
-              <p className="text-xs text-muted text-center">Guarda la información general primero para poder guardar la configuración.</p>
+              <p className="text-sm text-muted text-center">Guarda la información general primero para poder guardar la configuración.</p>
             )}
           </form>
         </div>
@@ -1770,7 +1770,7 @@ export default function EvaluacionEditor({
                             </div>
                           )}
                           {(preguntaForm.tipo === 'respuesta_corta') && <p className="text-xs text-hint italic">Respuesta libre — calificación manual.</p>}
-                          {(preguntaForm.tipo === 'subir_archivo') && <p className="text-xs text-hint italic">El alumno sube un documento — calificación manual.</p>}
+                          {(preguntaForm.tipo === 'subir_archivo') && <p className="text-sm text-hint italic">El alumno sube un documento — calificación manual.</p>}
                           <div>
                             <div className="flex items-center justify-between mb-1">
                               <label className="text-sm font-medium text-muted">Ponderación</label>
@@ -1870,8 +1870,8 @@ export default function EvaluacionEditor({
                         ))}
                       </div>
                     )}
-                    {preguntaForm.tipo === 'respuesta_corta' && <p className="text-xs text-hint italic">El alumno responde con texto libre. Tú asignas los puntos al revisar.</p>}
-                    {preguntaForm.tipo === 'subir_archivo' && <p className="text-xs text-hint italic">El alumno sube un documento (PDF, Word, imágenes, etc.). Tú asignas los puntos al revisar.</p>}
+                    {preguntaForm.tipo === 'respuesta_corta' && <p className="text-sm text-hint italic">El alumno responde con texto libre. Tú asignas los puntos al revisar.</p>}
+                    {preguntaForm.tipo === 'subir_archivo' && <p className="text-sm text-hint italic">El alumno sube un documento (PDF, Word, imágenes, etc.). Tú asignas los puntos al revisar.</p>}
                     <div>
                       <label htmlFor="preg-new-retro" className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
                       <textarea id="preg-new-retro" value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
@@ -2215,7 +2215,7 @@ export default function EvaluacionEditor({
                   onChange={(e) => setIaMismoTema(e.target.checked)}
                 />
                 {iaMismoTema && (
-                  <p className="text-xs text-muted mt-1 pl-8">
+                  <p className="text-sm text-muted mt-1 pl-8">
                     El asistente usará los {preguntas.length} reactivo{preguntas.length !== 1 ? 's' : ''} existente{preguntas.length !== 1 ? 's' : ''} como referencia y generará reactivos NUEVOS sobre el mismo tema, con enunciados distintos.
                   </p>
                 )}

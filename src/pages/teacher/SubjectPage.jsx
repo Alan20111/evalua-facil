@@ -6245,7 +6245,7 @@ export default function SubjectPage() {
                     {anyPonderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
                   </button>
                   {anyPonderacionOn && (
-                    <span className="text-xs text-muted">Asigna un peso a cada actividad (deben sumar 10 por parcial para exportar).</span>
+                    <span className="text-sm text-muted">Asigna un peso a cada actividad (deben sumar 10 por parcial para exportar).</span>
                   )}
                   {/* Bloque derecho: (en modo ordenar) exportar Excel/PDF del
                       ranking, y el botón "Ordenar de mayor a menor". */}
@@ -7004,7 +7004,7 @@ export default function SubjectPage() {
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <div className="flex items-center gap-2 min-w-0">
                     <h3 className="text-base font-semibold text-on-surface whitespace-nowrap">Justificar falta</h3>
-                    <p className="text-xs text-muted truncate">
+                    <p className="text-sm text-muted truncate">
                       {reasonModal.studentName} ·{' '}
                       {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
                     </p>
@@ -7162,7 +7162,7 @@ export default function SubjectPage() {
                   patrón que el resto de las pantallas: quien ya la leyó no
                   tiene que volver a pasar por ella. */}
               <InfoDisclosure className="mt-0.5">
-                <span className="text-muted text-xs block">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante se active, según lo que tengas activado en Notificaciones</span>
+                <span className="text-muted text-sm block">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante se active, según lo que tengas activado en Notificaciones</span>
               </InfoDisclosure>
             </div>
           </div>
@@ -7579,7 +7579,7 @@ export default function SubjectPage() {
                       </div>
                       <div>
                         <p className="font-semibold text-on-surface">Generar con IA</p>
-                        <p className="text-xs text-muted mt-0.5">Describe qué quieres y el asistente genera la actividad completa.</p>
+                        <p className="text-sm text-muted mt-0.5">Describe qué quieres y el asistente genera la actividad completa.</p>
                       </div>
                     </button>
                   </>
@@ -7628,7 +7628,7 @@ export default function SubjectPage() {
                       </div>
                       <div>
                         <p className="font-semibold text-on-surface">Generar con IA</p>
-                        <p className="text-xs text-muted mt-0.5">Describe qué quieres evaluar y el asistente genera los reactivos.</p>
+                        <p className="text-sm text-muted mt-0.5">Describe qué quieres evaluar y el asistente genera los reactivos.</p>
                       </div>
                     </button>
                   </>
@@ -7662,7 +7662,7 @@ export default function SubjectPage() {
                       </div>
                       <div>
                         <p className="font-semibold text-on-surface">Video interactivo</p>
-                        <p className="text-xs text-muted mt-0.5">Pega un video de YouTube y el asistente propone preguntas que se hacen en el momento justo del video.</p>
+                        <p className="text-sm text-muted mt-0.5">Pega un video de YouTube y el asistente propone preguntas que se hacen en el momento justo del video.</p>
                       </div>
                     </button>
                     <p className="text-xs text-muted text-center pt-2">Próximamente más actividades interactivas</p>
@@ -7736,7 +7736,7 @@ export default function SubjectPage() {
                     {form.fechaLimite ? 'Modificar fecha límite' : <>Fecha límite <span className="text-hint font-normal">(opcional)</span></>}
                   </label>
                   {form.visibilidadMode === 'schedule' && !form.publishAt ? (
-                    <p className="text-xs text-hint px-1">Primero elige la fecha de publicación arriba.</p>
+                    <p className="text-sm text-hint px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
                     <>
                       <EFDateTimePicker
@@ -7758,13 +7758,13 @@ export default function SubjectPage() {
                             onChange={e => setForm(f => ({ ...f, recibirTarde: e.target.checked }))}
                             className="w-4 h-4 mt-0.5 accent-[var(--accent)] flex-shrink-0"
                           />
-                          <span className="text-xs text-muted leading-snug">
+                          <span className="text-sm text-muted leading-snug">
                             Seguir recibiendo entregas después de la fecha límite
                             <span className="text-hint"> (se marcarán como <strong>entrega tarde</strong>). Si no la marcas, al pasar la fecha ya no se reciben.</span>
                           </span>
                         </label>
                       ) : (
-                        <p className="text-xs text-hint mt-1">
+                        <p className="text-sm text-hint mt-1">
                           Luego de esta fecha y hora ya no se reciben entregas.
                         </p>
                       )}
@@ -7840,7 +7840,7 @@ export default function SubjectPage() {
               ))}
             </ul>
             {moveConfirm.changes.some((c) => c.publicada) && (
-              <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5 mb-3 flex gap-1.5">
+              <p className="text-sm text-amber-700 bg-amber-50 rounded px-2 py-1.5 mb-3 flex gap-1.5">
                 <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
                 <span>
                   Ya están publicadas: tus estudiantes las conocen con el número que tienen hoy.
@@ -7871,7 +7871,7 @@ export default function SubjectPage() {
               &ldquo;<strong>{publishDraftConfirm.nombre}</strong>&rdquo; es un borrador. Al publicarla, los estudiantes podrán verla y se registrará la fecha y hora de publicación.
             </p>
             {/(\(copia\))\s*$/i.test(publishDraftConfirm.nombre || '') && (
-              <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5 mb-3">
+              <p className="text-sm text-amber-700 bg-amber-50 rounded px-2 py-1.5 mb-3">
                 Aún tiene el nombre de copia — conviene editarla antes de publicar.
               </p>
             )}
@@ -7929,7 +7929,7 @@ export default function SubjectPage() {
               </h3>
               <button type="button" onClick={() => setShowMaterialModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
             </div>
-            <p className="text-xs text-hint -mt-2 mb-3">Este material queda solo en el Parcial {materialParcial} y no genera entrega ni número de actividad. Para materiales de toda la asignatura usa la pestaña Recursos.</p>
+            <p className="text-sm text-hint -mt-2 mb-3">Este material queda solo en el Parcial {materialParcial} y no genera entrega ni número de actividad. Para materiales de toda la asignatura usa la pestaña Recursos.</p>
             <form onSubmit={handleSaveMaterial} className="space-y-2">
               <div>
                 <label htmlFor="material-nombre" className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
@@ -8077,7 +8077,7 @@ export default function SubjectPage() {
                 </div>
               ))}
               {IS_NATIVE_APP && (
-                <p className="text-xs text-muted text-center">Para subir a todo el grupo usa la plantilla de excel en la web</p>
+                <p className="text-sm text-muted text-center">Para subir a todo el grupo usa la plantilla de excel en la web</p>
               )}
               <button
                 type="submit"
@@ -8132,7 +8132,7 @@ export default function SubjectPage() {
                   </button>
                 </div>
               ) : (
-                <p className="text-xs text-muted">El estudiante aún no ha subido una foto de perfil.</p>
+                <p className="text-sm text-muted">El estudiante aún no ha subido una foto de perfil.</p>
               )}
             </div>
             <form onSubmit={saveEditStudent} className="space-y-2">
@@ -8252,7 +8252,7 @@ export default function SubjectPage() {
               Se descargará un PDF con el <strong>usuario</strong> de cada estudiante y el
               <strong> código de la clase</strong> para que puedan entrar por primera vez.
             </p>
-            <p className="text-xs text-muted text-center mt-2">
+            <p className="text-sm text-muted text-center mt-2">
               Cada estudiante elige su propia contraseña la primera vez que entra. No se generan claves temporales.
             </p>
             <div className="flex gap-2 mt-4">
@@ -8435,7 +8435,7 @@ export default function SubjectPage() {
             <p className="text-sm text-muted mt-1">
               <strong>{bulkGradeModal.missingCount}</strong> estudiante{bulkGradeModal.missingCount !== 1 ? 's' : ''} no {bulkGradeModal.missingCount !== 1 ? 'han' : 'ha'} entregado esta actividad.
             </p>
-            <p className="text-xs text-muted mt-2">
+            <p className="text-sm text-muted mt-2">
               Solo se afectarán los que sigan sin entrega al confirmar. Los que ya entregaron o ya tienen calificación <strong>no se tocan</strong>.
             </p>
 
@@ -8688,7 +8688,7 @@ export default function SubjectPage() {
             {closeParcialConfirm.pondError ? (
               <>
                 {/* Blocker: ponderación must sum exactly 10 */}
-                <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mt-3 leading-relaxed">
+                <p className="text-sm text-amber-700 bg-amber-50 rounded px-3 py-2 mt-3 leading-relaxed">
                   La ponderación del Parcial {closeParcialConfirm.p} suma <strong>{closeParcialConfirm.pondError.total} de 10</strong>.
                   Ajusta los pesos hasta que sumen 10 y vuelve a cerrar.
                 </p>
@@ -8865,12 +8865,12 @@ export default function SubjectPage() {
                 })()}.
               </p>
             )}
-            <p className="text-xs text-muted text-center mt-2">
+            <p className="text-sm text-muted text-center mt-2">
               Si es la <strong>misma persona</strong>, se agrega esta asignatura a su cuenta (mismo usuario
               <span className="font-mono"> {linkCandidate.identity.username}</span>). Si es <strong>otra persona</strong>{linkCandidate.identity.parecido ? '' : ' con el mismo nombre'}, se crea una cuenta nueva.
             </p>
             {linkCandidate.identity.parecido && (
-              <p className="text-xs text-muted text-center mt-2">
+              <p className="text-sm text-muted text-center mt-2">
                 Si es la misma y su nombre está mal escrito en algún lado, corrígelo después desde su
                 ficha — su usuario no cambia.
               </p>
@@ -8926,7 +8926,7 @@ export default function SubjectPage() {
                       <li key={inv.fila}>Fila {inv.fila} del Excel: “{inv.texto || '(vacía)'}”</li>
                     ))}
                   </ul>
-                  <p className="mt-1.5 text-xs text-amber-700">Estas filas se van a omitir. Corrígelas en el archivo y vuelve a subirlo si quieres incluirlas.</p>
+                  <p className="mt-1.5 text-sm text-amber-700">Estas filas se van a omitir. Corrígelas en el archivo y vuelve a subirlo si quieres incluirlas.</p>
                 </div>
               )}
               {excelPreview.rows.length > 0 ? (
@@ -8942,7 +8942,7 @@ export default function SubjectPage() {
                       "Cuenta existente" es el badge por default (la propuesta
                       más probable), pero se puede voltear por fila. */}
                   {excelPreview.rows.some((r) => r.status === 'link' && !r.parecido) && (
-                    <p className="text-xs text-muted bg-surface-container rounded px-2.5 py-1.5 mb-1.5">
+                    <p className="text-sm text-muted bg-surface-container rounded px-2.5 py-1.5 mb-1.5">
                       Los marcados <strong>Cuenta existente</strong> coinciden con un nombre que ya está en la
                       escuela y se van a unir a esa cuenta. Si alguno es <strong>otra persona</strong> que solo
                       comparte el nombre, tócalo para darle una cuenta nueva.
@@ -8954,7 +8954,7 @@ export default function SubjectPage() {
                       desapercibida: es el caso que partió en dos a una alumna
                       real. */}
                   {excelPreview.rows.some((r) => r.parecido) && (
-                    <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 mb-1.5">
+                    <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 mb-1.5">
                       Los marcados en <strong>ámbar</strong> se parecen mucho a alguien que ya está en la escuela
                       (una letra de diferencia, un nombre de más). Por si acaso se les da una{' '}
                       <strong>cuenta nueva</strong>. Si en realidad es la misma persona, tócalos: así conserva
@@ -8966,7 +8966,7 @@ export default function SubjectPage() {
                       procesa, las demás se omiten para no crear dos cuentas
                       de la misma persona. */}
                   {excelPreview.rows.some((r) => r.status === 'duplicate') && (
-                    <p className="text-xs text-muted bg-surface-container rounded px-2.5 py-1.5 mb-1.5">
+                    <p className="text-sm text-muted bg-surface-container rounded px-2.5 py-1.5 mb-1.5">
                       Los marcados <strong>Repetido</strong> tienen el mismo nombre que otra fila de este mismo
                       archivo — solo se agrega la primera, el resto se omite.
                     </p>
@@ -9108,7 +9108,7 @@ export default function SubjectPage() {
                 <p className="block text-sm font-medium text-muted mb-1">
                   Fechas <span className="text-accent font-normal text-xs">(recomendado)</span>
                 </p>
-                <p className="text-xs text-muted mb-1.5">Con fechas de inicio y fin, los días para marcar asistencia se generan de forma automática y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y elegirlas después.</p>
+                <p className="text-sm text-muted mb-1.5">Con fechas de inicio y fin, los días para marcar asistencia se generan de forma automática y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y elegirlas después.</p>
                 <div className="space-y-2">
                   <div>
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
@@ -9187,7 +9187,7 @@ export default function SubjectPage() {
                 <p className="block text-sm font-medium text-muted mb-1">
                   Fechas <span className="text-accent font-normal text-xs">(recomendado)</span>
                 </p>
-                <p className="text-xs text-muted mb-1.5">Con fechas de inicio y fin, los días para marcar asistencia se generan de forma automática y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y elegirlas después.</p>
+                <p className="text-sm text-muted mb-1.5">Con fechas de inicio y fin, los días para marcar asistencia se generan de forma automática y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y elegirlas después.</p>
                 <div className="space-y-2">
                   <div>
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
@@ -9381,7 +9381,7 @@ export default function SubjectPage() {
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Color de la asignatura <span className="normal-case font-normal text-hint">(el color base que la identificará)</span></p>
+                <p className="text-sm font-semibold text-muted uppercase tracking-wide mb-1.5">Color de la asignatura <span className="normal-case font-normal text-hint">(el color base que la identificará)</span></p>
                 <PaletteSelect value={unarchiveEdits.colorPalette} onChange={(p) => setUnarchiveEdits((f) => ({ ...f, colorPalette: p }))} />
               </div>
 
@@ -9494,7 +9494,7 @@ export default function SubjectPage() {
                     onChange={(e) => setResourceFile(e.target.files?.[0] || null)}
                     className="w-full text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-accent-light file:text-accent file:text-sm file:font-medium"
                   />
-                  <p className="text-xs text-hint mt-1">PDF, Word, Excel, Power Point, JPG o PNG · máximo 15 MB</p>
+                  <p className="text-sm text-hint mt-1">PDF, Word, Excel, Power Point, JPG o PNG · máximo 15 MB</p>
                 </div>
               ) : (
                 <div>
@@ -9506,7 +9506,7 @@ export default function SubjectPage() {
                     onChange={(e) => setResourceForm((f) => ({ ...f, enlace: e.target.value }))}
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   />
-                  <p className="text-xs text-hint mt-1">Video de YouTube, documento de Google Drive, sitio externo, etc.</p>
+                  <p className="text-sm text-hint mt-1">Video de YouTube, documento de Google Drive, sitio externo, etc.</p>
                 </div>
               )}
               <button

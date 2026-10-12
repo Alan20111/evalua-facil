@@ -150,7 +150,7 @@ function InsumosOpcionales({
   return (
     <fieldset className="mb-2 p-2.5 rounded border border-outline-variant">
       <legend className="text-sm text-on-surface px-1">Insumos a incluir</legend>
-      <p className="text-xs text-muted mb-1.5">
+      <p className="text-sm text-muted mb-1.5">
         Tu Perfil IA y el programa de estudios siempre se usan. Los demás se marcan más abajo,
         en &ldquo;Información adicional para generar con IA&rdquo;, en la tarjeta de cada uno — entre más insumos incluyas y
         tengas listos, mejor planeación obtendrás.
@@ -410,7 +410,7 @@ function RevisionPantallaCompleta({ titulo, onCerrar, cerrarTexto = null, accion
 // no se intenta mostrar ahí (pedido explícito de Kike, 15-ago-2026).
 function AvisoRevisionDesktop() {
   return (
-    <div className="mt-3 pt-2 border-t border-outline-variant flex items-start gap-2 text-xs text-amber-700">
+    <div className="mt-3 pt-2 border-t border-outline-variant flex items-start gap-2 text-sm text-amber-700">
       <Monitor size={16} className="flex-shrink-0 mt-0.5" />
       <p>Ya se generó — para revisarla, corregirla y aceptarla/descargarla, abre Evalúa Fácil desde una computadora.</p>
     </div>
@@ -458,7 +458,7 @@ function SelectorDeCamino({ generando, subiendoArchivo, onElegirIA, onElegirArch
       <p className="text-sm text-on-surface mb-1">
         <span className="font-medium">¿Cómo quieres obtener tu Planeación?</span>
       </p>
-      <p className="text-xs text-muted mb-2">
+      <p className="text-sm text-muted mb-2">
         Elige uno de los dos caminos — esta asignatura tendrá una sola planeación. Puedes cambiar de camino
         después.
       </p>
@@ -473,7 +473,7 @@ function SelectorDeCamino({ generando, subiendoArchivo, onElegirIA, onElegirArch
             {generando ? <Spinner size="sm" /> : <Sparkles size={16} />}
             Que Evalúa Fácil la genere
           </span>
-          <span className="text-xs text-muted">
+          <span className="text-sm text-muted">
             La genera con tu programa de estudios y la información de tu grupo. Puedes revisarla antes de
             aceptarla como tu planeación vigente. Consume créditos de IA.
           </span>
@@ -556,7 +556,7 @@ export default function PlaneacionInicialSection({ subjectId, asignaturaNombre, 
         Cada asignatura tiene una sola planeación vigente: la que genera Evalúa Fácil, o la tuya en PDF o Word.
       </p>
 
-      <p className="text-xs text-muted mb-2">
+      <p className="text-sm text-muted mb-2">
         💡 Es una guía de trabajo, no un guion. Puedes adaptar tus actividades según las necesidades de tu
         grupo.
       </p>
@@ -1219,7 +1219,7 @@ function Planeacion({
       ) : (
         <>
           {vigenteIA ? (
-            <p className="text-xs text-muted mb-2">
+            <p className="text-sm text-muted mb-2">
               Estado: <span className="font-medium text-green-700">Vigente: generada por Evalúa Fácil — la usa la IA para todo lo demás</span>
               {fechaAceptada?.toDate && ` · ${fechaAceptada.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
             </p>

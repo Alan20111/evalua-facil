@@ -250,7 +250,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
         )}
 
         <div className="bg-surface-card rounded-card shadow-card p-4 space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wide text-amber-700 flex items-center gap-1.5">
+          <p className="text-sm font-bold uppercase tracking-wide text-amber-700 flex items-center gap-1.5">
             <AlertTriangle size={14} /> Estudiantes que podrían requerir atención — señal, no diagnóstico
           </p>
           {editado.estudiantesAtencion?.length > 0 ? (

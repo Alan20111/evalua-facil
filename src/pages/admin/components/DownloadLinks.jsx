@@ -269,7 +269,7 @@ export default function DownloadLinks() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-mono text-muted break-all">{APP_DOWNLOAD_URL}</p>
-              <p className="text-xs text-muted mt-2 leading-relaxed">
+              <p className="text-sm text-muted mt-2 leading-relaxed">
                 Este código QR siempre descarga la versión vigente.<br />
                 No cambia cuando publicas una nueva versión.
               </p>
@@ -316,7 +316,7 @@ export default function DownloadLinks() {
           </Button>
         </div>
 
-        <p className="mt-3 flex items-start gap-1.5 text-xs text-hint">
+        <p className="mt-3 flex items-start gap-1.5 text-sm text-hint">
           <ExternalLink size={13} className="flex-shrink-0 mt-0.5" />
           Tarda unos minutos. Al iniciar se abre el registro de la compilación en
           otra pestaña; el enlace de descarga cambia solo cuando termina.
@@ -403,7 +403,7 @@ export default function DownloadLinks() {
         {LINK_LEGADO.activo && (
           <div className="mt-4 flex gap-2 bg-amber-50 border border-amber-200 rounded p-3">
             <AlertTriangle size={14} className="text-amber-600 flex-none mt-0.5" />
-            <p className="text-xs text-amber-900 leading-relaxed">
+            <p className="text-sm text-amber-900 leading-relaxed">
               El enlace de la versión {LINK_LEGADO.version} (agosto 2026) sigue activo y puede estar
               circulando. Cuando todos los estudiantes tengan la nueva APK instalada, puede retirarse
               editando el código.

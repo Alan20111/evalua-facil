@@ -274,7 +274,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
             <div className={`mt-2 rounded px-3 py-2 flex items-center justify-between gap-3 border ${
               sumaOk ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-300'
             }`}>
-              <p className={`text-xs font-medium ${sumaOk ? 'text-emerald-700' : 'text-amber-800'}`}>
+              <p className={`text-sm font-medium ${sumaOk ? 'text-emerald-700' : 'text-amber-800'}`}>
                 {suma !== RUBRICA_TOTAL
                   ? `Los puntos suman ${suma} — deben sumar exactamente ${RUBRICA_TOTAL}.`
                   : `Al calificar marcarás cada criterio cumplido; su suma es la calificación (sobre ${RUBRICA_TOTAL}).`}
@@ -318,7 +318,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                 : 'Tienes cambios sin guardar en esta lista de cotejo. Si sales sin guardar, se pierden.'}
             </p>
             {validationError && (
-              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-2 mb-3">
+              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-2 mb-3">
                 Con lo que llevas todavía no se puede guardar: {validationError}
               </p>
             )}

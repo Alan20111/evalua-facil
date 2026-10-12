@@ -93,7 +93,7 @@ export default function RevisionJuegoBorrador({ activity, estructura: estructura
           </p>
         )}
       </div>
-      <p className="text-xs text-muted text-right">
+      <p className="text-sm text-muted text-right">
         Editar y volver a construir el tablero no tiene costo adicional — el crédito ya reservado al generar
         el contenido se cobra hasta que confirmes.
       </p>

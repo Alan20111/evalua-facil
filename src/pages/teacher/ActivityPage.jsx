@@ -1974,7 +1974,7 @@ export default function ActivityPage() {
                 {(selected.sub || isObservacion || hasRubrica) ? (
                   <form onSubmit={saveGrade} className="space-y-3">
                     {parcialCerrado && (
-                      <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
+                      <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 leading-relaxed">
                         <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
                         Para modificarlas, primero <strong>reabre el parcial</strong> desde Calificaciones.
                         Al reabrirlo, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
@@ -2174,7 +2174,7 @@ export default function ActivityPage() {
                       Permitir que el estudiante vea este comentario
                     </label>
                     {!canCreate && (
-                      <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
+                      <p className="text-sm text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
                         Necesitas Créditos IA para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
                       </p>
                     )}
@@ -2592,7 +2592,7 @@ export default function ActivityPage() {
             {(selected.sub || isObservacion || hasRubrica || !isEvaluacion) ? (
               <form onSubmit={saveGrade} className="space-y-2 flex-shrink-0 px-3">
                 {parcialCerrado && !IS_NATIVE_APP && (
-                  <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
+                  <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 leading-relaxed">
                     <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
                     Para modificarlas, primero <strong>reabre el parcial</strong> desde Calificaciones.
                     Al reabrirlo, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
@@ -2759,7 +2759,7 @@ export default function ActivityPage() {
                 </div>
 
                 {!canCreate && !IS_NATIVE_APP && (
-                  <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
+                  <p className="text-sm text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
                     Necesitas Créditos IA para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
                   </p>
                 )}
@@ -3000,7 +3000,7 @@ export default function ActivityPage() {
         >
           {!loteIAConteo.recalificar && loteIAConteo.totalPorCalificar > loteIAConteo.entregas && (
             <p
-              className="text-xs text-muted"
+              className="text-sm text-muted"
               data-tooltip="Puede quedar fuera porque ya tiene una propuesta de IA pendiente, o porque no tiene evidencia en un formato compatible (JPG, PNG, PDF o Word)."
             >
               {loteIAConteo.totalPorCalificar - loteIAConteo.entregas === 1

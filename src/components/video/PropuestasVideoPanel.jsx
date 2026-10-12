@@ -184,7 +184,7 @@ export default function PropuestasVideoPanel({
           <li><span className="font-semibold">Contenido:</span> comprueba que coincida con el video y que las respuestas sean correctas.</li>
           <li><span className="font-semibold">Calidad:</span> corrige o descarta preguntas confusas, repetidas o inadecuadas.</li>
         </ul>
-        <p className="text-xs font-semibold text-amber-900">La IA propone; tú revisas y decides. Aprobar una pregunta no garantiza que sea correcta.</p>
+        <p className="text-sm font-semibold text-amber-900">La IA propone; tú revisas y decides. Aprobar una pregunta no garantiza que sea correcta.</p>
       </section>
 
       <div className="rounded-card bg-surface px-3 py-2 space-y-2" data-testid="resumen-antes-de-publicar">
@@ -193,7 +193,7 @@ export default function PropuestasVideoPanel({
           <span className="font-semibold text-amber-800">{cuenta.pendiente}</span> {cuenta.pendiente === 1 ? 'pendiente (NO se publica hasta que la apruebes)' : 'pendientes (NO se publican hasta que las apruebes)'} ·{' '}
           <span className="font-semibold text-red-800">{cuenta.descartada}</span> {cuenta.descartada === 1 ? 'descartada' : 'descartadas'}
         </p>
-        {sucias > 0 && <p className="text-xs font-semibold text-amber-900">Tienes cambios sin guardar. Guárdalos para que cuenten al publicar.</p>}
+        {sucias > 0 && <p className="text-sm font-semibold text-amber-900">Tienes cambios sin guardar. Guárdalos para que cuenten al publicar.</p>}
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setRevisando(true)} data-testid="abrir-revision" className={`${BOTON} bg-accent text-white`}>
             <ListChecks size={16} /> Revisar preguntas{cuenta.pendiente > 0 ? ` (${cuenta.pendiente} pendientes)` : ''}

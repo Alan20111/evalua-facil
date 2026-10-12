@@ -29,7 +29,7 @@ export default function SinCalificacionConfig({ sinCalificacion, ponderarReactiv
         />
         Sin calificación
       </label>
-      <p className="text-xs text-muted ml-6">
+      <p className="text-sm text-muted ml-6">
         No cuenta para el promedio ni aparece en la tabla de calificaciones, y no lleva número.
         Se sigue viendo en Actividades y tú ves todas las respuestas.
       </p>
@@ -51,7 +51,7 @@ export default function SinCalificacionConfig({ sinCalificacion, ponderarReactiv
               />
               Sí, con puntos
             </label>
-            <p className="text-xs text-muted ml-6">Arroja un resultado (por ejemplo 8 de 10) para medir al grupo, sin afectar su calificación.</p>
+            <p className="text-sm text-muted ml-6">Arroja un resultado (por ejemplo 8 de 10) para medir al grupo, sin afectar su calificación.</p>
           </div>
           <div>
             <label htmlFor="ponderar-no" className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
@@ -65,7 +65,7 @@ export default function SinCalificacionConfig({ sinCalificacion, ponderarReactiv
               />
               No, sin puntos
             </label>
-            <p className="text-xs text-muted ml-6">Una encuesta: no se cuentan aciertos, solo se registra lo que cada quien contestó.</p>
+            <p className="text-sm text-muted ml-6">Una encuesta: no se cuentan aciertos, solo se registra lo que cada quien contestó.</p>
           </div>
         </div>
       )}

@@ -140,7 +140,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
           <EFDateTimePicker mode="datetime" value={date} onChange={setDate} clearable={false} minDateTime={nowIsoLocal()} />
 
           {mode === 'todos' && (
-            <p className="text-xs text-hint mt-2">
+            <p className="text-sm text-hint mt-2">
               Se aplicará a <strong>todo el grupo</strong> y se reabrirá la actividad si estaba cerrada.
               Al llegar esta fecha y hora, las entregas se cerrarán otra vez automáticamente
               (según la casilla &ldquo;Cerrar entregas en la fecha y hora programada&rdquo;).
@@ -153,7 +153,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                 <SearchInput value={search} onChange={setSearch} etiqueta="Buscar por nombre o número de lista…" />
               </div>
               {errorEntregas ? (
-                <p className="text-xs text-red-600 mb-2">No se pudieron revisar las entregas. Cierra y vuelve a abrir esta ventana.</p>
+                <p className="text-sm text-red-600 mb-2">No se pudieron revisar las entregas. Cierra y vuelve a abrir esta ventana.</p>
               ) : !conEntrega && (
                 <p className="text-xs text-hint mb-2">Revisando entregas…</p>
               )}
@@ -173,11 +173,11 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                 })}
               </div>
               {conEntrega?.size > 0 && (
-                <p className="text-xs text-hint mt-1">
+                <p className="text-sm text-hint mt-1">
                   Quien ya entregó no puede recibir una fecha propia: primero anula su entrega.
                 </p>
               )}
-              <p className="text-xs text-hint mt-1">
+              <p className="text-sm text-hint mt-1">
                 {selected.size} seleccionado{selected.size !== 1 ? 's' : ''} — podrán entregar hasta esta
                 fecha; al pasar, se cerrará también para ellos.
               </p>

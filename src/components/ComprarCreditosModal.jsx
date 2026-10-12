@@ -196,7 +196,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
                   {enviando ? 'Enviando…' : 'Confirmar y enviar solicitud'}
                 </button>
 
-                <p className="text-xs text-muted text-center">
+                <p className="text-sm text-muted text-center">
                   Tus créditos se agregarán después de que el administrador confirme el pago recibido.
                 </p>
               </div>
@@ -204,10 +204,10 @@ export default function ComprarCreditosModal({ open, onClose }) {
           </>
         )}
 
-        <p className="text-xs text-muted text-center">
+        <p className="text-sm text-muted text-center">
           Los créditos no caducan. Toda la plataforma —asignaturas, actividades, asistencia y descargas— es gratuita.
         </p>
-        <p className="text-xs text-muted text-center">
+        <p className="text-sm text-muted text-center">
           Dudas o aclaraciones:{' '}
           <a href="mailto:admin.evaluafacil@gmail.com" className="underline hover:text-on-surface transition-colors">
             admin.evaluafacil@gmail.com

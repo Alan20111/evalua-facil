@@ -210,9 +210,9 @@ export default function RevisionVideoModal({
 
               {leerEvidencia(item.respaldo)
                 ? <EvidenciaVideo item={item} />
-                : <p className="text-xs text-muted" data-testid="sin-evidencia">Sin evidencia guardada de dónde salió esta pregunta: comprueba el momento viendo el video.</p>}
-              {sinPermiso && <p className="text-xs text-amber-900">El parcial está cerrado: puedes verla y probarla, pero ya no se puede cambiar.</p>}
-              {item.fueraDeLaEvaluacion && <p className="text-xs text-muted">La aprobaste y después la eliminaste de la lista de preguntas: ya no se publica. Para volver a usarla, agrégala a mano en la lista de preguntas.</p>}
+                : <p className="text-sm text-muted" data-testid="sin-evidencia">Sin evidencia guardada de dónde salió esta pregunta: comprueba el momento viendo el video.</p>}
+              {sinPermiso && <p className="text-sm text-amber-900">El parcial está cerrado: puedes verla y probarla, pero ya no se puede cambiar.</p>}
+              {item.fueraDeLaEvaluacion && <p className="text-sm text-muted">La aprobaste y después la eliminaste de la lista de preguntas: ya no se publica. Para volver a usarla, agrégala a mano en la lista de preguntas.</p>}
               {err && <p role="alert" className="text-xs text-error">{err}</p>}
               {requiereConfirmacion(item) && item.estado === ESTADO_REVISION.PENDIENTE && (
                 <label className="flex items-start gap-2 text-xs text-amber-950 bg-amber-50 rounded px-2 py-2">

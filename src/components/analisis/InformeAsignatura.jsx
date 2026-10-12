@@ -68,7 +68,7 @@ export default function InformeAsignatura({ analisis, onClose, onDescargarPDF, d
           <div className="min-w-0 space-y-1">
             <p className="text-sm text-on-surface"><span className="font-semibold">Parciales: </span>{plan.parciales}</p>
             <p className="text-sm text-on-surface"><span className="font-semibold">Fuentes: </span>{plan.fuentes}</p>
-            {plan.generadoEn && <p className="text-xs text-muted">Generado el {plan.generadoEn} — es una fotografía de ese momento: no cambia aunque después cambien los datos.</p>}
+            {plan.generadoEn && <p className="text-sm text-muted">Generado el {plan.generadoEn} — es una fotografía de ese momento: no cambia aunque después cambien los datos.</p>}
           </div>
           <button type="button" onClick={onDescargarPDF} disabled={descargando}
             className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-[var(--accent-light)] border border-accent rounded-full text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60">

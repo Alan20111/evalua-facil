@@ -368,7 +368,7 @@ export default function CalificarConIAModal({
             return (
               <p className="text-sm font-semibold text-on-surface mb-3">
                 {etiqueta}: pendiente
-                <span className="block text-xs font-normal text-muted mt-0.5">
+                <span className="block text-sm font-normal text-muted mt-0.5">
                   {faltantes.length === 1
                     ? `No se puede calcular una calificación completa: falta evidencia suficiente en "${faltantes[0]}".`
                     : `No se puede calcular una calificación completa: falta evidencia suficiente en ${faltantes.length} criterios (${faltantes.join(', ')}).`}
@@ -406,7 +406,7 @@ export default function CalificarConIAModal({
           )}
 
           {ignorados > 0 && (
-            <p className="text-xs text-muted mb-3">
+            <p className="text-sm text-muted mb-3">
               {ignorados} archivo{ignorados !== 1 ? 's' : ''} de la entrega no se analizó (formato no soportado
               todavía o por encima del máximo de 5 evidencias).
             </p>

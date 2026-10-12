@@ -253,7 +253,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             </div>
             {tipo === 'academico' && (
               <>
-                <p className="text-xs text-muted">Los estudiantes de esta asignatura lo verán en su Agenda.</p>
+                <p className="text-sm text-muted">Los estudiantes de esta asignatura lo verán en su Agenda.</p>
                 <Select
                   value={contenido.asignaturaId}
                   onChange={(v) => patchContenido({ asignaturaId: v })}

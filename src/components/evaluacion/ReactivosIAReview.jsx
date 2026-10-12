@@ -136,7 +136,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
             )}
 
             {r.tipo === 'subir_archivo' && (
-              <p className="text-xs text-hint italic">El alumno sube un documento — calificación manual.</p>
+              <p className="text-sm text-hint italic">El alumno sube un documento — calificación manual.</p>
             )}
           </div>
         ))}
@@ -150,10 +150,10 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
             : `Agregar ${incluidos.length} reactivo${incluidos.length !== 1 ? 's' : ''} a la evaluación`}
         </button>
         {!todosValidos && incluidos.length > 0 && (
-          <p className="text-xs text-amber-700 text-center">Completa el enunciado (y al menos 2 opciones, si aplica) de cada reactivo antes de agregarlos.</p>
+          <p className="text-sm text-amber-700 text-center">Completa el enunciado (y al menos 2 opciones, si aplica) de cada reactivo antes de agregarlos.</p>
         )}
         {incluidos.length === 0 && (
-          <p className="text-xs text-muted text-center">Descartaste todos los reactivos — no hay nada que agregar.</p>
+          <p className="text-sm text-muted text-center">Descartaste todos los reactivos — no hay nada que agregar.</p>
         )}
         <button type="button" onClick={onClose} disabled={guardando}
           className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-full hover:bg-surface-container transition-colors disabled:opacity-60">

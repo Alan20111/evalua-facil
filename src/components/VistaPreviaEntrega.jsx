@@ -99,7 +99,7 @@ export default function VistaPreviaEntrega({ files }) {
   if (!files?.length) return null
   return (
     <div className="space-y-3" data-testid="vista-previa-entrega">
-      <p className="text-xs font-medium text-muted">Vista previa — revisa tu archivo antes de entregar</p>
+      <p className="text-sm font-medium text-muted">Vista previa — revisa tu archivo antes de entregar</p>
       {files.map((f, i) => (
         <div key={`${f.name}-${f.size}-${i}`} className="space-y-1">
           {files.length > 1 && <p className="text-xs text-hint truncate">{i + 1}. {f.name}</p>}

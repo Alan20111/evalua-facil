@@ -47,13 +47,13 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
             : <p className="text-xs mt-0.5 opacity-70" style={{ color: 'var(--accent)' }}>Fecha de publicación no disponible</p>
           }
           {mode === 'hide' && (
-            <p className="text-xs mt-0.5 text-muted">Actualmente oculta para estudiantes (usa el ojito para mostrarla)</p>
+            <p className="text-sm mt-0.5 text-muted">Actualmente oculta para estudiantes (usa el ojito para mostrarla)</p>
           )}
-          <p className="text-xs mt-0.5 text-muted">Tus cambios se guardarán sin afectar la fecha de publicación original</p>
+          <p className="text-sm mt-0.5 text-muted">Tus cambios se guardarán sin afectar la fecha de publicación original</p>
           {/* Dónde vive la única acción que SÍ borra la publicación — sin esta
               línea, el docente lee "publicación es un hecho consumado" y no
               tiene por qué adivinar que el botón de abajo la deshace. */}
-          <p className="text-xs mt-0.5 text-muted">¿Quieres despublicarla? Guárdala como borrador con el botón de abajo.</p>
+          <p className="text-sm mt-0.5 text-muted">¿Quieres despublicarla? Guárdala como borrador con el botón de abajo.</p>
         </div>
       </div>
     )
@@ -132,7 +132,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
             className="accent-[var(--accent)]" />
           <div>
             <p className="text-sm font-medium text-on-surface">Programar publicación</p>
-            <p className="text-xs text-muted">Se activa automáticamente en la fecha y hora elegidas</p>
+            <p className="text-sm text-muted">Se activa automáticamente en la fecha y hora elegidas</p>
           </div>
         </label>
         {mode === 'schedule' && (

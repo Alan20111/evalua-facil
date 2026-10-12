@@ -239,11 +239,11 @@ function DiagnosticoActividadBloque({
               Generar cuestionario de diagnóstico
             </button>
           ) : estadoDiagnostico === 'completado' ? (
-            <p className="text-xs text-green-700">
+            <p className="text-sm text-green-700">
               Diagnóstico completado — este es el que usa la Planeación Didáctica Inicial.
             </p>
           ) : (
-            <p className="text-xs text-muted">
+            <p className="text-sm text-muted">
               Ya lo generaste — publícalo y espera respuestas de tus estudiantes para poder usarlo en la
               Planeación. Si quieres uno distinto, elimínalo desde Actividades.
             </p>
@@ -347,7 +347,7 @@ function DiagnosticosLegadoBloque({ subjectId }) {
         {abierto ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         Diagnósticos del formato anterior ({historial.length})
       </button>
-      <p className="text-xs text-muted mt-0.5">
+      <p className="text-sm text-muted mt-0.5">
         Generaciones de antes de esta corrección — ya no se usan para nada, solo puedes borrarlas.
       </p>
       {abierto && (

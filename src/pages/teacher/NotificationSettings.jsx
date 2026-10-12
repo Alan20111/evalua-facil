@@ -398,7 +398,7 @@ export default function TeacherNotificationSettings() {
         </div>
 
         {!IS_NATIVE_APP && (
-          <p className="text-xs text-muted -mt-2">
+          <p className="text-sm text-muted -mt-2">
             Estos avisos llegan como notificación push al celular donde tengas instalada la app Evalúa Fácil — no a este navegador.
           </p>
         )}
@@ -454,7 +454,7 @@ export default function TeacherNotificationSettings() {
                 <p className="text-sm font-semibold text-on-surface">Cómo activar las notificaciones en tu celular</p>
               </div>
               <InfoDisclosure label="Ver los pasos">
-              <p className="text-xs text-muted mb-2">
+              <p className="text-sm text-muted mb-2">
                 El sonido, el volumen y si se repiten los controla tu teléfono, igual que con cualquier otra app.
                 Para asegurarte de recibirlas:
               </p>
