@@ -83,7 +83,9 @@ const VISTAS = {
 const CUENTAS = { docente: 'docente.prueba@evalua.test', alumno: 'anlo.cbtis255@evalua.local' }
 
 function normalizar(html) {
-  let h = html.replace(/(id|for|aria-controls|aria-labelledby|aria-describedby)="[^"]*:r[^"]*"/g, '$1=""')
+  // Ids de useId: «:r1:» (React 18) y «_r_1_» (React 19). Cambian si se
+  // monta un componente más arriba en el árbol, sin que cambie nada visible.
+  let h = html.replace(/(id|for|aria-controls|aria-labelledby|aria-describedby)="[^"]*(:r|_r_)[^"]*"/g, '$1=""')
   for (const id of [semilla.uid, semilla.actividad, semilla.alumno, ...semilla.ids]) h = h.split(id).join('ID')
   // La línea de «ahora» del calendario baja con el reloj.
   h = h.replace(/style="top: [\d.]+px;"(><div style="height: 3px; background: var\(--accent\);")/g, 'style="top: AHORA;"$1')
@@ -203,7 +205,7 @@ for (const [vp, opts] of Object.entries(VIEWPORTS)) {
         fs.mkdirSync(path.dirname(refArchivo), { recursive: true })
         if (ESCRIBIR_REF) fs.writeFileSync(refArchivo, html)
         else if (fs.existsSync(refArchivo)) {
-          const ref = fs.readFileSync(refArchivo, 'utf8')
+          const ref = normalizar(fs.readFileSync(refArchivo, 'utf8')) // por si la referencia se tomó con una normalización más vieja
           if (ref !== html) {
             diferencias++
             let i = 0; while (i < ref.length && ref[i] === html[i]) i++

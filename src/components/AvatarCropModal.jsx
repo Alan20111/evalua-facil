@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, Check } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { IS_NATIVE_APP } from '../utils/platform'
-import { Skeleton, Button, IconButton } from './ui'
+import { Skeleton, Button, Modal } from './ui'
 
 // Pedido explícito: al elegir una foto de perfil (docente o alumno), poder
 // acercar/alejar con la rueda del mouse y que solo se guarde lo que se ve
@@ -153,55 +153,57 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
   }
 
   return (
-    <div className="fixed inset-0 z-tope flex items-center justify-center bg-black/50 animate-velo px-4">
-      <button type="button" className="absolute inset-0 border-none cursor-default bg-transparent" onClick={onCancel} aria-label="Cancelar" />
-      <div className="ef-nodrag relative bg-surface-card rounded-card shadow-2xl p-4 w-full max-w-sm">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-on-surface">Ajusta tu foto</h3>
-          <IconButton icon={X} label="Cancelar" tooltip={false} onClick={onCancel} />
-        </div>
-        <p className="text-xs text-muted mb-3 text-center">
-          {IS_NATIVE_APP ? 'Pellizca para alejar o acercar · arrastra para mover' : 'Rueda del mouse para acercar/alejar · arrastra para mover'}
-        </p>
-        <div
-          ref={viewportRef}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-          className="ef-nodrag mx-auto rounded-full overflow-hidden bg-slate-100 relative cursor-move select-none"
-          style={{ width: VIEWPORT, height: VIEWPORT, minWidth: VIEWPORT, minHeight: VIEWPORT, maxWidth: VIEWPORT, maxHeight: VIEWPORT, touchAction: 'none' }}
-        >
-          {imgEl ? (
-            <img
-              src={imgEl.src}
-              alt=""
-              draggable={false}
-              className="absolute pointer-events-none"
-              style={{
-                width: dispW,
-                height: dispH,
-                maxWidth: 'none',
-                maxHeight: 'none',
-                left: '50%',
-                top: '50%',
-                transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)`,
-              }}
-            />
-          ) : (
-            <Skeleton className="w-full h-full" />
-          )}
-        </div>
-        <div className="flex gap-2 mt-4">
-          <Button variant="secondary" className="flex-1" onClick={onCancel}>
-            Cancelar
-          </Button>
-          <Button icon={Check} busy={saving} className="flex-1" onClick={handleConfirm} disabled={!imgEl || saving}>
-            
-            Guardar
-          </Button>
-        </div>
+    <Modal
+      open
+      onClose={onCancel}
+      title="Ajusta tu foto"
+      variant="centered"
+      size="sm"
+      z={90}
+      padding="p-4"
+      className="ef-nodrag"
+    >
+      <p className="text-xs text-muted mb-3 text-center">
+        {IS_NATIVE_APP ? 'Pellizca para alejar o acercar · arrastra para mover' : 'Rueda del mouse para acercar/alejar · arrastra para mover'}
+      </p>
+      <div
+        ref={viewportRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+        className="ef-nodrag mx-auto rounded-full overflow-hidden bg-slate-100 relative cursor-move select-none"
+        style={{ width: VIEWPORT, height: VIEWPORT, minWidth: VIEWPORT, minHeight: VIEWPORT, maxWidth: VIEWPORT, maxHeight: VIEWPORT, touchAction: 'none' }}
+      >
+        {imgEl ? (
+          <img
+            src={imgEl.src}
+            alt=""
+            draggable={false}
+            className="absolute pointer-events-none"
+            style={{
+              width: dispW,
+              height: dispH,
+              maxWidth: 'none',
+              maxHeight: 'none',
+              left: '50%',
+              top: '50%',
+              transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)`,
+            }}
+          />
+        ) : (
+          <Skeleton className="w-full h-full" />
+        )}
       </div>
-    </div>
+      <div className="flex gap-2 mt-4">
+        <Button variant="secondary" className="flex-1" onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button icon={Check} busy={saving} className="flex-1" onClick={handleConfirm} disabled={!imgEl || saving}>
+          
+          Guardar
+        </Button>
+      </div>
+    </Modal>
   )
 }

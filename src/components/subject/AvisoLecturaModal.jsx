@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { avisoEmoji, formatAvisoFecha } from '../../utils/avisos'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { useScrollLock } from '../../hooks/useScrollLock'
-import { Button } from '../ui'
+import { Button, Modal } from '../ui'
 
 // Lectura obligatoria de avisos pendientes — pedido explícito: nada de cerrar,
 // omitir, "más tarde", X, deslizar o botón atrás. La única salida es leer el
@@ -17,7 +16,6 @@ import { Button } from '../ui'
 export default function AvisoLecturaModal({ avisos, teacherNames = {}, subjectNames = {}, onConfirm, confirming }) {
   const [idx, setIdx] = useState(0)
   useBackHandler(() => {}, avisos.length > 0)
-  useScrollLock(avisos.length > 0)
 
   if (avisos.length === 0) return null
   const aviso = avisos[Math.min(idx, avisos.length - 1)]
@@ -31,26 +29,33 @@ export default function AvisoLecturaModal({ avisos, teacherNames = {}, subjectNa
   }
 
   return (
-    <div className="fixed inset-0 z-aviso bg-black/60 animate-velo flex items-center justify-center px-4">
-      <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-md p-5 text-center">
-        {avisos.length > 1 && (
-          <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-2">
-            Aviso {idx + 1} de {avisos.length}
-          </p>
-        )}
-        <span className="text-4xl leading-none block mb-3" aria-hidden="true">{emoji}</span>
-        {subjectName && <p className="text-xs font-semibold text-accent mb-1">{subjectName}</p>}
-        <h2 className="text-lg font-bold text-on-surface mb-2">{aviso.titulo}</h2>
-        {aviso.mensaje && (
-          <p className="text-sm text-on-surface whitespace-pre-wrap text-left mb-4">{aviso.mensaje}</p>
-        )}
-        <p className="text-xs text-hint mb-6">
-          {formatAvisoFecha(aviso.fechaCreacion)}{teacherName ? ` · ${teacherName}` : ''}
+    <Modal
+      open
+      onClose={() => {}}
+      busy
+      variant="centered"
+      size="md"
+      z={60}
+      padding="p-5"
+      className="text-center"
+    >
+      {avisos.length > 1 && (
+        <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-2">
+          Aviso {idx + 1} de {avisos.length}
         </p>
-        <Button fullWidth onClick={handleEntendido} disabled={confirming}>
-          {confirming ? 'Guardando…' : 'Entendido'}
-        </Button>
-      </div>
-    </div>
+      )}
+      <span className="text-4xl leading-none block mb-3" aria-hidden="true">{emoji}</span>
+      {subjectName && <p className="text-xs font-semibold text-accent mb-1">{subjectName}</p>}
+      <h2 className="text-lg font-bold text-on-surface mb-2">{aviso.titulo}</h2>
+      {aviso.mensaje && (
+        <p className="text-sm text-on-surface whitespace-pre-wrap text-left mb-4">{aviso.mensaje}</p>
+      )}
+      <p className="text-xs text-hint mb-6">
+        {formatAvisoFecha(aviso.fechaCreacion)}{teacherName ? ` · ${teacherName}` : ''}
+      </p>
+      <Button fullWidth onClick={handleEntendido} disabled={confirming}>
+        {confirming ? 'Guardando…' : 'Entendido'}
+      </Button>
+    </Modal>
   )
 }

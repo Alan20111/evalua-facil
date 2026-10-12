@@ -8,8 +8,7 @@ import { BLOQUE_COLORS } from '../../utils/horarioBloques'
 import { formatLongDate } from '../../utils/dateRange'
 import Select from '../ui/Select'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { useScrollLock } from '../../hooks/useScrollLock'
-import { Button, Checkbox } from '../ui'
+import { Button, Checkbox, Modal } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 // Ventana de configuración de una programación (paso 1 de 2).
@@ -95,9 +94,6 @@ export default function ProgramarBloquesModal({
   // maneja CalendarPage con useBackHandler(() => setProgramar(null), ...).
   useBackHandler(() => setConfirmDel(false), confirmDel)
 
-  // Este componente solo se monta mientras está abierto (lo controla el padre).
-  useScrollLock(true)
-
   // En modo "crear" solo se listan asignaturas SIN programar.
   const subjectList = useMemo(
     () => (subjectsDisponibles || Object.values(subjects)).slice().sort((a, b) =>
@@ -125,16 +121,14 @@ export default function ProgramarBloquesModal({
   const inputCls = 'px-2.5 py-1.5 rounded-full border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
-        onClick={onClose}
-        aria-label="Cerrar"
-      />
-      <div
-        className={`relative bg-surface-card hoja rounded-card shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-xl max-h-[92vh] flex flex-col ${esModificar ? 'ring-4 ring-amber-400 ring-inset' : ''}`}
-      >
+    <Modal
+      open
+      onClose={onClose}
+      variant="sheet"
+      size="xl"
+      padding="p-0"
+      className={`flex flex-col ${esModificar ? 'ring-4 ring-amber-400 ring-inset' : ''}`}
+    >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0"
           style={esModificar ? { background: '#fef3c7' } : undefined}>
@@ -329,7 +323,6 @@ export default function ProgramarBloquesModal({
             </button>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

@@ -24,12 +24,11 @@ import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { useScrollLock } from '../../hooks/useScrollLock'
 import { studentFullName } from '../../utils/studentSearch'
 import { formatTiempo } from '../../utils/formatTiempo'
 import CrucigramaBoard from '../../components/juego/CrucigramaBoard'
 import SopaDeLetrasBoard from '../../components/juego/SopaDeLetrasBoard'
-import { SkeletonList, Button } from '../../components/ui'
+import { SkeletonList, Button, Modal } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
 
 export default function JuegoRunner() {
@@ -57,7 +56,6 @@ export default function JuegoRunner() {
 
   useBackHandler(() => setShowExitModal(false), showExitModal)
   useBackHandler(() => setShowExitModal(true), !showExitModal)
-  useScrollLock(showExitModal)
 
   async function load() {
     setLoading(true)
@@ -218,9 +216,7 @@ export default function JuegoRunner() {
         </div>
       </header>
 
-      {showExitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-velo px-4">
-          <div className="bg-surface-card rounded-card shadow-2xl p-5 max-w-sm w-full">
+      <Modal open={showExitModal} onClose={() => setShowExitModal(false)} variant="centered" size="sm" padding="p-5">
             <h3 className="text-base font-bold text-on-surface mb-2">¿Salir del juego?</h3>
             <p className="text-sm text-muted mb-3">
               Puedes salir y continuar después desde donde lo dejaste — tu progreso ya está guardado.
@@ -234,9 +230,7 @@ export default function JuegoRunner() {
                 Salir ahora
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
         {estructura.tipo === 'sopa_letras'
