@@ -25,7 +25,8 @@
     "deploy:rules": "firebase deploy --only firestore --project evalua-facil-app",
     "check:design": "bash scripts/check-ui-standards.sh",
     "check:esqueletos": "node scripts/check-esqueletos.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:visual": "node scripts/visual/verificar.mjs"
   },
   "dependencies": {
     "@capacitor-community/safe-area": "^8.0.1",
@@ -92,6 +93,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "husky": "^9.1.7",
+    "playwright-core": "1.49.1",
     "postcss": "^8.5.15",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",

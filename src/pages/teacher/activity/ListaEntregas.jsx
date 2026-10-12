@@ -295,7 +295,7 @@ export default function ListaEntregas() {
 
           {/* Filter tabs — they belong to the Entregas list, so they live inside
               its container; clicking one scrolls the list into full view */}
-          <div className={IS_NATIVE_APP ? 'grid grid-cols-2 gap-1 mx-4 mt-3 bg-surface-container p-1 rounded-card' : 'flex gap-1 mx-4 mt-3 bg-surface-container p-1 rounded-full'}>
+          <div className={IS_NATIVE_APP ? 'grid grid-cols-2 gap-1 mx-4 mt-3 bg-surface-container p-1 rounded-card' : 'flex gap-1 mx-4 mt-3 bg-surface-container p-1 rounded-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'}>
             {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
               <button
                 type="button"
@@ -305,7 +305,7 @@ export default function ListaEntregas() {
                   setTimeout(() => document.getElementById('entregas-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
                 }}
                 aria-pressed={filter === f}
-                className={`${IS_NATIVE_APP ? '' : 'flex-1'} min-h-control-sm px-2 text-xs font-medium rounded-full transition-colors ${
+                className={`${IS_NATIVE_APP ? '' : 'flex-1 whitespace-nowrap'} min-h-control-sm px-3 text-xs font-medium rounded-full transition-colors ${
                   filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}
               >
@@ -342,7 +342,7 @@ export default function ListaEntregas() {
                     type="button"
                     key={s.id}
                     onClick={() => openGradeFromList(s)}
-                    className={`w-full flex items-center ${IS_NATIVE_APP ? 'gap-1 pl-1 pr-2' : 'gap-2 px-2'} py-1 text-left hover:bg-[var(--accent-tint)] transition-colors cursor-pointer ${
+                    className={`w-full flex items-center ${IS_NATIVE_APP ? 'gap-1 pl-1 pr-2' : 'gap-2 px-2'} py-1 min-h-control-sm text-left hover:bg-[var(--accent-tint)] transition-colors cursor-pointer ${
                       i > 0 ? 'border-t border-outline-variant' : ''
                     }`}
                   >

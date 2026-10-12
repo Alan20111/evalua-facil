@@ -327,7 +327,7 @@ export default function TabLista() {
                   {!IS_NATIVE_APP && (
                     <button type="button"
                       onClick={() => openEditStudent(s)}
-                      className="w-9 flex-shrink-0 p-2 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-estandar"
+                      className="size-control flex-shrink-0 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors duration-estandar"
                       aria-label="Editar estudiante"
                       data-tooltip="Editar estudiante"
                     >

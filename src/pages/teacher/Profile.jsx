@@ -316,7 +316,7 @@ export default function Profile() {
                   )}
                 </div>
                 <button type="button" onClick={() => fileRef.current?.click()} disabled={photoUploading} aria-label="Cambiar foto"
-                  className="absolute -bottom-1 -right-1 size-7 bg-accent rounded-full flex items-center justify-center text-white shadow-lg transition active:scale-[0.94] disabled:opacity-60">
+                  className="absolute -bottom-1 -right-1 size-control-sm bg-accent rounded-full flex items-center justify-center text-white shadow-lg transition active:scale-[0.94] disabled:opacity-60">
                   {photoUploading ? <Spinner size="sm" current /> : <Camera size={ICONO.xs} />}
                 </button>
               </div>

@@ -63,3 +63,8 @@ functions/_shared/
 
 # Respaldos JSON que generan los scripts de reparación de datos
 seeds-db/respaldos/
+
+# Verificación visual (npm run test:visual): todo es local. Las referencias
+# llevan la fecha del día y los ids del emulador, así que solo sirven para
+# comparar antes/después en la misma máquina — docs/VERIFICACION_VISUAL.md
+test/visual/

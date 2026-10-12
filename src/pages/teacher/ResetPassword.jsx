@@ -125,12 +125,9 @@ export default function ResetPassword() {
               <p className="text-sm text-muted leading-relaxed">
                 Este enlace ya no es válido o ya fue utilizado. Solicita uno nuevo desde la pantalla de inicio de sesión.
               </p>
-              <Link
-                to="/docente"
-                className="inline-block w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors"
-              >
+              <Button as={Link} to="/docente" size="lg" fullWidth>
                 Ir a iniciar sesión
-              </Link>
+              </Button>
             </div>
           )}
 
