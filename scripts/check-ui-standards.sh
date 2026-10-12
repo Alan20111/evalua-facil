@@ -41,7 +41,7 @@ ratchet() {
   [ "$mode" = "files" ] && grep_flag="-rlE"
   local count
   if [ -n "$exclude" ]; then
-    count=$(grep $grep_flag "$pattern" --include="*.jsx" src/ 2>/dev/null | grep -vF "$exclude" | wc -l)
+    count=$(grep $grep_flag "$pattern" --include="*.jsx" src/ 2>/dev/null | grep -vE "$exclude" | wc -l)
   else
     count=$(grep $grep_flag "$pattern" --include="*.jsx" src/ 2>/dev/null | wc -l)
   fi
@@ -134,7 +134,9 @@ echo "=== Normalización de la interfaz — docs/PLAN_NORMALIZACION_UI.md §7 ==
 echo ""
 # Trinquetes de la normalización (oct-2026): congelan la deuda de hoy y solo
 # dejan que baje mientras las pantallas pasan a components/ui/. Lo que vive
-# DENTRO de components/ui/ no cuenta: ahí es donde la pieza debe estar.
+# DENTRO de components/ui/ no cuenta: ahí es donde la pieza debe estar; el
+# catálogo de desarrollo (pages/dev/) tampoco, porque muestra ejemplos. El
+# 4º argumento de ratchet es una expresión regular (grep -E).
 ratchet "Control con esquina a medias (rounded + borde, debe ser rounded-full o ui/) — §2.2" \
   '(^|[^a-z:-])rounded border' 33 'components/ui/'
 ratchet "Botón primario a mano (bg-accent hover:bg-accent-hover text-white → ui/Button) — §3" \
@@ -146,7 +148,7 @@ ratchet "Duración cruda (duration-NNN → duration-rapida/estandar/lenta) — �
 ratchet "transition-all (anima de más; usa transition-colors/transform) — §2.5" \
   '(^|[^a-z-])transition-all' 0 'components/ui/'
 ratchet "Casilla/opción a mano (type=checkbox|radio fuera de ui/) — §3" \
-  'type="(checkbox|radio)"' 60 'components/ui/'
+  'type="(checkbox|radio)"' 60 'components/ui/|pages/dev/'
 ratchet "z-index con número (z-[NN] → z-contenido/barra/menu/hoja/aviso/tope) — §2.4" \
   'z-\[[0-9]+\]' 17 'components/ui/'
 
