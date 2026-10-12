@@ -60,6 +60,9 @@ const VISTAS = {
     { nombre: 'tablero', url: '/dashboard' },
     { nombre: 'nueva-asignatura', url: '/dashboard', abrir: 'Nueva asignatura' },
     { nombre: 'asignatura', url: `/subject/${semilla.ids[0]}`, pestanas: true },
+    { nombre: 'editar-asignatura', url: `/subject/${semilla.ids[0]}`, abrir: 'Editar los datos de la asignatura (nombre, grupo, color, icono…)' },
+    // En el teléfono (web) no hay «Duplicar»: la vista se salta sola.
+    { nombre: 'duplicar-asignatura', url: `/subject/${semilla.ids[0]}`, abrir: 'Duplicar esta asignatura (con o sin la lista de estudiantes)' },
     { nombre: 'actividad', url: `/activity/${semilla.actividad}` },
     { nombre: 'calendario', url: '/calendario' },
     { nombre: 'perfil', url: '/profile', pestanas: true },
@@ -77,6 +80,8 @@ const CUENTAS = { docente: 'docente.prueba@evalua.test', alumno: 'anlo.cbtis255@
 function normalizar(html) {
   let h = html.replace(/(id|for|aria-controls|aria-labelledby|aria-describedby)="[^"]*:r[^"]*"/g, '$1=""')
   for (const id of [semilla.uid, semilla.actividad, semilla.alumno, ...semilla.ids]) h = h.split(id).join('ID')
+  // La línea de «ahora» del calendario baja con el reloj.
+  h = h.replace(/style="top: [\d.]+px;"(><div style="height: 3px; background: var\(--accent\);")/g, 'style="top: AHORA;"$1')
   return h.replace(/\s+/g, ' ')
 }
 
@@ -155,7 +160,12 @@ for (const [vp, opts] of Object.entries(VIEWPORTS)) {
       // Formularios en hoja (fase 3): se abre con su botón y se captura el
       // diálogo en lugar de la página.
       if (v.abrir) {
-        await page.getByRole('button', { name: v.abrir, exact: true }).and(page.locator(':visible')).first().click({ timeout: 5000 })
+        const boton = page.getByRole('button', { name: v.abrir, exact: true }).and(page.locator(':visible')).first()
+        if (!(await boton.count())) { console.log(`– ${vp}/${v.nombre}: no hay botón «${v.abrir}» en esta vista, se salta`); continue }
+        await boton.click({ timeout: 5000 })
+        // El ratón se queda donde estaba el botón: sin esto, lo que caiga
+        // debajo dentro de la hoja sale con su estilo de «pasar encima».
+        await page.mouse.move(0, 0)
         await page.waitForSelector('[role=dialog]', { timeout: 5000 })
         await page.waitForTimeout(600)
       }

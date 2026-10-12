@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { Bell, BookOpen, Check, Cloud, Copy, Download, Eye, Inbox, Mail, Pencil, Plus, RefreshCw, Search, Send, Settings, Sparkles, Trash2, Upload, User } from 'lucide-react'
 import {
   Animado, Avatar, Badge, Button, Card, Checkbox, Chip, Disclosure, EmptyState, IconButton, IconTile, InfoDisclosure,
-  Input, ListGroup, ListRow, Menu, Modal, Popover, Progress, RadioGroup, Select, SubTabs, Switch, Tabs, Textarea,
+  Input, ListGroup, ListRow, Menu, Modal, MotivoApagado, Popover, Progress, RadioGroup, Select, SubTabs, Switch, Tabs, Textarea,
 } from '../../components/ui'
 import YouTubeIcon from '../../components/YouTubeIcon'
 
@@ -97,6 +97,10 @@ export default function Catalogo() {
           <Input label="Con error" error="Este campo es obligatorio." defaultValue="x" />
           <Select label="Número de parciales" value={sel} onChange={setSel} options={[{ value: '2', label: '2 parciales' }, { value: '3', label: '3 parciales' }, { value: '4', label: '4 parciales' }]} />
           <Textarea label="Descripción" value={texto} onChange={(e) => setTexto(e.target.value)} autoResize showCount maxLength={200} optional />
+          <div>
+            <Button size="lg" fullWidth icon={Plus} disabled>Crear asignatura</Button>
+            <MotivoApagado faltan={['el nombre de la asignatura', 'el grupo']} />
+          </div>
         </Seccion>
 
         <Seccion titulo="Elegir">

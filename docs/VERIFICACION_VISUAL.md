@@ -69,7 +69,7 @@ y vuelve a tomar la referencia.
 
 | Rol | Vistas |
 |-----|--------|
-| Docente | tablero, «Nueva asignatura», asignatura (+ cada pestaña), actividad, calendario, perfil (+ cada pestaña), notificaciones, catálogo `/dev/componentes` |
+| Docente | tablero, «Nueva asignatura», asignatura (+ cada pestaña), «Editar asignatura», «Duplicar asignatura» (solo compu: el teléfono no tiene ese botón), actividad, calendario, perfil (+ cada pestaña), notificaciones, catálogo `/dev/componentes` |
 | Alumno | tablero, perfil (+ cada pestaña), agenda |
 
 La asignatura y la actividad **del alumno** no se pueden ver en local: leen de
@@ -88,5 +88,9 @@ la API serverless (`/api/content`), que no corre con Vite.
   cumple. Se espera a que no quede ningún `[aria-busy="true"]` (esqueletos).
 - Se navega con `reducedMotion: 'reduce'` para que las animaciones de entrada
   no dejen cosas a media escala en la captura.
+- Después de abrir una hoja el ratón se mueve a una esquina: si se queda donde
+  estaba el botón, lo que caiga debajo sale con su estilo de «pasar encima».
+- La posición de la línea de «ahora» del calendario se normaliza (baja con el
+  reloj).
 - El calendario recuerda la última vista: la primera corrida después de usarlo a
   mano puede abrir en otra vista que la referencia.

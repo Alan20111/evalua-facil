@@ -484,7 +484,7 @@ que quede transversal.
 | 0. Contrato | ✅ | #1566 |
 | 1. Librería | ✅ `ui/` completa y `/dev/componentes` | #1567, #1568 |
 | 2. Migración | ✅ olas 2.1 a 2.11 | #1569, #1578–#1583 (y escala de letra #1577) |
-| 3. Selección y preselección | ⏳ en curso, pantalla por pantalla (ver «Fase 3 — pantallas») | este PR: Nueva asignatura |
+| 3. Selección y preselección | ⏳ en curso, pantalla por pantalla (ver «Fase 3 — pantallas») | #1590, este PR |
 | 4. Movimiento | ✅ despliegues y microanimaciones, casillas nativas con aspecto `ui/` y 53 modales a `ui/Modal` | #1584, #1585, #1586 |
 | 5. Monolitos | ✅ sin cambio visual (mismo HTML en todas las pestañas) | #1587, #1588 |
 | 6. Verificación y candados | ✅ `npm run test:visual` y candados al mínimo | este PR |
@@ -515,6 +515,15 @@ app. Cada una se mide con `node scripts/visual/verificar.mjs --vista=<nombre>`.
 | Pantalla | Preselección | Selección (§5.1) | Otros |
 |---|---|---|---|
 | **Nueva asignatura** ✅ | Fechas, parciales y fechas por parcial del **ciclo vigente**: la asignatura activa más reciente cuyo curso no ha terminado, con la nota «Tomadas de «…»». Color: el primero que no usa ninguna asignatura activa, entre los que pasan contraste AA como texto (azul, morado, rosa, grafito). Si no hay de dónde tomarlos, no se inventan (`utils/asignaturaNueva.js`). | Colores, bolitas e íconos marcan lo elegido con el mismo aro de 2 px con separación y `aria-pressed`. Íconos con nombre en español. | Foco en «Asignatura» (solo con mouse). «Crear asignatura» se apaga y dice qué falta. Las fechas fijas por parcial miden lo mismo que el selector de al lado. |
+
+| **Editar, Duplicar y Desarchivar asignatura** ✅ | Ya llegan con los datos de la asignatura. Desarchivar propone «Conservar» en estudiantes y actividades (nunca lo destructivo). | Duplicar: casilla de `ui/Checkbox` en su tarjeta. Desarchivar: opciones de `ui/Radio` en tarjetas `rounded-card` (antes `rounded`, esquinas a medias). | Igual que Nueva: X con `IconButton`, pie fijo con botón grande y `MotivoApagado` («Falta el grupo.», «Aún no hay cambios que guardar.»), fechas con nombre accesible. Desarchivar gana etiquetas visibles en Asignatura, Grupo y Número de parciales, y «Cancelar» pasa a `Button`. |
+
+`ui/MotivoApagado` es la pieza que dice por qué el botón principal de un
+formulario está apagado (§5.2, regla 6). Va en el pie fijo, bajo el botón.
+
+**Pie fijo y zona segura:** en el teléfono la hoja de formulario ya reserva la
+zona de la barra de gestos (borde inferior transparente en `.hoja`). Por eso
+`pie-hoja` no lleva `safe-bottom`: antes se sumaba dos veces.
 
 Las muestras de color o ícono (`MUESTRA`, 2.5rem) quedan fuera de la
 auditoría de alturas: son celdas de una rejilla documentadas en DESIGN_SYSTEM
