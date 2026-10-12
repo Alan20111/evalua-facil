@@ -34,7 +34,7 @@ const VARIANTS = {
   // Enlace dentro de un texto: sin altura propia ni relleno.
   link: 'text-accent hover:underline underline-offset-2',
   icon: 'size-control text-muted hover:text-accent hover:bg-[var(--accent-tint)]',
-  'cta-dashed': 'w-full border-2 border-dashed border-accent text-accent hover:bg-accent-light',
+  'cta-dashed': 'w-full border border-dashed border-accent-soft text-accent hover:bg-accent-light',
   fab: 'size-14 bg-accent text-white shadow-lg hover:bg-accent-hover',
 }
 

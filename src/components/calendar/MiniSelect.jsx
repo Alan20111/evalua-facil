@@ -34,7 +34,7 @@ export default function MiniSelect({ value, options, onChange }) {
               key={o.value}
               type="button"
               onClick={() => { onChange(o.value); setOpen(false) }}
-              className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${o.value === value ? 'bg-accent text-white font-semibold' : 'text-on-surface hover:bg-accent-tint'}`}
+              className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${o.value === value ? 'bg-accent text-white font-semibold' : 'text-on-surface hover:bg-[var(--accent-tint)]'}`}
             >
               {o.label}
             </button>

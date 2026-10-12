@@ -15,8 +15,9 @@ export const ICONO = { xs: 14, sm: 16, md: 20, lg: 24, xl: 40 }
 // Fondos de ícono (IconTile): SIEMPRE círculo (DESIGN_SYSTEM §4.1). Tres
 // tamaños en lugar de w-8/w-9/w-10/w-11/w-12 según la pantalla.
 //   sm 2rem — junto a texto chico, notificaciones
-//   md 2.5rem — filas de lista (la medida estándar)
-//   lg 3rem — tarjetas del tablero
-export const FONDO_ICONO = { sm: 'size-8', md: 'size-10', lg: 'size-12' }
+//   md 2.75rem — filas y tarjetas de lista (la estándar: mide lo mismo que
+//                un control, así la fila no crece ni se encoge por el ícono)
+//   lg 3.5rem — encabezados de tarjeta grande
+export const FONDO_ICONO = { sm: 'size-8', md: 'size-11', lg: 'size-14' }
 // Ícono que va dentro de cada fondo, para que la proporción sea siempre la misma.
 export const ICONO_EN_FONDO = { sm: ICONO.sm, md: ICONO.md, lg: ICONO.lg }

@@ -1468,7 +1468,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       type="button"
                       onClick={handleRepartirParejo}
                       disabled={saving}
-                      className="flex items-center gap-1.5 py-2 px-3 rounded-full border border-accent text-accent text-xs font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
+                      className="flex items-center gap-1.5 py-2 px-3 rounded-full border border-accent text-accent text-xs font-medium hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
                     >
                       <Scale size={14} /> Repartir parejo
                     </button>

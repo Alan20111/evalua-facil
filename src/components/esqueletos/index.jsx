@@ -204,8 +204,8 @@ export function EsqueletoTableroAlumno({ filas = 3 }) {
           {Array.from({ length: filas }, (_, i) => (
             <div key={i} data-esq="dash-alu-fila" className="w-full bg-surface-card rounded-card p-1.5 shadow-card flex items-center gap-1">
               <Reordenar />
-              <div data-esq="dash-alu-fila-boton" className="flex-1 min-w-0 flex items-center gap-3 p-1.5">
-                <Skeleton data-esq="dash-alu-icono" className="w-12 h-12 rounded-full flex-shrink-0" />
+              <div data-esq="dash-alu-fila-boton" className="flex-1 min-w-0 flex items-center gap-3 p-1.5 rounded-card">
+                <Skeleton data-esq="dash-alu-icono" className="w-11 h-11 rounded-full flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <SkeletonLine texto="text-base font-semibold" className={ancho(i)} />
                   <SkeletonLine texto="text-sm font-medium" className={cn('mt-0.5', ancho(i, 3))} />

@@ -236,7 +236,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
                 type="button"
                 onClick={() => setTipo('personal')}
                 className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors ${
-                  tipo === 'personal' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-accent-tint'
+                  tipo === 'personal' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'
                 }`}
               >
                 Personal
@@ -245,7 +245,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
                 type="button"
                 onClick={() => setTipo('academico')}
                 className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors ${
-                  tipo === 'academico' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-accent-tint'
+                  tipo === 'academico' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'
                 }`}
               >
                 Académico

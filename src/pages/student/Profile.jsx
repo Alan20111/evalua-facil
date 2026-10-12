@@ -271,7 +271,7 @@ export default function StudentProfile() {
           <button
             type="button"
             onClick={() => navigate('/alumno/dashboard')}
-            className="p-2 -ml-2 rounded-full hover:bg-accent-tint text-muted hover:text-accent transition-colors flex-shrink-0"
+            className="p-2 -ml-2 rounded-full hover:bg-[var(--accent-tint)] text-muted hover:text-accent transition-colors flex-shrink-0"
             aria-label="Regresar"
           >
             <ArrowLeft size={20} />
@@ -296,7 +296,7 @@ export default function StudentProfile() {
                 data-tooltip="Cambiar foto"
                 aria-label="Cambiar foto"
               >
-                <div className={`${FOTO} rounded-full bg-accent-tint overflow-hidden flex items-center justify-center`}>
+                <div className={`${FOTO} rounded-full bg-[var(--accent-tint)] overflow-hidden flex items-center justify-center`}>
                   {uploadingPhoto ? (
                     <Spinner size="sm" />
                   ) : photoURL ? (
@@ -352,7 +352,7 @@ export default function StudentProfile() {
                     <button
                       type="button"
                       onClick={handleCopyUsername}
-                      className="p-2.5 rounded-full border border-outline-variant text-muted hover:bg-accent-tint hover:text-accent transition-colors flex-shrink-0"
+                      className="p-2.5 rounded-full border border-outline-variant text-muted hover:bg-[var(--accent-tint)] hover:text-accent transition-colors flex-shrink-0"
                       aria-label="Copiar usuario"
                       data-tooltip={copied ? 'Copiado' : 'Copiar'}
                     >
