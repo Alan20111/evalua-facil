@@ -35,7 +35,7 @@
 //   busy     bloquea el cierre por backdrop/Escape.
 //   closeOnBackdrop  default true.
 //   className  clases extra para el panel.
-import { useEffect, useId } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef } from 'react'
 import FocusLock from 'react-focus-lock'
 import { X } from 'lucide-react'
 import IconButton from './IconButton'
@@ -73,11 +73,22 @@ export default function Modal({
 
   useScrollLock(open)
 
-  useEffect(() => {
-    if (open && import.meta.env.DEV && !title && !ariaLabel) {
-      console.warn('<Modal> sin `title` ni `ariaLabel` — el diálogo no tiene nombre accesible para lectores de pantalla.')
+  // Sin `title` ni `ariaLabel`: el nombre accesible es el primer encabezado
+  // del panel (h1–h3), aunque su texto sea dinámico («Nueva actividad —
+  // Parcial 2»). Así un modal que pinta su propio título no queda mudo.
+  const panelRef = useRef(null)
+  const headingId = useId()
+  useLayoutEffect(() => {
+    if (!open || title || ariaLabel) return
+    const el = panelRef.current
+    const h = el?.querySelector('h1, h2, h3')
+    if (h) {
+      if (!h.id) h.id = headingId
+      el.setAttribute('aria-labelledby', h.id)
+    } else if (import.meta.env.DEV) {
+      console.warn('<Modal> sin `title`, `ariaLabel` ni encabezado — el diálogo no tiene nombre accesible para lectores de pantalla.')
     }
-  }, [open, title, ariaLabel])
+  }, [open, title, ariaLabel, headingId])
 
   if (!open) return null
 
@@ -119,6 +130,7 @@ export default function Modal({
             arquitectura, no un arreglo de accesibilidad puntual; fuera del
             alcance de Fase 2 ("sin refactorizar nada"). */}
         <div
+          ref={panelRef}
           className={panel}
           role="dialog"
           aria-modal="true"

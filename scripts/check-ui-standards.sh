@@ -109,8 +109,10 @@ fi
 # trabajo, no de este plan — no se revisó caso por caso, se congela el
 # número real de hoy para que el candado siga protegiendo contra que crezca
 # más, en vez de quedar roto/ignorado tras el merge.
-ratchet "Modales a mano (fixed inset-0 fuera de ui/Modal.jsx) — migrar a ui/Modal en Fase 3" \
-  'fixed inset-0' 35 'components/ui/Modal.jsx' files
+# Cuenta OCURRENCIAS (no archivos): dividir un archivo grande en varios
+# (fase 5 de PLAN_NORMALIZACION_UI) no debe parecer deuda nueva.
+ratchet "Modales a mano (fixed inset-0 fuera de ui/Modal.jsx) — migrar a ui/Modal" \
+  'fixed inset-0' 62 'components/ui/Modal.jsx'
 ratchet "h-screen (rompe con la barra de URL de Chrome Android, usar dvh) — Fase 5 paso 5.3" \
   '\bh-screen\b' 16
 ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
