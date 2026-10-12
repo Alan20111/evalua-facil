@@ -55,24 +55,24 @@ export default function ParcialesFechas({ fechaInicio, fechaFin, numParciales, v
           const fin = isLast ? fechaFin : (row.fin || '')
           return (
             <div key={i} className="p-2.5 bg-surface">
-              <p className="text-xs font-semibold text-slate-500 mb-1.5">Parcial {i + 1}</p>
+              <p className="text-xs font-semibold text-muted mb-1.5">Parcial {i + 1}</p>
               <div className="space-y-2">
                 <div>
-                  <span className="block text-xs text-slate-500 mb-1">Inicio</span>
+                  <span className="block text-xs text-muted mb-1">Inicio</span>
                   {isFirst ? (
-                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-slate-500">
+                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-muted">
                       {formatLong(inicio) || '—'}
                     </div>
                   ) : (
-                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-slate-500">
+                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-muted">
                       {formatLong(inicio) || '— (se define al elegir el fin del parcial anterior)'}
                     </div>
                   )}
                 </div>
                 <div>
-                  <span className="block text-xs text-slate-500 mb-1">Fin</span>
+                  <span className="block text-xs text-muted mb-1">Fin</span>
                   {isLast ? (
-                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-slate-500">
+                    <div className="w-full px-4 py-2 rounded-full border border-outline-variant bg-surface-variant text-sm text-muted">
                       {formatLong(fin) || '—'}
                     </div>
                   ) : (

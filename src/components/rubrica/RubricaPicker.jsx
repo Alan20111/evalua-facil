@@ -12,7 +12,8 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import SearchInput from '../SearchInput'
 import Select from '../ui/Select'
-import { SkeletonList } from '../ui'
+import { SkeletonList, Button, IconButton } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Banco de rúbricas del docente: elegir una para la actividad, crear nuevas,
 // editarlas o eliminarlas. Pantalla completa sobre el editor de entregables
@@ -95,9 +96,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
     <div className="fixed inset-0 z-[60] bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button type="button" onClick={onClose} aria-label="Volver" className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors flex-shrink-0">
-            <ArrowLeft size={22} />
-          </button>
+          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={onClose} />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-white/70 uppercase tracking-wide">Rúbrica de evaluación</p>
             <h1 className="text-2xl font-extrabold text-white truncate">Mi banco de rúbricas</h1>
@@ -109,14 +108,12 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
         {/* Crear rúbricas / listas de cotejo nuevas: solo en la web */}
         {!IS_NATIVE_APP && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <button type="button" onClick={() => setEditing('new')}
-              className="w-full py-3 bg-accent text-white font-semibold rounded-full flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors">
-              <Plus size={18} /> Crear nueva rúbrica
-            </button>
-            <button type="button" onClick={() => setEditing('new-cotejo')}
-              className="w-full py-3 border-2 border-accent text-accent font-semibold rounded-full flex items-center justify-center gap-2 hover:bg-[var(--accent-tint)] transition-colors">
-              <ListChecks size={18} /> Crear lista de cotejo
-            </button>
+            <Button fullWidth icon={Plus} onClick={() => setEditing('new')}>
+               Crear nueva rúbrica
+            </Button>
+            <Button variant="outline-accent" fullWidth icon={ListChecks} onClick={() => setEditing('new-cotejo')}>
+               Crear lista de cotejo
+            </Button>
           </div>
         )}
 
@@ -124,7 +121,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
           <SkeletonList rows={5} className="py-4" />
         ) : rubricas.length === 0 ? (
           <div className="bg-surface-card rounded-card shadow-card p-8 text-center">
-            <ClipboardList size={32} className="text-slate-300 mx-auto mb-3" />
+            <ClipboardList size={32} className="text-hint mx-auto mb-3" />
             <p className="text-muted text-sm">
               Aún no tienes rúbricas guardadas. Crea la primera y podrás
               reutilizarla en cualquier actividad entregable.
@@ -155,7 +152,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 mb-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${instrumentoColors(r).badge}`}>
-                      {esCotejo(r) ? <ListChecks size={11} /> : <ClipboardList size={11} />}
+                      {esCotejo(r) ? <ListChecks size={ICONO.xs} /> : <ClipboardList size={ICONO.xs} />}
                       {esCotejo(r) ? 'Lista de cotejo' : 'Rúbrica'}
                     </span>
                     {r.tema && (
@@ -169,24 +166,23 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
                         ? `${r.criterios?.length} criterios · lista de cotejo · sobre 10`
                         : `${r.criterios?.length} criterios · ${r.niveles?.length} niveles · se califica sobre 10`}
                     </p>
-                    {r.descripcion && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{r.descripcion}</p>}
+                    {r.descripcion && <p className="text-xs text-muted mt-1 line-clamp-2">{r.descripcion}</p>}
                   </div>
                   {r.id === currentRubricaId ? (
                     <button type="button" onClick={() => onSelect(r)}
                       className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded hover:bg-emerald-700 transition-colors">
-                      <Check size={16} /> Usando
+                      <Check size={ICONO.sm} /> Usando
                     </button>
                   ) : (
-                    <button type="button" onClick={() => onSelect(r)}
-                      className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors">
-                      <Check size={16} /> Usar
-                    </button>
+                    <Button icon={Check} className="flex-shrink-0" onClick={() => onSelect(r)}>
+                       Usar
+                    </Button>
                   )}
                 </div>
                 <div className="flex items-center gap-1 mt-2">
                   <button type="button" onClick={() => setPreviewId(previewId === r.id ? null : r.id)}
                     className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-muted hover:text-accent rounded hover:bg-[var(--accent-tint)] transition-colors">
-                    {previewId === r.id ? <EyeOff size={14} /> : <Eye size={14} />}
+                    {previewId === r.id ? <EyeOff size={ICONO.xs} /> : <Eye size={ICONO.xs} />}
                     {previewId === r.id ? 'Ocultar' : 'Vista previa'}
                   </button>
                   {/* Editar/eliminar rúbricas del banco: solo en la web */}
@@ -194,30 +190,28 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
                     <>
                       <button type="button" onClick={() => setEditing(r)}
                         className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-muted hover:text-accent rounded hover:bg-[var(--accent-tint)] transition-colors">
-                        <Pencil size={14} /> Editar
+                        <Pencil size={ICONO.xs} /> Editar
                       </button>
                       <button type="button" onClick={() => setConfirmDeleteId(r.id)}
                         className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-muted hover:text-red-600 rounded hover:bg-red-50 transition-colors">
-                        <Trash2 size={14} /> Eliminar
+                        <Trash2 size={ICONO.xs} /> Eliminar
                       </button>
                     </>
                   )}
                 </div>
                 {confirmDeleteId === r.id && (
-                  <div className="mt-2 rounded border border-red-200 bg-red-50 p-3 space-y-2">
+                  <div className="mt-2 rounded-card border border-red-200 bg-red-50 p-3 space-y-2">
                     <p className="text-sm text-red-700">
                       ¿Eliminar <strong>{r.titulo}</strong> de tu banco? Las actividades
                       que ya la usan conservan su copia y no se afectan.
                     </p>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => setConfirmDeleteId(null)} disabled={deleting}
-                        className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60">
+                      <Button variant="secondary" className="flex-1" onClick={() => setConfirmDeleteId(null)} disabled={deleting}>
                         Cancelar
-                      </button>
-                      <button type="button" onClick={() => handleDelete(r.id)} disabled={deleting}
-                        className="flex-1 py-1.5 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors">
+                      </Button>
+                      <Button variant="danger" className="flex-1" onClick={() => handleDelete(r.id)} disabled={deleting}>
                         {deleting ? 'Eliminando…' : 'Eliminar'}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}

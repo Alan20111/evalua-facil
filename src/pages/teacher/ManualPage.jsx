@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BookOpen, GraduationCap, Users, ClipboardList, ClipboardCheck, Database, Percent, UserCheck, CalendarDays, FileDown, UserCog, Check, AlertTriangle, Compass, Megaphone } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { ICONO } from '../../config/iconos'
 
 // Manual del docente. Todo el contenido está verificado contra el código real
 // de la plataforma — si algo no existe o no es configurable, aquí no aparece.
@@ -652,7 +653,7 @@ export default function ManualPage() {
     <div className={`px-4 py-4 ${TEACHER_CONTAINER_NARROW}`}>
       <div className="mb-4">
         <h1 className="text-[21px] font-bold text-on-surface">Manual</h1>
-        <p className="text-[15px] text-slate-500 mt-0.5">Cómo funciona cada parte de Evalúa Fácil.</p>
+        <p className="text-[15px] text-muted mt-0.5">Cómo funciona cada parte de Evalúa Fácil.</p>
       </div>
 
       {/* Índice — tira horizontal en móvil, columna fija en escritorio. */}
@@ -672,7 +673,7 @@ export default function ManualPage() {
                     : 'bg-surface-card text-muted hover:bg-[var(--accent-tint)]'
                 }`}
               >
-                <Icon size={16} className="flex-shrink-0" />
+                <Icon size={ICONO.sm} className="flex-shrink-0" />
                 {s.title}
               </button>
             )
@@ -692,9 +693,9 @@ export default function ManualPage() {
                     return (
                       <li key={i} className="flex items-start gap-2 text-[15px] text-on-surface leading-relaxed">
                         {isWarning ? (
-                          <AlertTriangle size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                          <AlertTriangle size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
                         ) : (
-                          <Check size={15} className="text-accent flex-shrink-0 mt-0.5" />
+                          <Check size={ICONO.sm} className="text-accent flex-shrink-0 mt-0.5" />
                         )}
                         <span className={isWarning ? 'text-amber-900' : undefined}>{text}</span>
                       </li>

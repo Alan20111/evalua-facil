@@ -1,3 +1,4 @@
+import { Input } from '../ui'
 // Tarjeta de una pregunta del Video interactivo: verdadero/falso, opción
 // múltiple (con «Otra») y respuesta abierta. Es el MISMO aspecto y la MISMA
 // semántica de guardado que la pantalla de cuestionario (EvaluacionRunner): los
@@ -23,7 +24,7 @@ export default function PreguntaRespuesta({
         rows={5}
         disabled={bloqueada}
         aria-label="Escribe tu respuesta…"
-        className="w-full px-3 py-3 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface disabled:opacity-60"
+        className="w-full px-3 py-3 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface disabled:opacity-60"
       />
     )
   }
@@ -44,10 +45,10 @@ export default function PreguntaRespuesta({
               <span className="text-sm text-on-surface break-words">{o.esOtra ? 'Otra:' : o.texto}</span>
             </label>
             {o.esOtra && elegida && (
-              <input type="text" value={otraTexto || ''} disabled={bloqueada}
+              <Input type="text" value={otraTexto || ''} disabled={bloqueada}
                 onChange={(e) => onOtraTextoChange(pregunta.id, e.target.value)}
                 aria-label="Escribe tu respuesta…"
-                className="mt-1.5 ml-9 w-[calc(100%-2.25rem)] px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                className="mt-1.5 ml-9 w-[calc(100%-2.25rem)]" />
             )}
           </div>
         )

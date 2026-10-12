@@ -633,7 +633,7 @@ export default function StudentSubjectPage() {
               role="tab"
               aria-selected={activeTab === tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-shrink-0 sm:flex-1 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-full transition-colors ${
+              className={`flex-shrink-0 sm:flex-1 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-full transition-colors min-h-control-sm ${
                 activeTab === tab
                   ? 'bg-surface-card text-on-surface shadow-card'
                   : 'text-muted hover:bg-[var(--accent-medium)]'
@@ -753,12 +753,9 @@ export default function StudentSubjectPage() {
                           : a.categoria === 'juego' ? Sparkles
                           : FileText
                         return (
-                          <button
-                            type="button"
+                          <Button variant="secondary" fullWidth className="text-left"
                             key={a.id}
-                            onClick={() => navigate(`/alumno/actividad/${a.id}`)}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-full border border-outline-variant bg-surface-card hover:border-accent hover:bg-[var(--accent-tint)] transition-colors duration-200 text-left"
-                          >
+                            onClick={() => navigate(`/alumno/actividad/${a.id}`)}>
                             <ActIcon size={ICONO.md} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-hint'}`} />
                             <div className="flex-1 min-w-0">
                               <p className="text-base font-medium leading-tight text-on-surface truncate">
@@ -807,7 +804,7 @@ export default function StudentSubjectPage() {
                                 <span className="text-xs bg-surface-container text-muted px-2 py-1 rounded-full">Pendiente</span>
                               )}
                             </div>
-                          </button>
+                          </Button>
                         )
                       }
                       // type === 'material'
@@ -1004,11 +1001,11 @@ export default function StudentSubjectPage() {
         <div className={`px-4 py-5 ${STUDENT_CONTAINER_LISTA}`}>
           <div className="flex gap-1 bg-surface-container p-1 rounded-full w-fit mb-3">
             <button type="button" onClick={() => setSoloAvisosGuardados(false)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${!soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors min-h-control-sm ${!soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>
               Todos
             </button>
             <button type="button" onClick={() => setSoloAvisosGuardados(true)}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>
+              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full transition-colors min-h-control-sm ${soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>
               <Bookmark size={ICONO.xs} /> Guardados{guardadosList.length > 0 ? ` (${guardadosList.length})` : ''}
             </button>
           </div>

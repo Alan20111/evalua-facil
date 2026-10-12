@@ -2,7 +2,6 @@ import { useState, useRef } from 'react'
 import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
-import Spinner from '../Spinner'
 import { ArrowLeft, Trash2, Scale, Check, Sparkles } from 'lucide-react'
 import {
   RUBRICA_TOTAL, MIN_CRITERIOS, MAX_CRITERIOS, COTEJO_NIVEL,
@@ -11,6 +10,8 @@ import {
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
+import { Button, IconButton } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Editor de LISTA DE COTEJO — variante simple de la rúbrica: solo 3 columnas
 // (Num, Criterio, Nivel de desempeño con sus puntos). Al calificar cada criterio
@@ -148,9 +149,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
     <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="px-4 py-3 flex items-center gap-3">
-          <button type="button" onClick={requestClose} aria-label="Volver" className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors flex-shrink-0">
-            <ArrowLeft size={22} />
-          </button>
+          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={requestClose} />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-white/70 uppercase tracking-wide">Banco de rúbricas</p>
             <h1 className="text-2xl font-extrabold text-white truncate">
@@ -165,7 +164,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
           {/* Mismo aviso obligatorio que RubricaEditor.jsx */}
           {iaGenerada && (
             <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
-              <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <Sparkles size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800">
                 <span className="font-semibold">Asistente IA. </span>
                 Esta propuesta fue generada con inteligencia artificial. Puede contener errores.
@@ -226,11 +225,8 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                           aria-label={`Nombre del criterio ${i + 1}`}
                           className={`w-full min-w-0 text-base font-semibold text-on-surface resize-none ${inputCell}`} />
                         {i >= MIN_CRITERIOS && (
-                          <button type="button" onClick={() => removeCriterio(i)}
-                            aria-label={`Eliminar criterio ${i + 1}`} data-tooltip="Eliminar criterio"
-                            className="p-2 text-hint hover:text-red-500 rounded-full flex-shrink-0">
-                            <Trash2 size={14} />
-                          </button>
+                          <IconButton icon={Trash2} label={`Eliminar criterio ${i + 1}`} variant="danger" tooltip={false} onClick={() => removeCriterio(i)}
+                            data-tooltip="Eliminar criterio" />
                         )}
                       </div>
                     </td>
@@ -281,7 +277,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
               </p>
               <button type="button" onClick={repartir}
                 className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-outline-variant rounded bg-surface-card text-muted hover:text-accent hover:border-accent transition-colors">
-                <Scale size={14} /> Repartir en partes iguales
+                <Scale size={ICONO.xs} /> Repartir en partes iguales
               </button>
             </div>
           </div>
@@ -293,15 +289,13 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
               {validationError}
             </p>
           )}
-          <button type="submit" disabled={saving || !!validationError || (!isNew && JSON.stringify(r) === editSnapshot.current)}
-            className="w-full py-3 bg-accent text-white font-semibold rounded-full disabled:opacity-60 flex items-center justify-center gap-2">
-            {saving ? <Spinner size="sm" /> : <Check size={18} />}
+          <Button fullWidth icon={Check} busy={saving} type="submit" disabled={saving || !!validationError || (!isNew && JSON.stringify(r) === editSnapshot.current)}>
+            
             {saving ? 'Guardando…' : isNew ? 'Guardar lista de cotejo en mi banco' : 'Guardar cambios'}
-          </button>
-          <button type="button" onClick={requestClose} disabled={saving}
-            className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-full hover:bg-surface-container transition-colors disabled:opacity-60">
+          </Button>
+          <Button variant="secondary" fullWidth onClick={requestClose} disabled={saving}>
             Cancelar
-          </button>
+          </Button>
           <div className="h-6 safe-bottom" />
         </form>
       </div>
@@ -323,15 +317,13 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
               </p>
             )}
             <div className="flex gap-2">
-              <button type="button" onClick={() => setConfirmSalir(false)} disabled={saving}
-                className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
+              <Button variant="secondary" className="flex-1" onClick={() => setConfirmSalir(false)} disabled={saving}>
                 {iaGenerada ? 'Cancelar' : 'Seguir editando'}
-              </button>
-              <button type="button" onClick={handleSave} disabled={saving || !!validationError}
-                className="flex-1 py-2.5 rounded-full bg-accent text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
-                {saving ? <Spinner size="sm" /> : <Check size={16} />}
+              </Button>
+              <Button icon={Check} busy={saving} className="flex-1" onClick={handleSave} disabled={saving || !!validationError}>
+                
                 {iaGenerada ? 'Guardar lista de cotejo' : 'Guardar y salir'}
-              </button>
+              </Button>
             </div>
             <button type="button" onClick={onClose} disabled={saving}
               className="w-full mt-2 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded transition-colors disabled:opacity-60">

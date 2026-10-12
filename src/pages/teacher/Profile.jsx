@@ -324,7 +324,7 @@ export default function Profile() {
               <div className="text-center">
                 <p className="font-bold text-on-surface">{displayName}</p>
                 {userProfile?.schoolName && (
-                  <p className="text-sm text-slate-500 mt-1">{userProfile.schoolName}</p>
+                  <p className="text-sm text-muted mt-1">{userProfile.schoolName}</p>
                 )}
               </div>
               {/* Ausente/true = visible (opt-out), igual criterio que el resto de
@@ -433,7 +433,7 @@ export default function Profile() {
 
                   {/* ── Correo (solo lectura) ── */}
                   <div className="py-2 border-b border-outline-variant">
-                    <p className="text-sm text-slate-500 mb-0.5">Correo electrónico</p>
+                    <p className="text-sm text-muted mb-0.5">Correo electrónico</p>
                     <p className="text-sm text-on-surface truncate">{currentUser?.email}</p>
                   </div>
 
@@ -443,7 +443,7 @@ export default function Profile() {
                       <div className="flex-1">
                         <p className="text-sm font-medium text-on-surface">Contraseña</p>
                         {!hasEmailProvider && (
-                          <p className="text-sm text-slate-500 mt-0.5">Solo disponible si tu cuenta usa correo y contraseña</p>
+                          <p className="text-sm text-muted mt-0.5">Solo disponible si tu cuenta usa correo y contraseña</p>
                         )}
                       </div>
                       {hasEmailProvider && (

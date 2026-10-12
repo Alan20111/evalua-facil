@@ -20,6 +20,8 @@ import FuentesIAInput from '../ia/FuentesIAInput'
 import useFuentesAsignatura from '../../hooks/useFuentesAsignatura'
 import { EVALUACION_DEFAULTS } from '../../utils/evaluacionDefaults'
 import Modal from '../ui/Modal'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 const MIN_CANTIDAD = 5
 const MAX_CANTIDAD = 20
@@ -105,7 +107,7 @@ export default function CrearJuegoIAModal({
 
   return (
     <Modal open={open} onClose={onClose} busy={trabajando} size="md"
-      title={<span className="flex items-center gap-2"><Sparkles size={18} className="text-accent flex-shrink-0" />{tipoLabel} con IA</span>}>
+      title={<span className="flex items-center gap-2"><Sparkles size={ICONO.md} className="text-accent flex-shrink-0" />{tipoLabel} con IA</span>}>
       <div>
         <p className="text-sm text-muted mb-3">
           El asistente propone las palabras {modalidad === 'descripcion' ? 'y sus pistas ' : ''}
@@ -165,10 +167,9 @@ export default function CrearJuegoIAModal({
             className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
             Cancelar
           </button>
-          <button type="button" onClick={handleGenerar} disabled={trabajando}
-            className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
+          <Button onClick={handleGenerar} disabled={trabajando}>
             {trabajando ? 'Generando…' : 'Generar con IA'}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

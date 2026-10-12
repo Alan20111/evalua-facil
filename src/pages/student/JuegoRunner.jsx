@@ -19,7 +19,6 @@ import { db } from '../../firebase'
 import { fetchActivity } from '../../utils/apiContent'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
 import { Timer, CheckCircle2, LogOut } from 'lucide-react'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
@@ -30,7 +29,8 @@ import { studentFullName } from '../../utils/studentSearch'
 import { formatTiempo } from '../../utils/formatTiempo'
 import CrucigramaBoard from '../../components/juego/CrucigramaBoard'
 import SopaDeLetrasBoard from '../../components/juego/SopaDeLetrasBoard'
-import { SkeletonList } from '../../components/ui'
+import { SkeletonList, Button } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 export default function JuegoRunner() {
   const { activityId } = useParams()
@@ -202,17 +202,17 @@ export default function JuegoRunner() {
           <div className="flex items-center gap-2 flex-shrink-0">
             {secondsLeft != null && (
               <span className={`flex items-center gap-1 text-sm font-semibold ${secondsLeft < 60 ? 'text-red-200' : 'text-white/90'}`}>
-                <Timer size={16} /> {mm}:{String(ss).padStart(2, '0')}
+                <Timer size={ICONO.sm} /> {mm}:{String(ss).padStart(2, '0')}
               </span>
             )}
             {inicioMs != null && secondsLeft == null && (
               <span className="flex items-center gap-1 text-xs text-white/70 tabular-nums">
-                <Timer size={13} /> {tiempoDisplay}
+                <Timer size={ICONO.xs} /> {tiempoDisplay}
               </span>
             )}
             <button type="button" onClick={() => setShowExitModal(true)}
               className="flex items-center gap-1 text-xs text-white/70 hover:text-white border border-white/30 rounded px-2 py-1 hover:bg-white/10">
-              <LogOut size={13} /> Salir
+              <LogOut size={ICONO.xs} /> Salir
             </button>
           </div>
         </div>
@@ -226,10 +226,9 @@ export default function JuegoRunner() {
               Puedes salir y continuar después desde donde lo dejaste — tu progreso ya está guardado.
             </p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowExitModal(false)}
-                className="flex-1 py-2.5 text-sm text-muted border border-outline-variant rounded-full">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowExitModal(false)}>
                 Seguir jugando
-              </button>
+              </Button>
               <button type="button" onClick={() => navigate(`/alumno/actividad/${activityId}`)}
                 className="flex-1 py-2 text-sm font-medium bg-error text-white rounded">
                 Salir ahora
@@ -245,11 +244,10 @@ export default function JuegoRunner() {
           : <CrucigramaBoard estructura={estructura} celdas={celdas} onCambioCelda={handleCambioCelda} />}
 
         <div className="flex justify-end mt-4 safe-bottom">
-          <button type="button" onClick={handleFinalizar} disabled={finishing}
-            className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-semibold rounded-full disabled:opacity-60">
-            {finishing ? <Spinner size="sm" /> : <CheckCircle2 size={18} />}
+          <Button icon={CheckCircle2} busy={finishing} onClick={handleFinalizar} disabled={finishing}>
+            
             {finishing ? 'Finalizando…' : 'Finalizar'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

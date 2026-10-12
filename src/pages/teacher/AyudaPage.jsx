@@ -295,7 +295,7 @@ export default function AyudaPage() {
     <div className={`px-4 py-4 ${TEACHER_CONTAINER_NARROW}`}>
       <div className="mb-6">
         <h1 className="text-[21px] font-bold text-on-surface">Centro de ayuda</h1>
-        <p className="text-[15px] text-slate-500 mt-0.5">
+        <p className="text-[15px] text-muted mt-0.5">
           Los 5 pasos para empezar. Para todo lo demás, consulta la sección de abajo.
         </p>
       </div>
@@ -324,7 +324,7 @@ export default function AyudaPage() {
                 <h3 className="text-[17px] font-bold text-on-surface">{guide.title}</h3>
               </div>
               {guide.description && (
-                <p className="text-[14px] text-slate-500 mb-3 ml-6">{guide.description}</p>
+                <p className="text-[14px] text-muted mb-3 ml-6">{guide.description}</p>
               )}
               <ol className={`space-y-4 ${guide.description ? '' : 'mt-3'}`}>
                 {guide.steps.map((step, i) => (

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
+import { ICONO } from '../config/iconos'
 
 // Generic drag-and-drop + click-to-browse multi-file picker. Purely
 // presentational: it just hands the picked/dropped files to `onFilesSelected`
@@ -27,7 +28,7 @@ export default function FileDropzone({ onFilesSelected, multiple = true, accept,
         dragOver ? 'border-accent-soft bg-[var(--accent-tint)]' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
       }`}
     >
-      <Upload size={22} className="mx-auto text-accent mb-1" />
+      <Upload size={ICONO.md} className="mx-auto text-accent mb-1" />
       <p className="text-sm font-medium text-on-surface">Arrastra tus archivos aquí o haz clic para seleccionarlos</p>
       <p className="text-xs text-hint mt-0.5">{hint || 'Puedes agregar uno o varios archivos'}</p>
       <input

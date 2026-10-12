@@ -57,7 +57,7 @@ export default function PdfCanvasPreview({ url, nombre, fill, onCountKnown }) {
 
   if (error) {
     return (
-      <div className={`w-full flex items-center justify-center bg-neutral-800 text-slate-300 text-sm ${fill ? 'h-full' : 'max-h-[70vh]'}`}>
+      <div className={`w-full flex items-center justify-center bg-neutral-800 text-hint text-sm ${fill ? 'h-full' : 'max-h-[70vh]'}`}>
         No se pudo mostrar la vista previa de este PDF.
       </div>
     )
@@ -75,7 +75,7 @@ export default function PdfCanvasPreview({ url, nombre, fill, onCountKnown }) {
         />
       ))}
       {pages.length === 0 && (
-        <div className="text-center text-slate-300 text-sm p-6">Cargando…</div>
+        <div className="text-center text-hint text-sm p-6">Cargando…</div>
       )}
     </div>
   )

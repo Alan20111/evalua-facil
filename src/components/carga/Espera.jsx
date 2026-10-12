@@ -5,6 +5,8 @@
 // cerrar la app (reporte oct-2026).
 import { Component, useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 const LIMITE_MS = 12000
 
@@ -13,14 +15,11 @@ function Reintentar({ texto }) {
     <output className="fixed inset-x-0 bottom-24 md:bottom-8 z-50 flex justify-center px-4 pointer-events-none">
       <div className="pointer-events-auto flex items-center gap-3 bg-surface-card rounded-full shadow-card pl-5 pr-2 py-2 animate-aviso">
         <span className="text-sm text-on-surface">{texto}</span>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors"
-        >
-          <RefreshCw size={14} aria-hidden="true" />
+        <Button
+          onClick={() => window.location.reload()}>
+          <RefreshCw size={ICONO.xs} aria-hidden="true" />
           Reintentar
-        </button>
+        </Button>
       </div>
     </output>
   )
@@ -53,13 +52,7 @@ export class CargaFallida extends Component {
         <div className="bg-surface-card rounded-card shadow-card p-8 max-w-sm w-full text-center">
           <p className="text-on-surface font-semibold mb-2">No se pudo cargar esta pantalla</p>
           <p className="text-muted text-sm mb-4">Revisa tu conexión e intenta de nuevo.</p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors"
-          >
-            Reintentar
-          </button>
+          <Button onClick={() => window.location.reload()}>Reintentar</Button>
         </div>
       </div>
     )

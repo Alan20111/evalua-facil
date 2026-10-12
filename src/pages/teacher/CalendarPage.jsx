@@ -1821,7 +1821,7 @@ export default function CalendarPage() {
           setPickerMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
           setShowDatePicker(v => !v)
         }}
-        className={`text-2xl font-bold text-on-surface px-3 py-1 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[11rem]'} truncate text-left select-none rounded-full hover:bg-[var(--accent-tint)] transition-colors py-0.5`}
+        className={`min-h-control-sm text-2xl font-bold text-on-surface px-3 py-1 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[11rem]'} truncate text-left select-none rounded-full hover:bg-[var(--accent-tint)] transition-colors py-0.5`}
         data-tooltip="Ir a otra fecha"
         data-tooltip-pos="bottom"
       >

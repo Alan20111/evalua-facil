@@ -1,5 +1,6 @@
 import { AlertTriangle } from 'lucide-react'
 import { formatCurrency } from '../../../utils/creditosHelpers'
+import { ICONO } from '../../../config/iconos'
 
 // «2026-10» → «octubre de 2026» / «oct 2026». El mes ya viene calculado en la
 // zona de México; aquí solo se escribe, así que se formatea en UTC para que la
@@ -100,7 +101,7 @@ function Avisos({ avisos }) {
       {avisos.map((a) => (
         <div key={a.id} className={`rounded-card border px-3 py-2 text-sm ${ESTILO_AVISO[a.nivel] || ESTILO_AVISO.info}`}>
           <p className="flex items-start gap-2">
-            {a.nivel === 'revisar' && <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />}
+            {a.nivel === 'revisar' && <AlertTriangle size={ICONO.sm} className="mt-0.5 flex-shrink-0" aria-hidden="true" />}
             <span>{a.texto}</span>
           </p>
           {a.detalle?.length > 0 && (

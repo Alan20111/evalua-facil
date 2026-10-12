@@ -707,15 +707,13 @@ export default function ProgramarZonaSemanal({
               >
                 <Trash2 size={ICONO.xs} /> Borrar
               </button>
-              <button
-                type="button"
+              <Button variant="secondary" icon={Copy} className="min-h-control-sm"
                 onClick={() => duplicarPatron(editP.id)}
                 disabled={restantes <= 0}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted rounded-full border border-outline-variant hover:text-accent hover:border-accent transition-colors disabled:opacity-60 min-h-control-sm"
-                data-tooltip={restantes <= 0 ? 'Ya no quedan bloques por colocar' : 'Copia en la hora siguiente'}
-              >
-                <Copy size={ICONO.xs} /> Duplicar
-              </button>
+               
+                data-tooltip={restantes <= 0 ? 'Ya no quedan bloques por colocar' : 'Copia en la hora siguiente'}>
+                 Duplicar
+              </Button>
               <Button icon={Check} className="flex-1"
                 onClick={() => { setEditing(null); setRecienId(null) }}>
                  Confirmar

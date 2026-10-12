@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { ICONO } from '../../config/iconos'
 
 // Menú contextual de la tabla de Asistencias (web de escritorio, tablet y
 // teléfono; nunca la app nativa). Se abre con clic derecho, con pulsación larga
@@ -119,7 +120,7 @@ export default function MenuContextualAsistencia({ menu, onClose }) {
             onClick={() => { cerrarDevolviendoFoco(); it.onSelect() }}
             className={`w-full flex items-center gap-2 text-left px-3 ${menu.tactil ? 'py-3 text-base' : 'py-2 text-sm'} text-on-surface hover:bg-[var(--accent-tint)] focus:outline-none focus-visible:bg-[var(--accent-tint)] transition-colors`}
           >
-            {Icon && <Icon size={15} className="text-accent flex-shrink-0" />}
+            {Icon && <Icon size={ICONO.sm} className="text-accent flex-shrink-0" />}
             {it.label}
           </button>
         )

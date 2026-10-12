@@ -24,6 +24,8 @@ import {
   textoCostoGeneracion, validarConfiguracion,
 } from '../../utils/videoGeneracion'
 
+import { Input, Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 const TIPOS = [
   { clave: 'vf', etiqueta: 'Verdadero / Falso' },
   { clave: 'om', etiqueta: 'Opción múltiple' },
@@ -132,10 +134,9 @@ export default function CrearVideoInteractivoModal({
             {fallo?.actividadId ? 'Cerrar' : 'Cancelar'}
           </button>
           {!(fallo && fallo.reintentable) && (
-            <button type="button" onClick={pedirConfirmacion} disabled={trabajando || total === 0}
-              className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60 inline-flex items-center gap-2">
+            <Button onClick={pedirConfirmacion} disabled={trabajando || total === 0}>
               {trabajando ? <><Spinner size="sm" /> Generando…</> : 'Continuar'}
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -148,17 +149,15 @@ export default function CrearVideoInteractivoModal({
       <div className="space-y-3" aria-busy={trabajando}>
         <div>
           <label htmlFor="vid-nombre" className="block text-sm text-on-surface mb-1">Nombre de la actividad</label>
-          <input id="vid-nombre" type="text" value={nombre} disabled={trabajando} maxLength={MAX_NOMBRE} autoComplete="off"
-            onChange={(e) => setNombre(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+          <Input id="vid-nombre" type="text" value={nombre} disabled={trabajando} maxLength={MAX_NOMBRE} autoComplete="off"
+            onChange={(e) => setNombre(e.target.value)} />
           {tocado && v.errores.nombre && <p className="text-xs text-error mt-1">{v.errores.nombre}</p>}
         </div>
 
         <div>
           <label htmlFor="vid-url" className="block text-sm text-on-surface mb-1">Enlace del video de YouTube</label>
-          <input id="vid-url" type="url" inputMode="url" value={url} disabled={trabajando} autoComplete="off" spellCheck={false}
-            onChange={(e) => setUrl(e.target.value)} onBlur={() => setTocado(true)}
-            className="w-full px-3 py-2 text-sm border border-outline-variant rounded-full bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+          <Input id="vid-url" type="url" inputMode="url" value={url} disabled={trabajando} autoComplete="off" spellCheck={false}
+            onChange={(e) => setUrl(e.target.value)} onBlur={() => setTocado(true)} />
           {url && v.videoId && <p className="text-sm text-hint mt-1">Video detectado. Debe ser público o no listado.</p>}
           {url.trim() && v.errores.url && <p className="text-xs text-error mt-1">{v.errores.url}</p>}
         </div>
@@ -170,9 +169,9 @@ export default function CrearVideoInteractivoModal({
               <div key={t.clave} className="flex items-center justify-between gap-3">
                 <span className="text-sm">{t.etiqueta}</span>
                 <div className="flex items-center gap-2">
-                  <button type="button" className={BOTON_PASO} onClick={() => cambiarCantidad(t.clave, -1)} disabled={dist[t.clave] <= 0} aria-label={`Una ${t.etiqueta} menos`}><Minus size={16} /></button>
+                  <button type="button" className={BOTON_PASO} onClick={() => cambiarCantidad(t.clave, -1)} disabled={dist[t.clave] <= 0} aria-label={`Una ${t.etiqueta} menos`}><Minus size={ICONO.sm} /></button>
                   <span className="w-8 text-center text-sm font-semibold tabular-nums" aria-live="polite">{dist[t.clave]}</span>
-                  <button type="button" className={BOTON_PASO} onClick={() => cambiarCantidad(t.clave, 1)} disabled={total >= VIDEO_CFG.MAX_PREGUNTAS} aria-label={`Una ${t.etiqueta} más`}><Plus size={16} /></button>
+                  <button type="button" className={BOTON_PASO} onClick={() => cambiarCantidad(t.clave, 1)} disabled={total >= VIDEO_CFG.MAX_PREGUNTAS} aria-label={`Una ${t.etiqueta} más`}><Plus size={ICONO.sm} /></button>
                 </div>
               </div>
             ))}
@@ -194,10 +193,9 @@ export default function CrearVideoInteractivoModal({
           <div role="alert" className="p-3 rounded-card border border-amber-200 bg-amber-50 space-y-2">
             <p className="text-sm text-amber-900">{fallo.message}</p>
             {fallo.reintentable && (
-              <button type="button" onClick={reintentarMismaClave} disabled={trabajando}
-                className="inline-flex items-center gap-1.5 min-h-[2.75rem] px-4 rounded-full border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
-                <RotateCcw size={16} /> Reintentar sin volver a cobrar
-              </button>
+              <Button variant="outline-accent" icon={RotateCcw} className="min-h-[2.75rem]" onClick={reintentarMismaClave} disabled={trabajando}>
+                 Reintentar sin volver a cobrar
+              </Button>
             )}
             {sinCobro && fallo.actividadId && <p className="text-sm text-amber-900">Puedes corregir lo que haga falta y generar de nuevo; la actividad quedó guardada como borrador.</p>}
           </div>

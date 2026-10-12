@@ -3,9 +3,9 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { Wallet, Landmark, Save, ExternalLink, AlertTriangle } from 'lucide-react'
 import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
-import Spinner from '../../../components/Spinner'
 import { usePaymentConfig, DEFAULT_PAYMENT_CONFIG } from '../../../hooks/usePaymentConfig'
-import { SkeletonForm } from '../../../components/ui'
+import { SkeletonForm, Button } from '../../../components/ui'
+import { ICONO } from '../../../config/iconos'
 
 const inputCls =
   'w-full px-3.5 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm'
@@ -122,7 +122,7 @@ export default function PaymentConfig() {
     <div className="space-y-4 max-w-2xl">
       {/* Security notice */}
       <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-card px-4 py-3.5">
-        <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
+        <AlertTriangle size={ICONO.md} className="text-amber-500 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-amber-800 leading-relaxed">
           <p className="font-semibold mb-0.5">Las llaves secretas NO van aquí</p>
           Aquí solo se guardan datos públicos (Public Key de Mercado Pago, Client ID de PayPal, datos
@@ -136,7 +136,7 @@ export default function PaymentConfig() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-full bg-sky-50 flex items-center justify-center">
-              <Wallet size={20} className="text-sky-500" />
+              <Wallet size={ICONO.md} className="text-sky-500" />
             </div>
             <div>
               <h3 className="font-semibold text-on-surface">Mercado Pago</h3>
@@ -157,7 +157,7 @@ export default function PaymentConfig() {
               hint="Panel de Mercado Pago → Tus integraciones → Credenciales de producción."
             />
             <p className="text-sm text-hint flex items-center gap-1">
-              <ExternalLink size={13} />
+              <ExternalLink size={ICONO.xs} />
               El Access Token (secreto) va en Vercel como MP_ACCESS_TOKEN.
             </p>
           </div>
@@ -169,7 +169,7 @@ export default function PaymentConfig() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center">
-              <Wallet size={20} className="text-accent" />
+              <Wallet size={ICONO.md} className="text-accent" />
             </div>
             <div>
               <h3 className="font-semibold text-on-surface">PayPal</h3>
@@ -187,7 +187,7 @@ export default function PaymentConfig() {
               hint="PayPal Developer Dashboard → tu app → Client ID (producción)."
             />
             <p className="text-xs text-hint flex items-center gap-1">
-              <ExternalLink size={13} />
+              <ExternalLink size={ICONO.xs} />
               El Secret va en Vercel como PAYPAL_SECRET.
             </p>
           </div>
@@ -199,7 +199,7 @@ export default function PaymentConfig() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center">
-              <Landmark size={20} className="text-emerald-500" />
+              <Landmark size={ICONO.md} className="text-emerald-500" />
             </div>
             <div>
               <h3 className="font-semibold text-on-surface">Transferencia bancaria</h3>
@@ -245,15 +245,12 @@ export default function PaymentConfig() {
       </div>
 
       <div className="flex justify-end">
-        <button
-          type="button"
+        <Button icon={Save} busy={saving}
           onClick={handleSave}
-          disabled={saving || !configChanged}
-          className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover disabled:opacity-60"
-        >
-          {saving ? <Spinner size="sm" /> : <Save size={17} />}
+          disabled={saving || !configChanged}>
+          
           Guardar configuración
-        </button>
+        </Button>
       </div>
     </div>
   )

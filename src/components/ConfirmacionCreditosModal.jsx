@@ -16,6 +16,8 @@ import { Sparkles } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ComprarCreditosModal from './ComprarCreditosModal'
 import ActivarCreditosModal from './ActivarCreditosModal'
+import { Button } from './ui'
+import { ICONO } from '../config/iconos'
 
 export default function ConfirmacionCreditosModal({
   titulo = 'Usar el asistente de IA',
@@ -44,7 +46,7 @@ export default function ConfirmacionCreditosModal({
       <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={onCancelar} aria-label="Cerrar" />
       <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-5 drop-shadow-2xl">
         <div className="flex items-center gap-2 mb-3">
-          <Sparkles size={18} className="text-accent flex-shrink-0" />
+          <Sparkles size={ICONO.md} className="text-accent flex-shrink-0" />
           <h3 className="text-base font-semibold flex-1">{titulo}</h3>
         </div>
 
@@ -72,10 +74,9 @@ export default function ConfirmacionCreditosModal({
                 className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
                 Cancelar
               </button>
-              <button type="button" onClick={onContinuar} disabled={ejecutando || continuarDeshabilitado}
-                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
+              <Button onClick={onContinuar} disabled={ejecutando || continuarDeshabilitado}>
                 {ejecutando ? 'Trabajando…' : 'Continuar'}
-              </button>
+              </Button>
             </div>
           </>
         ) : (
@@ -93,15 +94,13 @@ export default function ConfirmacionCreditosModal({
                 Cerrar
               </button>
               {c.mostrarCTAActivarBienvenida && (
-                <button type="button" onClick={() => setActivarAbierto(true)}
-                  className="px-4 py-2.5 border border-accent text-accent text-sm font-medium rounded-full hover:bg-[var(--accent-tint)] transition-colors">
+                <Button variant="outline-accent" onClick={() => setActivarAbierto(true)}>
                   Activar créditos de regalo
-                </button>
+                </Button>
               )}
-              <button type="button" onClick={() => setComprarAbierto(true)}
-                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors">
+              <Button onClick={() => setComprarAbierto(true)}>
                 Comprar créditos
-              </button>
+              </Button>
             </div>
           </>
         )}

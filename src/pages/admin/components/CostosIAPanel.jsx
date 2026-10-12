@@ -24,10 +24,10 @@ import { db, functions } from '../../../firebase'
 import { useAuth } from '../../../context/AuthContext'
 import { useToast } from '../../../components/Toast'
 import Table from '../../../components/ui/Table'
-import Input from '../../../components/ui/Input'
 import { formatCurrency } from '../../../utils/creditosHelpers'
 import { RANGOS_DIAS, diasEstimadosRestantes } from '../../../utils/costosIA'
-import { SkeletonTable } from '../../../components/ui'
+import { SkeletonTable, Input, Button } from '../../../components/ui'
+import { ICONO } from '../../../config/iconos'
 
 const SALDO_REF = ['adminConfig', 'anthropicSaldo']
 
@@ -112,7 +112,7 @@ function Indicador({ etiqueta, valor, ayuda, tono = '' }) {
     <div className="bg-surface-card rounded-card shadow-card p-4 min-w-0">
       <div className="text-xs text-muted flex items-center gap-1">
         <span className="truncate">{etiqueta}</span>
-        {ayuda && <Info size={12} className="text-hint flex-shrink-0 cursor-help" aria-hidden />}
+        {ayuda && <Info size={ICONO.xs} className="text-hint flex-shrink-0 cursor-help" aria-hidden />}
       </div>
       <div className={`text-xl font-bold tabular-nums mt-1 ${tono}`} title={ayuda}>{valor}</div>
     </div>
@@ -244,7 +244,7 @@ export default function CostosIAPanel() {
             <button
               key={n} type="button" onClick={() => pedirRango(n)}
               aria-pressed={dias === n}
-              className={`px-3 py-2 text-sm font-semibold rounded-full border transition-colors ${
+              className={`px-3 py-2 text-sm font-semibold rounded-full border transition-colors min-h-control-sm ${
                 dias === n
                   ? 'border-accent bg-[var(--accent-tint)] text-accent'
                   : 'border-outline-variant text-muted hover:border-accent hover:text-accent'
@@ -254,12 +254,9 @@ export default function CostosIAPanel() {
             </button>
           ))}
         </fieldset>
-        <button
-          type="button" onClick={recargar} disabled={cargando}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm text-muted border border-outline-variant rounded-full hover:bg-[var(--accent-tint)] hover:border-accent hover:text-accent transition-colors disabled:opacity-60"
-        >
-          <RefreshCw size={15} className={cargando ? 'animate-spin' : ''} /> Actualizar
-        </button>
+        <Button variant="secondary" onClick={recargar} disabled={cargando}>
+          <RefreshCw size={ICONO.sm} className={cargando ? 'animate-spin' : ''} /> Actualizar
+        </Button>
       </div>
 
       {error && (
@@ -327,12 +324,10 @@ export default function CostosIAPanel() {
                   value={borrador} onChange={(e) => setBorrador(e.target.value)}
                   wrapperClassName="w-32"
                 />
-                <button
-                  type="submit" disabled={capturando || borrador === ''}
-                  className="px-3 py-2 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60"
-                >
+                <Button
+                  type="submit" disabled={capturando || borrador === ''}>
                   {capturando ? 'Guardando…' : 'Capturar'}
-                </button>
+                </Button>
               </form>
             </div>
           </div>

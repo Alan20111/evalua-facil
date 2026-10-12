@@ -1,4 +1,5 @@
 import { Plus } from 'lucide-react'
+import { ICONO } from '../../config/iconos'
 
 // Compartido por RubricaEditor.jsx y ListaCotejoEditor.jsx — sus tablas
 // editables divergen bastante (niveles variables con descriptores vs. una
@@ -8,7 +9,7 @@ export function BotonMas({ onClick, label }) {
   return (
     <button type="button" onClick={onClick} aria-label={label} data-tooltip={label}
       className="w-9 h-9 rounded-full border-2 border-on-surface bg-surface-card text-on-surface flex items-center justify-center hover:border-accent hover:text-accent transition-colors flex-shrink-0 shadow-card">
-      <Plus size={20} />
+      <Plus size={ICONO.md} />
     </button>
   )
 }

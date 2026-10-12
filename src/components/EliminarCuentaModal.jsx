@@ -105,7 +105,7 @@ export default function EliminarCuentaModal({ onClose }) {
 
   return (
     <Modal open onClose={onClose} variant="centered" size="sm" busy={borrando} title="Eliminar mi cuenta">
-      <div className="rounded border border-red-200 bg-red-50 p-3 mb-3">
+      <div className="rounded-card border border-red-200 bg-red-50 p-3 mb-3">
         <p className="flex items-start gap-2 text-sm font-semibold text-red-700">
           <AlertTriangle size={ICONO.md} className="flex-shrink-0 mt-0.5" />
           Esto no se puede deshacer. Se borra para siempre:

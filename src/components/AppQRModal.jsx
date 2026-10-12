@@ -3,11 +3,10 @@
 // la misma cada vez que se abre y se conserva en estado durante la sesión.
 import { useEffect, useState } from 'react'
 import { Download } from 'lucide-react'
-import Spinner from './Spinner'
 import Modal from './ui/Modal'
 import { useToast } from './Toast'
 import { exportAppQRPDF } from '../utils/pdf'
-import { Skeleton } from './ui'
+import { Skeleton, Button } from './ui'
 
 export default function AppQRModal({ open, url, onClose }) {
   const toast = useToast()
@@ -51,15 +50,12 @@ export default function AppQRModal({ open, url, onClose }) {
           )}
         </div>
         <p className="text-sm text-accent font-semibold break-all">{url}</p>
-        <button
-          type="button"
+        <Button fullWidth icon={Download} busy={descargando}
           onClick={handleDescargarPDF}
-          disabled={descargando}
-          className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-        >
-          {descargando ? <Spinner size="sm" /> : <Download size={16} />}
+          disabled={descargando}>
+          
           {descargando ? 'Generando…' : 'Descargar QR'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

@@ -496,32 +496,18 @@ export default function StudentDashboard() {
                       onPointerDown={(e) => dragPointerDown(e, i)}
                       aria-label="Arrastrar para reordenar"
                       data-tooltip="Mantén y arrastra para reordenar"
-                      className="p-2 -m-1 text-hint hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+                      className="size-control inline-flex items-center justify-center -m-1 text-hint hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none rounded-full"
                     >
                       <GripVertical size={ICONO.md} />
                     </button>
                   ) : (
                     <div className="flex flex-col flex-shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => moveSubject(i, -1)}
+                      <IconButton icon={ArrowUp} label="Subir" tooltip={false} onClick={() => moveSubject(i, -1)}
                         disabled={i === 0}
-                        data-tooltip="Subir"
-                        aria-label="Subir"
-                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded-full"
-                      >
-                        <ArrowUp size={ICONO.sm} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveSubject(i, 1)}
+                        data-tooltip="Subir" />
+                      <IconButton icon={ArrowDown} label="Bajar" tooltip={false} onClick={() => moveSubject(i, 1)}
                         disabled={i === activeSubjects.length - 1}
-                        data-tooltip="Bajar"
-                        aria-label="Bajar"
-                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded-full"
-                      >
-                        <ArrowDown size={ICONO.sm} />
-                      </button>
+                        data-tooltip="Bajar" />
                     </div>
                   )
                 )}
@@ -541,12 +527,12 @@ export default function StudentDashboard() {
                     {s.avgPendiente ? (
                       <div className="text-right">
                         <PonderacionPendiente className="block text-lg font-bold text-hint" />
-                        <p className="text-sm text-slate-500">promedio</p>
+                        <p className="text-sm text-muted">promedio</p>
                       </div>
                     ) : s.avg != null && (
                       <div className="text-right">
                         <p className="text-lg font-bold text-accent">{s.avg}</p>
-                        <p className="text-sm text-slate-500">promedio</p>
+                        <p className="text-sm text-muted">promedio</p>
                       </div>
                     )}
                     <FlechaFila />

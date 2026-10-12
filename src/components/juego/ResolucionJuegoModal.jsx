@@ -16,6 +16,7 @@ import { correccionesCrucigrama } from '../../utils/correccionesJuego'
 import Modal from '../ui/Modal'
 import CrucigramaBoard from './CrucigramaBoard'
 import SopaDeLetrasBoard from './SopaDeLetrasBoard'
+import { Button } from '../ui'
 
 export default function ResolucionJuegoModal({ open, onClose, estudianteNombre, estructura, submission, navCount = 0, onAnterior, onSiguiente }) {
   const respuestas = submission?.respuestasJuego || {}
@@ -82,14 +83,12 @@ export default function ResolucionJuegoModal({ open, onClose, estudianteNombre, 
       <div className="flex items-center justify-between mt-4">
         {navCount > 1 ? (
           <div className="flex gap-2">
-            <button type="button" onClick={onAnterior}
-              className="px-3 py-2 text-sm font-medium text-muted border border-outline-variant hover:bg-surface-container rounded-full transition-colors">
+            <Button variant="secondary" onClick={onAnterior}>
               ← Anterior
-            </button>
-            <button type="button" onClick={onSiguiente}
-              className="px-3 py-2 text-sm font-medium text-muted border border-outline-variant hover:bg-surface-container rounded-full transition-colors">
+            </Button>
+            <Button variant="secondary" onClick={onSiguiente}>
               Siguiente →
-            </button>
+            </Button>
           </div>
         ) : <div />}
         <button type="button" onClick={onClose}

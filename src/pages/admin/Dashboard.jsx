@@ -12,7 +12,8 @@ import VentasPorZona from './components/VentasPorZona'
 import AdminChat from './components/AdminChat'
 import DownloadLinks from './components/DownloadLinks'
 import EscuelasConfig from './components/EscuelasConfig'
-import { SkeletonCards } from '../../components/ui'
+import { SkeletonCards, Button } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 const TAB_TITLES = {
   chat: 'Inteligencia de Evalúa Fácil',
@@ -47,15 +48,12 @@ export default function AdminDashboard() {
           </h1>
           <p className="text-sm text-muted mt-0.5">Panel de administración</p>
         </div>
-        <button
-          type="button"
+        <Button variant="secondary"
           onClick={handleRefresh}
-          disabled={refreshing || loading}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm text-muted border border-outline-variant rounded-full hover:bg-[var(--accent-tint)] hover:border-accent hover:text-accent transition-colors disabled:opacity-60"
-        >
-          <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+          disabled={refreshing || loading}>
+          <RefreshCw size={ICONO.sm} className={refreshing ? 'animate-spin' : ''} />
           Actualizar
-        </button>
+        </Button>
       </div>
 
       {loading && !stats ? (

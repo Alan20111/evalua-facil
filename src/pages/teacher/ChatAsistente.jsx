@@ -44,7 +44,8 @@ import { calcularTarifaExamen } from '../../utils/tarifaExamen'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { MessageCircle, Send, Sparkles, Trash2, Globe, ClipboardList, CheckCircle2 } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
-import { SkeletonList } from '../../components/ui'
+import { SkeletonList, Button } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 const ETIQUETA_ACCION = {
   CREAR_ACTIVIDAD_ENTREGABLE: 'Actividad entregable',
@@ -269,7 +270,7 @@ function TarjetaPropuesta({ propuesta, contextoVigente, esLaVigente, ejecutando,
   return (
     <div className="max-w-[85%] w-full rounded-card border border-outline-variant bg-surface-card p-3 text-sm space-y-2">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-accent uppercase tracking-wide">
-        <ClipboardList size={14} /> {ETIQUETA_ACCION[propuesta.accion] || 'Actividad propuesta'}
+        <ClipboardList size={ICONO.xs} /> {ETIQUETA_ACCION[propuesta.accion] || 'Actividad propuesta'}
       </div>
       {/* Sin nombre/instrucciones propios — la propuesta no crea nada nuevo,
           solo aplica lo que ya existe (ver sanearPropuestaAccionChat). La
@@ -289,7 +290,7 @@ function TarjetaPropuesta({ propuesta, contextoVigente, esLaVigente, ejecutando,
 
       {propuesta.ejecutada ? (
         <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-          <CheckCircle2 size={16} /> {TEXTO_TARJETA_CREADA[propuesta.accion] || 'Creada'}
+          <CheckCircle2 size={ICONO.sm} /> {TEXTO_TARJETA_CREADA[propuesta.accion] || 'Creada'}
         </p>
       ) : !esLaVigente ? (
         // Refinada por una propuesta más nueva (pedido explícito, 18-ago-2026):
@@ -302,16 +303,13 @@ function TarjetaPropuesta({ propuesta, contextoVigente, esLaVigente, ejecutando,
         <p className="text-sm text-muted italic">Cancelado — no se aplicó ninguna calificación.</p>
       ) : (
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
             onClick={onConfirmar}
-            disabled={ejecutando || bloqueado}
-            className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:bg-accent-hover text-white font-semibold text-xs rounded-full transition-colors disabled:opacity-60"
-          >
+            disabled={ejecutando || bloqueado}>
             {ejecutando && <Spinner size="sm" />}
             {TEXTO_BOTON_ACCION[propuesta.accion] || 'Crear'}
             {costoAccion != null && ` — ${costoAccion} ${costoAccion === 1 ? 'crédito' : 'créditos'}`}
-          </button>
+          </Button>
           {/* Solo esta acción tiene "Cancelar" explícito (pedido del flujo) —
               las demás nunca lo tuvieron porque no hacer nada YA es
               cancelar; aquí es puramente visual (no toca Firestore, no llama
@@ -669,7 +667,7 @@ export default function ChatAsistente() {
   return (
     <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW} flex flex-col overflow-hidden`} style={{ height: `calc(100dvh - ${altoChromeMovil}px - 2rem)` }}>
       <div className="flex items-center gap-2 mb-3">
-        <MessageCircle size={22} className="text-accent flex-shrink-0" />
+        <MessageCircle size={ICONO.md} className="text-accent flex-shrink-0" />
         <h1 className="text-lg font-bold text-on-surface">Chat con Asistente</h1>
       </div>
 
@@ -702,9 +700,9 @@ export default function ChatAsistente() {
               type="button"
               onClick={() => setConfirmarBorrar(true)}
               title="Borrar esta conversación"
-              className="flex-shrink-0 p-2.5 rounded border border-outline-variant text-muted hover:text-error hover:border-error/40 transition-colors"
+              className="flex-shrink-0 p-2.5 rounded-card border border-outline-variant text-muted hover:text-error hover:border-error/40 transition-colors"
             >
-              <Trash2 size={16} />
+              <Trash2 size={ICONO.sm} />
             </button>
           )
         )}
@@ -745,7 +743,7 @@ export default function ChatAsistente() {
           <SkeletonList rows={3} icon={false} />
         ) : historial.length === 0 && !enviando ? (
           <div className="h-full flex flex-col items-center justify-center text-center py-6 gap-3">
-            {esGeneral ? <Globe size={28} className="text-accent" /> : <Sparkles size={28} className="text-accent" />}
+            {esGeneral ? <Globe size={ICONO.lg} className="text-accent" /> : <Sparkles size={ICONO.lg} className="text-accent" />}
             <p className="text-sm text-muted max-w-sm">
               {esGeneral
                 ? 'Pregúntame sobre el conjunto de tus asignaturas — uso un resumen de cada una (pendientes, promedios, alumnos en riesgo).'
@@ -753,15 +751,12 @@ export default function ChatAsistente() {
             </p>
             <div className="flex flex-wrap gap-2 justify-center max-w-lg">
               {sugerencias.map((s) => (
-                <button
+                <Button variant="secondary"
                   key={s}
-                  type="button"
                   onClick={() => enviar(s)}
-                  disabled={enviando || sinCreditos || limiteAlcanzado}
-                  className="px-3 py-1.5 rounded-full border border-outline-variant text-xs text-on-surface hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
-                >
+                  disabled={enviando || sinCreditos || limiteAlcanzado}>
                   {s}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -831,16 +826,14 @@ export default function ChatAsistente() {
           disabled={enviando || sinCreditos || limiteAlcanzado}
           maxLength={2000}
           rows={1}
-          className="flex-1 w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none max-h-32 disabled:opacity-60"
+          className="flex-1 w-full px-4 py-2.5 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none max-h-32 disabled:opacity-60"
         />
-        <button
+        <Button icon={Send} busy={enviando}
           type="submit"
-          disabled={enviando || !mensaje.trim() || sinCreditos || limiteAlcanzado}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded-full transition-colors disabled:opacity-45"
-        >
-          {enviando ? <Spinner size="sm" /> : <Send size={16} />}
+          disabled={enviando || !mensaje.trim() || sinCreditos || limiteAlcanzado}>
+          
           Enviar
-        </button>
+        </Button>
       </form>
     </div>
   )

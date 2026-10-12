@@ -1,5 +1,6 @@
 import { GraduationCap, Users, QrCode, ClipboardList, UserCheck, ArrowRight } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { ICONO } from '../../config/iconos'
 
 // Ayuda para comenzar: NO es el manual completo (eso quedó archivado en
 // docs/manual-anterior/). Son 4 ejemplos concretos elegidos para que, al
@@ -136,7 +137,7 @@ export default function GettingStartedPage() {
     <div className={`px-4 py-4 ${TEACHER_CONTAINER_NARROW}`}>
       <div className="mb-4">
         <h1 className="text-[21px] font-bold text-on-surface">Ayuda para comenzar</h1>
-        <p className="text-[15px] text-slate-500 mt-0.5">
+        <p className="text-[15px] text-muted mt-0.5">
           Las 4 acciones para empezar a usar Evalúa Fácil. Para todo lo demás, explora la plataforma —
           está pensada para no necesitar manual.
         </p>
@@ -148,11 +149,11 @@ export default function GettingStartedPage() {
           return (
             <section key={guide.id} className="bg-surface-card rounded-card shadow-card p-4">
               <div className="flex items-center gap-2 mb-1">
-                <Icon size={18} className="text-accent flex-shrink-0" />
+                <Icon size={ICONO.md} className="text-accent flex-shrink-0" />
                 <h2 className="text-[17px] font-bold text-on-surface">{guide.title}</h2>
               </div>
               {guide.description && (
-                <p className="text-[14px] text-slate-500 mb-3 ml-6">{guide.description}</p>
+                <p className="text-[14px] text-muted mb-3 ml-6">{guide.description}</p>
               )}
               <ol className={`space-y-4 ${guide.description ? '' : 'mt-3'}`}>
                 {guide.steps.map((step, i) => (
@@ -175,7 +176,7 @@ export default function GettingStartedPage() {
               </ol>
               {guide.transfer && (
                 <p className="mt-4 pl-9 flex items-start gap-1.5 text-[14px] text-accent font-medium leading-relaxed">
-                  <ArrowRight size={15} className="flex-shrink-0 mt-0.5" />
+                  <ArrowRight size={ICONO.sm} className="flex-shrink-0 mt-0.5" />
                   {guide.transfer}
                 </p>
               )}

@@ -15,7 +15,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus, AlertTriangle, Cloud, User, Settings, Bell, Lightbulb, ShieldCheck } from 'lucide-react'
-import { Tabs, SubTabs, ListRow, ListGroup, FlechaFila, FILA_LISTA, Button } from '../../components/ui'
+import { Tabs, SubTabs, ListRow, ListGroup, FlechaFila, FILA_LISTA, Button, IconButton } from '../../components/ui'
 import AppQRButton from '../../components/AppQRButton'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
@@ -269,14 +269,7 @@ export default function StudentProfile() {
             físico/gesto de atrás no responde (el hardware ya lo cubre
             useBackHandler arriba). */}
         <div className="flex items-center gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => navigate('/alumno/dashboard')}
-            className="p-2 -ml-2 rounded-full hover:bg-[var(--accent-tint)] text-muted hover:text-accent transition-colors flex-shrink-0"
-            aria-label="Regresar"
-          >
-            <ArrowLeft size={ICONO.md} />
-          </button>
+          <IconButton icon={ArrowLeft} label="Regresar" tooltip={false} className="-ml-2" onClick={() => navigate('/alumno/dashboard')} />
           <h1 className="text-xl font-bold text-on-surface">Mi perfil</h1>
         </div>
 
@@ -373,7 +366,7 @@ export default function StudentProfile() {
                   </h2>
 
                   {debeEstablecerContrasena && (
-                    <div className="mb-3 rounded border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
+                    <div className="mb-3 rounded-card border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
                       <AlertTriangle size={ICONO.md} className="text-amber-600 flex-shrink-0 mt-0.5" />
                       <p className="text-xs text-on-surface leading-relaxed">
                         <strong className="text-amber-700">Tu maestro restableció tu contraseña.</strong>{' '}
@@ -417,7 +410,7 @@ export default function StudentProfile() {
                       recuperar su cuenta, y esa recuperación por correo no existe. El
                       único camino es su maestro. */}
                   {!debeEstablecerContrasena && (
-                    <div className="mt-3 rounded border border-red-300 bg-red-50 p-3 flex items-start gap-2">
+                    <div className="mt-3 rounded-card border border-red-300 bg-red-50 p-3 flex items-start gap-2">
                       <AlertTriangle size={ICONO.md} className="text-red-600 flex-shrink-0 mt-0.5" />
                       <p className="text-xs text-on-surface leading-relaxed">
                         <strong className="text-red-700">SUGERENCIA MUY IMPORTANTE:</strong>{' '}

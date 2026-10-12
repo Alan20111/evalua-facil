@@ -16,6 +16,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { RefreshCw, X } from 'lucide-react'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { isAppOutdated } from '../utils/checkAppVersion'
+import { Button } from './ui'
+import { ICONO } from '../config/iconos'
 
 const CHECK_INTERVAL_MS = 10 * 60 * 1000 // 10 min
 
@@ -46,22 +48,19 @@ export default function UpdateChecker() {
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-4 py-3 rounded-card shadow-2xl bg-surface-card border border-outline-variant max-w-[calc(100vw-2rem)]">
-      <RefreshCw size={18} className="flex-shrink-0 text-accent" />
+      <RefreshCw size={ICONO.md} className="flex-shrink-0 text-accent" />
       <p className="text-sm text-on-surface">Hay una versión nueva de Evalúa Fácil. Recarga para actualizar.</p>
-      <button
-        type="button"
-        onClick={() => window.location.reload()}
-        className="flex-shrink-0 px-3 py-2 rounded-full bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity"
-      >
+      <Button className="flex-shrink-0"
+        onClick={() => window.location.reload()}>
         Recargar
-      </button>
+      </Button>
       <button
         type="button"
         aria-label="Cerrar"
         onClick={() => { dismissedRef.current = true; setHayVersionNueva(false) }}
-        className="flex-shrink-0 p-2 text-muted hover:text-on-surface rounded transition-colors"
+        className="flex-shrink-0 size-control inline-flex items-center justify-center text-muted hover:text-on-surface rounded-full transition-colors"
       >
-        <X size={16} />
+        <X size={ICONO.sm} />
       </button>
     </div>
   )

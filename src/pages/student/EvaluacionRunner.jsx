@@ -21,9 +21,10 @@ import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName, studentFullName } from '../../utils/studentSearch'
-import { SkeletonList } from '../../components/ui'
+import { SkeletonList, Input, Button } from '../../components/ui'
 import VideoInteractivoRunner from '../../components/video/VideoInteractivoRunner'
 import { esVideoInteractivo } from '../../utils/videoInteractivo'
+import { ICONO } from '../../config/iconos'
 
 // Extensiones aceptadas para preguntas de tipo "subir documento": las mismas
 // que maneja toda la app (imágenes, PDF, Word, PowerPoint, Excel, ZIP/RAR).
@@ -459,12 +460,12 @@ export default function EvaluacionRunner() {
             <div className="flex items-center gap-2 flex-shrink-0">
               {secondsLeft != null && (
                 <span className={`flex items-center gap-1 text-sm font-semibold ${secondsLeft < 60 ? 'text-red-200' : 'text-white/90'}`}>
-                  <Timer size={16} /> {mm}:{String(ss).padStart(2, '0')}
+                  <Timer size={ICONO.sm} /> {mm}:{String(ss).padStart(2, '0')}
                 </span>
               )}
               <button type="button" onClick={() => setShowExitModal(true)}
                 className="flex items-center gap-1 text-xs text-white/70 hover:text-white border border-white/30 rounded px-2 py-1 hover:bg-white/10">
-                <LogOut size={13} /> Salir
+                <LogOut size={ICONO.xs} /> Salir
               </button>
             </div>
           </div>
@@ -486,10 +487,9 @@ export default function EvaluacionRunner() {
                 <p className="text-sm text-muted mb-3">Esta evaluación no tiene límite de tiempo.</p>
               )}
               <div className="flex gap-2">
-                <button type="button" onClick={() => setShowExitModal(false)}
-                  className="flex-1 py-2.5 text-sm text-muted border border-outline-variant rounded-full">
+                <Button variant="secondary" className="flex-1" onClick={() => setShowExitModal(false)}>
                   Continuar respondiendo
-                </button>
+                </Button>
                 <button type="button" onClick={() => navigate(`/alumno/actividad/${activityId}`)}
                   className="flex-1 py-2 text-sm font-medium bg-error text-white rounded">
                   Salir ahora
@@ -536,21 +536,21 @@ export default function EvaluacionRunner() {
                 onChange={(e) => handleTextoChange(pregunta.id, e.target.value)}
                 rows={4}
                 aria-label="Escribe tu respuesta…"
-                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
               />
             ) : pregunta.tipo === 'subir_archivo' ? (
               <div className="space-y-2">
                 {respuestas[pregunta.id]?.archivoURL && (
-                  <div className="flex items-center gap-2 p-3 rounded border border-emerald-300 bg-emerald-50 text-sm text-emerald-700">
-                    <FileText size={17} className="flex-shrink-0" />
+                  <div className="flex items-center gap-2 p-3 rounded-card border border-emerald-300 bg-emerald-50 text-sm text-emerald-700">
+                    <FileText size={ICONO.sm} className="flex-shrink-0" />
                     <span className="truncate flex-1">{respuestas[pregunta.id].nombreArchivo}</span>
-                    <CheckCircle2 size={16} className="flex-shrink-0" />
+                    <CheckCircle2 size={ICONO.sm} className="flex-shrink-0" />
                   </div>
                 )}
                 <label className={`flex flex-col items-center justify-center gap-1.5 p-5 rounded border border-dashed cursor-pointer transition-colors ${
                   uploadingPregunta === pregunta.id ? 'border-outline-variant opacity-60 pointer-events-none' : 'border-accent-soft hover:bg-[var(--accent-tint)]'
                 }`}>
-                  {uploadingPregunta === pregunta.id ? <Spinner size="sm" /> : <Upload size={22} className="text-accent" />}
+                  {uploadingPregunta === pregunta.id ? <Spinner size="sm" /> : <Upload size={ICONO.md} className="text-accent" />}
                   <span className="text-sm font-medium text-on-surface">
                     {uploadingPregunta === pregunta.id
                       ? 'Subiendo…'
@@ -573,7 +573,7 @@ export default function EvaluacionRunner() {
                 {pregunta.opciones.map((o) => (
                   <div key={o.id}>
                     <label
-                      className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
+                      className="flex items-center gap-3 p-3 rounded-card border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
                       style={{
                         borderColor: respuestas[pregunta.id] === o.id ? 'var(--accent)' : '#e2e8f0',
                         background: respuestas[pregunta.id] === o.id ? 'var(--accent-light)' : '',
@@ -583,10 +583,10 @@ export default function EvaluacionRunner() {
                       <span className="text-sm text-on-surface break-words">{o.esOtra ? 'Otra:' : o.texto}</span>
                     </label>
                     {o.esOtra && respuestas[pregunta.id] === o.id && (
-                      <input type="text" value={otraTextos[pregunta.id] || ''}
+                      <Input type="text" value={otraTextos[pregunta.id] || ''}
                         onChange={(e) => handleOtraTextoChange(pregunta.id, e.target.value)}
                         aria-label="Escribe tu respuesta…"
-                        className="mt-1.5 ml-9 w-[calc(100%-2.25rem)] px-3 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                        className="mt-1.5 ml-9 w-[calc(100%-2.25rem)]" />
                     )}
                   </div>
                 ))}
@@ -602,21 +602,19 @@ export default function EvaluacionRunner() {
             {navegacionLibre ? (
               <button type="button" disabled={idx === 0} onClick={goAnterior}
                 className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted disabled:opacity-60 rounded">
-                <ChevronLeft size={18} /> Anterior
+                <ChevronLeft size={ICONO.md} /> Anterior
               </button>
             ) : <span />}
 
             {isLast ? (
-              <button type="button" onClick={handleFinalizarClick} disabled={finishing}
-                className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-semibold rounded-full disabled:opacity-60">
-                {finishing ? <Spinner size="sm" /> : <CheckCircle2 size={18} />}
+              <Button icon={CheckCircle2} busy={finishing} onClick={handleFinalizarClick} disabled={finishing}>
+                
                 {finishing ? 'Finalizando…' : 'Finalizar evaluación'}
-              </button>
+              </Button>
             ) : (
-              <button type="button" onClick={goSiguiente}
-                className="flex items-center gap-1 px-5 py-2.5 bg-accent text-white font-semibold rounded-full">
-                Siguiente <ChevronRight size={18} />
-              </button>
+              <Button onClick={goSiguiente}>
+                Siguiente <ChevronRight size={ICONO.md} />
+              </Button>
             )}
           </div>
         </div>

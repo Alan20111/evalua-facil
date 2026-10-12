@@ -8,6 +8,8 @@ import { capitalizarNombre } from '../../../utils/nombres'
 import { subjectDisplayName } from '../../../utils/subjectName'
 import { normalizeName } from '../../../utils/schoolSelection'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
+import { Button } from '../../../components/ui'
+import { ICONO } from '../../../config/iconos'
 
 // Cuántas filas se pintan de golpe. El padrón crece sin techo (un registro por
 // alumno por asignatura), así que renderizarlo entero congelaría la pestaña.
@@ -99,7 +101,7 @@ function pasaFiltros(r, filtros, search, excepto) {
 function BotonesSiNo({ valor, onChange }) {
   const OPCIONES = [['', 'Todos'], ['si', 'Sí'], ['no', 'No']]
   return (
-    <div className="mt-1 flex rounded border border-outline-variant overflow-hidden normal-case">
+    <div className="mt-1 flex rounded-card border border-outline-variant overflow-hidden normal-case">
       {OPCIONES.map(([v, etiqueta]) => (
         <button
           key={v || 'todos'}
@@ -161,7 +163,7 @@ function CeldaFiltro({ col, valor, onChange, sugerencias }) {
           title="Quitar este filtro"
           className="absolute right-1 top-1/2 -translate-y-1/2 text-accent hover:text-accent-hover"
         >
-          <X size={13} />
+          <X size={ICONO.xs} />
         </button>
       )}
     </div>
@@ -296,14 +298,11 @@ export default function StudentsTable({ stats }) {
             onChange={(v) => { setSearch(v); setLimit(PAGE) }}
             etiqueta="Buscar por cualquier dato…"
           />
-          <button
-            type="button"
+          <Button variant="outline-accent" icon={X} className="self-end"
             onClick={limpiarTodo}
-            disabled={!hayFiltro}
-            className="self-end inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-full border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-accent text-accent hover:bg-[var(--accent-tint)]"
-          >
-            <X size={15} /> Quitar todos los filtros
-          </button>
+            disabled={!hayFiltro}>
+             Quitar todos los filtros
+          </Button>
         </div>
       </div>
 
@@ -398,7 +397,7 @@ export default function StudentsTable({ stats }) {
                   <td className="px-3 py-2">
                     <span
                       className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        r.activado ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                        r.activado ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-muted'
                       }`}
                     >
                       {r.activado ? 'Sí' : 'No'}
@@ -418,18 +417,15 @@ export default function StudentsTable({ stats }) {
           onClick={resetWidths}
           className="inline-flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors"
         >
-          <RotateCcw size={13} /> Restablecer ancho de columnas
+          <RotateCcw size={ICONO.xs} /> Restablecer ancho de columnas
         </button>
         {filtered.length > visible.length && (
           <div className="flex items-center gap-3">
             <p className="text-xs text-muted">Mostrando {visible.length} de {filtered.length}</p>
-            <button
-              type="button"
-              onClick={() => setLimit((l) => l + PAGE)}
-              className="px-3 py-2 text-sm font-semibold text-accent border border-accent rounded-full hover:bg-[var(--accent-tint)] transition-colors"
-            >
+            <Button variant="outline-accent"
+              onClick={() => setLimit((l) => l + PAGE)}>
               Mostrar {Math.min(PAGE, filtered.length - visible.length)} más
-            </button>
+            </Button>
           </div>
         )}
       </div>

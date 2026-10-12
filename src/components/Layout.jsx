@@ -212,7 +212,7 @@ export default function TeacherLayout({ children }) {
                 {userProfile?.schoolName || 'Mi perfil'}
               </p>
             </div>
-            <ChevronRight size={16} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
+            <ChevronRight size={ICONO.sm} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
           </NavLink>
 
           {/* Horario y Agenda — misma fila estándar; se distingue por su fondo */}
@@ -240,7 +240,7 @@ export default function TeacherLayout({ children }) {
             <span className="text-[22px] font-bold text-white/70 group-hover:text-white transition-colors">
               Asignaturas
             </span>
-            <ChevronRight size={18} className="text-white/50 group-hover:text-white transition-colors flex-shrink-0" />
+            <ChevronRight size={ICONO.md} className="text-white/50 group-hover:text-white transition-colors flex-shrink-0" />
           </NavLink>
 
           {/* Subject list */}
@@ -273,7 +273,7 @@ export default function TeacherLayout({ children }) {
               onClick={() => navigate('/dashboard', { state: { openCreate: true } })}
               className={`${SB_FILA} text-white hover:bg-white/10`}
             >
-              <Plus size={20} className="flex-shrink-0" />
+              <Plus size={ICONO.md} className="flex-shrink-0" />
               Nueva asignatura…
             </button>
           </div>
@@ -315,7 +315,7 @@ export default function TeacherLayout({ children }) {
               >
                 <Settings size={SB_ICONO} className="flex-shrink-0" />
                 <span className="flex-1 text-left">Ajustes y ayuda</span>
-                <ChevronRight size={16} className={`flex-shrink-0 transition-transform ${ajustesAbierto ? 'rotate-90' : ''}`} />
+                <ChevronRight size={ICONO.sm} className={`flex-shrink-0 transition-transform ${ajustesAbierto ? 'rotate-90' : ''}`} />
               </button>
               {ajustesAbierto && (
                 <div id="submenu-ajustes" className="space-y-1 animate-aparece motion-reduce:animate-none">
@@ -388,7 +388,7 @@ export default function TeacherLayout({ children }) {
                     {/* La flecha va a la DERECHA de la palabra (pedido explícito)
                         y gira al desplegar — mismo lenguaje que un <details>, sin
                         serlo, para no perder el estilo propio del botón. */}
-                    <ChevronRight size={16} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
+                    <ChevronRight size={ICONO.sm} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
                   </button>
                 </div>
                 {showArchived && (
@@ -470,19 +470,19 @@ export default function TeacherLayout({ children }) {
         <div data-esq="nav-inferior-fila" className="flex px-2 h-[var(--barra-alto)]">
           <NavLink to="/dashboard" className={NAV_ITEM}>
             {({ isActive }) => (<>
-              <span className={navIconPillCls(isActive)}><LayoutDashboard size={24} /></span>
+              <span className={navIconPillCls(isActive)}><LayoutDashboard size={ICONO.lg} /></span>
               <span>Asignaturas</span>
             </>)}
           </NavLink>
           <NavLink to="/calendario" className={NAV_ITEM}>
             {({ isActive }) => (<>
-              <span className={navIconPillCls(isActive)}><CalendarDays size={24} /></span>
+              <span className={navIconPillCls(isActive)}><CalendarDays size={ICONO.lg} /></span>
               <span>Horario</span>
             </>)}
           </NavLink>
           <NavLink to="/notificaciones" className={NAV_ITEM}>
             {({ isActive }) => (<>
-              <span className={navIconPillCls(isActive)}><Bell size={24} /></span>
+              <span className={navIconPillCls(isActive)}><Bell size={ICONO.lg} /></span>
               <span>Notificaciones</span>
             </>)}
           </NavLink>

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, Calendar, Check, X } from 'lucide-react'
 import { useScrollLock } from '../hooks/useScrollLock'
+import { ICONO } from '../config/iconos'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const DIAS_HEADER = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -824,7 +825,7 @@ export default function EFDateTimePicker({
         padding: '6px 14px 5px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
-          <Calendar size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <Calendar size={ICONO.xs} style={{ color: 'var(--accent)', flexShrink: 0 }} />
           <span className="text-xs" style={{ fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--accent)' }}>
             {headerLabel || (mode === 'date' ? 'Fecha seleccionada' : 'Fecha y hora')}
           </span>
@@ -863,7 +864,7 @@ export default function EFDateTimePicker({
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-container)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={ICONO.sm} />
             </button>
             <span className="text-xs" style={{ fontWeight: 700, color: 'var(--on-surface)' }}>
               {MESES[viewDate.getMonth()]} {viewDate.getFullYear()}
@@ -875,7 +876,7 @@ export default function EFDateTimePicker({
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-container)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={ICONO.sm} />
             </button>
           </div>
 
@@ -1060,7 +1061,7 @@ export default function EFDateTimePicker({
           onMouseEnter={e => { if (draft) e.currentTarget.style.background = 'var(--accent-hover)' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent)' }}
         >
-          <Check size={13} />
+          <Check size={ICONO.xs} />
           Confirmar
         </button>
       </div>
@@ -1097,7 +1098,7 @@ export default function EFDateTimePicker({
         onFocus={e => { if (!disabled) e.currentTarget.style.borderColor = 'var(--accent)' }}
         onBlur={e => { e.currentTarget.style.borderColor = 'var(--outline-variant)' }}
       >
-        <Calendar size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+        <Calendar size={ICONO.sm} style={{ color: 'var(--accent)', flexShrink: 0 }} />
         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
           {display ? (
             <>
@@ -1132,7 +1133,7 @@ export default function EFDateTimePicker({
             onMouseEnter={e => { e.currentTarget.style.color = '#ef4444' }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--outline)' }}
           >
-            <X size={13} />
+            <X size={ICONO.xs} />
           </span>
         )}
       </button>

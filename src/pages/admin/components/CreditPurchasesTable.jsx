@@ -17,6 +17,7 @@ import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import Table from '../../../components/ui/Table'
 import { formatCurrency, formatDateTime, getPaymentStatusColor, getPaymentStatusLabel } from '../../../utils/creditosHelpers'
+import { ICONO } from '../../../config/iconos'
 
 function StatusBadge({ status }) {
   return (
@@ -100,7 +101,7 @@ export default function CreditPurchasesTable({ stats, onRefresh }) {
               disabled={processing === p.id}
               className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold hover:bg-emerald-200 disabled:opacity-60"
             >
-              {processing === p.id ? <Spinner size="sm" /> : <Check size={14} />}
+              {processing === p.id ? <Spinner size="sm" /> : <Check size={ICONO.xs} />}
               Aprobar
             </button>
             <button
@@ -109,7 +110,7 @@ export default function CreditPurchasesTable({ stats, onRefresh }) {
               disabled={processing === p.id}
               className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold hover:bg-red-200 disabled:opacity-60"
             >
-              <X size={14} /> Rechazar
+              <X size={ICONO.xs} /> Rechazar
             </button>
           </div>
         ),

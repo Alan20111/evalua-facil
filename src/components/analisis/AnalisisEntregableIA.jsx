@@ -19,6 +19,7 @@ import { membreteDe } from '../../utils/membrete'
 import { fuenteDeActividad } from '../../utils/analisisAsignatura'
 import { fechaAnalisis } from '../../utils/analisisAsignaturaInforme'
 import { MODALIDADES_ENTREGABLE, fueEditadoEntregable } from '../../utils/analisisEntregableInforme'
+import { Button } from '../ui'
 
 // «Analizar con IA» de UNA actividad entregable — modalidad «solo resultados»
 // (Fase 1). Vive dentro del contenedor «Entregas» de la actividad: el botón,
@@ -99,10 +100,9 @@ function FlujoAnalisis({ activity, onCerrar, onGenerado }) {
       ) : prep.error ? (
         <div className="py-6 text-center space-y-3">
           <p className="text-sm text-on-surface">{prep.error}</p>
-          <button type="button" onClick={() => { setPrep({ cargando: true }); recibir(llamarPreparacion(activity.id)) }}
-            className="px-4 py-2.5 border border-accent text-accent text-sm font-medium rounded-full hover:bg-[var(--accent-tint)] transition-colors">
+          <Button variant="outline-accent" onClick={() => { setPrep({ cargando: true }); recibir(llamarPreparacion(activity.id)) }}>
             Volver a intentar
-          </button>
+          </Button>
         </div>
       ) : !r.estudiantes ? (
         <p className="text-sm text-on-surface py-6 text-center">Esta asignatura todavía no tiene estudiantes inscritos: no hay resultados que analizar.</p>
@@ -112,7 +112,7 @@ function FlujoAnalisis({ activity, onCerrar, onGenerado }) {
             El asistente analizará los <span className="font-semibold">resultados de toda la actividad</span>: entregas, calificaciones
             {prep.datos.instrumento ? ` y ${prep.datos.instrumento.toLowerCase()}` : ''}. No lee los archivos entregados ni modifica ningún dato.
           </p>
-          <div className="rounded border border-outline-variant bg-surface-container px-3 py-2.5 mb-4 space-y-1">
+          <div className="rounded-card border border-outline-variant bg-surface-container px-3 py-2.5 mb-4 space-y-1">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Se analizará</p>
             <p className="text-sm text-on-surface">{cuenta(r.estudiantes, 'estudiante', 'estudiantes')} · {cuenta(r.entregaron, 'entregó', 'entregaron')} · {cuenta(r.noEntregaron, 'no entregó', 'no entregaron')} (vencida) · {cuenta(r.entregasTardias, 'tarde', 'tarde')}</p>
             <p className="text-sm text-on-surface">{cuenta(prep.datos.calificados, 'calificado', 'calificados')} · {cuenta(r.sinCalificar, 'entrega sin calificar', 'entregas sin calificar')}{r.calificadasSinArchivo ? ` · ${cuenta(r.calificadasSinArchivo, 'calificado sin archivo', 'calificados sin archivo')}` : ''}</p>
@@ -123,10 +123,9 @@ function FlujoAnalisis({ activity, onCerrar, onGenerado }) {
               className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
               Cancelar
             </button>
-            <button type="button" onClick={() => setConfirmando(true)}
-              className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors">
+            <Button onClick={() => setConfirmando(true)}>
               Continuar
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -200,11 +199,10 @@ export default function AnalisisEntregableIA({ activity, subject }) {
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={() => setAbierto(true)}
-        data-tooltip="Analiza los resultados de toda la actividad. No modifica calificaciones ni entregas."
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
-        <Sparkles size={17} /> Analizar con IA
-      </button>
+      <Button variant="outline-accent" fullWidth icon={Sparkles} onClick={() => setAbierto(true)}
+        data-tooltip="Analiza los resultados de toda la actividad. No modifica calificaciones ni entregas.">
+         Analizar con IA
+      </Button>
 
       {historial.length > 0 && (
         <div className="rounded-card border border-outline-variant p-2.5 space-y-1">

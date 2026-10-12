@@ -9,6 +9,8 @@ import { formatearTiempo } from '../../utils/videoProgreso'
 import VideoInteractivoPantalla from './VideoInteractivoPantalla'
 import RecomendacionesVideo from './RecomendacionesVideo'
 import { compararConPropuesta, inicioDePrueba, limpiarRespuestasDesde, preguntasVistaPrevia } from './revisionVideo'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // VISTA PREVIA DOCENTE del video interactivo.
 //
@@ -99,11 +101,11 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, nombre, 
           </p>
           <button type="button" onClick={() => setBarraElegida(!mostrarBarra)} aria-expanded={mostrarBarra} data-testid="alternar-herramientas"
             className="flex items-center gap-1 min-h-[2.75rem] px-3 rounded-full border border-amber-400 text-xs font-semibold hover:bg-white flex-shrink-0">
-            {mostrarBarra ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Herramientas
+            {mostrarBarra ? <ChevronUp size={ICONO.xs} /> : <ChevronDown size={ICONO.xs} />} Herramientas
           </button>
           <button type="button" onClick={onCerrar} data-testid="cerrar-vista-previa"
             className="flex items-center gap-1.5 min-h-[2.75rem] px-3 rounded-full bg-white/70 border border-amber-400 text-sm font-semibold hover:bg-white flex-shrink-0">
-            <X size={16} /> Volver a la configuración
+            <X size={ICONO.sm} /> Volver a la configuración
           </button>
         </header>
 
@@ -117,13 +119,12 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, nombre, 
               <button key={p.id} type="button" onClick={() => pantallaRef.current?.probarDesde(inicioDePrueba(p.timestampSeg, duracionSeg))}
                 className={`inline-flex items-center gap-1 min-h-[2.25rem] px-2.5 rounded-full border text-xs font-semibold ${p.revision === 'pendiente' ? 'border-amber-400 bg-amber-50 text-amber-900' : 'border-outline-variant text-on-surface hover:bg-surface-container'}`}
                 aria-label={`Probar la pregunta ${i + 1} desde unos segundos antes, minuto ${formatearTiempo(p.timestampSeg)}${p.revision === 'pendiente' ? ' (pendiente, no publicada)' : ''}`}>
-                <Play size={12} /> {i + 1} · {formatearTiempo(p.timestampSeg)}{p.revision === 'pendiente' ? ' · pendiente' : ''}
+                <Play size={ICONO.xs} /> {i + 1} · {formatearTiempo(p.timestampSeg)}{p.revision === 'pendiente' ? ' · pendiente' : ''}
               </button>
             ))}
-            <button type="button" onClick={() => setVerRespuestaIA((v) => !v)} aria-pressed={verRespuestaIA} data-testid="alternar-respuesta-ia"
-              className="ml-auto inline-flex items-center gap-1.5 min-h-[2.25rem] px-3 rounded-full border border-outline-variant text-xs font-semibold text-muted hover:bg-surface-container">
-              {verRespuestaIA ? <EyeOff size={14} /> : <Eye size={14} />} {verRespuestaIA ? 'Ocultar' : 'Mostrar'} la respuesta propuesta por la IA
-            </button>
+            <Button variant="secondary" className="ml-auto min-h-[2.25rem]" onClick={() => setVerRespuestaIA((v) => !v)} aria-pressed={verRespuestaIA} data-testid="alternar-respuesta-ia">
+              {verRespuestaIA ? <EyeOff size={ICONO.xs} /> : <Eye size={ICONO.xs} />} {verRespuestaIA ? 'Ocultar' : 'Mostrar'} la respuesta propuesta por la IA
+            </Button>
           </div>
           {verRespuestaIA && (
             <div className="rounded-card border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" data-testid="panel-respuesta-ia" aria-live="polite">

@@ -4,6 +4,7 @@ import useYouTubePlayer, { ESTADO_YT, mensajeErrorYouTube } from '../../hooks/us
 import ControlTiempoVideo from './ControlTiempoVideo'
 import LineaTiempoRevision from './LineaTiempoRevision'
 import { GLOBO_DESDE_IZQ, formatearMinuto, paradaDePregunta } from './revisionVideo'
+import { ICONO } from '../../config/iconos'
 
 // Lado del VIDEO de la ventana de revisión: el reproductor, la única línea de tiempo y el control del momento.
 // Al reproducir, el video SE DETIENE en el segundo guardado de cada pregunta y la muestra (como el estudiante: paradaDePregunta usa
@@ -107,7 +108,7 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
       </div>
       {yt.error != null && (
         <div role="alert" className="flex items-start gap-2 rounded-card bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
-          <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+          <AlertTriangle size={ICONO.sm} className="flex-shrink-0 mt-0.5" />
           <span className="flex-1">{mensajeErrorYouTube(yt.error)} Puedes seguir ajustando el minuto con el campo.</span>
           <button type="button" onClick={yt.reintentar} className="font-semibold underline">Reintentar</button>
         </div>
@@ -116,7 +117,7 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
         <button type="button" onClick={alternar} disabled={!yt.listo} aria-label={reproduciendo ? 'Pausar' : 'Reproducir'}
           data-tooltip={reproduciendo ? 'Pausar el video' : 'Reproducir el video'} data-tooltip-pos="bottom"
           className={`w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white flex items-center justify-center disabled:opacity-60 ${GLOBO_DESDE_IZQ}`}>
-          {reproduciendo ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
+          {reproduciendo ? <Pause size={ICONO.md} /> : <Play size={ICONO.md} className="ml-0.5" />}
         </button>
         <div className="flex-1 min-w-0">
           <LineaTiempoRevision duracionSeg={dur} posicion={yt.listo ? posicion : null} valor={seg} onCambiar={alCambiar} onSoltar={onSoltar} onSaltar={saltar} items={items} onIr={onIr} itemId={item.id} disabled={disabled} />

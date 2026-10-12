@@ -60,7 +60,7 @@ export default function TipsPage() {
       <div className={`px-4 py-4 ${STUDENT_CONTAINER_NARROW}`}>
         <div className="mb-6">
           <h1 className="text-[21px] font-bold text-on-surface">Tips</h1>
-          <p className="text-[15px] text-slate-500 mt-0.5">
+          <p className="text-[15px] text-muted mt-0.5">
             Consejos rápidos para sacarle más provecho a Evalúa Fácil.
           </p>
         </div>

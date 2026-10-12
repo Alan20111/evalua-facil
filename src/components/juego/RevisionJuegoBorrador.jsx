@@ -22,6 +22,8 @@ import { functions } from '../../firebase'
 import { useToast } from '../Toast'
 import CrucigramaBoard from './CrucigramaBoard'
 import SopaDeLetrasBoard from './SopaDeLetrasBoard'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // `estructura` llega YA FUSIONADA con la clave privada desde JuegoManager
 // (A25). Es lo que hace que la vista previa y su tooltip "Respuesta: …" sigan
@@ -72,24 +74,23 @@ export default function RevisionJuegoBorrador({ activity, estructura: estructura
       <div className="flex justify-end">
         <button type="button" onClick={reiniciarPreview}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted hover:bg-surface-container rounded transition-colors">
-          <RotateCcw size={14} /> Reiniciar vista previa
+          <RotateCcw size={ICONO.xs} /> Reiniciar vista previa
         </button>
       </div>
 
       <div className="flex flex-col sm:flex-row justify-between gap-2 pt-2">
         <button type="button" onClick={onRegresar} disabled={confirmando}
           className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors disabled:opacity-60">
-          <ArrowLeft size={16} /> Regresar a editar contenido
+          <ArrowLeft size={ICONO.sm} /> Regresar a editar contenido
         </button>
         {!confirmado && (
-          <button type="button" onClick={handleConfirmar} disabled={confirmando}
-            className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
-            <CheckCircle2 size={16} /> {confirmando ? 'Confirmando…' : 'Confirmar juego'}
-          </button>
+          <Button icon={CheckCircle2} onClick={handleConfirmar} disabled={confirmando}>
+             {confirmando ? 'Confirmando…' : 'Confirmar juego'}
+          </Button>
         )}
         {confirmado && (
           <p className="flex items-center gap-1.5 text-sm text-emerald-600 font-medium">
-            <CheckCircle2 size={16} /> Juego confirmado
+            <CheckCircle2 size={ICONO.sm} /> Juego confirmado
           </p>
         )}
       </div>

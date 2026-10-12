@@ -6840,12 +6840,11 @@ export default function SubjectPage() {
               {attendanceMissingAutoDias.map((dia) => {
                 const { dia: d, mes, anio } = fmtAttDateParts(dia.fecha)
                 return (
-                  <button key={dia.fecha} type="button" onClick={() => handleRestoreAttendanceDay(dia)}
-                    disabled={restoringFecha === dia.fecha}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-full border border-outline-variant text-sm hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60 min-h-control-sm">
+                  <Button variant="secondary" fullWidth className="justify-between min-h-control-sm" key={dia.fecha} onClick={() => handleRestoreAttendanceDay(dia)}
+                    disabled={restoringFecha === dia.fecha}>
                     <span>{d}/{mes}/{anio} — Parcial {dia.parcial}</span>
                     {restoringFecha === dia.fecha ? <Spinner size="sm" /> : <CalendarPlus size={ICONO.sm} className="text-accent" />}
-                  </button>
+                  </Button>
                 )
               })}
             </div>
@@ -7116,16 +7115,13 @@ export default function SubjectPage() {
               antes: era una acción real escondida detrás de la apariencia de
               una nota al pie, y nadie la encontraba. */}
           <div className="flex justify-end pt-1">
-            <button
-              type="button"
+            <Button variant="outline-accent" icon={ArrowUpDown} className="h-control-sm"
               onClick={sortStudentsAlphabetically}
               disabled={groupStudents.length < 2}
-              data-tooltip="Ordena la lista por apellido y nombre"
-              className="flex items-center gap-1.5 h-control-sm px-3 rounded-full border border-accent text-sm font-medium text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
-            >
-              <ArrowUpDown size={ICONO.sm} />
+              data-tooltip="Ordena la lista por apellido y nombre">
+              
               Ordenar alfabéticamente
-            </button>
+            </Button>
           </div>
 
           {/* 3 — Buscar alumno + agregar manualmente */}
@@ -7816,10 +7812,9 @@ export default function SubjectPage() {
                 className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               {/* Editar is the primary path — a draft usually still needs changes
                   (esp. duplicates); Publicar stays available as secondary */}
-              <button type="button" onClick={publishDraftNow}
-                className="flex-1 py-2.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] flex items-center justify-center gap-1.5 min-h-control">
-                <Eye size={ICONO.xs} /> Publicar
-              </button>
+              <Button variant="outline-accent" icon={Eye} className="flex-1 min-h-control" onClick={publishDraftNow}>
+                 Publicar
+              </Button>
               <Button icon={Pencil} className="flex-1"
                 onClick={() => { const a = publishDraftConfirm; setPublishDraftConfirm(null); openEdit(a, activityLabelById[a.id]) }}>
                  Editar
@@ -8281,15 +8276,12 @@ export default function SubjectPage() {
               </Button>
             </div>
             {gradeQuickEdit.subId && gradeQuickEdit.value !== '' && (
-              <button
-                type="button"
+              <Button variant="secondary" fullWidth icon={Trash2} className="min-h-control-sm"
                 onClick={clearGradeQuickEdit}
-                disabled={savingQuickGrade}
-                className="w-full py-2 rounded-full border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-1 min-h-control-sm"
-              >
-                <Trash2 size={ICONO.xs} />
+                disabled={savingQuickGrade}>
+                
                 Quitar calificación
-              </button>
+              </Button>
             )}
           </div>
         </>

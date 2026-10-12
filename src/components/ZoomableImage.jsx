@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
+import { ICONO } from '../config/iconos'
 
 const MIN_SCALE = 1
 const MAX_SCALE = 4
@@ -129,7 +130,7 @@ function ZoomOverlay({ src, alt, onClose }) {
         data-tooltip="Cerrar"
         className="absolute top-3 right-3 z-10 p-2 text-white/80 hover:text-white bg-black/40 rounded-full safe-top"
       >
-        <X size={22} />
+        <X size={ICONO.md} />
       </button>
       {/* Superficie de gesto (pellizcar/arrastrar/rueda) — no un control
           discreto, no hay equivalente de teclado razonable para "pellizcar". */}

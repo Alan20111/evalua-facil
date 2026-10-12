@@ -5,6 +5,8 @@ import Spinner from '../Spinner'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { Bloque } from './InformeAsignatura'
 import { planInformeEntregable, textoVigenteEntregable } from '../../utils/analisisEntregableInforme'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Informe del análisis con IA de UNA actividad entregable («solo resultados»).
 //
@@ -47,16 +49,15 @@ function EditorTexto({ vigente, guardando, onGuardar, onCancelar, puedeRestaurar
           className="px-3 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors disabled:opacity-60">
           Cancelar
         </button>
-        <button type="button" disabled={guardando}
+        <Button disabled={guardando}
           onClick={() => onGuardar({
             resumenEjecutivo: resumen.trim().slice(0, 4000),
             fortalezas: deLineas(fortalezas).slice(0, 30).map((x) => x.slice(0, 1000)),
             dificultades: deLineas(dificultades).slice(0, 30).map((x) => x.slice(0, 1000)),
             recomendaciones: deLineas(recomendaciones).slice(0, 30).map((x) => x.slice(0, 1000)),
-          })}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
+          })}>
           {guardando && <Spinner size="sm" />} {guardando ? 'Guardando…' : 'Guardar cambios'}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -82,7 +83,7 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
     <Modal open onClose={onClose} title="Análisis de la actividad" size="3xl" z={60} busy={guardando}>
       <div className="space-y-3">
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
-          <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <Sparkles size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800"><span className="font-semibold">Asistente IA. </span>{plan.aviso}</p>
         </div>
 
@@ -95,17 +96,15 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
           </div>
           <div className="flex flex-wrap gap-2">
             {!editando && (
-              <button type="button" onClick={() => setEditando(true)}
-                className="flex items-center gap-1.5 px-3 py-2 border border-outline-variant rounded-full text-sm font-semibold text-on-surface hover:bg-surface-container transition-colors">
-                <Pencil size={15} /> Editar texto
-              </button>
+              <Button variant="secondary" icon={Pencil} onClick={() => setEditando(true)}>
+                 Editar texto
+              </Button>
             )}
             {puedeDescargar && (
-              <button type="button" onClick={onDescargarPDF} disabled={descargando}
-                className="flex items-center gap-1.5 px-3 py-2 bg-[var(--accent-light)] border border-accent rounded-full text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60">
-                {descargando ? <Spinner size="sm" /> : <FileText size={16} />}
+              <Button variant="outline-accent" icon={FileText} busy={descargando} onClick={onDescargarPDF} disabled={descargando}>
+                
                 {descargando ? 'Generando…' : 'Descargar PDF'}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -124,17 +123,16 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
         {plan.secciones.map((s, i) => (
           <section key={s.titulo} className="rounded-card border border-outline-variant p-3 space-y-2">
             <h4 className={`text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 ${s.tono === 'atencion' ? 'text-amber-700' : 'text-accent'}`}>
-              {s.tono === 'atencion' && <AlertTriangle size={14} />}
+              {s.tono === 'atencion' && <AlertTriangle size={ICONO.xs} />}
               {i + 1}. {s.titulo}
             </h4>
             {s.bloques.map((b) => <Bloque key={`${b.tipo}-${b.titulo || b.texto || (b.items || []).join('|') || (b.head || []).join('|')}`} bloque={b} />)}
           </section>
         ))}
 
-        <button type="button" onClick={onClose}
-          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-full hover:bg-surface-container transition-colors">
+        <Button variant="secondary" fullWidth onClick={onClose}>
           Cerrar
-        </button>
+        </Button>
       </div>
     </Modal>
   )

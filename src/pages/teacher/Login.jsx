@@ -9,12 +9,11 @@ import { useToast } from '../../components/Toast'
 import GoogleIcon from '../../components/GoogleIcon'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
-import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
 import { createTeacherAccountIfNew, signInWithGoogle, googleErrorInfo } from '../../utils/googleAuth'
 import LinkAccountModal from '../../components/LinkAccountModal'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import YouTubeIcon from '../../components/YouTubeIcon'
+import { Input, Button } from '../../components/ui'
 
 export default function TeacherLogin() {
   const [email, setEmail] = useState('')
@@ -98,7 +97,7 @@ export default function TeacherLogin() {
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-outline-variant" />
-            <span className="text-sm text-slate-500">o</span>
+            <span className="text-sm text-muted">o</span>
             <div className="flex-1 h-px bg-outline-variant" />
           </div>
 

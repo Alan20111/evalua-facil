@@ -3,6 +3,7 @@ import {
   FUENTES_ANALISIS, CLAVES_FUENTES, fuentesConDatos, fuentesEfectivas, costoAnalisis,
 } from '../../utils/analisisAsignatura'
 import { textoParciales, textoFuentes } from '../../utils/analisisAsignaturaInforme'
+import { Button } from '../ui'
 
 // Qué explica cada fuente, en una línea — para que el docente sepa qué datos
 // se usarán antes de ver el costo.
@@ -113,7 +114,7 @@ export default function ConfigAnalisisAsignatura({ preparacion, onCancelar, onCo
         <p className="text-sm text-muted mt-1.5">Lo que desmarques queda completamente fuera del análisis. Las calificaciones se toman de las actividades de los tipos marcados.</p>
       </fieldset>
 
-      <div className="rounded border border-outline-variant bg-surface-container px-3 py-2.5 mb-4">
+      <div className="rounded-card border border-outline-variant bg-surface-container px-3 py-2.5 mb-4">
         <p className="text-xs font-bold uppercase tracking-wide text-muted mb-1">3. Se analizará</p>
         {puedeContinuar ? (
           <>
@@ -134,11 +135,10 @@ export default function ConfigAnalisisAsignatura({ preparacion, onCancelar, onCo
           className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
           Cancelar
         </button>
-        <button type="button" disabled={!puedeContinuar}
-          onClick={() => onContinuar({ parciales: ordenados, fuentes: efectivas, costo })}
-          className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
+        <Button disabled={!puedeContinuar}
+          onClick={() => onContinuar({ parciales: ordenados, fuentes: efectivas, costo })}>
           Continuar
-        </button>
+        </Button>
       </div>
     </>
   )
