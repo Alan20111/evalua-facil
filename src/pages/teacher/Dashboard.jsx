@@ -26,7 +26,8 @@ import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { IS_NATIVE_APP } from '../../utils/platform'
+import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../utils/platform'
+import { cicloVigente, paletaLibre } from '../../utils/asignaturaNueva'
 import AppQRButton from '../../components/AppQRButton'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
@@ -57,13 +58,33 @@ export default function TeacherDashboard() {
   const [showSubjectModal, setShowSubjectModal] = useState(location.state?.openCreate === true)
   const [newSubjectName, setNewSubjectName] = useState('')
   const [newSubjectGrupo, setNewSubjectGrupo] = useState('')
-  const [newSubjectParciales, setNewSubjectParciales] = useState(3)
-  const [newSubjectPalette, setNewSubjectPalette] = useState('default')
+  // null = sin tocar: el campo muestra lo preseleccionado (fechas y parciales
+  // del ciclo vigente, un color que aún no se usa). En cuanto el docente lo
+  // cambia, manda su valor (también '' si lo vacía a propósito).
+  const [newSubjectParciales, setNewSubjectParciales] = useState(null)
+  const [newSubjectPalette, setNewSubjectPalette] = useState(null)
   const [newSubjectIcon, setNewSubjectIcon] = useState('book')
-  const [newSubjectFechaInicio, setNewSubjectFechaInicio] = useState('')
-  const [newSubjectFechaFin, setNewSubjectFechaFin] = useState('')
-  const [newSubjectParcialesFechas, setNewSubjectParcialesFechas] = useState([])
+  const [newSubjectFechaInicio, setNewSubjectFechaInicio] = useState(null)
+  const [newSubjectFechaFin, setNewSubjectFechaFin] = useState(null)
+  const [newSubjectParcialesFechas, setNewSubjectParcialesFechas] = useState(null)
   const [creatingSubject, setCreatingSubject] = useState(false)
+
+  // Preselección (PLAN_NORMALIZACION_UI §5.2). Va antes de los handlers que
+  // la usan.
+  const ciclo = cicloVigente(subjects)
+  const fechaInicio = newSubjectFechaInicio ?? ciclo?.fechaInicio ?? ''
+  const fechaFin = newSubjectFechaFin ?? ciclo?.fechaFin ?? ''
+  const numParciales = newSubjectParciales ?? (Number(ciclo?.parciales) || 3)
+  const fechasDelCiclo = !!ciclo && fechaInicio === ciclo.fechaInicio && fechaFin === ciclo.fechaFin
+  const parcialesFechas = newSubjectParcialesFechas
+    ?? (fechasDelCiclo && numParciales === Number(ciclo.parciales) ? (ciclo.parcialesFechas || []) : [])
+  const palette = newSubjectPalette ?? paletaLibre(subjects)
+  // El botón «Crear asignatura» se apaga mientras falte algo, y dice qué.
+  const faltan = [
+    !newSubjectName.trim() && 'el nombre de la asignatura',
+    !newSubjectGrupo.trim() && 'el grupo',
+    (!fechaInicio || !fechaFin) && 'las fechas del curso',
+  ].filter(Boolean)
 
   // Archivadas — en la App (sin panel lateral) se agrupan aparte, colapsadas
   // y con sangrado; en la web viven en el panel lateral. En ninguna de las dos
@@ -239,7 +260,7 @@ export default function TeacherDashboard() {
 
   async function handleCreateSubject(e) {
     e.preventDefault()
-    if (!newSubjectName.trim() || !newSubjectGrupo.trim() || !newSubjectFechaInicio || !newSubjectFechaFin) return
+    if (faltan.length) return
     if (!canCreate) {
       toast('Necesitas Créditos IA para crear nuevas asignaturas — toda tu información sigue disponible')
       return
@@ -253,18 +274,16 @@ export default function TeacherDashboard() {
         // Sin `|| 'sin-escuela'`: la escuela es obligatoria y el guard de
         // rutas no deja llegar hasta aquí sin una real (ver utils/escuela.js).
         escuelaId: userProfile.escuelaId,
-        parciales: newSubjectParciales,
+        parciales: numParciales,
         // Al crearla ningún parcial tiene contenido todavía — el primero
         // queda visible para el estudiante desde el inicio, los demás
         // ocultos por defecto (pedido explícito) hasta que el docente
         // decida mostrarlos con el ojo del encabezado del parcial.
-        parcialesOcultos: Array.from({ length: Math.max(0, newSubjectParciales - 1) }, (_, i) => i + 2),
-        fechaInicio: newSubjectFechaInicio || '',
-        fechaFin: newSubjectFechaFin || '',
-        parcialesFechas: (newSubjectFechaInicio && newSubjectFechaFin)
-          ? normalizeParcialesFechas(newSubjectFechaInicio, newSubjectFechaFin, newSubjectParciales, newSubjectParcialesFechas)
-          : [],
-        colorPalette: newSubjectPalette,
+        parcialesOcultos: Array.from({ length: Math.max(0, numParciales - 1) }, (_, i) => i + 2),
+        fechaInicio,
+        fechaFin,
+        parcialesFechas: normalizeParcialesFechas(fechaInicio, fechaFin, numParciales, parcialesFechas),
+        colorPalette: palette,
         icon: newSubjectIcon,
         accessCode: generateAccessCode(),
         archived: false,
@@ -286,12 +305,12 @@ export default function TeacherDashboard() {
       setShowSubjectModal(false)
       setNewSubjectName('')
       setNewSubjectGrupo('')
-      setNewSubjectParciales(3)
-      setNewSubjectPalette('default')
+      setNewSubjectParciales(null)
+      setNewSubjectPalette(null)
       setNewSubjectIcon('book')
-      setNewSubjectFechaInicio('')
-      setNewSubjectFechaFin('')
-      setNewSubjectParcialesFechas([])
+      setNewSubjectFechaInicio(null)
+      setNewSubjectFechaFin(null)
+      setNewSubjectParcialesFechas(null)
       toast('Asignatura creada')
       navigate(`/subject/${ref.id}`)
     } catch (err) {
@@ -541,6 +560,11 @@ export default function TeacherDashboard() {
                 value={newSubjectName}
                 onChange={(e) => setNewSubjectName(e.target.value)}
                 required
+                // Se abre para escribir el nombre: el foco va directo al
+                // primer campo (solo con mouse; en táctil abriría el teclado
+                // de golpe — ver PUEDE_AUTOFOCUS).
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus={PUEDE_AUTOFOCUS}
               />
               {/* Grupo */}
               <Input
@@ -561,15 +585,20 @@ export default function TeacherDashboard() {
                 <div className="space-y-2">
                   <div>
                     <span className="block text-sm text-muted mb-1">Inicio</span>
-                    <EFDateTimePicker mode="date" value={newSubjectFechaInicio} onChange={setNewSubjectFechaInicio} />
+                    <EFDateTimePicker mode="date" etiqueta="Inicio del curso" value={fechaInicio} onChange={setNewSubjectFechaInicio} />
                   </div>
                   <div>
                     <span className="block text-sm text-muted mb-1">Fin</span>
-                    <EFDateTimePicker mode="date" value={newSubjectFechaFin} onChange={setNewSubjectFechaFin}
-                      minDateTime={newSubjectFechaInicio ? addOneDay(newSubjectFechaInicio) : undefined}
-                      disabled={!newSubjectFechaInicio} />
+                    <EFDateTimePicker mode="date" etiqueta="Fin del curso" value={fechaFin} onChange={setNewSubjectFechaFin}
+                      minDateTime={fechaInicio ? addOneDay(fechaInicio) : undefined}
+                      disabled={!fechaInicio} />
                   </div>
                 </div>
+                {fechasDelCiclo && (
+                  <p className="text-xs text-hint mt-1">
+                    Tomadas de «{subjectDisplayName(ciclo)}», tu asignatura de este ciclo. Cámbialas si esta lleva otras.
+                  </p>
+                )}
               </div>
 
               {/* Parciales — mismo control que "Editar asignatura", para que
@@ -578,19 +607,19 @@ export default function TeacherDashboard() {
                 <Select
                   id="dash-parciales"
                   label="Número de parciales"
-                  value={newSubjectParciales}
+                  value={numParciales}
                   onChange={setNewSubjectParciales}
                   options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: `${n} ${n === 1 ? 'parcial' : 'parciales'}` }))}
                 />
               </div>
 
               {/* Fechas por parcial (solo si ya hay fechas del curso) */}
-              {newSubjectFechaInicio && newSubjectFechaFin && (
+              {fechaInicio && fechaFin && (
                 <ParcialesFechas
-                  fechaInicio={newSubjectFechaInicio}
-                  fechaFin={newSubjectFechaFin}
-                  numParciales={newSubjectParciales}
-                  value={newSubjectParcialesFechas}
+                  fechaInicio={fechaInicio}
+                  fechaFin={fechaFin}
+                  numParciales={numParciales}
+                  value={parcialesFechas}
                   onChange={setNewSubjectParcialesFechas}
                 />
               )}
@@ -600,11 +629,11 @@ export default function TeacherDashboard() {
                 <p className="block text-sm font-medium text-muted mb-2">
                   Color de la asignatura <span className="text-hint font-normal text-xs">(elige el color base que identificará a la asignatura)</span>
                 </p>
-                <PaletteSelect value={newSubjectPalette} onChange={setNewSubjectPalette} />
+                <PaletteSelect value={palette} onChange={setNewSubjectPalette} />
               </div>
 
               {/* Icono */}
-              <div {...subjectPaletteProps(newSubjectPalette)}>
+              <div {...subjectPaletteProps(palette)}>
                 <p className="block text-sm font-medium text-muted mb-2">
                   Icono de la asignatura
                 </p>
@@ -620,10 +649,15 @@ export default function TeacherDashboard() {
                   icon={Plus}
                   iconEffect="gira90"
                   busy={creatingSubject}
-                  disabled={!newSubjectFechaInicio || !newSubjectFechaFin}
+                  disabled={faltan.length > 0}
                 >
                   {creatingSubject ? 'Creando…' : 'Crear asignatura'}
                 </Button>
+                {faltan.length > 0 && (
+                  <p className="text-sm text-muted text-center mt-2">
+                    {faltan.length > 1 || faltan[0].startsWith('las ') ? 'Faltan' : 'Falta'} {new Intl.ListFormat('es', { type: 'conjunction' }).format(faltan)}.
+                  </p>
+                )}
               </div>
             </form>
           </Modal>

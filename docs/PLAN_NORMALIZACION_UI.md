@@ -484,7 +484,7 @@ que quede transversal.
 | 0. Contrato | ✅ | #1566 |
 | 1. Librería | ✅ `ui/` completa y `/dev/componentes` | #1567, #1568 |
 | 2. Migración | ✅ olas 2.1 a 2.11 | #1569, #1578–#1583 (y escala de letra #1577) |
-| 3. Selección y preselección | ⏳ **pendiente**: va pantalla por pantalla, validando cada una con el usuario | — |
+| 3. Selección y preselección | ⏳ en curso, pantalla por pantalla (ver «Fase 3 — pantallas») | este PR: Nueva asignatura |
 | 4. Movimiento | ✅ despliegues y microanimaciones, casillas nativas con aspecto `ui/` y 53 modales a `ui/Modal` | #1584, #1585, #1586 |
 | 5. Monolitos | ✅ sin cambio visual (mismo HTML en todas las pestañas) | #1587, #1588 |
 | 6. Verificación y candados | ✅ `npm run test:visual` y candados al mínimo | este PR |
@@ -505,6 +505,20 @@ Herramientas en `scripts/normalizacion/` (Babel): `mapa.mjs`, `bloques.mjs`,
 React Compiler que ya existían, ocultos en el monolito (`Date.now` en el render,
 uso antes de declarar, `ref` leído en un handler y `setState` en un efecto). Por
 eso el presupuesto de lint quedó en 190.
+
+### Fase 3 — pantallas
+
+El usuario pidió (12-oct-2026) que cada pantalla la valide el propio agente,
+cambiando lo menos posible de la interfaz y siguiendo los patrones que ya usa la
+app. Cada una se mide con `node scripts/visual/verificar.mjs --vista=<nombre>`.
+
+| Pantalla | Preselección | Selección (§5.1) | Otros |
+|---|---|---|---|
+| **Nueva asignatura** ✅ | Fechas, parciales y fechas por parcial del **ciclo vigente**: la asignatura activa más reciente cuyo curso no ha terminado, con la nota «Tomadas de «…»». Color: el primero que no usa ninguna asignatura activa, entre los que pasan contraste AA como texto (azul, morado, rosa, grafito). Si no hay de dónde tomarlos, no se inventan (`utils/asignaturaNueva.js`). | Colores, bolitas e íconos marcan lo elegido con el mismo aro de 2 px con separación y `aria-pressed`. Íconos con nombre en español. | Foco en «Asignatura» (solo con mouse). «Crear asignatura» se apaga y dice qué falta. Las fechas fijas por parcial miden lo mismo que el selector de al lado. |
+
+Las muestras de color o ícono (`MUESTRA`, 2.5rem) quedan fuera de la
+auditoría de alturas: son celdas de una rejilla documentadas en DESIGN_SYSTEM
+§6.7, no controles.
 
 ### Fase 6 — verificación
 

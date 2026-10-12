@@ -47,7 +47,14 @@ node scripts/visual/verificar.mjs --referencia
 npm run test:visual
 # Solo un rol
 node scripts/visual/verificar.mjs --solo=docente
+# Solo una vista (más rápido mientras se trabaja una pantalla)
+node scripts/visual/verificar.mjs --vista=nueva-asignatura
 ```
+
+Las hojas de formulario se capturan con `abrir`: la vista entra a su página,
+toca el botón con ese nombre y compara el HTML del diálogo en vez del de
+`main`. Además deja `<vista>-pie.png` con la hoja desplazada hasta abajo. En
+las capturas se oculta el aviso «Activa las notificaciones», que tapaba el pie.
 
 Al comparar se **reutilizan** los datos sembrados (`test/visual/.semilla.json`):
 resembrar cambiaría los ids y con ellos el orden en que Firestore devuelve las
@@ -62,7 +69,7 @@ y vuelve a tomar la referencia.
 
 | Rol | Vistas |
 |-----|--------|
-| Docente | tablero, asignatura (+ cada pestaña), actividad, calendario, perfil (+ cada pestaña), notificaciones, catálogo `/dev/componentes` |
+| Docente | tablero, «Nueva asignatura», asignatura (+ cada pestaña), actividad, calendario, perfil (+ cada pestaña), notificaciones, catálogo `/dev/componentes` |
 | Alumno | tablero, perfil (+ cada pestaña), agenda |
 
 La asignatura y la actividad **del alumno** no se pueden ver en local: leen de
