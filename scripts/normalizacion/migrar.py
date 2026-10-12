@@ -303,3 +303,52 @@ def correr4(archivos):
         if s2 != s:
             open(f, 'w').write(s2)
         print(f, {'botones4': n})
+
+# ── Pasada 5: tokens de color, botones de ícono y esquinas a medias ─────────
+def pasada5(s):
+    n = {'tokens': 0, 'iconbuttons': 0, 'esquinas': 0}
+    # 1) grises sueltos → tokens (solo texto; los fondos slate se quedan)
+    for viejo, nuevo in (('text-slate-500', 'text-muted'), ('text-slate-600', 'text-muted'), ('text-slate-300', 'text-hint')):
+        k = len(re.findall(r'(?<![\w:-])' + viejo + r'(?![\w-])', s))
+        s = re.sub(r'(?<![\w:-])' + viejo + r'(?![\w-])', nuevo, s); n['tokens'] += k
+    # 2) <button … aria-label="X" … className="p-2 … rounded-full …"><Icono size={…} /></button>
+    pat = re.compile(r'<button\b((?:(?!>)[^{]|\{(?:[^{}]|\{[^{}]*\})*\})*?)>\s*<(\w+) size=\{[^}]+\}(?: className="[^"]*")? />\s*</button>', re.S)
+    def r(m):
+        attrs = m.group(1); icono = m.group(2)
+        if not icono[0].isupper() or icono == 'Spinner': return m.group(0)
+        cm = re.search(r'\sclassName="([^"]*)"', attrs)
+        lm = re.search(r'\saria-label=(\{`[^`]*`\}|\{[^{}]*\}|"[^"]*")', attrs)
+        if not cm or not lm: return m.group(0)
+        toks = cm.group(1).split()
+        if not any(re.fullmatch(r'p-(1\.5|2|2\.5|3)', t) for t in toks) or 'rounded-full' not in toks:
+            return m.group(0)
+        if any(t.startswith('bg-accent') or t.startswith('absolute') or t.startswith('fixed') for t in toks):
+            return m.group(0)
+        var = ' variant="danger"' if any('red' in t for t in toks) else ''
+        coloca = [t for t in toks if re.match(r'^-?m[trblxy]?-|^flex-shrink-0$|^ml-auto$|^self-', t) and t != 'flex-shrink-0']
+        resto = attrs.replace(cm.group(0), '').replace(lm.group(0), '')
+        resto = re.sub(r'\s+type="button"', '', resto)
+        etiqueta = lm.group(1)
+        cls = f' className="{" ".join(coloca)}"' if coloca else ''
+        n['iconbuttons'] += 1
+        return f'<IconButton icon={{{icono}}} label={etiqueta}{var} tooltip={{false}}{cls}{" " + resto.strip() if resto.strip() else ""} />'
+    s = pat.sub(r, s)
+    # 3) rounded + border sueltos: una línea → rounded-full; bloque → rounded-card
+    def r3(m):
+        cls = m.group(1); toks = cls.split()
+        if 'rounded' not in toks or not any(t.startswith('border') for t in toks): return m.group(0)
+        una_linea = 'items-center' in toks and any(t in toks for t in ('py-1', 'py-1.5', 'py-2', 'py-2.5')) and 'overflow-hidden' not in toks
+        nuevo = ' '.join(('rounded-full' if una_linea else 'rounded-card') if t == 'rounded' else t for t in toks)
+        n['esquinas'] += 1
+        return f'className="{nuevo}"'
+    s = re.sub(r'className="([^"]*\brounded border\b[^"]*)"', r3, s)
+    return s, n
+
+def correr5(archivos):
+    for f in archivos:
+        s = open(f).read()
+        s2, n = pasada5(s)
+        s2 = asegurar_import(s2, ['Input', 'Button', 'IconButton'], f)
+        if s2 != s:
+            open(f, 'w').write(s2)
+        print(f, n)

@@ -50,10 +50,11 @@ import SolucionJuegoModal from '../../components/juego/SolucionJuegoModal'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { formatHora12FromDate } from '../../utils/formatHora'
-import { SkeletonText } from '../../components/ui'
+import { SkeletonText, Button, IconButton } from '../../components/ui'
 import { entregaAbiertaParaAlumno } from '../../utils/entregaAbierta'
 import VistaPreviaEntrega from '../../components/VistaPreviaEntrega'
 import { tieneEvidencia } from '../../utils/submissionGuard'
+import { ICONO } from '../../config/iconos'
 
 
 function fmtDate(dateStr) {
@@ -576,9 +577,7 @@ export default function StudentActivityPage() {
         <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
         <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
-              <ArrowLeft size={22} />
-            </button>
+            <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={goBack} />
             <div className="min-w-0">
               <h1 className="text-lg font-bold text-on-surface truncate">
             {activityLabel && <span className="text-accent">{activityLabel} </span>}
@@ -589,12 +588,12 @@ export default function StudentActivityPage() {
                 <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                   {(activity?.publishedAt || activity?.publishAt) && (
                     <span className="text-xs text-hint flex items-center gap-1">
-                      <Clock size={12} className="flex-shrink-0" /> Publicado: {fmtDate(activity.publishedAt || activity.publishAt)}
+                      <Clock size={ICONO.xs} className="flex-shrink-0" /> Publicado: {fmtDate(activity.publishedAt || activity.publishAt)}
                     </span>
                   )}
                   {deadlineEv && (
                     <span className="text-xs text-hint flex items-center gap-1">
-                      <Clock size={12} className="flex-shrink-0" /> {extendedDateEv ? 'Cierra (extendida):' : 'Cierra:'} {fmtDate(deadlineEv)}
+                      <Clock size={ICONO.xs} className="flex-shrink-0" /> {extendedDateEv ? 'Cierra (extendida):' : 'Cierra:'} {fmtDate(deadlineEv)}
                     </span>
                   )}
                 </div>
@@ -608,13 +607,13 @@ export default function StudentActivityPage() {
                 {/* Grade — published independently from answers */}
                 {submission.pendienteRevision ? (
                   <p className="text-sm text-muted flex items-center gap-2">
-                    <Clock size={17} className="flex-shrink-0" />
+                    <Clock size={ICONO.sm} className="flex-shrink-0" />
                     Tu evaluación fue entregada — algunas preguntas requieren revisión de tu maestro, tu calificación se actualizará cuando termine.
                   </p>
                 ) : resultadosVisibles ? (
                   <>
                     <div className="flex items-center gap-3 mb-3">
-                      <Star size={22} className="text-amber-400" />
+                      <Star size={ICONO.md} className="text-amber-400" />
                       <h2 className="font-semibold text-on-surface">Tu calificación</h2>
                     </div>
                     <div className="flex items-end gap-2">
@@ -645,7 +644,7 @@ export default function StudentActivityPage() {
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-muted flex items-center gap-2"><Clock size={17} /> Calificación pendiente de publicación</p>
+                  <p className="text-sm text-muted flex items-center gap-2"><Clock size={ICONO.sm} /> Calificación pendiente de publicación</p>
                 )}
                 {/* Answers — published independently from the grade */}
                 {respuestasVisibles && (
@@ -681,23 +680,23 @@ export default function StudentActivityPage() {
             <div className="bg-surface-card rounded-card p-4 shadow-card space-y-2">
               <h2 className="font-semibold text-on-surface mb-1">Resumen</h2>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted flex items-center gap-1.5"><ListChecks size={16} /> Número de preguntas</span>
+                <span className="text-muted flex items-center gap-1.5"><ListChecks size={ICONO.sm} /> Número de preguntas</span>
                 <span className="font-semibold text-on-surface">{ev.numPreguntas || 0}</span>
               </div>
               {esVideoInteractivo(activity) && (
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted flex items-center gap-1.5"><Video size={16} /> Duración del video</span>
+                  <span className="text-muted flex items-center gap-1.5"><Video size={ICONO.sm} /> Duración del video</span>
                   <span className="font-semibold text-on-surface">{activity.videoInteractivo?.duracionSeg ? formatearTiempo(activity.videoInteractivo.duracionSeg) : '—'}</span>
                 </div>
               )}
               {mostrarFilaTiempo(activity, ev) && (
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted flex items-center gap-1.5"><Timer size={16} /> Tiempo disponible</span>
+                  <span className="text-muted flex items-center gap-1.5"><Timer size={ICONO.sm} /> Tiempo disponible</span>
                   <span className="font-semibold text-on-surface">{ev.tiempoLimiteMin ? `${ev.tiempoLimiteMin} min` : 'Sin límite'}</span>
                 </div>
               )}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted flex items-center gap-1.5"><RotateCcw size={16} /> Intentos</span>
+                <span className="text-muted flex items-center gap-1.5"><RotateCcw size={ICONO.sm} /> Intentos</span>
                 <span className="font-semibold text-on-surface">
                   {ev.intentosPermitidos ? `${intentosUsados}/${ev.intentosPermitidos}` : `${intentosUsados} (ilimitados)`}
                 </span>
@@ -739,15 +738,12 @@ export default function StudentActivityPage() {
                 La fecha límite ya pasó — esta evaluación está cerrada.
               </div>
             ) : (
-              <button
-                type="button"
+              <Button fullWidth icon={PlayCircle} busy={uploading}
                 onClick={handleStartOrContinueEvaluacion}
-                disabled={uploading}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {uploading ? <Spinner size="sm" /> : <PlayCircle size={20} />}
+                disabled={uploading}>
+                
                 {uploading ? 'Cargando…' : enProgreso ? 'Continuar evaluación' : finalizado ? 'Nuevo intento' : 'Comenzar'}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -797,9 +793,7 @@ export default function StudentActivityPage() {
         <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
         <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
-              <ArrowLeft size={22} />
-            </button>
+            <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={goBack} />
             <div className="min-w-0">
               <h1 className="text-lg font-bold text-on-surface truncate">
                 {activityLabel && <span className="text-accent">{activityLabel} </span>}
@@ -815,7 +809,7 @@ export default function StudentActivityPage() {
                 {submission.calificacion != null ? (
                   <>
                     <div className="flex items-center gap-3 mb-3">
-                      <Star size={22} className="text-amber-400" />
+                      <Star size={ICONO.md} className="text-amber-400" />
                       <h2 className="font-semibold text-on-surface">Tu calificación</h2>
                     </div>
                     <div className="flex items-end gap-2">
@@ -832,7 +826,7 @@ export default function StudentActivityPage() {
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-muted flex items-center gap-2"><Clock size={17} /> Calificando…</p>
+                  <p className="text-sm text-muted flex items-center gap-2"><Clock size={ICONO.sm} /> Calificando…</p>
                 )}
               </div>
             )}
@@ -851,14 +845,11 @@ export default function StudentActivityPage() {
                   estructura={activity.juego.estructura}
                   submission={submission}
                 />
-                <button
-                  type="button"
-                  onClick={() => setSolucionJuegoAbierta(true)}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-accent text-accent font-medium rounded-full hover:bg-accent-light transition-colors"
-                >
-                  <BookOpen size={18} />
+                <Button variant="outline-accent" fullWidth icon={BookOpen}
+                  onClick={() => setSolucionJuegoAbierta(true)}>
+                  
                   Ver solución
-                </button>
+                </Button>
               </>
             )}
 
@@ -883,11 +874,11 @@ export default function StudentActivityPage() {
             <div className="bg-surface-card rounded-card p-4 shadow-card space-y-2">
               <h2 className="font-semibold text-on-surface mb-1">Resumen</h2>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted flex items-center gap-1.5"><Timer size={16} /> Tiempo disponible</span>
+                <span className="text-muted flex items-center gap-1.5"><Timer size={ICONO.sm} /> Tiempo disponible</span>
                 <span className="font-semibold text-on-surface">{ev.tiempoLimiteMin ? `${ev.tiempoLimiteMin} min` : 'Sin límite'}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted flex items-center gap-1.5"><RotateCcw size={16} /> Intentos</span>
+                <span className="text-muted flex items-center gap-1.5"><RotateCcw size={ICONO.sm} /> Intentos</span>
                 <span className="font-semibold text-on-surface">
                   {ev.intentosPermitidos ? `${intentosUsadosJ}/${ev.intentosPermitidos}` : `${intentosUsadosJ} (ilimitados)`}
                 </span>
@@ -907,15 +898,12 @@ export default function StudentActivityPage() {
                 La fecha límite ya pasó — este juego está cerrado.
               </div>
             ) : (
-              <button
-                type="button"
+              <Button fullWidth icon={PlayCircle} busy={uploading}
                 onClick={handleStartOrContinueJuego}
-                disabled={uploading}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {uploading ? <Spinner size="sm" /> : <PlayCircle size={20} />}
+                disabled={uploading}>
+                
                 {uploading ? 'Cargando…' : enProgresoJ ? 'Continuar' : finalizadoJ ? 'Nuevo intento' : 'Comenzar'}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -970,14 +958,7 @@ export default function StudentActivityPage() {
     <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
     <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-        <button
-          type="button"
-          aria-label="Volver"
-          onClick={goBack}
-          className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0"
-        >
-          <ArrowLeft size={22} />
-        </button>
+        <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={goBack} />
         <div className="min-w-0">
           <h1 className="text-lg font-bold text-on-surface truncate">
             {activityLabel && <span className="text-accent">{activityLabel} </span>}
@@ -988,12 +969,12 @@ export default function StudentActivityPage() {
             <div className="flex items-center gap-3 mt-0.5 flex-wrap">
               {(activity?.publishedAt || activity?.publishAt) && (
                 <span className="text-xs text-hint flex items-center gap-1">
-                  <Clock size={12} className="flex-shrink-0" /> Publicado: {fmtDate(activity.publishedAt || activity.publishAt)}
+                  <Clock size={ICONO.xs} className="flex-shrink-0" /> Publicado: {fmtDate(activity.publishedAt || activity.publishAt)}
                 </span>
               )}
               {displayDate && (
                 <span className="text-xs text-hint flex items-center gap-1">
-                  <Clock size={12} className="flex-shrink-0" /> {extendedDate ? 'Cierra (extendida):' : 'Cierra:'} {fmtDate(displayDate)}
+                  <Clock size={ICONO.xs} className="flex-shrink-0" /> {extendedDate ? 'Cierra (extendida):' : 'Cierra:'} {fmtDate(displayDate)}
                 </span>
               )}
             </div>
@@ -1008,9 +989,9 @@ export default function StudentActivityPage() {
           isDelivered ? 'bg-accent-light border border-accent-soft' :
           'bg-surface border border-outline-variant'
         }`}>
-          {isGraded ? <CheckCircle size={26} className="text-emerald-500 flex-shrink-0" />
-            : isDelivered ? <Clock size={26} className="text-accent flex-shrink-0" />
-            : <FileText size={26} className="text-hint flex-shrink-0" />}
+          {isGraded ? <CheckCircle size={ICONO.lg} className="text-emerald-500 flex-shrink-0" />
+            : isDelivered ? <Clock size={ICONO.lg} className="text-accent flex-shrink-0" />
+            : <FileText size={ICONO.lg} className="text-hint flex-shrink-0" />}
           <div className="min-w-0">
             <p className="font-semibold text-on-surface text-sm">
               {isGraded ? 'Calificado'
@@ -1021,10 +1002,10 @@ export default function StudentActivityPage() {
             {isDelivered && (
               <p className="text-xs text-muted mt-0.5 flex items-center gap-1 min-w-0">
                 {noFile
-                  ? <><CheckCircle size={14} className="flex-shrink-0" /> Completada sin archivo</>
+                  ? <><CheckCircle size={ICONO.xs} className="flex-shrink-0" /> Completada sin archivo</>
                   : submission.enlaceURL
-                    ? <><ExternalLink size={14} className="flex-shrink-0" /> <span className="truncate">Enlace o URL</span></>
-                    : <><FileText size={14} className="flex-shrink-0" /> <span className="truncate">{submission.nombreArchivo}</span></>}
+                    ? <><ExternalLink size={ICONO.xs} className="flex-shrink-0" /> <span className="truncate">Enlace o URL</span></>
+                    : <><FileText size={ICONO.xs} className="flex-shrink-0" /> <span className="truncate">{submission.nombreArchivo}</span></>}
               </p>
             )}
           </div>
@@ -1054,9 +1035,9 @@ export default function StudentActivityPage() {
                   /* bg-surface-card (blanco), no bg-surface: desde que el lienzo
                      es azul cielo, `bg-surface` pinta de azul y este botón se
                      confundía con el fondo en vez de recortarse contra él. */
-                  className="flex items-center gap-3 px-3 py-2.5 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
+                  className="flex items-center gap-3 px-3 py-2.5 bg-surface-card rounded-full border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
                 >
-                  <Download size={17} className="text-accent flex-shrink-0" />
+                  <Download size={ICONO.sm} className="text-accent flex-shrink-0" />
                   <span className="truncate">{f.nombre}</span>
                 </a>
               ))}
@@ -1073,23 +1054,17 @@ export default function StudentActivityPage() {
                   La entrega dejará de ser tu entrega actual y podrás realizar una nueva mientras la actividad siga disponible.
                 </p>
                 <div className="flex gap-2">
-                  <button
-                    type="button"
+                  <Button variant="secondary" className="flex-1"
                     onClick={() => setConfirmandoAnular(false)}
-                    disabled={anulando}
-                    className="flex-1 py-2 border border-outline-variant text-muted font-semibold rounded-full disabled:opacity-60"
-                  >
+                    disabled={anulando}>
                     Cancelar
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button variant="danger" className="flex-1"
                     onClick={anularEntrega}
-                    disabled={anulando}
-                    className="flex-1 py-2 bg-red-600 text-white font-semibold rounded-full disabled:opacity-60 flex items-center justify-center gap-2"
-                  >
+                    disabled={anulando}>
                     {anulando && <Spinner size="sm" />}
                     Anular entrega
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -1108,7 +1083,7 @@ export default function StudentActivityPage() {
         {isGraded && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <div className="flex items-center gap-3 mb-3">
-              <Star size={22} className="text-amber-400" />
+              <Star size={ICONO.md} className="text-amber-400" />
               <h2 className="font-semibold text-on-surface">Tu calificación</h2>
             </div>
             <div className="flex items-end gap-2 mb-3">
@@ -1121,7 +1096,7 @@ export default function StudentActivityPage() {
                 : activity?.comentarioVisibleAlumno !== false
             ) && (
               <div className="bg-surface rounded p-3 flex gap-2">
-                <MessageSquare size={17} className="text-hint flex-shrink-0 mt-0.5" />
+                <MessageSquare size={ICONO.sm} className="text-hint flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-muted italic">&ldquo;{submission.comentario}&rdquo;</p>
               </div>
             )}
@@ -1157,7 +1132,7 @@ export default function StudentActivityPage() {
         {activity?.rubrica?.criterios?.length > 0 && activity.rubricaVisibleAlumno !== false && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <div className="flex items-center gap-2 mb-1">
-              <ClipboardList size={18} className="text-accent flex-shrink-0" />
+              <ClipboardList size={ICONO.md} className="text-accent flex-shrink-0" />
               <h2 className="font-semibold text-on-surface">Rúbrica de evaluación</h2>
             </div>
             <p className="text-xs text-muted mb-3">
@@ -1196,13 +1171,10 @@ export default function StudentActivityPage() {
                 : 'Puedes realizar una nueva entrega mientras la actividad permanezca disponible.'}
             </p>
             {!cerrada && (
-              <button
-                type="button"
-                onClick={() => document.getElementById('subir-entrega')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="mt-3 w-full py-2 bg-accent text-white font-semibold rounded-full"
-              >
+              <Button fullWidth className="mt-3"
+                onClick={() => document.getElementById('subir-entrega')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
                 Realizar nueva entrega
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -1252,7 +1224,7 @@ export default function StudentActivityPage() {
                     e.target.value = ''
                   }}
                 />
-                <Upload size={26} className={`flex-shrink-0 ${files.length ? 'text-accent' : 'text-hint'}`} />
+                <Upload size={ICONO.lg} className={`flex-shrink-0 ${files.length ? 'text-accent' : 'text-hint'}`} />
                 {/* Solo la ACCIÓN, sin repetir el límite: cuántas fotos caben ya
                     lo dice el recuadro "Archivos que puedes enviar…" de arriba
                     ("De 1 a 5 fotos o imágenes"). Antes el mismo dato salía tres
@@ -1268,23 +1240,16 @@ export default function StudentActivityPage() {
                       ? files[0].name
                       : `${files.length} imágenes seleccionadas`}
                 </p>
-                <p className="text-sm text-slate-500 mt-1 text-center break-words max-w-full">
+                <p className="text-sm text-muted mt-1 text-center break-words max-w-full">
                   Máx 5 MB cada uno
                 </p>
               </label>
               {files.length > 0 && (
                 <div className="space-y-1">
                   {files.map((f, i) => (
-                    <div key={`${f.name}-${i}`} className="flex items-center gap-2 px-3 py-1.5 bg-surface rounded border border-outline-variant text-xs text-muted">
+                    <div key={`${f.name}-${i}`} className="flex items-center gap-2 px-3 py-1.5 bg-surface rounded-full border border-outline-variant text-xs text-muted">
                       <span className="flex-1 truncate">{i + 1}. {f.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeSelectedFile(i)}
-                        aria-label={`Quitar ${f.name}`}
-                        className="p-2 -mr-1 text-hint hover:text-red-500 rounded-full flex-shrink-0"
-                      >
-                        <X size={15} />
-                      </button>
+                      <IconButton icon={X} label={`Quitar ${f.name}`} variant="danger" tooltip={false} className="-mr-1" onClick={() => removeSelectedFile(i)} />
                     </div>
                   ))}
                   {allowsMultipleFiles(activity?.tiposArchivo || 'todos') && files.length < MAX_IMAGES_PER_SUBMISSION && files.every(isImageFile) && (
@@ -1324,14 +1289,7 @@ export default function StudentActivityPage() {
                       }`}
                     />
                     {hayEnlace && (
-                      <button
-                        type="button"
-                        onClick={() => { setEnlace(''); setEnlaceTocado(false) }}
-                        aria-label="Borrar el enlace"
-                        className="p-2 text-hint hover:text-red-500 rounded-full flex-shrink-0"
-                      >
-                        <X size={16} />
-                      </button>
+                      <IconButton icon={X} label="Borrar el enlace" variant="danger" tooltip={false} onClick={() => { setEnlace(''); setEnlaceTocado(false) }} />
                     )}
                   </div>
                   {enlaceInvalido ? (
@@ -1344,25 +1302,19 @@ export default function StudentActivityPage() {
                 </div>
               )}
               {files.length > 0 && !uploading && (
-                <button
-                  type="button"
-                  onClick={() => setFiles([])}
-                  className="w-full py-2.5 border border-outline-variant text-muted font-semibold rounded-full"
-                >
+                <Button variant="secondary" fullWidth
+                  onClick={() => setFiles([])}>
                   {files.length > 1 ? 'Cambiar archivos' : 'Cambiar archivo'}
-                </button>
+                </Button>
               )}
-              <button
-                type="button"
+              <Button fullWidth icon={Upload} busy={uploading}
                 onClick={handleUpload}
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={(!files.length && !hayEnlace) || uploading}
-                style={{ touchAction: 'manipulation' }}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {uploading ? <Spinner size="sm" /> : <Upload size={18} />}
+                style={{ touchAction: 'manipulation' }}>
+                
                 {uploading ? 'Subiendo…' : files.length > 1 ? `Entregar ${files.length} imágenes` : files.length === 1 ? 'Entregar actividad' : 'Entregar'}
-              </button>
+              </Button>
             </div>
           </div>
         )}

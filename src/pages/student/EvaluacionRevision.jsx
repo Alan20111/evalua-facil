@@ -17,6 +17,7 @@ import { mostrarSeccionesAlEstudiante, preguntasEnOrden, seccionesDe } from '../
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { SkeletonList } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 // Read-only post-evaluación review: shows the student's own answers, whether
 // each was correct (if the teacher enabled mostrarRespuestasCorrectas), and
@@ -108,7 +109,7 @@ export default function EvaluacionRevision() {
       <div className="bg-surface min-h-screen" {...subjectPaletteProps(subject?.colorPalette)}>
         <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
           <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
-            <ArrowLeft size={22} />
+            <ArrowLeft size={ICONO.md} />
           </button>
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-on-surface truncate">{activity.nombre}</h1>
