@@ -20,6 +20,9 @@ import SkipLink from './SkipLink'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { capitalizarNombre } from '../utils/nombres'
 import { EsqueletoFilasLateralAlumno } from './esqueletos'
+import ConfirmModal from './ConfirmModal'
+import { IconButton } from './ui'
+import { SB_FILA, SB_ICONO, SB_INACTIVA, SB_ACTIVA, SB_ACTIVA_SUAVE, SB_GRUPO } from '../config/sidebar'
 
 // `refreshKey`: el Dashboard del alumno reordena sus asignaturas (flechas
 // subir/bajar o arrastrar) SIN desmontar este layout — a diferencia del
@@ -123,20 +126,13 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           type="button"
           onClick={() => setShowFullLogo((v) => !v)}
           aria-label="Ver logo de Evalúa Fácil"
-          className="flex items-center gap-2 min-w-0 -ml-1 p-1 rounded-full hover:bg-accent-tint transition-colors"
+          className="flex items-center gap-2 min-w-0 -ml-1 p-1 rounded-full hover:bg-[var(--accent-tint)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <EFLogo subtitle={false} className="h-8 w-auto flex-shrink-0" />
           {/* eslint-disable-next-line jsx-a11y/aria-role -- role aquí es la prop propia de PortalBadge, no un atributo ARIA */}
           <PortalBadge role="alumno" />
         </button>
-        <button
-          type="button"
-          onClick={() => setShowLogoutConfirm(true)}
-          aria-label="Cerrar sesión"
-          className="p-2 text-muted hover:text-error rounded transition-colors"
-        >
-          <LogOut size={20} />
-        </button>
+        <IconButton icon={LogOut} label="Cerrar sesión" variant="danger" tooltip={false} onClick={() => setShowLogoutConfirm(true)} />
       </header>
 
       {/* Desktop: sidebar + content.
@@ -202,24 +198,24 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           {/* Agenda — debajo del perfil, único enlace fijo del sidebar (sin
               Notificaciones aquí: en la web solo vive en la barra inferior
               cuando se navega desde un móvil; la escritorio no le da casa). */}
-          <NavLink
-            to="/alumno/agenda"
-            className={({ isActive }) =>
-              `flex items-center gap-2 mx-2 mt-1.5 px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
-                isActive
-                  ? 'bg-white text-accent shadow-card'
-                  : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
-              }`
-            }
-          >
-            <CalendarDays size={20} className="flex-shrink-0" />
-            Agenda
-          </NavLink>
+          <div className="px-2">
+            <NavLink
+              to="/alumno/agenda"
+              className={({ isActive }) =>
+                `${SB_FILA} font-semibold ${
+                  isActive ? SB_ACTIVA : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
+                }`
+              }
+            >
+              <CalendarDays size={SB_ICONO} className="flex-shrink-0" />
+              Agenda
+            </NavLink>
+          </div>
 
           {/* Subjects heading — links to dashboard */}
           <NavLink
             to="/alumno/dashboard"
-            className="mx-2 mt-2 pl-4 pr-2 py-2 flex items-center justify-between rounded-full hover:bg-white/10 transition-colors group"
+            className="mx-2 mt-2 pl-4 pr-2 py-2 flex items-center justify-between rounded-full hover:bg-white/10 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             {/* Mismo tamaño y tratamiento que "Asignaturas" en el panel del
                 docente (Layout.jsx): 22px, sin `uppercase` — "Asignaturas"
@@ -232,23 +228,21 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           </NavLink>
 
           {/* Subject list */}
-          <div className="flex-1 overflow-y-auto px-2 pb-2">
+          <div className="flex-1 min-h-32 overflow-y-auto px-2 pb-2 space-y-1">
             {loadingSidebar ? (
               <EsqueletoFilasLateralAlumno />
             ) : activeSubjects.length === 0 ? (
-              <p className="text-body-sm text-white/70 px-3 py-2">Sin asignaturas aún</p>
+              <p className="text-body-sm text-white/70 px-4 py-2.5">Sin asignaturas aún</p>
             ) : (
               activeSubjects.map((s) => (
                 <NavLink data-esq="sba-fila"
                   key={s.id}
                   to={`/alumno/materia/${s.id}`}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 px-3 py-1.5 rounded text-body-sm transition-colors ${
-                      isActive ? 'bg-white text-accent font-semibold' : 'text-white/90 hover:bg-white/10'
-                    }`
+                    `${SB_FILA} ${isActive ? SB_ACTIVA : SB_INACTIVA}`
                   }
                 >
-                  <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
+                  <SubjectIcon iconKey={s.icon} size={SB_ICONO} className="flex-shrink-0" />
                   <span className="truncate">{subjectDisplayName(s)}</span>
                 </NavLink>
               ))
@@ -262,9 +256,9 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             <button
               type="button"
               onClick={() => navigate('/alumno/dashboard', { state: { openJoin: true } })}
-              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white hover:bg-white/10 transition-colors mt-1"
+              className={`${SB_FILA} text-white hover:bg-white/10`}
             >
-              <Plus size={17} />
+              <Plus size={SB_ICONO} className="flex-shrink-0" />
               Unirme a otra asignatura…
             </button>
           </div>
@@ -277,7 +271,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           {/* QR general de Evalúa Fácil — igual que en el sidebar del
               docente. Fuera de cualquier asignatura porque es el mismo para
               todas. */}
-          <div className="px-2 pt-2 border-t border-white/15 space-y-0.5">
+          <div className={`${SB_GRUPO} border-t border-white/15`}>
             {/* Mi espacio — almacenamiento personal del estudiante. En el
                 teléfono (web) se entra desde Perfil; la app nativa no lo tiene.
                 El tooltip es el de siempre (data-tooltip, solo con ratón). */}
@@ -285,31 +279,21 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               to="/alumno/mi-espacio"
               data-tooltip="Guarda tus archivos personales aquí"
               data-tooltip-nowrap=""
-              className={({ isActive }) =>
-                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
-                  isActive ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
-                }`
-              }
+              className={({ isActive }) => `${SB_FILA} ${isActive ? SB_ACTIVA_SUAVE : SB_INACTIVA}`}
             >
-              <Cloud size={17} className="flex-shrink-0" />
+              <Cloud size={SB_ICONO} className="flex-shrink-0" />
               Mi espacio
             </NavLink>
 
             <NavLink
               to="/alumno/tips"
-              className={({ isActive }) =>
-                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
-                  isActive ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
-                }`
-              }
+              className={({ isActive }) => `${SB_FILA} ${isActive ? SB_ACTIVA_SUAVE : SB_INACTIVA}`}
             >
-              <Lightbulb size={17} className="flex-shrink-0" />
+              <Lightbulb size={SB_ICONO} className="flex-shrink-0" />
               Tips
             </NavLink>
 
-            <AppQRButton
-              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white/80 hover:bg-white/10 transition-colors"
-            >
+            <AppQRButton className={`${SB_FILA} ${SB_INACTIVA}`} iconSize={SB_ICONO}>
               QR de Evalúa Fácil
             </AppQRButton>
           </div>
@@ -319,18 +303,18 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               alumno nunca archiva por su cuenta. Aquí solo se navega: quitarlas
               de su lista se hace en el dashboard, que es donde vive esa acción. */}
           {archivedSubjects.length > 0 && (
-            <div className="px-2 pt-2 max-h-48 overflow-y-auto">
+            <div className={`${SB_GRUPO} max-h-48 overflow-y-auto`}>
               {/* Mismo tratamiento que en el panel del docente (Layout.jsx):
                   flecha a la DERECHA de la palabra, que gira al desplegar. */}
               <button
                 type="button"
                 onClick={() => setShowArchived((a) => !a)}
                 aria-expanded={showArchived}
-                className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/60 hover:bg-white/10 transition-colors"
+                className={`${SB_FILA} text-white/60 hover:bg-white/10 hover:text-white`}
               >
-                <Archive size={15} className="flex-shrink-0" />
+                <Archive size={SB_ICONO} className="flex-shrink-0" />
                 <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
-                <ChevronRight size={14} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
+                <ChevronRight size={16} className={`flex-shrink-0 transition-transform duration-estandar ${showArchived ? 'rotate-90' : ''}`} />
               </button>
               {showArchived &&
                 archivedSubjects.map((s) => (
@@ -341,12 +325,10 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                     key={s.id}
                     to={`/alumno/materia/${s.id}`}
                     className={({ isActive }) =>
-                      `flex items-center gap-2 pl-10 pr-3 py-2 rounded text-body-sm transition-colors ${
-                        isActive ? 'bg-white text-accent font-semibold' : 'text-white/70 hover:bg-white/15'
-                      }`
+                      `${SB_FILA} pl-10 ${isActive ? SB_ACTIVA : 'text-white/70 hover:bg-white/15'}`
                     }
                   >
-                    <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
+                    <SubjectIcon iconKey={s.icon} size={SB_ICONO} className="flex-shrink-0" />
                     <span className="truncate">{subjectDisplayName(s)}</span>
                   </NavLink>
                 ))}
@@ -354,13 +336,13 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           )}
 
           {/* Logout */}
-          <div className="px-2 py-2 border-t border-white/15">
+          <div className={`${SB_GRUPO} border-t border-white/15`}>
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+              className={`${SB_FILA} ${SB_INACTIVA}`}
             >
-              <LogOut size={17} />
+              <LogOut size={SB_ICONO} className="flex-shrink-0" />
               Cerrar sesión
             </button>
           </div>
@@ -384,36 +366,15 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
 
       {/* Confirmación antes de cerrar sesión (header móvil) */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
-            onClick={() => setShowLogoutConfirm(false)}
-            aria-label="Cancelar"
-          />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
-            <h3 className="text-base font-semibold text-on-surface">¿Cerrar sesión?</h3>
-            <p className="text-sm text-muted mt-2">
-              Vas a salir de tu cuenta. Puedes volver a entrar cuando quieras con tu usuario y contraseña.
-            </p>
-            <div className="flex gap-2 mt-4">
-              <button
-                type="button"
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowLogoutConfirm(false); handleLogout() }}
-                className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
-              >
-                Sí, cerrar sesión
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="¿Cerrar sesión?"
+          message="Vas a salir de tu cuenta. Puedes volver a entrar cuando quieras con tu usuario y contraseña."
+          confirmLabel="Sí, cerrar sesión"
+          danger
+          z={60}
+          onConfirm={() => { setShowLogoutConfirm(false); handleLogout() }}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
       )}
 
       {/* Logo completo — se abre al tocar el ícono de la barra superior, se cierra tocando el fondo */}
