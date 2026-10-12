@@ -15,7 +15,7 @@
     "preview": "vite preview",
     "test": "npm run test:unit && npm run test:rules && npm run test:mi-espacio && npm run test:server",
     "pretest:unit": "node scripts/sync-functions-shared.mjs",
-    "test:unit": "node test/suscripciones-tabla.test.mjs && node test/resumen-admin.test.mjs && node test/resumen-admin-kpis.test.mjs && node test/unidad.test.mjs",
+    "test:unit": "node test/registros-tabla.test.mjs && node test/resumen-admin.test.mjs && node test/resumen-admin-kpis.test.mjs && node test/unidad.test.mjs",
     "test:rules": "firebase emulators:exec --only firestore --project demo-test \"node test/firestore-rules.test.mjs\"",
     "test:mi-espacio": "firebase emulators:exec --only firestore,storage,auth --project demo-test \"node test/mi-espacio.test.mjs\"",
     "pretest:server": "node scripts/sync-functions-shared.mjs",

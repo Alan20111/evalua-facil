@@ -3,7 +3,7 @@ import { RefreshCw } from 'lucide-react'
 import AdminLayout from '../../components/AdminLayout'
 import { useAdminStats } from '../../hooks/useAdminStats'
 import StatsCards, { ResumenCharts } from './components/StatsCards'
-import SubscriptionsTable from './components/SubscriptionsTable'
+import RegistrosTable from './components/RegistrosTable'
 import CreditPurchasesTable from './components/CreditPurchasesTable'
 import CostosIAPanel from './components/CostosIAPanel'
 import PaymentConfig from './components/PaymentConfig'
@@ -17,7 +17,7 @@ import { SkeletonCards } from '../../components/ui'
 const TAB_TITLES = {
   chat: 'Inteligencia de Evalúa Fácil',
   resumen: 'Resumen',
-  suscripciones: 'Suscripciones (histórico)',
+  registros: 'Registros',
   creditos: 'Compras de créditos',
   costosIA: 'Costos de IA',
   zonas: 'Ventas por zona',
@@ -72,8 +72,8 @@ export default function AdminDashboard() {
               <ResumenCharts stats={stats} />
             </div>
           )}
-          {activeTab === 'suscripciones' && (
-            <SubscriptionsTable stats={stats} onRefresh={refresh} />
+          {activeTab === 'registros' && (
+            <RegistrosTable stats={stats} onRefresh={refresh} />
           )}
           {activeTab === 'creditos' && <CreditPurchasesTable stats={stats} onRefresh={refresh} />}
           {/* Carga sus propios datos del callable `resumenCostosIA`: no

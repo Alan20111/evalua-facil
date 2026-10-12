@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import {
   LayoutDashboard,
-  CreditCard,
+  UserPlus,
   GraduationCap,
   Wallet,
   LogOut,
@@ -21,13 +21,13 @@ import SkipLink from './SkipLink'
 
 // Modelo de créditos puros (20-ago-2026): se retira la pestaña "Pagos"
 // (suscripción mensual, flujo eliminado) — "Créditos" pasa a ser la compra
-// principal de IA, y "Suscripciones" queda como histórico de solo lectura.
+// principal de IA, y "Registros" lista a los docentes registrados.
 const TABS = [
   { id: 'chat', label: 'Inteligencia de EF', icon: BrainCircuit },
   { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
   { id: 'creditos', label: 'Compras de créditos', icon: Sparkles },
   { id: 'costosIA', label: 'Costos de IA', icon: TrendingUp },
-  { id: 'suscripciones', label: 'Suscripciones (histórico)', icon: CreditCard },
+  { id: 'registros', label: 'Registros', icon: UserPlus },
   { id: 'zonas', label: 'Ventas por zona', icon: Map },
   { id: 'cobros', label: 'Cobros', icon: Wallet },
   { id: 'escuelas', label: 'Escuelas', icon: School },
