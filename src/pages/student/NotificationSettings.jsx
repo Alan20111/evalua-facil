@@ -207,7 +207,7 @@ export default function NotificationSettings() {
         <IconButton icon={ArrowLeft} label="Regresar" tooltip={false} className="-ml-2" onClick={goBack} />
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold truncate">Notificaciones</h1>
-          <p className="text-sm text-white/60 truncate">{firstName}</p>
+          <p className="text-sm text-white/95 truncate">{firstName}</p>
         </div>
         {saving && <Spinner size="sm" />}
       </header>

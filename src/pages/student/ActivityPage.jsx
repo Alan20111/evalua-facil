@@ -55,6 +55,7 @@ import { entregaAbiertaParaAlumno } from '../../utils/entregaAbierta'
 import VistaPreviaEntrega from '../../components/VistaPreviaEntrega'
 import { tieneEvidencia } from '../../utils/submissionGuard'
 import { ICONO } from '../../config/iconos'
+import { desplazamiento } from '../../utils/movimiento'
 
 
 function fmtDate(dateStr) {
@@ -1172,7 +1173,7 @@ export default function StudentActivityPage() {
             </p>
             {!cerrada && (
               <Button fullWidth className="mt-3"
-                onClick={() => document.getElementById('subir-entrega')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                onClick={() => document.getElementById('subir-entrega')?.scrollIntoView({ behavior: desplazamiento(), block: 'start' })}>
                 Realizar nueva entrega
               </Button>
             )}

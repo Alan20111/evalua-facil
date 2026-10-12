@@ -53,6 +53,7 @@ import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { SkeletonList, Input, Button, IconButton, MotivoApagado, Radio, Modal } from './ui'
 import { ICONO } from '../config/iconos'
+import { desplazamiento } from '../utils/movimiento'
 
 function toIsoNow() {
   return nowIsoLocal()
@@ -613,8 +614,8 @@ export default function EvaluacionEditor({
       setPreguntaForm(emptyPregunta()); setShowPreguntaForm(false); setSeccionDestino(null)
       setTimeout(() => {
         if (savedSection) {
-          document.getElementById(`seccion-grupo-${savedSection}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-          document.getElementById(`preg-item-${nuevoId}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+          document.getElementById(`seccion-grupo-${savedSection}`)?.scrollIntoView({ block: 'nearest', behavior: desplazamiento() })
+          document.getElementById(`preg-item-${nuevoId}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: desplazamiento() })
         }
       }, 120)
       toast('Pregunta agregada')
@@ -637,7 +638,7 @@ export default function EvaluacionEditor({
     }
     setPreguntaEditForm(base)
     setGlowId(null)
-    setTimeout(() => document.getElementById(`edit-form-${p.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80)
+    setTimeout(() => document.getElementById(`edit-form-${p.id}`)?.scrollIntoView({ block: 'start', behavior: desplazamiento() }), 80)
     preguntaEditSnap.current = JSON.stringify(base)
   }
 
@@ -678,8 +679,8 @@ export default function EvaluacionEditor({
       setFocusSectionId(seccionDest)
       setEditingPreguntaId(null); setGlowId(id); toast('Pregunta actualizada')
       setTimeout(() => {
-        document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-        document.getElementById(`preg-item-${id}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+        document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: desplazamiento() })
+        document.getElementById(`preg-item-${id}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: desplazamiento() })
       }, 120)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingPregunta(false) }
@@ -932,7 +933,7 @@ export default function EvaluacionEditor({
     setBancoEditForm(base)
     setGlowId(null)
     // Bring the chosen reactivo to the top so the edit form is fully visible
-    setTimeout(() => document.getElementById(`banco-item-${item.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
+    setTimeout(() => document.getElementById(`banco-item-${item.id}`)?.scrollIntoView({ block: 'start', behavior: desplazamiento() }), 60)
     bancoEditSnap.current = JSON.stringify(base)
   }
 
@@ -1011,7 +1012,7 @@ export default function EvaluacionEditor({
           <IconButton icon={ArrowLeft} label="Volver" tooltip={false} variant="onColor" className="-ml-2" onClick={onClose} />
           <div className="flex-1 min-w-0">
             {contextLine && <p className="text-xl font-bold text-white truncate">{contextLine}</p>}
-            <p className="text-xs text-white/70 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>
+            <p className="text-xs text-white/95 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>
             {/* Big name + number (only published activities have a label; drafts don't) */}
             <h1 className="text-2xl font-extrabold text-white truncate flex items-baseline gap-2">
               {activityLabel && <span className="text-white/90">{activityLabel} ·</span>}
@@ -1025,7 +1026,7 @@ export default function EvaluacionEditor({
               </span>
             )}
           </div>
-          <span className="text-xs text-white/60 flex-shrink-0">{preguntas.length} pregunta{preguntas.length !== 1 ? 's' : ''}</span>
+          <span className="text-xs text-white/95 flex-shrink-0">{preguntas.length} pregunta{preguntas.length !== 1 ? 's' : ''}</span>
         </div>
       </header>
 
@@ -1683,8 +1684,8 @@ export default function EvaluacionEditor({
                               setFocusSectionId(seccionDest)
                               setEditingPreguntaId(null); setGlowId(pid)
                               setTimeout(() => {
-                                document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-                                document.getElementById(`preg-item-${pid}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+                                document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: desplazamiento() })
+                                document.getElementById(`preg-item-${pid}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: desplazamiento() })
                               }, 120)
                             }} variant="quiet" className="flex-1">Cancelar</Button>
                             <Button className="flex-1" type="submit" disabled={savingPregunta || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current}>

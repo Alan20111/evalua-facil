@@ -588,6 +588,43 @@ El calendario de `EFDateTimePicker` pasa su `zIndex: 9999` en línea a la
 clase `z-sistema`. Los `zIndex` 0, 1 y 2 en línea que quedan son apilamiento
 local dentro de un mismo componente, no capas de la app.
 
+### Revisión de accesibilidad (§9.2 y §9.3)
+
+Se hizo con `verificar.mjs --a11y` sobre las 20 vistas, en compu y en celular.
+
+**axe, WCAG 2.1 AA.** Se encontraron 3 reglas; quedan las 35 fallas de
+contraste del naranja del alumno.
+- **Botones sin nombre: 56 → 0.** Eran dos botones repetidos: el que despliega
+  cada parcial (ahora con `aria-expanded` y «Desplegar/Contraer el Parcial N»)
+  y la flecha «Volver» de la asignatura y de la revisión del alumno.
+- **Atributo ARIA prohibido: 4 → 0.** El editor de texto llevaba
+  `aria-label` sin rol; ahora tiene `role="textbox"` y `aria-multiline`.
+- **Contraste: 328 → 35.** Se corrigieron estos casos:
+
+  | Caso | Antes | Ahora |
+  |---|---|---|
+  | Texto blanco translúcido (/50–/80) sobre el azul | 2.4–3.9:1 | `/95` (4.8:1); íconos en `/80` |
+  | Píldora de la barra lateral (`bg-white/15`) | — | `bg-white/5` con su aro |
+  | Azul sobre azul claro, en encabezados de tarjeta, chips y avatares | 4.24:1 | `accent-hover` (5.5:1) |
+  | am/pm y «Haz clic en una hora…» del calendario | con opacidad | sin opacidad, en `text-hint` |
+  | Avisos (toasts) | `emerald-500`, `amber-500`, `red-500` (2.1–3.8:1) | tono 700/600 |
+
+  Nuevo candado: `text-white/50|60|70` en 0.
+- **Lo que queda: 35 casos, todos del naranja del alumno (`#f97316`).** El
+  blanco sobre naranja da 2.8:1 y el naranja sobre blanco igual. Es el color de
+  identidad del rol, así que cambiarlo lo decide el usuario, junto con la tarea
+  de oscurecer las paletas naranja, verde y turquesa.
+
+**Teclado.** El recorrido con Tab en todas las vistas da 0 controles sin
+indicador de foco visible.
+
+**Movimiento reducido.** La regla global ya frenaba animaciones y
+transiciones de CSS. Los 13 desplazamientos suaves por JavaScript ahora la
+respetan con `desplazamiento()`; los fuegos artificiales ya la respetaban.
+
+**App nativa (Android).** No se revisó: este equipo no tiene el emulador de
+Android.
+
 ### Fase 6 — verificación
 
 `docs/VERIFICACION_VISUAL.md`. El script compara el HTML de 18 vistas en compu y

@@ -11,9 +11,9 @@
 export const SB_ICONO = 20
 export const SB_FILA =
   'flex items-center gap-3 w-full px-4 py-2.5 rounded-full text-body-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white'
-export const SB_INACTIVA = 'text-white/80 hover:bg-white/10 hover:text-white'
+export const SB_INACTIVA = 'text-white/95 hover:bg-white/10 hover:text-white'
 export const SB_ACTIVA = 'bg-white text-accent font-semibold shadow-card'
-export const SB_ACTIVA_SUAVE = 'bg-white/15 text-white'
+export const SB_ACTIVA_SUAVE = 'bg-white/5 text-white ring-1 ring-white/30'
 export const SB_GRUPO = 'px-2 py-2 space-y-1'
 
 // Botón de la barra inferior (móvil): columna icono + etiqueta. Mismo padding

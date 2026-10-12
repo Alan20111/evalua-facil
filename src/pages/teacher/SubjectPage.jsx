@@ -4646,7 +4646,7 @@ export default function SubjectPage() {
         <div data-esq="subj-doc-encabezado" className="bg-surface-card rounded-card">
           <div data-esq="subj-doc-encabezado-interior" className="px-4 py-2">
           <div className="flex items-center gap-2">
-            <button type="button" onClick={goBack} className="size-control inline-flex items-center justify-center -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
+            <button type="button" onClick={goBack} aria-label="Volver" className="size-control inline-flex items-center justify-center -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
               <ArrowLeft size={ICONO.md} />
             </button>
             <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">

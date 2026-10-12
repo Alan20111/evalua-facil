@@ -92,7 +92,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
             </div>
             <div className="min-w-0">
               <span className="font-bold text-white block truncate text-lg">Evalúa Fácil</span>
-              <span className="text-sm font-medium text-white/70">Panel Admin</span>
+              <span className="text-sm font-medium text-white/95">Panel Admin</span>
             </div>
           </div>
 

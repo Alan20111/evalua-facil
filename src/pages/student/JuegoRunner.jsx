@@ -194,8 +194,8 @@ export default function JuegoRunner() {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             {student && <p className="text-xl font-bold truncate">{studentFullName(student)}</p>}
-            <p className="text-xs text-white/60 truncate">{subject ? subjectDisplayNameSafe(subject) : ''}</p>
-            <p className="text-xs text-white/60 mt-0.5 truncate">{activity.nombre}</p>
+            <p className="text-xs text-white/95 truncate">{subject ? subjectDisplayNameSafe(subject) : ''}</p>
+            <p className="text-xs text-white/95 mt-0.5 truncate">{activity.nombre}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {secondsLeft != null && (
@@ -204,12 +204,12 @@ export default function JuegoRunner() {
               </span>
             )}
             {inicioMs != null && secondsLeft == null && (
-              <span className="flex items-center gap-1 text-xs text-white/70 tabular-nums">
+              <span className="flex items-center gap-1 text-xs text-white/95 tabular-nums">
                 <Timer size={ICONO.xs} /> {tiempoDisplay}
               </span>
             )}
             <button type="button" onClick={() => setShowExitModal(true)}
-              className="flex items-center gap-1 text-xs text-white/70 hover:text-white border border-white/30 rounded px-2 py-1 hover:bg-white/10">
+              className="flex items-center gap-1 text-xs text-white/95 hover:text-white border border-white/30 rounded px-2 py-1 hover:bg-white/10">
               <LogOut size={ICONO.xs} /> Salir
             </button>
           </div>

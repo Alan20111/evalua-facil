@@ -158,7 +158,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                 insignia — el resto del sidebar se queda en el azul institucional. */}
             <div className="flex items-center gap-2 pt-1" data-role="alumno">
               {!IS_NATIVE_APP && (
-                <p className="text-metadata text-white/50 pl-1">
+                <p className="text-metadata text-white/95 pl-1">
                   {new Date(__BUILD_TIMESTAMP__).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </p>
               )}
@@ -190,10 +190,10 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                   el panel del docente (Layout.jsx) — pedido explícito. */}
               <p className="text-[18px] font-semibold text-white truncate">{displayName}</p>
               {schoolName && (
-                <p className="text-[16px] text-white/70 truncate">{schoolName}</p>
+                <p className="text-[16px] text-white/95 truncate">{schoolName}</p>
               )}
             </div>
-            <ChevronRight size={ICONO.xs} className="text-white/50 flex-shrink-0" />
+            <ChevronRight size={ICONO.xs} className="text-white/80 flex-shrink-0" />
           </button>
 
           {/* Agenda — debajo del perfil, único enlace fijo del sidebar (sin
@@ -204,7 +204,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               to="/alumno/agenda"
               className={({ isActive }) =>
                 `${SB_FILA} font-semibold ${
-                  isActive ? SB_ACTIVA : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
+                  isActive ? SB_ACTIVA : 'bg-white/5 text-white hover:bg-white/10 ring-1 ring-white/30'
                 }`
               }
             >
@@ -222,10 +222,10 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                 docente (Layout.jsx): 22px, sin `uppercase` — "Asignaturas"
                 con A mayúscula y el resto en minúsculas, no en mayúsculas
                 sostenidas. */}
-            <span className="text-[22px] font-bold text-white/70 group-hover:text-white transition-colors">
+            <span className="text-[22px] font-bold text-white/95 group-hover:text-white transition-colors">
               Asignaturas
             </span>
-            <ChevronRight size={ICONO.md} className="text-white/50 group-hover:text-white transition-colors flex-shrink-0" />
+            <ChevronRight size={ICONO.md} className="text-white/80 group-hover:text-white transition-colors flex-shrink-0" />
           </NavLink>
 
           {/* Subject list */}
@@ -233,7 +233,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             {loadingSidebar ? (
               <EsqueletoFilasLateralAlumno />
             ) : activeSubjects.length === 0 ? (
-              <p className="text-body-sm text-white/70 px-4 py-2.5">Sin asignaturas aún</p>
+              <p className="text-body-sm text-white/95 px-4 py-2.5">Sin asignaturas aún</p>
             ) : (
               activeSubjects.map((s) => (
                 <NavLink data-esq="sba-fila"
@@ -311,7 +311,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                 type="button"
                 onClick={() => setShowArchived((a) => !a)}
                 aria-expanded={showArchived}
-                className={`${SB_FILA} text-white/60 hover:bg-white/10 hover:text-white`}
+                className={`${SB_FILA} text-white/95 hover:bg-white/10 hover:text-white`}
               >
                 <Archive size={SB_ICONO} className="flex-shrink-0" />
                 <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
@@ -326,7 +326,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                     key={s.id}
                     to={`/alumno/materia/${s.id}`}
                     className={({ isActive }) =>
-                      `${SB_FILA} pl-10 ${isActive ? SB_ACTIVA : 'text-white/70 hover:bg-white/15'}`
+                      `${SB_FILA} pl-10 ${isActive ? SB_ACTIVA : 'text-white/95 hover:bg-white/15'}`
                     }
                   >
                     <SubjectIcon iconKey={s.icon} size={SB_ICONO} className="flex-shrink-0" />

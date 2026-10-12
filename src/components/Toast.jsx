@@ -6,9 +6,9 @@ import { ICONO } from '../config/iconos'
 const ToastContext = createContext(null)
 
 const STYLES = {
-  success: { bg: 'bg-emerald-500', Icon: CheckCircle },
-  warning: { bg: 'bg-amber-500', Icon: AlertTriangle },
-  error: { bg: 'bg-red-500', Icon: XCircle },
+  success: { bg: 'bg-emerald-700', Icon: CheckCircle },
+  warning: { bg: 'bg-amber-700', Icon: AlertTriangle },
+  error: { bg: 'bg-red-600', Icon: XCircle },
 }
 
 export function ToastProvider({ children }) {

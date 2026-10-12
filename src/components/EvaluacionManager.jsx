@@ -63,6 +63,7 @@ import { useScrollLock } from '../hooks/useScrollLock'
 import { formatHora12FromDate } from '../utils/formatHora'
 import { SkeletonList, Input, Button, IconButton, Modal, Checkbox, Radio } from './ui'
 import { ICONO } from '../config/iconos'
+import { desplazamiento } from '../utils/movimiento'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -580,7 +581,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     setPreguntaEditForm(base)
     setGlowId(null)
     // Bring the chosen reactivo to the top so the edit form is fully visible
-    setTimeout(() => document.getElementById(`preg-item-${p.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
+    setTimeout(() => document.getElementById(`preg-item-${p.id}`)?.scrollIntoView({ block: 'start', behavior: desplazamiento() }), 60)
     preguntaEditSnap.current = JSON.stringify(base)
   }
 
@@ -688,7 +689,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     setBancoEditForm(base)
     setGlowId(null)
     // Bring the chosen reactivo to the top so the edit form is fully visible
-    setTimeout(() => document.getElementById(`banco-item-${item.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
+    setTimeout(() => document.getElementById(`banco-item-${item.id}`)?.scrollIntoView({ block: 'start', behavior: desplazamiento() }), 60)
     bancoEditSnap.current = JSON.stringify(base)
   }
 

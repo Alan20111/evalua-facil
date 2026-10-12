@@ -463,7 +463,7 @@ export default function EntregableEditor({
           <IconButton icon={ArrowLeft} label="Volver" tooltip={false} variant="onColor" className="-ml-2" onClick={onClose} />
           <div className="flex-1 min-w-0">
             {contextLine && <p className="text-xl font-bold text-white truncate">{contextLine}</p>}
-            <p className="text-xs text-white/70 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>
+            <p className="text-xs text-white/95 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>
             {/* Big name + number (only published activities have a label; drafts don't) */}
             <h1 className="text-2xl font-extrabold text-white truncate flex items-baseline gap-2">
               {activityLabel && <span className="text-white/90">{activityLabel}</span>}
