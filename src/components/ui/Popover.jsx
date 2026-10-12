@@ -97,8 +97,76 @@ export function Popover({ trigger, children, align = 'end', className = '', labe
   )
 }
 
-const ITEM =
+// Panel flotante CONTROLADO: el mismo panel, animación y cierre (clic fuera,
+// Escape) que Popover, pero lo abre el padre con su propio estado y se ancla a
+// un PUNTO de la pantalla (donde se hizo clic, o la esquina de un botón que
+// vive en otro componente) en vez de a un botón hijo. Para menús contextuales
+// y menús de filas de tabla, que antes eran una capa transparente
+// `fixed inset-0` + una tarjeta `fixed` a mano.
+//
+// <PanelFlotante punto={{ x, y }} align="end" onCerrar={() => setMenu(null)} label="…">
+//   {({ cerrar }) => …}
+// </PanelFlotante>
+//
+// `align="end"`: el panel termina en x (menú de un botón ⋮ a la derecha);
+// `align="start"`: empieza en x (clic derecho, celda). Se monta solo mientras
+// el padre lo muestra.
+export function PanelFlotante({ punto, align = 'end', onCerrar, label, className = '', children }) {
+  const panel = useRef(null)
+  const [saliendo, setSaliendo] = useState(false)
+  const cerrar = () => setSaliendo(true)
+  useEffect(() => {
+    if (!saliendo) return undefined
+    const t = setTimeout(() => onCerrar?.(), 120)
+    return () => clearTimeout(t)
+  }, [saliendo, onCerrar])
+  useLayoutEffect(() => {
+    const p = panel.current
+    if (!p || !punto) return
+    const margen = 8
+    let left = align === 'start' ? punto.x : punto.x - p.offsetWidth
+    left = Math.max(margen, Math.min(left, window.innerWidth - p.offsetWidth - margen))
+    const abajo = punto.y + 4
+    const arriba = abajo + p.offsetHeight > window.innerHeight - margen && punto.y - p.offsetHeight - 4 > margen
+    p.style.left = `${left}px`
+    p.style.top = `${arriba ? punto.y - p.offsetHeight - 4 : abajo}px`
+    p.style.transformOrigin = `${align === 'start' ? 'left' : 'right'} ${arriba ? 'bottom' : 'top'}`
+  }, [punto, align])
+  useEffect(() => {
+    const fuera = (e) => { if (!panel.current?.contains(e.target)) setSaliendo(true) }
+    const tecla = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setSaliendo(true) } }
+    // En el siguiente cuadro: el mismo clic que abrió el panel no debe cerrarlo.
+    const t = setTimeout(() => document.addEventListener('pointerdown', fuera), 0)
+    document.addEventListener('keydown', tecla, true)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('pointerdown', fuera)
+      document.removeEventListener('keydown', tecla, true)
+    }
+  }, [])
+  return createPortal(
+    <div
+      ref={panel}
+      aria-label={label}
+      className={cn(
+        'fixed z-menu min-w-[12rem] max-w-[calc(100vw-1rem)] bg-surface-card rounded-card shadow-card-hover p-1',
+        saliendo ? 'animate-menu-sale' : 'animate-menu',
+        'motion-reduce:animate-none',
+        className
+      )}
+      style={{ left: -9999, top: -9999 }}
+    >
+      {typeof children === 'function' ? children({ cerrar }) : children}
+    </div>,
+    document.body
+  )
+}
+
+// Clase de cada opción de menú (también para menús armados a mano dentro de
+// Popover o PanelFlotante): alto de control, píldora, ícono a la izquierda.
+export const ITEM_MENU =
   'group w-full flex items-center gap-3 h-control px-3 rounded-full text-left text-sm font-medium transition-colors focus:outline-none focus-visible:bg-[var(--accent-tint)] disabled:opacity-40 disabled:cursor-not-allowed'
+const ITEM = ITEM_MENU
 
 export function Menu({ items = [], label = 'Más opciones', align = 'end', trigger, className = '' }) {
   const lista = useRef(null)

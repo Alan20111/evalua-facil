@@ -112,7 +112,7 @@ fi
 # Cuenta OCURRENCIAS (no archivos): dividir un archivo grande en varios
 # (fase 5 de PLAN_NORMALIZACION_UI) no debe parecer deuda nueva.
 ratchet "Modales a mano (fixed inset-0 fuera de ui/Modal.jsx) — migrar a ui/Modal" \
-  'fixed inset-0' 41 'components/ui/Modal.jsx'
+  'fixed inset-0' 34 'components/ui/Modal.jsx'
 ratchet "h-screen (rompe con la barra de URL de Chrome Android, usar dvh) — Fase 5 paso 5.3" \
   '\bh-screen\b' 16
 ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
