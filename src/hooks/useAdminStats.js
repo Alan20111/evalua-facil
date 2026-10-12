@@ -1,36 +1,42 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
-import { calcDaysRemaining, effectiveVencimiento, toDate } from '../utils/creditosHelpers'
-import { DIAS_POR_VENCER } from '../utils/situacionSuscripcion'
+import { useAuth } from '../context/AuthContext'
+import { apiUrl } from '../utils/apiBase'
+import { kpisResumen } from '../utils/resumenAdmin'
 
-function isThisMonth(date) {
-  const d = toDate(date)
-  if (!d) return false
-  const now = new Date()
-  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-}
+// Cuánto se espera la respuesta de Firebase Authentication (último acceso y fecha
+// de registro) antes de dar el dato por no disponible. Es un tope de error, no
+// una pausa: si la respuesta llega antes, se usa en cuanto llega.
+export const ACCESOS_TIMEOUT_MS = 15000
 
-function isWithinDays(date, days) {
-  const d = toDate(date)
-  if (!d) return false
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  const limit = new Date(now)
-  limit.setDate(limit.getDate() + days)
-  return d >= now && d <= limit
-}
+// Mapa vacío compartido: mantiene la misma identidad entre renders (las tablas
+// lo usan como dependencia de sus useMemo).
+const SIN_DATOS = Object.freeze({})
 
-function isWithinLastDays(date, days) {
-  const d = toDate(date)
-  if (!d) return false
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - days)
-  return d >= cutoff
-}
+const AUTH_INICIAL = Object.freeze({
+  // `true` cuando la petición TERMINÓ alguna vez (con éxito, con fallo o por
+  // tope). Una vez que es true no vuelve a false: «Actualizar» no vacía nada.
+  resuelto: false,
+  // 'cargando' (sin respuesta todavía) | 'listo' | 'agotado' | 'error'
+  estado: 'cargando',
+  // `true` solo si alguna vez llegó un dato confirmado de Auth. Mientras sea
+  // false, los indicadores que dependen de él muestran «—», nunca un 0.
+  datosDisponibles: false,
+  // Cuándo terminó la última respuesta CORRECTA (Date). null mientras no haya una.
+  actualizadoEn: null,
+  // `true` cuando la última consulta falló o agotó el tiempo DESPUÉS de una
+  // correcta: los datos que se muestran son los de `actualizadoEn`, no los de
+  // ahora. Vuelve a false cuando una consulta nueva termina bien.
+  obsoleto: false,
+  accesos: SIN_DATOS,
+  creadoEn: SIN_DATOS,
+})
 
 export function useAdminStats() {
-  const [stats, setStats] = useState(null)
+  const { currentUser } = useAuth()
+  const [base, setBase] = useState(null)
+  const [authInfo, setAuthInfo] = useState(AUTH_INICIAL)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -60,6 +66,9 @@ export function useAdminStats() {
 
       const users = usersSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       const students = studentsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      // Colecciones HISTÓRICAS del modelo anterior (suscripciones y pagos). Se
+      // siguen leyendo solo porque la tabla de Registros y Ventas por zona aún
+      // las usan; ya no alimentan ningún indicador del Resumen.
       const subscriptions = subsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       const payments = paymentsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       const creditPurchases = creditPurchasesSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -72,46 +81,6 @@ export function useAdminStats() {
       const bajas = bajasSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
 
       const teachers = users.filter((u) => u.role === 'docente')
-      const activeStudents = students.filter((s) => s.activado === true)
-      // "No activados" incluye a quien nunca entró Y a quien el docente puso a
-      // reactivar con contraseña temporal (activado vuelve a false): en ambos
-      // casos hoy no puede usar la plataforma, que es lo que mide el indicador.
-      const inactiveStudents = students.filter((s) => s.activado !== true)
-      const activeSubs = subscriptions.filter((s) => s.status === 'activa')
-      const completedPayments = payments.filter((p) => p.status === 'completado')
-      const pendingPayments = payments.filter((p) => p.status === 'pendiente')
-
-      const totalRevenue = completedPayments.reduce((sum, p) => sum + (p.monto || 0), 0)
-      const monthRevenue = completedPayments
-        .filter((p) => isThisMonth(p.createdAt))
-        .reduce((sum, p) => sum + (p.monto || 0), 0)
-
-      // Cuenta TODAS las suscripciones vivas, no solo las 'activa': mientras el
-      // padrón sea casi todo pruebas, mirar únicamente 'activa' dejaba este
-      // indicador clavado en cero justo cuando lo único que vence son pruebas.
-      // Y el vencimiento sale de effectiveVencimiento, no del campo guardado:
-      // en las pruebas anteriores al 28-jun-2026 ese campo trae la ventana
-      // vieja de 45/60 días (ver TRIAL_DURATION_DAYS en subscriptionHelpers),
-      // así que leerlo directo daba una fecha que la app no respeta.
-      const porVencer = (status) =>
-        subscriptions.filter((s) => {
-          if (s.status !== status) return false
-          const venc = effectiveVencimiento(s)
-          // La ventana es la MISMA que enciende la insignia naranja de "por
-          // vencer" en la tabla de Suscripciones. Antes eran 7 días aquí y 10
-          // allá, así que el resumen contaba menos renglones de los que la
-          // tabla marcaba en naranja.
-          return isWithinDays(venc, DIAS_POR_VENCER) && calcDaysRemaining(venc) >= 0
-        })
-
-      // El resumen las separa: una suscripción de paga por vencer se cobra, una
-      // prueba por vencer se convierte. Son dos acciones distintas.
-      const activeExpiringSoon = porVencer('activa')
-      const trialExpiringSoon = porVencer('trial')
-      const expiringSoon = [...activeExpiringSoon, ...trialExpiringSoon]
-
-      const conversionRate =
-        teachers.length > 0 ? (activeSubs.length / teachers.length) * 100 : 0
 
       const schoolCounts = {}
       teachers.forEach((t) => {
@@ -122,34 +91,6 @@ export function useAdminStats() {
         .map(([id, count]) => ({ school: schoolsMap[id]?.shortName || schoolsMap[id]?.claveSEP || id, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10)
-
-      const subjectsByTeacher = {}
-      subjects.forEach((s) => {
-        subjectsByTeacher[s.docenteId] = (subjectsByTeacher[s.docenteId] || 0) + 1
-      })
-      const studentsByTeacher = {}
-      students.forEach((s) => {
-        if (s.docenteId) {
-          studentsByTeacher[s.docenteId] = (studentsByTeacher[s.docenteId] || 0) + 1
-        }
-      })
-
-      const avgSubjects =
-        teachers.length > 0
-          ? Object.values(subjectsByTeacher).reduce((a, b) => a + b, 0) / teachers.length
-          : 0
-      const avgStudents =
-        teachers.length > 0
-          ? Object.values(studentsByTeacher).reduce((a, b) => a + b, 0) / teachers.length
-          : 0
-
-      const newTeachersThisMonth = teachers.filter((t) => isThisMonth(t.createdAt)).length
-      const expiredCount = subscriptions.filter((s) => s.status === 'vencida').length
-      const cancelledCount = subscriptions.filter((s) => s.status === 'cancelada').length
-      const trialCount = subscriptions.filter((s) => s.status === 'trial').length
-      const churnCount = subscriptions.filter(
-        (s) => s.status === 'cancelada' && isWithinLastDays(s.updatedAt, 30)
-      ).length
 
       const subsistemaDist = {}
       teachers.forEach((t) => {
@@ -164,7 +105,7 @@ export function useAdminStats() {
       const subjectsMap = Object.fromEntries(subjects.map((s) => [s.id, s]))
       const teachersMap = Object.fromEntries(teachers.map((t) => [t.id, t]))
 
-      setStats({
+      setBase({
         teachers,
         teachersMap,
         bajas,
@@ -177,29 +118,11 @@ export function useAdminStats() {
         plans,
         schools,
         schoolsMap,
-        kpis: {
-          teacherCount: teachers.length,
-          activeStudentCount: activeStudents.length,
-          inactiveStudentCount: inactiveStudents.length,
-          activeSubCount: activeSubs.length,
-          trialCount,
-          totalRevenue,
-          monthRevenue,
-          pendingPaymentCount: pendingPayments.length,
-          expiringSoonCount: expiringSoon.length,
-          activeExpiringSoonCount: activeExpiringSoon.length,
-          trialExpiringSoonCount: trialExpiringSoon.length,
-          conversionRate,
-          expiredCount,
-          cancelledCount,
-          newTeachersThisMonth,
-          avgSubjects,
-          avgStudents,
-          churnCount,
-        },
         teachersBySchool,
         subsistemaDist,
-        pendingPayments,
+        // Instante de esta carga: los indicadores «del mes» se calculan contra él,
+        // así el resultado no cambia entre renders.
+        cargadoEn: new Date(),
       })
     } finally {
       setLoading(false)
@@ -209,6 +132,106 @@ export function useAdminStats() {
   useEffect(() => {
     load()
   }, [load])
+
+  // Firebase Authentication — último acceso y fecha de creación de cada docente.
+  // Este hook es el ÚNICO que lo pide (a api/admin/last-access, porque solo el
+  // Admin SDK puede leer la metadata de OTRO usuario) y comparte el resultado
+  // con el Resumen y con la tabla de Registros: una petición por carga.
+  //
+  // Se vuelve a pedir cuando cambia `teachers` (cada carga trae un arreglo
+  // nuevo), así «Actualizar» refresca también estos datos.
+  const teachers = base?.teachers
+  useEffect(() => {
+    // Sin docentes o sin sesión no hay nada que pedir (el valor correspondiente
+    // se deriva abajo, en `authEfectivo`).
+    if (!teachers || teachers.length === 0 || !currentUser) return undefined
+
+    let cancelado = false
+    // `agotado`: pasó el tope de espera. Las pantallas ya salieron con el dato
+    // «no disponible», así que una respuesta tardía se ignora: aplicarla
+    // reacomodaría las filas frente al usuario.
+    let agotado = false
+    const controlador = new AbortController()
+    const temporizador = setTimeout(() => {
+      agotado = true
+      controlador.abort()
+      setAuthInfo((a) => ({ ...a, resuelto: true, estado: 'agotado', obsoleto: a.datosDisponibles }))
+    }, ACCESOS_TIMEOUT_MS)
+
+    const fallo = () => {
+      if (cancelado || agotado) return
+      // Se conservan los datos anteriores (si los había): un fallo al refrescar
+      // no los borra, pero quedan marcados como desactualizados para que no se
+      // presenten como recién confirmados.
+      setAuthInfo((a) => ({ ...a, resuelto: true, estado: 'error', obsoleto: a.datosDisponibles }))
+    }
+
+    currentUser.getIdToken()
+      .then((token) => fetch(apiUrl('/api/admin/last-access'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ uids: teachers.map((t) => t.id) }),
+        signal: controlador.signal,
+      }))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelado || agotado) return
+        if (!data || (!data.accesos && !data.creadoEn)) { fallo(); return }
+        // La hora se toma aquí y no dentro de la función de actualización, que
+        // React puede ejecutar más de una vez.
+        const respondioEn = new Date()
+        setAuthInfo((a) => ({
+          resuelto: true,
+          estado: 'listo',
+          datosDisponibles: true,
+          actualizadoEn: respondioEn,
+          obsoleto: false,
+          accesos: data.accesos || a.accesos,
+          creadoEn: data.creadoEn || a.creadoEn,
+        }))
+      })
+      .catch(fallo)
+      .finally(() => clearTimeout(temporizador))
+
+    return () => {
+      cancelado = true
+      clearTimeout(temporizador)
+      controlador.abort()
+    }
+  }, [currentUser, teachers])
+
+  // Los indicadores del Resumen salen de las funciones puras de resumenAdmin.js
+  // (ventas SOLO de creditPurchases; estudiantes como personas distintas;
+  // registros desde la fecha de creación de Auth). Se recalculan cuando llega
+  // la respuesta de Auth, sin volver a leer Firestore.
+  // Lo que se comparte: sin docentes no hay nada que esperar (el 0 de registros
+  // es un dato confirmado) y sin sesión no se puede preguntar (queda como error).
+  const authEfectivo = useMemo(() => {
+    if (!base) return authInfo
+    if (base.teachers.length === 0) {
+      return { ...authInfo, resuelto: true, estado: 'listo', datosDisponibles: true }
+    }
+    if (!currentUser && !authInfo.resuelto) return { ...authInfo, resuelto: true, estado: 'error' }
+    return authInfo
+  }, [base, authInfo, currentUser])
+
+  const stats = useMemo(() => {
+    if (!base) return null
+    const kpis = kpisResumen({
+      docentes: base.teachers,
+      students: base.students,
+      subjectsMap: base.subjectsMap,
+      compras: base.creditPurchases,
+      creadoEn: authEfectivo.creadoEn,
+      authDisponible: authEfectivo.datosDisponibles,
+      authEstado: authEfectivo.estado,
+      authObsoleto: authEfectivo.obsoleto,
+      authActualizadoEn: authEfectivo.actualizadoEn,
+      ahora: base.cargadoEn,
+      cantidadMeses: 6,
+    })
+    return { ...base, authInfo: authEfectivo, kpis }
+  }, [base, authEfectivo])
 
   return { stats, loading, refresh: load }
 }
