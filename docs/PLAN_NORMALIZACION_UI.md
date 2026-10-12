@@ -571,6 +571,23 @@ Todos comparten el mismo panel, la animación de entrada y salida, y el cierre c
 
 Solo queda una capa así: el fondo del cajón lateral de admin en el teléfono, que es un cajón y no un menú. Modales a mano: 41 → 34.
 
+### Capas (z-index)
+
+Ya no hay `z-[NN]` sueltos: 12 → 0 (el candado está en 0). La escala de
+`tailwind.config.js` pasa de 6 capas con nombre a 11, nombrando las que ya
+existían sin nombre:
+`contenido 10 · barra 30 · hoja 50 · aviso 60 · menu 70 · pantalla 80 · tope 90 · flotante 95 · efecto 100 · maximo 110 · sistema 9999`.
+
+Cuatro valores se ajustaron a su capa sin cambiar el orden entre ellas:
+- El fantasma de arrastre de bloques: 65 → `menu`.
+- La vista previa docente del video: 75 → `pantalla`.
+- La nota de observación: 94 → `flotante`.
+- «Saltar al contenido»: 200 → `sistema`.
+
+El calendario de `EFDateTimePicker` pasa su `zIndex: 9999` en línea a la
+clase `z-sistema`. Los `zIndex` 0, 1 y 2 en línea que quedan son apilamiento
+local dentro de un mismo componente, no capas de la app.
+
 ### Fase 6 — verificación
 
 `docs/VERIFICACION_VISUAL.md`. El script compara el HTML de 18 vistas en compu y

@@ -411,7 +411,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
 
   return (
     <div ref={pantallaRef} data-pantalla={enPC ? 'completa' : 'normal'}
-      className={enPC ? 'fixed top-0 left-0 w-full h-dvh z-[80] bg-surface overflow-hidden' : ''}
+      className={enPC ? 'fixed top-0 left-0 w-full h-dvh z-pantalla bg-surface overflow-hidden' : ''}
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       <div data-esq="video-contenedor" className={enPC ? 'w-full h-full' : 'px-3 py-2 w-full max-w-xl md:max-w-3xl mx-auto lg:max-w-none [@media(orientation:landscape)_and_(max-height:500px)]:max-w-none lg:h-[var(--vi-alto,auto)] [@media(orientation:landscape)_and_(max-height:500px)]:h-[var(--vi-alto,auto)] lg:px-4 [@media(orientation:landscape)_and_(max-height:500px)]:px-4 lg:py-2 [@media(orientation:landscape)_and_(max-height:500px)]:py-2'}>
         <div data-esq="video-rejilla" className={enPC ? 'h-full flex flex-col [@media(orientation:landscape)]:flex-row' : 'grid gap-3 lg:h-full [@media(orientation:landscape)_and_(max-height:500px)]:h-full lg:gap-4 [@media(orientation:landscape)_and_(max-height:500px)]:gap-4 lg:grid-cols-[minmax(0,72fr)_minmax(16rem,28fr)] [@media(orientation:landscape)_and_(max-height:500px)]:grid-cols-[minmax(0,1fr)_minmax(16rem,19rem)]'}>

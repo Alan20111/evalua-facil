@@ -293,5 +293,5 @@ export default function Fireworks({ active, onDone, duration = 7800 }) {
   }, [active, duration])
 
   if (!active) return null
-  return <canvas ref={canvasRef} className="fixed inset-0 z-[100] pointer-events-none" aria-hidden="true" />
+  return <canvas ref={canvasRef} className="fixed inset-0 z-efecto pointer-events-none" aria-hidden="true" />
 }

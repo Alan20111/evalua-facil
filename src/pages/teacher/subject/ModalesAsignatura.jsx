@@ -925,7 +925,7 @@ export default function ModalesAsignatura() {
       {/* ── Activity-name tooltip ABOVE the number header (fixed → never clipped) ── */}
       {actTip && (
         <div
-          className="fixed z-[9999] -translate-x-1/2 -translate-y-full px-2 py-1 rounded-card border border-[#c0c0c0] bg-[#f5f5f5] text-[#111] text-[11px] max-w-xs shadow-lg pointer-events-none"
+          className="fixed z-sistema -translate-x-1/2 -translate-y-full px-2 py-1 rounded-card border border-[#c0c0c0] bg-[#f5f5f5] text-[#111] text-[11px] max-w-xs shadow-lg pointer-events-none"
           style={{ left: actTip.x, top: actTip.y - 6 }}
         >
           <div className="font-medium">{actTip.text}</div>

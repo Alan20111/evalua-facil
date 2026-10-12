@@ -380,7 +380,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
 
       {/* Logo completo — se abre al tocar el ícono de la barra superior, se cierra tocando el fondo */}
       {showFullLogo && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 animate-velo">
+        <div className="fixed inset-0 z-maximo flex items-center justify-center bg-black/60 animate-velo">
           <button
             type="button"
             className="absolute inset-0 border-none cursor-default"

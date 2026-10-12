@@ -4801,7 +4801,7 @@ export default function SubjectPage() {
       {/* Agregar día de asistencia — el nº de sesiones crea esa misma cantidad
           de columnas (una asistencia por sesión de clase). */}
       {showAddAttendance && (
-        <div className={`fixed inset-0 z-[80] flex justify-center px-4 ${modalAsistenciaHorizontal ? 'items-start pt-1' : 'items-center'}`}>
+        <div className={`fixed inset-0 z-pantalla flex justify-center px-4 ${modalAsistenciaHorizontal ? 'items-start pt-1' : 'items-center'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowAddAttendance(false)} aria-label="Cerrar" />
           <form onSubmit={handleCreateAttendanceDay} className={`relative bg-surface-card rounded-card shadow-2xl w-full ${modalAsistenciaHorizontal ? 'max-w-3xl p-3 space-y-2' : 'max-w-sm p-4 space-y-3'}`}>
             <h3 className={`font-semibold text-on-surface ${modalAsistenciaHorizontal ? 'text-sm' : 'text-base'}`}>Agregar día de asistencia</h3>
@@ -4953,7 +4953,7 @@ export default function SubjectPage() {
         )}
       </>
       {reasonModal && (
-        <div className={`fixed inset-0 z-[80] flex justify-center ${modalAsistenciaHorizontal ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
+        <div className={`fixed inset-0 z-pantalla flex justify-center ${modalAsistenciaHorizontal ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={cancelReasonModal} aria-label="Cerrar" />
           <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${modalAsistenciaHorizontal ? 'max-w-none p-3 space-y-1.5' : 'max-w-lg p-5 space-y-4'}`}>
             {modalAsistenciaHorizontal ? null : (

@@ -151,8 +151,8 @@ ratchet "transition-all (anima de más; usa transition-colors/transform) — §2
   '(^|[^a-z-])transition-all' 0 'components/ui/'
 ratchet "Casilla/opción a mano (type=checkbox|radio fuera de ui/) — §3" \
   'type="(checkbox|radio)"' 0 'components/ui/|pages/dev/'
-ratchet "z-index con número (z-[NN] → z-contenido/barra/menu/hoja/aviso/tope) — §2.4" \
-  'z-\[[0-9]+\]' 12 'components/ui/'
+ratchet "z-index con número (z-[NN] → contenido/barra/hoja/aviso/menu/pantalla/tope/flotante/efecto/maximo/sistema) — §2.4" \
+  'z-\[[0-9]+\]' 0 'components/ui/'
 
 echo ""
 # Esqueletos de carga: deben medir lo mismo que su pantalla real

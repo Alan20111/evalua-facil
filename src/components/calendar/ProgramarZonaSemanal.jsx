@@ -503,7 +503,7 @@ export default function ProgramarZonaSemanal({
         const pal = bloqueColor(p.color)
         return (
           <div
-            className="fixed z-[65] rounded px-1.5 py-1 shadow-lg pointer-events-none opacity-90"
+            className="fixed z-menu rounded px-1.5 py-1 shadow-lg pointer-events-none opacity-90"
             style={{
               left: drag.x - drag.grabDX, top: drag.y - drag.grabDY,
               width: drag.w, height: drag.h, background: pal.bg, color: pal.text,

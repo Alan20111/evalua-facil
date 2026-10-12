@@ -765,7 +765,6 @@ export default function EFDateTimePicker({
     bottom: pos.bottom != null ? pos.bottom : 'auto',
     left: pos.left,
     width: W,
-    zIndex: 9999,
     background: 'var(--surface-card)',
     // Radio de tarjeta y filo suave como el resto de menús emergentes
     // (oct-2026: todo 100% redondo, sin bordes oscuros); la sombra lo separa.
@@ -817,7 +816,10 @@ export default function EFDateTimePicker({
   const popover = open && createPortal(
     <div
       ref={popoverRef}
-      className={openUpward ? 'ef-pop-in-up' : 'ef-pop-in'}
+      // Capa `sistema` (la más alta, PLAN_NORMALIZACION_UI §2.4): el
+      // calendario se abre desde hojas y pantallas completas y nunca debe
+      // quedar debajo de ellas.
+      className={`z-sistema ${openUpward ? 'ef-pop-in-up' : 'ef-pop-in'}`}
       style={popoverStyle}
     >
       {/* ── Accent header ── */}
