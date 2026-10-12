@@ -98,7 +98,7 @@ import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
 import PlaneacionDidacticaTab from '../../components/subject/PlaneacionDidacticaTab'
 import { isPerfilIACompleto } from '../../utils/perfilIA'
-import { SkeletonList, SkeletonTable, Input, Button, IconButton } from '../../components/ui'
+import { SkeletonList, SkeletonTable, Input, Button, IconButton, Modal } from '../../components/ui'
 import { EsqueletoAsignaturaDocente } from '../../components/esqueletos'
 import { ICONO } from '../../config/iconos'
 
@@ -6829,9 +6829,7 @@ export default function SubjectPage() {
           curso ya tiene fechas (todo automático) y hay días que el docente
           quitó pero siguen siendo válidos según el horario. */}
       {showRestoreAttendance && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowRestoreAttendance(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
+        <Modal open onClose={() => setShowRestoreAttendance(false)} variant="centered" z={80} padding="p-4" ariaLabel="Restaurar día de asistencia">
             <h3 className="text-base font-semibold text-on-surface mb-1">Restaurar día de asistencia</h3>
             <p className="text-sm text-muted mb-3">
               Estos días se generan solos según el horario y las fechas del curso — los borraste antes, pero siguen siendo válidos. Elige cuál restaurar.
@@ -6852,15 +6850,12 @@ export default function SubjectPage() {
               className="w-full mt-3 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
               Cerrar
             </button>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* Confirmar borrado de un día completo (todas sus horas/slots) */}
       {deleteAttendanceConfirm && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteAttendanceConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
+        <Modal open onClose={() => setDeleteAttendanceConfirm(null)} variant="centered" z={80} padding="p-4" ariaLabel="¿Eliminar este día de asistencia?">
             <h3 className="text-base font-semibold text-on-surface mb-2">¿Eliminar este día de asistencia?</h3>
             <p className="text-sm text-muted mb-4">
               Se borrará permanentemente la asistencia del{' '}
@@ -6876,8 +6871,7 @@ export default function SubjectPage() {
                  Eliminar
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* Motivo de la justificación — se abre con un clic/toque más sobre una
@@ -7448,9 +7442,7 @@ export default function SubjectPage() {
 
       {/* ── Activity create/edit modal ── */}
       {showModal && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowModal(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-3xl hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setShowModal(false)} variant="sheet" size="3xl" z={40} padding="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">
                 {modalMode === 'create' && !tipoActividad
@@ -7726,15 +7718,12 @@ export default function SubjectPage() {
             </form>
               </>
             )}
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Duplicate activity confirmation ── */}
       {duplicateConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDuplicateConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+        <Modal open onClose={() => setDuplicateConfirm(null)} variant="centered" padding="p-4" ariaLabel="Duplicar actividad">
             <h3 className="text-base font-semibold text-on-surface mb-1">Duplicar actividad</h3>
             <p className="text-sm text-muted mb-4">
               Se creará una copia de &ldquo;<strong>{duplicateConfirm.nombre}</strong>&rdquo; como <strong>borrador</strong>, con el nombre &ldquo;{duplicateConfirm.nombre} (copia)&rdquo;.
@@ -7748,15 +7737,12 @@ export default function SubjectPage() {
                 {duplicating ? 'Duplicando…' : 'Duplicar'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Move activity confirmation (renumbering + aviso al grupo) ── */}
       {moveConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !moving && setMoveConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+        <Modal open onClose={() => setMoveConfirm(null)} variant="centered" padding="p-4" busy={moving} ariaLabel="¿Cambiar de lugar la actividad?">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Cambiar de lugar la actividad?</h3>
             <p className="text-sm text-muted mb-3">
               &quot;<strong>{moveConfirm.a.nombre}</strong>&quot; cambiará de lugar dentro del Parcial {moveConfirm.a.parcial}.
@@ -7789,15 +7775,12 @@ export default function SubjectPage() {
                 {moving ? 'Moviendo…' : 'Mover'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Publish draft confirmation ── */}
       {publishDraftConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setPublishDraftConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+        <Modal open onClose={() => setPublishDraftConfirm(null)} variant="centered" padding="p-4" ariaLabel="¿Publicar actividad?">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Publicar actividad?</h3>
             <p className="text-sm text-muted mb-2">
               &ldquo;<strong>{publishDraftConfirm.nombre}</strong>&rdquo; es un borrador. Al publicarla, los estudiantes podrán verla y se registrará la fecha y hora de publicación.
@@ -7820,17 +7803,14 @@ export default function SubjectPage() {
                  Editar
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Delete activity confirmation ── */}
       {/* z-aviso: puede abrirse desde dentro del editor de borradores (z-50),
           igual que NuevaFechaEntregaModal — sin esto quedaba tapado detrás. */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-aviso flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+        <Modal open onClose={() => setDeleteConfirm(null)} variant="centered" z={60} padding="p-4" ariaLabel="¿Eliminar actividad?">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar actividad?</h3>
             <p className="text-sm text-muted mb-4">
               &ldquo;<strong>{deleteConfirm.nombre}</strong>&rdquo; se eliminará permanentemente.
@@ -7843,15 +7823,12 @@ export default function SubjectPage() {
                 {deleting ? 'Eliminando…' : 'Eliminar'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Material de apoyo create/edit modal ── */}
       {showMaterialModal && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowMaterialModal(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-3xl hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setShowMaterialModal(false)} variant="sheet" size="3xl" z={40} padding="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">
                 {materialModalMode === 'create' ? `Nuevo material de apoyo — Parcial ${materialParcial}` : 'Editar material de apoyo'}
@@ -7935,15 +7912,12 @@ export default function SubjectPage() {
                 {savingMaterial ? 'Guardando…' : materialModalMode === 'create' ? 'Crear material' : 'Guardar cambios'}
               </Button>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Delete material confirmation ── */}
       {deleteMaterialConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteMaterialConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+        <Modal open onClose={() => setDeleteMaterialConfirm(null)} variant="centered" padding="p-4" ariaLabel="¿Eliminar material de apoyo?">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar material de apoyo?</h3>
             <p className="text-sm text-muted mb-4">
               &ldquo;<strong>{deleteMaterialConfirm.nombre}</strong>&rdquo; se eliminará permanentemente.
@@ -7956,15 +7930,12 @@ export default function SubjectPage() {
                 {deletingMaterial ? 'Eliminando…' : 'Eliminar'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Add student modal ── */}
       {showAddStudent && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowAddStudent(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setShowAddStudent(false)} variant="sheet" z={40} padding="p-4" ariaLabel="Agregar estudiante">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Agregar estudiante</h3>
               <button type="button" onClick={() => setShowAddStudent(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
@@ -8009,15 +7980,12 @@ export default function SubjectPage() {
                 Agregar estudiante
               </Button>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Edit student modal ── */}
       {studentToEdit && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setStudentToEdit(null)} variant="sheet" z={40} padding="p-4" ariaLabel="Editar estudiante">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar estudiante</h3>
               <button type="button" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
@@ -8119,15 +8087,12 @@ export default function SubjectPage() {
                 Eliminar estudiante
               </button>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Reset password confirmation ── */}
       {studentToReset && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStudentToReset(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setStudentToReset(null)} variant="sheet" z={40} padding="p-4" ariaLabel="¿Restablecer contraseña?">
             <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-2">
               <KeyRound size={ICONO.lg} className="text-amber-500" />
             </div>
@@ -8153,15 +8118,12 @@ export default function SubjectPage() {
                 Restablecer
               </button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Generate credentials modal (R16) ── */}
       {showCredentialsModal && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !generatingCredentials && setShowCredentialsModal(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setShowCredentialsModal(false)} variant="sheet" z={40} padding="p-4" busy={generatingCredentials} ariaLabel="Descargar lista de acceso">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
               <KeyRound size={ICONO.lg} className="text-accent" />
             </div>
@@ -8188,8 +8150,7 @@ export default function SubjectPage() {
                 {generatingCredentials ? 'Descargando…' : 'Descargar lista'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Activity-name tooltip ABOVE the number header (fixed → never clipped) ── */}
@@ -8332,14 +8293,7 @@ export default function SubjectPage() {
           NO incluye cierreParcial:true — es una calificación manual autónoma
           que el "Revertir parcial" no toca.                                  */}
       {bulkGradeModal && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
-            onClick={() => { if (!savingBulkGrade) { setBulkGradeModal(null); setBulkGradeValue('') } }}
-            aria-label="Cerrar"
-          />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
+        <Modal open onClose={() => { if (!savingBulkGrade) { setBulkGradeModal(null); setBulkGradeValue('') } }} variant="sheet" z={40} padding="p-4" ariaLabel="Asignar calificación a no entregadas">
             <h3 className="text-base font-semibold text-on-surface">Asignar calificación a no entregadas</h3>
             <p className="text-sm text-muted mt-1 truncate">
               Actividad: <strong>{bulkGradeModal.activity.nombre}</strong>
@@ -8391,15 +8345,12 @@ export default function SubjectPage() {
                   : `Asignar a ${bulkGradeModal.missingCount} estudiante${bulkGradeModal.missingCount !== 1 ? 's' : ''}`}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Traer actividad de otra asignatura ── */}
       {importFor != null && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !importing && setImportFor(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md hoja rounded-card shadow-2xl max-h-[85vh] flex flex-col">
+        <Modal open onClose={() => setImportFor(null)} variant="sheet" size="md" z={40} padding="" className="flex flex-col" busy={importing}>
             <div className="px-4 py-3 border-b border-outline-variant flex items-center gap-2">
               {importSrc && (
                 <button type="button" onClick={() => { setImportSrc(null); setImportSrcActs([]); setImportSel(new Set()) }}
@@ -8475,8 +8426,7 @@ export default function SubjectPage() {
                 </Button>
               </div>
             )}
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Kebab menu per parcial (Exportar / Cerrar) — fixed-positioned so the
@@ -8540,9 +8490,7 @@ export default function SubjectPage() {
 
       {/* ── Revertir ponderación (todos los parciales) ── */}
       {confirmRevertPonderacion && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setConfirmRevertPonderacion(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
+        <Modal open onClose={() => setConfirmRevertPonderacion(false)} variant="sheet" z={40} padding="p-4" ariaLabel="¿Volver a promedio simple?">
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Volver a promedio simple?</h3>
             <p className="text-sm text-muted text-center mt-2">
               Al menos una actividad ya tiene ponderación. Los pesos capturados se borrarán y todas las actividades valdrán lo mismo.
@@ -8557,15 +8505,12 @@ export default function SubjectPage() {
                 Sí, promedio simple
               </button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Revertir ponderación de UN parcial ── */}
       {confirmRevertParcial != null && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setConfirmRevertParcial(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
+        <Modal open onClose={() => setConfirmRevertParcial(null)} variant="sheet" z={40} padding="p-4">
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Parcial {confirmRevertParcial} con promedio simple?</h3>
             <p className="text-sm text-muted text-center mt-2">
               El Parcial {confirmRevertParcial} ya tiene pesos capturados. Se borrarán y ese parcial usará promedio simple.
@@ -8580,15 +8525,12 @@ export default function SubjectPage() {
                 Sí, promedio simple
               </button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Cerrar parcial: requires everything graded; no-entregas → 0 on proceed ── */}
       {closeParcialConfirm && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !closingParcial && setCloseParcialConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
+        <Modal open onClose={() => setCloseParcialConfirm(null)} variant="sheet" z={40} padding="p-4" busy={closingParcial}>
             <h3 className="text-lg font-semibold text-center text-on-surface">Cerrar definitivamente el Parcial {closeParcialConfirm.p}</h3>
             <p className="text-sm text-muted text-center mt-2">
               Para cerrar el parcial, <strong>todas las calificaciones deben estar puestas</strong>.
@@ -8677,15 +8619,12 @@ export default function SubjectPage() {
                 </div>
               </>
             )}
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Reabrir el parcial: vuelve a atención de inquietudes y borra las calificaciones del cierre ── */}
       {revertParcialConfirm != null && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !revertingParcial && setRevertParcialConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
+        <Modal open onClose={() => setRevertParcialConfirm(null)} variant="sheet" z={40} padding="p-4" busy={revertingParcial}>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Reabrir el Parcial {revertParcialConfirm} para atención de inquietudes?</h3>
             <p className="text-sm text-muted text-center mt-2">
               Tus estudiantes siguen viendo su resultado y podrás corregir calificaciones. Las calificaciones que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
@@ -8699,15 +8638,12 @@ export default function SubjectPage() {
                 {revertingParcial ? 'Reabriendo…' : 'Reabrir'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Iniciar atención de inquietudes: publica el resultado del parcial ── */}
       {atencionParcialConfirm != null && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !iniciandoAtencion && setAtencionParcialConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
+        <Modal open onClose={() => setAtencionParcialConfirm(null)} variant="sheet" z={40} padding="p-4" busy={iniciandoAtencion}>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Iniciar la atención de inquietudes del Parcial {atencionParcialConfirm}?</h3>
             <p className="text-sm text-muted text-center mt-2">
               {ponderacionActivaEnParcial(subject, atencionParcialConfirm)
@@ -8724,15 +8660,12 @@ export default function SubjectPage() {
                 {iniciandoAtencion ? 'Iniciando…' : 'Iniciar atención'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Same-name found: link to existing account or create new ── */}
       {linkCandidate && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !savingStudent && setLinkCandidate(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
+        <Modal open onClose={() => setLinkCandidate(null)} variant="sheet" z={40} padding="p-4" busy={savingStudent} ariaLabel="¿Es el mismo estudiante?">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
               <UserPlus size={ICONO.lg} className="text-accent" />
             </div>
@@ -8800,8 +8733,7 @@ export default function SubjectPage() {
                 Cancelar
               </button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Vista previa antes de importar el Excel de estudiantes ── pedido
@@ -8809,9 +8741,7 @@ export default function SubjectPage() {
           avisar de filas que no se pudieron leer en vez de que
           desaparezcan en silencio. */}
       {excelPreview && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full sm:w-[calc(100%-2rem)] max-w-lg hoja rounded-card shadow-2xl flex flex-col max-h-[85vh]">
+        <Modal open onClose={() => setExcelPreview(null)} variant="sheet" size="lg" z={40} padding="" className="flex flex-col" busy={importingExcel} ariaLabel="Revisa antes de importar">
             <div className="p-4 border-b border-outline-variant flex-shrink-0 flex items-center justify-between">
               <h3 className="text-base font-semibold text-on-surface">Revisa antes de importar</h3>
               <button type="button" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint hover:text-muted rounded-full"><X size={ICONO.md} /></button>
@@ -8922,15 +8852,12 @@ export default function SubjectPage() {
                 {importingExcel ? 'Importando…' : 'Confirmar e importar'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Reset password result ── */}
       {resetPwdResult && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setResetPwdResult(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setResetPwdResult(null)} variant="sheet" z={40} padding="p-4" ariaLabel="Contraseña restablecida">
             <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-2">
               <KeyRound size={ICONO.lg} className="text-green-600" />
             </div>
@@ -8943,15 +8870,12 @@ export default function SubjectPage() {
               onClick={() => setResetPwdResult(null)}>
               Entendido
             </Button>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Delete student confirmation ── */}
       {studentToDelete && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStudentToDelete(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setStudentToDelete(null)} variant="sheet" z={40} padding="p-4" ariaLabel="¿Eliminar estudiante?">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
               <Trash2 size={ICONO.lg} className="text-red-500" />
             </div>
@@ -8975,14 +8899,11 @@ export default function SubjectPage() {
                 Eliminar
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
       {/* ── Edit subject modal ── */}
       {showEditSubjectModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowEditSubjectModal(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <Modal open onClose={() => setShowEditSubjectModal(false)} variant="sheet" size="md" padding="p-4" className="overflow-x-hidden" ariaLabel="Editar asignatura">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
               <button type="button" onClick={() => setShowEditSubjectModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
@@ -9046,15 +8967,12 @@ export default function SubjectPage() {
                   al borde de la pantalla (y bajo el gesto de inicio). */}
               <div className="h-6 safe-bottom" />
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Copy subject modal ── */}
       {showCopyModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowCopyModal(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <Modal open onClose={() => setShowCopyModal(false)} variant="sheet" size="md" padding="p-4" className="overflow-x-hidden" ariaLabel="Duplicar asignatura">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
               <button type="button" onClick={() => setShowCopyModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
@@ -9107,15 +9025,12 @@ export default function SubjectPage() {
               </Button>
               <div className="h-6 safe-bottom" />
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Delete subject confirm modal ── */}
       {showDeleteSubjectConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} variant="centered" padding="p-4" ariaLabel="¿Eliminar asignatura?">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
               <Trash2 size={ICONO.lg} className="text-red-500" />
             </div>
@@ -9141,16 +9056,13 @@ export default function SubjectPage() {
                 {deletingSubject ? 'Eliminando…' : 'Eliminar todo'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Unarchive modal ── */}
       {/* ── Archive modal ── */}
       {showArchiveModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setShowArchiveModal(false)} variant="sheet" padding="p-4" busy={archiving} ariaLabel="Archivar asignatura">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
               <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
@@ -9208,15 +9120,12 @@ export default function SubjectPage() {
                   : 'Archivar'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Unarchive (restore) modal ── */}
       {showUnarchiveModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowUnarchiveModal(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <Modal open onClose={() => setShowUnarchiveModal(false)} variant="sheet" size="md" padding="p-4" className="overflow-x-hidden" ariaLabel="Desarchivar asignatura">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
               <button type="button" onClick={() => setShowUnarchiveModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
@@ -9311,15 +9220,12 @@ export default function SubjectPage() {
                 {unarchivedSaving ? 'Guardando…' : 'Desarchivar'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Add/Edit resource modal ── */}
       {showResourceModal && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowResourceModal(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setShowResourceModal(false)} variant="sheet" z={40} padding="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{resourceModalMode === 'create' ? 'Agregar recurso' : 'Editar recurso'}</h3>
               <button type="button" onClick={() => setShowResourceModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
@@ -9389,15 +9295,12 @@ export default function SubjectPage() {
                 {savingResource ? 'Guardando…' : 'Guardar recurso'}
               </Button>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Delete resource confirm ── */}
       {deleteResourceConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteResourceConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+        <Modal open onClose={() => setDeleteResourceConfirm(null)} variant="centered" padding="p-4" ariaLabel="¿Eliminar recurso?">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar recurso?</h3>
             <p className="text-sm text-muted mb-4">
               &ldquo;<strong>{deleteResourceConfirm.nombre}</strong>&rdquo; se eliminará permanentemente.
@@ -9410,8 +9313,7 @@ export default function SubjectPage() {
                 {deletingResource ? 'Eliminando…' : 'Eliminar'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
       </div>
 

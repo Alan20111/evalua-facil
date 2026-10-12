@@ -32,7 +32,7 @@ import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { EsqueletoTableroDocente } from '../../components/esqueletos'
 import YouTubeIcon from '../../components/YouTubeIcon'
-import { Animado, Button, Select, DisclosureCard, FlechaFila, IconButton, IconTile, Input, TARJETA_FILA } from '../../components/ui'
+import { Animado, Button, Select, DisclosureCard, FlechaFila, IconButton, IconTile, Input, TARJETA_FILA, Modal } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
 
 function generateAccessCode() {
@@ -527,9 +527,7 @@ export default function TeacherDashboard() {
 
       {/* ── Nueva asignatura modal ── */}
       {showSubjectModal && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setShowSubjectModal(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <Modal open onClose={() => setShowSubjectModal(false)} variant="sheet" size="md" z={40} padding="p-4" className="overflow-x-hidden" ariaLabel="Nueva asignatura">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
               <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowSubjectModal(false)} />
@@ -628,8 +626,7 @@ export default function TeacherDashboard() {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
     </>
   )

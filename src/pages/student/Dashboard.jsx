@@ -33,7 +33,7 @@ import { teacherDisplayName } from '../../utils/studentSearch'
 import { capitalizarNombre } from '../../utils/nombres'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { EsqueletoTableroAlumno } from '../../components/esqueletos'
-import { Button, Card, DisclosureCard, EmptyState, FlechaFila, IconButton, IconTile, Input } from '../../components/ui'
+import { Button, Card, DisclosureCard, EmptyState, FlechaFila, IconButton, IconTile, Input, Modal } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
 
 // All submissions belonging to a set of student enrollment docs — one `==` query
@@ -619,20 +619,7 @@ export default function StudentDashboard() {
 
       {/* ── Join-subject modal ── */}
       {showJoin && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
-            onClick={() => setShowJoin(false)}
-            aria-label="Cerrar"
-          />
-          {/* El código de acceso es lo único que se pide aquí, así que manda en
-              la ventana: campo grande, monoespaciado y centrado, con el botón a
-              todo lo ancho debajo. Antes iban input y botón apretados en una
-              sola fila, y ese "# Ir" diminuto no parecía la acción principal de
-              nada. Los 6 caracteres los genera el docente
-              (Math.random().toString(36).slice(2, 8)), de ahí la ayuda de abajo. */}
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card drop-shadow-2xl overflow-hidden">
+        <Modal open onClose={() => setShowJoin(false)} variant="sheet" z={40} padding="" className="overflow-hidden" ariaLabel="Unirme a otra asignatura">
             <div className="flex items-start gap-3 p-5 pb-4">
               <IconTile icon={Hash} />
               <div className="flex-1 min-w-0">
@@ -668,8 +655,7 @@ export default function StudentDashboard() {
                 Continuar
               </Button>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Quitar una asignatura archivada de MI lista ──
@@ -678,14 +664,7 @@ export default function StudentDashboard() {
           se queda sin camino para llegar a sus archivos. Por eso el paso de
           guardar va primero y con su propio botón, y el de quitar hasta abajo. */}
       {subjectToRemove && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
-            onClick={() => !removing && setSubjectToRemove(null)}
-            aria-label="Cerrar"
-          />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-5 shadow-2xl">
+        <Modal open onClose={() => setSubjectToRemove(null)} variant="sheet" z={40} padding="p-5" busy={removing} ariaLabel="Quitar de mis archivadas">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-lg font-semibold text-on-surface truncate">Quitar de mis archivadas</h3>
               <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => !removing && setSubjectToRemove(null)} />
@@ -714,8 +693,7 @@ export default function StudentDashboard() {
                 Quitar
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
     </StudentLayout>

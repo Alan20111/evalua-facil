@@ -41,7 +41,7 @@ import AsistenciaSemanal from '../../components/student/AsistenciaSemanal'
 import { parcialIniciado, semanasVisiblesParcial } from '../../components/student/semanasAsistencia'
 import { EsqueletoAsignaturaAlumno } from '../../components/esqueletos'
 import { ICONO } from '../../config/iconos'
-import { Button, IconButton, Menu } from '../../components/ui'
+import { Button, IconButton, Menu, Modal } from '../../components/ui'
 
 // Builds a unified ordered list of activities + positioned materials for one
 // parcial, mirroring the teacher view so both render in the same order.
@@ -595,9 +595,7 @@ export default function StudentSubjectPage() {
           listas; el docente la sigue viendo igual (ver Dashboard.jsx
           handleRemoveArchived, mismo campo ocultaPorAlumno). */}
       {showLeaveConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !leaving && setShowLeaveConfirm(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+        <Modal open onClose={() => setShowLeaveConfirm(false)} variant="centered" padding="p-4" busy={leaving} ariaLabel="¿Salir de esta asignatura?">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Salir de esta asignatura?</h3>
             <p className="text-sm text-muted mb-2">
               Dejará de aparecer en tu lista de asignaturas y en tu Agenda. Tu maestro(a) sí ve que saliste, pero te sigue viendo inscrito, con tus entregas y calificaciones intactas, tal cual están ahora.
@@ -616,8 +614,7 @@ export default function StudentSubjectPage() {
                 {leaving ? 'Saliendo…' : 'Salir'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* Tabs — con 4 pestañas y nombres largos, en un celular angosto
@@ -1067,9 +1064,7 @@ export default function StudentSubjectPage() {
           {/* Eliminar aviso — deja claro que es personal: el docente y los
               compañeros lo siguen viendo igual, solo desaparece de aquí. */}
           {deleteAvisoConfirm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-              <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !deletingAviso && setDeleteAvisoConfirm(null)} aria-label="Cerrar" />
-              <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <Modal open onClose={() => setDeleteAvisoConfirm(null)} variant="centered" padding="p-4" busy={deletingAviso} ariaLabel="¿Eliminar este aviso?">
                 <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar este aviso?</h3>
                 <p className="text-sm text-muted mb-4">
                   Ya no lo verás en tu lista, ni en Todos ni en Guardados. Tu docente y tus compañeros lo siguen viendo normal — esto solo lo quita de tu vista.
@@ -1081,8 +1076,7 @@ export default function StudentSubjectPage() {
                     {deletingAviso ? 'Eliminando…' : 'Eliminar'}
                   </Button>
                 </div>
-              </div>
-            </div>
+              </Modal>
           )}
         </div>
         )

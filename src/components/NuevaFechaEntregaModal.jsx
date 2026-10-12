@@ -10,7 +10,7 @@ import { fechaLimiteTimestamp } from '../utils/deadline'
 import { leerEntregasReales } from '../utils/extensiones'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
-import { Button } from './ui'
+import { Button, Modal } from './ui'
 
 // Shared by ActivityPage (grading view) and SubjectPage (activity editor):
 // extends a group's deadline, or gives specific students their own extension.
@@ -121,9 +121,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
   }
 
   return (
-    <div className="fixed inset-0 z-aviso flex items-end sm:items-center justify-center">
-      <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !saving && onClose()} aria-label="Cerrar" />
-      <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md hoja rounded-card p-4 shadow-2xl max-h-[90vh] flex flex-col">
+    <Modal open onClose={() => onClose()} variant="sheet" size="md" z={60} padding="p-4" className="flex flex-col" busy={saving} ariaLabel="Nueva fecha de entrega">
         <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
         <div className="flex gap-2 mt-3 flex-shrink-0">
           <button type="button" onClick={() => setMode('todos')}
@@ -200,7 +198,6 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
             {saving ? 'Guardando…' : 'Guardar'}
           </Button>
         </div>
-      </div>
-    </div>
+      </Modal>
   )
 }

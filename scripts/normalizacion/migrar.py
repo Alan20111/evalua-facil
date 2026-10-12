@@ -495,3 +495,85 @@ def pasada8(s):
     out.append(s[pos:])
     s = ''.join(out)
     return s, n
+
+# ── Pasada 9: modales a mano → <Modal> (PLAN_NORMALIZACION_UI §4.c) ─────────
+# Patrón: <div fixed inset-0 …><button backdrop onClick aria-label/><div PANEL>…</div></div>
+# → <Modal open onClose variant size z padding className ariaLabel busy>…</Modal>
+# Gana: foco atrapado, Escape, bloqueo de scroll, role=dialog, encabezado y
+# pie fijos (.hoja), animación. Conserva tamaño, capa, relleno y forma.
+MODAL_RE = re.compile(r'<div className="fixed inset-0 (z-[\w\[\]-]+) flex (items-end sm:items-center|items-center) justify-center( px-4)?">\s*<button\s+type="button"\s+className="absolute inset-0 bg-black/\d+ animate-velo[^"]*"\s+onClick=\{', re.S)
+Z_NUM = {'z-40': 40, 'z-50': 50, 'z-hoja': 50, 'z-aviso': 60, 'z-[60]': 60, 'z-menu': 70, 'z-[70]': 70, 'z-[80]': 80, 'z-tope': 90, 'z-[90]': 90, 'z-[110]': 110}
+TAM = {'max-w-sm': 'sm', 'max-w-md': 'md', 'max-w-lg': 'lg', 'max-w-xl': 'xl', 'max-w-2xl': '2xl', 'max-w-3xl': '3xl', 'max-w-4xl': '4xl'}
+QUITA = re.compile(r'^(relative|bg-surface-card|bg-white|hoja|rounded-card|rounded|rounded-full|drop-shadow-2xl|shadow-2xl|shadow-lg|shadow-xl|w-full|sm:w-full|w-\[calc\(100%-[\d.]+rem\)\]|sm:w-\[calc\(100%-[\d.]+rem\)\]|max-h-\[\d+vh\]|max-h-\[\d+dvh\]|overflow-y-auto|max-w-\w+|sm:max-w-\w+)$')
+
+def cerrar_div(s, i):
+    """Índice del final de la </div> que cierra el <div que abre en i."""
+    depth = 0; j = i
+    while True:
+        a = s.find('<div', j); c = s.find('</div>', j)
+        if c < 0: return -1
+        if 0 <= a < c and re.match(r'<div\b', s[a:a+5]):
+            fin = fin_tag(s, a)
+            if fin < 0: return -1
+            if s[fin - 1] != '/': depth += 1
+            j = fin + 1
+        else:
+            depth -= 1
+            if depth == 0: return c + len('</div>')
+            j = c + len('</div>')
+
+def pasada9(s):
+    n = 0; out = []; pos = 0
+    for m in MODAL_RE.finditer(s):
+        if m.start() < pos: continue
+        zcls, alineado, _ = m.group(1), m.group(2), m.group(3)
+        # onClick del fondo
+        k = m.end(); d = 1
+        while k < len(s) and d:
+            if s[k] == '{': d += 1
+            elif s[k] == '}': d -= 1
+            k += 1
+        onclick = s[m.end():k - 1].strip()
+        fin_fondo = s.find('/>', k)
+        if fin_fondo < 0: continue
+        resto = s[fin_fondo + 2:]
+        pm = re.match(r'(\s*(?:\{/\*.*?\*/\}\s*)*)<div\b', resto, re.S)
+        if not pm: continue
+        ini_panel = fin_fondo + 2 + pm.end() - len('<div')
+        fin_tag_panel = fin_tag(s, ini_panel)
+        tag_panel = s[ini_panel:fin_tag_panel + 1]
+        cm = re.search(r'className="([^"]*)"', tag_panel)
+        if not cm or s[fin_tag_panel - 1] == '/': continue
+        cierre_panel = cerrar_div(s, ini_panel)
+        if cierre_panel < 0: continue
+        cierre_wrapper = cerrar_div(s, m.start())
+        tras = s[cierre_panel:cierre_wrapper]
+        if not re.fullmatch(r'\s*</div>', tras): continue
+        otros_attrs = (tag_panel[len('<div'):-1].replace(cm.group(0), '')).strip()
+        if otros_attrs and not re.fullmatch(r'(?:ref=\{\w+\}|data-[\w-]+="[^"]*"|\s)*', otros_attrs): continue
+        toks = cm.group(1).split()
+        tam = next((TAM[t.replace('sm:', '')] for t in toks if t.replace('sm:', '') in TAM), None)
+        pad = ' '.join(t for t in toks if re.match(r'^(sm:)?p[xytblr]?-[\d.]+$', t))
+        extra = ' '.join(t for t in toks if not QUITA.match(t) and not re.match(r'^(sm:)?p[xytblr]?-[\d.]+$', t))
+        busy = None
+        bm = re.match(r'\(\)\s*=>\s*!(\w+)\s*&&\s*(.+)$', onclick, re.S)
+        if bm:
+            busy = bm.group(1); onclose = '() => ' + bm.group(2).strip()
+        else:
+            onclose = onclick
+        cuerpo = s[fin_tag_panel + 1:cierre_panel - len('</div>')]
+        tm = re.search(r'<h[23]\b[^>]*>([^<{]+)</h[23]>', cuerpo)
+        aria = f' ariaLabel="{tm.group(1).strip()}"' if tm else ''
+        props = [f'onClose={{{onclose}}}']
+        props.append(f'variant="{"sheet" if alineado.startswith("items-end") else "centered"}"')
+        if tam and tam != 'sm': props.append(f'size="{tam}"')
+        elif not tam: props.append('size="full"')
+        zn = Z_NUM.get(zcls)
+        if zn and zn != 50: props.append(f'z={{{zn}}}')
+        props.append(f'padding="{pad}"')
+        if extra: props.append(f'className="{extra}"')
+        if busy: props.append(f'busy={{{busy}}}')
+        nuevo = f'<Modal open {" ".join(props)}{aria}>' + cuerpo + '</Modal>'
+        out.append(s[pos:m.start()]); out.append(nuevo); pos = cierre_wrapper; n += 1
+    out.append(s[pos:])
+    return ''.join(out), n

@@ -767,12 +767,14 @@ export default function EFDateTimePicker({
     width: W,
     zIndex: 9999,
     background: 'var(--surface-card)',
-    // Esquinas menos redondeadas y borde bien visible — antes usaba
-    // --radius-card (pensada para tarjetas grandes) y --outline-variant
-    // (gris muy pálido, casi imperceptible a 1px).
-    borderRadius: '0.5rem',
+    // Radio de tarjeta y filo suave como el resto de menús emergentes
+    // (oct-2026: todo 100% redondo, sin bordes oscuros); la sombra lo separa.
+    // Crece desde el campo con la animación `menu`, igual que ui/Popover.
+    borderRadius: 'var(--radius-card)',
     boxShadow: '0 8px 40px rgba(0,0,0,.16), 0 2px 8px rgba(0,0,0,.08)',
-    border: '1.5px solid var(--outline, #717785)',
+    border: '1px solid var(--outline-variant)',
+    animation: 'menu 200ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards',
+    transformOrigin: pos.bottom != null ? 'bottom left' : 'top left',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
@@ -1082,14 +1084,18 @@ export default function EFDateTimePicker({
           display: 'flex',
           alignItems: 'center',
           gap: 7,
-          padding: '7px 12px',
-          borderRadius: 'var(--radius, 0.5rem)',
+          // Mismo campo que ui/Input: alto de control y píldora completa
+          // (PLAN_NORMALIZACION_UI §2.1–2.2). Antes: 7px de relleno y el radio
+          // estándar, así que medía ~35px y quedaba «medio redondo».
+          height: 'var(--control)',
+          padding: '0 16px',
+          borderRadius: 9999,
           border: '1px solid var(--outline-variant)',
           background: 'var(--surface)',
           width: '100%',
           textAlign: 'left',
           cursor: disabled ? 'not-allowed' : 'pointer',
-          opacity: disabled ? 0.5 : 1,
+          opacity: disabled ? 0.6 : 1,
           transition: 'border-color .12s',
           fontSize: 'var(--fs-sm, 0.875rem)',
         }}
