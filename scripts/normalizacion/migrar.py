@@ -109,6 +109,14 @@ def s_previo(m):
     ini = t.rfind('\n', 0, m.start()) + 1
     return t[ini:m.start()]
 
+def fin_imports(s):
+    # Posición (en líneas) justo después de la ÚLTIMA sentencia import, aunque
+    # sea de varias líneas (import {\n  a,\n  b,\n} from '…').
+    ult = -1
+    for m in re.finditer(r"^import\b[\s\S]*?(?:from\s*)?'[^']+';?\s*$", s, re.M):
+        ult = s[:m.end()].count('\n')
+    return ult
+
 def ruta_ui(archivo):
     import os
     if not archivo:
@@ -130,8 +138,7 @@ def asegurar_import(s, nombres, archivo=None):
             s = s[:m.start(1)] + ' ' + ', '.join(actuales + faltan) + ' ' + s[m.end(1):]
         return s
     lineas = s.split('\n')
-    ult = max(i for i, l in enumerate(lineas) if l.startswith('import '))
-    lineas.insert(ult + 1, f"import {{ {', '.join(usados)} }} from '{ruta_ui(archivo)}'")
+    lineas.insert(fin_imports(s) + 1, f"import {{ {', '.join(usados)} }} from '{ruta_ui(archivo)}'")
     return '\n'.join(lineas)
 
 if __name__ == '__main__':
@@ -181,8 +188,7 @@ def asegurar_icono(s, archivo=None):
         else:
             ruta = '../../config/iconos'
         lineas = s.split('\n')
-        ult = max(i for i, l in enumerate(lineas) if l.startswith('import '))
-        lineas.insert(ult + 1, f"import {{ ICONO }} from '{ruta}'")
+        lineas.insert(fin_imports(s) + 1, f"import {{ ICONO }} from '{ruta}'")
         s = '\n'.join(lineas)
     return s
 
@@ -396,31 +402,48 @@ def pasada6(s):
 # queda exacto en la escala y uno de dos renglones puede crecer sin cortarse.
 def pasada7(s):
     n = 0
-    def arreglar(cls):
-        toks = cls.split()
+    def decidir(estatico):
+        toks = estatico.split()
         if 'rounded-full' not in toks: return None
-        if any(t.startswith(('h-', 'min-h-', 'size-', 'w-')) and not t.startswith('w-full') for t in toks): return None
-        if any(t.startswith('min-h') or t.startswith('h-') for t in toks): return None
-        if any(t in ('py-1', 'py-1.5', 'py-2') for t in toks): extra = 'min-h-control-sm'
-        elif any(t in ('py-2.5', 'py-3') for t in toks): extra = 'min-h-control'
-        else: return None
-        return cls.rstrip() + ' ' + extra
+        if any(t.startswith(('h-', 'min-h-', 'size-')) for t in toks): return None
+        if any(re.match(r'^w-(?!full)', t) for t in toks): return None
+        if any(t in ('py-1', 'py-1.5', 'py-2') for t in toks): return 'min-h-control-sm'
+        if any(t in ('py-2.5', 'py-3') for t in toks): return 'min-h-control'
+        return None
     out = []; pos = 0
     for m in re.finditer(r'<button\b', s):
         if m.start() < pos: continue
         fin = fin_tag(s, m.start())
         if fin < 0: continue
         tag = s[m.start():fin + 1]
-        cm = re.search(r'className=(?:"([^"]*)"|\{`([^`]*?)(\$\{|`))', tag)
-        if not cm: continue
-        if cm.group(1) is not None:
-            nuevo = arreglar(cm.group(1))
-            if not nuevo: continue
-            nuevo_tag = tag[:cm.start(1)] + nuevo + tag[cm.end(1):]
+        cm = re.search(r'className="([^"]*)"', tag)
+        if cm:
+            extra = decidir(cm.group(1))
+            if not extra: continue
+            nuevo_tag = tag[:cm.start(1)] + cm.group(1).rstrip() + ' ' + extra + tag[cm.end(1):]
         else:
-            nuevo = arreglar(cm.group(2))
-            if not nuevo: continue
-            nuevo_tag = tag[:cm.start(2)] + nuevo + (' ' if cm.group(3) == '${' else '') + tag[cm.end(2):]
+            ct = re.search(r'className=\{`', tag)
+            if not ct: continue
+            ini = ct.end()
+            j = ini; d = 0
+            while j < len(tag):
+                if tag[j:j+2] == '${': d += 1; j += 2; continue
+                if tag[j] == '}' and d: d -= 1
+                elif tag[j] == '`' and not d: break
+                j += 1
+            plantilla = tag[ini:j]
+            estatico = re.sub(r'\$\{(?:[^{}]|\{[^{}]*\})*\}', ' ', plantilla)
+            extra = decidir(estatico)
+            if not extra: continue
+            nuevo_tag = tag[:ini] + extra + ' ' + tag[ini:]
         out.append(s[pos:m.start()]); out.append(nuevo_tag); pos = fin + 1; n += 1
     out.append(s[pos:])
     return ''.join(out), n
+
+def limpiar_imports(s):
+    """Quita imports que las pasadas dejaron sin uso (Spinner, ICONO)."""
+    if re.search(r"^import Spinner from '[^']+'\n", s, re.M) and not re.search(r'<Spinner\b', s):
+        s = re.sub(r"^import Spinner from '[^']+'\n", '', s, flags=re.M)
+    if re.search(r"^import \{ ICONO \} from '[^']+'\n", s, re.M) and 'ICONO.' not in s:
+        s = re.sub(r"^import \{ ICONO \} from '[^']+'\n", '', s, flags=re.M)
+    return s

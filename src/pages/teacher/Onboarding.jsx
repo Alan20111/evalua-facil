@@ -301,7 +301,7 @@ export default function Onboarding() {
           message="No quedará ninguna cuenta registrada con este correo: la borraremos por completo y regresarás a Crear cuenta, donde puedes intentar con otro correo o con Google."
           confirmLabel="No continuar"
           confirmingLabel="Un momento…"
-          confirmIcon={<Trash2 size={16} />}
+          confirmIcon={<Trash2 size={ICONO.sm} />}
           danger
           busy={cancelando}
           onConfirm={noContinuar}

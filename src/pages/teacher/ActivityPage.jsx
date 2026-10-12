@@ -1559,7 +1559,8 @@ export default function ActivityPage() {
                   setFilter(f)
                   setTimeout(() => document.getElementById('entregas-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
                 }}
-                className={`${IS_NATIVE_APP ? '' : 'flex-1'} py-1.5 text-xs font-medium rounded-full transition-colors ${
+                aria-pressed={filter === f}
+                className={`${IS_NATIVE_APP ? '' : 'flex-1'} min-h-control-sm px-2 text-xs font-medium rounded-full transition-colors ${
                   filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}
               >
@@ -1868,7 +1869,8 @@ export default function ActivityPage() {
                       type="button"
                       key={f}
                       onClick={() => changeFilterInView(f)}
-                      className={`py-2 px-2 text-sm font-semibold rounded transition-colors ${
+                      aria-pressed={filter === f}
+                      className={`min-h-control-sm px-2 text-sm font-semibold rounded-full transition-colors ${
                         filter === f
                           ? 'bg-surface-card text-on-surface shadow-card'
                           : 'text-muted hover:bg-[var(--accent-medium)]'

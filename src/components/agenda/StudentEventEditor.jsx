@@ -9,6 +9,8 @@ import { X, Trash2 } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { EVENT_COLORS } from '../calendar/EventEditor'
+import { Input, Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Evento Personal del Estudiante — completamente privado, solo lo ve quien lo
 // crea (colección `studentEvents`, ver firestore.rules: alumnoId == auth.uid).
@@ -84,8 +86,8 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
       <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-4 pt-4 pb-2 flex-shrink-0">
           <h2 className="font-semibold text-on-surface">{isNew ? 'Nuevo evento personal' : 'Editar evento'}</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded transition-colors">
-            <X size={18} />
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors">
+            <X size={ICONO.md} />
           </button>
         </div>
 
@@ -104,13 +106,12 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
             ))}
           </div>
 
-          <input
+          <Input
             type="text"
             value={form.titulo}
             onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
             aria-label="Título (ej. Estudiar para examen)"
             required
-            className="w-full px-3 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
           />
 
           <textarea
@@ -118,7 +119,7 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
             onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
             aria-label="Descripción (opcional)"
             rows={2}
-            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+            className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
           />
 
           <div className="space-y-1">
@@ -150,14 +151,14 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
                   Confirmar eliminación
                 </button>
               ) : (
-                <button type="button" onClick={() => setConfirmDelete(true)} className="p-2 text-muted hover:text-error rounded transition-colors" data-tooltip="Eliminar" aria-label="Eliminar">
-                  <Trash2 size={18} />
+                <button type="button" onClick={() => setConfirmDelete(true)} className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors" data-tooltip="Eliminar" aria-label="Eliminar">
+                  <Trash2 size={ICONO.md} />
                 </button>
               )
             )}
-            <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-full text-sm disabled:opacity-60 flex items-center justify-center gap-2">
+            <Button className="flex-1" type="submit" disabled={saving}>
               {saving ? <Spinner size="sm" /> : isNew ? 'Crear evento' : 'Guardar cambios'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

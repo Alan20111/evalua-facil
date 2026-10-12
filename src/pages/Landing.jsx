@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import EFLogo from '../components/EFLogo'
 import { DocenteIcon, EstudianteIcon } from '../components/RoleIcons'
+import { ICONO } from '../config/iconos'
 
 // Public entry: pick a role. Teacher = blue, Student = orange. No mixed content.
 export default function Landing() {
@@ -26,7 +27,7 @@ export default function Landing() {
             <h2 className="text-lg font-bold text-on-surface">Soy Docente</h2>
             <p className="text-sm text-muted mt-1">Administra y evalúa tus asignaturas</p>
             <span className="mt-3 inline-flex items-center gap-1 text-blue-600 font-semibold text-sm group-hover:gap-2 transition-all">
-              Entrar <ChevronRight size={18} />
+              Entrar <ChevronRight size={ICONO.md} />
             </span>
           </Link>
 
@@ -39,7 +40,7 @@ export default function Landing() {
             <h2 className="text-lg font-bold text-on-surface">Soy Estudiante</h2>
             <p className="text-sm text-muted mt-1">Entra a tus asignaturas y entregas</p>
             <span className="mt-3 inline-flex items-center gap-1 text-orange-600 font-semibold text-sm group-hover:gap-2 transition-all">
-              Entrar <ChevronRight size={18} />
+              Entrar <ChevronRight size={ICONO.md} />
             </span>
           </Link>
         </div>

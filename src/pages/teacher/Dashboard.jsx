@@ -344,14 +344,11 @@ export default function TeacherDashboard() {
                   <BookOpen size={ICONO.lg} className="text-accent" />
                 </div>
                 <p className="text-muted font-medium mb-2">Aún no tienes asignaturas</p>
-                <button
-                  type="button"
-                  onClick={openSubjectModal}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded-full transition-colors"
-                >
-                  <Plus size={ICONO.md} />
+                <Button icon={Plus}
+                  onClick={openSubjectModal}>
+                  
                   Crear mi primera asignatura
-                </button>
+                </Button>
               </div>
             ) : (
               <div data-esq="dash-doc-lista" className="space-y-2 mb-4 cascada">
@@ -371,32 +368,18 @@ export default function TeacherDashboard() {
                         onPointerDown={(e) => dragPointerDown(e, i)}
                         aria-label="Arrastrar para reordenar"
                         data-tooltip="Mantén y arrastra para reordenar"
-                        className="p-2 -m-1 text-hint hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+                        className="size-control inline-flex items-center justify-center -m-1 text-hint hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none rounded-full"
                       >
                         <GripVertical size={ICONO.md} />
                       </button>
                     ) : (
                       <div className="flex flex-col flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => moveSubject(i, -1)}
+                        <IconButton icon={ArrowUp} label="Subir" tooltip={false} onClick={() => moveSubject(i, -1)}
                           disabled={i === 0}
-                          data-tooltip="Subir"
-                          aria-label="Subir"
-                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded-full"
-                        >
-                          <ArrowUp size={ICONO.sm} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveSubject(i, 1)}
+                          data-tooltip="Subir" />
+                        <IconButton icon={ArrowDown} label="Bajar" tooltip={false} onClick={() => moveSubject(i, 1)}
                           disabled={i === subjects.length - 1}
-                          data-tooltip="Bajar"
-                          aria-label="Bajar"
-                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded-full"
-                        >
-                          <ArrowDown size={ICONO.sm} />
-                        </button>
+                          data-tooltip="Bajar" />
                       </div>
                     )}
                     <button

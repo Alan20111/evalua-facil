@@ -1,5 +1,6 @@
 import { ExternalLink } from 'lucide-react'
 import { isValidDeliveryLink } from '../config/fileTypes'
+import { ICONO } from '../config/iconos'
 
 // Entrega mediante "Enlace o URL" (`submissions.enlaceURL`). La dirección es
 // contenido del estudiante, no confiable: se muestra tal cual la escribió y
@@ -18,7 +19,7 @@ export default function EnlaceEntregado({ url, className = '' }) {
           rel="noopener noreferrer"
           className="inline-flex items-start gap-1.5 text-accent font-medium hover:underline break-all"
         >
-          <ExternalLink size={15} className="flex-shrink-0 mt-0.5" />
+          <ExternalLink size={ICONO.sm} className="flex-shrink-0 mt-0.5" />
           <span>{texto}</span>
         </a>
       ) : (

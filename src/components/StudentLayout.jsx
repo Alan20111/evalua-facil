@@ -23,6 +23,7 @@ import { EsqueletoFilasLateralAlumno } from './esqueletos'
 import ConfirmModal from './ConfirmModal'
 import { IconButton } from './ui'
 import { SB_FILA, SB_ICONO, SB_INACTIVA, SB_ACTIVA, SB_ACTIVA_SUAVE, SB_GRUPO } from '../config/sidebar'
+import { ICONO } from '../config/iconos'
 
 // `refreshKey`: el Dashboard del alumno reordena sus asignaturas (flechas
 // subir/bajar o arrastrar) SIN desmontar este layout — a diferencia del
@@ -192,7 +193,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                 <p className="text-[16px] text-white/70 truncate">{schoolName}</p>
               )}
             </div>
-            <ChevronRight size={14} className="text-white/50 flex-shrink-0" />
+            <ChevronRight size={ICONO.xs} className="text-white/50 flex-shrink-0" />
           </button>
 
           {/* Agenda — debajo del perfil, único enlace fijo del sidebar (sin
@@ -224,7 +225,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             <span className="text-[22px] font-bold text-white/70 group-hover:text-white transition-colors">
               Asignaturas
             </span>
-            <ChevronRight size={18} className="text-white/50 group-hover:text-white transition-colors flex-shrink-0" />
+            <ChevronRight size={ICONO.md} className="text-white/50 group-hover:text-white transition-colors flex-shrink-0" />
           </NavLink>
 
           {/* Subject list */}
@@ -314,7 +315,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               >
                 <Archive size={SB_ICONO} className="flex-shrink-0" />
                 <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
-                <ChevronRight size={16} className={`flex-shrink-0 transition-transform duration-estandar ${showArchived ? 'rotate-90' : ''}`} />
+                <ChevronRight size={ICONO.sm} className={`flex-shrink-0 transition-transform duration-estandar ${showArchived ? 'rotate-90' : ''}`} />
               </button>
               {showArchived &&
                 archivedSubjects.map((s) => (

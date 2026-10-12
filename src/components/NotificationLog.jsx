@@ -206,7 +206,7 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
                             <button type="button"
                               onClick={(ev) => { ev.stopPropagation(); setEntryToDelete(e) }}
                               aria-label="Borrar notificación" data-tooltip="Borrar"
-                              className="p-2 text-muted hover:text-error rounded transition-colors">
+                              className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors">
                               <Trash2 size={ICONO.xs} />
                             </button>
                           </td>

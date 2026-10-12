@@ -136,13 +136,13 @@ echo ""
 # dejan que baje mientras las pantallas pasan a components/ui/. Lo que vive
 # DENTRO de components/ui/ no cuenta: ahí es donde la pieza debe estar.
 ratchet "Control con esquina a medias (rounded + borde, debe ser rounded-full o ui/) — §2.2" \
-  '(^|[^a-z:-])rounded border' 87 'components/ui/'
+  '(^|[^a-z:-])rounded border' 33 'components/ui/'
 ratchet "Botón primario a mano (bg-accent hover:bg-accent-hover text-white → ui/Button) — §3" \
-  'bg-accent hover:bg-accent-hover text-white' 14 'components/ui/'
+  'bg-accent hover:bg-accent-hover text-white' 3 'components/ui/'
 ratchet "Ícono fuera de la escala 14/16/20/24/40 (config/iconos.js) — §2.3" \
-  'size=\{([0-9]|1[0-35789]|2[1-35-9]|3[0-9])\}' 172 'components/ui/'
+  'size=\{([0-9]|1[0-35789]|2[1-35-9]|3[0-9])\}' 4 'components/ui/'
 ratchet "Duración cruda (duration-NNN → duration-rapida/estandar/lenta) — §2.5" \
-  '(^|[^a-z-])duration-[0-9]+' 22 'components/ui/'
+  '(^|[^a-z-])duration-[0-9]+' 21 'components/ui/'
 ratchet "transition-all (anima de más; usa transition-colors/transform) — §2.5" \
   '(^|[^a-z-])transition-all' 12 'components/ui/'
 ratchet "Casilla/opción a mano (type=checkbox|radio fuera de ui/) — §3" \

@@ -1,5 +1,6 @@
 import { CheckCircle2, XCircle, MessageSquare, FileText } from 'lucide-react'
 import { TIPOS_REVISION_MANUAL } from '../utils/evaluacionGrading'
+import { ICONO } from '../config/iconos'
 
 // Read-only per-question review shared by the student's post-evaluación review
 // (src/pages/student/EvaluacionRevision.jsx) and the teacher's specialized
@@ -53,7 +54,7 @@ export default function EvaluacionAnswerList({
           )}
           <div className="bg-surface-card rounded-card p-4 shadow-card border border-outline-variant">
             <p className="text-sm font-medium text-on-surface mb-2">{i + 1}. {p.enunciado}</p>
-            {p.imagenUrl && <img src={p.imagenUrl} alt="" className="max-h-48 rounded border border-outline-variant mb-2" />}
+            {p.imagenUrl && <img src={p.imagenUrl} alt="" className="max-h-48 rounded-card border border-outline-variant mb-2" />}
 
             {esObjetiva ? (
               <div className="space-y-1.5">
@@ -67,8 +68,8 @@ export default function EvaluacionAnswerList({
                         esSeleccion ? 'border-accent bg-accent-light' : 'border-outline-variant'
                       }`}>
                       {esSeleccion && (acierto
-                        ? <CheckCircle2 size={15} className="text-emerald-600 flex-shrink-0" />
-                        : <XCircle size={15} className="text-error flex-shrink-0" />)}
+                        ? <CheckCircle2 size={ICONO.sm} className="text-emerald-600 flex-shrink-0" />
+                        : <XCircle size={ICONO.sm} className="text-error flex-shrink-0" />)}
                       {/* "Otra": el texto fijo de la opción no dice nada — lo
                           que importa es lo que el alumno escribió. */}
                       <span>{o.esOtra && esSeleccion ? (respuesta.otraTexto || '(sin texto)') : o.texto}</span>
@@ -84,7 +85,7 @@ export default function EvaluacionAnswerList({
                   respuesta.archivoURL ? (
                     <a href={respuesta.archivoURL} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm text-accent bg-surface rounded p-2 hover:underline">
-                      <FileText size={16} className="flex-shrink-0" />
+                      <FileText size={ICONO.sm} className="flex-shrink-0" />
                       <span className="truncate">{respuesta.nombreArchivo || 'Documento entregado'}</span>
                     </a>
                   ) : (
@@ -103,7 +104,7 @@ export default function EvaluacionAnswerList({
 
             {mostrarRetro && p.retroalimentacion && (
               <div className="mt-2 bg-surface rounded p-2.5 flex gap-2">
-                <MessageSquare size={15} className="text-hint flex-shrink-0 mt-0.5" />
+                <MessageSquare size={ICONO.sm} className="text-hint flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-muted">{p.retroalimentacion}</p>
               </div>
             )}
@@ -111,7 +112,7 @@ export default function EvaluacionAnswerList({
                 teacher view the comment is being edited inside renderGrading instead. */}
             {respuesta.comentarioDocente && !renderGrading && (
               <div className="mt-2 bg-surface rounded p-2.5 flex gap-2">
-                <MessageSquare size={15} className="text-hint flex-shrink-0 mt-0.5" />
+                <MessageSquare size={ICONO.sm} className="text-hint flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-muted italic">&quot;{respuesta.comentarioDocente}&quot;</p>
               </div>
             )}

@@ -13,7 +13,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { apiUrl } from '../../../utils/apiBase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
-import { SkeletonTable } from '../../../components/ui'
+import { SkeletonTable, Button, IconButton } from '../../../components/ui'
 import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
@@ -33,6 +33,7 @@ import {
   estadoRegaloIA,
   formatCreditos,
 } from '../../../utils/creditosHelpers'
+import { ICONO } from '../../../config/iconos'
 
 const inputCls =
   'w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
@@ -221,7 +222,7 @@ function CeldaFiltro({ col, valor, onChange, sugerencias }) {
           title="Quitar este filtro"
           className="absolute right-1 top-1/2 -translate-y-1/2 text-accent hover:text-accent-hover"
         >
-          <X size={13} />
+          <X size={ICONO.xs} />
         </button>
       )}
     </div>
@@ -242,10 +243,10 @@ const INSIGNIA_REGALO =
 const TONO_REGALO = {
   sin_activar: 'bg-amber-100 text-amber-700',
   activo: 'bg-emerald-100 text-emerald-700',
-  agotado: 'bg-slate-100 text-slate-600',
+  agotado: 'bg-slate-100 text-muted',
   indeterminable: 'bg-surface text-muted border border-outline-variant',
-  sin_registro: 'bg-slate-100 text-slate-500',
-  no_disponible: 'bg-slate-100 text-slate-500',
+  sin_registro: 'bg-slate-100 text-muted',
+  no_disponible: 'bg-slate-100 text-muted',
 }
 
 // Qué pasó con los créditos de regalo de este docente. Toda la decisión vive
@@ -568,7 +569,7 @@ export default function RegistrosTable({ stats, onRefresh }) {
               ni parpadea), pero no se presentan como recién confirmados. */}
           {authInfo?.obsoleto && (
             <output className="flex items-start gap-1.5 text-xs text-amber-800 mt-1.5">
-              <AlertTriangle size={14} className="mt-px flex-shrink-0" aria-hidden="true" />
+              <AlertTriangle size={ICONO.xs} className="mt-px flex-shrink-0" aria-hidden="true" />
               <span>
                 Fecha de registro y días sin accesar de la consulta {cuandoConsultaAuth(authInfo.actualizadoEn, stats?.cargadoEn) || 'anterior'}:
                 no se pudo actualizar Firebase Authentication.
@@ -579,7 +580,7 @@ export default function RegistrosTable({ stats, onRefresh }) {
               fusiona ni se corrige: se señala para que alguien lo revise. */}
           {duplicados.length > 0 && (
             <output className="flex items-start gap-1.5 text-xs text-amber-800 mt-1.5">
-              <AlertTriangle size={14} className="mt-px flex-shrink-0" aria-hidden="true" />
+              <AlertTriangle size={ICONO.xs} className="mt-px flex-shrink-0" aria-hidden="true" />
               <span>
                 {duplicados.length === 1 ? '1 correo lo usan' : `${duplicados.length} correos los usan`} varios docentes
                 {' '}({duplicados.slice(0, 3).map((d) => `${d.correo} · ${d.cantidad}`).join('; ')}
@@ -596,14 +597,11 @@ export default function RegistrosTable({ stats, onRefresh }) {
             etiqueta="Buscar por cualquier dato…"
           />
           <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
+            <Button variant="outline-accent" icon={X}
               onClick={limpiarTodo}
-              disabled={!hayFiltro}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-full border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-accent text-accent hover:bg-[var(--accent-tint)]"
-            >
-              <X size={15} /> Quitar todos los filtros
-            </button>
+              disabled={!hayFiltro}>
+               Quitar todos los filtros
+            </Button>
           </div>
         </div>
       </div>
@@ -651,7 +649,7 @@ export default function RegistrosTable({ stats, onRefresh }) {
                           className="flex w-full items-start gap-1 text-left uppercase tracking-wide focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
                         >
                           <span className="min-w-0 flex-1">{titulo}</span>
-                          <Flecha size={14} className={`mt-px shrink-0 ${ordenActivo ? '' : 'opacity-50'}`} aria-hidden="true" />
+                          <Flecha size={ICONO.xs} className={`mt-px shrink-0 ${ordenActivo ? '' : 'opacity-50'}`} aria-hidden="true" />
                         </button>
                       )
                     })()}
@@ -771,39 +769,24 @@ export default function RegistrosTable({ stats, onRefresh }) {
                   </td>
                   <td className="px-3 py-2">
                     {r.baja ? (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteBaja(r.uid)}
-                        className="p-2 text-hint hover:text-red-600 rounded-full"
-                        aria-label="Eliminar constancia"
-                        title="Eliminar constancia"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <IconButton icon={Trash2} label="Eliminar constancia" variant="danger" tooltip={false} onClick={() => handleDeleteBaja(r.uid)}
+                       
+                       
+                        title="Eliminar constancia" />
                     ) : (
                       <div className="flex items-center gap-0.5">
                         {r.uid && (
-                          <button
-                            type="button"
-                            onClick={() => openAjuste(r.uid, r.docente)}
+                          <IconButton icon={Zap} label="Ajustar créditos de IA" tooltip={false} onClick={() => openAjuste(r.uid, r.docente)}
                             disabled={ajusteModal?.docenteId === r.uid && ajusteModal?.saving}
-                            className="p-1.5 text-hint hover:text-accent rounded-full disabled:opacity-40"
-                            aria-label="Ajustar créditos de IA"
-                            title="Ajustar créditos de IA"
-                          >
-                            <Zap size={16} />
-                          </button>
+                           
+                           
+                            title="Ajustar créditos de IA" />
                         )}
                         {r.uid && (
-                          <button
-                            type="button"
-                            onClick={() => openDeleteModal(r.uid, r.docente, r.correo)}
-                            className="p-1.5 text-hint hover:text-red-600 rounded-full"
-                            aria-label="Eliminar cuenta"
-                            title="Eliminar cuenta del docente"
-                          >
-                            <UserX size={16} />
-                          </button>
+                          <IconButton icon={UserX} label="Eliminar cuenta" variant="danger" tooltip={false} onClick={() => openDeleteModal(r.uid, r.docente, r.correo)}
+                           
+                           
+                            title="Eliminar cuenta del docente" />
                         )}
                       </div>
                     )}
@@ -821,18 +804,15 @@ export default function RegistrosTable({ stats, onRefresh }) {
           onClick={resetWidths}
           className="inline-flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors"
         >
-          <RotateCcw size={13} /> Restablecer ancho de columnas
+          <RotateCcw size={ICONO.xs} /> Restablecer ancho de columnas
         </button>
         {filtered.length > visible.length && (
           <div className="flex items-center gap-3">
             <p className="text-xs text-muted">Mostrando {visible.length} de {filtered.length}</p>
-            <button
-              type="button"
-              onClick={() => setLimit((l) => l + PAGE)}
-              className="px-3 py-2 text-sm font-semibold text-accent border border-accent rounded-full hover:bg-[var(--accent-tint)] transition-colors"
-            >
+            <Button variant="outline-accent"
+              onClick={() => setLimit((l) => l + PAGE)}>
               Mostrar {Math.min(PAGE, filtered.length - visible.length)} más
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -843,7 +823,7 @@ export default function RegistrosTable({ stats, onRefresh }) {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-on-surface">Eliminar cuenta</h3>
               <button type="button" onClick={() => !deleteModal.saving && setDeleteModal(null)} aria-label="Cerrar">
-                <X size={20} className="text-hint" />
+                <X size={ICONO.md} className="text-hint" />
               </button>
             </div>
             <p className="text-sm text-muted mb-0.5">
@@ -860,23 +840,17 @@ export default function RegistrosTable({ stats, onRefresh }) {
               </ul>
             </div>
             <div className="flex gap-2">
-              <button
-                type="button"
+              <Button variant="secondary" className="flex-1"
                 onClick={() => !deleteModal.saving && setDeleteModal(null)}
-                disabled={deleteModal.saving}
-                className="flex-1 py-2.5 border border-outline-variant text-muted font-semibold rounded-full text-sm disabled:opacity-60"
-              >
+                disabled={deleteModal.saving}>
                 Cancelar
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button variant="danger" className="flex-1"
                 onClick={handleDeleteAccount}
-                disabled={deleteModal.saving}
-                className="flex-1 py-2 bg-red-600 text-white font-semibold rounded-full text-sm disabled:opacity-60 flex items-center justify-center gap-2"
-              >
+                disabled={deleteModal.saving}>
                 {deleteModal.saving ? <Spinner size="sm" /> : null}
                 Eliminar
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -888,7 +862,7 @@ export default function RegistrosTable({ stats, onRefresh }) {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-on-surface">Ajustar créditos de IA</h3>
               <button type="button" onClick={() => setAjusteModal(null)} aria-label="Cerrar">
-                <X size={20} className="text-hint" />
+                <X size={ICONO.md} className="text-hint" />
               </button>
             </div>
             <p className="text-sm text-muted mb-4 truncate" title={ajusteModal.docente}>
@@ -907,7 +881,7 @@ export default function RegistrosTable({ stats, onRefresh }) {
                   required
                   className={inputCls}
                 />
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm text-muted mt-1">
                   Número <strong>positivo</strong> para agregar créditos. Número <strong>negativo</strong> para descontarlos.
                 </p>
               </div>
@@ -924,14 +898,12 @@ export default function RegistrosTable({ stats, onRefresh }) {
                   className={inputCls}
                 />
               </div>
-              <button
+              <Button fullWidth
                 type="submit"
-                disabled={ajusteModal.saving || !ajusteModal.cantidad || !ajusteModal.motivo.trim()}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded-full text-sm disabled:opacity-60 flex items-center justify-center gap-2"
-              >
+                disabled={ajusteModal.saving || !ajusteModal.cantidad || !ajusteModal.motivo.trim()}>
                 {ajusteModal.saving ? <Spinner size="sm" /> : null}
                 Aplicar ajuste
-              </button>
+              </Button>
             </form>
           </div>
         </div>

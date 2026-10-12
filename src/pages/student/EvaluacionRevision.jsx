@@ -108,7 +108,7 @@ export default function EvaluacionRevision() {
     <StudentLayout>
       <div className="bg-surface min-h-screen" {...subjectPaletteProps(subject?.colorPalette)}>
         <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-          <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
+          <button type="button" onClick={goBack} className="size-control inline-flex items-center justify-center -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
             <ArrowLeft size={ICONO.md} />
           </button>
           <div className="min-w-0">

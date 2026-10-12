@@ -9,8 +9,8 @@ import { exportEvaluacionGraficasPDF } from '../utils/pdf'
 import { SLICE_COLORS, esGraficable, cargarRespuestasEvaluacion } from '../utils/evaluacionRespuestas'
 import { membreteDe } from '../utils/membrete'
 import { useAuth } from '../context/AuthContext'
-import Spinner from './Spinner'
-import { SkeletonCards } from './ui'
+import { SkeletonCards, Button } from './ui'
+import { ICONO } from '../config/iconos'
 
 function polarPoint(cx, cy, r, angleDeg) {
   const rad = ((angleDeg - 90) * Math.PI) / 180
@@ -120,9 +120,9 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-1 p-2 -ml-2 mt-0.5 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
+            className="flex items-center gap-1 size-control inline-flex justify-center -ml-2 mt-0.5 text-muted hover:text-accent rounded-full text-sm font-medium flex-shrink-0 transition-colors"
           >
-            <ArrowLeft size={20} /> Regresar
+            <ArrowLeft size={ICONO.md} /> Regresar
           </button>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold uppercase tracking-wide text-accent">Gráficas</p>
@@ -134,16 +134,13 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
               explica que las descargas se hacen desde la web (ver
               descargaSoloWeb) en vez de desaparecer sin decir nada. */}
           {!telefonoWeb.telefono && (
-          <button
-            type="button"
+          <Button variant="outline-accent" icon={Download} busy={exportingPdf} className="mt-0.5 flex-shrink-0"
             onClick={handleExportPdf}
             disabled={exportingPdf}
-            data-tooltip="PDF con estas gráficas"
-            className="flex items-center gap-1.5 px-3 py-2 mt-0.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60 flex-shrink-0"
-          >
-            {exportingPdf ? <Spinner size="sm" /> : <Download size={16} />}
+            data-tooltip="PDF con estas gráficas">
+            
             {exportingPdf ? 'Generando…' : 'Descargar gráficas'}
-          </button>
+          </Button>
           )}
         </div>
       </div>
@@ -154,7 +151,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
             <SkeletonCards count={2} className="sm:grid-cols-1 lg:grid-cols-1" />
           ) : graficables.length === 0 ? (
             <div className="flex flex-col items-center gap-2 text-center text-muted py-16">
-              <PieChartIcon size={28} className="text-slate-300" />
+              <PieChartIcon size={ICONO.lg} className="text-hint" />
               <p className="text-sm">Este {activity.categoria === 'examen' ? 'examen' : 'cuestionario'} no tiene reactivos de opción múltiple ni de verdadero/falso.</p>
             </div>
           ) : (
@@ -195,7 +192,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
                                   {o.texto}
                                   {esCorrecta && (
                                     <span data-tooltip="Respuesta correcta" className="inline-flex text-emerald-600 flex-shrink-0">
-                                      <Check size={13} strokeWidth={3} />
+                                      <Check size={ICONO.xs} strokeWidth={3} />
                                     </span>
                                   )}
                                 </span>

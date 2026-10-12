@@ -12,6 +12,8 @@ import {
   requiereConfirmacion, visiblesRevision,
 } from './revisionVideo'
 
+import { Input } from '../ui'
+import { ICONO } from '../../config/iconos'
 const ESTADOS = {
   [ESTADO_REVISION.PENDIENTE]: { texto: 'Pendiente', clase: 'bg-amber-100 text-amber-800' },
   [ESTADO_REVISION.APROBADA]: { texto: 'Aprobada por ti', clase: 'bg-green-100 text-green-800' },
@@ -101,10 +103,10 @@ export default function RevisionVideoModal({
             <div className="ml-auto flex items-center gap-1.5">
               <button type="button" onClick={() => onVistaPrevia(0, false)} data-testid="vista-previa-desde-ventana"
                 className={`${BOTON} border border-outline-variant text-accent ${GLOBO_HASTA_DER}`} aria-label="Vista previa docente"
-                data-tooltip="Probar el video como lo verá el estudiante" data-tooltip-pos="bottom"><Eye size={16} /><span className="max-sm:hidden">Vista previa</span></button>
+                data-tooltip="Probar el video como lo verá el estudiante" data-tooltip-pos="bottom"><Eye size={ICONO.sm} /><span className="max-sm:hidden">Vista previa</span></button>
               <button type="button" onClick={intentarCerrar} data-testid="cerrar-ventana" aria-label="Cerrar la revisión"
                 data-tooltip="Cerrar la revisión" data-tooltip-pos="bottom"
-                className={`w-11 h-11 rounded-full border border-outline-variant text-muted flex items-center justify-center hover:bg-surface-container ${GLOBO_HASTA_DER}`}><X size={18} /></button>
+                className={`w-11 h-11 rounded-full border border-outline-variant text-muted flex items-center justify-center hover:bg-surface-container ${GLOBO_HASTA_DER}`}><X size={ICONO.md} /></button>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -135,10 +137,10 @@ export default function RevisionVideoModal({
               {/* Anterior / Siguiente: justo encima del enunciado (la navegación entre preguntas también está en los puntos de la línea). */}
               <div className="flex items-center gap-1.5">
                 <button type="button" onClick={() => ir(antes)} disabled={!antes} data-testid="anterior" aria-label="Pregunta anterior" data-tooltip="Ir a la pregunta anterior" data-tooltip-pos="bottom" className={`${BOTON} border border-outline-variant text-on-surface max-sm:px-3`}>
-                  <ChevronLeft size={16} /> <span className="max-sm:hidden">Anterior</span>
+                  <ChevronLeft size={ICONO.sm} /> <span className="max-sm:hidden">Anterior</span>
                 </button>
                 <button type="button" onClick={() => ir(despues)} disabled={!despues} data-testid="siguiente" aria-label="Pregunta siguiente" data-tooltip="Ir a la siguiente pregunta" data-tooltip-pos="bottom" className={`${BOTON} border border-outline-variant text-on-surface max-sm:px-3`}>
-                  <span className="max-sm:hidden">Siguiente</span> <ChevronRight size={16} />
+                  <span className="max-sm:hidden">Siguiente</span> <ChevronRight size={ICONO.sm} />
                 </button>
               </div>
               {!editando && (
@@ -164,7 +166,7 @@ export default function RevisionVideoModal({
                   <label className="block text-xs font-medium text-muted" htmlFor="rv-enun">Pregunta</label>
                   <textarea id="rv-enun" value={item.enunciado} rows={3} disabled={trabajando || sinPermiso}
                     onChange={(e) => setCampos(item.id, { enunciado: e.target.value })}
-                    className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                    className="w-full px-3 py-2 rounded-card border border-outline-variant text-sm bg-surface" />
                   {item.tipo === 'opcion_multiple' && (
                     <div className="space-y-1.5">
                       {(item.opciones || []).map((o, j) => (
@@ -174,9 +176,9 @@ export default function RevisionVideoModal({
                               onChange={() => setCampos(item.id, { respuestaCorrecta: o.id })} className="accent-[var(--accent)] flex-shrink-0 w-5 h-5"
                               aria-label={`Marcar la opción ${String.fromCharCode(65 + j)} como correcta`} />
                           </span>
-                          <input type="text" value={o.texto} disabled={trabajando || sinPermiso} aria-label={`Opción ${String.fromCharCode(65 + j)}`}
+                          <Input type="text" value={o.texto} disabled={trabajando || sinPermiso} aria-label={`Opción ${String.fromCharCode(65 + j)}`}
                             onChange={(e) => setCampos(item.id, { opciones: item.opciones.map((x) => (x.id === o.id ? { ...x, texto: e.target.value } : x)) })}
-                            className="flex-1 px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
+                            className="flex-1" />
                         </div>
                       ))}
                       <p className="text-xs text-hint">Deja seleccionada la opción correcta.</p>
@@ -194,9 +196,8 @@ export default function RevisionVideoModal({
                     </div>
                   )}
                   <label className="block text-xs font-medium text-muted" htmlFor="rv-retro">Retroalimentación (opcional)</label>
-                  <input id="rv-retro" type="text" value={item.retroalimentacion} disabled={trabajando || sinPermiso}
-                    onChange={(e) => setCampos(item.id, { retroalimentacion: e.target.value })}
-                    className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
+                  <Input id="rv-retro" type="text" value={item.retroalimentacion} disabled={trabajando || sinPermiso}
+                    onChange={(e) => setCampos(item.id, { retroalimentacion: e.target.value })} />
                 </div>
               )}
 
@@ -204,7 +205,7 @@ export default function RevisionVideoModal({
                 <button type="button" onClick={() => setEditando((v) => !v)} disabled={trabajando || sinPermiso} aria-expanded={editando} data-testid="alternar-edicion"
                   data-tooltip={editando ? 'Volver a la vista de la pregunta' : 'Corregir el texto, las opciones y la respuesta correcta'}
                   className={`inline-flex items-center gap-1.5 min-h-[2.5rem] px-3 rounded-full border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-60 ${GLOBO_DESDE_IZQ}`}>
-                  <Pencil size={14} /> {editando ? 'Cerrar edición' : 'Editar pregunta'}
+                  <Pencil size={ICONO.xs} /> {editando ? 'Cerrar edición' : 'Editar pregunta'}
                 </button>
               )}
 
@@ -226,7 +227,7 @@ export default function RevisionVideoModal({
                   <>
                     <button type="button" onClick={() => onGuardar(item)} disabled={!!ocupada || sinPermiso || !!err} className={`${BOTON} bg-accent text-white ${GLOBO_DESDE_IZQ}`} data-testid="guardar-actual"
                       data-tooltip="Guardar los cambios de esta pregunta">
-                      {trabajando ? <Spinner size="sm" /> : <Check size={16} />} Guardar
+                      {trabajando ? <Spinner size="sm" /> : <Check size={ICONO.sm} />} Guardar
                     </button>
                     <button type="button" onClick={() => quitarBorrador(item.id)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-muted ${GLOBO_ANGOSTO}`}
                       data-tooltip="Quitar los cambios sin guardar de esta pregunta">Deshacer</button>
@@ -243,18 +244,18 @@ export default function RevisionVideoModal({
                     <>
                       <button type="button" onClick={() => resolver(onDescartar)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-red-700 ${GLOBO_HASTA_DER}`} data-testid="descartar"
                         data-tooltip="Descartar esta pregunta; podrás restaurarla">
-                        <X size={16} /> Descartar
+                        <X size={ICONO.sm} /> Descartar
                       </button>
                       <button type="button" onClick={() => resolver(onAprobar)} disabled={!!ocupada || !!err || (requiereConfirmacion(item) && !confirmados[item.id])} className={`${BOTON} bg-accent text-white ${GLOBO_HASTA_DER}`} data-testid="aprobar"
                         data-tooltip="Aprobar y agregar a la evaluación">
-                        {trabajando ? <Spinner size="sm" /> : <Check size={16} />} Aprobar
+                        {trabajando ? <Spinner size="sm" /> : <Check size={ICONO.sm} />} Aprobar
                       </button>
                     </>
                   )}
                   {item.estado === ESTADO_REVISION.DESCARTADA && !item.fueraDeLaEvaluacion && (
                     <button type="button" onClick={() => resolver(onRestaurar)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-accent ${GLOBO_HASTA_DER}`} data-testid="restaurar"
                       data-tooltip="Volver a ponerla como pendiente">
-                      <RotateCcw size={16} /> Restaurar como pendiente
+                      <RotateCcw size={ICONO.sm} /> Restaurar como pendiente
                     </button>
                   )}
                 </div>

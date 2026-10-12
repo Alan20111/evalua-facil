@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, createContext, useContext } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, X } from 'lucide-react'
 import { playAlertSound } from '../utils/notify'
+import { ICONO } from '../config/iconos'
 
 const ToastContext = createContext(null)
 
@@ -59,7 +60,7 @@ export function ToastProvider({ children }) {
               role={t.type === 'error' ? 'alert' : undefined}
               className={`flex items-center gap-3 rounded-full px-4 py-2.5 shadow-lg text-white text-sm animate-aviso ${bg}`}
             >
-              <Icon size={20} />
+              <Icon size={ICONO.md} />
               <span className="flex-1">{t.msg}</span>
               <button
                 type="button"
@@ -67,7 +68,7 @@ export function ToastProvider({ children }) {
                 onClick={() => setToasts((ts) => ts.filter((x) => x.id !== t.id))}
                 className="p-2 -m-2 rounded transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
-                <X size={16} />
+                <X size={ICONO.sm} />
               </button>
             </Tag>
           )

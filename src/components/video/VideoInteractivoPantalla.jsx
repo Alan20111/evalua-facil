@@ -13,6 +13,8 @@ import {
 import LineaTiempoVideo from './LineaTiempoVideo'
 import PreguntaRespuesta from './PreguntaRespuesta'
 import { LIBRE_SEG, PRE_SEG, clampSeg, yaSuperadaAlReproducir } from './revisionVideo'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Video interactivo · pantalla del reproductor (la del estudiante y, con `modoRevision`, la vista previa del docente).
 //
@@ -401,7 +403,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
         <button type="button" onClick={pc.alternar} aria-pressed={enPC} data-testid="pantalla-completa"
           aria-label={enPC ? 'Salir de pantalla completa' : 'Ver en pantalla completa'}
           className="w-11 h-11 shrink-0 rounded-full border border-outline-variant text-muted flex items-center justify-center hover:bg-surface-container">
-          {enPC ? <Minimize size={20} /> : <Maximize size={20} />}
+          {enPC ? <Minimize size={ICONO.md} /> : <Maximize size={ICONO.md} />}
         </button>
       </span>
     </div>
@@ -434,16 +436,16 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
               <div className={`flex items-center justify-center gap-4 ${enPC ? '[@media(orientation:landscape)]:mt-0 [@media(orientation:landscape)]:flex-none' : 'mt-1 lg:mt-0 [@media(orientation:landscape)_and_(max-height:500px)]:mt-0 lg:flex-none [@media(orientation:landscape)_and_(max-height:500px)]:flex-none'}`}>
                 <button type="button" disabled={bloqueadoNav} onClick={() => saltar(posUI - 10)} aria-label="Retroceder 10 segundos"
                   className={`${enPC ? 'w-11 h-11' : 'w-14 h-14 lg:w-11 [@media(orientation:landscape)_and_(max-height:500px)]:w-11 lg:h-11 [@media(orientation:landscape)_and_(max-height:500px)]:h-11'} rounded-full border border-outline-variant text-muted flex items-center justify-center disabled:opacity-60`}>
-                  <RotateCcw size={20} />
+                  <RotateCcw size={ICONO.md} />
                 </button>
                 <button type="button" disabled={bloqueado} onClick={alternarReproduccion}
                   aria-label={jugando ? 'Pausar' : 'Reproducir'}
                   className={`${enPC ? 'w-12 h-12' : 'w-16 h-16 lg:w-12 [@media(orientation:landscape)_and_(max-height:500px)]:w-12 lg:h-12 [@media(orientation:landscape)_and_(max-height:500px)]:h-12'} rounded-full bg-accent text-white flex items-center justify-center disabled:opacity-60`}>
-                  {jugando ? <Pause size={26} /> : <Play size={26} className="ml-0.5" />}
+                  {jugando ? <Pause size={ICONO.lg} /> : <Play size={ICONO.lg} className="ml-0.5" />}
                 </button>
                 <button type="button" disabled={bloqueadoNav || posUI >= (revision ? duracion : maxUI) - 0.5} onClick={() => saltar(posUI + 10)} aria-label="Adelantar 10 segundos"
                   className={`${enPC ? 'w-11 h-11' : 'w-14 h-14 lg:w-11 [@media(orientation:landscape)_and_(max-height:500px)]:w-11 lg:h-11 [@media(orientation:landscape)_and_(max-height:500px)]:h-11'} rounded-full border border-outline-variant text-muted flex items-center justify-center disabled:opacity-60`}>
-                  <RotateCw size={20} />
+                  <RotateCw size={ICONO.md} />
                 </button>
               </div>
             </div>
@@ -458,10 +460,10 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
             {ladoALado && fase !== 'pregunta' && filaInfo('pb-3 mb-3 border-b border-outline-variant')}
             {yt.error != null ? (
               <div className="space-y-3 text-center">
-                <AlertTriangle size={28} className="mx-auto text-amber-600" />
+                <AlertTriangle size={ICONO.lg} className="mx-auto text-amber-600" />
                 <p className="text-sm text-on-surface">{mensajeErrorYouTube(yt.error)}</p>
                 <p className="text-sm text-muted">Tu avance está guardado. Puedes intentar de nuevo o avisarle a tu maestro.</p>
-                <button type="button" onClick={yt.reintentar} className="w-full min-h-[3.25rem] bg-accent text-white font-semibold rounded-full">Intentar de nuevo</button>
+                <Button fullWidth className="min-h-[3.25rem]" onClick={yt.reintentar}>Intentar de nuevo</Button>
               </div>
             ) : fase === 'pregunta' && activa ? (
               <div className="space-y-3">
@@ -472,16 +474,15 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
                   <p className="text-sm font-semibold text-amber-900 bg-amber-100 rounded-card px-3 py-2">PENDIENTE · todavía no está aprobada ni publicada. Los alumnos no la verán hasta que la apruebes.</p>
                 )}
                 {activa.imagenUrl && (
-                  <img src={activa.imagenUrl} alt="" className="w-full max-h-56 object-contain rounded border border-outline-variant" />
+                  <img src={activa.imagenUrl} alt="" className="w-full max-h-56 object-contain rounded-card border border-outline-variant" />
                 )}
                 <p className={`${enPC ? 'text-lg' : 'text-base'} font-medium text-on-surface break-words`}>{activa.enunciado}</p>
                 <PreguntaRespuesta
                   pregunta={activa} respuesta={respuestas[activa.id]} otraTexto={otraTextos[activa.id]}
                   onSelectOpcion={onSelectOpcion} onTextoChange={onTextoChange} onOtraTextoChange={onOtraTextoChange} />
-                <button type="button" onClick={continuar}
-                  className="w-full min-h-[3.25rem] flex items-center justify-center gap-1 bg-accent text-white font-semibold rounded-full">
-                  Continuar <ChevronRight size={18} />
-                </button>
+                <Button fullWidth className="min-h-[3.25rem]" onClick={continuar}>
+                  Continuar <ChevronRight size={ICONO.md} />
+                </Button>
                 <p className="text-xs text-hint text-center">
                   {revision ? 'Vista previa: puedes continuar sin responder. Lo que contestes aquí no se guarda.' : 'Responde para seguir viendo el video.'}
                 </p>
@@ -490,9 +491,9 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
               <div className="space-y-3">
                 <h2 className="text-base font-bold text-on-surface">Fin de la vista previa</h2>
                 <p className="text-sm text-muted">Así termina la actividad para el estudiante. Aquí no se entrega nada ni se guarda ninguna respuesta.</p>
-                <button type="button" onClick={alternarReproduccion} className="w-full min-h-[3.25rem] flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-full">
-                  <RotateCcw size={18} /> Repetir desde el inicio
-                </button>
+                <Button fullWidth icon={RotateCcw} className="min-h-[3.25rem]" onClick={alternarReproduccion}>
+                   Repetir desde el inicio
+                </Button>
                 <button type="button" onClick={onFinalizar} className="w-full min-h-[2.75rem] text-sm text-accent font-medium">Volver a la configuración</button>
               </div>
             ) : fase === 'final' ? (
@@ -500,19 +501,18 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
                 <h2 className="text-base font-bold text-on-surface">¡Terminaste el video!</h2>
                 <ul className="space-y-1.5 text-sm">
                   <li className="flex items-center gap-2 text-on-surface">
-                    <CheckCircle2 size={18} className={resumen.pendientes === 0 ? 'text-emerald-600' : 'text-hint'} />
+                    <CheckCircle2 size={ICONO.md} className={resumen.pendientes === 0 ? 'text-emerald-600' : 'text-hint'} />
                     {resumen.contestadas}/{resumen.total} preguntas respondidas
                   </li>
                   <li className="flex items-center gap-2 text-on-surface">
-                    <CheckCircle2 size={18} className={videoCompletado(maxUI, duracion) ? 'text-emerald-600' : 'text-hint'} />
+                    <CheckCircle2 size={ICONO.md} className={videoCompletado(maxUI, duracion) ? 'text-emerald-600' : 'text-hint'} />
                     Video visto {visto} %
                   </li>
                 </ul>
-                <button type="button" onClick={entregar} disabled={finishing || !puedeEntregar}
-                  className="w-full min-h-[3.25rem] flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-full disabled:opacity-60">
-                  {finishing ? <Spinner size="sm" /> : <CheckCircle2 size={18} />}
+                <Button fullWidth icon={CheckCircle2} busy={finishing} className="min-h-[3.25rem]" onClick={entregar} disabled={finishing || !puedeEntregar}>
+                  
                   {finishing ? 'Entregando…' : 'Entregar'}
-                </button>
+                </Button>
                 <button type="button" onClick={alternarReproduccion} className="w-full min-h-[2.75rem] text-sm text-accent font-medium">
                   Repasar el video
                 </button>
@@ -537,13 +537,12 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
                   <p className="text-sm text-on-surface">No hay más preguntas. Termina el video para entregar.</p>
                 )}
                 {fase === 'listo' && (
-                  <button type="button" onClick={alternarReproduccion} disabled={!yt.listo}
-                    className="w-full min-h-[3.25rem] flex items-center justify-center gap-2 bg-accent text-white font-semibold rounded-full disabled:opacity-60">
-                    {yt.listo ? <Play size={20} /> : <Spinner size="sm" />}
+                  <Button fullWidth className="min-h-[3.25rem]" onClick={alternarReproduccion} disabled={!yt.listo}>
+                    {yt.listo ? <Play size={ICONO.md} /> : <Spinner size="sm" />}
                     {!yt.listo ? 'Cargando video…'
                       : yaEmpezo && reanud.pendiente ? 'Responder la pregunta pendiente'
                         : reanud.posicion > 0 ? `Continuar desde ${formatearTiempo(reanud.posicion)}` : 'Comenzar'}
-                  </button>
+                  </Button>
                 )}
               </div>
             )}

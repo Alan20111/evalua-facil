@@ -9,6 +9,8 @@ import { exportAnalisisResultadosPDF } from '../../utils/pdf'
 import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
 import { resolverNombresAnalisis } from '../../utils/resolverNombresAnalisis'
 import { resumenConfiabilidad } from '../../utils/confiabilidadAnalisis'
+import { Button, IconButton } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Pantalla de resultado de OP-10 (análisis de resultados con IA). El texto
 // que redacta la IA (resumen, patrones, señales de atención, recomendaciones)
@@ -122,9 +124,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
     <div className="fixed inset-0 z-[60] bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button type="button" onClick={onClose} aria-label="Volver" className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors flex-shrink-0">
-            <ArrowLeft size={22} />
-          </button>
+          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={onClose} />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-white/70 uppercase tracking-wide">Resultados</p>
             <h1 className="text-xl font-extrabold text-white truncate">Análisis con IA</h1>
@@ -133,7 +133,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
             <button type="button" onClick={guardarCambios} disabled={!sinGuardar || guardando}
               data-tooltip="Guardar las correcciones que hiciste a este análisis"
               className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded transition-colors disabled:opacity-60">
-              {guardando ? <Spinner size="sm" /> : <Save size={14} />}
+              {guardando ? <Spinner size="sm" /> : <Save size={ICONO.xs} />}
               {guardando ? 'Guardando…' : sinGuardar ? 'Guardar' : 'Guardado'}
             </button>
           )}
@@ -141,7 +141,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
           <button type="button" onClick={handleDescargarPDF} disabled={descargando}
             data-tooltip="Descargar este análisis en PDF"
             className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded transition-colors disabled:opacity-60">
-            {descargando ? <Spinner size="sm" /> : <FileText size={14} />}
+            {descargando ? <Spinner size="sm" /> : <FileText size={ICONO.xs} />}
             {descargando ? 'Generando…' : 'PDF'}
           </button>
           )}
@@ -150,7 +150,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-3">
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
-          <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <Sparkles size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800">
             <span className="font-semibold">Asistente IA. </span>
             Este análisis fue generado con inteligencia artificial. Puede contener errores.
@@ -201,7 +201,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
             {resultado.reactivosDificiles?.length > 0 && (
               <div className="bg-surface-card rounded-card shadow-card p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-red-700 mb-2 flex items-center gap-1.5">
-                  <TrendingDown size={14} /> Dato — mayor dificultad
+                  <TrendingDown size={ICONO.xs} /> Dato — mayor dificultad
                 </p>
                 <ul className="space-y-2">
                   {resultado.reactivosDificiles.map((r) => (
@@ -216,7 +216,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
             {resultado.reactivosFuertes?.length > 0 && (
               <div className="bg-surface-card rounded-card shadow-card p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-emerald-700 mb-2 flex items-center gap-1.5">
-                  <TrendingUp size={14} /> Dato — mejor desempeño
+                  <TrendingUp size={ICONO.xs} /> Dato — mejor desempeño
                 </p>
                 <ul className="space-y-2">
                   {resultado.reactivosFuertes.map((r) => (
@@ -251,7 +251,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
 
         <div className="bg-surface-card rounded-card shadow-card p-4 space-y-2">
           <p className="text-sm font-bold uppercase tracking-wide text-amber-700 flex items-center gap-1.5">
-            <AlertTriangle size={14} /> Estudiantes que podrían requerir atención — señal, no diagnóstico
+            <AlertTriangle size={ICONO.xs} /> Estudiantes que podrían requerir atención — señal, no diagnóstico
           </p>
           {editado.estudiantesAtencion?.length > 0 ? (
             <ul className="space-y-1.5">
@@ -270,7 +270,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
         {editado.recomendaciones?.length > 0 && (
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-2">
             <p className="text-xs font-bold uppercase tracking-wide text-accent flex items-center gap-1.5">
-              <Lightbulb size={14} /> Recomendaciones
+              <Lightbulb size={ICONO.xs} /> Recomendaciones
             </p>
             <ul className="list-disc pl-5 space-y-1">
               {editado.recomendaciones.map((r, i) => (
@@ -282,10 +282,9 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
           </div>
         )}
 
-        <button type="button" onClick={onClose}
-          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-full hover:bg-surface-container transition-colors">
+        <Button variant="secondary" fullWidth onClick={onClose}>
           Cerrar
-        </button>
+        </Button>
         <div className="h-6 safe-bottom" />
       </div>
     </div>

@@ -2,8 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { X, Check } from 'lucide-react'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { IS_NATIVE_APP } from '../utils/platform'
-import { Skeleton, Button } from './ui'
-import { ICONO } from '../config/iconos'
+import { Skeleton, Button, IconButton } from './ui'
 
 // Pedido explícito: al elegir una foto de perfil (docente o alumno), poder
 // acercar/alejar con la rueda del mouse y que solo se guarde lo que se ve
@@ -159,7 +158,7 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
       <div className="ef-nodrag relative bg-surface-card rounded-card shadow-2xl p-4 w-full max-w-sm">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-on-surface">Ajusta tu foto</h3>
-          <button type="button" onClick={onCancel} aria-label="Cancelar" className="p-2 text-hint hover:text-muted rounded-full"><X size={ICONO.md} /></button>
+          <IconButton icon={X} label="Cancelar" tooltip={false} onClick={onCancel} />
         </div>
         <p className="text-xs text-muted mb-3 text-center">
           {IS_NATIVE_APP ? 'Pellizca para alejar o acercar · arrastra para mover' : 'Rueda del mouse para acercar/alejar · arrastra para mover'}

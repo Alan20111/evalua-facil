@@ -13,7 +13,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { getEnrollments } from '../../utils/studentLookup'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { capitalizarNombre } from '../../utils/nombres'
-import { SkeletonForm, Switch } from '../../components/ui'
+import { SkeletonForm, Switch, IconButton } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
 
 // Pantalla completa (no usa StudentLayout — mismo patrón que EvaluacionRunner:
@@ -204,14 +204,7 @@ export default function NotificationSettings() {
   return (
     <div className="fixed inset-0 z-50 bg-surface overflow-y-auto">
       <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10 flex items-center gap-3 safe-top">
-        <button
-          type="button"
-          onClick={goBack}
-          className="p-2 -ml-2 hover:bg-white/10 rounded-full flex-shrink-0 transition-colors"
-          aria-label="Regresar"
-        >
-          <ArrowLeft size={ICONO.md} />
-        </button>
+        <IconButton icon={ArrowLeft} label="Regresar" tooltip={false} className="-ml-2" onClick={goBack} />
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold truncate">Notificaciones</h1>
           <p className="text-sm text-white/60 truncate">{firstName}</p>

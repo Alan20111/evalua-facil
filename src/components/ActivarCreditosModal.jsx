@@ -4,10 +4,10 @@
 // (functions/index.js → activarCreditosBienvenida, vía useCreditosIA).
 import { useState } from 'react'
 import { useToast } from './Toast'
-import Spinner from './Spinner'
 import Modal from './ui/Modal'
 import { useCreditosIA } from '../hooks/useCreditosIA'
 import { Gift } from 'lucide-react'
+import { Button } from './ui'
 
 export default function ActivarCreditosModal({ open, onClose, onSuccess }) {
   const toast = useToast()
@@ -41,15 +41,9 @@ export default function ActivarCreditosModal({ open, onClose, onSuccess }) {
         <p className="text-sm text-muted">
           Al consumirlos podrás comprar más créditos para seguir utilizando la IA.
         </p>
-        <button
-          type="button"
-          onClick={activar}
-          disabled={activando}
-          className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-        >
-          {activando ? <Spinner size="sm" /> : null}
+        <Button type="button" fullWidth busy={activando} onClick={activar}>
           {activando ? 'Activando…' : 'Activar mis 30 créditos'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

@@ -1,6 +1,7 @@
 import { Check, X } from 'lucide-react'
 import { valorNivel, esCotejo, COTEJO_NIVEL, RUBRICA_TOTAL } from '../../utils/rubrica'
 import ScrollHintX from '../ui/ScrollHintX'
+import { ICONO } from '../../config/iconos'
 
 // Tabla presentacional de una LISTA DE COTEJO — 3 columnas (Num, Criterio,
 // Nivel de desempeño con sus puntos). Si viene `seleccion` (ya calificado),
@@ -38,7 +39,7 @@ function CotejoTable({ rubrica, seleccion, compact = false }) {
                 <td className="border border-outline-variant text-center align-middle px-2 py-2">
                   {graded ? (
                     <span className={`inline-flex items-center gap-1 text-sm font-bold ${cumple ? 'text-emerald-600' : 'text-red-500'}`}>
-                      {cumple ? <Check size={15} /> : <X size={15} />}
+                      {cumple ? <Check size={ICONO.sm} /> : <X size={ICONO.sm} />}
                       {cumple ? `${c.puntos?.[0]} pts` : '0 pts'}
                     </span>
                   ) : (

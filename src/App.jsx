@@ -21,6 +21,7 @@ import TeacherLogin from './pages/teacher/Login'
 import StudentLogin from './pages/student/Login'
 
 import { docenteSinEscuela } from './utils/escuela'
+import { Button } from './components/ui'
 
 // Cada página es su propio archivo de JS y se descarga al entrar a ella
 // (antes todo iba en un solo paquete de 4 MB / 1.1 MB comprimido: en un
@@ -131,13 +132,7 @@ function ProfileErrorScreen() {
           No pudimos conectar con el servidor.<br />
           Revisa tu conexión e intenta de nuevo.
         </p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors"
-        >
-          Recargar
-        </button>
+        <Button onClick={() => window.location.reload()}>Recargar</Button>
       </div>
     </div>
   )

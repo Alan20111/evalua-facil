@@ -12,6 +12,7 @@ import { useToast } from '../Toast'
 import { MAX_FUENTES, MAX_FUENTE_BYTES, FUENTES_ACCEPT } from '../../utils/fuentesIA'
 import { esMismaFuente } from '../../utils/fuentesAsignatura'
 import { DOCUMENTOS_VISUALES } from '../../utils/limiteDocumentosVisuales'
+import { ICONO } from '../../config/iconos'
 
 // Un elemento de `files` es un File nuevo por subir, o una referencia
 // { nombre, storedUrl, stored: true } que reutiliza una fuente ya guardada en
@@ -66,27 +67,27 @@ export default function FuentesIAInput({
         automáticamente — aquí puedes agregar hasta 3 documentos extra (PDF o Word) solo para esta operación.
       </p>
       {mostrarLimiteVisual && (
-        <div role="note" className="rounded border border-outline-variant bg-surface-container px-2.5 py-2 mb-1.5">
+        <div role="note" className="rounded-card border border-outline-variant bg-surface-container px-2.5 py-2 mb-1.5">
           <p className="text-sm font-semibold text-on-surface">Documentos visuales: máximo {maxVisual} páginas</p>
         </div>
       )}
       <div className="space-y-1.5">
         {files.map((f, i) => (
-          <div key={`${nombreDe(f)}-${i}`} className="flex items-center gap-2 px-2.5 py-1.5 rounded border border-outline-variant bg-surface text-sm">
+          <div key={`${nombreDe(f)}-${i}`} className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-outline-variant bg-surface text-sm">
             {f.stored
-              ? <RefreshCw size={14} className="text-accent flex-shrink-0" aria-label="Fuente reutilizada" />
-              : <Paperclip size={14} className="text-muted flex-shrink-0" />}
+              ? <RefreshCw size={ICONO.xs} className="text-accent flex-shrink-0" aria-label="Fuente reutilizada" />
+              : <Paperclip size={ICONO.xs} className="text-muted flex-shrink-0" />}
             <span className="flex-1 truncate">{nombreDe(f)}</span>
             {f.stored && <span className="text-xs text-accent flex-shrink-0">Ya guardada</span>}
             <button type="button" onClick={() => removeArchivo(i)} disabled={disabled}
               className="p-0.5 text-muted hover:text-red-500" aria-label={`Quitar ${nombreDe(f)}`}>
-              <Trash2 size={14} />
+              <Trash2 size={ICONO.xs} />
             </button>
           </div>
         ))}
         {files.length < MAX_FUENTES && (
-          <label className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded border border-dashed border-outline-variant text-sm text-accent cursor-pointer hover:bg-[var(--accent-tint)]">
-            <Paperclip size={14} /> Agregar archivo
+          <label className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-full border border-dashed border-outline-variant text-sm text-accent cursor-pointer hover:bg-[var(--accent-tint)]">
+            <Paperclip size={ICONO.xs} /> Agregar archivo
             <input type="file" accept={FUENTES_ACCEPT} className="hidden" disabled={disabled}
               onChange={(e) => { if (e.target.files.length) addArchivos(Array.from(e.target.files)); e.target.value = '' }} />
           </label>

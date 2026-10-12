@@ -164,7 +164,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
                 <Button variant="secondary" fullWidth className="text-left" onClick={() => chooseSimilar(c)} disabled={saving}
                  >
                   <p className="text-sm font-medium text-on-surface leading-tight">{c.nombre}</p>
-                  <p className="text-sm text-slate-500 mt-0.5">
+                  <p className="text-sm text-muted mt-0.5">
                     {[c.claveSEP, [c.municipio, c.estado].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
                   </p>
                 </Button>
@@ -184,8 +184,8 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
           <p className="text-sm text-muted">¿Confirmas que la escuela a agregar es esta?</p>
           <div className="bg-surface rounded p-3 border border-outline-variant space-y-1">
             <p className="text-sm font-semibold text-on-surface">{customName.trim()}</p>
-            {customCCT.trim() && <p className="text-sm text-slate-500">CCT: {customCCT.trim()}</p>}
-            <p className="text-sm text-slate-500">{customCity.trim()}, {customState.trim()}</p>
+            {customCCT.trim() && <p className="text-sm text-muted">CCT: {customCCT.trim()}</p>}
+            <p className="text-sm text-muted">{customCity.trim()}, {customState.trim()}</p>
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={() => setCustomStep(similares.length ? 'similar' : 'form')} disabled={saving} className={btnSec}>Volver</button>
@@ -207,7 +207,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
           />
           <div>
             <label htmlFor="escuela-cct" className="block text-sm font-medium text-muted mb-1">
-              Clave del centro de trabajo (CCT) <span className="text-slate-500 font-normal text-xs">(opcional)</span>
+              Clave del centro de trabajo (CCT) <span className="text-muted font-normal text-xs">(opcional)</span>
             </label>
             <Input
               id="escuela-cct"
@@ -247,7 +247,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
             <SearchInput value={search} onChange={setSearch} etiqueta="Nombre, CCT o municipio…" />
           </div>
           {!search.trim() ? (
-            <p className="py-8 text-center text-sm text-slate-500">
+            <p className="py-8 text-center text-sm text-muted">
               Escribe el nombre de tu escuela, su municipio o su clave (CCT) para buscarla.
             </p>
           ) : catalogLoading ? (
@@ -255,7 +255,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
           ) : (
             <ul className="max-h-[50dvh] overflow-y-auto divide-y divide-slate-100 -mx-4 sm:-mx-5">
               {filteredPlanteles.length === 0 && filteredCustomSchools.length === 0 && (
-                <li className="text-center text-slate-500 text-sm py-10">Sin resultados</li>
+                <li className="text-center text-muted text-sm py-10">Sin resultados</li>
               )}
               {filteredCustomSchools.map((s) => (
                 <li key={s.id}>
@@ -263,7 +263,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
                     className="w-full text-left px-4 sm:px-5 py-2.5 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                     <p className="text-sm font-medium text-on-surface leading-tight">{s.nombre}</p>
                     {(s.claveSEP || s.municipio || s.estado) && (
-                      <p className="text-sm text-slate-500 mt-0.5">
+                      <p className="text-sm text-muted mt-0.5">
                         {[s.claveSEP, [s.municipio, s.estado].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
                       </p>
                     )}
@@ -275,7 +275,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
                   <button type="button" onClick={() => onSelect(p)} disabled={saving}
                     className="w-full text-left px-4 sm:px-5 py-2.5 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                     <p className="text-sm font-medium text-on-surface leading-tight">{p.short || p.nombre}</p>
-                    <p className="text-sm text-slate-500 mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
+                    <p className="text-sm text-muted mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
                   </button>
                 </li>
               ))}

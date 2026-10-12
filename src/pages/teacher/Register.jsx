@@ -268,7 +268,7 @@ export default function Register() {
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-outline-variant" />
-            <span className="text-sm text-slate-500">o</span>
+            <span className="text-sm text-muted">o</span>
             <div className="flex-1 h-px bg-outline-variant" />
           </div>
 

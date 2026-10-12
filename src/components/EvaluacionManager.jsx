@@ -61,7 +61,8 @@ import { useBackHandler } from '../hooks/useBackHandler'
 import useTelefonoWeb from '../hooks/useTelefonoWeb'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { formatHora12FromDate } from '../utils/formatHora'
-import { SkeletonList } from './ui'
+import { SkeletonList, Input, Button, IconButton } from './ui'
+import { ICONO } from '../config/iconos'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -144,27 +145,23 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
             </>
           )}
           {idx >= 2 && (
-            <button type="button" aria-label={`Quitar opción ${String.fromCharCode(65 + idx)}`}
-              onClick={() => {
+            <IconButton icon={X} label={`Quitar opción ${String.fromCharCode(65 + idx)}`} tooltip={false} onClick={() => {
                 const next = opciones.filter((x) => x.id !== o.id)
                 onChange(next)
                 if (respuestaCorrecta === o.id) onChangeCorrecta(next.find((x) => !x.esOtra)?.id ?? null)
-              }}
-              className="p-2 text-hint hover:text-error rounded-full flex-shrink-0">
-              <X size={16} />
-            </button>
+              }} />
           )}
         </div>
       ))}
       <div className="flex gap-3 pt-0.5">
         <button type="button" onClick={() => onChange([...opciones, makeOption()])}
           className="text-xs font-medium text-accent hover:underline flex items-center gap-1">
-          <Plus size={13} /> Agregar opción
+          <Plus size={ICONO.xs} /> Agregar opción
         </button>
         {!opciones.some((o) => o.esOtra) && (
           <button type="button" onClick={() => onChange([...opciones, makeOption('Otra', true)])}
             className="text-xs font-medium text-accent hover:underline flex items-center gap-1">
-            <Plus size={13} /> Agregar opción Otra
+            <Plus size={ICONO.xs} /> Agregar opción Otra
           </button>
         )}
       </div>
@@ -1381,9 +1378,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       <div className="px-4 py-2">
         <div className={IS_NATIVE_APP ? '' : TEACHER_CONTAINER_NARROW}>
           <div className="flex items-center gap-2">
-            <button type="button" aria-label="Volver" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} className="p-2 -ml-2 text-hint hover:text-muted rounded-full">
-              <ArrowLeft size={22} />
-            </button>
+            <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} />
             <div className="flex-1 min-w-0">
               {IS_NATIVE_APP ? (
                 <>
@@ -1404,15 +1399,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 {/* Mismo botón editar que un entregable: lápiz inmediato al nombre.
                     Abre el MISMO editor completo que "editar" desde el parcial.
                     Disponible en web y app. */}
-                <button
-                  type="button"
-                  onClick={() => setShowEvalEditor(true)}
-                  data-tooltip="Editar actividad"
-                  aria-label="Editar actividad"
-                  className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0"
-                >
-                  <Pencil size={18} />
-                </button>
+                <IconButton icon={Pencil} label="Editar actividad" tooltip={false} onClick={() => setShowEvalEditor(true)}
+                  data-tooltip="Editar actividad" />
               </div>
               <p className="text-base font-medium text-muted">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
             </div>
@@ -1424,17 +1412,17 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             <div className="flex items-center gap-3 mt-2 flex-wrap">
               {activity.publishedAt && (
                 <span data-tooltip="Publicado" className="text-sm text-emerald-600 flex items-center gap-1">
-                  <Clock size={15} /> {formatPublishAt(activity.publishedAt)}
+                  <Clock size={ICONO.sm} /> {formatPublishAt(activity.publishedAt)}
                 </span>
               )}
               {activity.publishAt && (
                 <span data-tooltip="Publicación programada" className="text-sm text-accent flex items-center gap-1">
-                  <Clock size={15} /> {formatPublishAt(activity.publishAt)}
+                  <Clock size={ICONO.sm} /> {formatPublishAt(activity.publishAt)}
                 </span>
               )}
               {activity.fechaLimite && (
                 <span data-tooltip="Cierre" className="text-sm text-amber-600 flex items-center gap-1">
-                  <Clock size={15} /> {formatDeadline(activity.fechaLimite)}
+                  <Clock size={ICONO.sm} /> {formatDeadline(activity.fechaLimite)}
                 </span>
               )}
             </div>
@@ -1443,7 +1431,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full">
               {TABS.map((t) => (
                 <button type="button" key={t.key} onClick={() => { setTab(t.key); if (t.key === 'preguntas') loadBanco() }}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-full transition-colors ${tab === t.key ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-full transition-colors min-h-control-sm ${tab === t.key ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
                   {t.label}
                 </button>
               ))}
@@ -1464,14 +1452,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   </span>
                   {/* Repartir parejo — pedido explícito. */}
                   {preguntas.length > 1 && Math.abs(ponderacionUsada - 10) >= 0.01 && (
-                    <button
-                      type="button"
+                    <Button variant="outline-accent" icon={Scale}
                       onClick={handleRepartirParejo}
-                      disabled={saving}
-                      className="flex items-center gap-1.5 py-2 px-3 rounded-full border border-accent text-accent text-xs font-medium hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
-                    >
-                      <Scale size={14} /> Repartir parejo
-                    </button>
+                      disabled={saving}>
+                       Repartir parejo
+                    </Button>
                   )}
                 </div>
               )
@@ -1520,7 +1505,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           options={TIPOS_PREGUNTA}
                         />
                         <textarea value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
-                          rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                          rows={2} required className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                         {preguntaEditForm.tipo === 'opcion_multiple' && (
                           <OpcionesEditor
                             opciones={preguntaEditForm.opciones}
@@ -1545,25 +1530,25 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         <div>
                           <label htmlFor={`preg-edit-retro-${p.id}`} className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
                           <textarea id={`preg-edit-retro-${p.id}`} value={preguntaEditForm.retroalimentacion} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
-                            rows={2} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                            rows={2} className="w-full px-3 py-2 rounded-card border border-outline-variant text-sm bg-surface" />
                         </div>
                         <div>
                           <label htmlFor={`preg-edit-pond-${p.id}`} className="block text-sm font-medium text-muted mb-1">Ponderación</label>
-                          <input id={`preg-edit-pond-${p.id}`} type="number" min="0.1" step="0.1" value={preguntaEditForm.ponderacion}
+                          <Input id={`preg-edit-pond-${p.id}`} type="number" min="0.1" step="0.1" value={preguntaEditForm.ponderacion}
                             onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                            className="w-full px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
+                            className="py-1.5" />
                         </div>
                         <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
-                          <ImageIcon size={16} /> Cambiar imagen (opcional)
+                          <ImageIcon size={ICONO.sm} /> Cambiar imagen (opcional)
                           <input type="file" accept="image/*" className="hidden"
                             onChange={(e) => setPreguntaEditForm((f) => ({ ...f, imagenFile: e.target.files?.[0] || null }))} />
                           {preguntaEditForm.imagenFile && <span className="text-xs text-accent">{preguntaEditForm.imagenFile.name}</span>}
                         </label>
                         <div className="flex gap-2 pt-1">
                           <button type="button" onClick={() => { setEditingPreguntaId(null); setGlowId(p.id) }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
-                          <button type="submit" disabled={saving || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current} className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60">
+                          <Button className="flex-1" type="submit" disabled={saving || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current}>
                             {saving ? 'Guardando…' : 'Guardar cambios'}
-                          </button>
+                          </Button>
                         </div>
                       </form>
                     ) : (
@@ -1576,16 +1561,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             <p className="text-sm font-medium text-on-surface">{numeroDePregunta[p.id]}. {p.enunciado}</p>
                           </div>
                           <div className="flex gap-0.5 flex-shrink-0">
-                            <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
-                              className="p-2 text-hint hover:text-accent disabled:opacity-40 rounded-full"><ChevronUp size={15} /></button>
-                            <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
-                              className="p-2 text-hint hover:text-accent disabled:opacity-40 rounded-full"><ChevronDown size={15} /></button>
-                            <button type="button" aria-label="Editar pregunta" onClick={() => openEditPregunta(p)} className="p-2 text-hint hover:text-accent rounded-full"><Pencil size={15} /></button>
-                            <button type="button" aria-label="Duplicar pregunta" onClick={() => handleDuplicatePregunta(p)} className="p-2 text-hint hover:text-accent rounded-full"><Copy size={15} /></button>
-                            <button type="button" aria-label="Eliminar pregunta" onClick={() => handleDeletePregunta(p.id)} className="p-2 text-hint hover:text-error rounded-full"><Trash2 size={15} /></button>
+                            <IconButton icon={ChevronUp} label="Mover arriba" tooltip={false} onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id} />
+                            <IconButton icon={ChevronDown} label="Mover abajo" tooltip={false} onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id} />
+                            <IconButton icon={Pencil} label="Editar pregunta" tooltip={false} onClick={() => openEditPregunta(p)} />
+                            <IconButton icon={Copy} label="Duplicar pregunta" tooltip={false} onClick={() => handleDuplicatePregunta(p)} />
+                            <IconButton icon={Trash2} label="Eliminar pregunta" tooltip={false} onClick={() => handleDeletePregunta(p.id)} />
                           </div>
                         </div>
-                        {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-32 rounded border border-outline-variant" />}
+                        {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-32 rounded-card border border-outline-variant" />}
                         {p.opciones && (
                           <div className="mt-1 grid grid-cols-2 gap-1">
                             {p.opciones.map((o) => (
@@ -1625,12 +1608,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             )}
             {!showPreguntaForm ? (
               <div className="flex gap-2">
-                <button type="button" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }} className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-accent text-white text-sm font-medium rounded-full">
-                  <Plus size={17} /> Agregar pregunta
-                </button>
-                <button type="button" onClick={() => { setShowBanco(true); setSelectedBancoIds(new Set()) }} className="flex items-center justify-center gap-1 px-3 py-2 border border-accent text-accent text-sm font-medium rounded-full">
-                  <Library size={17} /> Mi banco
-                </button>
+                <Button icon={Plus} className="flex-1" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }}>
+                   Agregar pregunta
+                </Button>
+                <Button variant="outline-accent" icon={Library} onClick={() => { setShowBanco(true); setSelectedBancoIds(new Set()) }}>
+                   Mi banco
+                </Button>
               </div>
             ) : (
               <form onSubmit={handleAddPregunta} className="rounded-card shadow-card p-3 space-y-2"
@@ -1653,11 +1636,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   <label htmlFor="preg-nueva-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
                   <textarea id="preg-nueva-enunciado" value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
                     rows={2} required
-                    className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                    className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 </div>
                 <div>
                   <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
-                    <ImageIcon size={16} /> Imagen opcional
+                    <ImageIcon size={ICONO.sm} /> Imagen opcional
                     <input type="file" accept="image/*" className="hidden"
                       onChange={(e) => setPreguntaForm((f) => ({ ...f, imagenFile: e.target.files?.[0] || null }))} />
                     <span className="text-xs text-accent">{preguntaForm.imagenFile ? preguntaForm.imagenFile.name : 'Elegir archivo'}</span>
@@ -1698,30 +1681,28 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   <label htmlFor="preg-nueva-retro" className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
                   <textarea id="preg-nueva-retro" value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
                     rows={2}
-                    className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                    className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 </div>
-                <div>
-                  <label htmlFor="preg-nueva-pond" className="block text-sm font-medium text-muted mb-1">Ponderación</label>
-                  <input id="preg-nueva-pond" type="number" min="0.1" step="0.1" value={preguntaForm.ponderacion}
-                    onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                    className="w-full px-3 py-1.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
-                </div>
+                <Input
+                  label="Ponderación" id="preg-nueva-pond" type="number" min="0.1" step="0.1" value={preguntaForm.ponderacion}
+                  onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
+                  className="py-1.5" />
                 <label className="flex items-center gap-2 text-sm text-muted">
                   <input type="checkbox" checked={preguntaForm.guardarEnBanco}
                     onChange={(e) => setPreguntaForm((f) => ({ ...f, guardarEnBanco: e.target.checked }))} className="accent-[var(--accent)]" />
                   Guardar también en mi banco de reactivos
                 </label>
                 {preguntaForm.guardarEnBanco && (
-                  <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
+                  <Input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
                     required aria-label="Tema (obligatorio, ej. Fracciones)"
-                    className="w-full px-3 py-1.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                    className="py-1.5" />
                 )}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(emptyPregunta()) }}
                     className="flex-1 py-2 text-sm text-muted">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60">
+                  <Button className="flex-1" type="submit" disabled={saving}>
                     {saving ? 'Guardando…' : 'Agregar'}
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
@@ -1760,14 +1741,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       <button type="button" onClick={() => setSelectedBancoIds(new Set())} className="text-xs text-muted px-2 py-1.5">
                         Quitar selección
                       </button>
-                      <button
-                        type="button"
+                      <Button
                         disabled={saving}
-                        onClick={() => handleAddFromBancoMultiple(bancoFiltrado.filter((b) => selectedBancoIds.has(b.id)))}
-                        className="text-xs font-medium bg-accent text-white rounded-full px-3 py-2 disabled:opacity-60"
-                      >
+                        onClick={() => handleAddFromBancoMultiple(bancoFiltrado.filter((b) => selectedBancoIds.has(b.id)))}>
                         Agregar {selectedBancoIds.size} a la evaluación
-                      </button>
+                      </Button>
                     </div>
                   )}
                   {bancoFiltrado.length === 0 ? (
@@ -1777,7 +1755,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   ) : (
                     <div className="space-y-1.5">
                       {bancoFiltrado.map((item) => (
-                        <div key={item.id} id={`banco-item-${item.id}`} className="rounded border p-2"
+                        <div key={item.id} id={`banco-item-${item.id}`} className="rounded-card border p-2"
                           style={editingBancoId === item.id
                             ? { borderColor: 'var(--accent)', background: 'var(--accent-light)', borderWidth: 2 }
                             : glowId === item.id
@@ -1792,7 +1770,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 options={TIPOS_PREGUNTA}
                               />
                               <textarea value={bancoEditForm.enunciado} onChange={(e) => setBancoEditForm((f) => ({ ...f, enunciado: e.target.value }))}
-                                rows={2} className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                                rows={2} className="w-full px-2 py-1.5 rounded-card border border-outline-variant text-sm bg-surface" />
                               {bancoEditForm.tipo === 'opcion_multiple' && (
                                 <p className="text-xs text-muted">Marca el círculo de la respuesta correcta:</p>
                               )}
@@ -1821,8 +1799,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 aria-label="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded-full border border-outline-variant text-sm bg-surface" />
                               <div className="flex gap-2">
                                 <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
-                                <button type="button" onClick={() => handleSaveBancoEdit(item.id)} disabled={saving || JSON.stringify(bancoEditForm) === bancoEditSnap.current}
-                                  className="flex-1 py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60">Guardar</button>
+                                <Button className="flex-1" onClick={() => handleSaveBancoEdit(item.id)} disabled={saving || JSON.stringify(bancoEditForm) === bancoEditSnap.current}>Guardar</Button>
                               </div>
                             </div>
                           ) : (
@@ -1837,7 +1814,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 })}
                                 className="mt-0.5 flex-shrink-0 text-accent"
                               >
-                                {selectedBancoIds.has(item.id) ? <CheckSquare size={16} /> : <Square size={16} className="text-slate-300" />}
+                                {selectedBancoIds.has(item.id) ? <CheckSquare size={ICONO.sm} /> : <Square size={ICONO.sm} className="text-hint" />}
                               </button>
                               <button type="button" onClick={() => handleAddFromBanco(item)} disabled={saving}
                                 className="flex-1 text-left text-sm hover:text-accent transition-colors disabled:opacity-60">
@@ -1850,9 +1827,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 )}
                               </button>
                               <div className="flex gap-1 flex-shrink-0">
-                                <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-2 text-hint hover:text-accent rounded-full"><Pencil size={14} /></button>
-                                <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-2 text-hint hover:text-accent rounded-full"><Copy size={14} /></button>
-                                <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-2 text-hint hover:text-error rounded-full"><Trash2 size={14} /></button>
+                                <IconButton icon={Pencil} label="Editar" tooltip={false} onClick={() => openEditBanco(item)} />
+                                <IconButton icon={Copy} label="Duplicar" tooltip={false} onClick={() => handleDuplicateBancoItem(item)} />
+                                <IconButton icon={Trash2} label="Eliminar" tooltip={false} onClick={() => handleDeleteBancoItem(item.id)} />
                               </div>
                             </div>
                           )}
@@ -1860,8 +1837,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       ))}
                     </div>
                   )}
-                  <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }}
-                    className="w-full mt-3 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors">Cerrar</button>
+                  <Button fullWidth className="mt-3" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }}>Cerrar</Button>
                 </div>
               </div>
             )}
@@ -1908,8 +1884,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             {visibles.tiempoLimite && (
               <div>
                 <label htmlFor="config-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
-                <input id="config-tiempo" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
-                  onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
+                <Input id="config-tiempo" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
+                  onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} />
                 {esVideo && (
                   <p className="text-sm text-amber-700 mt-1">
                     Este video ya tiene un límite guardado. En un Video interactivo el cronómetro sigue corriendo
@@ -1918,11 +1894,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 )}
               </div>
             )}
-            <div>
-              <label htmlFor="config-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
-              <input id="config-intentos" type="number" min="1" value={configForm.intentosPermitidos ?? ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
-            </div>
+            <Input
+              label="Intentos permitidos" id="config-intentos" type="number" min="1" value={configForm.intentosPermitidos ?? ''}
+              onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} />
             {/* Multi-attempt policy only matters with more than one attempt — with a
                 single attempt "conservar la mejor/última" is noise (Don't Make Me Think). */}
             {configForm.intentosPermitidos !== 1 && (
@@ -1970,7 +1944,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               />
             </div>
             <button type="submit" disabled={savingConfig || JSON.stringify(configForm) === configSnap.current}
-              className={`w-full py-2.5 text-sm font-medium rounded-full disabled:opacity-60 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
+              className={`w-full py-2.5 text-sm font-medium rounded-full disabled:opacity-60 min-h-control ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
               {savingConfig ? 'Guardando…' : 'Guardar configuración'}
             </button>
           </form>
@@ -2003,10 +1977,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             {/* OP-10: solo aparece cuando hay entregas suficientes para un
                 análisis significativo — mismo umbral que valida el servidor. */}
             {Object.values(submissions).filter((s) => s.estadoEvaluacion === 'finalizado').length >= MIN_ENTREGAS_ANALISIS && (
-              <button type="button" onClick={() => setAnalisisConfirmando(true)}
-                className="w-full mb-3 flex items-center justify-center gap-1.5 py-2.5 text-sm border border-accent text-accent font-semibold rounded-full hover:bg-[var(--accent-tint)] transition-colors">
-                <Sparkles size={15} /> Analizar resultados con IA
-              </button>
+              <Button variant="outline-accent" fullWidth icon={Sparkles} className="mb-3" onClick={() => setAnalisisConfirmando(true)}>
+                 Analizar resultados con IA
+              </Button>
             )}
             {/* Bitácora de OP-10: ver un análisis anterior o descargar su PDF
                 es gratis; solo generar uno NUEVO cuesta créditos (botón de
@@ -2095,26 +2068,23 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xs text-muted flex-shrink-0">Descargar resultados:</span>
               {[['excel', 'Excel', FileSpreadsheet], ['pdf', 'PDF', FileText]].map(([kind, label, Icon]) => (
-                <button
+                <Button variant="outline-accent"
                   key={kind}
-                  type="button"
                   onClick={() => handleExportResultados(kind)}
                   disabled={exportingResultados != null}
                   data-tooltip={kind === 'excel'
                     ? 'Calificaciones, respuestas de cada estudiante y resumen por reactivo'
-                    : 'Resumen por reactivo: opción, respuestas y porcentaje'}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-accent text-accent text-xs font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
-                >
-                  {exportingResultados === kind ? <Spinner size="sm" /> : <Icon size={14} />}
+                    : 'Resumen por reactivo: opción, respuestas y porcentaje'}>
+                  {exportingResultados === kind ? <Spinner size="sm" /> : <Icon size={ICONO.xs} />}
                   {exportingResultados === kind ? 'Generando…' : label}
-                </button>
+                </Button>
               ))}
             </div>
             )}
             {configForm?.publicarResultados === 'manual' && !configForm.resultadosPublicados && (
-              <button type="button" onClick={handlePublicarResultados} className="w-full mb-3 py-2.5 bg-accent text-white text-sm font-medium rounded-full">
+              <Button fullWidth className="mb-3" onClick={handlePublicarResultados}>
                 Publicar resultados a tus estudiantes
-              </button>
+              </Button>
             )}
             {/* ── Entregas — same treatment as a regular activity ── */}
             {(() => {
@@ -2140,7 +2110,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       const pendIA = Object.values(iaSugerencias).reduce((n, m) => n + Object.keys(m).length, 0)
                       return pendIA > 0 ? (
                         <span className="block text-sm text-accent mt-0.5">
-                          <Sparkles size={11} className="inline mr-1" aria-hidden="true" />
+                          <Sparkles size={ICONO.xs} className="inline mr-1" aria-hidden="true" />
                           {pendIA} sugerencia{pendIA !== 1 ? 's' : ''} de IA pendiente{pendIA !== 1 ? 's' : ''} de aplicar — ábrelas al calificar, sin costo adicional.
                         </span>
                       ) : null
@@ -2150,15 +2120,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       pendientes con respuesta_corta o subir_archivo.
                       Estimación previa obligatoria; la IA solo sugiere. */}
                   {preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo)) && (
-                    <button
-                      type="button"
+                    <Button icon={Sparkles} className="flex-shrink-0"
                       onClick={contarRespuestasIA}
-                      disabled={iaContando || iaTrabajando}
-                      className="flex-shrink-0 px-3 py-2 bg-accent text-white text-xs font-semibold rounded-full hover:bg-accent-hover transition-colors flex items-center gap-1.5 disabled:opacity-60"
-                    >
-                      <Sparkles size={13} />
+                      disabled={iaContando || iaTrabajando}>
+                      
                       {iaContando ? 'Contando…' : iaTrabajando ? 'Trabajando…' : 'Sugerir con IA'}
-                    </button>
+                    </Button>
                   )}
                   <button
                     type="button"
@@ -2200,7 +2167,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <div className={IS_NATIVE_APP ? 'grid grid-cols-2 gap-1 bg-surface-container p-1 rounded-card' : 'flex gap-1 bg-surface-container p-1 rounded-full'}>
                   {FILTRO_TABS.map(([k, lbl]) => (
                     <button type="button" key={k} onClick={() => setFiltroResultados(k)}
-                      className={`${IS_NATIVE_APP ? '' : 'flex-1'} py-1.5 text-xs font-medium rounded-full transition-colors ${
+                      className={`min-h-control-sm ${IS_NATIVE_APP ? '' : 'flex-1'} py-1.5 text-xs font-medium rounded-full transition-colors ${
                         filtroResultados === k ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                       }`}>
                       {lbl} ({resultCounts[k]})
@@ -2222,7 +2189,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   los filtros y la búsqueda de arriba no se muevan de lugar. */}
               <div className="max-h-[60vh] overflow-y-auto">
               {visibles.length === 0 ? (
-                <p className="text-center text-hint text-sm py-8 flex items-center justify-center gap-2"><Users size={16} /> {students.length === 0 ? 'Sin estudiantes' : 'Sin estudiantes en esta categoría'}</p>
+                <p className="text-center text-hint text-sm py-8 flex items-center justify-center gap-2"><Users size={ICONO.sm} /> {students.length === 0 ? 'Sin estudiantes' : 'Sin estudiantes en esta categoría'}</p>
               ) : (
                 visibles.map((s, i) => {
                   const sub = submissions[s.id]
@@ -2252,11 +2219,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             estado === 'En proceso' ? 'bg-blue-100 text-blue-700' : 'bg-surface-container text-muted'
                           }`}>{estado}</span>
                         )}
-                        {IS_NATIVE_APP && hasExtension && <CalendarDays size={15} className="text-orange-400 flex-shrink-0" />}
+                        {IS_NATIVE_APP && hasExtension && <CalendarDays size={ICONO.sm} className="text-orange-400 flex-shrink-0" />}
                         {sub?.estadoEvaluacion === 'finalizado' && (
                           IS_NATIVE_APP ? (
                             <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5 flex-shrink-0">
-                              <Star size={14} /> {sub.calificacion}/{activity.maxCalif || 10}
+                              <Star size={ICONO.xs} /> {sub.calificacion}/{activity.maxCalif || 10}
                             </span>
                           ) : (
                             <span className="text-xs font-semibold text-on-surface flex-shrink-0">{sub.calificacion}/{activity.maxCalif || 10}</span>
@@ -2308,8 +2275,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           {IS_NATIVE_APP ? (
             <div className="flex items-center gap-2 px-3 py-2 bg-surface-card border-b border-outline-variant flex-shrink-0 safe-top">
               <button type="button" onClick={goBackFromReview} aria-label="Regresar"
-                className="p-2 -ml-1 text-muted hover:text-accent rounded flex-shrink-0 transition-colors">
-                <ArrowLeft size={20} />
+                className="size-control inline-flex items-center justify-center -ml-1 text-muted hover:text-accent rounded-full flex-shrink-0 transition-colors">
+                <ArrowLeft size={ICONO.md} />
               </button>
               <h3 className="text-sm font-semibold text-on-surface truncate flex-1 min-w-0">{activityLabel}{activity.nombre}</h3>
             </div>
@@ -2320,9 +2287,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <button
                   type="button"
                   onClick={goBackFromReview}
-                  className="flex items-center gap-1 p-2 -ml-2 mt-0.5 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
+                  className="flex items-center gap-1 size-control inline-flex justify-center -ml-2 mt-0.5 text-muted hover:text-accent rounded-full text-sm font-medium flex-shrink-0 transition-colors"
                 >
-                  <ArrowLeft size={20} /> Regresar
+                  <ArrowLeft size={ICONO.md} /> Regresar
                 </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -2352,17 +2319,17 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                       {activity.publishedAt && (
                         <span data-tooltip="Publicado" className="text-sm text-emerald-600 flex items-center gap-1">
-                          <Clock size={15} /> {formatPublishAt(activity.publishedAt)}
+                          <Clock size={ICONO.sm} /> {formatPublishAt(activity.publishedAt)}
                         </span>
                       )}
                       {activity.publishAt && (
                         <span data-tooltip="Publicación programada" className="text-sm text-accent flex items-center gap-1">
-                          <Clock size={15} /> {formatPublishAt(activity.publishAt)}
+                          <Clock size={ICONO.sm} /> {formatPublishAt(activity.publishAt)}
                         </span>
                       )}
                       {activity.fechaLimite && (
                         <span data-tooltip="Cierre" className="text-sm text-amber-600 flex items-center gap-1">
-                          <Clock size={15} /> {formatDeadline(activity.fechaLimite)}
+                          <Clock size={ICONO.sm} /> {formatDeadline(activity.fechaLimite)}
                         </span>
                       )}
                     </div>
@@ -2403,7 +2370,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       const sug = iaSugerencias[reviewing.submission?.id]?.[p.id]
                       const iaKey = `${reviewing.submission?.id}_${p.id}`
                       return (
-                        <div className="mt-1 p-3 rounded border border-accent-soft bg-[var(--accent-tint)] space-y-2">
+                        <div className="mt-1 p-3 rounded-card border border-accent-soft bg-[var(--accent-tint)] space-y-2">
                           {/* Botón individual: solo cuando no hay sugerencia y
                               la respuesta está pendiente de calificar. */}
                           {!sug && respuesta.puntosObtenidos == null && (
@@ -2414,15 +2381,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 disabled={iaIndividualTrabajando === iaKey}
                                 className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-accent border border-accent rounded hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
                               >
-                                <Sparkles size={12} />
+                                <Sparkles size={ICONO.xs} />
                                 {iaIndividualTrabajando === iaKey ? 'Generando…' : 'Sugerir con IA'}
                               </button>
                             </div>
                           )}
                           {sug && (
-                            <div className="p-2.5 rounded border border-accent-soft bg-surface-card space-y-1.5">
+                            <div className="p-2.5 rounded-card border border-accent-soft bg-surface-card space-y-1.5">
                               <div className="flex items-center gap-1.5">
-                                <Sparkles size={14} className="text-accent flex-shrink-0" />
+                                <Sparkles size={ICONO.xs} className="text-accent flex-shrink-0" />
                                 <p className="text-xs font-semibold text-accent">Sugerencia de IA — tú decides</p>
                                 <span className="ml-auto text-sm font-bold text-on-surface tabular-nums">{sug.puntos} / {p.ponderacion}</span>
                               </div>
@@ -2444,31 +2411,28 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               {sug.retroalimentacion && (
                                 <p className="text-xs text-muted italic">“{sug.retroalimentacion}”</p>
                               )}
-                              <button
-                                type="button"
+                              <Button variant="outline-accent" fullWidth
                                 onClick={() => {
                                   if (bloqueadoPorCierre()) return
                                   setGradeDrafts((d) => ({
                                     ...d,
                                     [p.id]: { puntos: String(sug.puntos), comentario: sug.retroalimentacion || '' },
                                   }))
-                                }}
-                                className="w-full py-2 border border-accent text-accent text-xs font-semibold rounded-full hover:bg-[var(--accent-medium)] transition-colors"
-                              >
+                                }}>
                                 Usar sugerencia (puedes editarla antes de guardar)
-                              </button>
+                              </Button>
                             </div>
                           )}
                           <div className="flex items-center gap-2 flex-wrap">
                             <label htmlFor={`grade-${p.id}`} className="text-sm font-medium text-on-surface">Puntos</label>
-                            <input
+                            <Input
                               id={`grade-${p.id}`}
                               type="number" min="0" max={p.ponderacion} step="0.1"
                               value={draft.puntos}
                               onChange={(e) => setGradeDrafts((d) => ({ ...d, [p.id]: { ...draft, puntos: e.target.value } }))}
                               readOnly={parcialCerrado}
                               data-tooltip={parcialCerrado ? mensajeParcialCerrado(activity?.parcial) : undefined}
-                              className="w-24 px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface-card read-only:opacity-60 read-only:cursor-not-allowed"
+                              className="w-24 py-1.5 bg-surface-card read-only:opacity-60 read-only:cursor-not-allowed"
                             />
                             <span className="text-sm text-muted">/ {p.ponderacion}</span>
                             {respuesta.puntosObtenidos == null && (
@@ -2480,17 +2444,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             onChange={(e) => setGradeDrafts((d) => ({ ...d, [p.id]: { ...draft, comentario: e.target.value } }))}
                             rows={2}
                             aria-label="Comentario para el estudiante (opcional)…"
-                            className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-card resize-none"
+                            className="w-full px-3 py-2 rounded-card border border-outline-variant text-sm bg-surface-card resize-none"
                           />
-                          <button
-                            type="button"
+                          <Button fullWidth busy={saving}
                             onClick={() => saveGrade(p)}
-                            disabled={saving || !dirty || (!parcialCerrado && draft.puntos === '')}
-                            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60 flex items-center justify-center gap-2"
-                          >
-                            {saving ? <Spinner size="sm" /> : null}
+                            disabled={saving || !dirty || (!parcialCerrado && draft.puntos === '')}>
+                            
                             {saving ? 'Guardando…' : parcialCerrado ? 'Guardar comentario' : 'Guardar puntos'}
-                          </button>
+                          </Button>
                         </div>
                       )
                     }}
@@ -2609,18 +2570,18 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       disabled={reviewProrrogaBloqueada}
                       data-tooltip={reviewProrrogaBloqueada ? MENSAJE_PRORROGA_CON_ENTREGA : 'Modificar fecha de entrega'}
                       className="h-9 pl-2 pr-3 rounded-full border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40">
-                      <CalendarDays size={17} />
+                      <CalendarDays size={ICONO.sm} />
                     </button>
                     <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setCancelConfirm({ student: st, sub }) }} aria-label="Anular la entrega" data-tooltip="Anular la entrega"
                       className={`h-9 pl-2 pr-3 rounded-full border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors ${done ? '' : 'invisible'}`}>
-                      <Trash2 size={17} />
+                      <Trash2 size={ICONO.sm} />
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
                   {/* Read-only obtained grade */}
-                  <div className="rounded border border-outline-variant p-3 text-center">
+                  <div className="rounded-card border border-outline-variant p-3 text-center">
                     <p className="text-sm font-medium text-muted">Calificación obtenida</p>
                     <p className="text-2xl font-bold text-on-surface">{done ? `${sub.calificacion}/${activity.maxCalif || 10}` : '—'}</p>
                   </div>
@@ -2628,7 +2589,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   {/* Anular la entrega actual */}
                   {done && (
                     <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setCancelConfirm({ student: st, sub }) }}
-                      className="w-full text-sm text-slate-500 hover:text-red-600 transition-colors py-1">
+                      className="w-full text-sm text-muted hover:text-red-600 transition-colors py-1">
                       Anular la entrega actual para este estudiante
                     </button>
                   )}
@@ -2637,29 +2598,28 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   {reviewProrrogaBloqueada ? (
                     <div className="text-center">
                       <button type="button" disabled
-                        className="w-full text-sm text-slate-500 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+                        className="w-full text-sm text-muted py-1 disabled:opacity-40 disabled:cursor-not-allowed">
                         Modificar fecha de entrega para este estudiante
                       </button>
                       <p className="text-xs text-hint">{MENSAJE_PRORROGA_CON_ENTREGA}</p>
                     </div>
                   ) : !extendMode ? (
                     <button type="button" onClick={() => { if (!bloqueadoPorCierre()) setExtendMode(true) }}
-                      className="w-full text-sm text-slate-500 hover:text-muted transition-colors py-1">
+                      className="w-full text-sm text-muted hover:text-muted transition-colors py-1">
                       Modificar fecha de entrega para este estudiante
                     </button>
                   ) : (
                     <div className="space-y-2 pt-1 border-t border-outline-variant">
-                      <p className="text-sm font-medium text-on-surface flex items-center gap-1.5"><CalendarDays size={15} className="text-accent" /> Nueva fecha y hora</p>
+                      <p className="text-sm font-medium text-on-surface flex items-center gap-1.5"><CalendarDays size={ICONO.sm} className="text-accent" /> Nueva fecha y hora</p>
                       <EFDateTimePicker mode="datetime" value={extendDate} onChange={setExtendDate} clearable={false} defaultTime="23:59" minDateTime={toIsoNow()} />
                       <textarea value={extendMotivo} onChange={(e) => setExtendMotivo(e.target.value)} rows={2}
                         aria-label="Motivo (opcional)…"
-                        className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none" />
+                        className="w-full px-3 py-2 rounded-card border border-outline-variant text-sm bg-surface resize-none" />
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">Cancelar</button>
-                        <button type="button" onClick={saveReviewExtension} disabled={!extendDate || savingExtension || reviewExtensionUnchanged}
-                          className="flex-1 py-2.5 rounded-full bg-accent text-white text-sm font-semibold disabled:opacity-60 transition-colors">
+                        <Button variant="secondary" className="flex-1" onClick={() => setExtendMode(false)}>Cancelar</Button>
+                        <Button className="flex-1" onClick={saveReviewExtension} disabled={!extendDate || savingExtension || reviewExtensionUnchanged}>
                           {savingExtension ? 'Guardando…' : 'Guardar'}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -2679,7 +2639,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setExtendMode(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
-            <p className="text-sm font-medium text-on-surface flex items-center gap-1.5"><CalendarDays size={15} className="text-accent" /> Nueva fecha y hora límite para este estudiante</p>
+            <p className="text-sm font-medium text-on-surface flex items-center gap-1.5"><CalendarDays size={ICONO.sm} className="text-accent" /> Nueva fecha y hora límite para este estudiante</p>
             <EFDateTimePicker mode="datetime" value={extendDate} onChange={setExtendDate} clearable={false} defaultTime="23:59" minDateTime={toIsoNow()} />
             <div>
               <label htmlFor="eval-extend-motivo-native" className="block text-sm font-medium text-muted mb-1">Motivo</label>
@@ -2688,17 +2648,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 value={extendMotivo}
                 onChange={(e) => setExtendMotivo(e.target.value)}
                 rows={2}
-                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
               />
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+              <Button variant="secondary" className="flex-1" onClick={() => setExtendMode(false)}>
                 Cancelar
-              </button>
-              <button type="button" onClick={saveReviewExtension} disabled={!extendDate || savingExtension || reviewExtensionUnchanged}
-                className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded-full disabled:opacity-60 transition-colors">
+              </Button>
+              <Button className="flex-1" onClick={saveReviewExtension} disabled={!extendDate || savingExtension || reviewExtensionUnchanged}>
                 {savingExtension ? 'Guardando…' : 'Guardar'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -2735,11 +2694,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               Volverá a quedar sin entrega y podrá presentar de nuevo.
             </p>
             <div className="flex gap-2 mt-4">
-              <button type="button" onClick={() => setCancelConfirm(null)} disabled={cancelling}
-                className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">No, conservar</button>
-              <button type="button" onClick={handleCancelSubmission} disabled={cancelling}
-                className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors">
-                {cancelling ? 'Anulando…' : 'Sí, anular entrega'}</button>
+              <Button variant="secondary" className="flex-1" onClick={() => setCancelConfirm(null)} disabled={cancelling}>No, conservar</Button>
+              <Button variant="danger" className="flex-1" onClick={handleCancelSubmission} disabled={cancelling}>
+                {cancelling ? 'Anulando…' : 'Sí, anular entrega'}</Button>
             </div>
           </div>
         </div>

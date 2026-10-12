@@ -1,5 +1,6 @@
 import { AlertTriangle, FileSearch } from 'lucide-react'
 import { advertenciasDeTiempo, formatearMinuto, leerEvidencia } from './revisionVideo'
+import { ICONO } from '../../config/iconos'
 
 // De dónde salió una pregunta y si su momento tiene respaldo. NUNCA inventa evidencia y NO dibuja nada cuando no la hay: hoy
 // las propuestas no guardan el tramo del que salieron, así que un recuadro vacío repetido en cada pregunta no le dice nada al
@@ -12,7 +13,7 @@ export default function EvidenciaVideo({ item }) {
   return (
     <div className="rounded-card border border-outline-variant bg-surface px-3 py-2 space-y-1.5" data-testid="evidencia-video">
       <p className="flex items-center gap-1.5 text-xs font-semibold text-on-surface">
-        <FileSearch size={14} className="text-muted" /> Tramo del video y evidencia
+        <FileSearch size={ICONO.xs} className="text-muted" /> Tramo del video y evidencia
       </p>
       <div className="text-xs text-on-surface space-y-1">
         {(ev.inicioSeg !== null || ev.finSeg !== null) && (
@@ -28,7 +29,7 @@ export default function EvidenciaVideo({ item }) {
       </div>
       {avisos.map((a) => (
         <p key={a} className="flex items-start gap-1.5 text-xs text-amber-900 bg-amber-50 rounded px-2 py-1.5">
-          <AlertTriangle size={14} className="flex-shrink-0 mt-0.5 text-amber-700" /> {a}
+          <AlertTriangle size={ICONO.xs} className="flex-shrink-0 mt-0.5 text-amber-700" /> {a}
         </p>
       ))}
     </div>

@@ -1,8 +1,9 @@
 import { Sparkles, FileText, AlertTriangle } from 'lucide-react'
 import Modal from '../ui/Modal'
-import Spinner from '../Spinner'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { planInformeAsignatura } from '../../utils/analisisAsignaturaInforme'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Informe del análisis integral de asignatura con IA. SOLO LECTURA (decisión
 // de Kike, 1-oct-2026): a diferencia del análisis de un examen, este informe
@@ -27,7 +28,7 @@ export function Bloque({ bloque }) {
   return (
     <div>
       {bloque.titulo && <p className="text-xs font-bold uppercase tracking-wide text-muted mb-1">{bloque.titulo}</p>}
-      <div className="overflow-x-auto rounded border border-outline-variant">
+      <div className="overflow-x-auto rounded-card border border-outline-variant">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-surface-container text-left">
@@ -57,7 +58,7 @@ export default function InformeAsignatura({ analisis, onClose, onDescargarPDF, d
     <Modal open onClose={onClose} title="Análisis de la asignatura" size="3xl" z={60}>
       <div className="space-y-3">
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
-          <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <Sparkles size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800">
             <span className="font-semibold">Asistente IA. </span>
             {plan.aviso}
@@ -70,27 +71,25 @@ export default function InformeAsignatura({ analisis, onClose, onDescargarPDF, d
             <p className="text-sm text-on-surface"><span className="font-semibold">Fuentes: </span>{plan.fuentes}</p>
             {plan.generadoEn && <p className="text-sm text-muted">Generado el {plan.generadoEn} — es una fotografía de ese momento: no cambia aunque después cambien los datos.</p>}
           </div>
-          <button type="button" onClick={onDescargarPDF} disabled={descargando}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-[var(--accent-light)] border border-accent rounded-full text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60">
-            {descargando ? <Spinner size="sm" /> : <FileText size={16} />}
+          <Button variant="outline-accent" icon={FileText} busy={descargando} className="flex-shrink-0" onClick={onDescargarPDF} disabled={descargando}>
+            
             {descargando ? 'Generando…' : 'Descargar PDF'}
-          </button>
+          </Button>
         </div>
 
         {plan.secciones.map((s, i) => (
           <section key={s.titulo} className="rounded-card border border-outline-variant p-3 space-y-2">
             <h4 className={`text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 ${s.tono === 'atencion' ? 'text-amber-700' : 'text-accent'}`}>
-              {s.tono === 'atencion' && <AlertTriangle size={14} />}
+              {s.tono === 'atencion' && <AlertTriangle size={ICONO.xs} />}
               {i + 1}. {s.titulo}
             </h4>
             {s.bloques.map((b) => <Bloque key={`${b.tipo}-${b.titulo || b.texto || (b.items || []).join('|')}`} bloque={b} />)}
           </section>
         ))}
 
-        <button type="button" onClick={onClose}
-          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-full hover:bg-surface-container transition-colors">
+        <Button variant="secondary" fullWidth onClick={onClose}>
           Cerrar
-        </button>
+        </Button>
       </div>
     </Modal>
   )

@@ -19,7 +19,8 @@ import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import AdminChatMensaje from '../../../components/AdminChatMensaje'
 import { BrainCircuit, Send, Trash2 } from 'lucide-react'
-import { SkeletonList } from '../../../components/ui'
+import { SkeletonList, Button } from '../../../components/ui'
+import { ICONO } from '../../../config/iconos'
 
 const SUGERENCIAS = [
   '¿Cómo va Evalúa Fácil?',
@@ -109,7 +110,7 @@ export default function AdminChat() {
     <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100dvh - 11rem)' }}>
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
-          <BrainCircuit size={22} className="text-accent flex-shrink-0" />
+          <BrainCircuit size={ICONO.md} className="text-accent flex-shrink-0" />
           <div>
             <h2 className="text-lg font-bold text-on-surface leading-tight">Inteligencia de Evalúa Fácil</h2>
             <p className="text-xs text-muted">Solo consulta — no modifica datos. Distinto del Chat del docente.</p>
@@ -126,9 +127,9 @@ export default function AdminChat() {
               type="button"
               onClick={() => setConfirmarBorrar(true)}
               title="Nueva conversación"
-              className="flex-shrink-0 p-2.5 rounded border border-outline-variant text-muted hover:text-error hover:border-error/40 transition-colors"
+              className="flex-shrink-0 p-2.5 rounded-card border border-outline-variant text-muted hover:text-error hover:border-error/40 transition-colors"
             >
-              <Trash2 size={16} />
+              <Trash2 size={ICONO.sm} />
             </button>
           )
         )}
@@ -139,20 +140,17 @@ export default function AdminChat() {
           <SkeletonList rows={3} icon={false} />
         ) : historial.length === 0 && !enviando ? (
           <div className="h-full flex flex-col items-center justify-center text-center py-6 gap-3">
-            <BrainCircuit size={28} className="text-accent" />
+            <BrainCircuit size={ICONO.lg} className="text-accent" />
             <p className="text-[19px] text-muted max-w-sm">
               Pregunta sobre usuarios, planes, ingresos, consumo de IA o uso del Chat — respondo con datos reales de la plataforma, nunca inventados.
             </p>
             <div className="flex flex-wrap gap-1.5 justify-center max-w-md">
               {SUGERENCIAS.map((s) => (
-                <button
+                <Button variant="secondary"
                   key={s}
-                  type="button"
-                  onClick={() => enviar(s)}
-                  className="text-xs px-2.5 py-1.5 rounded-full border border-outline-variant text-muted hover:border-accent hover:text-accent transition-colors"
-                >
+                  onClick={() => enviar(s)}>
                   {s}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -194,16 +192,14 @@ export default function AdminChat() {
           disabled={enviando}
           maxLength={2000}
           rows={1}
-          className="flex-1 w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-[19px] bg-surface resize-none max-h-32 disabled:opacity-60"
+          className="flex-1 w-full px-4 py-2.5 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-[19px] bg-surface resize-none max-h-32 disabled:opacity-60"
         />
-        <button
+        <Button icon={Send} busy={enviando}
           type="submit"
-          disabled={enviando || !mensaje.trim()}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded-full transition-colors disabled:opacity-45"
-        >
-          {enviando ? <Spinner size="sm" /> : <Send size={16} />}
+          disabled={enviando || !mensaje.trim()}>
+          
           Enviar
-        </button>
+        </Button>
       </form>
     </div>
   )

@@ -13,6 +13,7 @@ import { APP_DOWNLOAD_URL } from '../../../config/appDownload'
 import {
   listarLinks, urlPublica, usarComoVigente, fechaCorta, LINK_LEGADO,
 } from '../../../utils/descargaLinks'
+import { ICONO } from '../../../config/iconos'
 
 function estadoDe(l) {
   if (l.activo === false) return 'desactivada'
@@ -34,14 +35,14 @@ function BadgeEstado({ estado }) {
   }
   if (estado === 'desactivada') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-pill bg-slate-100 text-slate-500 text-xs font-semibold px-2 py-0.5">
-        <Link2Off size={11} />
+      <span className="inline-flex items-center gap-1 rounded-pill bg-slate-100 text-muted text-xs font-semibold px-2 py-0.5">
+        <Link2Off size={ICONO.xs} />
         Desactivada
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center rounded-pill bg-slate-100 text-slate-500 text-xs font-semibold px-2 py-0.5">
+    <span className="inline-flex items-center rounded-pill bg-slate-100 text-muted text-xs font-semibold px-2 py-0.5">
       Anterior
     </span>
   )
@@ -60,7 +61,7 @@ function BotonCopiar({ texto }) {
       title="Copiar enlace directo"
       aria-label="Copiar enlace"
     >
-      {copiado ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+      {copiado ? <Check size={ICONO.sm} className="text-emerald-600" /> : <Copy size={ICONO.sm} />}
     </Button>
   )
 }
@@ -190,7 +191,7 @@ export default function DownloadLinks() {
       {/* ── Versión vigente + QR ── */}
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <h2 className="flex items-center gap-2 text-base font-bold text-on-surface">
-          <QrCode size={18} className="text-accent" />
+          <QrCode size={ICONO.md} className="text-accent" />
           Versión vigente
         </h2>
 
@@ -200,7 +201,7 @@ export default function DownloadLinks() {
           <div className="mt-3">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1.5 rounded-pill bg-accent-light text-accent text-sm font-bold px-3 py-1">
-                <Smartphone size={13} />
+                <Smartphone size={ICONO.xs} />
                 {vigente.version}
               </span>
               <span className="text-sm text-muted">{fechaMostrar(vigente)}</span>
@@ -222,7 +223,7 @@ export default function DownloadLinks() {
                 href={vigente.url}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
               >
-                <Smartphone size={15} className="text-accent" />
+                <Smartphone size={ICONO.sm} className="text-accent" />
                 Descargar .apk
               </a>
 
@@ -231,15 +232,15 @@ export default function DownloadLinks() {
                   href={vigente.aabUrl}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
                 >
-                  <Package size={15} className="text-accent" />
+                  <Package size={ICONO.sm} className="text-accent" />
                   Descargar .aab para Play Store
                 </a>
               ) : (
                 <span
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-dashed border-outline-variant text-sm text-hint"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-dashed border-outline-variant text-sm text-hint"
                   title="Esta versión se publicó antes de que se generara el bundle. La próxima que publiques lo incluirá."
                 >
-                  <Package size={15} />
+                  <Package size={ICONO.sm} />
                   Sin .aab — publica una versión nueva
                 </span>
               )}
@@ -247,7 +248,7 @@ export default function DownloadLinks() {
           </div>
         ) : (
           <div className="mt-3 flex items-center gap-2 text-sm text-amber-700">
-            <AlertTriangle size={15} className="flex-none" />
+            <AlertTriangle size={ICONO.sm} className="flex-none" />
             Sin versión vigente — el QR no funcionará hasta que publiques una.
           </div>
         )}
@@ -261,7 +262,7 @@ export default function DownloadLinks() {
                 <img
                   src={qrDataUrl}
                   alt="Código QR de descarga de Evalúa Fácil"
-                  className="w-40 h-40 rounded border border-outline-variant"
+                  className="w-40 h-40 rounded-card border border-outline-variant"
                 />
               ) : (
                 <Skeleton className="w-40 h-40 rounded" />
@@ -279,7 +280,7 @@ export default function DownloadLinks() {
                 disabled={descargandoPDF || !qrDataUrl}
                 className="mt-3 flex items-center gap-1.5 text-sm text-accent hover:underline disabled:opacity-60 transition-opacity"
               >
-                {descargandoPDF ? <Spinner size="sm" /> : <Download size={15} />}
+                {descargandoPDF ? <Spinner size="sm" /> : <Download size={ICONO.sm} />}
                 Descargar QR en PDF
               </button>
             </div>
@@ -290,7 +291,7 @@ export default function DownloadLinks() {
       {/* ── Publicar una versión nueva ── */}
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <h2 className="flex items-center gap-2 text-base font-bold text-on-surface">
-          <Cog size={18} className="text-accent" />
+          <Cog size={ICONO.md} className="text-accent" />
           Publicar una versión nueva
         </h2>
         <p className="text-sm text-muted mt-1">
@@ -311,13 +312,13 @@ export default function DownloadLinks() {
             wrapperClassName="flex-1 min-w-0"
           />
           <Button onClick={handleCompilar} busy={compilando} disabled={compilando}>
-            <Cog size={17} />
+            <Cog size={ICONO.sm} />
             {compilando ? 'Iniciando…' : 'Compilar y publicar'}
           </Button>
         </div>
 
         <p className="mt-3 flex items-start gap-1.5 text-sm text-hint">
-          <ExternalLink size={13} className="flex-shrink-0 mt-0.5" />
+          <ExternalLink size={ICONO.xs} className="flex-shrink-0 mt-0.5" />
           Tarda unos minutos. Al iniciar se abre el registro de la compilación en
           otra pestaña; el enlace de descarga cambia solo cuando termina.
         </p>
@@ -326,7 +327,7 @@ export default function DownloadLinks() {
       {/* ── Historial ── */}
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <h2 className="flex items-center gap-2 text-base font-bold text-on-surface">
-          <Link2 size={18} className="text-accent" />
+          <Link2 size={ICONO.md} className="text-accent" />
           Historial de versiones
         </h2>
 
@@ -385,7 +386,7 @@ export default function DownloadLinks() {
                             title={`Volver a la v${l.version} — el enlace y el QR pasan a entregar esta`}
                             aria-label="Volver a esta versión"
                           >
-                            <RotateCcw size={16} />
+                            <RotateCcw size={ICONO.sm} />
                           </Button>
                         )
                       )}
@@ -402,7 +403,7 @@ export default function DownloadLinks() {
         {/* LINK_LEGADO — aviso informativo mientras siga activo */}
         {LINK_LEGADO.activo && (
           <div className="mt-4 flex gap-2 bg-amber-50 border border-amber-200 rounded p-3">
-            <AlertTriangle size={14} className="text-amber-600 flex-none mt-0.5" />
+            <AlertTriangle size={ICONO.xs} className="text-amber-600 flex-none mt-0.5" />
             <p className="text-sm text-amber-900 leading-relaxed">
               El enlace de la versión {LINK_LEGADO.version} (agosto 2026) sigue activo y puede estar
               circulando. Cuando todos los estudiantes tengan la nueva APK instalada, puede retirarse

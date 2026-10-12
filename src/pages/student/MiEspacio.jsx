@@ -4,7 +4,7 @@ import { ArrowLeft, Cloud, FileText, Image as ImageIcon, Trash2, Upload } from '
 import StudentLayout from '../../components/StudentLayout'
 import ConfirmModal from '../../components/ConfirmModal'
 import BotonDescargarArchivo from '../../components/BotonDescargarArchivo'
-import { Button, Input, SkeletonList } from '../../components/ui'
+import { Button, Input, SkeletonList, IconButton } from '../../components/ui'
 import { useToast } from '../../components/Toast'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import {
@@ -103,14 +103,7 @@ export default function MiEspacio() {
 
       <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
         <div className="flex items-center gap-2 mb-4">
-          <button
-            type="button"
-            onClick={regresar}
-            className="p-2 -ml-2 rounded-full hover:bg-[var(--accent-tint)] text-muted hover:text-accent transition-colors flex-shrink-0"
-            aria-label="Regresar"
-          >
-            <ArrowLeft size={ICONO.md} />
-          </button>
+          <IconButton icon={ArrowLeft} label="Regresar" tooltip={false} className="-ml-2" onClick={regresar} />
           <Cloud size={ICONO.md} className="text-accent flex-shrink-0" />
           <h1 className="text-xl font-bold text-on-surface">Mi espacio</h1>
         </div>

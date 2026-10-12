@@ -4,8 +4,8 @@ import { School, Save } from 'lucide-react'
 import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
-import Input from '../../../components/ui/Input'
-import { SkeletonTable } from '../../../components/ui'
+import { SkeletonTable, Input, Button } from '../../../components/ui'
+import { ICONO } from '../../../config/iconos'
 
 export default function EscuelasConfig() {
   const [schools, setSchools] = useState([])
@@ -68,7 +68,7 @@ export default function EscuelasConfig() {
       <div className="space-y-2">
         {filtered.map((s) => (
           <div key={s.id} className="flex items-center gap-3 p-3 rounded-card border border-outline-variant bg-surface-card">
-            <School size={18} className="text-accent flex-shrink-0" />
+            <School size={ICONO.md} className="text-accent flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-on-surface truncate">{s.nombre || s.id}</p>
               <p className="text-xs text-muted">{s.shortName} · {s.claveSEP}</p>
@@ -85,15 +85,13 @@ export default function EscuelasConfig() {
                 wrapperClassName="flex items-center gap-1.5"
                 className="w-16 "
               />
-              <button
-                type="button"
+              <Button
                 onClick={() => handleSave(s.id)}
                 disabled={saving[s.id]}
-                className="p-1.5 rounded-full bg-accent text-white hover:bg-accent-hover disabled:opacity-60 transition-colors"
-                aria-label="Guardar umbral"
-              >
-                {saving[s.id] ? <Spinner size="sm" /> : <Save size={15} />}
-              </button>
+               
+                aria-label="Guardar umbral">
+                {saving[s.id] ? <Spinner size="sm" /> : <Save size={ICONO.sm} />}
+              </Button>
             </div>
           </div>
         ))}

@@ -18,6 +18,7 @@ import { useToast } from './Toast'
 import useCreditosIA from '../hooks/useCreditosIA'
 import CreditosPanel from './CreditosPanel'
 import ActivarCreditosModal from './ActivarCreditosModal'
+import { ICONO } from '../config/iconos'
 
 const UMBRALES = [10, 3, 0] // créditos restantes
 
@@ -73,10 +74,10 @@ export default function CreditosBar({ variant = 'sidebar' }) {
           className="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-surface-container transition-colors"
         >
           {c.mostrarCTAActivarBienvenida ? (
-            <Gift size={16} className="text-accent" />
+            <Gift size={ICONO.sm} className="text-accent" />
           ) : (
             <>
-              <Sparkles size={16} className={critico ? 'text-error' : 'text-accent'} />
+              <Sparkles size={ICONO.sm} className={critico ? 'text-error' : 'text-accent'} />
               <span className={`text-xs font-semibold tabular-nums ${critico ? 'text-error' : 'text-on-surface'}`}>{c.saldo}</span>
             </>
           )}

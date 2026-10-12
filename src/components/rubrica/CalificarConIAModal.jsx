@@ -32,6 +32,8 @@ import ComprarCreditosModal from '../ComprarCreditosModal'
 import ActivarCreditosModal from '../ActivarCreditosModal'
 import { esCotejo, totalRubrica, RUBRICA_TOTAL } from '../../utils/rubrica'
 import { normalizeFileTypeKeys } from '../../config/fileTypes'
+import { Button, IconButton } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Panel flotante, NO modal centrado (26-ago-2026, pedido explícito de Kike:
 // "la evidencia del estudiante es el objeto principal de revisión, la IA es
@@ -49,10 +51,7 @@ function Marco({ inline, titulo, onClose, children }) {
       <div className="p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
           <p className="text-sm font-bold text-on-surface">{titulo}</p>
-          <button type="button" onClick={onClose} aria-label="Cerrar" data-tooltip="Cerrar"
-            className="p-1.5 text-hint hover:text-accent rounded-full flex-shrink-0">
-            <X size={16} />
-          </button>
+          <IconButton icon={X} label="Cerrar" tooltip={false} onClick={onClose} data-tooltip="Cerrar" />
         </div>
         {children}
       </div>
@@ -70,15 +69,9 @@ function PanelFlotante({ titulo, onClose, children, footer }) {
     >
       <div className="flex items-center gap-2 px-3 py-2 border-b border-outline-variant flex-shrink-0 bg-surface-container">
         <p className="flex-1 min-w-0 text-sm font-bold text-on-surface truncate">{titulo}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Cerrar"
-          data-tooltip="Cerrar"
-          className="p-2 text-hint hover:text-accent rounded-full flex-shrink-0"
-        >
-          <X size={17} />
-        </button>
+        <IconButton icon={X} label="Cerrar" tooltip={false} onClick={onClose}
+         
+          data-tooltip="Cerrar" />
       </div>
       <div className="flex-1 min-h-0 overflow-auto p-3">
         {children}
@@ -241,11 +234,10 @@ export default function CalificarConIAModal({
                 className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
                 Cancelar
               </button>
-              <button type="button" onClick={ejecutar} disabled={ejecutando}
-                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center gap-2">
+              <Button onClick={ejecutar} disabled={ejecutando}>
                 {ejecutando && <Spinner size="sm" />}
                 {ejecutando ? 'Analizando…' : 'Calificar'}
-              </button>
+              </Button>
             </div>
           </>
         ) : (
@@ -261,15 +253,13 @@ export default function CalificarConIAModal({
                 Cerrar
               </button>
               {c.mostrarCTAActivarBienvenida && (
-                <button type="button" onClick={() => setActivarAbierto(true)}
-                  className="px-4 py-2.5 border border-accent text-accent text-sm font-medium rounded-full hover:bg-[var(--accent-tint)] transition-colors">
+                <Button variant="outline-accent" onClick={() => setActivarAbierto(true)}>
                   Activar créditos de regalo
-                </button>
+                </Button>
               )}
-              <button type="button" onClick={() => setComprarAbierto(true)}
-                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors">
+              <Button onClick={() => setComprarAbierto(true)}>
                 Comprar créditos
-              </button>
+              </Button>
             </div>
           </>
         )
@@ -283,7 +273,7 @@ export default function CalificarConIAModal({
               que esto es un registro histórico, ya aplicado. */}
           {soloLectura ? (
             <div className="flex items-start gap-2 bg-surface-container border border-outline-variant rounded-card px-3 py-2.5 mb-3 text-sm text-on-surface">
-              <Lock size={16} className="flex-shrink-0 mt-0.5 text-muted" />
+              <Lock size={ICONO.sm} className="flex-shrink-0 mt-0.5 text-muted" />
               <p>
                 Esta es la evaluación de IA que ya se aplicó a esta entrega — solo consulta, gratis. No genera un
                 nuevo análisis ni cambia la calificación actual.
@@ -291,7 +281,7 @@ export default function CalificarConIAModal({
             </div>
           ) : (
             <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-card px-3 py-2.5 mb-3 text-sm text-amber-800">
-              <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+              <AlertTriangle size={ICONO.sm} className="flex-shrink-0 mt-0.5" />
               <p>
                 Propuesta de la IA — ya se cargó en la calificación y el comentario de al lado, para que la
                 revises y la ajustes ahí mismo antes de guardar. Los criterios sin evidencia suficiente se dejan
@@ -309,7 +299,7 @@ export default function CalificarConIAModal({
             Retroalimentación para el estudiante
           </label>
           {soloLectura ? (
-            <p id={retroId} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container text-on-surface mb-3 whitespace-pre-wrap">
+            <p id={retroId} className="w-full px-3 py-2 rounded-card border border-outline-variant text-sm bg-surface-container text-on-surface mb-3 whitespace-pre-wrap">
               {retro || '—'}
             </p>
           ) : (
@@ -331,7 +321,7 @@ export default function CalificarConIAModal({
                 onAplicar({ ...resultado, retroalimentacionGeneral: next, calificacionPropuesta: calificacionPropuestaDe(resultado) }, resultadoPersistido?._docId || submissionId)
               }}
               rows={2}
-              className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mb-3 resize-none overflow-hidden"
+              className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mb-3 resize-none overflow-hidden"
             />
           )}
 
@@ -388,7 +378,7 @@ export default function CalificarConIAModal({
                       <p className="text-sm font-semibold text-on-surface">{nombreCriterio}</p>
                       {crit.sinEvidenciaSuficiente ? (
                         <span className="flex items-center gap-1 text-xs font-medium text-amber-700 flex-shrink-0">
-                          <CircleHelp size={13} /> Sin evidencia suficiente
+                          <CircleHelp size={ICONO.xs} /> Sin evidencia suficiente
                         </span>
                       ) : (
                         <span className="text-xs font-semibold text-accent flex-shrink-0">
@@ -414,20 +404,18 @@ export default function CalificarConIAModal({
 
           <div className="flex justify-end gap-2">
             {soloLectura ? (
-              <button type="button" onClick={cerrarTodo}
-                className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors">
+              <Button onClick={cerrarTodo}>
                 Cerrar
-              </button>
+              </Button>
             ) : (
               <>
                 <button type="button" onClick={descartar}
                   className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
                   Descartar propuesta
                 </button>
-                <button type="button" onClick={cerrarTodo}
-                  className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors">
+                <Button onClick={cerrarTodo}>
                   Listo, seguir calificando
-                </button>
+                </Button>
               </>
             )}
           </div>

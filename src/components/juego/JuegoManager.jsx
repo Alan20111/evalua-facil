@@ -26,7 +26,6 @@ import { updateDoc } from '../../utils/firestoreGuard'
 import { EntregaCambio, borrarSiNoCambio } from '../../utils/submissionGuard'
 import { db, functions } from '../../firebase'
 import { useToast } from '../Toast'
-import Spinner from '../Spinner'
 import VisibilitySelect from '../VisibilitySelect'
 import PublicacionScheduler from '../PublicacionScheduler'
 import EFDateTimePicker from '../EFDateTimePicker'
@@ -49,6 +48,8 @@ import { cargarClaveJuego, estructuraConClave, esEstructuraHeredada } from '../.
 import ContenidoJuegoEditor from './ContenidoJuegoEditor'
 import RevisionJuegoBorrador from './RevisionJuegoBorrador'
 import ResolucionJuegoModal from './ResolucionJuegoModal'
+import { Input, Button, IconButton } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 export default function JuegoManager({
   activity, subject, activityId, activityLabel, students, submissions,
@@ -154,9 +155,7 @@ export default function JuegoManager({
   return (
     <div className="max-w-2xl mx-auto px-4 py-4">
       <div className="flex items-center gap-2 mb-3">
-        <button type="button" onClick={goBack} aria-label="Volver" className="p-2 -ml-2 text-hint hover:text-muted rounded-full">
-          <ArrowLeft size={22} />
-        </button>
+        <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={goBack} />
         <div className="flex-1 min-w-0">
           <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent truncate">{tipoLabel}</p>
           <h1 className="text-xl font-bold text-on-surface truncate">
@@ -166,17 +165,11 @@ export default function JuegoManager({
           <p className="text-base font-medium text-muted">Parcial {activity.parcial} · {subjectDisplayName(subject)}</p>
         </div>
         {esBorrador && (
-          <button type="button" onClick={() => setConfirmandoCancelar(true)} aria-label="Eliminar este borrador"
-            data-tooltip="Eliminar este borrador"
-            className="p-2 text-hint hover:text-error hover:bg-red-50 rounded-full transition-colors flex-shrink-0">
-            <XCircle size={18} />
-          </button>
+          <IconButton icon={XCircle} label="Eliminar este borrador" variant="danger" tooltip={false} onClick={() => setConfirmandoCancelar(true)}
+            data-tooltip="Eliminar este borrador" />
         )}
         {!esBorrador && onDeleteActivity && (
-          <button type="button" onClick={onDeleteActivity} aria-label="Eliminar actividad"
-            className="p-2 text-hint hover:text-error hover:bg-red-50 rounded-full transition-colors flex-shrink-0">
-            <Trash2 size={18} />
-          </button>
+          <IconButton icon={Trash2} label="Eliminar actividad" variant="danger" tooltip={false} onClick={onDeleteActivity} />
         )}
       </div>
 
@@ -293,7 +286,7 @@ function NombreJuego({ activity, activityId, onActivityChange }) {
         Nombre de la actividad
       </label>
       <div className="flex gap-2">
-        <input
+        <Input
           id="juego-nombre"
           type="text"
           maxLength={120}
@@ -301,16 +294,15 @@ function NombreJuego({ activity, activityId, onActivityChange }) {
           disabled={guardando}
           onChange={(e) => setValor(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && cambio && !guardando) { e.preventDefault(); handleGuardar() } }}
-          className="flex-1 min-w-0 px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="flex-1 min-w-0"
         />
         {/* Solo aparece cuando de verdad hay algo distinto que guardar, para
             no invitar a reguardar lo mismo (mismo criterio que los botones de
             Configuración/Disponibilidad de abajo). */}
         {cambio && (
-          <button type="button" onClick={handleGuardar} disabled={guardando}
-            className="px-3 py-2 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60 flex-shrink-0">
+          <Button className="flex-shrink-0" onClick={handleGuardar} disabled={guardando}>
             {guardando ? 'Guardando…' : 'Guardar'}
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -596,15 +588,14 @@ function JuegoConfiguracion({
                 <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas (se marcarán como entregadas tarde).</span>
               </label>
               {(visForm.cerrarEntregasEnFecha ?? true)
-                ? <Lock size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />
-                : <LockOpen size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />}
+                ? <Lock size={ICONO.lg} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />
+                : <LockOpen size={ICONO.lg} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />}
             </div>
           )}
-          <button type="submit" disabled={savingVis || !visFormCambio}
-            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60 flex items-center justify-center gap-2">
-            {savingVis ? <Spinner size="sm" /> : <Pencil size={16} />}
+          <Button fullWidth icon={Pencil} busy={savingVis} type="submit" disabled={savingVis || !visFormCambio}>
+            
             {savingVis ? 'Guardando…' : 'Guardar disponibilidad'}
-          </button>
+          </Button>
           {/* Prórroga — mismo criterio que en el entregable: se ofrece una vez
               publicado el juego, que es cuando un estudiante puede quedarse
               atrás del grupo y necesitar su propia fecha. El modal es el mismo
@@ -621,14 +612,14 @@ function JuegoConfiguracion({
             return (
               <details className="group">
                 <summary className="flex items-center gap-1 text-sm text-accent cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
-                  <ChevronRight size={14} className="flex-shrink-0 transition-transform group-open:rotate-90" />
+                  <ChevronRight size={ICONO.xs} className="flex-shrink-0 transition-transform group-open:rotate-90" />
                   Prórrogas otorgadas ({grupos.length})
                 </summary>
                 <div className="mt-2 space-y-2">
                   {grupos.map((g, i) => (
-                    <div key={i} className="p-3 bg-amber-50 rounded border border-amber-200 text-sm">
+                    <div key={i} className="p-3 bg-amber-50 rounded-card border border-amber-200 text-sm">
                       <p className="font-medium text-on-surface flex items-center gap-1.5">
-                        <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
+                        <CalendarDays size={ICONO.xs} className="text-amber-600 flex-shrink-0" />
                         Prórroga hasta {formatDeadline(g.date)}
                       </p>
                       <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
@@ -640,11 +631,10 @@ function JuegoConfiguracion({
             )
           })()}
           {!isDraft && (
-            <button type="button" onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setNuevaFecha({ preselect: null }))}
-              className="w-full py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2">
-              <CalendarDays size={16} />
+            <Button variant="secondary" fullWidth icon={CalendarDays} onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setNuevaFecha({ preselect: null }))}>
+              
               Nueva fecha para prórroga
-            </button>
+            </Button>
           )}
         </form>
       </div>
@@ -654,16 +644,12 @@ function JuegoConfiguracion({
           <h2 className="font-semibold text-accent">Configuración</h2>
         </div>
         <form onSubmit={handleSaveConfig} className="p-4 space-y-3">
-          <div>
-            <label htmlFor="juego-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
-            <input id="juego-tiempo" type="number" min="1" value={form.tiempoLimiteMin ?? ''}
-              onChange={(e) => setForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
-          </div>
-          <div>
-            <label htmlFor="juego-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
-            <input id="juego-intentos" type="number" min="1" value={form.intentosPermitidos ?? ''}
-              onChange={(e) => setForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface" />
-          </div>
+          <Input
+            label="Tiempo límite (minutos)" id="juego-tiempo" type="number" min="1" value={form.tiempoLimiteMin ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))} />
+          <Input
+            label="Intentos permitidos" id="juego-intentos" type="number" min="1" value={form.intentosPermitidos ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))} />
           {form.intentosPermitidos !== 1 && (
             <Select
               id="juego-conservar"
@@ -695,10 +681,9 @@ function JuegoConfiguracion({
             onModeChange={(v) => setForm((f) => ({ ...f, publicarSolucion: v }))}
             onFechaChange={(v) => setForm((f) => ({ ...f, publicarSolucionFecha: v }))}
           />
-          <button type="submit" disabled={saving || !formCambio}
-            className="w-full py-2.5 bg-accent text-white text-sm font-medium rounded-full disabled:opacity-60">
+          <Button fullWidth type="submit" disabled={saving || !formCambio}>
             {saving ? 'Guardando…' : 'Guardar configuración'}
-          </button>
+          </Button>
         </form>
       </div>
 
@@ -712,16 +697,16 @@ function JuegoConfiguracion({
           {totalEstudiantes > 0 && (
             <div className="flex items-center gap-1 flex-shrink-0">
               <span data-tooltip="Entregados"
-                className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                <FileCheck2 size={11} /> {entregados}/{totalEstudiantes}
+                className="text-xs bg-slate-100 text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                <FileCheck2 size={ICONO.xs} /> {entregados}/{totalEstudiantes}
               </span>
               <span data-tooltip="Calificados"
                 className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                <CheckCircle size={11} /> {calificados}/{entregados}
+                <CheckCircle size={ICONO.xs} /> {calificados}/{entregados}
               </span>
               <span data-tooltip="Pendientes"
                 className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                <Timer size={11} /> {totalEstudiantes - entregados}
+                <Timer size={ICONO.xs} /> {totalEstudiantes - entregados}
               </span>
             </div>
           )}
@@ -776,7 +761,7 @@ function JuegoConfiguracion({
                   {prorroga && (
                     <span data-tooltip={`Fecha propia: ${prorroga.replace('T', ' ')}`}
                       className="text-xs text-accent flex items-center gap-0.5">
-                      <CalendarClock size={12} />
+                      <CalendarClock size={ICONO.xs} />
                     </span>
                   )}
                   {sub?.tiempoSegundos != null && (
@@ -789,26 +774,20 @@ function JuegoConfiguracion({
 
                 {/* Fecha propia para ESTE estudiante — abre el mismo modal de
                     siempre, ya en "Para algunos" y con él marcado. */}
-                <button type="button" onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setNuevaFecha({ preselect: st.id }))}
+                <IconButton icon={CalendarClock} label={`Modificar la fecha de entrega de ${nombre}`} tooltip={false} onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setNuevaFecha({ preselect: st.id }))}
                   disabled={prorrogaBloqueada}
-                  aria-label={`Modificar la fecha de entrega de ${nombre}`}
-                  data-tooltip={prorrogaBloqueada ? MENSAJE_PRORROGA_CON_ENTREGA : 'Modificar la fecha de entrega para este estudiante'}
-                  className="p-1.5 rounded-full text-hint hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
-                  <CalendarClock size={16} />
-                </button>
+                 
+                  data-tooltip={prorrogaBloqueada ? MENSAJE_PRORROGA_CON_ENTREGA : 'Modificar la fecha de entrega para este estudiante'} />
 
                 {/* Anular — reserva su espacio aunque no haya entrega, para que
                     las columnas de todas las filas queden alineadas. */}
                 {tieneEntrega ? (
-                  <button type="button" onClick={() => setAnularConfirm({ student: st, sub })}
+                  <IconButton icon={Ban} label={`Anular la entrega de ${nombre}`} variant="danger" tooltip={false} onClick={() => setAnularConfirm({ student: st, sub })}
                     disabled={parcialCerrado}
-                    aria-label={`Anular la entrega de ${nombre}`}
-                    data-tooltip={parcialCerrado ? 'El parcial está cerrado' : 'Anular la entrega actual'}
-                    className="p-1.5 rounded-full text-hint hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent flex-shrink-0">
-                    <Ban size={16} />
-                  </button>
+                   
+                    data-tooltip={parcialCerrado ? 'El parcial está cerrado' : 'Anular la entrega actual'} />
                 ) : (
-                  <span className="p-1.5 flex-shrink-0" aria-hidden="true"><Ban size={16} className="invisible" /></span>
+                  <span className="p-1.5 flex-shrink-0" aria-hidden="true"><Ban size={ICONO.sm} className="invisible" /></span>
                 )}
               </div>
             )
@@ -854,15 +833,13 @@ function JuegoConfiguracion({
         busy={anulando}
         footer={(
           <div className="flex gap-2">
-            <button type="button" onClick={() => setAnularConfirm(null)} disabled={anulando}
-              className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
+            <Button variant="secondary" className="flex-1" onClick={() => setAnularConfirm(null)} disabled={anulando}>
               Cancelar
-            </button>
-            <button type="button" onClick={handleAnular} disabled={anulando}
-              className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
-              {anulando ? <Spinner size="sm" /> : <Ban size={16} />}
+            </Button>
+            <Button variant="danger" icon={Ban} busy={anulando} className="flex-1" onClick={handleAnular} disabled={anulando}>
+              
               {anulando ? 'Anulando…' : 'Sí, anular entrega'}
-            </button>
+            </Button>
           </div>
         )}
       >

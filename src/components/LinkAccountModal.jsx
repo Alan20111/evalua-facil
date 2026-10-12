@@ -3,9 +3,10 @@ import { fetchSignInMethodsForEmail, sendPasswordResetEmail } from 'firebase/aut
 import { collection, getDocs, query, where } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { X, CheckCircle2 } from 'lucide-react'
-import Spinner from './Spinner'
 import Modal from './ui/Modal'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { Input, Button } from './ui'
+import { ICONO } from '../config/iconos'
 
 // "Acceso desde otra computadora" — lets a teacher who normally signs in
 // with Google add a password without ever being signed in on this device.
@@ -89,7 +90,7 @@ export default function LinkAccountModal({ onClose }) {
           onClick={onClose}
           className="absolute top-3 right-3 p-3 -m-1.5 text-hint hover:text-on-surface rounded"
         >
-          <X size={18} />
+          <X size={ICONO.md} />
         </button>
 
         {step === 'email' && (
@@ -99,26 +100,18 @@ export default function LinkAccountModal({ onClose }) {
               Escribe el mismo correo con el que te registraste mediante Google para crear una contraseña y poder iniciar sesión sin utilizar Google. Solo tendrás que hacerlo una vez.
             </p>
             <form onSubmit={handleContinue} className="space-y-3">
-              <div>
-                <label htmlFor="link-account-email" className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
-                <input
-                  id="link-account-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:border-transparent text-sm bg-surface"
-                />
-              </div>
+              <Input
+                label="Correo electrónico"
+                id="link-account-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
               {error && <p className="text-sm text-red-600 leading-relaxed">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {loading ? <Spinner size="sm" /> : null}
+              <Button type="submit" fullWidth busy={loading}>
                 {loading ? 'Validando…' : 'Continuar'}
-              </button>
+              </Button>
             </form>
           </>
         )}
@@ -133,13 +126,10 @@ export default function LinkAccountModal({ onClose }) {
             <p className="text-sm text-hint leading-relaxed">
               Por tu seguridad, ese enlace solo confirma que eres tú quien tiene acceso a este correo — nunca te enviamos contraseñas por correo electrónico. La contraseña la crearás tú mismo en el siguiente paso.
             </p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors"
-            >
+            <Button fullWidth
+              onClick={onClose}>
               Entendido
-            </button>
+            </Button>
           </div>
         )}
     </Modal>

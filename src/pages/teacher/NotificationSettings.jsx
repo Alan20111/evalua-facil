@@ -133,7 +133,7 @@ function AnticipacionPicker({ value, onChange }) {
           <div className="relative bg-surface-card hoja rounded-card drop-shadow-2xl w-[calc(100%-1rem)] sm:w-full sm:max-w-sm max-h-[80vh] overflow-y-auto safe-bottom">
             <div className="sticky top-0 bg-surface-card px-4 py-3 border-b border-outline-variant flex items-center justify-between">
               <p className="font-semibold text-on-surface">Avisar</p>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" className="p-2 -mr-1 text-muted hover:text-on-surface rounded transition-colors">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center -mr-1 text-muted hover:text-on-surface rounded-full transition-colors">
                 <X size={ICONO.md} />
               </button>
             </div>

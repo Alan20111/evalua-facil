@@ -75,7 +75,7 @@ export default function DescargaApp() {
     return (
       <Marco>
         <EFLogo className="w-52 h-auto mx-auto" />
-        <Link2Off className="w-9 h-9 text-slate-300 mx-auto mt-8" />
+        <Link2Off className="w-9 h-9 text-hint mx-auto mt-8" />
         <p className="mt-4 text-lg font-bold text-on-surface">
           Este enlace ya no está disponible
         </p>

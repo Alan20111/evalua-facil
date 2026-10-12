@@ -1071,7 +1071,7 @@ export default function StudentActivityPage() {
               <button
                 type="button"
                 onClick={() => setConfirmandoAnular(true)}
-                className="w-full py-2 border border-red-200 text-red-600 font-semibold rounded-full hover:bg-red-50 transition-colors"
+                className="w-full py-2 border border-red-200 text-red-600 font-semibold rounded-full hover:bg-red-50 transition-colors min-h-control-sm"
               >
                 Anular entrega
               </button>

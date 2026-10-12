@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Modal from '../ui/Modal'
 import Spinner from '../Spinner'
 import { MAX_TEXTO_OBSERVACION } from '../../utils/observacionesBitacora'
+import { Button } from '../ui'
 
 // Ventana pequeña para agregar, ver o editar la observación de UNA celda de
 // asistencia (estudiante + fecha + hora). Guardar con el texto vacío quita la
@@ -52,20 +53,18 @@ export default function ObservacionModal({ estudiante, fecha, original = '', onG
         ref={textoRef}
         onChange={(e) => setTexto(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); guardar() } }}
-        className="w-full px-3 py-2.5 rounded border border-outline-variant text-base bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-y"
+        className="w-full px-3 py-2.5 rounded-card border border-outline-variant text-base bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-y"
       />
       {!esNueva && (
         <p className="text-sm text-muted mt-1">Para quitar la observación, borra el texto y guarda.</p>
       )}
       <div className="flex gap-2 mt-4">
-        <button type="button" onClick={onClose} disabled={guardando}
-          className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+        <Button variant="secondary" className="flex-1" onClick={onClose} disabled={guardando}>
           Salir
-        </button>
-        <button type="button" onClick={guardar} disabled={sinCambios || guardando}
-          className="flex-1 py-2.5 rounded-full bg-accent text-white text-base font-semibold hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
+        </Button>
+        <Button className="flex-1" onClick={guardar} disabled={sinCambios || guardando}>
           {guardando && <Spinner size="sm" />} Guardar
-        </button>
+        </Button>
       </div>
     </Modal>
   )

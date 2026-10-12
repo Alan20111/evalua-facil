@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { ArrowLeft, Sparkles, Trash2, RotateCcw, Check } from 'lucide-react'
-import Spinner from '../Spinner'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { reactivoValido } from '../../utils/reactivosIA'
+import { Input, Button, IconButton } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 const ETIQUETA_TIPO = {
   opcion_multiple: 'Opción múltiple',
@@ -52,9 +53,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
     <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button type="button" onClick={onClose} aria-label="Volver" disabled={guardando} className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors flex-shrink-0">
-            <ArrowLeft size={22} />
-          </button>
+          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={onClose} disabled={guardando} />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-white/70 uppercase tracking-wide">Reactivos generados</p>
             <h1 className="text-xl font-extrabold text-white truncate">Revisa antes de agregarlos</h1>
@@ -64,7 +63,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-3">
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
-          <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <Sparkles size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800">
             <span className="font-semibold">Asistente IA. </span>
             Esta propuesta fue generada con inteligencia artificial. Puede contener errores.
@@ -81,12 +80,12 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
               {r.incluir ? (
                 <button type="button" onClick={() => descartar(i)} disabled={guardando}
                   className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted hover:text-red-600 rounded hover:bg-red-50 transition-colors">
-                  <Trash2 size={13} /> Descartar
+                  <Trash2 size={ICONO.xs} /> Descartar
                 </button>
               ) : (
                 <button type="button" onClick={() => restaurar(i)} disabled={guardando}
                   className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-accent hover:underline">
-                  <RotateCcw size={13} /> Restaurar
+                  <RotateCcw size={ICONO.xs} /> Restaurar
                 </button>
               )}
             </div>
@@ -94,7 +93,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
             <textarea value={r.enunciado} disabled={!r.incluir || guardando}
               onChange={(e) => update(i, { enunciado: e.target.value })}
               rows={2} aria-label="Enunciado del reactivo"
-              className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface disabled:opacity-60" />
+              className="w-full px-3 py-2 rounded-card border border-outline-variant text-sm bg-surface disabled:opacity-60" />
 
             {r.tipo === 'opcion_multiple' && (
               <div className="space-y-1.5">
@@ -129,9 +128,9 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
                 <label className="block text-xs font-medium text-muted mb-1">
                   Respuesta esperada / criterio (guía para calificar — el alumno no la ve)
                 </label>
-                <input type="text" value={r.respuestaEsperada || ''} disabled={!r.incluir || guardando}
+                <Input type="text" value={r.respuestaEsperada || ''} disabled={!r.incluir || guardando}
                   onChange={(e) => update(i, { respuestaEsperada: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-full border border-outline-variant text-sm bg-surface disabled:opacity-60" />
+                  className="py-1.5 disabled:opacity-60" />
               </div>
             )}
 
@@ -142,23 +141,21 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
         ))}
 
         <div className="h-2" />
-        <button type="button" onClick={confirmar} disabled={!todosValidos || guardando}
-          className="w-full py-3 bg-accent text-white font-semibold rounded-full disabled:opacity-60 flex items-center justify-center gap-2">
-          {guardando ? <Spinner size="sm" /> : <Check size={18} />}
+        <Button fullWidth icon={Check} busy={guardando} onClick={confirmar} disabled={!todosValidos || guardando}>
+          
           {guardando
             ? 'Agregando…'
             : `Agregar ${incluidos.length} reactivo${incluidos.length !== 1 ? 's' : ''} a la evaluación`}
-        </button>
+        </Button>
         {!todosValidos && incluidos.length > 0 && (
           <p className="text-sm text-amber-700 text-center">Completa el enunciado (y al menos 2 opciones, si aplica) de cada reactivo antes de agregarlos.</p>
         )}
         {incluidos.length === 0 && (
           <p className="text-sm text-muted text-center">Descartaste todos los reactivos — no hay nada que agregar.</p>
         )}
-        <button type="button" onClick={onClose} disabled={guardando}
-          className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-full hover:bg-surface-container transition-colors disabled:opacity-60">
+        <Button variant="secondary" fullWidth onClick={onClose} disabled={guardando}>
           Cancelar
-        </button>
+        </Button>
         <div className="h-6 safe-bottom" />
       </div>
     </div>

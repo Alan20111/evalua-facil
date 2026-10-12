@@ -13,6 +13,8 @@ import { functions } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import { cargarContenidoJuego, guardarContenidoJuego } from '../../utils/juegoClave'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 const MIN_PALABRAS = 5
 const MAX_PALABRAS = 20
@@ -139,22 +141,21 @@ export default function ContenidoJuegoEditor({ activity, onConstruido }) {
             )}
             <button type="button" onClick={() => eliminar(i)} disabled={trabajando}
               aria-label={`Eliminar ${it.palabra || 'palabra'}`}
-              className="p-1.5 text-muted hover:text-red-500 flex-shrink-0"><Trash2 size={16} /></button>
+              className="size-control inline-flex items-center justify-center text-muted hover:text-red-500 flex-shrink-0 rounded-full"><Trash2 size={ICONO.sm} /></button>
           </div>
         ))}
       </div>
 
       <button type="button" onClick={agregar} disabled={trabajando || contenido.length >= MAX_PALABRAS}
         className="flex items-center gap-1.5 text-sm text-accent hover:underline disabled:opacity-40 disabled:no-underline">
-        <Plus size={16} /> Agregar palabra
+        <Plus size={ICONO.sm} /> Agregar palabra
       </button>
 
       <div className="flex justify-end pt-2">
-        <button type="button" onClick={handleConstruir} disabled={trabajando}
-          className="flex items-center gap-2 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
-          <Wand2 size={16} />
+        <Button icon={Wand2} onClick={handleConstruir} disabled={trabajando}>
+          
           {construyendo ? 'Construyendo…' : 'Confirmar contenido y construir juego'}
-        </button>
+        </Button>
       </div>
       <p className="text-xs text-muted text-right">Este paso no consume créditos de IA.</p>
     </div>

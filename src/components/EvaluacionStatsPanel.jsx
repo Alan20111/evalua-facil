@@ -1,4 +1,5 @@
 import { Star, TrendingUp, TrendingDown, CheckCircle2, Users, FileCheck2, Clock, PieChart } from 'lucide-react'
+import { ICONO } from '../config/iconos'
 
 // Specialized results-analysis panel for an evaluación — distinct from the grade
 // table. Shows the core group metrics in a consistent card grid. Kept as its own
@@ -31,7 +32,7 @@ export default function EvaluacionStatsPanel({ stats, totalEstudiantes, totalEnt
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 p-3">
         {metrics.map(({ icon: Icon, label, value, sub }) => (
           <div key={label} className="bg-accent-light rounded p-3 text-center">
-            <Icon size={18} className="text-accent mx-auto mb-1" />
+            <Icon size={ICONO.md} className="text-accent mx-auto mb-1" />
             <p className="text-xl font-bold text-on-surface leading-tight">
               {value}{sub && <span className="text-xs font-normal text-muted"> {sub}</span>}
             </p>
@@ -44,7 +45,7 @@ export default function EvaluacionStatsPanel({ stats, totalEstudiantes, totalEnt
             onClick={onGraficas}
             className="bg-accent-light rounded p-3 text-center border border-dashed border-accent-soft hover:bg-[var(--accent-medium)] transition-colors"
           >
-            <PieChart size={18} className="text-accent mx-auto mb-1" />
+            <PieChart size={ICONO.md} className="text-accent mx-auto mb-1" />
             <p className="text-xl font-bold text-accent leading-tight">Gráficas</p>
             <p className="text-xs text-muted mt-0.5">Por reactivo</p>
           </button>

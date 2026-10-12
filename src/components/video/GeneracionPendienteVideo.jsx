@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { RotateCcw } from 'lucide-react'
-import Spinner from '../Spinner'
 import { useToast } from '../Toast'
 import useVideoGeneracionDeps from '../../hooks/useVideoGeneracionDeps'
 import { ErrorGeneracionVideo, generarEnActividad } from '../../utils/videoGeneracion'
+import { Button } from '../ui'
 
 // Aviso del editor cuando una generación de preguntas se quedó a medias (se cerró la
 // pestaña, se cayó la red, falló el guardado). «Recuperar» repite la MISMA solicitud con
@@ -39,10 +39,9 @@ export default function GeneracionPendienteVideo({ actividadId, intento, onResue
         Si la IA ya la había generado, la recuperas aquí <span className="font-semibold">sin volver a cobrar</span>.
       </p>
       {mensaje && <p className="text-sm text-amber-900">{mensaje}</p>}
-      <button type="button" onClick={recuperar} disabled={trabajando}
-        className="inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] px-4 rounded-full bg-accent text-white text-sm font-semibold transition-colors">
-        {trabajando ? <Spinner size="sm" /> : <RotateCcw size={16} />} Recuperar preguntas
-      </button>
+      <Button icon={RotateCcw} busy={trabajando} className="min-h-[2.75rem]" onClick={recuperar} disabled={trabajando}>
+         Recuperar preguntas
+      </Button>
     </output>
   )
 }

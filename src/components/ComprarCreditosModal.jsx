@@ -9,6 +9,8 @@ import { uploadToCloudinary } from '../utils/cloudinary'
 import { datosDeCompraCreditos, validarComprobante, formatCurrency } from '../utils/creditosHelpers'
 import { useToast } from './Toast'
 import { Copy, Upload } from 'lucide-react'
+import { Input, Button } from './ui'
+import { ICONO } from '../config/iconos'
 
 const PRECIO_REFERENCIA_MXN = 1
 
@@ -96,7 +98,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
                     <button
                       type="button"
                       onClick={() => setPaquete(p)}
-                      className={`w-full flex flex-col items-center px-1 py-2.5 rounded-full border transition-colors ${
+                      className={`w-full flex flex-col items-center px-1 py-2.5 rounded-full border transition-colors min-h-control ${
                         seleccionado
                           ? 'border-accent bg-[var(--accent-tint)]'
                           : 'border-outline-variant hover:border-accent'
@@ -142,7 +144,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
                       className="p-1 rounded-full hover:bg-surface-container transition-colors"
                       aria-label={`Copiar ${label}`}
                     >
-                      <Copy size={14} className="text-muted" />
+                      <Copy size={ICONO.xs} className="text-muted" />
                     </button>
                   </div>
                 ))}
@@ -159,12 +161,12 @@ export default function ComprarCreditosModal({ open, onClose }) {
                   <label htmlFor="comp-referencia" className="block text-sm font-medium text-on-surface mb-1">
                     Número de referencia / folio <span className="text-error">*</span>
                   </label>
-                  <input
+                  <Input
                     id="comp-referencia"
                     type="text"
                     value={referencia}
                     onChange={(e) => setReferencia(e.target.value)}
-                    className="w-full border border-outline-variant rounded-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+                    className="focus:ring-1 focus:ring-accent"
                   />
                 </div>
 
@@ -173,7 +175,7 @@ export default function ComprarCreditosModal({ open, onClose }) {
                     Comprobante de transferencia <span className="text-muted">(opcional)</span>
                   </label>
                   <label htmlFor="comp-comprobante" className="flex items-center gap-2 cursor-pointer border border-dashed border-outline-variant rounded px-3 py-2.5 hover:border-accent transition-colors">
-                    <Upload size={16} className="text-muted flex-shrink-0" />
+                    <Upload size={ICONO.sm} className="text-muted flex-shrink-0" />
                     <span className="text-sm text-muted truncate">
                       {comprobante ? comprobante.name : 'Toca para subir una foto o captura'}
                     </span>
@@ -187,14 +189,11 @@ export default function ComprarCreditosModal({ open, onClose }) {
                   </label>
                 </div>
 
-                <button
-                  type="button"
+                <Button fullWidth
                   onClick={enviar}
-                  disabled={enviando || !referencia.trim()}
-                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-full transition-colors disabled:opacity-60"
-                >
+                  disabled={enviando || !referencia.trim()}>
                   {enviando ? 'Enviando…' : 'Confirmar y enviar solicitud'}
-                </button>
+                </Button>
 
                 <p className="text-sm text-muted text-center">
                   Tus créditos se agregarán después de que el administrador confirme el pago recibido.
@@ -214,13 +213,10 @@ export default function ComprarCreditosModal({ open, onClose }) {
           </a>
         </p>
 
-        <button
-          type="button"
-          onClick={handleClose}
-          className="w-full py-2.5 border border-outline-variant text-on-surface font-semibold rounded-full transition-colors hover:bg-[var(--accent-tint)] text-sm"
-        >
+        <Button variant="secondary" fullWidth
+          onClick={handleClose}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </Modal>
   )

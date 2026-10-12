@@ -1,5 +1,6 @@
 import { Lightbulb } from 'lucide-react'
 import { RECOMENDACIONES_VIDEO, REGLA_VIDEO } from './recomendacionesTexto'
+import { ICONO } from '../../config/iconos'
 
 // Las tres recomendaciones que el docente debe tener presentes ANTES de publicar un video interactivo.
 // Se muestran siempre completas en la creación y en la revisión (no se pliegan ni se ocultan), y en forma corta
@@ -17,7 +18,7 @@ export default function RecomendacionesVideo({ compacto = false }) {
   return (
     <section className="rounded-card border border-amber-200 bg-amber-50 p-3 space-y-2" aria-label="Recomendaciones antes de publicar" data-testid="recomendaciones-video">
       <div className="flex items-start gap-2">
-        <Lightbulb size={18} className="text-amber-700 flex-shrink-0 mt-0.5" />
+        <Lightbulb size={ICONO.md} className="text-amber-700 flex-shrink-0 mt-0.5" />
         <h3 className="text-sm font-semibold text-amber-900">Antes de publicar, ten presente:</h3>
       </div>
       <ol className="space-y-1.5 text-sm text-amber-900 list-decimal pl-6">

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import statesGeo from '../../data/mexicoStatesGeo.json'
 import cityShapes from '../../data/cityShapes.json'
+import { ICONO } from '../../config/iconos'
 
 // Mapa dibujado en <canvas>, no SVG — con ~300 nodos DOM (32 estados + 69
 // manchas urbanas + sus etiquetas) el navegador tenía que llevar la cuenta
@@ -542,7 +543,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
             className="w-8 h-8 flex items-center justify-center bg-surface-card shadow-card rounded-full text-on-surface hover:bg-[var(--accent-tint)]"
             aria-label="Acercar"
           >
-            <ZoomIn size={16} />
+            <ZoomIn size={ICONO.sm} />
           </button>
           <button
             type="button"
@@ -550,7 +551,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
             className="w-8 h-8 flex items-center justify-center bg-surface-card shadow-card rounded-full text-on-surface hover:bg-[var(--accent-tint)]"
             aria-label="Alejar"
           >
-            <ZoomOut size={16} />
+            <ZoomOut size={ICONO.sm} />
           </button>
           <button
             type="button"
@@ -558,7 +559,7 @@ export default function MexicoMap({ marcadores = [], etiqueta = 'docentes' }) {
             className="w-8 h-8 flex items-center justify-center bg-surface-card shadow-card rounded-full text-on-surface hover:bg-[var(--accent-tint)]"
             aria-label="Restablecer vista"
           >
-            <RotateCcw size={16} />
+            <RotateCcw size={ICONO.sm} />
           </button>
         </div>
       </div>

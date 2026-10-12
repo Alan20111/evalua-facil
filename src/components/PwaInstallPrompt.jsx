@@ -15,6 +15,8 @@ import { Bell, X } from 'lucide-react'
 import { Capacitor } from '@capacitor/core'
 import { useAuth } from '../context/AuthContext'
 import { isWebPushSupported, webPushPermission, initWebPush } from '../utils/webPush'
+import { Button } from './ui'
+import { ICONO } from '../config/iconos'
 
 const NOTIF_DISMISS_KEY = 'ef_pwa_notif_dismissed'
 
@@ -87,25 +89,22 @@ export default function PwaInstallPrompt() {
           aria-label="Cerrar"
           className="absolute top-2 right-2 p-2 text-muted hover:text-on-surface rounded transition-colors"
         >
-          <X size={18} />
+          <X size={ICONO.md} />
         </button>
         <div className="flex items-start gap-3 pr-6">
           <div className="w-10 h-10 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-            <Bell size={20} className="text-accent" />
+            <Bell size={ICONO.md} className="text-accent" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-on-surface">Activa las notificaciones</p>
             <p className="text-sm text-muted mt-0.5">
               Recibe avisos de tus clases, entregas y calificaciones directo en este dispositivo.
             </p>
-            <button
-              type="button"
+            <Button fullWidth className="mt-3"
               onClick={handleEnableNotifications}
-              disabled={busy}
-              className="mt-3 w-full py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60"
-            >
+              disabled={busy}>
               {busy ? 'Activando…' : 'Activar notificaciones'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

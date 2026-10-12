@@ -12,6 +12,7 @@ import { actualizarPregunta } from '../../utils/evaluacionClave'
 import RevisionVideoModal from './RevisionVideoModal'
 import VistaPreviaDocenteVideo from './VistaPreviaDocenteVideo'
 import { ESTADO_REVISION, construirItems, contarPorEstadoRevision, validarTiempo } from './revisionVideo'
+import { ICONO } from '../../config/iconos'
 
 const BOTON = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] px-4 rounded-full text-sm font-semibold transition-colors disabled:opacity-60'
 
@@ -167,7 +168,7 @@ export default function PropuestasVideoPanel({
   return (
     <section className="bg-surface-card rounded-card shadow-card p-4 space-y-3" aria-label="Revisión de las preguntas del video" data-testid="panel-revision-video">
       <div className="flex items-start gap-2">
-        <Sparkles size={18} className="text-accent flex-shrink-0 mt-0.5" />
+        <Sparkles size={ICONO.md} className="text-accent flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <h3 className="text-base font-semibold">Revisión de las preguntas del video</h3>
           <p className="text-sm text-muted">Revisa cada pregunta en el video y aprueba solo las que sean correctas y pertinentes.</p>
@@ -176,7 +177,7 @@ export default function PropuestasVideoPanel({
 
       <section className="rounded-card border border-amber-200 bg-amber-50 px-3 py-2 space-y-1" aria-label="Antes de aprobar" data-testid="recomendaciones-video">
         <div className="flex items-center gap-2">
-          <Lightbulb size={16} className="text-amber-700 flex-shrink-0" />
+          <Lightbulb size={ICONO.sm} className="text-amber-700 flex-shrink-0" />
           <h4 className="text-sm font-semibold text-amber-900">Antes de aprobar</h4>
         </div>
         <ul className="grid gap-x-4 gap-y-0.5 text-sm text-amber-900 list-disc pl-6 sm:grid-cols-3">
@@ -196,11 +197,11 @@ export default function PropuestasVideoPanel({
         {sucias > 0 && <p className="text-sm font-semibold text-amber-900">Tienes cambios sin guardar. Guárdalos para que cuenten al publicar.</p>}
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setRevisando(true)} data-testid="abrir-revision" className={`${BOTON} bg-accent text-white`}>
-            <ListChecks size={16} /> Revisar preguntas{cuenta.pendiente > 0 ? ` (${cuenta.pendiente} pendientes)` : ''}
+            <ListChecks size={ICONO.sm} /> Revisar preguntas{cuenta.pendiente > 0 ? ` (${cuenta.pendiente} pendientes)` : ''}
           </button>
           <button type="button" onClick={() => abrirVista(0, false)} disabled={!hayPreguntasParaProbar || !videoId} data-testid="abrir-vista-previa"
             className={`${BOTON} border border-accent text-accent hover:bg-[var(--accent-tint)]`}>
-            <Eye size={16} /> Vista previa docente
+            <Eye size={ICONO.sm} /> Vista previa docente
           </button>
         </div>
       </div>
