@@ -110,11 +110,11 @@ fi
 # número real de hoy para que el candado siga protegiendo contra que crezca
 # más, en vez de quedar roto/ignorado tras el merge.
 ratchet "Modales a mano (fixed inset-0 fuera de ui/Modal.jsx) — migrar a ui/Modal en Fase 3" \
-  'fixed inset-0' 42 'components/ui/Modal.jsx' files
+  'fixed inset-0' 35 'components/ui/Modal.jsx' files
 ratchet "h-screen (rompe con la barra de URL de Chrome Android, usar dvh) — Fase 5 paso 5.3" \
   '\bh-screen\b' 16
 ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
-  '([0-9]+)(vh)\b' 58
+  '([0-9]+)(vh)\b' 33
 # Presupuesto subido de 52 a 54 (Fase 2, paso 2.8): min-h-[44px]/min-w-[44px]
 # en la variante icon de ui/Button.jsx son deliberados, no deuda — con
 # html{font-size:90%} del proyecto, el equivalente en la escala rem de
@@ -150,7 +150,7 @@ ratchet "transition-all (anima de más; usa transition-colors/transform) — §2
 ratchet "Casilla/opción a mano (type=checkbox|radio fuera de ui/) — §3" \
   'type="(checkbox|radio)"' 60 'components/ui/|pages/dev/'
 ratchet "z-index con número (z-[NN] → z-contenido/barra/menu/hoja/aviso/tope) — §2.4" \
-  'z-\[[0-9]+\]' 17 'components/ui/'
+  'z-\[[0-9]+\]' 12 'components/ui/'
 
 echo ""
 # Esqueletos de carga: deben medir lo mismo que su pantalla real

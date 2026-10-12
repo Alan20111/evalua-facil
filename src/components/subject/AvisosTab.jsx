@@ -12,7 +12,7 @@ import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import { PLANTILLAS_SEED, EMOJI_PALETTE, avisoEmoji, formatAvisoFecha, avisosDesde } from '../../utils/avisos'
 import { studentFullName } from '../../utils/studentSearch'
 import { IS_NATIVE_APP } from '../../utils/platform'
-import { SkeletonList, Input, Button, IconButton } from '../ui'
+import { SkeletonList, Input, Button, IconButton, Modal } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 const EMPTY_FORM = { id: null, emoji: '', titulo: '', mensaje: '' }
@@ -508,9 +508,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
 
       {/* ── Nuevo / editar aviso ── */}
       {step && (step === 'picker' || step === 'form') && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStep(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setStep(null)} variant="sheet" size="lg" z={40} padding="p-4" ariaLabel="¿Qué deseas comunicar?">
             {step === 'picker' ? (
               <>
                 <div className="flex items-center justify-between mb-3">
@@ -571,8 +569,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 </div>
               </form>
             )}
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Confirmación de créditos IA (estimación previa, nunca descuenta) ── */}
@@ -589,9 +586,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
 
       {/* ── Gestionar plantillas ── */}
       {(step === 'plantillas' || step === 'plantilla-form') && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStep(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+        <Modal open onClose={() => setStep(null)} variant="sheet" size="lg" z={40} padding="p-4" ariaLabel="Tus plantillas">
             {step === 'plantillas' ? (
               <>
                 <div className="flex items-center gap-2 mb-3">
@@ -690,15 +685,12 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 </div>
               </form>
             )}
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Detalle del aviso ── */}
       {detailAviso && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDetailAviso(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[85vh] overflow-y-auto">
+        <Modal open onClose={() => setDetailAviso(null)} variant="sheet" size="lg" z={40} padding="p-4" ariaLabel="Detalle del aviso">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Detalle del aviso</h3>
               <button type="button" onClick={() => setDetailAviso(null)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-muted hover:text-accent rounded-full">
@@ -765,15 +757,12 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 </p>
               )}
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Confirmación de borrado de aviso ── */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+        <Modal open onClose={() => setDeleteConfirm(null)} variant="centered" padding="p-4" ariaLabel="¿Deseas eliminar este aviso?">
             <h3 className="text-lg font-semibold mb-2">¿Deseas eliminar este aviso?</h3>
             <p className="text-sm text-muted mb-4">Se eliminará permanentemente, junto con el avance de lectura registrado.</p>
             <div className="flex justify-end gap-2">
@@ -785,15 +774,12 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 {deleting ? 'Eliminando…' : 'Eliminar'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* ── Confirmación de borrado de plantilla ── */}
       {deletePlantillaConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeletePlantillaConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+        <Modal open onClose={() => setDeletePlantillaConfirm(null)} variant="centered" padding="p-4" ariaLabel="¿Eliminar esta plantilla?">
             <h3 className="text-lg font-semibold mb-2">¿Eliminar esta plantilla?</h3>
             <p className="text-sm text-muted mb-4">&ldquo;<strong>{deletePlantillaConfirm.label}</strong>&rdquo; ya no aparecerá al crear un aviso nuevo. Los avisos ya publicados con ella no cambian.</p>
             <div className="flex justify-end gap-2">
@@ -805,8 +791,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 Eliminar
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
     </div>
   )

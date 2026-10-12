@@ -13,7 +13,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12 } from '../../utils/formatHora'
 import InfoDisclosure from '../../components/ui/InfoDisclosure'
-import { Button, IconTile, SkeletonForm, Switch } from '../../components/ui'
+import { Button, IconTile, SkeletonForm, Switch, Modal } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
 
 // Colección `notificationSettings/{uid}` (misma colección que usan los
@@ -128,9 +128,7 @@ function AnticipacionPicker({ value, onChange }) {
         <ChevronDown size={ICONO.xs} className="text-muted flex-shrink-0" />
       </Button>
       {open && (
-        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setOpen(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card hoja rounded-card drop-shadow-2xl w-[calc(100%-1rem)] sm:w-full sm:max-w-sm max-h-[80vh] overflow-y-auto safe-bottom">
+        <Modal open onClose={() => setOpen(false)} variant="sheet" z={80} padding="" className="safe-bottom">
             <div className="sticky top-0 bg-surface-card px-4 py-3 border-b border-outline-variant flex items-center justify-between">
               <p className="font-semibold text-on-surface">Avisar</p>
               <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center -mr-1 text-muted hover:text-on-surface rounded-full transition-colors">
@@ -161,8 +159,7 @@ function AnticipacionPicker({ value, onChange }) {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
     </>
   )

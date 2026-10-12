@@ -12,7 +12,7 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
-import { Button, IconButton } from '../ui'
+import { Button, IconButton, Modal } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 // ── Estado del editor ────────────────────────────────────────────────────────
@@ -703,9 +703,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
 
       {/* Confirmación al salir con cambios sin guardar */}
       {confirmSalir && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !saving && setConfirmSalir(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+        <Modal open onClose={() => setConfirmSalir(false)} variant="centered" z={80} padding="p-4" busy={saving}>
             <h3 className="text-base font-semibold text-on-surface mb-1">{iaGenerada ? 'Tienes una rúbrica sin guardar' : '¿Guardar los cambios?'}</h3>
             <p className="text-sm text-muted mb-3">
               {iaGenerada
@@ -730,8 +728,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
               className="w-full mt-2 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded transition-colors disabled:opacity-60">
               Salir sin guardar
             </button>
-          </div>
-        </div>
+          </Modal>
       )}
     </div>
   )

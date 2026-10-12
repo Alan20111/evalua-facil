@@ -19,7 +19,7 @@ import useCreditosIA from '../hooks/useCreditosIA'
 import { resolverFuentes, avisarFuentesOmitidas } from '../utils/fuentesIA'
 import FuentesIAInput from './ia/FuentesIAInput'
 import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
-import { Button } from './ui'
+import { Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
 
 const MIN_PETICION = 20
@@ -91,10 +91,7 @@ export default function CrearActividadIAModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
-        onClick={() => { if (!trabajando) onClose?.() }} aria-label="Cerrar" />
-      <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-5 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+    <Modal open onClose={() => { if (!trabajando) onClose?.() }} variant="sheet" size="md" padding="p-5">
         <div className="flex items-center gap-2 mb-3">
           <Sparkles size={ICONO.md} className="text-accent flex-shrink-0" />
           <h3 className="text-base font-semibold flex-1">{tipoLabel} con IA</h3>
@@ -132,7 +129,6 @@ export default function CrearActividadIAModal({
             {trabajando ? 'Generando…' : 'Generar con IA'}
           </Button>
         </div>
-      </div>
-    </div>
+      </Modal>
   )
 }

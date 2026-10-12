@@ -66,7 +66,7 @@ import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12FromDate } from '../../utils/formatHora'
 import { EsqueletoActividadDocente } from '../../components/esqueletos'
-import { Input, Button, IconButton } from '../../components/ui'
+import { Input, Button, IconButton, Modal } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
 
 // La evaluación con rúbrica de un alumno "no existe" hasta que se elige algún
@@ -1291,9 +1291,7 @@ export default function ActivityPage() {
   // ternario de abajo (evaluación y entregable/observación) para que
   // funcione desde cualquiera de los dos tipos.
   const deleteActivityModal = deleteConfirm && activity && (
-    <div className="fixed inset-0 z-aviso flex items-center justify-center px-4">
-      <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteConfirm(false)} aria-label="Cerrar" />
-      <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+    <Modal open onClose={() => setDeleteConfirm(false)} variant="centered" z={60} padding="p-4" ariaLabel="¿Eliminar actividad?">
         <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar actividad?</h3>
         <p className="text-sm text-muted mb-4">
           &ldquo;<strong>{activity.nombre}</strong>&rdquo; se eliminará permanentemente, junto con las entregas que tenga.
@@ -1305,8 +1303,7 @@ export default function ActivityPage() {
             {deletingActivity ? 'Eliminando…' : 'Eliminar'}
           </Button>
         </div>
-      </div>
-    </div>
+      </Modal>
   )
 
   return (
@@ -2757,9 +2754,7 @@ export default function ActivityPage() {
       {/* Anular entrega / Modificar fecha — ventanas flotantes centradas
           (Android), no empujan el contenido de la vista de evaluar. */}
       {selected && IS_NATIVE_APP && annulMode && selected.sub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setAnnulMode(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
+        <Modal open onClose={() => setAnnulMode(false)} variant="centered" padding="p-4" className="space-y-2">
             <p className="text-sm text-red-700">
               ¿Anular la entrega de <strong>{studentFullName(selected.student)}</strong>?
               Volverá a quedar <strong>Pendiente</strong> y podrá entregar de nuevo.
@@ -2777,14 +2772,11 @@ export default function ActivityPage() {
                 {annulling ? 'Anulando…' : 'Anular entrega'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {selected && IS_NATIVE_APP && extendMode && !prorrogaBloqueada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setExtendMode(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
+        <Modal open onClose={() => setExtendMode(false)} variant="centered" padding="p-4" className="space-y-2">
             <p className="text-sm font-medium text-on-surface">Nueva fecha y hora límite para este estudiante</p>
             <EFDateTimePicker
               mode="datetime"
@@ -2814,8 +2806,7 @@ export default function ActivityPage() {
                 {savingExtension ? 'Guardando…' : 'Guardar'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* Ventana flotante de la rúbrica: inicia abajo del botón "Ver rúbrica" y

@@ -27,8 +27,8 @@
 //   ariaLabel            nombre accesible del diálogo cuando no hay `title`
 //                        visible (ej. ConfirmModal, LinkAccountModal).
 //   variant  'sheet' (default) | 'centered'
-//   size     'sm' (default) | 'md' | 'lg' | '3xl'  — max-width del panel.
-//   z        50 (default) | 40 | 60 | 90 | 110  — z-index del wrapper (algunos
+//   size     'sm' (default) | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | 'full'  — max-width del panel.
+//   z        50 (default) | 40 | 60 | 70 | 80 | 90 | 110  — z-index del wrapper (algunos
 //            modales son sub-modales y viven por encima de otro).
 //   padding  clases de padding del panel (default 'p-4 sm:p-5').
 //   footer   nodo opcional para la fila de acciones.
@@ -42,8 +42,8 @@ import IconButton from './IconButton'
 import { cn } from './cn'
 import { useScrollLock } from '../../hooks/useScrollLock'
 
-const SIZES = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', '3xl': 'max-w-3xl' }
-const Z = { 40: 'z-40', 50: 'z-50', 60: 'z-[60]', 90: 'z-[90]', 110: 'z-[110]' }
+const SIZES = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-xl', '2xl': 'max-w-2xl', '3xl': 'max-w-3xl', '4xl': 'max-w-4xl', full: '' }
+const Z = { 40: 'z-40', 50: 'z-hoja', 60: 'z-aviso', 70: 'z-menu', 80: 'z-[80]', 90: 'z-tope', 110: 'z-[110]' }
 
 export default function Modal({
   open,

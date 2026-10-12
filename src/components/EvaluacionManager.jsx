@@ -61,7 +61,7 @@ import { useBackHandler } from '../hooks/useBackHandler'
 import useTelefonoWeb from '../hooks/useTelefonoWeb'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { formatHora12FromDate } from '../utils/formatHora'
-import { SkeletonList, Input, Button, IconButton } from './ui'
+import { SkeletonList, Input, Button, IconButton, Modal } from './ui'
 import { ICONO } from '../config/iconos'
 
 const TIPOS_PREGUNTA = [
@@ -1708,9 +1708,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             )}
 
             {showBanco && (
-              <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-                <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} aria-label="Cerrar" />
-                <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-lg hoja rounded-card p-4 drop-shadow-2xl max-h-[85vh] overflow-y-auto">
+              <Modal open onClose={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} variant="sheet" size="lg" padding="p-4" ariaLabel="Mi banco de reactivos">
                   <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
                   <div className="flex gap-2 mb-3">
                     <div className="flex-1">
@@ -1838,8 +1836,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     </div>
                   )}
                   <Button fullWidth className="mt-3" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }}>Cerrar</Button>
-                </div>
-              </div>
+                </Modal>
             )}
           </div>
         )}
@@ -2636,9 +2633,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           en línea (mismo patrón que ActivityPage.jsx), para que el alto del
           aside — y por lo tanto el de la zona de respuestas — no varíe. */}
       {reviewing && IS_NATIVE_APP && extendMode && !reviewProrrogaBloqueada && (
-        <div className="fixed inset-0 z-aviso flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setExtendMode(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
+        <Modal open onClose={() => setExtendMode(false)} variant="centered" z={60} padding="p-4" className="space-y-2">
             <p className="text-sm font-medium text-on-surface flex items-center gap-1.5"><CalendarDays size={ICONO.sm} className="text-accent" /> Nueva fecha y hora límite para este estudiante</p>
             <EFDateTimePicker mode="datetime" value={extendDate} onChange={setExtendDate} clearable={false} defaultTime="23:59" minDateTime={toIsoNow()} />
             <div>
@@ -2659,8 +2654,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 {savingExtension ? 'Guardando…' : 'Guardar'}
               </Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {/* Editor completo del cuestionario/examen — el mismo que abre "editar"
@@ -2685,9 +2679,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
       {/* Anular-entrega confirmation */}
       {cancelConfirm && (
-        <div className="fixed inset-0 z-aviso flex items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !cancelling && setCancelConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+        <Modal open onClose={() => setCancelConfirm(null)} variant="centered" z={60} padding="p-4" busy={cancelling} ariaLabel="¿Anular la entrega?">
             <h3 className="text-base font-semibold text-on-surface">¿Anular la entrega?</h3>
             <p className="text-sm text-muted mt-2">
               Se eliminará la entrega de <strong>{studentFullName(cancelConfirm.student)}</strong> y sus respuestas.
@@ -2698,8 +2690,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <Button variant="danger" className="flex-1" onClick={handleCancelSubmission} disabled={cancelling}>
                 {cancelling ? 'Anulando…' : 'Sí, anular entrega'}</Button>
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {seccionesCtl.porBorrar && (
