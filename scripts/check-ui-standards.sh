@@ -151,6 +151,11 @@ ratchet "transition-all (anima de más; usa transition-colors/transform) — §2
   '(^|[^a-z-])transition-all' 0 'components/ui/'
 ratchet "Casilla/opción a mano (type=checkbox|radio fuera de ui/) — §3" \
   'type="(checkbox|radio)"' 0 'components/ui/|pages/dev/'
+# Contraste (revisión de accesibilidad, oct-2026): texto blanco translúcido
+# sobre color de acento. Medido sobre el azul: /80 da 3.9:1 y /90 da 4.5:1;
+# el texto usa /95 o más. Los íconos pueden quedarse en /80 (piden 3:1).
+ratchet "Texto blanco translúcido bajo /80 (text-white/50|60|70: no pasa contraste AA sobre el acento)" \
+  '(^|[^:a-z-])text-white/(50|60|70)\b' 0
 ratchet "z-index con número (z-[NN] → contenido/barra/hoja/aviso/menu/pantalla/tope/flotante/efecto/maximo/sistema) — §2.4" \
   'z-\[[0-9]+\]' 0 'components/ui/'
 

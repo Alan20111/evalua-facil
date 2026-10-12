@@ -98,7 +98,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <IconButton icon={ArrowLeft} label="Volver" tooltip={false} variant="onColor" className="-ml-2" onClick={onClose} />
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-white/70 uppercase tracking-wide">Rúbrica de evaluación</p>
+            <p className="text-xs text-white/95 uppercase tracking-wide">Rúbrica de evaluación</p>
             <h1 className="text-2xl font-extrabold text-white truncate">Mi banco de rúbricas</h1>
           </div>
         </div>

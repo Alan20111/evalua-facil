@@ -173,7 +173,7 @@ export function AgendaView({
                 className={`absolute ${DIA_HOUR_TEXT} text-muted leading-none whitespace-nowrap ${IS_NATIVE_APP ? 'inset-x-0 text-center' : 'right-2 text-right'}`}
                 style={{ top: i * AGENDA_ROW_H + AGENDA_ROW_H / 2, transform: 'translateY(-50%)' }}>
                 <span className="block">{hNum}</span>
-                <span className={`block ${DIA_HOUR_AMPM} opacity-70 -mt-0.5`}>{periodo}</span>
+                <span className={`block ${DIA_HOUR_AMPM} -mt-0.5`}>{periodo}</span>
               </div>
             )
           })}
@@ -206,7 +206,7 @@ export function AgendaView({
           {placed.length === 0 && allDayEvs.length === 0 && (
             <div className="absolute inset-x-0 top-6 text-center pointer-events-none">
               <p className="text-sm text-muted">No hay clases ni eventos este día</p>
-              <p className="text-xs text-muted opacity-60 mt-0.5">Haz clic en una hora para crear un evento</p>
+              <p className="text-xs text-hint mt-0.5">Haz clic en una hora para crear un evento</p>
             </div>
           )}
 
@@ -618,7 +618,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
                 <div key={hour} className={`absolute left-0 right-0 ${GRID_HOUR_TEXT} text-muted leading-none whitespace-nowrap ${gutterComoDia ? 'pr-2 text-right' : 'px-1.5'}`}
                   style={{ top: i * ROW_H + ROW_H / 2, transform: 'translateY(-50%)' }}>
                   <span className="block">{hNum}</span>
-                  <span className={`block ${GRID_HOUR_AMPM} opacity-70 -mt-0.5`}>{periodo}</span>
+                  <span className={`block ${GRID_HOUR_AMPM} -mt-0.5`}>{periodo}</span>
                 </div>
               )
             })}

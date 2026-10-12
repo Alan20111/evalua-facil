@@ -156,7 +156,7 @@ export default function RichTextEditor({ value, onChange, etiqueta, attachments,
     content: value || '',
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
-      attributes: { class: `focus:outline-none min-h-[160px] ${richTextContentClass}`, 'aria-label': etiqueta || 'Texto' },
+      attributes: { class: `focus:outline-none min-h-[160px] ${richTextContentClass}`, 'aria-label': etiqueta || 'Texto', role: 'textbox', 'aria-multiline': 'true' },
       handleDrop: (_view, event) => {
         const file = event.dataTransfer?.files?.[0]
         if (file && file.type.startsWith('image/')) {

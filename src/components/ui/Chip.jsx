@@ -23,7 +23,7 @@ export function Chip({ selected = false, onClick, icon: Icono, className = '', c
 }
 
 const TONOS = {
-  accent: 'bg-accent-light text-accent',
+  accent: 'bg-accent-light text-accent-hover',
   neutral: 'bg-surface-container text-muted',
   success: 'bg-emerald-50 text-emerald-700',
   warning: 'bg-amber-50 text-amber-800',

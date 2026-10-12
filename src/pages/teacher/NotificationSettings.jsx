@@ -395,7 +395,7 @@ export default function TeacherNotificationSettings() {
             <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
               <div className="px-4 py-3 bg-accent-light border-b border-accent-soft flex items-center gap-2">
                 <Bell size={ICONO.md} className="text-accent flex-shrink-0" />
-                <h2 className="font-semibold text-accent">Tus notificaciones</h2>
+                <h2 className="font-semibold text-accent-hover">Tus notificaciones</h2>
               </div>
               <div className="p-4 divide-y divide-outline-variant">
                 {CATEGORIAS.map((cat) => (

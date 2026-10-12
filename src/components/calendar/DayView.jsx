@@ -178,7 +178,7 @@ export default function DayView({
                 }}
               >
                 <span style={{ display: 'block', fontSize: IS_NATIVE_APP ? 10 : 12, fontWeight: 500 }}>{hNum}</span>
-                <span style={{ display: 'block', fontSize: IS_NATIVE_APP ? 9 : 10, opacity: 0.7 }}>{periodo}</span>
+                <span style={{ display: 'block', fontSize: IS_NATIVE_APP ? 9 : 10 }}>{periodo}</span>
               </div>
             )
           })}
@@ -228,7 +228,7 @@ export default function DayView({
           {placed.length === 0 && allDayEvs.length === 0 && (
             <div style={{ position: 'absolute', top: 24, left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' }}>
               <p style={{ fontSize: '14px', color: 'var(--on-surface-variant)' }}>No hay clases ni eventos este día</p>
-              <p style={{ fontSize: '12px', color: 'var(--on-surface-variant)', opacity: 0.6, marginTop: 2 }}>
+              <p style={{ fontSize: '12px', color: 'var(--on-surface-hint)', marginTop: 2 }}>
                 Haz clic en una hora para crear un evento
               </p>
             </div>

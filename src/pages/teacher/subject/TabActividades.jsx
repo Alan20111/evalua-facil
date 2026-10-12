@@ -108,7 +108,7 @@ export default function TabActividades() {
                     >
                       {parcialOculto ? <EyeOff size={ICONO.md} /> : <Eye size={ICONO.md} />}
                     </button>
-                    <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} className="size-control inline-flex items-center justify-center rounded-full mr-2 flex-shrink-0">
+                    <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} aria-expanded={isOpen} aria-label={isOpen ? `Contraer el Parcial ${p}` : `Desplegar el Parcial ${p}`} className="size-control inline-flex items-center justify-center rounded-full mr-2 flex-shrink-0">
                       {isOpen ? <ChevronUp size={ICONO.md} className="text-hint" /> : <ChevronDown size={ICONO.md} className="text-hint" />}
                     </button>
                   </div>

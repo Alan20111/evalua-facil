@@ -26,6 +26,10 @@ const args = new Set(process.argv.slice(2))
 const ESCRIBIR_REF = args.has('--referencia')
 const SOLO = [...args].find((a) => a.startsWith('--solo='))?.split('=')[1]
 const VISTA = [...args].find((a) => a.startsWith('--vista='))?.split('=')[1]
+// --a11y: además de comparar, corre axe (WCAG 2.1 A/AA) y un recorrido con
+// Tab que busca controles que reciben el foco sin indicador visible.
+const A11Y = args.has('--a11y')
+const AXE = A11Y ? fs.readFileSync('node_modules/axe-core/axe.min.js', 'utf8') : null
 const CHROME = process.env.CHROME_PATH || [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/usr/bin/google-chrome', '/usr/bin/chromium',
@@ -146,8 +150,40 @@ const TACTIL = ['--blink-settings=primaryPointerType=2,availablePointerTypes=2,p
 const t0 = Date.now()
 let diferencias = 0
 const auditoria = []
+const a11y = []
 for (const [vp, opts] of Object.entries(VIEWPORTS)) {
-  const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: opts.hasTouch ? TACTIL : [] })
+  async function revisarA11y(page) {
+  await page.addScriptTag({ content: AXE })
+  const axe = await page.evaluate(async () => {
+    const r = await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] }, resultTypes: ['violations'] })
+    return r.violations.map((v) => ({ id: v.id, impacto: v.impact, ayuda: v.help, nodos: v.nodes.length, ejemplo: v.nodes[0]?.target?.join(' '),
+      detalle: v.nodes.map((n) => ({ html: n.html.slice(0, 220), resumen: n.failureSummary?.slice(0, 220) })) }))
+  })
+  // Recorrido con Tab: hasta 80 paradas. Un control «sin foco visible» es el
+  // que al enfocarse no cambia outline ni box-shadow respecto a sin foco.
+  const sinFoco = []
+  await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0) })
+  for (let i = 0; i < 80; i++) {
+    await page.keyboard.press('Tab')
+    const r = await page.evaluate(() => {
+      const e = document.activeElement
+      if (!e || e === document.body) return null
+      const st = getComputedStyle(e)
+      const conFoco = `${st.outlineStyle}|${st.outlineWidth}|${st.boxShadow}|${st.backgroundColor}|${st.borderColor}`
+      e.blur()
+      const st2 = getComputedStyle(e)
+      const sinF = `${st2.outlineStyle}|${st2.outlineWidth}|${st2.boxShadow}|${st2.backgroundColor}|${st2.borderColor}`
+      e.focus({ preventScroll: true })
+      const nombre = (e.getAttribute('aria-label') || e.textContent || e.tagName).trim().slice(0, 40)
+      return { visible: conFoco !== sinF, nombre, tag: e.tagName.toLowerCase() }
+    })
+    if (!r) break
+    if (!r.visible) sinFoco.push(`${r.tag} «${r.nombre}»`)
+  }
+  return { axe, sinFoco: [...new Set(sinFoco)] }
+}
+
+const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: opts.hasTouch ? TACTIL : [] })
   for (const [rol, vistas] of Object.entries(VISTAS)) {
     if (SOLO && SOLO !== rol) continue
     if (VISTA && !vistas.some((v) => v.nombre === VISTA)) continue
@@ -213,6 +249,7 @@ for (const [vp, opts] of Object.entries(VIEWPORTS)) {
           } else console.log(`✓ ${clave}`)
         }
         for (const m of await auditar(page, captura)) auditoria.push({ vista: clave, ...m })
+        if (A11Y) a11y.push({ vista: clave, ...(await revisarA11y(page)) })
         fs.mkdirSync(path.join(CAP, vp), { recursive: true })
         await page.screenshot({ path: path.join(CAP, clave + '.png'), fullPage: true })
         if (v.abrir) {
@@ -233,6 +270,24 @@ const unicos = new Map()
 for (const a of auditoria) { const k = `${a.vista.split('/')[0]}|${a.tipo}|${a.nombre}|${a.h}`; if (!unicos.has(k)) unicos.set(k, a) }
 console.log(`\n=== Auditoría del contrato (${unicos.size} hallazgos) ===`)
 for (const a of unicos.values()) console.log(`  ${a.vista}: ${a.tipo === 'altura' ? `alto ${a.h}px fuera de la escala` : `esquina ${a.radio}px en alto ${a.h}px (a medias)`} — «${a.nombre}»`)
+if (A11Y) {
+  // Resumen por regla (no por vista): cuántas vistas la tienen y un ejemplo.
+  const reglas = new Map()
+  for (const v of a11y) for (const x of v.axe) {
+    const r = reglas.get(x.id) || { ...x, vistas: [], nodos: 0 }
+    r.vistas.push(v.vista); r.nodos += x.nodos; reglas.set(x.id, r)
+  }
+  const orden = { critical: 0, serious: 1, moderate: 2, minor: 3 }
+  console.log(`\n=== axe WCAG 2.1 AA (${reglas.size} reglas) ===`)
+  for (const r of [...reglas.values()].sort((a, b) => orden[a.impacto] - orden[b.impacto])) {
+    console.log(`  [${r.impacto}] ${r.id} — ${r.ayuda} · ${r.nodos} nodos en ${r.vistas.length} vistas · ej. ${r.ejemplo}`)
+  }
+  fs.writeFileSync('test/visual/a11y.json', JSON.stringify(a11y, null, 1))
+  const focos = new Map()
+  for (const v of a11y) for (const f of v.sinFoco) focos.set(f, (focos.get(f) || []).concat(v.vista))
+  console.log(`\n=== Teclado: foco sin indicador visible (${focos.size}) ===`)
+  for (const [f, vs] of focos) console.log(`  ${f} — ${vs.length} vistas (${vs.slice(0, 2).join(', ')})`)
+}
 if (ESCRIBIR_REF) console.log(`\nReferencias escritas en ${REF}/`)
 else if (diferencias) { console.log(`\n❌ ${diferencias} vista(s) cambiaron respecto a la referencia.`); process.exit(1) }
 else console.log('\n✅ Todas las vistas coinciden con la referencia.')

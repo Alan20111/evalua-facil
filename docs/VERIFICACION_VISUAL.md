@@ -51,6 +51,23 @@ node scripts/visual/verificar.mjs --solo=docente
 node scripts/visual/verificar.mjs --vista=nueva-asignatura
 ```
 
+### Accesibilidad (`--a11y`)
+
+```bash
+node scripts/visual/verificar.mjs --a11y
+```
+
+En cada vista corre **axe** (WCAG 2.1 A/AA) y un **recorrido con Tab** de hasta
+80 paradas. El recorrido marca los controles que reciben el foco sin cambiar
+ni el contorno, ni la sombra, ni el fondo, ni el borde, es decir, sin indicador
+visible. Imprime un resumen por regla y deja el detalle de cada nodo en
+`test/visual/a11y.json`.
+
+Las vistas se navegan con `reducedMotion: 'reduce'`. Los desplazamientos por
+código usan `desplazamiento()` (`src/utils/movimiento.js`), que respeta esa
+preferencia; la regla global de `index.css` no alcanza a
+`behavior: 'smooth'`.
+
 Las hojas de formulario se capturan con `abrir`: la vista entra a su página,
 toca el botón con ese nombre (o varios, en orden; una expresión regular si el
 botón lleva su descripción dentro) y compara el HTML del diálogo en vez del de

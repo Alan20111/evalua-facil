@@ -181,7 +181,7 @@ export default function TeacherLayout({ children }) {
                 Perfil, y la etiqueta se queda sola. */}
             <div className="flex items-center gap-2 pt-1">
               {!IS_NATIVE_APP && (
-                <p className="text-metadata text-white/50 pl-3">
+                <p className="text-metadata text-white/95 pl-3">
                   {new Date(__BUILD_TIMESTAMP__).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </p>
               )}
@@ -208,11 +208,11 @@ export default function TeacherLayout({ children }) {
             <div className="min-w-0 flex-1">
               {/* 18 / 16 px pedidos explícito. */}
               <p className="text-[18px] font-semibold text-white truncate">{displayName}</p>
-              <p className="text-[16px] text-white/70 truncate">
+              <p className="text-[16px] text-white/95 truncate">
                 {userProfile?.schoolName || 'Mi perfil'}
               </p>
             </div>
-            <ChevronRight size={ICONO.sm} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
+            <ChevronRight size={ICONO.sm} className="text-white/80 group-hover:text-white flex-shrink-0" />
           </NavLink>
 
           {/* Horario y Agenda — misma fila estándar; se distingue por su fondo */}
@@ -221,7 +221,7 @@ export default function TeacherLayout({ children }) {
               to="/calendario"
               className={({ isActive }) =>
                 `${SB_FILA} font-semibold ${
-                  isActive ? SB_ACTIVA : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
+                  isActive ? SB_ACTIVA : 'bg-white/5 text-white hover:bg-white/10 ring-1 ring-white/30'
                 }`
               }
             >
@@ -237,10 +237,10 @@ export default function TeacherLayout({ children }) {
                 mayúsculas a este tamaño se lee como un GRITO, no como
                 énfasis; el peso ya viene de font-bold heredado de
                 text-label-caps. */}
-            <span className="text-[22px] font-bold text-white/70 group-hover:text-white transition-colors">
+            <span className="text-[22px] font-bold text-white/95 group-hover:text-white transition-colors">
               Asignaturas
             </span>
-            <ChevronRight size={ICONO.md} className="text-white/50 group-hover:text-white transition-colors flex-shrink-0" />
+            <ChevronRight size={ICONO.md} className="text-white/80 group-hover:text-white transition-colors flex-shrink-0" />
           </NavLink>
 
           {/* Subject list */}
@@ -248,7 +248,7 @@ export default function TeacherLayout({ children }) {
             {loadingSidebar ? (
               <EsqueletoFilasLateral />
             ) : activeSubjects.length === 0 ? (
-              <p className="text-body-sm text-white/70 px-4 py-2.5">Sin asignaturas aún</p>
+              <p className="text-body-sm text-white/95 px-4 py-2.5">Sin asignaturas aún</p>
             ) : (
               activeSubjects.map((s) => (
                 <NavLink data-esq="sb-fila"
@@ -381,7 +381,7 @@ export default function TeacherLayout({ children }) {
                     type="button"
                     onClick={() => setShowArchived((a) => !a)}
                     aria-expanded={showArchived}
-                    className={`${ITEM_SECUNDARIO} text-white/60 hover:bg-white/10 hover:text-white`}
+                    className={`${ITEM_SECUNDARIO} text-white/95 hover:bg-white/10 hover:text-white`}
                   >
                     <Archive size={SB_ICONO} className="flex-shrink-0" />
                     <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>

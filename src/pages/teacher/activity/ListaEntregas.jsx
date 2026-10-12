@@ -19,6 +19,7 @@ import { rubricaFirma } from '../../../utils/rubrica'
 import { studentFullName } from '../../../utils/studentSearch'
 import { subjectDisplayName } from '../../../utils/subjectName'
 import { useActividad } from './contexto'
+import { desplazamiento } from '../../../utils/movimiento'
 
 export default function ListaEntregas() {
   const {
@@ -183,7 +184,7 @@ export default function ListaEntregas() {
           {activity?.instrucciones && (
             <div data-esq="act-doc-instrucciones" className="mt-2 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
               <div className="px-4 py-2 bg-accent-light border-b border-accent-soft">
-                <h2 className="font-semibold text-sm text-accent">Instrucciones</h2>
+                <h2 className="font-semibold text-sm text-accent-hover">Instrucciones</h2>
               </div>
               <div
                 className={`text-sm text-on-surface p-4 ${richTextContentClass}`}
@@ -212,7 +213,7 @@ export default function ListaEntregas() {
         {/* ── Entregas — same accent container as Preguntas/Configuración ── */}
         <div data-esq="act-doc-entregas" id="entregas-container" className="mx-4 my-4 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
           <div data-esq="act-doc-entregas-cabecera" className="px-4 py-3 bg-accent-light border-b border-accent-soft">
-            <h2 className="font-semibold text-accent">Entregas</h2>
+            <h2 className="font-semibold text-accent-hover">Entregas</h2>
           </div>
 
         {/* ZIP download — solo en la web. Primero en el contenedor. */}
@@ -302,7 +303,7 @@ export default function ListaEntregas() {
                 key={f}
                 onClick={() => {
                   setFilter(f)
-                  setTimeout(() => document.getElementById('entregas-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+                  setTimeout(() => document.getElementById('entregas-container')?.scrollIntoView({ behavior: desplazamiento(), block: 'start' }), 50)
                 }}
                 aria-pressed={filter === f}
                 className={`${IS_NATIVE_APP ? '' : 'flex-1 whitespace-nowrap'} min-h-control-sm px-3 text-xs font-medium rounded-full transition-colors ${

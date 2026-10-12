@@ -444,13 +444,13 @@ export default function EvaluacionRunner() {
                   {studentFullName(student)}
                 </p>
               )}
-              <p className="text-xs text-white/60 truncate">
+              <p className="text-xs text-white/95 truncate">
                 {subject ? `${subject.nombre}${subject.grupo ? ` — ${subject.grupo}` : ''}` : ''}
                 {teacherName ? ` · ${teacherName}` : ''}
                 {esVideo ? ` · ${activity.nombre}` : ''}
               </p>
               {!esVideo && (
-                <p className="text-xs text-white/60 mt-0.5 truncate">
+                <p className="text-xs text-white/95 mt-0.5 truncate">
                   {activity.nombre}
                 </p>
               )}
@@ -462,7 +462,7 @@ export default function EvaluacionRunner() {
                 </span>
               )}
               <button type="button" onClick={() => setShowExitModal(true)}
-                className="flex items-center gap-1 text-xs text-white/70 hover:text-white border border-white/30 rounded px-2 py-1 hover:bg-white/10">
+                className="flex items-center gap-1 text-xs text-white/95 hover:text-white border border-white/30 rounded px-2 py-1 hover:bg-white/10">
                 <LogOut size={ICONO.xs} /> Salir
               </button>
             </div>

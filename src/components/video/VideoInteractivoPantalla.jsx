@@ -15,6 +15,7 @@ import PreguntaRespuesta from './PreguntaRespuesta'
 import { LIBRE_SEG, PRE_SEG, clampSeg, yaSuperadaAlReproducir } from './revisionVideo'
 import { Button } from '../ui'
 import { ICONO } from '../../config/iconos'
+import { desplazamiento } from '../../utils/movimiento'
 
 // Video interactivo · pantalla del reproductor (la del estudiante y, con `modoRevision`, la vista previa del docente).
 //
@@ -173,7 +174,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
     guardarProgreso(tickRef.current.maxVisto, tickRef.current.ultimaPos, { forzar: true })
     // Que la pregunta quede a la vista, justo debajo del video.
     requestAnimationFrame(() => {
-      infoRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+      infoRef.current?.scrollIntoView?.({ behavior: desplazamiento(), block: 'start' })
       tituloPanelRef.current?.focus?.({ preventScroll: true })
     })
   }

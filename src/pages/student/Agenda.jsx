@@ -453,7 +453,7 @@ export default function Agenda() {
                   onClick={() => changeView(v.id)}
                   aria-pressed={view === v.id}
                   className={`flex items-center gap-1 h-control-sm px-3 ${btnText} font-semibold rounded-full whitespace-nowrap transition-colors ${
-                    view === v.id ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
+                    view === v.id ? 'bg-white text-accent' : 'text-white/95 hover:bg-white/10'
                   }`}
                 >
                   <v.Icon size={IS_NATIVE_APP ? 14 : 16} /> {v.label}
