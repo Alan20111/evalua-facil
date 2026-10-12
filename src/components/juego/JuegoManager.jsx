@@ -169,7 +169,7 @@ export default function JuegoManager({
             data-tooltip="Eliminar este borrador" />
         )}
         {!esBorrador && onDeleteActivity && (
-          <IconButton icon={Trash2} label="Eliminar actividad" variant="danger" tooltip={false} onClick={onDeleteActivity} />
+          <IconButton icon={Trash2} effect="balanceo" label="Eliminar actividad" variant="danger" tooltip={false} onClick={onDeleteActivity} />
         )}
       </div>
 

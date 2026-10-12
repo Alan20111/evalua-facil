@@ -17,7 +17,7 @@ import { ICONO } from '../../config/iconos'
 
 // Banco de rúbricas del docente: elegir una para la actividad, crear nuevas,
 // editarlas o eliminarlas. Pantalla completa sobre el editor de entregables
-// (z-[60] > z-50); el editor de rúbricas va encima (z-[70]).
+// (z-aviso > z-50); el editor de rúbricas va encima (z-menu).
 export default function RubricaPicker({ docenteId, currentRubricaId, onClose, onSelect }) {
   const toast = useToast()
   const [rubricas, setRubricas] = useState([])
@@ -93,7 +93,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
     .sort((a, b) => (a.id === currentRubricaId ? -1 : b.id === currentRubricaId ? 1 : 0))
 
   return (
-    <div className="fixed inset-0 z-[60] bg-surface overflow-y-auto">
+    <div className="fixed inset-0 z-aviso bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={onClose} />
@@ -108,7 +108,7 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
         {/* Crear rúbricas / listas de cotejo nuevas: solo en la web */}
         {!IS_NATIVE_APP && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button fullWidth icon={Plus} onClick={() => setEditing('new')}>
+            <Button fullWidth icon={Plus} iconEffect="gira90" onClick={() => setEditing('new')}>
                Crear nueva rúbrica
             </Button>
             <Button variant="outline-accent" fullWidth icon={ListChecks} onClick={() => setEditing('new-cotejo')}>

@@ -570,7 +570,7 @@ export default function StudentDashboard() {
               <ChevronDown size={ICONO.sm} className={`flex-shrink-0 transition-transform duration-estandar ${showArchived ? 'rotate-180' : ''}`} />
             </button>
             {showArchived && (
-              <div className="px-2 pb-2 space-y-1">
+              <div className="px-2 pb-2 space-y-1 animate-aparece motion-reduce:animate-none">
                 {/* Dos botones hermanos, NO uno dentro de otro: un <button> anidado
                     en otro <button> es HTML inválido y el clic de la papelera
                     terminaría abriendo también la asignatura. */}
@@ -710,7 +710,7 @@ export default function StudentDashboard() {
               <Button variant="secondary" className="flex-1" onClick={() => setSubjectToRemove(null)} disabled={removing}>
                 Cancelar
               </Button>
-              <Button variant="danger" className="flex-1" icon={Trash2} busy={removing} onClick={handleRemoveArchived}>
+              <Button variant="danger" className="flex-1" icon={Trash2} iconEffect="balanceo" busy={removing} onClick={handleRemoveArchived}>
                 Quitar
               </Button>
             </div>

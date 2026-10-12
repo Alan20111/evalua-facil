@@ -50,7 +50,7 @@ export default function AppQRModal({ open, url, onClose }) {
           )}
         </div>
         <p className="text-sm text-accent font-semibold break-all">{url}</p>
-        <Button fullWidth icon={Download} busy={descargando}
+        <Button fullWidth icon={Download} iconEffect="empujaAbajo" busy={descargando}
           onClick={handleDescargarPDF}
           disabled={descargando}>
           

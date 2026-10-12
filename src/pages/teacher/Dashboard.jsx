@@ -344,7 +344,7 @@ export default function TeacherDashboard() {
                   <BookOpen size={ICONO.lg} className="text-accent" />
                 </div>
                 <p className="text-muted font-medium mb-2">Aún no tienes asignaturas</p>
-                <Button icon={Plus}
+                <Button icon={Plus} iconEffect="gira90"
                   onClick={openSubjectModal}>
                   
                   Crear mi primera asignatura
@@ -459,7 +459,7 @@ export default function TeacherDashboard() {
                   <ChevronRight size={ICONO.sm} className={`flex-shrink-0 transition-transform duration-estandar ${showArchived ? 'rotate-90' : ''}`} />
                 </button>
                 {showArchived && (
-                  <div className="space-y-1 mt-1">
+                  <div className="space-y-1 mt-1 animate-aparece motion-reduce:animate-none">
                     {archivedList.map((s) => (
                       <button
                         key={s.id}

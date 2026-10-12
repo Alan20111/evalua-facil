@@ -98,7 +98,7 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
                 key={c.id}
                 type="button"
                 onClick={() => setForm((f) => ({ ...f, color: c.id }))}
-                className={`w-6 h-6 rounded-full border-2 transition-all ${form.color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
+                className={`w-6 h-6 rounded-full border-2 transition ${form.color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
                 style={{ background: c.bg }}
                 data-tooltip={c.label}
                 aria-label={c.label}

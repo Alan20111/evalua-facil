@@ -26,7 +26,7 @@ export default function Landing() {
             <DocenteIcon className="w-14 h-14 mx-auto mb-3 text-blue-600" />
             <h2 className="text-lg font-bold text-on-surface">Soy Docente</h2>
             <p className="text-sm text-muted mt-1">Administra y evalúa tus asignaturas</p>
-            <span className="mt-3 inline-flex items-center gap-1 text-blue-600 font-semibold text-sm group-hover:gap-2 transition-all">
+            <span className="mt-3 inline-flex items-center gap-1 text-blue-600 font-semibold text-sm group-hover:gap-2 transition-[gap]">
               Entrar <ChevronRight size={ICONO.md} />
             </span>
           </Link>
@@ -39,7 +39,7 @@ export default function Landing() {
             <EstudianteIcon className="w-14 h-14 mx-auto mb-3 text-orange-600" />
             <h2 className="text-lg font-bold text-on-surface">Soy Estudiante</h2>
             <p className="text-sm text-muted mt-1">Entra a tus asignaturas y entregas</p>
-            <span className="mt-3 inline-flex items-center gap-1 text-orange-600 font-semibold text-sm group-hover:gap-2 transition-all">
+            <span className="mt-3 inline-flex items-center gap-1 text-orange-600 font-semibold text-sm group-hover:gap-2 transition-[gap]">
               Entrar <ChevronRight size={ICONO.md} />
             </span>
           </Link>

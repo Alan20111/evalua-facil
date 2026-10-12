@@ -110,7 +110,7 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, nombre, 
         </header>
 
         {mostrarBarra && (
-        <div className="px-3 py-2 space-y-1.5 border-b border-outline-variant bg-surface-card">
+        <div className="px-3 py-2 space-y-1.5 border-b border-outline-variant bg-surface-card animate-aparece motion-reduce:animate-none">
           <RecomendacionesVideo compacto />
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-muted mr-1">Probar desde unos segundos antes de:</span>

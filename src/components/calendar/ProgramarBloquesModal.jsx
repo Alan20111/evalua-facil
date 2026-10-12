@@ -258,7 +258,7 @@ export default function ProgramarBloquesModal({
                   key={c.id}
                   type="button"
                   onClick={() => setColor(c.id)}
-                  className={`w-7 h-7 rounded-full border-2 transition-all ${color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
+                  className={`w-7 h-7 rounded-full border-2 transition ${color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
                   style={{ background: c.bg }}
                   data-tooltip={c.label}
                   aria-label={c.label}

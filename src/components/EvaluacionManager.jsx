@@ -1565,7 +1565,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             <IconButton icon={ChevronDown} label="Mover abajo" tooltip={false} onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id} />
                             <IconButton icon={Pencil} label="Editar pregunta" tooltip={false} onClick={() => openEditPregunta(p)} />
                             <IconButton icon={Copy} label="Duplicar pregunta" tooltip={false} onClick={() => handleDuplicatePregunta(p)} />
-                            <IconButton icon={Trash2} label="Eliminar pregunta" tooltip={false} onClick={() => handleDeletePregunta(p.id)} />
+                            <IconButton icon={Trash2} effect="balanceo" label="Eliminar pregunta" tooltip={false} onClick={() => handleDeletePregunta(p.id)} />
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-32 rounded-card border border-outline-variant" />}
@@ -1608,7 +1608,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             )}
             {!showPreguntaForm ? (
               <div className="flex gap-2">
-                <Button icon={Plus} className="flex-1" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }}>
+                <Button icon={Plus} iconEffect="gira90" className="flex-1" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }}>
                    Agregar pregunta
                 </Button>
                 <Button variant="outline-accent" icon={Library} onClick={() => { setShowBanco(true); setSelectedBancoIds(new Set()) }}>
@@ -1829,7 +1829,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               <div className="flex gap-1 flex-shrink-0">
                                 <IconButton icon={Pencil} label="Editar" tooltip={false} onClick={() => openEditBanco(item)} />
                                 <IconButton icon={Copy} label="Duplicar" tooltip={false} onClick={() => handleDuplicateBancoItem(item)} />
-                                <IconButton icon={Trash2} label="Eliminar" tooltip={false} onClick={() => handleDeleteBancoItem(item.id)} />
+                                <IconButton icon={Trash2} effect="balanceo" label="Eliminar" tooltip={false} onClick={() => handleDeleteBancoItem(item.id)} />
                               </div>
                             </div>
                           )}
@@ -1977,7 +1977,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             {/* OP-10: solo aparece cuando hay entregas suficientes para un
                 análisis significativo — mismo umbral que valida el servidor. */}
             {Object.values(submissions).filter((s) => s.estadoEvaluacion === 'finalizado').length >= MIN_ENTREGAS_ANALISIS && (
-              <Button variant="outline-accent" fullWidth icon={Sparkles} className="mb-3" onClick={() => setAnalisisConfirmando(true)}>
+              <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello" className="mb-3" onClick={() => setAnalisisConfirmando(true)}>
                  Analizar resultados con IA
               </Button>
             )}
@@ -2120,7 +2120,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       pendientes con respuesta_corta o subir_archivo.
                       Estimación previa obligatoria; la IA solo sugiere. */}
                   {preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo)) && (
-                    <Button icon={Sparkles} className="flex-shrink-0"
+                    <Button icon={Sparkles} iconEffect="destello" className="flex-shrink-0"
                       onClick={contarRespuestasIA}
                       disabled={iaContando || iaTrabajando}>
                       
@@ -2636,7 +2636,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           en línea (mismo patrón que ActivityPage.jsx), para que el alto del
           aside — y por lo tanto el de la zona de respuestas — no varíe. */}
       {reviewing && IS_NATIVE_APP && extendMode && !reviewProrrogaBloqueada && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-aviso flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setExtendMode(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
             <p className="text-sm font-medium text-on-surface flex items-center gap-1.5"><CalendarDays size={ICONO.sm} className="text-accent" /> Nueva fecha y hora límite para este estudiante</p>
@@ -2685,7 +2685,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
       {/* Anular-entrega confirmation */}
       {cancelConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+        <div className="fixed inset-0 z-aviso flex items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !cancelling && setCancelConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
             <h3 className="text-base font-semibold text-on-surface">¿Anular la entrega?</h3>

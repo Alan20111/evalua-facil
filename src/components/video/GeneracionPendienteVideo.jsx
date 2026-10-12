@@ -39,7 +39,7 @@ export default function GeneracionPendienteVideo({ actividadId, intento, onResue
         Si la IA ya la había generado, la recuperas aquí <span className="font-semibold">sin volver a cobrar</span>.
       </p>
       {mensaje && <p className="text-sm text-amber-900">{mensaje}</p>}
-      <Button icon={RotateCcw} busy={trabajando} className="min-h-[2.75rem]" onClick={recuperar} disabled={trabajando}>
+      <Button icon={RotateCcw} iconEffect="gira" busy={trabajando} className="min-h-[2.75rem]" onClick={recuperar} disabled={trabajando}>
          Recuperar preguntas
       </Button>
     </output>

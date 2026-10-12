@@ -1893,7 +1893,7 @@ export default function CalendarPage() {
   )
 
   const eventoBtn = (
-    <Button icon={Plus}
+    <Button icon={Plus} iconEffect="gira90"
       onClick={() => openNewEvent(null)}>
        Evento
     </Button>
@@ -2004,7 +2004,7 @@ export default function CalendarPage() {
               )}
               <div className="flex items-center gap-1 px-1 py-1 rounded-full bg-surface-card shadow-barra">
                 {hourRangeBtn}
-                <IconButton icon={Plus} label="Nuevo evento" tooltip={false} onClick={() => openNewEvent(null)} />
+                <IconButton icon={Plus} effect="gira90" label="Nuevo evento" tooltip={false} onClick={() => openNewEvent(null)} />
               </div>
             </div>
             {view === 'anio' && (

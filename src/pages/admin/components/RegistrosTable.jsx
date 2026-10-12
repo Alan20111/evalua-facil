@@ -769,7 +769,7 @@ export default function RegistrosTable({ stats, onRefresh }) {
                   </td>
                   <td className="px-3 py-2">
                     {r.baja ? (
-                      <IconButton icon={Trash2} label="Eliminar constancia" variant="danger" tooltip={false} onClick={() => handleDeleteBaja(r.uid)}
+                      <IconButton icon={Trash2} effect="balanceo" label="Eliminar constancia" variant="danger" tooltip={false} onClick={() => handleDeleteBaja(r.uid)}
                        
                        
                         title="Eliminar constancia" />

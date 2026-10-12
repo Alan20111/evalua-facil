@@ -156,7 +156,7 @@ export default function EliminarCuentaModal({ onClose }) {
         <Button variant="secondary" className="flex-1" onClick={onClose} disabled={borrando}>
           Mejor no
         </Button>
-        <Button variant="danger" icon={Trash2} busy={borrando} className="flex-1" onClick={eliminar} disabled={borrando || !puedeSeguir}>
+        <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={borrando} className="flex-1" onClick={eliminar} disabled={borrando || !puedeSeguir}>
           
           {borrando ? 'Eliminando…' : 'Eliminar para siempre'}
         </Button>

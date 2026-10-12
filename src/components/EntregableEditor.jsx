@@ -627,10 +627,10 @@ export default function EntregableEditor({
                       igual que crear rúbricas a mano. */}
                   {!IS_NATIVE_APP && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <Button fullWidth icon={Sparkles} onClick={() => pedirIA('rubrica')}>
+                      <Button fullWidth icon={Sparkles} iconEffect="destello" onClick={() => pedirIA('rubrica')}>
                          Generar rúbrica con IA
                       </Button>
-                      <Button variant="outline-accent" fullWidth icon={Sparkles} onClick={() => pedirIA('cotejo')}>
+                      <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello" onClick={() => pedirIA('cotejo')}>
                          Generar lista de cotejo con IA
                       </Button>
                     </div>
@@ -644,7 +644,7 @@ export default function EntregableEditor({
                   )}
                   {/* Crear directo (banco Y asignación en un paso): solo en la web */}
                   {!IS_NATIVE_APP && (
-                    <Button variant="secondary" fullWidth icon={Plus} onClick={() => setRubricaEditorOpen(true)}>
+                    <Button variant="secondary" fullWidth icon={Plus} iconEffect="gira90" onClick={() => setRubricaEditorOpen(true)}>
                        Crear rúbrica a mano
                     </Button>
                   )}

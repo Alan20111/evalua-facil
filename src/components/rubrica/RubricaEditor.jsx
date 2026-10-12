@@ -115,7 +115,7 @@ function estadoInicial(initial) {
 
 // Editor de rúbricas del banco personal del docente — misma tabla que ve el
 // estudiante, editable en el lugar (WYSIWYG). Pantalla completa por encima
-// del banco (z-[70] > picker z-[60] > editor de entregables z-50).
+// del banco (z-menu > picker z-aviso > editor de entregables z-50).
 // `initial` = { id, ...rubrica } para editar, null para crear.
 export default function RubricaEditor({ initial, docenteId, onClose, onSaved, iaGenerada = false }) {
   const toast = useToast()
@@ -437,7 +437,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
   const anchoMinTabla = 44 + colW.crit + colW.niveles.reduce((s, w) => s + w, 0) + 48 + 130
 
   return (
-    <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">
+    <div className="fixed inset-0 z-menu bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="px-4 py-3 flex items-center gap-3">
           <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={requestClose} />
@@ -529,7 +529,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                             className={`w-full min-w-0 text-sm font-bold text-accent ${inputCell}`} />
                           {/* Los primeros 3 niveles son el mínimo — no se pueden eliminar */}
                           {j >= MIN_NIVELES && (
-                            <IconButton icon={Trash2} label={`Eliminar nivel ${nv.nombre || j + 1}`} variant="danger" tooltip={false} onClick={() => removeNivel(j)}
+                            <IconButton icon={Trash2} effect="balanceo" label={`Eliminar nivel ${nv.nombre || j + 1}`} variant="danger" tooltip={false} onClick={() => removeNivel(j)}
                               data-tooltip="Eliminar nivel" />
                           )}
                         </div>
@@ -573,7 +573,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                             style={{ minHeight: '110px' }} />
                           {/* Los primeros 2 criterios son el mínimo — no se pueden eliminar */}
                           {i >= MIN_CRITERIOS && (
-                            <IconButton icon={Trash2} label={`Eliminar criterio ${i + 1}`} variant="danger" tooltip={false} onClick={() => removeCriterio(i)}
+                            <IconButton icon={Trash2} effect="balanceo" label={`Eliminar criterio ${i + 1}`} variant="danger" tooltip={false} onClick={() => removeCriterio(i)}
                               data-tooltip="Eliminar criterio" />
                           )}
                         </div>

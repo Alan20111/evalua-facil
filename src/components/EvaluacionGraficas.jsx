@@ -134,7 +134,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
               explica que las descargas se hacen desde la web (ver
               descargaSoloWeb) en vez de desaparecer sin decir nada. */}
           {!telefonoWeb.telefono && (
-          <Button variant="outline-accent" icon={Download} busy={exportingPdf} className="mt-0.5 flex-shrink-0"
+          <Button variant="outline-accent" icon={Download} iconEffect="empujaAbajo" busy={exportingPdf} className="mt-0.5 flex-shrink-0"
             onClick={handleExportPdf}
             disabled={exportingPdf}
             data-tooltip="PDF con estas gráficas">
@@ -208,7 +208,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
                                   ambigüedad al compararlo entre opciones. */}
                               <div className="h-1.5 rounded-full bg-surface-container overflow-hidden mt-1 ml-5">
                                 <div
-                                  className="h-full rounded-full transition-all"
+                                  className="h-full rounded-full transition-[width] duration-estandar ease-firma"
                                   style={{ width: `${pct}%`, background: SLICE_COLORS[idx % SLICE_COLORS.length] }}
                                 />
                               </div>

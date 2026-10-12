@@ -491,7 +491,7 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
               <div className="space-y-3">
                 <h2 className="text-base font-bold text-on-surface">Fin de la vista previa</h2>
                 <p className="text-sm text-muted">Así termina la actividad para el estudiante. Aquí no se entrega nada ni se guarda ninguna respuesta.</p>
-                <Button fullWidth icon={RotateCcw} className="min-h-[3.25rem]" onClick={alternarReproduccion}>
+                <Button fullWidth icon={RotateCcw} iconEffect="gira" className="min-h-[3.25rem]" onClick={alternarReproduccion}>
                    Repetir desde el inicio
                 </Button>
                 <button type="button" onClick={onFinalizar} className="w-full min-h-[2.75rem] text-sm text-accent font-medium">Volver a la configuración</button>

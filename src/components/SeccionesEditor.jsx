@@ -94,7 +94,7 @@ export function SeccionHeader({
             data-tooltip="Bajar sección" />
           <IconButton icon={Pencil} label="Editar sección" tooltip={false} onClick={onEditar} disabled={disabled}
             data-tooltip="Editar sección" />
-          <IconButton icon={Trash2} label="Eliminar sección" tooltip={false} onClick={onEliminar} disabled={disabled}
+          <IconButton icon={Trash2} effect="balanceo" label="Eliminar sección" tooltip={false} onClick={onEliminar} disabled={disabled}
             data-tooltip="Eliminar sección" />
         </div>
       </div>
@@ -132,7 +132,7 @@ export function ConfirmarBorrarSeccion({ seccion, total, borrando, onConfirm, on
 // Botón "+ Agregar sección" — el punto de entrada de toda la funcionalidad.
 export function BotonAgregarSeccion({ onClick, disabled }) {
   return (
-    <Button variant="outline-accent" fullWidth icon={Plus} onClick={onClick} disabled={disabled}>
+    <Button variant="outline-accent" fullWidth icon={Plus} iconEffect="gira90" onClick={onClick} disabled={disabled}>
        Agregar sección
     </Button>
   )

@@ -18,7 +18,7 @@ import { Button, IconButton } from '../ui'
 //   mostrarImprimir  false en la app nativa: su WebView no abre el diálogo de
 //                    impresión del sistema, así que ahí el botón no se muestra
 //   onClose   () => void
-//   z         z-index del Modal (en Tomar lista del teléfono va sobre su capa z-[70])
+//   z         z-index del Modal (en Tomar lista del teléfono va sobre su capa z-menu)
 export default function BitacoraObservacionesModal({ estudiante, asignatura, docente, filas, onEditar, onImprimir, onClose, z = 50, mostrarImprimir = true }) {
   return (
     <Modal open onClose={onClose} variant="centered" size="3xl" z={z} title="Bitácora de observaciones">

@@ -315,7 +315,7 @@ export default function TeacherLayout({ children }) {
               >
                 <Settings size={SB_ICONO} className="flex-shrink-0" />
                 <span className="flex-1 text-left">Ajustes y ayuda</span>
-                <ChevronRight size={ICONO.sm} className={`flex-shrink-0 transition-transform ${ajustesAbierto ? 'rotate-90' : ''}`} />
+                <ChevronRight size={ICONO.sm} className={`flex-shrink-0 transition-transform duration-estandar ${ajustesAbierto ? 'rotate-90' : ''}`} />
               </button>
               {ajustesAbierto && (
                 <div id="submenu-ajustes" className="space-y-1 animate-aparece motion-reduce:animate-none">
@@ -388,11 +388,11 @@ export default function TeacherLayout({ children }) {
                     {/* La flecha va a la DERECHA de la palabra (pedido explícito)
                         y gira al desplegar — mismo lenguaje que un <details>, sin
                         serlo, para no perder el estilo propio del botón. */}
-                    <ChevronRight size={ICONO.sm} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
+                    <ChevronRight size={ICONO.sm} className={`flex-shrink-0 transition-transform duration-estandar ${showArchived ? 'rotate-90' : ''}`} />
                   </button>
                 </div>
                 {showArchived && (
-                  <div className="px-2 pt-1 pb-2 space-y-1">
+                  <div className="px-2 pt-1 pb-2 space-y-1 animate-aparece motion-reduce:animate-none">
                     {archivedSubjects.map((s) => (
                       // pl-10: el nombre (tras el ícono) debe empezar más a la
                       // derecha de donde arranca la palabra "Archivadas" en el

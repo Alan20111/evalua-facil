@@ -218,7 +218,7 @@ export function FilePreviewModal({ url, nombre, onClose }) {
   // first page as an image instead.
   const openInTabUrl = isImageDeliveredPdf(url) ? pdfPageImageUrl(url, 1) : url
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-aviso flex items-center justify-center p-4">
       <button type="button" className="absolute inset-0 bg-black/50 animate-velo border-none cursor-default" onClick={onClose} aria-label="Cerrar" />
       <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant flex-shrink-0">

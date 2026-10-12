@@ -1307,7 +1307,7 @@ export default function StudentActivityPage() {
                   {files.length > 1 ? 'Cambiar archivos' : 'Cambiar archivo'}
                 </Button>
               )}
-              <Button fullWidth icon={Upload} busy={uploading}
+              <Button fullWidth icon={Upload} iconEffect="empujaArriba" busy={uploading}
                 onClick={handleUpload}
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={(!files.length && !hayEnlace) || uploading}

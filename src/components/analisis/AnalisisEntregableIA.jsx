@@ -199,7 +199,7 @@ export default function AnalisisEntregableIA({ activity, subject }) {
 
   return (
     <div className="space-y-2">
-      <Button variant="outline-accent" fullWidth icon={Sparkles} onClick={() => setAbierto(true)}
+      <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello" onClick={() => setAbierto(true)}
         data-tooltip="Analiza los resultados de toda la actividad. No modifica calificaciones ni entregas.">
          Analizar con IA
       </Button>

@@ -263,7 +263,7 @@ function AccordionCard({ item }) {
         <span className="flex-1 text-[15px] font-semibold text-on-surface">{item.title}</span>
         <ChevronDown
           size={ICONO.sm}
-          className={`text-muted flex-shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          className={`text-muted flex-shrink-0 transition-transform duration-estandar ${open ? 'rotate-180' : ''}`}
         />
       </button>
       {open && (

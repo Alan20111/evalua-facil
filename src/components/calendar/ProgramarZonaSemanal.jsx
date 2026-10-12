@@ -519,7 +519,7 @@ export default function ProgramarZonaSemanal({
 
       {/* ── Popover: colocar bloque(s) ──────────────────────────────────── */}
       {placing && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-aviso flex items-center justify-center p-4">
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setPlacing(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -579,7 +579,7 @@ export default function ProgramarZonaSemanal({
                   {recortado && (
                     <p className="text-xs text-amber-600">Solo caben {max} aquí; se colocarán {max}.</p>
                   )}
-                  <Button fullWidth icon={Plus}
+                  <Button fullWidth icon={Plus} iconEffect="gira90"
                     onClick={confirmarColocar}
                     disabled={invalido}>
                      Colocar {Math.min(placing.count, Math.max(1, max))}
@@ -593,7 +593,7 @@ export default function ProgramarZonaSemanal({
 
       {/* ── Popover: editar bloque colocado ─────────────────────────────── */}
       {editP && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-aviso flex items-center justify-center p-4">
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setEditing(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
             <div className="flex items-center justify-between">
@@ -648,7 +648,7 @@ export default function ProgramarZonaSemanal({
                   <button
                     key={c.id} type="button"
                     onClick={() => updatePatron(editP.id, { color: c.id })}
-                    className={`w-6 h-6 rounded-full border-2 transition-all ${editP.color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
+                    className={`w-6 h-6 rounded-full border-2 transition ${editP.color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
                     style={{ background: c.bg }} aria-label={c.label} data-tooltip={c.label}
                   />
                 ))}
@@ -725,7 +725,7 @@ export default function ProgramarZonaSemanal({
 
       {/* ── Confirmar salida con bloques colocados ─────────────────────── */}
       {confirmSalir && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-menu flex items-center justify-center p-4">
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setConfirmSalir(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3">
             <h3 className="font-semibold text-on-surface text-sm">¿Salir sin guardar?</h3>

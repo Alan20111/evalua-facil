@@ -437,7 +437,7 @@ export default function StudentProfile() {
                     Ya no estás inscrito en ninguna asignatura, así que puedes eliminar tu cuenta.
                     Se borra tu usuario, tu foto y tus notificaciones, y no se puede deshacer.
                   </p>
-                  <Button variant="danger-outline" fullWidth icon={Trash2}
+                  <Button variant="danger-outline" fullWidth icon={Trash2} iconEffect="balanceo"
                     onClick={() => setShowEliminar(true)}
                    
                   >

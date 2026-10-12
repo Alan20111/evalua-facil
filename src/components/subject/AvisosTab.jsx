@@ -27,7 +27,7 @@ function ProgressoLectura({ leidos, total }) {
     <div className="mt-2">
       <div className="flex items-center gap-2">
         <div className="flex-1 h-2 rounded-full bg-surface-container overflow-hidden">
-          <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${pct}%` }} />
+          <div className="h-full bg-accent rounded-full transition-[width] duration-estandar ease-firma" style={{ width: `${pct}%` }} />
         </div>
         <span className="text-xs font-semibold text-accent flex-shrink-0">{pct}%</span>
       </div>
@@ -409,7 +409,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
             Comunicados para todo el grupo — sin respuestas ni comentarios, solo para informar.
           </p>
         </InfoDisclosure>
-        <Button icon={Plus} className="flex-shrink-0" onClick={openAdd}
+        <Button icon={Plus} iconEffect="gira90" className="flex-shrink-0" onClick={openAdd}
           data-tooltip={canCreate ? 'Nuevo aviso' : blockedTooltip}>
            Nuevo aviso
         </Button>
@@ -474,7 +474,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       sin guardar (ver avisosMostrados), así que el marcador
                       siempre significa "Guardar". */}
                   {soloGuardados ? (
-                    <IconButton icon={RotateCcw} label="Regresar a Todos" tooltip={false} onClick={() => toggleGuardado(a)} data-tooltip="Regresar a Todos" data-tooltip-pos="bottom" />
+                    <IconButton icon={RotateCcw} effect="gira" label="Regresar a Todos" tooltip={false} onClick={() => toggleGuardado(a)} data-tooltip="Regresar a Todos" data-tooltip-pos="bottom" />
                   ) : (
                     <IconButton icon={Bookmark} label="Guardar" tooltip={false} onClick={() => toggleGuardado(a)} data-tooltip="Guardar" data-tooltip-pos="bottom" />
                   )}
@@ -484,7 +484,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     {openMenuId === a.id && (
                       <>
                         <button type="button" className="fixed inset-0 z-30 cursor-default" aria-label="Cerrar menú" onClick={() => setOpenMenuId(null)} />
-                        <div className="absolute right-0 top-full mt-1 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[160px]">
+                        <div className="absolute right-0 top-full mt-1 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[160px] animate-menu origin-top-right motion-reduce:animate-none">
                           <button type="button" onClick={() => { setOpenMenuId(null); setDetailAviso(a) }}
                             className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-on-surface hover:bg-[var(--accent-tint)]">
                             <CheckCircle2 size={ICONO.xs} /> Ver lecturas
@@ -529,7 +529,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 ) : plantillas.length === 0 ? (
                   <div className="text-center py-8 text-sm text-muted">
                     <p className="mb-3">Aún no tienes plantillas.</p>
-                    <Button icon={Plus} onClick={() => openPlantillaForm(null)}>
+                    <Button icon={Plus} iconEffect="gira90" onClick={() => openPlantillaForm(null)}>
                        Crear tu primera plantilla
                     </Button>
                   </div>
@@ -599,7 +599,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     <ArrowLeft size={ICONO.md} />
                   </button>
                   <h3 className="text-lg font-semibold flex-1">Tus plantillas</h3>
-                  <Button icon={Plus} onClick={() => openPlantillaForm(null)}>
+                  <Button icon={Plus} iconEffect="gira90" onClick={() => openPlantillaForm(null)}>
                      Nueva
                   </Button>
                   <IconButton icon={X} label="Cerrar" tooltip={false} onClick={() => setStep(null)} data-tooltip="Cerrar" />
@@ -636,7 +636,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       <span className="text-xl flex-shrink-0" aria-hidden="true">{p.emoji}</span>
                       <span className="flex-1 min-w-0 text-sm text-on-surface truncate">{p.label}</span>
                       <IconButton icon={Pencil} label="Editar" tooltip={false} onClick={() => openPlantillaForm(p)} data-tooltip="Editar" />
-                      <IconButton icon={Trash2} label="Eliminar" variant="danger" tooltip={false} onClick={() => setDeletePlantillaConfirm(p)} data-tooltip="Eliminar" />
+                      <IconButton icon={Trash2} effect="balanceo" label="Eliminar" variant="danger" tooltip={false} onClick={() => setDeletePlantillaConfirm(p)} data-tooltip="Eliminar" />
                     </div>
                   ))}
                   {plantillas.length === 0 && (

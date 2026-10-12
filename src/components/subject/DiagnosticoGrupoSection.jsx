@@ -225,7 +225,7 @@ function DiagnosticoActividadBloque({
               docente quiere uno distinto, lo elimina desde Actividades y
               este botón reaparece solo. */}
           {actividades.length === 0 ? (
-            <Button variant="secondary" icon={Sparkles} busy={generando}
+            <Button variant="secondary" icon={Sparkles} iconEffect="destello" busy={generando}
               onClick={() => setConfirmando(true)}
               disabled={generando || !perfilIACompleto}
               title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar los diagnósticos' : undefined}>
