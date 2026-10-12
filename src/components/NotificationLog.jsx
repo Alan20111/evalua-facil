@@ -19,6 +19,7 @@ import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { formatHora12FromDate } from '../utils/formatHora'
 import { SkeletonList } from './ui'
+import { ICONO } from '../config/iconos'
 
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
@@ -141,9 +142,9 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
             onClick={() => setLogOpen((v) => !v)}
             className="flex-1 min-w-0 flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left"
           >
-            <History size={16} className="flex-shrink-0 text-accent" />
+            <History size={ICONO.sm} className="flex-shrink-0 text-accent" />
             <span className="flex-1 text-left truncate">Bitácora de notificaciones</span>
-            {logOpen ? <ChevronUp size={16} className="text-muted flex-shrink-0" /> : <ChevronDown size={16} className="text-muted flex-shrink-0" />}
+            {logOpen ? <ChevronUp size={ICONO.sm} className="text-muted flex-shrink-0" /> : <ChevronDown size={ICONO.sm} className="text-muted flex-shrink-0" />}
           </button>
           {/* "Borrar todo" con su nombre escrito, no solo el bote de basura:
               un ícono suelto en la esquina no se lee como "esto borra TODO
@@ -157,7 +158,7 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
               data-tooltip-pos="bottom"
               className="flex items-center gap-1 px-2 py-1.5 mr-2 text-xs font-semibold text-muted hover:text-error rounded transition-colors flex-shrink-0"
             >
-              <Trash2 size={15} /> Borrar todo
+              <Trash2 size={ICONO.sm} /> Borrar todo
             </button>
           )}
         </div>
@@ -206,7 +207,7 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
                               onClick={(ev) => { ev.stopPropagation(); setEntryToDelete(e) }}
                               aria-label="Borrar notificación" data-tooltip="Borrar"
                               className="p-2 text-muted hover:text-error rounded transition-colors">
-                              <Trash2 size={13} />
+                              <Trash2 size={ICONO.xs} />
                             </button>
                           </td>
                         </tr>
@@ -227,7 +228,7 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
           message={<>&ldquo;<strong>{describeEntry(entryToDelete, navigate).notificacion}</strong>&rdquo; se borrará de tu bitácora permanentemente.</>}
           confirmLabel="Borrar"
           confirmingLabel="Borrando…"
-          confirmIcon={<Trash2 size={16} />}
+          confirmIcon={<Trash2 size={ICONO.sm} />}
           danger
           busy={deletingEntry}
           showClose={false}
@@ -243,7 +244,7 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
           message={<>Se borrarán las <strong>{logEntries?.length ?? 0}</strong> notificaciones registradas, permanentemente.</>}
           confirmLabel="Borrar todo"
           confirmingLabel="Borrando…"
-          confirmIcon={<Trash2 size={16} />}
+          confirmIcon={<Trash2 size={ICONO.sm} />}
           danger
           busy={deletingAll}
           showClose={false}

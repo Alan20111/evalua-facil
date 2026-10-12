@@ -15,7 +15,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus, AlertTriangle, Cloud, User, Settings, Bell, Lightbulb, ShieldCheck } from 'lucide-react'
-import { Tabs, SubTabs, ListRow, ListGroup, FlechaFila, FILA_LISTA } from '../../components/ui'
+import { Tabs, SubTabs, ListRow, ListGroup, FlechaFila, FILA_LISTA, Button } from '../../components/ui'
 import AppQRButton from '../../components/AppQRButton'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
@@ -25,6 +25,7 @@ import { apiUrl } from '../../utils/apiBase'
 import { capitalizarNombre } from '../../utils/nombres'
 import AppVersionInfo from '../../components/AppVersionInfo'
 import { SkeletonForm } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 // El espacio para subir la foto mide distinto en la web y en la app — pedido
 // explícito, y por eso esta pantalla (que es la misma en las dos) tiene que
@@ -274,7 +275,7 @@ export default function StudentProfile() {
             className="p-2 -ml-2 rounded-full hover:bg-[var(--accent-tint)] text-muted hover:text-accent transition-colors flex-shrink-0"
             aria-label="Regresar"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={ICONO.md} />
           </button>
           <h1 className="text-xl font-bold text-on-surface">Mi perfil</h1>
         </div>
@@ -349,15 +350,14 @@ export default function StudentProfile() {
                     <code className="flex-1 px-3 py-2 rounded bg-surface border border-outline-variant text-sm font-mono text-on-surface truncate">
                       {username}
                     </code>
-                    <button
-                      type="button"
+                    <Button variant="secondary" className="flex-shrink-0"
                       onClick={handleCopyUsername}
-                      className="p-2.5 rounded-full border border-outline-variant text-muted hover:bg-[var(--accent-tint)] hover:text-accent transition-colors flex-shrink-0"
+                     
                       aria-label="Copiar usuario"
                       data-tooltip={copied ? 'Copiado' : 'Copiar'}
                     >
-                      {copied ? <Check size={17} className="text-green-600" /> : <Copy size={17} />}
-                    </button>
+                      {copied ? <Check size={ICONO.sm} className="text-green-600" /> : <Copy size={ICONO.sm} />}
+                    </Button>
                   </div>
                   <p className="text-xs text-hint mt-2">
                     Tu nombre lo administra tu maestro — si hay un error, pídele que lo corrija.
@@ -368,13 +368,13 @@ export default function StudentProfile() {
                 {/* ── Cambiar contraseña ── */}
                 <div className="bg-surface-card rounded-card shadow-card p-4">
                   <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
-                    <KeyRound size={16} className="text-accent" />
+                    <KeyRound size={ICONO.sm} className="text-accent" />
                     {debeEstablecerContrasena ? 'Establece tu contraseña personal' : 'Cambiar contraseña'}
                   </h2>
 
                   {debeEstablecerContrasena && (
                     <div className="mb-3 rounded border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
-                      <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                      <AlertTriangle size={ICONO.md} className="text-amber-600 flex-shrink-0 mt-0.5" />
                       <p className="text-xs text-on-surface leading-relaxed">
                         <strong className="text-amber-700">Tu maestro restableció tu contraseña.</strong>{' '}
                         Ingresa la contraseña de reset que te dio como «Contraseña actual», luego elige
@@ -390,7 +390,6 @@ export default function StudentProfile() {
                       aria-label={debeEstablecerContrasena ? 'Contraseña de reset (la que te dio tu maestro)' : 'Contraseña actual'}
                       autoComplete="current-password"
                       required
-                      className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     />
                     <PasswordInput
                       value={passNueva}
@@ -398,7 +397,6 @@ export default function StudentProfile() {
                       aria-label="Contraseña nueva (mínimo 8 caracteres)"
                       autoComplete="new-password"
                       required
-                      className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     />
                     <PasswordInput
                       value={passConfirm}
@@ -406,15 +404,13 @@ export default function StudentProfile() {
                       aria-label="Repite la contraseña nueva"
                       autoComplete="new-password"
                       required
-                      className="w-full px-3 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     />
-                    <button
+                    <Button fullWidth
                       type="submit"
                       disabled={savingPass || !passActual || !passNueva || !passConfirm}
-                      className="w-full py-2.5 rounded-full bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                     >
                       {savingPass ? <Spinner size="sm" /> : 'Guardar contraseña nueva'}
-                    </button>
+                    </Button>
                   </form>
                   {/* Aquí vivía "Correo de recuperación". Se quitó: guardar el correo
                       de un menor solo se justifica si de verdad le sirve para
@@ -422,7 +418,7 @@ export default function StudentProfile() {
                       único camino es su maestro. */}
                   {!debeEstablecerContrasena && (
                     <div className="mt-3 rounded border border-red-300 bg-red-50 p-3 flex items-start gap-2">
-                      <AlertTriangle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+                      <AlertTriangle size={ICONO.md} className="text-red-600 flex-shrink-0 mt-0.5" />
                       <p className="text-xs text-on-surface leading-relaxed">
                         <strong className="text-red-700">SUGERENCIA MUY IMPORTANTE:</strong>{' '}
                         Anota tu contraseña en un lugar seguro, es tu responsabilidad cuidarla.
@@ -442,19 +438,18 @@ export default function StudentProfile() {
                   pensar en un problema que no tiene. */}
                 <div className="bg-surface-card rounded-card shadow-card p-4">
                   <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
-                    <UserMinus size={16} className="text-accent" /> Mi cuenta
+                    <UserMinus size={ICONO.sm} className="text-accent" /> Mi cuenta
                   </h2>
                   <p className="text-xs text-muted mb-2 leading-relaxed">
                     Ya no estás inscrito en ninguna asignatura, así que puedes eliminar tu cuenta.
                     Se borra tu usuario, tu foto y tus notificaciones, y no se puede deshacer.
                   </p>
-                  <button
-                    type="button"
+                  <Button variant="danger-outline" fullWidth icon={Trash2}
                     onClick={() => setShowEliminar(true)}
-                    className="w-full py-2.5 rounded-full border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                   
                   >
-                    <Trash2 size={16} /> Eliminar mi cuenta
-                  </button>
+                     Eliminar mi cuenta
+                  </Button>
                 </div>
               </>)}
             </div>

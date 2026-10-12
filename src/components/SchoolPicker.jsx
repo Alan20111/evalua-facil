@@ -9,7 +9,8 @@ import SearchInput from './SearchInput'
 import Modal from './ui/Modal'
 import { useToast } from './Toast'
 import { useBackHandler } from '../hooks/useBackHandler'
-import { SkeletonList } from './ui'
+import { SkeletonList, Input, Button } from './ui'
+import { ICONO } from '../config/iconos'
 
 // Selector de escuela — la MISMA pantalla en los tres lugares donde un docente
 // elige la suya: el registro (Register), el paso final del alta con Google o de
@@ -160,22 +161,22 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
           <ul className="space-y-2">
             {similares.map((c, i) => (
               <li key={`${c.claveSEP || c.nombre}-${i}`}>
-                <button type="button" onClick={() => chooseSimilar(c)} disabled={saving}
-                  className="w-full text-left px-3 py-2 rounded-full border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                <Button variant="secondary" fullWidth className="text-left" onClick={() => chooseSimilar(c)} disabled={saving}
+                 >
                   <p className="text-sm font-medium text-on-surface leading-tight">{c.nombre}</p>
                   <p className="text-sm text-slate-500 mt-0.5">
                     {[c.claveSEP, [c.municipio, c.estado].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
                   </p>
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
           <div className="flex gap-2">
             <button type="button" onClick={() => setCustomStep('form')} disabled={saving} className={btnSec}>Volver</button>
-            <button type="button" onClick={() => setCustomStep('confirm')} disabled={saving}
-              className="flex-1 py-2.5 rounded-full bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60">
+            <Button className="flex-1" onClick={() => setCustomStep('confirm')} disabled={saving}
+             >
               Ninguna, es nueva
-            </button>
+            </Button>
           </div>
         </div>
       ) : addingCustom && customStep === 'confirm' ? (
@@ -196,52 +197,44 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
         </div>
       ) : addingCustom ? (
         <form onSubmit={reviewCustom} className="space-y-3 max-h-[70dvh] overflow-y-auto">
-          <div>
-            <label htmlFor="escuela-nombre" className="block text-sm font-medium text-muted mb-1">Nombre oficial de la escuela</label>
-            <input
-              id="escuela-nombre"
-              type="text"
-              value={customName}
-              onChange={(e) => setCustomName(e.target.value)}
-              required
-              className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-            />
-          </div>
+          <Input
+            label="Nombre oficial de la escuela"
+            id="escuela-nombre"
+            type="text"
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+            required
+          />
           <div>
             <label htmlFor="escuela-cct" className="block text-sm font-medium text-muted mb-1">
               Clave del centro de trabajo (CCT) <span className="text-slate-500 font-normal text-xs">(opcional)</span>
             </label>
-            <input
+            <Input
               id="escuela-cct"
               type="text"
               value={customCCT}
               onChange={(e) => setCustomCCT(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
             />
           </div>
           <div className="flex gap-2">
-            <div className="flex-1">
-              <label htmlFor="escuela-ciudad" className="block text-sm font-medium text-muted mb-1">Ciudad / municipio</label>
-              <input
-                id="escuela-ciudad"
-                type="text"
-                value={customCity}
-                onChange={(e) => setCustomCity(e.target.value)}
-                required
-                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-              />
-            </div>
-            <div className="flex-1">
-              <label htmlFor="escuela-estado" className="block text-sm font-medium text-muted mb-1">Estado</label>
-              <input
-                id="escuela-estado"
-                type="text"
-                value={customState}
-                onChange={(e) => setCustomState(e.target.value)}
-                required
-                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-              />
-            </div>
+            <Input
+              label="Ciudad / municipio"
+              wrapperClassName="flex-1"
+              id="escuela-ciudad"
+              type="text"
+              value={customCity}
+              onChange={(e) => setCustomCity(e.target.value)}
+              required
+            />
+            <Input
+              label="Estado"
+              wrapperClassName="flex-1"
+              id="escuela-estado"
+              type="text"
+              value={customState}
+              onChange={(e) => setCustomState(e.target.value)}
+              required
+            />
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={() => setAddingCustom(false)} disabled={saving} className={btnSec}>Cancelar</button>
@@ -296,7 +289,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
                 onClick={openCustomForm}
                 className="w-full flex items-center gap-2 px-4 py-2 rounded text-sm font-medium text-accent hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
               >
-                <Plus size={18} className="flex-shrink-0" />
+                <Plus size={ICONO.md} className="flex-shrink-0" />
                 <span className="truncate">¿No la encuentras? Agregar «{search.trim()}»</span>
               </button>
             </div>

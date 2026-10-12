@@ -7,6 +7,7 @@ import {
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import YouTubeIcon from '../../components/YouTubeIcon'
+import { ICONO } from '../../config/iconos'
 
 // ─── Primeros pasos ──────────────────────────────────────────────────────────
 
@@ -258,10 +259,10 @@ function AccordionCard({ item }) {
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-[var(--accent-tint)] transition-colors"
       >
-        <Icon size={18} className="text-accent flex-shrink-0" />
+        <Icon size={ICONO.md} className="text-accent flex-shrink-0" />
         <span className="flex-1 text-[15px] font-semibold text-on-surface">{item.title}</span>
         <ChevronDown
-          size={16}
+          size={ICONO.sm}
           className={`text-muted flex-shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         />
       </button>
@@ -305,7 +306,7 @@ export default function AyudaPage() {
       <CanalYouTubeLink className="mb-6 flex items-center gap-3 px-5 py-4 bg-surface-card rounded-card shadow-card hover:bg-[var(--accent-tint)] transition-colors">
         <YouTubeIcon className="w-5 h-auto flex-shrink-0" />
         <span className="flex-1 text-[15px] font-semibold text-on-surface">Evalúa Fácil en YouTube</span>
-        <ChevronRight size={16} className="text-muted flex-shrink-0" />
+        <ChevronRight size={ICONO.sm} className="text-muted flex-shrink-0" />
       </CanalYouTubeLink>
 
       {/* PRIMEROS PASOS */}
@@ -319,7 +320,7 @@ export default function AyudaPage() {
           return (
             <section key={guide.id} className="bg-surface-card rounded-card shadow-card p-4">
               <div className="flex items-center gap-2 mb-1">
-                <Icon size={18} className="text-accent flex-shrink-0" />
+                <Icon size={ICONO.md} className="text-accent flex-shrink-0" />
                 <h3 className="text-[17px] font-bold text-on-surface">{guide.title}</h3>
               </div>
               {guide.description && (
@@ -361,7 +362,7 @@ export default function AyudaPage() {
               </ol>
               {guide.transfer && (
                 <p className="mt-4 pl-9 flex items-start gap-1.5 text-[14px] text-accent font-medium leading-relaxed">
-                  <ArrowRight size={15} className="flex-shrink-0 mt-0.5" />
+                  <ArrowRight size={ICONO.sm} className="flex-shrink-0 mt-0.5" />
                   {guide.transfer}
                 </p>
               )}

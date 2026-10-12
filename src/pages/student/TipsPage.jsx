@@ -1,6 +1,7 @@
 import { Lightbulb, FileDown } from 'lucide-react'
 import StudentLayout from '../../components/StudentLayout'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { ICONO } from '../../config/iconos'
 
 // Cada Tip nuevo se agrega aquí como un objeto más — no requiere tocar
 // TipCard ni el resto del archivo. `icon` es opcional (cae a Lightbulb).
@@ -43,7 +44,7 @@ function TipCard({ tip }) {
   return (
     <section className="bg-surface-card rounded-card shadow-card p-4">
       <div className="flex items-center gap-2 mb-1">
-        <Icon size={18} className="text-accent flex-shrink-0" />
+        <Icon size={ICONO.md} className="text-accent flex-shrink-0" />
         <h2 className="text-[15px] font-bold text-on-surface">{tip.title}</h2>
       </div>
       <p className="text-[14px] text-muted leading-relaxed">

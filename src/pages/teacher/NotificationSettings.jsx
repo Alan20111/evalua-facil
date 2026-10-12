@@ -13,7 +13,8 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12 } from '../../utils/formatHora'
 import InfoDisclosure from '../../components/ui/InfoDisclosure'
-import { SkeletonForm } from '../../components/ui'
+import { Button, IconTile, SkeletonForm, Switch } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 // Colección `notificationSettings/{uid}` (misma colección que usan los
 // estudiantes, distinta por uid):
@@ -119,14 +120,13 @@ function AnticipacionPicker({ value, onChange }) {
 
   return (
     <>
-      <button
-        type="button"
+      <Button variant="secondary"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
+       
       >
         <span>{current?.label || 'Elegir…'}</span>
-        <ChevronDown size={14} className="text-muted flex-shrink-0" />
-      </button>
+        <ChevronDown size={ICONO.xs} className="text-muted flex-shrink-0" />
+      </Button>
       {open && (
         <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setOpen(false)} aria-label="Cerrar" />
@@ -134,7 +134,7 @@ function AnticipacionPicker({ value, onChange }) {
             <div className="sticky top-0 bg-surface-card px-4 py-3 border-b border-outline-variant flex items-center justify-between">
               <p className="font-semibold text-on-surface">Avisar</p>
               <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" className="p-2 -mr-1 text-muted hover:text-on-surface rounded transition-colors">
-                <X size={18} />
+                <X size={ICONO.md} />
               </button>
             </div>
             <div className="p-2">
@@ -154,7 +154,7 @@ function AnticipacionPicker({ value, onChange }) {
                         }`}
                       >
                         <span>{op.label}</span>
-                        {selected && <Check size={16} className="flex-shrink-0" />}
+                        {selected && <Check size={ICONO.sm} className="flex-shrink-0" />}
                       </button>
                     )
                   })}
@@ -172,35 +172,16 @@ function AnticipacionPicker({ value, onChange }) {
 // con el mismo slot opcional para un sub-ajuste (anticipación) cuando está activo,
 // más un ícono en una insignia de acento para que cada fila se distinga a simple vista.
 function Toggle({ checked, onChange, label, description, icon: Icon, children }) {
+  // ui/Switch: role="switch", perilla que se desliza y toda la fila es su
+  // etiqueta (tocar el texto también alterna). El sub-ajuste (children) entra
+  // animado debajo cuando se enciende.
   return (
     <div className="py-1">
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className="w-full flex items-center gap-3 text-left -mx-2 px-2 py-1 rounded-full hover:bg-accent-light active:bg-accent-light transition-colors"
-      >
-        {Icon && (
-          <span className="flex items-center justify-center w-9 h-9 rounded-full bg-accent-light flex-shrink-0">
-            <Icon size={18} className="text-accent" />
-          </span>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-on-surface">{label}</p>
-          {description && <p className="text-xs text-muted mt-0.5">{description}</p>}
-        </div>
-        <span
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-            checked ? 'bg-accent' : 'bg-slate-300'
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-surface-card transition-transform ${
-              checked ? 'translate-x-6' : 'translate-x-1'
-            }`}
-          />
-        </span>
-      </button>
-      {checked && children && <div className="mt-3">{children}</div>}
+      <div className="flex items-center gap-3">
+        {Icon && <IconTile icon={Icon} size="sm" />}
+        <Switch className="flex-1 min-w-0" label={label} hint={description} checked={checked} onChange={onChange} />
+      </div>
+      {checked && children && <div className="mt-3 animate-aparece motion-reduce:animate-none">{children}</div>}
     </div>
   )
 }
@@ -416,7 +397,7 @@ export default function TeacherNotificationSettings() {
                 así que ya no hace falta el workaround. */}
             <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
               <div className="px-4 py-3 bg-accent-light border-b border-accent-soft flex items-center gap-2">
-                <Bell size={18} className="text-accent flex-shrink-0" />
+                <Bell size={ICONO.md} className="text-accent flex-shrink-0" />
                 <h2 className="font-semibold text-accent">Tus notificaciones</h2>
               </div>
               <div className="p-4 divide-y divide-outline-variant">
@@ -450,7 +431,7 @@ export default function TeacherNotificationSettings() {
                 app — aquí solo explicamos cómo activarlas ahí. */}
             <div className="bg-surface-card rounded-card shadow-card border border-accent-soft p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Settings size={16} className="text-accent flex-shrink-0" />
+                <Settings size={ICONO.sm} className="text-accent flex-shrink-0" />
                 <p className="text-sm font-semibold text-on-surface">Cómo activar las notificaciones en tu celular</p>
               </div>
               <InfoDisclosure label="Ver los pasos">
