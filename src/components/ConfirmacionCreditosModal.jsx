@@ -16,7 +16,7 @@ import { Sparkles } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ComprarCreditosModal from './ComprarCreditosModal'
 import ActivarCreditosModal from './ActivarCreditosModal'
-import { Button } from './ui'
+import { Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
 
 export default function ConfirmacionCreditosModal({
@@ -42,9 +42,19 @@ export default function ConfirmacionCreditosModal({
   const alcanza = c.saldo >= max
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={onCancelar} aria-label="Cerrar" />
-      <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-5 drop-shadow-2xl">
+    <>
+      {/* Con un sub-modal (comprar/activar) abierto, Escape y el fondo solo
+          deben cerrar ese, no también esta confirmación. */}
+      <Modal
+        open
+        onClose={onCancelar}
+        busy={comprarAbierto || activarAbierto}
+        ariaLabel={titulo}
+        variant="sheet"
+        size="sm"
+        z={50}
+        padding="p-5"
+      >
         <div className="flex items-center gap-2 mb-3">
           <Sparkles size={ICONO.md} className="text-accent flex-shrink-0" />
           <h3 className="text-base font-semibold flex-1">{titulo}</h3>
@@ -104,9 +114,9 @@ export default function ConfirmacionCreditosModal({
             </div>
           </>
         )}
-      </div>
+      </Modal>
       <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />
       <ActivarCreditosModal open={activarAbierto} onClose={() => setActivarAbierto(false)} onSuccess={onCancelar} />
-    </div>
+    </>
   )
 }

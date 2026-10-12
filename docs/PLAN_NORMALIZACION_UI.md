@@ -538,6 +538,28 @@ Las muestras de color o ícono (`MUESTRA`, 2.5rem) quedan fuera de la
 auditoría de alturas: son celdas de una rejilla documentadas en DESIGN_SYSTEM
 §6.7, no controles.
 
+### Modales a mano (después de la fase 3)
+
+61 → 41 apariciones de `fixed inset-0`. Se migraron a `ui/Modal` **20 diálogos**:
+- Créditos IA (panel y confirmación).
+- Recorte de foto, vista previa de archivos y aviso del alumno.
+- Permiso de notificaciones y evento personal del alumno.
+- Banco de reactivos y las salidas de evaluación y juego.
+- Los dos de admin.
+- Programar bloques y sus 3 ventanas de la zona semanal.
+- Modificar o mover bloques, días de asueto y vacaciones.
+
+Ahora se cierran todos igual: fondo, Escape y botón atrás. Los que no deben cerrarse a medias usan `busy`.
+
+Lo que queda **no es un diálogo**:
+- 24 pantallas completas: editores, runners, zoom y fuegos artificiales.
+- 9 capas transparentes de menús, que son trabajo de `Popover`.
+- 4 comentarios.
+
+Hay 3 casos justificados:
+- El logo ampliado del alumno, que necesita fondo blanco y su propio ancho.
+- Los 2 diálogos de asistencia, que en el teléfono horizontal se pegan arriba, algo que `Modal` no hace.
+
 ### Fase 6 — verificación
 
 `docs/VERIFICACION_VISUAL.md`. El script compara el HTML de 18 vistas en compu y

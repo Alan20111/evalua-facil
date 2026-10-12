@@ -5,11 +5,10 @@ import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
 import { formatFileSize } from '../utils/formatBytes'
 import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
 import { useBackHandler } from '../hooks/useBackHandler'
-import { useScrollLock } from '../hooks/useScrollLock'
 import PdfCanvasPreview from './PdfCanvasPreview'
 import PinchZoomImage from './PinchZoomImage'
 import BotonDescargarArchivo from './BotonDescargarArchivo'
-import { IconButton } from './ui'
+import { IconButton, Modal } from './ui'
 import { ICONO } from '../config/iconos'
 
 const PDF_EXTS = ['pdf']
@@ -202,51 +201,50 @@ function PdfPagesPreview({ url, nombre, fill, onCountKnown }) {
 // and recursos in both the teacher and student shells. Distinct from the
 // visibility eye (mostrar/ocultar a estudiantes).
 export function FilePreviewModal({ url, nombre, onClose }) {
-  useEffect(() => {
-    function onKey(e) { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
   // Physical Android back button: both callers (FileRow's internal `open`
   // state and SubjectPage's `previewResourceId`-driven state) only render this
   // component while it's open, so `active=true` mirrors the NuevaFechaEntregaModal pattern.
   useBackHandler(onClose, true)
-  // Same reasoning: only mounted while open, so the scroll lock is unconditional.
-  useScrollLock(true)
   if (!url) return null
   // Image-delivered PDFs can't be opened directly (raw URL blocked) → open the
   // first page as an image instead.
   const openInTabUrl = isImageDeliveredPdf(url) ? pdfPageImageUrl(url, 1) : url
   return createPortal(
-    <div className="fixed inset-0 z-aviso flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-black/50 animate-velo border-none cursor-default" onClick={onClose} aria-label="Cerrar" />
-      <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant flex-shrink-0">
-          <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
-          <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva" aria-label="Abrir en pestaña nueva"
-            className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-            <ExternalLink size={ICONO.md} />
-          </a>
-          {/* El <a download> de antes era inerte dentro del WebView de la app:
-              no descargaba, no fallaba, no avisaba (1-sep-2026). Este botón
-              hace lo mismo de siempre en la web y, en la app, baja el archivo
-              y lo entrega por el panel Compartir de Android. El archivo que se
-              entrega es el original, igual que antes. */}
-          <BotonDescargarArchivo
-            url={url}
-            nombre={nombre}
-            etiqueta=""
-            iconSize={18}
-            title="Descargar"
-            className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 disabled:opacity-60"
-          />
-          <IconButton icon={X} label="Cerrar" tooltip={false} onClick={onClose} data-tooltip="Cerrar" />
-        </div>
-        <div className="flex-1 min-h-0 overflow-auto bg-surface">
-          <FilePreview url={url} nombre={nombre} fill />
-        </div>
+    <Modal
+      open
+      onClose={onClose}
+      ariaLabel={nombre}
+      variant="centered"
+      size="3xl"
+      z={60}
+      padding="p-0"
+      className="flex flex-col overflow-hidden"
+    >
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant flex-shrink-0">
+        <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
+        <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva" aria-label="Abrir en pestaña nueva"
+          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+          <ExternalLink size={ICONO.md} />
+        </a>
+        {/* El <a download> de antes era inerte dentro del WebView de la app:
+            no descargaba, no fallaba, no avisaba (1-sep-2026). Este botón
+            hace lo mismo de siempre en la web y, en la app, baja el archivo
+            y lo entrega por el panel Compartir de Android. El archivo que se
+            entrega es el original, igual que antes. */}
+        <BotonDescargarArchivo
+          url={url}
+          nombre={nombre}
+          etiqueta=""
+          iconSize={18}
+          title="Descargar"
+          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 disabled:opacity-60"
+        />
+        <IconButton icon={X} label="Cerrar" tooltip={false} onClick={onClose} data-tooltip="Cerrar" />
       </div>
-    </div>,
+      <div className="flex-1 min-h-0 overflow-auto bg-surface">
+        <FilePreview url={url} nombre={nombre} fill />
+      </div>
+    </Modal>,
     document.body
   )
 }

@@ -22,7 +22,6 @@ import { TEACHER_CONTAINER } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import useTelefonoWeb from '../../hooks/useTelefonoWeb'
-import { useScrollLock } from '../../hooks/useScrollLock'
 import { refreshTeacherReminders } from '../../utils/localReminders'
 import { formatHora12 } from '../../utils/formatHora'
 import MiniSelect from '../../components/calendar/MiniSelect'
@@ -30,6 +29,7 @@ import { isActivityPublished, isDraftActivity, withDefaultTime } from '../../uti
 import { Clock, Send, CalendarDays, ChevronLeft, ChevronRight, Plus, CalendarRange, CalendarPlus, AlertTriangle, CalendarClock, CalendarOff, Trash2, Minus, Lock, LockOpen, Ban } from 'lucide-react'
 import { VistaAnio, TiraSemana } from '../../components/calendar/VistasApple'
 import { SkeletonList, Button, IconButton } from '../../components/ui'
+import Modal from '../../components/ui/Modal'
 import { ICONO } from '../../config/iconos'
 
 
@@ -153,12 +153,6 @@ export default function CalendarPage() {
   // La zona semanal (paso 2) maneja su propio guard en ProgramarZonaSemanal.
   useBackHandler(closeEventEditor, showEventEditor)
   useBackHandler(() => setProgramar(null), !!programar)
-
-  // Bloquean el scroll de fondo mientras cada overlay propio de esta página
-  // está abierto (los demás overlays manejan su propio lock: EventEditor,
-  // ProgramarZonaSemanal, AsuetoManager, VacacionManager).
-  useScrollLock(showModificarPicker)
-  useScrollLock(!!pendingMove)
 
   function changeView(v) {
     setView(v)
@@ -1458,17 +1452,10 @@ export default function CalendarPage() {
 
       {/* Selector de asignatura para "Modificar bloques" */}
       {showModificarPicker && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
-            onClick={() => setShowModificarPicker(false)}
-            aria-label="Cerrar"
-          />
+        <Modal open onClose={() => setShowModificarPicker(false)} ariaLabel="Modificar bloques por asignatura" variant="sheet" size="sm" z={50} padding="p-4" className={`space-y-3 ${IS_NATIVE_APP ? '' : 'pb-6'}`}>
           {/* pb mayor en la web: la lista terminaba pegada al borde inferior de
               la tarjeta. `pb-*` se emite después de `p-*`, así que gana sin
               depender del orden en que se escriban las clases. */}
-          <div className={`relative bg-surface-card hoja rounded-card shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-sm p-4 space-y-3 ${IS_NATIVE_APP ? '' : 'pb-6'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CalendarClock size={ICONO.md} className="text-accent" />
@@ -1580,8 +1567,7 @@ export default function CalendarPage() {
                 })}
               </div>
             )}
-          </div>
-        </div>
+        </Modal>
       )}
       {showAsuetos && (
         <AsuetoManager
@@ -1621,14 +1607,7 @@ export default function CalendarPage() {
         const seEncima = bloques.some(x => x.id !== b.id && x.fecha === b.fecha
           && timeToMinutes(x.horaInicio) < finMin && iniMin < timeToMinutes(x.horaFin))
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <button
-              type="button"
-              className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
-              onClick={() => setPendingMove(null)}
-              aria-label="Cerrar"
-            />
-            <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
+          <Modal open onClose={() => setPendingMove(null)} ariaLabel={cancelada ? 'Clase cancelada' : soloBorrar ? 'Borrar esta clase' : 'Mover, cancelar o borrar esta clase'} variant="centered" size="sm" z={50} padding="p-4" className="space-y-3">
               <h2 className="font-semibold text-on-surface">{cancelada ? 'Clase cancelada' : soloBorrar ? 'Borrar esta clase' : 'Mover, cancelar o borrar esta clase'}</h2>
               <div className="text-sm text-on-surface space-y-0.5 bg-surface rounded-card border border-outline-variant p-3">
                 <p className="font-medium">{subjectDisplayName(subj) || 'Clase'}</p>
@@ -1727,8 +1706,7 @@ export default function CalendarPage() {
                 onClick={() => setPendingMove(null)}>
                 Cancelar
               </Button>
-            </div>
-          </div>
+          </Modal>
         )
       })()}
     </>

@@ -112,11 +112,11 @@ fi
 # Cuenta OCURRENCIAS (no archivos): dividir un archivo grande en varios
 # (fase 5 de PLAN_NORMALIZACION_UI) no debe parecer deuda nueva.
 ratchet "Modales a mano (fixed inset-0 fuera de ui/Modal.jsx) — migrar a ui/Modal" \
-  'fixed inset-0' 61 'components/ui/Modal.jsx'
+  'fixed inset-0' 41 'components/ui/Modal.jsx'
 ratchet "h-screen (rompe con la barra de URL de Chrome Android, usar dvh) — Fase 5 paso 5.3" \
   '\bh-screen\b' 16
 ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
-  '([0-9]+)(vh)\b' 32
+  '([0-9]+)(vh)\b' 26
 # Presupuesto subido de 52 a 54 (Fase 2, paso 2.8): min-h-[44px]/min-w-[44px]
 # en la variante icon de ui/Button.jsx son deliberados, no deuda — con
 # html{font-size:90%} del proyecto, el equivalente en la escala rem de

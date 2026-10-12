@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import {
-  X, Check, Plus, Minus, Trash2, Copy, Bell, BellOff, MapPin, AlertCircle, Play,
+  Check, Plus, Minus, Trash2, Copy, Bell, BellOff, MapPin, AlertCircle, Play,
   ArrowLeft, Pencil,
 } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -14,6 +14,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12 } from '../../utils/formatHora'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { Button } from '../ui'
+import Modal from '../ui/Modal'
 import { ICONO } from '../../config/iconos'
 
 // Mismo criterio y misma medida que la rejilla de 3 días/Semana en
@@ -99,8 +100,6 @@ export default function ProgramarZonaSemanal({
   // propios popovers (colocar/editar bloque, confirmar salida) son overlays
   // independientes y llevan su propio lock más abajo.
   useScrollLock(true)
-  useScrollLock(!!placing)
-  useScrollLock(!!confirmSalir)
 
   const restantes = bloquesPorSemana - patrones.length
   const completo = patrones.length === bloquesPorSemana
@@ -294,7 +293,6 @@ export default function ProgramarZonaSemanal({
   }
 
   const editP = editing ? patrones.find(p => p.id === editing) : null
-  useScrollLock(!!editP)
   const inputCls = 'px-2.5 py-1.5 rounded-full border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
   const bannerBg = esModificar ? '#fef3c7' : bloqueColor(colorDefault).bg + '66'
 
@@ -519,13 +517,7 @@ export default function ProgramarZonaSemanal({
 
       {/* ── Popover: colocar bloque(s) ──────────────────────────────────── */}
       {placing && (
-        <div className="fixed inset-0 z-aviso flex items-center justify-center p-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setPlacing(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-on-surface text-sm">Colocar bloque</h3>
-              <button type="button" onClick={() => setPlacing(null)} className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full" aria-label="Cerrar"><X size={ICONO.sm} /></button>
-            </div>
+        <Modal open onClose={() => setPlacing(null)} title="Colocar bloque" variant="centered" size="full" z={60} padding="p-4" className="max-w-xs space-y-3">
             <div className="space-y-1">
               <span className="text-xs text-muted">Día</span>
               <Select
@@ -587,19 +579,12 @@ export default function ProgramarZonaSemanal({
                 </>
               )
             })()}
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* ── Popover: editar bloque colocado ─────────────────────────────── */}
       {editP && (
-        <div className="fixed inset-0 z-aviso flex items-center justify-center p-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setEditing(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-on-surface text-sm">Editar bloque</h3>
-              <button type="button" onClick={() => setEditing(null)} className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full" aria-label="Cerrar"><X size={ICONO.sm} /></button>
-            </div>
+        <Modal open onClose={() => setEditing(null)} title="Editar bloque" variant="centered" size="sm" z={60} padding="p-4" className="space-y-2">
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
@@ -719,15 +704,12 @@ export default function ProgramarZonaSemanal({
                  Confirmar
               </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* ── Confirmar salida con bloques colocados ─────────────────────── */}
       {confirmSalir && (
-        <div className="fixed inset-0 z-menu flex items-center justify-center p-4">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setConfirmSalir(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3">
+        <Modal open onClose={() => setConfirmSalir(false)} ariaLabel="¿Salir sin guardar?" variant="centered" size="full" z={70} padding="p-4" className="max-w-xs space-y-3">
             <h3 className="font-semibold text-on-surface text-sm">¿Salir sin guardar?</h3>
             <p className="text-sm text-muted">
               {completo
@@ -742,8 +724,7 @@ export default function ProgramarZonaSemanal({
                 Salir
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

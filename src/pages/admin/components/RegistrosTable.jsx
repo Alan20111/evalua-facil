@@ -13,9 +13,8 @@ import { useAuth } from '../../../context/AuthContext'
 import { apiUrl } from '../../../utils/apiBase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
-import { SkeletonTable, Button, IconButton } from '../../../components/ui'
+import { SkeletonTable, Button, IconButton, Modal } from '../../../components/ui'
 import { useBackHandler } from '../../../hooks/useBackHandler'
-import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import { normalizeName } from '../../../utils/schoolSelection'
 import { cuandoConsultaAuth, ultimaCompraPorDocente } from '../../../utils/resumenAdmin'
@@ -295,7 +294,6 @@ export default function RegistrosTable({ stats, onRefresh }) {
 
   useBackHandler(() => setAjusteModal(null), !!ajusteModal)
   useBackHandler(() => setDeleteModal(null), !!deleteModal)
-  useScrollLock(!!ajusteModal || !!deleteModal)
 
   // Memoizados aunque parezcan triviales: el `|| []` crea un arreglo nuevo en
   // cada render y eso invalidaría los useMemo que dependen de ellos.
@@ -817,15 +815,16 @@ export default function RegistrosTable({ stats, onRefresh }) {
         )}
       </div>
 
-      {deleteModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 animate-velo flex items-center justify-center px-4">
-          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-on-surface">Eliminar cuenta</h3>
-              <button type="button" onClick={() => !deleteModal.saving && setDeleteModal(null)} aria-label="Cerrar">
-                <X size={ICONO.md} className="text-hint" />
-              </button>
-            </div>
+      <Modal
+        open={!!deleteModal}
+        onClose={() => setDeleteModal(null)}
+        title="Eliminar cuenta"
+        variant="centered"
+        size="sm"
+        padding="p-5"
+        busy={!!deleteModal?.saving}
+      >
+        {deleteModal && (<>
             <p className="text-sm text-muted mb-0.5">
               Docente: <strong className="text-on-surface">{deleteModal.docente}</strong>
             </p>
@@ -852,19 +851,18 @@ export default function RegistrosTable({ stats, onRefresh }) {
                 Eliminar
               </Button>
             </div>
-          </div>
-        </div>
-      )}
+        </>)}
+      </Modal>
 
-      {ajusteModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 animate-velo flex items-center justify-center px-4">
-          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-on-surface">Ajustar créditos de IA</h3>
-              <button type="button" onClick={() => setAjusteModal(null)} aria-label="Cerrar">
-                <X size={ICONO.md} className="text-hint" />
-              </button>
-            </div>
+      <Modal
+        open={!!ajusteModal}
+        onClose={() => setAjusteModal(null)}
+        title="Ajustar créditos de IA"
+        variant="centered"
+        size="sm"
+        padding="p-5"
+      >
+        {ajusteModal && (<>
             <p className="text-sm text-muted mb-4 truncate" title={ajusteModal.docente}>
               Docente: <strong className="text-on-surface">{ajusteModal.docente}</strong>
             </p>
@@ -905,9 +903,8 @@ export default function RegistrosTable({ stats, onRefresh }) {
                 Aplicar ajuste
               </Button>
             </form>
-          </div>
-        </div>
-      )}
+        </>)}
+      </Modal>
     </div>
   )
 }

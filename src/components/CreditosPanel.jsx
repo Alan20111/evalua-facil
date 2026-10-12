@@ -13,10 +13,10 @@
 // saldo>0 aunque no consuma créditos (ver AttendanceTab).
 
 import { useState } from 'react'
-import { X, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ComprarCreditosModal from './ComprarCreditosModal'
-import { Button, IconButton } from './ui'
+import { Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
 
 export default function CreditosPanel({ onCerrar }) {
@@ -30,15 +30,23 @@ export default function CreditosPanel({ onCerrar }) {
   const categorias = Object.entries(c.consumoPorCategoria).sort((a, b) => b[1] - a[1])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={onCerrar} aria-label="Cerrar" />
-      <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-5 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles size={ICONO.md} className="text-accent flex-shrink-0" />
-          <h3 className="text-lg font-semibold flex-1">Créditos de IA</h3>
-          <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-1" onClick={onCerrar} data-tooltip="Cerrar" />
-        </div>
-
+    <>
+      {/* Con «Comprar créditos» abierto, Escape y el fondo solo cierran ese. */}
+      <Modal
+        open
+        onClose={onCerrar}
+        busy={comprarAbierto}
+        title={(
+          <span className="flex items-center gap-2">
+            <Sparkles size={ICONO.md} className="text-accent flex-shrink-0" />
+            Créditos de IA
+          </span>
+        )}
+        variant="sheet"
+        size="md"
+        z={50}
+        padding="p-5"
+      >
         {/* Números principales */}
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div className="bg-surface rounded-card p-3 text-center">
@@ -94,8 +102,8 @@ export default function CreditosPanel({ onCerrar }) {
             ))}
           </ul>
         )}
-      </div>
+      </Modal>
       <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />
-    </div>
+    </>
   )
 }

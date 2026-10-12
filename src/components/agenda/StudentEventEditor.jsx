@@ -5,11 +5,10 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../Toast'
 import EFDateTimePicker from '../EFDateTimePicker'
 import Spinner from '../Spinner'
-import { X, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { useScrollLock } from '../../hooks/useScrollLock'
 import { EVENT_COLORS } from '../calendar/EventEditor'
-import { Input, Button } from '../ui'
+import { Input, Button, Modal } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 // Evento Personal del Estudiante — completamente privado, solo lo ve quien lo
@@ -33,7 +32,6 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   useBackHandler(() => setConfirmDelete(false), confirmDelete)
-  useScrollLock(true)
 
   async function handleSave(e) {
     e.preventDefault()
@@ -81,87 +79,85 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={onClose} aria-label="Cerrar" />
-      <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-4 pt-4 pb-2 flex-shrink-0">
-          <h2 className="font-semibold text-on-surface">{isNew ? 'Nuevo evento personal' : 'Editar evento'}</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors">
-            <X size={ICONO.md} />
-          </button>
+    <Modal
+      open
+      onClose={onClose}
+      title={isNew ? 'Nuevo evento personal' : 'Editar evento'}
+      variant="centered"
+      size="sm"
+      z={50}
+      padding="p-4"
+    >
+      <form onSubmit={handleSave} className="space-y-3">
+        <div className="flex gap-2 flex-wrap pt-1">
+          {EVENT_COLORS.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, color: c.id }))}
+              className={`w-6 h-6 rounded-full border-2 transition ${form.color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
+              style={{ background: c.bg }}
+              data-tooltip={c.label}
+              aria-label={c.label}
+            />
+          ))}
         </div>
 
-        <form onSubmit={handleSave} className="px-4 pb-4 space-y-3 overflow-y-auto flex-1">
-          <div className="flex gap-2 flex-wrap pt-1">
-            {EVENT_COLORS.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setForm((f) => ({ ...f, color: c.id }))}
-                className={`w-6 h-6 rounded-full border-2 transition ${form.color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
-                style={{ background: c.bg }}
-                data-tooltip={c.label}
-                aria-label={c.label}
-              />
-            ))}
-          </div>
+        <Input
+          type="text"
+          value={form.titulo}
+          onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
+          aria-label="Título (ej. Estudiar para examen)"
+          required
+        />
 
-          <Input
-            type="text"
-            value={form.titulo}
-            onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
-            aria-label="Título (ej. Estudiar para examen)"
-            required
+        <textarea
+          value={form.descripcion}
+          onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
+          aria-label="Descripción (opcional)"
+          rows={2}
+          className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+        />
+
+        <div className="space-y-1">
+          <p className="text-xs text-muted font-medium">Inicio</p>
+          <EFDateTimePicker
+            mode="datetime"
+            value={form.inicio}
+            onChange={(v) => setForm((f) => ({ ...f, inicio: v, fin: f.fin && f.fin < v ? v : f.fin }))}
+            etiqueta="Fecha y hora de inicio"
+            clearable={false}
           />
+        </div>
 
-          <textarea
-            value={form.descripcion}
-            onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
-            aria-label="Descripción (opcional)"
-            rows={2}
-            className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+        <div className="space-y-1">
+          <p className="text-xs text-muted font-medium">Fin (opcional)</p>
+          <EFDateTimePicker
+            mode="datetime"
+            value={form.fin}
+            onChange={(v) => setForm((f) => ({ ...f, fin: v }))}
+            etiqueta="Fecha y hora de fin (opcional)"
+            clearable
           />
+        </div>
 
-          <div className="space-y-1">
-            <p className="text-xs text-muted font-medium">Inicio</p>
-            <EFDateTimePicker
-              mode="datetime"
-              value={form.inicio}
-              onChange={(v) => setForm((f) => ({ ...f, inicio: v, fin: f.fin && f.fin < v ? v : f.fin }))}
-              etiqueta="Fecha y hora de inicio"
-              clearable={false}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs text-muted font-medium">Fin (opcional)</p>
-            <EFDateTimePicker
-              mode="datetime"
-              value={form.fin}
-              onChange={(v) => setForm((f) => ({ ...f, fin: v }))}
-              etiqueta="Fecha y hora de fin (opcional)"
-              clearable
-            />
-          </div>
-
-          <div className="flex gap-2 pt-1">
-            {!isNew && (
-              confirmDelete ? (
-                <button type="button" onClick={handleDelete} disabled={saving} className="px-3 py-2 bg-error text-white rounded text-sm font-medium">
-                  Confirmar eliminación
-                </button>
-              ) : (
-                <button type="button" onClick={() => setConfirmDelete(true)} className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors" data-tooltip="Eliminar" aria-label="Eliminar">
-                  <Trash2 size={ICONO.md} />
-                </button>
-              )
-            )}
-            <Button className="flex-1" type="submit" disabled={saving}>
-              {saving ? <Spinner size="sm" /> : isNew ? 'Crear evento' : 'Guardar cambios'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex gap-2 pt-1">
+          {!isNew && (
+            confirmDelete ? (
+              <button type="button" onClick={handleDelete} disabled={saving} className="px-3 py-2 bg-error text-white rounded text-sm font-medium">
+                Confirmar eliminación
+              </button>
+            ) : (
+              <button type="button" onClick={() => setConfirmDelete(true)} className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors" data-tooltip="Eliminar" aria-label="Eliminar">
+                <Trash2 size={ICONO.md} />
+              </button>
+            )
+          )}
+          <Button className="flex-1" type="submit" disabled={saving}>
+            {saving ? <Spinner size="sm" /> : isNew ? 'Crear evento' : 'Guardar cambios'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }

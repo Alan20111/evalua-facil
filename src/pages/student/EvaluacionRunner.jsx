@@ -19,9 +19,8 @@ import { seccionesDe, ordenParaEstudiante, mostrarSeccionesAlEstudiante } from '
 import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fileTypes'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName, studentFullName } from '../../utils/studentSearch'
-import { SkeletonList, Input, Button, Radio } from '../../components/ui'
+import { SkeletonList, Input, Button, Radio, Modal } from '../../components/ui'
 import VideoInteractivoRunner from '../../components/video/VideoInteractivoRunner'
 import { esVideoInteractivo } from '../../utils/videoInteractivo'
 import { ICONO } from '../../config/iconos'
@@ -83,7 +82,6 @@ export default function EvaluacionRunner() {
   // debe confirmar, igual que con el botón "Salir" en pantalla.
   useBackHandler(() => setShowExitModal(false), showExitModal)
   useBackHandler(() => setShowExitModal(true), !showExitModal)
-  useScrollLock(showExitModal)
 
   async function load() {
     setLoading(true)
@@ -471,9 +469,7 @@ export default function EvaluacionRunner() {
           </div>
         </header>
 
-        {showExitModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-velo px-4">
-            <div className="bg-surface-card rounded-card shadow-2xl p-5 max-w-sm w-full">
+        <Modal open={showExitModal} onClose={() => setShowExitModal(false)} variant="centered" size="sm" padding="p-5">
               <h3 className="text-base font-bold text-on-surface mb-2">¿Salir de la evaluación?</h3>
               <p className="text-sm text-muted mb-1">
                 Puedes salir y continuar después desde donde lo dejaste — tus respuestas ya están guardadas.
@@ -495,9 +491,7 @@ export default function EvaluacionRunner() {
                   Salir ahora
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+        </Modal>
 
         {esVideo ? (
           <VideoInteractivoRunner

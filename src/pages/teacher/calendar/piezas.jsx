@@ -3,6 +3,7 @@
 import { AGENDA_ROW_H, DIAS_CORTO, DIA_HOUR_AMPM, DIA_HOUR_FIN_TEXT, DIA_HOUR_INI_TEXT, DIA_HOUR_TEXT, DIA_ITEM_TEXT, GRID_HOUR_AMPM, GRID_HOUR_TEXT, GRID_ITEM_TEXT, GRID_ITEM_TITLE, MESES, MES_ITEM_TEXT, ROW_H, SNAP_MIN, addDays, fmtHour, getMonthGrid, getWeekDays, isToday, minutesToTimeStr, toDateStr } from './utilidades'
 import { Bell, CalendarDays, CalendarOff, CalendarRange, Lock, LockOpen, Plus, Send, Trash2, X } from 'lucide-react'
 import { Button } from '../../../components/ui'
+import Modal from '../../../components/ui/Modal'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP } from '../../../utils/platform'
@@ -13,7 +14,6 @@ import { formatHora12 } from '../../../utils/formatHora'
 import { subjectDisplayName } from '../../../utils/subjectName'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePointerDrag } from '../../../hooks/usePointerDrag'
-import { useScrollLock } from '../../../hooks/useScrollLock'
 
 // ─── Event pill component ──────────────────────────────────────────────────
 export function EventPill({ ev, compact, onClick, movable }) {
@@ -759,7 +759,6 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
 // El docente elige una fecha y a qué afecta (clases, eventos, actividades). Un
 // tipo marcado = ese tipo NO se permite ese día. "Todo" marca los tres.
 export function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
-  useScrollLock(true)
   const [fecha, setFecha] = useState('')
   const [alcance, setAlcance] = useState(alcanceCompleto)
 
@@ -781,14 +780,7 @@ export function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
   const fmt = s => { const d = new Date(s + 'T12:00:00'); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}` }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
-        onClick={onClose}
-        aria-label="Cerrar"
-      />
-      <div className="relative bg-surface-card hoja rounded-card shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-md max-h-[92vh] flex flex-col">
+    <Modal open onClose={onClose} ariaLabel="Días de asueto" variant="sheet" size="md" z={50} padding="p-0" className="flex flex-col">
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0">
           <div className="flex items-center gap-2">
             <CalendarOff size={ICONO.md} className="text-amber-600" />
@@ -869,8 +861,7 @@ export function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
             Cerrar
           </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -879,7 +870,6 @@ export function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
 // de un solo día. El docente elige el rango y a qué afecta (clases, eventos,
 // actividades, asistencias) — el mismo alcance que en Días de asueto.
 export function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
-  useScrollLock(true)
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaFin, setFechaFin] = useState('')
   const [alcance, setAlcance] = useState(alcanceCompleto)
@@ -902,14 +892,7 @@ export function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
   const fmt = s => { const d = new Date(s + 'T12:00:00'); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}` }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default"
-        onClick={onClose}
-        aria-label="Cerrar"
-      />
-      <div className="relative bg-surface-card hoja rounded-card shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-md max-h-[92vh] flex flex-col">
+    <Modal open onClose={onClose} ariaLabel="Vacaciones" variant="sheet" size="md" z={50} padding="p-0" className="flex flex-col">
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0">
           <div className="flex items-center gap-2">
             <CalendarRange size={ICONO.md} className="text-amber-600" />
@@ -999,7 +982,6 @@ export function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
             Cerrar
           </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

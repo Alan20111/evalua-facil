@@ -51,7 +51,7 @@ import { groupExtensions } from '../utils/extensiones'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../utils/platform'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
-import { SkeletonList, Input, Button, IconButton, MotivoApagado, Radio } from './ui'
+import { SkeletonList, Input, Button, IconButton, MotivoApagado, Radio, Modal } from './ui'
 import { ICONO } from '../config/iconos'
 
 function toIsoNow() {
@@ -236,7 +236,6 @@ export default function EvaluacionEditor({
   const [bancoLoaded, setBancoLoaded] = useState(false)
   const [showBanco, setShowBanco] = useState(false)
   useBackHandler(() => setShowBanco(false), showBanco)
-  useScrollLock(showBanco)
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
   const [bancoMateriaFilter, setBancoMateriaFilter] = useState('')
@@ -1887,10 +1886,14 @@ export default function EvaluacionEditor({
       </div>
 
       {/* ── Banco modal ── */}
-      {showBanco && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-3xl hoja rounded-card shadow-2xl flex flex-col" style={{height: 'min(90vh, 700px)'}}>
+      <Modal
+        open={showBanco}
+        onClose={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }}
+        variant="sheet"
+        size="3xl"
+        padding="p-0"
+        className="flex flex-col h-[min(90vh,700px)]"
+      >
             {/* Header fijo */}
             <div className="p-4 border-b border-outline-variant flex-shrink-0">
               <h3 className="text-base font-semibold mb-3">Mi banco de reactivos</h3>
@@ -2057,9 +2060,7 @@ export default function EvaluacionEditor({
             <div className="p-3 border-t border-outline-variant flex-shrink-0">
               <Button fullWidth onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }}>Cerrar</Button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {seccionesCtl.porBorrar && (
         <ConfirmarBorrarSeccion
