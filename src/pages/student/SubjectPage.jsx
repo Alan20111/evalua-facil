@@ -16,7 +16,6 @@ import {
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
 import { isActivityPublished, formatPublishAt, formatDeadline, isOverdue, isDraftActivity, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
@@ -30,12 +29,7 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 import FiltroSoloCalificables from '../../components/FiltroSoloCalificables'
 import SubjectIcon from '../../components/SubjectIcon'
 import AttachmentList from '../../components/AttachmentList'
-import {
-  ArrowLeft, ChevronDown, ChevronUp,
-  Clock, Star, FolderOpen, BookOpen, Paperclip,
-  GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone,
-  CheckCircle2, Circle, Bookmark, ChevronRight, Trash2, LogOut, MoreVertical, RotateCcw, Sparkles,
-} from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Clock, Star, FolderOpen, BookOpen, Paperclip, GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone, CheckCircle2, Circle, Bookmark, ChevronRight, Trash2, LogOut, RotateCcw, Sparkles,  } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno, pesosVisiblesAlumno } from '../../utils/ponderacion'
@@ -46,6 +40,8 @@ import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde }
 import AsistenciaSemanal from '../../components/student/AsistenciaSemanal'
 import { parcialIniciado, semanasVisiblesParcial } from '../../components/student/semanasAsistencia'
 import { EsqueletoAsignaturaAlumno } from '../../components/esqueletos'
+import { ICONO } from '../../config/iconos'
+import { Button, IconButton, Menu } from '../../components/ui'
 
 // Builds a unified ordered list of activities + positioned materials for one
 // parcial, mirroring the teacher view so both render in the same order.
@@ -75,11 +71,11 @@ function ResourceCard({ resource: r }) {
   return (
     <div className="border border-outline-variant rounded">
       <div className="flex items-start gap-3 px-3 py-2.5">
-        <Icon size={22} className={`flex-shrink-0 mt-0.5 ${color}`} />
+        <Icon size={ICONO.md} className={`flex-shrink-0 mt-0.5 ${color}`} />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-on-surface">{r.nombre}</p>
           {r.descripcion && (
-            <p className="text-xs text-slate-500 mt-0.5">{r.descripcion}</p>
+            <p className="text-xs text-muted mt-0.5">{r.descripcion}</p>
           )}
           <p className="text-xs text-hint mt-0.5">
             {isLink ? 'Enlace · ' : (r.tamano != null ? formatFileSize(r.tamano) + ' · ' : '')}
@@ -91,7 +87,7 @@ function ResourceCard({ resource: r }) {
         <div className="px-3 pb-2.5">
           <a href={r.url} target="_blank" rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-sm text-accent font-medium hover:underline">
-            Abrir enlace <ExternalLink size={14} />
+            Abrir enlace <ExternalLink size={ICONO.xs} />
           </a>
         </div>
       ) : (
@@ -257,9 +253,7 @@ export default function StudentSubjectPage() {
   // actividades entregables pendientes, se advierte antes de dejarlo salir.
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
   const [leaving, setLeaving] = useState(false)
-  const [showSubjectMenu, setShowSubjectMenu] = useState(false)
   useBackHandler(() => setShowLeaveConfirm(false), showLeaveConfirm)
-  useBackHandler(() => setShowSubjectMenu(false), showSubjectMenu)
 
   const pendingActivitiesCount = activities.filter((a) => {
     if (isDraftActivity(a) || !isActivityPublished(a, (subject?.parcialesOcultos || []).includes(a.parcial))) return false
@@ -571,22 +565,15 @@ export default function StudentSubjectPage() {
       <div className="px-4 pt-2">
       <div data-esq="subj-alu-tarjeta" className="bg-surface-card rounded-card">
       <header data-esq="subj-alu-encabezado" className="px-4 py-3 flex items-center gap-3">
-        <button
-          type="button"
-          aria-label="Volver"
-          onClick={goBack}
-          className="md:hidden p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0"
-        >
-          <ArrowLeft size={22} />
-        </button>
+        <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={goBack} />
         <div data-esq="subj-alu-icono" className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-          <SubjectIcon iconKey={subject?.icon} size={20} className="text-accent" />
+          <SubjectIcon iconKey={subject?.icon} size={ICONO.md} className="text-accent" />
         </div>
         <div className="min-w-0 flex items-center gap-2 flex-wrap">
           <h1 className="text-lg font-bold text-on-surface truncate">{subjectDisplayName(subject)}</h1>
           {teacherName && (
             <span className="flex items-center gap-1.5 min-w-0">
-              <span className="text-slate-500 text-sm font-medium truncate">{teacherName}</span>
+              <span className="text-muted text-sm font-medium truncate">{teacherName}</span>
               {teacherPhoto && (
                 <img src={teacherPhoto} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
               )}
@@ -596,29 +583,11 @@ export default function StudentSubjectPage() {
         {/* Menú "···" en vez de un ícono de salida — con el mismo ícono que
             "Cerrar sesión" del sidebar se confundía con cerrar sesión.
             Pedido explícito: que quede sin ambigüedad. */}
-        <div className="relative ml-auto flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowSubjectMenu((v) => !v)}
-            aria-label="Más opciones de esta asignatura"
-            className="p-2 text-hint hover:text-on-surface hover:bg-surface-container rounded-full transition-colors"
-          >
-            <MoreVertical size={19} />
-          </button>
-          {showSubjectMenu && (
-            <>
-              <button type="button" className="fixed inset-0 z-30 bg-transparent border-none cursor-default" onClick={() => setShowSubjectMenu(false)} aria-label="Cerrar menú" />
-              <div className="absolute right-0 top-10 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 w-56 text-left">
-                <button
-                  type="button"
-                  onClick={() => { setShowSubjectMenu(false); setShowLeaveConfirm(true) }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-error hover:bg-red-50 transition-colors"
-                >
-                  <LogOut size={16} /> Salir de esta asignatura
-                </button>
-              </div>
-            </>
-          )}
+        <div className="ml-auto flex-shrink-0">
+          <Menu
+            label="Más opciones de esta asignatura"
+            items={[{ label: 'Salir de esta asignatura', icon: LogOut, danger: true, onClick: () => setShowLeaveConfirm(true) }]}
+          />
         </div>
       </header>
 
@@ -642,13 +611,10 @@ export default function StudentSubjectPage() {
               No podrás volver a entrar tú solo con el código — tendrás que pedirle a tu maestro(a) que te dé permiso de reingresar.
             </p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowLeaveConfirm(false)} disabled={leaving}
-                className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
-              <button type="button" onClick={handleLeaveSubject} disabled={leaving}
-                className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
-                {leaving ? <Spinner size="sm" /> : <LogOut size={16} />}
+              <Button variant="secondary" className="flex-1" onClick={() => setShowLeaveConfirm(false)} disabled={leaving}>Cancelar</Button>
+              <Button variant="danger" icon={LogOut} busy={leaving} className="flex-1" onClick={handleLeaveSubject}>
                 {leaving ? 'Saliendo…' : 'Salir'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -679,7 +645,7 @@ export default function StudentSubjectPage() {
         </div>
         {tabsOverflow && (
           <div className="absolute right-4 top-0 bottom-3 flex items-center pointer-events-none bg-gradient-to-l from-surface-container via-surface-container to-transparent pl-6 pr-2 rounded-full">
-            <ChevronRight size={16} className="text-accent animate-pulse" />
+            <ChevronRight size={ICONO.sm} className="text-accent animate-pulse" />
           </div>
         )}
       </div>
@@ -716,7 +682,7 @@ export default function StudentSubjectPage() {
                       </div>
                       <div className="flex-1 text-left min-w-0">
                         <p className="font-semibold text-on-surface truncate">Parcial {p}</p>
-                        <p className="text-sm text-slate-500">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
+                        <p className="text-sm text-muted">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {!publicado ? (
@@ -724,7 +690,7 @@ export default function StudentSubjectPage() {
                         ) : avg != null && (
                           <span className="text-lg font-bold text-accent">{avg}</span>
                         )}
-                        {isOpen ? <ChevronUp size={20} className="text-hint" /> : <ChevronDown size={20} className="text-hint" />}
+                        {isOpen ? <ChevronUp size={ICONO.md} className="text-hint" /> : <ChevronDown size={ICONO.md} className="text-hint" />}
                       </div>
                     </>
                   )
@@ -791,9 +757,9 @@ export default function StudentSubjectPage() {
                             type="button"
                             key={a.id}
                             onClick={() => navigate(`/alumno/actividad/${a.id}`)}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded border border-outline-variant bg-surface-card hover:border-accent hover:bg-[var(--accent-tint)] transition-colors duration-200 text-left"
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-full border border-outline-variant bg-surface-card hover:border-accent hover:bg-[var(--accent-tint)] transition-colors duration-200 text-left"
                           >
-                            <ActIcon size={20} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-hint'}`} />
+                            <ActIcon size={ICONO.md} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-hint'}`} />
                             <div className="flex-1 min-w-0">
                               <p className="text-base font-medium leading-tight text-on-surface truncate">
                                 {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} </span>}
@@ -804,12 +770,12 @@ export default function StudentSubjectPage() {
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                   {!IS_NATIVE_APP && publishDate && (
                                     <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
-                                      <Clock size={14} /> {formatPublishAt(publishDate)}
+                                      <Clock size={ICONO.xs} /> {formatPublishAt(publishDate)}
                                     </span>
                                   )}
                                   {!IS_NATIVE_APP && fechaLimiteLabel && (
                                     <span data-tooltip={extendedDate ? 'Cierre (con prórroga)' : 'Cierre'} className={`text-xs flex items-center gap-0.5 ${overdue ? 'text-red-500' : 'text-amber-600'}`}>
-                                      <Clock size={14} /> {fechaLimiteLabel}{extendedDate && ' (extendida)'}
+                                      <Clock size={ICONO.xs} /> {fechaLimiteLabel}{extendedDate && ' (extendida)'}
                                     </span>
                                   )}
                                   {showPeso && (
@@ -822,16 +788,16 @@ export default function StudentSubjectPage() {
                                   ? sub.comentarioVisibleAlumno !== false
                                   : a.comentarioVisibleAlumno !== false
                               ) && (
-                                <p className="text-sm text-slate-500 leading-tight truncate mt-0.5">&ldquo;{sub.comentario}&rdquo;</p>
+                                <p className="text-sm text-muted leading-tight truncate mt-0.5">&ldquo;{sub.comentario}&rdquo;</p>
                               )}
                             </div>
                             <div className="flex-shrink-0 text-right">
                               {graded ? (
                                 <div>
                                   <p className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
-                                    <Star size={13} /> {sub.calificacion}
+                                    <Star size={ICONO.xs} /> {sub.calificacion}
                                   </p>
-                                  <p className="text-xs text-slate-500">/{a.maxCalif}</p>
+                                  <p className="text-xs text-muted">/{a.maxCalif}</p>
                                 </div>
                               ) : delivered ? (
                                 <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregada</span>
@@ -847,18 +813,18 @@ export default function StudentSubjectPage() {
                       // type === 'material'
                       const m = item
                       return (
-                        <div key={m.id} className="w-full rounded border border-outline-variant overflow-hidden">
+                        <div key={m.id} className="w-full rounded-card border border-outline-variant overflow-hidden">
                           <div className="flex items-center gap-3 px-3 py-2">
-                            <BookOpen size={20} className="text-amber-500 flex-shrink-0" />
+                            <BookOpen size={ICONO.md} className="text-amber-500 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium leading-tight text-on-surface truncate">{m.nombre}</p>
-                              <p className="text-xs text-slate-500 flex items-center gap-0.5">
-                                <Paperclip size={11} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
+                              <p className="text-xs text-muted flex items-center gap-0.5">
+                                <Paperclip size={ICONO.xs} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
                               </p>
                             </div>
                           </div>
                           {m.descripcion && (
-                            <div className={`px-3 pb-2 ml-9 text-sm text-slate-600 ${richTextContentClass}`}
+                            <div className={`px-3 pb-2 ml-9 text-sm text-muted ${richTextContentClass}`}
                               dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.descripcion) }} />
                           )}
                           <div className="px-3 pb-2 ml-9">
@@ -895,17 +861,14 @@ export default function StudentSubjectPage() {
                   : `Descarga en un ZIP los ${misArchivos.length} archivos que entregaste, ordenados por parcial.`}
                 {' '}Es tu trabajo — guárdalo donde quieras.
               </p>
-              <button
-                type="button"
+              <Button variant="outline-accent" fullWidth icon={Download} busy={zipping}
                 onClick={descargarMisEntregas}
-                disabled={zipping}
-                className="w-full py-2.5 rounded-full border border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {zipping ? <Spinner size="sm" /> : <Download size={16} />}
+                disabled={zipping}>
+                
                 {zipping
                   ? `Descargando ${zipProgress.done}/${zipProgress.total}…`
                   : 'Descargar mis entregas'}
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -1003,13 +966,13 @@ export default function StudentSubjectPage() {
         <div className={`px-4 py-5 ${STUDENT_CONTAINER_LISTA}`}>
           {resources.length === 0 ? (
             <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
-              <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />
+              <FolderOpen size={32} className="text-hint mx-auto mb-3" />
               <p className="text-muted text-sm">El docente no ha compartido recursos aún.</p>
             </div>
           ) : (
             <div className="bg-surface-card rounded-card overflow-hidden shadow-card">
               <div className="px-4 py-3 flex items-center gap-2 border-b border-outline-variant">
-                <FolderOpen size={18} className="text-accent flex-shrink-0" />
+                <FolderOpen size={ICONO.md} className="text-accent flex-shrink-0" />
                 <p className="font-semibold text-on-surface">Recursos de la asignatura</p>
               </div>
               <div className="px-4 py-2 space-y-2">
@@ -1046,12 +1009,12 @@ export default function StudentSubjectPage() {
             </button>
             <button type="button" onClick={() => setSoloAvisosGuardados(true)}
               className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>
-              <Bookmark size={13} /> Guardados{guardadosList.length > 0 ? ` (${guardadosList.length})` : ''}
+              <Bookmark size={ICONO.xs} /> Guardados{guardadosList.length > 0 ? ` (${guardadosList.length})` : ''}
             </button>
           </div>
           {avisosMostrados.length === 0 ? (
             <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
-              <Megaphone size={32} className="text-slate-300 mx-auto mb-3" />
+              <Megaphone size={32} className="text-hint mx-auto mb-3" />
               <p className="text-muted text-sm">{soloAvisosGuardados ? 'No has guardado ningún aviso.' : 'El docente no ha publicado avisos aún.'}</p>
             </div>
           ) : (
@@ -1069,7 +1032,7 @@ export default function StudentSubjectPage() {
                           <p className="font-semibold text-on-surface">{a.titulo}</p>
                           {leido ? (
                             <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                              <CheckCircle2 size={13} /> Leído
+                              <CheckCircle2 size={ICONO.xs} /> Leído
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-xs text-accent font-medium">
@@ -1090,20 +1053,11 @@ export default function StudentSubjectPage() {
                             lista de este alumno (ver avisoOcultos). */}
                         {guardado ? (
                           <>
-                            <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos" data-tooltip-pos="bottom"
-                              className="p-2 -m-1 rounded-full transition-colors text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
-                              <RotateCcw size={18} />
-                            </button>
-                            <button type="button" onClick={() => setDeleteAvisoConfirm(a)} aria-label="Eliminar" data-tooltip="Eliminar" data-tooltip-pos="bottom"
-                              className="p-2 -m-1 rounded-full transition-colors text-hint hover:text-red-500 hover:bg-red-50">
-                              <Trash2 size={18} />
-                            </button>
+                            <IconButton icon={RotateCcw} label="Regresar a Todos" tooltip={false} className="-m-1" onClick={() => toggleAvisoGuardado(a)} data-tooltip="Regresar a Todos" data-tooltip-pos="bottom" />
+                            <IconButton icon={Trash2} label="Eliminar" variant="danger" tooltip={false} className="-m-1" onClick={() => setDeleteAvisoConfirm(a)} data-tooltip="Eliminar" data-tooltip-pos="bottom" />
                           </>
                         ) : (
-                          <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Guardar" data-tooltip="Guardar" data-tooltip-pos="bottom"
-                            className="p-2 -m-1 rounded-full transition-colors text-hint hover:text-accent hover:bg-[var(--accent-medium)]">
-                            <Bookmark size={18} />
-                          </button>
+                          <IconButton icon={Bookmark} label="Guardar" tooltip={false} className="-m-1" onClick={() => toggleAvisoGuardado(a)} data-tooltip="Guardar" data-tooltip-pos="bottom" />
                         )}
                       </div>
                     </div>
@@ -1124,13 +1078,11 @@ export default function StudentSubjectPage() {
                   Ya no lo verás en tu lista, ni en Todos ni en Guardados. Tu docente y tus compañeros lo siguen viendo normal — esto solo lo quita de tu vista.
                 </p>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setDeleteAvisoConfirm(null)} disabled={deletingAviso}
-                    className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
-                  <button type="button" onClick={handleEliminarAviso} disabled={deletingAviso}
-                    className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
-                    {deletingAviso ? <Spinner size="sm" /> : <Trash2 size={16} />}
+                  <Button variant="secondary" className="flex-1" onClick={() => setDeleteAvisoConfirm(null)} disabled={deletingAviso}>Cancelar</Button>
+                  <Button variant="danger" icon={Trash2} busy={deletingAviso} className="flex-1" onClick={handleEliminarAviso} disabled={deletingAviso}>
+                    
                     {deletingAviso ? 'Eliminando…' : 'Eliminar'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

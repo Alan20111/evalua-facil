@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, X } from 'lucide-react'
 import { startOfWeekMon, addDays } from '../../utils/calendarGrid'
+import { ICONO } from '../../config/iconos'
 
 // Asistencias del estudiante organizadas por semana (sep-2026). SOLO
 // presentación: recibe los registros y los totales YA calculados en
@@ -79,7 +80,7 @@ const ESTILO = {
   // Le corresponde, pero el docente aún no registra la asistencia. Neutro: no
   // es presente ni falta. También es el respaldo de cualquier estado que no
   // se reconozca — nunca se pinta algo desconocido como Presente.
-  sin_registro: { chip: 'bg-slate-100 text-slate-500', nombre: 'Sin registro' },
+  sin_registro: { chip: 'bg-slate-100 text-muted', nombre: 'Sin registro' },
 }
 
 function Marca({ r, seleccionada, onToggle }) {
@@ -89,10 +90,10 @@ function Marca({ r, seleccionada, onToggle }) {
   const simbolo = !conocido
     ? <span className="font-bold leading-none">—</span>
     : r.estado === 'falta'
-      ? <X size={10} strokeWidth={3} className="flex-shrink-0" />
+      ? <X size={ICONO.xs} strokeWidth={3} className="flex-shrink-0" />
       : r.estado === 'justificada'
         ? <span className="font-bold leading-none">J</span>
-        : <Check size={10} strokeWidth={3} className="flex-shrink-0" />
+        : <Check size={ICONO.xs} strokeWidth={3} className="flex-shrink-0" />
   // Sin ancho fijo: ocupa la columna del día y cabe "12✓" aun a 320 px de pantalla.
   const base = `w-full flex items-center justify-center gap-px rounded px-0.5 py-0.5 text-[10px] sm:text-[11px] leading-none font-semibold tabular-nums whitespace-nowrap ${e.chip}`
   const conMotivo = conocido && r.estado === 'justificada' && !!r.motivo
@@ -145,7 +146,7 @@ export default function AsistenciaSemanal({
               </p>
               {pctInasist != null && (
                 <p className="leading-none">
-                  <span className={`text-2xl font-bold tabular-nums ${enRiesgo ? 'text-red-500' : 'text-slate-500'}`}>{pctInasist}%</span>
+                  <span className={`text-2xl font-bold tabular-nums ${enRiesgo ? 'text-red-500' : 'text-muted'}`}>{pctInasist}%</span>
                   <span className="text-sm text-muted ml-1.5">inasistencia del periodo</span>
                 </p>
               )}
@@ -170,11 +171,11 @@ export default function AsistenciaSemanal({
 
         {/* Leyenda */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 text-xs text-muted">
-          <span className="inline-flex items-center gap-1"><span className="inline-flex items-center justify-center w-5 h-4 rounded bg-emerald-100 text-emerald-800"><Check size={11} strokeWidth={3} /></span>Presente</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-flex items-center justify-center w-5 h-4 rounded bg-emerald-100 text-emerald-800"><Check size={ICONO.xs} strokeWidth={3} /></span>Presente</span>
           <span className="inline-flex items-center gap-1"><span className="inline-flex items-center justify-center w-5 h-4 rounded bg-amber-100 text-amber-800 text-[11px] font-bold">J</span>Justificada</span>
-          <span className="inline-flex items-center gap-1"><span className="inline-flex items-center justify-center w-5 h-4 rounded bg-red-100 text-red-700"><X size={11} strokeWidth={3} /></span>Falta</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-flex items-center justify-center w-5 h-4 rounded bg-red-100 text-red-700"><X size={ICONO.xs} strokeWidth={3} /></span>Falta</span>
           {sinRegistro.length > 0 && (
-            <span className="inline-flex items-center gap-1"><span className="inline-flex items-center justify-center w-5 h-4 rounded bg-slate-100 text-slate-500 text-[11px] font-bold">—</span>Sin registro</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-flex items-center justify-center w-5 h-4 rounded bg-slate-100 text-muted text-[11px] font-bold">—</span>Sin registro</span>
           )}
           <span>· El número es la clase del día</span>
         </div>
