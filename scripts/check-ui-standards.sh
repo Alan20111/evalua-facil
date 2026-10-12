@@ -129,7 +129,7 @@ ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
 # Bajó a 53 en refactor/estandares-espaciado (oct-2026) y a 48 con ui/Button
 # (variante icon = size-control, ya sin min-h-[44px]) en la normalización.
 ratchet "Anchos/altos en píxeles duros (w-[Npx]/h-[Npx]) — evitar nuevos, usar tokens de layout.js" \
-  '(min-)?[wh]-\[[0-9]+px\]' 44
+  '(min-)?[wh]-\[[0-9]+px\]' 43
 
 echo ""
 echo "=== Normalización de la interfaz — docs/PLAN_NORMALIZACION_UI.md §7 ==="
