@@ -28,7 +28,7 @@ import MiniSelect from '../../components/calendar/MiniSelect'
 import { isActivityPublished, isDraftActivity, withDefaultTime } from '../../utils/activityVisibility'
 import { Clock, Send, CalendarDays, ChevronLeft, ChevronRight, Plus, CalendarRange, CalendarPlus, AlertTriangle, CalendarClock, CalendarOff, Trash2, Minus, Lock, LockOpen, Ban } from 'lucide-react'
 import { VistaAnio, TiraSemana } from '../../components/calendar/VistasApple'
-import { SkeletonList, Button, IconButton } from '../../components/ui'
+import { SkeletonList, Button, IconButton, Popover } from '../../components/ui'
 import Modal from '../../components/ui/Modal'
 import { ICONO } from '../../config/iconos'
 
@@ -93,7 +93,6 @@ export default function CalendarPage() {
     const v = raw == null || raw === '' ? NaN : Number(raw)
     return Number.isInteger(v) && v >= 1 && v <= 24 ? v : DEFAULT_DAY_END
   })
-  const [showHoras, setShowHoras] = useState(false)
 
   function changeDayStart(v) {
     setDayStart(v)
@@ -117,7 +116,6 @@ export default function CalendarPage() {
   }
 
   // Selector de fecha al hacer clic en la etiqueta de navegación.
-  const [showDatePicker, setShowDatePicker] = useState(false)
   const [pickerMonth, setPickerMonth] = useState(new Date())
 
   // Confirmación pendiente al arrastrar un bloque de clase.
@@ -972,11 +970,16 @@ export default function CalendarPage() {
   const dateNav = (
     <div className="relative flex items-center gap-1">
       <IconButton icon={ChevronLeft} label="Anterior" tooltip={false} onClick={prev} />
+      {/* Mini calendario para saltar a una fecha: Popover de la librería
+          (mismo panel, animación y cierre que los demás menús). */}
+      <Popover align="start" label="Ir a otra fecha" className="p-3 w-64"
+        trigger={({ onClick, ...props }) => (
       <button
         type="button"
-        onClick={() => {
+        {...props}
+        onClick={(e) => {
           setPickerMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
-          setShowDatePicker(v => !v)
+          onClick(e)
         }}
         className={`min-h-control text-2xl font-bold text-on-surface px-3 ${IS_NATIVE_APP ? 'flex-1 min-w-0' : 'min-w-[11rem]'} truncate text-left select-none rounded-full hover:bg-[var(--accent-tint)] transition-colors py-0.5`}
         data-tooltip="Ir a otra fecha"
@@ -984,18 +987,9 @@ export default function CalendarPage() {
       >
         {navLabel()}
       </button>
-      <IconButton icon={ChevronRight} label="Siguiente" tooltip={false} onClick={next} />
-
-      {/* Mini calendario para saltar a una fecha */}
-      {showDatePicker && (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-20 bg-transparent border-none cursor-default"
-            onClick={() => setShowDatePicker(false)}
-            aria-label="Cerrar selector de fecha"
-          />
-          <div className="absolute left-0 top-12 z-30 origin-top-left animate-dialogo motion-reduce:animate-none bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
+        )}>
+        {({ cerrar }) => (
+          <>
             <div className="flex items-center justify-between mb-2">
               <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="size-control inline-flex items-center justify-center rounded-full hover:bg-[var(--accent-tint)] text-muted">
                 <ChevronLeft size={ICONO.sm} />
@@ -1020,7 +1014,7 @@ export default function CalendarPage() {
                   <button
                     key={toDateStr(cell)}
                     type="button"
-                    onClick={() => { setCurrentDate(cell); setShowDatePicker(false) }}
+                    onClick={() => { setCurrentDate(cell); cerrar() }}
                     className={`h-7 w-7 mx-auto rounded-full text-xs flex items-center justify-center transition-colors ${
                       sel ? 'bg-accent text-white font-bold'
                         : isToday(cell) ? 'ring-1 ring-accent text-accent font-semibold hover:bg-[var(--accent-tint)]'
@@ -1032,9 +1026,11 @@ export default function CalendarPage() {
                 )
               })}
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </Popover>
+      <IconButton icon={ChevronRight} label="Siguiente" tooltip={false} onClick={next} />
+
     </div>
   )
 
@@ -1074,10 +1070,11 @@ export default function CalendarPage() {
   )
 
   const hourRangeBtn = (
-    <div className="relative">
+    <Popover align="end" label="Horas del día en tu agenda" className="p-3 w-64 space-y-2"
+      trigger={(props) => (
       <button
         type="button"
-        onClick={() => setShowHoras(v => !v)}
+        {...props}
         aria-label="Horas visibles de tu día"
         className={movil
           ? 'size-control flex items-center justify-center rounded-full text-on-surface hover:bg-[var(--accent-tint)] transition-colors'
@@ -1090,15 +1087,7 @@ export default function CalendarPage() {
         <Clock size={movil ? ICONO.md : ICONO.xs} />
         {!movil && <> {formatHora12(`${String(dayStart % 24).padStart(2, '0')}:00`)}–{formatHora12(`${String(dayEnd % 24).padStart(2, '0')}:00`)}</>}
       </button>
-      {showHoras && (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-30 bg-transparent border-none cursor-default"
-            onClick={() => setShowHoras(false)}
-            aria-label="Cerrar selector de horas"
-          />
-          <div className="absolute right-0 top-12 z-40 origin-top-right animate-dialogo motion-reduce:animate-none bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
+      )}>
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted w-12 flex-shrink-0">Desde</span>
@@ -1133,10 +1122,7 @@ export default function CalendarPage() {
                 ]}
               />
             </div>
-          </div>
-        </>
-      )}
-    </div>
+    </Popover>
   )
 
   return (

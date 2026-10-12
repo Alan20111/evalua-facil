@@ -6,13 +6,13 @@ import { useToast } from '../Toast'
 import InfoDisclosure from '../ui/InfoDisclosure'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark, GripVertical, RotateCcw } from 'lucide-react'
+import { Plus, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark, GripVertical, RotateCcw } from 'lucide-react'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import { PLANTILLAS_SEED, EMOJI_PALETTE, avisoEmoji, formatAvisoFecha, avisosDesde } from '../../utils/avisos'
 import { studentFullName } from '../../utils/studentSearch'
 import { IS_NATIVE_APP } from '../../utils/platform'
-import { SkeletonList, Input, Button, IconButton, Modal } from '../ui'
+import { SkeletonList, Input, Button, IconButton, Menu, Modal } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 const EMPTY_FORM = { id: null, emoji: '', titulo: '', mensaje: '' }
@@ -96,7 +96,6 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
   const dragCardRefs = useRef([])
   const dragStateRef = useRef({ dragIndex: null, overIndex: null })
 
-  const [openMenuId, setOpenMenuId] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [detailAviso, setDetailAviso] = useState(null)
@@ -478,25 +477,10 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   ) : (
                     <IconButton icon={Bookmark} label="Guardar" tooltip={false} onClick={() => toggleGuardado(a)} data-tooltip="Guardar" data-tooltip-pos="bottom" />
                   )}
-                  <div className="relative flex-shrink-0">
-                    <IconButton icon={MoreVertical} label="Más opciones" tooltip={false} onClick={() => setOpenMenuId((id) => (id === a.id ? null : a.id))}
-                      data-tooltip="Más opciones" data-tooltip-pos="bottom" />
-                    {openMenuId === a.id && (
-                      <>
-                        <button type="button" className="fixed inset-0 z-30 cursor-default" aria-label="Cerrar menú" onClick={() => setOpenMenuId(null)} />
-                        <div className="absolute right-0 top-full mt-1 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[160px] animate-menu origin-top-right motion-reduce:animate-none">
-                          <button type="button" onClick={() => { setOpenMenuId(null); setDetailAviso(a) }}
-                            className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-on-surface hover:bg-[var(--accent-tint)]">
-                            <CheckCircle2 size={ICONO.xs} /> Ver lecturas
-                          </button>
-                          <button type="button" onClick={() => { setOpenMenuId(null); setDeleteConfirm(a) }}
-                            className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50">
-                            <Trash2 size={ICONO.xs} /> Eliminar
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <Menu label="Más opciones" className="flex-shrink-0" items={[
+                    { label: 'Ver lecturas', icon: CheckCircle2, onClick: () => setDetailAviso(a) },
+                    { label: 'Eliminar', icon: Trash2, danger: true, onClick: () => setDeleteConfirm(a) },
+                  ]} />
                 </div>
               </div>
             )

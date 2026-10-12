@@ -3,7 +3,7 @@
 // el contexto Asignatura.
 import { useId } from 'react'
 import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Check as CheckIcon, ChevronRight, ClipboardCheck, Copy, Download, Eye, FileText, Gamepad2, GraduationCap, KeyRound, ListChecks, Lock, LogIn, MessageCircleQuestion, Paperclip, Pencil, Plus, RotateCcw, Sparkles, Trash2, Upload, UserPlus, X } from 'lucide-react'
-import { Button, Checkbox, IconButton, IconTile, Input, Modal, MotivoApagado, Radio, SkeletonList } from '../../../components/ui'
+import { Button, Checkbox, IconButton, IconTile, Input, Modal, MotivoApagado, PanelFlotante, Radio, SkeletonList } from '../../../components/ui'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import FileDropzone from '../../../components/FileDropzone'
 import FileTypeSelect from '../../../components/FileTypeSelect'
@@ -935,12 +935,7 @@ export default function ModalesAsignatura() {
 
       {/* ── Per-activity ⋮ menu: Subir / Bajar / Duplicar / Eliminar (fixed → never clipped) ── */}
       {activityMenu && (
-        <>
-          <button type="button" className="fixed inset-0 z-40 border-none cursor-default bg-transparent" onClick={() => setActivityMenu(null)} aria-label="Cerrar menú" />
-          <div
-            className="fixed z-50 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden"
-            style={{ top: activityMenu.y + 4, left: Math.max(8, activityMenu.x - 208) }}
-          >
+          <PanelFlotante punto={{ x: activityMenu.x, y: activityMenu.y }} align="end" onCerrar={() => setActivityMenu(null)} label="Opciones de la actividad" className="w-52">
             {/* Cambiar de lugar dentro del parcial. El número (1.2., 1.3.…) va
                 con la posición, así que mover renumera — de ahí la confirmación. */}
             <button type="button"
@@ -970,20 +965,14 @@ export default function ModalesAsignatura() {
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left border-t border-outline-variant">
               <Trash2 size={ICONO.sm} className="flex-shrink-0" /> Eliminar
             </button>
-          </div>
-        </>
+          </PanelFlotante>
       )}
 
       {/* ── Corrección rápida de calificación (clic derecho en la celda) ──
           Mismo patrón que el menú ⋮ de arriba: backdrop invisible + tarjeta
           fija pegada al punto donde se hizo clic. */}
       {gradeQuickEdit && (
-        <>
-          <button type="button" className="fixed inset-0 z-40 border-none cursor-default bg-transparent" onClick={() => setGradeQuickEdit(null)} aria-label="Cerrar" />
-          <div
-            className="fixed z-50 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl p-3 space-y-2"
-            style={{ top: gradeQuickEdit.y, left: gradeQuickEdit.x }}
-          >
+          <PanelFlotante punto={{ x: gradeQuickEdit.x, y: gradeQuickEdit.y - 4 }} align="start" onCerrar={() => setGradeQuickEdit(null)} label={gradeQuickEdit.subId ? 'Corregir calificación' : 'Calificar (sin entrega)'} className="w-52 p-3 space-y-2">
             <p className="text-xs font-medium text-muted">{gradeQuickEdit.subId ? 'Corregir calificación' : 'Calificar (sin entrega)'}</p>
             <div className="flex items-center gap-1.5">
               <input
@@ -1012,25 +1001,14 @@ export default function ModalesAsignatura() {
                 Quitar calificación
               </Button>
             )}
-          </div>
-        </>
+          </PanelFlotante>
       )}
 
       {/* ── Menú contextual: clic derecho en encabezado de actividad ─────────
           Mismo patrón que el menú ⋮ de actividades: backdrop invisible que
           cierra al hacer clic fuera + tarjeta fija pegada al cursor.         */}
       {activityContextMenu && (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-40 border-none cursor-default bg-transparent"
-            onClick={() => setActivityContextMenu(null)}
-            aria-label="Cerrar menú"
-          />
-          <div
-            className="fixed z-50 bg-surface-card border border-outline-variant rounded-card shadow-2xl py-1 min-w-52"
-            style={{ top: activityContextMenu.y, left: activityContextMenu.x }}
-          >
+          <PanelFlotante punto={{ x: activityContextMenu.x, y: activityContextMenu.y - 4 }} align="start" onCerrar={() => setActivityContextMenu(null)} label="Opciones de la columna">
             {activityContextMenu.missingCount > 0 ? (
               <button
                 type="button"
@@ -1052,8 +1030,7 @@ export default function ModalesAsignatura() {
                 Todos tienen entrega o calificación
               </p>
             )}
-          </div>
-        </>
+          </PanelFlotante>
       )}
 
       {/* ── Modal: asignar calificación masiva a no entregadas ───────────────
@@ -1200,14 +1177,7 @@ export default function ModalesAsignatura() {
       {/* ── Kebab menu per parcial (Exportar / Cerrar) — fixed-positioned so the
           table's overflow container can't clip it ── */}
       {parcialMenu && (
-        <>
-          <button type="button" className="fixed inset-0 z-40 border-none cursor-default bg-transparent" onClick={() => setParcialMenu(null)} aria-label="Cerrar menú" />
-          {/* No overflow-hidden here: the "Cerrar" item's tooltip must be able to
-              escape the menu box when ponderación doesn't sum 10 */}
-          <div
-            className="fixed z-50 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl"
-            style={{ top: parcialMenu.y + 4, left: Math.max(8, parcialMenu.x - 208) }}
-          >
+          <PanelFlotante punto={{ x: parcialMenu.x, y: parcialMenu.y }} align="end" onCerrar={() => setParcialMenu(null)} label={`Opciones del Parcial ${parcialMenu.p}`} className="w-52">
             <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Parcial {parcialMenu.p}</div>
             {/* Acciones según el estado del parcial (estadoParcial en utils/ponderacion.js):
                 abierto  → Iniciar atención de inquietudes · Cerrar definitivamente
@@ -1252,8 +1222,7 @@ export default function ModalesAsignatura() {
                 </>
               )
             })()}
-          </div>
-        </>
+          </PanelFlotante>
       )}
 
       {/* ── Revertir ponderación (todos los parciales) ── */}

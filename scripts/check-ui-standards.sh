@@ -112,7 +112,7 @@ fi
 # Cuenta OCURRENCIAS (no archivos): dividir un archivo grande en varios
 # (fase 5 de PLAN_NORMALIZACION_UI) no debe parecer deuda nueva.
 ratchet "Modales a mano (fixed inset-0 fuera de ui/Modal.jsx) — migrar a ui/Modal" \
-  'fixed inset-0' 41 'components/ui/Modal.jsx'
+  'fixed inset-0' 34 'components/ui/Modal.jsx'
 ratchet "h-screen (rompe con la barra de URL de Chrome Android, usar dvh) — Fase 5 paso 5.3" \
   '\bh-screen\b' 16
 ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
@@ -129,7 +129,7 @@ ratchet "vh crudo sin variante dvh/svh/lvh — Fase 5 paso 5.3" \
 # Bajó a 53 en refactor/estandares-espaciado (oct-2026) y a 48 con ui/Button
 # (variante icon = size-control, ya sin min-h-[44px]) en la normalización.
 ratchet "Anchos/altos en píxeles duros (w-[Npx]/h-[Npx]) — evitar nuevos, usar tokens de layout.js" \
-  '(min-)?[wh]-\[[0-9]+px\]' 44
+  '(min-)?[wh]-\[[0-9]+px\]' 43
 
 echo ""
 echo "=== Normalización de la interfaz — docs/PLAN_NORMALIZACION_UI.md §7 ==="

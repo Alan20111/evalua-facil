@@ -1,7 +1,7 @@
 // Parte del render de SubjectPage.jsx (fase 5 de PLAN_NORMALIZACION_UI:
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Asignatura.
-import { Button, Checkbox, SkeletonList, SkeletonTable } from '../../../components/ui'
+import { Button, Checkbox, Menu, SkeletonList, SkeletonTable } from '../../../components/ui'
 import { CalendarPlus, FileSpreadsheet, MoreVertical, X } from 'lucide-react'
 import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../../utils/platform'
@@ -12,7 +12,6 @@ export default function TabAsistencia() {
   const {
     activeTab,
     addDayLabel,
-    attExportMenu,
     attSortOn,
     attSortParcial,
     attendanceLegend,
@@ -31,7 +30,6 @@ export default function TabAsistencia() {
     loadingAttendance,
     nativeAttBar,
     searchAttendance,
-    setAttExportMenu,
     setAttSortOn,
     setAttSortParcial,
     setSearchAttendance,
@@ -178,25 +176,14 @@ export default function TabAsistencia() {
                 data-tooltip="Descarga TODA la asistencia en una hoja de Excel">
                  Excel
               </Button>
-              <Button variant="outline-accent" icon={MoreVertical} className="ml-1 !px-0 aspect-square"
-                onClick={() => setAttExportMenu((m) => !m)}
-                aria-label="Excel por parcial"
-                data-tooltip="Excel por parcial"></Button>
-              {attExportMenu && (
-                <>
-                  <button type="button" className="fixed inset-0 z-30 border-none cursor-default bg-transparent" onClick={() => setAttExportMenu(false)} aria-label="Cerrar menú" />
-                  <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden animate-menu origin-top-right motion-reduce:animate-none">
-                    <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Excel de un parcial</div>
-                    {attendanceParcialesAll.map((g) => (
-                      <button key={g.parcial} type="button"
-                        onClick={() => { setAttExportMenu(false); doExportParcialAttendance(g.parcial) }}
-                        className="w-full text-left px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors">
-                        Parcial {g.parcial}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
+              {/* Menú de la librería (Popover): mismo panel, animación y cierre
+                  que el resto de los menús, sin capa transparente a mano. */}
+              <Menu label="Excel de un parcial"
+                trigger={(props) => (
+                  <Button variant="outline-accent" icon={MoreVertical} className="ml-1 !px-0 aspect-square"
+                    aria-label="Excel por parcial" data-tooltip="Excel por parcial" {...props} />
+                )}
+                items={attendanceParcialesAll.map((g) => ({ label: `Excel del Parcial ${g.parcial}`, onClick: () => doExportParcialAttendance(g.parcial) }))} />
             </div>
           )}
 

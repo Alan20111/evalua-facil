@@ -560,6 +560,17 @@ Hay 3 casos justificados:
 - El logo ampliado del alumno, que necesita fondo blanco y su propio ancho.
 - Los 2 diálogos de asistencia, que en el teléfono horizontal se pegan arriba, algo que `Modal` no hace.
 
+### Menús (después de los modales)
+
+Los 7 menús que se armaban con una capa transparente `fixed inset-0` más una tarjeta suelta ahora usan la librería:
+- **`ui/Menu`:** el ⋮ de Avisos y el «Excel por parcial» de Asistencia.
+- **`ui/Popover`:** el mini calendario para saltar a una fecha y las horas visibles del Horario.
+- **`ui/PanelFlotante`** (nuevo, controlado y anclado a un punto): el ⋮ de cada actividad, el menú del parcial, el clic derecho en el encabezado de una actividad y la corrección rápida de una calificación.
+
+Todos comparten el mismo panel, la animación de entrada y salida, y el cierre con clic fuera y Escape. Las opciones de los menús hechos a mano pueden usar `ITEM_MENU`.
+
+Solo queda una capa así: el fondo del cajón lateral de admin en el teléfono, que es un cajón y no un menú. Modales a mano: 41 → 34.
+
 ### Fase 6 — verificación
 
 `docs/VERIFICACION_VISUAL.md`. El script compara el HTML de 18 vistas en compu y
